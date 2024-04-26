@@ -1,0 +1,224 @@
+<nav class="fixed w-full top-0 left-0 bg-white border-b border-b-gray-200">
+    <div class="mx-auto px-2 sm:px-6 lg:px-8">
+      <div class="relative flex h-16 items-center justify-between">
+        <div class="absolute inset-y-0 left-0 flex items-center sm:hidden">
+          <!-- Mobile menu button-->
+          <button (click)="iscollapsed=!iscollapsed" type="button" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" aria-controls="mobile-menu" aria-expanded="false">
+            <span class="absolute -inset-0.5"></span>
+            <span class="sr-only">Open main menu</span>
+            <!--
+              Icon when menu is closed.
+  
+              Menu open: "hidden", Menu closed: "block"
+            -->
+            <svg class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+            <!--
+              Icon when menu is open.
+  
+              Menu open: "block", Menu closed: "hidden"
+            -->
+            <svg class="hidden h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
+          <div class="flex flex-shrink-0 items-center">
+            <svg height="30" viewBox="0 0 495.95 121.55">
+              <path  d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58"/>
+              <path d="M267.38,2.83A11.77,11.77,0,0,0,252,2.89a9.54,9.54,0,0,0-3.07,7.25A9.64,9.64,0,0,0,252,17.49a11.65,11.65,0,0,0,15.38,0,9.74,9.74,0,0,0,3-7.35,9.61,9.61,0,0,0-3-7.31M251,97h17.25V30.65H251Z"/>
+              <path  d="M335.19,36.19c-4.27-4.65-10.14-7-17.62-7q-13.14,0-20.63,10.5v-9H279.69V97h17.25V62.14q0-16.55,15-16.54,6.61,0,9.53,3.38t2.89,10.13V97h17.25V55.38q0-12.18-6.39-19.19"/>
+              <path  d="M368.72,2.83a11.77,11.77,0,0,0-15.38.06,9.59,9.59,0,0,0-3.08,7.25,9.68,9.68,0,0,0,3.08,7.35,11.65,11.65,0,0,0,15.38,0,9.71,9.71,0,0,0,3-7.35,9.58,9.58,0,0,0-3-7.31M352.32,97h17.25V30.65H352.32Z"/>
+              <path  d="M410.65,17.74A30.49,30.49,0,0,1,419,19.06l2.29.6,3.13-14a37.46,37.46,0,0,0-15.68-3q-11.34,0-19.19,6.82t-7.84,20.09V97h17.25V51.93l-14.94-5h37V30.65H398.94v-.26q0-12.64,11.71-12.65"/>
+              <polygon  points="477.48 30.65 460.96 69.49 444.55 30.65 426.21 30.65 451.79 88.19 436.92 121.55 455.27 121.55 495.94 30.65 477.48 30.65"/>
+              <path class="fill-d-red" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34"/>
+            </svg>
+          </div>
+          <div class="hidden sm:ml-auto sm:block w-3/4">
+            <div class="grid grid-cols-4 h-16">
+              <a [routerLink]="['dashboard']" [routerLinkActive]="['text-d-red']" class="flex justify-center place-items-center border-l hover:opacity-50">Dashboard</a>
+              <a [routerLink]="['restaurants']" [routerLinkActive]="['text-d-red']" class="flex justify-center place-items-center border-l hover:opacity-50">Restaurants</a>
+              <a [routerLink]="['reports']" [routerLinkActive]="['text-d-red']" class="flex justify-center place-items-center border-l hover:opacity-50">Reports</a>
+              <a [routerLink]="['payments']" [routerLinkActive]="['text-d-red']" class="flex justify-center place-items-center border-l border-r hover:opacity-50">Payments</a>
+            </div>
+  <!--           <div class="flex space-x-16 items-center">
+             
+              <a href="#" class="text-d-red px-3 py-2 text-sm font-medium border-l border-gray-200">Dashboard</a>
+              <a href="#" class="text-black hover:bg-gray-700 hover:text-white px-3 py-2 text-sm font-medium border-l border-gray-200">Restaurants</a>
+              <a href="#" class="text-black hover:bg-gray-700 hover:text-white px-3 py-2 text-sm font-medium border-l border-gray-200">Reports</a>
+              <a href="#" class="text-black hover:bg-gray-700 hover:text-white px-3 py-2 text-sm font-medium border-l border-r border-gray-200">Payments</a>
+            </div> -->
+          </div>
+        </div>
+        <div class="inset-y-0 right-0 flex justify-evenly items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+          <svg class="h-8 w-8" viewBox="0 0 38 38" fill="none">
+            <path
+              d="M23.3858 9.29417C23.7494 9.50059 24.1798 9.55484 24.5833 9.44509C24.9867 9.33534 25.3303 9.07049 25.5392 8.70833C25.712 8.40331 25.9812 8.16429 26.3045 8.02873C26.6278 7.89318 26.987 7.86877 27.3257 7.95933C27.6644 8.04989 27.9634 8.25029 28.176 8.52912C28.3885 8.80795 28.5025 9.14942 28.5 9.5C28.5 9.91993 28.3332 10.3227 28.0363 10.6196C27.7393 10.9165 27.3366 11.0833 26.9167 11.0833C26.4967 11.0833 26.094 11.2501 25.7971 11.5471C25.5001 11.844 25.3333 12.2467 25.3333 12.6667C25.3333 13.0866 25.5001 13.4893 25.7971 13.7863C26.094 14.0832 26.4967 14.25 26.9167 14.25C27.7503 14.2495 28.5692 14.0295 29.2909 13.6123C30.0127 13.195 30.6119 12.5952 31.0284 11.873C31.4449 11.1508 31.664 10.3318 31.6636 9.4981C31.6633 8.66443 31.4435 7.84553 31.0265 7.12368C30.6094 6.40184 30.0097 5.80247 29.2876 5.38581C28.5656 4.96915 27.7465 4.74987 26.9129 4.75C26.0792 4.75013 25.2602 4.96968 24.5383 5.38657C23.8163 5.80346 23.2168 6.40302 22.8 7.125C22.6953 7.30571 22.6274 7.50535 22.6002 7.71241C22.573 7.91948 22.587 8.12988 22.6415 8.3315C22.6959 8.53313 22.7897 8.72198 22.9175 8.8872C23.0452 9.05242 23.2044 9.19073 23.3858 9.29417ZM30.1942 20.5833C29.7785 20.5294 29.3585 20.6424 29.0261 20.8977C28.6937 21.1529 28.476 21.5295 28.4208 21.945C28.0886 24.629 26.7864 27.0989 24.7596 28.8895C22.7328 30.6801 20.1212 31.6678 17.4167 31.6667H8.56583L9.595 30.6375C9.8899 30.3408 10.0554 29.9395 10.0554 29.5212C10.0554 29.103 9.8899 28.7017 9.595 28.405C8.05117 26.8551 7.00053 24.883 6.57542 22.7371C6.1503 20.5912 6.36973 18.3675 7.20607 16.3461C8.0424 14.3246 9.45823 12.5959 11.2752 11.3777C13.0922 10.1594 15.2291 9.50608 17.4167 9.5C17.8366 9.5 18.2393 9.33318 18.5363 9.03625C18.8332 8.73932 19 8.33659 19 7.91667C19 7.49674 18.8332 7.09401 18.5363 6.79708C18.2393 6.50015 17.8366 6.33333 17.4167 6.33333C14.7396 6.3445 12.1199 7.10954 9.85751 8.54081C7.59517 9.97207 5.78175 12.0117 4.62502 14.4259C3.46829 16.8402 3.01502 19.5315 3.31716 22.1915C3.61929 24.8514 4.6646 27.3725 6.33334 29.4658L3.62584 32.1258C3.40614 32.3485 3.25731 32.6312 3.19813 32.9384C3.13896 33.2455 3.17208 33.5633 3.29334 33.8517C3.41212 34.1408 3.61383 34.3883 3.87305 34.563C4.13228 34.7377 4.43741 34.8318 4.75 34.8333H17.4167C20.8865 34.8338 24.2372 33.5683 26.8404 31.2741C29.4435 28.98 31.1202 25.8148 31.5558 22.3725C31.5848 22.1655 31.5725 21.9548 31.5196 21.7526C31.4667 21.5503 31.3743 21.3606 31.2477 21.1943C31.1211 21.0279 30.9629 20.8883 30.782 20.7834C30.6012 20.6786 30.4014 20.6106 30.1942 20.5833ZM27.5183 15.9442C27.2301 15.8166 26.9103 15.778 26.6 15.8333L26.315 15.9283L26.03 16.0708L25.7925 16.2767C25.6501 16.4226 25.5372 16.5946 25.46 16.7833C25.3664 16.9808 25.3229 17.1984 25.3333 17.4167C25.3287 17.6278 25.3664 17.8378 25.4442 18.0342C25.5261 18.2242 25.6444 18.3963 25.7925 18.5408C25.9404 18.6876 26.1159 18.8037 26.3088 18.8825C26.5017 18.9613 26.7083 19.0012 26.9167 19C27.3366 19 27.7393 18.8332 28.0363 18.5363C28.3332 18.2393 28.5 17.8366 28.5 17.4167C28.5054 17.209 28.462 17.0029 28.3733 16.815C28.2032 16.4345 27.8988 16.1301 27.5183 15.96V15.9442Z"
+              fill="black" />
+          </svg>
+        <svg class="h-8 w-8" viewBox="0 0 42 42" fill="none">
+          <path
+            d="M21 28.4155C16.9313 28.4155 13.5844 25.0686 13.5844 20.9999C13.5844 16.9311 16.9313 13.5842 21 13.5842C25.0688 13.5842 28.4156 16.9311 28.4156 20.9999C28.4156 25.0686 25.0688 28.4155 21 28.4155ZM21 15.1592C17.7844 15.1592 15.1594 17.7842 15.1594 20.9999C15.1594 24.2155 17.7844 26.8405 21 26.8405C24.2156 26.8405 26.8406 24.2155 26.8406 20.9999C26.8406 17.7842 24.2156 15.1592 21 15.1592Z"
+            fill="black" />
+          <path
+            d="M23.2313 36.6843H18.7688L17.5219 32.878C16.6688 32.6155 15.8813 32.2874 15.0938 31.8937L11.4844 33.7312L8.33438 30.5812L10.1719 26.9718C9.77813 26.1843 9.38438 25.3968 9.18751 24.5437L5.38126 23.2968V18.8343L9.18751 17.5874C9.45001 16.7343 9.77813 15.9468 10.1719 15.1593L8.33438 11.5499L11.4844 8.3999L15.0938 10.2374C15.8813 9.84365 16.6688 9.4499 17.5219 9.25303L18.7688 5.44678H23.2313L24.4781 9.25303C25.3313 9.51553 26.1188 9.84365 26.9063 10.2374L30.5156 8.3999L33.6656 11.5499L31.8281 15.1593C32.2219 15.9468 32.6156 16.7343 32.8125 17.5874L36.6188 18.8343V23.2968L32.8125 24.5437C32.55 25.3968 32.2219 26.1843 31.8281 26.9718L33.6656 30.5812L30.5156 33.7312L26.9063 31.8937C26.1188 32.2874 25.3313 32.6811 24.4781 32.878L23.2313 36.6843ZM19.8844 35.1749H22.1156L23.2969 31.6312L23.6906 31.4999C24.675 31.2374 25.5938 30.8437 26.5125 30.3187L26.9063 30.1218L30.2531 31.828L31.8281 30.253L30.1219 26.9062L30.3188 26.5124C30.8438 25.6593 31.2375 24.6749 31.5 23.6905L31.6313 23.2968L35.175 22.1155V19.8843L31.6313 18.703L31.5 18.3093C31.2375 17.3249 30.8438 16.3405 30.3188 15.4874L30.1219 15.0937L31.8281 11.7468L30.2531 10.1718L26.9063 11.878L26.5125 11.6812C25.6594 11.1562 24.675 10.7624 23.6906 10.4999L23.2969 10.3687L22.1156 6.8249H19.8844L18.7031 10.3687L18.3094 10.4999C17.325 10.7624 16.4063 11.1562 15.4875 11.6812L15.0938 11.878L11.7469 10.1718L10.1719 11.7468L11.8781 15.0937L11.6813 15.4874C11.1563 16.3405 10.7625 17.3249 10.5 18.3093L10.3688 18.703L6.82501 19.8843V22.1155L10.3688 23.2968L10.5 23.6905C10.7625 24.6749 11.1563 25.6593 11.6813 26.5124L11.8781 26.9062L10.1719 30.253L11.7469 31.828L15.0938 30.1218L15.4875 30.3187C16.3406 30.8437 17.325 31.2374 18.3094 31.4999L18.7031 31.6312L19.8844 35.1749Z"
+            fill="black" />
+        </svg>
+  <div class="relative">
+    <div>
+      <button type="button" class="relative flex rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800" id="user-menu-button" aria-expanded="false" aria-haspopup="true">
+        <span class="absolute -inset-1.5"></span>
+        <span class="sr-only">Open user menu</span>
+        <!-- <img class="h-8 w-8 rounded-full" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt=""> -->
+  
+          <svg class="h-8 w-8" viewBox="0 0 28 28" fill="none">
+            <g>
+              <path
+                d="M19.25 10.5C19.25 11.8924 18.6969 13.2277 17.7123 14.2123C16.7277 15.1969 15.3924 15.75 14 15.75C12.6076 15.75 11.2723 15.1969 10.2877 14.2123C9.30312 13.2277 8.75 11.8924 8.75 10.5C8.75 9.10761 9.30312 7.77226 10.2877 6.78769C11.2723 5.80312 12.6076 5.25 14 5.25C15.3924 5.25 16.7277 5.80312 17.7123 6.78769C18.6969 7.77226 19.25 9.10761 19.25 10.5Z"
+                fill="#3C3C43" />
+              <path fill-rule="evenodd" clip-rule="evenodd"
+                d="M0 14C0 10.287 1.475 6.72601 4.10051 4.10051C6.72601 1.475 10.287 0 14 0C17.713 0 21.274 1.475 23.8995 4.10051C26.525 6.72601 28 10.287 28 14C28 17.713 26.525 21.274 23.8995 23.8995C21.274 26.525 17.713 28 14 28C10.287 28 6.72601 26.525 4.10051 23.8995C1.475 21.274 0 17.713 0 14ZM14 1.75C11.6931 1.75012 9.43314 2.40163 7.4802 3.62955C5.52727 4.85746 3.96074 6.61187 2.96094 8.69084C1.96113 10.7698 1.56868 13.0888 1.82875 15.381C2.08882 17.6732 2.99084 19.8454 4.431 21.6475C5.6735 19.6455 8.40875 17.5 14 17.5C19.5912 17.5 22.3248 19.6437 23.569 21.6475C25.0092 19.8454 25.9112 17.6732 26.1713 15.381C26.4313 13.0888 26.0389 10.7698 25.0391 8.69084C24.0393 6.61187 22.4727 4.85746 20.5198 3.62955C18.5669 2.40163 16.3069 1.75012 14 1.75Z"
+                fill="#3C3C43" />
+            </g>
+            <defs>
+              <clipPath id="clip0_454_158">
+                <rect width="28" height="28" fill="white" />
+              </clipPath>
+            </defs>
+          </svg>
+      </button>
+    </div>
+  
+  
+    <div *ngIf="false" class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
+  
+      <a href="#" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1" id="user-menu-item-0">Your Profile</a>
+      <a href="#" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1" id="user-menu-item-1">Settings</a>
+      <a href="#" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1" id="user-menu-item-2">Sign out</a>
+    </div>
+  </div>
+          <button type="button" class="relative rounded-full bg-gray-800 p-1 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 ml-3">
+            <span class="absolute -inset-1.5"></span>
+            <span class="sr-only">View notifications</span>
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+            </svg>
+          </button>
+  
+          <!-- Profile dropdown -->
+  
+        </div>
+      </div>
+    </div>
+  
+    <!-- Mobile menu, show/hide based on menu state. -->
+    <div *ngIf="iscollapsed" class="sm:hidden" id="mobile-menu">
+      <div class="space-y-1 px-2 pb-3 pt-2" (click)="iscollapsed=!iscollapsed">
+        <!-- Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white" -->
+        <a [routerLink]="['dashboard']" [routerLinkActive]="['bg-gray-900 text-white']" class="block  rounded-md px-3 py-2 text-base font-medium" aria-current="page">Dashboard</a>
+        <a [routerLink]="['restaurants']" [routerLinkActive]="['bg-gray-900']" class=" hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-base font-medium">Restaurants</a>
+        <a [routerLink]="['reports']" [routerLinkActive]="['bg-gray-900']" class=" hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-base font-medium">Reports</a>
+        <a [routerLink]="['payments']" [routerLinkActive]="['bg-gray-900']" class=" hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-base font-medium">Payments</a>
+      </div>
+    </div>
+  </nav>
+  <div class="md:mx-20 pt-20">
+    <router-outlet></router-outlet>
+  </div>
+  
+  <!-- 
+  <div class="v454_148">
+    <div class="v454_149">
+      <div class="v454_150">
+        <div class="v454_151"></div>
+        <div class="v454_152"></div>
+        <div class="v454_153"></div>
+        <div class="v454_154"></div>
+        <div class="v454_155"></div>
+        <div class="v454_156"></div>
+        <div class="v454_157"></div>
+      </div>
+      <div class="v454_158">
+        <div class="v454_159">
+          <div class="v454_160"></div>
+          <div class="v454_161"></div>
+        </div>
+      </div>
+      <div class="name"></div>
+      <div class="v454_163"></div>
+      <div class="v454_164"></div><span class="v454_165">3</span>
+      <div class="v454_166">
+        <div class="v454_167">
+          <div class="v454_168">
+            <div class="v454_169">
+              <div class="v454_170"></div>
+              <div class="v454_171"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="v454_174"></div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="v454_205">
+      <div class="v454_206"></div><span class="v454_207">UGX 32.5M</span><span class="v454_208">Total Revenue</span>
+      <div class="v454_209">
+        <div class="v454_210"></div><span class="v454_211">Earned</span>
+      </div>
+      <div class="v454_212">
+        <div class="v454_213"></div><span class="v454_214">Forecasted</span>
+      </div>
+      <div class="v454_215"><span class="v454_216">6 months</span>
+        <div class="v454_217">
+          <div class="v454_218">
+            <div class="v454_219"></div>
+          </div>
+        </div>
+      </div>
+      <div class="v454_220">
+        <div class="v454_221">
+          <div class="name"></div>
+          <div class="v454_223"><span class="v454_224">FEB</span><span class="v454_225">MAR</span><span
+              class="v454_226">APR</span><span class="v454_227">MAY</span><span class="v454_228">JUN</span><span
+              class="v454_229">JUL</span></div>
+          <div class="v454_230"></div>
+          <div class="name"></div>
+          <div class="name"></div>
+          <div class="v454_233"></div>
+          <div class="v454_234"></div>
+        </div>
+        <div class="v454_235"><span class="v454_236">1M</span><span class="v454_237">5M</span><span
+            class="v454_238">10M</span></div>
+      </div>
+      <div class="v454_239">
+        <div class="v454_240"></div><span class="v454_241">Mar 14</span><span class="v454_242">€11K</span>
+      </div>
+    </div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <span class="v454_324">Dashboard</span>
+    <span class="v454_325">Restaurants</span>
+    <span class="v454_326">Reports</span>
+    <span class="v454_327">Payments</span>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="name"></div>
+    <div class="v454_359">
+      <div class="v454_360">
+        <div class="v454_361"></div>
+        <div class="v454_362"></div>
+      </div>
+    </div>
+    <div class="v454_363">
+      <div class="v454_364"></div>
+    </div>
+  </div> -->

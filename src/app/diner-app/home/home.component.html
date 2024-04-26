@@ -1,0 +1,11 @@
+
+<div *ngIf="restaurant" [ngStyle]="{'background': ' url(' +url+'/media/' + restaurant.cover_photo  + ') no-repeat 0 50px','background-size':'contain'}" class="flex isolate px-6 pt-14 lg:px-8 h-screen">
+  <div class="mx-auto mt-auto max-w-2xl py-16 sm:py-48 lg:py-56">
+    <div class="text-center">
+
+      <div class="mt-auto flex items-center justify-center gap-x-6">
+        <a [routerLink]="['/diner','menu']" [style.background-color]="branding_configs.home.viewMenuBgColor" [style.color]="branding_configs.home.viewMenuTextColor" class="rounded px-5 py-2.5 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">View Menu</a>
+      </div>
+    </div>
+    </div>
+  

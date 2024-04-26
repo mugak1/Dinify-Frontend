@@ -1,0 +1,297 @@
+<div class="flex flex-col lg:flex-row p-4 md:ml-auto h-auto">
+    
+  
+    <div class="bg-gray-100 lg:w-96 lg:mr-4">
+        <div class="flex flex-row justify-between p-4 items-center">
+            <div class="text-xl font-bold">Category Menu</div>           
+          </div>
+          <div class="flex flex-row justify-between p-4 items-center">
+            <button type="button" (click)="toggleCategoryModal()" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm w-40 px-3 py-2.5 text-center">New Category</button>
+            <button type="button" (click)="toggleMenuIemModal()" class="text-d-red border border-d-red focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm w-40 px-3 py-2.5 text-center">New Item</button>          
+          </div>
+     <hr class="border-b hidden lg:block border-b-gray-200 w-100 my-4 mb-8">
+     <div class="flex flex-row lg:flex-col lg:space-y-4 lg:space-x-0 space-x-4 overflow-x-auto w-[93%]">
+    <div *ngFor="let s of section_list" [ngClass]="{'border-2 border-d-red bg-gray-200':section?.id==s?.id,'border border-gray-300':section?.id!=s?.id}" class="flex flex-row px-2 py-8 items-center w-100 rounded-lg justify-between">    
+        <div class="flex flex-col">
+            <span class="font-medium">{{s.name}}</span>
+            <span class="text-gray-600"> {{s?.item_count||"0"}} Item(s)</span>
+        </div>
+        <div class="flex flex-row space-x-3">
+            <svg fill="#000000" width="30px" height="30px" viewBox="0 0 24 24">
+                <g stroke-linecap="round" stroke-linejoin="round"></g>
+                <g>
+                    <path
+                        d="M4.07,14.927a.976.976,0,0,0-.167.25c-.011.023-.023.043-.032.067a.362.362,0,0,0-.019.04l-1.8,5.4A1,1,0,0,0,3,22a1.014,1.014,0,0,0,.316-.051l5.4-1.8c.013,0,.023-.013.036-.017s.041-.021.062-.031a.967.967,0,0,0,.259-.172c.01-.009.024-.012.033-.022l12.6-12.6a1,1,0,0,0,0-1.414l-3.6-3.6a1,1,0,0,0-1.414,0l-12.6,12.6C4.083,14.9,4.08,14.917,4.07,14.927ZM17.4,4.414,19.586,6.6,8.4,17.786,7.307,16.693,6.214,15.6ZM5.237,17.451l.656.656.656.656-1.968.656Z">
+                    </path>
+                </g>
+            </svg>
+            <label class="inline-flex items-center cursor-pointer">
+                <input  [disabled]="true" type="checkbox" (change)="SectionAvailabilityChange($event,s)" [checked]="s.available" class="sr-only peer">
+                <div
+                    class="relative w-8 h-5 bg-gray-300 peer-focus:outline-none  peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black">
+                </div>
+            </label>
+            <svg width="35px" height="35px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                    <path
+                        d="M7.69231 8.70833H5V8.16667H9.84615M7.69231 8.70833V19H16.3077V8.70833M7.69231 8.70833H16.3077M16.3077 8.70833H19V8.16667H14.1538M9.84615 8.16667V6H14.1538V8.16667M9.84615 8.16667H14.1538"
+                        stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M10 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M12 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M14 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                </g>
+            </svg>
+        </div>
+    
+    
+    </div>
+    </div></div>
+    <div class="flex-auto md:pl-4 lg:border-l border-l-gray-300">
+        <div class="flex flex-row justify-between p-4 items-center">
+            <div class="text-xl font-bold">{{section?.name}}</div>           
+          </div>
+          <div class="space-y-4">
+          <div *ngFor="let i of menu_list" class="flex flex-row px-4 py-4 items-center w-100 border border-gray-300 rounded-lg justify-between">    
+            <div class="flex flex-row">            
+                <app-common-image [src]="i?.image" [alt]="i?.name" [width]="'150'"></app-common-image>                  
+            </div>
+            
+            <div class="flex flex-col md:flex-row flex-grow pl-4">
+                <div class="flex flex-col float-start">
+                    <span class="font-black">{{i?.name}}</span>
+                    <span>{{i?.description}}</span>
+                </div>
+            <div class="md:ml-auto mr-8 my-auto">
+                <span class="font-black">UGX {{i?.primary_price}}</span>
+            </div>
+            <div class="flex flex-row space-x-3 justify-between">
+                <svg fill="#000000" width="30px" height="30px" viewBox="0 0 24 24">
+                    <g stroke-linecap="round" stroke-linejoin="round"></g>
+                    <g>
+                        <path
+                            d="M4.07,14.927a.976.976,0,0,0-.167.25c-.011.023-.023.043-.032.067a.362.362,0,0,0-.019.04l-1.8,5.4A1,1,0,0,0,3,22a1.014,1.014,0,0,0,.316-.051l5.4-1.8c.013,0,.023-.013.036-.017s.041-.021.062-.031a.967.967,0,0,0,.259-.172c.01-.009.024-.012.033-.022l12.6-12.6a1,1,0,0,0,0-1.414l-3.6-3.6a1,1,0,0,0-1.414,0l-12.6,12.6C4.083,14.9,4.08,14.917,4.07,14.927ZM17.4,4.414,19.586,6.6,8.4,17.786,7.307,16.693,6.214,15.6ZM5.237,17.451l.656.656.656.656-1.968.656Z">
+                        </path>
+                    </g>
+                </svg>
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" value="" class="sr-only peer">
+                    <div
+                        class="relative w-8 h-5 bg-gray-300 peer-focus:outline-none  peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black">
+                    </div>
+                </label>
+                <svg width="35px" height="35px" viewBox="0 0 24 24" fill="none">
+                    <g>
+                        <path
+                            d="M7.69231 8.70833H5V8.16667H9.84615M7.69231 8.70833V19H16.3077V8.70833M7.69231 8.70833H16.3077M16.3077 8.70833H19V8.16667H14.1538M9.84615 8.16667V6H14.1538V8.16667M9.84615 8.16667H14.1538"
+                            stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M10 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M12 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M14 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </g>
+                </svg>
+            </div>
+        </div>
+        
+        </div>
+        </div>
+    </div>
+  </div>
+  <div *ngIf="showModal" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
+    <!-- Edit user modal -->
+    <div *ngIf="showModal"  tabindex="-1" aria-hidden="true" class="fixed p-4 top-0 left-0 right-0 z-50 items-center justify-center w-full overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full">
+        <div class="relative max-h-full mx-auto my-auto max-w-2xl">
+            <form *ngIf="CategoryForm" [formGroup]="CategoryForm" (ngSubmit)="CategoryForm.valid?SaveSection():is_submitted=true" class="relative bg-white rounded-lg shadow">
+                <!-- Modal header -->
+                <div class="flex items-start justify-between p-4 border-b rounded-t">
+                    <h3 class="text-xl font-semibold text-gray-900 ">
+                        {{CategoryForm.get('id')?.value?'Edit':'New'}} Category
+                    </h3>
+                   <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
+                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close modal</span>
+                </button>
+                </div>
+                <!-- Modal body -->
+                <div class="p-6 space-y-6">
+                    <div class="space-y-2 md:space-y-4">
+                        <div>
+                            <label for="name" class="block mb-1 text-sm font-medium text-gray-900">Name <span class="text-d-red">*</span></label>
+                            <input type="text" formControlName="name" id="name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the category name">
+                            <div *ngIf="is_submitted && CategoryForm.get('name')?.errors" class="text-d-red text-xs">
+                                <div *ngIf="CategoryForm.get('name')?.errors?.['required']">Name is required</div>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="description" class="block mb-1 text-sm font-medium text-gray-900">Description</label>
+                            <textarea type="text" formControlName="description" id="description" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the description of the category"></textarea>
+                            
+                        </div>
+                        <div>
+                            <label for="photo" class="block mb-1 text-sm font-medium text-gray-900">Section Banner Image</label>
+                            <div  (click)="photoUpload.click()" class="flex file-upload text-sm text-gray-300">
+
+                                
+                             
+                                 <button type="button" class="bg-d-red rounded-full p-2"
+                                  >
+                                <svg width="20px" height="20px" viewBox="-8 0 32 32" fill="#ffffff" stroke="#ffffff">                                 
+                                    <g>
+                                        <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+                                            <g id="Icon-Set" sketch:type="MSLayerGroup" transform="translate(-212.000000, -151.000000)" fill="#ffffff">
+                                                <path
+                                                    d="M226,155 L226,175 C226,178.313 223.313,181 220,181 C216.687,181 214,178.313 214,175 L214,157 C214,154.791 215.791,153 218,153 C220.209,153 222,154.791 222,157 L222,175 C222,176.104 221.104,177 220,177 C218.896,177 218,176.104 218,175 L218,159 L216,159 L216,175 C216,177.209 217.791,179 220,179 C222.209,179 224,177.209 224,175 L224,157 C224,153.687 221.313,151 218,151 C214.687,151 212,153.687 212,157 L212,176 C212.493,179.945 215.921,183 220,183 C224.079,183 227.507,179.945 228,176 L228,155 L226,155"
+                                                    id="attachment" sketch:type="MSShapeGroup"> </path>
+                                            </g>
+                                        </g>
+                                    </g>
+                                </svg>
+                                 </button>
+                                 <span class="my-auto ml-3">{{fileName || "No file uploaded yet."}}   </span>
+                              
+                             </div>
+                            <input type="file" #photoUpload (change)="InputLogo($event)" class="bg-gray-50 border hidden border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 w-full p-2.5 " placeholder="Enter the restaurant logo">
+                            
+                        </div>
+                        <div>
+                            <div class="flex gap-2 mt-6">
+                                <input type="checkbox" formControlName="available" id="available" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
+                                <label class="text-sm font-normal" htmlFor="available">Available</label>
+                                <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                   </div>
+                <!-- Modal footer -->
+                <div class="flex items-center p-6 space-x-3 rtl:space-x-reverse border-t border-gray-200 rounded-b">
+                    <button type="submit" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm w-40 px-5 py-2.5 text-center ml-auto">Save</button>
+                </div>
+            </form>
+            <form *ngIf="ItemForm" [formGroup]="ItemForm" (ngSubmit)="ItemForm.valid?SaveMenuItem():is_submitted=true" class="relative bg-white rounded-lg shadow">
+                <!-- Modal header -->
+                <div class="flex items-start justify-between p-4 border-b rounded-t">
+                    <h3 class="text-xl font-semibold text-gray-900 ">
+                        {{ItemForm.get('id')?.value?'Edit':'New'}} Menu Item
+                    </h3>
+                   <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
+                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close modal</span>
+                </button>
+                </div>
+                <!-- Modal body -->
+                <div class="p-6 space-y-6">
+                    <div class="space-y-2 md:space-y-4">
+                        <div>
+                            <label for="photo" class="block mb-1 text-sm font-medium text-gray-900">Image</label>
+                            <div  (click)="photoUpload.click()" class="flex file-upload text-sm text-gray-300">
+
+                                
+                             
+                                 <button type="button" class="bg-d-red rounded-full p-2"
+                                  >
+                                <svg width="20px" height="20px" viewBox="-8 0 32 32" fill="#ffffff" stroke="#ffffff">                                 
+                                    <g>
+                                        <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+                                            <g id="Icon-Set" sketch:type="MSLayerGroup" transform="translate(-212.000000, -151.000000)" fill="#ffffff">
+                                                <path
+                                                    d="M226,155 L226,175 C226,178.313 223.313,181 220,181 C216.687,181 214,178.313 214,175 L214,157 C214,154.791 215.791,153 218,153 C220.209,153 222,154.791 222,157 L222,175 C222,176.104 221.104,177 220,177 C218.896,177 218,176.104 218,175 L218,159 L216,159 L216,175 C216,177.209 217.791,179 220,179 C222.209,179 224,177.209 224,175 L224,157 C224,153.687 221.313,151 218,151 C214.687,151 212,153.687 212,157 L212,176 C212.493,179.945 215.921,183 220,183 C224.079,183 227.507,179.945 228,176 L228,155 L226,155"
+                                                    id="attachment" sketch:type="MSShapeGroup"> </path>
+                                            </g>
+                                        </g>
+                                    </g>
+                                </svg>
+                                 </button>
+                                 <span class="my-auto ml-3">{{fileName || "No file uploaded yet."}}   </span>
+                              
+                             </div>
+                             <div class="imagePreview" *ngIf="imageURL && imageURL !== ''">
+                                <img [src]="imageURL" width="200" [alt]="ItemForm.get('image')?.value?.name">
+                              </div>
+                            <input type="file" #photoUpload accept="image/*" (change)="InputItemImage($event)" class="bg-gray-50 border hidden border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 w-full p-2.5 " placeholder="Enter the restaurant logo">
+                            
+                        </div>
+                        <label for="section" class="block mb-2 text-sm font-medium">Section <span class="text-d-red">*</span></label>
+                        <select formControlName="section" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                          <option [disabled]="true">Select a Menu Section</option>
+                            <option *ngFor="let s of section_list" [value]="s.id" class="p-2.5">{{s.name}}</option>
+                        </select>
+                        <div *ngIf="is_submitted && ItemForm.get('section')?.errors" class="text-d-red text-xs">
+                            <div *ngIf="ItemForm.get('section')?.errors?.['required']">Select a Menu Section</div>
+                        </div>
+                        <div>
+                            <label for="name" class="block mb-1 text-sm font-medium text-gray-900">Name <span class="text-d-red">*</span></label>
+                            <input type="text" formControlName="name" id="name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the menu item">
+                            <div *ngIf="is_submitted && ItemForm.get('name')?.errors" class="text-d-red text-xs">
+                                <div *ngIf="ItemForm.get('name')?.errors?.['required']">Name is required</div>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="description" class="block mb-1 text-sm font-medium text-gray-900">Description</label>
+                            <textarea type="text" formControlName="description" id="description" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the description of the menu itm"></textarea>
+                            
+                        </div>
+                        <div>
+                            <label for="primary_price" class="block mb-1 text-sm font-medium text-gray-900">Primary Price <span class="text-d-red">*</span></label>
+                            <!-- <app-input type="currency" [formControlName]="'primary_price'" placeholder="Enter the primary price of the menu item"></app-input> -->
+                            <input type="number" formControlName="primary_price" min="0" id="primary_price" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the primary price of the menu item">
+                            <div *ngIf="is_submitted && ItemForm.get('primary_price')?.errors" class="text-d-red text-xs">
+                                <div *ngIf="ItemForm.get('primary_price')?.errors?.['min']">Price is required</div>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="discounted_price" class="block mb-1 text-sm font-medium text-gray-900">Discounted Price</label>
+                            <input type="number" formControlName="discounted_price" min="0" id="discounted_price" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the discounted price of the menu item">
+                           
+                        </div>
+                        <div>
+                            <div class="flex gap-2 mt-6">
+                                <input type="checkbox" id="available" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
+                                <label class="text-sm font-normal" htmlFor="available">Can be an Extra</label>
+                                <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex gap-2 mt-6">
+                                <input type="checkbox" id="available" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
+                                <label class="text-sm font-normal" htmlFor="available">Has Options</label>
+                                <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex gap-2 mt-6">
+                                <input type="checkbox" id="available" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
+                                <label class="text-sm font-normal" htmlFor="available">Has Extras</label>
+                                <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex gap-2 mt-6">
+                                <input formControlName="available" type="checkbox" id="available" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
+                                <label class="text-sm font-normal" htmlFor="available">Available</label>
+                                <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                   </div>
+                <!-- Modal footer -->
+                <div class="flex items-center p-6 space-x-3 rtl:space-x-reverse border-t border-gray-200 rounded-b">
+                    <button type="submit" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm w-40 px-5 py-2.5 text-center ml-auto">Save</button>
+                </div>
+            </form>
+            </div>
+            </div>

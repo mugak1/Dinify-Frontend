@@ -1,0 +1,7 @@
+[multiple], [type=date], [type=datetime-local], [type=email], [type=month], [type=number], [type=password], [type=search], [type=tel], [type=text], [type=time], [type=url], [type=week], select, textarea{
+padding:.5rem .75rem;
+}
+.ps-10 {
+    -webkit-padding-start: 2.5rem;
+    padding-inline-start: 2.5rem;
+}

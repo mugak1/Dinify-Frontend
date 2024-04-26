@@ -1,0 +1,72 @@
+<section class="bg-white">
+    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
+        <svg height="50" viewBox="0 0 495.95 121.55">
+            <path d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58" />
+            <path d="M267.38,2.83A11.77,11.77,0,0,0,252,2.89a9.54,9.54,0,0,0-3.07,7.25A9.64,9.64,0,0,0,252,17.49a11.65,11.65,0,0,0,15.38,0,9.74,9.74,0,0,0,3-7.35,9.61,9.61,0,0,0-3-7.31M251,97h17.25V30.65H251Z" />
+            <path d="M335.19,36.19c-4.27-4.65-10.14-7-17.62-7q-13.14,0-20.63,10.5v-9H279.69V97h17.25V62.14q0-16.55,15-16.54,6.61,0,9.53,3.38t2.89,10.13V97h17.25V55.38q0-12.18-6.39-19.19" />
+            <path d="M368.72,2.83a11.77,11.77,0,0,0-15.38.06,9.59,9.59,0,0,0-3.08,7.25,9.68,9.68,0,0,0,3.08,7.35,11.65,11.65,0,0,0,15.38,0,9.71,9.71,0,0,0,3-7.35,9.58,9.58,0,0,0-3-7.31M352.32,97h17.25V30.65H352.32Z" />
+            <path d="M410.65,17.74A30.49,30.49,0,0,1,419,19.06l2.29.6,3.13-14a37.46,37.46,0,0,0-15.68-3q-11.34,0-19.19,6.82t-7.84,20.09V97h17.25V51.93l-14.94-5h37V30.65H398.94v-.26q0-12.64,11.71-12.65" />
+            <polygon points="477.48 30.65 460.96 69.49 444.55 30.65 426.21 30.65 451.79 88.19 436.92 121.55 455.27 121.55 495.94 30.65 477.48 30.65" />
+            <path class="fill-d-red" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34" />
+        </svg>
+       
+        <div class="w-full bg-white rounded shadow  md:mt-0 sm:max-w-md xl:p-0">
+            <div class="p-6 space-y-4 md:space-y-6 sm:p-8">
+                <h1 class="text-xl text-center font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
+                    Create an account
+                </h1>
+                
+                <form [formGroup]="RegisterForm" (ngSubmit)="RegisterForm.valid?Register():is_submitted=true" class="space-y-2 md:space-y-4">
+                    <div>
+                        <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name <span class="text-d-red">*</span></label>
+                        <input type="text" formControlName="first_name" id="first_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your first name">
+                        <div *ngIf="is_submitted && RegisterForm.get('first_name')?.errors" class="text-d-red text-xs">
+                            <div *ngIf="RegisterForm.get('first_name')?.errors?.['required']">First name is required</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="last_name" class="block mb-1 text-sm font-medium text-gray-900">Last name <span class="text-d-red">*</span></label>
+                        <input type="text" id="last_name" formControlName="last_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your last name">
+                        <div *ngIf="is_submitted && RegisterForm.get('last_name')?.errors" class="text-d-red text-xs">
+                            <div *ngIf="RegisterForm.get('last_name')?.errors?.['required']">Last name is required</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="email" class="block mb-1 text-sm font-medium text-gray-900">Your email</label>
+                        <input type="email" formControlName="email" id="email" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="name@company.com" required="">
+                        <div *ngIf="is_submitted && RegisterForm.get('email')?.errors" class="text-d-red text-xs">
+                            <div *ngIf="RegisterForm.get('email')?.errors?.['required']">Email is required</div>
+                        </div>
+                    </div>
+                    <div>
+                      <label for = "phone" class="block mb-1 text-sm font-medium text-gray-900">Phone <span class="text-d-red">*</span></label>
+                    <intl-telephone-input [class]="(is_submitted && RegisterForm.get('phone')?.errors?.['required']?'border border-d-red':'')" [cssClass]="'rounded '+(is_submitted && RegisterForm.get('phone')?.errors?.['required']?'border border-d-red':'')" [preferredCountries]="preferredCountries" [selectedCountryISO]="CountryISO.Uganda" [enableAutoCountrySelect]="true" [enablePlaceholder]="true" (onChange)="onInputChange($event)">
+                    </intl-telephone-input>  
+                    </div>
+                    
+                    <div>
+                        <label for="password" class="block mb-1 text-sm font-medium text-gray-900">Password</label>
+                        <input type="password" formControlName="password" id="password" placeholder="••••••••"  class="bg-gray-50 border placeholder:text-xs border-gray-300 text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " required="">
+                    </div>
+                    <div>
+                        <label for="confirm-password" class="block mb-1 text-sm font-medium text-gray-900">Confirm password</label>
+                        <input type="password" formControlName="confirm-password" id="confirm-password" placeholder="••••••••" class="bg-gray-50 placeholder:text-xs border border-gray-300 text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " required="">
+                    </div>
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                          <input id="terms" formControlName="ok" aria-describedby="terms" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-primary-300">
+                        </div>
+                        <div class="ml-3 text-sm">
+                          <label for="terms" class="font-light text-gray-500">I accept the <a class="font-medium text-d-red hover:underline" href="#">Terms and Conditions</a></label>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full text-white bg-d-red hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded text-sm px-5 py-2.5 text-center">Create an account</button>
+                    <p class="text-sm font-light text-gray-500">
+                        Already have an account? <a [routerLink]="['/login']" class="font-medium text-d-red hover:underline">Login here</a>
+                    </p>
+                </form>
+               
+            </div>
+        </div>
+    </div>
+  </section>

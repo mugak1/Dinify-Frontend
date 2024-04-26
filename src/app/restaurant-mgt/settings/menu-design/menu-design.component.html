@@ -1,0 +1,154 @@
+
+
+<div class="w-full bg-white rounded shadow">
+    <div class="sm:hidden">
+        <label for="tabs" class="sr-only">Select tab</label>
+        <select id="tabs" class="bg-gray-50 border-0 border-b border-gray-200 text-gray-900 text-sm rounded-t-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+            <option>Statistics</option>
+            <option>Services</option>
+            <option>FAQ</option>
+        </select>
+    </div>
+  <!--   <ul class="text-sm font-medium text-center text-gray-500 divide-x divide-gray-200 rounded-lg sm:flex rtl:divide-x-reverse" id="fullWidthTab" data-tabs-toggle="#fullWidthTabContent" role="tablist">
+        <li class="w-full">
+            <div id="stats-tab" data-tabs-target="#stats" role="tab" aria-controls="stats" aria-selected="true" class="inline-block w-full p-4 rounded-ss-lg bg-gray-50 hover:bg-gray-100 focus:outline-none">Statistics</div>
+        </li>
+        <li class="w-full">
+            <div id="about-tab" data-tabs-target="#about" role="tab" aria-controls="about" aria-selected="false" class="inline-block w-full p-4 bg-gray-50 hover:bg-gray-100 focus:outline-none">Services</div>
+        </li>
+        <li class="w-full">
+            <div id="faq-tab" data-tabs-target="#faq" role="tab" aria-controls="faq" aria-selected="false" class="inline-block w-full p-4 rounded-se-lg bg-gray-50 hover:bg-gray-100 focus:outline-none">FAQ</div>
+        </li>
+    </ul> -->
+    <form [formGroup]="ConfigForm" (ngSubmit)="ConfigForm.valid?Save():false" class="border-t border-gray-200">
+       
+        <div class="px-4 pt-4 bg-white rounded-lg">
+            <div  id="accordion-flush" data-accordion="collapse">
+                <h2 id="accordion-flush-heading-1">
+                    <div class="flex items-center justify-between w-full py-5 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200">
+                    <span>Landing Page</span>
+                   
+                    </div>
+                </h2>
+                <div [formGroup]="HomeForm">
+                    <div class="pb-5">
+                        <div class="flex items-center justify-between w-full py-3 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200">
+                            <p class="text-gray-500">Set the background color of landing page.</p>
+                            <span class="w-6 h-6 ring ring-black outline-none ml-auto" [style.background]="HomeForm.get('bgColor')?.value"
+                                [colorPicker]="HomeForm.get('bgColor')?.value"
+                                (colorPickerChange)="HomeForm.get('bgColor')?.setValue($event)"></span>
+                        </div>
+                        <div class="flex items-center justify-between w-full py-3 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200">
+                            <p class="text-gray-500 flex">Set the background color of the header home page.</p>
+                            <span class="w-6 h-6 ring ring-black outline-none" [style.background]="HomeForm.get('headerColor')?.value"
+                                [colorPicker]="HomeForm.get('headerColor')?.value"
+                                (colorPickerChange)="HomeForm.get('headerColor')?.setValue($event)"></span>
+                        </div>
+                        <div class="flex items-center justify-between w-full py-3 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200"> 
+                            <p class="text-gray-500">Set the logo or name as the head title</p>
+                            <select class="ml-auto bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded p-2.5" formControlName="headerShow">
+                                <option>logo</option>
+                                <option>text</option>
+                            </select>
+                            </div>
+                            
+                    <div class="flex items-center justify-between w-full py-3 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200">
+                        <p class="text-gray-500 flex">Set the color of the header title text.</p>
+                        <span class="w-6 h-6 ring ring-black outline-none" [style.background]="HomeForm.get('headerTextColor')?.value"
+                            [colorPicker]="HomeForm.get('headerTextColor')?.value"
+                            (colorPickerChange)="HomeForm.get('headerTextColor')?.setValue($event)"></span>
+                    </div>
+                            <div  class="flex items-center justify-between w-full py-3 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200">
+                    <p class="mb-2 text-gray-500">Define the header title text</p>
+                    <input class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 p-2.5" formControlName="headerShowName"/>
+                    </div>
+                    <div class="flex items-center justify-between w-full py-3 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200"> 
+                        <p class="text-gray-500">Set the Cover Photo</p>
+                        <div class="ml-auto">
+                   
+                            <div  (click)="photoUpload.click()" class="flex file-upload text-sm text-gray-300">
+            
+                                
+                             
+                                 <button type="button" class="bg-d-red rounded-full p-2"
+                                  >
+                                <svg width="20px" height="20px" viewBox="-8 0 32 32" fill="#ffffff" stroke="#ffffff">                                 
+                                    <g>
+                                        <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+                                            <g id="Icon-Set" sketch:type="MSLayerGroup" transform="translate(-212.000000, -151.000000)" fill="#ffffff">
+                                                <path
+                                                    d="M226,155 L226,175 C226,178.313 223.313,181 220,181 C216.687,181 214,178.313 214,175 L214,157 C214,154.791 215.791,153 218,153 C220.209,153 222,154.791 222,157 L222,175 C222,176.104 221.104,177 220,177 C218.896,177 218,176.104 218,175 L218,159 L216,159 L216,175 C216,177.209 217.791,179 220,179 C222.209,179 224,177.209 224,175 L224,157 C224,153.687 221.313,151 218,151 C214.687,151 212,153.687 212,157 L212,176 C212.493,179.945 215.921,183 220,183 C224.079,183 227.507,179.945 228,176 L228,155 L226,155"
+                                                    id="attachment" sketch:type="MSShapeGroup"> </path>
+                                            </g>
+                                        </g>
+                                    </g>
+                                </svg>
+                                 </button>
+                                 <span class="my-auto ml-3">{{this.rest.cover_photo?'Change Photo':(coverfileName || "No file uploaded yet.")}}   </span>
+                              
+                             </div>
+                            
+                            <input type="file" #photoUpload (change)="InputCover($event)" class="bg-gray-50 border hidden border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 w-full p-2.5 " placeholder="Enter the restaurant logo">
+                            
+                        </div>
+                      
+                        </div>
+                        <div *ngIf="this.rest.cover_photo" class="flex flex-col w-full">
+                            
+                            
+                              <app-common-image class="mx-auto" [src]="this.rest.cover_photo" [width]="'300'" [alt]="this.rest.name"></app-common-image>
+                              <button (click)="DeleteCoverPhoto()" type="button" class="text-black bg-white border border-d-red hover:bg-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded text-sm px-5 py-2.5 my-4 text-center ml-auto">Delete Cover Photo</button>
+                        </div>
+                      
+<p class="my-4"><strong>View Menu Button</strong></p>
+<div class="flex items-center justify-between w-full py-3 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200"> 
+                    <p class="text-gray-500 flex">Define the color of the View Menu Button</p>
+                    <span class="w-6 h-6 ring ring-black outline-none ml-auto" [style.background]="HomeForm.get('viewMenuBgColor')?.value" [colorPicker]="HomeForm.get('viewMenuBgColor')?.value" (colorPickerChange)="HomeForm.get('viewMenuBgColor')?.setValue($event)"></span>
+                    </div>
+                    <div class="flex items-center justify-between w-full py-3 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200"> 
+                    <p class="text-gray-500 flex">Define the color of the View Menu Text</p>
+                    <span class="w-6 h-6 ring ring-black outline-none ml-auto" [style.background]="HomeForm.get('viewMenuTextColor')?.value" [colorPicker]="HomeForm.get('viewMenuTextColor')?.value" (colorPickerChange)="HomeForm.get('viewMenuTextColor')?.setValue($event)"></span>
+                    </div>
+                    </div>
+                </div>
+                <!-- <h2 id="accordion-flush-heading-2">
+                    <div class="flex items-center justify-between w-full py-5 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200" data-accordion-target="#accordion-flush-body-2" aria-expanded="false" aria-controls="accordion-flush-body-2">
+                    <span>Is there a Figma file available?</span>
+                    <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
+                    </svg>
+                    </div>
+                </h2>
+                <div id="accordion-flush-body-2" aria-labelledby="accordion-flush-heading-2">
+                    <div class="py-5 border-b border-gray-200">
+                    <p class="mb-2 text-gray-500">Flowbite is first conceptualized and designed using the Figma software so everything you see in the library has a design equivalent in our Figma file.</p>
+                    <p class="text-gray-500">Check out the <a href="https://flowbite.com/figma/" class="text-blue-600 hover:underline">Figma design system</a> based on the utility classes from Tailwind CSS and components from Flowbite.</p>
+                    </div>
+                </div>
+                <h2 id="accordion-flush-heading-3">
+                    <div class="flex items-center justify-between w-full py-5 font-medium text-left rtl:text-right text-gray-500 border-b border-gray-200" data-accordion-target="#accordion-flush-body-3" aria-expanded="false" aria-controls="accordion-flush-body-3">
+                    <span>What are the differences between Flowbite and Tailwind UI?</span>
+                    <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
+                    </svg>
+                    </div>
+                </h2>
+                <div id="accordion-flush-body-3" aria-labelledby="accordion-flush-heading-3">
+                    <div class="py-5 border-b border-gray-200">
+                    <p class="mb-2 text-gray-500">The main difference is that the core components from Flowbite are open source under the MIT license, whereas Tailwind UI is a paid product. Another difference is that Flowbite relies on smaller and standalone components, whereas Tailwind UI offers sections of pages.</p>
+                    <p class="mb-2 text-gray-500">However, we actually recommend using both Flowbite, Flowbite Pro, and even Tailwind UI as there is no technical reason stopping you from using the best of two worlds.</p>
+                    <p class="mb-2 text-gray-500">Learn more about these technologies:</p>
+                    <ul class="ps-5 text-gray-500 list-disc">
+                        <li><a href="https://flowbite.com/pro/" class="text-blue-600 hover:underline">Flowbite Pro</a></li>
+                        <li><a href="https://tailwindui.com/" rel="nofollow" class="text-blue-600 hover:underline">Tailwind UI</a></li>
+                    </ul>
+                    </div>
+                </div> -->
+            </div>
+        </div>
+     <div class="flex items-center px-4 pb-4 space-x-3 rtl:space-x-reverse rounded-b">
+        <button type="submit" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded text-sm w-40 px-5 py-2.5 text-center ml-auto">Save</button>
+    </div>   
+    </form>
+   
+</div>

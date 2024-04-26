@@ -1,4 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, ComponentFactoryResolver, ViewChild, ViewContainerRef } from '@angular/core';
+import { MessageService } from './_services/message.service';
+import { ConfirmDialogService } from './_common/confirm-dialog.service';
+import { ConfirmDialogComponent } from './_common/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-root',
@@ -7,4 +10,26 @@ import { Component } from '@angular/core';
 })
 export class AppComponent {
   title = 'dinify_frontend';
+  @ViewChild("modalcontent", { read: ViewContainerRef }) contentRef!: ViewContainerRef;
+  constructor(public messageService: MessageService,private dialog:ConfirmDialogService){
+ 
+  }
+
+  ngAfterViewInit(){
+    
+      this.dialog.showModal?.subscribe(x=>{
+        console.log(this.dialog?.data)
+      console.log("dialog service ",x)
+      if(x){
+        console.log("dialog service ",x)
+    
+    const componentRef = this.contentRef.createComponent(ConfirmDialogComponent)
+      componentRef.instance.data=this.dialog.data;
+      this.contentRef.insert(componentRef.hostView);
+      }else{
+        this.contentRef?.clear();
+      }
+    }) 
+  }
+
 }

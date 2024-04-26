@@ -1,0 +1,13 @@
+input::-moz-placeholder,textarea::-moz-placeholder {
+    color: #9ca3af;
+    opacity: 1
+}
+
+input::placeholder,textarea::placeholder {
+    color: #9ca3af;
+    opacity: 1
+}
+
+[role=button],button {
+    cursor: pointer
+}
