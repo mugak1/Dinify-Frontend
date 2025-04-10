@@ -18,19 +18,19 @@
             <!-- Parent Node: Dining Area -->
             <li *ngFor="let area of list; let i = index" class="mb-6 bg-white rounded shadow-md">
               <div class="px-4 py-3 border-b cursor-pointer flex justify-between items-center"
-                (click)="area.isCollapsed = !area.isCollapsed"
+                
               >
-                <div>
+                <div class="flex flex-col w-full flex-fill cursor-pointer" (click)="area.isCollapsed = !area.isCollapsed">
                   <h2 class="font-semibold text-lg text-gray-800">{{ area.dining_area.name }} - ({{area.tables.length}})</h2>
                   <p class="text-sm text-gray-600">{{ area.dining_area.description }}</p>
                   <p class="text-sm text-gray-700">
-                    Status: <span>{{ area.dining_area?.available ? 'Available' : 'Not Available' }}</span>
+                    Status: <span>{{ area.dining_area.available ? 'Available' : 'Not Available' }}</span>
                   </p>
                 </div>
                 <div>
                   <div class="flex flex-row space-x-3 justify-between">
-                    <!--    
-                    <svg  class="hover:scale-105 hover:fill-d-red cursor-pointer my-auto" fill="#000000" width="30px" height="30px" viewBox="0 0 24 24">
+                       
+                    <svg (click)="editArea(area);$event.stopPropagation();" class="hover:scale-105 hover:fill-d-red cursor-pointer my-auto" fill="#000000" width="30px" height="30px" viewBox="0 0 24 24">
                         <g stroke-linecap="round" stroke-linejoin="round"></g>
                         <g>
                             <path
@@ -39,13 +39,11 @@
                         </g>
                     </svg>
                 
-                    <label class="inline-flex items-center cursor-pointer my-auto hover:scale-105">
-                        <input type="checkbox" class="sr-only peer">
-                        <div
-                            class="relative w-8 h-5 bg-gray-300 peer-focus:outline-none  peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black">
-                        </div>
+                    <label class="toggle-switch small">
+                      <input type="checkbox" (change)="AreaAvailabilityChange($event,area.dining_area,i);"  class="sr-only peer" [(ngModel)]="area.dining_area.available" [ngModelOptions]="{standalone:true}" >
+                      <div class="switch"></div>
                     </label>
-                    <a>
+                    <a (click)="DeleteArea(area.dining_area);$event.stopPropagation();">
                     <svg class="hover:scale-105 hover:fill-d-red cursor-pointer my-auto" width="35px" height="35px" viewBox="0 0 24 24" fill="none">
                         <g>
                             <path
@@ -55,8 +53,14 @@
                             <path d="M12 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
                             <path d="M14 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
                         </g>
-                    </svg></a> -->
-                       <svg 
+                    </svg></a> 
+                 <!--    <a title="Edit" (click)="editArea(area);$event.stopPropagation();"  class="relative group inline-block border border-gray-400 text-white px-1 py-1 rounded-lg hover:bg-gray-300 transition duration-300 ease-in-out transform hover:scale-105">
+                      <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Edit / Edit_Pencil_02"> <path id="Vector" d="M4 16.0001V20.0001L8 20.0001L18.8686 9.13146L18.8695 9.13061C19.265 8.73516 19.4628 8.53736 19.5369 8.3092C19.6021 8.10835 19.6022 7.89201 19.5369 7.69117C19.4627 7.46284 19.2646 7.26474 18.8686 6.86872L17.1288 5.12892C16.7345 4.7346 16.5369 4.53704 16.3091 4.46301C16.1082 4.39775 15.8919 4.39775 15.691 4.46301C15.463 4.53709 15.2652 4.73488 14.8704 5.12976L14.8686 5.13146L4 16.0001Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
+                  </a>
+                  <a title="Delete"  class="relative group inline-block border border-gray-400 text-white px-1 py-1 rounded-lg hover:bg-gray-100 transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer">
+                    <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Interface / Trash_Empty"> <path id="Vector" d="M6 6V17.8C6 18.9201 6 19.4798 6.21799 19.9076C6.40973 20.2839 6.71547 20.5905 7.0918 20.7822C7.5192 21 8.07899 21 9.19691 21H14.8031C15.921 21 16.48 21 16.9074 20.7822C17.2837 20.5905 17.5905 20.2839 17.7822 19.9076C18 19.4802 18 18.921 18 17.8031V6M6 6H8M6 6H4M8 6H16M8 6C8 5.06812 8 4.60241 8.15224 4.23486C8.35523 3.74481 8.74432 3.35523 9.23438 3.15224C9.60192 3 10.0681 3 11 3H13C13.9319 3 14.3978 3 14.7654 3.15224C15.2554 3.35523 15.6447 3.74481 15.8477 4.23486C15.9999 4.6024 16 5.06812 16 6M16 6H18M18 6H20" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
+                   </a> -->
+                       <svg (click)="area.isCollapsed = !area.isCollapsed"
                   class="w-6 h-6 transform transition-transform"
                   [ngClass]="area.isCollapsed ? 'rotate-0' : 'rotate-180'"
                   xmlns="http://www.w3.org/2000/svg"
@@ -396,7 +400,7 @@
                     Description is required.
                   </div>
                 </div>
-             <div class="mb-4">
+             <div *ngIf="!DiningAreaForm.get('id')?.value" class="mb-4">
                       <label for="start_table" class="block mb-1 text-sm font-medium text-gray-900">Start Table Number</label>
                       <input type="number" formControlName="start" id="start_table" min="1"  step="1" (keydown)="preventInvalidInput($event)"
                              class="border border-gray-300 placeholder:text-xs text-gray-900 rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
@@ -410,7 +414,7 @@
                             </div>
                           
                     </div>
-                    <div class="mb-4">
+                    <div class="mb-4" *ngIf="!DiningAreaForm.get('id')?.value">
                       <label for="end_table" class="block mb-1 text-sm font-medium text-gray-900">End Table Number</label>
                       <input type="number" formControlName="end" id="end_table" min="1" step="1" (keydown)="preventInvalidInput($event)"
                              class="border border-gray-300 placeholder:text-xs text-gray-900 rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"

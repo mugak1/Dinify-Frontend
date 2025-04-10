@@ -284,6 +284,7 @@ this.ask_multiple=true;
   }
   initArea(){
     return this.fb.group({
+      id:[''],
       restaurant:[this.restaurant,Validators.required],
       name:['',Validators.required],
       description:['',Validators.required],
@@ -296,6 +297,16 @@ this.ask_multiple=true;
       end:['',[Validators.required,Validators.pattern('^[1-9]\\d*$')]]
       //tables:this.fb.array([])
     })
+  }
+  editArea(area:GroupedTableAreas){
+    this.DiningAreaForm=this.initArea();  
+    this.DiningAreaForm.patchValue(area.dining_area);
+    /* //this.DiningAreaForm.patchValue({start:area.start_time,end:area.end_time})
+    this.DiningAreaForm.patchValue({consideration:area.consideration})
+    this.DiningAreaForm.patchValue({create_tables:area.create_tables})
+    this.DiningAreaForm.patchValue({id:area.id})
+    this.isSingleArea = false; */
+    this.showModal = !this.showModal;
   }
   preventInvalidInput(event: KeyboardEvent) {
     if (['e', 'E', '-', '+'].includes(event.key)) {
@@ -369,5 +380,72 @@ this.loadAreas();
       //console.log(x)
     })
   }
-
+  isSubmitting=false;
+DeleteArea(area:DiningArea){
+  console.log(area)
+    let ref = this.dialog.openModal({
+      title:'Delete',
+      has_reason:true,
+      submitButtonText:'Delete',
+      cancelButtonText:'Cancel',
+      reason_required:true,
+      //action_info:'This table will no longer be available for booking',
+      message:'Are you sure you want to <strong>Delete</strong> Dining Area - '+ area.name +'? <br> Please provide the reason for deleting the section',
+    })?.subscribe((x:any)=>{
+      if(x?.action=='yes'){
+        this.api.Delete('restaurant-setup/diningareas/',{id:area.id,deletion_reason:x?.reason}).subscribe({
+          next: ()=>{
+      this.loadAreas();
+      this.dialog.closeModal();
+      ref.unsubscribe();
+          },
+          error:(err)=>{
+           // alert(err)
+          }
+        });
+        //this.dialog.closeModal();
+      }
+      if(x?.action=='no'||x?.action=='reject'){
+        
+        this.dialog.closeModal();
+        ref.unsubscribe();
+      }      
+    });  
+  }
+    AreaAvailabilityChange(event:any,a:DiningArea,index:number){
+   
+  let ref =this.dialog.openModal(
+    {
+      title:'CONFIRMATION',
+  message:"Are you sure you want to change the availability of "+a.name+ " to <b>"+(a.available?"available":"not available") +"</b> ?",
+  
+  }).subscribe((x:any)=>{
+  console.log(event.target.checked)
+  if(x?.action=='yes'){
+    this.api.postPatch('restaurant-setup/diningareas/',{id:a.id,available:event.target.checked},'put','',{},false,'',true).subscribe({
+      next: ()=>{
+        this.loadAreas();
+       
+  this.dialog.closeModal();
+  ref?.unsubscribe();
+      }
+     
+      //console.log(x)
+    })
+  }
+  if(x?.action=='no'){
+    if(this.list?.length){
+this.list[index].dining_area.available=!this.list[index].dining_area.available
+    }
+    
+   
+       // this.loadMenuItems(this.section?.id as string);
+  /*  this.loadMenuItems(this.section?.id as string);
+   this.loadSections(); */
+   this.dialog.closeModal();
+  ref?.unsubscribe();
+  }
+  })
+  
+   }
 }
