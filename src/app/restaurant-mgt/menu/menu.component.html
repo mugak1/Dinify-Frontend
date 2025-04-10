@@ -694,7 +694,7 @@
                         <div *ngIf="CategoryForm.get('id')?.value">
                             
                                 <label for="description" class="block mb-1 text-sm font-medium text-gray-900">Has Groups</label>
-                                <select formControlName="has_groups" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                                <select #hasGroups formControlName="has_groups" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
                                     <option value='null' [disabled]="true">Select yes or no</option>
                                       <option [value]="true" class="p-2.5">Yes</option>
                                       <option [value]="false" class="p-2.5">No</option>
@@ -729,7 +729,7 @@
                           </div> -->
                          
                         <div formArrayName="groups">
-                        <div *ngIf="CategoryForm.get('id')?.value" class="flex flex-col space-y-3 mt-4">
+                        <div *ngIf="CategoryForm.get('has_groups')?.getRawValue()" class="flex flex-col space-y-3 mt-4">
                        <!--  <div *ngFor="let item of CategoryGroups?.value;let i = index;let last=last;"
                           class="w-full col-1">
                        
@@ -1230,33 +1230,43 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                                 <div formGroupName="discount_details" class="space-y-2 md:space-y-4">
                                                     <div>
                                                         <label for="discount_amount" class="block mb-1 text-sm font-medium text-gray-900">Discounted Price</label>
-                                                        <input #discount (click)="discount.select()" type="text" currencyMask [options]="{prefix: '', align:'left',precision:0, thousands: ',', decimal: '.',min:0}" formControlName="discount_amount" id="discounted_price" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the discounted price of the menu item">
-                                                       
+                                                        <input #discount (click)="discount.select()" type="text" currencyMask
+                                                            [options]="{prefix: '', align:'left',precision:0, thousands: ',', decimal: '.',min:0}"
+                                                            formControlName="discount_amount" id="discounted_price"
+                                                            class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
+                                                            placeholder="Enter the discounted price of the menu item">
+                                            
                                                     </div>
                                                     <div>
                                                         <div class="flex flex-row space-x-2">
-  <div class="w-1/2">
-                                                        <label for="start_date" class="block mb-1 text-sm font-medium text-gray-900">Start Date</label>
-                                                        <input formControlName="start_date" type="date" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the discounted price of the menu item">
-                                                       
-                                                    </div>
-                                                    <div class="w-1/2">
-                                                        <label for="start_date" class="block mb-1 text-sm font-medium text-gray-900">End Date</label>
-                                                        <input type="date" formControlName="end_date" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the discounted price of the menu item">
-                                                       
-                                                    </div>
+                                                            <div class="w-1/2">
+                                                                <label for="start_date" class="block mb-1 text-sm font-medium text-gray-900">Start Date</label>
+                                                                <input formControlName="start_date" type="date"
+                                                                    class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
+                                                                    placeholder="Enter the discounted price of the menu item">
+                                            
+                                                            </div>
+                                                            <div class="w-1/2">
+                                                                <label for="start_date" class="block mb-1 text-sm font-medium text-gray-900">End Date</label>
+                                                                <input type="date" formControlName="end_date"
+                                                                    class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
+                                                                    placeholder="Enter the discounted price of the menu item">
+                                            
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                  
-                                                    <div >
+                                            
+                                                    <div>
                                                         <label for="start_date" class="block mb-1 text-sm font-medium text-gray-900">Select applicable days</label>
                                                         <div class="flex justify-between font-medium uppercase text-xs pt-4 pb-2 border-t">
-
-                                                            <div *ngFor="let d of days_of_week;let i = index" [ngClass]="{'border-red-500 text-red-500':i==6,'border-green-500 text-green-500':i<6}" class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center shadow-md">
-                                                        {{d}}<br>
-                                                        <input (change)="SetRecurDay(i+1,$event.target)" type="checkbox" [checked]="this.ItemForm.get('discount_details')?.get('recurring_days')?.value?.includes(i+1)">
+                                            
+                                                            <div *ngFor="let d of days_of_week;let i = index"
+                                                                [ngClass]="{'border-red-500 text-red-500':i==6,'border-green-500 text-green-500':i<6}"
+                                                                class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center shadow-md">
+                                                                {{d}}<br>
+                                                                <input (change)="SetRecurDay(i+1,$event.target)" type="checkbox"
+                                                                    [checked]="this.ItemForm.get('discount_details')?.get('recurring_days')?.value?.includes(i+1)">
                                                             </div>
-                                                        
                                                         <!-- 
                                                             <span class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center border-green-500 text-green-500 shadow-md">
                                                         mon

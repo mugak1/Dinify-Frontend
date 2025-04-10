@@ -13,6 +13,7 @@ import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
   styleUrls: ['./menu.component.css']
 })
 export class MenuComponent {
+  @ViewChild('hasGroups') hasGroups!: ElementRef;
 minimise_approval=true;
 showModal=false;
 is_submitted=false;
@@ -89,11 +90,10 @@ initCategory(rest:string){
     name:[''],
     restaurant:[rest],
     description:[''],
-    section_banner_image:[''],
+ //   section_banner_image:[''],
     available:[true],
-    has_groups:[null],
-    groups:this.fb.array([]),
-    listing_position:[]
+    has_groups:[false],
+    groups:this.fb.array([])
   })
 }
  initMenuItem(){
@@ -106,20 +106,21 @@ initCategory(rest:string){
     image:['',Validators.required],
     primary_price:[0,[Validators.min(1)]],
     discount_details:this.InitDiscountObject(),
-    running_discount:[0],
     available:[true],
     has_options:[false],
     options:this.fb.group({}),
-    is_extra:[''],
+    is_extra:[false],
     extras:[[]],
     allergens:[[]]
   })
  }
 
  loadSections(id?:string,reloadItems?:boolean){
+  console.log(id)
   this.api.get<MenuSectionListItem>(null,'restaurant-setup/menusections/',{restaurant:this.restaurant}).subscribe((x)=>{
     if(id){
 this.section=x?.data?.records.filter((s:MenuSectionListItem)=>s.id==id)[0];
+console.log("sections", this.section)
 if(reloadItems){
   this.loadMenuItems(this.section?.id as string,null as any,true);
  /*  this.menu_list =x?.data?.records;
@@ -249,7 +250,7 @@ message:"Are you sure you want to change the availability of "+s.name+ " to <b>"
 }).subscribe((x:any)=>{
 console.log(event.target.checked)
 if(x?.action=='yes'){
-  this.api.postPatch('restaurant-setup/menuitems/',{id:s.id,available:String(event.target.checked)},'put','',{},false).subscribe({
+  this.api.postPatch('restaurant-setup/menuitems/',{id:s.id,available:event.target.checked},'put','',{},false,'',true).subscribe({
     next: ()=>{
       this.loadMenuItems(this.section?.id as string);
       this.loadSections();
@@ -282,7 +283,7 @@ ref?.unsubscribe();
   }).subscribe((x:any)=>{
   console.log(x)
   if(x?.action=='yes'){
-    this.api.postPatch('restaurant-setup/sectiongroups/',{id:s.id,available:String(event.target.checked)},'put').subscribe({
+    this.api.postPatch('restaurant-setup/sectiongroups/',{id:s.id,available:event.target.checked},'put',null,{},false,'',true).subscribe({
       next: ()=>{
 
         /* this.loadSections();
@@ -370,7 +371,7 @@ SubmitGroup(){
 }
 
 console.log(g_obj)
-/* */   this.api.postPatch('restaurant-setup/sectiongroups/',g_obj,'post').subscribe({
+/* */   this.api.postPatch('restaurant-setup/sectiongroups/',g_obj,'post',null,{},false,'',true).subscribe({
     next: ()=>{
       this.showNewInput=false;
       this.currentGroup.group_name='';
@@ -385,7 +386,7 @@ this.CategoryGroupForm.patchValue(gr);
 this.showModal=!this.showModal
 }
 SaveGroupEdit(){
-  this.api.postPatch('restaurant-setup/sectiongroups/',this.CategoryGroupForm?.value,'put').subscribe({
+  this.api.postPatch('restaurant-setup/sectiongroups/',this.CategoryGroupForm?.value,'put',null,{},false,'',true).subscribe({
     next: ()=>{
       this.loadSections(undefined,true);
      // this.loadMenuItems(this.section?.id as string);
@@ -461,16 +462,17 @@ this.ItemForm?.setControl('options',this.InitOptionObject())
 SaveMenuItem(){
   let image_field_type = typeof (this.ItemForm?.get('image')?.value)
   if(image_field_type=='string'){
-    this.ItemForm?.get('image')?.setValue('');
+    this.ItemForm?.removeControl('image');
+  //  this.ItemForm?.get('image')?.setValue(null);
   }
 ///posting form data first
-      this.api.postPatch('restaurant-setup/menuitems/',this.ItemForm?.value,this.ItemForm?.get('id')?.value?'put':'post','',{},typeof (this.ItemForm?.get('image')?.value)=='string'?false:true).subscribe({
+      this.api.postPatch('restaurant-setup/menuitems/',this.ItemForm?.value,this.ItemForm?.get('id')?.value?'put':'post','',{},typeof (this.ItemForm?.get('image')?.value)=='string'?false:true,'',true).subscribe({
         next: (x:any)=>{      
  
 this.imageURL='';
 
 if(this.is_new){
-  this.ItemForm?.get('image')?.setValue('');
+  this.ItemForm?.removeControl('image');
   this.ItemForm?.get('id')?.setValue(x?.data?.id) 
   //if new item post json data too
   this.SaveMenuItem()
@@ -478,7 +480,7 @@ if(this.is_new){
 }else{
    this.closeModal();
   //this.loadMenuItems(this.section?.id as string,);
-  this.loadSections(this.ItemForm?.get('section')?.value as string,true);
+  this.loadSections(this.section?.id as string,true);
 }
         },
         error(err) {
@@ -501,7 +503,7 @@ SavePhoto(id:any,file:any){
   })
   ImgForm.get('id')?.setValue(id);
   ImgForm.get('image')?.setValue(file);
-  this.api.postPatch('restaurant-setup/menuitems/',ImgForm,'put','',{},true).subscribe({
+  this.api.postPatch('restaurant-setup/menuitems/',ImgForm,'put','',{},true,'',true).subscribe({
     next: ()=>{
 this.closeModal();
 this.loadMenuItems(this.section?.id as string);
