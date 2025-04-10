@@ -21,7 +21,7 @@
                 (click)="area.isCollapsed = !area.isCollapsed"
               >
                 <div>
-                  <h2 class="font-semibold text-lg text-gray-800">{{ area.dining_area.name }}</h2>
+                  <h2 class="font-semibold text-lg text-gray-800">{{ area.dining_area.name }} - ({{area.tables.length}})</h2>
                   <p class="text-sm text-gray-600">{{ area.dining_area.description }}</p>
                   <p class="text-sm text-gray-700">
                     Status: <span>{{ area.dining_area?.available ? 'Available' : 'Not Available' }}</span>
@@ -256,9 +256,14 @@
                   <div class="space-y-2 md:space-y-4">
                     <div>
                       <label for="start_table" class="block mb-1 text-sm font-medium text-gray-900">Table Number</label>
-                      <input type="number" formControlName="number" min="1"
+                      <input type="number" formControlName="number" min="1" step="1" (keydown)="preventInvalidInput($event)"
                              class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
                              placeholder="Enter the table Number">
+                      <div *ngIf="is_submitted && TableForm.get('number')?.errors" class="text-d-red text-xs">
+                        <div *ngIf="TableForm.get('number')?.errors?.['required']">Table Number is required</div>
+                        <div *ngIf="TableForm.get('number')?.errors?.['min']">Table Number must be greater than 0</div>
+                        <div *ngIf="TableForm.get('number')?.errors?.['pattern']">Table Number must be a number</div>
+                        </div>
                     </div>
                      <!-- Area Selection Mode 
       <div>
@@ -336,7 +341,7 @@
 
                         <div>
                             <label for="name" class="block mb-1 text-sm font-medium text-gray-900">{{TableEditForm.get('id')?.value?'Table Number':'Number of Tables to be added'}}<span class="text-d-red">*</span></label>
-                            <input type="number" formControlName="number" id="number" min="1" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5" placeholder="Enter the table number">
+                            <input type="number" formControlName="number" id="number" min="1" step="1" (keydown)="preventInvalidInput($event)" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5" placeholder="Enter the table number">
                             <div *ngIf="is_submitted && TableForm.get('number')?.errors" class="text-d-red text-xs">
                                 <div *ngIf="TableEditForm.get('number')?.errors?.['required']">The Table Number is required</div>
                             </div>
@@ -393,17 +398,28 @@
                 </div>
              <div class="mb-4">
                       <label for="start_table" class="block mb-1 text-sm font-medium text-gray-900">Start Table Number</label>
-                      <input type="number" formControlName="start" id="start_table" min="1"
+                      <input type="number" formControlName="start" id="start_table" min="1"  step="1" (keydown)="preventInvalidInput($event)"
                              class="border border-gray-300 placeholder:text-xs text-gray-900 rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
                              placeholder="Enter the starting table number">
+                             <div *ngIf="DiningAreaForm.get('start')?.invalid && DiningAreaForm.get('start')?.touched" class="text-d-red text-xs">
+                            <div *ngIf="DiningAreaForm.get('start')?.errors?.['required']">Start Table Number is required</div>
+                            <div *ngIf="DiningAreaForm.get('start')?.errors?.['pattern']">
+                                Please enter a valid natural number!
+                            </div>
+                             
+                            </div>
+                          
                     </div>
                     <div class="mb-4">
                       <label for="end_table" class="block mb-1 text-sm font-medium text-gray-900">End Table Number</label>
-                      <input type="number" formControlName="end" id="end_table" min="1"
+                      <input type="number" formControlName="end" id="end_table" min="1" step="1" (keydown)="preventInvalidInput($event)"
                              class="border border-gray-300 placeholder:text-xs text-gray-900 rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
                              placeholder="Enter the ending table number">
                       <div *ngIf="DiningAreaForm.get('end')?.errors&&DiningAreaForm.get('end')?.touched" class="text-d-red text-xs">
                         <div *ngIf="DiningAreaForm.get('end')?.errors?.['required']&&DiningAreaForm.get('end')?.touched">End Table Number is required</div>
+                        <div *ngIf="DiningAreaForm.get('end')?.errors?.['pattern']">
+                          Please enter a valid natural number!
+                      </div>
                       </div>
                     </div>
                 <button type="submit" class="w-full py-2 px-4 bg-d-red text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring">

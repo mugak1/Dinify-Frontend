@@ -82,7 +82,7 @@ this.rest=val;
 return this.fb.group({
   id:[''],
   restaurant:[this.restaurant],
-  number:['',Validators.required],
+  number:['',[Validators.required,Validators.pattern('^[1-9]\\d*$'),Validators.min(1)]],
   //room_name:[''],
   prepayment_required:[''],
   "outdoor_seating": [true],
@@ -292,11 +292,17 @@ this.ask_multiple=true;
       available:[true],
       create_tables: [true],
     consideration: ["range"],
-      start:['',Validators.required],
-      end:['',Validators.required]
+      start:['',[Validators.required,Validators.pattern('^[1-9]\\d*$')]],
+      end:['',[Validators.required,Validators.pattern('^[1-9]\\d*$')]]
       //tables:this.fb.array([])
     })
   }
+  preventInvalidInput(event: KeyboardEvent) {
+    if (['e', 'E', '-', '+'].includes(event.key)) {
+      event.preventDefault();
+    }
+  }
+
   diningAreas = [
     {
       restaurant: "c491d360-3f56-41b1-8fbe-b1b1989c1528",
