@@ -418,9 +418,17 @@ SaveSection(){
 }
 closeModal(){
   this.showModal = !this.showModal;
+  this.ItemForm?.reset();
+  this.CategoryForm?.reset();  
   this.CategoryForm=null as any;
   this.CategoryGroupForm=null as any;
   this.ItemForm=null as any;
+  this.fileName='';
+  this.imageURL='';
+  this.fileError='';
+  this.temp_extra='';
+  this.temp_extra_list=[];
+  this.CategoryGroups.clear();
   this.active_tab=this.tabs_list[0];
   this.view_menu=false
   this.is_new=false;

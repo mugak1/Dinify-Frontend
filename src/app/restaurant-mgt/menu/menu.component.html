@@ -992,7 +992,7 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                 <div class="flex flex-wrap -mx-2 space-y-4 md:space-y-0">
                                     <div class="w-full px-2 md:w-1/2">
                                       <label class="block mb-1" for="formGridCode_name">Minimum Selection</label>
-                                      <input formControlName="min_selections" class="w-full h-10 px-3 text-base placeholder-gray-600 border rounded-lg focus:shadow-outline" type="text" id="formGridCode_name"/>
+                                      <input formControlName="min_selections" min="1" step="1"  class="w-full h-10 px-3 text-base placeholder-gray-600 border rounded-lg focus:shadow-outline" type="text" id="formGridCode_name"/>
                                     </div>
                                     <div class="w-full px-2 md:w-1/2">
                                       <label class="block mb-1" for="formGridCode_last">Maximum Selection</label>
@@ -1178,7 +1178,6 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                        </div>
                                        <div>
                                         <h2 class="font-semibold mb-3">Extras</h2>
-                                        {{ItemForm.get('extras')?.value|json}}
                                       
                                         <div>
                                             <div class="w-full border border-gray-300 rounded-md bg-white">
@@ -1219,12 +1218,12 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                                         <label for="start_date" class="block mb-1 text-sm font-medium text-gray-900">Select applicable days</label>
                                                         <div class="flex justify-between font-medium uppercase text-xs pt-4 pb-2 border-t">
 
-                                                            <div class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center border-red-500 text-red-500 shadow-md">
-                                                        sun<br>
-                                                        <input #suncheck (change)="SetRecurDay(7,$event.target)" type="checkbox">
+                                                            <div *ngFor="let d of days_of_week;let i = index" [ngClass]="{'border-red-500 text-red-500':i==6,'border-green-500 text-green-500':i<6}" class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center shadow-md">
+                                                        {{d}}<br>
+                                                        <input (change)="SetRecurDay(i+1,$event.target)" type="checkbox" [checked]="this.ItemForm.get('discount_details')?.get('recurring_days')?.value?.includes(i+1)">
                                                             </div>
                                                         
-                                                        
+                                                        <!-- 
                                                             <span class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center border-green-500 text-green-500 shadow-md">
                                                         mon
                                                         <input type="checkbox" (change)="SetRecurDay(1,$event.target)">
@@ -1256,10 +1255,10 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                                             <span class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center border-green-500 text-green-500 shadow-md">
                                                         sat
                                                         <input type="checkbox" (change)="SetRecurDay(6,$event.target)">
-                                                            </span>
+                                                            </span> -->                             
                                                         
                                                          </div>
-                                                    </div>
+                       </div>
                                                     </div>
                                                     </div>
                                                     </div>
