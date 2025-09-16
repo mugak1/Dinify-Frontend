@@ -13,6 +13,7 @@ import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
   styleUrls: ['./menu.component.css']
 })
 export class MenuComponent {
+  ObjectRef = Object;
   @ViewChild('hasGroups') hasGroups!: ElementRef;
 minimise_approval=true;
 showModal=false;
@@ -24,13 +25,17 @@ fileName: string='';
 restaurant:string='';
 imageURL: string='';
 
+today: string;
+
+
 section?:MenuSectionListItem;
 section_list:MenuSectionListItem[]=[];
 section_groups:any[]=[];
 has_groups=false;
 
 menu_list?:MenuItem[]|any[]=[];
-search_list?:MenuItem[]=[];
+extra_list?:MenuItem[]|any[]=[];
+search_list?:MenuItem[]|any[]=[];
 grouped_menu:any;
 item_groups:any[]=[];
 menu_item:any;
@@ -54,11 +59,17 @@ active_tab=this.tabs_list[0]
   showNewInput=false;
   fileError='';
   isThirdChild: boolean = false;
-
+  showSearchBar = false;
+  loading=false
+  isSearching=false;
+  isFocused=false;
 /**
  *
  */
 constructor(private fb:FormBuilder, private api:ApiService, private route:ActivatedRoute, private dialog:ConfirmDialogService,public auth:AuthenticationService) {
+  const now = new Date();
+    this.today = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
   const depth = this.route.pathFromRoot.length; // Count the 
   console.log(depth)
   this.isThirdChild = (depth === 5);
@@ -105,24 +116,93 @@ initCategory(rest:string){
     section_group:[''],
     image:['',Validators.required],
     primary_price:[0,[Validators.min(1)]],
-    discount_details:this.InitDiscountObject(),
+    has_discount: [false],  
+    discount_details: this.fb.group({}),//this.InitDiscountObject(),
     available:[true],
     has_options:[false],
     options:this.fb.group({}),
+    has_extras:[false],
     is_extra:[false],
+    extras_applicable:[[]],
     extras:[[]],
     allergens:[[]]
-  })
+  },{ validator: this.validateForm })
  }
+ toggleDiscountFields(event: any) {
+  const isChecked = event.target.checked;
+  const discountControlExists = this.ItemForm?.contains('discount_details');
+  const discountValue = this.ItemForm?.get('discount_details')?.value;
 
+  if (isChecked) {
+    if (discountControlExists) {
+      this.ItemForm?.removeControl('discount_details');
+    }
+   //if (!discountControlExists) {
+      this.ItemForm?.addControl('discount_details', this.InitDiscountObject());
+  // }
+    this.ItemForm?.get('discount_details')?.patchValue(this.menu_item?.discount_details);
+  } else {
+    if (discountControlExists) {
+      this.ItemForm?.removeControl('discount_details');
+    }
+    this.ItemForm?.addControl('discount_details', this.fb.group({}));
+    //this.ItemForm?.get('discount_details')?.reset();
+    this.ItemForm?.get('has_discount')?.setValue(false);
+  }
+
+
+
+   /*  const discountValue = this.ItemForm?.get('discount_details')?.value;
+    if (
+       Object.keys(discountValue).length === 0
+    ) {
+      console.log(event.target.checked)
+      this.ItemForm?.addControl('discount_details', this.InitDiscountObject());
+      if(this.menu_item?.discount_details){
+        this.ItemForm?.get('discount_details')?.patchValue(this.menu_item.discount_details);
+      }
+    } */
+   // this.ItemForm?.get('discount_details')?.patchValue(this.menu_item.discount_details || {});
+/*   if (event.target.checked) {
+    // Add discount_details group when checked
+    this.ItemForm?.addControl('discount_details', this.InitDiscountObject());
+    this.ItemForm?.get('discount_details')?.patchValue(this.menu_item.discount_details || {});
+  } else {
+    // Remove discount_details group when unchecked
+    this.ItemForm?.removeControl('discount_details');
+    this.ItemForm?.get('has_discount')?.setValue(false);
+    this.ItemForm?.get('discount_details')?.reset();
+    this.ItemForm?.get('discount_details')?.setValue({});
+
+  } */
+}
+ validateForm(form: FormGroup) {
+  const primaryPrice = form.get('discount_details.discount_amount')?.value;
+  const discountPrice = form.get('primary_price')?.value;
+  const startDate = form.get('discount_details.start_date')?.value;
+  const endDate = form.get('discount_details.end_date')?.value;
+
+  let errors: any = {};
+
+  if (discountPrice && primaryPrice && discountPrice < primaryPrice) {
+    errors.discountInvalid = true;
+  }
+
+  if (endDate && startDate && endDate < startDate) {
+    errors.dateInvalid = true;
+  }
+
+  return Object.keys(errors).length ? errors : null;
+}
  loadSections(id?:string,reloadItems?:boolean){
   console.log(id)
   this.api.get<MenuSectionListItem>(null,'restaurant-setup/menusections/',{restaurant:this.restaurant}).subscribe((x)=>{
+        this.section_list =x?.data?.records  as MenuSectionListItem[]
     if(id){
 this.section=x?.data?.records.filter((s:MenuSectionListItem)=>s.id==id)[0];
 console.log("sections", this.section)
 if(reloadItems){
-  this.loadMenuItems(this.section?.id as string,null as any,true);
+  this.loadMenuItems(this.section as any,null as any,true);
  /*  this.menu_list =x?.data?.records;
   this.grouped_menu= groupBy<MenuItem,any>(this.menu_list as any[],l=> l?.group?.id)
   this.group_menu_keys = Object.keys(this.grouped_menu);
@@ -132,10 +212,10 @@ if(reloadItems){
 }
     }else{
       
-    this.section_list =x?.data?.records  as MenuSectionListItem[]
+
     if(!this.section||reloadItems){
       this.section=this.section_list[0]
-        this.loadMenuItems(this.section_list[0].id)
+        this.loadMenuItems(this.section_list[0])
     }
     }
     
@@ -175,28 +255,58 @@ this.section_groups=x?.data?.records as any[]
 
  SelectSection(s:any){
   if(s.id!=this.section?.id){
-      this.section=s;
+    //  this.section=s;
   this.menu_list=[];
 
-  this.loadMenuItems(s.id)
+  this.loadMenuItems(s)
   }
 
  }
- loadMenuItems(section:string,id?:string,reloadSections?:boolean){
+ loadExtras(i:MenuItem){
+  this.extra_list=[];
+  this.api.get<MenuItem>(null,'restaurant-setup/menuitems/',{is_extra:true,restaurant:this.restaurant}).subscribe((x)=>{
+    this.extra_list=x?.data?.records;
+    if(i?.extras.length>0){
+      this.temp_extra_list=[];
+      this.temp_extra_list = (this.extra_list??[]).filter((ex:MenuItem)=>i.extras.some(exx=>ex.id==exx.id));
+     this.ItemForm?.get('extras_applicable')?.setValue(this.temp_extra_list.map((x:MenuItem)=>x.id))
+    }
+ //   this.temp_extra_list=x?.data?.records as any;
+//this.temp_extra=x?.data?.records[0];
+  })
+ }
+ removeExtra(index: number) {
+  if(confirm('Are you sure you want to remove this extra?')){
+  const extras = this.ItemForm?.get('extras_applicable')?.value as string[];
+  const extraId = this.temp_extra_list[index].id;
+  const extraIndex = extras.indexOf(extraId);
+  if (extraIndex > -1) {
+    extras.splice(extraIndex, 1); // Remove ID from extras array
+    this.ItemForm?.get('extras_applicable')?.setValue(extras);
+  this.temp_extra_list.splice(index, 1); // Remove item from array
+  }
+  this.loadMenuItems(this.section as any);
+}
+}
+
+ loadMenuItems(section:MenuSectionListItem,id?:string,reloadSections?:boolean){
   
-    this.api.get<MenuItem>(null,'restaurant-setup/menuitems/',{section:section}).subscribe((x)=>{
+    this.api.get<MenuItem>(null,'restaurant-setup/menuitems/',{section:section.id}).subscribe((x)=>{
+          this.section=section;
+    this.section.item_count=x?.data?.records.length??this.section.item_count;
       if(id){
   this.menu_item=x?.data?.records.filter((s:MenuItem)=>s.id==id)[0];
       }else{
         
         this.menu_list=[];
       this.menu_list =x?.data?.records;
+      this.extra_list=x?.data?.records.filter((s:MenuItem)=>s.is_extra==true);
       this.grouped_menu= groupBy<MenuItem,any>(this.menu_list as any[],l=> l?.group?.id)
       this.group_menu_keys = Object.keys(this.grouped_menu);
       this.section?.groups.forEach(sg=>{
         this.grouped_groups[sg.id]=sg;
       })
-    
+
     //  this.grouped_groups = groupBy(this.section?.groups as {id:any,name:any}[],gg=>gg.id);
      /*  this.section?.groups?.forEach(g=>{
        // g.items=gm[g.id]
@@ -252,7 +362,7 @@ console.log(event.target.checked)
 if(x?.action=='yes'){
   this.api.postPatch('restaurant-setup/menuitems/',{id:s.id,available:event.target.checked},'put','',{},false,'',true).subscribe({
     next: ()=>{
-      this.loadMenuItems(this.section?.id as string);
+      this.loadMenuItems(this.section as any);
       this.loadSections();
 this.dialog.closeModal();
 ref?.unsubscribe();
@@ -264,6 +374,10 @@ ref?.unsubscribe();
 if(x?.action=='no'){
   if(!this.is_searching&&g){
   this.grouped_menu[g][index].available=!this.grouped_menu[g][index].available
+  }
+  if(this.search_list){
+    console.log(this.search_list[index])
+    this.search_list[index].available=!this.search_list[index].available
   }
  // this.loadMenuItems(this.section?.id as string);
 /*  this.loadMenuItems(this.section?.id as string);
@@ -459,19 +573,71 @@ this.ItemForm?.setControl('options',this.InitOptionObject())
   })
   this.showModal=!this.showModal
 }
+preventInvalidInput(event: KeyboardEvent) {
+  if (['e', 'E', '-', '+'].includes(event.key)) {
+    event.preventDefault();
+  }
+}
 SaveMenuItem(){
-  let image_field_type = typeof (this.ItemForm?.get('image')?.value)
+  this.loading = true;
+  const rawValues = this.ItemForm?.getRawValue();
+  const method = this.ItemForm?.get('id')?.value ? 'put' : 'post';
+
+  const imageField = rawValues.image;
+  const imageFile = imageField?.file || imageField;
+
+  const isImageFile = imageFile instanceof File;
+
+  let payload: any = { ...rawValues };
+
+  // If image is a File, keep it for FormData
+  // Else remove image from JSON payload
+  if (!isImageFile) {
+    delete payload.image;
+  }
+
+  // Proceed to API Call
+  this.api.postPatch(
+    'restaurant-setup/menuitems/',
+    payload,               // Pass full raw payload
+    method,
+    '',
+    {},
+    isImageFile,          // Let postPatch handle FormData
+    '',
+    true                  // Pass has_false if you want falsy values included
+  ).subscribe({
+    next: (x: any) => {
+      this.imageURL = '';
+this.loading=false;
+      if (this.is_new || isImageFile) {
+        // Remove image control after first upload
+        this.ItemForm?.removeControl('image');
+        this.ItemForm?.get('id')?.setValue(x?.data?.id);
+        this.SaveMenuItem(); // Re-trigger for JSON update
+        this.is_new = false;
+      } else {
+        this.closeModal();
+        this.loadSections(this.section?.id as string, true);
+      }
+    },
+    error: (err) => {
+      this.loading=false;
+      console.error('SaveMenuItem error:', err);
+    }
+  });
+ /* let image_field_type = typeof (this.ItemForm?.get('image')?.value)
   if(image_field_type=='string'){
     this.ItemForm?.removeControl('image');
   //  this.ItemForm?.get('image')?.setValue(null);
   }
 ///posting form data first
-      this.api.postPatch('restaurant-setup/menuitems/',this.ItemForm?.value,this.ItemForm?.get('id')?.value?'put':'post','',{},typeof (this.ItemForm?.get('image')?.value)=='string'?false:true,'',true).subscribe({
+      this.api.postPatch('restaurant-setup/menuitems/',this.ItemForm?.value,this.ItemForm?.get('id')?.value?'put':'post','',{},image_field_type=='string'?false:true,'',true).subscribe({
         next: (x:any)=>{      
  
 this.imageURL='';
 
-if(this.is_new){
+if(this.is_new||image_field_type!='string'){
   this.ItemForm?.removeControl('image');
   this.ItemForm?.get('id')?.setValue(x?.data?.id) 
   //if new item post json data too
@@ -487,14 +653,10 @@ if(this.is_new){
           
         },
        complete: ()=> {
-       // if(this.is_new){
-          
-       /*  }else{
-this.is_new=false
-        } */
+       
       }
         //console.log(x)
-      })
+      })*/
 }
 SavePhoto(id:any,file:any){
   let ImgForm= this.fb.group({
@@ -506,7 +668,7 @@ SavePhoto(id:any,file:any){
   this.api.postPatch('restaurant-setup/menuitems/',ImgForm,'put','',{},true,'',true).subscribe({
     next: ()=>{
 this.closeModal();
-this.loadMenuItems(this.section?.id as string);
+this.loadMenuItems(this.section as any);
 this.loadSections();
 this.imageURL='';
     }
@@ -579,13 +741,21 @@ InitDiscountObject(){
 /*       start_time: [''],
       end_time: [''], */
      // discount_percentage: 0.0,
-      discount_amount: 0.0
+      discount_amount: [0.0]
   })
+}
+validateDiscountPrice(form: FormGroup) {
+  const primaryPrice = form.get('primary_price')?.value;
+  const discountPrice = form.get('discount_details.discount_amount')?.value;
+
+  return discountPrice && primaryPrice && discountPrice > primaryPrice 
+    ? { discountInvalid: true } 
+    : null;
 }
 
 SetRecurDay(id:number,val:any){
 
-let disc:any[] = this.ItemForm?.get('discount_details')?.get('recurring_days')?.value;
+let disc:any[] = this.ItemForm?.get('discount_details')?.get('recurring_days')?.value??[];
 
 if(val.checked){
 disc.push(id);
@@ -606,8 +776,10 @@ InitOptionItem(){
    selectable: [false],// i.e. does it have options to select from
    choices: [[]],//[Spicy, Not spicy, Extra spicy],
        cost: [0],
-       required:[false]
-   })
+       required:[false],
+       max_choices:[1, [Validators.min(1), Validators.pattern('^[0-9]*$')]],
+   }
+  )
 }
  get Gos():FormArray{
   let g=<FormGroup> this.ItemForm?.get('options');
@@ -622,6 +794,7 @@ RemoveOption(i:number){
 this.Gos.removeAt(i)
 }
 EditItem(i:MenuItem){
+  this.loadExtras(i);
   this.ItemForm=this.initMenuItem();
   this.ItemForm.get('has_options')?.valueChanges.subscribe(x=>{
    // console.log("has options",x)
@@ -635,11 +808,30 @@ this.ItemForm?.setControl('options',this.InitOptionObject())
       }
       this.ItemForm?.get('options')?.reset();
       this.ItemForm?.removeControl('options');
-      this.ItemForm?.get('options')?.setValue(null)
+      this.ItemForm?.addControl('options',this.fb.group({}))
+      //this.ItemForm?.get('options')?.setValue({});
       /*  */
     }
   })
- 
+i.has_discount=(Object.keys(i.discount_details).length > 0)
+  // Handle discount details dynamically
+   if (i.discount_details && Object.keys(i.discount_details).length > 0) {
+    this.ItemForm?.removeControl('discount_details');
+      this.ItemForm?.addControl('discount_details', this.InitDiscountObject());
+   // this.ItemForm.addControl('discount_details', this.InitDiscountObject());
+  } else {
+   // this.ItemForm.removeControl('discount_details');
+    this.ItemForm.get('discount_details')?.setValue({});
+  }
+/* // Ensure the control exists before patching
+if (i.has_discount) {
+  this.ItemForm.addControl('discount_details', this.InitDiscountObject());
+} else if (!i.has_discount) {
+  // Optional: reset instead of removing if you want to persist empty object
+  this.ItemForm.get('discount_details')?.reset();
+} */
+
+
 this.ItemForm?.patchValue(i);
 this.ItemForm.get('section')?.setValue(this.section?.id);
 if(i.group?.id){
@@ -649,17 +841,23 @@ this.section_groups=x?.data?.records as any[];
   this.ItemForm?.get('section_group')?.setValue(i.group.id)
   this.has_groups=true;
 })
+}
 if(i.has_options){
+ 
   i?.options?.options?.forEach((ioo,io)=>{
+   
     if(io>0){
       this.AddOption();
     }
     this.Gos.at(io).patchValue(ioo);
   })
 }
+i.has_extras=i?.extras?.length>0?true:false;
+this.ItemForm?.get('has_extras')?.setValue(i.has_extras);
 
 
-}
+
+
 this.showModal=!this.showModal
 }
 InitItemFormEdit(){
@@ -671,12 +869,13 @@ typOf(val:any){
 
 AddChoice(f:any,id:number){
 let choice_array:any[]=f.get('choices')?.value?f.get('choices')?.value:[];
-
-choice_array.push((<HTMLInputElement>document.getElementById('choice-'+id)).value);
-console.log(choice_array);
+var ch = (<HTMLInputElement>document.getElementById('choice-'+id)).value;
+if(ch){
+choice_array.push(ch);
+//console.log(choice_array);
 (<HTMLInputElement>document.getElementById('choice-'+id)).value='';
 f.get('choices')?.patchValue(choice_array);
-
+}
 }
 DeleteChoice(i:number,ci:number){
   let v= this.Gos.at(i);
@@ -689,11 +888,11 @@ this.temp_extra=event;
 console.log(event)
 }
 AddExtra(){ 
-let extras:any[]=this.ItemForm?.get('extras')?.value?this.ItemForm?.get('extras')?.value:[];
+let extras:any[]=this.ItemForm?.get('extras_applicable')?.value?this.ItemForm?.get('extras_applicable')?.value:[];
  if(this.temp_extra){
   extras.push(this.temp_extra.id);
   this.temp_extra_list.push(this.temp_extra)
-  this.ItemForm?.get('extras')?.setValue(extras);
+  this.ItemForm?.get('extras_applicable')?.setValue(extras);
   let input:any = document.querySelector("#autocompleteInput");
   input.value = '';
   this.temp_extra='';
@@ -773,17 +972,18 @@ toggleSearch() {
 has_loaded=false;
 onSearch() {
   this.search_list=[];
-  this.is_searching=true;
+  this.isSearching=true;
+ // this.is_searching=true;
   this.has_loaded=false;
   if (this.searchQuery.trim()) {
    // this.search.emit(this.searchQuery);
-   this.api.get<MenuItem>(null,'restaurant-setup/menuitems/',{name:this.searchQuery}).subscribe((x)=>{
-    this.isExpanded=false;
+   this.api.get<MenuItem>(null,'restaurant-setup/menuitems/',{name:this.searchQuery, restaurant: this.restaurant}).subscribe((x)=>{
+   // this.isExpanded=false;
 //this.menu_item=x?.data?.records[0];
 
 this.search_list =x?.data?.records;
 this.has_loaded=true;
-    
+ this.isSearching = false;   
   })
 }
   //this.isExpanded = false; // Hide after searching
@@ -803,7 +1003,7 @@ DeleteSection(section:MenuSectionListItem){
       cancelButtonText:'Cancel',
       reason_required:true,
       //action_info:'This table will no longer be available for booking',
-      message:'Are you sure you want to <strong>Delete</strong> Menu Section - '+section.name +'? <br> Please provide the reason for deleting the section',
+      message:'Are you sure you want to <strong>Delete</strong> Menu Section - '+section.name +'?<br>Deleting this section also deletes all groups and items within it.<br> Please provide the reason for deleting the section',
     })?.subscribe((x:any)=>{
       if(x?.action=='yes'){
         this.api.Delete('restaurant-setup/menusections/',{id:section.id,deletion_reason:x?.reason}).subscribe({
@@ -827,7 +1027,7 @@ DeleteSection(section:MenuSectionListItem){
     });  
   }
 
-  DeleteItem(menuItem:MenuItem){
+  DeleteItem(menuItem:MenuItem,grouped_menu_index:number,itemIndex:number){
     let ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
@@ -841,7 +1041,11 @@ DeleteSection(section:MenuSectionListItem){
         this.api.Delete('restaurant-setup/menuitems/',{id:menuItem.id,deletion_reason:x?.reason}).subscribe({
           next: ()=>{
       //this.save.emit(x)
-      this.loadMenuItems(this.section?.id as any);
+      setTimeout(() => {
+        const groupKey = this.group_menu_keys[grouped_menu_index];
+        this.grouped_menu[groupKey].splice(itemIndex,1);
+      //this.loadMenuItems(this.section?.id as any);
+      }, 1000);
       this.dialog.closeModal();
       ref.unsubscribe();
           },
@@ -930,6 +1134,7 @@ DeleteSection(section:MenuSectionListItem){
     }else{
       this.menu_list=[];
       this.menu_list =mx?.data?.records;
+      this.extra_list=mx?.data?.records.filter((s:MenuItem)=>s.is_extra==true);
       this.grouped_menu= groupBy<MenuItem,any>(this.menu_list as any[],l=> l?.group?.id)
       this.group_menu_keys = Object.keys(this.grouped_menu);
       this.section?.groups.forEach(sg=>{

@@ -155,3 +155,17 @@
 .toggle-switch.large input:checked + .switch:before {
   transform: translateX(30px);
 }
+/* Hide scrollbar for all browsers */
+.custom-scroll {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE 10+ */
+}
+.custom-scroll::-webkit-scrollbar {
+  display: none;                /* Chrome, Safari, Opera */
+}
+
+/* Optional: soften edge visuals */
+.custom-scroll {
+  border-radius: 0.5rem;        /* Optional: rounded corners */
+  padding-right: 0.25rem;       /* Prevent content from touching edge */
+}

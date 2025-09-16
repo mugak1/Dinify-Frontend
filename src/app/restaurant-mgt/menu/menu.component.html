@@ -2,12 +2,131 @@
 <div 
   *ngIf="isExpanded" 
   class="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300 z-40"
-  (click)="closeSearch($event)"
+
 ></div>
+<button 
+*ngIf="!isExpanded && !is_searching && false"
+(click)="toggleSearch()"
+class="bg-white border border-d-red text-d-red p-2 rounded-full shadow-md transition-all duration-300 ease-in-out hover:bg-red-600 hover:text-white flex items-center justify-center"
+[ngClass]="isExpanded ? 'opacity-0 scale-90' : 'opacity-100 scale-100'">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m0 0a7.5 7.5 0 1 0-10.6 0 7.5 7.5 0 0 0 10.6 0z"></path>
+</svg>
+</button>
+<!-- Centered Search -->
+<div 
+  *ngIf="isExpanded"
+  class="fixed top-1/4 left-0 right-0 z-50 px-4 sm:px-12 md:px-32 lg:px-48"
+>
+  <div class="bg-white rounded-lg shadow-2xl p-4 border border-gray-700 w-full">
+  
+      <div class="flex flex-row items-center mb-4 relative">
+        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" 
+        [(ngModel)]="searchQuery"         
+        (keydown.enter)="onSearch()" 
+        (focus)="isFocused = true" 
+        (blur)="isFocused = false"
+        placeholder="Search..." class="border border-gray-300 rounded-lg text-lg px-10 py-2 w-full" />
+        <button (click)="onSearch()" class="ml-2 bg-white border border-d-red text-d-red px-4 py-2 rounded-lg">Search</button>
+        <button (click)="is_searching = false;searchQuery=''; isExpanded=false; search_list=[]" class="ml-2 bg-d-red text-white px-4 py-2 rounded-lg">Cancel</button>
+    </div>
+   <!-- Instructional Text -->
 
+<div *ngIf="!searchQuery && search_list?.length===0" class="text-gray-500 text-center mt-4 min-h-[200px] flex flex-col items-center justify-center">
+    <svg class="w-12 h-12 mb-2 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <p class="text-gray-500 text-sm">Type something to begin searching</p>
+    <p *ngIf="isFocused" class="text-gray-500 text-sm mt-2">Press Enter to search</p>
+</div>
 
+    <!-- Suggestions or Results -->
+    <div class="mt-4">
+     <!--  <p class="mb-2">Recent Searches:</p> -->
+ <!-- Display results count when search list is loaded -->
+<div *ngIf="has_loaded&&search_list">
+    <div *ngIf="search_list.length > 0" class="mb-4 font-semibold">
+        Found {{ search_list.length }} results
+    </div>
 
-<div class="absolute top-16 left-1/2 transform -translate-x-1/2 z-50">
+    <!-- Show 'No results found' only if search_list is empty -->
+    <div *ngIf="search_list?.length === 0&&has_loaded&&searchQuery" class="mb-4 text-gray-500">
+        No results found
+    </div>
+</div>
+
+<!-- Display 'Searching...' message when search is in progress -->
+<div *ngIf="!has_loaded && isSearching" class="mb-4 text-gray-500">
+    Searching...
+</div>
+  <!-- Scrollable Result List Only -->
+  <div class="max-h-[400px] overflow-y-auto custom-scroll border-t border-gray-200">
+      <ul class="space-y-1">
+        <div *ngFor="let i of search_list;let im=index" class="flex flex-row px-4 py-4 mb-4 items-center w-100 border border-gray-300 rounded-lg justify-between">
+            <div class="flex flex-row">            
+                <app-common-image [src]="i?.image" [alt]="i?.name" [width]="'150'" [height]="'150'"></app-common-image>                  
+            </div>
+            
+            <div class="flex flex-col md:flex-row flex-grow pl-4">
+                <div class="flex flex-col float-start">
+                    <span class="font-black">{{i?.name}}</span>
+                    <p class="w-[30vw] line-clamp-2">{{i?.description}}</p>
+                    <p *ngIf="i?.discount_details?.discount_amount" class="text-sm">
+                        <span class="font-bold">Discount: UGX {{i?.discount_details?.discount_amount|number}}</span> | 
+                        <strong class="text-blue-600">{{i?.discount_details?.start_date|date:'shortDate'}} - {{i?.discount_details?.end_date|date:'shortDate'}}</strong> | Available on:
+                        <span *ngFor="let d of i?.discount_details?.recurring_days;let l=last" class="text-green-500">{{days_of_week[(d-1)]|uppercase}}{{!l?', ':''}}</span>
+                   
+                      </p>
+                </div>
+            <div class="md:ml-auto mr-8 my-auto">
+                <span class="font-semibold text-d-red">UGX {{i?.primary_price|number}}</span>
+               
+            </div>
+            <div class="flex flex-row space-x-3 justify-between">
+               
+                <svg (click)="EditItem(i)" class="hover:scale-105 hover:fill-d-red cursor-pointer my-auto" fill="#000000" width="30px" height="30px" viewBox="0 0 24 24">
+                    <g stroke-linecap="round" stroke-linejoin="round"></g>
+                    <g>
+                        <path
+                            d="M4.07,14.927a.976.976,0,0,0-.167.25c-.011.023-.023.043-.032.067a.362.362,0,0,0-.019.04l-1.8,5.4A1,1,0,0,0,3,22a1.014,1.014,0,0,0,.316-.051l5.4-1.8c.013,0,.023-.013.036-.017s.041-.021.062-.031a.967.967,0,0,0,.259-.172c.01-.009.024-.012.033-.022l12.6-12.6a1,1,0,0,0,0-1.414l-3.6-3.6a1,1,0,0,0-1.414,0l-12.6,12.6C4.083,14.9,4.08,14.917,4.07,14.927ZM17.4,4.414,19.586,6.6,8.4,17.786,7.307,16.693,6.214,15.6ZM5.237,17.451l.656.656.656.656-1.968.656Z">
+                        </path>
+                    </g>
+                </svg>
+            
+                <label class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      (change)="ItemAvailabilityChange($event, i, im)"
+                      [(ngModel)]="i.available"
+                      class="sr-only">
+                    <div class="switch"></div>
+                  </label>
+                <svg class="hover:scale-105 hover:fill-d-red cursor-pointer my-auto" width="35px" height="35px" viewBox="0 0 24 24" fill="none">
+                    <g>
+                        <path
+                            d="M7.69231 8.70833H5V8.16667H9.84615M7.69231 8.70833V19H16.3077V8.70833M7.69231 8.70833H16.3077M16.3077 8.70833H19V8.16667H14.1538M9.84615 8.16667V6H14.1538V8.16667M9.84615 8.16667H14.1538"
+                            stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M10 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M12 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M14 11V17" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </g>
+                </svg>
+            </div>
+        
+        </div>
+        </div>
+      </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="false" class="absolute top-16 left-1/2 transform -translate-x-1/2 z-50">
     <!-- Floating Search Button -->
     <button 
       *ngIf="!isExpanded && !is_searching"
@@ -39,7 +158,7 @@
       <!-- Search Button -->
       <button 
         (click)="onSearch()" 
-        class="bg-white text-white border border-d-red px-2 py-1 rounded-md hover:bg-red-600 transition ml-2"
+        class=" bg-white text-white border border-d-red px-2 py-1 rounded-md hover:bg-red-600 transition ml-2"
       >
         <svg class="w-6 h-6 text-d-red hover:text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m0 0a7.5 7.5 0 1 0-10.6 0 7.5 7.5 0 0 0 10.6 0z"></path>
@@ -50,26 +169,35 @@
   
 
 <div *ngIf="!is_searching" [ngClass]="{'w-9':minimise_approval,'shadow-xl bg-white':!minimise_approval}" class="!absolute z-10 transform overflow-hidden min-h-9 rounded-lg text-left transition-all sm:my-8 sm:w-full sm:max-w-lg right-3.5">
-    
-    
-    <button  *ngIf="!minimise_approval&&!view_menu"  (click)="minimise_approval=!minimise_approval" type="button" class="ms-auto inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">
-        <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-        </svg>
-    
+      <!-- Top Buttons -->
+  <div class="flex gap-2 justify-end items-center p-2 align-items-top">
 
+    <!-- Search Toggle Button -->
+    <button *ngIf="!showSearchBar" (click)="toggleSearch()" type="button" 
+      class="inline-flex justify-center rounded-md border border-d-red text-d-red px-3 py-2 text-sm -mt-2 shadow-sm hover:bg-red-50 sm:w-auto">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m0 0a7.5 7.5 0 1 0-10.6 0 7.5 7.5 0 0 0 10.6 0z"></path>
+      </svg>
     </button>
+
+    <!-- Search Input + Cancel -->
+    <div *ngIf="showSearchBar" class="relative w-full sm:w-auto flex-grow">
+        <input type="text" [(ngModel)]="searchQuery" (keyup.enter)="onSearch()" placeholder="Search Menu..." 
+          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-d-red" />
+      
+        <!-- Helper Text -->
+        <div class="text-xs text-gray-500 mt-1">Press Enter to search</div>
+      
+        <!-- Clear Button -->
+        <svg (click)="searchQuery=''; showSearchBar=false" 
+          class="absolute right-3 top-1/2 -mt-2 transform -translate-y-1/2 w-4 h-4 text-gray-400 cursor-pointer hover:text-red-400" 
+          fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </div>
+    
     <button  *ngIf="(auth.currentRestaurantRole?.roles?.includes('owner')||auth.userValue?.profile?.roles?.includes('dinify_admin'))&&(auth.currentRestaurant?.first_time_menu_approval_decision=='submit'||restaurant_profile?.first_time_menu_approval_decision=='submit')" (click)="ApproveMenu('approve')" type="button" class="inline-flex w-full justify-center rounded-md bg-white border border-d-red px-6 py-2 text-sm font-semibold text-d-red shadow-sm hover:bg-red-500  hover:text-white sm:ml-3 sm:w-auto float-end">
 
-<!--         <svg width="20px" height="20px" fill="#000000" class="w-6 h-6 fixed" viewBox="0 0 491.695 491.695">
- <g> 
-                <path d="M436.714,0H149.471c-16.438,0-29.812,13.374-29.812,29.812v66.714c-54.49,15.594-94.489,65.857-94.489,125.288 c0,59.431,39.998,109.694,94.489,125.288v114.783c0,16.438,13.374,29.812,29.812,29.812h234.733c2.785,0,5.455-1.106,7.425-3.075 l71.821-71.822c1.969-1.969,3.075-4.64,3.075-7.425V29.812C466.525,13.374,453.152,0,436.714,0z M149.471,21h287.243 c4.858,0,8.811,3.953,8.811,8.812v31.689H140.659V29.812C140.659,24.953,144.612,21,149.471,21z M46.17,221.813 c0-60.263,49.027-109.29,109.29-109.29c60.263,0,109.29,49.027,109.29,109.29s-49.027,109.291-109.29,109.291 C95.197,331.104,46.17,282.076,46.17,221.813z M140.659,461.884V351.258c4.86,0.552,9.797,0.846,14.802,0.846 c39.135,0,74.292-17.347,98.195-44.752h64.336c5.799,0,10.5-4.701,10.5-10.5s-4.701-10.5-10.5-10.5h-49.381 c9.133-15.95,14.984-34.005,16.644-53.242h32.736c5.799,0,10.5-4.701,10.5-10.5c0-5.799-4.701-10.5-10.5-10.5h-32.603 c-1.42-19.194-7.02-37.242-15.886-53.241h48.488c5.799,0,10.5-4.701,10.5-10.5c0-5.799-4.701-10.5-10.5-10.5h-62.974 c-23.918-28.323-59.67-46.347-99.558-46.347c-5.005,0-9.942,0.294-14.802,0.846v-9.867h304.866v316.372h-42.009 c-16.439,0-29.811,13.374-29.811,29.811v42.011H149.471C144.612,470.695,140.659,466.743,140.659,461.884z M394.705,455.845v-27.16 c0-4.859,3.953-8.811,8.811-8.811h27.16L394.705,455.845z"></path> 
-                <path d="M359.246,158.869h34.87c5.799,0,10.5-4.701,10.5-10.5c0-5.799-4.701-10.5-10.5-10.5h-34.87c-5.799,0-10.5,4.701-10.5,10.5 C348.746,154.168,353.447,158.869,359.246,158.869z"></path> 
-                <path d="M359.246,233.11h34.87c5.799,0,10.5-4.701,10.5-10.5c0-5.799-4.701-10.5-10.5-10.5h-34.87c-5.799,0-10.5,4.701-10.5,10.5 C348.746,228.409,353.447,233.11,359.246,233.11z"></path> 
-                <path d="M359.246,307.352h34.87c5.799,0,10.5-4.701,10.5-10.5s-4.701-10.5-10.5-10.5h-34.87c-5.799,0-10.5,4.701-10.5,10.5 S353.447,307.352,359.246,307.352z"></path> 
-                <path d="M394.116,381.593c5.799,0,10.5-4.701,10.5-10.5s-4.701-10.5-10.5-10.5h-98.225c-5.799,0-10.5,4.701-10.5,10.5 s4.701,10.5,10.5,10.5H394.116z"></path> 
-                <path d="M236.982,168.845l-12.81-12.81c-3.45-3.449-8.036-5.349-12.915-5.349s-9.465,1.9-12.915,5.349l-67.19,67.19l-18.573-18.573 c-3.449-3.448-8.036-5.348-12.914-5.348c-4.878,0-9.465,1.9-12.914,5.349l-12.813,12.812c-7.12,7.121-7.12,18.708,0.001,25.829 l44.297,44.296c3.45,3.451,8.037,5.351,12.916,5.351c0,0,0.001,0,0.001,0c4.878,0,9.465-1.9,12.913-5.349l92.917-92.917 C244.103,187.554,244.103,175.966,236.982,168.845z M131.151,270.807l-40.429-40.428l8.942-8.942l24.062,24.062 c4.101,4.101,10.749,4.101,14.85,0l72.681-72.681l8.942,8.942L131.151,270.807z"></path> 
-            </g></svg> -->
             <span class="my-auto">Approve Menu</span>
     </button>
   
@@ -78,10 +206,24 @@
       
                     <span class="my-auto">Submit Menu</span>
             </button>
-    <button type="button" *ngIf="!view_menu&&!is_searching" (click)="view_menu=true;showModal=true;" class="inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto float-end">
+    <button type="button" *ngIf="!view_menu&&!is_searching" (click)="view_menu=true;showModal=true;" class="inline-flex w-full -mt-2 justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto float-end">
         Preview Menu
     </button>
-   
+    <button  *ngIf="!minimise_approval&&!view_menu"  (click)="minimise_approval=!minimise_approval" type="button" class="-mt-2 ms-auto inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto float-start">
+        <svg class="w-5 h-5"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+        </svg>
+    
+
+    </button>
+  
+    <div  *ngIf="!minimise_approval" class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+      <button type="button" *ngIf="!view_menu" (click)="view_menu=true;" class="inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">View Menu</button>
+      <button type="button" *ngIf="view_menu" (click)="ApproveMenu('approve')" class="inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">Approve Menu</button>
+      <button type="button" *ngIf="view_menu"  (click)="view_menu=false;"  class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">Cancel</button>
+    </div>
+  </div>
+  </div>
    
     <div *ngIf="false" class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
       <div class="sm:flex sm:items-start">
@@ -99,19 +241,9 @@
         </div>
       </div>
     </div>
-    <!-- <div>
-       <app-menu-diners *ngIf="view_menu"  [menu_list]="menu_list" [section_list]="section_list" [group_menu_keys]="group_menu_keys" [grouped_groups]="grouped_groups" [grouped_menu]="grouped_menu"></app-menu-diners> 
-    </div> -->
-    <div  *ngIf="!minimise_approval" class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-      <button type="button" *ngIf="!view_menu" (click)="view_menu=true;" class="inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">View Menu</button>
-      <button type="button" *ngIf="view_menu" (click)="ApproveMenu('approve')" class="inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">Approve Menu</button>
-      <button type="button" *ngIf="view_menu"  (click)="view_menu=false;"  class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">Cancel</button>
-    </div>
-  </div>
-
 <div class="flex flex-col lg:flex-row p-4 md:ml-auto h-[calc(100dvh-5rem)] overflow-hidden">
    
-    <div  class="bg-gray-100 lg:w-96 lg:mr-4 h-[calc(100dvh-6rem)] overflow-y-hidden">
+    <div  class="bg-gray-100 lg:w-96 lg:min-w-96 lg:max-w-96 lg:mr-4 h-[calc(100dvh-6rem)] overflow-y-hidden">
         <div *ngIf="!is_searching" class="flex flex-row justify-between p-4 items-center">
             <div class="text-xl font-extrabold">Menu Section</div>           
           </div>
@@ -144,17 +276,24 @@
         <div cdkDropList  [cdkDropListData]="section_list" (cdkDropListDropped)="drop($any($event))"
         class="space-y-2 bg-white p-4 rounded-md shadow-md">
       
-      <div *ngFor="let s of section_list; let is = index" cdkDrag [attr.data-index]="is"
-           [ngClass]="{'border-2 border-d-red bg-gray-200': section?.id == s?.id, 'border border-gray-300': section?.id != s?.id}"
-           class="flex flex-row px-2 py-4 items-center w-100 rounded-lg justify-between cursor-pointer"
+      <div  *ngFor="let s of section_list; let is = index" cdkDrag [attr.data-index]="is"
+           [ngClass]="{'border-2 border-d-red bg-gray-200': section?.id == s?.id, 'border border-gray-300': section?.id != s?.id,'bg-gray-50 opacity-60 grayscale': !s?.available, 'bg-white opacity-100': s?.available}"
+            class="relative flex flex-row items-center justify-between px-2 py-4 w-full rounded-lg cursor-pointer"
            (click)="SelectSection(s)">
-    
-        <div class="flex flex-col">
-          <span class="font-medium">{{s.name}}</span>
+     <div class="flex flex-col max-w-[50%] overflow-hidden">
+    <span class="font-medium truncate" [title]="s.name">
+      {{ s.name }}
+    </span>
+    <span class="text-gray-600">
+      {{ s?.item_count || '0' }} Item{{ s?.item_count == 1 ? '' : 's' }}
+    </span>
+  </div>
+        <!-- <div class="flex flex-col">
+          <span class="font-medium truncate" title="{{s.name}}">{{s.name}}</span>
           <span class="text-gray-600">{{s?.item_count || "0"}} Item{{s?.item_count == 1 ? '' : 's'}}</span>
-        </div>
+        </div> -->
     
-        <div class="flex flex-row space-x-3">
+        <div class="absolute right-3 top-1/2 -translate-y-1/2 flex flex-row space-x-3 items-center z-10">
           <!-- Edit Icon -->
           <svg class="hover:scale-105 hover:fill-d-red cursor-pointer" (click)="EditSection(s)" fill="#000000" width="30px" height="30px" viewBox="0 0 24 24">
             <g stroke-linecap="round" stroke-linejoin="round"></g>
@@ -246,11 +385,11 @@
             <div class="container space-y-6">
               
                 <!-- Group Cards -->
-                <div [ngClass]="grouped_groups[g]?.available ? 'bg-white opacity-100' : 'bg-gray-50 opacity-60 grayscale'" *ngFor="let g of group_menu_keys; let gi = index" class="card">
+                <div [ngClass]="grouped_groups[g]?.available||!grouped_groups[g] ? 'bg-white opacity-100' : 'bg-gray-50 opacity-60 grayscale'" *ngFor="let g of group_menu_keys; let gi = index" class="card">
                   <!-- Card Header -->
                   <div *ngIf="grouped_groups[g]"  class="card-header flex justify-between items-center">
                     <span class="flex flex-row flex-shrink">
-                    <h3 class="text-lg font-semibold text-gray-900">
+                    <h3 class="text-lg font-semibold text-gray-900 truncate">
                       {{ grouped_groups[g]?.name }}
                     </h3>
                     <div class="flex flex-row space-x-4 ml-4">
@@ -307,6 +446,7 @@
                       <div class="item-details">
                         <!-- Item Image -->
                         <app-common-image
+                        [container]="true"
                           [src]="i?.image"
                           [alt]="i?.name"
                           [width]="'100'"
@@ -320,7 +460,7 @@
                           <p *ngIf="i?.discount_details?.discount_amount" class="text-sm">
                             <span class="font-bold">Discount: UGX {{i?.discount_details?.discount_amount|number}}</span> | 
                             <strong class="text-blue-600">{{i?.discount_details?.start_date|date:'shortDate'}} - {{i?.discount_details?.end_date|date:'shortDate'}}</strong> | Available on:
-                            <span *ngFor="let d of i?.discount_details?.recurring_days;let l=last" class="text-green-500">{{days_of_week[d??0]|uppercase}}{{!l?', ':''}}</span>
+                            <span *ngFor="let d of i?.discount_details?.recurring_days;let l=last" class="text-green-500">{{days_of_week[(d-1)]|uppercase}}{{!l?', ':''}}</span>
                        
                           </p>
                           <p *ngIf="i?.discount_details&&false" class="text-gray-600 p-4 border border-gray-300 rounded-lg">
@@ -364,7 +504,7 @@
                         </label>
               
                         <!-- Delete Item Icon -->
-                        <a (click)="DeleteItem(i)" title="Delete Item">
+                        <a (click)="DeleteItem(i,gi,im)" title="Delete Item">
                           <svg
                             class="hover:scale-105 hover:fill-d-red cursor-pointer"
                             width="35px"
@@ -454,7 +594,7 @@
                                 class="relative w-8 h-5 bg-gray-300 peer-focus:outline-none  peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black">
                             </div>
                         </label>
-                        <a (click)="DeleteItem(i)">
+                        <a (click)="DeleteItem(i,g,im)">
                         <svg class="hover:scale-105 hover:fill-d-red cursor-pointer my-auto" width="35px" height="35px" viewBox="0 0 24 24" fill="none">
                             <g>
                                 <path
@@ -527,7 +667,7 @@
                 </svg>
                 <input type="text" [(ngModel)]="searchQuery" placeholder="Search..." class="border border-gray-300 rounded-lg px-10 py-2 w-full" />
                 <button (click)="onSearch()" class="ml-2 bg-white border border-d-red text-d-red px-4 py-2 rounded-lg">Search</button>
-                <button (click)="is_searching = false;searchQuery=''" class="ml-2 bg-d-red text-white px-4 py-2 rounded-lg">Cancel</button>
+                <button (click)="is_searching = false;searchQuery=''; isExpanded=false" class="ml-2 bg-d-red text-white px-4 py-2 rounded-lg">Cancel</button>
             </div>
             <span *ngIf="search_list&&has_loaded">
             <div *ngIf="search_list.length > 0" class="mb-4 font-semibold">
@@ -548,9 +688,16 @@
                     <div class="flex flex-col float-start">
                         <span class="font-black">{{i?.name}}</span>
                         <p class="w-[30vw] line-clamp-2">{{i?.description}}</p>
+                        <p *ngIf="i?.discount_details?.discount_amount" class="text-sm">
+                            <span class="font-bold">Discount: UGX {{i?.discount_details?.discount_amount|number}}</span> | 
+                            <strong class="text-blue-600">{{i?.discount_details?.start_date|date:'shortDate'}} - {{i?.discount_details?.end_date|date:'shortDate'}}</strong> | Available on:
+                            <span *ngFor="let d of i?.discount_details?.recurring_days;let l=last" class="text-green-500">{{days_of_week[(d-1)]|uppercase}}{{!l?', ':''}}</span>
+                       
+                          </p>
                     </div>
                 <div class="md:ml-auto mr-8 my-auto">
                     <span class="font-semibold text-d-red">UGX {{i?.primary_price|number}}</span>
+                   
                 </div>
                 <div class="flex flex-row space-x-3 justify-between">
                    
@@ -595,7 +742,7 @@
         <!-- Modal header -->
         <div class="flex items-start justify-between p-4 border-b rounded-t">
             <h3 class="text-xl font-semibold text-gray-900 ">
-                {{CategoryGroupForm.get('id')?.value?'Edit':'New'}} Group Name
+                {{CategoryGroupForm.get('id')?.value?'Edit':'New'}} Group
             </h3>
             <button type="button" (click)="closeModal()"
                 class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center"
@@ -613,7 +760,7 @@
                 <div>
                     <label for="name" class="block mb-1 text-sm font-medium text-gray-900">Name <span
                             class="text-d-red">*</span></label>
-                    <input type="text" formControlName="name" id="name"
+                    <input type="text" formControlName="name" id="name" maxlength="50"
                         class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
                         placeholder="Enter the section name">
                     <div *ngIf="is_submitted && CategoryGroupForm.get('name')?.errors" class="text-d-red text-xs">
@@ -641,7 +788,7 @@
                 <!-- Modal header -->
                 <div class="flex items-start justify-between p-4 border-b rounded-t">
                     <h3 class="text-xl font-semibold text-gray-900 ">
-                        {{CategoryForm.get('id')?.value?'Edit':'New'}} Menu Section
+                        {{CategoryForm.get('id')?.value?'Edit':'New'}} Section
                     </h3>
                    <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
                     <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
@@ -655,14 +802,15 @@
                     <div class="space-y-2 md:space-y-4">
                         <div>
                             <label for="name" class="block mb-1 text-sm font-medium text-gray-900">Name <span class="text-d-red">*</span></label>
-                            <input type="text" formControlName="name" id="name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the menu section name">
+                            <input type="text" formControlName="name" id="name" maxlength="50"
+                            class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the menu section name">
                             <div *ngIf="is_submitted && CategoryForm.get('name')?.errors" class="text-d-red text-xs">
                                 <div *ngIf="CategoryForm.get('name')?.errors?.['required']">Name is required</div>
                             </div>
                         </div>
                         <div>
                             <label for="description" class="block mb-1 text-sm font-medium text-gray-900">Description</label>
-                            <textarea type="text" formControlName="description" id="description" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the description of the menu section"></textarea>
+                            <textarea type="text" formControlName="description" maxlength="500" id="description" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the description of the menu section"></textarea>
                             
                         </div>
                         <!-- <div>
@@ -818,11 +966,11 @@
                 </div>
             </form>
             <form *ngIf="ItemForm" [formGroup]="ItemForm" (ngSubmit)="ItemForm.valid?SaveMenuItem():is_submitted=true" class="relative bg-white rounded-lg shadow">
-               
+
                 <!-- Modal header -->
                 <div class="flex items-start justify-between p-2 rounded-t">
                     <h3 class="text-xl font-semibold text-gray-900 ">
-                        {{ItemForm.get('id')?.value?'Edit':'New'}} Menu Item
+                        {{ItemForm.get('id')?.value?'Edit':'New'}} Item
                     </h3>
                    <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
                     <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
@@ -831,8 +979,16 @@
                     <span class="sr-only">Close modal</span>
                 </button>
                 </div>
+                            <!-- loader.component.html -->
+<div *ngIf="loading" class="flex flex-col justify-center items-center h-[75vh]">
+    <svg class="animate-spin h-16 w-16 text-d-red" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-2a8 8 0 0 0-8-8V2z"></path>
+    </svg>
+    <span class="text-d-red text-lg font-semibold ml-3">Saving...</span>
+  </div>   
                 <!-- Modal body -->
-                <div class="p-2">
+                <div *ngIf="!loading" class="p-2">
                     <ul class="grid grid-flow-col text-center text-gray-500">
                         <li (click)="active_tab=t" *ngFor="let t of tabs_list"> <a [ngClass]="{'bg-gray-100 rounded-tl-lg rounded-tr-lg border-l border-t border-r border-gray-300 font-bold text-black':t==active_tab}" class="flex justify-center py-2 capitalize cursor-pointer">{{t}}</a> </li>
                        <!--  <li> <a href="#page3" class="flex justify-center py-4">Options</a> </li>
@@ -896,14 +1052,14 @@
                             </div>
                         <div>
                             <label for="name" class="block mb-1 text-sm font-medium text-gray-900">Name <span class="text-d-red">*</span></label>
-                            <input type="text" formControlName="name" id="name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the menu item">
+                            <input type="text" maxlength="70" formControlName="name" id="name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the menu item">
                             <div *ngIf="is_submitted && ItemForm.get('name')?.errors" class="text-d-red text-xs">
                                 <div *ngIf="ItemForm.get('name')?.errors?.['required']">Name is required</div>
                             </div>
                         </div>
                         <div>
                             <label for="description" class="block mb-1 text-sm font-medium text-gray-900">Description</label>
-                            <textarea type="text" formControlName="description" id="description" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the description of the menu itm"></textarea>
+                            <textarea type="text" maxlength="500" formControlName="description" id="description" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the description of the menu itm"></textarea>
                             
                         </div>
                         <div>
@@ -977,7 +1133,10 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                             <input #primaryprice (click)=" primaryprice.select();" type="text" currencyMask [options]="{prefix: '', align:'left',precision:0, thousands: ',', decimal: '.',min:0}" formControlName="primary_price" min="0" id="primary_price" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the primary price of the menu item">
                             <div *ngIf="is_submitted && ItemForm.get('primary_price')?.errors" class="text-d-red text-xs">
                                 <div *ngIf="ItemForm.get('primary_price')?.errors?.['min']">Price is required</div>
-                            </div>
+                               
+                            </div> <div *ngIf="ItemForm.errors?.['discountInvalid']" class="text-d-red text-xs">
+                                    Discounted price cannot be more than the primary price.
+                                </div>
                         </div>
                         
                         <div>
@@ -1005,12 +1164,12 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                     </svg>
                                 </div>
                             </div>
-                                                   
-                            <div *ngIf="(ItemForm.get('options')?.getRawValue()?.min_selections>=0)&& ItemForm.get('has_options')?.value" formGroupName="options">
+                                        
+                            <div *ngIf="ItemForm.get('has_options')?.value" formGroupName="options">
                                 <div class="flex flex-wrap -mx-2 space-y-4 md:space-y-0">
                                     <div class="w-full px-2 md:w-1/2">
                                       <label class="block mb-1" for="formGridCode_name">Minimum Selection</label>
-                                      <input formControlName="min_selections" min="1" step="1"  class="w-full h-10 px-3 text-base placeholder-gray-600 border rounded-lg focus:shadow-outline" type="text" id="formGridCode_name"/>
+                                      <input formControlName="min_selections" min="1" step="1"  class="w-full h-10 px-3 text-base placeholder-gray-600 border rounded-lg focus:shadow-outline" type="number" (keydown)="preventInvalidInput($event)" id="formGridCode_name"/>
                                     
       <div *ngIf="ItemForm.get('options.min_selections')?.touched && ItemForm.get('options.min_selections')?.errors"
       class="text-red-500 text-xs mt-1">
@@ -1021,7 +1180,7 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                     </div>
                                     <div class="w-full px-2 md:w-1/2">
                                       <label class="block mb-1" for="formGridCode_last">Maximum Selection</label>
-                                      <input formControlName="max_selections" class="w-full h-10 px-3 text-base placeholder-gray-600 border rounded-lg focus:shadow-outline" type="text" id="formGridCode_last"/>
+                                      <input (keydown)="preventInvalidInput($event)" formControlName="max_selections" class="w-full h-10 px-3 text-base placeholder-gray-600 border rounded-lg focus:shadow-outline" type="number" id="formGridCode_last"/>
                                       <div *ngIf="ItemForm.get('options.max_selections')?.touched && ItemForm.get('options.max_selections')?.errors"
         class="text-red-500 text-xs mt-1">
         <span *ngIf="ItemForm.get('options.max_selections')?.hasError('required')">Maximum is required</span>
@@ -1080,6 +1239,7 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                                 </svg>
                                             </div>
                                         </div>
+        
                                         <div *ngIf="go.get('selectable')?.value">
                                             <div>
                                                 <div class="flex flex-row">
@@ -1147,6 +1307,21 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                             </div>
                                            
                                         </div>
+                                        <div *ngIf="go.get('selectable')?.value">
+                                          
+                                                <div class="flex gap-2">
+                                                    <label for="cost" class="block text-sm font-medium text-gray-900 w-1/3 my-auto">Max. Choices <span class="text-d-red">*</span></label>
+                                                    <div class="flex flex-col w-full">
+                                                    <input type="number" formControlName="max_choices" id="max_choices" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block p-2.5 " placeholder="Enter the cost of the option">
+                                                    <div *ngIf="is_submitted && go.get('max_choices')?.errors" class="text-d-red text-xs flex-col">
+                                                        <div *ngIf="go.get('max_choices')?.errors?.['required']">Max. Choices is required</div>
+                                                        <div *ngIf="go.get('max_choices')?.errors?.['min']">Max. Choices must be at least 1</div>
+                                                        <div *ngIf="go.get('max_choices')?.errors?.['pattern']">Numbers only</div>
+                                                    </div>
+                                                    </div>
+                                                </div>
+                                            
+                                        </div>
                                        </td> 
                                        <td class="w-[10%]">
                                         <button class="mx-auto" *ngIf="Gos.length>1" (click)="RemoveOption(i)">
@@ -1183,8 +1358,8 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                     <div class="space-y-2 md:space-y-4">
                                         <div>
                                             <div class="flex gap-2 mt-6">
-                                                <input type="checkbox" id="available" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
-                                                <label class="text-sm font-normal" htmlFor="available">Has Extras</label>
+                                                <input formControlName="is_extra" type="checkbox" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
+                                                <label class="text-sm font-normal" htmlFor="available">Can be an Extra</label>
                                                 <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                                                     <polyline points="20 6 9 17 4 12"></polyline>
                                                 </svg>
@@ -1192,16 +1367,16 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                         </div>
                                         <div>
                                             <div class="flex gap-2 mt-6">
-                                                <input formControlName="is_extra" type="checkbox" id="available" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
-                                                <label class="text-sm font-normal" htmlFor="available">Can be an Extra</label>
+                                                <input type="checkbox" formControlName="has_extras" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
+                                                <label class="text-sm font-normal" htmlFor="available">Has Extras</label>
                                                 <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                                                     <polyline points="20 6 9 17 4 12"></polyline>
                                                 </svg>
                                             </div>
                                         </div>
-                                       <div>
+                                       <div *ngIf="ItemForm.get('has_extras')?.value">
                                         <div class="flex flex-row">
-                                              <app-auto-complete class="w-full mr-1" (selected)="LoadExtra($event)" [placeholder]="'Search for Extras in the menu'" [countries]="menu_list" [column]="'name'">
+                                              <app-auto-complete class="w-full mr-1" (selected)="LoadExtra($event)" [placeholder]="'Search for Extras in the menu'" [countries]="extra_list" [column]="'name'">
                                           <!--   <span btn-ac>
                                                 <button type="button" class="text-d-red border border-d-red focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm w-40 px-1 py-1 text-center mt-2 float-end">Add</button>
                                             </span> -->
@@ -1210,24 +1385,71 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                       
                                         </div>
                                        </div>
-                                       <div>
+                                       <div *ngIf="ItemForm.get('has_extras')?.value">
                                         <h2 class="font-semibold mb-3">Extras</h2>
                                       
                                         <div>
-                                            <div class="w-full border border-gray-300 rounded-md bg-white">
-                                                <div *ngFor="let ex of temp_extra_list" class="px-5 py-3 border-b border-gray-200 text-stone-600 cursor-pointer hover:bg-slate-100 transition-colors">
+                                            <div class="w-full border border-gray-300 rounded-md bg-white p-4">
+                                                <div class="font-semibold text-gray-700 mb-2 text-sm">Select Extras</div>
                                               
-                                             {{ex?.name}}
+                                                <div *ngIf="ItemForm.get('has_extras')?.value">
+                                                  <div *ngIf="temp_extra_list.length === 0&&ItemForm.get('extras')?.value.length==0" class="text-red-500 font-medium text-xs">
+                                                    ⚠ No extras added. Please select at least one.
+                                                  </div>
+                                              
+                                                  <div *ngFor="let ex of temp_extra_list; let i = index" class="flex items-center justify-between px-5 py-3 border border-gray-200 rounded-md text-gray-700 cursor-pointer hover:bg-blue-100 transition-colors">
+                                                    <span>{{ ex?.name }}</span>
+                                                    <!-- <button (click)="removeExtra(i)" class="bg-red-500 text-white text-xs px-3 py-1 rounded-md hover:bg-red-600 transition">
+                                                      ❌ Remove
+                                                    </button> -->
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="text-gray-500 font-bold">UGX {{ ex?.primary_price|number }}</span>
+                                                
+                                                    <button 
+                                                    (click)="removeExtra(i)" 
+                                type="button" 
+                                class="text-gray-500 hover:text-red-500">
+                                <!-- Delete Icon 
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>-->
+                                <svg  width="24px" height="24px" viewBox="0 0 24 24" fill="none" class="w-5 h-5">
+                                    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                                    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                                    <g id="SVGRepo_iconCarrier"> <g id="Interface / Trash_Empty"> 
+                                        <path id="Vector" d="M6 6V17.8C6 18.9201 6 19.4798 6.21799 19.9076C6.40973 20.2839 6.71547 20.5905 7.0918 20.7822C7.5192 21 8.07899 21 9.19691 21H14.8031C15.921 21 16.48 21 16.9074 20.7822C17.2837 20.5905 17.5905 20.2839 17.7822 19.9076C18 19.4802 18 18.921 18 17.8031V6M6 6H8M6 6H4M8 6H16M8 6C8 5.06812 8 4.60241 8.15224 4.23486C8.35523 3.74481 8.74432 3.35523 9.23438 3.15224C9.60192 3 10.0681 3 11 3H13C13.9319 3 14.3978 3 14.7654 3.15224C15.2554 3.35523 15.6447 3.74481 15.8477 4.23486C15.9999 4.6024 16 5.06812 16 6M16 6H18M18 6H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> 
+                                    </g> 
+                                </g>
+                            </svg>
+                              </button>
+                              </div>
+                                                  </div>
+                                              
                                                 </div>
                                               </div>
                                         </div>
                                        </div>
                                         </div>
                                         </div>
+                                        
                                         </div>
                                         <div *ngIf="active_tab==tabs_list[3]" [ngClass]="{'border-gray-300 ':active_tab==tabs_list[3]}" #discounts class="bg-white shadow border border-gray-100 px-8 text-gray-700 rounded-lg rounded-tr-none"> 
+                                            
                                             <div class="py-6 space-y-6">
-                                                <div formGroupName="discount_details" class="space-y-2 md:space-y-4">
+                                                <div class="space-y-2 md:space-y-4">
+                                                    <div>
+                                                        <div class="flex gap-2 mt-6">
+                                                            <input [checked]="ItemForm.get('has_discount')?.value" (change)="toggleDiscountFields($event)"     type="checkbox" id="has_discount" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-black checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
+                                                            <label class="text-sm font-normal" htmlFor="has_discount">Has Discount</label>
+                                                            <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                <div 
+                                                *ngIf="ItemForm.get('discount_details')?.value && ObjectRef.keys(ItemForm.get('discount_details')?.value).length > 0"
+ 
+                                                formGroupName="discount_details" class="space-y-2 md:space-y-4">
                                                     <div>
                                                         <label for="discount_amount" class="block mb-1 text-sm font-medium text-gray-900">Discounted Price</label>
                                                         <input #discount (click)="discount.select()" type="text" currencyMask
@@ -1235,13 +1457,18 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                                             formControlName="discount_amount" id="discounted_price"
                                                             class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
                                                             placeholder="Enter the discounted price of the menu item">
-                                            
+                                                            <div *ngIf="ItemForm?.errors?.['discountInvalid']" class="text-d-red text-xs">
+                                                                Discounted price cannot be more than the primary price.
+                                                            </div>
+                                                            
+                                                            
                                                     </div>
                                                     <div>
                                                         <div class="flex flex-row space-x-2">
                                                             <div class="w-1/2">
                                                                 <label for="start_date" class="block mb-1 text-sm font-medium text-gray-900">Start Date</label>
-                                                                <input formControlName="start_date" type="date"
+                                                                <input formControlName="start_date" type="date" [min]="today"
+
                                                                     class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
                                                                     placeholder="Enter the discounted price of the menu item">
                                             
@@ -1254,6 +1481,11 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                             
                                                             </div>
                                                         </div>
+                                                        <div *ngIf="ItemForm?.errors?.['dateInvalid']" class="text-d-red text-xs">
+                                                            End date cannot be before the start date.
+                                                        </div>
+                                                        
+                                                        
                                                     </div>
                                             
                                                     <div>
@@ -1265,7 +1497,7 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                                                 class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center shadow-md">
                                                                 {{d}}<br>
                                                                 <input (change)="SetRecurDay(i+1,$event.target)" type="checkbox"
-                                                                    [checked]="this.ItemForm.get('discount_details')?.get('recurring_days')?.value?.includes(i+1)">
+                                                                    [checked]="this.ItemForm?.get('discount_details')?.get('recurring_days')?.value?.includes(i+1)">
                                                             </div>
                                                         <!-- 
                                                             <span class="px-3 border rounded-sm w-14 h-12 flex flex-col items-center justify-center border-green-500 text-green-500 shadow-md">
@@ -1306,9 +1538,10 @@ class="inline-flex items-center gap-x-0.5 rounded-md bg-black px-2 py-1 text-xs 
                                                     </div>
                                                     </div>
                                                     </div>
+                                                    </div>
                 </div>
                 <!-- Modal footer -->
-                <div class="flex items-center p-6 space-x-3 rtl:space-x-reverse border-t border-gray-200 rounded-b">
+                <div *ngIf="!loading" class="flex items-center p-6 space-x-3 rtl:space-x-reverse border-t border-gray-200 rounded-b">
                     <button type="submit" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm w-40 px-5 py-2.5 text-center ml-auto">Save</button>
                 </div>
             </form>
