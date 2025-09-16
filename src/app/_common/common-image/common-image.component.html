@@ -8,7 +8,7 @@
   height="{{height}}"
   [alt]="alt"
   [attr.loading]="'lazy'">
-<div
+  <div
   *ngIf="container"
   [class]="imgclass"
   class="img-container"
@@ -19,4 +19,7 @@
     class="img"
     [src]="(url + src)"
     [alt]="alt"
-    [attr.loading]="'lazy'"><!-- loaded ? (url + src) : 'placeholder-image-path.jpg'" -->
+    [attr.loading]="'lazy'">
+</div>
+    
+    <!-- loaded ? (url + src) : 'placeholder-image-path.jpg'" -->
