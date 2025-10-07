@@ -38,6 +38,12 @@ export class LoginComponent {
   fieldTextType: boolean=false;
 
   isSubmittingOtp=false;
+  attempt: number=0;
+
+showRestaurantSelector = false;
+showLoginForm = true; // default state
+availableRestaurants: any[] = [];
+selectedRestaurant: any = null;
 
   constructor(
       private formBuilder: FormBuilder,
@@ -63,6 +69,7 @@ export class LoginComponent {
   get f() { return this.loginForm.controls; }
 
   onSubmit() {
+    this.attempt=0;
     this.authenticationService.resetStorage();
       this.submitted = true;
 this.loading=true;
@@ -90,17 +97,19 @@ this.require_otp=true;
 this.startCountdown();
 
                 }else{
-                if(this.log_in.profile.restaurant_roles.length==1){
+  
+
+                /* if(this.log_in.profile.restaurant_roles.length==1){
 this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);
                    // get return url from query parameters or default to home page
                   const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app'/* +log_in.profile.restaurant_roles[0].restaurant_id */;
-                  this.router.navigateByUrl(returnUrl);  
+                 /* this.router.navigateByUrl(returnUrl);  
                 }else if(this.log_in.profile.roles.includes('dinify_admin')){
 
                     // get return url from query parameters or default to home page
                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/mgt-app';
                    this.router.navigateByUrl(returnUrl);  
-                 }
+                 } */
                  this.isSubmittingOtp=false;
                 }
 
@@ -116,7 +125,12 @@ this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaura
               }
           });
   }
-
+get ProfileLetter() {
+    return this.showRestaurantSelector?((this.log_in.profile.first_name+' '+this.log_in.profile.last_name).split(" ").map((n:any)=>n[0]).join(".")):'';
+}
+get user(){
+  return this.showRestaurantSelector?((this.log_in.profile.first_name+' '+this.log_in.profile.last_name)):'';
+}
   SubmitOTP(){
     this.isSubmittingOtp=(this.data)?true:false;
     this.authenticationService.setOtp(this.authenticationService.userValue?.profile.id,this.data).pipe(first()).subscribe({
@@ -125,27 +139,48 @@ this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaura
 let log_otp=val.data as unknown as OTPResponse;
 if(log_otp.valid){
 let u = this.authenticationService.UpdateUser(log_otp);
-if(u.profile.restaurant_roles.length==1){
-    this.authenticationService.setCurrentRestaurantRole(u.profile.restaurant_roles[0]);
-                       // get return url from query parameters or default to home page
-                      const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app'/* +log_in.profile.restaurant_roles[0].restaurant_id */;
-                      this.router.navigateByUrl(returnUrl);  
-                    }else if(u.profile.roles.includes('dinify_admin')){
-    
-                        // get return url from query parameters or default to home page
-                       const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/mgt-app';
-                       this.router.navigateByUrl(returnUrl);  
-                     }
+                console.log(this.log_in)
+                  if (this.log_in.profile.restaurant_roles.length === 1) {
+  // One restaurant → auto set and redirect
+  this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);
+  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app';
+  this.router.navigateByUrl(returnUrl);
+
+} else if (this.log_in.profile.roles.includes('dinify_admin')) {
+  // Admin → go to management
+  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/mgt-app';
+  this.router.navigateByUrl(returnUrl);
+
+} else if (this.log_in.profile.restaurant_roles.length > 1) {
+  // Multiple restaurants → switch popup
+  this.require_otp = false; // hide OTP popup
+  this.showLoginForm = false;            // 🔴 hide login
+  this.showRestaurantSelector = true;    // ✅ only show selector
+  this.availableRestaurants = this.log_in.profile.restaurant_roles;
+}
                      this.isSubmittingOtp=false;
                     
 }else{
+  if(this.attempt<3){
+    this.attempt++;
+    this.error='';
+    this.message.addMessage({message: 'The OTP provided is invalid. Please try again.', severity: 'error', summary: 'Error'});
+    this.data='';
+    this.isSubmittingOtp=false;
+  }else{
+    this.message.clear();
+    this.attempt=0;
+    this.error='';
+    this.message.addMessage({message: 'You have exceeded the maximum number of attempts. Please try again later.', severity: 'error', summary: 'Error'});
   this.isSubmittingOtp=false;
-    this.error='The OTP provided is invalid'
-    this.message.add(this.error)
+    //this.error='The OTP provided is invalid'
+    //this.message.add(this.error)
     this.authenticationService.logout();
     this.authenticationService.resetStorage();
     this.loginForm.reset();
     this.require_otp=false;
+    this.isSubmittingOtp=false;
+  }
     
 }
         },
@@ -182,4 +217,13 @@ if(u.profile.restaurant_roles.length==1){
       })
       // You can add your OTP resend logic here (e.g., API call)
     }
+    setRestaurant(restaurant: any) {
+  this.authenticationService.setCurrentRestaurantRole(restaurant);
+
+  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app';
+  this.router.navigateByUrl(returnUrl);
+
+  this.showRestaurantSelector = false; // close selector after selection
+}
+
 }

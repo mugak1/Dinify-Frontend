@@ -14,7 +14,7 @@
                             <path class="fill-d-red" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34" />
                         </svg>
                         <!--  <h3 class="mb-3 text-4xl font-extrabold text-dark-grey-900">Sign In</h3> -->
-                          <div *ngIf="!require_otp" class="relative bg-white px-6 pt-6 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lg rounded-2xl space-y-5">
+                          <div *ngIf="showLoginForm && !require_otp && !showRestaurantSelector" class="relative bg-white px-6 pt-6 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lg rounded-2xl space-y-5">
                             <div class="flex flex-col items-center justify-center text-center space-y-2">
                                 <div class="font-semibold text-3xl">
                                   <p>Sign In</p>
@@ -109,18 +109,7 @@
                               <div class="flex flex-col space-y-16">
                                 <div>
                                     <app-otp-input #inputPTO="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
-                                <!--   <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                                  </div>
-                                  <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                                  </div>
-                                  <div class="w-16 h-16">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                                  </div>
-                                  <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                                  </div> -->
+                              
                                 </div>
                     
                                 <div class="flex flex-col space-y-5">
@@ -144,6 +133,50 @@
                           </div>
                         </div>
                     </div>
+<div *ngIf="!showLoginForm && !require_otp && !showRestaurantSelector" class="flex items-center justify-center p-10">
+  <svg class="animate-spin h-10 w-10 text-d-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle class="opacity-25" cx="12" cy="12" r="10" 
+            stroke="currentColor" stroke-width="4"></circle>
+    <path class="opacity-75" fill="currentColor" 
+          d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+  </svg>
+</div>
+                    <!-- Restaurant Selector Section -->
+<!-- Restaurant Selector Popup -->
+<div *ngIf="showRestaurantSelector" 
+     style="width: 32rem;" 
+     class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lg rounded-2xl">
+<!-- <div class="relative inline-flex items-center justify-center w-10 h-10 mx-auto overflow-hidden bg-d-red rounded-full">
+        <span class="text-white font-bold uppercase">{{ProfileLetter}}</span>
+    </div> -->
+      
+  <div class="mx-auto flex w-full max-w-md flex-col space-y-8">
+    <div class="flex flex-col items-center justify-center text-center space-y-2">
+      <div class="font-semibold text-3xl">
+        <p>Welcome {{user}}</p>
+      </div>
+      <div class="flex flex-row text-sm font-medium text-gray-400">
+        <p>Please select the restaurant you would like to access.</p>
+      </div>
+    </div>
+
+    <div class="flex flex-col space-y-4 mt-4">
+      <div *ngFor="let r of availableRestaurants"
+           (click)="setRestaurant(r)"
+           class="cursor-pointer border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col items-start bg-white hover:bg-gray-50">
+        
+        <p class="font-semibold text-lg text-gray-800">
+          {{ r.restaurant }}
+        </p>
+        <p class="text-sm text-gray-500">
+          Role: <span *ngFor="let role of r.roles">{{ role |titlecase}}</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
                        <!-- <p class="text-sm leading-relaxed text-grey-900">Not registered yet? 
                          <a [routerLink]="['/register']" class="font-medium text-d-red">Create an Account</a></p> -->
                     </form>
