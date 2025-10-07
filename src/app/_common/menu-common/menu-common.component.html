@@ -51,7 +51,7 @@
                 <div (click)="viewItem(i)" class="p-2 flex-grow">
                   <div class="flex items-center">
                     <p class="font-semibold text-base">{{ i.name }}</p>
-                    <span *ngIf="i?.discount_details?.discount_amount" class="ml-2 bg-black text-white text-xs font-medium px-2 py-1 rounded-full">
+                    <span *ngIf="i?.running_discount" class="ml-2 bg-black text-white text-xs font-medium px-2 py-1 rounded-full">
                       -{{ calculateDiscount(i) }}%
                         <span class="text-xs text-gray-400 ml-2">Save UGX {{ priceSaved(i) | number }}</span>
                     </span>
@@ -60,7 +60,7 @@
                   <p class="text-sm line-clamp-2 mt-2">{{ i.description }}</p>
             
                   <div class="flex flex-col mt-2">
-                    <ng-container *ngIf="i?.discount_details?.discount_amount; else normalPrice">
+                    <ng-container *ngIf="i?.running_discount; else normalPrice">
                       <span class="text-red-600 font-bold text-lg">UGX {{ i?.discount_details?.discount_amount | number }}</span>
                       <div class="flex justify-between items-center">
                         <span class="line-through text-gray-400 text-sm">UGX {{ i.primary_price | number }}</span>
@@ -74,8 +74,15 @@
                 </div>
             
                 <div (click)="viewItem(i)" class="w-[150px] ml-auto mr-2">
+                     <div class="relative w-[100px] h-[100px]">
+  <!-- Ribbon -->
+  <div *ngIf="i?.is_special"
+       class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md z-10">
+    SPECIAL
+  </div>
                   <app-common-image [container]="true" [imgclass]="'rounded-lg ml-auto'" [src]="i.image" [width]="'100'" [height]="'100'">
                   </app-common-image>
+                  </div>
                 </div>
               </div>
             </div>
@@ -152,8 +159,15 @@
                  <div class="flex flex-col flex-grow overflow-y-auto">
                 <div class="flex flex-col flex-grow overflow-y-auto align-top" scrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionItemChange($event)">
                   <div class="relative mx-auto py-6 w-fit">
-                     <app-common-image [imgclass]="'rounded-lg'" [src]="selected_item.image" [width]="'300'" [height]="'300'"></app-common-image>   
-                     <ng-container *ngIf="selected_item?.discount_details?.discount_amount">
+   <div class="relative w-[300px] h-[300px]">
+  <!-- Ribbon -->
+  <div *ngIf="selected_item?.is_special"
+       class="absolute -top-2 left-0 bg-red-500 opacity-80 text-white text-xs font-bold px-2 py-1 rounded-md z-10">
+    SPECIAL
+  </div>
+                     <app-common-image [imgclass]="'rounded-lg'" [src]="selected_item.image" [width]="'300'" [height]="'300'"></app-common-image> 
+</div>
+                     <ng-container *ngIf="selected_item?.running_discount">
                       <div class="absolute top-2 right-2">
                         <div class="bg-black/90 text-white text-xs md:text-sm font-extrabold px-3 py-1 rounded-full backdrop-blur-sm shadow-2xl animate-pulse text-right">
                           -{{ calculateDiscount(selected_item) }}%
@@ -176,10 +190,10 @@
                             <p class="text-2xl font-black pt-6 px-6">{{selected_item.name}} </p>
                             <div class="flex items-center gap-2 mt-2 px-6">
                               <span class="text-red-600 font-extrabold text-2xl">
-                                UGX {{ selected_item.discount_details?.discount_amount || selected_item.primary_price | number }}
+                                UGX {{ selected_item.running_discount ? selected_item.discount_details?.discount_amount : selected_item.primary_price | number }}
                               </span>
                             </div>
-                          <p class="px-6" *ngIf="selected_item?.discount_details?.discount_amount">
+                          <p class="px-6" *ngIf="selected_item?.running_discount">
                               <ng-container>
                                 <span class="line-through text-gray-400 text-sm">
                                   UGX {{ selected_item.primary_price | number }}
@@ -191,9 +205,135 @@
                               </ng-container></p>
                              <p class="px-6">{{selected_item.description}}</p>
                              <!-- <p class="font-semibold mt-2 text-xl px-6">UGX {{selected_item.primary_price|number}}</p> -->
-        
+                             <div class="px-6 pt-6" *ngIf="selected_item?.has_options">
+                           
+                              <form>
+                                <div *ngFor="let o of selected_item?.options?.options; let i = index" class="relative flex flex-col mb-6">
+                                  
+                                  <!-- Option Name -->
+                                  <label class="font-semibold mb-2">
+                                    {{ o?.name }}
+                                    <span *ngIf="o.required" class="text-sm font-normal text-gray-500"> (Required)</span>
+                                  </label>
+                            
+                                  <!-- Validation Subtle Error -->
+                                  <div *ngIf="o.required && !o.isSelected" class="text-gray-400 text-sm mb-2">
+                                    Please select an option.
+                                  </div>
+                            
+                                  <!-- Selectable Buttons for Radio-like Options -->
+                                  <div *ngIf="o?.selectable" class="flex flex-col gap-3">
+                                    <button
+                                      *ngFor="let choice of o.choices; let oi = index"
+                                      type="button"
+                                      [ngClass]="{
+                                        'border-gray-400 text-gray-700 hover:bg-gray-100': !isSelected(o, choice),
+                                        'border-4 border-black text-black font-bold bg-white': isSelected(o, choice)
+                                      }"
+                                      class="relative inline-flex items-center justify-center p-3 font-medium rounded-full border-2 shadow-md w-full transition-all"
+                                      (click)="SetChoice($event, i, oi, o, choice)"
+                                    >
+                                      <span>{{ choice }}</span>
+                                      <!-- SVG Tick Icon -->
+                                      <svg
+                                        *ngIf="isSelected(o, choice)"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="absolute right-3 h-6 w-6"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="black"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                      >
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path d="M9 12l2 2 4-4"></path>
+                                      </svg>
+                                    </button>
+                                  </div>
+                            
+                                  <!-- Checkboxes for Non-selectable Options -->
+                                  <div *ngIf="!o?.selectable" class="flex flex-col gap-3 mt-2">
+                                    <div class="relative inline-flex items-center justify-center">
+                                      <input
+                                        id="checkbox-{{i}}"
+                                        type="checkbox"
+                                        (change)="SetChoice($event, i, null, o)"
+                                        class="hidden peer"
+                                      />
+                                      <label
+                                        for="checkbox-{{i}}"
+                                        class="peer-checked:border-4 peer-checked:border-black peer-checked:font-bold peer-checked:bg-white w-full px-4 py-3 flex items-center justify-center rounded-full border-2 border-gray-400 bg-gray-50 cursor-pointer shadow-md transition-all"
+                                      >
+                                        <span>{{ o?.name }}</span>
+                                        <!-- SVG Tick Icon -->
+                                        <svg
+                                          *ngIf="o.isSelected"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          class="absolute right-3 h-6 w-6"
+                                          viewBox="0 0 24 24"
+                                          fill="none"
+                                          stroke="black"
+                                          stroke-width="2"
+                                          stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                        >
+                                          <circle cx="12" cy="12" r="10"></circle>
+                                          <path d="M9 12l2 2 4-4"></path>
+                                        </svg>
+                                      </label>
+                                    </div>
+                                  </div>
+                                </div>
+                            
+                                <!-- Submit Button 
+                                <button
+                                  type="submit"
+                                  [disabled]="!isFormValid()"
+                                  class="mt-6 px-6 py-2 bg-gray-800 text-white rounded-md uppercase disabled:opacity-50 transition-all"
+                                >
+                                  Submit
+                                </button>-->
+                              </form>
+                              
+               </div>
+               <div class="px-6 py-6 flex flex-col gap-3 border-t" *ngIf="selected_item?.extras?.length>0">
+                    <button *ngFor="let o of selected_item?.extras;let i = index"                    
+                    type="button"
+                    [ngClass]="{
+                      'border-gray-400 text-gray-700 hover:bg-gray-100': !isExtraSelected(o),
+                      'border-4 border-black text-black font-bold bg-white': isExtraSelected(o)
+                    }"
+                    class="relative inline-flex items-center justify-center p-3 font-medium rounded-full border-2 shadow-md w-full transition-all"
+                    (click)="SetExtra($event, i, o)">
+                    <div class="flex items-center justify-between w-full">
+                      <div class="text-sm text-brand-black">+ {{o?.name}}</div>
+                      <span class="float-right text-xs">UGX {{o.primary_price|number}}</span>
+                    </div>
+                    <!-- <span class="float-left text-xs">{{ o.name }}</span>
+                    <span class="float-right text-xs">UGX {{o.primary_price|number}}</span> -->
+                    <!-- SVG Tick Icon -->
+                    <svg
+                      *ngIf="isExtraSelected(o)"
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="absolute right-3 h-6 w-6"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="black"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                    </button>
+
+                   
+                    </div>    
+
                                        
-                     <div class="px-6 pt-6" *ngIf="selected_item.has_options">                   
+                     <div class="px-6 pt-6" *ngIf="selected_item.has_options&&false">                   
                         <div *ngFor="let o of selected_item?.options?.options;let i = index" class="relative flex items-start mb-2">
                             <div *ngIf="o?.selectable" class="w-full">
                                 <p class="font-semibold mb-2">{{o?.name}}</p>

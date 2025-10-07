@@ -31,13 +31,14 @@
     <select id="tabs" (change)="ChangeOrder($event.target)" class="bg-gray-50 border rounded border-gray-300 text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
         <option value="o-n">Newest to Oldest</option>
         <option value="n-o">Oldest to Newest</option>
-        <option>Specials</option>
+        <option value="specials">Specials</option>
         <option value="t-a">Ascending Table Nos.</option>
         <option value="t-d">Descending Table Nos.</option>
     </select>
   </div>
 </div>
 <div class="h-[calc(100dvh-16rem)] overflow-auto">
+  <p *ngIf="list?.length === 0 && (list_cache??[]).length>0" class="p-3">No orders found.</p>
     <div class="flex flex-col capitalize" *ngFor="let o of list">
 
       <button (click)="order=o" type="button" class="flex flex-col w-[100vw-4px] p-1 font-normal text-sm border m-1 bg-gray-100" [ngClass]="{'border-2 ring-2 ring-black':o.id==order?.id, 'border-yellow-300':(o?.order_status=='pending'||o?.order_status=='initiated')&&o.id!=order?.id,'border-orange-500':o?.order_status=='served'&&o.id!=order?.id,'border-blue-500':o?.order_status=='preparing'&&o.id!=order?.id}">
@@ -46,8 +47,8 @@
           <tr>
             <td class="w-[10%] pl-3">#{{o.order_number}}</td>
             <td class="w-[23.5%] pl-2"><span style="line-height: 0.5;" class="flex flex-col py-2"> <span class="text-xs mr-auto">{{o.table_details.table_room_name}}</span>Table - {{o.table_details.table_number}} </span></td>
-            <td class="w-[17%] !capitalize">{{(o.count_items_served>=1 && o.order_status=='preparing')?o.count_items_served+ '/'+o.items.length+' Served':o.items.length+ '/'+o.items.length + ' '+o.order_status}}</td>
-            <td class="w-[15.5%]">{{isToday(o?.time_created)?'Today':(o.time_created|date:'shortDate')}} {{o.time_created|date:'shortTime'}}</td>
+            <td class="w-[17%] !capitalize">{{(o.count_items_served>=1 && o.order_status=='preparing')?o.count_items_served+ '/'+o.count_items_considered+' Served':o.count_items_served+ '/'+o.count_items_considered + ' '+o.order_status}}</td>
+            <td class="w-[15.5%]">{{isToday(o?.time_created)?'Today':(o.time_created | date:'dd/MM/yyyy')}} {{o.time_created|date:'shortTime'}}</td>
             <td class="w-[15%]">
               <span class="flex flex-row float-start pl-8">
                 <span  class="my-auto">
@@ -55,7 +56,7 @@
                   
                     <g>
                       <g>                       
-                        <circle [ngClass]="{'fill-yellow-300':(o?.order_status=='pending'||o?.order_status=='initiated'),'fill-orange-500':o?.order_status=='served','fill-blue-500':o?.order_status=='preparing'}" cx="15.979" cy="15.977" r="10"></circle>
+                        <circle [ngClass]="{'fill-yellow-300':(o?.order_status=='pending'||o?.order_status=='initiated'),'fill-orange-500':o?.order_status=='served','fill-blue-500':o?.order_status=='preparing','fill-gray-400':o?.order_status=='cancelled'}" cx="15.979" cy="15.977" r="10"></circle>
                       </g>
                     </g>
                   </svg>
@@ -98,12 +99,14 @@
   </button> -->
     {{m.item.name}}</td>
   <td class="w-[17%]"><span class="ml-4">{{m.quantity}}</span></td>
-  <td class="w-[13%] !capitalize">{{m.status}}</td>
+  <td class="w-[13%] !lowercase"><!-- {{m.status}} -->
+    {{ this.active_tab==tabs[0]? getTimeAgo(m.time_last_updated):(m.time_last_updated|date:'shortTime')}}
+  </td>
   <td class="w-[15%]" [ngClass]="{'!py-2 w-[18%]':(o.order_status=='initiated')}">
     <span *ngIf="(o.order_status=='initiated')" class="py-3 !w-full flex">
       <span class="sr-only">Served</span>
     </span>
-    <button *ngIf="(o.order_status=='preparing'||o.order_status=='served')" type="button" [disabled]="m.status=='served'" (click)="changeStatus('served',m.id)"  class="p-2 my-1 float-end text-white bg-blue-500 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium text-sm w-40 text-center disabled:bg-white disabled:border disabled:border-gray-300 disabled:text-gray-300" >Served</button>
+    <button *ngIf="(o.order_status=='preparing'||o.order_status=='served')" type="button" [disabled]="m.status=='served'" (click)="changeStatus('served',m.id,m.item.name)"  class="p-2 my-1 float-end text-white bg-blue-500 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium text-sm w-40 text-center disabled:bg-white disabled:border disabled:border-gray-300 disabled:text-gray-300" >Served</button>
   </td>
 </tr>
         </table>
@@ -149,20 +152,93 @@
         </div>
       </div>
          <div class="flex flex-col pt-6">
-          <table class="w-full text-sm receipt">
-            <thead class="border-t border-b border-gray-600">
-              <tr>
-                <th>#</th>
-                <th>ITEM</th>
-                <th class="text-center">QTY</th>
-                <th class="text-right">PRICE</th>
-                <th class="text-right">TOTAL</th>
+          <div class="text-sm text-gray-800 space-y-4">
+  <div *ngFor="let i of order.items">
+    <!-- Quantity and Item Name -->
+    <div>
+      <strong>{{ i.quantity }}X {{ i.item.name }}</strong>
+      <span class="float-right">UGX {{ i.unit_price | number }}</span>
+    </div>
+
+    <!-- Customizations -->
+    <div *ngIf="i.options?.length" class="ml-4 text-xs text-gray-600 mt-1 space-y-1">
+      <div *ngFor="let opt of i.options">
+        <span>{{ opt.name }}</span>
+        <span *ngIf="opt.choices">: {{ opt.choices }}</span>
+        <span *ngIf="opt.cost > 0" class="float-right text-green-600">+UGX {{ opt.cost | number }}</span>
+      </div>
+    </div>
+
+    <!-- Extras -->
+    <div *ngIf="i.extras?.length" class="ml-4 text-xs text-gray-600 mt-1 space-y-1">
+      <div *ngFor="let extra of i.extras">
+        <span>{{ extra.name }}</span>
+        <span *ngIf="extra.cost > 0" class="float-right text-green-600">+UGX {{ extra.cost | number }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Total -->
+  <div class="border-t border-gray-400 pt-2 mt-4 text-right font-bold">
+    Total: UGX {{ order.actual_cost | number }}
+  </div>
+</div>
+          <table *ngIf="false" class="w-full text-sm receipt">
+            
+              <tr class="border-t border-b border-gray-600">
+                <td>#</td>
+                <td>ITEM</td>
+                <td class="text-center">QTY</td>
+                <td class="text-right">PRICE</td>
+                <td class="text-right">TOTAL</td>
               </tr>
-            </thead>
+            
             <tbody>
-              <tr [ngClass]="{'line-through':i.deleted}" *ngFor="let i of order.items;let ip=index;">
+              <tr [ngClass]="{'line-through':i.deleted}" *ngFor="let i of order?.items;let ip=index;">
 <td>{{ip+1}}</td>
-<td>{{i.item.name}}</td>
+<td>{{i.item.name}}
+  <!-- Options (if any) -->
+  <div class="text-xs text-gray-500 mt-1 ml-2" *ngIf="i.options?.length">
+    <strong>Options:</strong>
+    <ul class="ml-4 list-disc">
+      <li *ngFor="let opt of i.options">
+        {{ opt.name }}
+        <span *ngIf="opt.choices">: {{ opt.choices }}</span>
+        <span *ngIf="opt.cost > 0" class="text-green-600"> (+UGX {{ opt.cost | number }})</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Extras (if any) -->
+  <div class="text-xs text-gray-500 mt-1 ml-2" *ngIf="i.extras?.length">
+    <strong>Extras:</strong>
+    <ul class="ml-4 list-disc">
+      <li *ngFor="let extra of i.extras">
+        {{ extra.name }}
+        <span *ngIf="extra.cost > 0" class="text-green-600"> (+UGX {{ extra.cost | number }})</span>
+      </li>
+    </ul>
+  </div>
+
+   <!--  <div *ngIf="ip==0" class="text-xs text-gray-500 mt-1 ml-2">
+          <strong>Option:</strong> Option 2 (Grilled)<br>
+          <strong>Extras:</strong>
+          <ul class="ml-4 list-disc">
+            <li>Extra 1: Cheese (+UGX 2,000)</li>
+            <li>Extra 2: Bacon (+UGX 3,000)</li>
+          </ul>
+        </div>
+<div *ngIf="ip==1" class="text-xs text-gray-500 mt-1 ml-2">
+          <strong>Option:</strong> Option 1 (Whole Wheat)<br>
+          <strong>Extras:</strong>
+          <ul class="ml-4 list-disc">
+            <li>Extra 1: Avocado (+UGX 1,500)</li>
+          </ul>
+        </div> -->
+
+
+
+</td>
 <td class="text-center">{{i.quantity}}</td>
 <td class="text-right">{{i.unit_price|number}}</td>
 <td class="text-right">{{i.actual_cost|number}}</td>
@@ -174,7 +250,7 @@
 TOTAL
                 </td>
                 <td  class="pt-4 text-right">
-                  <span>UGX {{ order.total_cost|number}}</span>
+                  <span>UGX {{ order?.actual_cost|number}}</span>
                 </td>
               </tr>
             </tfoot>
@@ -192,13 +268,13 @@ TOTAL
       <div *ngIf="active_tab==tabs[0]" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
         <div class="flex flex-row justify-between w-full">
           <button type="button" *ngIf="order?.items?.length==1&&order.order_status=='pending'||order?.items?.length==1&&order.order_status=='initiated'" (click)="changeStatus('preparing')" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center mr-1">ACCEPT ORDER</button>
-          <button type="button" *ngIf="order.items.length>1&&order.order_status=='initiated'" (click)="AcceptOrder(order.id)" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center mr-1">ACCEPT ORDER</button>
+          <button type="button" *ngIf="order.items.length>1&&order.order_status=='pending'" (click)="AcceptOrder(order.id)" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center mr-1">ACCEPT ORDER</button>
    <!--        <button type="button" *ngIf="order?.items?.length==1&&order.order_status=='preparing'" (click)="changeStatus('served')"  class="text-white bg-blue-500 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg text-sm w-40 px-3 py-2.5 text-center">SERVED</button> -->
-          <button type="button" *ngIf="(order.order_status=='pending'||order.order_status=='initiated')" (click)="changeStatus('cancel')" class="text-d-red border border-d-red focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center ml-1">DECLINE ORDER</button> 
+          <button type="button" *ngIf="(order.order_status=='pending'||order.order_status=='initiated')" (click)="CancelOrder(order.id)" class="text-d-red border border-d-red focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center ml-1">DECLINE ORDER</button> 
         </div>
 
         <button type="button" *ngIf="!(order.order_status=='initiated')" (click)="EditMenu()" class="text-white bg-black hover:bg-gray-800 focus:ring-4 w-full focus:outline-none focus:ring-gray-300 rounded-lg text-sm block px-3 py-2.5 text-center">EDIT ORDER</button>
-          <button *ngIf="(order.order_status=='served'||order.order_status=='preparing')" (click)="changeStatus('cancel')" type="button" class="text-black border border-black focus:ring-4 w-full focus:outline-none focus:ring-gray-300 rounded-lg text-sm block px-3 py-2.5 text-center">CANCEL ORDER</button>
+          <button *ngIf="(order.order_status=='served'||order.order_status=='preparing')" (click)="CancelOrder(order.id)" type="button" class="text-d-red border border-d-red focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm block px-3 py-2.5 text-center">DECLINE ORDER</button>
           <button type="button" *ngIf="(order.order_status=='served')" (click)="InitiateManualPayment(order.id)" class="text-white bg-orange-500 hover:bg-orange-800 focus:ring-4 w-full focus:outline-none focus:ring-orange-300 rounded-lg text-sm block px-3 py-2.5 text-center">REGISTER PAYMENT</button> 
       </div>
   </div>
@@ -209,35 +285,66 @@ TOTAL
 <!-- Edit user modal -->
 <div *ngIf="showModal"  tabindex="-1"  class="fixed top-0 left-0 right-0 z-50 items-center justify-center w-full overflow-x-hidden overflow-y-auto md:inset-0">
     <div  *ngIf="order &&PaymentForm" class="relative bg-white w-1/2 mx-auto my-auto p-4">
-      <!-- Modal content -->
-      <div class="relative rounded-lg">
-          <div  class="flex items-start justify-between p-4 rounded-t">
-            <h3 class="flex flex-row">
+<!-- Modal content -->
+<div class="relative rounded-lg">
+  <!-- Header -->
+  <div class="flex items-start justify-between p-4 rounded-t border-b border-gray-200">
+    <h3 class="text-base font-semibold leading-6 text-gray-900">
+      Register Manual Payment - Order No. {{ order.order_number }}
+      <div class="text-xs font-normal text-gray-600 mt-1">
+        Table No. {{ order.table_details.table_number }} · {{ order.table_details.table_room_name }}
+      </div>
+    </h3>
+    <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center">
+      <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+      </svg>
+      <span class="sr-only">Close modal</span>
+    </button>
+  </div>
 
-               <span class="font-thin">Register Manual Payment - Order No. {{order.order_number}}</span>
-              </h3>
-             <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
-              <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-              </svg>
-              <span class="sr-only">Close modal</span>
-          </button>
+  <!-- Body -->
+  <div class="flex flex-col">
+    <form *ngIf="PaymentForm" [formGroup]="PaymentForm" class="px-3" (ngSubmit)="Save()">
+      
+      <!-- Payment Status Summary -->
+      <div class="mb-4 mt-4 text-sm bg-gray-50 p-4 rounded border border-gray-200">
+        <div><span class="font-bold">Total Bill:</span> UGX {{ order.total_cost | number }}</div>
+        <div><span class="font-bold">Amount Paid:</span> UGX {{ order.total_cost - totalBalancePayable | number }}</div>
+        <div><span class="font-bold text-red-600">Outstanding:</span> UGX {{ totalBalancePayable | number }}</div>
+      </div>
+
+      <!-- Payment Type -->
+      <div *ngIf="!require_otp" class="mt-2">
+        <div class="text-lg font-medium mb-2">Select the payment type</div>
+        <div class="flex flex-row space-x-3">
+          <div class="flex">
+            <div class="flex items-center h-5">
+              <input formControlName="payment_form" value="full" type="radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300">
+            </div>
+            <div class="ms-2 text-sm">
+              <label class="font-medium text-gray-900">Full Payment</label>
+              <p class="text-xs font-normal">Pay the full outstanding amount UGX {{ totalBalancePayable | number }}</p>
+            </div>
           </div>
-          <!-- Modal body -->
-          <div class="flex flex-col">
-            <form *ngIf="PaymentForm" [formGroup]="PaymentForm" class="px-3" (ngSubmit)="Save()">
-              <span class="float-left"><span class="font-bold">Amount:</span> UGX {{order.total_cost|number}}</span>
-              <div class="absolute text-left ml-auto right-6">
-                <label class="font-medium flex flex-row w-full">
-                 
-                  <span class="flex flex-col ml-8">
-                  
-                  <span class="text-xs ml-auto">{{order.table_details.table_room_name}}</span>Table No. {{order.table_details.table_number}}
-                
-                </span>
-                </label>
-              </div>
-              <div *ngIf="!require_otp" class="mt-12">
+          <div class="flex">
+            <div class="flex items-center h-5">
+              <input formControlName="payment_form" value="split" type="radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300">
+            </div>
+            <div class="ms-2 text-sm">
+              <label class="font-medium">Split Payment</label>
+              <p class="text-xs font-normal">Pay part of the outstanding amount</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Split Amount Field -->
+      <div *ngIf="PaymentForm.get('payment_form')?.value === 'split' && !require_otp" class="mt-4">
+        <label class="block mb-1 text-sm font-medium text-gray-900">Enter Amount to Pay</label>
+        <input formControlName="amount" currencyMask [options]="{prefix: '', align:'left',precision:0, thousands: ',', decimal: '.',min:0}" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5">
+      </div>
+           <!--    <div *ngIf="!require_otp" class="mt-12">
                 <div class="text-lg">Select the payment mode</div>
               </div>
               <div *ngIf="!require_otp" class="mt-4 flex flex-row space-x-3">
@@ -263,13 +370,32 @@ TOTAL
               <div *ngIf="PaymentForm.get('payment_form')?.value=='split'&&!require_otp" class="mt-4">
                   <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Amount to Pay</label>
                   <input formControlName="amount" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 ">
-              </div>
+              </div> -->
               <div class="mt-4">
                   <div *ngIf="!require_otp" class="text-lg">How did the customer pay ?</div>
                   <div *ngIf="!require_otp" class="flex items-center justify-center mt-4">
               
                       <!-- Component Start -->
                       <div class="grid grid-cols-3 gap-2 w-full">
+                          <div>
+                              <input #cashpayment formControlName="payment_mode" value="cash" class="hidden" id="radio_3" type="radio">
+                              <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-black':cashpayment.checked,'border-gray-300':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
+              
+                                      <defs>
+                                      </defs>
+                                      <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                                          <path d="M 42.769 69.743 H 21.635 c -0.552 0 -1 -0.447 -1 -1 V 7.413 c 0 -0.552 0.448 -1 1 -1 h 33.341 c 0.553 0 1 0.448 1 1 v 44.884 c 0 0.553 -0.447 1 -1 1 s -1 -0.447 -1 -1 V 8.413 H 22.635 v 59.331 h 20.134 c 0.552 0 1 0.447 1 1 S 43.321 69.743 42.769 69.743 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                                          <path d="M 38.305 48.615 c -5.307 0 -9.625 -4.318 -9.625 -9.625 s 4.317 -9.625 9.625 -9.625 s 9.625 4.317 9.625 9.625 S 43.612 48.615 38.305 48.615 z M 38.305 31.366 c -4.204 0 -7.625 3.42 -7.625 7.625 s 3.42 7.625 7.625 7.625 s 7.625 -3.42 7.625 -7.625 S 42.509 31.366 38.305 31.366 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                                          <path d="M 29.73 58.593 c -0.552 0 -1 -0.447 -1 -1 v -7.587 c 0 -0.553 0.448 -1 1 -1 s 1 0.447 1 1 v 7.587 C 30.73 58.146 30.283 58.593 29.73 58.593 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                                          <path d="M 46.93 28.975 c -0.553 0 -1 -0.448 -1 -1 v -6.669 c -2.496 -0.422 -4.47 -2.397 -4.893 -4.893 h -5.414 c -0.422 2.496 -2.397 4.471 -4.893 4.893 v 6.669 c 0 0.552 -0.448 1 -1 1 s -1 -0.448 -1 -1 v -7.586 c 0 -0.552 0.448 -1 1 -1 c 2.192 0 3.976 -1.784 3.976 -3.977 c 0 -0.552 0.448 -1 1 -1 h 7.247 c 0.552 0 1 0.448 1 1 c 0 2.193 1.784 3.977 3.976 3.977 c 0.553 0 1 0.448 1 1 v 7.586 C 47.93 28.527 47.482 28.975 46.93 28.975 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                                          <path d="M 60.499 44.146 c -0.553 0 -1 -0.448 -1 -1 c 0 -17.598 1.384 -31.08 4.229 -41.146 H 31.722 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 33.341 c 0.316 0 0.615 0.15 0.804 0.405 c 0.188 0.254 0.245 0.583 0.153 0.886 c -3.042 10.003 -4.521 23.695 -4.521 41.855 C 61.499 43.699 61.052 44.146 60.499 44.146 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                                          <path d="M 68.365 78.001 h -1.661 c 0.276 -2.665 0.675 -5.034 1.07 -7.315 c 0.812 -4.688 1.513 -8.738 0.79 -13.778 c -0.492 -3.425 -2.791 -6.343 -5.955 -7.596 l -2.574 -1.164 c -0.504 -0.228 -1.097 -0.004 -1.323 0.499 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 2.618 1.183 c 2.543 1.008 4.365 3.322 4.755 6.039 c 0.679 4.727 0.003 8.632 -0.78 13.153 c -0.41 2.374 -0.827 4.841 -1.109 7.656 H 46.61 c 0.735 -3.535 2.417 -6.688 4.824 -8.966 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -5.465 -5.256 c -0.435 -0.381 -0.935 -0.668 -1.485 -0.854 c -0.042 -0.014 -0.084 -0.024 -0.127 -0.033 l -5.427 -1.058 c -1.682 -0.596 -2.643 -2.341 -2.24 -4.085 l 0.168 -0.729 c 0.41 -1.776 2.151 -2.946 4.009 -2.666 l 5.244 0.457 c 0.354 0.055 0.697 0.192 0.988 0.395 l 10.124 7.133 c 0.454 0.317 1.076 0.211 1.394 -0.241 s 0.21 -1.075 -0.241 -1.394 L 48.253 52.12 c -0.544 -0.379 -1.177 -0.633 -1.896 -0.741 l -5.244 -0.457 c -2.829 -0.436 -5.554 1.408 -6.198 4.201 l -0.168 0.729 c -0.639 2.772 0.914 5.546 3.612 6.45 c 0.042 0.014 0.083 0.025 0.126 0.033 l 5.425 1.058 c 0.276 0.101 0.526 0.247 0.713 0.41 l 4.699 4.521 c -2.398 2.571 -4.047 5.95 -4.747 9.676 h -1.962 c -0.552 0 -1 0.447 -1 1 v 10 c 0 0.553 0.448 1 1 1 h 25.753 c 0.553 0 1 -0.447 1 -1 v -9.999 C 69.365 78.448 68.918 78.001 68.365 78.001 z M 67.365 88 H 43.612 v -7.999 h 23.753 V 88 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                                      </g>
+                                      </svg>
+                                  <span class="text-xs font-semibold uppercase mx-auto">Cash</span>
+                              </label>
+                          </div>
                           <div>
                               <input #momopayment formControlName="payment_mode" value="momo" class="hidden" id="radio_1" type="radio">
                               <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-black border-2':momopayment.checked,'border-gray-300':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_1">
@@ -351,25 +477,6 @@ TOTAL
                                  
                               </label>
                           </div>
-                          <div>
-                              <input #cashpayment formControlName="payment_mode" value="cash" class="hidden" id="radio_3" type="radio">
-                              <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-black':cashpayment.checked,'border-gray-300':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
-                                  <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
-              
-                                      <defs>
-                                      </defs>
-                                      <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
-                                          <path d="M 42.769 69.743 H 21.635 c -0.552 0 -1 -0.447 -1 -1 V 7.413 c 0 -0.552 0.448 -1 1 -1 h 33.341 c 0.553 0 1 0.448 1 1 v 44.884 c 0 0.553 -0.447 1 -1 1 s -1 -0.447 -1 -1 V 8.413 H 22.635 v 59.331 h 20.134 c 0.552 0 1 0.447 1 1 S 43.321 69.743 42.769 69.743 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 38.305 48.615 c -5.307 0 -9.625 -4.318 -9.625 -9.625 s 4.317 -9.625 9.625 -9.625 s 9.625 4.317 9.625 9.625 S 43.612 48.615 38.305 48.615 z M 38.305 31.366 c -4.204 0 -7.625 3.42 -7.625 7.625 s 3.42 7.625 7.625 7.625 s 7.625 -3.42 7.625 -7.625 S 42.509 31.366 38.305 31.366 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 29.73 58.593 c -0.552 0 -1 -0.447 -1 -1 v -7.587 c 0 -0.553 0.448 -1 1 -1 s 1 0.447 1 1 v 7.587 C 30.73 58.146 30.283 58.593 29.73 58.593 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 46.93 28.975 c -0.553 0 -1 -0.448 -1 -1 v -6.669 c -2.496 -0.422 -4.47 -2.397 -4.893 -4.893 h -5.414 c -0.422 2.496 -2.397 4.471 -4.893 4.893 v 6.669 c 0 0.552 -0.448 1 -1 1 s -1 -0.448 -1 -1 v -7.586 c 0 -0.552 0.448 -1 1 -1 c 2.192 0 3.976 -1.784 3.976 -3.977 c 0 -0.552 0.448 -1 1 -1 h 7.247 c 0.552 0 1 0.448 1 1 c 0 2.193 1.784 3.977 3.976 3.977 c 0.553 0 1 0.448 1 1 v 7.586 C 47.93 28.527 47.482 28.975 46.93 28.975 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 60.499 44.146 c -0.553 0 -1 -0.448 -1 -1 c 0 -17.598 1.384 -31.08 4.229 -41.146 H 31.722 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 33.341 c 0.316 0 0.615 0.15 0.804 0.405 c 0.188 0.254 0.245 0.583 0.153 0.886 c -3.042 10.003 -4.521 23.695 -4.521 41.855 C 61.499 43.699 61.052 44.146 60.499 44.146 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 68.365 78.001 h -1.661 c 0.276 -2.665 0.675 -5.034 1.07 -7.315 c 0.812 -4.688 1.513 -8.738 0.79 -13.778 c -0.492 -3.425 -2.791 -6.343 -5.955 -7.596 l -2.574 -1.164 c -0.504 -0.228 -1.097 -0.004 -1.323 0.499 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 2.618 1.183 c 2.543 1.008 4.365 3.322 4.755 6.039 c 0.679 4.727 0.003 8.632 -0.78 13.153 c -0.41 2.374 -0.827 4.841 -1.109 7.656 H 46.61 c 0.735 -3.535 2.417 -6.688 4.824 -8.966 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -5.465 -5.256 c -0.435 -0.381 -0.935 -0.668 -1.485 -0.854 c -0.042 -0.014 -0.084 -0.024 -0.127 -0.033 l -5.427 -1.058 c -1.682 -0.596 -2.643 -2.341 -2.24 -4.085 l 0.168 -0.729 c 0.41 -1.776 2.151 -2.946 4.009 -2.666 l 5.244 0.457 c 0.354 0.055 0.697 0.192 0.988 0.395 l 10.124 7.133 c 0.454 0.317 1.076 0.211 1.394 -0.241 s 0.21 -1.075 -0.241 -1.394 L 48.253 52.12 c -0.544 -0.379 -1.177 -0.633 -1.896 -0.741 l -5.244 -0.457 c -2.829 -0.436 -5.554 1.408 -6.198 4.201 l -0.168 0.729 c -0.639 2.772 0.914 5.546 3.612 6.45 c 0.042 0.014 0.083 0.025 0.126 0.033 l 5.425 1.058 c 0.276 0.101 0.526 0.247 0.713 0.41 l 4.699 4.521 c -2.398 2.571 -4.047 5.95 -4.747 9.676 h -1.962 c -0.552 0 -1 0.447 -1 1 v 10 c 0 0.553 0.448 1 1 1 h 25.753 c 0.553 0 1 -0.447 1 -1 v -9.999 C 69.365 78.448 68.918 78.001 68.365 78.001 z M 67.365 88 H 43.612 v -7.999 h 23.753 V 88 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      </g>
-                                      </svg>
-                                  <span class="text-xs font-semibold uppercase mx-auto">Cash</span>
-                              </label>
-                          </div>
                       </div>
                       <!-- Component End  -->
                   
@@ -388,53 +495,87 @@ TOTAL
                     <input formControlName="transaction_id" type="number" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 ">
                 </div> 
               </div>
-                <div *ngIf="require_otp" style="width: 32rem;" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lgrounded-2xl">
-                  <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
-                    <div class="flex flex-col items-center justify-center text-center space-y-2">
-                      <div class="font-semibold text-3xl">
-                        <p>One Time Password(OTP)</p>
-                      </div>
-                      <div class="flex flex-row text-sm font-medium text-gray-400">
-                        <p>We have sent the OTP to your phone </p>
-                      </div>
-                    </div>
-              
-                    <div>
-                      
-                      
-                        <div class="flex flex-col space-y-16">
-                          <div>
-                              <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
-                          <!--   <div class="w-16 h-16 ">
-                              <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                            </div>
-                            <div class="w-16 h-16 ">
-                              <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                            </div>
-                            <div class="w-16 h-16">
-                              <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                            </div>
-                            <div class="w-16 h-16 ">
-                              <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                            </div> -->
-                          </div>
-              
-                          <div class="flex flex-col space-y-5">
-                            <div>
-                              <button [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" type="submit" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
-                                Verify OTP
-                              </button>
-                            </div>
-            
-                            <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
-                              <p>Didn't recieve code?</p> <a class="flex flex-row items-center text-blue-600" [routerLink]="[]" >Resend</a>
-                            </div>
-                          </div>
-                        </div>
-                    
-                    </div>
-                  </div>
-              </div>
+                
+     <!-- OTP Section -->
+<div *ngIf="require_otp" class="mt-6 p-4 bg-white border border-gray-300 rounded-md">
+  <div class="text-center mb-4">
+    <h4 class="text-lg font-semibold">Verify One-Time Password (OTP)</h4>
+    <p class="text-sm text-gray-600">
+      We sent an OTP to the customer's phone to confirm payment of
+      <strong>UGX {{ PaymentForm.get('amount')?.value || totalBalancePayable | number }}</strong>
+    </p>
+  </div>
+
+  <!-- Countdown Timer -->
+  <div *ngIf="otpTimer > 0" class="text-sm text-center text-gray-500 mb-3">
+    OTP expires in
+    <span class="font-semibold text-gray-800">{{ otpTimer }}</span>
+    seconds
+  </div>
+
+  <!-- OTP Input Component -->
+  <div class="flex justify-center mb-3">
+    <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}" [style.width.%]='55' />
+  </div>
+
+  <!-- OTP Expired Message with Resend Spinner -->
+  <div *ngIf="otpExpired" class="text-red-600 text-sm text-center mt-2">
+    OTP expired.
+    <span *ngIf="!isResending; else spinner">
+      <a (click)="resendOTP()" class="text-blue-600 underline">Click here to resend</a>
+    </span>
+    <ng-template #spinner>
+      <span class="text-gray-500 ml-2 inline-flex items-center">
+        <svg class="animate-spin h-4 w-4 mr-1 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor"
+            d="M4 12a8 8 0 018-8v4l3.5-3.5L12 0v4a8 8 0 100 16v-4l-3.5 3.5L12 24v-4a8 8 0 01-8-8z">
+          </path>
+        </svg>
+        Resending...
+      </span>
+    </ng-template>
+  </div>
+
+  <!-- Invalid OTP Message -->
+  <div *ngIf="otpInvalid && !otpExpired" class="text-red-500 text-sm text-center mt-2">
+    Invalid OTP. Please try again.
+  </div>
+
+  <!-- Verify Button -->
+  <div class="mt-5">
+    <button
+      [disabled]="input.invalid || isVerifying"
+      [ngClass]="{
+        'opacity-65 cursor-not-allowed': input.invalid || isVerifying,
+        'cursor-pointer': !input.invalid && !isVerifying
+      }"
+      type="submit"
+      class="w-full bg-d-red text-white py-3 rounded-xl text-sm font-medium shadow hover:opacity-80 transition">
+      <span *ngIf="!isVerifying">Verify OTP & Complete Payment</span>
+      <span *ngIf="isVerifying">
+        <svg class="animate-spin h-4 w-4 mr-2 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+          viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor"
+            d="M4 12a8 8 0 018-8v4l3.5-3.5L12 0v4a8 8 0 100 16v-4l-3.5 3.5L12 24v-4a8 8 0 01-8-8z">
+          </path>
+        </svg>
+        Verifying...
+      </span>
+    </button>
+  </div>
+  <!-- Back Button -->
+<div class="mt-4 text-center">
+  <button type="button"
+    (click)="goBackToPaymentForm()"
+    class="text-sm text-gray-600 underline hover:text-black transition">
+    ← Go back and edit payment details
+  </button>
+</div>
+</div>
+
+             
                   <div *ngIf="!require_otp" class="mt-8">
                       <button type="submit" class="relative inline-flex items-center justify-center p-4 px-6 py-3 overflow-hidden font-medium bg-black text-white transition duration-300 ease-out border-2 border-gray-500 rounded-full shadow-md group w-full">
         Register Payment
@@ -451,22 +592,35 @@ TOTAL
             <div>
     </div>
 </div>
-<div *ngIf="view_menu" class="relative bg-white w-1/3 mx-auto my-auto flex h-[100vh-100px]">
-              <div class="flex">
-                <div  class="fixed flex w-1/3 top-1 items-start justify-between p-4 rounded-t">
-                  <h3 class="flex flex-row">
-                     <span class="font-thin">Updating Order #{{order?.order_number}}</span>
-                    </h3>
-                   <button type="button" (click)="CLoseMenu()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
-                    <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                    </svg>
-                    <span class="sr-only">Close modal</span>
-                </button>
-                </div>
-                <app-menu-common (AddItem)="SaveNewItem($event)" [restaurant_id]="restaurant"></app-menu-common>
-                            </div>
-            </div>
+<div *ngIf="view_menu" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 h-screen overflow-hidden">
+  <div class="bg-white w-full max-w-sm mx-4 rounded-lg shadow-lg h-full flex flex-col">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between p-4 border-b">
+      <h3 class="text-base font-semibold text-gray-700">
+        Updating Order #{{ order?.order_number }}
+      </h3>
+      <button type="button" (click)="CLoseMenu()" class="text-gray-400 hover:text-gray-900 hover:bg-gray-200 rounded-full p-1">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+        </svg>
+        <span class="sr-only">Close modal</span>
+      </button>
+    </div>
+
+    <!-- Non-scrollable content -->
+    <div class="flex-1 p-4">
+      <app-menu-common 
+        (AddItem)="SaveNewItem($event)" 
+        [restaurant_id]="restaurant">
+      </app-menu-common>
+    </div>
+
+  </div>
+</div>
+
+
+
             <div *ngIf="edit_menu" [ngClass]="{'hidden': view_menu,'relative':edit_menu}" class="flex w-2/3 mx-auto h-screen">
               <div class="flex flex-col capitalize w-full px-6 bg-white mx-auto my-auto ">
                 <div  class="flex w-full top-1 items-start justify-between p-4 pr-0 rounded-t">
@@ -556,7 +710,7 @@ TOTAL
              <span  *ngIf="m.deleted"  class="py-3 !w-full flex">
                 <span class="sr-only">Served</span>
               </span>
-              <button *ngIf="!m.deleted" type="button" class="py-3 float-end mr-2" (click)="DeleteItem(m)">
+              <button *ngIf="!m.deleted&&m.status!=='served'" type="button" class="py-3 float-end mr-2" (click)="DeleteItem(m)">
                 <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
                   <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
@@ -589,8 +743,8 @@ TOTAL
                   <h3 class="flex flex-row">
                     <button (click)="ViewMenu()" type="button" class="text-white bg-black hover:bg-gray-800 focus:ring-4 w-full focus:outline-none focus:ring-gray-300 rounded-lg text-sm block px-3 py-2.5 text-center">Add Item</button>    
                     </h3>
-                    <button type="button" (click)="closeModal()" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/6 px-3 py-2.5 text-center mr-3 ml-auto">SAVE CHANGES</button>
-                    <button type="button" (click)="closeModal()" class="text-white bg-gray-400 hover:bg-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 rounded-lg text-sm w-1/12 px-3 py-2.5 text-center mr-1">CANCEL</button>
+                    <button type="button" (click)="closeModal()" class="text-white bg-gray-400 hover:bg-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 rounded-lg text-sm w-1/12 px-3 py-2.5 text-center mr-3 ml-auto">CANCEL</button>
+                    <button type="button" (click)="closeModal()" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/6 px-3 py-2.5 text-center mr-1">SAVE CHANGES</button>
                 </div>
           
           </div>

@@ -23,13 +23,17 @@ export class DinersMenuComponent implements OnInit {
 
   showSearch:boolean=false;
   globalError:string|null=null;
+  selected_extras: any[]=[];
+  formSubmitted = false;
+
+
   toggleSearch() {
     this.showSearch = !this.showSearch;
     if (!this.showSearch) {
       this.clearSearch();
     }
   }
-  restaurant?:Restaurant;
+  @Input() restaurant?:Restaurant;
   @Input()restaurant_id:any='';
   menu_list?:MenuItem[]|any=[];
   basketItems = this.basketService.Basket().items;
@@ -51,14 +55,19 @@ export class DinersMenuComponent implements OnInit {
   constructor(private sessionStorage:SessionStorageService,private api:ApiService,private basketService:BasketService,private router:Router,private fb:FormBuilder) {
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   console.log(this.restaurant)
-  
+  this.udpateCart();
   }
   ngOnInit(){
-    console.log(this.restaurant?.menu_approval_status)
-    if(this.restaurant?.menu_approval_status=='approve'){
+   
+    console.log(this.restaurant?.menu_approval_status,(this.restaurant as any)?.first_time_menu_approval as any)
+    if(this.restaurant?.menu_approval_status=='approve'||(this.restaurant as any)?.first_time_menu_approval){
       this.loadMenu()
     }else{
+      if(!this.router.url.includes('rest-app')){
       this.router.navigate(['/diner','error'])
+      }else{
+        this.router.navigate([this.router.url,'error']) 
+      }
     }
 
   }
@@ -162,21 +171,89 @@ setTimeout(() => {
     this.showModal=false;
   }
   AddSelectedItem(){
+    this.formSubmitted = false; // Reset form submission flag
       // Ensure the form is valid before proceeding
   if (!this.isFormValid()) {
+    this.formSubmitted = true; // Set flag to indicate form submission
     console.error('Form is invalid. Please complete all required options.');
     return;
   }
+ // Prepare selected options for visualization
+ /*  const selectedOptions = this.selected_choices.map((sel) => ({
+    optionName: sel.order.name, // The name of the option group (e.g., "Size", "Extras")
+    choice: sel.choice || 'None', // The selected choice for that option
+    cost: sel.order.cost || 0, // The additional cost of the selected choice
+  })); */
+  // Prepare selected options for visualization & backend
+  const selectedOptions = this.selected_choices.map((sel, optionIndex) => {
+    
 
-  // Prepare selected options for visualization
+    return {
+  optionName: sel.order.name,
+  choice: sel.choice || 'None',
+  cost: sel.order.cost || 0,
+  optionIndex: sel.index,       // option group index
+  choiceIndex: sel.choiceIndex  // numeric index from SetChoice
+/*       optionName: sel.order.name,
+      choice: sel.choice || 'None',
+      cost: sel.order.cost || 0,
+      optionIndex: optionIndex,   // index of the option group
+      choiceIndex: choiceIndex    // index of the chosen option */
+    };
+  });
+
+  // Prepare selected extras for visualization
+  const selectedExtras = this.selected_extras.map((extra) => ({
+    name: extra.name,
+    cost: extra.primary_price || 0,
+  }));
+
+// Check if the item has a discount
+const discount = this.selected_item.discount_details?.discount_amount ?? 0;
+const isDiscounted = this.selected_item.running_discount; //!!discount;
+
+const originalBasePrice = this.selected_item.primary_price;
+const basePrice = isDiscounted ? discount : originalBasePrice; // discounted price if present
+
+// Calculate total including selected options and extras
+const totalPrice = (basePrice)
+  + selectedOptions.reduce((acc, opt) => acc + opt.cost, 0)
+  + selectedExtras.reduce((acc, extra) => acc + extra.cost, 0);
+
+// Add the item with full details to the basket
+const basketItem = {
+  itemId: this.selected_item.id,
+  itemName: this.selected_item.name,
+  basePrice: basePrice,
+  totalPrice: totalPrice,
+  quantity: this.selected_quantity,
+  options: selectedOptions,
+  extras: selectedExtras,
+  isDiscounted: isDiscounted,
+  originalBasePrice: isDiscounted ? originalBasePrice : undefined,
+  discountAmount: isDiscounted ? originalBasePrice - basePrice : undefined,
+  discountPercentage: isDiscounted ? Math.round((1 - basePrice / originalBasePrice) * 100) : undefined
+};
+
+this.basketService.addItem(basketItem);
+/*   // Prepare selected options for visualization
   const selectedOptions = this.selected_choices.map((sel) => ({
     optionName: sel.order.name, // The name of the option group (e.g., "Size", "Extras")
     choice: sel.choice || 'None', // The selected choice for that option
     cost: sel.order.cost || 0, // The additional cost of the selected choice
   }));
 
+  // Prepare selected extras for visualization
+  const selectedExtras = this.selected_extras.map((extra) => ({
+    name: extra.name,
+    cost: extra.primary_price || 0,
+  }));
+
+
   // Calculate the total price, including the primary item price and all selected option costs
-  const totalPrice = this.selected_item.primary_price + selectedOptions.reduce((acc, opt) => acc + opt.cost, 0);
+  const totalPrice = this.selected_item.primary_price 
+                    + selectedOptions.reduce((acc, opt) => acc + opt.cost, 0)
+                    + selectedExtras.reduce((acc, extra) => acc + extra.cost, 0);
 
   // Add the item with options to the basket
   const basketItem = {
@@ -186,15 +263,19 @@ setTimeout(() => {
     totalPrice: totalPrice,
     quantity: this.selected_quantity,
     options: selectedOptions,
+    extras: selectedExtras
   };
 
-  this.basketService.addItem(basketItem); // Add the item to the basket
+  this.basketService.addItem(basketItem); // Add the item to the basket */
   console.log('Item successfully added to the basket:', basketItem);
 
   // Update the cart view and reset the form
   this.udpateCart();
   this.closeModal();
   this.selected_quantity = 1; // Reset quantity to default
+  this.selected_choices = []; // Clear selected choices 
+  this.selected_extras = []; // Clear selected extras
+  
 /*     let px=this.selected_item.primary_price;
     this.selected_choices.forEach(s=>{
       px=px+s.order.cost
@@ -263,7 +344,72 @@ removeUnderscore(x:string){
   } */
 
   SetChoice(event: any, i: number, choiceIndex: number | null, option: any, choice?: any): void {
-    if (choiceIndex !== null) {
+const max = option.max_choices || 1;
+  const selectedForOption = this.selected_choices.filter(sel => sel.index === i);
+
+  if (choiceIndex !== null) {
+    const isMultiSelect = max > 1;
+    const existingIndex = this.selected_choices.findIndex(sel => sel.index === i && sel.choice === choice);
+
+    if (existingIndex > -1) {
+      // Deselect
+      this.selected_choices.splice(existingIndex, 1);
+    } else {
+      if (isMultiSelect) {
+        if (selectedForOption.length >= max) return; // Max reached
+        this.selected_choices.push({ index: i, choice, choiceIndex, order: option });
+      } else {
+        // Single-select mode: remove any previous, then add new
+        this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
+        this.selected_choices.push({ index: i, choice, choiceIndex, order: option });
+      }
+    }
+
+    // Update selection status for the UI
+    option.isSelected = this.selected_choices.some(sel => sel.index === i);
+  } else {
+    // Checkbox-style
+    option.isSelected = event.target.checked;
+
+    if (option.isSelected) {
+      if (selectedForOption.length >= max) {
+        option.isSelected = false;
+        return; // Max reached
+      }
+      this.selected_choices.push({ index: i, choice: null, order: option });
+    } else {
+      this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
+    }
+  }
+
+    /* if (choiceIndex !== null) {
+    // Toggle behavior: unselect if already selected
+    const existing = this.selected_choices.find(sel => sel.index === i && sel.choice?.value === choice?.value);
+    
+    if (existing) {
+      // Already selected: unselect
+      option.isSelected = false;
+      this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
+    } else {
+      // Select new choice
+      option.choices.forEach((_: string, idx: number) => {
+        option.isSelected = (idx === choiceIndex); // only one true
+      });
+
+      this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
+      this.selected_choices.push({ index: i, choice: choice, order: option });
+    }
+  } else {
+    // Checkbox-style toggle
+    option.isSelected = event.target.checked;
+
+    if (option.isSelected) {
+      this.selected_choices.push({ index: i, choice: null, order: option });
+    } else {
+      this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
+    }
+  } */
+    /* if (choiceIndex !== null) {
       // Radio-style behavior for selectable options
       option.choices.forEach((_: string, idx: number) => {
         if (choiceIndex === idx) {
@@ -281,12 +427,14 @@ removeUnderscore(x:string){
       } else {
         this.selected_choices = this.selected_choices.filter((sel) => sel.index !== i); // Remove if unchecked
       }
-    }
+    } */
   
     // Validate the form after every change
     this.validateForm();
   }
-  
+  selectedCount(i: number): number {
+  return this.selected_choices.filter(sel => sel.index === i).length;
+}
   isSelected(option: any, choice: string): boolean {
     // Check if the current choice is selected
     return this.selected_choices.some(
@@ -298,7 +446,7 @@ removeUnderscore(x:string){
     this.errorMessages = []; // Reset error messages
   
     // Check all required options
-    this.selected_item.options.options.forEach((option: any) => {
+    this.selected_item.options?.options?.forEach((option: any) => {
       option.isSelected = this.selected_choices.some((sel) => sel.order.name === option.name); // Update state
       if (option.required && !option.isSelected) {
         this.errorMessages.push(`Please select an option for "${option.name}".`);
@@ -376,6 +524,20 @@ removeUnderscore(x:string){
   
     return isValid;
   }
+  isExtraSelected(extra: {id:any,name:any, primary_price:number}): boolean {
+    // Check if the current extra is selected
+    return this.selected_extras.includes(extra);
+  }
+  SetExtra(i:number,extra:{id:any,name:any, primary_price:number}){
+    const index = this.selected_extras.findIndex(x => x.id === extra.id);
   
+    if (index === -1) {
+      this.selected_extras.push(extra); // Add extra if not already selected
+    } else {
+      this.selected_extras.splice(index, 1); // Remove the correct extra
+    }
+  
+    console.log(this.selected_extras)
+  }
   
 }

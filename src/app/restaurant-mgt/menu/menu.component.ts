@@ -123,6 +123,7 @@ initCategory(rest:string){
     options:this.fb.group({}),
     has_extras:[false],
     is_extra:[false],
+    is_special:[false],
     extras_applicable:[[]],
     extras:[[]],
     allergens:[[]]

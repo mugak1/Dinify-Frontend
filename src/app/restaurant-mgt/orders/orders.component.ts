@@ -2,11 +2,12 @@ import { Component, Input } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
-import { OrderedItem, OrdersListItem } from 'src/app/_models/app.models';
+import { OrderDetail, OrderedItem, OrdersListItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MessageService } from 'src/app/_services/message.service';
 import { DinerAppModule } from 'src/app/diner-app/diner-app.module';
+import * as moment from 'moment';
 
 @Component({
   selector: 'app-orders',
@@ -17,6 +18,7 @@ export class OrdersComponent {
 restaurant?: any;
 order_statuses=['pending','preparing','cancelled']
 list?:OrdersListItem[]=[];
+list_cache?:OrdersListItem[]=[];
 order?:OrdersListItem;
 current_order_status:string='';
 showModal=false;
@@ -28,6 +30,13 @@ active_tab=this.tabs[0];
 require_otp=false;
 data='';
 is_saving=false;
+totalBalancePayable: number = 0;
+otpExpired = false;
+otpInvalid = false;
+isResending = false;
+isVerifying = false;
+otpTimer = 0;
+otpCountdownInterval: any;
   /**
    *
    */
@@ -50,6 +59,7 @@ is_saving=false;
       this.list=[];
       this.order=null as any;
       this.list=x?.data?.records as OrdersListItem[];
+      this.list_cache = [...this.list]; // Cache the original list
       if(this.list?.length>0){
        
          this.order=this.list[0];
@@ -62,8 +72,9 @@ is_saving=false;
      })
   }
   loadOrders(restaurant:string,selected_id?:boolean){  
-    this.api.get<any>(null,'restaurant-setup/orders/',{restaurant:this.restaurant}).subscribe((x)=>{
+    this.api.get<any>(null,'restaurant-setup/orders/',this.active_tab?{restaurant:this.restaurant,status:this.active_tab}:{restaurant:this.restaurant}).subscribe((x)=>{
      this.list=x?.data?.records as OrdersListItem[];
+      this.list_cache = [...this.list]; // Cache the original list
      if(this.list?.length>0){
       if(selected_id){
         this.order= this.list.find(o=>o.id==this.order?.id)
@@ -91,11 +102,33 @@ is_saving=false;
   this.edit_menu=true;
   this.showModal=true;
  }
- changeStatus(status:string,id?:any){
+ changeStatus(status:string,id?:any,menu_item_name?:string){
+  let mes = ''
+  let buttonText='';
+  let titleText='';
+  switch(status){
+   case 'cancel':
+mes='Are you sure you want to <strong>Decline</strong> Order #'+this.order?.order_number+' ?';
+      buttonText='Decline';
+     break;
+     case 'served':
+      titleText='Serve Order'
+      mes='Are you sure '+menu_item_name+' is <strong>Served</strong> ?';
+      buttonText='Yes';
+      break;
+    case 'preparing':
+      mes='Are you sure you want to <strong>ACCEPT</strong> Order #'+this.order?.order_number+' ?';
+      buttonText='Accept';
+      break;
+     default:
+mes='Are you sure you want to set Order #'+this.order?.order_number+' to <strong>'+status.toUpperCase()+'</strong> ?';
+     break;
+
+  }
  let ref = this.dialog.openModal({
-    title:'Track Order',
-    message:'Are you sure you want to set Order #'+this.order?.order_number+' to <strong>'+status.toUpperCase()+'</strong> ?',
-    
+    title:titleText? titleText:'Track Order',
+    message:mes,
+    submitButtonText:buttonText,
   }).subscribe((x:any)=>{
    
     if(x?.action=='yes'){     console.log("modal sub",x); 
@@ -120,7 +153,8 @@ is_saving=false;
  AcceptOrder(id?:any){
   let ref = this.dialog.openModal({
      title:'Accept Order',
-     message:'Are you sure you want to <strong>ACCEPT</strong> Order No.'+this.order?.order_number+' ?',
+     submitButtonText:'Accept',
+     message:'Are you sure you want to <strong>ACCEPT</strong> Order #'+this.order?.order_number+' ?',
    })?.subscribe((x:any)=>{
      console.log("modal sub",x);
      if(x?.action=='yes'){     
@@ -140,21 +174,53 @@ is_saving=false;
    
  
   }
+  CancelOrder(id?:any){
+    let ref = this.dialog.openModal({
+       title:'Decline Order',
+       submitButtonText:'Decline',
+       message:'Are you sure you want to <strong>Decline</strong> Order #'+this.order?.order_number+' ?',
+     })?.subscribe((x:any)=>{
+       console.log("modal sub",x);
+       if(x?.action=='yes'){     
+   /**/          this.api.postPatch('orders/cancel/',{order:id},'put').subscribe({
+             next: ()=>{
+         this.loadOrders(this.restaurant);
+         
+         this.dialog.closeModal();
+         ref.unsubscribe();
+             }
+           }); 
+            
+             //console.log(x)
+           } 
+       
+     })
+     
+   
+    }
  closeModal(){
   this.showModal=false;
   this.view_menu=false;
-  this.PaymentForm!=null;
+  this.PaymentForm=null as any;
   this.edit_menu=false;
 }
 InitiateManualPayment(id:any){
   this.PaymentForm= this.InitPaymentForm(id);
+  this.totalBalancePayable=Number(this.order?.balance_payable);
+  this.loadOrderDetails(id);
   this.showModal=true;
+}
+loadOrderDetails(id:any){
+  this.api.get<any>(null,'orders/details/',{order:id},'v2').subscribe((x:any)=>{
+    console.log(x.balance_payable)
+    this.totalBalancePayable= Number(x.data.balance_payable)
+  })
 }
 InitPaymentForm(id:any){
   return this.fb.group({
     
       order: id,
-      payment_mode: ["momo"],
+      payment_mode: ["cash"],
       platform: "web",
       payment_form: "full",
       msisdn: [''],
@@ -187,8 +253,9 @@ this.PaymentForm.get('otp')?.setValue(this.data)
 } 
 SaveNewItem(item:any){
   let ref = this.dialog.openModal({
-    title:'Order Change',
-    message:'Are you sure you want to <strong>Add</strong> '+item?.itemName+' to order '+this.order?.order_number +' ?',
+    title:'Add Item',
+    submitButtonText:'Add',
+    message:'Are you sure you want to <strong>Add</strong> '+item?.itemName+' to order #'+this.order?.order_number +' ?',
   })?.subscribe((x:any)=>{
     if(x?.action=='yes'){
       this.api.postPatch('orders/add-items/',{order:this.order?.id,items:[item]},'post','',{},false,'v2').subscribe({
@@ -254,26 +321,35 @@ DeleteItem(item:OrderedItem){
 
 
 }
+getTimeAgo(time: string): string {
+  return moment(time).fromNow();
+}
+
 ChangeOrder(o:any){
   let ord=o.value;
   console.log(ord)
   switch(ord){
   case 'n-o':{
-this.list=this.list?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return +new Date(a.time_created)- +new Date(b.time_created);})
+this.list=this.list_cache?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return +new Date(a.time_created)- +new Date(b.time_created);})
     break;
   }
   case 'o-n':{
-    this.list=this.list?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return +new Date(b.time_created)- +new Date(a.time_created);})
+    this.list=this.list_cache?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return +new Date(b.time_created)- +new Date(a.time_created);})
         break;
       }
       case 't-a':{
-        this.list=this.list?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return a.table_details.table_number-b.table_details.table_number})
+        this.list=this.list_cache?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return a.table_details.table_number-b.table_details.table_number})
             break;
           } 
           case 't-d':{
-            this.list=this.list?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return b.table_details.table_number-a.table_details.table_number;})
+            this.list=this.list_cache?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return b.table_details.table_number-a.table_details.table_number;})
                 break;
               }
+               case 'specials': {
+      this.list = this.list_cache?.filter((item: OrdersListItem) => item.items.some(i => i.item.is_special));
+      break;
+    }
+
   default:{
 break;
   }
@@ -282,11 +358,62 @@ break;
 sendOtp(identification:any,identifier:any,purpose:any){
   this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(x=>{
     this.require_otp=true 
+    this.startOTPTimer(); // Start the OTP timer
     // store user details and jwt token in local storage to keep user logged in between page refreshes
     //  localStorage.setItem('user', JSON.stringify((response.data)));
     //  this.userSubject.next(response.data as any)
      
   });
+}
+startOTPTimer(seconds: number = 60) {
+  this.otpTimer = seconds;
+  clearInterval(this.otpCountdownInterval);
+  this.otpCountdownInterval = setInterval(() => {
+    if (this.otpTimer > 0) {
+      this.otpTimer--;
+    } else {
+      clearInterval(this.otpCountdownInterval);
+      this.otpExpired = true;
+    }
+  }, 1000);
+}
+
+resendOTP() {
+  this.isResending = true;
+  this.otpExpired = false;
+  this.otpInvalid = false;
+
+  // Simulate resend
+  setTimeout(() => {
+    this.isResending = false;
+    this.startOTPTimer(); // restart timer after resend
+  }, 2000);
+}
+
+verifyOTP() {
+  this.isVerifying = true;
+  setTimeout(() => {
+    this.isVerifying = false;
+    // simulate OTP check result
+    const isValid = Math.random() > 0.3;
+    if (!isValid) {
+      this.otpInvalid = true;
+    } else {
+      // success: complete payment
+    }
+  }, 1500);
+}
+
+ngOnDestroy() {
+  clearInterval(this.otpCountdownInterval);
+}
+goBackToPaymentForm() {
+  this.require_otp = false;
+  this.otpInvalid = false;
+  this.otpExpired = false;
+  this.data = ''; // Reset OTP input
+  clearInterval(this.otpCountdownInterval);
+  this.otpTimer = 0;
 }
 
 }

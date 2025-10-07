@@ -22,6 +22,7 @@ export class MenuCommonComponent {
   selected_quantity:number=1;
   selected_amount:number=0;
   selected_choices:any[]=[];
+  selected_extras:any[]=[];
   currentSection=''
   currentSectionItem='';
  @Output() AddItem = new EventEmitter<any>();
@@ -97,6 +98,9 @@ this.showModal=true;
     })
   }
   closeModal(){
+    this.selected_item=null;
+    this.selected_choices=[];
+    this.selected_quantity=1;
     this.showModal=false;
   }
   AddSelectedItem(){
@@ -198,4 +202,24 @@ console.log(this.selected_choices)
       if (!item.discount_details.discount_amount) return 0;
       return item.primary_price - item.discount_details.discount_amount;
     }
+    isSelected(option: any, choice: string): boolean {
+      // Check if the current choice is selected
+      return this.selected_choices.some(
+        (sel) => sel.order.name === option.name && sel.choice === choice
+      );
+    }
+    isExtraSelected(extra: {id:any,name:any, primary_price:number}): boolean {
+      // Check if the current extra is selected
+      return this.selected_extras.includes(extra);
+    }
+    SetExtra(evnt:any,i:number,extra:{id:any,name:any, primary_price:number}){
+      if(evnt.checked){
+        this.selected_extras.push(extra);
+      }else{
+        //let indo=this.selected_extras.indexOf(this.selected_extras.filter(x=>x.id==extra.id)[0])
+        this.selected_extras.splice(i,1)
+      }
+      console.log(this.selected_extras)
+    }
+    
 }

@@ -49,7 +49,14 @@
             <p class="font-medium text-red-600 mt-1">UGX {{i.primary_price | number}}</p>
           </div>
           <div (click)="viewItem(i)" class="w-[100px] h-[100px]">
-            <app-common-image [container]="false" [imgclass]="'rounded-lg w-full h-[100px] object-cover'" [src]="i.image" [width]="'100'" [height]="'100'"></app-common-image>     
+            <div class="relative w-[100px] h-[100px]">
+  <!-- Ribbon -->
+  <div *ngIf="i?.is_special"
+       class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md z-10">
+    SPECIAL
+  </div>
+            <app-common-image [container]="false" [imgclass]="'rounded-lg w-full h-[100px] object-cover'" [src]="i.image" [width]="'100'" [height]="'100'"></app-common-image>  
+            </div>   
           </div>
         </div>
       </div>
@@ -62,7 +69,7 @@
       <span class="absolute -top-2 -right-2 bg-black text-white text-xs font-bold px-2 py-1 rounded-full">
         {{ QuantitySum }}
       </span>
-      <button routerLink="/diner/basket"
+      <button [routerLink]="['basket']"
         class="bg-red-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-red-700 transition-all">
         VIEW BASKET
       </button>
@@ -173,14 +180,24 @@
             <div class="flex flex-row">
             
                 <div (click)="viewItem(i)" class="p-2 flex-grow">
-                    <p class="font-semibold">{{i.name}} <span *ngIf="i?.discount_details?.discount_amount" class="ml-2 bg-black text-white text-xs font-medium px-2 py-1 rounded-full">
+                  <p class="font-semibold flex flex-wrap items-center gap-2">
+  {{ i.name }}
+  <span *ngIf="i?.running_discount"
+        class="bg-black text-white text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap inline-flex items-center">
+    -{{ calculateDiscount(i) }}%
+    <span class="ml-2 text-gray-400 whitespace-nowrap">
+      Save UGX {{ priceSaved(i) | number }}
+    </span>
+  </span>
+</p>
+                    <!-- <p class="font-semibold">{{i.name}} <span *ngIf="i?.discount_details?.discount_amount" class="ml-2 bg-black text-white text-xs font-medium px-2 py-1 rounded-full">
                       -{{ calculateDiscount(i) }}%
                         <span class="text-xs text-gray-400 ml-2">Save UGX {{ priceSaved(i) | number }}</span>
-                    </span></p>
+                    </span></p> -->
                     
                      <p class="text-sm line-clamp-2 mt-2">{{i.description}}</p>
                      <div class="flex flex-col mt-2">
-                      <ng-container *ngIf="i?.discount_details?.discount_amount; else normalPrice">
+                      <ng-container *ngIf="i?.running_discount; else normalPrice">
                         <span class="text-red-600 font-bold text-lg">UGX {{ i?.discount_details?.discount_amount | number }}</span>
                         <div class="flex justify-between items-center">
                           <span class="line-through text-gray-400 text-sm">UGX {{ i.primary_price | number }}</span>
@@ -188,14 +205,21 @@
                       </ng-container>
               
                       <ng-template #normalPrice>
-                        <span class="font-bold text-base">UGX {{ i.primary_price | number }}</span>
+                        <span class="text-red-600 font-bold text-base">UGX {{ i.primary_price | number }}</span>
                       </ng-template>
                     </div>
                     
                 </div>
                
            <div (click)="viewItem(i)" class="w-[150px] ml-auto mr-2">
+            <div class="relative w-[100px] h-[100px]">
+  <!-- Ribbon -->
+  <div *ngIf="i?.is_special"
+       class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md z-10">
+    SPECIAL
+  </div>
                  <app-common-image [container]="true" [imgclass]="'rounded-lg ml-auto'" [src]="i.image" [width]="'100'" [height]="'100'"></app-common-image>     
+               </div>
                 </div>
             </div>
        <div class="flex flex-col">
@@ -237,7 +261,7 @@
       <span class="absolute -top-2 -right-2 bg-black text-white text-xs font-bold px-2 py-1 rounded-full">
         {{ QuantitySum }}
       </span>
-      <button routerLink="/diner/basket"
+      <button [routerLink]="['basket']"
         class="bg-d-red text-white px-6 py-3 rounded-full shadow-lg hover:bg-red-700 transition-all">
         VIEW BASKET
       </button>
@@ -249,7 +273,7 @@
     class="absolute bottom-auto left-auto right-0 top-0 z-10 inline-block -translate-y-1/2 translate-x-2/4 rotate-0 skew-x-0 skew-y-0 scale-x-100 scale-y-100 whitespace-nowrap rounded-full bg-black px-2.5 py-1 text-center align-baseline text-xs font-bold leading-none text-white">
     {{QuantitySum}}
   </div>
- <button title="Contact Sale"  routerLink="/diner/basket"
+ <button title="Contact Sale"  [routerLink]="['basket']"
         class="align-middle  bg-[#B6252C] px-5 h-10 rounded drop-shadow-lg flex justify-center items-center text-white text-sm font-bold">VIEW BASKET</button>
    
     </div>
@@ -258,7 +282,7 @@
   <div *ngIf="showModal" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
  
   <div *ngIf="showModal&&selected_item"  tabindex="-1"  class="bg-white fixed top-0 left-0 right-0 z-50 items-center justify-center w-full overflow-x-hidden overflow-y-auto md:inset-0">
-      <div  class="flex flex-col w-screen h-dvh mx-auto my-auto rounded-lg">
+      <div  class="flex flex-col w-full h-dvh mx-auto my-auto rounded-lg">
        
       
             <div [ngClass]="{'shadow-lg':currentSectionItem}" class=" sticky top-0 flex items-start justify-between p-4 rounded-t bg-white z-10">
@@ -275,8 +299,15 @@
              <div class="flex flex-col flex-grow overflow-y-auto">
             <div #optionsContainer  class="flex flex-col flex-grow overflow-y-auto align-top" (scroll)="onScroll()" scrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionItemChange($event)">
               <div class="relative mx-auto py-6 w-fit">
+<div class="relative w-[100px] h-[100px]">
+  <!-- Ribbon -->
+  <div *ngIf="selected_item?.is_special"
+       class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md z-10">
+    SPECIAL
+  </div>
                  <app-common-image [imgclass]="'rounded-lg'" [src]="selected_item.image" [width]="'300'" [height]="'300'"></app-common-image>   
-                 <ng-container *ngIf="selected_item?.discount_details?.discount_amount">
+                 </div>
+                 <ng-container *ngIf="selected_item?.running_discount">
                   <div class="absolute top-2 right-2">
                     <div class="bg-black/90 text-white text-xs md:text-sm font-extrabold px-3 py-1 rounded-full backdrop-blur-sm shadow-2xl animate-pulse text-right">
                       -{{ calculateDiscount(selected_item) }}%
@@ -307,10 +338,10 @@
                         <p class="text-2xl font-black pt-6 px-6">{{selected_item.name}} </p>
                         <div class="flex items-center gap-2 mt-2 px-6">
                           <span class="text-red-600 font-extrabold text-2xl">
-                            UGX {{ selected_item.discount_details?.discount_amount || selected_item.primary_price | number }}
+                            UGX {{ (selected_item.running_discount? selected_item.discount_details?.discount_amount : selected_item.primary_price )| number }}
                           </span>
                         </div>
-                      <p class="px-6" *ngIf="selected_item?.discount_details?.discount_amount">
+                      <p class="px-6" *ngIf="selected_item?.running_discount">
                           <ng-container>
                             <span class="line-through text-gray-400 text-sm">
                               UGX {{ selected_item.primary_price | number }}
@@ -351,27 +382,39 @@
                             <div *ngFor="let o of selected_item?.options?.options; let i = index" class="relative flex flex-col mb-6">
                               
                               <!-- Option Name -->
-                              <label class="font-semibold mb-2">
+                              <label  class="font-semibold mb-2">
                                 {{ o?.name }}
                                 <span *ngIf="o.required" class="text-sm font-normal text-gray-500"> (Required)</span>
+                                <span *ngIf="!o.required" class="text-sm font-normal text-gray-500"> (Optional)</span>
+                                <span *ngIf="o?.max_choices>1" class="text-sm font-normal text-gray-500"> (Max {{o?.max_choices}} choices)</span>
                               </label>
+                              <!-- Option Cost-->
+                              <div *ngIf="o?.cost" class="text-sm text-gray-500 mb-2">
+                                Additional Cost: UGX {{ o.cost | number }}
+                              </div>
                         
                               <!-- Validation Subtle Error -->
-                              <div *ngIf="o.required && !o.isSelected" class="text-gray-400 text-sm mb-2">
+                              <div *ngIf="o.required && !o.isSelected" [ngClass]="{ 'text-red-500': formSubmitted}" class="text-gray-400 text-sm mb-2">
                                 Please select an option.
                               </div>
                         
                               <!-- Selectable Buttons for Radio-like Options -->
-                              <div *ngIf="o?.selectable" class="flex flex-col gap-3">
+                              <div *ngIf="o?.selectable" class="flex flex-col gap-3" [ngClass]="{ 'text-red-500': formSubmitted}">
+                                <div *ngIf="o?.max_choices>1">
+                                  Select up to {{o?.max_choices}} choices
+                                </div>
+
                                 <button
                                   *ngFor="let choice of o.choices; let oi = index"
                                   type="button"
-                                  [ngClass]="{
-                                    'border-gray-400 text-gray-700 hover:bg-gray-100': !isSelected(o, choice),
-                                    'border-4 border-black text-black font-bold bg-white': isSelected(o, choice)
-                                  }"
-                                  class="relative inline-flex items-center justify-center p-3 font-medium rounded-full border-2 shadow-md w-full transition-all"
-                                  (click)="SetChoice($event, i, oi, o, choice)"
+                                  [disabled]="!isSelected(o, choice) && selectedCount(i) >= o.max_choices"
+  [ngClass]="{
+    'border-gray-400 text-gray-700 hover:bg-gray-100': !isSelected(o, choice),
+    'border-4 border-black text-black font-bold bg-white': isSelected(o, choice),
+    'opacity-50 cursor-not-allowed': !isSelected(o, choice) && selectedCount(i) >= o.max_choices
+  }"
+  class="relative inline-flex items-center justify-center p-3 font-medium rounded-full border-2 shadow-md w-full transition-all"
+  (click)="SetChoice($event, i, oi, o, choice)"
                                 >
                                   <span>{{ choice }}</span>
                                   <!-- SVG Tick Icon -->
@@ -390,6 +433,10 @@
                                     <path d="M9 12l2 2 4-4"></path>
                                   </svg>
                                 </button>
+                                 <!-- ✅ Feedback -->
+  <div *ngIf="o?.max_choices > 1" class="text-sm text-gray-700 mt-1">
+    {{ selectedCount(i) }} of {{ o.max_choices }} choices selected
+  </div>
                               </div>
                         
                               <!-- Checkboxes for Non-selectable Options -->
@@ -437,11 +484,41 @@
                           </form>
                           
            </div>
-                            
+           <div class="px-6 py-6 flex flex-col gap-3 border-t" *ngIf="selected_item?.extras?.length>0">
+            <button *ngFor="let o of selected_item?.extras;let i = index"                    
+            type="button"
+            [ngClass]="{
+              'border-gray-400 text-gray-700 hover:bg-gray-100': !isExtraSelected(o),
+              'border-4 border-black text-black font-bold bg-white': isExtraSelected(o)
+            }"
+            class="relative inline-flex items-center justify-center p-3 font-medium rounded-full border-2 shadow-md w-full transition-all"
+            (click)="SetExtra(i, o)">
+            <div class="flex items-center justify-between w-full">
+              <div class="text-sm text-brand-black">+ {{o?.name}}</div>
+              <span class="float-right text-xs" [ngClass]="{'mr-8':isExtraSelected(o)}">UGX {{o.primary_price|number}}</span>
+            </div>
+            <svg
+              *ngIf="isExtraSelected(o)"
+              xmlns="http://www.w3.org/2000/svg"
+              class="absolute right-3 h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="black"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9 12l2 2 4-4"></path>
+            </svg>
+            </button>
+
+           
+            </div>           
         </div>
         </div>
    
-        <div class="flex flex-col w-screen align-bottom pb-3 px-2 pt-2 border-t border-gray-300 shadow bg-white">
+        <div class="flex flex-col w-full align-bottom pb-3 px-2 pt-2 border-t border-gray-300 shadow bg-white">
             <div class="custom-number-input h-10 w-32 mx-auto mb-3">
                 <label for="custom-input-number" class="w-full text-gray-700 text-sm font-semibold">
                 </label>
