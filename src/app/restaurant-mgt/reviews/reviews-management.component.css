@@ -1,0 +1,94 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Main container white background */
+::ng-deep .flex.flex-col.lg\\:flex-row {
+  background-color: white;
+}
+
+/* Scrollbar styling for reviews list */
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track,
+.overflow-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.overflow-auto::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.overflow-auto::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}
+
+/* Smooth transitions */
+select {
+  transition: all 0.2s ease;
+  background-color: white;
+}
+
+select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+textarea {
+  resize: none;
+  transition: border-color 0.2s ease;
+  background-color: white;
+}
+
+textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Avatar background colors helper classes */
+.bg-avatar-warm {
+  background-color: #FF6B6B;
+}
+
+.bg-avatar-cool {
+  background-color: #4ECDC4;
+}
+
+.bg-avatar-mint {
+  background-color: #95E1D3;
+}
+
+.bg-avatar-blue {
+  background-color: #A8D8EA;
+}
+
+.bg-avatar-peach {
+  background-color: #FFB4A2;
+}
+
+.bg-avatar-light {
+  background-color: #FFDDC1;
+}
+
+.bg-avatar-purple {
+  background-color: #E0B9D4;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  :host {
+    height: auto;
+  }
+}

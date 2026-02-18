@@ -18,6 +18,9 @@ export class ReviewsComponent implements AfterViewInit {
   readmore_array:any[]=[];
   @ViewChildren('parareviewcontent') contentElements!: QueryList<ElementRef<HTMLParagraphElement>>;
   summary?: RatingSummary;
+  showDateDropdown: boolean = false;
+  selectedDateRange: string = 'Last 30 days';
+  currentDateRangeDays: number = 30;
   constructor(private auth:AuthenticationService, private fb:FormBuilder,private api:ApiService,private route:ActivatedRoute,@Inject(DOCUMENT) private document: Document) {
     if(auth.currentRestaurantRole?.restaurant_id){
       this.restaurant=auth.currentRestaurantRole?.restaurant_id;
@@ -32,6 +35,24 @@ export class ReviewsComponent implements AfterViewInit {
 //this.bsref=this.document.location.origin;
 //this.CreateTable5();
   }
+
+  toggleDateDropdown(): void {
+    this.showDateDropdown = !this.showDateDropdown;
+  }
+
+  setDateRange(days: number): void {
+    this.currentDateRangeDays = days;
+    if (days === 7) {
+      this.selectedDateRange = 'Last 7 days';
+    } else if (days === 30) {
+      this.selectedDateRange = 'Last 30 days';
+    } else if (days === 90) {
+      this.selectedDateRange = 'Last 90 days';
+    }
+    this.showDateDropdown = false;
+    this.loadReviews();
+  }
+
 loadReviews(){
     
   this.api.get(null,'restaurant-setup/orderreviews/',{restaurant:this.restaurant}).subscribe((x)=>{

@@ -25,6 +25,7 @@ import { ReportDetailComponent } from './report-detail/report-detail.component';
 import { AutoCompleteComponent } from "../_common/auto-complete/auto-complete.component";
 import { MenuDinersComponent } from './menu-diners/menu-diners.component';
 import { ReviewsComponent } from './reviews/reviews.component';
+import { ReviewsManagementComponent } from './reviews/reviews-management.component';
 import { PaymentsComponent } from './payments/payments.component';
 import { DinerAppModule } from '../diner-app/diner-app.module';
 import { MenuCommonComponent } from "../_common/menu-common/menu-common.component";
@@ -56,6 +57,7 @@ const routes: Routes = [
   ] },
   
   {path:'reviews',component:ReviewsComponent,title:'Reviews'},
+  {path:'reviews-management',component:ReviewsManagementComponent,title:'Reviews Management'},
   {path:'orders',component:OrdersComponent,title:'Orders'},
   {path:'payments',component:PaymentsComponent,title:'Payments'},
   {path:'reports',component:ReportsComponent,title:'Reports'}, 
@@ -84,6 +86,7 @@ const routes: Routes = [
     MenuDinersComponent,
     RestUsersComponent,
     ReviewsComponent,
+    ReviewsManagementComponent,
     SupportComponent,
     BillingComponent,
     RestNotificationsComponent,

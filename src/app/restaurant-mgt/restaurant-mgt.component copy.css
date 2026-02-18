@@ -1,0 +1,33 @@
+.scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hidden {
+    -ms-overflow-style: none; /* For IE & Edge */
+    scrollbar-width: none; /* For Firefox */
+  }
+
+  /* Responsive sidebar styles */
+  @media (max-width: 1023px) {
+    aside {
+      flex-direction: row;
+      justify-content: center;
+    }
+
+    aside ul {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    aside li a {
+      flex-direction: row;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.5rem;
+    }
+
+    aside span {
+      display: none !important;
+    }
+  }

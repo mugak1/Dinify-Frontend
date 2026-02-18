@@ -14,6 +14,7 @@ import {
   ApexLegend,
   ApexNonAxisChartSeries
 } from 'ng-apexcharts';
+import { title } from 'process';
 
 interface OrderStatus {
   completed: number;
@@ -203,7 +204,29 @@ export class Dashboard5Component implements OnInit {
       },
       colors: ['#3b82f6'],
       xaxis: {
-        categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        categories: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+        labels: { show: true },
+        axisBorder: { show: false },
+        axisTicks: { show: false }
+      },
+      tooltip: {
+        enabled: true,
+        followCursor: true,
+        x: {
+          formatter: (value: number, opts: any) => {
+            return this.revenueChartOptions.xaxis.categories[opts.dataPointIndex];
+          }
+        },
+        y: {
+          formatter: (value: number)=>  {
+            return value.toLocaleString();
+          },
+          title: {
+            formatter: () => {
+              return 'Revenue (UGX)';
+            }
+          }
+        }
       }
     };
 
