@@ -97,20 +97,20 @@ this.require_otp=true;
 this.startCountdown();
 
                 }else{
-  
-
-                /* if(this.log_in.profile.restaurant_roles.length==1){
-this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);
-                   // get return url from query parameters or default to home page
-                  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app'/* +log_in.profile.restaurant_roles[0].restaurant_id */;
-                 /* this.router.navigateByUrl(returnUrl);  
-                }else if(this.log_in.profile.roles.includes('dinify_admin')){
-
-                    // get return url from query parameters or default to home page
-                   const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/mgt-app';
-                   this.router.navigateByUrl(returnUrl);  
-                 } */
-                 this.isSubmittingOtp=false;
+                  // No OTP required and no password change needed — navigate directly
+                  if (this.log_in.profile.restaurant_roles.length === 1) {
+                    this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);
+                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app';
+                    this.router.navigateByUrl(returnUrl);
+                  } else if (this.log_in.profile.roles.includes('dinify_admin')) {
+                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/mgt-app';
+                    this.router.navigateByUrl(returnUrl);
+                  } else if (this.log_in.profile.restaurant_roles.length > 1) {
+                    this.showLoginForm = false;
+                    this.showRestaurantSelector = true;
+                    this.availableRestaurants = this.log_in.profile.restaurant_roles;
+                  }
+                  this.isSubmittingOtp = false;
                 }
 
               }
