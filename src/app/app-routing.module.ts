@@ -16,8 +16,8 @@ const routes: Routes = [
 {path:'register',component:RegisterComponent, title:'Register'},
 {path:'forgot-password',component:ForgotPasswordComponent, title:'Forgot Password'},
 {path:'change-password',component:ChangePasswordComponent},
-{path:'rest-app',component:RestaurantMgtComponent,canActivate:[AuthGuard],data:{role:''},loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module').then(m => m.RestaurantMgtModule)},
-{path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{role:''},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
+{path:'rest-app',component:RestaurantMgtComponent,canActivate:[AuthGuard],data:{roles:['restaurant_staff']},loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module').then(m => m.RestaurantMgtModule)},
+{path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin']},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
 {path:'diner',component:DinerAppComponent,loadChildren:()=> import('./diner-app/diner-app.module').then(m=>m.DinerAppModule)},
 { path: "lock-otp-exp/:username/:otp/:fullname", component: LockScreenComponent }, 
     // otherwise redirect to home
