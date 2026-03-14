@@ -109,6 +109,10 @@ this.startCountdown();
                     this.showLoginForm = false;
                     this.showRestaurantSelector = true;
                     this.availableRestaurants = this.log_in.profile.restaurant_roles;
+                  } else {
+                    // Fallback: no roles assigned — default to /rest-app
+                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app';
+                    this.router.navigateByUrl(returnUrl);
                   }
                   this.isSubmittingOtp = false;
                 }
@@ -156,6 +160,10 @@ let u = this.authenticationService.UpdateUser(log_otp);
   this.showLoginForm = false;            // 🔴 hide login
   this.showRestaurantSelector = true;    // ✅ only show selector
   this.availableRestaurants = this.log_in.profile.restaurant_roles;
+} else {
+  // Fallback: no roles assigned — default to /rest-app
+  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app';
+  this.router.navigateByUrl(returnUrl);
 }
                      this.isSubmittingOtp=false;
                     
