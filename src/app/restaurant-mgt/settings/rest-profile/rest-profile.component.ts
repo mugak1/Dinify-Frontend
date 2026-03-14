@@ -77,7 +77,6 @@ export class RestProfileComponent {
    
         this.api.get<RestaurantList>(null,'restaurant-setup/'+(id?'details/':'restaurants/'),(id?{id:id,record:'restaurants'}:{})).subscribe((x)=>{
           
-            console.log(x.data)
     this.rest=x?.data as any;
    this.RestaurantForm.patchValue(x?.data as any)
     

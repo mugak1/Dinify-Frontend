@@ -32,7 +32,6 @@ constructor(private sessionStorage:SessionStorageService,private api:ApiService,
 loadCurrentOrder(id:any){
   this.api.get<any>(null,'orders/journey/order-details/',({order:id})).subscribe((x)=>{
     if(id){
-console.log(x?.data)
 this.current_order=x?.data as any;
     }
     
@@ -89,8 +88,7 @@ Save(){
       if(x.status==200){
         this.router.navigate(['/diner','payment-details',res.transaction_id])
       }
-     // 
-    console.log(x);
+     //
     })
   }else if(this.PaymentForm.get('payment_mode')?.value=='momo'){
     this.api.get<any>(null,'users/msisdn-lookup/?msisdn=256'+this.PaymentForm.get('msisdn')?.value).subscribe((x)=>{
@@ -108,8 +106,7 @@ this.sendOtp('msisdn','256'+this.PaymentForm.get('msisdn')?.value,null);
             
            //window.location.href=res.redirect_url; 
           }
-         // 
-        console.log(x);
+         //
         })
       }
     })
@@ -120,8 +117,7 @@ this.sendOtp('msisdn','256'+this.PaymentForm.get('msisdn')?.value,null);
       if(x.status==200){
        window.location.href=res.redirect_url; 
       }
-     // 
-    console.log(x);
+     //
     })
   }
 /*   this.api.postPatch('finances/initiate-order-payment/',this.PaymentForm.value,'post').subscribe((x:any)=>{

@@ -50,7 +50,6 @@ export class RestaurantsComponent {
    *
    */
   constructor(private fb:FormBuilder,private api:ApiService,private route:ActivatedRoute, private dialog:ConfirmDialogService,private router:Router,private message:MessageService) {
-   console.log("loading restaurants");
    router.events.subscribe((event: NavigationStart|any) => {
      if (event.navigationTrigger === 'popstate') {
       if(event.url==='/mgt-app/restaurants'){
@@ -58,7 +57,7 @@ export class RestaurantsComponent {
         this.closeModal();
         }
       }
-      console.log(event.url)       // Perform actions
+      // Perform actions
      }
    });
    this.route.firstChild?.url.subscribe(x=>{
@@ -66,8 +65,6 @@ export class RestaurantsComponent {
       this.closeModal()
     }
    })
-  
-    console.log(this.route?.firstChild?.snapshot.params['id'])
   
   let sel_rest_id = this.route?.firstChild?.snapshot.params['id'];
          if(sel_rest_id){
@@ -314,7 +311,6 @@ if(patch){
       this.api.get<any>(null,'users/user-lookup/?contact='+this.RestaurantForm.get('phone_number')?.value).subscribe((x)=>{
         if(x.status==400){}
         else if(x.status==200){
-          console.log(x)
           this.detailUser=x.data as any as User;
           this.RestaurantForm.get('first_name')?.setValidators([]);;
           this.RestaurantForm.get('last_name')?.setValidators([]);

@@ -33,8 +33,6 @@ export class MenuCommonComponent {
    searchQuery: string = '';
   constructor(private sessionStorage:SessionStorageService,private api:ApiService,private basketService:BasketService,private router:Router,private fb:FormBuilder) {
  // this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
-  console.log(this.restaurant)
-  
   }
   ngOnInit(){
 this.loadMenu()
@@ -69,8 +67,6 @@ get QuantitySum(){
   this.menu_list=x.data as any;
   this.filteredMenuList = this.menu_list;
   this.currentSection=(this.menu_list[0] as MenuItem).name as string
-      console.log(x?.data)
-      
       
     })
   }
@@ -107,7 +103,7 @@ this.showModal=true;
     let px=this.selected_item.primary_price;
     this.selected_choices.forEach(s=>{
       px=px+s.order.cost
-      console.log(px)
+
     })
     let baskItm={item:this.selected_item.id,itemName:this.selected_item.name,price:px,quantity: this.selected_quantity,choice:null,option:null,options:this.selected_choices}
     if(this.restaurant_id){
@@ -170,7 +166,7 @@ let sel = {index:i, choice:has_choices,order:o}
         this.selected_choices.splice(i)
       } */
     }
-console.log(this.selected_choices)
+
   }
     /**
    * Filters each menu section based on the search query.
@@ -219,7 +215,7 @@ console.log(this.selected_choices)
         //let indo=this.selected_extras.indexOf(this.selected_extras.filter(x=>x.id==extra.id)[0])
         this.selected_extras.splice(i,1)
       }
-      console.log(this.selected_extras)
+
     }
     
 }

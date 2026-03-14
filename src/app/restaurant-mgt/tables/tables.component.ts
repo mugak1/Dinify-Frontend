@@ -437,7 +437,6 @@ this.saving=false;
   }
   isSubmitting=false;
 DeleteArea(area:DiningArea){
-  console.log(area)
     let ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
@@ -475,7 +474,6 @@ DeleteArea(area:DiningArea){
   message:"Are you sure you want to change the availability of "+a.name+ " to <b>"+(a.available?"available":"not available") +"</b> ?",
   
   }).subscribe((x:any)=>{
-  console.log(event.target.checked)
   if(x?.action=='yes'){
     this.api.postPatch('restaurant-setup/diningareas/',{id:a.id,available:event.target.checked},'put','',{},false,'',true).subscribe({
       next: ()=>{
@@ -535,7 +533,6 @@ currentTableIndex?:number;
 
 
   addItem(item: any) {
-    console.log('Item added:', item);
     // Implement order submission logic
   }
 
@@ -557,7 +554,6 @@ currentTableIndex?:number;
       this.sessionStorage.setItem('Table',table);
     }
     toggleAvailability($event:any,table: DiningAreaTable,areaIndex:number,tableIndex:number): void {
-      console.log($event.target.checked,table.enabled,areaIndex,tableIndex)
       let ref =this.dialog.openModal(
         {
           title:'CONFIRMATION',
@@ -614,15 +610,14 @@ ref?.unsubscribe();
         //this.dialog.closeModal();
       }
       if(x?.action=='no'){
-        console.log(x);
         this.dialog.closeModal();
         ref.unsubscribe();
       }
-  
-      
+
+
     });
-  
-  
+
+
   }
   ViewMenu(){
     this.view_menu=true;
@@ -658,7 +653,6 @@ ref?.unsubscribe();
         //this.dialog.closeModal();
       }
       if(x?.action=='no'){
-        console.log(x);
         this.dialog.closeModal();
         ref.unsubscribe();
       }

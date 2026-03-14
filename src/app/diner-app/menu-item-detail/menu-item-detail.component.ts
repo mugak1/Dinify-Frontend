@@ -13,7 +13,6 @@ export class MenuItemDetailComponent {
    *
    */
   constructor(private api:ApiService,private router:Router) {
-    console.log(this.router.url)
    this.router.url.includes('tables')
     
   }

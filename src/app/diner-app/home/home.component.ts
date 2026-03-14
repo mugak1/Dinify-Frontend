@@ -20,7 +20,6 @@ export class HomeComponent implements AfterViewInit {
   restaurant_id: string='';
   constructor(private sessionStorage:SessionStorageService,private route:ActivatedRoute,private api:ApiService) {
     this.route.params.subscribe(x=>{
-      console.log(x)
       if(x['table']){
         this.getTableDetails(x['table']);
       }else{
@@ -45,7 +44,6 @@ export class HomeComponent implements AfterViewInit {
   }
   ngAfterViewInit(){
     this.sessionStorage.StorageValue.subscribe(x=>{
-      console.log(x)
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
     this.table=this.sessionStorage.getItem<TableScan>('Table') as any;
     this.branding_configs=this.restaurant?.branding_configuration as any;

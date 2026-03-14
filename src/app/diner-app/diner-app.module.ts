@@ -11,7 +11,6 @@ import { MenuItemDetailComponent } from './menu-item-detail/menu-item-detail.com
 import { OrdersComponent } from './orders/orders.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { PaymentDetailsComponent } from './payment-details/payment-details.component';
-import { ScrollSpyDirective } from './scroll-spy.directive';
 import { OrderCompleteComponent } from './order-complete/order-complete.component';
 import { CurrencyModule } from '../_common/currency-input/currency-input.module';
 import { NgxCurrencyDirective } from 'ngx-currency';
@@ -41,8 +40,7 @@ const routes: Routes = [
     BasketComponent,
     MenuItemDetailComponent,
     OrdersComponent,
-    PaymentDetailsComponent,
-    ScrollSpyDirective
+    PaymentDetailsComponent
   ],
   imports: [
     CommonModule,

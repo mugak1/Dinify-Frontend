@@ -100,7 +100,6 @@ export class ReviewsManagementComponent implements OnInit {
         this.isLoadingReviews = false;
       },
       error: (error: any) => {
-        console.error('Error loading reviews:', error);
         this.isLoadingReviews = false;
         this.loadMockReviews();
       }
@@ -257,7 +256,6 @@ export class ReviewsManagementComponent implements OnInit {
         }
       },
       error: (error: any) => {
-        console.error('Error sending reply:', error);
       }
     });
   }

@@ -282,7 +282,6 @@ export class Dashboard5Component implements OnInit {
   // Helper Methods
   setDateRange(range: string): void {
     this.selectedDateRange = range;
-    console.log('Date range changed to:', range);
   }
 
   getTimeframeLabel(): string {

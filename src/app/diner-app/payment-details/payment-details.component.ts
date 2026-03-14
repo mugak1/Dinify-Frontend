@@ -18,9 +18,7 @@ export class PaymentDetailsComponent {
   rating:any;
   comment:any;
   constructor(private api:ApiService, private route:ActivatedRoute, private dialog:ConfirmDialogService,private message:MessageService) {
-    console.log('payment details')
     this.route.params.subscribe(x=>{
-      console.log(x)
       if(x['id']){
         this.getPaymentDetails(x['id'])
       }
@@ -62,7 +60,6 @@ this.message.add(x.message)
 
 
 },err=>{
-console.log(err)
 alert(err.message)
 this.dialog.closeModal();
 ref.unsubscribe();

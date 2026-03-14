@@ -139,7 +139,6 @@ get user(){
 let log_otp=val.data as unknown as OTPResponse;
 if(log_otp.valid){
 let u = this.authenticationService.UpdateUser(log_otp);
-                console.log(this.log_in)
                   if (this.log_in.profile.restaurant_roles.length === 1) {
   // One restaurant → auto set and redirect
   this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);

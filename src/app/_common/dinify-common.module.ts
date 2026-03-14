@@ -45,7 +45,8 @@ import { NgApexchartsModule } from 'ng-apexcharts';
    OtpInputComponent,
    CommonNotificationsComponent ,
    SafePipe,
-   CommonChartComponent 
+   CommonChartComponent,
+   ScrollSpyCommonDirective
   ],
   imports: [
     CommonModule,

@@ -15,8 +15,8 @@ resultSub= new BehaviorSubject({});
   constructor() {
   
     this.showModal?.subscribe(x=>
-    console.log(x)
-  ) 
+    {}
+  )
  
 }
   openModal(d:ConfirmaDialogData){

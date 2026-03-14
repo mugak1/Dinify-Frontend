@@ -81,9 +81,7 @@ show(v:any){
  return btn?.scrollHeight > btn?.offsetHeight;
 }
 private checkOverflow(): void {
- console.log(this.contentElements.length)
   this.contentElements.forEach((elementRef, index) => {
-    console.log(index)
     const element = elementRef.nativeElement;
     this.list[index].showReadMore = element.scrollHeight > element.offsetHeight;
   });

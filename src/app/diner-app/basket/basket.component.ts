@@ -130,7 +130,6 @@ discountValue: number = 10; // 10% or UGX amount
             }
           },
           (error) => {
-            console.error(error);
             alert(error.message);
           }
         );
@@ -170,10 +169,8 @@ discountValue: number = 10; // 10% or UGX amount
       
         this.basketService.clearBasket(); // Clear the basket
         this.sessionStorage.clear();
-        console.log(response);
       },
       (error) => {
-        console.error(error);
         this.dialog.closeModal();
         alert(error.message);
       }

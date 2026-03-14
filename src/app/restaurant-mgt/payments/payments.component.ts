@@ -82,7 +82,6 @@ loadRestaurant(id:string){
    
   this.api.get<RestaurantDetail>(null,'restaurant-setup/'+(id?'details/':'restaurants/'),(id?{id:id,record:'restaurants'}:{})).subscribe((x)=>{
     
-      console.log(x.data)
 this.rest=x?.data as any;
 this.acc= this.rest?.account
 this.today=this.datePipe.transform(Date.now(),'yyyy-MM-dd') as any;

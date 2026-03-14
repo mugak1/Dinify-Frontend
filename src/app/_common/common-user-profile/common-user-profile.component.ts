@@ -82,7 +82,7 @@ constructor(private auth:AuthenticationService,private fb:FormBuilder, private a
 }
   ngAfterViewInit(): void {
  // (<HTMLInputElement>document.getElementById("phone_edit")).setAttribute('value',this.user?.phone_number);
- console.log(this.phoneComponent?.phoneNumber);
+
   }
   CancelChange(){
     this.change_number=!this.change_number

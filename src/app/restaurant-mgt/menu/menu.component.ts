@@ -71,7 +71,6 @@ constructor(private fb:FormBuilder, private api:ApiService, private route:Activa
     this.today = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
   const depth = this.route.pathFromRoot.length; // Count the 
-  console.log(depth)
   this.isThirdChild = (depth === 5);
   
   if(auth.currentRestaurantRole?.restaurant_id){
@@ -196,12 +195,10 @@ initCategory(rest:string){
   return Object.keys(errors).length ? errors : null;
 }
  loadSections(id?:string,reloadItems?:boolean){
-  console.log(id)
   this.api.get<MenuSectionListItem>(null,'restaurant-setup/menusections/',{restaurant:this.restaurant}).subscribe((x)=>{
         this.section_list =x?.data?.records  as MenuSectionListItem[]
     if(id){
 this.section=x?.data?.records.filter((s:MenuSectionListItem)=>s.id==id)[0];
-console.log("sections", this.section)
 if(reloadItems){
   this.loadMenuItems(this.section as any,null as any,true);
  /*  this.menu_list =x?.data?.records;
@@ -336,7 +333,6 @@ this.section_groups=x?.data?.records as any[]
           confirmationRef?.unsubscribe(); // Unsubscribe from the modal
         },
         error: (err) => {
-          console.error('Error updating availability:', err);
           this.dialog.closeModal();
           confirmationRef?.unsubscribe();
         }
@@ -359,7 +355,6 @@ let ref =this.dialog.openModal(
 message:"Are you sure you want to change the availability of "+s.name+ " to <b>"+(s.available?"available":"not available") +"</b> ?",
 
 }).subscribe((x:any)=>{
-console.log(event.target.checked)
 if(x?.action=='yes'){
   this.api.postPatch('restaurant-setup/menuitems/',{id:s.id,available:event.target.checked},'put','',{},false,'',true).subscribe({
     next: ()=>{
@@ -377,7 +372,6 @@ if(x?.action=='no'){
   this.grouped_menu[g][index].available=!this.grouped_menu[g][index].available
   }
   if(this.search_list){
-    console.log(this.search_list[index])
     this.search_list[index].available=!this.search_list[index].available
   }
  // this.loadMenuItems(this.section?.id as string);
@@ -390,13 +384,11 @@ ref?.unsubscribe();
 
  }
  GroupAvailabilityChange(event:any,s:any,index:number,g:any){
- console.log(s)
   let ref =this.dialog.openModal(
     {
       title:'CONFIRMATION',
   message:"Are you sure you want to change the availability of "+s.name+ " to <b>"+(s.available?"available":"not available") +"</b> ?",
   }).subscribe((x:any)=>{
-  console.log(x)
   if(x?.action=='yes'){
     this.api.postPatch('restaurant-setup/sectiongroups/',{id:s.id,available:event.target.checked},'put',null,{},false,'',true).subscribe({
       next: ()=>{
@@ -431,7 +423,6 @@ toggleCategoryModal(){
   this.CategoryForm=this.initCategory(this.restaurant);
 
  this.CategoryForm.get('has_groups')?.valueChanges.subscribe(x=>{
-  console.log(x)
   if(x=='true'){
 (<FormArray>this.CategoryForm?.get('groups')).push(this.fb.group({group_name:''}))
   }
@@ -485,7 +476,6 @@ SubmitGroup(){
     "name": this.currentGroup.group_name
 }
 
-console.log(g_obj)
 /* */   this.api.postPatch('restaurant-setup/sectiongroups/',g_obj,'post',null,{},false,'',true).subscribe({
     next: ()=>{
       this.showNewInput=false;
@@ -564,7 +554,6 @@ InputLogo($event:any){
 toggleMenuIemModal(){
   this.ItemForm=this.initMenuItem();
   this.ItemForm.get('has_options')?.valueChanges.subscribe(x=>{
-    console.log("has options",x)
     if(x){
 this.ItemForm?.setControl('options',this.InitOptionObject())
     }else{
@@ -624,7 +613,6 @@ this.loading=false;
     },
     error: (err) => {
       this.loading=false;
-      console.error('SaveMenuItem error:', err);
     }
   });
  /* let image_field_type = typeof (this.ItemForm?.get('image')?.value)
@@ -703,7 +691,6 @@ public removeItem(item: any): void {
   //list.splice(list.indexOf(item), 1);
 }
 log(info:any,e:any){
-console.log(info,e)
 }
 public simpleList = [
   [
@@ -768,7 +755,6 @@ this.ItemForm?.get('discount_details')?.get('recurring_days')?.setValue(disc);
     this.ItemForm?.get('discount_details')?.get('recurring_days')?.setValue(disc);
   }
 }
-console.log(disc,val.checked)
 }
 
 InitOptionItem(){
@@ -886,7 +872,6 @@ v.get('choices')?.patchValue(choices_);
 }
 LoadExtra(event:any){
 this.temp_extra=event;
-console.log(event)
 }
 AddExtra(){ 
 let extras:any[]=this.ItemForm?.get('extras_applicable')?.value?this.ItemForm?.get('extras_applicable')?.value:[];
@@ -961,7 +946,6 @@ AddAllergen(val:any){
 }
 DeleteAllergen(i:number){
   let alls:any[]=this.ItemForm?.get('allergens')?.value;  
-  console.log(alls)
   alls.splice(i,1)
   this.ItemForm?.get('allergens')?.setValue(alls);
 }
@@ -1069,7 +1053,6 @@ DeleteSection(section:MenuSectionListItem){
     if(this.showModal){
       this.showModal=false;
     } */
-   console.log(section_group)
     let ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
@@ -1161,8 +1144,6 @@ DeleteSection(section:MenuSectionListItem){
       section.listing_position = index + 1;
     });
 
-    console.log('Updated order:', this.section_list);
-
     // Submit new order to the backend
     this.submitNewOrder();
   }
@@ -1176,10 +1157,8 @@ DeleteSection(section:MenuSectionListItem){
     this.api.postPatch('restaurant-setup/reorder-menu-items/',{'ordering':updatePayload}, 'put')
       .subscribe({
         next: () => {
-          console.log('Order updated successfully');
         },
         error: (err) => {
-          console.error('Error updating order:', err);
         }
       });
   }

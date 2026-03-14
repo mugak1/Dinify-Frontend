@@ -12,7 +12,6 @@ export class OrderCompleteComponent {
  */
 isDinerApp=true;
 constructor(private router:Router) {
-  console.log(this.router.url)
  this.isDinerApp=!this.router.url.includes('tables')
 }
  
