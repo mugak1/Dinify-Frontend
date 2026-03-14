@@ -28,8 +28,6 @@ export class ApiService {
       : Object.entries(data).reduce((y: { [key: string]: any }, [w, T]) => ((Boolean(T) && (y[w] = T)), y), {});
   }
 
-  console.log('Payload sending:', payload);
-
   return this._http[method](
     `${version ? environment.apiUrl + '/api/' + version : this._base}/${url}${id ? "/" + id : ""}${queryParams}`,
     payload

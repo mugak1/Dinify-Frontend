@@ -221,16 +221,6 @@ export interface Home {
   headerFontWeight: string
   viewMenuTextColor: string
 }
-export interface MenuItem {
-  id: string
-  name: string
-  section_banner_image: any
-  available: boolean
-  item_count: number
-  groups: any[]
-  items: Item[]
-}
-
 export interface Item {
   id: string
   name: string

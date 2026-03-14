@@ -34,7 +34,6 @@ import { CommonUsersComponent } from '../_common/common-users/common-users.compo
 import { SupportComponent } from './support/support.component';
 import { BillingComponent } from './settings/billing/billing.component';
 import { RestNotificationsComponent } from './rest-notifications/rest-notifications.component';
-import { SampleComponent } from '../sample/sample.component';
 import { BaseChartDirective } from 'ng2-charts';
 
 const routes: Routes = [
@@ -64,7 +63,6 @@ const routes: Routes = [
   {path:'support',component:SupportComponent,title:'Support'},  
   {path:'reports/:type',component:ReportDetailComponent,title:'ReportDetail'},
   {path:'notifications',component:RestNotificationsComponent,title:'Notifications'},
-  {path:'sample',component:SampleComponent,title:'Sample'},
   { path: 'rest-app-ordering', loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule) }, // Load DinerApp for ordering
   { path: '**', redirectTo: '' }
   ];
@@ -90,8 +88,7 @@ const routes: Routes = [
     SupportComponent,
     BillingComponent,
     RestNotificationsComponent,
-    PaymentsComponent,
-    SampleComponent
+    PaymentsComponent
   ],
   imports: [
     CommonModule,

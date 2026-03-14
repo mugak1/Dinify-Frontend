@@ -1,5 +1,5 @@
 import { Pipe, PipeTransform } from "@angular/core";
-import { DomSanitizer, SafeHtml, SafeStyle, SafeScript, SafeUrl, SafeResourceUrl } from "@angular/platform-browser";
+import { DomSanitizer, SafeHtml, SafeStyle } from "@angular/platform-browser";
 
 @Pipe({
     name: 'safe'
@@ -13,27 +13,21 @@ import { DomSanitizer, SafeHtml, SafeStyle, SafeScript, SafeUrl, SafeResourceUrl
     // tslint:disable-next-line
     constructor(protected _sanitizer: DomSanitizer) {
     }
-  
+
     /**
      * Transform
      *
      * @param value: string
      * @param type: string
      */
-    transform(value: string, type: string): SafeHtml | SafeStyle | SafeScript | SafeUrl | SafeResourceUrl {
+    transform(value: string, type: string): SafeHtml | SafeStyle {
       switch (type) {
         case 'html':
           return this._sanitizer.bypassSecurityTrustHtml(value);
         case 'style':
           return this._sanitizer.bypassSecurityTrustStyle(value);
-        case 'script':
-          return this._sanitizer.bypassSecurityTrustScript(value);
-        case 'url':
-          return this._sanitizer.bypassSecurityTrustUrl(value);
-        case 'resourceUrl':
-          return this._sanitizer.bypassSecurityTrustResourceUrl(value);
         default:
-          return this._sanitizer.bypassSecurityTrustHtml(value);
+          throw new Error(`SafePipe: unsupported type "${type}". Only "html" and "style" are allowed.`);
       }
     }
   }

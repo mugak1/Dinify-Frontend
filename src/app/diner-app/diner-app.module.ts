@@ -33,27 +33,6 @@ const routes: Routes = [
   { path: '**', redirectTo: '' }
   ];
 
-/* @NgModule({
-  declarations: [
-    DashboardComponent,
-    SettingsComponent,
-    MenuComponent,
-    TablesComponent
-  ],
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    RouterModule.forChild(routes),
-    NgApexchartsModule,
-    DinifyCommonModule,
-    QRCodeModule
-  ],
-  exports:[
-    RouterModule    
-  ]
-}) */
-export class RestaurantMgtModule { }
-
 
 @NgModule({
   declarations: [

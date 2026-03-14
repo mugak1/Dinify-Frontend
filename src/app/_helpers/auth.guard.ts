@@ -14,11 +14,11 @@ export class AuthGuard {
         if (user) {
             // check if route is restricted by role
             const { roles } = route.data;
-          /*   if (roles && !roles.includes(user.profile.roles)) {
+            if (roles && !roles.includes(user.profile.roles)) {
                 // role not authorized so redirect to home page
                 this.router.navigate(['/']);
                 return false;
-            } */
+            }
 
             // authorized so return true
             return true;
