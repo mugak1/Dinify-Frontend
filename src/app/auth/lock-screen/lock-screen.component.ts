@@ -59,7 +59,6 @@ Send() {
     this.LockScreenForm.get("old_password")?.setValue(this.oldpassword),
     this.api.UserChangePasswordOnLogin(this.LockScreenForm.value).subscribe({
         next:(value:any)=>{
-            console.log(value)
           this.unlocking = false,
         this.router.navigate(["/login"])
 this.messageService.addMessage({severity:'info', summary:'info',message:value?.body.message})

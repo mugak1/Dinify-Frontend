@@ -66,8 +66,7 @@ SaveDate(){
       this.closeModal();
       //this.router.navigate(['/diner','payment-details',res.transaction_id])
     }
-   // 
-  console.log(x);
+   //
   })
 }
 subtractMonths(date: Date, monthsToSubtract: number): Date {
@@ -102,7 +101,6 @@ loadingBillingSub(){
    // this.rest=x?.data as any;
    this.sub_details=x?.data as any;
   
-   console.log(x.data)
   })
 }
 closeModal(){
@@ -142,8 +140,7 @@ Save(){
         this.closeModal();
         //this.router.navigate(['/diner','payment-details',res.transaction_id])
       }
-     // 
-    console.log(x);
+     //
     })
   }else if(this.PaymentForm?.get('payment_mode')?.value=='momo'){
     this.api.get<any>(null,'users/msisdn-lookup/?msisdn=256'+this.PaymentForm.get('msisdn')?.value).subscribe((x)=>{
@@ -162,8 +159,7 @@ this.sendOtp('msisdn','256'+this.PaymentForm?.get('msisdn')?.value,null);
             
            //window.location.href=res.redirect_url; 
           }
-         // 
-        console.log(x);
+         //
         })
       }
     })
@@ -181,8 +177,7 @@ this.sendOtp('msisdn','256'+this.PaymentForm?.get('msisdn')?.value,null);
         this.closeModal();
        window.location.href=res.redirect_url; 
       }
-     // 
-    console.log(x);
+     //
     })
   }
 }

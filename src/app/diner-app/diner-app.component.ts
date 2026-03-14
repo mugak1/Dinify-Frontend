@@ -24,7 +24,6 @@ button_action='';
 
 
 constructor(private readonly sessionStorage: SessionStorageService,private route:ActivatedRoute,private api:ApiService,public auth:AuthenticationService) {
-  console.log("this.route.snapshot.params['table']")
   /**/if(this.route.children.length>0){
    this.route.children.at(0)?.params.subscribe(x=>{
  if(x['table']){

@@ -101,7 +101,6 @@ export class Dashboard2Component implements OnInit {
 
   loadDashboardData(): void {
     // In a real app, this would fetch data from the API service
-    console.log('Loading dashboard data...');
   }
 
   onTimeFrameChange(timeFrame: string): void {
@@ -124,27 +123,21 @@ export class Dashboard2Component implements OnInit {
 
   // Navigation methods
   navigateToOrders(): void {
-    console.log('Navigate to orders');
   }
 
   navigateToMenu(): void {
-    console.log('Navigate to menu');
   }
 
   navigateToTables(): void {
-    console.log('Navigate to tables');
   }
 
   navigateToReviews(): void {
-    console.log('Navigate to reviews');
   }
 
   navigateToReports(): void {
-    console.log('Navigate to reports');
   }
 
   navigateToSettings(): void {
-    console.log('Navigate to settings');
   }
 
   // Chart data for revenue (placeholder - integrate with actual charting library)

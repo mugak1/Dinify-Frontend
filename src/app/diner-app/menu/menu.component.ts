@@ -54,12 +54,10 @@ export class DinersMenuComponent implements OnInit {
 
   constructor(private sessionStorage:SessionStorageService,private api:ApiService,private basketService:BasketService,private router:Router,private fb:FormBuilder) {
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
-  console.log(this.restaurant)
   this.udpateCart();
   }
   ngOnInit(){
    
-    console.log(this.restaurant?.menu_approval_status,(this.restaurant as any)?.first_time_menu_approval as any)
     if(this.restaurant?.menu_approval_status=='approve'||(this.restaurant as any)?.first_time_menu_approval){
       this.loadMenu()
     }else{
@@ -132,9 +130,6 @@ get QuantitySum(){
           // Initially set the filtered list to the complete menu list
           this.filteredMenuList = this.menu_list;
   this.currentSection=(this.menu_list[0] as MenuItem).name as string
-      console.log(x?.data)
-      
-      
     })
   }
   clearSearch() {
@@ -175,7 +170,6 @@ setTimeout(() => {
       // Ensure the form is valid before proceeding
   if (!this.isFormValid()) {
     this.formSubmitted = true; // Set flag to indicate form submission
-    console.error('Form is invalid. Please complete all required options.');
     return;
   }
  // Prepare selected options for visualization
@@ -268,8 +262,6 @@ this.basketService.addItem(basketItem);
   };
 
   this.basketService.addItem(basketItem); // Add the item to the basket */
-  console.log('Item successfully added to the basket:', basketItem);
-
   // Update the cart view and reset the form
   this.udpateCart();
   this.closeModal();
@@ -465,9 +457,7 @@ const max = option.max_choices || 1;
   submitForm(): void {
     this.validateForm();
     if (this.isFormValid()) {
-      console.log('Form submitted successfully:', this.selected_choices);
     } else {
-      console.error('Form submission failed. Errors:', this.errorMessages);
     }
   }
   calculateDiscount(item:any): number {
@@ -538,7 +528,6 @@ const max = option.max_choices || 1;
       this.selected_extras.splice(index, 1); // Remove the correct extra
     }
   
-    console.log(this.selected_extras)
   }
   
 }

@@ -140,7 +140,7 @@ mes='Are you sure you want to set Order #'+this.order?.order_number+' to <strong
     submitButtonText:buttonText,
   }).subscribe((x:any)=>{
    
-    if(x?.action=='yes'){     console.log("modal sub",x); 
+    if(x?.action=='yes'){
   /*     if(this.order?.items?.length as number>1){
 
       }else{ */
@@ -165,8 +165,7 @@ mes='Are you sure you want to set Order #'+this.order?.order_number+' to <strong
      submitButtonText:'Accept',
      message:'Are you sure you want to <strong>ACCEPT</strong> Order #'+this.order?.order_number+' ?',
    })?.subscribe((x:any)=>{
-     console.log("modal sub",x);
-     if(x?.action=='yes'){     
+     if(x?.action=='yes'){
  /**/          this.api.postPatch('orders/prepare/',{order:id},'put').subscribe({
            next: ()=>{
        this.loadOrders(this.restaurant);
@@ -189,8 +188,7 @@ mes='Are you sure you want to set Order #'+this.order?.order_number+' to <strong
        submitButtonText:'Decline',
        message:'Are you sure you want to <strong>Decline</strong> Order #'+this.order?.order_number+' ?',
      })?.subscribe((x:any)=>{
-       console.log("modal sub",x);
-       if(x?.action=='yes'){     
+       if(x?.action=='yes'){
    /**/          this.api.postPatch('orders/cancel/',{order:id},'put').subscribe({
              next: ()=>{
          this.loadOrders(this.restaurant);
@@ -221,7 +219,6 @@ InitiateManualPayment(id:any){
 }
 loadOrderDetails(id:any){
   this.api.get<any>(null,'orders/details/',{order:id},'v2').subscribe((x:any)=>{
-    console.log(x.balance_payable)
     this.totalBalancePayable= Number(x.data.balance_payable)
   })
 }
@@ -256,10 +253,9 @@ this.PaymentForm.get('otp')?.setValue(this.data)
        window.location.href=res.redirect_url; 
       } */
      // 
-    console.log(x);
     })
   }
-} 
+}
 SaveNewItem(item:any){
   let ref = this.dialog.openModal({
     title:'Add Item',
@@ -280,7 +276,6 @@ SaveNewItem(item:any){
       //this.dialog.closeModal();
     }
     if(x?.action=='no'){
-      console.log(x);
       this.dialog.closeModal();
       ref.unsubscribe();
     }
@@ -320,12 +315,11 @@ DeleteItem(item:OrderedItem){
       //this.dialog.closeModal();
     }
     if(x?.action=='no'){
-      console.log(x);
       this.dialog.closeModal();
       ref.unsubscribe();
     }
 
-    
+
   });
 
 
@@ -336,7 +330,6 @@ getTimeAgo(time: string): string {
 
 ChangeOrder(o:any){
   let ord=o.value;
-  console.log(ord)
   switch(ord){
   case 'n-o':{
 this.list=this.list_cache?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return +new Date(a.time_created)- +new Date(b.time_created);})

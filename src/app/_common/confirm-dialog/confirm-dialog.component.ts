@@ -34,10 +34,8 @@ private modalSubscription!: Subscription;
   Cancel(){
     this.confirmService.closeModal();
     this.confirmService.resultSub.next({action:'no',reason:this.reason});
-    console.log('no is clicked')
   }
   toggleModal() {
-   console.log('yes is clicked')
     this.result='yes';
     this.confirmService.resultSub.next({action:'yes',reason:this.reason});
 /* this.data?.callback?.next(this.result);
@@ -57,7 +55,6 @@ ngOnDestroy() {
 }
 
 Reject(){
-  console.log('reject is clicked')
   this.result='reject';
     this.confirmService.resultSub.next({action:'reject',reason:this.reason});
 }

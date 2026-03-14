@@ -34,7 +34,6 @@ url=environment.apiUrl
     } else if (this.imageElement?.nativeElement) {
       this.observer.observe(this.imageElement.nativeElement);
     } else {
-      console.error('Element to observe is not available.');
     }
   }
   

@@ -31,8 +31,6 @@ export class CurrencyInputComponent implements ControlValueAccessor, OnInit {
   ) {}
 
   ngOnInit() {
-    console.log('Currency Component');
-    console.log(this.controlContainer);
     this.setStateInitialization();
   }
 

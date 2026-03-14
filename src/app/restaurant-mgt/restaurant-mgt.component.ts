@@ -22,7 +22,6 @@ baseUrl=environment.apiUrl;
 constructor(public auth:AuthenticationService, private api:ApiService, private dialog:ConfirmDialogService, private route: ActivatedRoute, private router:Router,private cdr:ChangeDetectorRef) {
   // Check if the component is loaded through 
   const depth = this.route.pathFromRoot.length; // Count the 
-  console.log(depth)
   this.isChildComponent = (depth === 4);
 
 if(this.auth.currentRestaurantRole){
@@ -53,7 +52,6 @@ logout(){
       //this.dialog.closeModal();
     }
     if(x?.action=='no'){
-      console.log(x);
       this.dialog.closeModal();
       ref.unsubscribe();
     }

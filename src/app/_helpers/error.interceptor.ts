@@ -14,10 +14,8 @@ export class ErrorInterceptor implements HttpInterceptor {
         return next.handle(request).pipe(catchError(err => {
             if ([401, 403].includes(err.status) && this.authenticationService.userValue) {
                 // auto logout if 401 Unauthorized or 403 Forbidden response returned from api
-                console.log(err);
                 this.authenticationService.logout();
             }
-console.log(err)
 if(err.status===0){
     this.message.add("no network");
     return throwError(() => "no network");

@@ -60,7 +60,6 @@ constructor(private fb:FormBuilder,private api:ApiService,private dialog:Confirm
 
 ngAfterViewInit(): void {
   if(this.users){
-    console.log(this.users)
   this.usersCache=[...this.users];//Object.assign([],this.users);
   }
 }
@@ -93,16 +92,14 @@ Register(){
 
 this.api.postPatch('restaurant-setup/employees/',{"user": this.user_id,
     "restaurant": this.restaurant,roles:[this.RegisterForm.get('roles')?.value]},'post').subscribe(x=>{
-      console.log(x);
       this.save.emit(x);
       this.closeModal();
-      }) 
+      })
   }else if(!this.user_id&&this.checked){
     let val =this.RegisterForm.value
     val.roles=[this.RegisterForm.get('roles')?.value];
     val.restaurant=this.restaurant;
    this.api.postPatch((this.restaurant?'restaurant-setup/create-employee/':'users/auth/register/'),val,'post').subscribe(x=>{
-console.log(x);
 //this.LookUp()
 //this.save.emit(x);
 this.save.emit(x);
@@ -130,8 +127,6 @@ removeUnderscore(x:string){
   return x.replace(/_/g," ").replace('RESTAURANT','');
 }
 LookUp(){
- console.log('looking up ',this.RegisterForm.get('phone_number')?.value)
- 
   this.api.get<any>(null,'users/user-lookup/?contact='+this.RegisterForm.get('phone_number')?.value).subscribe((x)=>{
     //this.users=x.data?.records as any
     if(x.status==400){

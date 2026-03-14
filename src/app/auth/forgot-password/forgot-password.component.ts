@@ -154,7 +154,6 @@ Submit(){
   , e=>{
 this.isSubmittingOtp=false;
 this.submitted =false;
-console.log(e)
     this.messageService.addMessage({severity:'error', summary:'Error', message:e});
     this.ForgotPasswordForm.get("phone_number")?.setValue("");
     this.data=''

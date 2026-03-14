@@ -463,7 +463,6 @@ export class Dashboard3Component implements OnInit {
 
   loadDashboardData(): void {
     // Simulate API call
-    console.log(`Loading dashboard data for ${this.selectedTimeRange}...`);
   }
 
   // Date Range Methods
@@ -577,20 +576,16 @@ export class Dashboard3Component implements OnInit {
 
   // Navigation methods
   navigateToOrders(): void {
-    console.log('Navigate to orders page');
   }
 
   navigateToMenu(): void {
-    console.log('Navigate to menu management');
   }
 
   exportData(): void {
-    console.log('Exporting dashboard data...');
     // Implement export functionality
   }
 
   createNewOrder(): void {
-    console.log('Opening new order form...');
     // Implement new order creation
   }
 
