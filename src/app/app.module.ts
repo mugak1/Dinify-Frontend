@@ -29,6 +29,7 @@ import { DinifyMgtModule } from './dinify-mgt/dinify-mgt.module';
 import { DinerAppModule } from './diner-app/diner-app.module';
 import { DinifyCommonModule } from "./_common/dinify-common.module";
 import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
+import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { BaseChartDirective } from 'ng2-charts';
@@ -49,7 +50,8 @@ bootstrapApplication(AppComponent, {
     RegisterComponent,
     ForgotPasswordComponent,
     ChangePasswordComponent,
-    LockScreenComponent
+    LockScreenComponent,
+    WelcomeComponent
     /* CurrencyInputComponent */
   ],
   imports: [

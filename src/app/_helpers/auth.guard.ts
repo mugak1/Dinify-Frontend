@@ -14,7 +14,7 @@ export class AuthGuard {
         if (user) {
             // check if route is restricted by role
             const { roles } = route.data;
-            if (roles && !roles.some((r: string) => r === user.profile.roles)) {
+            if (roles && !roles.some((r: string) => user.profile.roles.includes(r))) {
                 // role not authorized so redirect to home page
                 this.router.navigate(['/']);
                 return false;
