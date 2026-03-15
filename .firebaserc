@@ -1,5 +1,15 @@
 {
   "projects": {
-    "default": "dinify-dev"
+    "default": "dinify-dev",
+    "uat": "dinify-dev"
+  },
+  "targets": {
+    "dinify-dev": {
+      "hosting": {
+        "dinify-uat": [
+          "dinify-uat"
+        ]
+      }
+    }
   }
 }
