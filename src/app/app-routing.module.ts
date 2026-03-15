@@ -23,7 +23,7 @@ const routes: Routes = [
 {path:'diner',component:DinerAppComponent,loadChildren:()=> import('./diner-app/diner-app.module').then(m=>m.DinerAppModule)},
 { path: "lock-otp-exp/:username/:otp/:fullname", component: LockScreenComponent }, 
     // otherwise redirect to home
-{ path: '**', redirectTo: '' }
+{ path: '**', redirectTo: 'login' }
 ];
 
 @NgModule({

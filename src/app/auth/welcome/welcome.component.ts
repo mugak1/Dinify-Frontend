@@ -8,6 +8,7 @@ import { Router } from '@angular/router';
     <div class="welcome-container">
       <div class="welcome-card">
         <img src="assets/images/dinify-logo.png" alt="Dinify" class="logo" />
+        <!-- DINIFY_WELCOME_V1 -->
         <h2>Welcome to Dinify</h2>
         <p>Your account is being set up.</p>
         <p class="sub">Please contact your administrator to assign your role.</p>
