@@ -6,6 +6,7 @@ A comprehensive restaurant management and customer dining application built with
 **Angular CLI**: 17.3.6  
 **Node**: Required (see `package.json`)
 
+
 ---
 
 ## Table of Contents
