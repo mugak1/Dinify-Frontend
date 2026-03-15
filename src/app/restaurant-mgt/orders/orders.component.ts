@@ -432,45 +432,54 @@ getKeys(obj: any): string[] {
   return Object.keys(obj);
 }
 printReceipt() {
-  const printContents = document.querySelector('.dot-matrix-receipt')?.innerHTML;
-  const popupWin = window.open('', '_blank', 'width=400,height=600');
-  if (popupWin && printContents) {
-    popupWin.document.open();
-    popupWin.document.write(`
-      <html>
-        <head>
-          <title>Receipt</title>
-          <style>
-           @media print {
-  .no-print {
-    display: none !important;
-  }
-  .print\\:block {
-    display: block !important;
-  }
-  .dot-matrix-receipt {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
-    white-space: pre-wrap;
-    width: 280px;
-    margin: 0 auto;
-    padding: 0;
-    background: white;
-    color: black;
-  }
-}
+  const receiptEl = document.querySelector('.dot-matrix-receipt');
+  if (!receiptEl) return;
 
-          </style>
-        </head>
-        <body onload="window.print(); window.close();">
-          <div id="printable-receipt">
-            ${printContents}
-          </div>
-        </body>
-      </html>
-    `);
-    popupWin.document.close();
-  }
+  const popupWin = window.open('', '_blank', 'width=400,height=600');
+  if (!popupWin) return;
+
+  const doc = popupWin.document;
+  doc.open();
+
+  // Build document safely via DOM APIs instead of document.write with interpolated HTML
+  doc.write('<!DOCTYPE html><html><head><title>Receipt</title></head><body></body></html>');
+  doc.close();
+
+  const style = doc.createElement('style');
+  style.textContent = `
+    @media print {
+      .no-print { display: none !important; }
+      .print\\:block { display: block !important; }
+    }
+    .dot-matrix-receipt {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      width: 280px;
+      margin: 0 auto;
+      padding: 0;
+      background: white;
+      color: black;
+    }
+  `;
+  doc.head.appendChild(style);
+
+  const container = doc.createElement('div');
+  container.id = 'printable-receipt';
+  // Clone the receipt node to avoid injecting raw innerHTML from potentially untrusted content
+  const cloned = receiptEl.cloneNode(true);
+  container.appendChild(cloned);
+  doc.body.appendChild(container);
+
+  popupWin.onload = () => {
+    popupWin.print();
+    popupWin.close();
+  };
+  // Fallback: if onload already fired (some browsers)
+  popupWin.setTimeout(() => {
+    popupWin.print();
+    popupWin.close();
+  }, 250);
 }
 }
 
