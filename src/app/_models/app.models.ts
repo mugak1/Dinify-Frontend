@@ -38,7 +38,7 @@ export interface Profile {
   first_name: string
   last_name: string
   email: string
-  roles: string
+  roles: string[]
   other_names: any
   phone_number:any;
   restaurant_roles: RestaurantRole[]

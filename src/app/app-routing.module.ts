@@ -9,6 +9,7 @@ import { ChangePasswordComponent } from './auth/change-password/change-password.
 import { AuthGuard } from './_helpers/auth.guard';
 import { DinerAppComponent } from './diner-app/diner-app.component';
 import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
+import { WelcomeComponent } from './auth/welcome/welcome.component';
 
 const routes: Routes = [
   {path:'',redirectTo:'login',pathMatch:'full'},
@@ -16,6 +17,7 @@ const routes: Routes = [
 {path:'register',component:RegisterComponent, title:'Register'},
 {path:'forgot-password',component:ForgotPasswordComponent, title:'Forgot Password'},
 {path:'change-password',component:ChangePasswordComponent},
+{path:'welcome',component:WelcomeComponent,canActivate:[AuthGuard],title:'Welcome'},
 {path:'rest-app',component:RestaurantMgtComponent,canActivate:[AuthGuard],data:{roles:['restaurant_staff']},loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module').then(m => m.RestaurantMgtModule)},
 {path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin']},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
 {path:'diner',component:DinerAppComponent,loadChildren:()=> import('./diner-app/diner-app.module').then(m=>m.DinerAppModule)},
