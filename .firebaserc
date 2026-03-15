@@ -1,10 +1,10 @@
 {
   "projects": {
     "default": "dinify-dev",
-    "uat": "dinify-uat"
+    "uat": "dinify-dev"
   },
   "targets": {
-    "dinify-uat": {
+    "dinify-dev": {
       "hosting": {
         "dinify-uat": [
           "dinify-uat"
