@@ -1,8 +1,8 @@
-import { Component, ElementRef, HostListener, ViewChild } from '@angular/core';
-import { AbstractControl, FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { Component, ElementRef, ViewChild } from '@angular/core';
+import { AbstractControl, FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
-import { ApiResponse, MenuItem, MenuSectionListItem, RestaurantDetail } from 'src/app/_models/app.models';
+import { MenuItem, MenuSectionListItem, RestaurantDetail } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MessageService } from 'src/app/_services/message.service';
@@ -132,7 +132,7 @@ initCategory(rest:string){
  toggleDiscountFields(event: any) {
   const isChecked = event.target.checked;
   const discountControlExists = this.ItemForm?.contains('discount_details');
-  const discountValue = this.ItemForm?.get('discount_details')?.value;
+  const _discountValue = this.ItemForm?.get('discount_details')?.value;
 
   if (isChecked) {
     if (discountControlExists) {
@@ -275,20 +275,22 @@ this.section_groups=x?.data?.records as any[]
   })
  }
  removeExtra(index: number) {
-  if(confirm('Are you sure you want to remove this extra?')){
-  const extras = this.ItemForm?.get('extras_applicable')?.value as string[];
-  const extraId = this.temp_extra_list[index].id;
-  const extraIndex = extras.indexOf(extraId);
-  if (extraIndex > -1) {
-    extras.splice(extraIndex, 1); // Remove ID from extras array
-    this.ItemForm?.get('extras_applicable')?.setValue(extras);
-  this.temp_extra_list.splice(index, 1); // Remove item from array
-  }
-  this.loadMenuItems(this.section as any);
-}
+  this.dialog.openModal({title:'Remove Extra', message:'Are you sure you want to remove this extra?'}).subscribe((result: any) => {
+    if (result?.action === 'yes') {
+      const extras = this.ItemForm?.get('extras_applicable')?.value as string[];
+      const extraId = this.temp_extra_list[index].id;
+      const extraIndex = extras.indexOf(extraId);
+      if (extraIndex > -1) {
+        extras.splice(extraIndex, 1);
+        this.ItemForm?.get('extras_applicable')?.setValue(extras);
+        this.temp_extra_list.splice(index, 1);
+      }
+      this.loadMenuItems(this.section as any);
+    }
+  });
 }
 
- loadMenuItems(section:MenuSectionListItem,id?:string,reloadSections?:boolean){
+ loadMenuItems(section:MenuSectionListItem,id?:string,_reloadSections?:boolean){
   
     this.api.get<MenuItem>(null,'restaurant-setup/menuitems/',{section:section.id}).subscribe((x)=>{
           this.section=section;
@@ -333,7 +335,7 @@ this.section_groups=x?.data?.records as any[]
           this.dialog.closeModal(); // Close the modal
           confirmationRef?.unsubscribe(); // Unsubscribe from the modal
         },
-        error: (err) => {
+        error: (_err) => {
           this.dialog.closeModal();
           confirmationRef?.unsubscribe();
         }
@@ -612,7 +614,7 @@ this.loading=false;
         this.loadSections(this.section?.id as string, true);
       }
     },
-    error: (err) => {
+    error: (_err) => {
       this.loading=false;
     }
   });
@@ -691,7 +693,7 @@ public removeItem(item: any): void {
   this.CategoryGroups.removeAt(item);
   //list.splice(list.indexOf(item), 1);
 }
-log(info:any,e:any){
+log(_info:any,_e:any){
 }
 public simpleList = [
   [
@@ -999,8 +1001,7 @@ DeleteSection(section:MenuSectionListItem){
       this.dialog.closeModal();
       ref.unsubscribe();
           },
-          error:(err)=>{
-           // alert(err)
+          error:(_err)=>{
           }
         });
         //this.dialog.closeModal();
@@ -1035,8 +1036,7 @@ DeleteSection(section:MenuSectionListItem){
       this.dialog.closeModal();
       ref.unsubscribe();
           },
-          error:(err)=>{
-           // alert(err)
+          error:(_err)=>{
           }
         });
         //this.dialog.closeModal();
@@ -1076,8 +1076,7 @@ DeleteSection(section:MenuSectionListItem){
   this.showModal=true;
 } */
           },
-          error:(err)=>{
-           // alert(err)
+          error:(_err)=>{
           }
         });
         //this.dialog.closeModal();
@@ -1159,7 +1158,7 @@ DeleteSection(section:MenuSectionListItem){
       .subscribe({
         next: () => {
         },
-        error: (err) => {
+        error: (_err) => {
         }
       });
   }

@@ -38,7 +38,7 @@ toggleProfile(event: Event) {
 }
 
 @HostListener('document:click', ['$event'])
-closeMenu(event: Event) {
+closeMenu(_event: Event) {
   if (this.view_profile) {
     this.view_profile = false;
     this.renderer.setStyle(this.dropdownElement, 'display', 'none');

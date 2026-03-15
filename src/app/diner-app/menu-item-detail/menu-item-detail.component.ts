@@ -17,7 +17,7 @@ export class MenuItemDetailComponent {
     
   }
   getTableDetails(id:any){
-    this.api.get<any>(null,'orders/journey/table-scan/?table='+id).subscribe(x=>{
+    this.api.get<any>(null,'orders/journey/table-scan/?table='+id).subscribe(_x=>{
     /* this.table=x.data as any;
     
     this.sessionStorage.setItem('restaurant',this.table.restaurant);

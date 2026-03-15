@@ -1,4 +1,4 @@
-import { NgModule, Pipe, PipeTransform } from '@angular/core';
+import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CommonImageComponent } from './common-image/common-image.component';
 import { DatePickerComponent } from './date-picker/date-picker.component';
@@ -12,7 +12,6 @@ import { NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
 import { CommonUserProfileComponent } from './common-user-profile/common-user-profile.component';
 import { OtpInputComponent } from './otp-input/otp-input.component';
 import { CommonNotificationsComponent } from './common-notifications/common-notifications.component';
-import { DomSanitizer, SafeHtml, SafeResourceUrl, SafeScript, SafeStyle, SafeUrl } from '@angular/platform-browser';
 import { SafePipe } from './common.pipe';
 
 

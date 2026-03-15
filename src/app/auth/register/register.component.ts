@@ -6,7 +6,6 @@ import {
   PhoneNumberFormat,
   SearchCountryField
 } from "ngx-intl-telephone-input";
-import { ApiResponse } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { MessageService } from 'src/app/_services/message.service';
 
@@ -97,7 +96,7 @@ this.RegisterForm.get('country')?.setValue(String($event.iso2Code).toUpperCase()
  }
 
  sendOtp(identification:any,identifier:any,purpose:any){
-  this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(x=>{
+  this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(_x=>{
     this.require_otp=true 
     // store user details and jwt token in local storage to keep user logged in between page refreshes
     //  localStorage.setItem('user', JSON.stringify((response.data)));

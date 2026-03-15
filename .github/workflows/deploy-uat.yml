@@ -28,7 +28,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Build for UAT
         run: npx ng build --configuration=uat

@@ -1,8 +1,7 @@
-import { Component, ComponentFactoryResolver, ViewChild, ViewContainerRef, AfterViewInit } from '@angular/core';
+import { Component, ViewChild, ViewContainerRef, AfterViewInit } from '@angular/core';
 import { MessageService } from './_services/message.service';
 import { ConfirmDialogService } from './_common/confirm-dialog.service';
 import { ConfirmDialogComponent } from './_common/confirm-dialog/confirm-dialog.component';
-import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 
 @Component({
   selector: 'app-root',

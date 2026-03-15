@@ -1,5 +1,5 @@
-import { AfterViewInit, Component, EventEmitter, input, Input, OnInit, Output } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { AfterViewInit, Component, EventEmitter, Input, Output } from '@angular/core';
+import { FormBuilder, FormGroup } from '@angular/forms';
 import { CountryISO, PhoneNumberFormat, SearchCountryField } from 'ngx-intl-telephone-input';
 import { EmployeeListUser } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
@@ -186,8 +186,7 @@ DeleteUser(user:EmployeeListUser){
     this.dialog.closeModal();
     ref.unsubscribe();
         },
-        error:(err)=>{
-         // alert(err)
+        error:(_err)=>{
         }
       });
       //this.dialog.closeModal();

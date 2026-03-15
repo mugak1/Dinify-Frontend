@@ -85,7 +85,7 @@ replaceLeadingZero(phoneNumber:any, replacementString:any) {
   // Return the original phone number if it doesn't start with '0'
   return phoneNumber;
 }
-sendOtp(identification:any,identifier:any,purpose:any){
+sendOtp(identification:any,identifier:any,_purpose:any){
   this.require_otp = false;
   this.submitted = true;
   this.isSubmittingOtp = false;
@@ -94,7 +94,7 @@ sendOtp(identification:any,identifier:any,purpose:any){
       "identifier": identification, 
       "identification": identifier,
       "skip_auth": "yes"
-    },'post').subscribe(x=>{
+    },'post').subscribe(_x=>{
   this.startCountdown();
     this.require_otp=true;
     this.submitted=false; 

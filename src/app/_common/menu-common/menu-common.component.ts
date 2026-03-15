@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { FormBuilder, FormArray } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Restaurant, MenuItem, Item } from 'src/app/_models/app.models';
+import { Restaurant, MenuItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -79,7 +79,7 @@ get QuantitySum(){
   }
   viewItem(i:MenuItem/* |Item */){
 this.selected_item=i as any;
-const modifiers:FormArray= this.fb.array([]);
+const _modifiers:FormArray= this.fb.array([]);
 /* i.options.options.forEach((o,io)=>{
   modifiers.push(this.initOption());
   modifiers.at(io).setValue({id:io,name:o.name,choice:o.choices})
@@ -132,13 +132,13 @@ removeUnderscore(x:string){
     this.currentSectionItem = sectionId;
   }
 
-  scrollTo(section:any,i:number) {
+  scrollTo(section:any,_i:number) {
     document.querySelector('#' + this.addUnderScore(section))?.scrollIntoView();
   /*   if(i==0){
       window.scrollBy(0, -100);
     } */
   }
-  SetChoice(evnt:any,i:any,has_choices?:any,o?:any,op?:any){
+  SetChoice(evnt:any,i:any,has_choices?:any,o?:any,_op?:any){
 const sel = {index:i, choice:has_choices,order:o}
 
     if(evnt.checked){

@@ -33,7 +33,7 @@
                             <span class="my-auto">&nbsp;{{n.subject}}</span>
                             <span class="date ml-auto my-auto">{{n.creation_timestamp.timestamp|date:'medium'}}</span>
                         </div>
-                        <div style="line-height: 1.5rem;" class="description border mb-2 mt-3 pl-4 py-3" *ngIf="collapses[i]===true" [innerHTML]="n.email||n.sms">
+                        <div style="line-height: 1.5rem;" class="description border mb-2 mt-3 pl-4 py-3" *ngIf="collapses[i]===true" [innerHTML]="(n.email||n.sms)|safe:'html'">
                 
                         </div>
                     </a>

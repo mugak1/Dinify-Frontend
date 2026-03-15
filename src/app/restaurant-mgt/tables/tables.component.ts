@@ -193,7 +193,6 @@ this.closeModal();//this.list[ as number].isCollapsed=false;
       },
      error:(_err)=>{
 this.saving=false
-   //   alert(err)
      }
       //console.log(x)
     })
@@ -206,10 +205,7 @@ this.closeModal();
 this.loadTables();
       },
      error:(_err)=>{
-
-   //   alert(err)
      }
-      //console.log(x)
     })
   }
   ask_multiple:boolean=false;
@@ -292,18 +288,13 @@ this.showModal!=this.showModal; */
       ref.unsubscribe();
           },
           error:(_err)=>{
-           // alert(err)
           }
         });
-        //this.dialog.closeModal();
       }
       if(x?.action=='no'||x?.action=='reject'){
-
         this.dialog.closeModal();
         ref.unsubscribe();
       }
-
-
     });
 
 
@@ -424,9 +415,7 @@ this.saving=false;
       },
      error:(_err)=>{
       this.saving=false
-    //  alert(err)
      }
-      //console.log(x)
     })
   }
   isSubmitting=false;
@@ -448,10 +437,8 @@ DeleteArea(area:DiningArea){
       ref.unsubscribe();
           },
           error:(_err)=>{
-           // alert(err)
           }
         });
-        //this.dialog.closeModal();
       }
       if(x?.action=='no'||x?.action=='reject'){
 

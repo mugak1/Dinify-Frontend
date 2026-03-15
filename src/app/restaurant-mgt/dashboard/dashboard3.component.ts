@@ -1,19 +1,4 @@
 import { Component, OnInit } from '@angular/core';
-import {
-  ApexAxisChartSeries,
-  ApexChart,
-  ApexXAxis,
-  ApexYAxis,
-  ApexDataLabels,
-  ApexTitleSubtitle,
-  ApexStroke,
-  ApexGrid,
-  ApexFill,
-  ApexMarkers,
-  ApexPlotOptions,
-  ApexLegend,
-  ApexNonAxisChartSeries
-} from 'ng-apexcharts';
 
 interface OrderStatus {
   completed: number;

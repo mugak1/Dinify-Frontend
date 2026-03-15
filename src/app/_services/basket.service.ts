@@ -1,5 +1,5 @@
 import { Injectable,signal} from '@angular/core';
-import { Item,BasketItem, ShoppingBasket, SelectedOption } from '../_models/app.models';
+import { BasketItem, ShoppingBasket, SelectedOption } from '../_models/app.models';
 
 @Injectable({
   providedIn: 'root'

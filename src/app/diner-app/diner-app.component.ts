@@ -3,8 +3,6 @@ import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../_services/api.service';
 import { SessionStorageService } from '../_services/storage/session-storage.service';
 import { BrandingConfiguration, Restaurant, TableScan } from '../_models/app.models';
-import { environment } from 'src/environments/environment';
-import { LocalStorageService } from '../_services/storage/local-storage.service';
 import { AuthenticationService } from '../_services/authentication.service';
 
 @Component({

@@ -89,8 +89,6 @@ this.isSubmittingOtp=(this.data)?true:false;
                 this.log_in= val.data as unknown as LoginResponse
                 if(!this.as_diner){
                if(this.log_in.prompt_password_change){
-              //  this.router.navigate(['/auth/change-password']);
-
                 this.router.navigate(["lock-otp-exp"], {
                   state: {
                     username: this.f['username'].value,
@@ -147,7 +145,7 @@ get user(){
       //      console.log(val)
 const log_otp=val.data as unknown as OTPResponse;
 if(log_otp.valid){
-const u = this.authenticationService.UpdateUser(log_otp);
+const _u = this.authenticationService.UpdateUser(log_otp);
                   if (this.log_in.profile.restaurant_roles.length === 1) {
   // One restaurant → auto set and redirect
   this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);

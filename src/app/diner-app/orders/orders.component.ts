@@ -131,8 +131,8 @@ this.sendOtp('msisdn','256'+this.PaymentForm.get('msisdn')?.value,null);
     }) */
 }
 sendOtp(identification:any,identifier:any,purpose:any){
-  this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(x=>{
-    this.require_otp=true 
+  this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(_x=>{
+    this.require_otp=true
     // store user details and jwt token in local storage to keep user logged in between page refreshes
     //  localStorage.setItem('user', JSON.stringify((response.data)));
     //  this.userSubject.next(response.data as any)

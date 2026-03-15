@@ -77,10 +77,10 @@ this.messageService.addMessage({severity:'info', summary:'info',message:value?.b
 ResetPassword() {
     this.api.postPatch("users/auth/reset-password/", {
         username: this.LockScreenForm.get("username")?.value
-    }, "post").subscribe(e=>{
+    }, "post").subscribe(_e=>{
         this.router.navigate(["/login"])
     }
-    , e=>{
+    , _e=>{
 
     }
     , ()=>{

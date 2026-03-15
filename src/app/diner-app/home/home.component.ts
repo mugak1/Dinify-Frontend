@@ -43,7 +43,7 @@ export class HomeComponent implements AfterViewInit {
   })
   }
   ngAfterViewInit(){
-    this.sessionStorage.StorageValue.subscribe(x=>{
+    this.sessionStorage.StorageValue.subscribe(_x=>{
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
     this.table=this.sessionStorage.getItem<TableScan>('Table') as any;
     this.branding_configs=this.restaurant?.branding_configuration as any;
@@ -51,7 +51,7 @@ export class HomeComponent implements AfterViewInit {
 
   }
   
-getOrder(id:any){
+getOrder(_id:any){
   
 }
   

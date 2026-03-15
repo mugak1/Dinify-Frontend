@@ -1,12 +1,10 @@
 import { Location } from '@angular/common';
 import { Component, signal } from '@angular/core';
-import { NonNullableFormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
-import { BasketItem, Item, OrderInitiated, Restaurant, SelectedOption, ShoppingBasket, TableListItem, TableScan } from 'src/app/_models/app.models';
+import { BasketItem, OrderInitiated, Restaurant, SelectedOption, ShoppingBasket, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
-import { LocalStorageService } from 'src/app/_services/storage/local-storage.service';
 import { MessageService } from 'src/app/_services/message.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 
@@ -80,7 +78,7 @@ discountValue: number = 10; // 10% or UGX amount
 
   // Initiates an order
   initiateOrder() {
-    const ref = this.dialog.openModal({
+    const _ref = this.dialog.openModal({
       title: 'Confirm Order',
       message: 'Are you sure you want to place this order?',
       submitButtonText: 'Order',
@@ -165,7 +163,7 @@ discountValue: number = 10; // 10% or UGX amount
     };
 
     this.api.postPatch('orders/submit/', payload, 'put').subscribe(
-      (response: any) => {
+      (_response: any) => {
         this.dialog.closeModal();
         this.router.navigate([this.router.url,'order-complete']); // Navigate to the order-complete page
       

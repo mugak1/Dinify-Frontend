@@ -12,7 +12,6 @@ import { OrdersComponent } from './orders/orders.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { PaymentDetailsComponent } from './payment-details/payment-details.component';
 import { OrderCompleteComponent } from './order-complete/order-complete.component';
-import { CurrencyModule } from '../_common/currency-input/currency-input.module';
 import { NgxCurrencyDirective } from 'ngx-currency';
 import { ErrorPageComponent } from "./error-page/error-page.component";
 const routes: Routes = [
