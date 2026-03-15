@@ -50,7 +50,7 @@ export class RestProfileComponent {
     })
       }
   Save(){
-    let logo_field_type = typeof (this.RestaurantForm?.get('logo')?.value)
+    const logo_field_type = typeof (this.RestaurantForm?.get('logo')?.value)
     if(logo_field_type=='string'){
       this.RestaurantForm.get('logo')?.setValue('')
     }
@@ -89,7 +89,7 @@ export class RestProfileComponent {
       }
 
       Block(){
-        let ref = this.dialog.openModal({
+        const ref = this.dialog.openModal({
           title:'BLOCK',
           message:'Are you sure you want to <b>BLOCK</b> '+this.rest?.name+' from access to Dinify?',
           has_reason:true,
@@ -99,7 +99,7 @@ export class RestProfileComponent {
         
           if(x?.action=='yes'){
             
-         let o =   {
+         const o =   {
               "restaurant": this.restaurant,
               "decision": status,
               "reason": x?.reason

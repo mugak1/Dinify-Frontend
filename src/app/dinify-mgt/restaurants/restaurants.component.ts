@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { Component, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import { SearchCountryField, CountryISO, PhoneNumberFormat } from 'ngx-intl-telephone-input';
@@ -15,7 +15,7 @@ import { environment } from 'src/environments/environment';
   templateUrl: './restaurants.component.html',
   styleUrls: ['./restaurants.component.css'],
 })
-export class RestaurantsComponent {
+export class RestaurantsComponent implements OnDestroy {
   search:any='';
   require_otp=false;
   data='';
@@ -66,7 +66,7 @@ export class RestaurantsComponent {
     }
    })
   
-  let sel_rest_id = this.route?.firstChild?.snapshot.params['id'];
+  const sel_rest_id = this.route?.firstChild?.snapshot.params['id'];
          if(sel_rest_id){
         this.loadRestaurants(sel_rest_id)
       }else{
@@ -99,7 +99,7 @@ this.rest=val;
         this.RestaurantForm.get('logo')?.updateValueAndValidity();
     if(val){
       
-      this.RestaurantForm.get('first_name')?.setValidators([]);;
+      this.RestaurantForm.get('first_name')?.setValidators([]);
       this.RestaurantForm.get('last_name')?.setValidators([]);
       this.RestaurantForm.get('email')?.setValidators([]);
       this.RestaurantForm.get('phone_number')?.setValidators([]);
@@ -192,7 +192,7 @@ return this.fb.group({
 
   }
   Save(){
-let logo_field_type = typeof (this.RestaurantForm?.get('logo')?.value)
+const logo_field_type = typeof (this.RestaurantForm?.get('logo')?.value)
 if(logo_field_type=='string'){
   this.RestaurantForm.get('logo')?.setValue('')
 }
@@ -281,7 +281,7 @@ if(patch){
     });
   }
   changeApprovalStatus(status:string,statusToset:any,rest:RestaurantList){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
        title:status.toUpperCase(),
        submitButtonText:status.toUpperCase(),
        message:'Are you sure you want to '+status.toUpperCase()+' the client <strong>'+rest.name+'</strong> ?'
@@ -312,7 +312,7 @@ if(patch){
         if(x.status==400){}
         else if(x.status==200){
           this.detailUser=x.data as any as User;
-          this.RestaurantForm.get('first_name')?.setValidators([]);;
+          this.RestaurantForm.get('first_name')?.setValidators([]);
           this.RestaurantForm.get('last_name')?.setValidators([]);
           this.RestaurantForm.get('email')?.setValidators([]);
           this.RestaurantForm.get('phone_number')?.setValidators([]);

@@ -53,9 +53,9 @@ AddDate(){
 SaveDate(){
   this.api.postPatch('restaurant-setup/subscription-details/',this.BillingForm?.value,'put',null,{restaurant:this.rest_id}).subscribe((x:any)=>{
         
-    let res=x?.data;
+    const res=x?.data;
     if(x.status==200){
-      let mes:Message={
+      const mes:Message={
         message:x.message,
         severity:'info',
         summary:''
@@ -77,8 +77,8 @@ subtractMonths(date: Date, monthsToSubtract: number): Date {
 load_list=false;
 getTransactionList(){
   this.load_list=false;
-  let today = new Date();
-  let from_today = this.subtractMonths(today,5);
+  const today = new Date();
+  const from_today = this.subtractMonths(today,5);
   this.api.get<any>(null,`reports/restaurant/`+'transactions-listing/',{restaurant:this.rest_id,from:`${from_today.getFullYear()}-${from_today.getMonth() + 1}-${from_today.getDate()}`,to:`${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`,type:'subscription'}).subscribe((x)=>{
     /* this.list=x?.data?.records as any[];  */    
     if(x?.status==200){
@@ -130,11 +130,11 @@ InitPayment(){
 Save(){
   if(this.data!=''&& this.require_otp&&this.PaymentForm?.get('payment_mode')?.value=='momo'){
     this.PaymentForm.get('otp')?.setValue(this.data)
-    var d= this.PaymentForm.value;
+    const d= this.PaymentForm.value;
         d.msisdn='256'+ this.PaymentForm.get('msisdn')?.value
     this.api.postPatch('finances/transactions/',d,'post').subscribe((x:any)=>{
         
-      let res=x?.data;
+      const res=x?.data;
       if(x.status==200){
         this.message.add(x.message);
         this.closeModal();
@@ -147,11 +147,11 @@ Save(){
       if(x.status==400){
 this.sendOtp('msisdn','256'+this.PaymentForm?.get('msisdn')?.value,null);
       }else if(x.status==200){
-        var d= this.PaymentForm?.value;
+        const d= this.PaymentForm?.value;
         d.msisdn='256'+ this.PaymentForm?.get('msisdn')?.value
         this.api.postPatch('finances/transactions/',d,'post').subscribe((x:any)=>{
         
-          let res=x?.data;
+          const res=x?.data;
           if(x.status==200){
             this.message.add(x.message);
             this.closeModal();
@@ -166,9 +166,9 @@ this.sendOtp('msisdn','256'+this.PaymentForm?.get('msisdn')?.value,null);
   }else if (this.PaymentForm?.get('payment_mode')?.value=='card'){
     this.api.postPatch('finances/transactions/',this.PaymentForm.value,'post').subscribe((x:any)=>{
         
-      let res=x?.data;
+      const res=x?.data;
       if(x.status==200){
-        let mes:Message={
+        const mes:Message={
           message:x.message,
           severity:'info',
           summary:''

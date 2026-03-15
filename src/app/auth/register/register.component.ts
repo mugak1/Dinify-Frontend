@@ -108,8 +108,8 @@ this.RegisterForm.get('country')?.setValue(String($event.iso2Code).toUpperCase()
 }
 export function ConfirmPasswordValidator(controlName: string, matchingControlName: string) {
   return (formGroup: UntypedFormGroup) => {
-    let control = formGroup.controls[controlName];
-    let matchingControl = formGroup.controls[matchingControlName]
+    const control = formGroup.controls[controlName];
+    const matchingControl = formGroup.controls[matchingControlName]
     if (
       matchingControl.errors&&
       !matchingControl.errors?.['confirmPasswordValidator']

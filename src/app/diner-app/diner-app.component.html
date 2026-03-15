@@ -5,8 +5,8 @@
           <a [routerLink]="['/diner/h/',table_id]" class="-m-1.5 p-1.5">
             <span class="sr-only">{{restaurant_name}}</span>
             
-            <img *ngIf="branding_configs.home.headerShow=='logo'" class="h-9 w-auto rounded-full" [src]="'https://api-dev.dinifyapp.com/media/'+logo" [alt]="restaurant_name">
-            <span *ngIf="branding_configs.home.headerShow=='name'"  [style.color]="branding_configs.home.headerTextColor" [style.text-transform]="branding_configs.home.headerCase" [style.font-weight]="branding_configs.home.headerFontWeight">{{branding_configs.home.headerShowName}}</span>
+            <img *ngIf="branding_configs.home.headerShow==='logo'" class="h-9 w-auto rounded-full" [src]="'https://api-dev.dinifyapp.com/media/'+logo" [alt]="restaurant_name">
+            <span *ngIf="branding_configs.home.headerShow==='name'"  [style.color]="branding_configs.home.headerTextColor" [style.text-transform]="branding_configs.home.headerCase" [style.font-weight]="branding_configs.home.headerFontWeight">{{branding_configs.home.headerShowName}}</span>
           </a>
         </div>
         <div class="flex lg:hidden">
@@ -186,10 +186,10 @@
           <span class="sr-only">Close modal</span>
       </button>
       <div class="flex w-full">
-<app-login *ngIf="button_action=='login'" [as_diner]="true" (LoginResp)="$event?closeModal():false" class="w-[85%] mx-auto"></app-login>
-<app-register *ngIf="button_action=='register'" [as_diner]="true" (saved)="closeModal();" class="mx-auto w-[32rem]"></app-register>
-<app-forgot-password *ngIf="button_action=='forgot'" [as_diner]="true" class="mx-auto w-[32rem]" (LoginResp)="$event?closeModal():false"></app-forgot-password>
-<app-common-user-profile *ngIf="button_action=='edit'" (save)="closeModal()" class="mx-auto w-[32rem]"  [action]="'form'"></app-common-user-profile>
+<app-login *ngIf="button_action==='login'" [as_diner]="true" (LoginResp)="$event?closeModal():false" class="w-[85%] mx-auto"></app-login>
+<app-register *ngIf="button_action==='register'" [as_diner]="true" (saved)="closeModal();" class="mx-auto w-[32rem]"></app-register>
+<app-forgot-password *ngIf="button_action==='forgot'" [as_diner]="true" class="mx-auto w-[32rem]" (LoginResp)="$event?closeModal():false"></app-forgot-password>
+<app-common-user-profile *ngIf="button_action==='edit'" (save)="closeModal()" class="mx-auto w-[32rem]"  [action]="'form'"></app-common-user-profile>
       </div>
       
       </div>

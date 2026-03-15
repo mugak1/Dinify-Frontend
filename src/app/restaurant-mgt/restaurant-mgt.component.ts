@@ -38,7 +38,7 @@ ngOnInit(): void {
   this.updateShadows();
 }
 logout(){
-  let ref = this.dialog.openModal({
+  const ref = this.dialog.openModal({
     title:'Logout',
     message:'Are you sure you want to <strong>Log out</strong> ?',
   }).subscribe((x:any)=>{

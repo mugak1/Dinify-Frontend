@@ -42,13 +42,13 @@ export class AuthenticationService {
           }));
   }
   updateProfile(profile:any){
-    let u:any =this.userValue;
+    const u:any =this.userValue;
 u.profile=profile;
 localStorage.setItem('user', JSON.stringify((u)));
 this.userSubject.next(u as any)
   }
   UpdateUser(otpResponse:OTPResponse){
-let u:any = this.userValue;
+const u:any = this.userValue;
 u.refresh=otpResponse.refresh;
 u.token=otpResponse.token;
 localStorage.setItem('user', JSON.stringify((u)));

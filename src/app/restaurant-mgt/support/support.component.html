@@ -102,9 +102,9 @@
                   </span>
                   <span class="w-[10%] capitalize">
                     <span [ngClass]="{
-                      'bg-d-red text-white': ticket.ticket_status == 'open',
-                      'bg-yellow-500 text-white': ticket.ticket_status == 'In Progress',
-                      'bg-green-500 text-white': ticket.ticket_status == 'closed'
+                      'bg-d-red text-white': ticket.ticket_status === 'open',
+                      'bg-yellow-500 text-white': ticket.ticket_status === 'In Progress',
+                      'bg-green-500 text-white': ticket.ticket_status === 'closed'
                   }" class="inline-block mt-1 px-2 py-1 text-xs font-semibold rounded text-white">
                       {{ticket.ticket_status}}
                   </span>

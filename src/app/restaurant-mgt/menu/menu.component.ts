@@ -5,6 +5,7 @@ import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { ApiResponse, MenuItem, MenuSectionListItem, RestaurantDetail } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
+import { MessageService } from 'src/app/_services/message.service';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
 @Component({
@@ -54,7 +55,7 @@ active_tab=this.tabs_list[0]
   searchQuery: string = '';
   isExpanded: boolean = false;
   @ViewChild('searchInput') searchInput!: ElementRef;
-  is_searching: boolean=false;;
+  is_searching: boolean=false;
   currentGroup = { group_name: '' };
   showNewInput=false;
   fileError='';
@@ -66,7 +67,7 @@ active_tab=this.tabs_list[0]
 /**
  *
  */
-constructor(private fb:FormBuilder, private api:ApiService, private route:ActivatedRoute, private dialog:ConfirmDialogService,public auth:AuthenticationService) {
+constructor(private fb:FormBuilder, private api:ApiService, private route:ActivatedRoute, private dialog:ConfirmDialogService,public auth:AuthenticationService,private messageService:MessageService) {
   const now = new Date();
     this.today = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
@@ -182,7 +183,7 @@ initCategory(rest:string){
   const startDate = form.get('discount_details.start_date')?.value;
   const endDate = form.get('discount_details.end_date')?.value;
 
-  let errors: any = {};
+  const errors: any = {};
 
   if (discountPrice && primaryPrice && discountPrice < primaryPrice) {
     errors.discountInvalid = true;
@@ -228,8 +229,8 @@ if(reloadItems){
   if(id){
     this.has_groups=false;
     this.section_groups=[];
-    let i=id.target.value;
-   let s = this.section_list?.find(x=>x.id==i);
+    const i=id.target.value;
+   const s = this.section_list?.find(x=>x.id==i);
    
    this.has_groups=s?.has_groups as boolean;
    if(!this.has_groups){
@@ -349,7 +350,7 @@ this.section_groups=x?.data?.records as any[]
  }
   ItemAvailabilityChange(event:any,s:MenuItem,index:number,g?:any){
  
-let ref =this.dialog.openModal(
+const ref =this.dialog.openModal(
   {
     title:'CONFIRMATION',
 message:"Are you sure you want to change the availability of "+s.name+ " to <b>"+(s.available?"available":"not available") +"</b> ?",
@@ -384,7 +385,7 @@ ref?.unsubscribe();
 
  }
  GroupAvailabilityChange(event:any,s:any,index:number,g:any){
-  let ref =this.dialog.openModal(
+  const ref =this.dialog.openModal(
     {
       title:'CONFIRMATION',
   message:"Are you sure you want to change the availability of "+s.name+ " to <b>"+(s.available?"available":"not available") +"</b> ?",
@@ -432,7 +433,7 @@ toggleCategoryModal(){
 });
 this.CategoryForm.get('')?.valueChanges.subscribe(x=>{
   if(x==true){
-    let c = this.InitOptionObject();
+    const c = this.InitOptionObject();
 this.CategoryForm?.get('options')?.setValue(c.value)
   }
 })
@@ -471,7 +472,7 @@ AddGroup(){
 
 }
 SubmitGroup(){
-  let g_obj={
+  const g_obj={
     "section": this.section?.id,
     "name": this.currentGroup.group_name
 }
@@ -506,12 +507,12 @@ Update(e:any,i:number){
 this.CategoryGroups.at(i).setValue({group_name:e.target.value})
 }
 SaveSection(){
-  let image_field_type = typeof (this.CategoryForm?.get('section_banner_image')?.value)
+  const image_field_type = typeof (this.CategoryForm?.get('section_banner_image')?.value)
   if(image_field_type=='string'){
     this.CategoryForm?.get('section_banner_image')?.setValue('');
   }
-  let obj = this.CategoryForm?.value;
-  let grps:any[]=(<FormArray>this.CategoryForm?.get('groups')).value;
+  const obj = this.CategoryForm?.value;
+  const grps:any[]=(<FormArray>this.CategoryForm?.get('groups')).value;
   obj.groups=grps.map(x=>x.group_name)
       this.api.postPatch('restaurant-setup/menusections/',obj,this.CategoryForm?.get('id')?.value?'put':'post','',{},typeof (this.CategoryForm?.get('section_banner_image')?.value)=='string'?false:true,'',true).subscribe({
         next: ()=>{
@@ -578,7 +579,7 @@ SaveMenuItem(){
 
   const isImageFile = imageFile instanceof File;
 
-  let payload: any = { ...rawValues };
+  const payload: any = { ...rawValues };
 
   // If image is a File, keep it for FormData
   // Else remove image from JSON payload
@@ -648,7 +649,7 @@ if(this.is_new||image_field_type!='string'){
       })*/
 }
 SavePhoto(id:any,file:any){
-  let ImgForm= this.fb.group({
+  const ImgForm= this.fb.group({
     id:[''],
     image:['']
   })
@@ -743,14 +744,14 @@ validateDiscountPrice(form: FormGroup) {
 
 SetRecurDay(id:number,val:any){
 
-let disc:any[] = this.ItemForm?.get('discount_details')?.get('recurring_days')?.value??[];
+const disc:any[] = this.ItemForm?.get('discount_details')?.get('recurring_days')?.value??[];
 
 if(val.checked){
 disc.push(id);
 this.ItemForm?.get('discount_details')?.get('recurring_days')?.setValue(disc);
 }else{
   if(disc.includes(id)){
-    let pos =disc.indexOf(id)
+    const pos =disc.indexOf(id)
     disc.splice(pos,1);
     this.ItemForm?.get('discount_details')?.get('recurring_days')?.setValue(disc);
   }
@@ -769,7 +770,7 @@ InitOptionItem(){
   )
 }
  get Gos():FormArray{
-  let g=<FormGroup> this.ItemForm?.get('options');
+  const g=<FormGroup> this.ItemForm?.get('options');
   
   return <FormArray>g?.get('options')
 }
@@ -855,8 +856,8 @@ typOf(val:any){
 } 
 
 AddChoice(f:any,id:number){
-let choice_array:any[]=f.get('choices')?.value?f.get('choices')?.value:[];
-var ch = (<HTMLInputElement>document.getElementById('choice-'+id)).value;
+const choice_array:any[]=f.get('choices')?.value?f.get('choices')?.value:[];
+const ch = (<HTMLInputElement>document.getElementById('choice-'+id)).value;
 if(ch){
 choice_array.push(ch);
 //console.log(choice_array);
@@ -865,8 +866,8 @@ f.get('choices')?.patchValue(choice_array);
 }
 }
 DeleteChoice(i:number,ci:number){
-  let v= this.Gos.at(i);
-let choices_:any[]=v.get('choices')?.value;
+  const v= this.Gos.at(i);
+const choices_:any[]=v.get('choices')?.value;
 choices_.splice(ci,1);
 v.get('choices')?.patchValue(choices_);
 }
@@ -874,19 +875,19 @@ LoadExtra(event:any){
 this.temp_extra=event;
 }
 AddExtra(){ 
-let extras:any[]=this.ItemForm?.get('extras_applicable')?.value?this.ItemForm?.get('extras_applicable')?.value:[];
+const extras:any[]=this.ItemForm?.get('extras_applicable')?.value?this.ItemForm?.get('extras_applicable')?.value:[];
  if(this.temp_extra){
   extras.push(this.temp_extra.id);
   this.temp_extra_list.push(this.temp_extra)
   this.ItemForm?.get('extras_applicable')?.setValue(extras);
-  let input:any = document.querySelector("#autocompleteInput");
+  const input:any = document.querySelector("#autocompleteInput");
   input.value = '';
   this.temp_extra='';
 }
 
 }
 ApproveMenu(status:any){
-  let ref = this.dialog.openModal({
+  const ref = this.dialog.openModal({
     title:status.toUpperCase(),
     message:'Are you sure you want to <b>'+status.toUpperCase()+'</b> the <b>MENU</b>?',
     has_reason:true,
@@ -896,7 +897,7 @@ ApproveMenu(status:any){
   
     if(x?.action=='yes'){
       
-   let o =   {
+   const o =   {
         "restaurant": this.restaurant,
         "decision": status,
         "reason": x?.reason
@@ -909,7 +910,7 @@ ApproveMenu(status:any){
       ref.unsubscribe();
             }
             if(x?.status==401){
-              alert(x.message)
+              this.messageService.addMessage({severity:'error', summary:'Error', message: x.message})
               this.dialog.closeModal()
               ref.unsubscribe();
             }
@@ -919,8 +920,8 @@ ApproveMenu(status:any){
               ref.unsubscribe();
             }
           },
-          error(err) {
-            alert(err)
+          error: (err) => {
+            this.messageService.addMessage({severity:'error', summary:'Error', message: err})
           },
         }); 
          
@@ -936,16 +937,16 @@ ApproveMenu(status:any){
 
 AddAllergen(val:any){
   if(val){
- let alls:any[]=this.ItemForm?.get('allergens')?.value;  
+ const alls:any[]=this.ItemForm?.get('allergens')?.value;  
  alls.push(val);
  this.ItemForm?.get('allergens')?.setValue(alls);
- let input:any = document.querySelector("#allergenfield");
+ const input:any = document.querySelector("#allergenfield");
   input.value = '';
   }
 
 }
 DeleteAllergen(i:number){
-  let alls:any[]=this.ItemForm?.get('allergens')?.value;  
+  const alls:any[]=this.ItemForm?.get('allergens')?.value;  
   alls.splice(i,1)
   this.ItemForm?.get('allergens')?.setValue(alls);
 }
@@ -981,7 +982,7 @@ closeSearch(event: Event) {
   }
 }
 DeleteSection(section:MenuSectionListItem){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
       submitButtonText:'Delete',
@@ -1013,7 +1014,7 @@ DeleteSection(section:MenuSectionListItem){
   }
 
   DeleteItem(menuItem:MenuItem,grouped_menu_index:number,itemIndex:number){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
       submitButtonText:'Delete',
@@ -1053,7 +1054,7 @@ DeleteSection(section:MenuSectionListItem){
     if(this.showModal){
       this.showModal=false;
     } */
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
       submitButtonText:'Delete',

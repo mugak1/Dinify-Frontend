@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ApiResponse, NotificationItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 
@@ -7,7 +7,7 @@ import { ApiService } from 'src/app/_services/api.service';
   templateUrl: './common-notifications.component.html',
   styleUrl: './common-notifications.component.css'
 })
-export class CommonNotificationsComponent {
+export class CommonNotificationsComponent implements OnInit {
   notifys:NotificationItem[] = [];
   collapses:any[] = [];
   isLoading = false;

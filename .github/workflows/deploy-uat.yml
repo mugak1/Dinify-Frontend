@@ -23,6 +23,13 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
       - name: Build for UAT
         run: npx ng build --configuration=uat
 

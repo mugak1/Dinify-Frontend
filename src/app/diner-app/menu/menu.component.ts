@@ -1,4 +1,4 @@
-import { Component,ElementRef,Input,OnInit, ViewChild } from '@angular/core';
+import { Component,ElementRef,Input,OnInit, ViewChild, AfterViewInit } from '@angular/core';
 import { FormArray, FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Item, MenuItem, Restaurant } from 'src/app/_models/app.models';
@@ -12,7 +12,7 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
   templateUrl: './menu.component.html',
   styleUrls: ['./menu.component.css']
 })
-export class DinersMenuComponent implements OnInit {
+export class DinersMenuComponent implements OnInit, AfterViewInit {
   @ViewChild('categoryContainer') categoryContainer!: ElementRef;
 
   disableLeftScroll = true;
@@ -143,7 +143,7 @@ get QuantitySum(){
   }
   viewItem(i:MenuItem/* |Item */){
 this.selected_item=i as any;
-let modifiers:FormArray= this.fb.array([]);
+const modifiers:FormArray= this.fb.array([]);
 /* i.options.options.forEach((o,io)=>{
   modifiers.push(this.initOption());
   modifiers.at(io).setValue({id:io,name:o.name,choice:o.choices})

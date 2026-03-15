@@ -40,3 +40,17 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Editor temp files
+*.swp
+*.swo
+*~
+
+# Environment overrides (keep templates, ignore local overrides)
+.env
+.env.*
+!.env.example
+
+# Firebase
+firebase-debug.log
+.firebase/

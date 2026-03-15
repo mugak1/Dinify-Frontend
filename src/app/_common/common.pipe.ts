@@ -1,33 +1,29 @@
-import { Pipe, PipeTransform } from "@angular/core";
+import { Pipe, PipeTransform, SecurityContext } from "@angular/core";
 import { DomSanitizer, SafeHtml, SafeStyle } from "@angular/platform-browser";
 
+/**
+ * SafePipe — marks values as trusted for Angular's DomSanitizer.
+ *
+ * SECURITY NOTE:
+ * - 'html': Runs through Angular's HTML sanitizer (strips scripts/iframes/
+ *    event handlers, preserves safe tags). Does NOT bypass security.
+ * - 'style': Bypasses style sanitization for dynamic inline CSS values.
+ *    Only use with developer-controlled content.
+ */
 @Pipe({
-    name: 'safe'
-  })
-  export class SafePipe implements PipeTransform {
-    /**
-     * Pipe Constructor
-     *
-     * @param _sanitizer: DomSanitezer
-     */
-    // tslint:disable-next-line
-    constructor(protected _sanitizer: DomSanitizer) {
-    }
+  name: 'safe'
+})
+export class SafePipe implements PipeTransform {
+  constructor(private sanitizer: DomSanitizer) {}
 
-    /**
-     * Transform
-     *
-     * @param value: string
-     * @param type: string
-     */
-    transform(value: string, type: string): SafeHtml | SafeStyle {
-      switch (type) {
-        case 'html':
-          return this._sanitizer.bypassSecurityTrustHtml(value);
-        case 'style':
-          return this._sanitizer.bypassSecurityTrustStyle(value);
-        default:
-          throw new Error(`SafePipe: unsupported type "${type}". Only "html" and "style" are allowed.`);
-      }
+  transform(value: string, type: 'html' | 'style'): SafeHtml | SafeStyle | string {
+    switch (type) {
+      case 'html':
+        return this.sanitizer.sanitize(SecurityContext.HTML, value) || '';
+      case 'style':
+        return this.sanitizer.bypassSecurityTrustStyle(value);
+      default:
+        throw new Error(`SafePipe: unsupported type "${type}".`);
     }
   }
+}

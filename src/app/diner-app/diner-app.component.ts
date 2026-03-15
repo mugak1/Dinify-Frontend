@@ -13,8 +13,8 @@ import { AuthenticationService } from '../_services/authentication.service';
   styleUrls: ['./diner-app.component.css']
 })
 export class DinerAppComponent {
-restaurant_name='Java House'
-restaurant_id='523445-89ooo';
+restaurant_name = '';
+restaurant_id = '';
 branding_configs!:BrandingConfiguration;
 table!:TableScan
 logo!: string;
@@ -31,7 +31,7 @@ constructor(private readonly sessionStorage: SessionStorageService,private route
    this.getTableDetails(x['table']);
  }else{
  
-  let restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
+  const restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   this.table=this.sessionStorage.getItem<Restaurant>('Table') as any;
   this.table_id=this.table.id
   this.restaurant_name=restaurant.name;
@@ -42,7 +42,7 @@ this.branding_configs=restaurant.branding_configuration;
 }) 
   } else{
     
-    let restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
+    const restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
     this.table=this.sessionStorage.getItem<Restaurant>('Table') as any;
     this.table_id=this.table?.id
     this.restaurant_name=restaurant?.name;

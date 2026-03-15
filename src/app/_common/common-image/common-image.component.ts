@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
 import {environment} from '../../../environments/environment'
 
 @Component({
@@ -6,7 +6,7 @@ import {environment} from '../../../environments/environment'
   templateUrl: './common-image.component.html',
   styleUrls: ['./common-image.component.css']
 })
-export class CommonImageComponent {
+export class CommonImageComponent implements AfterViewInit, OnDestroy {
 @Input() src?:string;
 @Input() alt?: string;
 @Input() width?:string;

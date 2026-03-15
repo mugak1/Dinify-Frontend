@@ -7,6 +7,7 @@ import { BasketItem, Item, OrderInitiated, Restaurant, SelectedOption, ShoppingB
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { LocalStorageService } from 'src/app/_services/storage/local-storage.service';
+import { MessageService } from 'src/app/_services/message.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 
 @Component({
@@ -33,7 +34,8 @@ discountValue: number = 10; // 10% or UGX amount
     public loc: Location,
     private api: ApiService,
     private dialog: ConfirmDialogService,
-    private router: Router
+    private router: Router,
+    private messageService: MessageService
   ) {
     // Initialize basket from session storage
     this.basket_items = this.sessionStorage.getItem<BasketItem[]>('Basket') || [];
@@ -78,7 +80,7 @@ discountValue: number = 10; // 10% or UGX amount
 
   // Initiates an order
   initiateOrder() {
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title: 'Confirm Order',
       message: 'Are you sure you want to place this order?',
       submitButtonText: 'Order',
@@ -126,11 +128,11 @@ discountValue: number = 10; // 10% or UGX amount
                 this.submitOrder(); // Automatically submit if no unavailable items
               }
             } else {
-              alert(response.message);
+              this.messageService.addMessage({severity:'info', summary:'Info', message: response.message});
             }
           },
           (error) => {
-            alert(error.message);
+            this.messageService.addMessage({severity:'error', summary:'Error', message: error.message});
           }
         );
       }
@@ -172,7 +174,7 @@ discountValue: number = 10; // 10% or UGX amount
       },
       (error) => {
         this.dialog.closeModal();
-        alert(error.message);
+        this.messageService.addMessage({severity:'error', summary:'Error', message: error.message});
       }
     );
   }

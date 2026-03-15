@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, UntypedFormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
@@ -8,7 +8,7 @@ import { ActivatedRoute, Router } from '@angular/router';
   templateUrl: './change-password.component.html',
   styleUrls: ['./change-password.component.css']
 })
-export class ChangePasswordComponent {
+export class ChangePasswordComponent implements OnInit {
   unlocking = false;
   fieldTextType = false;
   fieldTextTypeConfirm = false;
@@ -98,8 +98,8 @@ ValidationMatch(t:any) {
 }
 export function ConfirmPasswordValidator(controlName: string, matchingControlName: string) {
   return (formGroup: UntypedFormGroup) => {
-    let control = formGroup.controls[controlName];
-    let matchingControl = formGroup.controls[matchingControlName]
+    const control = formGroup.controls[controlName];
+    const matchingControl = formGroup.controls[matchingControlName]
     if (
       matchingControl.errors&&
       !matchingControl.errors?.['confirmPasswordValidator']

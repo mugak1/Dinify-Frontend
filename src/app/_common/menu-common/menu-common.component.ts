@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { FormBuilder, FormArray } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Restaurant, MenuItem, Item } from 'src/app/_models/app.models';
@@ -11,7 +11,7 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
   templateUrl: './menu-common.component.html',
   styleUrl: './menu-common.component.css'
 })
-export class MenuCommonComponent {
+export class MenuCommonComponent implements OnInit {
   restaurant?:Restaurant|any;
   @Input()restaurant_id:any='';
   menu_list?:MenuItem[]|any=[];
@@ -79,7 +79,7 @@ get QuantitySum(){
   }
   viewItem(i:MenuItem/* |Item */){
 this.selected_item=i as any;
-let modifiers:FormArray= this.fb.array([]);
+const modifiers:FormArray= this.fb.array([]);
 /* i.options.options.forEach((o,io)=>{
   modifiers.push(this.initOption());
   modifiers.at(io).setValue({id:io,name:o.name,choice:o.choices})
@@ -105,7 +105,7 @@ this.showModal=true;
       px=px+s.order.cost
 
     })
-    let baskItm={item:this.selected_item.id,itemName:this.selected_item.name,price:px,quantity: this.selected_quantity,choice:null,option:null,options:this.selected_choices}
+    const baskItm={item:this.selected_item.id,itemName:this.selected_item.name,price:px,quantity: this.selected_quantity,choice:null,option:null,options:this.selected_choices}
     if(this.restaurant_id){
 this.AddItem.emit(baskItm);
     }else{
@@ -139,13 +139,13 @@ removeUnderscore(x:string){
     } */
   }
   SetChoice(evnt:any,i:any,has_choices?:any,o?:any,op?:any){
-let sel = {index:i, choice:has_choices,order:o}
+const sel = {index:i, choice:has_choices,order:o}
 
     if(evnt.checked){
      
       if(o?.selectable){
         if(this.selected_choices.filter(x=>x.index==i).length>0){
-          let indo=this.selected_choices.indexOf(this.selected_choices.filter(x=>x.index==i)[0])
+          const indo=this.selected_choices.indexOf(this.selected_choices.filter(x=>x.index==i)[0])
           
             this.selected_choices.splice(indo,1)
           
@@ -156,7 +156,7 @@ let sel = {index:i, choice:has_choices,order:o}
     }else{
     // console.log(this.selected_choices.filter(x=>x.index==i))
       if(this.selected_choices.filter(x=>x.index==i).length>0){
-        let indo=this.selected_choices.indexOf(this.selected_choices.filter(x=>x.index==i)[0])
+        const indo=this.selected_choices.indexOf(this.selected_choices.filter(x=>x.index==i)[0])
         
           this.selected_choices.splice(indo,1)
         

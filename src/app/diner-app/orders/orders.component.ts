@@ -80,11 +80,11 @@ if(!x){
 Save(){
   if(this.data!=''&& this.require_otp&&this.PaymentForm.get('payment_mode')?.value=='momo'){
     this.PaymentForm.get('otp')?.setValue(this.data)
-    var d= this.PaymentForm.value;
+    const d= this.PaymentForm.value;
         d.msisdn='256'+ this.PaymentForm.get('msisdn')?.value
     this.api.postPatch('finances/initiate-order-payment/',d,'post').subscribe((x:any)=>{
         
-      let res=x?.data;
+      const res=x?.data;
       if(x.status==200){
         this.router.navigate(['/diner','payment-details',res.transaction_id])
       }
@@ -95,11 +95,11 @@ Save(){
       if(x.status==400){
 this.sendOtp('msisdn','256'+this.PaymentForm.get('msisdn')?.value,null);
       }else if(x.status==200){
-        var d= this.PaymentForm.value;
+        const d= this.PaymentForm.value;
         d.msisdn='256'+ this.PaymentForm.get('msisdn')?.value
         this.api.postPatch('finances/initiate-order-payment/',d,'post').subscribe((x:any)=>{
         
-          let res=x?.data;
+          const res=x?.data;
           if(x.status==200){
           
               this.router.navigate(['/diner','payment-details',res.transaction_id])
@@ -113,7 +113,7 @@ this.sendOtp('msisdn','256'+this.PaymentForm.get('msisdn')?.value,null);
   }else if (this.PaymentForm.get('payment_mode')?.value=='card'){
     this.api.postPatch('finances/initiate-order-payment/',this.PaymentForm.value,'post').subscribe((x:any)=>{
         
-      let res=x?.data;
+      const res=x?.data;
       if(x.status==200){
        window.location.href=res.redirect_url; 
       }

@@ -56,7 +56,7 @@ if(auth.currentRestaurantRole?.restaurant_id){
   }
 
   InputCover($event:any){
-    let fm = this.fb.group({
+    const fm = this.fb.group({
       id:[this.restaurant],
       cover_photo:[]
     })

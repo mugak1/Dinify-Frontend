@@ -106,7 +106,7 @@ sendOtp(identification:any,identifier:any,purpose:any){
   (error: any) => {
      // this.error = error;
      this.submitted = false
-      alert(error)
+      this.messageService.addMessage({severity:'error', summary:'Error', message: error})
   },);
 }
 Submit(){

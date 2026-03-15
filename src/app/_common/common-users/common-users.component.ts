@@ -96,7 +96,7 @@ this.api.postPatch('restaurant-setup/employees/',{"user": this.user_id,
       this.closeModal();
       })
   }else if(!this.user_id&&this.checked){
-    let val =this.RegisterForm.value
+    const val =this.RegisterForm.value
     val.roles=[this.RegisterForm.get('roles')?.value];
     val.restaurant=this.restaurant;
    this.api.postPatch((this.restaurant?'restaurant-setup/create-employee/':'users/auth/register/'),val,'post').subscribe(x=>{
@@ -169,7 +169,7 @@ SaveEdit(){
       }) 
 }
 DeleteUser(user:EmployeeListUser){
-  let ref = this.dialog.openModal({
+  const ref = this.dialog.openModal({
     title:'Delete',
     has_reason:true,
     submitButtonText:'Delete',

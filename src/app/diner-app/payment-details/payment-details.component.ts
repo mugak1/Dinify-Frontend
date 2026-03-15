@@ -30,14 +30,14 @@ this.details=x?.data
     })
   }
   SendFeedBack(){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title:'Review',
       message:'Are you sure you want to submit this review?',
       submitButtonText:'Submit'
     }).subscribe((x:any)=>{
      
       if(x?.action=='yes'){
-    let obj={
+    const obj={
     "order": this.details.order,
     "rating": this.rating,
     "review": this.comment
@@ -60,7 +60,7 @@ this.message.add(x.message)
 
 
 },err=>{
-alert(err.message)
+this.message.addMessage({severity:'error', summary:'Error', message: err.message})
 this.dialog.closeModal();
 ref.unsubscribe();
 })

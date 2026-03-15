@@ -24,7 +24,7 @@
               <svg class="rtl:rotate-180 w-3 h-3 text-gray-400 mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>
               </svg>
-              <span class="ms-1 text-xl font-bold md:ms-2"><span class="capitalize">{{report_type}} {{(report_type=='sales'|| report_type=='transactions')?'(UGX)':''}}</span></span>
+              <span class="ms-1 text-xl font-bold md:ms-2"><span class="capitalize">{{report_type}} {{(report_type==='sales'|| report_type==='transactions')?'(UGX)':''}}</span></span>
             </div>
           </li>
         </ol>
@@ -35,16 +35,16 @@
   <div>
     <div class="block w-full py-2 px-4">Select a Date Range</div>
 </div>
-  <div *ngIf="report_type=='sales'|| report_type=='transactions'" class="my-2 flex sm:flex-row flex-col">
+  <div *ngIf="report_type==='sales'|| report_type==='transactions'" class="my-2 flex sm:flex-row flex-col">
     
     <div class="flex flex-row mb-1 sm:mb-0">
         
-        <div *ngIf="report_type=='sales'" class="relative">
+        <div *ngIf="report_type==='sales'" class="relative">
           
                             
                 <label for="description" class="block py-2 px-4">Cycle</label>
                 </div>
-                <div *ngIf="report_type=='sales'" class="relative">
+                <div *ngIf="report_type==='sales'" class="relative">
                 <select [(ngModel)]="category_field"  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block  p-2.5">
       <!--               <option value="null" [disabled]="true">Default: Per Order</option> -->
                         <option [value]="''"  class="p-2.5">Per Order</option>
@@ -188,10 +188,10 @@
 
     <div class="h-[70dvh] flex">
 
-    <div *ngIf="report_type=='sales'|| report_type=='transactions'" class="flex-grow overflow-auto">
+    <div *ngIf="report_type==='sales'|| report_type==='transactions'" class="flex-grow overflow-auto">
         <!-- <app-common-chart *ngIf="chart_data" [data]="chart_data" [title]="report_type+''"></app-common-chart> -->
     <table class="w-full text-sm text-left rtl:text-right text-gray-500 ">
-        <thead *ngIf="report_type=='sales'" class="sticky top-0 text-xs text-gray-700 uppercase bg-gray-50 border-b">
+        <thead *ngIf="report_type==='sales'" class="sticky top-0 text-xs text-gray-700 uppercase bg-gray-50 border-b">
             <tr *ngIf="!category">
                 <th class="px-6 py-3 text-center">Order No.</th>
                 <th class="px-6 py-3 text-center">No. of items</th>
@@ -204,7 +204,7 @@
                     
             </tr>
             <tr *ngIf="category">
-                <th class="px-6 py-3 w-[10%]">{{category=='daily'?'Date':''}}{{category=='monthly'?'Month':''}}{{category=='yearly'?'Year':''}}</th>
+                <th class="px-6 py-3 w-[10%]">{{category==='daily'?'Date':''}}{{category==='monthly'?'Month':''}}{{category==='yearly'?'Year':''}}</th>
                 <th class="px-6 py-3 text-center">No. of Sales</th>
                 <th class="px-6 py-3">Gross Sales</th>
 <!--                     <th class="px-6 py-3">No. Sales By Channel</th>
@@ -215,7 +215,7 @@
                     <th class="px-6 py-3">Total Discounts Offered</th>
             </tr>
         </thead>
-        <thead *ngIf="report_type=='transactions'" class="sticky top-0 text-xs text-gray-700 uppercase bg-gray-50 border-b">
+        <thead *ngIf="report_type==='transactions'" class="sticky top-0 text-xs text-gray-700 uppercase bg-gray-50 border-b">
             <tr>
             
                 <th class="text-start px-6 py-3">Date</th>
@@ -255,17 +255,17 @@
                 <td class="px-6 py-4">{{l.total_discounts_offered}}</td>
             </tr>
         </tbody>
-        <tbody *ngIf="report_type=='transactions'" class="divide-y">
+        <tbody *ngIf="report_type==='transactions'" class="divide-y">
             <tr *ngFor="let t of transaction_list">
               <td class="text-start px-6 py-4">{{t.time_created|date:'medium'}}</td>
               <td class="px-6 py-4">{{(removeUnderscore(t.transaction_type))|titlecase}}</td>
               <td class="px-6 py-4">{{t.transaction_platform|titlecase}}</td>
               <td class="px-6 py-4">{{t.transaction_status|titlecase}}</td>
               <td class="px-6 py-4 text-center">{{t.order_number}}</td>
-              <td class="px-6 py-4">{{(t.transaction_status=='success'?(++t.account_balances.before.card_actual_balance++t.account_balances.before.cash_actual_balance++t.account_balances.before.momo_actual_balance):'')|number}}</td>
+              <td class="px-6 py-4">{{(t.transaction_status==='success'?(++t.account_balances.before.card_actual_balance++t.account_balances.before.cash_actual_balance++t.account_balances.before.momo_actual_balance):'')|number}}</td>
               <td class="px-6 py-4">{{t.amount_in|number}}</td>
               <td class="px-6 py-4">{{t.amount_out|number}}</td>
-              <td class="px-6 py-4 text-end">{{(t.transaction_status=='success'?(++t.account_balances.after.card_actual_balance++t.account_balances.after.cash_actual_balance++t.account_balances.after.momo_actual_balance):'')|number}}</td>
+              <td class="px-6 py-4 text-end">{{(t.transaction_status==='success'?(++t.account_balances.after.card_actual_balance++t.account_balances.after.cash_actual_balance++t.account_balances.after.momo_actual_balance):'')|number}}</td>
             </tr>
           </tbody>
     </table>

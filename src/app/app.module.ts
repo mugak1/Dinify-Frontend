@@ -7,7 +7,6 @@ import { NgxIntlTelephoneInputModule } from "ngx-intl-telephone-input";
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { DinifyMgtComponent } from './dinify-mgt/dinify-mgt.component';
-import { RestaurantMgtComponent } from './restaurant-mgt/restaurant-mgt.component';
 import { DinerAppComponent } from './diner-app/diner-app.component';
 import { LoginComponent } from './auth/login/login.component';
 import { AuthInterceptor } from './_helpers/auth.interceptor';
@@ -25,7 +24,6 @@ import { WelcomeComponent } from './auth/welcome/welcome.component';
   declarations: [
     AppComponent,
     DinifyMgtComponent,
-    //RestaurantMgtComponent,
     DinerAppComponent,
     LoginComponent,
     RegisterComponent,
@@ -33,7 +31,6 @@ import { WelcomeComponent } from './auth/welcome/welcome.component';
     ChangePasswordComponent,
     LockScreenComponent,
     WelcomeComponent
-    /* CurrencyInputComponent */
   ],
   imports: [
     BrowserModule,
@@ -44,12 +41,10 @@ import { WelcomeComponent } from './auth/welcome/welcome.component';
     NgxIntlTelephoneInputModule,
     DinifyCommonModule,
     FormsModule,
-],
+  ],
   providers: [
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
-  
-  /*   { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => CurrencyInputComponent), multi: true  } */
   ],
   bootstrap: [AppComponent]
 })

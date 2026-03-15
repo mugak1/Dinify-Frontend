@@ -1,5 +1,5 @@
 import { DOCUMENT, Location } from '@angular/common';
-import { ChangeDetectorRef, Component, HostListener, Inject } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, Inject, AfterViewInit, OnDestroy } from '@angular/core';
 import { FormGroup, FormBuilder, Validators, AbstractControl } from '@angular/forms';
 import { SafeUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -17,7 +17,7 @@ import { BasketService } from 'src/app/_services/basket.service';
   templateUrl: './tables.component.html',
   styleUrls: ['./tables.component.css']
 })
-export class TablesComponent {
+export class TablesComponent implements AfterViewInit, OnDestroy {
   showModal = false;
   detailModal=false;
   rest?:any;
@@ -169,11 +169,11 @@ dining_area:[''],
  
   Save(){
 this.saving=true;
-var payload = this.TableEditForm?.get('id')?.value? this.TableEditForm.value:this.TableForm.value;
+const payload = this.TableEditForm?.get('id')?.value? this.TableEditForm.value:this.TableForm.value;
     this.api.postPatch('restaurant-setup/tables/',payload,this.TableEditForm?.get('id')?.value?'put':'post','',{}).subscribe({
       next: ()=>{
 
-        let ind = this.list?.filter(x=>x.dining_area.id==(this.TableForm?this.TableForm.get('dining_area')?.value:this.TableEditForm?.get('dining_area')?.value));
+        const ind = this.list?.filter(x=>x.dining_area.id==(this.TableForm?this.TableForm.get('dining_area')?.value:this.TableEditForm?.get('dining_area')?.value));
         if(ind&&this.list){
           // ind[0].tables.push(this.TableForm.value)
           
@@ -259,7 +259,7 @@ this.showModal!=this.showModal; */
 /* this.rest=x?.data?.records[0];
 this.showModal!=this.showModal; */
       }else{
-        let d :any[] =x?.data as any;
+        const d :any[] =x?.data as any;
       this.list=d.map(area => ({ ...area, isCollapsed: d.length==1? (false):true }));
 
       if(openIndex!==undefined){
@@ -275,7 +275,7 @@ this.showModal!=this.showModal; */
     this.qrCodeDownloadLink = url;
   }
   DeleteTable(table:DiningAreaTable,areaIndex:number){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
       submitButtonText:'Delete',
@@ -437,7 +437,7 @@ this.saving=false;
   }
   isSubmitting=false;
 DeleteArea(area:DiningArea){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
       submitButtonText:'Delete',
@@ -468,7 +468,7 @@ DeleteArea(area:DiningArea){
   }
     AreaAvailabilityChange(event:any,a:DiningArea,index:number){
    
-  let ref =this.dialog.openModal(
+  const ref =this.dialog.openModal(
     {
       title:'CONFIRMATION',
   message:"Are you sure you want to change the availability of "+a.name+ " to <b>"+(a.available?"available":"not available") +"</b> ?",
@@ -554,7 +554,7 @@ currentTableIndex?:number;
       this.sessionStorage.setItem('Table',table);
     }
     toggleAvailability($event:any,table: DiningAreaTable,areaIndex:number,tableIndex:number): void {
-      let ref =this.dialog.openModal(
+      const ref =this.dialog.openModal(
         {
           title:'CONFIRMATION',
       message:"Are you sure you want to change the availability of Table "+table.number+ " to <b>"+(!table.enabled?"available":"not available") +"</b> ?",
@@ -579,7 +579,7 @@ ref?.unsubscribe();
   isToday(date_:any){
     // Get today's date
     const today = new Date();
-    let dateToCheck= new Date(date_);
+    const dateToCheck= new Date(date_);
   
     // Compare the components of the dateToCheck with today's date
     const isSameDate =
@@ -589,9 +589,9 @@ ref?.unsubscribe();
   
     // Return true if the dateToCheck is today, otherwise return false
     return isSameDate;
-  };
+  }
   DeleteItem(item:OrderedItem){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title:'Delete',
       has_reason:true,
       submitButtonText:'Delete',
@@ -634,7 +634,7 @@ ref?.unsubscribe();
     this.showModal=true;
    }
    SaveNewItem(item:any){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
       title:'Add Item',
       submitButtonText:'Add',
       message:'Are you sure you want to <strong>Add</strong> '+item?.itemName+' to order #'+this.order?.order_number +' ?',

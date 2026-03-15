@@ -66,7 +66,7 @@ export class ApiService {
   UserChangePasswordOnLogin(data: any) {
     const r = `${this._base}/users/auth/change-password/`;
     
-    let l: any = {
+    const l: any = {
       headers: new HttpHeaders({
        // Authorization: "Token " + token,
         Accept: "application/json, text/plain, */*"

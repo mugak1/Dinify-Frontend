@@ -37,10 +37,10 @@
                         </g>
                     </svg>
                      </button>
-                     <span class="my-auto ml-3">{{(RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)=='string'))?'Change Image':(fileName || "No file uploaded yet.")}}   </span>
+                     <span class="my-auto ml-3">{{(RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)==='string'))?'Change Image':(fileName || "No file uploaded yet.")}}   </span>
                   
                  </div>
-                 <app-common-image [imgclass]="'mx-auto my-1'" *ngIf="RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)=='string')" [src]="RestaurantForm.get('logo')?.value" [width]="'300'" [alt]="RestaurantForm.get('name')?.value"></app-common-image>
+                 <app-common-image [imgclass]="'mx-auto my-1'" *ngIf="RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)==='string')" [src]="RestaurantForm.get('logo')?.value" [width]="'300'" [alt]="RestaurantForm.get('name')?.value"></app-common-image>
                 <input type="file" #photoUpload (change)="InputLogo($event)" class="bg-gray-50 border hidden border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 w-full p-2.5 " placeholder="Enter the restaurant logo">
                 <div *ngIf="is_submitted && RestaurantForm.get('logo')?.errors" class="text-d-red text-xs">
                     <div *ngIf="RestaurantForm.get('logo')?.errors?.['required']">The Logo is required</div>

@@ -8,11 +8,11 @@
           <div class="flex flex-col gap-1">
            <div class="flex items-center gap-2.5">
             <h2 class="text-2xl font-semibold text-gray-900">
-             Billing Method: {{rest?.preferred_subscription_method=='per_order'?'Surcharge':''}}
-             {{rest?.preferred_subscription_method=='monthly'?'Subscription Fee':''}}
-             {{rest?.preferred_subscription_method=='yearly'?'Subscription Fee':''}} 
+             Billing Method: {{rest?.preferred_subscription_method==='per_order'?'Surcharge':''}}
+             {{rest?.preferred_subscription_method==='monthly'?'Subscription Fee':''}}
+             {{rest?.preferred_subscription_method==='yearly'?'Subscription Fee':''}} 
             </h2>
-            <span *ngIf="!(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)&& (rest?.preferred_subscription_method=='yearly'||rest?.preferred_subscription_method=='monthly')" class="border border-red-400 bg-red-200 text-d-red text-xs rounded px-2 py-1">
+            <span *ngIf="!(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)&& (rest?.preferred_subscription_method==='yearly'||rest?.preferred_subscription_method==='monthly')" class="border border-red-400 bg-red-200 text-d-red text-xs rounded px-2 py-1">
                 {{rest?.preferred_subscription_method|titlecase}}                 
             </span>
             <span *ngIf="(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)" class="border border-blue-400 bg-blue-200 text-black text-xs rounded px-2 py-1">
@@ -21,10 +21,10 @@
            </div>
            
 
-           <p *ngIf="rest?.preferred_subscription_method=='yearly'||rest?.preferred_subscription_method=='monthly'" class="text-2sm text-gray-700">
+           <p *ngIf="rest?.preferred_subscription_method==='yearly'||rest?.preferred_subscription_method==='monthly'" class="text-2sm text-gray-700">
             <span class="font-semibold">Subscription Fee:</span> UGX {{rest?.flat_fee|number}}
            </p>
-           <p *ngIf="rest?.preferred_subscription_method=='per_order'" class="text-2sm text-gray-700">
+           <p *ngIf="rest?.preferred_subscription_method==='per_order'" class="text-2sm text-gray-700">
             <span class="font-semibold">Percentage:</span> {{rest?.order_surcharge_percentage|number}}%
             <span class="font-semibold ml-4">Cap:</span> UGX {{rest?.order_surcharge_cap_amount|number}}
             <span class="font-semibold ml-4">Floor:</span> UGX {{rest?.order_surcharge_min_amount|number}}
@@ -41,7 +41,7 @@
            <!-- <a class="btn btn-sm btn-light" href="#">
             Cancel Plan
            </a> -->
-           <button (click)="PayNow()" *ngIf="rest?.preferred_subscription_method!='per_order'" class="text-white bg-d-red hover:opacity-75 hover:text-white focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 -mt-3.5 text-center">
+           <button (click)="PayNow()" *ngIf="rest?.preferred_subscription_method!=='per_order'" class="text-white bg-d-red hover:opacity-75 hover:text-white focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 -mt-3.5 text-center">
             Pay Bill
            </button>
           </div>
@@ -389,7 +389,7 @@ No transactions available
                       </div>
                   </div>
               </div> -->
-              <div *ngIf="PaymentForm.get('payment_form')?.value=='split'&&!require_otp" class="mt-4">
+              <div *ngIf="PaymentForm.get('payment_form')?.value==='split'&&!require_otp" class="mt-4">
                   <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Amount to Pay</label>
                   <input formControlName="amount" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 ">
               </div>
@@ -530,7 +530,7 @@ No transactions available
                       <!-- Component End  -->
                   
                   </div>
-                  <div *ngIf="PaymentForm.get('payment_mode')?.value=='momo'" class="mt-4">
+                  <div *ngIf="PaymentForm.get('payment_mode')?.value==='momo'" class="mt-4">
                   <!--   <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Phone number</label>
                     <input formControlName="msisdn" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "> -->
                     <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Phone number</label>

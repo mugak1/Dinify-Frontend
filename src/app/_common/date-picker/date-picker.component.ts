@@ -1,11 +1,11 @@
-import { Component, EventEmitter, input, Input, Output } from '@angular/core';
+import { Component, EventEmitter, input, Input, Output, OnInit } from '@angular/core';
 
 @Component({
   selector: 'app-datePicker',
   templateUrl: './date-picker.component.html',
   styleUrl: './date-picker.component.css'
 })
-export class DatePickerComponent {MONTH_NAMES = [
+export class DatePickerComponent implements OnInit {MONTH_NAMES = [
   'January',
   'February',
   'March',
@@ -42,12 +42,12 @@ ngOnInit(): void {
 initDate() {
   
   if(this.init_date){
-    let today =new Date(this.init_date);
+    const today =new Date(this.init_date);
     this.month=today.getMonth();
     this.year=today.getFullYear();
     this.datepickerValue = new Date(this.year, this.month, today.getDate()).toDateString();
   }else{
-    let today = new Date();
+    const today = new Date();
   this.month = today.getMonth();
   this.year = today.getFullYear();
   this.datepickerValue = new Date(this.year, this.month, today.getDate()).toDateString();
@@ -63,7 +63,7 @@ isToday(date: any) {
 }
 
 getDateValue(date: any) {
-  let selectedDate = new Date(this.year, this.month, date);
+  const selectedDate = new Date(this.year, this.month, date);
   this.datepickerValue = selectedDate.toDateString();
   this.showDatepicker = false;
   this.SelectedDate.emit(`${this.year}-${this.month + 1}-${date}`);
@@ -73,13 +73,13 @@ getNoOfDays() {
   const daysInMonth = new Date(this.year, this.month + 1, 0).getDate();
 
   // find where to start calendar day of week
-  let dayOfWeek = new Date(this.year, this.month).getDay();
-  let blankdaysArray = [];
+  const dayOfWeek = new Date(this.year, this.month).getDay();
+  const blankdaysArray = [];
   for (var i = 1; i <= dayOfWeek; i++) {
     blankdaysArray.push(i);
   }
 
-  let daysArray = [];
+  const daysArray = [];
   for (var i = 1; i <= daysInMonth; i++) {
     daysArray.push(i);
   }

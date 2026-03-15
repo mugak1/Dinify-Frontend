@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
@@ -6,7 +6,6 @@ import { OrderDetail, OrderedItem, OrdersListItem, RestaurantDetail } from 'src/
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MessageService } from 'src/app/_services/message.service';
-import { DinerAppModule } from 'src/app/diner-app/diner-app.module';
 import * as moment from 'moment';
 
 @Component({
@@ -14,7 +13,7 @@ import * as moment from 'moment';
   templateUrl: './orders.component.html',
   styleUrl: './orders.component.css'
 })
-export class OrdersComponent {
+export class OrdersComponent implements OnDestroy {
 restaurant?: any;
 order_statuses=['pending','preparing','cancelled']
 list?:OrdersListItem[]=[];
@@ -134,7 +133,7 @@ mes='Are you sure you want to set Order #'+this.order?.order_number+' to <strong
      break;
 
   }
- let ref = this.dialog.openModal({
+ const ref = this.dialog.openModal({
     title:titleText? titleText:'Track Order',
     message:mes,
     submitButtonText:buttonText,
@@ -160,7 +159,7 @@ mes='Are you sure you want to set Order #'+this.order?.order_number+' to <strong
 
  }
  AcceptOrder(id?:any){
-  let ref = this.dialog.openModal({
+  const ref = this.dialog.openModal({
      title:'Accept Order',
      submitButtonText:'Accept',
      message:'Are you sure you want to <strong>ACCEPT</strong> Order #'+this.order?.order_number+' ?',
@@ -183,7 +182,7 @@ mes='Are you sure you want to set Order #'+this.order?.order_number+' to <strong
  
   }
   CancelOrder(id?:any){
-    let ref = this.dialog.openModal({
+    const ref = this.dialog.openModal({
        title:'Decline Order',
        submitButtonText:'Decline',
        message:'Are you sure you want to <strong>Decline</strong> Order #'+this.order?.order_number+' ?',
@@ -257,7 +256,7 @@ this.PaymentForm.get('otp')?.setValue(this.data)
   }
 }
 SaveNewItem(item:any){
-  let ref = this.dialog.openModal({
+  const ref = this.dialog.openModal({
     title:'Add Item',
     submitButtonText:'Add',
     message:'Are you sure you want to <strong>Add</strong> '+item?.itemName+' to order #'+this.order?.order_number +' ?',
@@ -284,7 +283,7 @@ SaveNewItem(item:any){
 isToday(date_:any){
   // Get today's date
   const today = new Date();
-  let dateToCheck= new Date(date_);
+  const dateToCheck= new Date(date_);
 
   // Compare the components of the dateToCheck with today's date
   const isSameDate =
@@ -294,9 +293,9 @@ isToday(date_:any){
 
   // Return true if the dateToCheck is today, otherwise return false
   return isSameDate;
-};
+}
 DeleteItem(item:OrderedItem){
-  let ref = this.dialog.openModal({
+  const ref = this.dialog.openModal({
     title:'Delete',
     has_reason:true,
     submitButtonText:'Delete',
@@ -329,7 +328,7 @@ getTimeAgo(time: string): string {
 }
 
 ChangeOrder(o:any){
-  let ord=o.value;
+  const ord=o.value;
   switch(ord){
   case 'n-o':{
 this.list=this.list_cache?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return +new Date(a.time_created)- +new Date(b.time_created);})

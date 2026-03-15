@@ -62,8 +62,8 @@ filteredCountries:any[]|undefined=[];
   }
   
   onkeyUp(event:any){
-    let keyword = event.target.value;
-    let dropdownEl = document.querySelector("#dropdown");
+    const keyword = event.target.value;
+    const dropdownEl = document.querySelector("#dropdown");
     dropdownEl?.classList.remove("hidden");
     this.filteredCountries = this.countries?.filter((c) =>
       c[this.column].toLowerCase().includes(keyword.toLowerCase())
@@ -74,7 +74,7 @@ filteredCountries:any[]|undefined=[];
 
 selectOption(selectedOption:any,id:any) {
   hideDropdown();
-  let input:any = document.querySelector("#autocompleteInput");
+  const input:any = document.querySelector("#autocompleteInput");
   input.value = selectedOption;
   this.selected.emit(this.countries?.find(x=>x.id==id))
 }
@@ -87,7 +87,7 @@ document.addEventListener("click", () => {
 });
 
 function hideDropdown() {
-  let dropdownEl:any = document.querySelector("#dropdown");
+  const dropdownEl:any = document.querySelector("#dropdown");
   dropdownEl?.classList.add("hidden");
 }
 

@@ -129,7 +129,7 @@ break;
       if (x?.status == 200) {
         this.reportData = x?.data;
         
-        let summ: any = x?.data
+        const summ: any = x?.data
         /* if (summ) {
           Object.keys(summ).forEach(x => {
             this.summary.push({ name: x, value: summ[x] });
@@ -147,7 +147,7 @@ break;
       /* this.list=x?.data?.records as any[];  */
       if (x?.status == 200) {
         this.summary = [];
-        let summ: any = x?.data
+        const summ: any = x?.data
         if (summ) {
           Object.keys(summ).forEach(x => {
             this.summary.push({ name: x, value: summ[x] });

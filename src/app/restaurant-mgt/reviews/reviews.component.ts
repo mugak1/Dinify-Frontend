@@ -77,7 +77,7 @@ loadReviews(){
   }
 
 show(v:any){
- var btn:HTMLParagraphElement= this.document.getElementById('revTxt'+v) as any;
+ const btn:HTMLParagraphElement= this.document.getElementById('revTxt'+v) as any;
  return btn?.scrollHeight > btn?.offsetHeight;
 }
 private checkOverflow(): void {

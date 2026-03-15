@@ -10,9 +10,9 @@
   <form class="w-4/5 p-4 bg-white">
     <div class="flex">
         <select [(ngModel)]="status_search" [ngModelOptions]="{standalone: true}" class="flex-shrink-0 z-10 inline-flex items-center py-2.5 px-4 text-sm font-medium text-center text-gray-900 bg-gray-100 border border-gray-300 hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100">
-            <option value="">{{status_search==''?'Status: ':''}}All</option>
-            <option value="open">{{status_search=='open'?'Status: ':''}}Open</option>
-            <option value="In Progress">{{status_search=='In Progress'?'Status: ':''}}In Progress</option>
+            <option value="">{{status_search===''?'Status: ':''}}All</option>
+            <option value="open">{{status_search==='open'?'Status: ':''}}Open</option>
+            <option value="In Progress">{{status_search==='In Progress'?'Status: ':''}}In Progress</option>
             <option value="closed">{{status_search?'Status: ':''}}Closed</option>
         </select>
      <!--  <label for="search-dropdown" class="mb-2 text-sm font-medium text-gray-900 sr-only">Your
@@ -108,9 +108,9 @@
                     </span>
                     <span class="w-[10%] capitalize">
                         <span [ngClass]="{
-                            'bg-d-red text-white': ticket.ticket_status == 'open',
-                            'bg-yellow-500 text-white': ticket.ticket_status == 'In Progress',
-                            'bg-green-500 text-white': ticket.ticket_status == 'closed'
+                            'bg-d-red text-white': ticket.ticket_status === 'open',
+                            'bg-yellow-500 text-white': ticket.ticket_status === 'In Progress',
+                            'bg-green-500 text-white': ticket.ticket_status === 'closed'
                         }" class="inline-block mt-1 px-2 py-1 text-xs font-semibold rounded text-white">
                             {{ticket.ticket_status}}
                         </span>

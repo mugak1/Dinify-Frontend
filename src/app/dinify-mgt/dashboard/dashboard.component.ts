@@ -1,4 +1,4 @@
-import { Component, ViewChild } from '@angular/core';
+import { Component, ViewChild, OnInit } from '@angular/core';
 
 import {
   ChartComponent,
@@ -36,7 +36,7 @@ export type ChartOptions = {
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   @ViewChild("chart") chart?: ChartComponent;
   public chartOptions: Partial<ChartOptions>|any;
   public chartOptions2: Partial<ChartOptions>|any;
@@ -281,7 +281,7 @@ data:any= {
   }
   getList(){
     this.api.get<any>(null,`reports/dinify/dashboard/`,{}).subscribe((x:any)=>{
-      let d =x?.data as DinifyDashboardData;
+      const d =x?.data as DinifyDashboardData;
       this.stats = d.stats;
       /* this.list=x?.data?.records as any[];  */    
     //  this.acc= this.rest?.account

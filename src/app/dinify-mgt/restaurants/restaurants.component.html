@@ -128,7 +128,7 @@
                    </td>
                 <td class="px-6 py-4">
                     <div class="flex items-center">
-                        <div class="h-2.5 w-2.5 rounded-full me-2" [ngClass]="{'bg-green-500':l?.status=='active','bg-orange-500':l?.status=='pending','bg-gray-500':(l?.status=='inactive'),'bg-black':(l?.status=='rejected'),'bg-d-red':(l?.status=='blocked')}"></div> <span class="capitalize">{{l?.status}}</span> 
+                        <div class="h-2.5 w-2.5 rounded-full me-2" [ngClass]="{'bg-green-500':l?.status==='active','bg-orange-500':l?.status==='pending','bg-gray-500':(l?.status==='inactive'),'bg-black':(l?.status==='rejected'),'bg-d-red':(l?.status==='blocked')}"></div> <span class="capitalize">{{l?.status}}</span> 
                       
                           
                         <!-- <div class="h-2.5 w-2.5 rounded-full bg-red-500 me-2"></div> Offline -->
@@ -140,7 +140,7 @@
                         <span class="sr-only">View Details</span>
                         <svg width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <title></title> <g id="Complete"> <g id="info-circle"> <g> <circle cx="12" cy="12" data-name="--Circle" fill="none" id="_--Circle" r="10" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></circle> <line fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" x1="12" x2="12" y1="12" y2="16"></line> <line fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" x1="12" x2="12" y1="8" y2="8"></line> </g> </g> </g> </g></svg>
                     </a>
-                    <a *ngIf="l.status=='pending'" (click)="toggleModal(l);$event.stopPropagation()" title="Quick Edit" type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline my-auto cursor-pointer">
+                    <a *ngIf="l.status==='pending'" (click)="toggleModal(l);$event.stopPropagation()" title="Quick Edit" type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline my-auto cursor-pointer">
                         <span class="sr-only">Quick Edit</span>
                         <svg fill="#000000" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <g stroke-linecap="round" stroke-linejoin="round"></g>
@@ -172,7 +172,7 @@
                            <!--  <a *ngIf="l?.status=='pending'" [routerLink]="[]"  (click)="toggleModal(l,true)" class="flex px-4 py-2 text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
                                 <div class="h-2.5 w-2.5 rounded-full me-2 bg-gray-500 my-auto"></div>View Details
                               </a> -->
-                              <a [routerLink]="[]" *ngIf="l.status=='active'|| l.status=='inactive'||l.status=='rejected'" (click)="toggleModal(l);$event.stopPropagation()"  class="flex p-2 text-sm rounded capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+                              <a [routerLink]="[]" *ngIf="l.status==='active'|| l.status==='inactive'||l.status==='rejected'" (click)="toggleModal(l);$event.stopPropagation()"  class="flex p-2 text-sm rounded capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
                                 <svg fill="#000000" class="h-6 w-6 mr-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <g stroke-linecap="round" stroke-linejoin="round"></g>
                                     <g>
@@ -182,20 +182,20 @@
                                     </g>
                                 </svg>  Edit
                               </a>
-                            <a *ngIf="l?.status=='pending'" [routerLink]="[]" (click)="changeApprovalStatus('Approve','active',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+                            <a *ngIf="l?.status==='pending'" [routerLink]="[]" (click)="changeApprovalStatus('Approve','active',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
                             <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> Approve
                           </a>
 
-                          <a *ngIf="l?.status=='inactive'||l?.status=='blocked'" [routerLink]="[]" (click)="changeApprovalStatus('Activate','active',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
-                            <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> {{l?.status=='blocked'?'Unblock':'Activate'}}
+                          <a *ngIf="l?.status==='inactive'||l?.status==='blocked'" [routerLink]="[]" (click)="changeApprovalStatus('Activate','active',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+                            <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> {{l?.status==='blocked'?'Unblock':'Activate'}}
                           </a>
-                          <a *ngIf="l?.status=='rejected'" [routerLink]="[]" (click)="changeApprovalStatus('Submit','pending',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+                          <a *ngIf="l?.status==='rejected'" [routerLink]="[]" (click)="changeApprovalStatus('Submit','pending',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
                             <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> Submit
                           </a>
-                          <a *ngIf="l?.status=='pending'" [routerLink]="[]"  (click)="changeApprovalStatus('Reject','rejected',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+                          <a *ngIf="l?.status==='pending'" [routerLink]="[]"  (click)="changeApprovalStatus('Reject','rejected',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
                             <div class="h-2.5 w-2.5 rounded-full me-2 bg-black my-auto"></div>Reject
                           </a>
-                          <a *ngIf="l?.status=='active'" [routerLink]="[]"  (click)="changeApprovalStatus('Deactivate','inactive',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+                          <a *ngIf="l?.status==='active'" [routerLink]="[]"  (click)="changeApprovalStatus('Deactivate','inactive',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
                             <div class="h-2.5 w-2.5 rounded-full me-2 bg-gray-500 my-auto"></div>Deactivate
                           </a>
                         </div>
@@ -344,14 +344,14 @@
                                     </g>
                                 </svg>
                                  </button>
-                                 <span class="my-auto ml-3 hover:underline hover:text-d-red">{{RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)=='string')?'Change Logo':(fileName || "No file uploaded yet.")}}   </span>                             
+                                 <span class="my-auto ml-3 hover:underline hover:text-d-red">{{RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)==='string')?'Change Logo':(fileName || "No file uploaded yet.")}}   </span>                             
                                 
                              </div>
                              <div class="imagePreview" *ngIf="imageURL && imageURL !== ''">
                                 <img [src]="imageURL" class="rounded-full border mx-auto" style="height: 200px; max-width: unset;" height="200px" width="200px" [alt]="RestaurantForm.get('logo')?.value?.name">
                               </div>
                              <!-- <img *ngIf="RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)=='string')" [src]="'https://api-dev.dinifyapp.com'+RestaurantForm.get('logo')?.value"  width="300"> -->
-                             <app-common-image [imgclass]="'rounded-full mx-auto border h-80 w-80'" *ngIf="RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)=='string')" [src]="RestaurantForm.get('logo')?.value" [width]="'300'" [height]="'300'" [alt]="RestaurantForm.get('name')?.value"></app-common-image>
+                             <app-common-image [imgclass]="'rounded-full mx-auto border h-80 w-80'" *ngIf="RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)==='string')" [src]="RestaurantForm.get('logo')?.value" [width]="'300'" [height]="'300'" [alt]="RestaurantForm.get('name')?.value"></app-common-image>
                             <input type="file" #photoUpload (change)="InputLogo($event)" accept="image/*" class="bg-gray-50 border hidden border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 w-full p-2.5" placeholder="Enter the restaurant logo">
                             <p *ngIf="fileError" class="text-xs text-d-red mt-2">{{ fileError }}</p>
                             <div *ngIf="is_submitted && RestaurantForm.get('logo')?.errors" class="text-d-red text-xs">
@@ -449,7 +449,7 @@
                                         <option [value]="'yearly'">Yearly Subscription Fee</option>
                                     </select>
                                 </div>
-                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value=='per_order'" class="col-span-1">
+                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value==='per_order'" class="col-span-1">
                                     <label for="surcharge" class="block mb-2 text-sm font-medium text-gray-900">Surcharge Percentage <span class="text-d-red">*</span></label>
                                     <div class="relative mt-2 rounded-md shadow-sm">
                                         <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -482,7 +482,7 @@
                                         class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
                                         placeholder="Enter the percentage"> -->
                                 </div>
-                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value=='per_order'" class="col-span-1">
+                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value==='per_order'" class="col-span-1">
                                     <label for="surcharge" class="block mb-2 text-sm font-medium text-gray-900">Surcharge Cap <span class="text-d-red">*</span></label>
                                     <!-- <input type="number" formControlName="order_surcharge_cap_amount"
                                         class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
@@ -495,7 +495,7 @@
                                             
                                           </div>
                                 </div>
-                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value=='per_order'" class="col-span-1">
+                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value==='per_order'" class="col-span-1">
                                     <label for="surcharge" class="block mb-2 text-sm font-medium text-gray-900">Surcharge Floor <span class="text-d-red">*</span></label>
                                     <!-- <input type="number" formControlName="order_surcharge_min_amount"
                                         class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
@@ -508,7 +508,7 @@
                                             
                                           </div>
                                 </div>
-                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value!='per_order'" class="col-span-1">
+                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value!=='per_order'" class="col-span-1">
                                     <label for="flat_fee" class="block mb-2 text-sm font-medium text-gray-900">Subscription Fee <span
                                             class="text-d-red">*</span></label>
                                    <!--  <input type="number" formControlName="flat_fee" id="flat_fee" min="0"
@@ -652,24 +652,24 @@
                         <tr>
                             <td class="py-3 px-4 text-left font-medium text-gray-600">Subscription Method</td>
                             <td class="py-3 px-4 text-left">
-                                {{detail_full?.preferred_subscription_method=='per_order'?'Surcharge':''}}
-                                {{detail_full?.preferred_subscription_method=='monthly'?'Monthly Subscription Fee':''}}
-                                {{detail_full?.preferred_subscription_method=='yearly'?'Yearly Subscription Fee':''}}                                
+                                {{detail_full?.preferred_subscription_method==='per_order'?'Surcharge':''}}
+                                {{detail_full?.preferred_subscription_method==='monthly'?'Monthly Subscription Fee':''}}
+                                {{detail_full?.preferred_subscription_method==='yearly'?'Yearly Subscription Fee':''}}                                
                             </td>
                           </tr>
-                        <tr *ngIf="detail_full?.preferred_subscription_method=='per_order'">
+                        <tr *ngIf="detail_full?.preferred_subscription_method==='per_order'">
                           <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Percentage</td>
                           <td class="py-3 px-4 text-left">{{detail_full?.order_surcharge_percentage}}%</td>
                         </tr>
-                        <tr *ngIf="detail_full?.preferred_subscription_method=='per_order'" class="bg-gray-50">
+                        <tr *ngIf="detail_full?.preferred_subscription_method==='per_order'" class="bg-gray-50">
                           <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Cap</td>
                           <td class="py-3 px-4 text-left">UGX {{detail_full?.order_surcharge_cap_amount|number}}</td>
                         </tr>
-                        <tr *ngIf="detail_full?.preferred_subscription_method=='per_order'">
+                        <tr *ngIf="detail_full?.preferred_subscription_method==='per_order'">
                           <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Floor</td>
                           <td class="py-3 px-4 text-left">UGX {{detail_full?.order_surcharge_min_amount|number}}</td>
                         </tr>
-                        <tr *ngIf="detail_full?.preferred_subscription_method=='yearly'||detail_full?.preferred_subscription_method=='monthly'" class="bg-gray-50">
+                        <tr *ngIf="detail_full?.preferred_subscription_method==='yearly'||detail_full?.preferred_subscription_method==='monthly'" class="bg-gray-50">
                           <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Subscription Fee</td>
                           <td class="py-3 px-4 text-left">{{detail_full?.flat_fee|number}}</td>
                         </tr>

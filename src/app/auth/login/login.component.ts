@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ViewChild, OnInit } from '@angular/core';
 import { FormGroup, FormBuilder, Validators, NgModel } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { first } from 'rxjs';
@@ -12,7 +12,7 @@ import { MessageService } from 'src/app/_services/message.service';
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   countdown = 30; // Countdown starts at 30 seconds
   timer: any;
   loginForm!: FormGroup;
@@ -145,9 +145,9 @@ get user(){
     this.authenticationService.setOtp(this.authenticationService.userValue?.profile.id,this.data).pipe(first()).subscribe({
         next:(val:ApiResponse<OTPResponse>)=>{
       //      console.log(val)
-let log_otp=val.data as unknown as OTPResponse;
+const log_otp=val.data as unknown as OTPResponse;
 if(log_otp.valid){
-let u = this.authenticationService.UpdateUser(log_otp);
+const u = this.authenticationService.UpdateUser(log_otp);
                   if (this.log_in.profile.restaurant_roles.length === 1) {
   // One restaurant → auto set and redirect
   this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);
@@ -197,7 +197,7 @@ let u = this.authenticationService.UpdateUser(log_otp);
         },
         error: error => {
             this.error = error;
-            alert(error)
+            this.message.addMessage({severity:'error', summary:'Error', message: error})
         }
     })
   }

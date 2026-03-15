@@ -117,10 +117,10 @@
                   <a title="Edit"  class="relative group inline-block border border-gray-400 text-white px-1 py-1 rounded-lg hover:bg-gray-300 transition duration-300 ease-in-out transform hover:scale-105" (click)="toggleModal(l,false,area.dining_area)">
                       <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Edit / Edit_Pencil_02"> <path id="Vector" d="M4 16.0001V20.0001L8 20.0001L18.8686 9.13146L18.8695 9.13061C19.265 8.73516 19.4628 8.53736 19.5369 8.3092C19.6021 8.10835 19.6022 7.89201 19.5369 7.69117C19.4627 7.46284 19.2646 7.26474 18.8686 6.86872L17.1288 5.12892C16.7345 4.7346 16.5369 4.53704 16.3091 4.46301C16.1082 4.39775 15.8919 4.39775 15.691 4.46301C15.463 4.53709 15.2652 4.73488 14.8704 5.12976L14.8686 5.13146L4 16.0001Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
                   </a>
-                 <button *ngIf="l.available.message!='Ongoing order'" [disabled]="!l.available.available" [ngClass]="{'cursor-not-allowed grayscale opacity-60':!l.available.available}"  title="Order{{!l.available.available?' - '+l.available.message:''}}"   class="relative group inline-block border border-gray-400 text-white px-1 py-1 rounded-lg hover:bg-gray-300 transition duration-300 ease-in-out transform hover:scale-105" [routerLink]="l.available.available?['d','menu']:[]" (click)="openMenu(l,i)">
+                 <button *ngIf="l.available.message!=='Ongoing order'" [disabled]="!l.available.available" [ngClass]="{'cursor-not-allowed grayscale opacity-60':!l.available.available}"  title="Order{{!l.available.available?' - '+l.available.message:''}}"   class="relative group inline-block border border-gray-400 text-white px-1 py-1 rounded-lg hover:bg-gray-300 transition duration-300 ease-in-out transform hover:scale-105" [routerLink]="l.available.available?['d','menu']:[]" (click)="openMenu(l,i)">
                   <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Interface / External_Link"> <path id="Vector" d="M10.0002 5H8.2002C7.08009 5 6.51962 5 6.0918 5.21799C5.71547 5.40973 5.40973 5.71547 5.21799 6.0918C5 6.51962 5 7.08009 5 8.2002V15.8002C5 16.9203 5 17.4801 5.21799 17.9079C5.40973 18.2842 5.71547 18.5905 6.0918 18.7822C6.5192 19 7.07899 19 8.19691 19H15.8031C16.921 19 17.48 19 17.9074 18.7822C18.2837 18.5905 18.5905 18.2839 18.7822 17.9076C19 17.4802 19 16.921 19 15.8031V14M20 9V4M20 4H15M20 4L13 11" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
                  </button>
-                 <button *ngIf="l.available.message=='Ongoing order'"   class="relative group inline-block border border-gray-400 text-white px-1 py-1 rounded-lg hover:bg-gray-300 transition duration-300 ease-in-out transform hover:scale-105" (click)="EditMenu(l)">
+                 <button *ngIf="l.available.message==='Ongoing order'"   class="relative group inline-block border border-gray-400 text-white px-1 py-1 rounded-lg hover:bg-gray-300 transition duration-300 ease-in-out transform hover:scale-105" (click)="EditMenu(l)">
                   <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Interface / External_Link"> <path id="Vector" d="M10.0002 5H8.2002C7.08009 5 6.51962 5 6.0918 5.21799C5.71547 5.40973 5.40973 5.71547 5.21799 6.0918C5 6.51962 5 7.08009 5 8.2002V15.8002C5 16.9203 5 17.4801 5.21799 17.9079C5.40973 18.2842 5.71547 18.5905 6.0918 18.7822C6.5192 19 7.07899 19 8.19691 19H15.8031C16.921 19 17.48 19 17.9074 18.7822C18.2837 18.5905 18.5905 18.2839 18.7822 17.9076C19 17.4802 19 16.921 19 15.8031V14M20 9V4M20 4H15M20 4L13 11" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
                  </button>
                  <div class="border-l border-gray-300 h-6 mx-2"></div>
@@ -481,14 +481,14 @@
                       <tr>
                         <td class="w-[10%] pl-3">#{{order.order_number}}</td>
                         <td class="w-[23.5%] pl-2"><span style="line-height: 0.5;" class="flex flex-col py-2"> <span class="text-xs mr-auto">{{order.table_details.table_room_name}}</span>Table - {{order.table_details.table_number}} </span></td>
-                        <td class="w-[17%] !capitalize">{{(order.count_items_served>=1 && order.order_status=='preparing')?order.count_items_served+ '/'+order.items.length+' Served':order.items.length+ '/'+order.items.length + ' '+order.order_status}}</td>
+                        <td class="w-[17%] !capitalize">{{(order.count_items_served>=1 && order.order_status==='preparing')?order.count_items_served+ '/'+order.items.length+' Served':order.items.length+ '/'+order.items.length + ' '+order.order_status}}</td>
                         <td class="w-[15%]"><span class="flex flex-row float-start pl-8">
                             <span  class="my-auto">
                               <svg height="20px" width="20px" viewBox="0 0 31.955 31.955">
                               
                                 <g>
                                   <g>                       
-                                    <circle [ngClass]="{'fill-yellow-300':(order.order_status=='pending'||order.order_status=='initiated'),'fill-orange-500':order.order_status=='served','fill-blue-500':order.order_status=='preparing'}" cx="15.979" cy="15.977" r="10"></circle>
+                                    <circle [ngClass]="{'fill-yellow-300':(order.order_status==='pending'||order.order_status==='initiated'),'fill-orange-500':order.order_status==='served','fill-blue-500':order.order_status==='preparing'}" cx="15.979" cy="15.977" r="10"></circle>
                                   </g>
                                 </g>
                               </svg>
@@ -540,7 +540,7 @@
                     
                       <g>
                         <g>                       
-                          <circle [ngClass]="{'fill-yellow-300':(m.status=='pending'||m.status=='initiated'),'fill-orange-500':m.status=='served','fill-blue-500':m.status=='preparing'}" cx="15.979" cy="15.977" r="10"></circle>
+                          <circle [ngClass]="{'fill-yellow-300':(m.status==='pending'||m.status==='initiated'),'fill-orange-500':m.status==='served','fill-blue-500':m.status==='preparing'}" cx="15.979" cy="15.977" r="10"></circle>
                         </g>
                       </g>
                     </svg>

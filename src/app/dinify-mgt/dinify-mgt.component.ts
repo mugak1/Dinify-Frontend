@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, HostListener, Renderer2, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, Renderer2, ViewChild, OnDestroy } from '@angular/core';
 import { AuthenticationService } from '../_services/authentication.service';
 
 @Component({
@@ -6,7 +6,7 @@ import { AuthenticationService } from '../_services/authentication.service';
   templateUrl: './dinify-mgt.component.html',
   styleUrls: ['./dinify-mgt.component.css']
 })
-export class DinifyMgtComponent implements AfterViewInit {
+export class DinifyMgtComponent implements AfterViewInit, OnDestroy {
   @ViewChild('dropdownMenu', { static: false }) dropdownMenu!: ElementRef;
   private dropdownElement!: HTMLElement;
 iscollapsed=false;

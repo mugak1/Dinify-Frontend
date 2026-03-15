@@ -113,7 +113,7 @@
           <td class="py-3">{{t.order_number}}</td>
           <td class="py-3">{{t.amount_in|number}}</td>
           <td class="py-3">{{t.amount_out|number}}</td>
-          <td class="py-3 text-end">{{(t.transaction_status=='success'?(++t.account_balances.after.card_actual_balance++t.account_balances.after.cash_actual_balance++t.account_balances.after.momo_actual_balance):'')|number}}</td>
+          <td class="py-3 text-end">{{(t.transaction_status==='success'?(++t.account_balances.after.card_actual_balance++t.account_balances.after.cash_actual_balance++t.account_balances.after.momo_actual_balance):'')|number}}</td>
         </tr>
       </tbody>
               </table>
@@ -307,7 +307,7 @@
                           <!-- Component End  -->
                       
                       </div>
-                      <div *ngIf="PaymentForm.get('payment_mode')?.value=='momo'" class="mt-4">
+                      <div *ngIf="PaymentForm.get('payment_mode')?.value==='momo'" class="mt-4">
                       <!--   <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Phone number</label>
                         <input formControlName="msisdn" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "> -->
                         <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Phone number</label>

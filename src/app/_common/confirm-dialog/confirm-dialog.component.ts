@@ -1,4 +1,4 @@
-import { Component, TemplateRef, ViewChild } from '@angular/core';
+import { Component, TemplateRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
 import { ConfirmaDialogData } from 'src/app/_models/app.models';
 import { ConfirmDialogService } from '../confirm-dialog.service';
 import { BehaviorSubject, Subscription } from 'rxjs';
@@ -8,7 +8,7 @@ import { BehaviorSubject, Subscription } from 'rxjs';
   templateUrl: './confirm-dialog.component.html',
   styleUrls: ['./confirm-dialog.component.css']
 })
-export class ConfirmDialogComponent {
+export class ConfirmDialogComponent implements AfterViewInit, OnDestroy {
   showModal=false;
   data:ConfirmaDialogData|null=null;
 result!:string;
