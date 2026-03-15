@@ -10,7 +10,7 @@
     "build:staging": "ng build --configuration=staging",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
+    "test:ci": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox",
     "lint": "ng lint",
     "type-check": "tsc --noEmit -p tsconfig.app.json"
   },

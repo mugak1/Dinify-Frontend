@@ -1,0 +1,183 @@
+import { TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { Router } from '@angular/router';
+import { AuthenticationService } from './authentication.service';
+import { environment } from 'src/environments/environment';
+
+describe('AuthenticationService', () => {
+  let service: AuthenticationService;
+  let httpMock: HttpTestingController;
+  let router: jasmine.SpyObj<Router>;
+  const base = `${environment.apiUrl}/api/${environment.version}`;
+
+  beforeEach(() => {
+    localStorage.clear();
+
+    const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
+
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        AuthenticationService,
+        { provide: Router, useValue: routerSpy }
+      ]
+    });
+
+    service = TestBed.inject(AuthenticationService);
+    httpMock = TestBed.inject(HttpTestingController);
+    router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.clear();
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+
+  describe('constructor / state initialization', () => {
+    it('should initialize userValue as null when localStorage is empty', () => {
+      expect(service.userValue).toBeNull();
+    });
+
+    it('should restore user from localStorage on construction', () => {
+      const stored = { token: 'abc', refresh: 'def', profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }, require_otp: false, prompt_password_change: false };
+      localStorage.setItem('user', JSON.stringify(stored));
+
+      // Re-create service to pick up localStorage
+      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+      expect(svc.userValue).toBeTruthy();
+      expect(svc.userValue!.token).toBe('abc');
+    });
+  });
+
+  describe('login', () => {
+    it('should POST credentials and store user in localStorage', () => {
+      const mockResponse = {
+        message: 'ok',
+        status: 200,
+        data: {
+          token: 'jwt-token',
+          refresh: 'refresh-token',
+          profile: { id: '1', first_name: 'Test', last_name: 'User', email: 'test@test.com', roles: ['dinify_admin'], phone_number: '123', other_names: '', restaurant_roles: [] },
+          require_otp: false,
+          prompt_password_change: false
+        },
+        pagination: { number_of_pages: 0, current_page: 0, total_records: 0, records_per_page: 0, has_next: false, has_previous: false }
+      };
+
+      service.login('testuser', 'testpass').subscribe((res) => {
+        expect(res.data).toBeTruthy();
+        expect(service.userValue).toBeTruthy();
+        expect(service.userValue!.token).toBe('jwt-token');
+        expect(localStorage.getItem('user')).toContain('jwt-token');
+      });
+
+      const req = httpMock.expectOne(`${base}/users/auth/login/`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ username: 'testuser', password: 'testpass' });
+      req.flush(mockResponse);
+    });
+
+    it('should include source in payload when provided', () => {
+      service.login('user', 'pass', 'diner').subscribe();
+
+      const req = httpMock.expectOne(`${base}/users/auth/login/`);
+      expect(req.request.body).toEqual({ username: 'user', password: 'pass', source: 'diner' });
+      req.flush({ data: { token: 't', refresh: 'r', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }, require_otp: false, prompt_password_change: false } });
+    });
+  });
+
+  describe('logout', () => {
+    beforeEach(() => {
+      localStorage.setItem('user', '{"token":"t"}');
+      localStorage.setItem('rest_role', '{"role":"admin"}');
+      localStorage.setItem('current_resta', '{"id":"r1"}');
+    });
+
+    it('should clear all localStorage keys', () => {
+      service.logout(true);
+      expect(localStorage.getItem('user')).toBeNull();
+      expect(localStorage.getItem('rest_role')).toBeNull();
+      expect(localStorage.getItem('current_resta')).toBeNull();
+    });
+
+    it('should set userValue to null', () => {
+      service.logout(true);
+      expect(service.userValue).toBeNull();
+    });
+
+    it('should navigate to /login by default', () => {
+      service.logout();
+      expect(router.navigate).toHaveBeenCalledWith(['/login']);
+    });
+
+    it('should not navigate when no_redirect is true', () => {
+      service.logout(true);
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('attemptTokenRefresh', () => {
+    it('should return null when no user is logged in', (done) => {
+      service.attemptTokenRefresh().subscribe((result) => {
+        expect(result).toBeNull();
+        done();
+      });
+    });
+
+    it('should return null when user has no refresh token', (done) => {
+      // Simulate a user without refresh token
+      localStorage.setItem('user', JSON.stringify({ token: 'abc', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] } }));
+
+      // Re-create to pick up the stored user
+      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+      svc.attemptTokenRefresh().subscribe((result) => {
+        expect(result).toBeNull();
+        done();
+      });
+    });
+
+    it('should return null (fallback) even when user has refresh token — backend not yet available', (done) => {
+      localStorage.setItem('user', JSON.stringify({ token: 'abc', refresh: 'refresh-123', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] } }));
+
+      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+      svc.attemptTokenRefresh().subscribe((result) => {
+        // Currently returns null because refresh endpoint is stubbed
+        expect(result).toBeNull();
+        done();
+      });
+    });
+  });
+
+  describe('UpdateUser', () => {
+    it('should update token and refresh in stored user', () => {
+      localStorage.setItem('user', JSON.stringify({
+        token: 'old', refresh: 'old-r',
+        profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }
+      }));
+      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+
+      const result = svc.UpdateUser({ valid: true, token: 'new-token', refresh: 'new-refresh' });
+      expect(result.token).toBe('new-token');
+      expect(result.refresh).toBe('new-refresh');
+
+      const stored = JSON.parse(localStorage.getItem('user')!);
+      expect(stored.token).toBe('new-token');
+    });
+  });
+
+  describe('setCurrentRestaurantRole / setCurrentRestaurant', () => {
+    it('should store restaurant role in localStorage', () => {
+      service.setCurrentRestaurantRole({ restaurant_id: 'r1', restaurant: 'Rest1', roles: ['manager'] });
+      expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id).toBe('r1');
+    });
+
+    it('should store current restaurant in localStorage', () => {
+      service.setCurrentRestaurant({ id: 'r1', name: 'TestRest' });
+      expect(JSON.parse(localStorage.getItem('current_resta')!).id).toBe('r1');
+    });
+  });
+});
