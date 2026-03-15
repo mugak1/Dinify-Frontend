@@ -89,8 +89,6 @@ this.isSubmittingOtp=(this.data)?true:false;
                 this.log_in= val.data as unknown as LoginResponse
                 if(!this.as_diner){
                if(this.log_in.prompt_password_change){
-              //  this.router.navigate(['/auth/change-password']);
-
                 this.router.navigate(["lock-otp-exp"], {
                   state: {
                     username: this.f['username'].value,

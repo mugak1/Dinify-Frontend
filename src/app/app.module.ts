@@ -14,7 +14,6 @@ import { ErrorInterceptor } from './_helpers/error.interceptor';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RegisterComponent } from './auth/register/register.component';
 import { ForgotPasswordComponent } from './auth/forgot-password/forgot-password.component';
-import { ChangePasswordComponent } from './auth/change-password/change-password.component';
 import { InputModule } from './_common/currency-input/input.module';
 import { DinifyCommonModule } from "./_common/dinify-common.module";
 import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
@@ -28,7 +27,6 @@ import { WelcomeComponent } from './auth/welcome/welcome.component';
     LoginComponent,
     RegisterComponent,
     ForgotPasswordComponent,
-    ChangePasswordComponent,
     LockScreenComponent,
     WelcomeComponent
   ],

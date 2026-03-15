@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, map } from 'rxjs';
+import { BehaviorSubject, Observable, of, map } from 'rxjs';
 import { ApiResponse, LoginResponse, OTPResponse, RestaurantDetail, RestaurantRole} from '../_models/app.models';
 import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
@@ -88,6 +88,46 @@ return u
     localStorage.removeItem('rest_role');
     localStorage.removeItem('current_resta');
     localStorage.removeItem('user');
+  }
+
+  /**
+   * Attempt a silent token refresh using the stored refresh token.
+   *
+   * BACKEND DEPENDENCY: This requires the backend to expose:
+   *   POST /api/{version}/users/auth/token/refresh/
+   *   Request:  { "refresh": "<refresh-token>" }
+   *   Response: { "data": { "token": "<new-access>", "refresh": "<new-refresh>" } }
+   *
+   * Until the backend endpoint is confirmed, this method returns null
+   * (triggering a logout in the error interceptor).
+   *
+   * To enable: uncomment the HTTP call below and remove the `of(null)` fallback.
+   */
+  attemptTokenRefresh(): Observable<string | null> {
+    const user = this.userValue;
+    if (!user?.refresh) {
+      return of(null);
+    }
+
+    // --- Uncomment when backend refresh endpoint is confirmed ---
+    // return this.http.post<ApiResponse<{ token: string; refresh: string }>>(
+    //   `${this._base}/users/auth/token/refresh/`,
+    //   { refresh: user.refresh }
+    // ).pipe(
+    //   map((response) => {
+    //     const data = response.data;
+    //     if (data?.token) {
+    //       const updated = { ...user, token: data.token, refresh: data.refresh };
+    //       localStorage.setItem('user', JSON.stringify(updated));
+    //       this.userSubject.next(updated as any);
+    //       return data.token;
+    //     }
+    //     return null;
+    //   })
+    // );
+
+    // Fallback: refresh not yet available from backend
+    return of(null);
   }
 
   logout(no_redirect?:boolean) {
