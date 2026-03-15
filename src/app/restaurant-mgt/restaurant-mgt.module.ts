@@ -15,6 +15,7 @@ import { SettingsComponent } from './settings/settings.component';
 import { MenuComponent } from './menu/menu.component';
 import { CommonImageComponent } from '../_common/common-image/common-image.component';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
+import { CommonChartModule } from '../_common/common-chart/common-chart.module';
 import { TablesComponent } from './tables/tables.component';
 import { QRCodeModule } from 'angularx-qrcode';
 import { RestProfileComponent } from './settings/rest-profile/rest-profile.component';
@@ -34,7 +35,7 @@ import { CommonUsersComponent } from '../_common/common-users/common-users.compo
 import { SupportComponent } from './support/support.component';
 import { BillingComponent } from './settings/billing/billing.component';
 import { RestNotificationsComponent } from './rest-notifications/rest-notifications.component';
-import { BaseChartDirective } from 'ng2-charts';
+import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
@@ -102,10 +103,14 @@ const routes: Routes = [
     NgxCurrencyDirective,
     DragDropModule,
     NgApexchartsModule,
-    BaseChartDirective
+    BaseChartDirective,
+    CommonChartModule
 ],
   exports:[
-    RouterModule    
+    RouterModule
+  ],
+  providers: [
+    provideCharts(withDefaultRegisterables()),
   ]
 })
 export class RestaurantMgtModule { }

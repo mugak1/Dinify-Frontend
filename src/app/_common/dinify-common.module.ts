@@ -14,8 +14,6 @@ import { OtpInputComponent } from './otp-input/otp-input.component';
 import { CommonNotificationsComponent } from './common-notifications/common-notifications.component';
 import { DomSanitizer, SafeHtml, SafeResourceUrl, SafeScript, SafeStyle, SafeUrl } from '@angular/platform-browser';
 import { SafePipe } from './common.pipe';
-import { CommonChartComponent } from './common-chart/common-chart.component';
-import { NgApexchartsModule } from 'ng-apexcharts';
 
 
 
@@ -32,7 +30,6 @@ import { NgApexchartsModule } from 'ng-apexcharts';
     OtpInputComponent,
     CommonNotificationsComponent,
     SafePipe,
-    CommonChartComponent
   ],
   exports:[
     CommonImageComponent,
@@ -45,15 +42,13 @@ import { NgApexchartsModule } from 'ng-apexcharts';
    OtpInputComponent,
    CommonNotificationsComponent ,
    SafePipe,
-   CommonChartComponent,
    ScrollSpyCommonDirective
   ],
   imports: [
     CommonModule,
     ReactiveFormsModule,
     NgxIntlTelephoneInputModule,
-    FormsModule,    
-    NgApexchartsModule,
+    FormsModule,
   ]
 })
 export class DinifyCommonModule { }
