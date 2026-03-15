@@ -1,7 +1,4 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { DinifyCommonModule } from 'src/app/_common/dinify-common.module';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ApiResponse } from 'src/app/_models/app.models';
@@ -99,7 +96,7 @@ export class ReviewsManagementComponent implements OnInit {
         this.reviews = Array.isArray(response.data) ? response.data : [];
         this.isLoadingReviews = false;
       },
-      error: (error: any) => {
+      error: (_error: any) => {
         this.isLoadingReviews = false;
         this.loadMockReviews();
       }
@@ -255,7 +252,7 @@ export class ReviewsManagementComponent implements OnInit {
           this.selectedReview.status = 'responded';
         }
       },
-      error: (error: any) => {
+      error: (_error: any) => {
       }
     });
   }

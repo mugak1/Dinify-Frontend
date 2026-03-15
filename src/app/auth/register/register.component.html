@@ -16,7 +16,7 @@
                     Create an account
                 </h1>
                
-                <form [formGroup]="RegisterForm" (ngSubmit)="RegisterForm.valid&& (phoneComponent?.isInputValid||phoneComponent?.isInputValid==null)?Register():is_submitted=true" class="space-y-2 md:space-y-4">
+                <form [formGroup]="RegisterForm" (ngSubmit)="RegisterForm.valid&& (phoneComponent?.isInputValid||phoneComponent?.isInputValid===null)?Register():is_submitted=true" class="space-y-2 md:space-y-4">
                     <div *ngIf="!require_otp">
                         <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name <span class="text-d-red">*</span></label>
                         <input type="text" formControlName="first_name" id="first_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your first name">
@@ -40,7 +40,7 @@
                     </div>
                     <div *ngIf="!require_otp">
                       <label for = "phone" class="block mb-1 text-sm font-medium text-gray-900">Phone <span class="text-d-red">*</span></label>
-                    <intl-telephone-input #phoneregister [class]="(is_submitted && RegisterForm.get('phone')?.errors?.['required']||!(phoneComponent?.isInputValid||phoneComponent?.isInputValid==null)?'border border-d-red':'')" [cssClass]="'rounded '+(is_submitted && RegisterForm.get('phone')?.errors?.['required']?'border border-d-red':'')" [preferredCountries]="preferredCountries" [selectedCountryISO]="CountryISO.Uganda" [enableAutoCountrySelect]="true" [enablePlaceholder]="true" (onChange)="onInputChange($event)">
+                    <intl-telephone-input #phoneregister [class]="(is_submitted && RegisterForm.get('phone')?.errors?.['required']||!(phoneComponent?.isInputValid||phoneComponent?.isInputValid===null)?'border border-d-red':'')" [cssClass]="'rounded '+(is_submitted && RegisterForm.get('phone')?.errors?.['required']?'border border-d-red':'')" [preferredCountries]="preferredCountries" [selectedCountryISO]="CountryISO.Uganda" [enableAutoCountrySelect]="true" [enablePlaceholder]="true" (onChange)="onInputChange($event)">
                     </intl-telephone-input>  
                     </div>
                     

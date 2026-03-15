@@ -1,5 +1,5 @@
-import { Injectable, TemplateRef } from '@angular/core';
-import { BehaviorSubject, Subject, of } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
 import { ConfirmaDialogData } from '../_models/app.models';
 import { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
 
@@ -14,7 +14,7 @@ result!:string;
 resultSub= new BehaviorSubject({});
   constructor() {
   
-    this.showModal?.subscribe(x=>
+    this.showModal?.subscribe(_x=>
     {}
   )
  

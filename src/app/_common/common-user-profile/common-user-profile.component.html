@@ -81,7 +81,7 @@
   </div>
   <div *ngIf="action==='form'">
     
-    <form *ngIf="RegisterForm" [formGroup]="RegisterForm" (ngSubmit)="(phoneComponent?.isInputValid||phoneComponent?.isInputValid==null)?(require_otp?SubmitWithOTP():SaveEdit()):is_submitted=true" class="space-y-2 md:space-y-4 relative bg-white rounded-lg shadow">
+    <form *ngIf="RegisterForm" [formGroup]="RegisterForm" (ngSubmit)="(phoneComponent?.isInputValid||phoneComponent?.isInputValid===null)?(require_otp?SubmitWithOTP():SaveEdit()):is_submitted=true" class="space-y-2 md:space-y-4 relative bg-white rounded-lg shadow">
       <div class="flex items-center">
       <svg class="mb-8 mx-auto" height="50" viewBox="0 0 495.95 121.55">
         <path d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58" />

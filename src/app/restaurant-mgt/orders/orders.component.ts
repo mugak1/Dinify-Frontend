@@ -1,12 +1,12 @@
-import { Component, Input, OnDestroy } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
-import { OrderDetail, OrderedItem, OrdersListItem, RestaurantDetail } from 'src/app/_models/app.models';
+import { OrderedItem, OrdersListItem, RestaurantDetail } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MessageService } from 'src/app/_services/message.service';
-import * as moment from 'moment';
+import { formatDistanceToNow } from 'date-fns';
 
 @Component({
   selector: 'app-orders',
@@ -324,7 +324,7 @@ DeleteItem(item:OrderedItem){
 
 }
 getTimeAgo(time: string): string {
-  return moment(time).fromNow();
+  return formatDistanceToNow(new Date(time), { addSuffix: true });
 }
 
 ChangeOrder(o:any){
@@ -357,8 +357,8 @@ break;
 }
 }
 sendOtp(identification:any,identifier:any,purpose:any){
-  this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(x=>{
-    this.require_otp=true 
+  this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(_x=>{
+    this.require_otp=true
     this.startOTPTimer(); // Start the OTP timer
     // store user details and jwt token in local storage to keep user logged in between page refreshes
     //  localStorage.setItem('user', JSON.stringify((response.data)));
@@ -445,7 +445,7 @@ printReceipt() {
   .no-print {
     display: none !important;
   }
-  .print\:block {
+  .print\\:block {
     display: block !important;
   }
   .dot-matrix-receipt {

@@ -23,8 +23,8 @@ export class CommonNotificationsComponent implements OnInit {
 ngOnInit() {
     this.loadList()
 }
-loadList(skip_read?:boolean,skip_archived?:boolean) {
-    this.api.get<NotificationItem>(null, `notifications/?${skip_read?skip_read=skip_read:''}&skip_archived=True`).subscribe((e:ApiResponse<any>)=>{
+loadList(skip_read?:boolean,_skip_archived?:boolean) {
+    this.api.get<NotificationItem>(null, `notifications/?${skip_read?'skip_read='+skip_read:''}&skip_archived=True`).subscribe((e:ApiResponse<any>)=>{
         this.notifys = (<any> e.data);
     }
     )
@@ -33,7 +33,7 @@ collapseNot(i:any, n:NotificationItem) {
   if(!n.read){
   this.api.postPatch("notifications/", {
     notification_id: n._id
-    }, "put").subscribe(r=>{
+    }, "put").subscribe(_r=>{
         this.loadList()
     }
     ) 

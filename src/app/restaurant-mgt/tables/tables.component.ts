@@ -3,10 +3,8 @@ import { ChangeDetectorRef, Component, HostListener, Inject, AfterViewInit, OnDe
 import { FormGroup, FormBuilder, Validators, AbstractControl } from '@angular/forms';
 import { SafeUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DiningArea, DiningAreaTable, GroupedTableAreas, OrderedItem, OrdersListItem, RestaurantDetail, TableListItem } from 'src/app/_models/app.models';
+import { DiningArea, DiningAreaTable, GroupedTableAreas, OrderedItem, OrdersListItem, RestaurantDetail } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
-import { Buffer } from 'buffer';
-import * as JSLZString from 'lz-string';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -63,7 +61,7 @@ this.sessionStorage.setItem('restaurant',this.auth.currentRestaurant);
 }else{
   this.loadRestaurant();
 }
-this.route.url.subscribe((x)=>{
+this.route.url.subscribe((_x)=>{
   if(!this.router.url.includes('menu')){
       this.router.navigate(this.auth?.currentRestaurantRole?.restaurant_id?['/rest-app/dining-tables']:['/mgt-app/restaurants/rest-app',this.restaurant,'dining-tables']);
       this.closeMenu();
@@ -82,8 +80,9 @@ this.route.url.subscribe((x)=>{
   handleBackNavigation = () => {
     
   };
+// eslint-disable-next-line @angular-eslint/no-empty-lifecycle-method
 ngOnDestroy() {
-  //window.removeEventListener('popstate', this.handleBackNavigation);
+  // cleanup - popstate listener removed in favor of Angular router events
 }
   loadRestaurant(){
     this.api.get<RestaurantDetail>(null,'restaurant-setup/'+'details/',{id:this.restaurant,record:'restaurants'}).subscribe((x)=>{
@@ -192,7 +191,7 @@ this.closeModal();//this.list[ as number].isCollapsed=false;
       
 //this.list?.indexOf(x=>x.id==this.TableForm.get('dining_area')?.value)
       },
-     error:(err)=>{
+     error:(_err)=>{
 this.saving=false
    //   alert(err)
      }
@@ -206,7 +205,7 @@ this.saving=false
 this.closeModal();
 this.loadTables();
       },
-     error:(err)=>{
+     error:(_err)=>{
 
    //   alert(err)
      }
@@ -292,31 +291,26 @@ this.showModal!=this.showModal; */
       this.dialog.closeModal();
       ref.unsubscribe();
           },
-          error:(err)=>{
+          error:(_err)=>{
            // alert(err)
           }
         });
         //this.dialog.closeModal();
       }
       if(x?.action=='no'||x?.action=='reject'){
-        
+
         this.dialog.closeModal();
         ref.unsubscribe();
       }
-  
-      
+
+
     });
-  
-  
+
+
   }
   NewArea(){
     this.isSingleArea = false;
     this.DiningAreaForm=this.initArea();
-          // Extract all distinct names
-const distinctNames = new Set(this.list?.map(item => item.dining_area.name));
-
-// Count distinct items
-const countDistinct = distinctNames.size;
       if(this.list?.length==0){
 this.ask_multiple=true;
 
@@ -428,7 +422,7 @@ this.closeModal();
 this.loadAreas();
 this.saving=false;
       },
-     error:(err)=>{
+     error:(_err)=>{
       this.saving=false
     //  alert(err)
      }
@@ -453,18 +447,18 @@ DeleteArea(area:DiningArea){
       this.dialog.closeModal();
       ref.unsubscribe();
           },
-          error:(err)=>{
+          error:(_err)=>{
            // alert(err)
           }
         });
         //this.dialog.closeModal();
       }
       if(x?.action=='no'||x?.action=='reject'){
-        
+
         this.dialog.closeModal();
         ref.unsubscribe();
-      }      
-    });  
+      }
+    });
   }
     AreaAvailabilityChange(event:any,a:DiningArea,index:number){
    
@@ -532,7 +526,7 @@ currentTableIndex?:number;
   }
 
 
-  addItem(item: any) {
+  addItem(_item: any) {
     // Implement order submission logic
   }
 

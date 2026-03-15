@@ -1,7 +1,7 @@
-import { Component, TemplateRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, AfterViewInit, OnDestroy } from '@angular/core';
 import { ConfirmaDialogData } from 'src/app/_models/app.models';
 import { ConfirmDialogService } from '../confirm-dialog.service';
-import { BehaviorSubject, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-confirm-dialog',
@@ -48,10 +48,9 @@ this.data?.callback?.subscribe(x=>{
 ngAfterViewInit(){
 this.confirmService.DialogRef=this;
 }
+// eslint-disable-next-line @angular-eslint/no-empty-lifecycle-method
 ngOnDestroy() {
- /*  if (this.modalSubscription) {
-  //  this.modalSubscription.unsubscribe(); // Prevent memory leaks
-  } */
+  // intentionally empty - subscription cleanup handled elsewhere
 }
 
 Reject(){

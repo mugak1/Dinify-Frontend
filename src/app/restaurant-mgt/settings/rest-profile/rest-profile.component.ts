@@ -98,20 +98,20 @@ export class RestProfileComponent {
         })?.subscribe((x:any)=>{
         
           if(x?.action=='yes'){
-            
-         const o =   {
+
+      /*   const o =   {
               "restaurant": this.restaurant,
               "decision": status,
               "reason": x?.reason
-          } 
-      /*   this.api.postPatch('restaurant-setup/manager-actions/first-time-menu-review/',o,'post').subscribe({
+          }
+         this.api.postPatch('restaurant-setup/manager-actions/first-time-menu-review/',o,'post').subscribe({
                 next: (x:any)=>{
-                  if(x?.status==200){          
+                  if(x?.status==200){
             this.dialog.closeModal();
             ref.unsubscribe();
                   }
                 }
-              })*/  
+              })*/
              ref.unsubscribe(); 
             } 
           else if(x?.action=='no'||x?.action=='reject'){

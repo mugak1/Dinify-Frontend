@@ -61,7 +61,7 @@ loadReviews(){
     this.summary =(<any>x?.data)?.summary as any;
     this.readmore_array=Array(this.list?.length).fill(false);
   
-  },(err)=>{  
+  },(_err)=>{
   },()=>{
     setTimeout(() => {
       this.checkOverflow();
@@ -72,8 +72,9 @@ loadReviews(){
 /* show(v?:HTMLParagraphElement,id:any){
   return v.scrollHeight > v.offsetHeight;
 } */
+  // eslint-disable-next-line @angular-eslint/no-empty-lifecycle-method
   ngAfterViewInit(): void {
-   // this.checkOverflow();
+    // overflow check is deferred until after data loads in loadReviews()
   }
 
 show(v:any){

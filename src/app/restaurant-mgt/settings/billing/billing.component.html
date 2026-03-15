@@ -614,7 +614,7 @@ No transactions available
                       placeholder="Enter the Cap"> -->
                       <div class="relative mt-2 rounded-md shadow-sm">
                           
-                          <app-datePicker [valid]="BillingForm.get('subscription_expiry_date')?.invalid" [errorMsg]="'The billing date is required'"  (SelectedDate)="BillingForm.get('subscription_expiry_date')?.setValue($event)"></app-datePicker>
+                          <app-date-picker [valid]="BillingForm.get('subscription_expiry_date')?.invalid" [errorMsg]="'The billing date is required'"  (SelectedDate)="BillingForm.get('subscription_expiry_date')?.setValue($event)"></app-date-picker>
                          
                         </div>
               </div> 

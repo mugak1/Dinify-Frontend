@@ -16,13 +16,13 @@
 <div class="flex-grow lg:border border-gray-300 h-[calc(100dvh-9rem)]">
   <ul class="hidden text-sm font-medium text-center shadow sm:flex">
     <li [routerLink]="[]" class="w-full focus-within:z-10 cursor-pointer" (click)="SetTab(0)">
-        <a [ngClass]="{'font-bold bg-white text-gray-900 active':active_tab==tabs[0]}" class="inline-block w-full p-2  bg-gray-100 border-r border-gray-200 hover:text-gray-700 rounded-s-lg focus:ring-4 focus:ring-blue-300 active focus:outline-none">Active Orders</a>
+        <a [ngClass]="{'font-bold bg-white text-gray-900 active':active_tab===tabs[0]}" class="inline-block w-full p-2  bg-gray-100 border-r border-gray-200 hover:text-gray-700 rounded-s-lg focus:ring-4 focus:ring-blue-300 active focus:outline-none">Active Orders</a>
     </li>
     <li [routerLink]="[]" class="w-full focus-within:z-10 cursor-pointer" (click)="SetTab(1)">
-        <a [ngClass]="{'font-bold bg-white text-gray-900 active':active_tab==tabs[1]}" class="inline-block w-full p-2 bg-gray-100 border-r border-gray-200  hover:text-gray-700 hover:bg-gray-50 focus:ring-4 focus:ring-blue-300 focus:outline-none">Paid Orders</a>
+        <a [ngClass]="{'font-bold bg-white text-gray-900 active':active_tab===tabs[1]}" class="inline-block w-full p-2 bg-gray-100 border-r border-gray-200  hover:text-gray-700 hover:bg-gray-50 focus:ring-4 focus:ring-blue-300 focus:outline-none">Paid Orders</a>
     </li>
     <li [routerLink]="[]" class="w-full focus-within:z-10 cursor-pointer" (click)="SetTab(2)">
-        <a [ngClass]="{'font-bold bg-white text-gray-900 active':active_tab==tabs[2]}" class="inline-block w-full p-2 bg-gray-100 border-r border-gray-200  hover:text-gray-700 hover:bg-gray-50 focus:ring-4 focus:ring-blue-300 focus:outline-none">All Orders</a>
+        <a [ngClass]="{'font-bold bg-white text-gray-900 active':active_tab===tabs[2]}" class="inline-block w-full p-2 bg-gray-100 border-r border-gray-200  hover:text-gray-700 hover:bg-gray-50 focus:ring-4 focus:ring-blue-300 focus:outline-none">All Orders</a>
     </li>
   </ul>
   <div class="flex flex-wrap justify-between items-center gap-4 mb-4 px-2 border-b border-gray-300">
@@ -106,7 +106,7 @@
               <div>{{ m.quantity }}</div>
             </div>
             <div class="text-[11px] text-gray-500">
-              {{ active_tab == tabs[0] ? getTimeAgo(m.time_last_updated) : (m.time_last_updated | date:'shortTime') }}
+              {{ active_tab === tabs[0] ? getTimeAgo(m.time_last_updated) : (m.time_last_updated | date:'shortTime') }}
             </div>
             <div *ngIf="status === 'preparing' || status === 'served'" class="text-right mt-1">
               <button type="button"
@@ -120,10 +120,10 @@
         </div>
 
         <!-- Action Buttons -->
-        <div *ngIf="active_tab == tabs[0]" class="mt-3 flex flex-col space-y-1 text-xs font-medium">
+        <div *ngIf="active_tab === tabs[0]" class="mt-3 flex flex-col space-y-1 text-xs font-medium">
           <div class="flex flex-row justify-between w-full space-x-1">
             <button type="button"
-              *ngIf="o.items?.length == 1 && (o.order_status === 'pending' || o.order_status === 'initiated')"
+              *ngIf="o.items?.length === 1 && (o.order_status === 'pending' || o.order_status === 'initiated')"
               (click)="changeStatus('preparing')"
               class="text-white bg-d-red hover:bg-red-800 focus:ring-2 focus:outline-none focus:ring-red-300 rounded-md px-2 py-1 w-1/2">
               Accept
@@ -177,10 +177,10 @@
 
       <button  (click)="order=o" type="button" class="flex flex-col w-[100vw-4px] p-1 font-normal text-sm border m-1 bg-gray-100" 
       [ngClass]="{
-        'border-2 ring-2 ring-black bg-gray-100':o.id==order?.id, 
-        'border-yellow-300':(o?.order_status==='pending'||o?.order_status==='initiated')&&o.id!=order?.id,
-        'border-orange-500':o?.order_status==='served'&&o.id!=order?.id,
-        'border-blue-500':o?.order_status==='preparing'&&o.id!=order?.id
+        'border-2 ring-2 ring-black bg-gray-100':o.id===order?.id,
+        'border-yellow-300':(o?.order_status==='pending'||o?.order_status==='initiated')&&o.id!==order?.id,
+        'border-orange-500':o?.order_status==='served'&&o.id!==order?.id,
+        'border-blue-500':o?.order_status==='preparing'&&o.id!==order?.id
         }">
        <div class="flex flex-row items-center justify-between w-full">
         <table class="w-full py-0 text-start">
@@ -215,7 +215,7 @@
               <g>
                 <g>
                  
-                  <circle [ngClass]="{'fill-d-red':(o?.order_status=='pending'||o?.order_status=='initiated'),'fill-orange-500':o?.order_status=='served'}" cx="15.979" cy="15.977" r="10"></circle>
+                  <circle [ngClass]="{'fill-d-red':(o?.order_status==='pending'||o?.order_status==='initiated'),'fill-orange-500':o?.order_status==='served'}" cx="15.979" cy="15.977" r="10"></circle>
                 </g>
               </g>
             </svg>
@@ -240,7 +240,7 @@
     {{m.item.name}}</td>
   <td class="w-[17%]"><span class="ml-4">{{m.quantity}}</span></td>
   <td class="w-[13%] !lowercase"><!-- {{m.status}} -->
-    {{ this.active_tab==tabs[0]? getTimeAgo(m.time_last_updated):(m.time_last_updated|date:'shortTime')}}
+    {{ this.active_tab===tabs[0]? getTimeAgo(m.time_last_updated):(m.time_last_updated|date:'shortTime')}}
   </td>
   <td class="w-[15%]" [ngClass]="{'!py-2 w-[18%]':(o.order_status==='initiated')}">
     <span *ngIf="(o.order_status==='initiated')" class="py-3 !w-full flex">
@@ -334,10 +334,10 @@
       <p><span class="font-semibold">Payment Status:</span> {{ order.payment_status === 'pending' ? 'Not Paid' : 'Paid' }}</p>
     </div>
 
- <div *ngIf="active_tab == tabs[0] && viewMode === 'table'" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
+ <div *ngIf="active_tab === tabs[0] && viewMode === 'table'" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
   <div class="flex flex-row justify-between w-full">
     <button type="button"
-      *ngIf="order?.items?.length == 1 && (order.order_status === 'pending' || order.order_status === 'initiated')"
+      *ngIf="order?.items?.length === 1 && (order.order_status === 'pending' || order.order_status === 'initiated')"
       (click)="changeStatus('preparing')"
       class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center mr-1">
       ACCEPT ORDER
@@ -387,7 +387,7 @@
     PRINT RECEIPT
   </button>
 </div>
-<div *ngIf="active_tab == tabs[0] && viewMode === 'kanban'" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
+<div *ngIf="active_tab === tabs[0] && viewMode === 'kanban'" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
   <button type="button"
    *ngIf="order.order_status === 'served'"
     (click)="printReceipt()"
@@ -395,7 +395,7 @@
     PRINT RECEIPT
   </button>
 </div>
-<div *ngIf="active_tab == tabs[1]" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
+<div *ngIf="active_tab === tabs[1]" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
   <button type="button"
     (click)="printReceipt()"
     class="text-white bg-green-600 hover:bg-green-800 focus:ring-4 w-full focus:outline-none focus:ring-green-300 rounded-lg text-sm block px-3 py-2.5 text-center">
@@ -546,7 +546,7 @@ Powered by Dinify
     </ul>
   </div>
 
-   <!--  <div *ngIf="ip==0" class="text-xs text-gray-500 mt-1 ml-2">
+   <!--  <div *ngIf="ip===0" class="text-xs text-gray-500 mt-1 ml-2">
           <strong>Option:</strong> Option 2 (Grilled)<br>
           <strong>Extras:</strong>
           <ul class="ml-4 list-disc">
@@ -554,7 +554,7 @@ Powered by Dinify
             <li>Extra 2: Bacon (+UGX 3,000)</li>
           </ul>
         </div>
-<div *ngIf="ip==1" class="text-xs text-gray-500 mt-1 ml-2">
+<div *ngIf="ip===1" class="text-xs text-gray-500 mt-1 ml-2">
           <strong>Option:</strong> Option 1 (Whole Wheat)<br>
           <strong>Extras:</strong>
           <ul class="ml-4 list-disc">
@@ -591,11 +591,11 @@ TOTAL
 
          </div>
       </div>
-      <div *ngIf="active_tab==tabs[0]&& viewMode==='table'" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
+      <div *ngIf="active_tab===tabs[0]&& viewMode==='table'" class="mt-4 flex flex-col space-y-2 text-xl font-bold">
         <div class="flex flex-row justify-between w-full">
-          <button type="button" *ngIf="order?.items?.length==1&&order.order_status==='pending'||order?.items?.length==1&&order.order_status==='initiated'" (click)="changeStatus('preparing')" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center mr-1">ACCEPT ORDER</button>
+          <button type="button" *ngIf="order?.items?.length===1&&order.order_status==='pending'||order?.items?.length===1&&order.order_status==='initiated'" (click)="changeStatus('preparing')" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center mr-1">ACCEPT ORDER</button>
           <button type="button" *ngIf="order.items.length>1&&order.order_status==='pending'" (click)="AcceptOrder(order.id)" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center mr-1">ACCEPT ORDER</button>
-   <!--        <button type="button" *ngIf="order?.items?.length==1&&order.order_status=='preparing'" (click)="changeStatus('served')"  class="text-white bg-blue-500 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg text-sm w-40 px-3 py-2.5 text-center">SERVED</button> -->
+   <!--        <button type="button" *ngIf="order?.items?.length===1&&order.order_status==='preparing'" (click)="changeStatus('served')"  class="text-white bg-blue-500 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg text-sm w-40 px-3 py-2.5 text-center">SERVED</button> -->
           <button type="button" *ngIf="(order.order_status==='pending'||order.order_status==='initiated')" (click)="CancelOrder(order.id)" class="text-d-red border border-d-red focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg text-sm w-1/2 px-3 py-2.5 text-center ml-1">DECLINE ORDER</button> 
         </div>
 
@@ -693,7 +693,7 @@ TOTAL
                       </div>
                   </div>
               </div>
-              <div *ngIf="PaymentForm.get('payment_form')?.value=='split'&&!require_otp" class="mt-4">
+              <div *ngIf="PaymentForm.get('payment_form')?.value==='split'&&!require_otp" class="mt-4">
                   <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Amount to Pay</label>
                   <input formControlName="amount" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 ">
               </div> -->
@@ -995,7 +995,7 @@ TOTAL
                         <g>
                           <g>
                            
-                            <circle [ngClass]="{'fill-d-red':(order?.order_status=='pending'||order?.order_status=='initiated'),'fill-orange-500':order?.order_status=='served'}" cx="15.979" cy="15.977" r="10"></circle>
+                            <circle [ngClass]="{'fill-d-red':(order?.order_status==='pending'||order?.order_status==='initiated'),'fill-orange-500':order?.order_status==='served'}" cx="15.979" cy="15.977" r="10"></circle>
                           </g>
                         </g>
                       </svg>
@@ -1050,7 +1050,7 @@ TOTAL
                   </g>
               </svg>
               </button>
-             <!--  <button *ngIf="(order?.order_status=='preparing'||order?.order_status=='served')" type="button" [disabled]="m.status=='served'" (click)="changeStatus('served',m.id)"  class="p-2 my-1 float-end text-white bg-blue-500 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium text-sm w-40 text-center disabled:bg-white disabled:border disabled:border-gray-300 disabled:text-gray-300" >Served</button> -->
+             <!--  <button *ngIf="(order?.order_status==='preparing'||order?.order_status==='served')" type="button" [disabled]="m.status==='served'" (click)="changeStatus('served',m.id)"  class="p-2 my-1 float-end text-white bg-blue-500 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium text-sm w-40 text-center disabled:bg-white disabled:border disabled:border-gray-300 disabled:text-gray-300" >Served</button> -->
             </td>
           </tr>
                   </table>

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component } from '@angular/core';
 import { ApiService } from 'src/app/_services/api.service';
 import { ActivatedRoute } from '@angular/router';
 import { EmployeeListUser } from 'src/app/_models/app.models';

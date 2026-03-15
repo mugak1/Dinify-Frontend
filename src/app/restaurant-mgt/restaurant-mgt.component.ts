@@ -29,7 +29,7 @@ if(this.auth.currentRestaurantRole){
     this.auth.setCurrentRestaurant(x.data)
   })
 }
-this.router.events.subscribe((event) => {
+this.router.events.subscribe((_event) => {
 this.router.url.includes('tables') ? this.has_tables=true : this.has_tables=false;
 this.cdr.detectChanges();
 });
@@ -63,7 +63,7 @@ logout(){
     this.updateShadows();
   }
 
-  onScroll(event: Event) {
+  onScroll(_event: Event) {
     this.updateShadows();
   }
 

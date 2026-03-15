@@ -53,7 +53,6 @@ AddDate(){
 SaveDate(){
   this.api.postPatch('restaurant-setup/subscription-details/',this.BillingForm?.value,'put',null,{restaurant:this.rest_id}).subscribe((x:any)=>{
         
-    const res=x?.data;
     if(x.status==200){
       const mes:Message={
         message:x.message,
@@ -134,11 +133,9 @@ Save(){
         d.msisdn='256'+ this.PaymentForm.get('msisdn')?.value
     this.api.postPatch('finances/transactions/',d,'post').subscribe((x:any)=>{
         
-      const res=x?.data;
       if(x.status==200){
         this.message.add(x.message);
         this.closeModal();
-        //this.router.navigate(['/diner','payment-details',res.transaction_id])
       }
      //
     })
@@ -151,11 +148,9 @@ this.sendOtp('msisdn','256'+this.PaymentForm?.get('msisdn')?.value,null);
         d.msisdn='256'+ this.PaymentForm?.get('msisdn')?.value
         this.api.postPatch('finances/transactions/',d,'post').subscribe((x:any)=>{
         
-          const res=x?.data;
           if(x.status==200){
             this.message.add(x.message);
             this.closeModal();
-              //this.router.navigate(['/diner','payment-details',res.transaction_id])
             
            //window.location.href=res.redirect_url; 
           }
@@ -182,7 +177,7 @@ this.sendOtp('msisdn','256'+this.PaymentForm?.get('msisdn')?.value,null);
   }
 }
 sendOtp(identification:any,identifier:any,purpose:any){
-  this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(x=>{
+  this.api.postPatch('users/auth/resend-otp/',{"identification": identification, "identifier": identifier,"purpose": purpose},'post').subscribe(_x=>{
     this.require_otp=true 
     // store user details and jwt token in local storage to keep user logged in between page refreshes
     //  localStorage.setItem('user', JSON.stringify((response.data)));

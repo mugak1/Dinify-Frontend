@@ -18,14 +18,14 @@
         <div class="card-body">
             <ul class="messages">
                 <li *ngFor="let n of notifys;let i=index" class="message"
-                    [ngClass]="{'unread bg-gray-200':!n?.read,'email-active':collapses[i]==true}"><a (click)="collapseNot(i,n)">
+                    [ngClass]="{'unread bg-gray-200':!n?.read,'email-active':collapses[i]===true}"><a (click)="collapseNot(i,n)">
                 
                         <!--  <div class="actions"><span class="action"><i class="fa fa-square-o"></i></span>
                                          <span class="action"><i class="fa fa-star-o"></i></span></div> -->
                         <div class="header"><!-- <span class="from">Lukasz Holeczek</span> -->
                 
                         </div>
-                        <div class="title flex flex-row" [ngClass]="{'h4':collapses[i]==true}">
+                        <div class="title flex flex-row" [ngClass]="{'h4':collapses[i]===true}">
                            <!--  <i class="icon-arrow-right icons" style="font-size: smaller;" *ngIf="!collapses[i]"></i>
                             <i class="icon-arrow-down icons" style="font-size: smaller;" *ngIf="collapses[i]"></i> -->
                             <svg width="30px" height="30px" *ngIf="!collapses[i]" viewBox="0 0 24 24"  fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Arrow / Caret_Right_SM"> <path id="Vector" d="M11 9L14 12L11 15" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
@@ -33,12 +33,12 @@
                             <span class="my-auto">&nbsp;{{n.subject}}</span>
                             <span class="date ml-auto my-auto">{{n.creation_timestamp.timestamp|date:'medium'}}</span>
                         </div>
-                        <div style="line-height: 1.5rem;" class="description border mb-2 mt-3 pl-4 py-3" *ngIf="collapses[i]==true" [innerHTML]="n.email||n.sms">
+                        <div style="line-height: 1.5rem;" class="description border mb-2 mt-3 pl-4 py-3" *ngIf="collapses[i]===true" [innerHTML]="n.email||n.sms">
                 
                         </div>
                     </a>
                 </li>
-                 <li *ngIf="isLoading==false&&notifys.length==0">
+                 <li *ngIf="isLoading===false&&notifys.length===0">
                      <h5 class="text-center">There are no new messages</h5>
                  </li>
         

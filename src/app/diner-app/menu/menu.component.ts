@@ -1,10 +1,9 @@
 import { Component,ElementRef,Input,OnInit, ViewChild, AfterViewInit } from '@angular/core';
-import { FormArray, FormBuilder } from '@angular/forms';
+import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Item, MenuItem, Restaurant } from 'src/app/_models/app.models';
+import { MenuItem, Restaurant } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
-import { LocalStorageService } from 'src/app/_services/storage/local-storage.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 
 @Component({
@@ -143,8 +142,8 @@ get QuantitySum(){
   }
   viewItem(i:MenuItem/* |Item */){
 this.selected_item=i as any;
-const modifiers:FormArray= this.fb.array([]);
-/* i.options.options.forEach((o,io)=>{
+/* const modifiers = this.fb.array([]);
+i.options.options.forEach((o,io)=>{
   modifiers.push(this.initOption());
   modifiers.at(io).setValue({id:io,name:o.name,choice:o.choices})
 }) */
@@ -179,7 +178,7 @@ setTimeout(() => {
     cost: sel.order.cost || 0, // The additional cost of the selected choice
   })); */
   // Prepare selected options for visualization & backend
-  const selectedOptions = this.selected_choices.map((sel, optionIndex) => {
+  const selectedOptions = this.selected_choices.map((sel, _optionIndex) => {
     
 
     return {
@@ -295,7 +294,7 @@ removeUnderscore(x:string){
     this.currentSectionItem = sectionId;
   }
 
-  scrollTo(section:any,i:number) {
+  scrollTo(section:any,_i:number) {
     document.querySelector('#' + this.addUnderScore(section))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
  
   }
@@ -457,7 +456,9 @@ const max = option.max_choices || 1;
   submitForm(): void {
     this.validateForm();
     if (this.isFormValid()) {
+      // form is valid - proceed
     } else {
+      // form is invalid - handled by validateForm
     }
   }
   calculateDiscount(item:any): number {

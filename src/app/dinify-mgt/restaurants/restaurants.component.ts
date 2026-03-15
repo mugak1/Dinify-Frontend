@@ -4,7 +4,7 @@ import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import { SearchCountryField, CountryISO, PhoneNumberFormat } from 'ngx-intl-telephone-input';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { Utilities } from 'src/app/_helpers/utilities';
-import { ApiResponse, RestaurantDetail, RestaurantList, User } from 'src/app/_models/app.models';
+import { RestaurantDetail, RestaurantList, User } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { MessageService } from 'src/app/_services/message.service';
 import { environment } from 'src/environments/environment';
@@ -72,9 +72,8 @@ export class RestaurantsComponent implements OnDestroy {
       }else{
              this.loadRestaurants();
              if(this.showModal){
-           
-              
-             } 
+              // modal is already open, no action needed
+             }
 
       }
    
@@ -274,7 +273,7 @@ if(patch){
       
     })
   }
-  fetchRestaurantsByStatus(status: string) {
+  fetchRestaurantsByStatus(_status: string) {
     this.api.get<RestaurantList>(null,'restaurant-setup/restaurants/',this.selectedStatus?{status:this.selectedStatus}:{}).subscribe((x:any)=>{
       this.list=x?.data?.records  
       this.listCache = x?.data?.records
@@ -309,7 +308,7 @@ if(patch){
       this.RestaurantForm.get('country')?.setValue(String($event.iso2Code).toUpperCase())
       if($event.isNumberValid){
       this.api.get<any>(null,'users/user-lookup/?contact='+this.RestaurantForm.get('phone_number')?.value).subscribe((x)=>{
-        if(x.status==400){}
+        if(x.status==400){ /* no user found - no action needed */ }
         else if(x.status==200){
           this.detailUser=x.data as any as User;
           this.RestaurantForm.get('first_name')?.setValidators([]);

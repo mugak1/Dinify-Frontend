@@ -258,8 +258,9 @@ data:any= {
   totalDiners: number = 35000;
   activeDinersChange: number = 1800;
 
+  // eslint-disable-next-line @angular-eslint/no-empty-lifecycle-method
   ngOnInit() {
-    //this.fetchDashboardData();
+    // dashboard data is loaded in constructor via getList()
   }
 
   fetchDashboardData() {

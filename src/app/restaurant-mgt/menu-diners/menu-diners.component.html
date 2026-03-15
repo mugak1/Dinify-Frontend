@@ -1,5 +1,5 @@
 <div *ngIf="section_list" class="flex px-6 border-b border-gray-200">
-    <div *ngFor="let s of section_list" [ngClass]="{'border-b-2 border-d-red':section?.id==s?.id}" class="flex items-center justify-between w-full py-2 font-medium text-left rtl:text-right text-gray-500">
+    <div *ngFor="let s of section_list" [ngClass]="{'border-b-2 border-d-red':section?.id===s?.id}" class="flex items-center justify-between w-full py-2 font-medium text-left rtl:text-right text-gray-500">
        {{s?.name}}
     </div>
 </div>

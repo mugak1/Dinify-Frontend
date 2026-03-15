@@ -80,9 +80,9 @@ constructor(private auth:AuthenticationService,private fb:FormBuilder, private a
  
   //this.RegisterForm.get('phone')?.setValue(this.user?.phone_number)
 }
+  // eslint-disable-next-line @angular-eslint/no-empty-lifecycle-method
   ngAfterViewInit(): void {
- // (<HTMLInputElement>document.getElementById("phone_edit")).setAttribute('value',this.user?.phone_number);
-
+    // intentionally empty - required by AfterViewInit interface
   }
   CancelChange(){
     this.change_number=!this.change_number

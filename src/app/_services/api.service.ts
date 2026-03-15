@@ -15,7 +15,7 @@ export class ApiService {
     const l = this.correctFormatForQueryUrl(parameters);
     return this._http["get"](`${version?environment.apiUrl + '/api/' + version:this._base}/${url}${id ? "/" + id : ""}${l}`) as any;
   }
-  postPatch(url: string, data: any,method:'get'|'post'|'put', id?:any, params?:{}, isFormData?: boolean,version?:string,has_false?:boolean){
+  postPatch(url: string, data: any,method:'get'|'post'|'put', id?:any, params?:object, isFormData?: boolean,version?:string,_has_false?:boolean){
     const queryParams = this.correctFormatForQueryUrl(params);
 
   let payload: any;
@@ -46,7 +46,7 @@ export class ApiService {
       if (T !== null && T !== undefined) { y[w] = T; }
       return y;
     }, {});
-    return this._http.delete(`${version?environment.apiUrl+'/api/'+version:this._base}/${url}`, {body: h}).pipe(e=>e);
+    return this._http.delete(`${version?environment.apiUrl+'/api/'+version:this._base}/${url}`, {body: h}).pipe(_e=>_e);
   }
   postFileWithProgress(url: string, data: any) {
     return this._http.post(`${this._base}/${url}`, this.toFormData(data), {
@@ -74,7 +74,7 @@ export class ApiService {
       reportProgress: true,
       observe: "response"
     };
-    return this._http.post(r, data, l).pipe(e=>e)
+    return this._http.post(r, data, l).pipe(_e=>_e)
   }
   toFormData<T>(obj: T|any) {
     const formData = new FormData();

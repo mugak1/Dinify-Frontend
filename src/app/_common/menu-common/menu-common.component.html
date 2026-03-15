@@ -41,7 +41,7 @@
       />
       <button *ngIf="searchQuery" (click)="clearSearch()" style="font-size: large;" class="absolute right-8 top-2.5  text-gray-400 text-sm p-1 rounded">✕</button>
   </div>
-    <div style="height: calc(100dvh - 100px);" *ngIf="filteredMenuList" class="flex flex-col px-6 overflow-y-auto" scrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)" >
+    <div style="height: calc(100dvh - 100px);" *ngIf="filteredMenuList" class="flex flex-col px-6 overflow-y-auto" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)" >
         <div id="{{addUnderScore(s.name)}}" *ngFor="let s of filteredMenuList;let is=index; let last=last" [ngClass]="{'min-h-dvh':last}"  class="flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
            <span class="font-bold text-xl pt-3">{{s?.name}}</span>
            <div class="flex flex-col" [ngClass]="{'mb-auto':last }">
@@ -157,7 +157,7 @@
                 </div>
                 <!-- Modal body -->
                  <div class="flex flex-col flex-grow overflow-y-auto">
-                <div class="flex flex-col flex-grow overflow-y-auto align-top" scrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionItemChange($event)">
+                <div class="flex flex-col flex-grow overflow-y-auto align-top" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionItemChange($event)">
                   <div class="relative mx-auto py-6 w-fit">
    <div class="relative w-[300px] h-[300px]">
   <!-- Ribbon -->
@@ -374,7 +374,7 @@
                     <label for="custom-input-number" class="w-full text-gray-700 text-sm font-semibold">
                     </label>
                     <div class="flex flex-row h-10 w-full rounded-lg relative bg-transparent mt-1">
-                      <button [disabled]="selected_quantity==1" (click)="selected_quantity>=1?(selected_quantity=selected_quantity-1):false" class=" bg-gray-300 text-gray-600 hover:text-gray-700 hover:bg-gray-400 h-full w-20 rounded-l cursor-pointer outline-none">
+                      <button [disabled]="selected_quantity===1" (click)="selected_quantity>=1?(selected_quantity=selected_quantity-1):false" class=" bg-gray-300 text-gray-600 hover:text-gray-700 hover:bg-gray-400 h-full w-20 rounded-l cursor-pointer outline-none">
                         <span class="m-auto text-2xl font-thin">−</span>
                       </button>
                       <input type="number" class="outline-none focus:outline-none text-center w-full bg-gray-300 font-semibold text-md hover:text-black focus:text-black  md:text-basecursor-default flex items-center text-gray-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" name="custom-input-number" [value]="selected_quantity">
