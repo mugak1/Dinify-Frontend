@@ -200,9 +200,13 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
     
 }
         },
-        error: error => {
-            this.error = error;
-            this.message.addMessage({severity:'error', summary:'Error', message: error})
+        error: (error: any) => {
+            if (error === 'rate_limited') {
+              this.rateLimited = true;
+            } else {
+              this.error = error;
+              this.message.addMessage({severity:'error', summary:'Error', message: error});
+            }
         }
     })
   }
@@ -226,11 +230,18 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
       this.countdown = 30; // Reset the countdown
       this.startCountdown();
       // Use in-memory login response profile.id (not persisted userValue)
-      this.authenticationService.resendOtp('id',this.log_in.profile.id).subscribe((x:any)=>{
-        this.message.addMessage({message: x.message, severity: 'info', summary: 'Info'});
-        setTimeout(() => {
-          this.message.clear();
-        }, 2000);
+      this.authenticationService.resendOtp('id',this.log_in.profile.id).subscribe({
+        next: (x:any)=>{
+          this.message.addMessage({message: x.message, severity: 'info', summary: 'Info'});
+          setTimeout(() => {
+            this.message.clear();
+          }, 2000);
+        },
+        error: (error: any) => {
+          if (error === 'rate_limited') {
+            this.rateLimited = true;
+          }
+        }
       })
       // You can add your OTP resend logic here (e.g., API call)
     }

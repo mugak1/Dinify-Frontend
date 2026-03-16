@@ -1,4 +1,3 @@
-import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -19,12 +18,13 @@ export class LockScreenComponent implements OnInit {
   username: any;
   oldpassword?: string;
   message: any;
+  rateLimited = false;
   /** Temporary auth token from password-reset flow (not stored in localStorage) */
   private resetToken?: string;
   /** Whether this is a reset-password flow (vs login-prompted password change) */
   isResetFlow = false;
 
-  constructor(private http:HttpClient,private fb:FormBuilder,
+  constructor(private fb:FormBuilder,
     private api:ApiService, private router:Router,private messageService:MessageService) {
     this.LockScreenForm= this.fb.group({
       username: [""],
@@ -79,23 +79,13 @@ Send() {
 this.messageService.addMessage({severity:'info', summary:'info',message:value?.body?.message || 'Password changed successfully'});
     }, error:(err:any)=>{
         this.unlocking = false;
-        this.message = err;
+        if (err === 'rate_limited') {
+          this.rateLimited = true;
+        } else {
+          this.message = err;
+        }
     }
 });
-}
-ResetPassword() {
-    this.api.postPatch("users/auth/reset-password/", {
-        username: this.LockScreenForm.get("username")?.value
-    }, "post").subscribe(_e=>{
-        this.router.navigate(["/login"])
-    }
-    , _e=>{
-
-    }
-    , ()=>{
-       // this.router.navigate(["/login"])
-    }
-    )
 }
 passwordsMatch(group: FormGroup): { [key: string]: boolean } | null {
     const newPassword = group.get('new_password')?.value;

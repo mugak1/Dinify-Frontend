@@ -102,7 +102,7 @@ submitted: boolean = false;
     const identifier = this.getIdentifier();
 
     this.api.postPatch('users/auth/reset-password/', {
-      phone_number: identifier,
+      identifier: identifier,
       otp: this.data
     }, 'post').subscribe({
       next: (response: any) => {

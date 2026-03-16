@@ -124,7 +124,7 @@ particular, confirm:
 - Step 2: OTP entry (frontend-only UI)
 - Step 3: `POST /api/{version}/users/auth/reset-password/`
   (`src/app/auth/forgot-password/forgot-password.component.ts`)
-  Request: `{ phone_number, otp }`
+  Request: `{ identifier, otp }`
 - Step 4: `POST /api/{version}/users/auth/change-password/`
   (`src/app/_services/api.service.ts`)
   Request: `{ username, old_password, new_password, confirmPassword }`
