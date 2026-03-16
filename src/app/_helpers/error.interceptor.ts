@@ -30,6 +30,12 @@ export class ErrorInterceptor implements HttpInterceptor {
                     return throwError(() => 'no network');
                 }
 
+                if (err.status === 429) {
+                    const retryMsg = err.error?.message || 'Too many attempts. Please wait a few minutes before trying again.';
+                    this.message.add(retryMsg);
+                    return throwError(() => 'rate_limited');
+                }
+
                 if (err.status === 401 && this.authenticationService.userValue) {
                     return this.handle401(request, next);
                 }

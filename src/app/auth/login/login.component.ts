@@ -22,6 +22,7 @@ export class LoginComponent implements OnInit {
   error = '';
   data = '';
   require_otp=false;
+  rateLimited=false;
   @Input() as_diner:boolean=false;
   @Output() LoginResp= new EventEmitter<any>();
 
@@ -70,6 +71,7 @@ selectedRestaurant: any = null;
 
   onSubmit() {
     this.attempt=0;
+    this.rateLimited=false;
     this.authenticationService.resetStorage();
       this.submitted = true;
 this.loading=true;
@@ -125,10 +127,13 @@ this.startCountdown();
                 this.LoginResp.emit(true);
               }
               },
-              error: error => {
-                  this.error = error;
+              error: (error: any) => {
                   this.loading = false;
-                  
+                  if (error === 'rate_limited') {
+                    this.rateLimited = true;
+                  } else {
+                    this.error = error;
+                  }
               }
           });
   }
@@ -140,12 +145,14 @@ get user(){
 }
   SubmitOTP(){
     this.isSubmittingOtp=(this.data)?true:false;
-    this.authenticationService.setOtp(this.authenticationService.userValue?.profile.id,this.data).pipe(first()).subscribe({
+    // Use profile.id from the in-memory login response (not persisted userValue,
+    // since tokens are no longer stored until OTP is verified)
+    this.authenticationService.setOtp(this.log_in.profile.id,this.data).pipe(first()).subscribe({
         next:(val:ApiResponse<OTPResponse>)=>{
-      //      console.log(val)
 const log_otp=val.data as unknown as OTPResponse;
 if(log_otp.valid){
-const _u = this.authenticationService.UpdateUser(log_otp);
+// Pass the original login response so UpdateUser can merge profile + real tokens
+const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
                   if (this.log_in.profile.restaurant_roles.length === 1) {
   // One restaurant → auto set and redirect
   this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);
@@ -218,6 +225,7 @@ const _u = this.authenticationService.UpdateUser(log_otp);
     resendOTP(): void {
       this.countdown = 30; // Reset the countdown
       this.startCountdown();
+      // Use in-memory login response profile.id (not persisted userValue)
       this.authenticationService.resendOtp('id',this.log_in.profile.id).subscribe((x:any)=>{
         this.message.addMessage({message: x.message, severity: 'info', summary: 'Info'});
         setTimeout(() => {

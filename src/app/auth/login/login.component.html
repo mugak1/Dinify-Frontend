@@ -23,7 +23,11 @@
                                   <p>Enter your phone number and password</p>
                                 </div>
                               </div>
-                       
+
+                              <div *ngIf="rateLimited" class="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                <p class="text-sm text-yellow-800">Too many attempts. Please wait a few minutes before trying again.</p>
+                              </div>
+
                        <div class="text-left">
                             <label class="mb-2 text-sm text-start text-grey-900">Phone number <span class="text-d-red">*</span></label>
                           <intl-telephone-input class="mb-3" [cssClass]="'rounded '+(submitted && loginForm.get('username')?.errors?.['required']?'border border-d-red':'')" [preferredCountries]="preferredCountries" [selectedCountryISO]="CountryISO.Uganda" [enableAutoCountrySelect]="true" [enablePlaceholder]="true" (onChange)="onInputChange($event)">

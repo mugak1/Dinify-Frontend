@@ -19,6 +19,11 @@ export class LockScreenComponent implements OnInit {
   username: any;
   oldpassword?: string;
   message: any;
+  /** Temporary auth token from password-reset flow (not stored in localStorage) */
+  private resetToken?: string;
+  /** Whether this is a reset-password flow (vs login-prompted password change) */
+  isResetFlow = false;
+
   constructor(private http:HttpClient,private fb:FormBuilder,
     private api:ApiService, private router:Router,private messageService:MessageService) {
     this.LockScreenForm= this.fb.group({
@@ -37,6 +42,11 @@ export class LockScreenComponent implements OnInit {
         this.user = state['fullname'] || 'name';
         this.username = state['username'];
         this.oldpassword = state['oldPassword'];
+        // Support password-reset flow: reset-password returns a temp token + temp_password
+        if (state['resetToken']) {
+          this.resetToken = state['resetToken'];
+          this.isResetFlow = true;
+        }
     } else {
         // No state available (e.g. direct URL access) — redirect to login
         this.router.navigate(['/login']);
@@ -58,21 +68,20 @@ toggleFieldTextTypeConfirm() {
     this.fieldTextTypeConfirm = !this.fieldTextTypeConfirm
 }
 Send() {
-    this.unlocking = true,
-    this.LockScreenForm.get("username")?.setValue(this.username),
-    this.LockScreenForm.get("old_password")?.setValue(this.oldpassword),
-    this.api.UserChangePasswordOnLogin(this.LockScreenForm.value).subscribe({
+    this.unlocking = true;
+    this.LockScreenForm.get("username")?.setValue(this.username);
+    this.LockScreenForm.get("old_password")?.setValue(this.oldpassword);
+    // For reset flow, pass the temporary token so the API service can set the Authorization header
+    this.api.UserChangePasswordOnLogin(this.LockScreenForm.value, this.resetToken).subscribe({
         next:(value:any)=>{
-          this.unlocking = false,
-        this.router.navigate(["/login"])
-this.messageService.addMessage({severity:'info', summary:'info',message:value?.body.message})
+          this.unlocking = false;
+        this.router.navigate(["/login"]);
+this.messageService.addMessage({severity:'info', summary:'info',message:value?.body?.message || 'Password changed successfully'});
     }, error:(err:any)=>{
-        this.unlocking = false,
-        this.message = err
+        this.unlocking = false;
+        this.message = err;
     }
 });
-    
-    
 }
 ResetPassword() {
     this.api.postPatch("users/auth/reset-password/", {

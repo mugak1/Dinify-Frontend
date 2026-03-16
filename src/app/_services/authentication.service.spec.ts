@@ -88,6 +88,46 @@ describe('AuthenticationService', () => {
       expect(req.request.body).toEqual({ username: 'user', password: 'pass', source: 'diner' });
       req.flush({ data: { token: 't', refresh: 'r', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }, require_otp: false, prompt_password_change: false } });
     });
+
+    it('should NOT store user in localStorage when require_otp is true', () => {
+      const mockResponse = {
+        data: {
+          token: 'temp-token',
+          refresh: 'temp-refresh',
+          profile: { id: '1', first_name: 'Test', last_name: 'User', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+          require_otp: true,
+          prompt_password_change: false
+        }
+      };
+
+      service.login('user', 'pass').subscribe((res) => {
+        expect(localStorage.getItem('user')).toBeNull();
+        expect(service.userValue).toBeNull();
+      });
+
+      const req = httpMock.expectOne(`${base}/users/auth/login/`);
+      req.flush(mockResponse);
+    });
+
+    it('should NOT store user in localStorage when prompt_password_change is true', () => {
+      const mockResponse = {
+        data: {
+          token: 'temp-token',
+          refresh: 'temp-refresh',
+          profile: { id: '1', first_name: 'Test', last_name: 'User', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+          require_otp: false,
+          prompt_password_change: true
+        }
+      };
+
+      service.login('user', 'pass').subscribe((res) => {
+        expect(localStorage.getItem('user')).toBeNull();
+        expect(service.userValue).toBeNull();
+      });
+
+      const req = httpMock.expectOne(`${base}/users/auth/login/`);
+      req.flush(mockResponse);
+    });
   });
 
   describe('logout', () => {
@@ -153,7 +193,25 @@ describe('AuthenticationService', () => {
   });
 
   describe('UpdateUser', () => {
-    it('should update token and refresh in stored user', () => {
+    it('should merge OTP tokens with login response and persist', () => {
+      const loginResponse: any = {
+        token: 'old', refresh: 'old-r',
+        profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+        require_otp: true, prompt_password_change: false
+      };
+
+      const result = service.UpdateUser({ valid: true, token: 'new-token', refresh: 'new-refresh' }, loginResponse);
+      expect(result.token).toBe('new-token');
+      expect(result.refresh).toBe('new-refresh');
+      expect(result.profile.id).toBe('1');
+
+      const stored = JSON.parse(localStorage.getItem('user')!);
+      expect(stored.token).toBe('new-token');
+      expect(service.userValue).toBeTruthy();
+      expect(service.userValue!.token).toBe('new-token');
+    });
+
+    it('should fall back to userValue when no loginResponse provided', () => {
       localStorage.setItem('user', JSON.stringify({
         token: 'old', refresh: 'old-r',
         profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }
@@ -161,11 +219,12 @@ describe('AuthenticationService', () => {
       const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
 
       const result = svc.UpdateUser({ valid: true, token: 'new-token', refresh: 'new-refresh' });
-      expect(result.token).toBe('new-token');
-      expect(result.refresh).toBe('new-refresh');
+      expect(result!.token).toBe('new-token');
+    });
 
-      const stored = JSON.parse(localStorage.getItem('user')!);
-      expect(stored.token).toBe('new-token');
+    it('should return null when no user is available', () => {
+      const result = service.UpdateUser({ valid: true, token: 'tok', refresh: 'ref' });
+      expect(result).toBeNull();
     });
   });
 

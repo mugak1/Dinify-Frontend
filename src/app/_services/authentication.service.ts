@@ -35,9 +35,12 @@ export class AuthenticationService {
   login(username: string, password: string,source?:any) {
       return this.http.post<any>(`${this._base}/users/auth/login/`, source?{username,password,source}:{ username, password })
           .pipe(map((response:ApiResponse<LoginResponse>) => {
-              // store user details and jwt token in local storage to keep user logged in between page refreshes
-              localStorage.setItem('user', JSON.stringify((response.data)));
-              this.userSubject.next(response.data as any)
+              const data = response.data as unknown as LoginResponse;
+              if (!data.require_otp && !data.prompt_password_change) {
+                // Only persist tokens when login is complete (no OTP/password-change pending)
+                localStorage.setItem('user', JSON.stringify(data));
+                this.userSubject.next(data as any);
+              }
               return response;
           }));
   }
@@ -47,14 +50,18 @@ u.profile=profile;
 localStorage.setItem('user', JSON.stringify((u)));
 this.userSubject.next(u as any)
   }
-  UpdateUser(otpResponse:OTPResponse){
-const u:any = this.userValue;
-u.refresh=otpResponse.refresh;
-u.token=otpResponse.token;
-localStorage.setItem('user', JSON.stringify((u)));
-this.userSubject.next(u as any)
-return u
-
+  /**
+   * Persist user after OTP verification.
+   * Takes the original login response (which may not have been persisted if OTP
+   * was required) and merges the real tokens from the verify-otp response.
+   */
+  UpdateUser(otpResponse:OTPResponse, loginResponse?: LoginResponse){
+    const base: any = loginResponse || this.userValue;
+    if (!base) return null;
+    const u = { ...base, token: otpResponse.token, refresh: otpResponse.refresh };
+    localStorage.setItem('user', JSON.stringify(u));
+    this.userSubject.next(u as any);
+    return u;
   }
   setOtp(user:any,otp:any){
     return this.http.post<any>(`${this._base}/users/auth/verify-otp/`,{ user,otp })

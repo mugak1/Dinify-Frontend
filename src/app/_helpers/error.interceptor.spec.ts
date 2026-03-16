@@ -167,6 +167,36 @@ describe('ErrorInterceptor', () => {
     });
   });
 
+  describe('429 rate limiting', () => {
+    it('should return rate_limited error and add message', (done) => {
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('rate_limited');
+          expect(messageService.messages.length).toBe(1);
+          expect(messageService.messages[0].message).toContain('Too many attempts');
+          expect(authService.logout).not.toHaveBeenCalled();
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.flush({}, { status: 429, statusText: 'Too Many Requests' });
+    });
+
+    it('should use backend message when provided', (done) => {
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('rate_limited');
+          expect(messageService.messages[0].message).toBe('Please wait 60 seconds');
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.flush({ message: 'Please wait 60 seconds' }, { status: 429, statusText: 'Too Many Requests' });
+    });
+  });
+
   describe('other errors', () => {
     it('should add error message to message service for 500 errors', (done) => {
       httpClient.get('/api/test').subscribe({

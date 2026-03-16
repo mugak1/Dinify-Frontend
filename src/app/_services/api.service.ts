@@ -63,14 +63,15 @@ export class ApiService {
   mapQueryParamsToUrl(e: any) {
     return Object.keys(e).map(i => `${i}=${e[i]}`)
   }
-  UserChangePasswordOnLogin(data: any) {
+  UserChangePasswordOnLogin(data: any, authToken?: string) {
     const r = `${this._base}/users/auth/change-password/`;
-    
+
+    const headers: any = { Accept: "application/json, text/plain, */*" };
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
     const l: any = {
-      headers: new HttpHeaders({
-       // Authorization: "Token " + token,
-        Accept: "application/json, text/plain, */*"
-      }),
+      headers: new HttpHeaders(headers),
       reportProgress: true,
       observe: "response"
     };

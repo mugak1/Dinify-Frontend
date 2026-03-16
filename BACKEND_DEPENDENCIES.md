@@ -113,30 +113,38 @@ particular, confirm:
 
 ---
 
-## 4. Password Change Endpoint
+## 4. Password Reset Flow (Multi-Step)
 
-**Status:** In use via the lock-screen flow.
+**Status:** Updated to match new backend contract.
 
 **Frontend evidence:**
-- `ApiService.UserChangePasswordOnLogin()` →
-  `POST /api/{version}/users/auth/change-password/`
-  (`src/app/_services/api.service.ts:66-78`).
-- Called from `LockScreenComponent.Send()`
-  (`src/app/auth/lock-screen/lock-screen.component.ts:60-73`).
+- Step 1: `POST /api/{version}/users/auth/initiate-reset-password/`
+  (`src/app/auth/forgot-password/forgot-password.component.ts`)
+  Request: `{ identifier, identification }`
+- Step 2: OTP entry (frontend-only UI)
+- Step 3: `POST /api/{version}/users/auth/reset-password/`
+  (`src/app/auth/forgot-password/forgot-password.component.ts`)
+  Request: `{ phone_number, otp }`
+- Step 4: `POST /api/{version}/users/auth/change-password/`
+  (`src/app/_services/api.service.ts`)
+  Request: `{ username, old_password, new_password, confirmPassword }`
+  With `Authorization: Bearer <reset-token>` header
 
-**Expected request:**
+**Expected `reset-password` response:**
 ```json
 {
-  "username": "string",
-  "old_password": "string",
-  "new_password": "string",
-  "confirmPassword": "string"
+  "data": {
+    "token": "temporary-auth-token",
+    "temp_password": "system-generated-temporary-password"
+  }
 }
 ```
 
-**Action needed:** Confirm the field names match what the backend expects.
-Particularly whether the backend expects `confirmPassword` or
-`confirm_password` (snake_case).
+**Action needed:**
+- Confirm `initiate-reset-password` endpoint URL and request shape
+- Confirm `reset-password` returns `{ data: { token, temp_password } }`
+- Confirm `change-password` accepts the temporary token as Bearer auth
+- Confirm field names: `confirmPassword` vs `confirm_password` (snake_case)
 
 ---
 
