@@ -22,7 +22,8 @@
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
         "no-alert": "warn",
-        "@angular-eslint/prefer-standalone": "off"
+        "@angular-eslint/prefer-standalone": "off",
+        "@angular-eslint/prefer-inject": "off"
       }
     },
     {
