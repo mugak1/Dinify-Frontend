@@ -1,4 +1,16 @@
 {
+  "_comment": [
+    "All hosting sites (dinify-dev, dinify-stage, dinify-uat) live under the",
+    "'dinify-dev' Firebase project. The project name is misleading — it is not",
+    "limited to development use. Do NOT rename projects or targets without",
+    "updating the deploy-uat.yml workflow and coordinating with the team.",
+    "",
+    "The 'targets' block maps the deploy target name 'dinify-uat' to the",
+    "Firebase hosting site 'dinify-uat'. This target is referenced by the",
+    "deploy-uat.yml GitHub Actions workflow. The dinify-dev and dinify-stage",
+    "sites in firebase.json do not have explicit target mappings here — they",
+    "are deployed directly by site name (e.g. firebase deploy --only hosting:dinify-dev)."
+  ],
   "projects": {
     "default": "dinify-dev",
     "uat": "dinify-dev"

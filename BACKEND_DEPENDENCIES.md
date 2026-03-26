@@ -1,5 +1,7 @@
 # Backend Dependencies
 
+> **Last verified against codebase:** 2026-03-26
+
 This document lists the backend API contracts that this frontend repo assumes but
 **cannot verify independently**. Each entry notes the frontend evidence (files,
 endpoints, payload shapes) and what the backend team needs to confirm or expose.
@@ -14,7 +16,7 @@ endpoints, payload shapes) and what the backend team needs to confirm or expose.
 - `LoginResponse` and `OTPResponse` models include a `refresh: string` field
   (`src/app/_models/app.models.ts:25,33`).
 - `AuthenticationService.attemptTokenRefresh()` is stubbed, returning `of(null)`
-  (`src/app/_services/authentication.service.ts:106-131`).
+  (`src/app/_services/authentication.service.ts:113-138`).
 - `ErrorInterceptor.handle401()` calls `attemptTokenRefresh()` on 401 and retries
   the request if a new token is returned
   (`src/app/_helpers/error.interceptor.ts:65-95`).
@@ -45,11 +47,11 @@ HTTP status codes (200 on success, 401 if refresh token is expired/invalid).
 
 **Frontend evidence:**
 - `AuthenticationService.login()` → `POST /api/{version}/users/auth/login/`
-  (`src/app/_services/authentication.service.ts:35-42`)
+  (`src/app/_services/authentication.service.ts:35-46`)
 - `AuthenticationService.setOtp()` → `POST /api/{version}/users/auth/verify-otp/`
-  (`src/app/_services/authentication.service.ts:59-66`)
+  (`src/app/_services/authentication.service.ts:66-73`)
 - `AuthenticationService.resendOtp()` → `POST /api/{version}/users/auth/resend-otp/`
-  (`src/app/_services/authentication.service.ts:69-77`)
+  (`src/app/_services/authentication.service.ts:76-85`)
 
 **Expected response shape for login:**
 ```typescript
@@ -154,18 +156,18 @@ particular, confirm:
 
 **Frontend evidence:**
 - Table scan: `GET /api/{version}/orders/journey/table-scan/?table={tableId}`
-  (`src/app/diner-app/home/home.component.ts:35`,
-   `src/app/diner-app/diner-app.component.ts:55`)
+  (`src/app/diner-app/home/home.component.ts:36`,
+   `src/app/diner-app/diner-app.component.ts:56`)
 - Show menu: `GET /api/{version}/orders/journey/show-menu/?restaurant={restaurantId}`
-  (`src/app/diner-app/menu/menu.component.ts:127`)
+  (`src/app/diner-app/menu/menu.component.ts:128`)
 - Initiate order: `POST /api/v2/orders/initiate/`
-  (`src/app/diner-app/basket/basket.component.ts:121`)
+  (`src/app/diner-app/basket/basket.component.ts:122`)
 - Submit order: `PUT /api/{version}/orders/submit/`
-  (`src/app/diner-app/basket/basket.component.ts:165`)
+  (`src/app/diner-app/basket/basket.component.ts:166`)
 - Order details: `GET /api/{version}/orders/journey/order-details/?order={orderId}`
-  (`src/app/diner-app/orders/orders.component.ts:33`)
+  (`src/app/diner-app/orders/orders.component.ts:34`)
 - Payment details: `GET /api/{version}/orders/journey/payment-details/?transaction={id}`
-  (`src/app/diner-app/payment-details/payment-details.component.ts:28`)
+  (`src/app/diner-app/payment-details/payment-details.component.ts:29`)
 
 **Expected `TableScan` response:**
 ```typescript
@@ -199,12 +201,12 @@ while other endpoints use `v1`.
 
 **Frontend evidence:**
 - Initiate payment: `POST /api/{version}/finances/initiate-order-payment/`
-  (`src/app/diner-app/orders/orders.component.ts:85,100,114`)
+  (`src/app/diner-app/orders/orders.component.ts:86,101,115`)
 - MSISDN lookup: `GET /api/{version}/users/msisdn-lookup/?msisdn={number}`
-  (`src/app/diner-app/orders/orders.component.ts:94`)
+  (`src/app/diner-app/orders/orders.component.ts:95`)
 - Transaction listing:
   `GET /api/{version}/reports/restaurant/transactions-listing/?restaurant={id}&from={date}&to={date}`
-  (`src/app/restaurant-mgt/payments/payments.component.ts:76`)
+  (`src/app/restaurant-mgt/payments/payments.component.ts:77`)
 
 **Action needed:** Confirm these endpoints exist and document their expected
 request/response shapes. The frontend currently treats responses generically
