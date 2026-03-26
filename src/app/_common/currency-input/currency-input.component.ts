@@ -2,18 +2,19 @@ import { CurrencyPipe } from '@angular/common';
 import { Component, HostListener, Input, OnInit, forwardRef } from '@angular/core';
 import { NG_VALUE_ACCESSOR, ControlValueAccessor, FormGroup, FormControl, ControlContainer } from '@angular/forms';
 
-@Component({  
-selector: 'app-input[type=currency]',
-  templateUrl: './currency-input.component.html',
-  styleUrls: ['./currency-input.component.css'],
-  providers: [
-    {
-      provide: NG_VALUE_ACCESSOR,
-      useExisting: forwardRef(() => CurrencyInputComponent),
-      multi: true,
-    },
-    CurrencyPipe
-  ],
+@Component({
+    selector: 'app-input[type=currency]',
+    templateUrl: './currency-input.component.html',
+    styleUrls: ['./currency-input.component.css'],
+    providers: [
+        {
+            provide: NG_VALUE_ACCESSOR,
+            useExisting: forwardRef(() => CurrencyInputComponent),
+            multi: true,
+        },
+        CurrencyPipe
+    ],
+    standalone: false
 })
 export class CurrencyInputComponent implements ControlValueAccessor, OnInit {
   @Input() formControlName!: string;

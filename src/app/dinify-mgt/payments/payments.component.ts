@@ -5,10 +5,11 @@ import { Account, RestaurantDetail, TransactionListItem } from 'src/app/_models/
 import { ApiService } from 'src/app/_services/api.service';
 
 @Component({
-  selector: 'app-payments',
-  templateUrl: './payments.component.html',
-  styleUrls: ['./payments.component.css'],
-  providers:[DatePipe]
+    selector: 'app-payments',
+    templateUrl: './payments.component.html',
+    styleUrls: ['./payments.component.css'],
+    providers: [DatePipe],
+    standalone: false
 })
 export class PaymentsComponent {
   require_otp=false;

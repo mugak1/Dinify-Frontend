@@ -6,9 +6,10 @@ import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 
 @Component({
-  selector: 'app-support',
-  templateUrl: './support.component.html',
-  styleUrl: './support.component.css'
+    selector: 'app-support',
+    templateUrl: './support.component.html',
+    styleUrl: './support.component.css',
+    standalone: false
 })
 export class SupportComponent {
   tickets: Ticket[] = [];

@@ -4,9 +4,10 @@ import { ConfirmDialogService } from '../confirm-dialog.service';
 import { Subscription } from 'rxjs';
 
 @Component({
-  selector: 'app-confirm-dialog',
-  templateUrl: './confirm-dialog.component.html',
-  styleUrls: ['./confirm-dialog.component.css']
+    selector: 'app-confirm-dialog',
+    templateUrl: './confirm-dialog.component.html',
+    styleUrls: ['./confirm-dialog.component.css'],
+    standalone: false
 })
 export class ConfirmDialogComponent implements AfterViewInit, OnDestroy {
   showModal=false;

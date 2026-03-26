@@ -26,9 +26,10 @@ interface ReviewDetail extends Review {
 }
 
 @Component({
-  selector: 'app-reviews-management',
-  templateUrl: './reviews-management.component.html',
-  styleUrls: ['./reviews-management.component.css']
+    selector: 'app-reviews-management',
+    templateUrl: './reviews-management.component.html',
+    styleUrls: ['./reviews-management.component.css'],
+    standalone: false
 })
 export class ReviewsManagementComponent implements OnInit {
   reviews: Review[] = [];

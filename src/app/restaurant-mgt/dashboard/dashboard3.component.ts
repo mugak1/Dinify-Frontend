@@ -56,9 +56,10 @@ interface SalesCategory {
 }
 
 @Component({
-  selector: 'app-dashboard3',
-  templateUrl: './dashboard3.component.html',
-  styleUrls: ['./dashboard3.component.css']
+    selector: 'app-dashboard3',
+    templateUrl: './dashboard3.component.html',
+    styleUrls: ['./dashboard3.component.css'],
+    standalone: false
 })
 export class Dashboard3Component implements OnInit {
 

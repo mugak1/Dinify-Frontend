@@ -7,9 +7,10 @@ import { AuthenticationService } from 'src/app/_services/authentication.service'
 import { MessageService } from 'src/app/_services/message.service';
 
 @Component({
-  selector: 'app-billing',
-  templateUrl: './billing.component.html',
-  styleUrl: './billing.component.css'
+    selector: 'app-billing',
+    templateUrl: './billing.component.html',
+    styleUrl: './billing.component.css',
+    standalone: false
 })
 export class BillingComponent {
 rest?:RestaurantDetail;

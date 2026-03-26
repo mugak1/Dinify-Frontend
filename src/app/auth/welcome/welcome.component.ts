@@ -3,8 +3,8 @@ import { AuthenticationService } from '../../_services/authentication.service';
 import { Router } from '@angular/router';
 
 @Component({
-  selector: 'app-welcome',
-  template: `
+    selector: 'app-welcome',
+    template: `
     <div class="welcome-container">
       <div class="welcome-card">
         <img src="assets/images/dinify-logo.png" alt="Dinify" class="logo" />
@@ -16,7 +16,7 @@ import { Router } from '@angular/router';
       </div>
     </div>
   `,
-  styles: [`
+    styles: [`
     .welcome-container {
       display: flex;
       justify-content: center;
@@ -63,7 +63,8 @@ import { Router } from '@angular/router';
     .logout-btn:hover {
       background: #c0392b;
     }
-  `]
+  `],
+    standalone: false
 })
 export class WelcomeComponent {
   constructor(

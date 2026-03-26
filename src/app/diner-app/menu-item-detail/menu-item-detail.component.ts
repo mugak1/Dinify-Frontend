@@ -3,9 +3,10 @@ import { Router } from '@angular/router';
 import { ApiService } from 'src/app/_services/api.service';
 
 @Component({
-  selector: 'app-menu-item-detail',
-  templateUrl: './menu-item-detail.component.html',
-  styleUrls: ['./menu-item-detail.component.css']
+    selector: 'app-menu-item-detail',
+    templateUrl: './menu-item-detail.component.html',
+    styleUrls: ['./menu-item-detail.component.css'],
+    standalone: false
 })
 export class MenuItemDetailComponent {
 

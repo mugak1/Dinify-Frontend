@@ -10,9 +10,10 @@ import { ApiService } from 'src/app/_services/api.service';
 import { MessageService } from 'src/app/_services/message.service';
 
 @Component({
-  selector: 'app-register',
-  templateUrl: './register.component.html',
-  styleUrls: ['./register.component.css']
+    selector: 'app-register',
+    templateUrl: './register.component.html',
+    styleUrls: ['./register.component.css'],
+    standalone: false
 })
 export class RegisterComponent {
   @Input() as_diner:boolean=false;

@@ -5,9 +5,10 @@ import { ApiService } from '../../_services/api.service';
 import { MessageService } from 'src/app/_services/message.service';
 
 @Component({
-  selector: 'app-lock-screen',
-  templateUrl: './lock-screen.component.html',
-  styleUrls: ['./lock-screen.component.css']
+    selector: 'app-lock-screen',
+    templateUrl: './lock-screen.component.html',
+    styleUrls: ['./lock-screen.component.css'],
+    standalone: false
 })
 export class LockScreenComponent implements OnInit {
   unlocking = false;

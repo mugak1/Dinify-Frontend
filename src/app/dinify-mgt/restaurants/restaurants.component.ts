@@ -11,9 +11,10 @@ import { environment } from 'src/environments/environment';
 
 
 @Component({
-  selector: 'app-restaurants',
-  templateUrl: './restaurants.component.html',
-  styleUrls: ['./restaurants.component.css'],
+    selector: 'app-restaurants',
+    templateUrl: './restaurants.component.html',
+    styleUrls: ['./restaurants.component.css'],
+    standalone: false
 })
 export class RestaurantsComponent implements OnDestroy {
   search:any='';

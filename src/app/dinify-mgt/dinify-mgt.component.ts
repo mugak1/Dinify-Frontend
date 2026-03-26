@@ -2,9 +2,10 @@ import { AfterViewInit, Component, ElementRef, HostListener, Renderer2, ViewChil
 import { AuthenticationService } from '../_services/authentication.service';
 
 @Component({
-  selector: 'app-dinify-mgt',
-  templateUrl: './dinify-mgt.component.html',
-  styleUrls: ['./dinify-mgt.component.css']
+    selector: 'app-dinify-mgt',
+    templateUrl: './dinify-mgt.component.html',
+    styleUrls: ['./dinify-mgt.component.css'],
+    standalone: false
 })
 export class DinifyMgtComponent implements AfterViewInit, OnDestroy {
   @ViewChild('dropdownMenu', { static: false }) dropdownMenu!: ElementRef;

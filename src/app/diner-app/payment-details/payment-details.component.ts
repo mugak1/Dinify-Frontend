@@ -5,9 +5,10 @@ import { ApiService } from 'src/app/_services/api.service';
 import { MessageService } from 'src/app/_services/message.service';
 
 @Component({
-  selector: 'app-payment-details',
-  templateUrl: './payment-details.component.html',
-  styleUrl: './payment-details.component.css'
+    selector: 'app-payment-details',
+    templateUrl: './payment-details.component.html',
+    styleUrl: './payment-details.component.css',
+    standalone: false
 })
 export class PaymentDetailsComponent {
 

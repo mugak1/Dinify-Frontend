@@ -7,9 +7,10 @@ import { AuthenticationService } from 'src/app/_services/authentication.service'
 import { MessageService } from 'src/app/_services/message.service';
 
 @Component({
-  selector: 'app-common-user-profile',
-  templateUrl: './common-user-profile.component.html',
-  styleUrl: './common-user-profile.component.css'
+    selector: 'app-common-user-profile',
+    templateUrl: './common-user-profile.component.html',
+    styleUrl: './common-user-profile.component.css',
+    standalone: false
 })
 export class CommonUserProfileComponent implements AfterViewInit {
 showModal=false;

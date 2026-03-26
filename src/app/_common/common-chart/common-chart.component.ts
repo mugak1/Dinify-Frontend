@@ -3,9 +3,10 @@ import { ApexAxisChartSeries, ApexChart, ApexDataLabels, ApexGrid, ApexLegend, A
 import { ChartData } from 'src/app/_models/app.models';
 
 @Component({
-  selector: 'app-common-chart',
-  templateUrl: './common-chart.component.html',
-  styleUrl: './common-chart.component.css'
+    selector: 'app-common-chart',
+    templateUrl: './common-chart.component.html',
+    styleUrl: './common-chart.component.css',
+    standalone: false
 })
 export class CommonChartComponent {
   @ViewChild("chart") chart?: ChartComponent;

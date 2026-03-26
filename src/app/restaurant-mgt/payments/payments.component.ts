@@ -7,10 +7,11 @@ import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 
 @Component({
-  selector: 'app-payments',
-  templateUrl: './payments.component.html',
-  styleUrl: './payments.component.css',
-  providers:[DatePipe]
+    selector: 'app-payments',
+    templateUrl: './payments.component.html',
+    styleUrl: './payments.component.css',
+    providers: [DatePipe],
+    standalone: false
 })
 export class PaymentsComponent {
 require_otp=false;

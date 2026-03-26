@@ -11,9 +11,10 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
 import { BasketService } from 'src/app/_services/basket.service';
 
 @Component({
-  selector: 'app-tables',
-  templateUrl: './tables.component.html',
-  styleUrls: ['./tables.component.css']
+    selector: 'app-tables',
+    templateUrl: './tables.component.html',
+    styleUrls: ['./tables.component.css'],
+    standalone: false
 })
 export class TablesComponent implements AfterViewInit, OnDestroy {
   showModal = false;

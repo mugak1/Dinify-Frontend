@@ -7,9 +7,10 @@ import { MessageService } from 'src/app/_services/message.service';
 
 
 @Component({
-  selector: 'app-report-detail',
-  templateUrl: './report-detail.component.html',
-  styleUrl: './report-detail.component.css'
+    selector: 'app-report-detail',
+    templateUrl: './report-detail.component.html',
+    styleUrl: './report-detail.component.css',
+    standalone: false
 })
 export class ReportDetailComponent {
 

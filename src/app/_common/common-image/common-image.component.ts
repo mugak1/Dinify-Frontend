@@ -2,9 +2,10 @@ import { Component, ElementRef, Input, ViewChild, AfterViewInit, OnDestroy } fro
 import {environment} from '../../../environments/environment'
 
 @Component({
-  selector: 'app-common-image',
-  templateUrl: './common-image.component.html',
-  styleUrls: ['./common-image.component.css']
+    selector: 'app-common-image',
+    templateUrl: './common-image.component.html',
+    styleUrls: ['./common-image.component.css'],
+    standalone: false
 })
 export class CommonImageComponent implements AfterViewInit, OnDestroy {
 @Input() src?:string;

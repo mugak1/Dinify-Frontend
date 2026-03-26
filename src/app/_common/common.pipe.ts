@@ -11,7 +11,8 @@ import { DomSanitizer, SafeHtml, SafeStyle } from "@angular/platform-browser";
  *    Only use with developer-controlled content.
  */
 @Pipe({
-  name: 'safe'
+    name: 'safe',
+    standalone: false
 })
 export class SafePipe implements PipeTransform {
   constructor(private sanitizer: DomSanitizer) {}

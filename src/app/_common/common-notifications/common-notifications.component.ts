@@ -3,9 +3,10 @@ import { ApiResponse, NotificationItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 
 @Component({
-  selector: 'app-common-notifications',
-  templateUrl: './common-notifications.component.html',
-  styleUrl: './common-notifications.component.css'
+    selector: 'app-common-notifications',
+    templateUrl: './common-notifications.component.html',
+    styleUrl: './common-notifications.component.css',
+    standalone: false
 })
 export class CommonNotificationsComponent implements OnInit {
   notifys:NotificationItem[] = [];

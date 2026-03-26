@@ -6,9 +6,10 @@ import { BrandingConfiguration, Restaurant, TableScan } from '../_models/app.mod
 import { AuthenticationService } from '../_services/authentication.service';
 
 @Component({
-  selector: 'app-diner-app',
-  templateUrl: './diner-app.component.html',
-  styleUrls: ['./diner-app.component.css']
+    selector: 'app-diner-app',
+    templateUrl: './diner-app.component.html',
+    styleUrls: ['./diner-app.component.css'],
+    standalone: false
 })
 export class DinerAppComponent {
 restaurant_name = '';

@@ -7,9 +7,10 @@ import { ConfirmDialogService } from '../confirm-dialog.service';
 import { Utilities } from 'src/app/_helpers/utilities';
 
 @Component({
-  selector: 'app-common-users',
-  templateUrl: './common-users.component.html',
-  styleUrl: './common-users.component.css'
+    selector: 'app-common-users',
+    templateUrl: './common-users.component.html',
+    styleUrl: './common-users.component.css',
+    standalone: false
 })
 export class CommonUsersComponent implements AfterViewInit {
 @Input() users?:EmployeeListUser[];

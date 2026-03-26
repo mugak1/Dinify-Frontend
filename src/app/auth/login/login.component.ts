@@ -8,9 +8,10 @@ import { ApiResponse, LoginResponse, OTPResponse } from 'src/app/_models/app.mod
 import { MessageService } from 'src/app/_services/message.service';
 
 @Component({
-  selector: 'app-login',
-  templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css']
+    selector: 'app-login',
+    templateUrl: './login.component.html',
+    styleUrls: ['./login.component.css'],
+    standalone: false
 })
 export class LoginComponent implements OnInit {
   countdown = 30; // Countdown starts at 30 seconds

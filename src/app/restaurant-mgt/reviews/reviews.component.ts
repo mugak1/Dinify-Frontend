@@ -7,9 +7,10 @@ import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 
 @Component({
-  selector: 'app-reviews',
-  templateUrl: './reviews.component.html',
-  styleUrl: './reviews.component.css'
+    selector: 'app-reviews',
+    templateUrl: './reviews.component.html',
+    styleUrl: './reviews.component.css',
+    standalone: false
 })
 export class ReviewsComponent implements AfterViewInit {
   restaurant: string='';

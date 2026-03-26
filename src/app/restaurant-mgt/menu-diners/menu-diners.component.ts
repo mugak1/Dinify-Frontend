@@ -2,9 +2,10 @@ import { Component, Input, OnInit } from '@angular/core';
 import { MenuItem, MenuSectionListItem } from 'src/app/_models/app.models';
 
 @Component({
-  selector: 'app-menu-diners',
-  templateUrl: './menu-diners.component.html',
-  styleUrl: './menu-diners.component.css'
+    selector: 'app-menu-diners',
+    templateUrl: './menu-diners.component.html',
+    styleUrl: './menu-diners.component.css',
+    standalone: false
 })
 export class MenuDinersComponent implements OnInit{
   @Input() section_list!:MenuSectionListItem[];
