@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import {NgxCurrencyDirective} from 'ngx-currency'
-import { ColorPickerModule } from 'ngx-color-picker';
+import { ColorPickerDirective } from 'ngx-color-picker';
 import { DndListModule } from '@ryware/ngx-drag-and-drop-lists';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
@@ -93,7 +93,7 @@ const routes: Routes = [
     RouterModule.forChild(routes),
     DinifyCommonModule,
     QRCodeComponent,
-    ColorPickerModule,
+    ColorPickerDirective,
     DndListModule,
     NgxCurrencyDirective,
     DragDropModule,

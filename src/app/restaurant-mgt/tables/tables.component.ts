@@ -1,5 +1,5 @@
-import { DOCUMENT, Location } from '@angular/common';
-import { ChangeDetectorRef, Component, HostListener, Inject, AfterViewInit, OnDestroy } from '@angular/core';
+import { Location } from '@angular/common';
+import { ChangeDetectorRef, Component, HostListener, Inject, AfterViewInit, OnDestroy, DOCUMENT } from '@angular/core';
 import { FormGroup, FormBuilder, Validators, AbstractControl } from '@angular/forms';
 import { SafeUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';

@@ -1,5 +1,5 @@
-import { DOCUMENT } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, Inject, QueryList, ViewChildren } from '@angular/core';
+
+import { AfterViewInit, Component, ElementRef, Inject, QueryList, ViewChildren, DOCUMENT } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { RatingSummary, ReviewListItem } from 'src/app/_models/app.models';
