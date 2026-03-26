@@ -5,9 +5,10 @@ import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 
 @Component({
-  selector: 'app-menu-design',
-  templateUrl: './menu-design.component.html',
-  styleUrls: ['./menu-design.component.css']
+    selector: 'app-menu-design',
+    templateUrl: './menu-design.component.html',
+    styleUrls: ['./menu-design.component.css'],
+    standalone: false
 })
 export class MenuDesignComponent {
   ConfigForm!:FormGroup

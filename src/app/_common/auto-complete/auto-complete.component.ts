@@ -1,9 +1,10 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 @Component({
-  selector: 'app-auto-complete',
-  templateUrl: './auto-complete.component.html',
-  styleUrl: './auto-complete.component.css'
+    selector: 'app-auto-complete',
+    templateUrl: './auto-complete.component.html',
+    styleUrl: './auto-complete.component.css',
+    standalone: false
 })
 export class AutoCompleteComponent {
   @Input() countries:any[]|undefined = [

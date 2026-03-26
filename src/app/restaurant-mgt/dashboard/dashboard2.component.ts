@@ -25,9 +25,10 @@ interface RecentOrder {
 }
 
 @Component({
-  selector: 'app-dashboard2',
-  templateUrl: './dashboard2.component.html',
-  styleUrls: ['./dashboard2.component.css']
+    selector: 'app-dashboard2',
+    templateUrl: './dashboard2.component.html',
+    styleUrls: ['./dashboard2.component.css'],
+    standalone: false
 })
 export class Dashboard2Component implements OnInit {
 

@@ -30,9 +30,10 @@ export type ChartOptions = {
 type TimeFrame = 'thisWeek' | 'lastWeek';
 
 @Component({
-  selector: 'app-rest-dashboard',
-  templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css']
+    selector: 'app-rest-dashboard',
+    templateUrl: './dashboard.component.html',
+    styleUrls: ['./dashboard.component.css'],
+    standalone: false
 })
 export class DashboardComponent {
   meals: { name: string; income: string; category: string }[] = [];

@@ -7,9 +7,10 @@ import { environment } from 'src/environments/environment';
 import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
-  selector: 'app-restaurant-mgt',
-  templateUrl: './restaurant-mgt.component.html',
-  styleUrls: ['./restaurant-mgt.component.css']
+    selector: 'app-restaurant-mgt',
+    templateUrl: './restaurant-mgt.component.html',
+    styleUrls: ['./restaurant-mgt.component.css'],
+    standalone: false
 })
 export class RestaurantMgtComponent implements OnInit {
 iscollapsed=false;

@@ -7,9 +7,10 @@ import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 
 @Component({
-  selector: 'app-rest-profile',
-  templateUrl: './rest-profile.component.html',
-  styleUrls: ['./rest-profile.component.css']
+    selector: 'app-rest-profile',
+    templateUrl: './rest-profile.component.html',
+    styleUrls: ['./rest-profile.component.css'],
+    standalone: false
 })
 export class RestProfileComponent {
   showModal = false;

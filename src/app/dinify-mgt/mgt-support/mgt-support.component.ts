@@ -4,9 +4,10 @@ import { Ticket } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 
 @Component({
-  selector: 'app-mgt-support',
-  templateUrl: './mgt-support.component.html',
-  styleUrl: './mgt-support.component.css'
+    selector: 'app-mgt-support',
+    templateUrl: './mgt-support.component.html',
+    styleUrl: './mgt-support.component.css',
+    standalone: false
 })
 export class MgtSupportComponent {
  tickets: Ticket[] = [];

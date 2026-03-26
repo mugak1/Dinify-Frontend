@@ -5,9 +5,10 @@ import { ApiService } from 'src/app/_services/api.service';
 import { MessageService } from 'src/app/_services/message.service';
 
 @Component({
-  selector: 'app-forgot-password',
-  templateUrl: './forgot-password.component.html',
-  styleUrls: ['./forgot-password.component.css']
+    selector: 'app-forgot-password',
+    templateUrl: './forgot-password.component.html',
+    styleUrls: ['./forgot-password.component.css'],
+    standalone: false
 })
 export class ForgotPasswordComponent {
 submitted: boolean = false;

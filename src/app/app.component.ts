@@ -4,9 +4,10 @@ import { ConfirmDialogService } from './_common/confirm-dialog.service';
 import { ConfirmDialogComponent } from './_common/confirm-dialog/confirm-dialog.component';
 
 @Component({
-  selector: 'app-root',
-  templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css']
+    selector: 'app-root',
+    templateUrl: './app.component.html',
+    styleUrls: ['./app.component.css'],
+    standalone: false
 })
 export class AppComponent implements AfterViewInit {
   title = 'dinify_frontend';

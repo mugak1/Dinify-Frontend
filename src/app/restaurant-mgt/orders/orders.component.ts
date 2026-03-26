@@ -9,9 +9,10 @@ import { MessageService } from 'src/app/_services/message.service';
 import { formatDistanceToNow } from 'date-fns';
 
 @Component({
-  selector: 'app-orders',
-  templateUrl: './orders.component.html',
-  styleUrl: './orders.component.css'
+    selector: 'app-orders',
+    templateUrl: './orders.component.html',
+    styleUrl: './orders.component.css',
+    standalone: false
 })
 export class OrdersComponent implements OnDestroy {
 restaurant?: any;

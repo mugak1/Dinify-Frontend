@@ -7,9 +7,10 @@ import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 
 @Component({
-  selector: 'app-menu-common',
-  templateUrl: './menu-common.component.html',
-  styleUrl: './menu-common.component.css'
+    selector: 'app-menu-common',
+    templateUrl: './menu-common.component.html',
+    styleUrl: './menu-common.component.css',
+    standalone: false
 })
 export class MenuCommonComponent implements OnInit {
   restaurant?:Restaurant|any;

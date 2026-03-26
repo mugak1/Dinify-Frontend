@@ -6,9 +6,10 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
 import { environment } from 'src/environments/environment';
 
 @Component({
-  selector: 'app-home',
-  templateUrl: './home.component.html',
-  styleUrls: ['./home.component.css']
+    selector: 'app-home',
+    templateUrl: './home.component.html',
+    styleUrls: ['./home.component.css'],
+    standalone: false
 })
 export class HomeComponent implements AfterViewInit {
   branding_configs!:BrandingConfiguration;

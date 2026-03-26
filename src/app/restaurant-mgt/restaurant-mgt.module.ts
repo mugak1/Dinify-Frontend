@@ -16,7 +16,7 @@ import { MenuComponent } from './menu/menu.component';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
 import { CommonChartModule } from '../_common/common-chart/common-chart.module';
 import { TablesComponent } from './tables/tables.component';
-import { QRCodeModule } from 'angularx-qrcode';
+import { QRCodeComponent } from 'angularx-qrcode';
 import { RestProfileComponent } from './settings/rest-profile/rest-profile.component';
 import { MenuDesignComponent } from './settings/menu-design/menu-design.component';
 import { OrdersComponent } from './orders/orders.component';
@@ -92,7 +92,7 @@ const routes: Routes = [
     FormsModule,
     RouterModule.forChild(routes),
     DinifyCommonModule,
-    QRCodeModule,
+    QRCodeComponent,
     ColorPickerModule,
     DndListModule,
     NgxCurrencyDirective,

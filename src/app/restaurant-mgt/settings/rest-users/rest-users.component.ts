@@ -5,9 +5,10 @@ import { EmployeeListUser } from 'src/app/_models/app.models';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 
 @Component({
-  selector: 'app-rest-users',
-  templateUrl: './rest-users.component.html',
-  styleUrl: './rest-users.component.css'
+    selector: 'app-rest-users',
+    templateUrl: './rest-users.component.html',
+    styleUrl: './rest-users.component.css',
+    standalone: false
 })
 export class RestUsersComponent {
   restaurant: any;

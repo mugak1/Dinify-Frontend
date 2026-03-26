@@ -7,9 +7,10 @@ import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 
 @Component({
-  selector: 'app-diners-menu',
-  templateUrl: './menu.component.html',
-  styleUrls: ['./menu.component.css']
+    selector: 'app-diners-menu',
+    templateUrl: './menu.component.html',
+    styleUrls: ['./menu.component.css'],
+    standalone: false
 })
 export class DinersMenuComponent implements OnInit, AfterViewInit {
   @ViewChild('categoryContainer') categoryContainer!: ElementRef;

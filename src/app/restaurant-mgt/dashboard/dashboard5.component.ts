@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 
 @Component({
-  selector: 'app-dashboard5',
-  templateUrl: './dashboard5.component.html',
-  styleUrls: ['./dashboard5.component.css']
+    selector: 'app-dashboard5',
+    templateUrl: './dashboard5.component.html',
+    styleUrls: ['./dashboard5.component.css'],
+    standalone: false
 })
 export class Dashboard5Component implements OnInit {
 

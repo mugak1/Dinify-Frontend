@@ -29,23 +29,23 @@ function getFormArray(size: number): FormArray {
 }
 
 @Component({
-  selector: 'app-otp-input',
-
-  providers: [
-    {
-      provide: NG_VALUE_ACCESSOR,
-      useExisting: OtpInputComponent,
-      multi: true,
-    },
-    {
-      provide: NG_VALIDATORS,
-      useExisting: OtpInputComponent,
-      multi: true,
-    },
-  ],
-  templateUrl: './otp-input.component.html',
-  styleUrls: ['./otp-input.component.css'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+    selector: 'app-otp-input',
+    providers: [
+        {
+            provide: NG_VALUE_ACCESSOR,
+            useExisting: OtpInputComponent,
+            multi: true,
+        },
+        {
+            provide: NG_VALIDATORS,
+            useExisting: OtpInputComponent,
+            multi: true,
+        },
+    ],
+    templateUrl: './otp-input.component.html',
+    styleUrls: ['./otp-input.component.css'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class OtpInputComponent implements ControlValueAccessor, Validator {
   @Input()
