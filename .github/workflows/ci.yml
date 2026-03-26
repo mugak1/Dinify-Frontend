@@ -28,7 +28,7 @@ jobs:
         run: npm run lint
 
       - name: Test
-        run: npm run test:ci -- --include='src/app/_helpers/auth.guard.spec.ts' --include='src/app/_helpers/error.interceptor.spec.ts' --include='src/app/_services/authentication.service.spec.ts' --include='src/app/_services/api.service.spec.ts'
+        run: npm run test:ci
 
       - name: Build (production)
         run: npm run build:prod

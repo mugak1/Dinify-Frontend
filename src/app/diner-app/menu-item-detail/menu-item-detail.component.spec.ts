@@ -1,5 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { MenuItemDetailComponent } from './menu-item-detail.component';
 
 describe('MenuItemDetailComponent', () => {
@@ -8,7 +11,13 @@ describe('MenuItemDetailComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ MenuItemDetailComponent ]
+      declarations: [MenuItemDetailComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
     })
     .compileComponents();
 

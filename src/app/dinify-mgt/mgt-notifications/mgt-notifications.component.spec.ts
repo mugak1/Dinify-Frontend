@@ -1,5 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { MgtNotificationsComponent } from './mgt-notifications.component';
 
 describe('MgtNotificationsComponent', () => {
@@ -8,10 +11,16 @@ describe('MgtNotificationsComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [MgtNotificationsComponent]
+      declarations: [MgtNotificationsComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
     })
     .compileComponents();
-    
+
     fixture = TestBed.createComponent(MgtNotificationsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();

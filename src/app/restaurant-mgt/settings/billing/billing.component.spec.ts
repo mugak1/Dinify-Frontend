@@ -1,5 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { BillingComponent } from './billing.component';
 
 describe('BillingComponent', () => {
@@ -8,10 +11,16 @@ describe('BillingComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [BillingComponent]
+      declarations: [BillingComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
     })
     .compileComponents();
-    
+
     fixture = TestBed.createComponent(BillingComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
