@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 import { NgxIntlTelephoneInputModule } from "ngx-intl-telephone-input";
 
@@ -19,31 +19,25 @@ import { DinifyCommonModule } from "./_common/dinify-common.module";
 import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
 
-@NgModule({
-  declarations: [
-    AppComponent,
-    DinifyMgtComponent,
-    DinerAppComponent,
-    LoginComponent,
-    RegisterComponent,
-    ForgotPasswordComponent,
-    LockScreenComponent,
-    WelcomeComponent
-  ],
-  imports: [
-    BrowserModule,
-    AppRoutingModule,
-    HttpClientModule,
-    InputModule,
-    ReactiveFormsModule,
-    NgxIntlTelephoneInputModule,
-    DinifyCommonModule,
-    FormsModule,
-  ],
-  providers: [
-    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
-    { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
-  ],
-  bootstrap: [AppComponent]
-})
+@NgModule({ declarations: [
+        AppComponent,
+        DinifyMgtComponent,
+        DinerAppComponent,
+        LoginComponent,
+        RegisterComponent,
+        ForgotPasswordComponent,
+        LockScreenComponent,
+        WelcomeComponent
+    ],
+    bootstrap: [AppComponent], imports: [BrowserModule,
+        AppRoutingModule,
+        InputModule,
+        ReactiveFormsModule,
+        NgxIntlTelephoneInputModule,
+        DinifyCommonModule,
+        FormsModule], providers: [
+        { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+        provideHttpClient(withInterceptorsFromDi()),
+    ] })
 export class AppModule { }
