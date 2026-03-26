@@ -1,11 +1,11 @@
 # Dinify Frontend
 
-A comprehensive restaurant management and customer dining application built with Angular 17 and Tailwind CSS. This project includes three main sub-applications: Restaurant Management, Dinify Management (Admin), and Diner App (Customer).
+A comprehensive restaurant management and customer dining application built with Angular 20 and Tailwind CSS. This project includes three main sub-applications: Restaurant Management, Dinify Management (Admin), and Diner App (Customer).
 
-**Version**: 1.0.0  
-**Angular CLI**: 17.3.6  
-**Node**: Required (see `package.json`)
-
+**Status**: Active development — stabilisation and feature work in progress.
+**Angular**: ^20.3.18
+**Angular CLI**: ~20.3.21
+**Node**: v20.x (used in CI)
 
 ---
 
@@ -19,6 +19,7 @@ A comprehensive restaurant management and customer dining application built with
 - [Building](#building)
 - [Environments](#environments)
 - [Deployment](#deployment)
+- [CI / Automated Workflows](#ci--automated-workflows)
 - [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Architecture](#architecture)
@@ -50,10 +51,10 @@ Dinify is a multi-tenant restaurant management platform with three distinct appl
 
 Before you begin, ensure you have the following installed:
 
-- **Node.js**: v18.x or higher
+- **Node.js**: v20.x (matches CI)
 - **npm**: v9.x or higher (comes with Node.js)
-- **Angular CLI**: v17.3.6 (will be installed via npm)
-- **Firebase CLI**: For deployment (optional, included in dependencies)
+- **Angular CLI**: ~20.3.21 (installed as a dev dependency via npm)
+- **Firebase CLI**: For deployment (included as a dev dependency)
 - **Git**: For version control
 
 Verify installation:
@@ -74,8 +75,10 @@ npm --version
 
 2. **Install dependencies**
    ```bash
-   npm install
+   npm ci --legacy-peer-deps
    ```
+
+   > **Note:** `--legacy-peer-deps` is currently required due to peer-dependency conflicts between several packages. This is a known item for future cleanup.
 
 3. **Verify installation**
    ```bash
@@ -86,39 +89,20 @@ npm --version
 
 ## Available Commands
 
-All commands are defined in `package.json` and can be executed via npm:
-
-### Development Commands
+All commands are defined in `package.json`:
 
 | Command | Description |
 |---------|-------------|
-| `npm start` | Start development server (alias: `ng serve`) |
-| `npm run watch` | Build in watch mode with live reloading (`ng build --watch --configuration development`) |
-| `npm run build` | Build for production (alias: `ng build`) |
+| `npm start` | Start development server (`ng serve`) |
+| `npm run watch` | Build in watch mode (`ng build --watch --configuration development`) |
+| `npm run build` | Default build (`ng build`) |
+| `npm run build:prod` | Production build (`ng build --configuration=production`) |
+| `npm run build:uat` | UAT build (`ng build --configuration=uat`) |
+| `npm run build:staging` | Staging build (`ng build --configuration=staging`) |
 | `npm test` | Run unit tests via Karma (`ng test`) |
-| `npm run ng -- <command>` | Execute Angular CLI commands directly |
-
-### Examples
-
-```bash
-# Start development server
-npm start
-
-# Build production bundle
-npm run build
-
-# Run tests with watch mode
-npm test
-
-# Generate a new component
-npm run ng -- generate component component-name
-
-# Generate a service
-npm run ng -- generate service _services/my-service
-
-# Generate a module
-npm run ng -- generate module modules/my-module
-```
+| `npm run test:ci` | Run tests headless, no watch (`ng test --watch=false --browsers=ChromeHeadlessNoSandbox`) |
+| `npm run lint` | Lint the project (`ng lint`) |
+| `npm run type-check` | TypeScript type-check without emit (`tsc --noEmit -p tsconfig.app.json`) |
 
 ---
 
@@ -130,47 +114,15 @@ npm run ng -- generate module modules/my-module
 npm start
 ```
 
-The application will be available at `http://localhost:4200/`
-
-**Features:**
-- Hot module reloading (automatic reload on file changes)
-- Development source maps for easier debugging
-- No optimization (faster compilation)
-- Unminified scripts and styles
-
-### Code Scaffolding
-
-Generate Angular components and services using the Angular CLI:
-
-```bash
-# Generate component
-npm run ng -- generate component components/my-component
-
-# Generate service
-npm run ng -- generate service _services/my-service
-
-# Generate directive
-npm run ng -- generate directive _helpers/my-directive
-
-# Generate pipe
-npm run ng -- generate pipe _common/my-pipe
-
-# Generate module
-npm run ng -- generate module modules/my-module
-
-# Generate interface/model
-npm run ng -- generate interface _models/my-model
-```
+The application will be available at `http://localhost:4200/`.
 
 ### Watch Mode
 
-For development with automatic rebuilds:
+For development with automatic rebuilds (without the dev server):
 
 ```bash
 npm run watch
 ```
-
-This continuously watches for changes and rebuilds the project without starting the dev server.
 
 ---
 
@@ -179,208 +131,113 @@ This continuously watches for changes and rebuilds the project without starting 
 ### Production Build
 
 ```bash
-npm run build
+npm run build:prod
 ```
 
-The optimized build artifacts will be stored in the `dist/` directory:
-
-**Build Optimizations:**
-- Ahead-of-Time (AoT) compilation
-- Tree-shaking and minification
-- Hash-based output filenames for caching
-- License extraction
-- Vendor chunk optimization
-- Source maps excluded (production security)
-
-**Bundle Size Limits:**
-- Initial bundle: Max 500KB warning, 4MB error
-- Component styles: Max 2KB warning, 4KB error
+The optimized build artifacts will be stored in the `dist/` directory.
 
 ### Build for Specific Environment
 
-Build command for different environments (see [Environments](#environments) section):
-
 ```bash
-npm run ng -- build --configuration=dev
-npm run ng -- build --configuration=uat
-npm run ng -- build --configuration=staging
-npm run ng -- build --configuration=production
+npm run build:prod       # production
+npm run build:uat        # UAT
+npm run build:staging    # staging
 ```
 
 ---
 
 ## Environments
 
-The application supports multiple environments with different API endpoints and configurations. Environment files are located in `src/environments/`.
+The application supports multiple environments. Environment files are located in `src/environments/`.
 
-### Environment Files
+| File | Purpose | API URL |
+|------|---------|---------|
+| `environment.ts` | Default (development) | `https://api-dev.dinifyapp.com` |
+| `environment.dev.ts` | Development | `https://api-dev.dinifyapp.com` |
+| `environment.uat.ts` | User Acceptance Testing | `https://api-test.dinifyapp.com/uat` |
+| `environment.staging.ts` | Staging | `https://api-test.dinifyapp.com/staging` |
+| `environment.prod.ts` | Production | `https://api.dinifyapp.com` |
 
-| File | Purpose | API URL | Use Case |
-|------|---------|---------|----------|
-| `environment.ts` | Default (development) | `https://api-dev.dinifyapp.com` | Local development fallback |
-| `environment.dev.ts` | Development | `https://api-dev.dinifyapp.com` | Developer environment |
-| `environment.uat.ts` | User Acceptance Testing | `https://api-test.dinifyapp.com/uat` | Pre-production testing |
-| `environment.staging.ts` | Staging | `https://api-test.dinifyapp.com/staging` | Final staging before production |
-| `environment.prod.ts` | Production | `https://api.dinifyapp.com` | Live environment |
-
-### Environment Configuration
-
-Each environment file exports the following configuration:
+Each environment file exports:
 
 ```typescript
 export const environment = {
-    production: boolean,           // Production flag
-    apiUrl: string,               // Backend API base URL
-    version: string,              // API version (v1)
-    version2: string              // Alternative API version (v2)
+    production: boolean,
+    apiUrl: string,
+    version: string,    // e.g. 'v1'
+    version2: string    // e.g. 'v2'
 };
 ```
-
-### Example Environment File
-
-```typescript
-// src/environments/environment.dev.ts
-export const environment = {
-    production: false,
-    apiUrl: 'https://api-dev.dinifyapp.com',
-    version: 'v1',
-    version2: 'v2'
-};
-```
-
-### Using Environment Variables in Code
-
-```typescript
-import { environment } from '../environments/environment';
-
-export class ApiService {
-  private apiUrl = environment.apiUrl;
-  private version = environment.version;
-
-  constructor(private http: HttpClient) {}
-
-  getData() {
-    const endpoint = `${this.apiUrl}/${this.version}/endpoint`;
-    return this.http.get(endpoint);
-  }
-}
-```
-
-### Modifying Environment Configuration
-
-1. Edit the appropriate environment file in `src/environments/`
-2. Update the `apiUrl`, `version`, or other settings
-3. Rebuild the application to apply changes
 
 ---
 
 ## Deployment
 
-The application is deployed using Firebase Hosting. Firebase configuration is in `firebase.json`.
+The application is deployed using Firebase Hosting. Configuration lives in `firebase.json` and `.firebaserc`.
 
-### Deployment Prerequisites
+### Firebase Projects and Hosting Sites
 
-1. **Firebase CLI** installed globally:
-   ```bash
-   npm install -g firebase-tools
-   ```
+All configured hosting targets belong to the **`dinify-dev`** Firebase project.
 
-2. **Firebase project** configured:
-   ```bash
-   firebase login
-   ```
+| Site | Defined in | Notes |
+|------|-----------|-------|
+| `dinify-dev` | `firebase.json` | Development site |
+| `dinify-stage` | `firebase.json` | Staging site |
+| `dinify-uat` | `firebase.json` + `.firebaserc` target mapping | UAT site; also mapped as a deploy target in `.firebaserc` |
 
-3. **Built dist folder** (see [Building](#building) section)
+> **Note:** There is no `dinify-prod` hosting site configured in `firebase.json` or `.firebaserc`. Production deployment configuration does not currently exist in this repository.
 
-### Firebase Hosting Sites
-
-The project is configured with multiple Firebase hosting sites:
-
-| Site | Configuration | Purpose |
-|------|---------------|---------|
-| `dinify-dev` | Dev environment | Development deployment |
-| `dinify-stage` | Staging environment | Pre-production deployment |
-| `dinify-uat` | UAT environment | User acceptance testing |
-| `dinify-prod` | Production environment | Live deployment |
-
-### Deployment Steps
-
-#### 1. Build for the Target Environment
+### Manual Deployment
 
 ```bash
-# For Development
-npm run ng -- build --configuration=dev
-
-# For UAT
-npm run ng -- build --configuration=uat
-
-# For Staging
-npm run ng -- build --configuration=staging
-
-# For Production
-npm run ng -- build --configuration=production
-```
-
-#### 2. Deploy to Firebase
-
-```bash
-# Deploy to all sites
-firebase deploy
+# Build for the target environment
+npm run build:uat
 
 # Deploy to a specific site
+firebase deploy --only hosting:dinify-uat
 firebase deploy --only hosting:dinify-dev
 firebase deploy --only hosting:dinify-stage
-firebase deploy --only hosting:dinify-uat
-firebase deploy --only hosting:dinify-prod
-
-# Deploy with a message/version
-firebase deploy --message "Release v1.0.0"
 ```
 
-#### 3. Verify Deployment
+### Automated UAT Deployment
 
-```bash
-# View deployment history
-firebase hosting:channel:list
+The `deploy-uat.yml` workflow automatically deploys to the `dinify-uat` Firebase hosting target on every push to `main` (or via manual `workflow_dispatch`). See [CI / Automated Workflows](#ci--automated-workflows) below.
 
-# View current deployment status
-firebase projects:list
-```
+---
 
-### Full Deployment Workflow Example
+## CI / Automated Workflows
 
-```bash
-# Step 1: Build for UAT
-npm run ng -- build --configuration=uat
+Two GitHub Actions workflows exist in `.github/workflows/`:
 
-# Step 2: Verify build output
-ls -la dist/
+### 1. `ci.yml` — PR Validation
 
-# Step 3: Deploy to Firebase
-firebase deploy --only hosting:dinify-uat
+**Trigger:** Pull requests targeting `main`.
 
-# Step 4: Verify deployment
-# Visit https://dinify-uat.web.app
-```
+Steps (on `ubuntu-latest`, Node 20):
 
-### Rollback Deployment
+1. `npm ci --legacy-peer-deps` — install dependencies
+2. `npm run type-check` — TypeScript type-checking
+3. `npm run lint` — ESLint
+4. `npm run test:ci` — unit tests (runs only the following spec files):
+   - `src/app/_helpers/auth.guard.spec.ts`
+   - `src/app/_helpers/error.interceptor.spec.ts`
+   - `src/app/_services/authentication.service.spec.ts`
+   - `src/app/_services/api.service.spec.ts`
+5. `npm run build:prod` — production build
 
-To rollback to a previous deployment:
+> **Note on test coverage:** The CI pipeline runs only 4 spec files. The repository contains ~40 spec files total, but most are not included in the CI test run. Test coverage should not be considered comprehensive.
 
-```bash
-# View deployment history
-firebase hosting:channel:list
+### 2. `deploy-uat.yml` — UAT Deployment
 
-# Rollback to a specific version
-firebase hosting:channel:deploy <channel-id>
-```
+**Trigger:** Push to `main`, or manual `workflow_dispatch`.
 
-### Environment-Specific Deployment Considerations
+Steps (on `ubuntu-latest`, Node 20):
 
-- **Development**: Deploy frequently, can include uncommitted code for testing
-- **UAT**: Use stable branch, coordinate with QA team before deployment
-- **Staging**: Mirror production environment, final testing before production
-- **Production**: Merge to main branch, thorough testing, create release tag in Git
+1. `npm ci --legacy-peer-deps` — install dependencies
+2. `npm run type-check` — TypeScript type-checking
+3. `npm run lint` — ESLint
+4. `npx ng build --configuration=uat` — UAT build
+5. Deploy to Firebase Hosting (`dinify-uat` target on `dinify-dev` project) via `FirebaseExtended/action-hosting-deploy@v0`
 
 ---
 
@@ -388,70 +245,35 @@ firebase hosting:channel:deploy <channel-id>
 
 ### Unit Tests
 
-Run unit tests using Karma test runner:
+Run unit tests locally using Karma:
 
 ```bash
-# Run tests once
+# Run tests in watch mode
 npm test
 
-# Run tests in watch mode
-npm test -- --watch
+# Run tests once (headless, CI-style)
+npm run test:ci
 
 # Run tests with code coverage
 npm test -- --code-coverage
 
-# Run tests for a specific component
+# Run a specific spec file
 npm test -- --include='**/my-component.spec.ts'
 ```
 
 ### Test Configuration
 
-- **Test Runner**: Karma v6.4.0
-- **Test Framework**: Jasmine v4.5.0
-- **Browser**: Chrome
+- **Test Runner**: Karma ~6.4.0
+- **Test Framework**: Jasmine ~4.5.0
+- **Browser**: Chrome (ChromeHeadlessNoSandbox in CI)
 - **Coverage**: Istanbul via karma-coverage
 
-### Test Files
+### Existing Spec Files
 
-Test files should be placed alongside the component/service with `.spec.ts` extension:
+The repository contains ~40 spec files across the codebase. See the full list with:
 
-```
-src/app/
-├── components/
-│   ├── my-component.component.ts
-│   └── my-component.component.spec.ts
-└── _services/
-    ├── my-service.service.ts
-    └── my-service.service.spec.ts
-```
-
-### Example Unit Test
-
-```typescript
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MyComponent } from './my-component.component';
-
-describe('MyComponent', () => {
-  let component: MyComponent;
-  let fixture: ComponentFixture<MyComponent>;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      declarations: [ MyComponent ]
-    })
-    .compileComponents();
-  });
-
-  beforeEach(() => {
-    fixture = TestBed.createComponent(MyComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-});
+```bash
+find src -name '*.spec.ts'
 ```
 
 ---
@@ -461,97 +283,33 @@ describe('MyComponent', () => {
 ```
 dinify_frontend/
 ├── src/
-│   ├── index.html                 # Main HTML file
-│   ├── main.ts                    # Application entry point
-│   ├── styles.css                 # Global styles
+│   ├── index.html
+│   ├── main.ts
+│   ├── styles.css
 │   ├── app/
-│   │   ├── app.module.ts          # Root module
-│   │   ├── app-routing.module.ts  # Main routing configuration
-│   │   ├── app.component.*        # Root component
-│   │   ├── _common/               # Shared components and services
-│   │   │   ├── dinify-common.module.ts
-│   │   │   ├── common.pipe.ts
-│   │   │   ├── confirm-dialog.service.ts
-│   │   │   ├── auto-complete/
-│   │   │   ├── common-chart/
-│   │   │   ├── common-image/
-│   │   │   ├── common-notifications/
-│   │   │   ├── common-user-profile/
-│   │   │   ├── confirm-dialog/
-│   │   │   ├── currency-input/
-│   │   │   ├── date-picker/
-│   │   │   ├── menu-common/
-│   │   │   └── otp-input/
-│   │   ├── _helpers/              # Guards and interceptors
-│   │   │   ├── auth.guard.ts
-│   │   │   ├── auth.interceptor.ts
-│   │   │   ├── error.interceptor.ts
-│   │   │   └── utilities.ts
-│   │   ├── _models/               # Interfaces and data models
-│   │   │   └── app.models.ts
-│   │   ├── _services/             # Core services
-│   │   │   ├── api.service.ts
-│   │   │   ├── authentication.service.ts
-│   │   │   ├── basket.service.ts
-│   │   │   ├── message.service.ts
-│   │   │   └── storage/
-│   │   ├── auth/                  # Authentication module
-│   │   │   ├── login/
-│   │   │   ├── register/
-│   │   │   ├── change-password/
-│   │   │   ├── forgot-password/
-│   │   │   └── lock-screen/
-│   │   ├── diner-app/             # Customer app module
-│   │   │   ├── diner-app.module.ts
-│   │   │   ├── diner-app.component.*
-│   │   │   ├── home/
-│   │   │   ├── menu/
-│   │   │   ├── menu-item-detail/
-│   │   │   ├── basket/
-│   │   │   ├── orders/
-│   │   │   ├── payment-details/
-│   │   │   ├── order-complete/
-│   │   │   └── error-page/
-│   │   ├── restaurant-mgt/        # Restaurant staff app module
-│   │   │   ├── restaurant-mgt.module.ts
-│   │   │   ├── restaurant-mgt.component.*
-│   │   │   ├── dashboard/
-│   │   │   ├── menu/
-│   │   │   ├── menu-diners/
-│   │   │   ├── orders/
-│   │   │   ├── reports/
-│   │   │   ├── payments/
-│   │   │   ├── settings/
-│   │   │   ├── reviews/
-│   │   │   └── rest-notifications/
-│   │   └── dinify-mgt/            # Admin app module
-│   │       ├── dinify-mgt.module.ts
-│   │       ├── dinify-mgt.component.*
-│   │       ├── dashboard/
-│   │       ├── restaurants/
-│   │       ├── payments/
-│   │       ├── reports/
-│   │       ├── mgt-support/
-│   │       └── mgt-notifications/
-│   ├── assets/                    # Static assets
-│   │   ├── fonts/
-│   │   └── images/
-│   └── environments/              # Environment configurations
-│       ├── environment.ts
-│       ├── environment.dev.ts
-│       ├── environment.uat.ts
-│       ├── environment.staging.ts
-│       └── environment.prod.ts
-├── dist/                          # Build output (generated)
-├── angular.json                   # Angular CLI configuration
-├── tsconfig.json                  # TypeScript configuration
-├── tsconfig.app.json              # App TypeScript configuration
-├── tsconfig.spec.json             # Spec TypeScript configuration
-├── tailwind.config.js             # Tailwind CSS configuration
-├── package.json                   # Dependencies and scripts
-├── firebase.json                  # Firebase hosting configuration
-├── README.md                      # This file
-└── .gitignore                     # Git ignore rules
+│   │   ├── app.module.ts
+│   │   ├── app-routing.module.ts
+│   │   ├── app.component.*
+│   │   ├── _common/              # Shared components and services
+│   │   ├── _helpers/             # Guards and interceptors
+│   │   ├── _models/              # Interfaces and data models
+│   │   ├── _services/            # Core services
+│   │   ├── auth/                 # Authentication module
+│   │   ├── diner-app/            # Customer app module
+│   │   ├── restaurant-mgt/       # Restaurant staff app module
+│   │   └── dinify-mgt/           # Admin app module
+│   ├── assets/
+│   └── environments/
+├── .github/workflows/            # CI and deployment automation
+├── angular.json
+├── tsconfig.json
+├── tsconfig.app.json
+├── tsconfig.spec.json
+├── tailwind.config.js
+├── package.json
+├── firebase.json
+├── .firebaserc
+└── README.md
 ```
 
 ---
@@ -563,13 +321,12 @@ dinify_frontend/
 The application uses lazy-loaded modules for each sub-application:
 
 ```typescript
-// app-routing.module.ts
 const routes: Routes = [
   { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
-  { path: 'auth', loadChildren: () => import('./auth/auth.module').then(m => m.AuthModule) },
-  { path: 'rest-app', canActivate: [AuthGuard], loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module').then(m => m.RestaurantMgtModule) },
-  { path: 'mgt-app', canActivate: [AuthGuard], loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule) },
-  { path: 'diner', loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule) }
+  { path: 'auth', loadChildren: () => import('./auth/auth.module') },
+  { path: 'rest-app', canActivate: [AuthGuard], loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module') },
+  { path: 'mgt-app', canActivate: [AuthGuard], loadChildren: () => import('./dinify-mgt/dinify-mgt.module') },
+  { path: 'diner', loadChildren: () => import('./diner-app/diner-app.module') }
 ];
 ```
 
@@ -595,162 +352,36 @@ const routes: Routes = [
 ## Key Technologies
 
 ### Frontend Framework
-- **Angular**: v17.3.6
-- **TypeScript**: Latest stable
-- **RxJS**: v7.5.0 (Reactive programming)
+- **Angular**: ^20.3.18
+- **TypeScript**: ~5.8.3
+- **RxJS**: ~7.5.0
 
 ### UI & Styling
-- **Tailwind CSS**: v3.x (Utility-first CSS framework)
-- **ApexCharts**: v3.48.0 (Data visualization)
-- **Chart.js**: v4.4.9 (Alternative charting library)
+- **Tailwind CSS**: ^3.4.1
+- **ApexCharts**: ^5.3.2 (via ng-apexcharts ^2.0.4)
+- **Chart.js**: ^4.4.9 (via ng2-charts ^9.0.0)
 
 ### Component Libraries
-- **Angular CDK**: v17.3.6 (Component Development Kit)
-- **ngx-currency**: v18.0.0 (Currency input formatting)
-- **angularx-qrcode**: v15.0.0 (QR code generation)
-- **ngx-intl-telephone-input**: v1.0.1 (Phone number input)
-- **ngx-color-picker**: v14.0.0 (Color selection)
+- **Angular CDK**: ^20.2.14
+- **ngx-currency**: ^19.0.0 (currency input formatting)
+- **angularx-qrcode**: ^20.0.0 (QR code generation)
+- **ngx-intl-telephone-input**: ^1.0.1 (phone number input)
+- **ngx-color-picker**: ^20.0.0 (color selection)
+- **@ryware/ngx-drag-and-drop-lists**: ^3.0.0 (drag-and-drop)
 
 ### Utilities
-- **Firebase Tools**: v14.1.0 (Hosting and deployment)
-- **Moment.js**: v2.30.1 (Date/time handling)
-- **LZ String**: v1.5.0 (String compression)
-- **Awesome PhoneNumber**: v3.3.0 (Phone validation)
+- **date-fns**: ^4.1.0 (date/time handling)
+- **lz-string**: ^1.5.0 (string compression)
+- **awesome-phonenumber**: ^3.3.0 (phone validation)
+- **Firebase Tools**: ^14.1.0 (hosting and deployment, dev dependency)
 
 ### Testing
-- **Karma**: v6.4.0 (Test runner)
-- **Jasmine**: v4.5.0 (Testing framework)
-- **@types/jasmine**: v4.3.0 (TypeScript definitions)
-
----
-
-## Common Development Tasks
-
-### Add a New Component to Restaurant App
-
-```bash
-npm run ng -- generate component restaurant-mgt/components/my-component
-```
-
-### Add a Shared Service
-
-```bash
-npm run ng -- generate service _services/my-shared-service
-```
-
-### Modify Environment API URL
-
-Edit the environment file:
-```typescript
-// src/environments/environment.dev.ts
-export const environment = {
-    production: false,
-    apiUrl: 'https://new-api-url.com',
-    version: 'v1',
-    version2: 'v2'
-};
-```
-
-### Debug Authentication Issues
-
-Check authentication-related files:
-- `_helpers/auth.guard.ts` - Route protection
-- `_helpers/auth.interceptor.ts` - Token injection
-- `_services/authentication.service.ts` - Auth logic
-- Browser localStorage for tokens
-
-### Check Build Bundle Size
-
-```bash
-npm run ng -- build --configuration=production --stats-json
-```
-
----
-
-## Troubleshooting
-
-### Port 4200 Already in Use
-
-```bash
-# Kill process on port 4200
-npx kill-port 4200
-
-# Start on different port
-npm start -- --port 4300
-```
-
-### Node Modules Issues
-
-```bash
-# Clear node modules and reinstall
-rm -r node_modules package-lock.json
-npm install
-```
-
-### Build Errors
-
-```bash
-# Clear build cache
-npm run ng -- build --configuration=production --verbose
-
-# Check for TypeScript errors
-npm run ng -- build
-```
-
-### Firebase Deployment Issues
-
-```bash
-# Verify Firebase configuration
-firebase projects:list
-
-# Check Firebase status
-firebase projects:addfirebase
-
-# Verbose deployment logs
-firebase deploy --debug
-```
-
----
-
-## Contributing
-
-When adding new features or making changes:
-
-1. Create a feature branch from main
-2. Follow Angular style guide conventions
-3. Write unit tests for new code
-4. Update this README if adding new commands or environments
-5. Commit with clear, descriptive messages
-6. Create a pull request for review
-
-### Code Style
-
-- Follow Angular style guide: https://angular.io/guide/styleguide
-- Use kebab-case for file names: `my-component.component.ts`
-- Use PascalCase for class names: `export class MyComponent`
-- Use UPPER_SNAKE_CASE for constants
-
----
-
-## Support
-
-For issues, questions, or contributions, please:
-
-1. Check existing documentation in this README
-2. Review error logs in the browser console
-3. Check Firebase deployment logs
-4. Contact the development team
+- **Karma**: ~6.4.0
+- **Jasmine**: ~4.5.0
+- **@types/jasmine**: ~4.3.0
 
 ---
 
 ## License
 
-© 2024 Dinify. All rights reserved.
-
----
-
-## Revision History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2026-02-18 | Final version before handover - All features complete and tested |
+All rights reserved.
