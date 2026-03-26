@@ -858,32 +858,6 @@ class="bg-white border border-d-red text-d-red p-2 rounded-full shadow-md transi
                                   </select>                             
                             
                         </div>
-                    <!--     <div class="dndPlaceholder col-md-12"
-                        #placeholder></div>
-                        <div class="row">
-                            <div class="col-md-6"
-                              [dndList]
-                              [dndPlaceholder]="placeholder"
-                              [dndModel]="simpleList[0]">
-                              <div *ngFor="let item of simpleList[0]"
-                                class="col-md-12"
-                                [dndType]="'item'"
-                                (dndMoved)="removeItem(item, simpleList[0])"
-                                [dndDraggable]
-                                [dndObject]="item">{{item}}</div>
-                            </div>
-                            <div class="col-md-6"
-                              [dndList]
-                              [dndModel]="simpleList[1]"
-                              [dndPlaceholder]="placeholder">
-                              <div *ngFor="let item of simpleList[1]"
-                                class="col-md-12"
-                                [dndType]="'item'"
-                                (dndMoved)="removeItem(item, simpleList[1])"
-                                [dndDraggable]
-                                [dndObject]="item">{{item}}</div>
-                            </div>
-                          </div> -->
                          
                         <div formArrayName="groups">
                         <div *ngIf="CategoryForm.get('has_groups')?.getRawValue()" class="flex flex-col space-y-3 mt-4">
