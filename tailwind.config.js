@@ -7,6 +7,14 @@ module.exports = {
     extend: {
       colors: {
         'd-red': '#FF2C32',
+        'primary': '#FF2C32',
+        'primary-foreground': '#FFFFFF',
+        'muted': '#F1F5F9',
+        'muted-foreground': '#64748B',
+        'border': '#E2E8F0',
+        'destructive': '#EF4444',
+        'card': '#FFFFFF',
+        'background': '#F8FAFC',
       },
       backgroundImage: {
         'fade': 'linear-gradient(to right, white, rgba(0, 0, 0, 0))',
