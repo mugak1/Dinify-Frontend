@@ -1,202 +1,156 @@
-/* You can add global styles to this file, and also import other style files */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@font-face{
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-Black.ttf') format('truetype');
-font-weight: 900;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-BlackItalic.ttf') format('truetype');
-font-weight: 900;
-font-style: italic;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-ExtraBold.ttf') format('truetype');
-font-weight: 800;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-ExtraBoldItalic.ttf') format('truetype');
-font-weight: 800;
-font-style: italic;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-ExtraBold.ttf') format('truetype');
-font-weight: 700;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-ExtraBoldItalic.ttf') format('truetype');
-font-weight: 700;
-font-style: italic;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-Bold.ttf') format('truetype');
-font-weight: 600;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-BoldItalic.ttf') format('truetype');
-font-weight: 600;
-font-style: italic;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-Medium.ttf') format('truetype');
-font-weight: 500;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-MediumItalic.ttf') format('truetype');
-font-weight: 500;
-font-style: italic;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-Regular.ttf') format('truetype');
-font-weight: 400;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-Italic.ttf') format('truetype');
-font-weight: 400;
-font-style: italic;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-Light.ttf') format('truetype');
-font-weight: 300;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-LightItalic.ttf') format('truetype');
-font-weight: 300;
-font-style: italic;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-ExtraLight.ttf') format('truetype');
-font-weight: 200;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-ExtraLightItalic.ttf') format('truetype');
-font-weight: 200;
-font-style: italic;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-Thin.ttf') format('truetype');
-font-weight: 100;
-}
-@font-face {
-font-family: 'Montserrat';
-src: url('assets/fonts/Montserrat-ThinItalic.ttf') format('truetype');
-font-weight: 100;
-font-style: italic;
-}
+
 @layer base {
-  img{
+  :root {
+    --background: 0 0% 96%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 4 90% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 88%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 88%;
+    --muted-foreground: 0 0% 38%;
+    --accent: 4 90% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 4 90% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 9%;
+    --border: 0 0% 100%;
+    --input: 0 0% 85%;
+    --ring: 4 90% 52%;
+    --radius: 0.5rem;
+    --shadow-sm: 0 2px 6px 0 hsl(0 0% 0% / 0.1), 0 1px 3px -1px hsl(0 0% 0% / 0.08);
+    --shadow-md: 0 8px 24px -4px hsl(0 0% 0% / 0.15), 0 4px 12px -2px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 20px 40px -8px hsl(0 0% 0% / 0.22), 0 10px 20px -4px hsl(0 0% 0% / 0.14);
+    --chart-1: 4 90% 52%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 0% 30%;
+    --chart-5: 0 0% 60%;
+    --sidebar-background: 0 0% 95%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 4 90% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 88%;
+    --sidebar-accent-foreground: 0 0% 20%;
+    --sidebar-border: 0 0% 85%;
+    --sidebar-ring: 4 90% 52%;
+  }
+
+  .dark {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 4 90% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 72%;
+    --accent: 4 90% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 4 90% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 9%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 4 90% 52%;
+    --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.4), 0 1px 2px -1px hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.35), 0 2px 6px -2px hsl(0 0% 0% / 0.2);
+    --shadow-lg: 0 12px 24px -4px hsl(0 0% 0% / 0.5), 0 6px 12px -4px hsl(0 0% 0% / 0.3);
+    --chart-1: 4 90% 52%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 0% 70%;
+    --chart-5: 0 0% 50%;
+    --sidebar-background: 0 0% 9%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 4 90% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 4 90% 52%;
+  }
+
+  img {
     max-width: unset;
   }
-    html {
-        font-family: "Montserrat";
-        height: 100dvh;
-        overflow: hidden;
-      }
-      @font-face {
-        font-family: 'Montserrat';
-        font-style: normal;
-        font-weight: 100;
-        font-display: swap;
-        src: url(assets/fonts/Montserrat-Regular.woff2) format('woff2');
-      }
-     /**/@font-face {
-      font-family: 'Montserrat';
-      font-style: medium;
-      font-weight: 300;
-      font-display: swap;
-      src: url(assets/fonts/Montserrat-Medium.ttf) format('truetype');
-    } 
-    @font-face {
-      font-family: 'Montserrat';
-      font-style: bold;
-      font-weight: 300;
-      font-display: swap;
-      src: url(assets/fonts/Montserrat-Bold.woff2) format('woff2');
-    }
- /**/    @font-face {
-      font-family: 'Montserrat';
-      font-style: extra-bold;
-      font-weight: 300;
-      font-display: swap;
-      src: url(assets/fonts/Montserrat-ExtraBold.ttf) format('truetype');
-    } 
-   
-    
-      h1 {
-        @apply text-2xl;
-      }
-      h2 {
-        @apply text-xl;
-      }
-      h3 {
-        @apply text-lg;
-      }
-      a:hover {
-        @apply text-d-red;
-      }
-    
-  }
-  .ng-submitted input.ng-invalid,.ng-submitted input.ng-invalid .error-msg,
-  .ng-submitted textarea.ng-invalid,.ng-submitted textarea.ng-invalid .error-msg,
-  .ng-submitted select.ng-invalid,.ng-submitted select.ng-invalid .error-msg{
-    border: 1px solid #FF2C32 !important;
-    display: block;
-  }
-  .error-msg{
-    display: none;
-  }
-  .phoneInput{
-    width: 100%;
-    outline: 0;
-  }
-  .phoneInput:active,.phoneInput:focus-visible,.phoneInput:focus, .phoneInput:target{
-    border: 0;
-  }
-  html{
-    
+
+  html {
     font-size: 14px;
-   
+    height: 100dvh;
+    overflow: hidden;
   }
-  @supports (-webkit-touch-callout: none) {
-    .h-screen {
-      height: 100vh;
-      max-height: -webkit-fill-available !important;
-    }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Poppins', system-ui, sans-serif;
   }
-  @layer base {
-  
-    html,
-    body {
-      @apply no-scrollbar;
-    }
+
+  h1 {
+    @apply text-2xl;
   }
-  /* add the code bellow */ 
+  h2 {
+    @apply text-xl;
+  }
+  h3 {
+    @apply text-lg;
+  }
+
+  html,
+  body {
+    @apply no-scrollbar;
+  }
+}
+
+.ng-submitted input.ng-invalid,.ng-submitted input.ng-invalid .error-msg,
+.ng-submitted textarea.ng-invalid,.ng-submitted textarea.ng-invalid .error-msg,
+.ng-submitted select.ng-invalid,.ng-submitted select.ng-invalid .error-msg{
+  border: 1px solid #FF2C32 !important;
+  display: block;
+}
+.error-msg{
+  display: none;
+}
+.phoneInput{
+  width: 100%;
+  outline: 0;
+}
+.phoneInput:active,.phoneInput:focus-visible,.phoneInput:focus, .phoneInput:target{
+  border: 0;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .h-screen {
+    height: 100vh;
+    max-height: -webkit-fill-available !important;
+  }
+}
+
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */
   .no-scrollbar::-webkit-scrollbar {
       display: none;
   }
- /* Hide scrollbar for IE, Edge and Firefox */
+  /* Hide scrollbar for IE, Edge and Firefox */
   .no-scrollbar {
       -ms-overflow-style: none;  /* IE and Edge */
       scrollbar-width: none;  /* Firefox */
-}
+  }
 }
