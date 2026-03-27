@@ -26,6 +26,8 @@ import { SupportComponent } from './support/support.component';
 import { BillingComponent } from './settings/billing/billing.component';
 import { RestNotificationsComponent } from './rest-notifications/rest-notifications.component';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
+import { SidebarComponent } from './layout/sidebar/sidebar.component';
+import { TopNavComponent } from './layout/top-nav/top-nav.component';
 
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
@@ -86,7 +88,9 @@ const routes: Routes = [
     DragDropModule,
     NgApexchartsModule,
     BaseChartDirective,
-    CommonChartModule
+    CommonChartModule,
+    SidebarComponent,
+    TopNavComponent
 ],
   exports:[
     RouterModule

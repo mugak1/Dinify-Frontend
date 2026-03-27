@@ -1,7 +1,25 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import {
+  LucideAngularModule,
+  LayoutDashboard,
+  UtensilsCrossed,
+  ClipboardList,
+  Grid3x3,
+  Star,
+  FileBarChart,
+  CreditCard,
+  LifeBuoy,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  LUCIDE_ICONS,
+  LucideIconProvider,
+} from 'lucide-angular';
+
+const icons = { LayoutDashboard, UtensilsCrossed, ClipboardList, Grid3x3, Star, FileBarChart, CreditCard, LifeBuoy, Settings, ChevronLeft, ChevronRight, X };
 
 export interface NavItem {
   label: string;
@@ -13,6 +31,7 @@ export interface NavItem {
   selector: 'app-sidebar',
   standalone: true,
   imports: [CommonModule, RouterModule, LucideAngularModule],
+  providers: [{ provide: LUCIDE_ICONS, multi: true, useValue: new LucideIconProvider(icons) }],
   templateUrl: './sidebar.component.html',
 })
 export class SidebarComponent {
