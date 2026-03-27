@@ -4,9 +4,6 @@ import { ColorPickerDirective } from 'ngx-color-picker';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './dashboard/dashboard.component';
-import { Dashboard2Component } from './dashboard/dashboard2.component';
-import { Dashboard3Component } from './dashboard/dashboard3.component';
-import { Dashboard5Component } from './dashboard/dashboard5.component';
 import { RouterModule, Routes } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { NgApexchartsModule } from 'ng-apexcharts';
@@ -21,7 +18,6 @@ import { MenuDesignComponent } from './settings/menu-design/menu-design.componen
 import { OrdersComponent } from './orders/orders.component';
 import { ReportsComponent } from './reports/reports.component';
 import { ReportDetailComponent } from './report-detail/report-detail.component';
-import { MenuDinersComponent } from './menu-diners/menu-diners.component';
 import { ReviewsComponent } from './reviews/reviews.component';
 import { ReviewsManagementComponent } from './reviews/reviews-management.component';
 import { PaymentsComponent } from './payments/payments.component';
@@ -34,9 +30,6 @@ import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
   {path:'dashboard',component:DashboardComponent,title:'Dashboard'},
-  {path:'dashboard2',component:Dashboard2Component,title:'Dashboard 2 Sample'},
-  {path:'dashboard3',component:Dashboard3Component,title:'Dashboard 3 Enhanced'},
-  {path:'dashboard5',component:Dashboard5Component,title:'Dashboard 5 - 4 Column'},
   {path:'settings',component:SettingsComponent,title:'Settings',children:[
     {path: "", redirectTo: "rest-users", pathMatch: "full"},
     {path:'restaurant-profile',component:RestProfileComponent},
@@ -65,9 +58,6 @@ const routes: Routes = [
 @NgModule({
   declarations: [
     DashboardComponent,
-    Dashboard2Component,
-    Dashboard3Component,
-    Dashboard5Component,
     SettingsComponent,
     MenuComponent,
     TablesComponent,
@@ -76,7 +66,6 @@ const routes: Routes = [
     OrdersComponent,
     ReportsComponent,
     ReportDetailComponent,
-    MenuDinersComponent,
     RestUsersComponent,
     ReviewsComponent,
     ReviewsManagementComponent,
