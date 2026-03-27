@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { cn } from '../../utils/cn';
 
 @Component({
-  selector: 'dn-switch',
+  selector: 'app-dn-switch',
   standalone: true,
   template: `
     <button

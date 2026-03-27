@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter, HostListener } from '@angular/c
 import { cn } from '../../utils/cn';
 
 @Component({
-  selector: 'dn-sheet',
+  selector: 'app-dn-sheet',
   standalone: true,
   template: `
     @if (open) {

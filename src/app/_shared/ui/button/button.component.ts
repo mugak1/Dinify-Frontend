@@ -21,7 +21,7 @@ const sizeClasses: Record<ButtonSize, string> = {
 };
 
 @Component({
-  selector: 'dn-button, button[dn-button]',
+  selector: 'app-dn-button, button[app-dn-button]',
   standalone: true,
   template: `<ng-content></ng-content>`,
   host: {

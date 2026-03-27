@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter, ContentChildren, QueryList, Aft
 import { cn } from '../../utils/cn';
 
 @Component({
-  selector: 'dn-tab-trigger',
+  selector: 'app-dn-tab-trigger',
   standalone: true,
   template: `<button [class]="buttonClass" (click)="select()"><ng-content></ng-content></button>`,
 })
@@ -26,7 +26,7 @@ export class TabTriggerComponent {
 }
 
 @Component({
-  selector: 'dn-tab-list',
+  selector: 'app-dn-tab-list',
   standalone: true,
   template: `
     <div class="flex bg-muted rounded-lg p-1 gap-1">
@@ -37,7 +37,7 @@ export class TabTriggerComponent {
 export class TabListComponent {}
 
 @Component({
-  selector: 'dn-tab-content',
+  selector: 'app-dn-tab-content',
   standalone: true,
   template: `
     @if (active) {
@@ -53,7 +53,7 @@ export class TabContentComponent {
 }
 
 @Component({
-  selector: 'dn-tabs',
+  selector: 'app-dn-tabs',
   standalone: true,
   template: `<ng-content></ng-content>`,
 })

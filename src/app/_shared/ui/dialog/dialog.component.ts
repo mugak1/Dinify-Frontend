@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, HostListener } from '@angular/core';
 
 @Component({
-  selector: 'dn-dialog',
+  selector: 'app-dn-dialog',
   standalone: true,
   template: `
     @if (open) {

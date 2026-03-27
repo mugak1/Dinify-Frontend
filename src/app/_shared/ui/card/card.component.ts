@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { cn } from '../../utils/cn';
 
 @Component({
-  selector: 'dn-card',
+  selector: 'app-dn-card',
   standalone: true,
   template: `
     <div [class]="containerClass">

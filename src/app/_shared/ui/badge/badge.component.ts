@@ -13,7 +13,7 @@ const variantClasses: Record<BadgeVariant, string> = {
 };
 
 @Component({
-  selector: 'dn-badge',
+  selector: 'app-dn-badge',
   standalone: true,
   template: `<ng-content></ng-content>`,
   host: {

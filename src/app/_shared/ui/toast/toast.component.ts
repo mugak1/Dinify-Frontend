@@ -9,7 +9,7 @@ const borderColors: Record<Toast['type'], string> = {
 };
 
 @Component({
-  selector: 'dn-toast',
+  selector: 'app-dn-toast',
   standalone: true,
   template: `
     <div class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
