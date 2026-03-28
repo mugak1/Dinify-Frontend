@@ -7,11 +7,7 @@ import { RouterModule } from '@angular/router';
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './sidebar.component.html',
-  styles: [`
-    :host {
-      display: contents;
-    }
-  `],
+  styles: [`:host { display: flex; height: 100%; }`],
 })
 export class SidebarComponent {
   @Input() isOpen = false;

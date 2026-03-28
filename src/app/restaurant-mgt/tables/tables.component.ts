@@ -62,11 +62,10 @@ this.sessionStorage.setItem('restaurant',this.auth.currentRestaurant);
 }else{
   this.loadRestaurant();
 }
-this.route.url.subscribe((_x)=>{
-  if(!this.router.url.includes('menu')){
-      this.router.navigate(this.auth?.currentRestaurantRole?.restaurant_id?['/rest-app/dining-tables']:['/mgt-app/restaurants/rest-app',this.restaurant,'dining-tables']);
-      this.closeMenu();
-    }
+this.route.url.subscribe(() => {
+  if (this.view_menu && !this.router.url.includes('menu')) {
+    this.closeMenu();
+  }
 })
 //window.addEventListener('popstate', this.handleBackNavigation);
 
