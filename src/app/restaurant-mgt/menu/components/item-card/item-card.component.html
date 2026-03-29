@@ -1,0 +1,71 @@
+<div class="rounded-lg border border-border bg-card overflow-hidden transition-all"
+     [class.opacity-50]="!item.available"
+     [class.grayscale]="!item.available">
+
+  <!-- Image area -->
+  <div class="relative h-40 bg-muted">
+    <img *ngIf="imageUrl"
+         [src]="imageUrl"
+         [alt]="item.name"
+         class="w-full h-full object-cover"
+         loading="lazy">
+    <div *ngIf="!imageUrl"
+         class="w-full h-full flex items-center justify-center text-muted-foreground">
+      <!-- Utensils placeholder icon -->
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+        <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+      </svg>
+    </div>
+
+    <!-- Discount badge -->
+    <app-dn-badge *ngIf="hasDiscount" variant="warning" class="absolute top-2 left-2">
+      Discount
+    </app-dn-badge>
+
+    <!-- Drag handle overlay -->
+    <div *ngIf="showDragHandle" cdkDragHandle
+         class="absolute top-2 right-2 cursor-grab p-1 rounded bg-background/80 text-muted-foreground">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/>
+        <circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="p-3">
+    <h3 class="font-semibold text-foreground truncate" [title]="item.name">{{ item.name }}</h3>
+    <p class="text-sm text-muted-foreground line-clamp-2 mt-1">{{ item.description }}</p>
+    <span class="font-semibold text-primary mt-2 block">UGX {{ item.primary_price | number }}</span>
+  </div>
+
+  <!-- Actions footer -->
+  <div class="px-3 pb-3 flex items-center justify-between" (click)="$event.stopPropagation()">
+    <app-dn-switch
+      [checked]="item.available"
+      (checkedChange)="toggleAvailability.emit({ id: item.id, available: $event })">
+    </app-dn-switch>
+    <div class="flex gap-1">
+      <!-- Pencil icon -->
+      <button app-dn-button variant="ghost" size="icon" class="h-8 w-8" (click)="edit.emit()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+          <path d="m15 5 4 4"/>
+        </svg>
+      </button>
+      <!-- Trash icon -->
+      <button app-dn-button variant="ghost" size="icon" class="h-8 w-8 text-destructive" (click)="delete.emit()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+          <line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>

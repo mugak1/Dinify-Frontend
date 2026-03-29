@@ -29,6 +29,8 @@ import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2
 import { SidebarComponent } from './layout/sidebar/sidebar.component';
 import { TopNavComponent } from './layout/top-nav/top-nav.component';
 import { SectionRailComponent } from './menu/components/section-rail/section-rail.component';
+import { ItemCardComponent } from './menu/components/item-card/item-card.component';
+import { ItemListComponent } from './menu/components/item-list/item-list.component';
 import { StorageModule } from '../_services/storage/storage.module';
 
 const routes: Routes = [
@@ -94,6 +96,8 @@ const routes: Routes = [
     SidebarComponent,
     TopNavComponent,
     SectionRailComponent,
+    ItemCardComponent,
+    ItemListComponent,
     StorageModule.forRoot({ prefix: 'dinify-restaurant-mgt' }),
 ],
   exports:[

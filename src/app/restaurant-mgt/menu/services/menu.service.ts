@@ -266,6 +266,10 @@ export class MenuService {
     this._sections$.next(sections);
   }
 
+  getItemsSnapshot(): MenuItem[] {
+    return this._items$.getValue();
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
