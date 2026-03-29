@@ -18,6 +18,7 @@ import { InputModule } from './_common/currency-input/input.module';
 import { DinifyCommonModule } from "./_common/dinify-common.module";
 import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
+import { StorageModule } from './_services/storage/storage.module';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -35,7 +36,8 @@ import { WelcomeComponent } from './auth/welcome/welcome.component';
         ReactiveFormsModule,
         NgxIntlTelephoneInputModule,
         DinifyCommonModule,
-        FormsModule], providers: [
+        FormsModule,
+        StorageModule.forRoot({ prefix: 'dinify' })], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),
