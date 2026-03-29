@@ -31,6 +31,8 @@ import { TopNavComponent } from './layout/top-nav/top-nav.component';
 import { SectionRailComponent } from './menu/components/section-rail/section-rail.component';
 import { ItemCardComponent } from './menu/components/item-card/item-card.component';
 import { ItemListComponent } from './menu/components/item-list/item-list.component';
+import { SectionFormDialogComponent } from './menu/components/section-form-dialog/section-form-dialog.component';
+import { ItemFormDialogComponent } from './menu/components/item-form-dialog/item-form-dialog.component';
 import { StorageModule } from '../_services/storage/storage.module';
 
 const routes: Routes = [
@@ -98,6 +100,8 @@ const routes: Routes = [
     SectionRailComponent,
     ItemCardComponent,
     ItemListComponent,
+    SectionFormDialogComponent,
+    ItemFormDialogComponent,
     StorageModule.forRoot({ prefix: 'dinify-restaurant-mgt' }),
 ],
   exports:[

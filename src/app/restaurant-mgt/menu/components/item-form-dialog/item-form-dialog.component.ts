@@ -1,0 +1,144 @@
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Observable } from 'rxjs';
+import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
+import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
+import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
+import { BadgeComponent } from 'src/app/_shared/ui/badge/badge.component';
+import { MenuItem, MenuSectionListItem } from 'src/app/_models/app.models';
+import { MenuService } from '../../services/menu.service';
+import { environment } from 'src/environments/environment';
+
+@Component({
+  selector: 'app-item-form-dialog',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    DialogComponent,
+    ButtonComponent,
+    SwitchComponent,
+    BadgeComponent,
+  ],
+  templateUrl: './item-form-dialog.component.html',
+})
+export class ItemFormDialogComponent implements OnChanges {
+
+  @Input() open = false;
+  @Input() item?: MenuItem;
+  @Input() sectionId?: string;
+
+  @Output() closed = new EventEmitter<void>();
+  @Output() saved = new EventEmitter<any>();
+
+  form!: FormGroup;
+  sections$: Observable<MenuSectionListItem[]>;
+  imagePreview = '';
+
+  constructor(
+    private fb: FormBuilder,
+    private menuService: MenuService
+  ) {
+    this.sections$ = this.menuService.sections$;
+    this.buildForm();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['open'] && this.open) {
+      this.buildForm();
+      this.imagePreview = '';
+
+      if (this.item) {
+        this.form.patchValue({
+          id: this.item.id,
+          name: this.item.name,
+          description: this.item.description,
+          primary_price: this.item.primary_price,
+          available: this.item.available,
+          allergens: this.item.allergens ?? [],
+          image: this.item.image,
+        });
+
+        // Set section from item's group context or provided sectionId
+        if (this.sectionId) {
+          this.form.get('section')?.setValue(this.sectionId);
+        }
+
+        if (this.item.image) {
+          this.imagePreview = environment.apiUrl + this.item.image;
+        }
+      } else {
+        // New item — set default section
+        if (this.sectionId) {
+          this.form.get('section')?.setValue(this.sectionId);
+        }
+      }
+    }
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      return;
+    }
+
+    this.form.get('image')?.setValue(file);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.imagePreview = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  onAllergenAdd(value: string): void {
+    const trimmed = value?.trim();
+    if (!trimmed) return;
+
+    const current: string[] = this.form.get('allergens')?.value ?? [];
+    this.form.get('allergens')?.setValue([...current, trimmed]);
+  }
+
+  onAllergenRemove(index: number): void {
+    const current: string[] = [...(this.form.get('allergens')?.value ?? [])];
+    current.splice(index, 1);
+    this.form.get('allergens')?.setValue(current);
+  }
+
+  onSubmit(): void {
+    if (this.form.invalid) return;
+
+    const payload = { ...this.form.getRawValue() };
+
+    // If image is a string (existing URL, not changed), remove from payload
+    // so the API service doesn't try to send it as FormData
+    if (typeof payload.image === 'string') {
+      delete payload.image;
+    }
+
+    this.saved.emit(payload);
+  }
+
+  onClose(): void {
+    this.closed.emit();
+  }
+
+  private buildForm(): void {
+    this.form = this.fb.group({
+      id: [''],
+      name: ['', Validators.required],
+      section: ['', Validators.required],
+      description: [''],
+      image: [null],
+      primary_price: [0, [Validators.required, Validators.min(1)]],
+      available: [true],
+      allergens: [[] as string[]],
+    });
+  }
+}

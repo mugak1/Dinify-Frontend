@@ -1,0 +1,104 @@
+<app-dn-dialog [open]="open" (closed)="onClose()">
+  <h2 class="text-lg font-semibold text-foreground mb-4">
+    {{ item ? 'Edit' : 'New' }} Item
+  </h2>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+
+    <!-- Image upload -->
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Image</label>
+      <div class="relative h-40 bg-muted rounded-lg overflow-hidden">
+        <img *ngIf="imagePreview"
+             [src]="imagePreview"
+             alt="Item image"
+             class="w-full h-full object-cover" />
+        <div *ngIf="!imagePreview"
+             class="w-full h-full flex items-center justify-center text-muted-foreground">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+            <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+          </svg>
+        </div>
+      </div>
+      <input type="file"
+             accept="image/jpeg,image/png,image/gif"
+             (change)="onFileSelected($event)"
+             class="mt-2 block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+    </div>
+
+    <!-- Name -->
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Name *</label>
+      <input formControlName="name"
+             class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+             placeholder="Item name" />
+    </div>
+
+    <!-- Section dropdown -->
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Section *</label>
+      <select formControlName="section"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <option value="" disabled>Select a section</option>
+        <option *ngFor="let s of sections$ | async" [value]="s.id">{{ s.name }}</option>
+      </select>
+    </div>
+
+    <!-- Description -->
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Description</label>
+      <textarea formControlName="description"
+                rows="3"
+                class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Optional description">
+      </textarea>
+    </div>
+
+    <!-- Price -->
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Price (UGX) *</label>
+      <input type="number"
+             formControlName="primary_price"
+             min="1"
+             class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+             placeholder="0" />
+    </div>
+
+    <!-- Available toggle -->
+    <div class="flex items-center gap-2">
+      <app-dn-switch
+        [checked]="form.get('available')?.value"
+        (checkedChange)="form.get('available')?.setValue($event)">
+      </app-dn-switch>
+      <span class="text-sm text-foreground">Available</span>
+    </div>
+
+    <!-- Allergens / Tags -->
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Tags / Allergens</label>
+      <div *ngIf="form.get('allergens')?.value?.length" class="flex flex-wrap gap-1 mb-2">
+        <app-dn-badge *ngFor="let tag of form.get('allergens')?.value; let i = index"
+                      variant="secondary"
+                      class="cursor-pointer"
+                      (click)="onAllergenRemove(i)">
+          {{ tag }} &times;
+        </app-dn-badge>
+      </div>
+      <input #tagInput
+             placeholder="Add tag and press Enter"
+             class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+             (keydown.enter)="onAllergenAdd(tagInput.value); tagInput.value = ''; $event.preventDefault()" />
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-end gap-2 pt-2">
+      <button type="button" app-dn-button variant="outline" (click)="onClose()">Cancel</button>
+      <button type="submit" app-dn-button variant="default" [disabled]="form.invalid">
+        {{ item ? 'Update' : 'Create' }}
+      </button>
+    </div>
+  </form>
+
+</app-dn-dialog>

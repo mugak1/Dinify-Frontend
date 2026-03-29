@@ -1,0 +1,89 @@
+<app-dn-dialog [open]="open" (closed)="onClose()">
+
+  <!-- Delete mode -->
+  <ng-container *ngIf="deleteMode; else formMode">
+    <h2 class="text-lg font-semibold text-foreground mb-4">Delete Section</h2>
+    <p class="text-foreground">
+      Are you sure you want to delete <strong>{{ section?.name }}</strong>?
+    </p>
+    <p class="text-sm text-muted-foreground mt-1 mb-4">
+      All groups and items within this section will also be deleted.
+    </p>
+
+    <label class="block text-sm font-medium text-foreground mb-1">Reason for deletion *</label>
+    <textarea
+      [(ngModel)]="deleteReason"
+      rows="3"
+      placeholder="Please provide a reason..."
+      class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+    </textarea>
+
+    <div class="flex justify-end gap-2 mt-4">
+      <button type="button" app-dn-button variant="outline" (click)="onClose()">Cancel</button>
+      <button type="button" app-dn-button variant="destructive"
+              [disabled]="!deleteReason.trim()"
+              (click)="onDelete()">
+        Delete
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- Form mode -->
+  <ng-template #formMode>
+    <h2 class="text-lg font-semibold text-foreground mb-4">
+      {{ section ? 'Edit' : 'New' }} Section
+    </h2>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+
+      <!-- Name -->
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1">Name *</label>
+        <input formControlName="name"
+               class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+               placeholder="Section name" />
+      </div>
+
+      <!-- Description -->
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1">Description</label>
+        <textarea formControlName="description"
+                  rows="3"
+                  class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Optional description">
+        </textarea>
+      </div>
+
+      <!-- Banner Image -->
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1">Banner Image</label>
+        <img *ngIf="imagePreview"
+             [src]="imagePreview"
+             alt="Banner preview"
+             class="h-24 w-full object-cover rounded-lg mb-2" />
+        <input type="file"
+               accept="image/*"
+               (change)="onFileSelected($event)"
+               class="block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+      </div>
+
+      <!-- Available -->
+      <div class="flex items-center gap-2">
+        <app-dn-switch
+          [checked]="form.get('available')?.value"
+          (checkedChange)="form.get('available')?.setValue($event)">
+        </app-dn-switch>
+        <span class="text-sm text-foreground">Available</span>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" app-dn-button variant="outline" (click)="onClose()">Cancel</button>
+        <button type="submit" app-dn-button variant="default" [disabled]="form.invalid">
+          {{ section ? 'Update' : 'Create' }}
+        </button>
+      </div>
+    </form>
+  </ng-template>
+
+</app-dn-dialog>
