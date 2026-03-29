@@ -10,7 +10,7 @@
          [ngClass]="{ 'justify-center': !isOpen }">
       <!-- Expanded: full logo (emblem + wordmark) -->
       <a *ngIf="isOpen" routerLink="/rest-app/dashboard" class="flex items-center overflow-hidden">
-        <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-8" />
+        <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-8 w-auto max-w-[160px]" />
       </a>
       <!-- Collapsed: emblem only -->
       <a *ngIf="!isOpen" routerLink="/rest-app/dashboard" class="flex items-center justify-center w-full">
