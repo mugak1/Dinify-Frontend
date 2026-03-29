@@ -4,7 +4,8 @@ import { ApiService } from '../_services/api.service';
 import { RestaurantDetail } from '../_models/app.models';
 import { ConfirmDialogService } from '../_common/confirm-dialog.service';
 import { environment } from 'src/environments/environment';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
+import { filter } from 'rxjs/operators';
 
 @Component({
     selector: 'app-restaurant-mgt',
@@ -40,10 +41,12 @@ export class RestaurantMgtComponent {
         });
     }
 
-    this.router.events.subscribe((_event) => {
-      this.has_tables = this.router.url.includes('tables');
-      this.cdr.detectChanges();
-    });
+    this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.has_tables = this.router.url.includes('tables');
+        this.cdr.detectChanges();
+      });
   }
 
   logout(): void {
