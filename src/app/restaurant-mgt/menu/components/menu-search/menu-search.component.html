@@ -1,0 +1,92 @@
+<div *ngIf="open" class="fixed inset-0 z-50 flex flex-col items-center pt-[15vh]">
+  <!-- Backdrop -->
+  <div class="fixed inset-0 bg-black/50" (click)="close()"></div>
+
+  <!-- Search panel -->
+  <div class="relative z-50 bg-card rounded-lg shadow-lg w-full max-w-2xl mx-4 overflow-hidden">
+
+    <!-- Search input -->
+    <div class="flex items-center gap-2 p-4 border-b border-border">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text"
+             [(ngModel)]="searchQuery"
+             (keydown.enter)="onSearch()"
+             placeholder="Search menu items..."
+             class="flex-1 bg-transparent text-foreground text-lg outline-none placeholder:text-muted-foreground"
+             autofocus />
+      <button app-dn-button variant="ghost" size="sm" (click)="close()">
+        Cancel
+      </button>
+    </div>
+
+    <!-- Results area -->
+    <div class="max-h-[50vh] overflow-y-auto">
+
+      <!-- Searching indicator -->
+      <div *ngIf="isSearching$ | async" class="flex items-center justify-center py-8 text-muted-foreground">
+        Searching...
+      </div>
+
+      <!-- Results list -->
+      <ng-container *ngIf="(isSearching$ | async) === false">
+        <ng-container *ngIf="searchResults$ | async as results">
+
+          <!-- No results -->
+          <div *ngIf="results.length === 0 && searchQuery.trim()"
+               class="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <p>No results found</p>
+          </div>
+
+          <!-- Result items -->
+          <div *ngFor="let item of results"
+               class="flex items-center gap-3 px-4 py-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+               (click)="onSelectResult(item)">
+
+            <!-- Item image -->
+            <div class="w-12 h-12 rounded bg-muted overflow-hidden shrink-0">
+              <img *ngIf="getImageUrl(item)"
+                   [src]="getImageUrl(item)"
+                   [alt]="item.name"
+                   class="w-full h-full object-cover"
+                   loading="lazy" />
+              <div *ngIf="!getImageUrl(item)"
+                   class="w-full h-full flex items-center justify-center text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+                  <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Item info -->
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-foreground truncate">{{ item.name }}</p>
+              <p class="text-sm text-muted-foreground truncate">{{ item.description }}</p>
+            </div>
+
+            <!-- Price -->
+            <span class="font-semibold text-primary shrink-0">UGX {{ item.primary_price | number }}</span>
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <!-- Empty state (no search yet) -->
+      <div *ngIf="!searchQuery.trim() && (isSearching$ | async) === false"
+           class="flex flex-col items-center justify-center py-8 text-muted-foreground">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <p class="text-sm">Type a name and press Enter to search</p>
+      </div>
+    </div>
+  </div>
+</div>
