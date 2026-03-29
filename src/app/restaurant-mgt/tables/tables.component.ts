@@ -2,7 +2,8 @@ import { Location } from '@angular/common';
 import { ChangeDetectorRef, Component, HostListener, Inject, AfterViewInit, OnDestroy, DOCUMENT } from '@angular/core';
 import { FormGroup, FormBuilder, Validators, AbstractControl } from '@angular/forms';
 import { SafeUrl } from '@angular/platform-browser';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { DiningArea, DiningAreaTable, GroupedTableAreas, OrderedItem, OrdersListItem, RestaurantDetail } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
@@ -73,9 +74,11 @@ this.route.url.subscribe(() => {
 //this.CreateTable5();
   }
   ngAfterViewInit(){
-    this.router.events.subscribe(() => {
-      this.cdr.detectChanges();
-  });
+    this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.cdr.detectChanges();
+    });
   }
   handleBackNavigation = () => {
     
@@ -254,7 +257,7 @@ this.showModal!=this.showModal; */
 /* this.rest=x?.data?.records[0];
 this.showModal!=this.showModal; */
       }else{
-        const d :any[] =x?.data as any;
+        const d :any[] = (x?.data as any) || [];
       this.list=d.map(area => ({ ...area, isCollapsed: d.length==1? (false):true }));
 
       if(openIndex!==undefined){

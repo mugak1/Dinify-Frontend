@@ -1,4 +1,4 @@
-<div class="h-full flex flex-col overflow-hidden">
+<div class="flex flex-col overflow-hidden h-[calc(100vh-6rem)]">
     
 <div class="shadow-md sm:rounded-lg">
     <div class="flex items-center justify-between flex-column md:flex-row flex-wrap space-y-4 md:space-y-0 py-4 bg-white">
@@ -12,8 +12,12 @@
         </div>
 
     </div>
-    <div class="bg-white flex-1 p-4 max-h-[calc(95vh-4rem-3rem)] flex flex-col">
+    <div class="bg-white flex-1 p-4 flex flex-col">
         <div class="flex-1 bg-gray-100 overflow-y-auto">
+          <div *ngIf="list !== undefined && list.length === 0" class="text-center py-12 text-gray-500">
+            <p class="text-lg font-medium">No dining areas yet</p>
+            <p class="text-sm mt-1">Click "New Area" above to create your first dining area</p>
+          </div>
           <ul *ngIf="true" class="list-none flex-shrink">
             <!-- Parent Node: Dining Area -->
             <li *ngFor="let area of list; let i = index" class="mb-6 bg-white rounded shadow-md" [ngClass]="{ 'border border-gray-200': area.isCollapsed, 'bg-gray-50 opacity-60 grayscale': !area?.dining_area?.available, 'bg-white opacity-100': area?.dining_area?.available }"> 
