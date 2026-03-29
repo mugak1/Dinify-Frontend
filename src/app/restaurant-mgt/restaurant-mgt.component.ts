@@ -13,7 +13,7 @@ import { ActivatedRoute, Router } from '@angular/router';
     standalone: false
 })
 export class RestaurantMgtComponent {
-  sidebarOpen = false;
+  sidebarOpen = true;
   isChildComponent = false;
   has_tables = false;
   baseUrl = environment.apiUrl;

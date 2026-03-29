@@ -1,229 +1,127 @@
-<!-- Desktop sidebar -->
-<div class="hidden lg:flex h-full">
-  <aside class="flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-300"
-         [style.width.px]="collapsed ? 64 : 220">
+<!-- Wrapper div: relative for toggle button positioning -->
+<div class="relative flex-none fixed lg:relative inset-y-0 left-0 z-50"
+     [ngClass]="{ 'hidden lg:block': !isOpen }">
+
+  <aside class="bg-sidebar text-sidebar-foreground flex flex-col h-full transition-all duration-300 border-r border-sidebar-border"
+         [style.width.px]="isOpen ? 220 : 64">
 
     <!-- Logo header -->
-    <div class="flex items-center justify-between h-16 px-3 border-b border-sidebar-border">
+    <div class="flex items-center h-16 px-3 border-b border-sidebar-border"
+         [ngClass]="{ 'justify-center': !isOpen }">
       <a routerLink="/rest-app/dashboard" class="flex items-center overflow-hidden">
-        <svg height="20" class="fill-current text-sidebar-foreground shrink-0" viewBox="0 0 152 122">
+        <!-- Full wordmark when expanded -->
+        <svg *ngIf="isOpen" height="28" class="shrink-0" viewBox="429 384 492 114">
+          <path fill="#E53935" d="M841.49,408.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,802.58,389.45H700L724.16,417.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,758.8,444.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,851.29,446.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34"/>
+          <text x="429" y="484" font-family="Arial, sans-serif" font-weight="700" font-size="96" fill="currentColor">dinify</text>
+        </svg>
+        <!-- Small D icon when collapsed -->
+        <svg *ngIf="!isOpen" height="20" class="fill-current text-sidebar-foreground shrink-0" viewBox="0 0 152 122">
           <path class="text-d-red fill-current" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34"/>
         </svg>
-        <span *ngIf="!collapsed" class="ml-2 text-lg font-bold text-sidebar-foreground">Dinify</span>
       </a>
-      <button (click)="toggleCollapse()" class="p-1 rounded-md hover:bg-sidebar-accent text-sidebar-foreground">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path *ngIf="!collapsed" d="m15 18-6-6 6-6"/>
-          <path *ngIf="collapsed" d="m9 18 6-6-6-6"/>
-        </svg>
-      </button>
     </div>
 
     <!-- Nav items -->
-    <nav class="flex-1 py-3 overflow-y-auto no-scrollbar" [class.px-2]="collapsed" [class.px-3]="!collapsed">
+    <nav class="flex-1 py-3 px-2 space-y-1 overflow-y-auto no-scrollbar">
       <!-- Dashboard -->
       <a routerLink="/rest-app/dashboard" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Dashboard' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Dashboard' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Dashboard</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Dashboard</span>
       </a>
 
       <!-- Menu -->
       <a routerLink="/rest-app/menu" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Menu' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Menu' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Menu</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Menu</span>
       </a>
 
       <!-- Orders -->
       <a routerLink="/rest-app/orders" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Orders' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Orders' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 18v-1"/><path d="M14 18v-3"/><path d="M18 18v-5"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Orders</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Orders</span>
       </a>
 
       <!-- Tables -->
       <a routerLink="/rest-app/dining-tables" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Tables' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Tables' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Tables</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Tables</span>
       </a>
 
       <!-- Reviews -->
       <a routerLink="/rest-app/reviews" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Reviews' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Reviews' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a.53.53 0 0 0 .4.29l5.16.752a.53.53 0 0 1 .294.904l-3.733 3.638a.53.53 0 0 0-.152.469l.882 5.14a.53.53 0 0 1-.77.56l-4.613-2.426a.53.53 0 0 0-.494 0l-4.614 2.426a.53.53 0 0 1-.769-.56l.881-5.14a.53.53 0 0 0-.152-.47L3.36 8.92a.53.53 0 0 1 .294-.905l5.16-.751a.53.53 0 0 0 .4-.29z"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Reviews</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Reviews</span>
       </a>
 
       <!-- Reports -->
       <a routerLink="/rest-app/reports" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Reports' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Reports' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 18v-2"/><path d="M12 18v-4"/><path d="M16 18v-6"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Reports</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Reports</span>
       </a>
 
       <!-- Payments -->
       <a routerLink="/rest-app/payments" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Payments' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Payments' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Payments</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Payments</span>
       </a>
 
       <!-- Support -->
       <a routerLink="/rest-app/support" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Support' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Support' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" x2="9.17" y1="4.93" y2="9.17"/><line x1="14.83" x2="19.07" y1="14.83" y2="19.07"/><line x1="14.83" x2="19.07" y1="9.17" y2="4.93"/><line x1="14.83" x2="18.36" y1="9.17" y2="5.64"/><line x1="4.93" x2="9.17" y1="19.07" y2="14.83"/>
+          <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Support</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Support</span>
       </a>
 
       <!-- Settings -->
       <a routerLink="/rest-app/settings" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-         [title]="collapsed ? 'Settings' : ''">
+         [class.justify-center]="!isOpen" [title]="!isOpen ? 'Settings' : ''">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
         </svg>
-        <span *ngIf="!collapsed" class="text-sm truncate">Settings</span>
+        <span class="text-sm truncate" [class.hidden]="!isOpen">Settings</span>
       </a>
     </nav>
   </aside>
+
+  <!-- Toggle button: OUTSIDE aside, INSIDE wrapper -->
+  <button (click)="sidebarToggle.emit()"
+          class="absolute top-4 -right-3 z-10 bg-sidebar border border-sidebar-border rounded-full p-1 hover:bg-sidebar-accent text-sidebar-foreground shadow-sm hidden lg:flex items-center justify-center">
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path *ngIf="isOpen" d="m11 17-5-5 5-5"/><path *ngIf="isOpen" d="m18 17-5-5 5-5"/>
+      <path *ngIf="!isOpen" d="m6 17 5-5-5-5"/><path *ngIf="!isOpen" d="m13 17 5-5-5-5"/>
+    </svg>
+  </button>
+
 </div>
-
-<!-- Mobile sidebar overlay -->
-<aside
-  *ngIf="isOpen"
-  class="lg:hidden fixed inset-y-0 left-0 z-50 w-[220px] bg-sidebar border-r border-sidebar-border flex flex-col"
->
-  <!-- Logo header -->
-  <div class="flex items-center justify-between h-16 px-3 border-b border-sidebar-border">
-    <a routerLink="/rest-app/dashboard" class="flex items-center">
-      <svg height="20" class="fill-current text-sidebar-foreground" viewBox="0 0 152 122">
-        <path class="text-d-red fill-current" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34"/>
-      </svg>
-      <span class="ml-2 text-lg font-bold text-sidebar-foreground">Dinify</span>
-    </a>
-    <button (click)="sidebarToggle.emit()" class="p-1 rounded-md hover:bg-sidebar-accent">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-      </svg>
-    </button>
-  </div>
-
-  <!-- Nav items -->
-  <nav class="flex-1 py-3 px-2 space-y-1 overflow-y-auto no-scrollbar">
-    <!-- Dashboard -->
-    <a routerLink="/rest-app/dashboard" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>
-      </svg>
-      <span class="text-sm">Dashboard</span>
-    </a>
-
-    <!-- Menu -->
-    <a routerLink="/rest-app/menu" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
-      </svg>
-      <span class="text-sm">Menu</span>
-    </a>
-
-    <!-- Orders -->
-    <a routerLink="/rest-app/orders" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 18v-1"/><path d="M14 18v-3"/><path d="M18 18v-5"/>
-      </svg>
-      <span class="text-sm">Orders</span>
-    </a>
-
-    <!-- Tables -->
-    <a routerLink="/rest-app/dining-tables" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>
-      </svg>
-      <span class="text-sm">Tables</span>
-    </a>
-
-    <!-- Reviews -->
-    <a routerLink="/rest-app/reviews" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a.53.53 0 0 0 .4.29l5.16.752a.53.53 0 0 1 .294.904l-3.733 3.638a.53.53 0 0 0-.152.469l.882 5.14a.53.53 0 0 1-.77.56l-4.613-2.426a.53.53 0 0 0-.494 0l-4.614 2.426a.53.53 0 0 1-.769-.56l.881-5.14a.53.53 0 0 0-.152-.47L3.36 8.92a.53.53 0 0 1 .294-.905l5.16-.751a.53.53 0 0 0 .4-.29z"/>
-      </svg>
-      <span class="text-sm">Reviews</span>
-    </a>
-
-    <!-- Reports -->
-    <a routerLink="/rest-app/reports" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 18v-2"/><path d="M12 18v-4"/><path d="M16 18v-6"/>
-      </svg>
-      <span class="text-sm">Reports</span>
-    </a>
-
-    <!-- Payments -->
-    <a routerLink="/rest-app/payments" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
-      </svg>
-      <span class="text-sm">Payments</span>
-    </a>
-
-    <!-- Support -->
-    <a routerLink="/rest-app/support" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" x2="9.17" y1="4.93" y2="9.17"/><line x1="14.83" x2="19.07" y1="14.83" y2="19.07"/><line x1="14.83" x2="19.07" y1="9.17" y2="4.93"/><line x1="14.83" x2="18.36" y1="9.17" y2="5.64"/><line x1="4.93" x2="9.17" y1="19.07" y2="14.83"/>
-      </svg>
-      <span class="text-sm">Support</span>
-    </a>
-
-    <!-- Settings -->
-    <a routerLink="/rest-app/settings" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-       (click)="sidebarToggle.emit()"
-       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
-      </svg>
-      <span class="text-sm">Settings</span>
-    </a>
-  </nav>
-</aside>

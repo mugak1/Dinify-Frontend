@@ -7,15 +7,9 @@ import { RouterModule } from '@angular/router';
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './sidebar.component.html',
-  styles: [`:host { display: contents; }`],
+  styles: [`:host { display: contents; }`]
 })
 export class SidebarComponent {
   @Input() isOpen = false;
   @Output() sidebarToggle = new EventEmitter<void>();
-
-  collapsed = false;
-
-  toggleCollapse(): void {
-    this.collapsed = !this.collapsed;
-  }
 }
