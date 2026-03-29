@@ -33,6 +33,7 @@ import { ItemCardComponent } from './menu/components/item-card/item-card.compone
 import { ItemListComponent } from './menu/components/item-list/item-list.component';
 import { SectionFormDialogComponent } from './menu/components/section-form-dialog/section-form-dialog.component';
 import { ItemFormDialogComponent } from './menu/components/item-form-dialog/item-form-dialog.component';
+import { MenuSearchComponent } from './menu/components/menu-search/menu-search.component';
 import { StorageModule } from '../_services/storage/storage.module';
 
 const routes: Routes = [
@@ -102,6 +103,7 @@ const routes: Routes = [
     ItemListComponent,
     SectionFormDialogComponent,
     ItemFormDialogComponent,
+    MenuSearchComponent,
     StorageModule.forRoot({ prefix: 'dinify-restaurant-mgt' }),
 ],
   exports:[
