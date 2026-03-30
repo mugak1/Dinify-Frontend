@@ -16,10 +16,19 @@ export class ItemCardComponent {
 
   @Input({ required: true }) item!: MenuItem;
   @Input() showDragHandle = false;
+  @Input() selectionMode = false;
+  @Input() isSelected = false;
 
   @Output() edit = new EventEmitter<void>();
   @Output() delete = new EventEmitter<void>();
   @Output() toggleAvailability = new EventEmitter<{ id: string; available: boolean }>();
+  @Output() toggleSelect = new EventEmitter<void>();
+
+  onCardClick(): void {
+    if (this.selectionMode) {
+      this.toggleSelect.emit();
+    }
+  }
 
   get imageUrl(): string {
     return this.item?.image ? environment.apiUrl + this.item.image : '';

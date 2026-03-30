@@ -1,6 +1,11 @@
-<div class="rounded-lg border border-border bg-card overflow-hidden transition-all"
-     [class.opacity-50]="!item.available"
-     [class.grayscale]="!item.available">
+<div class="rounded-lg border bg-card overflow-hidden transition-all cursor-pointer"
+     [class.opacity-50]="!item.available && !selectionMode"
+     [class.grayscale]="!item.available && !selectionMode"
+     [class.border-primary]="isSelected"
+     [class.ring-2]="isSelected"
+     [class.ring-primary]="isSelected"
+     [class.border-border]="!isSelected"
+     (click)="onCardClick()">
 
   <!-- Image area -->
   <div class="relative h-40 bg-muted">
@@ -19,8 +24,24 @@
       </svg>
     </div>
 
+    <!-- Selection checkbox -->
+    <div *ngIf="selectionMode"
+         class="absolute top-2 left-2 z-10">
+      <div class="h-5 w-5 rounded border-2 flex items-center justify-center transition-colors"
+           [class.bg-primary]="isSelected"
+           [class.border-primary]="isSelected"
+           [class.bg-background/80]="!isSelected"
+           [class.border-input]="!isSelected">
+        <svg *ngIf="isSelected" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-primary-foreground"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+      </div>
+    </div>
+
     <!-- Discount badge -->
-    <app-dn-badge *ngIf="hasDiscount" variant="warning" class="absolute top-2 left-2">
+    <app-dn-badge *ngIf="hasDiscount && !selectionMode" variant="warning" class="absolute top-2 left-2">
       Discount
     </app-dn-badge>
 

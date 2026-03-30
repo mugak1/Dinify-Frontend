@@ -1,64 +1,92 @@
-<div class="flex-1 p-4 overflow-y-auto">
+<div class="flex-1 flex flex-col overflow-hidden">
 
-  <!-- Loading state -->
-  <div *ngIf="isLoading$ | async"
-       class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-    <div *ngFor="let s of skeletons"
-         class="h-64 animate-pulse bg-muted rounded-lg"></div>
+  <!-- Selection toolbar -->
+  <div class="flex items-center justify-end gap-2 px-4 pt-3">
+    <button app-dn-button
+            [variant]="selectionMode ? 'default' : 'outline'"
+            size="sm"
+            (click)="toggleSelectionMode()">
+      {{ selectionMode ? 'Done' : 'Select' }}
+    </button>
   </div>
 
-  <!-- Error state -->
-  <ng-container *ngIf="error$ | async as error">
-    <div *ngIf="(isLoading$ | async) === false"
-         class="flex flex-col items-center justify-center h-64 text-center">
-      <!-- AlertCircle icon -->
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-destructive" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/>
-        <line x1="12" x2="12.01" y1="16" y2="16"/>
-      </svg>
-      <p class="text-destructive font-medium mt-2">{{ error }}</p>
-      <button app-dn-button variant="outline" size="sm" class="mt-4" (click)="onRetry()">
-        Retry
-      </button>
+  <div class="flex-1 p-4 overflow-y-auto">
+
+    <!-- Loading state -->
+    <div *ngIf="isLoading$ | async"
+         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div *ngFor="let s of skeletons"
+           class="h-64 animate-pulse bg-muted rounded-lg"></div>
     </div>
-  </ng-container>
 
-  <!-- Item grid -->
-  <ng-container *ngIf="(isLoading$ | async) === false && (error$ | async) === null">
-    <ng-container *ngIf="sortedItems$ | async as items">
-
-      <!-- Empty state -->
-      <div *ngIf="items.length === 0"
+    <!-- Error state -->
+    <ng-container *ngIf="error$ | async as error">
+      <div *ngIf="(isLoading$ | async) === false"
            class="flex flex-col items-center justify-center h-64 text-center">
-        <!-- Empty plate icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-muted-foreground" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
-          <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+        <!-- AlertCircle icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-destructive" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/>
+          <line x1="12" x2="12.01" y1="16" y2="16"/>
         </svg>
-        <p class="text-muted-foreground mt-2">No items in this section yet.</p>
-        <button app-dn-button variant="default" size="sm" class="mt-4" (click)="newItem.emit()">
-          + Add Item
+        <p class="text-destructive font-medium mt-2">{{ error }}</p>
+        <button app-dn-button variant="outline" size="sm" class="mt-4" (click)="onRetry()">
+          Retry
         </button>
       </div>
-
-      <!-- Grid with drag-drop -->
-      <div *ngIf="items.length > 0"
-           cdkDropList
-           (cdkDropListDropped)="onDrop($event)"
-           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        <div *ngFor="let item of items; trackBy: trackById" cdkDrag>
-          <app-item-card
-            [item]="item"
-            [showDragHandle]="true"
-            (edit)="editItem.emit(item)"
-            (delete)="deleteItem.emit(item)"
-            (toggleAvailability)="onToggleAvailability($event)">
-          </app-item-card>
-        </div>
-      </div>
-
     </ng-container>
-  </ng-container>
+
+    <!-- Item grid -->
+    <ng-container *ngIf="(isLoading$ | async) === false && (error$ | async) === null">
+      <ng-container *ngIf="sortedItems$ | async as items">
+
+        <!-- Empty state -->
+        <div *ngIf="items.length === 0"
+             class="flex flex-col items-center justify-center h-64 text-center">
+          <!-- Empty plate icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-muted-foreground" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+            <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+          </svg>
+          <p class="text-muted-foreground mt-2">No items in this section yet.</p>
+          <button app-dn-button variant="default" size="sm" class="mt-4" (click)="newItem.emit()">
+            + Add Item
+          </button>
+        </div>
+
+        <!-- Grid with drag-drop -->
+        <div *ngIf="items.length > 0"
+             cdkDropList
+             [cdkDropListDisabled]="selectionMode"
+             (cdkDropListDropped)="onDrop($event)"
+             class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+             [class.pb-20]="selectedItemIds.size > 0">
+          <div *ngFor="let item of items; trackBy: trackById" cdkDrag [cdkDragDisabled]="selectionMode">
+            <app-item-card
+              [item]="item"
+              [showDragHandle]="!selectionMode"
+              [selectionMode]="selectionMode"
+              [isSelected]="isItemSelected(item.id)"
+              (edit)="editItem.emit(item)"
+              (delete)="deleteItem.emit(item)"
+              (toggleAvailability)="onToggleAvailability($event)"
+              (toggleSelect)="toggleItemSelection(item.id)">
+            </app-item-card>
+          </div>
+        </div>
+
+        <!-- Bulk stock bar -->
+        <app-bulk-stock-bar
+          [selectedCount]="selectedItemIds.size"
+          [totalCount]="items.length"
+          (selectAll)="selectAll(items)"
+          (clearSelection)="clearSelection()"
+          (markAvailable)="markAvailable()"
+          (markUnavailable)="markUnavailable()">
+        </app-bulk-stock-bar>
+
+      </ng-container>
+    </ng-container>
+  </div>
 </div>

@@ -1,0 +1,33 @@
+<div *ngIf="selectedCount > 0"
+     class="fixed bottom-0 left-0 right-0 z-10 border-t border-border bg-card shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+  <div class="flex items-center justify-between gap-3 px-4 py-3 max-w-screen-xl mx-auto">
+
+    <!-- Left: count -->
+    <span class="text-sm font-medium text-foreground whitespace-nowrap">
+      {{ selectedCount }} item{{ selectedCount !== 1 ? 's' : '' }} selected
+    </span>
+
+    <!-- Center: select/clear -->
+    <div class="flex items-center gap-2">
+      <button *ngIf="selectedCount < totalCount"
+              app-dn-button variant="ghost" size="sm" (click)="selectAll.emit()">
+        Select All
+      </button>
+      <button app-dn-button variant="ghost" size="sm" (click)="clearSelection.emit()">
+        Clear Selection
+      </button>
+    </div>
+
+    <!-- Right: actions -->
+    <div class="flex items-center gap-2">
+      <button app-dn-button variant="outline" size="sm"
+              class="border-success text-success hover:bg-success hover:text-success-foreground"
+              (click)="markAvailable.emit()">
+        Mark Available
+      </button>
+      <button app-dn-button variant="outline" size="sm" (click)="markUnavailable.emit()">
+        Mark Unavailable
+      </button>
+    </div>
+  </div>
+</div>

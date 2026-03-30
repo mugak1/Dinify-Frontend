@@ -1,18 +1,19 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Observable } from 'rxjs';
+import { Observable, forkJoin } from 'rxjs';
 
 import { MenuService } from '../../services/menu.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MenuItem } from 'src/app/_models/app.models';
 import { ItemCardComponent } from '../item-card/item-card.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
+import { BulkStockBarComponent } from '../bulk-stock-bar/bulk-stock-bar.component';
 
 @Component({
   selector: 'app-item-list',
   standalone: true,
-  imports: [CommonModule, DragDropModule, ItemCardComponent, ButtonComponent],
+  imports: [CommonModule, DragDropModule, ItemCardComponent, ButtonComponent, BulkStockBarComponent],
   templateUrl: './item-list.component.html',
 })
 export class ItemListComponent {
@@ -26,6 +27,9 @@ export class ItemListComponent {
   error$: Observable<string | null>;
 
   skeletons = Array(8);
+
+  selectionMode = false;
+  selectedItemIds = new Set<string>();
 
   constructor(
     private menuService: MenuService,
@@ -59,5 +63,63 @@ export class ItemListComponent {
 
   trackById(_index: number, item: MenuItem): string {
     return item.id;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Selection mode
+  // ---------------------------------------------------------------------------
+
+  toggleSelectionMode(): void {
+    this.selectionMode = !this.selectionMode;
+    if (!this.selectionMode) {
+      this.selectedItemIds.clear();
+    }
+  }
+
+  toggleItemSelection(id: string): void {
+    if (this.selectedItemIds.has(id)) {
+      this.selectedItemIds.delete(id);
+    } else {
+      this.selectedItemIds.add(id);
+    }
+  }
+
+  isItemSelected(id: string): boolean {
+    return this.selectedItemIds.has(id);
+  }
+
+  selectAll(items: MenuItem[]): void {
+    items.forEach((item) => this.selectedItemIds.add(item.id));
+  }
+
+  clearSelection(): void {
+    this.selectedItemIds.clear();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bulk actions
+  // ---------------------------------------------------------------------------
+
+  markAvailable(): void {
+    this.bulkToggle(true);
+  }
+
+  markUnavailable(): void {
+    this.bulkToggle(false);
+  }
+
+  private bulkToggle(available: boolean): void {
+    const ids = Array.from(this.selectedItemIds);
+    if (ids.length === 0) return;
+
+    const calls = ids.map((id) =>
+      this.menuService.toggleItemAvailability(id, available)
+    );
+
+    forkJoin(calls).subscribe(() => {
+      this.selectedItemIds.clear();
+      this.selectionMode = false;
+      this.menuService.refreshAll();
+    });
   }
 }
