@@ -155,6 +155,13 @@ export interface ItemModifiers {
   groups: ModifierGroup[];
 }
 
+export interface ItemDiscountDetails {
+  discount_amount: number;
+  start_date: string;
+  end_date: string;
+  recurring_days: number[];
+}
+
 export interface TableListItem {
   id: string
   time_created: string

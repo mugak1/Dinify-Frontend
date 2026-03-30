@@ -13,7 +13,8 @@ import {
   TabContentComponent,
 } from 'src/app/_shared/ui/tabs/tabs.component';
 import { ItemModifiersTabComponent } from '../item-modifiers-tab/item-modifiers-tab.component';
-import { MenuItem, MenuSectionListItem, ItemModifiers } from 'src/app/_models/app.models';
+import { ItemDiscountsTabComponent } from '../item-discounts-tab/item-discounts-tab.component';
+import { MenuItem, MenuSectionListItem, ItemModifiers, ItemDiscountDetails } from 'src/app/_models/app.models';
 import { MenuService } from '../../services/menu.service';
 import { environment } from 'src/environments/environment';
 
@@ -32,6 +33,7 @@ import { environment } from 'src/environments/environment';
     TabTriggerComponent,
     TabContentComponent,
     ItemModifiersTabComponent,
+    ItemDiscountsTabComponent,
   ],
   templateUrl: './item-form-dialog.component.html',
 })
@@ -49,6 +51,8 @@ export class ItemFormDialogComponent implements OnChanges {
   imagePreview = '';
   activeTab = 'details';
   itemModifiers: ItemModifiers = { hasModifiers: false, groups: [] };
+  itemHasDiscount = false;
+  itemDiscountDetails: ItemDiscountDetails | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -64,6 +68,8 @@ export class ItemFormDialogComponent implements OnChanges {
       this.imagePreview = '';
       this.activeTab = 'details';
       this.itemModifiers = { hasModifiers: false, groups: [] };
+      this.itemHasDiscount = false;
+      this.itemDiscountDetails = null;
 
       if (this.item) {
         // Load modifiers from existing item
@@ -71,6 +77,14 @@ export class ItemFormDialogComponent implements OnChanges {
           this.itemModifiers = typeof this.item.options === 'string'
             ? JSON.parse(this.item.options)
             : this.item.options;
+        }
+
+        // Load discount from existing item
+        this.itemHasDiscount = this.item.has_discount ?? false;
+        if (this.item.discount_details) {
+          this.itemDiscountDetails = typeof this.item.discount_details === 'string'
+            ? JSON.parse(this.item.discount_details)
+            : this.item.discount_details;
         }
         this.form.patchValue({
           id: this.item.id,
@@ -137,6 +151,11 @@ export class ItemFormDialogComponent implements OnChanges {
     this.itemModifiers = modifiers;
   }
 
+  onDiscountChange(data: { hasDiscount: boolean; discountDetails: ItemDiscountDetails }): void {
+    this.itemHasDiscount = data.hasDiscount;
+    this.itemDiscountDetails = data.discountDetails;
+  }
+
   onSubmit(): void {
     if (this.form.invalid) return;
 
@@ -151,6 +170,12 @@ export class ItemFormDialogComponent implements OnChanges {
     // Include modifiers — stringify for FormData compatibility
     payload.has_options = this.itemModifiers.hasModifiers;
     payload.options = JSON.stringify(this.itemModifiers);
+
+    // Include discount — stringify for FormData compatibility
+    payload.has_discount = this.itemHasDiscount;
+    payload.discount_details = this.itemHasDiscount
+      ? JSON.stringify(this.itemDiscountDetails)
+      : JSON.stringify(null);
 
     this.saved.emit(payload);
   }

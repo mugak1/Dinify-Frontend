@@ -122,9 +122,16 @@
         <p class="text-sm text-muted-foreground py-8 text-center">Coming soon</p>
       </app-dn-tab-content>
 
-      <!-- Discounts tab (placeholder) -->
+      <!-- Discounts tab -->
       <app-dn-tab-content value="discounts">
-        <p class="text-sm text-muted-foreground py-8 text-center">Coming soon</p>
+        <div class="max-h-[60vh] overflow-y-auto pr-1">
+          <app-item-discounts-tab
+            [hasDiscount]="itemHasDiscount"
+            [discountDetails]="itemDiscountDetails"
+            [primaryPrice]="form.get('primary_price')?.value ?? 0"
+            (discountChange)="onDiscountChange($event)">
+          </app-item-discounts-tab>
+        </div>
       </app-dn-tab-content>
     </app-dn-tabs>
 

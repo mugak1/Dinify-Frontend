@@ -1,0 +1,79 @@
+<div class="space-y-4 py-2">
+
+  <!-- Has Discount toggle -->
+  <div class="flex items-center gap-2">
+    <app-dn-switch
+      [checked]="enabled"
+      (checkedChange)="onToggleDiscount($event)">
+    </app-dn-switch>
+    <span class="text-sm font-medium text-foreground">Has Discount</span>
+  </div>
+
+  <ng-container *ngIf="enabled">
+
+    <!-- Discount amount -->
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Discount Amount (UGX)</label>
+      <input type="number"
+             [(ngModel)]="discountAmount"
+             (ngModelChange)="emitChange()"
+             min="0"
+             placeholder="0"
+             class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+
+      <!-- Warning: amount >= price -->
+      <p *ngIf="isAmountTooHigh"
+         class="mt-1 text-xs text-destructive">
+        Discount amount must be less than the item price (UGX {{ formatUGX(primaryPrice) }})
+      </p>
+    </div>
+
+    <!-- Date range -->
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1">Start Date</label>
+        <input type="date"
+               [(ngModel)]="startDate"
+               (ngModelChange)="emitChange()"
+               class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1">End Date</label>
+        <input type="date"
+               [(ngModel)]="endDate"
+               (ngModelChange)="emitChange()"
+               [min]="startDate"
+               class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+      </div>
+    </div>
+
+    <!-- Day-of-week checkboxes -->
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-2">Recurring Days</label>
+      <div class="flex flex-wrap gap-2">
+        <button *ngFor="let day of weekdays"
+                type="button"
+                (click)="toggleDay(day.value)"
+                [class]="isDaySelected(day.value)
+                  ? 'px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-primary-foreground'
+                  : 'px-3 py-1.5 rounded-md text-sm font-medium border border-input bg-background text-muted-foreground hover:text-foreground'">
+          {{ day.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div *ngIf="discountAmount > 0 && !isAmountTooHigh"
+         class="rounded-md border border-border bg-muted/50 px-3 py-2">
+      <p class="text-sm text-foreground">
+        Price after discount:
+        <span class="font-semibold">UGX {{ formatUGX(priceAfterDiscount) }}</span>
+      </p>
+      <p class="text-xs text-muted-foreground mt-0.5">
+        Saving UGX {{ formatUGX(discountAmount) }}
+        ({{ primaryPrice > 0 ? (discountAmount / primaryPrice * 100 | number:'1.0-0') : 0 }}% off)
+      </p>
+    </div>
+
+  </ng-container>
+</div>
