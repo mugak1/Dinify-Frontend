@@ -14,6 +14,7 @@ import {
 } from 'src/app/_shared/ui/tabs/tabs.component';
 import { ItemModifiersTabComponent } from '../item-modifiers-tab/item-modifiers-tab.component';
 import { ItemDiscountsTabComponent } from '../item-discounts-tab/item-discounts-tab.component';
+import { ItemExtrasTabComponent } from '../item-extras-tab/item-extras-tab.component';
 import { MenuItem, MenuSectionListItem, ItemModifiers, ItemDiscountDetails } from 'src/app/_models/app.models';
 import { MenuService } from '../../services/menu.service';
 import { environment } from 'src/environments/environment';
@@ -34,6 +35,7 @@ import { environment } from 'src/environments/environment';
     TabContentComponent,
     ItemModifiersTabComponent,
     ItemDiscountsTabComponent,
+    ItemExtrasTabComponent,
   ],
   templateUrl: './item-form-dialog.component.html',
 })
@@ -53,12 +55,17 @@ export class ItemFormDialogComponent implements OnChanges {
   itemModifiers: ItemModifiers = { hasModifiers: false, groups: [] };
   itemHasDiscount = false;
   itemDiscountDetails: ItemDiscountDetails | null = null;
+  itemIsExtra = false;
+  itemHasExtras = false;
+  itemExtrasApplicable: string[] = [];
+  availableExtras$: Observable<MenuItem[]>;
 
   constructor(
     private fb: FormBuilder,
     private menuService: MenuService
   ) {
     this.sections$ = this.menuService.sections$;
+    this.availableExtras$ = this.menuService.extras$;
     this.buildForm();
   }
 
@@ -70,6 +77,9 @@ export class ItemFormDialogComponent implements OnChanges {
       this.itemModifiers = { hasModifiers: false, groups: [] };
       this.itemHasDiscount = false;
       this.itemDiscountDetails = null;
+      this.itemIsExtra = false;
+      this.itemHasExtras = false;
+      this.itemExtrasApplicable = [];
 
       if (this.item) {
         // Load modifiers from existing item
@@ -78,6 +88,13 @@ export class ItemFormDialogComponent implements OnChanges {
             ? JSON.parse(this.item.options)
             : this.item.options;
         }
+
+        // Load extras from existing item
+        this.itemIsExtra = this.item.is_extra ?? false;
+        this.itemHasExtras = this.item.has_extras ?? false;
+        this.itemExtrasApplicable = (this.item.extras ?? []).map(
+          (e: any) => (typeof e === 'string' ? e : e.id)
+        );
 
         // Load discount from existing item
         this.itemHasDiscount = this.item.has_discount ?? false;
@@ -156,6 +173,12 @@ export class ItemFormDialogComponent implements OnChanges {
     this.itemDiscountDetails = data.discountDetails;
   }
 
+  onExtrasChange(data: { isExtra: boolean; hasExtras: boolean; extrasApplicable: string[] }): void {
+    this.itemIsExtra = data.isExtra;
+    this.itemHasExtras = data.hasExtras;
+    this.itemExtrasApplicable = data.extrasApplicable;
+  }
+
   onSubmit(): void {
     if (this.form.invalid) return;
 
@@ -176,6 +199,11 @@ export class ItemFormDialogComponent implements OnChanges {
     payload.discount_details = this.itemHasDiscount
       ? JSON.stringify(this.itemDiscountDetails)
       : JSON.stringify(null);
+
+    // Include extras
+    payload.is_extra = this.itemIsExtra;
+    payload.has_extras = this.itemHasExtras;
+    payload.extras_applicable = JSON.stringify(this.itemExtrasApplicable);
 
     this.saved.emit(payload);
   }

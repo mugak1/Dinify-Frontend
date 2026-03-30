@@ -117,9 +117,18 @@
         </div>
       </app-dn-tab-content>
 
-      <!-- Extras tab (placeholder) -->
+      <!-- Extras tab -->
       <app-dn-tab-content value="extras">
-        <p class="text-sm text-muted-foreground py-8 text-center">Coming soon</p>
+        <div class="max-h-[60vh] overflow-y-auto pr-1">
+          <app-item-extras-tab
+            [isExtra]="itemIsExtra"
+            [hasExtras]="itemHasExtras"
+            [selectedExtraIds]="itemExtrasApplicable"
+            [availableExtras]="(availableExtras$ | async) ?? []"
+            [currentItemId]="form.get('id')?.value ?? ''"
+            (extrasChange)="onExtrasChange($event)">
+          </app-item-extras-tab>
+        </div>
       </app-dn-tab-content>
 
       <!-- Discounts tab -->
