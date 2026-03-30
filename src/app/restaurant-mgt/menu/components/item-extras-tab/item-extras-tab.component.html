@@ -1,0 +1,58 @@
+<div class="space-y-4 py-2">
+
+  <!-- Is Extra toggle -->
+  <div class="flex items-center gap-2">
+    <app-dn-switch
+      [checked]="markedAsExtra"
+      (checkedChange)="onIsExtraChange($event)">
+    </app-dn-switch>
+    <span class="text-sm font-medium text-foreground">This item is available as an extra</span>
+  </div>
+
+  <hr class="border-border" />
+
+  <!-- Has Extras toggle -->
+  <div class="flex items-center gap-2">
+    <app-dn-switch
+      [checked]="enabled"
+      (checkedChange)="onHasExtrasChange($event)">
+    </app-dn-switch>
+    <span class="text-sm font-medium text-foreground">This item has extras / add-ons</span>
+  </div>
+
+  <!-- Extras list -->
+  <ng-container *ngIf="enabled">
+
+    <!-- Empty state -->
+    <p *ngIf="filteredExtras.length === 0"
+       class="text-sm text-muted-foreground py-4 text-center">
+      No items are marked as extras yet.
+    </p>
+
+    <!-- Checkbox list -->
+    <div *ngIf="filteredExtras.length > 0" class="space-y-1">
+      <label class="block text-xs font-medium text-muted-foreground mb-1">
+        Select extras available for this item
+      </label>
+
+      <div *ngFor="let extra of filteredExtras"
+           class="flex items-center gap-3 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+           (click)="toggleExtra(extra.id)">
+        <input type="checkbox"
+               [checked]="isSelected(extra.id)"
+               class="h-4 w-4 rounded border-input text-primary focus:ring-ring"
+               (click)="$event.stopPropagation()"
+               (change)="toggleExtra(extra.id)" />
+        <span class="flex-1 text-sm text-foreground">{{ extra.name }}</span>
+        <span class="text-xs text-muted-foreground">UGX {{ formatUGX(extra.primary_price) }}</span>
+      </div>
+    </div>
+
+    <!-- Selection count -->
+    <p *ngIf="selectedIds.size > 0"
+       class="text-xs text-muted-foreground">
+      {{ selectedIds.size }} extra{{ selectedIds.size !== 1 ? 's' : '' }} selected
+    </p>
+
+  </ng-container>
+</div>
