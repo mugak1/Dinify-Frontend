@@ -6,7 +6,14 @@ import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
 import { BadgeComponent } from 'src/app/_shared/ui/badge/badge.component';
-import { MenuItem, MenuSectionListItem } from 'src/app/_models/app.models';
+import {
+  TabsComponent,
+  TabListComponent,
+  TabTriggerComponent,
+  TabContentComponent,
+} from 'src/app/_shared/ui/tabs/tabs.component';
+import { ItemModifiersTabComponent } from '../item-modifiers-tab/item-modifiers-tab.component';
+import { MenuItem, MenuSectionListItem, ItemModifiers } from 'src/app/_models/app.models';
 import { MenuService } from '../../services/menu.service';
 import { environment } from 'src/environments/environment';
 
@@ -20,6 +27,11 @@ import { environment } from 'src/environments/environment';
     ButtonComponent,
     SwitchComponent,
     BadgeComponent,
+    TabsComponent,
+    TabListComponent,
+    TabTriggerComponent,
+    TabContentComponent,
+    ItemModifiersTabComponent,
   ],
   templateUrl: './item-form-dialog.component.html',
 })
@@ -35,6 +47,8 @@ export class ItemFormDialogComponent implements OnChanges {
   form!: FormGroup;
   sections$: Observable<MenuSectionListItem[]>;
   imagePreview = '';
+  activeTab = 'details';
+  itemModifiers: ItemModifiers = { hasModifiers: false, groups: [] };
 
   constructor(
     private fb: FormBuilder,
@@ -48,8 +62,16 @@ export class ItemFormDialogComponent implements OnChanges {
     if (changes['open'] && this.open) {
       this.buildForm();
       this.imagePreview = '';
+      this.activeTab = 'details';
+      this.itemModifiers = { hasModifiers: false, groups: [] };
 
       if (this.item) {
+        // Load modifiers from existing item
+        if (this.item.options) {
+          this.itemModifiers = typeof this.item.options === 'string'
+            ? JSON.parse(this.item.options)
+            : this.item.options;
+        }
         this.form.patchValue({
           id: this.item.id,
           name: this.item.name,
@@ -111,6 +133,10 @@ export class ItemFormDialogComponent implements OnChanges {
     this.form.get('allergens')?.setValue(current);
   }
 
+  onModifiersChange(modifiers: ItemModifiers): void {
+    this.itemModifiers = modifiers;
+  }
+
   onSubmit(): void {
     if (this.form.invalid) return;
 
@@ -121,6 +147,10 @@ export class ItemFormDialogComponent implements OnChanges {
     if (typeof payload.image === 'string') {
       delete payload.image;
     }
+
+    // Include modifiers — stringify for FormData compatibility
+    payload.has_options = this.itemModifiers.hasModifiers;
+    payload.options = JSON.stringify(this.itemModifiers);
 
     this.saved.emit(payload);
   }

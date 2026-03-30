@@ -132,6 +132,29 @@ export interface MenuItemOption {
   isSelected?:boolean;
   hasError?:boolean;
 }
+
+export interface ModifierChoice {
+  id: string;
+  name: string;
+  additionalCost: number;
+  available: boolean;
+}
+
+export interface ModifierGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  selectionType: 'single' | 'multiple';
+  minSelections: number;
+  maxSelections: number;
+  choices: ModifierChoice[];
+}
+
+export interface ItemModifiers {
+  hasModifiers: boolean;
+  groups: ModifierGroup[];
+}
+
 export interface TableListItem {
   id: string
   time_created: string
