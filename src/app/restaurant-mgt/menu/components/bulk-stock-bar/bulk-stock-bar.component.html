@@ -28,6 +28,94 @@
       <button app-dn-button variant="outline" size="default" (click)="markUnavailable.emit()">
         Mark Unavailable
       </button>
+
+      <!-- Divider -->
+      <div class="w-px h-6 bg-border"></div>
+
+      <!-- Add Badge dropdown -->
+      <div class="relative">
+        <button app-dn-button variant="outline" size="default"
+                (click)="addBadgeOpen = !addBadgeOpen; removeBadgeOpen = false">
+          <span class="flex items-center gap-1.5">
+            Add Badge
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </span>
+        </button>
+        <div *ngIf="addBadgeOpen"
+             class="absolute bottom-full mb-2 left-0 min-w-[160px] rounded-md border bg-popover p-1 shadow-md z-50">
+          <button class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded hover:bg-accent text-left"
+                  (click)="addBadge.emit('featured'); addBadgeOpen = false">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Featured
+          </button>
+          <button class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded hover:bg-accent text-left"
+                  (click)="addBadge.emit('popular'); addBadgeOpen = false">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+            Popular
+          </button>
+          <button class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded hover:bg-accent text-left"
+                  (click)="addBadge.emit('new'); addBadgeOpen = false">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+            </svg>
+            New
+          </button>
+        </div>
+      </div>
+
+      <!-- Remove Badge dropdown -->
+      <div class="relative">
+        <button app-dn-button variant="outline" size="default"
+                class="text-destructive"
+                (click)="removeBadgeOpen = !removeBadgeOpen; addBadgeOpen = false">
+          <span class="flex items-center gap-1.5">
+            Remove Badge
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </span>
+        </button>
+        <div *ngIf="removeBadgeOpen"
+             class="absolute bottom-full mb-2 left-0 min-w-[160px] rounded-md border bg-popover p-1 shadow-md z-50">
+          <button class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded hover:bg-accent text-left"
+                  (click)="removeBadge.emit('featured'); removeBadgeOpen = false">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Featured
+          </button>
+          <button class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded hover:bg-accent text-left"
+                  (click)="removeBadge.emit('popular'); removeBadgeOpen = false">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+            Popular
+          </button>
+          <button class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded hover:bg-accent text-left"
+                  (click)="removeBadge.emit('new'); removeBadgeOpen = false">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+            </svg>
+            New
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

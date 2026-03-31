@@ -5,6 +5,7 @@ import { Observable, forkJoin } from 'rxjs';
 
 import { MenuService } from '../../services/menu.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { MenuItem } from 'src/app/_models/app.models';
 import { ItemCardComponent } from '../item-card/item-card.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
@@ -33,7 +34,8 @@ export class ItemListComponent {
 
   constructor(
     private menuService: MenuService,
-    private auth: AuthenticationService
+    private auth: AuthenticationService,
+    private toast: ToastService
   ) {
     this.sortedItems$ = this.menuService.sortedItems$;
     this.isLoading$ = this.menuService.isLoading$;
@@ -54,6 +56,12 @@ export class ItemListComponent {
       if (restaurantId) {
         this.menuService.refreshAll();
       }
+    });
+  }
+
+  onToggleBadge(event: { id: string; [key: string]: any }, field: 'is_featured' | 'is_popular' | 'is_new'): void {
+    this.menuService.toggleItemBadge(event.id, field, event[field]).subscribe(() => {
+      this.menuService.refreshAll();
     });
   }
 
@@ -117,6 +125,29 @@ export class ItemListComponent {
     );
 
     forkJoin(calls).subscribe(() => {
+      this.selectedItemIds.clear();
+      this.selectionMode = false;
+      this.menuService.refreshAll();
+    });
+  }
+
+  bulkAddBadge(badge: 'featured' | 'popular' | 'new'): void {
+    this.bulkBadgeToggle(`is_${badge}` as 'is_featured' | 'is_popular' | 'is_new', true, badge);
+  }
+
+  bulkRemoveBadge(badge: 'featured' | 'popular' | 'new'): void {
+    this.bulkBadgeToggle(`is_${badge}` as 'is_featured' | 'is_popular' | 'is_new', false, badge);
+  }
+
+  private bulkBadgeToggle(field: 'is_featured' | 'is_popular' | 'is_new', value: boolean, label: string): void {
+    const ids = Array.from(this.selectedItemIds);
+    if (ids.length === 0) return;
+
+    const calls = ids.map((id) => this.menuService.toggleItemBadge(id, field, value));
+
+    forkJoin(calls).subscribe(() => {
+      const action = value ? 'Added' : 'Removed';
+      this.toast.success(`${action} ${label} badge ${value ? 'to' : 'from'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
       this.selectedItemIds.clear();
       this.selectionMode = false;
       this.menuService.refreshAll();
