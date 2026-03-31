@@ -97,7 +97,7 @@
       [checked]="item.available"
       (checkedChange)="toggleAvailability.emit({ id: item.id, available: $event })">
     </app-dn-switch>
-    <div class="flex items-center gap-0.5">
+    <div class="flex items-center gap-1">
       <!-- Featured toggle -->
       <button app-dn-button
               [variant]="item.is_featured ? 'default' : 'ghost'"
@@ -106,6 +106,7 @@
               [class.bg-amber-500]="item.is_featured"
               [class.hover:bg-amber-600]="item.is_featured"
               [class.text-white]="item.is_featured"
+              [class.text-muted-foreground]="!item.is_featured"
               [appTooltip]="item.is_featured ? 'Remove from featured' : 'Mark as Featured'"
               (click)="toggleFeatured.emit({ id: item.id, is_featured: !item.is_featured })">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
@@ -122,6 +123,7 @@
               [class.bg-orange-500]="item.is_popular"
               [class.hover:bg-orange-600]="item.is_popular"
               [class.text-white]="item.is_popular"
+              [class.text-muted-foreground]="!item.is_popular"
               [appTooltip]="item.is_popular ? 'Remove popular badge' : 'Mark as Popular'"
               (click)="togglePopular.emit({ id: item.id, is_popular: !item.is_popular })">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
@@ -138,10 +140,12 @@
               [class.bg-green-500]="item.is_new"
               [class.hover:bg-green-600]="item.is_new"
               [class.text-white]="item.is_new"
+              [class.text-muted-foreground]="!item.is_new"
               [appTooltip]="item.is_new ? 'Remove New badge' : 'Mark as New'"
               (click)="toggleNew.emit({ id: item.id, is_new: !item.is_new })">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             [class.fill-current]="item.is_new">
           <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
           <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
         </svg>
@@ -149,16 +153,16 @@
       <!-- Divider -->
       <div class="w-px h-5 bg-border mx-0.5"></div>
       <!-- Pencil icon -->
-      <button app-dn-button variant="ghost" size="icon" class="h-9 w-9" (click)="edit.emit()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+      <button app-dn-button variant="ghost" size="icon" class="h-8 w-8" [appTooltip]="'Edit item'" (click)="edit.emit()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
           <path d="m15 5 4 4"/>
         </svg>
       </button>
       <!-- Trash icon -->
-      <button app-dn-button variant="ghost" size="icon" class="h-9 w-9 text-destructive" (click)="delete.emit()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+      <button app-dn-button variant="ghost" size="icon" class="h-8 w-8 text-destructive" [appTooltip]="'Delete item'" (click)="delete.emit()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
           <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
