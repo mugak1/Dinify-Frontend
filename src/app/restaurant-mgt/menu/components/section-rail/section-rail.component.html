@@ -58,6 +58,17 @@
               <p class="text-base font-medium truncate text-foreground" [title]="section.name">
                 {{ section.name }}
               </p>
+              <!-- Schedule indicator -->
+              <div *ngIf="isScheduled(section)" class="flex items-center gap-1 mt-0.5"
+                   [appTooltip]="isSectionActive(section) ? 'Live now' : 'Off — outside scheduled hours'">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span class="w-1.5 h-1.5 rounded-full"
+                      [class.bg-green-500]="isSectionActive(section)"
+                      [class.bg-muted-foreground]="!isSectionActive(section)"></span>
+              </div>
               <p class="text-sm text-muted-foreground">
                 {{ section.item_count || 0 }} Item{{ section.item_count === 1 ? '' : 's' }}
               </p>

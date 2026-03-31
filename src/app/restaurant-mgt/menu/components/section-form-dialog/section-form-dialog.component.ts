@@ -5,7 +5,9 @@ import { FormsModule } from '@angular/forms';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
-import { MenuSectionListItem } from 'src/app/_models/app.models';
+import { MenuSectionListItem, SectionSchedule } from 'src/app/_models/app.models';
+import { ScheduleBuilderComponent } from '../schedule-builder/schedule-builder.component';
+import { createEmptySchedule, validateSchedules } from '../../utils/schedule-utils';
 import { environment } from 'src/environments/environment';
 
 @Component({
@@ -18,6 +20,7 @@ import { environment } from 'src/environments/environment';
     DialogComponent,
     ButtonComponent,
     SwitchComponent,
+    ScheduleBuilderComponent,
   ],
   templateUrl: './section-form-dialog.component.html',
 })
@@ -35,6 +38,10 @@ export class SectionFormDialogComponent implements OnChanges {
   form!: FormGroup;
   deleteReason = '';
   imagePreview = '';
+  availability: 'always' | 'scheduled' = 'always';
+  schedules: SectionSchedule[] = [];
+  scheduleError: string | null = null;
+  isScheduleOpen = false;
 
   constructor(private fb: FormBuilder) {
     this.buildForm();
@@ -45,6 +52,7 @@ export class SectionFormDialogComponent implements OnChanges {
       this.buildForm();
       this.deleteReason = '';
       this.imagePreview = '';
+      this.scheduleError = null;
 
       if (this.section) {
         this.form.patchValue({
@@ -57,6 +65,13 @@ export class SectionFormDialogComponent implements OnChanges {
         if (this.section.section_banner_image) {
           this.imagePreview = environment.apiUrl + this.section.section_banner_image;
         }
+        this.availability = this.section.availability || 'always';
+        this.schedules = this.section.schedules ? [...this.section.schedules] : [];
+        this.isScheduleOpen = this.availability === 'scheduled';
+      } else {
+        this.availability = 'always';
+        this.schedules = [];
+        this.isScheduleOpen = false;
       }
 
       this.form.get('restaurant')?.setValue(this.restaurantId);
@@ -75,8 +90,23 @@ export class SectionFormDialogComponent implements OnChanges {
     }
   }
 
+  onAvailabilityChange(value: 'always' | 'scheduled'): void {
+    this.availability = value;
+    if (value === 'scheduled' && this.schedules.length === 0) {
+      this.schedules = [createEmptySchedule()];
+    }
+  }
+
   onSubmit(): void {
     if (this.form.invalid) return;
+
+    if (this.availability === 'scheduled') {
+      const error = validateSchedules(this.schedules);
+      if (error) {
+        this.scheduleError = error;
+        return;
+      }
+    }
 
     const payload = { ...this.form.getRawValue() };
 
@@ -84,6 +114,9 @@ export class SectionFormDialogComponent implements OnChanges {
     if (typeof payload.section_banner_image === 'string') {
       delete payload.section_banner_image;
     }
+
+    payload.availability = this.availability;
+    payload.schedules = this.availability === 'scheduled' ? this.schedules : [];
 
     this.saved.emit(payload);
   }

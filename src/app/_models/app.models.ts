@@ -85,6 +85,15 @@ export interface User {
   phone: string
   phone_number: string
 }
+export type ScheduleDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export interface SectionSchedule {
+  id: string;
+  days: ScheduleDay[];
+  startTime: string;
+  endTime: string;
+}
+
 export interface MenuSectionListItem {
   id: string
   name: string
@@ -95,6 +104,8 @@ export interface MenuSectionListItem {
   has_groups:boolean
   groups:[{id:any,name:string,items:MenuItem[]}],
   listing_position:number
+  availability?: 'always' | 'scheduled'
+  schedules?: SectionSchedule[]
 }
 export interface MenuItem {
   id: string

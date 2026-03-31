@@ -8,6 +8,8 @@ import { AuthenticationService } from 'src/app/_services/authentication.service'
 import { MenuSectionListItem } from 'src/app/_models/app.models';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
+import { TooltipDirective } from 'src/app/_shared/ui/tooltip/tooltip.directive';
+import { isSectionCurrentlyActive } from '../../utils/schedule-utils';
 
 @Component({
   selector: 'app-section-rail',
@@ -17,6 +19,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
     DragDropModule,
     SwitchComponent,
     ButtonComponent,
+    TooltipDirective,
   ],
   templateUrl: './section-rail.component.html',
 })
@@ -68,5 +71,13 @@ export class SectionRailComponent {
 
   trackById(_index: number, section: MenuSectionListItem): string {
     return section.id;
+  }
+
+  isScheduled(section: MenuSectionListItem): boolean {
+    return section.availability === 'scheduled';
+  }
+
+  isSectionActive(section: MenuSectionListItem): boolean {
+    return isSectionCurrentlyActive(section);
   }
 }
