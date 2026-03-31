@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { MenuItem, MenuSectionListItem, RestaurantDetail } from 'src/app/_models/app.models';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MenuService, SortMode } from './services/menu.service';
+import { TagService } from './services/tag.service';
 
 @Component({
     selector: 'app-menu',
@@ -24,6 +25,7 @@ export class MenuComponent {
   editingItem?: MenuItem;
 
   searchOpen = false;
+  presetTagsOpen = false;
 
   // Tabs
   activeTab: 'sections' | 'upsells' = 'sections';
@@ -41,7 +43,8 @@ export class MenuComponent {
   constructor(
     private route: ActivatedRoute,
     public auth: AuthenticationService,
-    private menuService: MenuService
+    private menuService: MenuService,
+    private tagService: TagService
   ) {
     const depth = this.route.pathFromRoot.length;
     this.isThirdChild = (depth === 5);
@@ -50,11 +53,13 @@ export class MenuComponent {
       this.restaurant = this.auth.currentRestaurantRole.restaurant_id;
       this.menuService.loadSections(this.restaurant);
       this.menuService.loadExtras(this.restaurant);
+      this.tagService.loadPresetTags(this.restaurant);
     } else if (this.route.parent?.snapshot.params['id']) {
       this.restaurant = this.route.parent.snapshot.params['id'];
       this.loadRestaurant();
       this.menuService.loadSections(this.restaurant);
       this.menuService.loadExtras(this.restaurant);
+      this.tagService.loadPresetTags(this.restaurant);
     }
   }
 

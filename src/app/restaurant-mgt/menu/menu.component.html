@@ -76,6 +76,18 @@
             <option value="price-high">Price ↓</option>
           </select>
 
+          <!-- Tags button -->
+          <button (click)="presetTagsOpen = true"
+                  class="inline-flex items-center gap-1 border border-input rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
+                  title="Manage Tags">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
+              <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
+            </svg>
+            <span class="hidden sm:inline">Tags</span>
+          </button>
+
           <!-- Search button -->
           <button (click)="searchOpen = true"
                   class="inline-flex items-center gap-1 border border-input rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
@@ -135,3 +147,10 @@
   [open]="searchOpen"
   (closed)="searchOpen = false">
 </app-menu-search>
+
+<!-- Preset tags config dialog -->
+<app-preset-tags-config
+  [open]="presetTagsOpen"
+  [restaurantId]="restaurant"
+  (closed)="presetTagsOpen = false">
+</app-preset-tags-config>

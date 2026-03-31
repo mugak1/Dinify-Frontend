@@ -1,15 +1,15 @@
-export const TAG_COLORS: { name: string; classes: string }[] = [
-  { name: 'gray', classes: 'bg-gray-100 text-gray-800' },
-  { name: 'red', classes: 'bg-red-100 text-red-800' },
-  { name: 'orange', classes: 'bg-orange-100 text-orange-800' },
-  { name: 'amber', classes: 'bg-amber-100 text-amber-800' },
-  { name: 'yellow', classes: 'bg-yellow-100 text-yellow-800' },
-  { name: 'green', classes: 'bg-green-100 text-green-800' },
-  { name: 'emerald', classes: 'bg-emerald-100 text-emerald-800' },
-  { name: 'cyan', classes: 'bg-cyan-100 text-cyan-800' },
-  { name: 'blue', classes: 'bg-blue-100 text-blue-800' },
-  { name: 'purple', classes: 'bg-purple-100 text-purple-800' },
-  { name: 'rose', classes: 'bg-rose-100 text-rose-800' },
+export const TAG_COLORS: { name: string; label: string; classes: string }[] = [
+  { name: 'gray', label: 'Gray', classes: 'bg-gray-100 text-gray-800' },
+  { name: 'red', label: 'Red', classes: 'bg-red-100 text-red-800' },
+  { name: 'orange', label: 'Orange', classes: 'bg-orange-100 text-orange-800' },
+  { name: 'amber', label: 'Amber', classes: 'bg-amber-100 text-amber-800' },
+  { name: 'yellow', label: 'Yellow', classes: 'bg-yellow-100 text-yellow-800' },
+  { name: 'green', label: 'Green', classes: 'bg-green-100 text-green-800' },
+  { name: 'emerald', label: 'Emerald', classes: 'bg-emerald-100 text-emerald-800' },
+  { name: 'cyan', label: 'Cyan', classes: 'bg-cyan-100 text-cyan-800' },
+  { name: 'blue', label: 'Blue', classes: 'bg-blue-100 text-blue-800' },
+  { name: 'purple', label: 'Purple', classes: 'bg-purple-100 text-purple-800' },
+  { name: 'rose', label: 'Rose', classes: 'bg-rose-100 text-rose-800' },
 ];
 
 export function getTagColorClasses(colorName: string): string {
@@ -39,6 +39,8 @@ const ICON_MAP: Record<string, string> = {
   'utensils': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>',
   'cookie': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M11 17v.01"/><path d="M7 14v.01"/></svg>',
 };
+
+export const AVAILABLE_ICONS = Object.keys(ICON_MAP);
 
 export function getTagIcon(iconName: string): string {
   return ICON_MAP[iconName] || '';

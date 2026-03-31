@@ -1,0 +1,200 @@
+<app-dn-dialog [open]="open" (closed)="onClose()" maxWidth="lg">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-1">
+    <div>
+      <h2 class="text-xl font-semibold text-foreground">Preset Tags</h2>
+      <p class="text-sm text-muted-foreground mt-1">
+        Manage the dietary and attribute tags available for menu items
+      </p>
+    </div>
+    <button
+      type="button"
+      (click)="openAddForm()"
+      class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"/><path d="M12 5v14"/>
+      </svg>
+      Add Tag
+    </button>
+  </div>
+
+  <!-- Tag list -->
+  <div class="mt-4">
+    <div *ngIf="tags.length === 0" class="text-center py-8 text-muted-foreground">
+      No preset tags configured. Add your first tag to get started.
+    </div>
+
+    <div *ngIf="tags.length > 0" class="space-y-2">
+      <div
+        *ngFor="let tag of tags"
+        class="flex items-center gap-3 p-3 border border-border rounded-lg bg-card hover:bg-muted/50 transition-colors"
+      >
+        <!-- Icon square -->
+        <div
+          class="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
+          [ngClass]="getColorClasses(tag.color)"
+        >
+          <span [innerHTML]="getIconSvg(tag.icon)"></span>
+        </div>
+
+        <!-- Name + color label -->
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <span class="font-medium truncate">{{ tag.name }}</span>
+          <span
+            class="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+            [ngClass]="getColorClasses(tag.color)"
+          >
+            {{ getColorLabel(tag.color) }}
+          </span>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-3 flex-shrink-0">
+          <!-- Filterable toggle -->
+          <label class="flex items-center gap-1.5 cursor-pointer" title="Show in diner filter menu">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="text-muted-foreground">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            <input
+              type="checkbox"
+              [checked]="tag.filterable"
+              (change)="toggleFilterable(tag)"
+              class="h-4 w-4 rounded text-primary focus:ring-primary"
+            />
+          </label>
+
+          <!-- Edit -->
+          <button
+            type="button"
+            (click)="openEditForm(tag)"
+            class="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:bg-accent transition-colors"
+            title="Edit tag"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+            </svg>
+          </button>
+
+          <!-- Delete -->
+          <button
+            type="button"
+            (click)="deleteTag(tag.id)"
+            class="inline-flex items-center justify-center h-8 w-8 rounded-md text-red-500 hover:bg-red-50 transition-colors"
+            title="Delete tag"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help text -->
+    <p class="text-xs text-muted-foreground mt-4 flex items-center gap-1">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+        <path d="M12 17h.01"/>
+      </svg>
+      Tags with the filter icon enabled will appear as filter options for diners on the menu screen.
+    </p>
+  </div>
+
+  <!-- Add / Edit form -->
+  <div *ngIf="formOpen" class="mt-6 border border-border rounded-lg p-4 bg-muted/30">
+    <h3 class="text-sm font-semibold text-foreground mb-4">
+      {{ editingTag ? 'Edit Tag' : 'Add New Tag' }}
+    </h3>
+
+    <div class="space-y-4">
+      <!-- Name input -->
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1.5">Tag Name</label>
+        <input
+          [(ngModel)]="formName"
+          placeholder="e.g., Vegetarian, Spicy, etc."
+          class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
+      <!-- Icon picker -->
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1.5">Icon</label>
+        <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border border-input rounded-md p-2 bg-background">
+          <button
+            *ngFor="let icon of availableIcons"
+            type="button"
+            (click)="formIcon = icon"
+            class="inline-flex items-center justify-center w-9 h-9 rounded-md text-sm transition-colors"
+            [ngClass]="formIcon === icon
+              ? 'bg-primary text-primary-foreground'
+              : 'hover:bg-accent text-muted-foreground'"
+            [title]="icon"
+          >
+            <span [innerHTML]="getIconSvg(icon)"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Color picker -->
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1.5">Color</label>
+        <div class="flex flex-wrap gap-2">
+          <button
+            *ngFor="let color of tagColors"
+            type="button"
+            (click)="formColor = color.name"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors"
+            [ngClass]="formColor === color.name
+              ? color.classes + ' border-transparent ring-2 ring-primary ring-offset-1'
+              : color.classes + ' border-transparent opacity-70 hover:opacity-100'"
+          >
+            <span class="w-3 h-3 rounded-sm" [ngClass]="color.classes"></span>
+            {{ color.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div class="flex items-center gap-2 p-3 bg-muted rounded-lg">
+        <span class="text-sm text-muted-foreground">Preview:</span>
+        <span
+          class="inline-flex items-center gap-1 px-2 py-1 rounded text-sm"
+          [ngClass]="getColorClasses(formColor)"
+        >
+          <span [innerHTML]="getIconSvg(formIcon)"></span>
+          {{ formName || 'Tag Name' }}
+        </span>
+      </div>
+
+      <!-- Form actions -->
+      <div class="flex justify-end gap-2">
+        <button
+          type="button"
+          (click)="cancelForm()"
+          class="inline-flex items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="saveForm()"
+          [disabled]="!formName.trim() || saving"
+          class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          {{ editingTag ? 'Save Changes' : 'Add Tag' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</app-dn-dialog>

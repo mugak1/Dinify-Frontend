@@ -87,19 +87,41 @@
             <span class="text-sm text-foreground">Available</span>
           </div>
 
-          <!-- Allergens / Tags -->
+          <!-- Tags / Allergens -->
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Tags / Allergens</label>
-            <div *ngIf="form.get('allergens')?.value?.length" class="flex flex-wrap gap-1 mb-2">
-              <app-dn-badge *ngFor="let tag of form.get('allergens')?.value; let i = index"
-                            variant="secondary"
-                            class="cursor-pointer"
-                            (click)="onAllergenRemove(i)">
-                {{ tag }} &times;
-              </app-dn-badge>
+
+            <!-- Preset tag quick-select buttons -->
+            <div *ngIf="presetTags$ | async as presetTags" class="flex flex-wrap gap-1.5 mb-2">
+              <button
+                *ngFor="let pt of presetTags"
+                type="button"
+                (click)="onPresetTagToggle(pt.name)"
+                class="inline-flex items-center gap-1 h-7 text-xs px-2 py-0.5 rounded border transition-colors"
+                [ngClass]="isTagSelected(pt.name)
+                  ? getPresetTagColorClasses(pt) + ' border-transparent'
+                  : 'border-input text-muted-foreground hover:bg-accent'"
+              >
+                <span [innerHTML]="getPresetTagIconSvg(pt)"></span>
+                {{ pt.name }}
+              </button>
             </div>
+
+            <!-- Selected tags display -->
+            <div *ngIf="form.get('allergens')?.value?.length" class="flex flex-wrap gap-1 mb-2">
+              <span
+                *ngFor="let tag of form.get('allergens')?.value; let i = index"
+                class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer"
+                [ngClass]="getSelectedTagClasses(tag)"
+                (click)="onAllergenRemove(i)"
+              >
+                {{ tag }} &times;
+              </span>
+            </div>
+
+            <!-- Free text input -->
             <input #tagInput
-                   placeholder="Add tag and press Enter"
+                   placeholder="Add custom tag and press Enter"
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                    (keydown.enter)="onAllergenAdd(tagInput.value); tagInput.value = ''; $event.preventDefault()" />
           </div>

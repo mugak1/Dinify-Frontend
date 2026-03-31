@@ -17,6 +17,8 @@ import { ItemDiscountsTabComponent } from '../item-discounts-tab/item-discounts-
 import { ItemExtrasTabComponent } from '../item-extras-tab/item-extras-tab.component';
 import { MenuItem, MenuSectionListItem, ItemModifiers, ItemDiscountDetails } from 'src/app/_models/app.models';
 import { MenuService } from '../../services/menu.service';
+import { TagService, PresetTag } from '../../services/tag.service';
+import { getTagColorClasses, getTagIcon } from '../../utils/tag-utils';
 import { environment } from 'src/environments/environment';
 
 @Component({
@@ -59,13 +61,16 @@ export class ItemFormDialogComponent implements OnChanges {
   itemHasExtras = false;
   itemExtrasApplicable: string[] = [];
   availableExtras$: Observable<MenuItem[]>;
+  presetTags$: Observable<PresetTag[]>;
 
   constructor(
     private fb: FormBuilder,
-    private menuService: MenuService
+    private menuService: MenuService,
+    private tagService: TagService
   ) {
     this.sections$ = this.menuService.sections$;
     this.availableExtras$ = this.menuService.extras$;
+    this.presetTags$ = this.tagService.presetTags$;
     this.buildForm();
   }
 
@@ -162,6 +167,36 @@ export class ItemFormDialogComponent implements OnChanges {
     const current: string[] = [...(this.form.get('allergens')?.value ?? [])];
     current.splice(index, 1);
     this.form.get('allergens')?.setValue(current);
+  }
+
+  onPresetTagToggle(tagName: string): void {
+    const current: string[] = this.form.get('allergens')?.value ?? [];
+    if (current.includes(tagName)) {
+      this.form.get('allergens')?.setValue(current.filter((t: string) => t !== tagName));
+    } else {
+      if (current.length >= 20) return;
+      this.form.get('allergens')?.setValue([...current, tagName]);
+    }
+  }
+
+  isTagSelected(tagName: string): boolean {
+    const current: string[] = this.form.get('allergens')?.value ?? [];
+    return current.includes(tagName);
+  }
+
+  getPresetTagColorClasses(tag: PresetTag): string {
+    return getTagColorClasses(tag.color);
+  }
+
+  getPresetTagIconSvg(tag: PresetTag): string {
+    return getTagIcon(tag.icon);
+  }
+
+  getSelectedTagClasses(tagName: string): string {
+    const presetTags = this.tagService.getPresetTagsSnapshot();
+    const match = presetTags.find((t) => t.name === tagName);
+    if (match) return getTagColorClasses(match.color);
+    return 'bg-gray-100 text-gray-800';
   }
 
   onModifiersChange(modifiers: ItemModifiers): void {
