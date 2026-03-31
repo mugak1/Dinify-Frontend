@@ -114,6 +114,9 @@ export interface MenuItem {
   extras:any[],
   has_discount:boolean;
   discount_details?:any
+  is_featured?: boolean
+  is_popular?: boolean
+  is_new?: boolean
 }
 
 export interface MenuOptions {

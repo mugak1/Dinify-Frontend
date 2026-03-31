@@ -199,6 +199,12 @@ export class MenuService {
     );
   }
 
+  toggleItemBadge(id: string, field: 'is_featured' | 'is_popular' | 'is_new', value: boolean): Observable<any> {
+    return this.api.postPatch(
+      'restaurant-setup/menuitems/', { id, [field]: value }, 'put', '', {}, false, '', true
+    );
+  }
+
   reorderItems(ordering: { id: string; listing_position: number }[]): Observable<any> {
     return this.api.postPatch(
       'restaurant-setup/reorder-menu-items/', { ordering }, 'put'
