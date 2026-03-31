@@ -30,6 +30,9 @@ export class MenuService {
   private readonly _sortMode$ = new BehaviorSubject<SortMode>('manual');
   readonly sortMode$ = this._sortMode$.asObservable();
 
+  private readonly _allItems$ = new BehaviorSubject<MenuItem[]>([]);
+  readonly allItems$ = this._allItems$.asObservable();
+
   private readonly _isLoading$ = new BehaviorSubject<boolean>(false);
   readonly isLoading$ = this._isLoading$.asObservable();
 
@@ -160,6 +163,15 @@ export class MenuService {
           this._error$.next(err?.message ?? 'Failed to load items');
           this._isLoading$.next(false);
         }
+      });
+  }
+
+  loadAllItems(restaurantId: string): void {
+    this.api.get<MenuItem>(null, 'restaurant-setup/menuitems/', { restaurant: restaurantId })
+      .subscribe({
+        next: (res: ApiResponse<MenuItem>) => {
+          this._allItems$.next(res?.data?.records ?? []);
+        },
       });
   }
 

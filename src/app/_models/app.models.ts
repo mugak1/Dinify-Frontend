@@ -816,6 +816,23 @@ export interface GroupedTableAreas {
   isCollapsed:boolean
 }
 
+export interface UpsellConfig {
+  id: string;
+  enabled: boolean;
+  title: string;
+  max_items_to_show: number;
+  hide_if_in_basket: boolean;
+  hide_out_of_stock: boolean;
+  items: UpsellItem[];
+}
+
+export interface UpsellItem {
+  id: string;
+  menu_item: string;
+  position: number;
+  menu_item_details?: MenuItem;
+}
+
 
 
 

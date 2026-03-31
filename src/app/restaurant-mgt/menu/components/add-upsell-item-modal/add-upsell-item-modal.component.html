@@ -1,0 +1,100 @@
+<app-dn-dialog [open]="open" maxWidth="lg" (closed)="onClose()">
+
+  <h2 class="text-xl font-semibold text-foreground mb-1">Add Upsell Items</h2>
+  <p class="text-sm text-muted-foreground mb-4">Select menu items to suggest as upsells at checkout</p>
+
+  <!-- Search + Filter -->
+  <div class="flex gap-3 mb-4">
+    <!-- Search input -->
+    <div class="flex-1 relative">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
+           viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text"
+             [(ngModel)]="searchTerm"
+             placeholder="Search items..."
+             class="w-full pl-9 pr-3 py-2.5 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+    </div>
+
+    <!-- Category filter -->
+    <select [(ngModel)]="selectedCategory"
+            class="border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+      <option value="all">All Sections</option>
+      <option *ngFor="let section of sections" [value]="section.id">{{ section.name }}</option>
+    </select>
+  </div>
+
+  <!-- Items list -->
+  <div class="max-h-[400px] overflow-y-auto border border-border rounded-lg">
+    <ng-container *ngIf="filteredItemsBySection.length > 0; else noResults">
+      <div *ngFor="let group of filteredItemsBySection">
+        <!-- Section header -->
+        <div class="sticky top-0 bg-muted/80 backdrop-blur-sm px-4 py-2 border-b border-border">
+          <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">{{ group.sectionName }}</span>
+        </div>
+
+        <!-- Items -->
+        <div *ngFor="let item of group.items"
+             class="flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors"
+             [class.opacity-50]="isAlreadyAdded(item)"
+             [class.cursor-pointer]="!isAlreadyAdded(item)"
+             [class.hover:bg-muted/50]="!isAlreadyAdded(item)"
+             [class.bg-primary/5]="isSelected(item)"
+             (click)="toggleItem(item)">
+
+          <!-- Checkbox -->
+          <input type="checkbox"
+                 [checked]="isSelected(item) || isAlreadyAdded(item)"
+                 [disabled]="isAlreadyAdded(item)"
+                 (click)="$event.stopPropagation()"
+                 (change)="toggleItem(item)"
+                 class="accent-primary w-4 h-4 shrink-0" />
+
+          <!-- Thumbnail -->
+          <div class="w-8 h-8 rounded overflow-hidden bg-muted shrink-0">
+            <img *ngIf="getItemImageUrl(item)"
+                 [src]="getItemImageUrl(item)"
+                 [alt]="item.name"
+                 class="w-full h-full object-cover" />
+          </div>
+
+          <!-- Name -->
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-foreground truncate">{{ item.name }}</p>
+            <span *ngIf="isAlreadyAdded(item)" class="text-xs text-muted-foreground">(Already added)</span>
+          </div>
+
+          <!-- Price -->
+          <span class="text-sm text-muted-foreground shrink-0">
+            {{ item.primary_price | number:'1.0-0' }} UGX
+          </span>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-template #noResults>
+      <div class="flex items-center justify-center py-12 text-muted-foreground text-sm">
+        No items found
+      </div>
+    </ng-template>
+  </div>
+
+  <!-- Footer -->
+  <div class="flex items-center justify-between mt-4">
+    <span class="text-sm text-muted-foreground">
+      {{ selectedIds.size }} item{{ selectedIds.size === 1 ? '' : 's' }} selected
+    </span>
+    <div class="flex gap-2">
+      <button app-dn-button variant="outline" (click)="onClose()">Cancel</button>
+      <button app-dn-button variant="default"
+              [disabled]="selectedIds.size === 0"
+              (click)="onAdd()">
+        Add Selected
+      </button>
+    </div>
+  </div>
+
+</app-dn-dialog>

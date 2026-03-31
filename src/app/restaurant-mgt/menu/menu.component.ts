@@ -25,6 +25,9 @@ export class MenuComponent {
 
   searchOpen = false;
 
+  // Tabs
+  activeTab: 'sections' | 'upsells' = 'sections';
+
   // Sort
   sortMode: SortMode = 'manual';
 

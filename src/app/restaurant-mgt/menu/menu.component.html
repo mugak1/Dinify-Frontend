@@ -13,76 +13,93 @@
   </button>
 </div>
 
+<!-- Tab navigation -->
+<div class="border-b border-border bg-card px-4 pt-3">
+  <app-dn-tabs [value]="activeTab" (valueChange)="activeTab = $any($event)">
+    <app-dn-tab-list>
+      <app-dn-tab-trigger value="sections">Menu Sections</app-dn-tab-trigger>
+      <app-dn-tab-trigger value="upsells">Upsells</app-dn-tab-trigger>
+    </app-dn-tab-list>
+  </app-dn-tabs>
+</div>
+
 <!-- Main layout -->
-<div class="flex flex-col md:flex-row h-[calc(100dvh-5rem)] overflow-hidden">
+<div class="flex flex-col flex-1 overflow-hidden" style="height: calc(100dvh - 8rem);">
 
-  <!-- Section Rail (left sidebar, hidden on mobile) -->
-  <app-section-rail
-    (newSection)="openSectionForm()"
-    (editSection)="openSectionForm($event)"
-    (deleteSection)="confirmDeleteSection($event)"
-    (newItem)="openItemForm()">
-  </app-section-rail>
+  <!-- Sections tab content -->
+  <div *ngIf="activeTab === 'sections'" class="flex flex-col md:flex-row flex-1 overflow-hidden">
 
-  <!-- Main content area -->
-  <div class="flex-1 flex flex-col overflow-hidden min-w-0">
-
-    <!-- Toolbar -->
-    <div class="border-b border-border p-3 md:p-4 flex items-center justify-between gap-2 bg-card">
-
-      <!-- Mobile section selector (visible below md) -->
-      <div class="md:hidden flex-1">
-        <select (change)="onMobileSectionChange($any($event).target.value)"
-                class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm">
-          <option *ngFor="let s of sections$ | async"
-                  [value]="s.id"
-                  [selected]="(selectedSectionId$ | async) === s.id">
-            {{ s.name }} ({{ s.item_count || 0 }})
-          </option>
-        </select>
-      </div>
-
-      <!-- Desktop section name (hidden on mobile) -->
-      <ng-container *ngIf="sections$ | async as allSections">
-        <ng-container *ngIf="selectedSectionId$ | async as selId">
-          <h2 *ngFor="let sec of allSections"
-              class="hidden md:block text-xl font-semibold text-foreground">
-            <span *ngIf="sec.id === selId">{{ sec.name }}</span>
-          </h2>
-        </ng-container>
-      </ng-container>
-
-      <div class="flex items-center gap-2">
-        <!-- Sort dropdown -->
-        <select [ngModel]="sortMode"
-                (ngModelChange)="onSortModeChange($event)"
-                class="border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm">
-          <option value="manual">Manual</option>
-          <option value="a-z">A–Z</option>
-          <option value="price-low">Price ↑</option>
-          <option value="price-high">Price ↓</option>
-        </select>
-
-        <!-- Search button -->
-        <button (click)="searchOpen = true"
-                class="inline-flex items-center gap-1 border border-input rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
-                title="Search (Ctrl+K)">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <span class="hidden sm:inline">Search</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Items grid -->
-    <app-item-list
-      (editItem)="openItemForm($event)"
-      (deleteItem)="confirmDeleteItem($event)"
+    <!-- Section Rail (left sidebar, hidden on mobile) -->
+    <app-section-rail
+      (newSection)="openSectionForm()"
+      (editSection)="openSectionForm($event)"
+      (deleteSection)="confirmDeleteSection($event)"
       (newItem)="openItemForm()">
-    </app-item-list>
+    </app-section-rail>
+
+    <!-- Main content area -->
+    <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+
+      <!-- Toolbar -->
+      <div class="border-b border-border p-3 md:p-4 flex items-center justify-between gap-2 bg-card">
+
+        <!-- Mobile section selector (visible below md) -->
+        <div class="md:hidden flex-1">
+          <select (change)="onMobileSectionChange($any($event).target.value)"
+                  class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm">
+            <option *ngFor="let s of sections$ | async"
+                    [value]="s.id"
+                    [selected]="(selectedSectionId$ | async) === s.id">
+              {{ s.name }} ({{ s.item_count || 0 }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Desktop section name (hidden on mobile) -->
+        <ng-container *ngIf="sections$ | async as allSections">
+          <ng-container *ngIf="selectedSectionId$ | async as selId">
+            <h2 *ngFor="let sec of allSections"
+                class="hidden md:block text-xl font-semibold text-foreground">
+              <span *ngIf="sec.id === selId">{{ sec.name }}</span>
+            </h2>
+          </ng-container>
+        </ng-container>
+
+        <div class="flex items-center gap-2">
+          <!-- Sort dropdown -->
+          <select [ngModel]="sortMode"
+                  (ngModelChange)="onSortModeChange($event)"
+                  class="border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm">
+            <option value="manual">Manual</option>
+            <option value="a-z">A–Z</option>
+            <option value="price-low">Price ↑</option>
+            <option value="price-high">Price ↓</option>
+          </select>
+
+          <!-- Search button -->
+          <button (click)="searchOpen = true"
+                  class="inline-flex items-center gap-1 border border-input rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
+                  title="Search (Ctrl+K)">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span class="hidden sm:inline">Search</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Items grid -->
+      <app-item-list
+        (editItem)="openItemForm($event)"
+        (deleteItem)="confirmDeleteItem($event)"
+        (newItem)="openItemForm()">
+      </app-item-list>
+    </div>
   </div>
+
+  <!-- Upsells tab content -->
+  <app-upsells-tab *ngIf="activeTab === 'upsells'" class="flex-1 overflow-y-auto"></app-upsells-tab>
 </div>
 
 <!-- Section form dialog (create / edit) -->
