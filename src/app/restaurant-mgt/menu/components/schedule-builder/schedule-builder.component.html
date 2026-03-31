@@ -1,0 +1,66 @@
+<div class="space-y-3">
+  <div *ngFor="let schedule of schedules; let i = index; trackBy: trackById"
+       class="border rounded-lg p-4 space-y-4 bg-muted/30">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <span class="text-sm font-medium text-foreground">Schedule {{ i + 1 }}</span>
+      <button *ngIf="schedules.length > 1"
+              app-dn-button variant="ghost" size="sm"
+              class="h-7 px-2 text-muted-foreground hover:text-destructive"
+              (click)="removeSchedule(schedule.id)">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 inline-block" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+        </svg>
+        Remove
+      </button>
+    </div>
+
+    <!-- Day toggles -->
+    <div class="space-y-2">
+      <span class="text-xs text-muted-foreground">Days</span>
+      <div class="flex flex-wrap gap-1.5">
+        <button *ngFor="let day of allDays"
+                type="button"
+                [title]="dayFullLabels[day]"
+                class="w-8 h-8 rounded-full text-xs font-medium transition-colors border-2"
+                [ngClass]="{
+                  'bg-primary text-primary-foreground border-primary': schedule.days.includes(day),
+                  'bg-background text-muted-foreground border-border hover:border-primary/50': !schedule.days.includes(day)
+                }"
+                (click)="toggleDay(schedule.id, day)">
+          {{ dayLabels[day] }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Time selects -->
+    <div class="grid grid-cols-2 gap-3">
+      <div class="space-y-2">
+        <span class="text-xs text-muted-foreground">From</span>
+        <select [ngModel]="schedule.startTime"
+                (ngModelChange)="updateTime(schedule.id, 'startTime', $event)"
+                class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <option *ngFor="let opt of timeOptions" [value]="opt.value">{{ opt.label }}</option>
+        </select>
+      </div>
+      <div class="space-y-2">
+        <span class="text-xs text-muted-foreground">To</span>
+        <select [ngModel]="schedule.endTime"
+                (ngModelChange)="updateTime(schedule.id, 'endTime', $event)"
+                class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <option *ngFor="let opt of timeOptions" [value]="opt.value">{{ opt.label }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add slot button -->
+  <button app-dn-button variant="outline" size="sm" class="w-full" (click)="addSchedule()">
+    + Add another time slot
+  </button>
+
+  <!-- Error -->
+  <p *ngIf="error" class="text-sm text-destructive">{{ error }}</p>
+</div>

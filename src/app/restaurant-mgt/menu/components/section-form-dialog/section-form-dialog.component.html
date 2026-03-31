@@ -76,6 +76,63 @@
         <span class="text-sm text-foreground">Available</span>
       </div>
 
+      <!-- Scheduling -->
+      <div class="border rounded-lg">
+        <button type="button"
+                class="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/50 rounded-lg transition-colors"
+                (click)="isScheduleOpen = !isScheduleOpen">
+          <div class="flex items-center gap-2">
+            <!-- Clock icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-muted-foreground" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span class="text-sm font-medium text-foreground">Scheduling</span>
+            <span *ngIf="availability === 'scheduled'"
+                  class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+              {{ schedules.length }} time slot{{ schedules.length !== 1 ? 's' : '' }}
+            </span>
+          </div>
+          <!-- Chevron -->
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="w-4 h-4 text-muted-foreground transition-transform"
+               [class.rotate-180]="isScheduleOpen"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+
+        <div *ngIf="isScheduleOpen" class="px-3 pb-3 pt-1 space-y-4">
+          <p class="text-xs text-muted-foreground">Control when this section appears on your menu</p>
+
+          <!-- Radio buttons -->
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="availability" value="always"
+                     [checked]="availability === 'always'"
+                     (change)="onAvailabilityChange('always')"
+                     class="accent-primary">
+              <span class="text-sm text-foreground">Always available</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="availability" value="scheduled"
+                     [checked]="availability === 'scheduled'"
+                     (change)="onAvailabilityChange('scheduled')"
+                     class="accent-primary">
+              <span class="text-sm text-foreground">Available during scheduled hours</span>
+            </label>
+          </div>
+
+          <!-- Schedule builder -->
+          <app-schedule-builder *ngIf="availability === 'scheduled'"
+            [schedules]="schedules"
+            [error]="scheduleError"
+            (schedulesChange)="schedules = $event; scheduleError = null">
+          </app-schedule-builder>
+        </div>
+      </div>
+
       <!-- Actions -->
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" app-dn-button variant="outline" (click)="onClose()">Cancel</button>
