@@ -1,0 +1,483 @@
+@if (open) {
+  <div class="fixed inset-0 z-50">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/50 transition-opacity" (click)="onClose()"></div>
+
+    <!-- Drawer panel -->
+    <div class="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 bg-background rounded-t-[10px] shadow-lg flex flex-col overflow-hidden"
+         style="height: 95vh; max-height: 95vh; width: 100%; max-width: 36rem;">
+
+      <!-- ═══════════════════════ VIEW: LIST ═══════════════════════ -->
+      @if (view === 'list') {
+
+        <!-- Header -->
+        <div class="border-b flex-shrink-0 px-4 py-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold">Preview Menu</h2>
+            <div class="flex items-center gap-4">
+              @if (totalItems > 0) {
+                <button app-dn-button variant="outline" size="sm" class="gap-2"
+                        (click)="openCart()">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
+                    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                  </svg>
+                  {{ totalItems }} {{ totalItems === 1 ? 'item' : 'items' }} - {{ formatPrice(totalPrice) }}
+                </button>
+              }
+              <button class="rounded-sm opacity-70 hover:opacity-100 p-1" (click)="onClose()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sticky header: section tabs + search + filters -->
+        <div #stickyHeader class="flex-shrink-0 bg-background relative z-20">
+          <!-- Section tabs -->
+          <div class="border-b overflow-x-auto">
+            <div class="flex px-4 py-2 gap-2">
+              @for (section of availableSections; track section.id) {
+                <button app-dn-button
+                        [variant]="activeSection === section.id ? 'default' : 'outline'"
+                        size="sm"
+                        class="whitespace-nowrap transition-all"
+                        (click)="scrollToSection(section.id); $event.stopPropagation()">
+                  {{ section.name }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Search + filter -->
+          <div class="p-4 border-b space-y-3">
+            <div class="flex gap-2">
+              <div class="relative flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text"
+                       placeholder="Search menu..."
+                       [(ngModel)]="searchTerm"
+                       class="w-full pl-9 pr-3 py-2 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+              </div>
+
+              @if (filterableTags.length > 0) {
+                <button app-dn-button
+                        [variant]="selectedTags.length > 0 ? 'default' : 'outline'"
+                        size="icon"
+                        class="flex-shrink-0 relative"
+                        (click)="showTagFilter = true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/>
+                    <line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/>
+                    <line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/>
+                    <line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/>
+                    <line x1="18" x2="22" y1="16" y2="16"/>
+                  </svg>
+                  @if (selectedTags.length > 0) {
+                    <span class="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs w-4 h-4 rounded-full flex items-center justify-center">
+                      {{ selectedTags.length }}
+                    </span>
+                  }
+                </button>
+              }
+            </div>
+
+            <!-- Active filter badges -->
+            @if (selectedTags.length > 0) {
+              <div class="flex flex-wrap gap-1.5 items-center">
+                <span class="text-xs text-muted-foreground mr-1">Filters:</span>
+                @for (tagName of selectedTags; track tagName) {
+                  <span [class]="'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium pr-1 ' + getTagColor(tagName)">
+                    <span [innerHTML]="getTagIconSvg(tagName)" class="[&>svg]:h-3 [&>svg]:w-3"></span>
+                    {{ tagName }}
+                    <button (click)="removeTag(tagName); $event.stopPropagation()"
+                            class="ml-1 rounded-full hover:bg-black/10 p-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                      </svg>
+                    </button>
+                  </span>
+                }
+                <button app-dn-button variant="ghost" size="sm"
+                        class="h-6 text-xs text-muted-foreground px-2"
+                        (click)="clearAllTags()">
+                  Clear all
+                </button>
+              </div>
+            }
+          </div>
+
+          <!-- Tag Filter Sheet -->
+          <app-tag-filter-sheet
+            [open]="showTagFilter"
+            [tags]="presetTags"
+            [selectedTags]="selectedTags"
+            [items]="allItems"
+            (openChange)="showTagFilter = $event"
+            (apply)="onTagFilterApply($event)">
+          </app-tag-filter-sheet>
+        </div>
+
+        <!-- Scrollable content -->
+        <div #scrollContent class="flex-1 overflow-y-auto min-h-0">
+          <div class="px-4 py-4 space-y-6">
+
+            <!-- Featured Section -->
+            @if (featuredItems.length > 0) {
+              <div>
+                <h2 class="text-xl font-bold mb-4 py-2 border-b flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                       fill="#eab308" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                  Featured
+                </h2>
+                <div class="space-y-4">
+                  @for (item of featuredItems; track item.id) {
+                    <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: 'featured-' }"></ng-container>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- Regular Sections -->
+            @for (section of availableSections; track section.id; let i = $index) {
+              @if (shouldShowSection(section.id)) {
+                <div #sectionRef>
+                  <h2 [class]="'text-xl font-bold mb-4 py-2 border-b transition-colors duration-200 ' +
+                    (activeSection === section.id
+                      ? 'text-primary border-primary'
+                      : 'text-foreground border-border')">
+                    {{ section.name }}
+                  </h2>
+
+                  @if (getFilteredItems(section.id).length === 0) {
+                    <p class="text-center text-muted-foreground py-4">No items available</p>
+                  } @else {
+                    <div class="space-y-4">
+                      @for (item of getFilteredItems(section.id); track item.id) {
+                        <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: '' }"></ng-container>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            }
+          </div>
+        </div>
+
+      <!-- ═══════════════════════ VIEW: DETAIL ═══════════════════════ -->
+      } @else if (view === 'detail') {
+        <app-item-detail-view
+          [item]="editingCartItem?.item || selectedItem"
+          [editingCartItem]="editingCartItem"
+          [presetTags]="presetTags"
+          (back)="handleBackFromDetail()"
+          (addToCart)="handleAddToCart($event)">
+        </app-item-detail-view>
+
+      <!-- ═══════════════════════ VIEW: CART ═══════════════════════ -->
+      } @else if (view === 'cart') {
+        <div class="flex flex-col h-full">
+          <!-- Cart Header -->
+          <div class="border-b flex-shrink-0 px-4 py-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <button app-dn-button variant="ghost" size="icon" (click)="backToList()">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+                  </svg>
+                </button>
+                <h2 class="text-lg font-semibold">Your Order</h2>
+              </div>
+              <button class="rounded-sm opacity-70 hover:opacity-100 p-1" (click)="onClose()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cart Content -->
+          <div class="flex-1 overflow-y-auto min-h-0">
+            <div class="p-4 space-y-4 pb-8">
+              @if (cartItems.length === 0) {
+                <!-- Empty state -->
+                <div class="text-center py-12">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       class="mx-auto text-muted-foreground mb-4">
+                    <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
+                    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                  </svg>
+                  <p class="text-muted-foreground">Your cart is empty</p>
+                  <button app-dn-button variant="outline" class="mt-4" (click)="backToList()">
+                    Browse Menu
+                  </button>
+                </div>
+              } @else {
+                @for (cartItem of cartItems; track cartItem.id) {
+                  <div class="flex gap-4 border rounded-lg p-4 bg-card cursor-pointer hover:border-primary/50 transition-colors"
+                       (click)="handleEditCartItem(cartItem)">
+                    <!-- Thumbnail -->
+                    <div class="w-16 h-16 rounded-md bg-muted flex-shrink-0 overflow-hidden">
+                      @if (cartItem.item.image) {
+                        <img [src]="imageBaseUrl + cartItem.item.image" [alt]="cartItem.item.name"
+                             class="w-full h-full object-cover"/>
+                      } @else {
+                        <div class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                          No img
+                        </div>
+                      }
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                      <!-- Name + edit + remove -->
+                      <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-2">
+                          <h3 class="font-semibold">{{ cartItem.item.name }}</h3>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                               class="text-muted-foreground">
+                            <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+                          </svg>
+                        </div>
+                        <button app-dn-button variant="ghost" size="icon"
+                                class="h-8 w-8 -mr-2 -mt-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                (click)="itemToRemove = cartItem; $event.stopPropagation()">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                          </svg>
+                        </button>
+                      </div>
+
+                      <!-- Discount savings -->
+                      @if (hasActiveDiscount(cartItem.item)) {
+                        <div class="flex items-center gap-2 mt-1">
+                          <span class="text-xs text-muted-foreground line-through">
+                            {{ getOriginalPrice(cartItem.item) }}
+                          </span>
+                          <span class="text-xs font-semibold bg-green-500 text-white px-1.5 py-0.5 rounded">
+                            -{{ formatPrice(getItemSavings(cartItem)) }}
+                          </span>
+                        </div>
+                      }
+
+                      <!-- Selected modifiers -->
+                      @if (cartItem.selectedModifiers.length > 0) {
+                        <div class="mt-2 space-y-1">
+                          @for (modifier of cartItem.selectedModifiers; track modifier.groupId) {
+                            <div class="text-xs">
+                              <span class="text-muted-foreground">{{ modifier.groupName }}: </span>
+                              <span class="font-medium">
+                                @for (choice of modifier.choices; track choice.id; let last = $last) {
+                                  {{ choice.name }}{{ !last ? ', ' : '' }}
+                                }
+                              </span>
+                              @if (modifier.choices.length > 0 && getModifierAdditionalCost(modifier) > 0) {
+                                <span class="text-muted-foreground ml-1">
+                                  (+{{ formatPrice(getModifierAdditionalCost(modifier)) }})
+                                </span>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
+
+                      <!-- Selected extras -->
+                      @if (cartItem.selectedExtras.length > 0) {
+                        <div class="mt-2 space-y-1">
+                          <p class="text-xs font-medium text-muted-foreground">Extras:</p>
+                          @for (extra of cartItem.selectedExtras; track extra.id) {
+                            <div class="flex items-center justify-between text-xs">
+                              <span class="text-muted-foreground">{{ extra.name }}</span>
+                              <span class="text-muted-foreground">+{{ formatPrice(extra.price) }}</span>
+                            </div>
+                          }
+                        </div>
+                      }
+
+                      <!-- Quantity controls + total -->
+                      <div class="flex items-center gap-3 mt-2" (click)="$event.stopPropagation()">
+                        <div class="flex items-center border rounded-full">
+                          <button app-dn-button variant="ghost" size="icon"
+                                  class="h-8 w-8 rounded-full"
+                                  (click)="decrementQuantity(cartItem)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M5 12h14"/>
+                            </svg>
+                          </button>
+                          <span class="w-8 text-center font-medium">{{ cartItem.quantity }}</span>
+                          <button app-dn-button variant="ghost" size="icon"
+                                  class="h-8 w-8 rounded-full"
+                                  (click)="incrementQuantity(cartItem)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M5 12h14"/><path d="M12 5v14"/>
+                            </svg>
+                          </button>
+                        </div>
+                        <p class="font-semibold">{{ formatPrice(cartItem.totalPrice) }}</p>
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                <!-- Upsell Carousel -->
+                <app-upsell-carousel
+                  [cartItems]="cartItems"
+                  (addItem)="onUpsellAddItem($event)"
+                  (itemNeedsModifiers)="onUpsellItemNeedsModifiers($event)">
+                </app-upsell-carousel>
+              }
+            </div>
+          </div>
+
+          <!-- Sticky footer -->
+          @if (cartItems.length > 0) {
+            <div class="border-t bg-background flex-shrink-0 p-4 space-y-3">
+              <div class="space-y-2">
+                @if (totalSavings > 0) {
+                  <div class="flex justify-between text-sm text-muted-foreground">
+                    <span>Original Total</span>
+                    <span class="line-through">{{ formatPrice(originalTotal) }}</span>
+                  </div>
+                  <div class="flex justify-between text-sm text-green-600">
+                    <span>Discount Savings</span>
+                    <span class="font-medium">-{{ formatPrice(totalSavings) }}</span>
+                  </div>
+                }
+                <div class="flex justify-between text-lg font-semibold">
+                  <span>Total</span>
+                  <span>{{ formatPrice(totalPrice) }}</span>
+                </div>
+              </div>
+              <button app-dn-button class="w-full h-12 text-lg" (click)="placeOrder()">
+                Place Order
+              </button>
+            </div>
+          }
+
+          <!-- Remove confirmation dialog -->
+          <app-dn-dialog [open]="!!itemToRemove" maxWidth="sm" (closed)="cancelRemove()">
+            <h3 class="text-lg font-semibold">Remove from cart?</h3>
+            <p class="text-sm text-muted-foreground mt-2">
+              Are you sure you want to remove "{{ itemToRemove?.item?.name }}" from your order?
+            </p>
+            <div class="flex justify-end gap-3 mt-4">
+              <button app-dn-button variant="outline" (click)="cancelRemove()">Cancel</button>
+              <button app-dn-button variant="destructive" (click)="confirmRemove()">Remove</button>
+            </div>
+          </app-dn-dialog>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- ═══════════════ Diner Item Card Template ═══════════════ -->
+<ng-template #itemCard let-item let-prefix="prefix">
+  <button
+    (click)="handleItemClick(item)"
+    [class]="'w-full flex gap-4 rounded-xl p-4 bg-card shadow-md text-left border-2 transition-colors duration-200 ' +
+      (isOutOfStock(item)
+        ? 'opacity-60 border-transparent cursor-not-allowed'
+        : 'border-transparent hover:border-primary')">
+    <!-- Left: text -->
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <h3 class="font-semibold text-lg">{{ item.name }}</h3>
+        @if (isOutOfStock(item)) {
+          <span class="inline-flex items-center rounded-full bg-gray-200 text-gray-700 text-xs px-2 py-0.5">
+            Sold out
+          </span>
+        }
+      </div>
+      @if (item.description) {
+        <p class="text-sm text-muted-foreground mt-1 line-clamp-2">{{ item.description }}</p>
+      }
+      <div class="mt-2 flex items-center gap-2 flex-wrap">
+        @if (hasActiveDiscount(item)) {
+          <span class="text-sm text-muted-foreground line-through">{{ getOriginalPrice(item) }}</span>
+          <span [class]="'text-lg font-bold ' + (isOutOfStock(item) ? 'text-muted-foreground' : 'text-red-600')">
+            {{ getItemPrice(item) }}
+          </span>
+        } @else {
+          <span [class]="'text-lg font-bold ' + (isOutOfStock(item) ? 'text-muted-foreground' : 'text-red-600')">
+            {{ getItemPrice(item) }}
+          </span>
+        }
+        @if (item.is_special && !isOutOfStock(item)) {
+          <span class="inline-flex items-center rounded-full bg-secondary text-secondary-foreground text-xs px-2 py-0.5">
+            Special
+          </span>
+        }
+      </div>
+      <!-- Tags -->
+      @if (getTagBadges(item).length > 0) {
+        <div class="mt-2 flex flex-wrap gap-1">
+          @for (tag of getTagBadges(item); track tag.name) {
+            <span [class]="'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ' + tag.colorClasses">
+              <span [innerHTML]="tag.iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
+              {{ tag.name }}
+            </span>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Right: image with overlay badges -->
+    <div [class]="'w-28 h-28 rounded-xl bg-muted flex-shrink-0 overflow-hidden shadow-sm relative ' +
+      (isOutOfStock(item) ? 'grayscale' : '')">
+      <!-- Badge overlays -->
+      <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
+        @if (hasActiveDiscount(item) && !isOutOfStock(item)) {
+          <span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+            {{ getDiscountBadge(item) }}
+          </span>
+        }
+        @if (item.is_popular && !isOutOfStock(item)) {
+          <span class="bg-orange-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+            Popular
+          </span>
+        }
+        @if (item.is_new && !isOutOfStock(item)) {
+          <span class="bg-green-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+            </svg>
+            New
+          </span>
+        }
+      </div>
+      @if (item.image) {
+        <img [src]="imageBaseUrl + item.image" [alt]="item.name"
+             class="w-full h-full object-cover" loading="lazy"/>
+      } @else {
+        <div class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+          No image
+        </div>
+      }
+    </div>
+  </button>
+</ng-template>

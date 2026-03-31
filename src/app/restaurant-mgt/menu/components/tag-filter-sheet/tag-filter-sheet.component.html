@@ -1,0 +1,78 @@
+@if (open) {
+  <div class="fixed inset-0 z-[60]">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/50 transition-opacity" (click)="close()"></div>
+
+    <!-- Bottom sheet panel -->
+    <div class="fixed bottom-0 left-0 right-0 z-[60] bg-card rounded-t-2xl shadow-lg flex flex-col"
+         style="height: 70vh; max-height: 70vh;">
+
+      <!-- Header -->
+      <div class="px-6 pt-5 pb-4 border-b flex-shrink-0">
+        <h2 class="text-lg font-semibold text-foreground">Filter by Tags</h2>
+        <p class="text-sm text-muted-foreground mt-1">
+          Select dietary preferences or attributes to filter the menu
+        </p>
+      </div>
+
+      <!-- Tag list (scrollable) -->
+      <div class="flex-1 overflow-y-auto px-6 py-4">
+        @if (filterableTags.length === 0) {
+          <div class="text-center py-8 text-muted-foreground">
+            No filter options available
+          </div>
+        } @else {
+          <div class="space-y-2">
+            @for (tag of filterableTags; track tag.id) {
+              <button
+                (click)="toggleTag(tag.name)"
+                [class]="'w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left ' +
+                  (isSelected(tag.name)
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:bg-muted/50')">
+                <!-- Checkbox indicator -->
+                <div [class]="'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ' +
+                  (isSelected(tag.name)
+                    ? 'bg-primary border-primary'
+                    : 'border-input')">
+                  @if (isSelected(tag.name)) {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                         stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+                  }
+                </div>
+                <!-- Tag icon box -->
+                <div [class]="'w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ' + getColorClasses(tag.color)"
+                     [innerHTML]="getIconSvg(tag.icon)">
+                </div>
+                <!-- Tag name -->
+                <span class="font-medium flex-1">{{ tag.name }}</span>
+                <!-- Item count -->
+                <span class="text-sm text-muted-foreground">
+                  ({{ getItemCount(tag.name) }} {{ getItemCount(tag.name) === 1 ? 'item' : 'items' }})
+                </span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t flex-shrink-0 flex gap-3">
+        <button app-dn-button
+                variant="outline"
+                class="flex-1"
+                [disabled]="localSelectedTags.length === 0"
+                (click)="clearAll()">
+          Clear All
+        </button>
+        <button app-dn-button
+                class="flex-1"
+                (click)="onApply()">
+          Apply Filters{{ localSelectedTags.length > 0 ? ' (' + localSelectedTags.length + ')' : '' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

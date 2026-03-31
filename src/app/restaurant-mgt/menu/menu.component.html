@@ -98,6 +98,16 @@
             </svg>
             <span class="hidden sm:inline">Search</span>
           </button>
+
+          <!-- Preview Menu button -->
+          <button (click)="previewOpen = true"
+                  class="inline-flex items-center gap-1 border border-primary text-primary rounded-md px-4 py-2 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span class="hidden sm:inline">Preview Menu</span>
+          </button>
         </div>
       </div>
 
@@ -154,3 +164,9 @@
   [restaurantId]="restaurant"
   (closed)="presetTagsOpen = false">
 </app-preset-tags-config>
+
+<!-- Preview Menu Drawer -->
+<app-preview-menu-drawer
+  [open]="previewOpen"
+  (closed)="closePreview()">
+</app-preview-menu-drawer>

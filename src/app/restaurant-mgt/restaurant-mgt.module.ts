@@ -39,6 +39,9 @@ import { UpsellsTabComponent } from './menu/components/upsells-tab/upsells-tab.c
 import { ItemDetailViewComponent } from './menu/components/item-detail-view/item-detail-view.component';
 import { PresetTagsConfigComponent } from './menu/components/preset-tags-config/preset-tags-config.component';
 import { TabsComponent, TabListComponent, TabTriggerComponent, TabContentComponent } from '../_shared/ui/tabs/tabs.component';
+import { TagFilterSheetComponent } from './menu/components/tag-filter-sheet/tag-filter-sheet.component';
+import { UpsellCarouselComponent } from './menu/components/upsell-carousel/upsell-carousel.component';
+import { PreviewMenuDrawerComponent } from './menu/components/preview-menu-drawer/preview-menu-drawer.component';
 
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
@@ -116,6 +119,9 @@ const routes: Routes = [
     TabListComponent,
     TabTriggerComponent,
     TabContentComponent,
+    TagFilterSheetComponent,
+    UpsellCarouselComponent,
+    PreviewMenuDrawerComponent,
 ],
   exports:[
     RouterModule

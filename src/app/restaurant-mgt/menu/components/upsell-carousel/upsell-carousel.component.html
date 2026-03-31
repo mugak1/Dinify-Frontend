@@ -1,0 +1,106 @@
+@if (visible) {
+  <div class="border-t pt-4 mt-4">
+    <!-- Header with title and navigation arrows -->
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold text-lg">{{ config?.title || 'You might also like' }}</h3>
+
+      @if (showArrows) {
+        <div class="flex items-center gap-1">
+          <button
+            (click)="scroll('left')"
+            [disabled]="!canScrollLeft"
+            [class]="'p-1.5 rounded-full border transition-colors ' +
+              (canScrollLeft
+                ? 'border-border hover:bg-muted cursor-pointer'
+                : 'border-muted text-muted-foreground/40 cursor-not-allowed')"
+            aria-label="Scroll left">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
+          </button>
+          <button
+            (click)="scroll('right')"
+            [disabled]="!canScrollRight"
+            [class]="'p-1.5 rounded-full border transition-colors ' +
+              (canScrollRight
+                ? 'border-border hover:bg-muted cursor-pointer'
+                : 'border-muted text-muted-foreground/40 cursor-not-allowed')"
+            aria-label="Scroll right">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- Cards carousel -->
+    <div
+      #scrollContainer
+      class="grid grid-flow-col auto-cols-[calc(33.333%-8px)] gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
+      style="scrollbar-width: none; -ms-overflow-style: none;"
+      (scroll)="checkScroll()">
+
+      @for (item of filteredItems; track item.id) {
+        <div class="border rounded-lg overflow-hidden bg-card snap-start">
+          <!-- Image -->
+          <div class="h-20 bg-muted relative">
+            @if (item.image) {
+              <img [src]="imageBaseUrl + item.image" [alt]="item.name"
+                   class="w-full h-full object-cover" loading="lazy"/>
+            } @else {
+              <div class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                No image
+              </div>
+            }
+            @if (hasDiscount(item)) {
+              <div class="absolute top-1 left-1 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                SALE
+              </div>
+            }
+          </div>
+
+          <div class="p-2 space-y-1">
+            <p class="font-medium text-xs line-clamp-2 leading-tight h-8">{{ item.name }}</p>
+
+            <!-- Tags -->
+            @if (getItemTags(item).length > 0) {
+              <div class="flex flex-wrap gap-1">
+                @for (tag of getItemTags(item); track tag.name) {
+                  <span [class]="'inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium ' + tag.colorClasses">
+                    <span [innerHTML]="tag.iconSvg" class="[&>svg]:h-2.5 [&>svg]:w-2.5"></span>
+                    {{ tag.name }}
+                  </span>
+                }
+                @if (getRemainingTagCount(item) > 0) {
+                  <span class="text-[9px] text-muted-foreground">
+                    +{{ getRemainingTagCount(item) }}
+                  </span>
+                }
+              </div>
+            }
+
+            <p class="font-bold text-primary text-xs">{{ getPrice(item) }}</p>
+
+            <button app-dn-button
+                    size="sm"
+                    [class]="'w-full h-6 text-xs transition-all ' + (isAdded(item.id) ? 'bg-green-500 hover:bg-green-500' : '')"
+                    (click)="handleAddClick(item)">
+              @if (isAdded(item.id)) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+                  <path d="M20 6 9 17l-5-5"/>
+                </svg>
+                Added
+              } @else {
+                ADD
+              }
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}

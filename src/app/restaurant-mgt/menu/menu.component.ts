@@ -4,6 +4,8 @@ import { MenuItem, MenuSectionListItem, RestaurantDetail } from 'src/app/_models
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MenuService, SortMode } from './services/menu.service';
 import { TagService } from './services/tag.service';
+import { CartService } from './services/cart.service';
+import { UpsellService } from './services/upsell.service';
 
 @Component({
     selector: 'app-menu',
@@ -27,6 +29,9 @@ export class MenuComponent {
   searchOpen = false;
   presetTagsOpen = false;
 
+  // Preview drawer
+  previewOpen = false;
+
   // Tabs
   activeTab: 'sections' | 'upsells' = 'sections';
 
@@ -44,7 +49,9 @@ export class MenuComponent {
     private route: ActivatedRoute,
     public auth: AuthenticationService,
     private menuService: MenuService,
-    private tagService: TagService
+    private tagService: TagService,
+    private cartService: CartService,
+    private upsellService: UpsellService
   ) {
     const depth = this.route.pathFromRoot.length;
     this.isThirdChild = (depth === 5);
@@ -53,13 +60,17 @@ export class MenuComponent {
       this.restaurant = this.auth.currentRestaurantRole.restaurant_id;
       this.menuService.loadSections(this.restaurant);
       this.menuService.loadExtras(this.restaurant);
+      this.menuService.loadAllItems(this.restaurant);
       this.tagService.loadPresetTags(this.restaurant);
+      this.upsellService.loadConfig(this.restaurant);
     } else if (this.route.parent?.snapshot.params['id']) {
       this.restaurant = this.route.parent.snapshot.params['id'];
       this.loadRestaurant();
       this.menuService.loadSections(this.restaurant);
       this.menuService.loadExtras(this.restaurant);
+      this.menuService.loadAllItems(this.restaurant);
       this.tagService.loadPresetTags(this.restaurant);
+      this.upsellService.loadConfig(this.restaurant);
     }
   }
 
@@ -202,5 +213,14 @@ export class MenuComponent {
 
   onMobileSectionChange(sectionId: string): void {
     this.menuService.selectSection(sectionId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Preview menu drawer
+  // ---------------------------------------------------------------------------
+
+  closePreview(): void {
+    this.previewOpen = false;
+    this.cartService.clearCart();
   }
 }
