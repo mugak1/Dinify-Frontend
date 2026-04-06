@@ -1,7 +1,6 @@
 <div class="bg-white min-h-screen flex flex-col items-center justify-center">
                     <form [formGroup]="loginForm" (ngSubmit)="require_otp?(inputPTO?.valid?this.SubmitOTP():false) :onSubmit()" class="flex flex-col w-full max-w-md pb-6 text-center">
                         <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-12 mb-8 mx-auto" />
-                        <!--  <h3 class="mb-3 text-4xl font-extrabold text-dark-grey-900">Sign In</h3> -->
                           <div *ngIf="showLoginForm && !require_otp && !showRestaurantSelector" class="relative bg-white px-6 pt-6 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lg rounded-2xl space-y-5">
                             <div class="flex flex-col items-center justify-center text-center space-y-2">
                                 <div class="font-semibold text-3xl">
@@ -19,34 +18,17 @@
                        <div class="text-left">
                             <label class="mb-2 text-sm text-start text-grey-900">Phone number <span class="text-d-red">*</span></label>
                           <intl-telephone-input class="mb-3" [cssClass]="'rounded '+(submitted && loginForm.get('username')?.errors?.['required']?'border border-d-red':'')" [preferredCountries]="preferredCountries" [selectedCountryISO]="CountryISO.Uganda" [enableAutoCountrySelect]="true" [enablePlaceholder]="true" (onChange)="onInputChange($event)">
-                          </intl-telephone-input>  
+                          </intl-telephone-input>
                          </div>
-                        <!-- <label for="email" class="mb-2 text-sm text-start text-grey-900">Email <span class="text-d-red">*</span> </label>
-                        <input id="email" type="text" formControlName="username" placeholder="Enter your phone number"
-                            class="flex items-center w-full px-5 py-4 mr-2 text-sm font-medium outline-none mb-7 focus:bg-white border placeholder:text-gray-700 bg-gray-100 text-gray-900 rounded" />
-                            <div *ngIf="submitted && f['username'].errors" class="text-d-red text-xs">
-                                <div *ngIf="f['username'].errors?.['required']">Email is required</div>
-                            </div> -->
-                            <div *ngIf="false" class="text-left">
-                        <label for="password" class="mb-2 text-sm text-start text-grey-900">Password <span class="text-d-red">*</span></label>
-                        <input id="password" type="password" formControlName="password"
-                            class="flex items-center py-1 px-2 w-full mb-5 mr-2 font-medium outline-none focus:bg-white border border-gray-300 bg-white text-gray-900" />
-                            <div *ngIf="f['password']?.invalid&&f['password']?.errors?.['required']&&submitted" class="text-d-red text-xs"> 
-                                Password is required 
-                            </div>
-                           
-                        </div>
                         <div class="text-left">
-                          <label for="newPassword" class="block text-sm font-medium text-gray-600 mb-2">
-                            Password
-                          </label>
+                          <label class="mb-2 text-sm text-start text-grey-900">Password <span class="text-d-red">*</span></label>
                           <div class="relative">
-                            <input 
-                            [type]="fieldTextType ? 'text' : 'password'"
+                            <input
+                              [type]="fieldTextType ? 'text' : 'password'"
                               id="password"
                               formControlName="password"
                               name="password"
-                              class="flex items-center py-1 px-2 w-full mb-5 mr-2 font-medium outline-none focus:bg-white border border-gray-300 bg-white text-gray-900"
+                              class="flex items-center py-2.5 px-3 w-full font-medium outline-none border border-gray-300 bg-white text-gray-900 rounded focus:border-d-red focus:ring-2 focus:ring-d-red/20 transition-colors"
                               placeholder="Enter Password"
                             />
                             <button
@@ -54,29 +36,24 @@
                               class="absolute inset-y-0 right-3 flex items-center"
                               (click)="toggleFieldTextType()"
                             >
-                             
-                              <svg *ngIf="fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="style=linear"> <g id="eye-close"> <path id="vector" d="M15.6487 5.39489C14.4859 4.95254 13.2582 4.72021 12 4.72021C8.46997 4.72021 5.17997 6.54885 2.88997 9.71381C1.98997 10.9534 1.98997 13.037 2.88997 14.2766C3.34474 14.9051 3.83895 15.481 4.36664 16.0002M19.3248 7.69653C19.9692 8.28964 20.5676 8.96425 21.11 9.71381C22.01 10.9534 22.01 13.037 21.11 14.2766C18.82 17.4416 15.53 19.2702 12 19.2702C10.6143 19.2702 9.26561 18.9884 7.99988 18.4547" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_2" d="M15 12C15 13.6592 13.6592 15 12 15M14.0996 9.85541C13.5589 9.32599 12.8181 9 12 9C10.3408 9 9 10.3408 9 12C9 12.7293 9.25906 13.3971 9.69035 13.9166" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_3" d="M2 21.0002L22 2.7002" stroke="#000000" stroke-width="1.5" stroke-linecap="round"></path> </g> </g> </g></svg>
-                              <svg *ngIf="!fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="style=linear"> <g id="eye-open"> <path id="vector" d="M15 12C15 13.6592 13.6592 15 12 15C10.3408 15 9 13.6592 9 12C9 10.3408 10.3408 9 12 9C13.6592 9 15 10.3408 15 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_2" d="M12 19.27C15.53 19.27 18.82 17.4413 21.11 14.2764C22.01 13.0368 22.01 10.9532 21.11 9.71356C18.82 6.54861 15.53 4.71997 12 4.71997C8.46997 4.71997 5.17997 6.54861 2.88997 9.71356C1.98997 10.9532 1.98997 13.0368 2.88997 14.2764C5.17997 17.4413 8.46997 19.27 12 19.27Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g> </g></svg>
+                              <svg *ngIf="fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3.98 8.223A10.477 10.477 0 001.934 12c1.292 4.338 5.31 7.5 10.066 7.5.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                              </svg>
+                              <svg *ngIf="!fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
                             </button>
                           </div>
-                          <div *ngIf="f['password']?.invalid&&f['password']?.errors?.['required']&&submitted" class="text-d-red text-xs"> 
-                            Password is required 
+                          <div *ngIf="f['password']?.invalid&&f['password']?.errors?.['required']&&submitted" class="text-d-red text-xs mt-1">
+                            Password is required
+                          </div>
                         </div>
-                         
-                     
+                        <div class="flex justify-end mt-1 mb-6">
+                          <a *ngIf="!as_diner" [routerLink]="['/forgot-password']"
+                             class="text-sm font-medium text-d-red hover:underline">Forgot password?</a>
                         </div>
-                        <div class="flex flex-row justify-between mb-8 mt-7">
-                            <div class="flex gap-2">
-                                <input type="checkbox" id="some_id" class="relative peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-400 rounded-sm bg-white checked:bg-gray-800 checked:border-0 focus:outline-none focus:ring-offset-0 focus:ring-2 focus:ring-blue-100 disabled:border-steel-400 disabled:bg-steel-400" />
-                                <label class="text-sm font-normal" htmlFor="some_id">Keep me logged in</label>
-                                <svg class=" absolute w-5 h-5 hidden peer-checked:block pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
-                            </div>
-                            <a *ngIf="!as_diner" [routerLink]="['/forgot-password']" class="text-sm font-medium text-d-red">Forgot
-                                password?</a>
-                        </div>
-                        <button [disabled]="loading" class="flex flex-row items-center disabled:opacity-50 justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none text-white text-sm shadow-sm hover:opacity-75">
+                        <button [disabled]="loading" class="flex flex-row items-center disabled:opacity-50 justify-center text-center w-full rounded-xl py-3.5 bg-d-red text-white text-sm font-medium shadow-sm hover:opacity-75 transition-opacity">
                           <svg *ngIf="loading" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
@@ -84,7 +61,7 @@
                           Sign In
                         </button>
                         </div>                    
-                        <div *ngIf="require_otp" style="width: 32rem;" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lgrounded-2xl">
+                        <div *ngIf="require_otp" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:max-w-lg rounded-2xl">
                         <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
                           <div class="flex flex-col items-center justify-center text-center space-y-2">
                             <div class="font-semibold text-3xl">
@@ -106,7 +83,7 @@
                     
                                 <div class="flex flex-col space-y-5">
                                   <div>
-                                    <button [disabled]="inputPTO.invalid||isSubmittingOtp" [ngClass]="{'opacity-65 hover:cursor-not-allowed':inputPTO.invalid}" type="submit" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
+                                    <button [disabled]="inputPTO.invalid||isSubmittingOtp" [ngClass]="{'opacity-65 hover:cursor-not-allowed':inputPTO.invalid}" type="submit" class="flex flex-row items-center justify-center text-center w-full rounded-xl py-3.5 bg-d-red text-white text-sm font-medium shadow-sm hover:opacity-75 transition-opacity">
                                       <svg *ngIf="isSubmittingOtp" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
@@ -133,15 +110,8 @@
           d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
   </svg>
 </div>
-                    <!-- Restaurant Selector Section -->
-<!-- Restaurant Selector Popup -->
-<div *ngIf="showRestaurantSelector" 
-     style="width: 32rem;" 
-     class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lg rounded-2xl">
-<!-- <div class="relative inline-flex items-center justify-center w-10 h-10 mx-auto overflow-hidden bg-d-red rounded-full">
-        <span class="text-white font-bold uppercase">{{ProfileLetter}}</span>
-    </div> -->
-      
+<div *ngIf="showRestaurantSelector"
+     class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:max-w-lg rounded-2xl">
   <div class="mx-auto flex w-full max-w-md flex-col space-y-8">
     <div class="flex flex-col items-center justify-center text-center space-y-2">
       <div class="font-semibold text-3xl">
@@ -169,15 +139,5 @@
 </div>
 
 
-                       <!-- <p class="text-sm leading-relaxed text-grey-900">Not registered yet? 
-                         <a [routerLink]="['/register']" class="font-medium text-d-red">Create an Account</a></p> -->
                     </form>
-
-    <!--     <div class="flex flex-wrap -mx-3 my-5">
-        <div class="w-full max-w-full sm:w-3/4 mx-auto text-center">
-            <p class="text-sm text-slate-500 py-1">
-
-            </p>
-        </div>
-    </div> -->
 </div>
