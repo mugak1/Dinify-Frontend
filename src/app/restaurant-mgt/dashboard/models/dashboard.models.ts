@@ -67,6 +67,12 @@ export interface TablesData {
   occupied: number;
   available: number;
   needs_attention: number;
+  occupancy_pct?: number;
+  median_visit_minutes?: number | null;
+  turns_today?: number;
+  turns_yesterday?: number;
+  avg_ticket_today?: number;
+  avg_ticket_yesterday?: number;
 }
 
 // ── KDS ───────────────────────────────────────────────────
@@ -75,6 +81,11 @@ export interface KdsData {
   over_sla: number;
   at_risk: number;
   stale_ready: number;
+  open_tickets?: number;
+  avg_fulfillment_minutes?: number;
+  target_minutes?: number;
+  late_minutes?: number;
+  oldest_ticket_minutes?: number;
 }
 
 // ── Reviews ───────────────────────────────────────────────

@@ -35,9 +35,15 @@
 
   <!-- Row 3: Tables (compact) + KDS Attention (large) -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-    <app-card-skeleton variant="compact"></app-card-skeleton>
+    <app-tables-card
+      [tablesData]="dashboardData?.tables ?? null"
+      [loading]="loading"
+    ></app-tables-card>
     <div class="lg:col-span-2">
-      <app-card-skeleton variant="wide"></app-card-skeleton>
+      <app-kds-attention-card
+        [kdsData]="dashboardData?.kds ?? null"
+        [loading]="loading"
+      ></app-kds-attention-card>
     </div>
   </div>
 

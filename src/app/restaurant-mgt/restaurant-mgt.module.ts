@@ -14,6 +14,8 @@ import { RevenueCardComponent } from './dashboard/components/revenue-card/revenu
 import { PaymentMethodsCardComponent } from './dashboard/components/payment-methods-card/payment-methods-card.component';
 import { PopularItemsCardComponent } from './dashboard/components/popular-items-card/popular-items-card.component';
 import { TotalOrdersCardComponent } from './dashboard/components/total-orders-card/total-orders-card.component';
+import { TablesCardComponent } from './dashboard/components/tables-card/tables-card.component';
+import { KdsAttentionCardComponent } from './dashboard/components/kds-attention-card/kds-attention-card.component';
 import { SettingsComponent } from './settings/settings.component';
 import { MenuComponent } from './menu/menu.component';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
@@ -116,6 +118,8 @@ const routes: Routes = [
     PaymentMethodsCardComponent,
     PopularItemsCardComponent,
     TotalOrdersCardComponent,
+    TablesCardComponent,
+    KdsAttentionCardComponent,
     CommonChartModule,
     SidebarComponent,
     TopNavComponent,
