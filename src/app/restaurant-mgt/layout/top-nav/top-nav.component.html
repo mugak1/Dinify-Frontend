@@ -1,40 +1,118 @@
-<header class="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-card border-b border-border">
-  <!-- Left: hamburger (mobile only) -->
-  <button (click)="menuClick.emit()" class="lg:hidden p-2 -ml-2 rounded-md hover:bg-accent transition-colors">
-    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
-  </button>
-
-  <!-- Spacer / optional content projection for page-specific controls -->
-  <div class="flex-1 flex items-center">
-    <ng-content></ng-content>
-  </div>
-
-  <!-- Right side -->
-  <div class="flex items-center gap-3">
-    <!-- Restaurant name + logo -->
-    <div *ngIf="auth.currentRestaurantRole?.restaurant_id" class="hidden sm:flex items-center gap-2 mr-2">
-      <img
-        *ngIf="auth.currentRestaurant?.logo"
-        class="w-8 h-8 rounded-full border border-border object-cover"
-        [src]="baseUrl + auth.currentRestaurant.logo"
-        [alt]="auth.currentRestaurant.name"
+<header class="sticky top-0 z-30 bg-card border-b border-border px-3 sm:px-4 md:px-6 py-3 md:py-4">
+  <div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+    <!-- Row 1: Menu button + Date filters -->
+    <div class="flex items-center gap-2 sm:gap-4 flex-1">
+      <button
+        (click)="menuClick.emit()"
+        class="lg:hidden p-2 -ml-2 rounded-md hover:bg-accent transition-colors flex-shrink-0"
+        aria-label="Toggle sidebar"
       >
-      <span class="text-sm font-medium text-foreground truncate max-w-[160px]">
-        {{ auth.currentRestaurantRole.restaurant }}
-      </span>
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" x2="20" y1="12" y2="12"/>
+          <line x1="4" x2="20" y1="6" y2="6"/>
+          <line x1="4" x2="20" y1="18" y2="18"/>
+        </svg>
+      </button>
+
+      <!-- Date range pills (dashboard only) -->
+      @if (dashboardService.isDashboardActive$ | async) {
+        <div class="bg-muted rounded-lg p-1 flex gap-1 overflow-x-auto" role="tablist" aria-label="Date range selector">
+          @for (range of ranges; track range.value) {
+            <button
+              (click)="onDateRangeChange(range.value)"
+              class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 active:scale-95"
+              [class]="(dashboardService.dateRange$ | async) === range.value
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-foreground hover:text-foreground'"
+              role="tab"
+              [attr.aria-selected]="(dashboardService.dateRange$ | async) === range.value"
+            >
+              {{ range.label }}
+            </button>
+          }
+        </div>
+      }
+
+      <!-- Spacer for ng-content when not on dashboard -->
+      <div class="flex-1 flex items-center">
+        <ng-content></ng-content>
+      </div>
     </div>
 
-    <!-- Notifications -->
-    <a
-      routerLink="/rest-app/notifications"
-      class="p-2 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-    >
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-    </a>
+    <!-- Row 2: Right side controls -->
+    <div class="flex items-center justify-between md:justify-end gap-3 md:gap-4 flex-shrink-0"
+         [class]="(dashboardService.isDashboardActive$ | async) ? 'border-t md:border-t-0 md:border-l border-border pt-3 md:pt-0 md:pl-4' : ''">
 
-    <!-- Logout -->
-    <button (click)="logoutClick.emit()" class="p-2 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title="Logout">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-    </button>
+      <!-- Dashboard-specific: time, refresh status, auto-refresh toggle -->
+      @if (dashboardService.isDashboardActive$ | async) {
+        <!-- Current time (hidden on mobile) -->
+        <div class="hidden sm:flex items-center gap-1.5 text-xs text-foreground">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span class="font-medium tabular-nums">{{ currentTime }}</span>
+        </div>
+
+        <div class="hidden sm:block w-px h-4 bg-border"></div>
+
+        <!-- Live / Paused indicator -->
+        <div class="flex items-center gap-1.5 text-xs text-foreground">
+          <div
+            class="w-2 h-2 rounded-full"
+            [class]="(dashboardService.autoRefresh$ | async) ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'"
+          ></div>
+          <span class="font-medium">{{ (dashboardService.autoRefresh$ | async) ? 'Live' : 'Paused' }}</span>
+          <span>&middot;</span>
+          <span>updated {{ secondsAgo }}s ago</span>
+        </div>
+
+        <!-- Auto-refresh toggle -->
+        <div class="flex items-center gap-2">
+          <label for="auto-refresh" class="text-xs text-foreground cursor-pointer">Auto-refresh</label>
+          <app-dn-switch
+            size="sm"
+            [checked]="(dashboardService.autoRefresh$ | async) ?? true"
+            (checkedChange)="onAutoRefreshChange($event)"
+          ></app-dn-switch>
+        </div>
+      }
+
+      <!-- Always-visible: restaurant info, notifications, logout -->
+      <div class="flex items-center gap-3">
+        <!-- Restaurant name + logo -->
+        <div *ngIf="auth.currentRestaurantRole?.restaurant_id" class="hidden sm:flex items-center gap-2 mr-2">
+          <img
+            *ngIf="auth.currentRestaurant?.logo"
+            class="w-8 h-8 rounded-full border border-border object-cover"
+            [src]="baseUrl + auth.currentRestaurant.logo"
+            [alt]="auth.currentRestaurant.name"
+          >
+          <span class="text-sm font-medium text-foreground truncate max-w-[160px]">
+            {{ auth.currentRestaurantRole.restaurant }}
+          </span>
+        </div>
+
+        <!-- Notifications -->
+        <a
+          routerLink="/rest-app/notifications"
+          class="p-2 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+        >
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+          </svg>
+        </a>
+
+        <!-- Logout -->
+        <button (click)="logoutClick.emit()" class="p-2 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title="Logout">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" x2="9" y1="12" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
   </div>
 </header>
