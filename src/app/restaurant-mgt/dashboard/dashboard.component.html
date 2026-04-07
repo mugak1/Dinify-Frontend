@@ -4,9 +4,18 @@
   <!-- Row 1: Revenue (large) + Payment Methods (compact) -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
     <div class="lg:col-span-2">
-      <app-card-skeleton variant="default"></app-card-skeleton>
+      <app-revenue-card
+        [revenueData]="dashboardData?.revenue ?? null"
+        [dateRange]="(dashboardService.dateRange$ | async) ?? 'day'"
+        [loading]="loading"
+        [error]="error"
+        (retry)="retryDashboard()"
+      ></app-revenue-card>
     </div>
-    <app-card-skeleton variant="compact"></app-card-skeleton>
+    <app-payment-methods-card
+      [paymentMethods]="dashboardData?.payments ?? null"
+      [loading]="loading"
+    ></app-payment-methods-card>
   </div>
 
   <!-- Row 2: Popular Items (compact) + Total Orders (large) -->

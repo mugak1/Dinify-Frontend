@@ -10,6 +10,8 @@ import { TrendIndicatorComponent } from './dashboard/components/trend-indicator/
 import { AnimatedNumberComponent } from './dashboard/components/animated-number/animated-number.component';
 import { CardSkeletonComponent } from './dashboard/components/card-skeleton/card-skeleton.component';
 import { CardErrorComponent } from './dashboard/components/card-error/card-error.component';
+import { RevenueCardComponent } from './dashboard/components/revenue-card/revenue-card.component';
+import { PaymentMethodsCardComponent } from './dashboard/components/payment-methods-card/payment-methods-card.component';
 import { SettingsComponent } from './settings/settings.component';
 import { MenuComponent } from './menu/menu.component';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
@@ -108,6 +110,8 @@ const routes: Routes = [
     AnimatedNumberComponent,
     CardSkeletonComponent,
     CardErrorComponent,
+    RevenueCardComponent,
+    PaymentMethodsCardComponent,
     CommonChartModule,
     SidebarComponent,
     TopNavComponent,

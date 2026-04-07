@@ -21,7 +21,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor(
-    private dashboardService: DashboardService,
+    public dashboardService: DashboardService,
     private auth: AuthenticationService,
   ) {}
 
