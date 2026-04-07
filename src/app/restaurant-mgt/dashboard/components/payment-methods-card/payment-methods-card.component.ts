@@ -30,12 +30,13 @@ const METHOD_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-payment-methods-card',
   standalone: true,
+  host: { class: 'block h-full' },
   imports: [CommonModule, CardComponent, CardSkeletonComponent, AnimatedNumberComponent],
   template: `
     @if (loading) {
       <app-card-skeleton variant="compact"></app-card-skeleton>
     } @else if (!paymentMethods || total === 0) {
-      <app-dn-card>
+      <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
           <div class="mb-1">
             <h2 class="text-sm sm:text-base font-bold text-foreground">Payment Methods (UGX)</h2>
@@ -48,7 +49,7 @@ const METHOD_COLORS: Record<string, string> = {
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card>
+      <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
           <!-- Header -->
           <div class="mb-1">

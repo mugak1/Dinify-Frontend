@@ -231,7 +231,7 @@ export class TotalOrdersCardComponent implements OnChanges {
           display: true,
           grid: {
             display: true,
-            color: 'hsla(var(--border), 0.3)',
+            color: 'rgba(0, 0, 0, 0.06)',
             tickBorderDash: [3, 3],
           },
           ticks: {
@@ -245,12 +245,14 @@ export class TotalOrdersCardComponent implements OnChanges {
         y: {
           display: true,
           grid: {
-            display: false,
+            display: true,
+            color: 'rgba(0, 0, 0, 0.06)',
+            tickBorderDash: [3, 3],
           },
           ticks: {
             color: 'hsl(var(--muted-foreground))',
             font: { size: 10 },
-            precision: 0,
+            precision: 0 as any,
           },
         },
       },

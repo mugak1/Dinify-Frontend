@@ -17,11 +17,13 @@ import { cn } from '../../utils/cn';
 })
 export class CardComponent {
   @Input() elevated = false;
+  @Input() fullHeight = false;
 
   get containerClass(): string {
     return cn(
       'bg-card text-card-foreground rounded-lg',
-      this.elevated ? 'shadow-[var(--shadow-md)]' : 'shadow-[var(--shadow-sm)]'
+      this.elevated ? 'shadow-[var(--shadow-md)]' : 'shadow-[var(--shadow-sm)]',
+      this.fullHeight && 'h-full'
     );
   }
 }

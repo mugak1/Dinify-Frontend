@@ -246,7 +246,7 @@ export class RevenueCardComponent implements OnChanges {
           display: true,
           grid: {
             display: true,
-            color: 'hsl(var(--border))',
+            color: 'rgba(0, 0, 0, 0.06)',
             tickBorderDash: [3, 3],
           },
           ticks: {
@@ -261,7 +261,7 @@ export class RevenueCardComponent implements OnChanges {
           display: true,
           grid: {
             display: true,
-            color: 'hsl(var(--border))',
+            color: 'rgba(0, 0, 0, 0.06)',
             tickBorderDash: [3, 3],
           },
           ticks: {
