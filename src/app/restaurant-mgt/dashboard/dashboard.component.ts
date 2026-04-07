@@ -1,107 +1,143 @@
-import { Component } from '@angular/core';
-import {
-  ApexAxisChartSeries,
-  ApexChart,
-  ApexXAxis,
-  ApexDataLabels,
-  ApexStroke,
-  ApexMarkers,
-  ApexYAxis,
-  ApexGrid,
-  ApexTitleSubtitle,
-  ApexTooltip
-} from "ng-apexcharts";
-import { ChartConfiguration, ChartType } from 'chart.js';
-
-
-export type ChartOptions = {
-  series: ApexAxisChartSeries;
-  chart: ApexChart;
-  xaxis: ApexXAxis;
-  dataLabels: ApexDataLabels;
-  stroke: ApexStroke;
-  markers: ApexMarkers;
-  yaxis?: ApexYAxis;
-  grid?: ApexGrid;
-  title?: ApexTitleSubtitle;
-  tooltip?: ApexTooltip;
-};
-
-type TimeFrame = 'thisWeek' | 'lastWeek';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Subject, combineLatest, of } from 'rxjs';
+import { switchMap, startWith, catchError, tap, takeUntil } from 'rxjs/operators';
+import { DashboardService } from './services/dashboard.service';
+import { AuthenticationService } from '../../_services/authentication.service';
+import { DashboardV2Response, DateRange, ReviewsSummaryResponse } from './models/dashboard.models';
 
 @Component({
     selector: 'app-rest-dashboard',
     templateUrl: './dashboard.component.html',
-    styleUrls: ['./dashboard.component.css'],
-    standalone: false
+    standalone: false,
 })
-export class DashboardComponent {
-  meals: { name: string; income: string; category: string }[] = [];
-  chartType: ChartType = 'line';
-  selectedTimeFrame: TimeFrame = 'thisWeek';
-  comparisonPeriod = 'vsLastWeek';
+export class DashboardComponent implements OnInit, OnDestroy {
+  dashboardData: DashboardV2Response | null = null;
+  reviewsData: ReviewsSummaryResponse | null = null;
+  loading = true;
+  error: string | null = null;
+  reviewsLoading = true;
+  reviewsError: string | null = null;
 
-  chartOptions: ChartConfiguration['options'] = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        enabled: true,
-        mode: 'index',
-        intersect: false,
-        backgroundColor: '#1F2937',
-        titleColor: '#ffffff',
-        bodyColor: '#ffffff',
-        displayColors: false
+  private destroy$ = new Subject<void>();
+
+  constructor(
+    private dashboardService: DashboardService,
+    private auth: AuthenticationService,
+  ) {}
+
+  ngOnInit(): void {
+    this.dashboardService.isDashboardActive$.next(true);
+    this.dashboardService.dateRange$.next('day');
+
+    const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
+    if (!restaurantId) return;
+
+    // Dashboard data: reacts to dateRange changes + manual refresh
+    combineLatest([
+      this.dashboardService.dateRange$,
+      this.dashboardService.refresh$.pipe(startWith(undefined)),
+    ])
+      .pipe(
+        takeUntil(this.destroy$),
+        tap(() => {
+          this.loading = true;
+          this.error = null;
+        }),
+        switchMap(([range]) => {
+          const { from, to } = this.computeDateRange(range);
+          return this.dashboardService
+            .getDashboardData(restaurantId, from, to, range)
+            .pipe(catchError((err) => of({ data: null, error: err })));
+        }),
+      )
+      .subscribe((res: any) => {
+        this.loading = false;
+        if (res.data) {
+          this.dashboardData = res.data as unknown as DashboardV2Response;
+        } else {
+          this.error = res.error?.message || 'Failed to load dashboard data';
+        }
+      });
+
+    // Reviews data
+    this.dashboardService
+      .getReviewsSummary(restaurantId)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError((err) => of({ data: null, error: err })),
+      )
+      .subscribe((res: any) => {
+        this.reviewsLoading = false;
+        if (res.data) {
+          this.reviewsData = res.data as unknown as ReviewsSummaryResponse;
+        } else {
+          this.reviewsError = res.error?.message || 'Failed to load reviews';
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.dashboardService.isDashboardActive$.next(false);
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  retryDashboard(): void {
+    this.dashboardService.refresh$.next();
+  }
+
+  retryReviews(): void {
+    const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
+    if (!restaurantId) return;
+    this.reviewsLoading = true;
+    this.reviewsError = null;
+    this.dashboardService
+      .getReviewsSummary(restaurantId)
+      .pipe(catchError((err) => of({ data: null, error: err })))
+      .subscribe((res: any) => {
+        this.reviewsLoading = false;
+        if (res.data) {
+          this.reviewsData = res.data as unknown as ReviewsSummaryResponse;
+        } else {
+          this.reviewsError = res.error?.message || 'Failed to load reviews';
+        }
+      });
+  }
+
+  private computeDateRange(range: DateRange): { from: string; to: string } {
+    const today = new Date();
+    const to = this.formatDate(today);
+    let from: string;
+
+    switch (range) {
+      case 'day':
+        from = to;
+        break;
+      case 'week': {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 7);
+        from = this.formatDate(d);
+        break;
       }
-    },
-    scales: {
-      x: { display: false, grid: { display: false }, ticks: { display: false } },
-      y: { display: false, grid: { display: false }, ticks: { display: false } }
-    },
-    elements: {
-      line: { borderWidth: 2 },
-      point: { radius: 0, hoverRadius: 5 }
+      case 'month': {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 30);
+        from = this.formatDate(d);
+        break;
+      }
+      case 'ytd': {
+        from = `${today.getFullYear()}-01-01`;
+        break;
+      }
     }
-  };
 
-  cards: { title: string; value: string; change: string; color: string; data: { thisWeek: number[]; lastWeek: number[] } }[] = [
-    { title: 'Revenue', value: '5.8M', change: '+12%', color: '#3B82F6', data: { thisWeek: [120, 150, 170, 140, 190, 200, 180], lastWeek: [100, 130, 140, 120, 160, 170, 150] } },
-    { title: 'Orders', value: '2,340', change: '+9%', color: '#3B82F6', data: { thisWeek: [30, 45, 50, 35, 55, 60, 48], lastWeek: [25, 38, 42, 30, 48, 52, 40] } },
-    { title: 'Diners', value: '580', change: '+15%', color: '#6366F1', data: { thisWeek: [80, 95, 110, 90, 120, 130, 115], lastWeek: [70, 80, 95, 75, 100, 110, 95] } },
-  ];
-
-  getChartData(color: string, values: number[]) {
-    return {
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      datasets: [{
-        data: values,
-        fill: true,
-        tension: 0.4,
-        borderColor: color,
-        backgroundColor: this.createGradient(color)
-      }]
-    };
+    return { from, to };
   }
 
-  private createGradient(hex: string): (ctx: any) => CanvasGradient | string {
-    return (ctx) => {
-      const chart = ctx.chart;
-      const { ctx: canvasCtx, chartArea } = chart;
-      if (!chartArea) return 'rgba(0,0,0,0)';
-      const gradient = canvasCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-      gradient.addColorStop(0, this.hexToRgba(hex, 0.3));
-      gradient.addColorStop(1, this.hexToRgba(hex, 0));
-      return gradient;
-    };
-  }
-
-  private hexToRgba(hex: string, alpha: number): string {
-    const bigint = parseInt(hex.replace('#', ''), 16);
-    const r = (bigint >> 16) & 255;
-    const g = (bigint >> 8) & 255;
-    const b = bigint & 255;
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  private formatDate(d: Date): string {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }
