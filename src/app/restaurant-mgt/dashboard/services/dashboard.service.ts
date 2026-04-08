@@ -8,7 +8,7 @@ import { getMockDashboardData, getMockReviewsData } from '../data/dashboard-mock
 import { adaptDashboardResponse, adaptReviewsResponse } from './dashboard-adapter';
 
 /** Set to false to use real API endpoints instead of mock data */
-const USE_MOCK_DATA = false;
+const USE_MOCK_DATA = true;
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
