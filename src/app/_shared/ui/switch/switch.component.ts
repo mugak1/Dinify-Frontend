@@ -6,6 +6,7 @@ export type SwitchSize = 'sm' | 'md';
 @Component({
   selector: 'app-dn-switch',
   standalone: true,
+  host: { class: 'inline-flex' },
   template: `
     <button
       type="button"
