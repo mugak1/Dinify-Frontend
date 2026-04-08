@@ -25,17 +25,17 @@ export class SwitchComponent {
   @Output() checkedChange = new EventEmitter<boolean>();
 
   get trackClass(): string {
-    const base = 'relative inline-flex shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+    const base = 'inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
     const sizeClass = this.size === 'sm' ? 'h-5 w-9' : 'h-6 w-11';
     return cn(base, sizeClass, this.checked ? 'bg-primary' : 'bg-input');
   }
 
   get thumbClass(): string {
-    const base = 'pointer-events-none block rounded-full bg-white shadow-sm transition-transform';
+    const base = 'pointer-events-none block rounded-full bg-background shadow-lg ring-0 transition-transform';
     const sizeClass = this.size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
     const translate = this.checked
       ? (this.size === 'sm' ? 'translate-x-4' : 'translate-x-5')
-      : 'translate-x-0.5';
+      : 'translate-x-0';
     return cn(base, sizeClass, translate);
   }
 
