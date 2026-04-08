@@ -15,7 +15,7 @@
 
       <!-- Details tab -->
       <app-dn-tab-content value="details">
-        <div class="space-y-4 max-h-[60vh] overflow-y-auto px-2 pt-2">
+        <div class="space-y-4 max-h-[60vh] overflow-y-auto px-3 pt-2">
 
           <!-- Image upload -->
           <div>
@@ -131,7 +131,7 @@
 
       <!-- Modifiers tab -->
       <app-dn-tab-content value="modifiers">
-        <div class="max-h-[60vh] overflow-y-auto px-2">
+        <div class="max-h-[60vh] overflow-y-auto px-3">
           <app-item-modifiers-tab
             [modifiers]="itemModifiers"
             (modifiersChange)="onModifiersChange($event)">
@@ -141,7 +141,7 @@
 
       <!-- Extras tab -->
       <app-dn-tab-content value="extras">
-        <div class="max-h-[60vh] overflow-y-auto px-2">
+        <div class="max-h-[60vh] overflow-y-auto px-3">
           <app-item-extras-tab
             [isExtra]="itemIsExtra"
             [hasExtras]="itemHasExtras"
@@ -155,7 +155,7 @@
 
       <!-- Discounts tab -->
       <app-dn-tab-content value="discounts">
-        <div class="max-h-[60vh] overflow-y-auto px-2">
+        <div class="max-h-[60vh] overflow-y-auto px-3">
           <app-item-discounts-tab
             [hasDiscount]="itemHasDiscount"
             [discountDetails]="itemDiscountDetails"

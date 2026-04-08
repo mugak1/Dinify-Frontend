@@ -1,4 +1,4 @@
-<div class="rounded-lg border bg-card overflow-hidden transition-all cursor-pointer"
+<div class="rounded-lg border bg-card transition-all cursor-pointer"
      [class.opacity-50]="!item.available && !selectionMode"
      [class.grayscale]="!item.available && !selectionMode"
      [class.border-primary]="isSelected"
@@ -8,7 +8,7 @@
      (click)="onCardClick()">
 
   <!-- Image area -->
-  <div class="relative h-44 bg-muted">
+  <div class="relative h-44 bg-muted overflow-hidden">
     <img *ngIf="imageUrl"
          [src]="imageUrl"
          [alt]="item.name"
