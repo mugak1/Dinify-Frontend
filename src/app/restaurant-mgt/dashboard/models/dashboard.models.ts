@@ -108,6 +108,7 @@ export interface ReviewsSummaryResponse {
   total_reviews: number;
   distribution: ReviewDistribution[];
   recent: RecentReview[];
+  low_rating_share?: number;
 }
 
 // ── Dashboard V2 composite response ──────────────────────

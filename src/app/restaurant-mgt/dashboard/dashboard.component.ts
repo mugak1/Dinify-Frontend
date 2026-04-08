@@ -58,7 +58,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .subscribe((res: any) => {
         this.loading = false;
         if (res.data) {
-          this.dashboardData = res.data as unknown as DashboardV2Response;
+          this.dashboardData = res.data;
         } else {
           this.error = res.error?.message || 'Failed to load dashboard data';
         }
@@ -89,7 +89,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .subscribe((res: any) => {
         this.reviewsLoading = false;
         if (res.data) {
-          this.reviewsData = res.data as unknown as ReviewsSummaryResponse;
+          this.reviewsData = res.data;
         } else {
           this.reviewsError = res.error?.message || 'Failed to load reviews';
         }

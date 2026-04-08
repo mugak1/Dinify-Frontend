@@ -1,13 +1,14 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject, of } from 'rxjs';
-import { delay } from 'rxjs/operators';
+import { delay, map } from 'rxjs/operators';
 import { ApiService } from '../../../_services/api.service';
 import { ApiResponse } from '../../../_models/app.models';
 import { DashboardV2Response, DateRange, ReviewsSummaryResponse } from '../models/dashboard.models';
 import { getMockDashboardData, getMockReviewsData } from '../data/dashboard-mock-data';
+import { adaptDashboardResponse, adaptReviewsResponse } from './dashboard-adapter';
 
 /** Set to false to use real API endpoints instead of mock data */
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
@@ -44,7 +45,12 @@ export class DashboardService {
       from: dateFrom,
       to: dateTo,
       period,
-    });
+    }).pipe(
+      map((res: any) => ({
+        ...res,
+        data: res.data ? adaptDashboardResponse(res.data) : null,
+      })),
+    );
   }
 
   getReviewsSummary(restaurantId: string): Observable<ApiResponse<ReviewsSummaryResponse>> {
@@ -53,6 +59,11 @@ export class DashboardService {
     }
     return this.api.get<ReviewsSummaryResponse>(null, 'reports/restaurant/dashboard-reviews/', {
       restaurant: restaurantId,
-    });
+    }).pipe(
+      map((res: any) => ({
+        ...res,
+        data: res.data ? adaptReviewsResponse(res.data) : null,
+      })),
+    );
   }
 }

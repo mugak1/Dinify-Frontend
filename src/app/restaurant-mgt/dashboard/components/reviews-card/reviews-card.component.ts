@@ -188,6 +188,9 @@ export class ReviewsCardComponent {
   }
 
   get lowRatingPct(): number {
+    if (this.reviewsData?.low_rating_share != null) {
+      return this.reviewsData.low_rating_share;
+    }
     if (!this.reviewsData?.distribution) return 0;
     return this.reviewsData.distribution
       .filter((d) => d.rating <= 2)
