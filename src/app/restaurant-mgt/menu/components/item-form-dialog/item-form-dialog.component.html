@@ -15,7 +15,7 @@
 
       <!-- Details tab -->
       <app-dn-tab-content value="details">
-        <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-1 pt-2">
+        <div class="space-y-4 max-h-[60vh] overflow-y-auto px-2 pt-2">
 
           <!-- Image upload -->
           <div>
@@ -44,7 +44,7 @@
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Name *</label>
             <input formControlName="name"
-                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                    placeholder="Item name" />
           </div>
 
@@ -52,7 +52,7 @@
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Section *</label>
             <select formControlName="section"
-                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
               <option value="" disabled>Select a section</option>
               <option *ngFor="let s of sections$ | async" [value]="s.id">{{ s.name }}</option>
             </select>
@@ -63,7 +63,7 @@
             <label class="block text-sm font-medium text-foreground mb-1.5">Description</label>
             <textarea formControlName="description"
                       rows="3"
-                      class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                       placeholder="Optional description">
             </textarea>
           </div>
@@ -74,7 +74,7 @@
             <input type="number"
                    formControlName="primary_price"
                    min="1"
-                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                    placeholder="0" />
           </div>
 
@@ -122,7 +122,7 @@
             <!-- Free text input -->
             <input #tagInput
                    placeholder="Add custom tag and press Enter"
-                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                    (keydown.enter)="onAllergenAdd(tagInput.value); tagInput.value = ''; $event.preventDefault()" />
           </div>
 
@@ -131,7 +131,7 @@
 
       <!-- Modifiers tab -->
       <app-dn-tab-content value="modifiers">
-        <div class="max-h-[60vh] overflow-y-auto pr-1">
+        <div class="max-h-[60vh] overflow-y-auto px-2">
           <app-item-modifiers-tab
             [modifiers]="itemModifiers"
             (modifiersChange)="onModifiersChange($event)">
@@ -141,7 +141,7 @@
 
       <!-- Extras tab -->
       <app-dn-tab-content value="extras">
-        <div class="max-h-[60vh] overflow-y-auto pr-1">
+        <div class="max-h-[60vh] overflow-y-auto px-2">
           <app-item-extras-tab
             [isExtra]="itemIsExtra"
             [hasExtras]="itemHasExtras"
@@ -155,7 +155,7 @@
 
       <!-- Discounts tab -->
       <app-dn-tab-content value="discounts">
-        <div class="max-h-[60vh] overflow-y-auto pr-1">
+        <div class="max-h-[60vh] overflow-y-auto px-2">
           <app-item-discounts-tab
             [hasDiscount]="itemHasDiscount"
             [discountDetails]="itemDiscountDetails"

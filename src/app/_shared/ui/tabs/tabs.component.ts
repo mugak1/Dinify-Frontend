@@ -29,7 +29,7 @@ export class TabTriggerComponent {
   selector: 'app-dn-tab-list',
   standalone: true,
   template: `
-    <div class="flex bg-muted rounded-lg p-1.5 gap-1">
+    <div class="inline-flex bg-muted rounded-lg p-1.5 gap-1">
       <ng-content></ng-content>
     </div>
   `,

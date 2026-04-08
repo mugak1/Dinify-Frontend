@@ -27,7 +27,7 @@
   </div>
 
   <!-- Section list -->
-  <div class="flex-1 overflow-y-auto px-4 pb-4">
+  <div class="flex-1 overflow-y-auto px-5 pb-4">
     <div cdkDropList
          [cdkDropListDisabled]="!reorderMode"
          (cdkDropListDropped)="onDrop($event)"
@@ -37,11 +37,10 @@
         <div *ngFor="let section of vm.sections; trackBy: trackById"
              cdkDrag
              [cdkDragDisabled]="!reorderMode"
-             class="p-4 rounded-lg border-2 transition-all cursor-pointer"
+             class="p-4 rounded-lg transition-all cursor-pointer"
              [ngClass]="{
-               'border-primary shadow-sm': vm.selectedId === section.id,
-               'bg-accent': vm.selectedId === section.id,
-               'border-border': vm.selectedId !== section.id,
+               'border-l-4 border-l-primary border border-border shadow-sm': vm.selectedId === section.id,
+               'border border-border hover:border-primary/50': vm.selectedId !== section.id,
                'opacity-50 grayscale': !section.available
              }"
              (click)="onSelect(section.id)">
