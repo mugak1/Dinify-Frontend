@@ -301,6 +301,14 @@ export class MenuService {
     return this._items$.getValue();
   }
 
+  updateItemLocally(itemId: string, changes: Partial<MenuItem>): void {
+    const currentItems = this._items$.getValue();
+    const updated = currentItems.map(item =>
+      item.id === itemId ? { ...item, ...changes } : item
+    );
+    this._items$.next(updated);
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------

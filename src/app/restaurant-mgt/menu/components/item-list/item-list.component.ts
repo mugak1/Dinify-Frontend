@@ -68,23 +68,41 @@ export class ItemListComponent {
   }
 
   onToggleAvailability(event: { id: string; available: boolean }): void {
-    this.menuService.toggleItemAvailability(event.id, event.available).subscribe(() => {
-      const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
-      if (restaurantId) {
+    // Optimistic update — UI changes instantly
+    this.menuService.updateItemLocally(event.id, { available: event.available });
+    // API call in background — no refreshAll needed on success
+    this.menuService.toggleItemAvailability(event.id, event.available).subscribe({
+      error: () => {
+        // Revert on failure
+        this.menuService.updateItemLocally(event.id, { available: !event.available });
         this.menuService.refreshAll();
       }
     });
   }
 
   onToggleBadge(event: { id: string; [key: string]: any }, field: 'is_featured' | 'is_popular' | 'is_new'): void {
-    this.menuService.toggleItemBadge(event.id, field, event[field]).subscribe(() => {
-      this.menuService.refreshAll();
+    // Optimistic update — UI changes instantly
+    this.menuService.updateItemLocally(event.id, { [field]: event[field] });
+    // API call in background — no refreshAll needed on success
+    this.menuService.toggleItemBadge(event.id, field, event[field]).subscribe({
+      error: () => {
+        // Revert on failure
+        this.menuService.updateItemLocally(event.id, { [field]: !event[field] });
+        this.menuService.refreshAll();
+      }
     });
   }
 
   onToggleStock(event: { id: string; in_stock: boolean }): void {
-    this.menuService.toggleItemStock(event.id, event.in_stock).subscribe(() => {
-      this.menuService.refreshAll();
+    // Optimistic update — UI changes instantly
+    this.menuService.updateItemLocally(event.id, { in_stock: event.in_stock });
+    // API call in background — no refreshAll needed on success
+    this.menuService.toggleItemStock(event.id, event.in_stock).subscribe({
+      error: () => {
+        // Revert on failure
+        this.menuService.updateItemLocally(event.id, { in_stock: !event.in_stock });
+        this.menuService.refreshAll();
+      }
     });
   }
 
