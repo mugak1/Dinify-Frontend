@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 @Component({
   selector: 'app-dn-tab-trigger',
   standalone: true,
-  template: `<button [class]="buttonClass" (click)="select()"><ng-content></ng-content></button>`,
+  template: `<button type="button" [class]="buttonClass" (click)="select()"><ng-content></ng-content></button>`,
 })
 export class TabTriggerComponent {
   @Input() value = '';
