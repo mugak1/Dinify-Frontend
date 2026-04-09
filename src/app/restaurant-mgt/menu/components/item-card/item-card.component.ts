@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MenuItem } from 'src/app/_models/app.models';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
@@ -30,6 +30,15 @@ export class ItemCardComponent {
   @Output() toggleSelect = new EventEmitter<void>();
 
   showStockMenu = false;
+
+  constructor(private elRef: ElementRef) {}
+
+  @HostListener('document:click', ['$event.target'])
+  onDocumentClick(target: HTMLElement): void {
+    if (this.showStockMenu && !this.elRef.nativeElement.contains(target)) {
+      this.showStockMenu = false;
+    }
+  }
 
   onCardClick(): void {
     if (this.selectionMode) {
