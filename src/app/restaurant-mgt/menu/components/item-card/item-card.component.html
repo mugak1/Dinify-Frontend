@@ -1,5 +1,5 @@
 <div class="border rounded-lg p-3 md:p-4 bg-card hover:shadow-md transition-shadow cursor-pointer"
-     [class.opacity-60]="!item.available && !selectionMode"
+     [class.opacity-60]="(!item.available || item.in_stock === false) && !selectionMode"
      [class.ring-2]="isSelected"
      [class.ring-primary]="isSelected"
      [class.bg-primary/5]="isSelected"
@@ -89,6 +89,12 @@
               New
             </span>
 
+            <!-- Sold out badge -->
+            <span *ngIf="item.in_stock === false"
+                  class="text-xs bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded">
+              Sold out
+            </span>
+
             <!-- Discount badge -->
             <app-dn-badge *ngIf="hasDiscount" variant="warning" class="text-xs">Discount</app-dn-badge>
           </div>
@@ -155,21 +161,52 @@
             </svg>
           </button>
 
-          <!-- Stock status pill -->
-          <button app-dn-button
-                  [variant]="item.available ? 'outline' : 'destructive'"
-                  size="default"
-                  class="h-8 gap-1.5 text-xs"
-                  [appTooltip]="item.available ? 'In stock' : 'Out of stock'">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16.5 9.4 7.55 4.24"/>
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-              <path d="m3.3 7 8.7 5 8.7-5"/>
-              <path d="M12 22V12"/>
-            </svg>
-            <span class="hidden lg:inline">{{ item.available ? 'In stock' : 'Out' }}</span>
-          </button>
+          <!-- Stock status dropdown -->
+          <div class="relative">
+            <button app-dn-button
+                    [variant]="inStock ? 'outline' : 'destructive'"
+                    size="default"
+                    class="h-8 gap-1.5 text-xs"
+                    [appTooltip]="inStock ? 'In stock' : 'Out of stock'"
+                    (click)="onStockButtonClick($event)">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16.5 9.4 7.55 4.24"/>
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <path d="m3.3 7 8.7 5 8.7-5"/>
+                <path d="M12 22V12"/>
+              </svg>
+              <span class="hidden lg:inline">{{ inStock ? 'In stock' : 'Out' }}</span>
+            </button>
+            <div *ngIf="showStockMenu"
+                 class="absolute right-0 top-full mt-1 z-20 w-40 bg-card border border-border rounded-md shadow-lg py-1">
+              <button type="button"
+                      class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent"
+                      (click)="setStock(true)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16.5 9.4 7.55 4.24"/>
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                  <path d="m3.3 7 8.7 5 8.7-5"/>
+                  <path d="M12 22V12"/>
+                </svg>
+                In stock
+              </button>
+              <button type="button"
+                      class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent"
+                      (click)="setStock(false)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-destructive" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                  <path d="m7.5 4.27 9 5.15"/>
+                  <path d="m3.3 7 8.7 5 8.7-5"/>
+                  <path d="M12 22V12"/>
+                  <path d="m17 13 5 5m-5 0 5-5"/>
+                </svg>
+                Out of stock
+              </button>
+            </div>
+          </div>
 
           <!-- Edit -->
           <button app-dn-button variant="ghost" size="icon" class="h-8 w-8"

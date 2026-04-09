@@ -23,10 +23,13 @@ export class ItemCardComponent {
   @Output() edit = new EventEmitter<void>();
   @Output() delete = new EventEmitter<void>();
   @Output() toggleAvailability = new EventEmitter<{ id: string; available: boolean }>();
+  @Output() toggleStock = new EventEmitter<{ id: string; in_stock: boolean }>();
   @Output() toggleFeatured = new EventEmitter<{ id: string; is_featured: boolean }>();
   @Output() togglePopular = new EventEmitter<{ id: string; is_popular: boolean }>();
   @Output() toggleNew = new EventEmitter<{ id: string; is_new: boolean }>();
   @Output() toggleSelect = new EventEmitter<void>();
+
+  showStockMenu = false;
 
   onCardClick(): void {
     if (this.selectionMode) {
@@ -34,6 +37,20 @@ export class ItemCardComponent {
     } else {
       this.edit.emit();
     }
+  }
+
+  onStockButtonClick(event: MouseEvent): void {
+    event.stopPropagation();
+    this.showStockMenu = !this.showStockMenu;
+  }
+
+  setStock(inStock: boolean): void {
+    this.showStockMenu = false;
+    this.toggleStock.emit({ id: this.item.id, in_stock: inStock });
+  }
+
+  get inStock(): boolean {
+    return this.item?.in_stock !== false;
   }
 
   get imageUrl(): string {

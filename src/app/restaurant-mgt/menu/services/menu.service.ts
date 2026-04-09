@@ -218,6 +218,12 @@ export class MenuService {
     );
   }
 
+  toggleItemStock(id: string, inStock: boolean): Observable<any> {
+    return this.api.postPatch(
+      'restaurant-setup/menuitems/', { id, in_stock: inStock }, 'put', '', {}, false, '', true
+    );
+  }
+
   toggleItemBadge(id: string, field: 'is_featured' | 'is_popular' | 'is_new', value: boolean): Observable<any> {
     return this.api.postPatch(
       'restaurant-setup/menuitems/', { id, [field]: value }, 'put', '', {}, false, '', true

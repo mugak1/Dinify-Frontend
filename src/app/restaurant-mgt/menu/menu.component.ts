@@ -26,6 +26,9 @@ export class MenuComponent {
   itemFormOpen = false;
   editingItem?: MenuItem;
 
+  itemDeleteOpen = false;
+  deletingItem?: MenuItem;
+
   searchOpen = false;
   presetTagsOpen = false;
 
@@ -178,7 +181,19 @@ export class MenuComponent {
   // ---------------------------------------------------------------------------
 
   confirmDeleteItem(item: MenuItem): void {
-    this.menuService.deleteItem(item.id, 'Deleted by user').subscribe(() => {
+    this.deletingItem = item;
+    this.itemDeleteOpen = true;
+  }
+
+  closeItemDelete(): void {
+    this.itemDeleteOpen = false;
+    this.deletingItem = undefined;
+  }
+
+  onItemDeleted(): void {
+    if (!this.deletingItem) return;
+    this.menuService.deleteItem(this.deletingItem.id, 'Deleted by user').subscribe(() => {
+      this.closeItemDelete();
       this.menuService.refreshAll();
     });
   }

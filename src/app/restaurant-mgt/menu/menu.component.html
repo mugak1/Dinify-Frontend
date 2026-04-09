@@ -143,6 +143,26 @@
   (deleted)="onSectionDeleted($event)">
 </app-section-form-dialog>
 
+<!-- Item delete confirmation dialog -->
+<app-dn-dialog [open]="itemDeleteOpen" maxWidth="sm" (closed)="closeItemDelete()">
+  <h2 class="text-lg font-semibold text-foreground mb-2">Delete Item</h2>
+  <p class="text-sm text-muted-foreground mb-1">
+    Are you sure you want to delete
+    <span class="font-medium text-foreground">{{ deletingItem?.name }}</span>?
+  </p>
+  <p class="text-sm text-destructive mb-4">
+    This action cannot be undone.
+  </p>
+  <div class="flex justify-end gap-2">
+    <button app-dn-button variant="outline" size="default" (click)="closeItemDelete()">
+      Cancel
+    </button>
+    <button app-dn-button variant="destructive" size="default" (click)="onItemDeleted()">
+      Delete
+    </button>
+  </div>
+</app-dn-dialog>
+
 <!-- Item form dialog (create / edit) -->
 <app-item-form-dialog
   [open]="itemFormOpen"
