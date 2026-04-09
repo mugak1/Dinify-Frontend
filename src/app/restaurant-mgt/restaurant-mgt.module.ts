@@ -52,6 +52,8 @@ import { TabsComponent, TabListComponent, TabTriggerComponent, TabContentCompone
 import { TagFilterSheetComponent } from './menu/components/tag-filter-sheet/tag-filter-sheet.component';
 import { UpsellCarouselComponent } from './menu/components/upsell-carousel/upsell-carousel.component';
 import { PreviewMenuDrawerComponent } from './menu/components/preview-menu-drawer/preview-menu-drawer.component';
+import { DialogComponent } from '../_shared/ui/dialog/dialog.component';
+import { ButtonComponent } from '../_shared/ui/button/button.component';
 
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
@@ -142,6 +144,8 @@ const routes: Routes = [
     TagFilterSheetComponent,
     UpsellCarouselComponent,
     PreviewMenuDrawerComponent,
+    DialogComponent,
+    ButtonComponent,
 ],
   exports:[
     RouterModule

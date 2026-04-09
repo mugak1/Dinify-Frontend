@@ -128,6 +128,7 @@ export interface MenuItem {
   is_featured?: boolean
   is_popular?: boolean
   is_new?: boolean
+  in_stock?: boolean
 }
 
 export interface MenuOptions {

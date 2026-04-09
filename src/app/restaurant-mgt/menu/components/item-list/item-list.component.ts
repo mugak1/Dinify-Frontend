@@ -82,6 +82,12 @@ export class ItemListComponent {
     });
   }
 
+  onToggleStock(event: { id: string; in_stock: boolean }): void {
+    this.menuService.toggleItemStock(event.id, event.in_stock).subscribe(() => {
+      this.menuService.refreshAll();
+    });
+  }
+
   onRetry(): void {
     this.menuService.refreshAll();
   }
