@@ -116,6 +116,10 @@ export class ItemFormDialogComponent implements OnChanges {
           available: this.item.available,
           allergens: this.item.allergens ?? [],
           image: this.item.image,
+          is_featured: this.item.is_featured ?? false,
+          is_popular: this.item.is_popular ?? false,
+          is_new: this.item.is_new ?? false,
+          in_stock: this.item.in_stock ?? true,
         });
 
         // Set section from item's group context or provided sectionId
@@ -257,6 +261,10 @@ export class ItemFormDialogComponent implements OnChanges {
       primary_price: [0, [Validators.required, Validators.min(1)]],
       available: [true],
       allergens: [[] as string[]],
+      is_featured: [false],
+      is_popular: [false],
+      is_new: [false],
+      in_stock: [true],
     });
   }
 }
