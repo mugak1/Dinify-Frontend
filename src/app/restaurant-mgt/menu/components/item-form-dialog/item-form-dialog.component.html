@@ -126,6 +126,71 @@
                    (keydown.enter)="onAllergenAdd(tagInput.value); tagInput.value = ''; $event.preventDefault()" />
           </div>
 
+          <!-- Badges -->
+          <div class="pt-4 mt-4 border-t border-border">
+            <h3 class="text-sm font-medium text-foreground">Badges</h3>
+            <p class="text-xs text-muted-foreground mt-0.5">Highlight this item on the customer menu</p>
+
+            <div class="space-y-2 mt-3">
+              <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                <input type="checkbox" formControlName="is_featured"
+                       class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                <span class="flex-1">
+                  <span class="block text-sm font-medium text-foreground">Featured</span>
+                  <span class="block text-xs text-muted-foreground">Showcase this item prominently</span>
+                </span>
+              </label>
+
+              <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                <input type="checkbox" formControlName="is_popular"
+                       class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                <span class="flex-1">
+                  <span class="block text-sm font-medium text-foreground">Popular</span>
+                  <span class="block text-xs text-muted-foreground">Mark as a bestseller or customer favourite</span>
+                </span>
+              </label>
+
+              <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                <input type="checkbox" formControlName="is_new"
+                       class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                <span class="flex-1">
+                  <span class="block text-sm font-medium text-foreground">New</span>
+                  <span class="block text-xs text-muted-foreground">Highlight as a recent addition</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Stock status -->
+          <div class="pt-4 mt-4 border-t border-border">
+            <h3 class="text-sm font-medium text-foreground">Stock status</h3>
+            <p class="text-xs text-muted-foreground mt-0.5">Control whether this item can be ordered</p>
+
+            <div class="space-y-2 mt-3">
+              <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                <input type="radio" name="in_stock"
+                       [checked]="form.get('in_stock')?.value === true"
+                       (change)="form.get('in_stock')?.setValue(true)"
+                       class="mt-0.5 accent-primary" />
+                <span class="flex-1">
+                  <span class="block text-sm font-medium text-foreground">In stock</span>
+                  <span class="block text-xs text-muted-foreground">Item can be ordered</span>
+                </span>
+              </label>
+
+              <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                <input type="radio" name="in_stock"
+                       [checked]="form.get('in_stock')?.value === false"
+                       (change)="form.get('in_stock')?.setValue(false)"
+                       class="mt-0.5 accent-primary" />
+                <span class="flex-1">
+                  <span class="block text-sm font-medium text-foreground">Out of stock</span>
+                  <span class="block text-xs text-muted-foreground">Item visible but cannot be ordered</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
         </div>
       </app-dn-tab-content>
 
