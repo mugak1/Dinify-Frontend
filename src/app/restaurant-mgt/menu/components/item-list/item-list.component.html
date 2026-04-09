@@ -13,10 +13,9 @@
   <div class="flex-1 p-4 overflow-y-auto">
 
     <!-- Loading state -->
-    <div *ngIf="isLoading$ | async"
-         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div *ngIf="isLoading$ | async" class="space-y-3">
       <div *ngFor="let s of skeletons"
-           class="h-72 animate-pulse bg-muted rounded-lg"></div>
+           class="h-24 animate-pulse bg-muted rounded-lg"></div>
     </div>
 
     <!-- Error state -->
@@ -55,28 +54,73 @@
           </button>
         </div>
 
-        <!-- Grid with drag-drop -->
+        <!-- Vertical list with drag-drop -->
         <div *ngIf="items.length > 0"
              cdkDropList
              [cdkDropListDisabled]="selectionMode"
              (cdkDropListDropped)="onDrop($event)"
-             class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+             class="space-y-3"
              [class.pb-20]="selectedItemIds.size > 0">
-          <div *ngFor="let item of items; trackBy: trackById" cdkDrag [cdkDragDisabled]="selectionMode">
-            <app-item-card
-              [item]="item"
-              [showDragHandle]="!selectionMode"
-              [selectionMode]="selectionMode"
-              [isSelected]="isItemSelected(item.id)"
-              (edit)="editItem.emit(item)"
-              (delete)="deleteItem.emit(item)"
-              (toggleAvailability)="onToggleAvailability($event)"
-              (toggleFeatured)="onToggleBadge($event, 'is_featured')"
-              (togglePopular)="onToggleBadge($event, 'is_popular')"
-              (toggleNew)="onToggleBadge($event, 'is_new')"
-              (toggleSelect)="toggleItemSelection(item.id)">
-            </app-item-card>
-          </div>
+
+          <!-- Drag helper text (manual sort mode only) -->
+          <p *ngIf="(sortMode$ | async) === 'manual' && !selectionMode"
+             class="text-sm text-muted-foreground">
+            Drag items by the handle to change the order.
+          </p>
+
+          <ng-container *ngIf="groupedItems$ | async as grouped">
+
+            <!-- Featured section -->
+            <ng-container *ngIf="grouped.featured.length > 0">
+              <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                Featured
+              </div>
+              <div *ngFor="let item of grouped.featured; trackBy: trackById"
+                   cdkDrag [cdkDragDisabled]="selectionMode">
+                <app-item-card
+                  [item]="item"
+                  [showDragHandle]="!selectionMode"
+                  [selectionMode]="selectionMode"
+                  [isSelected]="isItemSelected(item.id)"
+                  (edit)="editItem.emit(item)"
+                  (delete)="deleteItem.emit(item)"
+                  (toggleAvailability)="onToggleAvailability($event)"
+                  (toggleFeatured)="onToggleBadge($event, 'is_featured')"
+                  (togglePopular)="onToggleBadge($event, 'is_popular')"
+                  (toggleNew)="onToggleBadge($event, 'is_new')"
+                  (toggleSelect)="toggleItemSelection(item.id)">
+                </app-item-card>
+              </div>
+            </ng-container>
+
+            <!-- All items header (only when both sections present) -->
+            <div *ngIf="grouped.featured.length > 0 && grouped.regular.length > 0"
+                 class="text-sm font-medium text-muted-foreground mt-6">
+              All items
+            </div>
+
+            <!-- Regular items -->
+            <div *ngFor="let item of grouped.regular; trackBy: trackById"
+                 cdkDrag [cdkDragDisabled]="selectionMode">
+              <app-item-card
+                [item]="item"
+                [showDragHandle]="!selectionMode"
+                [selectionMode]="selectionMode"
+                [isSelected]="isItemSelected(item.id)"
+                (edit)="editItem.emit(item)"
+                (delete)="deleteItem.emit(item)"
+                (toggleAvailability)="onToggleAvailability($event)"
+                (toggleFeatured)="onToggleBadge($event, 'is_featured')"
+                (togglePopular)="onToggleBadge($event, 'is_popular')"
+                (toggleNew)="onToggleBadge($event, 'is_new')"
+                (toggleSelect)="toggleItemSelection(item.id)">
+              </app-item-card>
+            </div>
+          </ng-container>
         </div>
 
         <!-- Bulk stock bar -->

@@ -2,8 +2,9 @@ import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Observable, forkJoin } from 'rxjs';
+import { map } from 'rxjs/operators';
 
-import { MenuService } from '../../services/menu.service';
+import { MenuService, SortMode } from '../../services/menu.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { MenuItem } from 'src/app/_models/app.models';
@@ -24,6 +25,8 @@ export class ItemListComponent {
   @Output() newItem = new EventEmitter<void>();
 
   sortedItems$: Observable<MenuItem[]>;
+  sortMode$: Observable<SortMode>;
+  groupedItems$: Observable<{ featured: MenuItem[]; regular: MenuItem[] }>;
   isLoading$: Observable<boolean>;
   error$: Observable<string | null>;
 
@@ -38,12 +41,26 @@ export class ItemListComponent {
     private toast: ToastService
   ) {
     this.sortedItems$ = this.menuService.sortedItems$;
+    this.sortMode$ = this.menuService.sortMode$;
     this.isLoading$ = this.menuService.isLoading$;
     this.error$ = this.menuService.error$;
+    this.groupedItems$ = this.sortedItems$.pipe(
+      map((items) => ({
+        featured: items.filter((i) => !!i.is_featured),
+        regular: items.filter((i) => !i.is_featured),
+      }))
+    );
   }
 
   onDrop(event: CdkDragDrop<MenuItem[]>): void {
-    const items = [...this.menuService.getItemsSnapshot()];
+    // The DOM renders featured items first, then regular items, as a single
+    // cdkDropList. Reorder the matching DOM-order array so previousIndex/
+    // currentIndex line up with the rendered sequence.
+    const snapshot = this.menuService.getItemsSnapshot();
+    const items = [
+      ...snapshot.filter((i) => !!i.is_featured),
+      ...snapshot.filter((i) => !i.is_featured),
+    ];
     moveItemInArray(items, event.previousIndex, event.currentIndex);
 
     const ordering = items.map((item, i) => ({ id: item.id, listing_position: i + 1 }));

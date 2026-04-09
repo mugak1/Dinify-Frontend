@@ -31,6 +31,8 @@ export class ItemCardComponent {
   onCardClick(): void {
     if (this.selectionMode) {
       this.toggleSelect.emit();
+    } else {
+      this.edit.emit();
     }
   }
 
