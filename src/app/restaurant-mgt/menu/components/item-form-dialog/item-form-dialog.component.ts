@@ -54,6 +54,7 @@ export class ItemFormDialogComponent implements OnChanges {
   sections$: Observable<MenuSectionListItem[]>;
   imagePreview = '';
   activeTab = 'details';
+  attemptedSave = false;
   itemModifiers: ItemModifiers = { hasModifiers: false, groups: [] };
   itemHasDiscount = false;
   itemDiscountDetails: ItemDiscountDetails | null = null;
@@ -79,6 +80,7 @@ export class ItemFormDialogComponent implements OnChanges {
       this.buildForm();
       this.imagePreview = '';
       this.activeTab = 'details';
+      this.attemptedSave = false;
       this.itemModifiers = { hasModifiers: false, groups: [] };
       this.itemHasDiscount = false;
       this.itemDiscountDetails = null;
@@ -218,8 +220,23 @@ export class ItemFormDialogComponent implements OnChanges {
     this.itemExtrasApplicable = data.extrasApplicable;
   }
 
+  get hasDetailsErrors(): boolean {
+    if (!this.attemptedSave) return false;
+    const f = this.form;
+    return !!(f.get('name')?.invalid || f.get('section')?.invalid || f.get('primary_price')?.invalid);
+  }
+
+  // Stubs for future tab-specific validation
+  get hasModifiersErrors(): boolean { return false; }
+  get hasExtrasErrors(): boolean { return false; }
+  get hasDiscountsErrors(): boolean { return false; }
+
   onSubmit(): void {
-    if (this.form.invalid) return;
+    this.attemptedSave = true;
+    if (this.form.invalid) {
+      this.activeTab = 'details';
+      return;
+    }
 
     const payload = { ...this.form.getRawValue() };
 

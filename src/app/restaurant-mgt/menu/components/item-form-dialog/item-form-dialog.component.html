@@ -7,10 +7,10 @@
 
     <app-dn-tabs [(value)]="activeTab">
       <app-dn-tab-list>
-        <app-dn-tab-trigger value="details">Details</app-dn-tab-trigger>
-        <app-dn-tab-trigger value="modifiers">Modifiers</app-dn-tab-trigger>
-        <app-dn-tab-trigger value="extras">Extras</app-dn-tab-trigger>
-        <app-dn-tab-trigger value="discounts">Discounts</app-dn-tab-trigger>
+        <app-dn-tab-trigger value="details" [hasError]="hasDetailsErrors">Details</app-dn-tab-trigger>
+        <app-dn-tab-trigger value="modifiers" [hasError]="hasModifiersErrors">Modifiers</app-dn-tab-trigger>
+        <app-dn-tab-trigger value="extras" [hasError]="hasExtrasErrors">Extras</app-dn-tab-trigger>
+        <app-dn-tab-trigger value="discounts" [hasError]="hasDiscountsErrors">Discounts</app-dn-tab-trigger>
       </app-dn-tab-list>
 
       <!-- Details tab -->
@@ -45,17 +45,21 @@
             <label class="block text-sm font-medium text-foreground mb-1.5">Name *</label>
             <input formControlName="name"
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                   [class.border-destructive]="attemptedSave && form.get('name')?.invalid"
                    placeholder="Item name" />
+            <p *ngIf="attemptedSave && form.get('name')?.invalid" class="text-xs text-destructive mt-1">Name is required</p>
           </div>
 
           <!-- Section dropdown -->
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Section *</label>
             <select formControlName="section"
-                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                    [class.border-destructive]="attemptedSave && form.get('section')?.invalid">
               <option value="" disabled>Select a section</option>
               <option *ngFor="let s of sections$ | async" [value]="s.id">{{ s.name }}</option>
             </select>
+            <p *ngIf="attemptedSave && form.get('section')?.invalid" class="text-xs text-destructive mt-1">Section is required</p>
           </div>
 
           <!-- Description -->
@@ -75,7 +79,9 @@
                    formControlName="primary_price"
                    min="1"
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                   [class.border-destructive]="attemptedSave && form.get('primary_price')?.invalid"
                    placeholder="0" />
+            <p *ngIf="attemptedSave && form.get('primary_price')?.invalid" class="text-xs text-destructive mt-1">Price must be greater than 0</p>
           </div>
 
           <!-- Available toggle -->
@@ -234,7 +240,7 @@
     <!-- Actions (always visible) -->
     <div class="flex justify-end gap-3 pt-5">
       <button type="button" app-dn-button variant="outline" (click)="onClose()">Cancel</button>
-      <button type="submit" app-dn-button variant="default" [disabled]="form.invalid">
+      <button type="submit" app-dn-button variant="default">
         {{ item ? 'Update' : 'Create' }}
       </button>
     </div>

@@ -4,10 +4,11 @@ import { cn } from '../../utils/cn';
 @Component({
   selector: 'app-dn-tab-trigger',
   standalone: true,
-  template: `<button type="button" [class]="buttonClass" (click)="select()"><ng-content></ng-content></button>`,
+  template: `<button type="button" [class]="buttonClass" (click)="select()"><ng-content></ng-content>@if (hasError) { <span class="ml-0.5">*</span> }</button>`,
 })
 export class TabTriggerComponent {
   @Input() value = '';
+  @Input() hasError = false;
   active = false;
   onSelect: ((value: string) => void) | null = null;
 
@@ -16,7 +17,8 @@ export class TabTriggerComponent {
       'px-4 py-2 text-sm font-medium rounded-md transition-colors',
       this.active
         ? 'bg-background text-foreground shadow-[var(--shadow-sm)]'
-        : 'text-muted-foreground hover:text-foreground'
+        : 'text-muted-foreground hover:text-foreground',
+      this.hasError && 'text-destructive'
     );
   }
 
