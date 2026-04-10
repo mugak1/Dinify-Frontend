@@ -13,6 +13,7 @@
       </svg>
       <input type="text"
              [(ngModel)]="searchQuery"
+             (ngModelChange)="onSearchQueryChange($event)"
              (keydown.enter)="onSearch()"
              placeholder="Search menu items..."
              class="flex-1 bg-transparent text-foreground text-lg outline-none placeholder:text-muted-foreground"
@@ -85,7 +86,7 @@
              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <p class="text-sm">Type a name and press Enter to search</p>
+        <p class="text-sm">Type to search menu items</p>
       </div>
     </div>
   </div>
