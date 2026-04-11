@@ -8,6 +8,7 @@ import { ServiceToolbarComponent, ServiceMetrics } from '../service-toolbar/serv
 import { FloorPlanCanvasComponent } from '../floor-plan-canvas/floor-plan-canvas.component';
 import { ReservationsPaneComponent } from '../reservations-pane/reservations-pane.component';
 import { NewReservationModalComponent } from '../new-reservation-modal/new-reservation-modal.component';
+import { TableDetailsDrawerComponent } from '../table-details-drawer/table-details-drawer.component';
 import {
   TableFilters,
   DiningArea,
@@ -28,6 +29,7 @@ import { mockSeatedParties } from '../../data/tables-mock-data';
     FloorPlanCanvasComponent,
     ReservationsPaneComponent,
     NewReservationModalComponent,
+    TableDetailsDrawerComponent,
   ],
   templateUrl: './tables-service-view.component.html',
 })
@@ -245,5 +247,84 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   onViewTable(tableId: string): void {
     this.selectedTableId = tableId;
     this.selectedTableIds = [];
+  }
+
+  // ── Drawer state ──────────────────────────────────────
+
+  get isDrawerOpen(): boolean {
+    return this.selectedTableId !== null || this.selectedTableIds.length > 0;
+  }
+
+  onCloseDrawer(): void {
+    this.selectedTableId = null;
+    this.selectedTableIds = [];
+  }
+
+  // ── Drawer handlers ───────────────────────────────────
+
+  onMarkStatus(event: { tableId: string; status: 'dirty' | 'available' | 'out_of_service' }): void {
+    this.tablesService.updateTableStatus(event.tableId, event.status);
+  }
+
+  onSeatWalkIn(event: { tableId: string; partySize: number }): void {
+    this.tablesService.seatWalkIn(event.tableId, event.partySize);
+    this.seatedParties = this.tablesService.getSeatedParties();
+  }
+
+  onMarkPaid(tableId: string): void {
+    this.tablesService.updateTableStatus(tableId, 'available');
+    // Remove seated party from mock data
+    const idx = mockSeatedParties.findIndex(p => p.tableId === tableId);
+    if (idx >= 0) {
+      mockSeatedParties.splice(idx, 1);
+      this.seatedParties = [...mockSeatedParties];
+    }
+  }
+
+  onOffSystemPay(event: { tableId: string; method: string; reference?: string }): void {
+    this.tablesService.updateTableStatus(event.tableId, 'available');
+    const idx = mockSeatedParties.findIndex(p => p.tableId === event.tableId);
+    if (idx >= 0) {
+      mockSeatedParties.splice(idx, 1);
+      this.seatedParties = [...mockSeatedParties];
+    }
+  }
+
+  onDrawerAddToWaitlist(entry: { guestName: string; partySize: number; phone?: string; notes?: string }): void {
+    this.tablesService.addToWaitlist({
+      guest: { name: entry.guestName, phone: entry.phone },
+      partySize: entry.partySize,
+    });
+  }
+
+  onChangeServer(event: { tableId: string; serverId: string }): void {
+    this.tablesService.updateTable({ id: event.tableId, serverId: event.serverId });
+    // Also update the seated party
+    const party = mockSeatedParties.find(p => p.tableId === event.tableId);
+    if (party) party.serverId = event.serverId;
+    this.seatedParties = [...mockSeatedParties];
+  }
+
+  onAddNote(event: { tableId: string; note: string }): void {
+    // Notes stored only in console for mock mode
+    console.log(`Note for table ${event.tableId}: ${event.note}`);
+  }
+
+  onMergeTables(tableIds: string[]): void {
+    // Mark secondary tables as dirty, keep primary
+    const sorted = tableIds
+      .map(id => this.tables.find(t => t.id === id)!)
+      .filter(Boolean)
+      .sort((a, b) => a.number - b.number);
+    if (sorted.length < 2) return;
+    for (let i = 1; i < sorted.length; i++) {
+      this.tablesService.updateTableStatus(sorted[i].id, 'dirty');
+    }
+    this.selectedTableIds = [];
+    this.selectedTableId = sorted[0].id;
+  }
+
+  onTransfer(tableId: string): void {
+    this.toast.info('Transfer table — coming in prompt 9');
   }
 }

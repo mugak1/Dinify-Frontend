@@ -54,3 +54,25 @@
   (closed)="isNewReservationModalOpen = false"
   (saved)="onNewReservationSaved($event)"
 ></app-new-reservation-modal>
+
+<!-- Table Details Drawer -->
+<app-table-details-drawer
+  [isOpen]="isDrawerOpen"
+  [tableId]="selectedTableId"
+  [tableIds]="selectedTableIds"
+  [tables]="tables"
+  [areas]="areas"
+  [servers]="servers"
+  [seatedParties]="seatedParties"
+  [reservations]="reservations"
+  (closed)="onCloseDrawer()"
+  (markStatus)="onMarkStatus($event)"
+  (seatWalkIn)="onSeatWalkIn($event)"
+  (transfer)="onTransfer($event)"
+  (markPaid)="onMarkPaid($event)"
+  (offSystemPay)="onOffSystemPay($event)"
+  (addToWaitlist)="onDrawerAddToWaitlist($event)"
+  (changeServer)="onChangeServer($event)"
+  (addNote)="onAddNote($event)"
+  (mergeTables)="onMergeTables($event)"
+></app-table-details-drawer>
