@@ -67,9 +67,7 @@ const routes: Routes = [
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing'}
   ]},
   {path:'menu',component:MenuComponent,title:'Menu'},
-  {path:'dining-tables',component:TablesComponent,title:'Tables',children:[
-    {path: "d",loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule)},
-  ] },
+  {path:'dining-tables',component:TablesComponent,title:'Tables'},
   
   {path:'reviews',component:ReviewsComponent,title:'Reviews'},
   {path:'reviews-management',component:ReviewsManagementComponent,title:'Reviews Management'},
@@ -88,7 +86,6 @@ const routes: Routes = [
     DashboardComponent,
     SettingsComponent,
     MenuComponent,
-    TablesComponent,
     RestProfileComponent,
     MenuDesignComponent,
     OrdersComponent,
@@ -146,6 +143,7 @@ const routes: Routes = [
     PreviewMenuDrawerComponent,
     DialogComponent,
     ButtonComponent,
+    TablesComponent,
 ],
   exports:[
     RouterModule
