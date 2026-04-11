@@ -1,0 +1,133 @@
+<app-dn-dialog [open]="open" (closed)="onClose()" maxWidth="md">
+  <h2 class="text-lg font-semibold mb-4">{{ area ? 'Edit Area' : 'New Area' }}</h2>
+
+  <form (ngSubmit)="onSubmit()" class="space-y-4">
+    <!-- Area Name -->
+    <div class="space-y-1.5">
+      <label for="area-name" class="text-sm font-medium">Area Name *</label>
+      <input
+        id="area-name"
+        type="text"
+        [(ngModel)]="name"
+        name="name"
+        required
+        placeholder="e.g., Main Dining, Patio"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      />
+    </div>
+
+    <!-- Description -->
+    <div class="space-y-1.5">
+      <label for="area-desc" class="text-sm font-medium">Description</label>
+      <textarea
+        id="area-desc"
+        [(ngModel)]="description"
+        name="description"
+        rows="2"
+        placeholder="Optional description"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+      ></textarea>
+    </div>
+
+    <!-- Attributes -->
+    <div class="space-y-3">
+      <label class="text-sm font-medium">Attributes</label>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-sm">Indoor</span>
+          <app-dn-switch
+            [checked]="isIndoor"
+            (checkedChange)="isIndoor = $event"
+            size="sm"
+          ></app-dn-switch>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm">Smoking Allowed</span>
+          <app-dn-switch
+            [checked]="smokingAllowed"
+            (checkedChange)="smokingAllowed = $event"
+            size="sm"
+          ></app-dn-switch>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm">Accessible</span>
+          <app-dn-switch
+            [checked]="accessible"
+            (checkedChange)="accessible = $event"
+            size="sm"
+          ></app-dn-switch>
+        </div>
+      </div>
+    </div>
+
+    <!-- Default Server Section -->
+    <div class="space-y-1.5">
+      <label for="server-section" class="text-sm font-medium">Default Server Section</label>
+      <input
+        id="server-section"
+        type="text"
+        [(ngModel)]="defaultServerSection"
+        name="defaultServerSection"
+        placeholder="e.g., A, B, C"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      />
+    </div>
+
+    <!-- Assign Tables -->
+    <div class="space-y-1.5">
+      <label class="text-sm font-medium">Assign Tables</label>
+      <select
+        (change)="addTable($event)"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="">Select tables to add</option>
+        @for (table of availableTables; track table.id) {
+          @if (!selectedTableIds.includes(table.id)) {
+            <option [value]="table.id">
+              Table {{ table.number }}{{ table.displayName ? ' (' + table.displayName + ')' : '' }}
+            </option>
+          }
+        }
+      </select>
+
+      @if (selectedTableIds.length > 0) {
+        <div class="flex flex-wrap gap-2 mt-2">
+          @for (id of selectedTableIds; track id) {
+            <app-dn-badge variant="secondary" class="pr-1 flex items-center gap-1">
+              {{ getTableLabel(id) }}
+              <button
+                type="button"
+                (click)="removeTable(id)"
+                class="ml-1 hover:text-destructive"
+              >
+                <!-- X icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </app-dn-badge>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Active Toggle -->
+    <div class="flex items-center justify-between">
+      <span class="text-sm">Active</span>
+      <app-dn-switch
+        [checked]="isActive"
+        (checkedChange)="isActive = $event"
+        size="sm"
+      ></app-dn-switch>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-end gap-2 pt-4">
+      <button app-dn-button type="button" variant="outline" (click)="onClose()">Cancel</button>
+      <button app-dn-button type="submit" [disabled]="!name.trim()">
+        {{ area ? 'Save Changes' : 'Save Area' }}
+      </button>
+    </div>
+  </form>
+</app-dn-dialog>

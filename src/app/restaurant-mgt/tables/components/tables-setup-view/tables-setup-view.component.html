@@ -1,0 +1,385 @@
+<div class="space-y-4">
+
+  <!-- ═══ TOOLBAR CARD ═══ -->
+  <app-dn-card>
+    <div class="p-4 flex flex-wrap items-center gap-3">
+      <!-- New Area Button -->
+      <button app-dn-button (click)="openNewArea()">
+        <!-- Plus icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Area
+      </button>
+
+      <div class="h-6 w-px bg-border"></div>
+
+      <!-- Search Input -->
+      <div class="relative flex-1 min-w-[200px] max-w-[300px]">
+        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="text"
+          placeholder="Search table or area"
+          [(ngModel)]="search"
+          class="w-full pl-9 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
+      <!-- Area Filter -->
+      <select
+        [(ngModel)]="areaFilter"
+        class="w-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="all">All areas</option>
+        @for (area of areas; track area.id) {
+          <option [value]="area.id">{{ area.name }}</option>
+        }
+      </select>
+
+      <!-- Status Filter -->
+      <select
+        [(ngModel)]="statusFilter"
+        class="w-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="all">All statuses</option>
+        <option value="available">Available</option>
+        <option value="not_available">Not available</option>
+        <option value="out_of_service">Out of service</option>
+      </select>
+
+      <!-- QR Filter -->
+      <select
+        [(ngModel)]="qrFilter"
+        class="w-[130px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="all">All</option>
+        <option value="has_qr">Has QR</option>
+        <option value="no_qr">No QR</option>
+      </select>
+
+      <!-- Bulk Actions -->
+      @if (selectedTableIds.length > 0) {
+        <div class="h-6 w-px bg-border"></div>
+        <div class="relative">
+          <button
+            app-dn-button
+            variant="outline"
+            (click)="showBulkMenu = !showBulkMenu"
+          >
+            Bulk actions ({{ selectedTableIds.length }})
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          @if (showBulkMenu) {
+            <div
+              class="absolute right-0 top-full mt-1 w-48 bg-card rounded-md shadow-lg border border-border z-10"
+              (mouseleave)="showBulkMenu = false"
+            >
+              <button
+                class="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                (click)="handleBulkAction('enable')"
+              >Enable tables</button>
+              <button
+                class="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                (click)="handleBulkAction('disable')"
+              >Disable tables</button>
+              <button
+                class="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                (click)="handleBulkAction('generate-qr')"
+              >Generate QR codes</button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </app-dn-card>
+
+  <!-- ═══ AREA CARDS ═══ -->
+  @for (area of areas; track area.id) {
+    @let areaTables = getTablesForArea(area.id);
+    @let totalSeats = getTotalSeats(areaTables);
+    @let expanded = isExpanded(area.id);
+
+    <app-dn-card [class]="!area.isActive ? 'opacity-60' : ''">
+      <!-- Area Header -->
+      <div class="p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <!-- Collapse toggle -->
+          <button
+            class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+            (click)="toggleAreaExpanded(area.id)"
+          >
+            @if (expanded) {
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            }
+          </button>
+          <div>
+            <h3 class="font-semibold">{{ area.name }}</h3>
+            <p class="text-xs text-muted-foreground">
+              {{ area.isIndoor ? 'Indoor' : 'Outdoor' }}
+              @if (area.smokingAllowed) { &middot; Smoking allowed }
+              &middot; {{ areaTables.length }} tables &middot; {{ totalSeats }} seats
+            </p>
+          </div>
+          <app-dn-badge [variant]="area.isActive ? 'default' : 'secondary'" class="ml-2">
+            {{ area.isActive ? 'Open' : 'Closed' }}
+          </app-dn-badge>
+        </div>
+        <div class="flex items-center gap-2">
+          <app-dn-switch
+            [checked]="area.isActive"
+            (checkedChange)="handleAreaActiveToggle(area)"
+            size="sm"
+          ></app-dn-switch>
+          <button
+            class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+            [appTooltip]="'Edit area'"
+            (click)="openEditArea(area)"
+          >
+            <!-- Pencil icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          </button>
+          <button
+            class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+            [appTooltip]="'Delete area'"
+            (click)="requestDeleteArea(area)"
+          >
+            <!-- Trash icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Expanded Content -->
+      @if (expanded) {
+        <div class="border-t">
+          <!-- QR Actions Bar -->
+          <div class="p-3 bg-muted/30 flex items-center justify-end gap-2">
+            <button app-dn-button variant="outline" size="sm" (click)="generateQRForArea(area)">
+              <!-- QR icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="4" height="4"/><line x1="22" y1="14" x2="22" y2="18"/><line x1="18" y1="22" x2="22" y2="22"/></svg>
+              Generate QR for all
+            </button>
+            <button app-dn-button variant="outline" size="sm" (click)="regenerateQRForArea(area)">
+              <!-- Refresh icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Regenerate all
+            </button>
+          </div>
+
+          <!-- Tables Data Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b bg-muted/50">
+                  <th class="w-10 p-3 text-left">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-input"
+                      [checked]="areAllAreaTablesSelected(area.id)"
+                      (change)="toggleAreaSelection(area.id)"
+                    />
+                  </th>
+                  <th class="p-3 text-left font-medium text-muted-foreground">Table</th>
+                  <th class="p-3 text-left font-medium text-muted-foreground">Capacity</th>
+                  <th class="p-3 text-left font-medium text-muted-foreground">Type</th>
+                  <th class="p-3 text-left font-medium text-muted-foreground">Tags</th>
+                  <th class="p-3 text-left font-medium text-muted-foreground">Status</th>
+                  <th class="p-3 text-left font-medium text-muted-foreground">QR</th>
+                  <th class="p-3 text-right font-medium text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (table of areaTables; track table.id) {
+                  <tr class="border-b hover:bg-muted/30 transition-colors" [class.opacity-50]="!table.isActive">
+                    <td class="p-3">
+                      <input
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-input"
+                        [checked]="isTableSelected(table.id)"
+                        (change)="toggleTableSelection(table.id)"
+                      />
+                    </td>
+                    <td class="p-3 font-medium">
+                      {{ table.number }}
+                      @if (table.displayName) {
+                        <span class="text-muted-foreground"> &ndash; {{ table.displayName }}</span>
+                      }
+                    </td>
+                    <td class="p-3">{{ table.maxCapacity }} seats</td>
+                    <td class="p-3 capitalize">{{ table.shape }}</td>
+                    <td class="p-3">
+                      <div class="flex gap-1 flex-wrap">
+                        @for (tag of table.tags; track tag) {
+                          <app-dn-badge variant="outline" class="text-[10px]">{{ tag }}</app-dn-badge>
+                        }
+                      </div>
+                    </td>
+                    <td class="p-3">
+                      <div [appTooltip]="!area.isActive ? 'Activate the area first' : ''">
+                        <app-dn-switch
+                          [checked]="table.isActive"
+                          (checkedChange)="handleTableActiveToggle(table)"
+                          size="sm"
+                        ></app-dn-switch>
+                      </div>
+                    </td>
+                    <td class="p-3">
+                      @if (table.hasQR) {
+                        <app-dn-badge variant="success" class="text-[10px]">QR active</app-dn-badge>
+                      } @else {
+                        <app-dn-badge variant="warning" class="text-[10px]">QR missing</app-dn-badge>
+                      }
+                    </td>
+                    <td class="p-3 text-right">
+                      <button
+                        class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                        [appTooltip]="'Edit table'"
+                        (click)="openEditTable(table)"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                      </button>
+                      <button
+                        class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                        [appTooltip]="'Delete table'"
+                        (click)="requestDeleteTable(table)"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                }
+                @if (areaTables.length === 0) {
+                  <tr>
+                    <td colspan="8" class="p-6 text-center text-muted-foreground text-sm">
+                      No tables match current filters
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Add Table Button -->
+          <div class="p-3 border-t">
+            <button app-dn-button variant="outline" size="sm" (click)="openNewTable(area.id)">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add table to {{ area.name }}
+            </button>
+          </div>
+        </div>
+      }
+    </app-dn-card>
+  }
+
+  <!-- ═══ UNASSIGNED TABLES WARNING ═══ -->
+  @if (getUnassignedTables().length > 0) {
+    <div class="bg-card text-card-foreground rounded-lg shadow-[var(--shadow-sm)] border-l-4 border-warning">
+      <div class="p-4">
+        <h3 class="font-semibold text-warning">Unassigned tables</h3>
+        <p class="text-xs text-muted-foreground mt-1">
+          {{ getUnassignedTables().length }} table(s) need to be assigned to an area
+        </p>
+      </div>
+      <div class="px-4 pb-4">
+        <button app-dn-button variant="outline" (click)="openMoveDialog()">
+          Move tables to area
+        </button>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- New/Edit Area Modal -->
+<app-new-area-modal
+  [open]="isAreaModalOpen"
+  [area]="editingArea"
+  [tables]="tables"
+  (closed)="onAreaModalClosed()"
+  (saved)="onAreaSaved($event)"
+></app-new-area-modal>
+
+<!-- New/Edit Table Modal -->
+<app-new-table-modal
+  [open]="isTableModalOpen"
+  [table]="editingTable"
+  [areas]="areas"
+  (closed)="onTableModalClosed()"
+  (saved)="onTableSaved($event)"
+></app-new-table-modal>
+
+<!-- Delete Table Confirmation -->
+<app-dn-dialog [open]="!!deleteTableTarget" (closed)="deleteTableTarget = null" maxWidth="sm">
+  <h2 class="text-lg font-semibold mb-2">Delete table?</h2>
+  <p class="text-sm text-muted-foreground mb-4">
+    Are you sure you want to delete {{ deleteTableTarget ? getTableDisplayName(deleteTableTarget) : '' }}? This action cannot be undone.
+  </p>
+  <div class="flex justify-end gap-2">
+    <button app-dn-button variant="outline" (click)="deleteTableTarget = null">Cancel</button>
+    <button app-dn-button variant="destructive" (click)="confirmDeleteTable()">Delete</button>
+  </div>
+</app-dn-dialog>
+
+<!-- Delete Area Confirmation -->
+<app-dn-dialog [open]="!!deleteAreaTarget" (closed)="deleteAreaTarget = null" maxWidth="sm">
+  <h2 class="text-lg font-semibold mb-2">Delete area?</h2>
+  <p class="text-sm text-muted-foreground mb-4">
+    Are you sure you want to delete {{ deleteAreaTarget?.name }}? Tables in this area will become unassigned. This action cannot be undone.
+  </p>
+  <div class="flex justify-end gap-2">
+    <button app-dn-button variant="outline" (click)="deleteAreaTarget = null">Cancel</button>
+    <button app-dn-button variant="destructive" (click)="confirmDeleteArea()">Delete</button>
+  </div>
+</app-dn-dialog>
+
+<!-- Move Tables Dialog -->
+<app-dn-dialog [open]="isMoveDialogOpen" (closed)="isMoveDialogOpen = false" maxWidth="md">
+  <h2 class="text-lg font-semibold mb-1">Move tables to area</h2>
+  <p class="text-sm text-muted-foreground mb-4">Select which tables to move and choose a destination area.</p>
+
+  <div class="space-y-4">
+    <!-- Tables to move -->
+    <div class="space-y-1.5">
+      <label class="text-sm font-medium">Tables to move</label>
+      <div class="space-y-1 max-h-40 overflow-y-auto">
+        @for (table of getUnassignedTables(); track table.id) {
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              class="h-4 w-4 rounded border-input"
+              [checked]="moveSelectedTableIds.includes(table.id)"
+              (change)="toggleMoveTableSelection(table.id)"
+            />
+            {{ getTableDisplayName(table) }}
+          </label>
+        }
+      </div>
+    </div>
+
+    <!-- Destination area -->
+    <div class="space-y-1.5">
+      <label class="text-sm font-medium">Destination area</label>
+      <select
+        [(ngModel)]="moveTargetAreaId"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="">Choose area</option>
+        @for (area of areas; track area.id) {
+          <option [value]="area.id">{{ area.name }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2 pt-4">
+    <button app-dn-button variant="outline" (click)="isMoveDialogOpen = false">Cancel</button>
+    <button
+      app-dn-button
+      [disabled]="!moveTargetAreaId || moveSelectedTableIds.length === 0"
+      (click)="confirmMoveTables()"
+    >
+      Move {{ moveSelectedTableIds.length }} table(s)
+    </button>
+  </div>
+</app-dn-dialog>

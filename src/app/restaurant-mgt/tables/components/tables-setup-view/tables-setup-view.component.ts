@@ -1,8 +1,428 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Subject, combineLatest } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { CardComponent } from '../../../../_shared/ui/card/card.component';
+import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
+import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
+import { SwitchComponent } from '../../../../_shared/ui/switch/switch.component';
+import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
+import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
+import { ToastService } from '../../../../_shared/ui/toast/toast.service';
+import { TablesService } from '../../services/tables.service';
+import { NewAreaModalComponent } from '../new-area-modal/new-area-modal.component';
+import { NewTableModalComponent } from '../new-table-modal/new-table-modal.component';
+import {
+  DiningArea,
+  RestaurantTable,
+  SeatedParty,
+} from '../../models/tables.models';
 
 @Component({
   selector: 'app-tables-setup-view',
   standalone: true,
-  template: `<p class="text-muted-foreground">Setup view coming next...</p>`,
+  imports: [
+    CommonModule,
+    FormsModule,
+    CardComponent,
+    ButtonComponent,
+    BadgeComponent,
+    SwitchComponent,
+    DialogComponent,
+    TooltipDirective,
+    NewAreaModalComponent,
+    NewTableModalComponent,
+  ],
+  templateUrl: './tables-setup-view.component.html',
 })
-export class TablesSetupViewComponent {}
+export class TablesSetupViewComponent implements OnInit, OnDestroy {
+  areas: DiningArea[] = [];
+  tables: RestaurantTable[] = [];
+  seatedParties: SeatedParty[] = [];
+
+  // Filters
+  search = '';
+  areaFilter = 'all';
+  statusFilter = 'all';
+  qrFilter = 'all';
+
+  // Selection
+  selectedTableIds: string[] = [];
+
+  // Expand/collapse
+  expandedAreas: string[] = [];
+
+  // Area modal
+  isAreaModalOpen = false;
+  editingArea: DiningArea | null = null;
+
+  // Table modal
+  isTableModalOpen = false;
+  editingTable: RestaurantTable | null = null;
+  newTableAreaId: string | undefined;
+
+  // Delete confirmations
+  deleteTableTarget: RestaurantTable | null = null;
+  deleteAreaTarget: DiningArea | null = null;
+
+  // Move dialog
+  isMoveDialogOpen = false;
+  moveTargetAreaId = '';
+  moveSelectedTableIds: string[] = [];
+
+  // Bulk actions dropdown
+  showBulkMenu = false;
+
+  private destroy$ = new Subject<void>();
+
+  constructor(
+    private tablesService: TablesService,
+    private toast: ToastService,
+  ) {}
+
+  ngOnInit(): void {
+    combineLatest([
+      this.tablesService.areas$,
+      this.tablesService.tables$,
+    ])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([areas, tables]) => {
+        this.areas = areas;
+        this.tables = tables;
+        // Expand all areas on first load
+        if (this.expandedAreas.length === 0 && areas.length > 0) {
+          this.expandedAreas = areas.map(a => a.id);
+        }
+      });
+
+    this.seatedParties = this.tablesService.getSeatedParties();
+
+    // Load initial data
+    this.tablesService.getAreas('').subscribe();
+    this.tablesService.getTables('').subscribe();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // ── Filtering ─────────────────────────────────────────
+
+  get filteredTables(): RestaurantTable[] {
+    return this.tables.filter(t => {
+      // Search
+      if (this.search) {
+        const q = this.search.toLowerCase();
+        const area = this.areas.find(a => a.id === t.areaId);
+        const match =
+          String(t.number).includes(q) ||
+          (t.displayName?.toLowerCase().includes(q) ?? false) ||
+          (area?.name.toLowerCase().includes(q) ?? false);
+        if (!match) return false;
+      }
+      // Area filter
+      if (this.areaFilter !== 'all' && t.areaId !== this.areaFilter) return false;
+      // Status filter
+      if (this.statusFilter === 'available' && !t.isActive) return false;
+      if (this.statusFilter === 'not_available' && t.isActive) return false;
+      if (this.statusFilter === 'out_of_service' && t.status !== 'out_of_service') return false;
+      // QR filter
+      if (this.qrFilter === 'has_qr' && !t.hasQR) return false;
+      if (this.qrFilter === 'no_qr' && t.hasQR) return false;
+
+      return true;
+    });
+  }
+
+  getTablesForArea(areaId: string): RestaurantTable[] {
+    return this.filteredTables.filter(t => t.areaId === areaId);
+  }
+
+  getUnassignedTables(): RestaurantTable[] {
+    return this.filteredTables.filter(t => !t.areaId);
+  }
+
+  getTotalSeats(tables: RestaurantTable[]): number {
+    return tables.reduce((sum, t) => sum + t.maxCapacity, 0);
+  }
+
+  // ── Expand/collapse ───────────────────────────────────
+
+  isExpanded(areaId: string): boolean {
+    return this.expandedAreas.includes(areaId);
+  }
+
+  toggleAreaExpanded(areaId: string): void {
+    if (this.expandedAreas.includes(areaId)) {
+      this.expandedAreas = this.expandedAreas.filter(id => id !== areaId);
+    } else {
+      this.expandedAreas = [...this.expandedAreas, areaId];
+    }
+  }
+
+  // ── Selection ─────────────────────────────────────────
+
+  toggleTableSelection(tableId: string): void {
+    if (this.selectedTableIds.includes(tableId)) {
+      this.selectedTableIds = this.selectedTableIds.filter(id => id !== tableId);
+    } else {
+      this.selectedTableIds = [...this.selectedTableIds, tableId];
+    }
+  }
+
+  isTableSelected(tableId: string): boolean {
+    return this.selectedTableIds.includes(tableId);
+  }
+
+  areAllAreaTablesSelected(areaId: string): boolean {
+    const areaTables = this.getTablesForArea(areaId);
+    return areaTables.length > 0 && areaTables.every(t => this.selectedTableIds.includes(t.id));
+  }
+
+  toggleAreaSelection(areaId: string): void {
+    const areaTables = this.getTablesForArea(areaId);
+    if (this.areAllAreaTablesSelected(areaId)) {
+      this.selectedTableIds = this.selectedTableIds.filter(
+        id => !areaTables.find(t => t.id === id),
+      );
+    } else {
+      const newIds = areaTables.map(t => t.id);
+      this.selectedTableIds = [...new Set([...this.selectedTableIds, ...newIds])];
+    }
+  }
+
+  // ── Active orders check ───────────────────────────────
+
+  hasActiveOrder(tableId: string): boolean {
+    return this.seatedParties.some(p => p.tableId === tableId);
+  }
+
+  // ── Area CRUD ─────────────────────────────────────────
+
+  openNewArea(): void {
+    this.editingArea = null;
+    this.isAreaModalOpen = true;
+  }
+
+  openEditArea(area: DiningArea): void {
+    this.editingArea = area;
+    this.isAreaModalOpen = true;
+  }
+
+  onAreaSaved(data: Omit<DiningArea, 'id'>): void {
+    if (this.editingArea) {
+      this.tablesService.updateArea({ ...data, id: this.editingArea.id });
+      this.toast.success('Area updated');
+    } else {
+      this.tablesService.createArea(data);
+      this.toast.success('Area created');
+    }
+    this.isAreaModalOpen = false;
+    this.editingArea = null;
+  }
+
+  onAreaModalClosed(): void {
+    this.isAreaModalOpen = false;
+    this.editingArea = null;
+  }
+
+  requestDeleteArea(area: DiningArea): void {
+    const areaTables = this.tables.filter(t => t.areaId === area.id);
+    const hasActive = areaTables.some(t => this.hasActiveOrder(t.id));
+    if (hasActive) {
+      this.toast.error(
+        'Some tables in this area have active orders. Please resolve them before deleting.',
+      );
+      return;
+    }
+    this.deleteAreaTarget = area;
+  }
+
+  confirmDeleteArea(): void {
+    if (!this.deleteAreaTarget) return;
+    const movedCount = this.tables.filter(
+      t => t.areaId === this.deleteAreaTarget!.id,
+    ).length;
+    this.tablesService.deleteArea(this.deleteAreaTarget.id);
+    this.toast.success(
+      `Area deleted. ${movedCount} table(s) unassigned.`,
+    );
+    this.deleteAreaTarget = null;
+  }
+
+  handleAreaActiveToggle(area: DiningArea): void {
+    const newActive = !area.isActive;
+    this.tablesService.updateArea({ id: area.id, isActive: newActive });
+    // Also toggle all tables in this area
+    const areaTables = this.tables.filter(t => t.areaId === area.id);
+    for (const t of areaTables) {
+      this.tablesService.updateTable({ id: t.id, isActive: newActive });
+    }
+    this.toast.success(`${area.name} ${newActive ? 'opened' : 'closed'}`);
+  }
+
+  // ── Table CRUD ────────────────────────────────────────
+
+  openNewTable(areaId?: string): void {
+    this.editingTable = null;
+    this.newTableAreaId = areaId;
+    this.isTableModalOpen = true;
+  }
+
+  openEditTable(table: RestaurantTable): void {
+    this.editingTable = table;
+    this.newTableAreaId = undefined;
+    this.isTableModalOpen = true;
+  }
+
+  onTableSaved(data: Partial<RestaurantTable>): void {
+    if (this.editingTable) {
+      this.tablesService.updateTable({ ...data, id: this.editingTable.id });
+      this.toast.success('Table updated');
+    } else {
+      // If opened from an area's "Add table" button, pre-set the areaId
+      if (this.newTableAreaId && !data.areaId) {
+        data.areaId = this.newTableAreaId;
+      }
+      this.tablesService.createTable(data);
+      this.toast.success('Table created');
+    }
+    this.isTableModalOpen = false;
+    this.editingTable = null;
+    this.newTableAreaId = undefined;
+  }
+
+  onTableModalClosed(): void {
+    this.isTableModalOpen = false;
+    this.editingTable = null;
+    this.newTableAreaId = undefined;
+  }
+
+  requestDeleteTable(table: RestaurantTable): void {
+    if (this.hasActiveOrder(table.id)) {
+      this.toast.error(
+        'This table has an active order. Please resolve it before deleting.',
+      );
+      return;
+    }
+    this.deleteTableTarget = table;
+  }
+
+  confirmDeleteTable(): void {
+    if (!this.deleteTableTarget) return;
+    this.tablesService.deleteTable(this.deleteTableTarget.id);
+    this.toast.success('Table deleted');
+    this.deleteTableTarget = null;
+  }
+
+  handleTableActiveToggle(table: RestaurantTable): void {
+    this.tablesService.updateTable({
+      id: table.id,
+      isActive: !table.isActive,
+    });
+    this.toast.success(
+      `Table ${table.number} ${!table.isActive ? 'enabled' : 'disabled'}`,
+    );
+  }
+
+  // ── QR Actions ────────────────────────────────────────
+
+  generateQRForArea(area: DiningArea): void {
+    const areaTables = this.tables.filter(t => t.areaId === area.id);
+    this.tablesService.bulkUpdateTables(
+      areaTables.map(t => t.id),
+      { hasQR: true, qrRegeneratedAt: new Date() },
+    );
+    this.toast.success(`QR codes generated for ${area.name}`);
+  }
+
+  regenerateQRForArea(area: DiningArea): void {
+    const areaTables = this.tables.filter(
+      t => t.areaId === area.id && t.hasQR,
+    );
+    if (areaTables.length === 0) {
+      this.toast.error('No tables with QR codes in this area');
+      return;
+    }
+    this.tablesService.bulkUpdateTables(
+      areaTables.map(t => t.id),
+      { qrRegeneratedAt: new Date() },
+    );
+    this.toast.success(
+      `${areaTables.length} QR code(s) regenerated for ${area.name}`,
+    );
+  }
+
+  // ── Bulk Actions ──────────────────────────────────────
+
+  handleBulkAction(action: string): void {
+    switch (action) {
+      case 'enable':
+        this.tablesService.bulkUpdateTables(this.selectedTableIds, {
+          isActive: true,
+        });
+        this.toast.success(
+          `${this.selectedTableIds.length} table(s) enabled`,
+        );
+        break;
+      case 'disable':
+        this.tablesService.bulkUpdateTables(this.selectedTableIds, {
+          isActive: false,
+        });
+        this.toast.success(
+          `${this.selectedTableIds.length} table(s) disabled`,
+        );
+        break;
+      case 'generate-qr':
+        this.tablesService.bulkUpdateTables(this.selectedTableIds, {
+          hasQR: true,
+          qrRegeneratedAt: new Date(),
+        });
+        this.toast.success(
+          `QR codes generated for ${this.selectedTableIds.length} table(s)`,
+        );
+        break;
+    }
+    this.selectedTableIds = [];
+    this.showBulkMenu = false;
+  }
+
+  // ── Move Tables Dialog ────────────────────────────────
+
+  openMoveDialog(): void {
+    this.moveSelectedTableIds = this.getUnassignedTables().map(t => t.id);
+    this.moveTargetAreaId = '';
+    this.isMoveDialogOpen = true;
+  }
+
+  toggleMoveTableSelection(tableId: string): void {
+    if (this.moveSelectedTableIds.includes(tableId)) {
+      this.moveSelectedTableIds = this.moveSelectedTableIds.filter(
+        id => id !== tableId,
+      );
+    } else {
+      this.moveSelectedTableIds = [...this.moveSelectedTableIds, tableId];
+    }
+  }
+
+  confirmMoveTables(): void {
+    if (!this.moveTargetAreaId || this.moveSelectedTableIds.length === 0) return;
+    this.tablesService.moveTableToArea(
+      this.moveSelectedTableIds,
+      this.moveTargetAreaId,
+    );
+    const area = this.areas.find(a => a.id === this.moveTargetAreaId);
+    this.toast.success(
+      `${this.moveSelectedTableIds.length} table(s) moved to ${area?.name ?? 'area'}`,
+    );
+    this.isMoveDialogOpen = false;
+  }
+
+  // ── Helpers ───────────────────────────────────────────
+
+  getTableDisplayName(table: RestaurantTable): string {
+    return table.displayName || `Table ${table.number}`;
+  }
+}
