@@ -42,7 +42,7 @@
         @if (filters.status.length > 0) {
           <app-dn-badge variant="default" class="text-[9px] ml-0.5">{{ filters.status.length }}</app-dn-badge>
         }
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       @if (showStatusDropdown) {
         <div class="absolute left-0 top-full mt-1 w-48 bg-card rounded-md shadow-lg border z-20 py-1" (mouseleave)="showStatusDropdown = false">
@@ -72,7 +72,7 @@
         @if (filters.servers.length > 0) {
           <app-dn-badge variant="default" class="text-[9px] ml-0.5">{{ filters.servers.length }}</app-dn-badge>
         }
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       @if (showServerDropdown) {
         <div class="absolute left-0 top-full mt-1 w-48 bg-card rounded-md shadow-lg border z-20 py-1" (mouseleave)="showServerDropdown = false">
@@ -111,7 +111,7 @@
         @if (filters.tableSize.length > 0) {
           <app-dn-badge variant="default" class="text-[9px] ml-0.5">{{ filters.tableSize.length }}</app-dn-badge>
         }
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       @if (showSizeDropdown) {
         <div class="absolute left-0 top-full mt-1 w-32 bg-card rounded-md shadow-lg border z-20 py-1" (mouseleave)="showSizeDropdown = false">
@@ -132,7 +132,7 @@
 
     <!-- ── Search Input ── -->
     <div class="relative flex-1 min-w-[180px] max-w-[280px]">
-      <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input
         type="text"
         placeholder="Search table # or guest"
@@ -146,7 +146,7 @@
     <div class="ml-auto flex items-center gap-4 text-xs text-muted-foreground">
       <span class="flex items-center gap-1">
         <!-- Users icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span class="font-semibold text-foreground">{{ metrics.inUse }}</span> / {{ metrics.total }} tables
       </span>
       <span>
@@ -154,7 +154,7 @@
       </span>
       <span class="flex items-center gap-1">
         <!-- Clock icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span class="font-semibold text-foreground">{{ metrics.avgTableTime }}</span> min avg
       </span>
     </div>

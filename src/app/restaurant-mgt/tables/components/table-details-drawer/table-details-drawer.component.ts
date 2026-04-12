@@ -169,7 +169,6 @@ export class TableDetailsDrawerComponent {
   handleTransfer(): void {
     if (!this.table) return;
     this.transfer.emit(this.table.id);
-    this.toast.info('Transfer table — coming in a future release');
   }
 
   handleSeatWalkIn(): void {

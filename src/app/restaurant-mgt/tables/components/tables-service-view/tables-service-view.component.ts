@@ -9,6 +9,7 @@ import { FloorPlanCanvasComponent } from '../floor-plan-canvas/floor-plan-canvas
 import { ReservationsPaneComponent } from '../reservations-pane/reservations-pane.component';
 import { NewReservationModalComponent } from '../new-reservation-modal/new-reservation-modal.component';
 import { TableDetailsDrawerComponent } from '../table-details-drawer/table-details-drawer.component';
+import { TransferTableModalComponent } from '../transfer-table-modal/transfer-table-modal.component';
 import {
   TableFilters,
   DiningArea,
@@ -30,6 +31,7 @@ import { mockSeatedParties } from '../../data/tables-mock-data';
     ReservationsPaneComponent,
     NewReservationModalComponent,
     TableDetailsDrawerComponent,
+    TransferTableModalComponent,
   ],
   templateUrl: './tables-service-view.component.html',
 })
@@ -52,6 +54,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   selectedTableId: string | null = null;
   selectedTableIds: string[] = [];
   isNewReservationModalOpen = false;
+  transferSourceTableId: string | null = null;
 
   private destroy$ = new Subject<void>();
 
@@ -305,9 +308,8 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
     this.seatedParties = [...mockSeatedParties];
   }
 
-  onAddNote(event: { tableId: string; note: string }): void {
-    // Notes stored only in console for mock mode
-    console.log(`Note for table ${event.tableId}: ${event.note}`);
+  onAddNote(_event: { tableId: string; note: string }): void {
+    // Notes are not persisted in mock mode; toast feedback is shown by the drawer.
   }
 
   onMergeTables(tableIds: string[]): void {
@@ -325,6 +327,33 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   }
 
   onTransfer(tableId: string): void {
-    this.toast.info('Transfer table — coming in prompt 9');
+    this.transferSourceTableId = tableId;
+  }
+
+  onTransferComplete(evt: { sourceTableId: string; destinationTableId: string }): void {
+    this.tablesService.transferTable(evt.sourceTableId, evt.destinationTableId);
+    const dest = this.tables.find(t => t.id === evt.destinationTableId);
+    const destName = dest?.displayName || (dest ? `Table ${dest.number}` : 'table');
+    this.toast.success(`Party transferred to ${destName}`);
+    this.transferSourceTableId = null;
+    this.selectedTableId = evt.destinationTableId;
+    this.selectedTableIds = [];
+    this.seatedParties = this.tablesService.getSeatedParties();
+  }
+
+  onTransferClose(): void {
+    this.transferSourceTableId = null;
+  }
+
+  get transferSourceTable(): RestaurantTable | null {
+    return this.transferSourceTableId
+      ? this.tables.find(t => t.id === this.transferSourceTableId) ?? null
+      : null;
+  }
+
+  get transferSourceParty(): SeatedParty | null {
+    return this.transferSourceTableId
+      ? this.seatedParties.find(p => p.tableId === this.transferSourceTableId) ?? null
+      : null;
   }
 }

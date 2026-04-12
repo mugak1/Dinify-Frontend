@@ -76,3 +76,14 @@
   (addNote)="onAddNote($event)"
   (mergeTables)="onMergeTables($event)"
 ></app-table-details-drawer>
+
+<!-- Transfer Party Modal -->
+<app-transfer-table-modal
+  [open]="!!transferSourceTableId"
+  [sourceTable]="transferSourceTable"
+  [party]="transferSourceParty"
+  [tables]="tables"
+  [areas]="areas"
+  (closed)="onTransferClose()"
+  (transferred)="onTransferComplete($event)"
+></app-transfer-table-modal>

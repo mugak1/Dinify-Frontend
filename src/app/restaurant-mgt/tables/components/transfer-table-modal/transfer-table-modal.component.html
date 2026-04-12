@@ -1,0 +1,70 @@
+<app-dn-dialog [open]="open" maxWidth="sm" (closed)="handleClose()">
+  @if (sourceTable && party) {
+    <div class="space-y-4">
+      <!-- Header -->
+      <div>
+        <h2 class="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+            <path d="M5 12h14"/>
+            <path d="m12 5 7 7-7 7"/>
+          </svg>
+          Transfer Party
+        </h2>
+      </div>
+
+      <!-- Source info -->
+      <div class="bg-muted/50 rounded-lg p-3 space-y-1">
+        <div class="text-sm font-medium">
+          From: Table {{ sourceTableName }}
+          <span class="text-muted-foreground"> — {{ sourceAreaName }}</span>
+        </div>
+        <div class="text-xs text-muted-foreground flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          {{ party.guest?.name || 'Walk-in' }} • {{ party.partySize }} guest{{ party.partySize !== 1 ? 's' : '' }}
+          @if (orderItemCount > 0) {
+            <span>&nbsp;• {{ orderItemCount }} item{{ orderItemCount !== 1 ? 's' : '' }}</span>
+          }
+        </div>
+      </div>
+
+      <!-- Destination picker -->
+      <div class="space-y-2">
+        <p class="text-sm font-medium">Select destination table:</p>
+        @if (availableTables.length === 0) {
+          <p class="text-sm text-muted-foreground py-4 text-center">No available tables to transfer to.</p>
+        } @else {
+          <div class="max-h-[240px] overflow-y-auto">
+            <div class="space-y-1.5">
+              @for (t of availableTables; track t.id) {
+                <button type="button" [class]="rowClass(t)" (click)="selectDestination(t.id)">
+                  <div>
+                    <span class="text-sm font-medium">Table {{ tableName(t) }}</span>
+                    <span class="text-xs text-muted-foreground ml-2">{{ getArea(t.areaId)?.name }}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <app-dn-badge variant="outline" class="text-[10px]" [ngClass]="{ 'border-warning text-warning': !fits(t) }">
+                      {{ t.minCapacity }}–{{ t.maxCapacity }} seats
+                    </app-dn-badge>
+                  </div>
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="flex justify-end gap-2 pt-2">
+        <button app-dn-button variant="outline" (click)="handleClose()">Cancel</button>
+        <button app-dn-button variant="default" [disabled]="!selectedDestination" (click)="handleTransfer()">
+          Transfer Party
+        </button>
+      </div>
+    </div>
+  }
+</app-dn-dialog>
