@@ -48,6 +48,9 @@ export class DinersMenuComponent implements OnInit {
   errorMessages: any[]=[];
   isFormValidFlag: boolean=true;
   presetTags: any[] = [];
+  showTagFilter = false;
+  selectedTags: string[] = [];
+  localSelectedTags: string[] = [];
 
   constructor(private sessionStorage:SessionStorageService,private api:ApiService,private basketService:BasketService,private router:Router,private fb:FormBuilder) {
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
@@ -61,6 +64,56 @@ export class DinersMenuComponent implements OnInit {
       colorClasses: preset ? getTagColorClasses(preset.color) : 'bg-gray-100 text-gray-700',
       iconSvg: preset ? getTagIcon(preset.icon) : '',
     };
+  }
+
+  get filterableTags(): any[] {
+    return this.presetTags.filter((t: any) => t.filterable);
+  }
+
+  getTagItemCount(tagName: string): number {
+    if (!this.menu_list) return 0;
+    let count = 0;
+    for (const section of this.menu_list) {
+      for (const item of section.items || []) {
+        if (item.allergens?.includes(tagName)) count++;
+      }
+    }
+    return count;
+  }
+
+  openTagFilter(): void {
+    this.localSelectedTags = [...this.selectedTags];
+    this.showTagFilter = true;
+  }
+
+  toggleTagSelection(tagName: string): void {
+    this.localSelectedTags = this.localSelectedTags.includes(tagName)
+      ? this.localSelectedTags.filter(t => t !== tagName)
+      : [...this.localSelectedTags, tagName];
+  }
+
+  isTagSelected(tagName: string): boolean {
+    return this.localSelectedTags.includes(tagName);
+  }
+
+  clearLocalTagSelection(): void {
+    this.localSelectedTags = [];
+  }
+
+  onTagFilterApply(tags: string[]): void {
+    this.selectedTags = tags;
+    this.showTagFilter = false;
+    this.filterMenu();
+  }
+
+  removeTag(tagName: string): void {
+    this.selectedTags = this.selectedTags.filter(t => t !== tagName);
+    this.filterMenu();
+  }
+
+  clearAllTags(): void {
+    this.selectedTags = [];
+    this.filterMenu();
   }
   ngOnInit(){
    
@@ -98,18 +151,34 @@ export class DinersMenuComponent implements OnInit {
    * If no query is entered, the full menu list is shown.
    */
   filterMenu() {
-    if (!this.searchQuery) {
-      this.filteredMenuList = this.menu_list;
-    } else {
-      this.filteredMenuList = this.menu_list
-        .map((section: any) => {
-          const filteredItems = section.items.filter((item: any) =>
-            item.name.toLowerCase().includes(this.searchQuery.toLowerCase())
-          );
-          return { ...section, items: filteredItems };
-        })
+    if (!this.menu_list) return;
+
+    let result = this.menu_list;
+
+    if (this.selectedTags.length > 0) {
+      result = result
+        .map((section: any) => ({
+          ...section,
+          items: (section.items || []).filter((item: any) =>
+            this.selectedTags.some(tag => item.allergens?.includes(tag))
+          )
+        }))
         .filter((section: any) => section.items.length > 0);
     }
+
+    if (this.searchQuery) {
+      const q = this.searchQuery.toLowerCase();
+      result = result
+        .map((section: any) => ({
+          ...section,
+          items: (section.items || []).filter((item: any) =>
+            item.name.toLowerCase().includes(q)
+          )
+        }))
+        .filter((section: any) => section.items.length > 0);
+    }
+
+    this.filteredMenuList = result;
   }
 /*   addItem(item:Item){
     let px=item.primary_price;
