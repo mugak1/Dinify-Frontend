@@ -11,7 +11,8 @@ import { UpsellService } from './services/upsell.service';
     selector: 'app-menu',
     templateUrl: './menu.component.html',
     styleUrls: ['./menu.component.css'],
-    standalone: false
+    standalone: false,
+    host: { class: 'flex flex-col h-full overflow-hidden' }
 })
 export class MenuComponent {
 
