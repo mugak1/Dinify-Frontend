@@ -1,10 +1,10 @@
 <div class="flex flex-col h-full" *ngIf="item">
 
   <!-- Header (sticky) -->
-  <div class="border-b p-4 flex items-center gap-3 sticky top-0 bg-white z-10">
+  <div class="border-b p-4 flex items-center gap-3 sticky top-0 bg-card z-10">
     <button
       type="button"
-      class="inline-flex items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+      class="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
       (click)="onBack()"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -17,16 +17,16 @@
 
   <!-- Scrollable content -->
   <div class="flex-1 overflow-y-auto">
-    <div class="p-4 space-y-4">
+    <!-- Hero image — edge-to-edge, outside padded content -->
+    <div *ngIf="item.image" class="w-full aspect-[4/3] overflow-hidden bg-muted">
+      <img
+        [src]="imageBaseUrl + item.image"
+        [alt]="item.name"
+        class="w-full h-full object-cover"
+      />
+    </div>
 
-      <!-- Image -->
-      <div *ngIf="item.image" class="w-full h-64 rounded-lg overflow-hidden bg-gray-100">
-        <img
-          [src]="imageBaseUrl + item.image"
-          [alt]="item.name"
-          class="w-full h-full object-cover"
-        />
-      </div>
+    <div class="p-4 space-y-4">
 
       <!-- Badge row -->
       <div *ngIf="item.is_featured || item.is_popular || item.is_new" class="flex flex-wrap gap-2">
@@ -58,12 +58,12 @@
       </div>
 
       <!-- Description -->
-      <p *ngIf="item.description" class="text-gray-500">{{ item.description }}</p>
+      <p *ngIf="item.description" class="text-muted-foreground">{{ item.description }}</p>
 
       <!-- Price -->
       <div class="flex items-baseline gap-2 flex-wrap">
         <ng-container *ngIf="hasDiscount; else noDiscount">
-          <span class="text-lg text-gray-400 line-through">{{ formatPrice(primaryPrice) }}</span>
+          <span class="text-lg text-muted-foreground line-through">{{ formatPrice(primaryPrice) }}</span>
           <span class="text-2xl font-bold text-red-600">{{ formatPrice(basePrice) }}</span>
           <span class="ml-2 inline-flex items-center bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded">
             {{ discountBadgeText }}
@@ -104,22 +104,22 @@
             <svg *ngIf="group.selectionType === 'single'"
                  xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 class="text-gray-400">
+                 class="text-muted-foreground">
               <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/>
             </svg>
             <svg *ngIf="group.selectionType !== 'single'"
                  xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 class="text-gray-400">
+                 class="text-muted-foreground">
               <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
             </svg>
             <h4 class="font-semibold">{{ group.name || 'Options' }}</h4>
             <span *ngIf="group.required"
-                  class="bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded">
+                  class="bg-muted text-foreground text-xs font-medium px-2 py-0.5 rounded">
               Required
             </span>
           </div>
-          <p class="text-xs text-gray-500">{{ getSelectionHint(group) }}</p>
+          <p class="text-xs text-muted-foreground">{{ getSelectionHint(group) }}</p>
 
           <!-- Single select (radio) -->
           <div *ngIf="group.selectionType === 'single'">
@@ -138,7 +138,7 @@
                 />
                 <span class="text-sm">{{ choice.name }}</span>
               </div>
-              <span *ngIf="choice.additionalCost > 0" class="text-sm text-gray-500">
+              <span *ngIf="choice.additionalCost > 0" class="text-sm text-muted-foreground">
                 +{{ formatPrice(choice.additionalCost) }}
               </span>
             </label>
@@ -159,7 +159,7 @@
                 />
                 <span class="text-sm">{{ choice.name }}</span>
               </div>
-              <span *ngIf="choice.additionalCost > 0" class="text-sm text-gray-500">
+              <span *ngIf="choice.additionalCost > 0" class="text-sm text-muted-foreground">
                 +{{ formatPrice(choice.additionalCost) }}
               </span>
             </label>
@@ -172,13 +172,13 @@
         <div class="flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               class="text-gray-400">
+               class="text-muted-foreground">
             <path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
             <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
           </svg>
           <h4 class="font-semibold">Add Extras</h4>
         </div>
-        <p class="text-xs text-gray-500">Optional add-ons</p>
+        <p class="text-xs text-muted-foreground">Optional add-ons</p>
         <div class="space-y-1">
           <label
             *ngFor="let extra of extraItems"
@@ -193,7 +193,7 @@
               />
               <span class="text-sm">{{ extra.name }}</span>
             </div>
-            <span class="text-sm text-gray-500">+{{ formatPrice(getCurrentExtraPrice(extra)) }}</span>
+            <span class="text-sm text-muted-foreground">+{{ formatPrice(getCurrentExtraPrice(extra)) }}</span>
           </label>
         </div>
       </div>
@@ -202,46 +202,46 @@
   </div>
 
   <!-- Footer (sticky) -->
-  <div class="border-t p-4 bg-white">
-    <div class="flex items-center gap-4">
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          (click)="decrementQuantity()"
-          [disabled]="quantity <= 1"
-          class="inline-flex items-center justify-center h-10 w-10 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14"/>
-          </svg>
-        </button>
-        <span class="w-12 text-center font-semibold text-lg">{{ quantity }}</span>
-        <button
-          type="button"
-          (click)="incrementQuantity()"
-          class="inline-flex items-center justify-center h-10 w-10 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14"/><path d="M12 5v14"/>
-          </svg>
-        </button>
-      </div>
-
+  <div class="border-t p-4 bg-card space-y-3">
+    <!-- Quantity selector — centered -->
+    <div class="flex items-center justify-center gap-3">
       <button
         type="button"
-        (click)="handleAddToCart()"
-        class="flex-1 inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-lg py-3 px-4 font-medium transition-colors"
+        (click)="decrementQuantity()"
+        [disabled]="quantity <= 1"
+        class="inline-flex items-center justify-center h-9 w-9 rounded-full border border-border bg-card text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
-          <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+          <path d="M5 12h14"/>
         </svg>
-        Add - {{ formatPrice(totalPrice) }}
+      </button>
+      <span class="w-10 text-center font-semibold text-lg tabular-nums">{{ quantity }}</span>
+      <button
+        type="button"
+        (click)="incrementQuantity()"
+        class="inline-flex items-center justify-center h-9 w-9 rounded-full border border-border bg-card text-foreground hover:bg-accent transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14"/><path d="M12 5v14"/>
+        </svg>
       </button>
     </div>
+
+    <!-- Add to cart — full width -->
+    <button
+      type="button"
+      (click)="handleAddToCart()"
+      class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-lg py-3.5 px-4 font-semibold text-base transition-colors"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
+        <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+      </svg>
+      Add — {{ formatPrice(totalPrice) }}
+    </button>
   </div>
 
 </div>
