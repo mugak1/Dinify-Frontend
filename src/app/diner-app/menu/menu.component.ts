@@ -1,4 +1,4 @@
-import { Component,ElementRef,Input,OnInit, ViewChild } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MenuItem, Restaurant } from 'src/app/_models/app.models';
@@ -14,11 +14,6 @@ import { environment } from 'src/environments/environment';
     standalone: false
 })
 export class DinersMenuComponent implements OnInit {
-  @ViewChild('categoryContainer') categoryContainer!: ElementRef;
-
-  disableLeftScroll = true;
-  disableRightScroll = false;
-
   url = environment.apiUrl;
 
   showSearch:boolean=false;
@@ -305,24 +300,6 @@ removeUnderscore(x:string){
   }
   sanitizeId(name: string): string {
     return name.replace(/\s+/g, '-').toLowerCase();
-  }
-  scrollCategory(direction: 'left' | 'right') {
-    const container = this.categoryContainer.nativeElement;
-    const scrollAmount = 150;
-
-    if (direction === 'left') {
-      container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-    } else {
-      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-
-    setTimeout(() => this.checkScrollButtons(), 300);
-  }
-
-  checkScrollButtons() {
-    const container = this.categoryContainer.nativeElement;
-    this.disableLeftScroll = container.scrollLeft <= 0;
-    this.disableRightScroll = container.scrollLeft + container.clientWidth >= container.scrollWidth;
   }
 /*   scrollTo(sectionName: string, index: number) {
     const sanitizedId = this.sanitizeId(sectionName);

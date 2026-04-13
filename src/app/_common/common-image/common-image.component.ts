@@ -17,7 +17,7 @@ export class CommonImageComponent implements AfterViewInit, OnDestroy {
 url=environment.apiUrl
 
 @ViewChild('imageElement') imageElement?: ElementRef;
-@ViewChild('imageElement') imageElementContainer?: ElementRef;
+@ViewChild('imageElementContainer') imageElementContainer?: ElementRef;
   loaded: boolean = false;
 
   private observer?: IntersectionObserver;
@@ -28,14 +28,12 @@ url=environment.apiUrl
         this.loaded = true;
         this.observer?.unobserve(entry.target);
       }
-    });
-  
+    }, { rootMargin: '200px' });
+
     if (this.container && this.imageElementContainer?.nativeElement) {
       this.observer.observe(this.imageElementContainer.nativeElement);
     } else if (this.imageElement?.nativeElement) {
       this.observer.observe(this.imageElement.nativeElement);
-    } else {
-      // no image element available
     }
   }
   
