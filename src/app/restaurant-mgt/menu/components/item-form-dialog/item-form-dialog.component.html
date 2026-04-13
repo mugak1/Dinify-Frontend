@@ -84,6 +84,17 @@
             <p *ngIf="attemptedSave && form.get('primary_price')?.invalid" class="text-xs text-destructive mt-1">Price must be greater than 0</p>
           </div>
 
+          <!-- Calories (optional) -->
+          <div>
+            <label class="block text-sm font-medium text-foreground mb-1.5">Calories (kcal)</label>
+            <input type="number"
+                   formControlName="calories"
+                   min="0"
+                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                   placeholder="Optional — e.g. 450" />
+            <p class="text-xs text-muted-foreground mt-1">Leave blank if unknown</p>
+          </div>
+
           <!-- Available toggle -->
           <div class="flex items-center gap-2">
             <app-dn-switch
