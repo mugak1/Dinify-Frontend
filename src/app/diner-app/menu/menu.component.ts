@@ -1,4 +1,4 @@
-import { Component,ElementRef,Input,OnInit, ViewChild, AfterViewInit } from '@angular/core';
+import { Component,ElementRef,Input,OnInit, ViewChild } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MenuItem, Restaurant } from 'src/app/_models/app.models';
@@ -13,7 +13,7 @@ import { environment } from 'src/environments/environment';
     styleUrls: ['./menu.component.css'],
     standalone: false
 })
-export class DinersMenuComponent implements OnInit, AfterViewInit {
+export class DinersMenuComponent implements OnInit {
   @ViewChild('categoryContainer') categoryContainer!: ElementRef;
 
   disableLeftScroll = true;
@@ -69,9 +69,6 @@ export class DinersMenuComponent implements OnInit, AfterViewInit {
     }
 
   }
-  ngAfterViewInit() {
-  }
-
   /**
    * Computes the total price for the current item including selected
    * modifiers/options, extras, and quantity — used for the dynamic
