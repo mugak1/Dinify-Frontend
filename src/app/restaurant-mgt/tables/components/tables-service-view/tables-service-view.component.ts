@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Subject, combineLatest } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
+import { AuthenticationService } from '../../../../_services/authentication.service';
 import { TablesService } from '../../services/tables.service';
 import { ServiceToolbarComponent, ServiceMetrics } from '../service-toolbar/service-toolbar.component';
 import { FloorPlanCanvasComponent } from '../floor-plan-canvas/floor-plan-canvas.component';
@@ -61,7 +62,12 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   constructor(
     private tablesService: TablesService,
     private toast: ToastService,
+    private auth: AuthenticationService,
   ) {}
+
+  private get restaurantId(): string {
+    return this.auth.currentRestaurantRole?.restaurant_id ?? '';
+  }
 
   ngOnInit(): void {
     combineLatest([
@@ -174,7 +180,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
     const table = this.tables.find(t => t.id === event.tableId);
     if (!reservation || !table) return;
 
-    this.tablesService.updateTableStatus(event.tableId, 'seated');
+    this.tablesService.updateTableStatus(event.tableId, 'seated').subscribe();
     this.tablesService.updateReservation({
       id: event.reservationId,
       status: 'seated',
@@ -210,7 +216,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
     // Handle new tables
     for (const t of updatedTables) {
       if (t.id.startsWith('t-new-')) {
-        this.tablesService.createTable(t);
+        this.tablesService.createTable(t, this.restaurantId).subscribe();
       }
     }
   }
@@ -238,7 +244,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   onMarkNoShow(resId: string): void {
     const res = this.reservations.find(r => r.id === resId);
     if (res?.tableId) {
-      this.tablesService.updateTableStatus(res.tableId, 'available');
+      this.tablesService.updateTableStatus(res.tableId, 'available').subscribe();
     }
     this.tablesService.markNoShow(resId);
   }
@@ -266,7 +272,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   // ── Drawer handlers ───────────────────────────────────
 
   onMarkStatus(event: { tableId: string; status: 'dirty' | 'available' | 'out_of_service' }): void {
-    this.tablesService.updateTableStatus(event.tableId, event.status);
+    this.tablesService.updateTableStatus(event.tableId, event.status).subscribe();
   }
 
   onSeatWalkIn(event: { tableId: string; partySize: number }): void {
@@ -275,7 +281,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   }
 
   onMarkPaid(tableId: string): void {
-    this.tablesService.updateTableStatus(tableId, 'available');
+    this.tablesService.updateTableStatus(tableId, 'available').subscribe();
     // Remove seated party from mock data
     const idx = mockSeatedParties.findIndex(p => p.tableId === tableId);
     if (idx >= 0) {
@@ -285,7 +291,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   }
 
   onOffSystemPay(event: { tableId: string; method: string; reference?: string }): void {
-    this.tablesService.updateTableStatus(event.tableId, 'available');
+    this.tablesService.updateTableStatus(event.tableId, 'available').subscribe();
     const idx = mockSeatedParties.findIndex(p => p.tableId === event.tableId);
     if (idx >= 0) {
       mockSeatedParties.splice(idx, 1);
@@ -301,7 +307,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   }
 
   onChangeServer(event: { tableId: string; serverId: string }): void {
-    this.tablesService.updateTable({ id: event.tableId, serverId: event.serverId });
+    this.tablesService.updateTable({ id: event.tableId, serverId: event.serverId }).subscribe();
     // Also update the seated party
     const party = mockSeatedParties.find(p => p.tableId === event.tableId);
     if (party) party.serverId = event.serverId;
@@ -320,7 +326,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
       .sort((a, b) => a.number - b.number);
     if (sorted.length < 2) return;
     for (let i = 1; i < sorted.length; i++) {
-      this.tablesService.updateTableStatus(sorted[i].id, 'dirty');
+      this.tablesService.updateTableStatus(sorted[i].id, 'dirty').subscribe();
     }
     this.selectedTableIds = [];
     this.selectedTableId = sorted[0].id;

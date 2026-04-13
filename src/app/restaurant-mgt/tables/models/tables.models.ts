@@ -156,3 +156,50 @@ export function mapSnakeToCamel<T>(obj: Record<string, any>): T {
   }
   return result as T;
 }
+
+// ── API → model mappers ───────────────────────────────────
+/**
+ * Maps a raw backend table record to the frontend RestaurantTable model.
+ * `areaId` must be supplied externally (derived from DiningArea.tables),
+ * because the backend's table serializer embeds `dining_area` as a
+ * name-only object without its UUID.
+ */
+export function mapApiTable(raw: any, areaId?: string): RestaurantTable {
+  return {
+    id: raw.id,
+    number: raw.number,
+    displayName: raw.display_name || undefined,
+    areaId: areaId,
+    minCapacity: raw.min_capacity ?? 2,
+    maxCapacity: raw.max_capacity ?? 4,
+    shape: raw.shape ?? 'square',
+    status: raw.status ?? 'available',
+    tags: raw.tags ?? [],
+    isActive: raw.is_active ?? true,
+    hasQR: raw.has_qr ?? false,
+    qrMode: raw.qr_mode ?? 'order_pay',
+    qrRegeneratedAt: raw.qr_regenerated_at ? new Date(raw.qr_regenerated_at) : undefined,
+    x: raw.floor_x ?? 50,
+    y: raw.floor_y ?? 50,
+    width: raw.floor_width ?? 10,
+    height: raw.floor_height ?? 10,
+  };
+}
+
+/**
+ * Maps a raw backend dining-area record to the frontend DiningArea model.
+ * Derives `tableIds` from the embedded `tables` array on the response.
+ */
+export function mapApiArea(raw: any): DiningArea {
+  return {
+    id: raw.id,
+    name: raw.name,
+    description: raw.description || undefined,
+    isIndoor: raw.is_indoor ?? true,
+    smokingAllowed: raw.smoking_zone ?? false,
+    accessible: raw.accessible ?? false,
+    defaultServerSection: raw.default_server_section || undefined,
+    isActive: raw.is_active ?? true,
+    tableIds: (raw.tables ?? []).map((t: any) => t.id),
+  };
+}
