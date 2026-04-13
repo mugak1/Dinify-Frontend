@@ -21,8 +21,9 @@ export class CardComponent {
 
   get containerClass(): string {
     return cn(
-      'bg-card text-card-foreground rounded-lg',
-      this.elevated ? 'shadow-[var(--shadow-md)]' : 'shadow-[var(--shadow-sm)]',
+      'bg-card text-card-foreground rounded-lg border',
+      'shadow-[var(--shadow-md)]',
+      'transition-all duration-200 hover:shadow-[var(--shadow-lg)] hover:-translate-y-1',
       this.fullHeight && 'h-full'
     );
   }

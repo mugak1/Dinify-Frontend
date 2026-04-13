@@ -69,7 +69,7 @@ interface StatusSegment {
                       <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>
                     </svg>
                   }
-                  <span class="whitespace-nowrap">{{ absPercentage }}% {{ periodLabel }}</span>
+                  <span class="whitespace-nowrap">{{ absPercentage }}%<span class="hidden sm:inline"> {{ periodLabel }}</span></span>
                 </div>
               </div>
             </div>

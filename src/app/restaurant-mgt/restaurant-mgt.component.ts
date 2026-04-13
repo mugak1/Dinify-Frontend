@@ -14,7 +14,7 @@ import { filter } from 'rxjs/operators';
     standalone: false
 })
 export class RestaurantMgtComponent {
-  sidebarOpen = true;
+  sidebarOpen = false;
   isChildComponent = false;
   has_tables = false;
   baseUrl = environment.apiUrl;
