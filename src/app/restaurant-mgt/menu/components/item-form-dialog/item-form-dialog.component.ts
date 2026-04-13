@@ -104,11 +104,20 @@ export class ItemFormDialogComponent implements OnChanges {
         );
 
         // Load discount from existing item
-        this.itemHasDiscount = this.item.has_discount ?? false;
+        this.itemHasDiscount = this.item.running_discount ?? this.item.has_discount ?? false;
         if (this.item.discount_details) {
           this.itemDiscountDetails = typeof this.item.discount_details === 'string'
             ? JSON.parse(this.item.discount_details)
             : this.item.discount_details;
+        }
+
+        // Restore raw discount values for the edit form
+        if (this.itemDiscountDetails?.raw_discount_value !== undefined) {
+          this.itemDiscountDetails = {
+            ...this.itemDiscountDetails,
+            discount_amount: this.itemDiscountDetails.raw_discount_value,
+            discount_type: this.itemDiscountDetails.raw_discount_type || this.itemDiscountDetails.discount_type,
+          };
         }
         this.form.patchValue({
           id: this.item.id,
@@ -251,10 +260,31 @@ export class ItemFormDialogComponent implements OnChanges {
     payload.options = JSON.stringify(this.itemModifiers);
 
     // Include discount — stringify for FormData compatibility
-    payload.has_discount = this.itemHasDiscount;
-    payload.discount_details = this.itemHasDiscount
-      ? JSON.stringify(this.itemDiscountDetails)
-      : JSON.stringify(null);
+    payload.running_discount = this.itemHasDiscount;
+
+    if (this.itemHasDiscount && this.itemDiscountDetails) {
+      const primaryPrice = parseFloat(payload.primary_price) || 0;
+      let discountedPrice: number;
+
+      if (this.itemDiscountDetails.discount_type === 'percentage') {
+        discountedPrice = Math.round(primaryPrice * (1 - (this.itemDiscountDetails.discount_amount || 0) / 100));
+      } else {
+        // Fixed amount discount
+        discountedPrice = Math.max(0, primaryPrice - (this.itemDiscountDetails.discount_amount || 0));
+      }
+
+      payload.discounted_price = discountedPrice;
+      payload.discount_details = JSON.stringify({
+        ...this.itemDiscountDetails,
+        discount_amount: discountedPrice,  // Store computed final price for diner menu display
+        raw_discount_value: this.itemDiscountDetails.discount_amount,  // Preserve the raw input value
+        raw_discount_type: this.itemDiscountDetails.discount_type,     // Preserve the type
+      });
+    } else {
+      payload.running_discount = false;
+      payload.discounted_price = null;
+      payload.discount_details = JSON.stringify(null);
+    }
 
     // Include extras
     payload.is_extra = this.itemIsExtra;

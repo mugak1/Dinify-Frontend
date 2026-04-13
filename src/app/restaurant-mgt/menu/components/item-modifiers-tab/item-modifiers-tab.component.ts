@@ -43,10 +43,24 @@ export class ItemModifiersTabComponent implements OnChanges {
   expandedGroups = new Set<string>();
   isLegacy = false;
 
+  private skipNextInputChange = false;
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['modifiers']) {
+      if (this.skipNextInputChange) {
+        this.skipNextInputChange = false;
+        return;
+      }
       this.loadModifiers(this.modifiers);
     }
+  }
+
+  trackGroupById(_index: number, group: ModifierGroup): string {
+    return group.id;
+  }
+
+  trackChoiceById(_index: number, choice: ModifierChoice): string {
+    return choice.id;
   }
 
   private loadModifiers(data: any): void {
@@ -199,6 +213,7 @@ export class ItemModifiersTabComponent implements OnChanges {
   // ---------------------------------------------------------------------------
 
   emitChange(): void {
+    this.skipNextInputChange = true;
     this.modifiersChange.emit({
       hasModifiers: this.hasModifiers,
       groups: this.groups,

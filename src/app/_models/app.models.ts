@@ -178,6 +178,8 @@ export interface ItemDiscountDetails {
   start_date: string;
   end_date: string;
   recurring_days: number[];
+  raw_discount_value?: number;
+  raw_discount_type?: 'percentage' | 'fixed';
 }
 
 export interface TableListItem {
