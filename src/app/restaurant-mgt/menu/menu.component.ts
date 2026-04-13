@@ -63,7 +63,6 @@ export class MenuComponent {
     if (this.auth.currentRestaurantRole?.restaurant_id) {
       this.restaurant = this.auth.currentRestaurantRole.restaurant_id;
       this.menuService.loadSections(this.restaurant);
-      this.menuService.loadExtras(this.restaurant);
       this.menuService.loadAllItems(this.restaurant);
       this.tagService.loadPresetTags(this.restaurant);
       this.upsellService.loadConfig(this.restaurant);
@@ -71,7 +70,6 @@ export class MenuComponent {
       this.restaurant = this.route.parent.snapshot.params['id'];
       this.loadRestaurant();
       this.menuService.loadSections(this.restaurant);
-      this.menuService.loadExtras(this.restaurant);
       this.menuService.loadAllItems(this.restaurant);
       this.tagService.loadPresetTags(this.restaurant);
       this.upsellService.loadConfig(this.restaurant);

@@ -21,17 +21,24 @@ export class MenuService {
   private readonly _selectedSectionId$ = new BehaviorSubject<string | null>(null);
   readonly selectedSectionId$ = this._selectedSectionId$.asObservable();
 
-  private readonly _items$ = new BehaviorSubject<MenuItem[]>([]);
-  readonly items$ = this._items$.asObservable();
+  private readonly _allItems$ = new BehaviorSubject<MenuItem[]>([]);
+  readonly allItems$ = this._allItems$.asObservable();
 
-  private readonly _extras$ = new BehaviorSubject<MenuItem[]>([]);
-  readonly extras$ = this._extras$.asObservable();
+  readonly items$: Observable<MenuItem[]> = combineLatest([
+    this._allItems$,
+    this._selectedSectionId$,
+  ]).pipe(
+    map(([allItems, sectionId]) =>
+      sectionId ? allItems.filter(item => (item as any).section === sectionId) : []
+    )
+  );
+
+  readonly extras$: Observable<MenuItem[]> = this._allItems$.pipe(
+    map(items => items.filter(item => item.is_extra === true))
+  );
 
   private readonly _sortMode$ = new BehaviorSubject<SortMode>('manual');
   readonly sortMode$ = this._sortMode$.asObservable();
-
-  private readonly _allItems$ = new BehaviorSubject<MenuItem[]>([]);
-  readonly allItems$ = this._allItems$.asObservable();
 
   private readonly _isLoading$ = new BehaviorSubject<boolean>(false);
   readonly isLoading$ = this._isLoading$.asObservable();
@@ -50,7 +57,7 @@ export class MenuService {
   // ---------------------------------------------------------------------------
 
   readonly sortedItems$: Observable<MenuItem[]> = combineLatest([
-    this._items$,
+    this.items$,
     this._sortMode$
   ]).pipe(
     map(([items, mode]) => this.applySortMode([...items], mode))
@@ -157,20 +164,14 @@ export class MenuService {
   // ---------------------------------------------------------------------------
 
   loadItems(sectionId: string): void {
-    this._isLoading$.next(true);
-    this._error$.next(null);
-
-    this.api.get<MenuItem>(null, 'restaurant-setup/menuitems/', { section: sectionId })
-      .subscribe({
-        next: (res: ApiResponse<MenuItem>) => {
-          this._items$.next(res?.data?.records ?? []);
-          this._isLoading$.next(false);
-        },
-        error: (err) => {
-          this._error$.next(err?.message ?? 'Failed to load items');
-          this._isLoading$.next(false);
-        }
-      });
+    // items$ is derived from allItems$ + selectedSectionId$.
+    // If allItems$ is empty, trigger a load; otherwise the derived stream handles it.
+    if (this._allItems$.getValue().length === 0) {
+      const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
+      if (restaurantId) {
+        this.loadAllItems(restaurantId);
+      }
+    }
   }
 
   loadAllItems(restaurantId: string): void {
@@ -179,18 +180,6 @@ export class MenuService {
         next: (res: ApiResponse<MenuItem>) => {
           this._allItems$.next(res?.data?.records ?? []);
         },
-      });
-  }
-
-  loadExtras(restaurantId: string): void {
-    this.api.get<MenuItem>(null, 'restaurant-setup/menuitems/', { is_extra: true, restaurant: restaurantId })
-      .subscribe({
-        next: (res: ApiResponse<MenuItem>) => {
-          this._extras$.next(res?.data?.records ?? []);
-        },
-        error: (err) => {
-          this._error$.next(err?.message ?? 'Failed to load extras');
-        }
       });
   }
 
@@ -279,12 +268,7 @@ export class MenuService {
 
     this.loadSections(restaurantId);
     this.loadAllItems(restaurantId);
-    this.loadExtras(restaurantId);
-
-    const sectionId = this._selectedSectionId$.getValue();
-    if (sectionId) {
-      this.loadItems(sectionId);
-    }
+    // items$ and extras$ update automatically via derivation from allItems$
   }
 
   setSortMode(mode: SortMode): void {
@@ -300,29 +284,22 @@ export class MenuService {
   }
 
   getItemsSnapshot(): MenuItem[] {
-    return this._items$.getValue();
+    const sectionId = this._selectedSectionId$.getValue();
+    return this._allItems$.getValue().filter(item => (item as any).section === sectionId);
   }
 
   updateItemLocally(itemId: string, changes: Partial<MenuItem>): void {
-    const currentItems = this._items$.getValue();
-    this._items$.next(
-      currentItems.map(item => item.id === itemId ? { ...item, ...changes } : item)
-    );
-
-    // Keep allItems$ in sync for the preview drawer
     const allItems = this._allItems$.getValue();
     this._allItems$.next(
       allItems.map(item => item.id === itemId ? { ...item, ...changes } : item)
     );
+    // items$ and extras$ update automatically via derivation
   }
 
   removeItemLocally(itemId: string): void {
-    const currentItems = this._items$.getValue();
-    this._items$.next(currentItems.filter(item => item.id !== itemId));
-
-    // Keep allItems$ in sync for the preview drawer
     const allItems = this._allItems$.getValue();
     this._allItems$.next(allItems.filter(item => item.id !== itemId));
+    // items$ and extras$ update automatically via derivation
   }
 
   removeSectionLocally(sectionId: string): void {
