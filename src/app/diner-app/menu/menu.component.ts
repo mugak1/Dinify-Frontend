@@ -5,6 +5,7 @@ import { MenuItem, Restaurant } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
+import { environment } from 'src/environments/environment';
 
 @Component({
     selector: 'app-diners-menu',
@@ -18,8 +19,7 @@ export class DinersMenuComponent implements OnInit, AfterViewInit {
   disableLeftScroll = true;
   disableRightScroll = false;
 
-  @ViewChild('optionsContainer') optionsContainer!: ElementRef;
-  needsScrolling: boolean = false;
+  url = environment.apiUrl;
 
   showSearch:boolean=false;
   globalError:string|null=null;
@@ -70,18 +70,25 @@ export class DinersMenuComponent implements OnInit, AfterViewInit {
 
   }
   ngAfterViewInit() {
-    this.checkForScrolling();
   }
 
-  checkForScrolling() {
-    const container = this.optionsContainer.nativeElement;
-    this.needsScrolling = container.scrollHeight > container.clientHeight;
-  }
-  onScroll() {
-    const container = this.optionsContainer.nativeElement;
-    const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 5;
-    
-    this.needsScrolling = !isAtBottom;
+  /**
+   * Computes the total price for the current item including selected
+   * modifiers/options, extras, and quantity — used for the dynamic
+   * "Add — UGX X,XXX" button.
+   */
+  get computedItemTotal(): number {
+    if (!this.selected_item) return 0;
+    const basePrice = this.selected_item?.running_discount
+      ? (this.selected_item?.discount_details?.discount_amount ?? this.selected_item.primary_price)
+      : this.selected_item.primary_price;
+    const optionsCost = this.selected_choices.reduce(
+      (acc: number, sel: any) => acc + (sel.order?.cost || 0), 0
+    );
+    const extrasCost = this.selected_extras.reduce(
+      (acc: number, extra: any) => acc + (extra.primary_price || 0), 0
+    );
+    return (basePrice + optionsCost + extrasCost) * this.selected_quantity;
   }
   /**
    * Filters each menu section based on the search query.
@@ -151,10 +158,6 @@ i.options.options.forEach((o,io)=>{
 }) */
 this.validateForm()
 this.showModal=true;
-
-setTimeout(() => {
- this.checkForScrolling(); 
-}, 300);
   }
   initOption(){
     return this.fb.group({
@@ -290,10 +293,6 @@ removeUnderscore(x:string){
 }
   onSectionChange(sectionId: string) {
     this.currentSection = sectionId;
-  }
-
-  onSectionItemChange(sectionId: string) {
-    this.currentSectionItem = sectionId;
   }
 
   scrollTo(section:any,_i:number) {
