@@ -14,6 +14,27 @@
       </svg>
     </button>
 
+    <!-- Filter button (only if filterable tags exist) -->
+    <button *ngIf="filterableTags.length > 0"
+            (click)="openTagFilter()"
+            class="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors relative">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <line x1="4" x2="4" y1="21" y2="14" stroke="currentColor" stroke-width="2"/>
+        <line x1="4" x2="4" y1="10" y2="3" stroke="currentColor" stroke-width="2"/>
+        <line x1="12" x2="12" y1="21" y2="12" stroke="currentColor" stroke-width="2"/>
+        <line x1="12" x2="12" y1="8" y2="3" stroke="currentColor" stroke-width="2"/>
+        <line x1="20" x2="20" y1="21" y2="16" stroke="currentColor" stroke-width="2"/>
+        <line x1="20" x2="20" y1="12" y2="3" stroke="currentColor" stroke-width="2"/>
+        <line x1="2" x2="6" y1="14" y2="14" stroke="currentColor" stroke-width="2"/>
+        <line x1="10" x2="14" y1="8" y2="8" stroke="currentColor" stroke-width="2"/>
+        <line x1="18" x2="22" y1="16" y2="16" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      <span *ngIf="selectedTags.length > 0"
+            class="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+        {{ selectedTags.length }}
+      </span>
+    </button>
+
     <!-- Pill tabs (native horizontal scroll, no arrows) -->
     <div class="flex-1 overflow-x-auto no-scrollbar">
       <div class="flex gap-2">
@@ -31,6 +52,27 @@
   </div>
 </div>
 
+
+<!-- Active tag filter badges -->
+<div *ngIf="selectedTags.length > 0" class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-2">
+  <span class="text-xs text-gray-500">Filters:</span>
+  <span *ngFor="let tagName of selectedTags"
+        class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
+        [ngClass]="getTagBadge(tagName).colorClasses">
+    <span [innerHTML]="getTagBadge(tagName).iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
+    {{ tagName }}
+    <button (click)="removeTag(tagName); $event.stopPropagation()"
+            class="ml-0.5 rounded-full hover:bg-black/10 p-0.5">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+      </svg>
+    </button>
+  </span>
+  <button (click)="clearAllTags()" class="text-xs text-red-600 font-medium px-2 py-1 hover:text-red-700">
+    Clear all
+  </button>
+</div>
 
 <!-- Search Bar (replaces tabs when active) -->
 <div *ngIf="showSearch"
@@ -471,5 +513,90 @@
       </div>
 
     </div>
+
+<!-- Tag Filter Bottom Sheet -->
+<ng-container *ngIf="showTagFilter">
+  <div class="fixed inset-0 z-50">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/50" (click)="showTagFilter = false"></div>
+
+    <!-- Sheet -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-lg flex flex-col"
+         style="max-height: 70vh;">
+
+      <!-- Handle bar -->
+      <div class="flex justify-center pt-3 pb-1">
+        <div class="w-10 h-1 rounded-full bg-gray-300"></div>
+      </div>
+
+      <!-- Header -->
+      <div class="px-6 pb-4">
+        <h2 class="text-lg font-bold text-gray-900">Filter by Dietary Preference</h2>
+        <p class="text-sm text-gray-500 mt-1">
+          Show only items matching your preferences
+        </p>
+      </div>
+
+      <!-- Tag list (scrollable) -->
+      <div class="flex-1 overflow-y-auto px-6 pb-4">
+        <div *ngIf="filterableTags.length === 0" class="text-center py-8 text-gray-400">
+          No filter options available
+        </div>
+
+        <div class="space-y-2">
+          <button *ngFor="let tag of filterableTags"
+                  (click)="toggleTagSelection(tag.name)"
+                  class="w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left"
+                  [ngClass]="{
+                    'border-red-500 bg-red-50': isTagSelected(tag.name),
+                    'border-gray-200 hover:bg-gray-50': !isTagSelected(tag.name)
+                  }">
+
+            <!-- Checkbox -->
+            <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+                 [ngClass]="{
+                   'bg-red-600 border-red-600': isTagSelected(tag.name),
+                   'border-gray-300': !isTagSelected(tag.name)
+                 }">
+              <svg *ngIf="isTagSelected(tag.name)"
+                   xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                   stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+            </div>
+
+            <!-- Tag icon + color -->
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                 [ngClass]="getTagBadge(tag.name).colorClasses"
+                 [innerHTML]="getTagBadge(tag.name).iconSvg">
+            </div>
+
+            <!-- Tag name -->
+            <span class="font-medium text-gray-900 flex-1">{{ tag.name }}</span>
+
+            <!-- Item count -->
+            <span class="text-sm text-gray-400">
+              {{ getTagItemCount(tag.name) }} {{ getTagItemCount(tag.name) === 1 ? 'item' : 'items' }}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t border-gray-200 flex gap-3">
+        <button (click)="clearLocalTagSelection(); showTagFilter = false"
+                [disabled]="localSelectedTags.length === 0"
+                class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-colors hover:bg-gray-50">
+          Clear All
+        </button>
+        <button (click)="onTagFilterApply(localSelectedTags)"
+                class="flex-1 py-3 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors">
+          Apply{{ localSelectedTags.length > 0 ? ' (' + localSelectedTags.length + ')' : '' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</ng-container>
+
   </div>
      
