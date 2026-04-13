@@ -300,6 +300,7 @@ export interface Options {
   export interface BasketItem {
     itemId: string; // Unique ID of the selected item
     itemName: string; // Name of the selected item
+    image?: string; // Optional image path used for cart thumbnails
     basePrice: number; // Primary price of the item
     totalPrice: number; // Final calculated price including options
     quantity: number; // Quantity of the item selected

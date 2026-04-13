@@ -7,6 +7,7 @@ import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { MessageService } from 'src/app/_services/message.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
+import { environment } from 'src/environments/environment';
 
 @Component({
     selector: 'app-basket',
@@ -22,6 +23,7 @@ export class BasketComponent {
   order_initiated?: OrderInitiated;
   order_remarks = '';
   restaurant: any;
+  url = environment.apiUrl;
 
   discountActive: boolean = false; // Set to true only if discount is available
 discountType: 'percentage' | 'flat' = 'percentage';
@@ -192,7 +194,11 @@ discountValue: number = 10; // 10% or UGX amount
   }
   
   shouldShowSubtotal(item: BasketItem): boolean {
-    return this.basketItems.length > 1 && item.quantity > 1;
+    // Show subtotal whenever the line total differs from base price
+    // (i.e. has options with cost, has extras with cost, or quantity > 1)
+    const optionsCost = item.options?.reduce((sum: number, opt: any) => sum + (opt.cost || 0), 0) || 0;
+    const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
+    return item.quantity > 1 || optionsCost > 0 || extrasCost > 0;
   }
   
   showItemTotal(item: BasketItem) {

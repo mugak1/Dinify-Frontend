@@ -220,6 +220,7 @@ const totalPrice = (basePrice)
 const basketItem = {
   itemId: this.selected_item.id,
   itemName: this.selected_item.name,
+  image: this.selected_item.image || null,
   basePrice: basePrice,
   totalPrice: totalPrice,
   quantity: this.selected_quantity,

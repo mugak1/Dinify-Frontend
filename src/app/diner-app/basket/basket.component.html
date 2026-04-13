@@ -1,274 +1,146 @@
-<div class="px-1 pt-14">
-    <!-- Order Summary Header -->
-    <div class="flex items-center w-full text-center py-3 border-b border-gray-200 bg-gray-50 relative">
-        <!-- Back Button with better SVG arrow -->
-        <a (click)="loc.back()" class="absolute left-0 flex items-center px-3 py-1.5 rounded-md hover:bg-gray-100" aria-label="Go Back">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-          </svg>
-        </a>
-        <!-- Order Summary Title -->
-        <span class="mx-auto text-xl font-bold">Order Summary</span>
-      </div>
-  
-    <!-- Table Information -->
-    <div *ngIf="table" class="flex items-center w-full text-center pt-4">
-      <span class="mx-auto font-medium text-lg">Table - {{ table?.number }}</span>
-    </div>
-  <div class=" overflow-y-auto pb-40" style="height: calc(100dvh - 100px);">
-    <!-- Basket Items -->
-<div *ngIf="basketItems.length > 0" class="flex flex-col px-4 mt-4">
-  <div *ngFor="let item of basketItems" class="flex flex-col p-4 mb-4 border border-gray-300 rounded-lg bg-white shadow-sm">
-    
-    <!-- Item Header -->
-    <div class="flex justify-between items-center mb-2">
-      <div>
-        <span class="font-semibold text-lg">{{ item.itemName }}</span>
-      </div>
-      <div class="text-gray-600 flex flex-col items-end relative">
-        <span *ngIf="!item.isDiscounted">UGX {{ item.basePrice | number }}</span>
-        <ng-container *ngIf="item.isDiscounted" class="relative">
-            <span class="text-red-600 font-semibold">UGX {{ item.basePrice | number }}</span>
-            <span class="line-through text-xs text-gray-400 ml-2 absolute top-4 bottom-0 right-0">UGX {{ item.originalBasePrice | number }}</span>
-        </ng-container>
-    </div>
-    </div>
-
-    <!-- Options -->
-    <div *ngIf="(item.options?.length ?? 0) > 0" class="text-gray-500 text-sm">
-      <div *ngFor="let option of item.options" class="option-row flex justify-between items-center relative py-2">
-        <div class="flex items-center gap-2 relative">
-          <span>{{ option.optionName }}:</span>
-          <span *ngIf="option.choice !== 'None'">{{ option.choice }}</span>
-          <span *ngIf="option.choice === 'None'" class="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5 text-black">
-              <circle cx="12" cy="12" r="10" stroke="black" stroke-width="2"></circle>
-              <path d="M9 12l2 2 4-4" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
-          </span>
-        </div>
-        <div class="relative">
-          <span *ngIf="option.cost > 0" class="text-gray-700">+UGX {{ option.cost | number }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Extras -->
-    <div *ngIf="(item.extras?.length ?? 0) > 0" class="text-gray-500 text-sm bg-gray-50 p-2 rounded-lg">
-      <div *ngFor="let extra of item.extras" class="option-row flex justify-between items-center relative py-2">
-        <div class="flex items-center gap-2 relative">
-          <span> + {{ extra.name }}</span>
-        </div>
-        <div class="relative">
-          <span *ngIf="extra.cost > 0" class="text-gray-700">+UGX {{ extra.cost | number }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Subtotal Section -->
-    <div *ngIf="shouldShowSubtotal(item)" class="mt-3 flex flex-col border-t pt-3 border-gray-200">
-      <div class="flex justify-between items-center">
-        <span class="text-gray-600 text-sm font-medium">Subtotal</span>
-        <span class="text-black font-semibold text-md">UGX {{ getSubtotal(item) | number }}</span>
-      </div>
-      <div *ngIf="item.isDiscounted" class="flex justify-between items-center text-xs text-gray-400">
-        <span>Original Subtotal</span>
-        <span class="line-through">UGX {{ getOriginalSubtotal(item) | number }}</span>
-      </div>
-    </div>
-
-    <!-- Quantity and Controls -->
-    <div class="mt-4 flex items-center justify-between">
-      <div class="text-gray-600 text-sm">
-        Qty: <span class="font-bold text-black">{{ item.quantity }}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <!-- Remove -->
-        <button
-          [disabled]="item.quantity < 1"
-          (click)="removeItem(item.itemId, item.options)"
-          class="flex items-center justify-center w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-gray-600">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6"></path>
-          </svg>
-        </button>
-        <!-- Add -->
-        <button
-          (click)="addItem(item)"
-          class="flex items-center justify-center w-8 h-8 bg-black hover:bg-gray-800 rounded-full"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" class="w-6 h-6">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-          </svg>
-        </button>
-      </div>
-    </div>
+<div class="px-1 pt-14 flex flex-col min-h-screen">
+  <!-- Order Summary Header -->
+  <div class="flex items-center w-full text-center py-3 border-b border-gray-200 bg-white relative">
+    <!-- Back Button -->
+    <a (click)="loc.back()" class="absolute left-0 flex items-center px-3 py-1.5 rounded-md hover:bg-gray-100" aria-label="Go Back">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+      </svg>
+    </a>
+    <span class="mx-auto text-lg font-bold">Order Summary</span>
   </div>
 
-  <!-- Total Amount Section -->
-  <div *ngIf="false" class="flex flex-col mt-4 px-4 py-3 border-t border-gray-300 bg-gray-100 shadow-sm rounded-md text-sm text-gray-700 space-y-1">
-    <div class="flex justify-between">
-      <span>Subtotal</span>
-      <span>UGX {{ totalAmount | number }}</span>
-    </div>
-
-    <div *ngIf="discountActive" class="flex justify-between text-green-600 font-medium">
-      <span>Discount ({{ discountType === 'percentage' ? discountValue + '%' : 'UGX ' + (discountValue | number) }})</span>
-      <span>-UGX {{ getDiscountAmount() | number }}</span>
-    </div>
-
-    <!-- <div class="flex justify-between text-lg font-semibold text-black border-t border-gray-200 pt-2">
-      <span>Total Payable</span>
-      <span>UGX {{ getFinalTotal() | number }}</span>
-    </div> -->
+  <!-- Table Information -->
+  <div *ngIf="table" class="flex items-center w-full text-center pt-4">
+    <span class="mx-auto font-medium text-lg">Table - {{ table?.number }}</span>
   </div>
 
-
+  <div class="flex-1 overflow-y-auto pb-4">
     <!-- Basket Items -->
-    <div *ngIf="(basketItems.length > 0)&& false" class="flex flex-col px-4 mt-4">
-      <!-- Basket Items -->
-      <div *ngFor="let item of basketItems" class="flex flex-col p-4 mb-4 border border-gray-300 rounded-lg bg-white shadow-sm">
-        <!-- Item Header -->
-        <div class="flex justify-between items-center mb-2">
-          <div>
-            <span class="font-semibold text-lg">{{ item.itemName }}</span>
+    <div *ngIf="basketItems.length > 0" class="flex flex-col px-4 mt-4">
+      <div *ngFor="let item of basketItems"
+           class="flex gap-4 p-4 mb-3 border border-gray-200 rounded-xl bg-white shadow-sm">
+
+        <!-- Thumbnail -->
+        <div class="w-16 h-16 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
+          <img *ngIf="item.image"
+               [src]="url + item.image"
+               [alt]="item.itemName"
+               class="w-full h-full object-cover" />
+          <div *ngIf="!item.image"
+               class="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+            No img
           </div>
-          <!-- Base Price -->
-          <div class="text-gray-600">UGX {{ item.basePrice | number }}</div>
         </div>
-  
-        <!-- Options -->
-        <div *ngIf="(item.options?.length ?? 0) > 0" class="text-gray-500 text-sm">
-            <div *ngFor="let option of item.options" class="option-row flex justify-between items-center relative py-2">
-              <!-- Option Name and Choice -->
-              <div class="flex items-center gap-2 relative">
-                <span>{{ option.optionName }}:</span>
-                <span *ngIf="option.choice !== 'None'">{{ option.choice }}</span>
-                <span *ngIf="option.choice === 'None'" class="flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    class="w-5 h-5 text-black"
-                  >
-                    <circle cx="12" cy="12" r="10" stroke="black" stroke-width="2"></circle>
-                    <path d="M9 12l2 2 4-4" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                  </svg>
+
+        <!-- Item details -->
+        <div class="flex-1 min-w-0">
+
+          <!-- Name + price row -->
+          <div class="flex justify-between items-start">
+            <h3 class="font-semibold text-base text-gray-900">{{ item.itemName }}</h3>
+            <div class="text-right flex-shrink-0 ml-2">
+              <span *ngIf="!item.isDiscounted" class="font-semibold text-sm">
+                UGX {{ item.basePrice | number }}
+              </span>
+              <ng-container *ngIf="item.isDiscounted">
+                <span class="font-semibold text-sm text-red-600">
+                  UGX {{ item.basePrice | number }}
                 </span>
-              </div>
-          
-              <!-- Option Price -->
-              <div class="relative">
-                <span *ngIf="option.cost > 0" class="text-gray-700 font-semibold">+UGX {{ option.cost | number }}</span>
-              </div>
-          </div>
-              <!-- Linear Highlight 
-              <span
-                class="absolute h-px bg-gray-300 w-full top-1/2 left-0"
-                style="transform: translateY(-50%);"
-              ></span>-->
-            </div>
-            <div *ngIf="(item.extras?.length ?? 0) > 0" class="text-gray-500 text-sm bg-gray-50 p-2 rounded-lg">
-              <div *ngFor="let extra of item.extras" class="option-row flex justify-between items-center relative py-2">
-                <!-- Extra Name and Choice -->
-                <div class="flex items-center gap-2 relative">
-                  <span> + {{ extra.name }}</span>
+                <div class="line-through text-xs text-gray-400">
+                  UGX {{ item.originalBasePrice | number }}
                 </div>
-                  <div class="relative">
-                    <span *ngIf="extra.cost > 0" class="text-gray-700 font-semibold">+UGX {{ extra.cost | number }}</span>
-                  </div>
-                </div>
-                </div>
-<!-- Subtotal Section -->
-<div *ngIf="shouldShowSubtotal(item)" class="mt-3 flex justify-between items-center border-t pt-3 border-gray-200">
-  <span class="text-gray-600 text-sm font-medium">Subtotal</span>
-  <span class="text-black font-semibold text-md">UGX {{ getSubtotal(item) | number }}</span>
-</div>
-
-<!-- Quantity and Controls -->
-<div class="mt-3 flex items-center justify-between">
-
-              <!-- Quantity Display -->
-              <div class="text-gray-600 text-sm">
-                Quantity: <span class="font-bold text-black">{{ item.quantity }}</span>
-              </div>
-              <!-- Add/Remove Buttons with SVG Icons -->
-              <div class="flex items-center gap-2">
-                <!-- Remove Button -->
-                <button
-                  [disabled]="item.quantity < 1"
-                  (click)="removeItem(item.itemId, item.options)"
-                  class="flex items-center justify-center w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-gray-600">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6"></path>
-                  </svg>
-                </button>
-                <!-- Add Button -->
-                <button
-                  (click)="addItem(item)"
-                  class="flex items-center justify-center w-8 h-8 bg-black hover:bg-gray-800 rounded-full"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" class="w-6 h-6">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-                  </svg>
-                </button>
-              </div>
+              </ng-container>
             </div>
           </div>
-          
+
+          <!-- Selected options -->
+          <div *ngIf="(item.options?.length ?? 0) > 0" class="mt-2 space-y-1">
+            <div *ngFor="let option of item.options"
+                 class="flex justify-between text-sm text-gray-500">
+              <span>
+                {{ option.optionName }}<span *ngIf="option.choice !== 'None'">: {{ option.choice }}</span>
+              </span>
+              <span *ngIf="option.cost > 0" class="text-gray-600">
+                +UGX {{ option.cost | number }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Selected extras -->
+          <div *ngIf="(item.extras?.length ?? 0) > 0" class="mt-2 space-y-1">
+            <div *ngFor="let extra of item.extras"
+                 class="flex justify-between text-sm text-gray-500">
+              <span>+ {{ extra.name }}</span>
+              <span *ngIf="extra.cost > 0" class="text-gray-600">
+                +UGX {{ extra.cost | number }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Quantity controls + line total -->
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+            <div class="flex items-center gap-2">
+              <!-- Minus -->
+              <button (click)="removeItem(item.itemId, item.options)"
+                      class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"/>
+                </svg>
+              </button>
+              <span class="w-6 text-center font-semibold text-sm tabular-nums">{{ item.quantity }}</span>
+              <!-- Plus -->
+              <button (click)="addItem(item)"
+                      class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"/><path d="M12 5v14"/>
+                </svg>
+              </button>
+            </div>
+            <span *ngIf="shouldShowSubtotal(item)" class="font-semibold text-sm">
+              UGX {{ getSubtotal(item) | number }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Order Totals -->
+      <div class="mt-4 space-y-2">
+        <!-- Savings banner -->
+        <div *ngIf="getTotalSavings() > 0"
+             class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between mb-3">
+          <span class="text-green-700 font-medium text-sm">Total savings</span>
+          <span class="text-green-700 font-bold">UGX {{ getTotalSavings() | number }}</span>
+        </div>
+
+        <!-- Total -->
+        <div class="flex justify-between items-center py-3 border-t border-gray-300">
+          <span class="text-lg font-bold text-gray-900">Total</span>
+          <span class="text-lg font-bold text-gray-900">UGX {{ totalAmount | number }}</span>
+        </div>
+      </div>
     </div>
-  
-<!-- Total Amount Section -->
-<div class="flex justify-between items-center mt-4 px-4 py-3 border-t border-gray-300 bg-gray-100 shadow-sm rounded-md">
-  <span class="text-xl font-semibold text-gray-700">TOTAL</span>
-  <span class="text-xl font-bold text-black">UGX {{ totalAmount | number }}</span>
-  <!-- <div *ngIf="getTotalSavings() > 0" class="text-green-600 text-sm text-right">
-    You saved a total of UGX {{ getTotalSavings() | number }}
-  </div> -->
-</div>
-</div>
-  
+
     <!-- Comments Section -->
     <div class="mt-4 px-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Special instructions</label>
       <textarea
-        type="text"
         [(ngModel)]="order_remarks"
-        placeholder="Add a comment"
-        rows="3"
-        class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg w-full p-3 focus:ring-primary-600 focus:border-primary-600"
-      ></textarea>
+        placeholder="Any allergies, preferences, or requests..."
+        rows="2"
+        class="bg-white border border-gray-300 text-gray-900 rounded-xl w-full p-3 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+      </textarea>
     </div>
-  
-    <!-- Confirm Order Button -->
-    <div *ngIf="basketItems.length > 0" id="outer" class="bottom-14">
-        <div id="inner">
-          <button
-            title="Place Order"
-            (click)="initiateOrder()"
-            class="align-middle bg-[#B6252C] px-5 h-10 rounded drop-shadow-lg flex justify-center items-center text-white text-sm font-bold"
-          >
-            CONFIRM ORDER
-          </button>
-        </div>
-      </div>
   </div>
-  
-<!-- Confirm Order Button -->
-   <!--  <div *ngIf="basketItems.length > 0" id="outer" class="mt-4 px-4">
-      <button
-        title="Place Order"
-        (click)="initiateOrder()"
-        class="bg-[#B6252C] hover:bg-[#a51f28] w-full h-12 rounded-lg text-white text-lg font-bold shadow-lg"
-      >
-        CONFIRM ORDER
-      </button>
-    </div> -->
 
-  
-<!-- Confirm Order Button -->
-              
-      <!-- Confirm Order Button --> 
-     
+  <!-- Confirm Order Button (sticky footer) -->
+  <div *ngIf="basketItems.length > 0"
+       class="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+    <button (click)="initiateOrder()"
+            class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl py-3.5 px-4 font-semibold text-base transition-colors">
+      Confirm Order — UGX {{ totalAmount | number }}
+    </button>
+  </div>
+</div>
