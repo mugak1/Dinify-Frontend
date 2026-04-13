@@ -35,6 +35,7 @@ import { mockSeatedParties } from '../../data/tables-mock-data';
     TransferTableModalComponent,
   ],
   templateUrl: './tables-service-view.component.html',
+  host: { class: 'block' },
 })
 export class TablesServiceViewComponent implements OnInit, OnDestroy {
   areas: DiningArea[] = [];

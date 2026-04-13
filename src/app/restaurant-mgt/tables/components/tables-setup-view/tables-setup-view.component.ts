@@ -40,6 +40,7 @@ import QRCode from 'qrcode';
     QrCodePreviewModalComponent,
   ],
   templateUrl: './tables-setup-view.component.html',
+  host: { class: 'block' },
 })
 export class TablesSetupViewComponent implements OnInit, OnDestroy {
   areas: DiningArea[] = [];

@@ -22,6 +22,7 @@ import { isSectionCurrentlyActive } from '../../utils/schedule-utils';
     TooltipDirective,
   ],
   templateUrl: './section-rail.component.html',
+  host: { class: 'contents' },
 })
 export class SectionRailComponent {
 
