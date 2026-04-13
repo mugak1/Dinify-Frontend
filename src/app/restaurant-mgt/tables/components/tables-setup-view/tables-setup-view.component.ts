@@ -2,7 +2,8 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, combineLatest } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { switchMap, takeUntil } from 'rxjs/operators';
+import { AuthenticationService } from '../../../../_services/authentication.service';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
@@ -92,7 +93,12 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   constructor(
     private tablesService: TablesService,
     private toast: ToastService,
+    private auth: AuthenticationService,
   ) {}
+
+  private get restaurantId(): string {
+    return this.auth.currentRestaurantRole?.restaurant_id ?? '';
+  }
 
   ngOnInit(): void {
     combineLatest([
@@ -111,9 +117,15 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
     this.seatedParties = this.tablesService.getSeatedParties();
 
-    // Load initial data
-    this.tablesService.getAreas('').subscribe();
-    this.tablesService.getTables('').subscribe();
+    // Load initial data — areas first so getTables() can build its
+    // tableId → areaId lookup from the current areas$ state.
+    this.refresh();
+  }
+
+  private refresh(): void {
+    this.tablesService.getAreas(this.restaurantId).pipe(
+      switchMap(() => this.tablesService.getTables(this.restaurantId)),
+    ).subscribe();
   }
 
   ngOnDestroy(): void {
@@ -226,10 +238,12 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   onAreaSaved(data: Omit<DiningArea, 'id'>): void {
     if (this.editingArea) {
-      this.tablesService.updateArea({ ...data, id: this.editingArea.id });
+      this.tablesService.updateArea({ ...data, id: this.editingArea.id })
+        .subscribe(() => this.refresh());
       this.toast.success('Area updated');
     } else {
-      this.tablesService.createArea(data);
+      this.tablesService.createArea(data, this.restaurantId)
+        .subscribe(() => this.refresh());
       this.toast.success('Area created');
     }
     this.isAreaModalOpen = false;
@@ -258,7 +272,8 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     const movedCount = this.tables.filter(
       t => t.areaId === this.deleteAreaTarget!.id,
     ).length;
-    this.tablesService.deleteArea(this.deleteAreaTarget.id);
+    this.tablesService.deleteArea(this.deleteAreaTarget.id)
+      .subscribe(() => this.refresh());
     this.toast.success(
       `Area deleted. ${movedCount} table(s) unassigned.`,
     );
@@ -267,11 +282,12 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   handleAreaActiveToggle(area: DiningArea): void {
     const newActive = !area.isActive;
-    this.tablesService.updateArea({ id: area.id, isActive: newActive });
+    this.tablesService.updateArea({ id: area.id, isActive: newActive })
+      .subscribe(() => this.refresh());
     // Also toggle all tables in this area
     const areaTables = this.tables.filter(t => t.areaId === area.id);
     for (const t of areaTables) {
-      this.tablesService.updateTable({ id: t.id, isActive: newActive });
+      this.tablesService.updateTable({ id: t.id, isActive: newActive }).subscribe();
     }
     this.toast.success(`${area.name} ${newActive ? 'opened' : 'closed'}`);
   }
@@ -292,14 +308,16 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   onTableSaved(data: Partial<RestaurantTable>): void {
     if (this.editingTable) {
-      this.tablesService.updateTable({ ...data, id: this.editingTable.id });
+      this.tablesService.updateTable({ ...data, id: this.editingTable.id })
+        .subscribe(() => this.refresh());
       this.toast.success('Table updated');
     } else {
       // If opened from an area's "Add table" button, pre-set the areaId
       if (this.newTableAreaId && !data.areaId) {
         data.areaId = this.newTableAreaId;
       }
-      this.tablesService.createTable(data);
+      this.tablesService.createTable(data, this.restaurantId)
+        .subscribe(() => this.refresh());
       this.toast.success('Table created');
     }
     this.isTableModalOpen = false;
@@ -325,7 +343,8 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   confirmDeleteTable(): void {
     if (!this.deleteTableTarget) return;
-    this.tablesService.deleteTable(this.deleteTableTarget.id);
+    this.tablesService.deleteTable(this.deleteTableTarget.id)
+      .subscribe(() => this.refresh());
     this.toast.success('Table deleted');
     this.deleteTableTarget = null;
   }
@@ -334,7 +353,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.tablesService.updateTable({
       id: table.id,
       isActive: !table.isActive,
-    });
+    }).subscribe(() => this.refresh());
     this.toast.success(
       `Table ${table.number} ${!table.isActive ? 'enabled' : 'disabled'}`,
     );
@@ -347,7 +366,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.tablesService.bulkUpdateTables(
       areaTables.map(t => t.id),
       { hasQR: true, qrRegeneratedAt: new Date() },
-    );
+    ).subscribe(() => this.refresh());
     this.toast.success(`QR codes generated for ${area.name}`);
   }
 
@@ -362,7 +381,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.tablesService.bulkUpdateTables(
       areaTables.map(t => t.id),
       { qrRegeneratedAt: new Date() },
-    );
+    ).subscribe(() => this.refresh());
     this.toast.success(
       `${areaTables.length} QR code(s) regenerated for ${area.name}`,
     );
@@ -375,7 +394,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
       case 'enable':
         this.tablesService.bulkUpdateTables(this.selectedTableIds, {
           isActive: true,
-        });
+        }).subscribe(() => this.refresh());
         this.toast.success(
           `${this.selectedTableIds.length} table(s) enabled`,
         );
@@ -383,7 +402,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
       case 'disable':
         this.tablesService.bulkUpdateTables(this.selectedTableIds, {
           isActive: false,
-        });
+        }).subscribe(() => this.refresh());
         this.toast.success(
           `${this.selectedTableIds.length} table(s) disabled`,
         );
@@ -392,7 +411,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
         this.tablesService.bulkUpdateTables(this.selectedTableIds, {
           hasQR: true,
           qrRegeneratedAt: new Date(),
-        });
+        }).subscribe(() => this.refresh());
         this.toast.success(
           `QR codes generated for ${this.selectedTableIds.length} table(s)`,
         );
@@ -425,7 +444,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.tablesService.moveTableToArea(
       this.moveSelectedTableIds,
       this.moveTargetAreaId,
-    );
+    ).subscribe(() => this.refresh());
     const area = this.areas.find(a => a.id === this.moveTargetAreaId);
     this.toast.success(
       `${this.moveSelectedTableIds.length} table(s) moved to ${area?.name ?? 'area'}`,
@@ -451,7 +470,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
         id: this.qrPreviewTable.id,
         hasQR: true,
         qrRegeneratedAt: new Date(),
-      });
+      }).subscribe(() => this.refresh());
     }
   }
 
@@ -502,7 +521,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
       id: this.regenTableTarget.id,
       hasQR: true,
       qrRegeneratedAt: new Date(),
-    });
+    }).subscribe(() => this.refresh());
     this.toast.success(
       `QR code regenerated for Table ${this.regenTableTarget.number}`,
     );
@@ -526,7 +545,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.tablesService.bulkUpdateTables(
       areaTables.map(t => t.id),
       { qrRegeneratedAt: new Date() },
-    );
+    ).subscribe(() => this.refresh());
     this.toast.success(
       `${areaTables.length} QR code(s) regenerated for ${this.regenAreaTarget.name}`,
     );
@@ -538,7 +557,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.tablesService.bulkUpdateTables(
       activeTables.map(t => t.id),
       { qrRegeneratedAt: new Date() },
-    );
+    ).subscribe(() => this.refresh());
     this.toast.success(
       `${activeTables.length} QR code(s) regenerated`,
     );
