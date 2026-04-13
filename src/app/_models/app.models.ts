@@ -111,6 +111,7 @@ export interface MenuItem {
   id: string
   name: string
   description: any
+  calories?: number | null
   primary_price: number
   discounted_price: any
   running_discount: boolean
