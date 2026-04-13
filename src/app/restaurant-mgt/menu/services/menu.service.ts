@@ -309,6 +309,24 @@ export class MenuService {
     this._items$.next(updated);
   }
 
+  removeItemLocally(itemId: string): void {
+    const currentItems = this._items$.getValue();
+    this._items$.next(currentItems.filter(item => item.id !== itemId));
+  }
+
+  removeSectionLocally(sectionId: string): void {
+    const currentSections = this._sections$.getValue();
+    this._sections$.next(currentSections.filter(s => s.id !== sectionId));
+  }
+
+  updateSectionLocally(sectionId: string, changes: Partial<MenuSectionListItem>): void {
+    const current = this._sections$.getValue();
+    const updated = current.map(s =>
+      s.id === sectionId ? { ...s, ...changes } : s
+    );
+    this._sections$.next(updated);
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------

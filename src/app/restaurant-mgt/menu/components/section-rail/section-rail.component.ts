@@ -48,10 +48,18 @@ export class SectionRailComponent {
   }
 
   onToggleAvailability(id: string, available: boolean): void {
-    this.menuService.toggleSectionAvailability(id, available).subscribe(() => {
-      const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
-      if (restaurantId) {
-        this.menuService.loadSections(restaurantId);
+    // Optimistic update — UI changes instantly
+    this.menuService.updateSectionLocally(id, { available });
+
+    // API call in background
+    this.menuService.toggleSectionAvailability(id, available).subscribe({
+      error: () => {
+        // Revert on failure
+        this.menuService.updateSectionLocally(id, { available: !available });
+        const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
+        if (restaurantId) {
+          this.menuService.loadSections(restaurantId);
+        }
       }
     });
   }

@@ -119,13 +119,20 @@ export class MenuComponent {
   }
 
   onSectionSaved(payload: any): void {
+    // Close dialog immediately
+    this.closeSectionForm();
+
     const op = payload.id
       ? this.menuService.updateSection(payload)
       : this.menuService.createSection(payload);
 
-    op.subscribe(() => {
-      this.closeSectionForm();
-      this.menuService.loadSections(this.restaurant);
+    op.subscribe({
+      next: () => {
+        this.menuService.loadSections(this.restaurant);
+      },
+      error: () => {
+        this.menuService.loadSections(this.restaurant);
+      }
     });
   }
 
@@ -146,9 +153,25 @@ export class MenuComponent {
 
   onSectionDeleted(): void {
     if (!this.editingSection) return;
-    this.menuService.deleteSection(this.editingSection.id, 'Deleted by user').subscribe(() => {
-      this.closeSectionDelete();
-      this.menuService.loadSections(this.restaurant);
+    const section = this.editingSection;
+
+    // 1. Close dialog immediately
+    this.closeSectionDelete();
+
+    // 2. Remove from local state instantly
+    this.menuService.removeSectionLocally(section.id);
+
+    // 3. If the deleted section was selected, select the first remaining section
+    const remaining = this.menuService.getSectionsSnapshot();
+    if (remaining.length > 0) {
+      this.menuService.selectSection(remaining[0].id);
+    }
+
+    // 4. API call in background
+    this.menuService.deleteSection(section.id, 'Deleted by user').subscribe({
+      error: () => {
+        this.menuService.refreshAll();
+      }
     });
   }
 
@@ -167,13 +190,20 @@ export class MenuComponent {
   }
 
   onItemSaved(payload: any): void {
+    // Close dialog immediately — user doesn't need to wait
+    this.closeItemForm();
+
     const op = payload.id
       ? this.menuService.updateItem(payload)
       : this.menuService.createItem(payload);
 
-    op.subscribe(() => {
-      this.closeItemForm();
-      this.menuService.refreshAll();
+    op.subscribe({
+      next: () => {
+        this.menuService.refreshAll();
+      },
+      error: () => {
+        this.menuService.refreshAll();
+      }
     });
   }
 
@@ -193,9 +223,20 @@ export class MenuComponent {
 
   onItemDeleted(): void {
     if (!this.deletingItem) return;
-    this.menuService.deleteItem(this.deletingItem.id, 'Deleted by user').subscribe(() => {
-      this.closeItemDelete();
-      this.menuService.refreshAll();
+    const item = this.deletingItem;
+
+    // 1. Close dialog immediately
+    this.closeItemDelete();
+
+    // 2. Remove from local state instantly — UI updates now
+    this.menuService.removeItemLocally(item.id);
+
+    // 3. API call in background
+    this.menuService.deleteItem(item.id, 'Deleted by user').subscribe({
+      error: () => {
+        // Revert: re-fetch to restore the item
+        this.menuService.refreshAll();
+      }
     });
   }
 
