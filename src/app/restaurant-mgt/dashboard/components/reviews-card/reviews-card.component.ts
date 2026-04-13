@@ -12,6 +12,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
 @Component({
   selector: 'app-reviews-card',
   standalone: true,
+  host: { class: 'block' },
   imports: [
     CommonModule,
     RouterModule,
