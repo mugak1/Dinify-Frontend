@@ -9,6 +9,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
@@ -32,10 +33,14 @@ export class QrCodePreviewModalComponent implements OnChanges {
 
   @ViewChild('qrContainer') qrContainer!: ElementRef<HTMLDivElement>;
 
-  qrSvgHtml = '';
+  qrSvgHtml: SafeHtml = '';
   qrUrl = '';
+  private rawSvg = '';
 
-  constructor(private toast: ToastService) {}
+  constructor(
+    private toast: ToastService,
+    private sanitizer: DomSanitizer,
+  ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if ((changes['open'] || changes['table']) && this.open && this.table) {
@@ -46,15 +51,20 @@ export class QrCodePreviewModalComponent implements OnChanges {
 
   private async generateQRSvg(): Promise<void> {
     try {
-      this.qrSvgHtml = await QRCode.toString(this.qrUrl, {
+      const rawSvg = await QRCode.toString(this.qrUrl, {
         type: 'svg',
         width: 200,
         margin: 1,
         errorCorrectionLevel: 'H',
         color: { dark: '#000000', light: '#ffffff' },
       });
+      this.rawSvg = rawSvg;
+      this.qrSvgHtml = this.sanitizer.bypassSecurityTrustHtml(rawSvg);
     } catch {
-      this.qrSvgHtml = '<p class="text-destructive text-sm">Failed to generate QR code</p>';
+      this.rawSvg = '';
+      this.qrSvgHtml = this.sanitizer.bypassSecurityTrustHtml(
+        '<p class="text-destructive text-sm">Failed to generate QR code</p>',
+      );
     }
   }
 
@@ -79,8 +89,8 @@ export class QrCodePreviewModalComponent implements OnChanges {
   }
 
   handleDownloadSVG(): void {
-    if (!this.table || !this.qrSvgHtml) return;
-    const blob = new Blob([this.qrSvgHtml], { type: 'image/svg+xml' });
+    if (!this.table || !this.rawSvg) return;
+    const blob = new Blob([this.rawSvg], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement('a');
@@ -140,7 +150,7 @@ export class QrCodePreviewModalComponent implements OnChanges {
         <div class="qr-container">
           <div class="table-label">Table ${this.table.number}</div>
           <div class="area-label">${this.area?.name || 'Main Dining'}</div>
-          ${this.qrSvgHtml}
+          ${this.rawSvg}
           <div class="scan-text">Scan to view menu & order</div>
         </div>
         <script>

@@ -15,7 +15,7 @@ export function generateQRPrintSheet(
     .sort((a, b) => a.number - b.number)
     .map(table => {
       const qrMode = table.qrMode || 'order_pay';
-      const qrUrl = `${baseUrl}/dine/${table.number}?mode=${qrMode}`;
+      const qrUrl = `${baseUrl}/diner/h/${table.id}?mode=${qrMode}`;
       const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}&margin=8`;
 
       return `
@@ -132,5 +132,5 @@ export function generateQRPrintSheet(
 export function getTableQRUrl(table: RestaurantTable): string {
   const baseUrl = window.location.origin;
   const qrMode = table.qrMode || 'order_pay';
-  return `${baseUrl}/dine/${table.number}?mode=${qrMode}`;
+  return `${baseUrl}/diner/h/${table.id}?mode=${qrMode}`;
 }
