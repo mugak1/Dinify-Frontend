@@ -17,6 +17,7 @@ import { BulkStockBarComponent } from '../bulk-stock-bar/bulk-stock-bar.componen
   standalone: true,
   imports: [CommonModule, DragDropModule, ItemCardComponent, ButtonComponent, BulkStockBarComponent],
   templateUrl: './item-list.component.html',
+  host: { class: 'flex-1 flex flex-col overflow-hidden min-w-0' }
 })
 export class ItemListComponent {
 
