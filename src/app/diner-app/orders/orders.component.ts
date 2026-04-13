@@ -26,8 +26,10 @@ constructor(private sessionStorage:SessionStorageService,private api:ApiService,
   this.table=this.sessionStorage.getItem<TableScan>('Table') as any;
   if(this.table?.current_order){
     this.loadCurrentOrder(this.table?.current_order?.order_id);
-    this.PaymentForm= this.InitPaymentForm(this.table.current_order.order_id);
+    this.PaymentForm= this.InitPaymentForm(this.table?.current_order?.order_id);
     this.SetChanges();
+  }else{
+    this.PaymentForm= this.InitPaymentForm(null);
   }
 }
 loadCurrentOrder(id:any){
@@ -63,14 +65,15 @@ if(!x){
 }
   })
   this.PaymentForm.get('tip_select')?.valueChanges.subscribe(x=>{
+    const baseCost = this.current_order?.actual_cost ?? 0;
     if(x==10){
-      this.PaymentForm.get('tip_amount')?.setValue(this.current_order.actual_cost*0.1)
+      this.PaymentForm.get('tip_amount')?.setValue(baseCost*0.1)
     }
     if(x==15){
-      this.PaymentForm.get('tip_amount')?.setValue(this.current_order.actual_cost*0.15)
+      this.PaymentForm.get('tip_amount')?.setValue(baseCost*0.15)
     }
     if(x==20){
-      this.PaymentForm.get('tip_amount')?.setValue(this.current_order.actual_cost*0.2)
+      this.PaymentForm.get('tip_amount')?.setValue(baseCost*0.2)
     }
     if(x=='Other'){
       this.PaymentForm.get('tip_amount')?.setValue('')
@@ -84,10 +87,10 @@ Save(){
     const d= this.PaymentForm.value;
         d.msisdn='256'+ this.PaymentForm.get('msisdn')?.value
     this.api.postPatch('finances/initiate-order-payment/',d,'post').subscribe((x:any)=>{
-        
+
       const res=x?.data;
-      if(x.status==200){
-        this.router.navigate(['/diner','payment-details',res.transaction_id])
+      if(x?.status==200 && res?.transaction_id){
+        this.router.navigate(['/diner','payment-details',res?.transaction_id])
       }
      //
     })
@@ -99,13 +102,13 @@ this.sendOtp('msisdn','256'+this.PaymentForm.get('msisdn')?.value,null);
         const d= this.PaymentForm.value;
         d.msisdn='256'+ this.PaymentForm.get('msisdn')?.value
         this.api.postPatch('finances/initiate-order-payment/',d,'post').subscribe((x:any)=>{
-        
+
           const res=x?.data;
-          if(x.status==200){
-          
-              this.router.navigate(['/diner','payment-details',res.transaction_id])
-            
-           //window.location.href=res.redirect_url; 
+          if(x?.status==200 && res?.transaction_id){
+
+              this.router.navigate(['/diner','payment-details',res?.transaction_id])
+
+           //window.location.href=res.redirect_url;
           }
          //
         })
@@ -113,10 +116,10 @@ this.sendOtp('msisdn','256'+this.PaymentForm.get('msisdn')?.value,null);
     })
   }else if (this.PaymentForm.get('payment_mode')?.value=='card'){
     this.api.postPatch('finances/initiate-order-payment/',this.PaymentForm.value,'post').subscribe((x:any)=>{
-        
+
       const res=x?.data;
-      if(x.status==200){
-       window.location.href=res.redirect_url; 
+      if(x?.status==200 && res?.redirect_url){
+       window.location.href=res?.redirect_url;
       }
      //
     })

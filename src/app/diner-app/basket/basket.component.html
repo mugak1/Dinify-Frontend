@@ -35,7 +35,7 @@
     </div>
 
     <!-- Options -->
-    <div *ngIf="item.options.length > 0" class="text-gray-500 text-sm">
+    <div *ngIf="(item.options?.length ?? 0) > 0" class="text-gray-500 text-sm">
       <div *ngFor="let option of item.options" class="option-row flex justify-between items-center relative py-2">
         <div class="flex items-center gap-2 relative">
           <span>{{ option.optionName }}:</span>
@@ -54,7 +54,7 @@
     </div>
 
     <!-- Extras -->
-    <div *ngIf="item.extras.length > 0" class="text-gray-500 text-sm bg-gray-50 p-2 rounded-lg">
+    <div *ngIf="(item.extras?.length ?? 0) > 0" class="text-gray-500 text-sm bg-gray-50 p-2 rounded-lg">
       <div *ngFor="let extra of item.extras" class="option-row flex justify-between items-center relative py-2">
         <div class="flex items-center gap-2 relative">
           <span> + {{ extra.name }}</span>
@@ -139,7 +139,7 @@
         </div>
   
         <!-- Options -->
-        <div *ngIf="item.options.length > 0" class="text-gray-500 text-sm">
+        <div *ngIf="(item.options?.length ?? 0) > 0" class="text-gray-500 text-sm">
             <div *ngFor="let option of item.options" class="option-row flex justify-between items-center relative py-2">
               <!-- Option Name and Choice -->
               <div class="flex items-center gap-2 relative">
@@ -170,7 +170,7 @@
                 style="transform: translateY(-50%);"
               ></span>-->
             </div>
-            <div *ngIf="item.extras.length > 0" class="text-gray-500 text-sm bg-gray-50 p-2 rounded-lg">
+            <div *ngIf="(item.extras?.length ?? 0) > 0" class="text-gray-500 text-sm bg-gray-50 p-2 rounded-lg">
               <div *ngFor="let extra of item.extras" class="option-row flex justify-between items-center relative py-2">
                 <!-- Extra Name and Choice -->
                 <div class="flex items-center gap-2 relative">

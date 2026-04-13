@@ -34,13 +34,15 @@ export class HomeComponent implements AfterViewInit {
   }
   getTableDetails(id:any){
   this.api.get<TableScan>(null,'orders/journey/table-scan/?table='+id).subscribe(x=>{
-  this.table=x.data as any;
+  this.table=x?.data as any;
+  if(!this.table) return;
   this.sessionStorage.setItem("Table",this.table);
-  this.sessionStorage.setItem('restaurant',this.table.restaurant);
-  this.logo =this.table.restaurant.logo;
-  this.restaurant_name=this.table.restaurant.name;
-  this.restaurant_id=this.table.restaurant.id;
-  this.branding_configs=this.table.restaurant.branding_configuration
+  this.sessionStorage.setItem('restaurant',this.table?.restaurant);
+  this.restaurant=this.table?.restaurant as any;
+  this.logo =this.table?.restaurant?.logo;
+  this.restaurant_name=this.table?.restaurant?.name;
+  this.restaurant_id=this.table?.restaurant?.id;
+  this.branding_configs=this.table?.restaurant?.branding_configuration as any;
   })
   }
   ngAfterViewInit(){

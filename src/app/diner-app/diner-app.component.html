@@ -1,12 +1,12 @@
 <div *ngIf="table||restaurant_id">
-    <header *ngIf="branding_configs" [style.background-color]="branding_configs.home.bgColor" class="absolute inset-x-0 top-0 z-50">
-      <nav [style.background-color]="branding_configs.home.headerColor" class="fixed w-full top-0 left-0 flex items-center justify-between p-4 lg:px-8" aria-label="Global">
+    <header *ngIf="branding_configs" [style.background-color]="branding_configs?.home?.bgColor" class="absolute inset-x-0 top-0 z-50">
+      <nav [style.background-color]="branding_configs?.home?.headerColor" class="fixed w-full top-0 left-0 flex items-center justify-between p-4 lg:px-8" aria-label="Global">
         <div  class="flex lg:flex-1">
           <a [routerLink]="['/diner/h/',table_id]" class="-m-1.5 p-1.5">
             <span class="sr-only">{{restaurant_name}}</span>
             
-            <img *ngIf="branding_configs.home.headerShow==='logo'" class="h-9 w-auto rounded-full" [src]="'https://api-dev.dinifyapp.com/media/'+logo" [alt]="restaurant_name">
-            <span *ngIf="branding_configs.home.headerShow==='name'"  [style.color]="branding_configs.home.headerTextColor" [style.text-transform]="branding_configs.home.headerCase" [style.font-weight]="branding_configs.home.headerFontWeight">{{branding_configs.home.headerShowName}}</span>
+            <img *ngIf="branding_configs?.home?.headerShow==='logo'" class="h-9 w-auto rounded-full" [src]="url + '/media/' + logo" [alt]="restaurant_name">
+            <span *ngIf="branding_configs?.home?.headerShow==='name'"  [style.color]="branding_configs?.home?.headerTextColor" [style.text-transform]="branding_configs?.home?.headerCase" [style.font-weight]="branding_configs?.home?.headerFontWeight">{{branding_configs?.home?.headerShowName}}</span>
           </a>
         </div>
         <div class="flex lg:hidden">
@@ -39,9 +39,9 @@
   </defs>
   </svg>
   <div class="ml-4 flex flex-col">
-   <span class="font-semibold text-black text-xl my-auto">{{auth.userValue?.profile?.first_name}} {{auth.userValue?.profile?.last_name}}</span>
-    <span class="text-gray-600 text-sm">{{auth.userValue?.profile?.email}}</span>
-    <span class="text-gray-600">+{{auth.userValue?.profile?.phone_number}}</span>
+   <span class="font-semibold text-black text-xl my-auto">{{auth?.userValue?.profile?.first_name}} {{auth?.userValue?.profile?.last_name}}</span>
+    <span class="text-gray-600 text-sm">{{auth?.userValue?.profile?.email}}</span>
+    <span class="text-gray-600">+{{auth?.userValue?.profile?.phone_number}}</span>
     <span class="text-gray-600">
       <a (click)="showProfileMenu=true;button_action='edit'" class="flex rounded text-sm capitalize whitespace-nowrap">
         <svg height="24px" width="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Edit / Edit_Pencil_02"> <path id="Vector" d="M4 16.0001V20.0001L8 20.0001L18.8686 9.13146L18.8695 9.13061C19.265 8.73516 19.4628 8.53736 19.5369 8.3092C19.6021 8.10835 19.6022 7.89201 19.5369 7.69117C19.4627 7.46284 19.2646 7.26474 18.8686 6.86872L17.1288 5.12892C16.7345 4.7346 16.5369 4.53704 16.3091 4.46301C16.1082 4.39775 15.8919 4.39775 15.691 4.46301C15.463 4.53709 15.2652 4.73488 14.8704 5.12976L14.8686 5.13146L4 16.0001Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>

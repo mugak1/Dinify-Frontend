@@ -1,13 +1,16 @@
 
 
- <div *ngIf="restaurant" [ngStyle]="{'background': 'url(' + (restaurant.cover_photo ? url+'/media/' + restaurant.cover_photo : 'assets/default-cover.jpg') + ') no-repeat 0 50px','background-size':'cover'}" class="flex isolate px-6 pt-14 lg:px-8 h-dvh">
+<div *ngIf="!restaurant" class="flex items-center justify-center h-dvh">
+  <p class="text-gray-500">Loading...</p>
+</div>
+
+ <div *ngIf="restaurant" [ngStyle]="{'background': 'url(' + (restaurant?.cover_photo ? url+'/media/' + restaurant?.cover_photo : 'assets/default-cover.jpg') + ') no-repeat 0 50px','background-size':'cover'}" class="flex isolate px-6 pt-14 lg:px-8 h-dvh">
   <div class="mx-auto mt-auto max-w-2xl py-16 sm:py-48 lg:py-56">
     <div class="text-center">
 
       <div *ngIf="branding_configs" class="mt-auto flex flex-col items-center justify-center gap-x-6">
-        <a [routerLink]="['/diner','menu']" [style.background-color]="branding_configs.home.viewMenuBgColor" [style.color]="branding_configs.home.viewMenuTextColor" class="rounded w-40 px-5 py-2.5 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">{{table.current_order.ongoing?'Add to Order':'View Menu'}}</a>
-        <a *ngIf="table?.current_order?.ongoing" [routerLink]="['/diner','orders']" [style.background-color]="branding_configs.home.viewMenuBgColor" [style.color]="branding_configs.home.viewMenuTextColor" class="rounded w-40 mt-4 px-5 py-2.5 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">Pay Bill</a>
+        <a [routerLink]="['/diner','menu']" [style.background-color]="branding_configs?.home?.viewMenuBgColor" [style.color]="branding_configs?.home?.viewMenuTextColor" class="rounded w-40 px-5 py-2.5 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">{{table?.current_order?.ongoing?'Add to Order':'View Menu'}}</a>
+        <a *ngIf="table?.current_order?.ongoing" [routerLink]="['/diner','orders']" [style.background-color]="branding_configs?.home?.viewMenuBgColor" [style.color]="branding_configs?.home?.viewMenuTextColor" class="rounded w-40 mt-4 px-5 py-2.5 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">Pay Bill</a>
       </div>
     </div>
-    </div> 
-   
+    </div>

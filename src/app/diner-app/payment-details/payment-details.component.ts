@@ -38,8 +38,9 @@ this.details=x?.data
     }).subscribe((x:any)=>{
      
       if(x?.action=='yes'){
+    if(!this.details){ return; }
     const obj={
-    "order": this.details.order,
+    "order": this.details?.order,
     "rating": this.rating,
     "review": this.comment
     }

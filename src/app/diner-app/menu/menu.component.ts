@@ -126,10 +126,10 @@ get QuantitySum(){
   }
   loadMenu(){
     this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id}).subscribe((x)=>{
-  this.menu_list=x.data as any;
+  this.menu_list=(x?.data as any) ?? [];
           // Initially set the filtered list to the complete menu list
           this.filteredMenuList = this.menu_list;
-  this.currentSection=(this.menu_list[0] as MenuItem).name as string
+  this.currentSection=((this.menu_list?.[0] as MenuItem)?.name as string) ?? ''
     })
   }
   clearSearch() {
@@ -204,10 +204,10 @@ setTimeout(() => {
   }));
 
 // Check if the item has a discount
-const discount = this.selected_item.discount_details?.discount_amount ?? 0;
-const isDiscounted = this.selected_item.running_discount; //!!discount;
+const discount = this.selected_item?.discount_details?.discount_amount ?? 0;
+const isDiscounted = this.selected_item?.running_discount; //!!discount;
 
-const originalBasePrice = this.selected_item.primary_price;
+const originalBasePrice = this.selected_item?.primary_price;
 const basePrice = isDiscounted ? discount : originalBasePrice; // discounted price if present
 
 // Calculate total including selected options and extras
@@ -439,7 +439,7 @@ const max = option.max_choices || 1;
     this.errorMessages = []; // Reset error messages
   
     // Check all required options
-    this.selected_item.options?.options?.forEach((option: any) => {
+    this.selected_item?.options?.options?.forEach((option: any) => {
       option.isSelected = this.selected_choices.some((sel) => sel.order.name === option.name); // Update state
       if (option.required && !option.isSelected) {
         this.errorMessages.push(`Please select an option for "${option.name}".`);
@@ -463,11 +463,11 @@ const max = option.max_choices || 1;
     }
   }
   calculateDiscount(item:any): number {
-    if (!item.discount_details.discount_amount) return 0;
+    if (!item?.discount_details?.discount_amount) return 0;
     return Math.round(((item.primary_price - item.discount_details.discount_amount) / item.primary_price) * 100);
   }
   priceSaved(item:any): number {
-    if (!item.discount_details.discount_amount) return 0;
+    if (!item?.discount_details?.discount_amount) return 0;
     return item.primary_price - item.discount_details.discount_amount;
   }
   validateSelections(): boolean {
@@ -500,8 +500,8 @@ const max = option.max_choices || 1;
     });
   
     // Global validation
-    const globalMin = this.selected_item.options.min_selections;
-    const globalMax = this.selected_item.options.max_selections;
+    const globalMin = this.selected_item?.options?.min_selections;
+    const globalMax = this.selected_item?.options?.max_selections;
   
     this.globalError = null; // reset
   

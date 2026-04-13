@@ -2,7 +2,7 @@
 <div class="px-1 pt-14">
     <div class="flex items-center w-full text-center py-3 font-medium border-b border-gray-200">
         
-       <strong class="mx-auto text-gray-500">Your Order: {{current_order.order_number}}</strong>
+       <strong class="mx-auto text-gray-500">Your Order: {{current_order?.order_number}}</strong>
     </div>
 </div>
 
@@ -14,9 +14,9 @@
             <div class="flex flex-col">
                 
                 <!-- --> <div class="p-2 flex flex-row">
-                    <div class="mr-4">{{i.quantity}} </div>
-                     <div class="text-sm mr-auto">{{i.item.name}}</div>
-                     <div class="">UGX {{i.unit_price|number}}</div>
+                    <div class="mr-4">{{i?.quantity}} </div>
+                     <div class="text-sm mr-auto">{{i?.item?.name}}</div>
+                     <div class="">UGX {{i?.unit_price|number}}</div>
 
                 </div>
 
@@ -40,8 +40,8 @@
         </div>
 <div class="flex flex-row">
 <span>TOTAL</span>
-<span *ngIf="!require_otp||(!PaymentForm.get('add_tip')?.value&& require_otp)" class="font-extrabold ml-auto">UGX {{current_order.actual_cost|number}}</span>
-<span *ngIf="PaymentForm.get('add_tip')?.value&& require_otp" class="font-extrabold ml-auto">{{'UGX '+((current_order.actual_cost+PaymentForm.get('tip_amount')?.value)|number)}}</span>
+<span *ngIf="!require_otp||(!PaymentForm.get('add_tip')?.value&& require_otp)" class="font-extrabold ml-auto">UGX {{current_order?.actual_cost|number}}</span>
+<span *ngIf="PaymentForm.get('add_tip')?.value&& require_otp" class="font-extrabold ml-auto">{{'UGX '+(((current_order?.actual_cost ?? 0)+PaymentForm.get('tip_amount')?.value)|number)}}</span>
 </div>
 <div class="mt-4">
    <!--  <span class="text-4xl">Table#{{current_order.table_details.table_number}}</span> -->
@@ -55,7 +55,7 @@
         </div>
         <div class="ms-2 text-sm">
             <label for="helper-radio" class="font-medium text-gray-900">Full Payment</label>
-            <p id="helper-radio-text" class="text-xs font-normal">Pay the full outstanding amount UGX {{current_order.actual_cost|number}}</p>
+            <p id="helper-radio-text" class="text-xs font-normal">Pay the full outstanding amount UGX {{current_order?.actual_cost|number}}</p>
         </div>
     </div>
     <div class="flex mt-2">
@@ -64,7 +64,7 @@
         </div>
         <div class="ms-2 text-sm">
             <label for="helper-radio" class="font-medium">Split Payment</label>
-            <p id="helper-radio-text" class="text-xs font-normal">Pay the part of the outstanding amount UGX {{current_order.actual_cost|number}}</p>
+            <p id="helper-radio-text" class="text-xs font-normal">Pay the part of the outstanding amount UGX {{current_order?.actual_cost|number}}</p>
         </div>
     </div>
 </div>
@@ -284,14 +284,14 @@
           <div *ngIf="PaymentForm.get('add_tip')?.value" class="inline-flex w-full justify-stretch text-center">
            
             <label class="w-1/4">
-              <span class="mx-auto text-sm"><span class="text-gray-400">{{(current_order.actual_cost*0.1)|number}}</span></span>
-            </label> 
+              <span class="mx-auto text-sm"><span class="text-gray-400">{{((current_order?.actual_cost ?? 0)*0.1)|number}}</span></span>
+            </label>
             <label class="w-1/4">
-                <span class="mx-auto text-sm"><span class="text-gray-400">{{(current_order.actual_cost*0.15)|number}}</span></span>
-              </label> 
+                <span class="mx-auto text-sm"><span class="text-gray-400">{{((current_order?.actual_cost ?? 0)*0.15)|number}}</span></span>
+              </label>
               <label class="w-1/4">
-                <span class="mx-auto text-sm"><span class="text-gray-400">{{(current_order.actual_cost*0.2)|number}}</span></span>
-              </label> 
+                <span class="mx-auto text-sm"><span class="text-gray-400">{{((current_order?.actual_cost ?? 0)*0.2)|number}}</span></span>
+              </label>
               <label class="w-1/4">
                 <span class="mx-auto"><span class="text-gray-600"></span></span>
               </label> 
@@ -339,8 +339,8 @@
             <span class="ml-4">Processing...</span>
             
             </span>
-            <span class="absolute flex items-center justify-center w-full h-full text-black transition-all duration-300 transform group-hover:translate-x-full ease">Pay {{PaymentForm.get('add_tip')?.value?'UGX '+((current_order.actual_cost+PaymentForm.get('tip_amount')?.value)|number):'Now'}}</span>
-            <span class="relative invisible">Pay {{PaymentForm.get('add_tip')?.value?'UGX '+((current_order.actual_cost+PaymentForm.get('tip_amount')?.value)|number):'Now'}}</span>
+            <span class="absolute flex items-center justify-center w-full h-full text-black transition-all duration-300 transform group-hover:translate-x-full ease">Pay {{PaymentForm.get('add_tip')?.value?'UGX '+(((current_order?.actual_cost ?? 0)+PaymentForm.get('tip_amount')?.value)|number):'Now'}}</span>
+            <span class="relative invisible">Pay {{PaymentForm.get('add_tip')?.value?'UGX '+(((current_order?.actual_cost ?? 0)+PaymentForm.get('tip_amount')?.value)|number):'Now'}}</span>
         </button>
         
     </div>
@@ -385,7 +385,7 @@
                 <div class="flex flex-col space-y-5">
                   <div>
                     <button type="submit" [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
-                      Verify OTP & Pay {{'UGX '+((current_order.actual_cost+PaymentForm.get('tip_amount')?.value)|number)}}
+                      Verify OTP & Pay {{'UGX '+(((current_order?.actual_cost ?? 0)+PaymentForm.get('tip_amount')?.value)|number)}}
                     </button>
                   </div>
                   <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 -my-2 text-gray-500">

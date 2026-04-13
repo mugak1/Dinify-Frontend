@@ -100,7 +100,7 @@ discountValue: number = 10; // 10% or UGX amount
           order_remarks: this.order_remarks,
         }; */
       const orderPayload = {
-        restaurant: this.restaurant.id,
+        restaurant: this.restaurant?.id,
         table: this.table?.id,
         order_remarks: this.order_remarks,
         items: this.basketItems.map((item) => ({
@@ -123,7 +123,7 @@ discountValue: number = 10; // 10% or UGX amount
           (response: any) => {
             if (response.status === 200) {
               this.order_initiated = response.data;
-              if (this.order_initiated?.order_details.no_unavailable_items === 0) {
+              if (this.order_initiated?.order_details?.no_unavailable_items === 0) {
                 this.submitOrder(); // Automatically submit if no unavailable items
               }
             } else {
@@ -160,7 +160,7 @@ discountValue: number = 10; // 10% or UGX amount
   // Submits the order to the server
   submitOrder() {
     const payload = {
-      order: this.order_initiated?.order_details.id,
+      order: this.order_initiated?.order_details?.id,
     };
 
     this.api.postPatch('orders/submit/', payload, 'put').subscribe(
