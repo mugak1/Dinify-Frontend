@@ -320,6 +320,8 @@ export interface Options {
     optionName: string; // Name of the option group (e.g., "Size", "Extras")
     choice: string; // Selected choice for the option
     cost: number; // Cost associated with the choice
+    optionIndex?: number; // Index of the option group within the menu item's options
+    choiceIndex?: number; // Index of the selected choice within the option group
   }
 
 export interface ShoppingBasket {

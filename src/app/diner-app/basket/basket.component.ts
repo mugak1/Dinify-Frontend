@@ -64,6 +64,18 @@ discountValue: number = 10; // 10% or UGX amount
     this.updateCart();
   }
 
+  // Stores edit context and navigates back to the menu so the item detail modal
+  // can re-open with existing selections pre-populated.
+  editItem(index: number): void {
+    const item = this.basketItems[index];
+    if (!item) return;
+    this.sessionStorage.setItem('editingBasketItem', {
+      basketIndex: index,
+      itemId: item.itemId,
+    });
+    this.loc.back();
+  }
+
   // Removes an item from the basket
   removeItem(itemId: string, options: SelectedOption[] = []) {
     this.basketService.removeItem(itemId, options);

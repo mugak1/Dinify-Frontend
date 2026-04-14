@@ -47,6 +47,8 @@ export class DinersMenuComponent implements OnInit {
   searchQuery: string = '';
   errorMessages: any[]=[];
   isFormValidFlag: boolean=true;
+  editingBasketIndex: number | null = null;
+  isEditMode = false;
   presetTags: any[] = [];
   showTagFilter = false;
   selectedTags: string[] = [];
@@ -209,7 +211,72 @@ get QuantitySum(){
           // Initially set the filtered list to the complete menu list
           this.filteredMenuList = this.menu_list;
   this.currentSection=((this.menu_list?.[0] as MenuItem)?.name as string) ?? ''
+  // If the user tapped a basket item, re-open the detail modal pre-populated
+  this.checkEditMode();
     })
+  }
+
+  /**
+   * Locates a menu item by its id across all sections of the loaded menu.
+   */
+  findMenuItemById(itemId: string): any {
+    for (const section of this.menu_list || []) {
+      const item = (section.items || []).find((i: any) => i.id === itemId);
+      if (item) return item;
+    }
+    return null;
+  }
+
+  /**
+   * If sessionStorage has an `editingBasketItem` context, enter edit mode:
+   * pre-populate the detail modal selections from the basket item and open it.
+   */
+  private checkEditMode(): void {
+    const editContext = this.sessionStorage.getItem<any>('editingBasketItem');
+    if (!editContext) return;
+    // Clear immediately so it doesn't re-fire on a future menu visit
+    this.sessionStorage.removeItem('editingBasketItem');
+
+    const menuItem = this.findMenuItemById(editContext.itemId);
+    if (!menuItem) return;
+
+    const basketItem = this.basketItems[editContext.basketIndex];
+    if (!basketItem) return;
+
+    this.editingBasketIndex = editContext.basketIndex;
+    this.isEditMode = true;
+
+    this.selected_item = menuItem;
+    this.selected_quantity = basketItem.quantity;
+
+    // Reconstruct selected_choices from stored optionIndex/choiceIndex
+    this.selected_choices = (basketItem.options || [])
+      .filter((opt: any) => opt.choice && opt.choice !== 'None')
+      .map((opt: any) => {
+        const optionGroup = menuItem.options?.options?.[opt.optionIndex];
+        return optionGroup
+          ? { index: opt.optionIndex, choice: opt.choice,
+              choiceIndex: opt.choiceIndex, order: optionGroup }
+          : null;
+      })
+      .filter(Boolean);
+
+    // Reconstruct selected_extras by id (use the menuItem's own refs so
+    // isExtraSelected's identity-based check matches)
+    this.selected_extras = (basketItem.extras || [])
+      .map((ext: any) => (menuItem.extras || []).find((e: any) => e.id === ext.id))
+      .filter(Boolean);
+
+    this.validateForm(); // also sets option.isSelected on each option group
+    this.showModal = true;
+  }
+
+  private resetEditMode(): void {
+    this.isEditMode = false;
+    this.editingBasketIndex = null;
+    this.selected_quantity = 1;
+    this.selected_choices = [];
+    this.selected_extras = [];
   }
   clearSearch() {
     this.searchQuery = '';
@@ -240,6 +307,10 @@ this.showModal=true;
   }
   closeModal(){
     this.showModal=false;
+    if (this.isEditMode) {
+      this.resetEditMode();
+      this.router.navigate(['/diner/basket']);
+    }
   }
   AddSelectedItem(){
     this.formSubmitted = false; // Reset form submission flag
@@ -306,6 +377,14 @@ const basketItem = {
   discountAmount: isDiscounted ? originalBasePrice - basePrice : undefined,
   discountPercentage: isDiscounted ? Math.round((1 - basePrice / originalBasePrice) * 100) : undefined
 };
+
+if (this.isEditMode && this.editingBasketIndex !== null) {
+  // Replace the existing basket item in place instead of appending a new one
+  this.basketService.updateItem(this.editingBasketIndex, basketItem);
+  this.udpateCart();
+  this.closeModal(); // closeModal handles resetEditMode + navigation to basket
+  return;
+}
 
 this.basketService.addItem(basketItem);
 /*   // Prepare selected options for visualization

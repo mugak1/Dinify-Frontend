@@ -67,6 +67,18 @@ export class BasketService {
     });
   }
 
+  // Replaces a basket item at the given index with a new item.
+  // Used when editing an existing basket item's selections.
+  public updateItem(index: number, item: BasketItem): void {
+    this.Basket.update((currentBasket) => {
+      if (index >= 0 && index < currentBasket.items.length) {
+        currentBasket.items[index] = item;
+        currentBasket.totalAmount = this.calculateTotalAmount(currentBasket.items);
+      }
+      return currentBasket;
+    });
+  }
+
   // Clears the basket
   public clearBasket() {
     this.Basket.update(() => ({
