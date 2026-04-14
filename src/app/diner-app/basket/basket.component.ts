@@ -24,6 +24,8 @@ export class BasketComponent {
   order_remarks = '';
   restaurant: any;
   url = environment.apiUrl;
+  upsellConfig: any = null;
+  upsellItems: any[] = [];
 
   discountActive: boolean = false; // Set to true only if discount is available
 discountType: 'percentage' | 'flat' = 'percentage';
@@ -48,6 +50,47 @@ discountValue: number = 10; // 10% or UGX amount
     this.totalAmount = this.basketService.Basket().totalAmount;
     this.table = this.sessionStorage.getItem<TableScan>('Table');
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
+
+    // Load upsell config cached by the menu component on show-menu
+    const upsellRaw = this.sessionStorage.getItem<any>('upsellConfig');
+    if (upsellRaw?.enabled && upsellRaw?.items?.length > 0) {
+      this.upsellConfig = upsellRaw;
+      this.computeUpsellItems();
+    }
+  }
+
+  // Filters and trims the upsell list based on config + current basket state
+  computeUpsellItems(): void {
+    if (!this.upsellConfig) { this.upsellItems = []; return; }
+
+    let items = [...(this.upsellConfig.items || [])];
+    items.sort((a: any, b: any) => (a.listing_position || 0) - (b.listing_position || 0));
+    items = items.filter((i: any) => i.item_available !== false);
+
+    if (this.upsellConfig.hide_out_of_stock) {
+      items = items.filter((i: any) => i.item_in_stock !== false);
+    }
+    if (this.upsellConfig.hide_if_in_basket) {
+      const basketIds = new Set(this.basketItems.map(bi => bi.itemId));
+      items = items.filter((i: any) => !basketIds.has(i.item_id || i.menu_item));
+    }
+    this.upsellItems = items.slice(0, this.upsellConfig.max_items_to_show || 6);
+  }
+
+  // Adds an upsell item to the basket (simple items — no options/extras)
+  addUpsellItem(upsellItem: any): void {
+    const price = parseFloat(upsellItem.item_price) || 0;
+    this.basketService.addItem({
+      itemId: upsellItem.item_id || upsellItem.menu_item,
+      itemName: upsellItem.item_name,
+      image: upsellItem.item_image || null,
+      basePrice: price,
+      totalPrice: price,
+      quantity: 1,
+      options: [],
+      extras: [],
+    } as any);
+    this.updateCart();
   }
 
   // Adds an item to the basket
@@ -77,6 +120,7 @@ discountValue: number = 10; // 10% or UGX amount
   updateCart() {
     this.basketItems = this.basketService.Basket().items;
     this.totalAmount = this.basketService.Basket().totalAmount;
+    this.computeUpsellItems();
   }
 
   // Initiates an order

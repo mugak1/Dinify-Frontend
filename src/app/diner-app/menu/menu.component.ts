@@ -204,11 +204,17 @@ get QuantitySum(){
     this.SaveForProcessing();
   }
   loadMenu(){
-    this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id}).subscribe((x)=>{
+    this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id}).subscribe((x:any)=>{
   this.menu_list=(x?.data as any) ?? [];
           // Initially set the filtered list to the complete menu list
           this.filteredMenuList = this.menu_list;
   this.currentSection=((this.menu_list?.[0] as MenuItem)?.name as string) ?? ''
+  // Cache upsell config so the basket can render it without another round-trip
+  if (x?.upsell) {
+    this.sessionStorage.setItem('upsellConfig', x.upsell);
+  } else {
+    this.sessionStorage.removeItem?.('upsellConfig');
+  }
     })
   }
   clearSearch() {

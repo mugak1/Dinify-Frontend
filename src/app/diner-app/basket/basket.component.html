@@ -106,6 +106,47 @@
         </div>
       </div>
 
+      <!-- Upsell Carousel -->
+      <div *ngIf="upsellItems.length > 0" class="mt-6">
+        <h3 class="font-bold text-base text-gray-900 mb-3">
+          {{ upsellConfig?.title || 'You might also like' }}
+        </h3>
+        <div class="overflow-x-auto no-scrollbar -mx-4 px-4">
+          <div class="flex gap-3" style="width: max-content;">
+            <div *ngFor="let item of upsellItems"
+                 class="w-36 flex-shrink-0 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+              <div class="w-full h-24 bg-gray-100 overflow-hidden">
+                <img *ngIf="item.item_image"
+                     [src]="url + item.item_image"
+                     [alt]="item.item_name"
+                     class="w-full h-full object-cover"
+                     loading="lazy" decoding="async" />
+                <div *ngIf="!item.item_image"
+                     class="w-full h-full flex items-center justify-center text-gray-300 text-xs">
+                  No image
+                </div>
+              </div>
+              <div class="p-2.5">
+                <h4 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
+                  {{ item.item_name }}
+                </h4>
+                <p class="text-red-600 font-bold text-sm mt-1">
+                  UGX {{ item.item_price | number }}
+                </p>
+                <button (click)="addUpsellItem(item)"
+                        class="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"/><path d="M12 5v14"/>
+                  </svg>
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Order Totals -->
       <div class="mt-4 space-y-2">
         <!-- Savings banner -->
