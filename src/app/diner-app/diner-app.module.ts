@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 
 import { BasketComponent } from './basket/basket.component';
 import { DinersMenuComponent } from './menu/menu.component';
-import { HomeComponent } from './home/home.component';
 import { RouterModule, Routes } from '@angular/router';
 import { StorageModule } from '../_services/storage/storage.module';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
@@ -15,7 +14,7 @@ import { OrderCompleteComponent } from './order-complete/order-complete.componen
 import { NgxCurrencyDirective } from 'ngx-currency';
 import { ErrorPageComponent } from "./error-page/error-page.component";
 const routes: Routes = [
-  {path: "h/:table",component:HomeComponent,title:'Home' /* redirectTo: "home", pathMatch: "prefix" */},
+  {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
 /*   {path:'home/:id',component:HomeComponent,title:'Home'}, */
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
   {path:'menu-item/:id',component:MenuItemDetailComponent},
@@ -35,7 +34,6 @@ const routes: Routes = [
 @NgModule({
   declarations: [
     DinersMenuComponent,
-    HomeComponent,
     BasketComponent,
     MenuItemDetailComponent,
     OrdersComponent,

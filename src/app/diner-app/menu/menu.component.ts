@@ -1,6 +1,7 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { MenuItem, Restaurant } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
@@ -14,13 +15,15 @@ import { environment } from 'src/environments/environment';
     styleUrls: ['./menu.component.css'],
     standalone: false
 })
-export class DinersMenuComponent implements OnInit {
+export class DinersMenuComponent implements OnInit, OnDestroy {
   url = environment.apiUrl;
 
   showSearch:boolean=false;
   globalError:string|null=null;
   selected_extras: any[]=[];
   formSubmitted = false;
+  isLoading: boolean = true;
+  private storageSub?: Subscription;
 
 
   toggleSearch() {
@@ -58,6 +61,22 @@ export class DinersMenuComponent implements OnInit {
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   this.presetTags = this.restaurant?.preset_tags || [];
   this.udpateCart();
+
+  // When coming directly from a QR scan, the table-scan API call in the
+  // DinerAppComponent wrapper may not have resolved yet — so session storage
+  // may still be empty. Wait for the `restaurant` key to be set, then load.
+  if (!this.restaurant) {
+    this.storageSub = this.sessionStorage.StorageValue.subscribe((key: any) => {
+      if (typeof key !== 'string' || !key.includes('restaurant')) return;
+      const r = this.sessionStorage.getItem<Restaurant>('restaurant') as any;
+      if (!r) return;
+      this.restaurant = r;
+      this.presetTags = this.restaurant?.preset_tags || [];
+      this.storageSub?.unsubscribe();
+      this.storageSub = undefined;
+      this.tryLoadMenu();
+    });
+  }
   }
 
   getTagBadge(tagName: string): { colorClasses: string; iconSvg: string } {
@@ -118,17 +137,43 @@ export class DinersMenuComponent implements OnInit {
     this.filterMenu();
   }
   ngOnInit(){
-   
+    // If restaurant is already available (session storage sync-read OR @Input()
+    // from staff ordering), proceed immediately. Otherwise the StorageValue
+    // subscription in the constructor will call tryLoadMenu() once it arrives.
+    if (this.restaurant) {
+      this.tryLoadMenu();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.storageSub?.unsubscribe();
+  }
+
+  private tryLoadMenu(): void {
     if(this.restaurant?.menu_approval_status=='approve'||(this.restaurant as any)?.first_time_menu_approval){
       this.loadMenu()
     }else{
       if(!this.router.url.includes('rest-app')){
       this.router.navigate(['/diner','error'])
       }else{
-        this.router.navigate([this.router.url,'error']) 
+        this.router.navigate([this.router.url,'error'])
       }
     }
+  }
 
+  /**
+   * Collects all featured items across all currently-visible sections
+   * (respects active tag / search filters via filteredMenuList).
+   */
+  get featuredItems(): any[] {
+    if (!this.filteredMenuList?.length) return [];
+    const out: any[] = [];
+    for (const section of this.filteredMenuList) {
+      for (const item of section?.items || []) {
+        if (item?.is_featured) out.push(item);
+      }
+    }
+    return out;
   }
   /**
    * Computes the total price for the current item including selected
@@ -206,19 +251,26 @@ get QuantitySum(){
     this.SaveForProcessing();
   }
   loadMenu(){
-    this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id}).subscribe((x:any)=>{
-  this.menu_list=(x?.data as any) ?? [];
-          // Initially set the filtered list to the complete menu list
-          this.filteredMenuList = this.menu_list;
-  this.currentSection=((this.menu_list?.[0] as MenuItem)?.name as string) ?? ''
-  // Cache upsell config so the basket can render it without another round-trip
-  if (x?.upsell) {
-    this.sessionStorage.setItem('upsellConfig', x.upsell);
-  } else {
-    this.sessionStorage.removeItem?.('upsellConfig');
-  }
-  // If the user tapped a basket item, re-open the detail modal pre-populated
-  this.checkEditMode();
+    this.isLoading = true;
+    this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id}).subscribe({
+      next: (x:any) => {
+        this.menu_list=(x?.data as any) ?? [];
+        // Initially set the filtered list to the complete menu list
+        this.filteredMenuList = this.menu_list;
+        this.currentSection=((this.menu_list?.[0] as MenuItem)?.name as string) ?? ''
+        // Cache upsell config so the basket can render it without another round-trip
+        if (x?.upsell) {
+          this.sessionStorage.setItem('upsellConfig', x.upsell);
+        } else {
+          this.sessionStorage.removeItem?.('upsellConfig');
+        }
+        // If the user tapped a basket item, re-open the detail modal pre-populated
+        this.checkEditMode();
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+      }
     })
   }
 
