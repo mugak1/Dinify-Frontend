@@ -59,6 +59,14 @@ export class ItemModifiersTabComponent implements OnChanges {
     return group.id;
   }
 
+  hasEmptyChoiceNames(group: ModifierGroup): boolean {
+    return group.choices.length > 0 && group.choices.some(c => !c.name?.trim());
+  }
+
+  allChoicesDisabled(group: ModifierGroup): boolean {
+    return group.choices.length > 0 && group.choices.every(c => !c.available);
+  }
+
   trackChoiceById(_index: number, choice: ModifierChoice): string {
     return choice.id;
   }

@@ -238,9 +238,19 @@ export class ItemFormDialogComponent implements OnChanges {
 
   get hasModifiersErrors(): boolean {
     if (!this.itemModifiers.hasModifiers) return false;
-    return this.itemModifiers.groups.some(
-      group => group.required && group.choices.length === 0
-    );
+    return this.itemModifiers.groups.some(group => {
+      // Required group with no choices at all
+      if (group.required && group.choices.length === 0) return true;
+      // Empty group name
+      if (!group.name?.trim()) return true;
+      // Any choice with an empty name
+      if (group.choices.some(c => !c.name?.trim())) return true;
+      // Required group where every choice is disabled
+      if (group.required && group.choices.length > 0 && group.choices.every(c => !c.available)) return true;
+      // Min selections exceeds max selections
+      if (group.minSelections > group.maxSelections) return true;
+      return false;
+    });
   }
 
   get hasExtrasErrors(): boolean { return false; }

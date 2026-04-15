@@ -88,6 +88,10 @@
                    (ngModelChange)="emitChange()"
                    placeholder="e.g. Choose your size"
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            <div *ngIf="!group.name?.trim()"
+                 class="text-xs text-destructive mb-2">
+              Group name is required.
+            </div>
           </div>
 
           <!-- Required + Selection type row -->
@@ -128,6 +132,10 @@
                        class="w-20 border border-input bg-background text-foreground rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
             </div>
+            <div *ngIf="group.minSelections > group.maxSelections"
+                 class="text-xs text-destructive mb-2">
+              Min selections cannot exceed max selections.
+            </div>
           </div>
 
           <!-- Choices -->
@@ -138,6 +146,14 @@
             <div *ngIf="group.required && group.choices.length === 0"
                  class="text-xs text-destructive mb-2">
               Required group must have at least one choice.
+            </div>
+            <div *ngIf="hasEmptyChoiceNames(group)"
+                 class="text-xs text-destructive mb-2">
+              All choices must have a name.
+            </div>
+            <div *ngIf="group.required && allChoicesDisabled(group)"
+                 class="text-xs text-destructive mb-2">
+              Required group must have at least one enabled choice.
             </div>
 
             <div cdkDropList
