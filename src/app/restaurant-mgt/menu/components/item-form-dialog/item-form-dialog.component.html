@@ -252,7 +252,7 @@
     <div class="flex justify-end gap-3 pt-5">
       <button type="button" app-dn-button variant="outline" (click)="onClose()">Cancel</button>
       <button type="submit" app-dn-button variant="default"
-              [disabled]="hasModifiersErrors || hasDiscountsErrors">
+              [disabled]="form.invalid || hasModifiersErrors || hasDiscountsErrors">
         {{ item ? 'Update' : 'Create' }}
       </button>
     </div>

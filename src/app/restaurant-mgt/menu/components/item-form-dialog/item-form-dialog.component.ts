@@ -273,12 +273,6 @@ export class ItemFormDialogComponent implements OnChanges {
       return;
     }
 
-    this.attemptedSave = true;
-    if (this.form.invalid) {
-      this.activeTab = 'details';
-      return;
-    }
-
     const payload = { ...this.form.getRawValue() };
 
     // If image is a string (existing URL, not changed), remove from payload
