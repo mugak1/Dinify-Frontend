@@ -2,7 +2,7 @@ import { Directive, Input, EventEmitter, Output, ElementRef, HostListener } from
 
 @Directive({
     selector: '[appScrollSpy]',
-    standalone: false
+    standalone: true
 })
 export class ScrollSpyCommonDirective {
     @Input() public spiedTags:any[] = [];

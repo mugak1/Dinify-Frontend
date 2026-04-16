@@ -8,10 +8,8 @@ import {
   OnDestroy,
   OnInit,
   Output,
-  QueryList,
   SimpleChanges,
   ViewChild,
-  ViewChildren,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -38,6 +36,7 @@ import { environment } from 'src/environments/environment';
 import { ItemDetailViewComponent } from '../item-detail-view/item-detail-view.component';
 import { TagFilterSheetComponent } from '../tag-filter-sheet/tag-filter-sheet.component';
 import { UpsellCarouselComponent } from '../upsell-carousel/upsell-carousel.component';
+import { ScrollSpyCommonDirective } from 'src/app/_common/scroll-spy-common.directive';
 
 type DrawerView = 'list' | 'detail' | 'cart';
 
@@ -52,6 +51,7 @@ type DrawerView = 'list' | 'detail' | 'cart';
     ItemDetailViewComponent,
     TagFilterSheetComponent,
     UpsellCarouselComponent,
+    ScrollSpyCommonDirective,
   ],
   templateUrl: './preview-menu-drawer.component.html',
 })
@@ -61,13 +61,13 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
   @ViewChild('scrollContent') scrollContent!: ElementRef<HTMLDivElement>;
   @ViewChild('stickyHeader') stickyHeader!: ElementRef<HTMLDivElement>;
-  @ViewChildren('sectionRef') sectionRefs!: QueryList<ElementRef<HTMLDivElement>>;
 
   // State
   view: DrawerView = 'list';
   searchTerm = '';
   showSearch = false;
   activeSection = '';
+  isLoading = false;
   selectedItem: any = null;
   editingCartItem: CartItem | null = null;
   selectedTags: string[] = [];
@@ -86,7 +86,6 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
   private dataSub?: Subscription;
   private cartSub?: Subscription;
-  private scrollListener?: () => void;
 
   constructor(
     private menuService: MenuService,
@@ -102,11 +101,13 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
       this.menuService.allItems$,
       this.tagService.presetTags$,
       this.menuService.sortMode$,
-    ]).subscribe(([sections, allItems, presetTags, sortMode]) => {
+      this.menuService.isLoading$,
+    ]).subscribe(([sections, allItems, presetTags, sortMode, isLoading]) => {
       this.sections = sections;
       this.allItems = allItems;
       this.presetTags = presetTags;
       this.sortMode = sortMode;
+      this.isLoading = isLoading;
     });
 
     this.cartSub = this.cartService.items$.subscribe(items => {
@@ -117,7 +118,6 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   ngOnDestroy(): void {
     this.dataSub?.unsubscribe();
     this.cartSub?.unsubscribe();
-    this.removeScrollListener();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -132,15 +132,11 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
         this.showTagFilter = false;
         this.itemToRemove = null;
         this.returnToCart = false;
-        // Set initial active section after a tick
         setTimeout(() => {
           if (this.availableSections.length > 0 && !this.activeSection) {
             this.activeSection = this.availableSections[0].id;
           }
-          this.attachScrollListener();
         }, 200);
-      } else {
-        this.removeScrollListener();
       }
     }
   }
@@ -234,6 +230,11 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     return true;
   }
 
+  get hasAnyResults(): boolean {
+    if (this.featuredItems.length > 0) return true;
+    return this.availableSections.some(s => this.getFilteredItems(s.id).length > 0);
+  }
+
   private sortItems(items: any[]): any[] {
     const sorted = [...items];
     switch (this.sortMode) {
@@ -250,49 +251,15 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
   // ─── Scroll Tracking ────────────────────────────────────────────
 
-  private attachScrollListener(): void {
-    this.removeScrollListener();
-    setTimeout(() => {
-      const container = this.scrollContent?.nativeElement;
-      if (!container) return;
-
-      const handler = () => {
-        const stickyHeight = this.stickyHeader?.nativeElement?.offsetHeight || 0;
-        const containerRect = container.getBoundingClientRect();
-        const triggerPoint = containerRect.top + stickyHeight + 2;
-
-        let currentSection = this.availableSections[0]?.id || '';
-
-        this.sectionRefs?.forEach((ref, index) => {
-          const section = this.availableSections[index];
-          if (!section) return;
-          const rect = ref.nativeElement.getBoundingClientRect();
-          if (rect.top <= triggerPoint) {
-            currentSection = section.id;
-          }
-        });
-
-        if (currentSection !== this.activeSection) {
-          this.activeSection = currentSection;
-        }
-      };
-
-      container.addEventListener('scroll', handler, { passive: true });
-      this.scrollListener = () => container.removeEventListener('scroll', handler);
-      handler(); // Initial check
-    }, 150);
-  }
-
-  private removeScrollListener(): void {
-    this.scrollListener?.();
-    this.scrollListener = undefined;
+  onSectionChange(sectionId: string): void {
+    if (!sectionId) return;
+    this.activeSection = sectionId === 'sec-featured'
+      ? 'featured'
+      : sectionId.replace(/^sec-/, '');
   }
 
   scrollToFeatured(): void {
-    const container = this.scrollContent?.nativeElement;
-    if (!container) return;
-    container.scrollTo({ top: 0, behavior: 'smooth' });
-    this.activeSection = 'featured';
+    this.scrollToSection('featured');
   }
 
   toggleSearch(): void {
@@ -305,20 +272,9 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   scrollToSection(sectionId: string): void {
     const container = this.scrollContent?.nativeElement;
     if (!container) return;
-
-    const index = this.availableSections.findIndex(s => s.id === sectionId);
-    if (index < 0) return;
-
-    const ref = this.sectionRefs?.get(index);
-    if (!ref) return;
-
-    const header = ref.nativeElement.querySelector('h2');
-    const target = header || ref.nativeElement;
-    const containerRect = container.getBoundingClientRect();
-    const elementRect = target.getBoundingClientRect();
-    const scrollTop = container.scrollTop + (elementRect.top - containerRect.top);
-
-    container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+    const target = container.querySelector<HTMLElement>(`#sec-${sectionId}`);
+    if (!target) return;
+    container.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
     this.activeSection = sectionId;
   }
 

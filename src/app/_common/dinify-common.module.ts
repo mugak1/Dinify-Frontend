@@ -23,7 +23,6 @@ import { SafePipe } from './common.pipe';
     AutoCompleteComponent,
     ConfirmDialogComponent,
     MenuCommonComponent,
-    ScrollSpyCommonDirective,
     CommonUsersComponent,
     CommonUserProfileComponent,
     OtpInputComponent,
@@ -48,6 +47,7 @@ import { SafePipe } from './common.pipe';
     ReactiveFormsModule,
     NgxIntlTelephoneInputModule,
     FormsModule,
+    ScrollSpyCommonDirective,
   ]
 })
 export class DinifyCommonModule { }

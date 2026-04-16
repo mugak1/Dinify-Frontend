@@ -14,27 +14,51 @@
         <div class="border-b flex-shrink-0 px-4 py-3">
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold">Preview Menu</h2>
-            <div class="flex items-center gap-4">
-              @if (totalItems > 0) {
-                <button app-dn-button variant="outline" size="sm" class="gap-2"
-                        (click)="openCart()">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
-                    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
-                  </svg>
-                  {{ totalItems }} {{ totalItems === 1 ? 'item' : 'items' }} - {{ formatPrice(totalPrice) }}
-                </button>
-              }
-              <button class="rounded-sm opacity-70 hover:opacity-100 p-1" (click)="onClose()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-                </svg>
-              </button>
-            </div>
+            <button class="rounded-sm opacity-70 hover:opacity-100 p-1" (click)="onClose()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+              </svg>
+            </button>
           </div>
         </div>
+
+        <!-- Skeleton loading state -->
+        @if (isLoading) {
+          <div class="flex-1 overflow-hidden">
+            <!-- Skeleton tab bar -->
+            <div class="w-full bg-white border-b border-gray-200">
+              <div class="flex items-center gap-2 px-4 py-2.5">
+                <div class="flex-shrink-0 w-9 h-9 bg-gray-200 animate-pulse rounded"></div>
+                <div class="flex-1 flex gap-2 overflow-hidden">
+                  <div class="flex-shrink-0 h-7 w-24 bg-gray-200 animate-pulse rounded-full"></div>
+                  <div class="flex-shrink-0 h-7 w-20 bg-gray-200 animate-pulse rounded-full"></div>
+                  <div class="flex-shrink-0 h-7 w-16 bg-gray-200 animate-pulse rounded-full"></div>
+                  <div class="flex-shrink-0 h-7 w-20 bg-gray-200 animate-pulse rounded-full"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Skeleton cards -->
+            <div class="flex flex-col px-6 pt-4">
+              @for (_ of [1,2,3,4,5]; track $index) {
+                <div class="mb-3 rounded-none bg-white shadow-sm border border-gray-100">
+                  <div class="flex gap-3 p-3">
+                    <div class="flex-1 min-w-0 flex flex-col gap-2">
+                      <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
+                      <div class="h-3 w-full bg-gray-200 animate-pulse rounded"></div>
+                      <div class="h-3 w-5/6 bg-gray-200 animate-pulse rounded"></div>
+                      <div class="h-4 w-24 bg-gray-200 animate-pulse rounded mt-auto"></div>
+                    </div>
+                    <div class="w-[112px] h-[112px] bg-gray-200 animate-pulse rounded-none flex-shrink-0"></div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (!isLoading) {
 
         <!-- Sticky header: icons + tabs (or search bar) + active filter badges -->
         <div #stickyHeader class="flex-shrink-0 bg-background relative z-20">
@@ -178,52 +202,93 @@
         </div>
 
         <!-- Scrollable content -->
-        <div #scrollContent class="flex-1 overflow-y-auto min-h-0">
-          <div class="px-4 py-4 space-y-6">
+        <div #scrollContent
+             appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)"
+             class="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-6">
 
-            <!-- Featured Section -->
-            @if (featuredItems.length > 0) {
-              <div>
-                <h2 class="text-xl font-bold mb-4 py-2 border-b flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                       fill="#eab308" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                  </svg>
-                  Featured
+          <!-- Featured Section -->
+          @if (featuredItems.length > 0) {
+            <div id="sec-featured">
+              <h2 class="text-xl font-bold mb-4 py-2 border-b flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                     fill="#eab308" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                Featured
+              </h2>
+              <div class="space-y-4">
+                @for (item of featuredItems; track item.id) {
+                  <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: 'featured-' }"></ng-container>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Regular Sections -->
+          @for (section of availableSections; track section.id) {
+            @if (shouldShowSection(section.id)) {
+              <div [id]="'sec-' + section.id">
+                <h2 [class]="'text-xl font-bold mb-4 py-2 border-b transition-colors duration-200 ' +
+                  (activeSection === section.id
+                    ? 'text-primary border-primary'
+                    : 'text-foreground border-border')">
+                  {{ section.name }}
                 </h2>
-                <div class="space-y-4">
-                  @for (item of featuredItems; track item.id) {
-                    <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: 'featured-' }"></ng-container>
-                  }
-                </div>
+
+                @if (getFilteredItems(section.id).length === 0) {
+                  <p class="text-center text-muted-foreground py-4">No items available</p>
+                } @else {
+                  <div class="space-y-4">
+                    @for (item of getFilteredItems(section.id); track item.id) {
+                      <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: '' }"></ng-container>
+                    }
+                  </div>
+                }
               </div>
             }
+          }
 
-            <!-- Regular Sections -->
-            @for (section of availableSections; track section.id; let i = $index) {
-              @if (shouldShowSection(section.id)) {
-                <div #sectionRef>
-                  <h2 [class]="'text-xl font-bold mb-4 py-2 border-b transition-colors duration-200 ' +
-                    (activeSection === section.id
-                      ? 'text-primary border-primary'
-                      : 'text-foreground border-border')">
-                    {{ section.name }}
-                  </h2>
+          <!-- Empty state (no items match current filters) -->
+          @if (!hasAnyResults) {
+            <div class="flex flex-col items-center justify-center h-full w-full">
+              <svg width="300px" height="200px" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Magnifying Glass -->
+                <circle cx="100" cy="80" r="50" stroke="#d1d5db" stroke-width="6" fill="none"/>
+                <line x1="140" y1="120" x2="180" y2="160" stroke="#d1d5db" stroke-width="6" stroke-linecap="round"/>
 
-                  @if (getFilteredItems(section.id).length === 0) {
-                    <p class="text-center text-muted-foreground py-4">No items available</p>
-                  } @else {
-                    <div class="space-y-4">
-                      @for (item of getFilteredItems(section.id); track item.id) {
-                        <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: '' }"></ng-container>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-            }
-          </div>
+                <!-- Sad Face -->
+                <circle cx="100" cy="80" r="5" fill="#d1d5db"/>
+                <path d="M90 95 Q100 105 110 95" stroke="#d1d5db" stroke-width="4" stroke-linecap="round" fill="none"/>
+
+                <!-- Text -->
+                <text x="50%" y="180" text-anchor="middle" fill="#6b7280" font-size="16px">No items found</text>
+              </svg>
+            </div>
+          }
         </div>
+
+        <!-- Floating basket bar (flex footer — stays inside the drawer bounds) -->
+        @if (totalItems > 0) {
+          <div class="flex-shrink-0 p-3 bg-white border-t border-gray-200 shadow-lg">
+            <button (click)="openCart()"
+                    class="w-full flex items-center justify-between bg-red-600 hover:bg-red-700 text-white rounded-xl px-5 py-3.5 shadow-md transition-colors">
+              <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
+                  <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                </svg>
+                <span class="font-semibold">View Basket</span>
+                <span class="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {{ totalItems }}
+                </span>
+              </div>
+              <span class="font-bold text-base">{{ formatPrice(totalPrice) }}</span>
+            </button>
+          </div>
+        }
+
+        }
 
       <!-- ═══════════════════════ VIEW: DETAIL ═══════════════════════ -->
       } @else if (view === 'detail') {
