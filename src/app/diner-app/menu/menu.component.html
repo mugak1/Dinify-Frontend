@@ -293,12 +293,6 @@
           </span>
         </div>
 
-        <!-- Special ribbon (top-right) -->
-        <div *ngIf="i?.is_special && !isOutOfStock(i)"
-             class="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg z-10">
-          SPECIAL
-        </div>
-
         <!-- Eager native <img>: images are preloaded before the menu reveals,
              so this paints from cache immediately without any lazy delay. -->
         <img *ngIf="i.image"
@@ -358,7 +352,7 @@
         </div>
 
         <!-- Badge row -->
-        <div *ngIf="selected_item.is_featured || selected_item.is_popular || selected_item.is_new || selected_item.is_special"
+        <div *ngIf="selected_item.is_featured || selected_item.is_popular || selected_item.is_new"
              class="flex flex-wrap gap-2 px-6 pt-4">
           <span *ngIf="selected_item.is_featured"
                 class="inline-flex items-center gap-1 bg-amber-500 text-white text-xs font-semibold uppercase px-2 py-1 rounded">
@@ -371,10 +365,6 @@
           <span *ngIf="selected_item.is_new"
                 class="inline-flex items-center gap-1 bg-green-500 text-white text-xs font-semibold uppercase px-2 py-1 rounded">
             ✦ New
-          </span>
-          <span *ngIf="selected_item.is_special"
-                class="inline-flex items-center gap-1 bg-red-500 text-white text-xs font-semibold uppercase px-2 py-1 rounded">
-            SPECIAL
           </span>
         </div>
 

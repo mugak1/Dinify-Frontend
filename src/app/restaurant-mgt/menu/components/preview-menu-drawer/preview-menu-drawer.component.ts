@@ -332,16 +332,26 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     return formatUGX(amount);
   }
 
-  getTagBadges(item: any): { name: string; colorClasses: string; iconSvg: string }[] {
-    const tags = item.allergens || [];
-    return tags.map((tagName: string) => {
-      const preset = this.presetTags.find(p => p.name === tagName);
-      return {
-        name: tagName,
-        colorClasses: preset ? getTagColorClasses(preset.color) : 'bg-muted text-muted-foreground',
-        iconSvg: preset ? getTagIcon(preset.icon) : '',
-      };
-    });
+  getTagBadge(tagName: string): { colorClasses: string; iconSvg: string } {
+    const preset = this.presetTags.find(p => p.name === tagName);
+    return {
+      colorClasses: preset ? getTagColorClasses(preset.color) : 'bg-muted text-muted-foreground',
+      iconSvg: preset ? getTagIcon(preset.icon) : '',
+    };
+  }
+
+  getDiscountPercent(item: any): number {
+    const original = parseFloat(item?.primary_price) || 0;
+    const discounted = parseFloat(item?.discount_details?.discount_amount) || 0;
+    if (!original || !discounted) return 0;
+    return Math.round(((original - discounted) / original) * 100);
+  }
+
+  getItemSavingsFromItem(item: any): number {
+    return calculateSavings(
+      parseFloat(item?.primary_price) || 0,
+      item?.discount_details
+    );
   }
 
   getModifierAdditionalCost(modifier: any): number {

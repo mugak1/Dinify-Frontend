@@ -75,11 +75,6 @@
             
                 <div (click)="viewItem(i)" class="w-[150px] ml-auto mr-2">
                      <div class="relative w-[100px] h-[100px] ml-auto">
-  <!-- Ribbon -->
-  <div *ngIf="i?.is_special"
-       class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md z-10">
-    SPECIAL
-  </div>
                   <app-common-image [container]="true" [imgclass]="'rounded-lg ml-auto'" [src]="i.image" [width]="'100'" [height]="'100'">
                   </app-common-image>
                   </div>
@@ -160,12 +155,7 @@
                 <div class="flex flex-col flex-grow overflow-y-auto align-top" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionItemChange($event)">
                   <div class="relative mx-auto py-6 w-fit">
    <div class="relative w-[300px] h-[300px]">
-  <!-- Ribbon -->
-  <div *ngIf="selected_item?.is_special"
-       class="absolute -top-2 left-0 bg-red-500 opacity-80 text-white text-xs font-bold px-2 py-1 rounded-md z-10">
-    SPECIAL
-  </div>
-                     <app-common-image [imgclass]="'rounded-lg'" [src]="selected_item.image" [width]="'300'" [height]="'300'"></app-common-image> 
+                     <app-common-image [imgclass]="'rounded-lg'" [src]="selected_item.image" [width]="'300'" [height]="'300'"></app-common-image>
 </div>
                      <ng-container *ngIf="selected_item?.running_discount">
                       <div class="absolute top-2 right-2">

@@ -408,33 +408,37 @@
           </span>
         }
       </div>
+      @if (hasActiveDiscount(item) && !isOutOfStock(item)) {
+        <span class="inline-flex items-center self-start bg-black text-white text-xs font-medium px-2 py-0.5 rounded-full mt-1">
+          -{{ getDiscountPercent(item) }}%
+          <span class="ml-1 text-gray-400">Save {{ formatPrice(getItemSavingsFromItem(item)) }}</span>
+        </span>
+      }
       @if (item.description) {
         <p class="text-sm text-muted-foreground mt-1 line-clamp-2">{{ item.description }}</p>
       }
+      @if (item.calories) {
+        <span class="text-xs text-muted-foreground mt-1">{{ item.calories }} kcal</span>
+      }
       <div class="mt-2 flex items-center gap-2 flex-wrap">
         @if (hasActiveDiscount(item)) {
-          <span class="text-sm text-muted-foreground line-through">{{ getOriginalPrice(item) }}</span>
           <span [class]="'text-lg font-bold ' + (isOutOfStock(item) ? 'text-muted-foreground' : 'text-red-600')">
             {{ getItemPrice(item) }}
           </span>
+          <span class="text-sm text-muted-foreground line-through">{{ getOriginalPrice(item) }}</span>
         } @else {
           <span [class]="'text-lg font-bold ' + (isOutOfStock(item) ? 'text-muted-foreground' : 'text-red-600')">
             {{ getItemPrice(item) }}
           </span>
         }
-        @if (item.is_special && !isOutOfStock(item)) {
-          <span class="inline-flex items-center rounded-full bg-secondary text-secondary-foreground text-xs px-2 py-0.5">
-            Special
-          </span>
-        }
       </div>
       <!-- Tags -->
-      @if (getTagBadges(item).length > 0) {
+      @if (item.allergens?.length) {
         <div class="mt-2 flex flex-wrap gap-1">
-          @for (tag of getTagBadges(item); track tag.name) {
-            <span [class]="'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ' + tag.colorClasses">
-              <span [innerHTML]="tag.iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
-              {{ tag.name }}
+          @for (tag of item.allergens; track tag) {
+            <span [class]="'inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ' + getTagBadge(tag).colorClasses">
+              <span [innerHTML]="getTagBadge(tag).iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
+              {{ tag }}
             </span>
           }
         </div>
@@ -446,6 +450,11 @@
       (isOutOfStock(item) ? 'grayscale' : '')">
       <!-- Badge overlays -->
       <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
+        @if (item.is_featured && !isOutOfStock(item)) {
+          <span class="bg-amber-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+            ★ Featured
+          </span>
+        }
         @if (hasActiveDiscount(item) && !isOutOfStock(item)) {
           <span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
             {{ getDiscountBadge(item) }}

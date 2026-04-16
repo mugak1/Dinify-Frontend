@@ -347,10 +347,6 @@ this.list=this.list_cache?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return +n
             this.list=this.list_cache?.sort((a:OrdersListItem,b:OrdersListItem)=>{ return b.table_details.table_number-a.table_details.table_number;})
                 break;
               }
-               case 'specials': {
-      this.list = this.list_cache?.filter((item: OrdersListItem) => item.items.some(i => i.item.is_special));
-      break;
-    }
 
   default:{
 break;
