@@ -4,21 +4,26 @@
     <div class="fixed inset-0 bg-black/50 transition-opacity" (click)="close()"></div>
 
     <!-- Bottom sheet panel -->
-    <div class="fixed bottom-0 left-0 right-0 z-[60] bg-card rounded-t-2xl shadow-lg flex flex-col"
-         style="height: 70vh; max-height: 70vh;">
+    <div class="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-2xl shadow-lg flex flex-col"
+         style="max-height: 70vh;">
+
+      <!-- Handle bar -->
+      <div class="flex justify-center pt-3 pb-1">
+        <div class="w-10 h-1 rounded-full bg-gray-300"></div>
+      </div>
 
       <!-- Header -->
-      <div class="px-6 pt-5 pb-4 border-b flex-shrink-0">
-        <h2 class="text-lg font-semibold text-foreground">Filter by Tags</h2>
-        <p class="text-sm text-muted-foreground mt-1">
-          Select dietary preferences or attributes to filter the menu
+      <div class="px-6 pb-4">
+        <h2 class="text-lg font-bold text-gray-900">Filter by Dietary Preference</h2>
+        <p class="text-sm text-gray-500 mt-1">
+          Show only items matching your preferences
         </p>
       </div>
 
       <!-- Tag list (scrollable) -->
-      <div class="flex-1 overflow-y-auto px-6 py-4">
+      <div class="flex-1 overflow-y-auto px-6 pb-4">
         @if (filterableTags.length === 0) {
-          <div class="text-center py-8 text-muted-foreground">
+          <div class="text-center py-8 text-gray-400">
             No filter options available
           </div>
         } @else {
@@ -26,15 +31,15 @@
             @for (tag of filterableTags; track tag.id) {
               <button
                 (click)="toggleTag(tag.name)"
-                [class]="'w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left ' +
-                  (isSelected(tag.name)
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:bg-muted/50')">
+                class="w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left"
+                [class]="isSelected(tag.name)
+                  ? 'border-red-500 bg-red-50'
+                  : 'border-gray-200 hover:bg-gray-50'">
                 <!-- Checkbox indicator -->
-                <div [class]="'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ' +
-                  (isSelected(tag.name)
-                    ? 'bg-primary border-primary'
-                    : 'border-input')">
+                <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+                     [class]="isSelected(tag.name)
+                       ? 'bg-red-600 border-red-600'
+                       : 'border-gray-300'">
                   @if (isSelected(tag.name)) {
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
                          stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -43,14 +48,15 @@
                   }
                 </div>
                 <!-- Tag icon box -->
-                <div [class]="'w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ' + getColorClasses(tag.color)"
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                     [ngClass]="getColorClasses(tag.color)"
                      [innerHTML]="getIconSvg(tag.icon)">
                 </div>
                 <!-- Tag name -->
-                <span class="font-medium flex-1">{{ tag.name }}</span>
+                <span class="font-medium text-gray-900 flex-1">{{ tag.name }}</span>
                 <!-- Item count -->
-                <span class="text-sm text-muted-foreground">
-                  ({{ getItemCount(tag.name) }} {{ getItemCount(tag.name) === 1 ? 'item' : 'items' }})
+                <span class="text-sm text-gray-400">
+                  {{ getItemCount(tag.name) }} {{ getItemCount(tag.name) === 1 ? 'item' : 'items' }}
                 </span>
               </button>
             }
@@ -59,18 +65,15 @@
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t flex-shrink-0 flex gap-3">
-        <button app-dn-button
-                variant="outline"
-                class="flex-1"
+      <div class="px-6 py-4 border-t border-gray-200 flex gap-3">
+        <button (click)="clearAll(); close()"
                 [disabled]="localSelectedTags.length === 0"
-                (click)="clearAll()">
+                class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-colors hover:bg-gray-50">
           Clear All
         </button>
-        <button app-dn-button
-                class="flex-1"
-                (click)="onApply()">
-          Apply Filters{{ localSelectedTags.length > 0 ? ' (' + localSelectedTags.length + ')' : '' }}
+        <button (click)="onApply()"
+                class="flex-1 py-3 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors">
+          Apply{{ localSelectedTags.length > 0 ? ' (' + localSelectedTags.length + ')' : '' }}
         </button>
       </div>
     </div>

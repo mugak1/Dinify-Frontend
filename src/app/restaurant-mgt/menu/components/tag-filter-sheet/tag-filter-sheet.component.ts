@@ -1,13 +1,12 @@
 import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { PresetTag } from '../../services/tag.service';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 
 @Component({
   selector: 'app-tag-filter-sheet',
   standalone: true,
-  imports: [CommonModule, ButtonComponent],
+  imports: [CommonModule],
   templateUrl: './tag-filter-sheet.component.html',
 })
 export class TagFilterSheetComponent implements OnChanges {

@@ -36,86 +36,135 @@
           </div>
         </div>
 
-        <!-- Sticky header: section tabs + search + filters -->
+        <!-- Sticky header: icons + tabs (or search bar) + active filter badges -->
         <div #stickyHeader class="flex-shrink-0 bg-background relative z-20">
-          <!-- Section tabs -->
-          <div class="border-b overflow-x-auto">
-            <div class="flex px-4 py-2 gap-2">
-              @for (section of availableSections; track section.id) {
-                <button app-dn-button
-                        [variant]="activeSection === section.id ? 'default' : 'outline'"
-                        size="sm"
-                        class="whitespace-nowrap transition-all"
-                        (click)="scrollToSection(section.id); $event.stopPropagation()">
-                  {{ section.name }}
-                </button>
-              }
-            </div>
-          </div>
-
-          <!-- Search + filter -->
-          <div class="p-4 border-b space-y-3">
-            <div class="flex gap-2">
-              <div class="relative flex-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                     class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input type="text"
-                       placeholder="Search menu..."
-                       [(ngModel)]="searchTerm"
-                       class="w-full pl-9 pr-3 py-2 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
-              </div>
-
-              @if (filterableTags.length > 0) {
-                <button app-dn-button
-                        [variant]="selectedTags.length > 0 ? 'default' : 'outline'"
-                        size="icon"
-                        class="flex-shrink-0 relative"
-                        (click)="showTagFilter = true">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/>
-                    <line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/>
-                    <line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/>
-                    <line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/>
-                    <line x1="18" x2="22" y1="16" y2="16"/>
+          <!-- Header row: icons + pill tabs (hidden while searching) -->
+          @if (!showSearch) {
+            <div class="border-b border-gray-200">
+              <div class="flex items-center gap-2 px-4 py-2.5">
+                <!-- Search icon (opens search) -->
+                <button (click)="toggleSearch()"
+                        class="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M21 21l-4.35-4.35M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>
                   </svg>
-                  @if (selectedTags.length > 0) {
-                    <span class="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                      {{ selectedTags.length }}
-                    </span>
-                  }
                 </button>
-              }
-            </div>
 
-            <!-- Active filter badges -->
-            @if (selectedTags.length > 0) {
-              <div class="flex flex-wrap gap-1.5 items-center">
-                <span class="text-xs text-muted-foreground mr-1">Filters:</span>
-                @for (tagName of selectedTags; track tagName) {
-                  <span [class]="'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium pr-1 ' + getTagColor(tagName)">
-                    <span [innerHTML]="getTagIconSvg(tagName)" class="[&>svg]:h-3 [&>svg]:w-3"></span>
-                    {{ tagName }}
-                    <button (click)="removeTag(tagName); $event.stopPropagation()"
-                            class="ml-1 rounded-full hover:bg-black/10 p-0.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                <!-- Filter icon (moved to left cluster) -->
+                @if (filterableTags.length > 0) {
+                  <button (click)="showTagFilter = true"
+                          class="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors relative">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <line x1="4" x2="4" y1="21" y2="14" stroke="currentColor" stroke-width="2"/>
+                      <line x1="4" x2="4" y1="10" y2="3" stroke="currentColor" stroke-width="2"/>
+                      <line x1="12" x2="12" y1="21" y2="12" stroke="currentColor" stroke-width="2"/>
+                      <line x1="12" x2="12" y1="8" y2="3" stroke="currentColor" stroke-width="2"/>
+                      <line x1="20" x2="20" y1="21" y2="16" stroke="currentColor" stroke-width="2"/>
+                      <line x1="20" x2="20" y1="12" y2="3" stroke="currentColor" stroke-width="2"/>
+                      <line x1="2" x2="6" y1="14" y2="14" stroke="currentColor" stroke-width="2"/>
+                      <line x1="10" x2="14" y1="8" y2="8" stroke="currentColor" stroke-width="2"/>
+                      <line x1="18" x2="22" y1="16" y2="16" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    @if (selectedTags.length > 0) {
+                      <span class="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                        {{ selectedTags.length }}
+                      </span>
+                    }
+                  </button>
+                }
+
+                <!-- Pill tabs (horizontal scroll) -->
+                <div class="flex-1 overflow-x-auto no-scrollbar">
+                  <div class="flex gap-2">
+                    <!-- Featured pill (first, only when featured items exist) -->
+                    @if (featuredItems.length > 0) {
+                      <button (click)="scrollToFeatured(); $event.stopPropagation()"
+                              class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
+                              [class]="activeSection === 'featured'
+                                ? 'bg-red-600 text-white shadow-sm'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                             [attr.fill]="activeSection === 'featured' ? '#ffffff' : '#eab308'"
+                             [attr.stroke]="activeSection === 'featured' ? '#ffffff' : '#eab308'"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                        Featured
+                      </button>
+                    }
+
+                    @for (section of availableSections; track section.id) {
+                      <button (click)="scrollToSection(section.id); $event.stopPropagation()"
+                              class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
+                              [class]="activeSection === section.id
+                                ? 'bg-red-600 text-white shadow-sm'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                        {{ section.name }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Search bar (replaces tabs when active) -->
+          @if (showSearch) {
+            <div class="border-b border-gray-200">
+              <div class="flex items-center gap-2 px-4 py-2.5">
+                <div class="relative flex-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                       class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M21 21l-4.35-4.35M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>
+                  </svg>
+                  <input type="text"
+                         placeholder="Search menu..."
+                         [(ngModel)]="searchTerm"
+                         class="w-full pl-10 pr-8 py-2 bg-gray-100 text-gray-900 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white border border-transparent focus:border-red-500"/>
+                  @if (searchTerm) {
+                    <button (click)="searchTerm = ''"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M18 6 6 18M6 6l12 12"/>
                       </svg>
                     </button>
-                  </span>
-                }
-                <button app-dn-button variant="ghost" size="sm"
-                        class="h-6 text-xs text-muted-foreground px-2"
-                        (click)="clearAllTags()">
-                  Clear all
+                  }
+                </div>
+                <button (click)="toggleSearch()"
+                        class="flex-shrink-0 text-sm font-medium text-red-600 hover:text-red-700 px-2 py-2">
+                  Cancel
                 </button>
               </div>
-            }
-          </div>
+            </div>
+          }
+
+          <!-- Active filter badges (own row, mirrors diner) -->
+          @if (selectedTags.length > 0) {
+            <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-2">
+              <span class="text-xs text-gray-500">Filters:</span>
+              @for (tagName of selectedTags; track tagName) {
+                <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
+                      [class]="getTagColor(tagName)">
+                  <span [innerHTML]="getTagIconSvg(tagName)" class="[&>svg]:h-3 [&>svg]:w-3"></span>
+                  {{ tagName }}
+                  <button (click)="removeTag(tagName); $event.stopPropagation()"
+                          class="ml-0.5 rounded-full hover:bg-black/10 p-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                    </svg>
+                  </button>
+                </span>
+              }
+              <button (click)="clearAllTags()"
+                      class="text-xs text-red-600 font-medium px-2 py-1 hover:text-red-700">
+                Clear all
+              </button>
+            </div>
+          }
 
           <!-- Tag Filter Sheet -->
           <app-tag-filter-sheet

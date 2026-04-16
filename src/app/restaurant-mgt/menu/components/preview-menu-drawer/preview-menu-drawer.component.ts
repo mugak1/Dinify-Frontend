@@ -66,6 +66,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   // State
   view: DrawerView = 'list';
   searchTerm = '';
+  showSearch = false;
   activeSection = '';
   selectedItem: any = null;
   editingCartItem: CartItem | null = null;
@@ -124,6 +125,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
       if (this.open) {
         this.view = 'list';
         this.searchTerm = '';
+        this.showSearch = false;
         this.selectedItem = null;
         this.editingCartItem = null;
         this.selectedTags = [];
@@ -284,6 +286,20 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   private removeScrollListener(): void {
     this.scrollListener?.();
     this.scrollListener = undefined;
+  }
+
+  scrollToFeatured(): void {
+    const container = this.scrollContent?.nativeElement;
+    if (!container) return;
+    container.scrollTo({ top: 0, behavior: 'smooth' });
+    this.activeSection = 'featured';
+  }
+
+  toggleSearch(): void {
+    this.showSearch = !this.showSearch;
+    if (!this.showSearch) {
+      this.searchTerm = '';
+    }
   }
 
   scrollToSection(sectionId: string): void {
