@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { provideRouter } from '@angular/router';
 
 import { ErrorPageComponent } from './error-page.component';
 
@@ -10,6 +11,7 @@ describe('ErrorPageComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ErrorPageComponent],
+      providers: [provideRouter([])],
       schemas: [NO_ERRORS_SCHEMA],
     })
     .compileComponents();
