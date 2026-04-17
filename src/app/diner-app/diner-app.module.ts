@@ -13,9 +13,9 @@ import { PaymentDetailsComponent } from './payment-details/payment-details.compo
 import { OrderCompleteComponent } from './order-complete/order-complete.component';
 import { NgxCurrencyDirective } from 'ngx-currency';
 import { ErrorPageComponent } from "./error-page/error-page.component";
+import { DinerFooterComponent } from './diner-footer/diner-footer.component';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
-/*   {path:'home/:id',component:HomeComponent,title:'Home'}, */
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
   {path:'menu-item/:id',component:MenuItemDetailComponent},
   {path:'menu/basket',component:BasketComponent,title:'Basket'},
@@ -37,7 +37,8 @@ const routes: Routes = [
     BasketComponent,
     MenuItemDetailComponent,
     OrdersComponent,
-    PaymentDetailsComponent
+    PaymentDetailsComponent,
+    OrderCompleteComponent
   ],
   imports: [
     CommonModule,
@@ -49,7 +50,8 @@ const routes: Routes = [
     DinifyCommonModule,
     NgxCurrencyDirective,
     FormsModule,
-    ErrorPageComponent
+    ErrorPageComponent,
+    DinerFooterComponent
 ],
   exports:[
     RouterModule,
