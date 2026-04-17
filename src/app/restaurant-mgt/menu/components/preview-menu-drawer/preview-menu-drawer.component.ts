@@ -274,7 +274,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     if (!container) return;
     const target = container.querySelector<HTMLElement>(`#sec-${sectionId}`);
     if (!target) return;
-    container.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     this.activeSection = sectionId;
   }
 
