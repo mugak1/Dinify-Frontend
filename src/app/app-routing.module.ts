@@ -20,6 +20,9 @@ const routes: Routes = [
 {path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin']},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
 {path:'diner',component:DinerAppComponent,loadChildren:()=> import('./diner-app/diner-app.module').then(m=>m.DinerAppModule)},
 { path: "lock-otp-exp", component: LockScreenComponent },
+{ path: 'privacy', loadComponent: () => import('./legal/privacy-policy/privacy-policy.component').then(m => m.PrivacyPolicyComponent), title: 'Privacy Policy' },
+{ path: 'terms', loadComponent: () => import('./legal/terms-and-conditions/terms-and-conditions.component').then(m => m.TermsAndConditionsComponent), title: 'Terms and Conditions' },
+{ path: 'cookies', loadComponent: () => import('./legal/cookie-policy/cookie-policy.component').then(m => m.CookiePolicyComponent), title: 'Cookie Policy' },
     // otherwise redirect to home
 { path: '**', redirectTo: 'login' }
 ];
