@@ -44,6 +44,9 @@ interface ParsedModifierGroup {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './item-detail-view.component.html',
+  host: {
+    class: 'flex flex-col h-full min-h-0',
+  },
 })
 export class ItemDetailViewComponent implements OnInit, OnChanges, OnDestroy {
   @Input() item: any = null;
