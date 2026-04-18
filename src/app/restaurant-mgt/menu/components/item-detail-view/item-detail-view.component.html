@@ -1,18 +1,19 @@
 <div class="flex flex-col h-full" *ngIf="item">
 
   <!-- Header (sticky) -->
-  <div class="border-b p-4 flex items-center gap-3 sticky top-0 bg-card z-10">
+  <div class="border-b p-4 flex items-center sticky top-0 bg-card z-10">
     <button
       type="button"
-      class="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
       (click)="onBack()"
+      class="inline-flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
       </svg>
+      <span class="font-semibold">Menu</span>
+      <span class="sr-only">Back to menu</span>
     </button>
-    <h2 class="font-semibold text-lg truncate">{{ item.name }}</h2>
   </div>
 
   <!-- Scrollable content -->
