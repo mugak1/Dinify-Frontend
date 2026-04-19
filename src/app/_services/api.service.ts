@@ -82,16 +82,22 @@ export class ApiService {
 
     Object.keys(obj).forEach(key => {
       const value = obj[key];
-  
+
+      if (value === null || value === undefined) {
+        return;
+      }
+
       if (value instanceof File) {
         formData.append(key, value);
-      } else if (typeof value === 'object' && value !== null) {
-        formData.append(key, value?.id || '');
+      } else if (Array.isArray(value)) {
+        formData.append(key, JSON.stringify(value));
+      } else if (typeof value === 'object') {
+        formData.append(key, value.id ? String(value.id) : JSON.stringify(value));
       } else {
         formData.append(key, String(value));
       }
     });
-  
+
     return formData;
   }
 }
