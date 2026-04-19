@@ -2,7 +2,7 @@ import { Location } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
-import { BasketItem, OrderInitiated, Restaurant, SelectedOption, ShoppingBasket, TableScan } from 'src/app/_models/app.models';
+import { BasketItem, OrderInitiated, Restaurant, SelectedModifier, ShoppingBasket, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { MessageService } from 'src/app/_services/message.service';
@@ -77,7 +77,7 @@ discountValue: number = 10; // 10% or UGX amount
     this.upsellItems = items.slice(0, this.upsellConfig.max_items_to_show || 6);
   }
 
-  // Adds an upsell item to the basket (simple items — no options/extras)
+  // Adds an upsell item to the basket (simple items — no modifiers/extras)
   addUpsellItem(upsellItem: any): void {
     const price = parseFloat(upsellItem.item_price) || 0;
     this.basketService.addItem({
@@ -87,7 +87,7 @@ discountValue: number = 10; // 10% or UGX amount
       basePrice: price,
       totalPrice: price,
       quantity: 1,
-      options: [],
+      selectedModifiers: [],
       extras: [],
     } as any);
     this.updateCart();
@@ -101,7 +101,7 @@ discountValue: number = 10; // 10% or UGX amount
       basePrice: item.basePrice,
       totalPrice: item.totalPrice,
       quantity: 1,
-      options: item.options,
+      selectedModifiers: item.selectedModifiers,
       extras: item.extras
     });
     this.updateCart();
@@ -120,8 +120,8 @@ discountValue: number = 10; // 10% or UGX amount
   }
 
   // Removes an item from the basket
-  removeItem(itemId: string, options: SelectedOption[] = []) {
-    this.basketService.removeItem(itemId, options);
+  removeItem(itemId: string, selectedModifiers: SelectedModifier[] = []) {
+    this.basketService.removeItem(itemId, selectedModifiers);
     this.updateCart();
     if (this.basketItems.length === 0) {
       this.loc.back(); // Navigate back if the basket is empty
@@ -143,36 +143,20 @@ discountValue: number = 10; // 10% or UGX amount
       submitButtonText: 'Order',
     }).subscribe((response: any) => {
       if (response?.action === 'yes') {
-/*         const orderPayload = {
-          restaurant: this.restaurant.id,
-          table: this.table?.id,
-          items: this.basketItems.map((item) => ({
-            item: item.itemId,
-            quantity: item.quantity,
-            options: item.options.map((opt) => ({
-              optionName: opt.optionName,
-              choice: opt.choice,
-              cost: opt.cost,
-            })),
-          })),
-          order_remarks: this.order_remarks,
-        }; */
       const orderPayload = {
         restaurant: this.restaurant?.id,
         table: this.table?.id,
         order_remarks: this.order_remarks,
         items: this.basketItems.map((item) => ({
-          
           item: item.itemId,
           quantity: item.quantity,
-
-          // ✅ Transform options array → { optionIndex: [choiceIndex] }
-          options: item.options.reduce((acc: { [key: number]: number[] }, opt: any) => {
-            acc[opt.optionIndex] = [opt.choiceIndex];
-            return acc;
-          }, {}),
-
-          // ✅ Transform extras → array of extra IDs
+          selected_modifiers: (item.selectedModifiers || []).reduce(
+            (acc, mod) => {
+              acc[mod.groupId] = mod.choices.map(c => c.id);
+              return acc;
+            },
+            {} as Record<string, string[]>
+          ),
           extras: item.extras.map(extra => extra.id)
         })),
       };
@@ -197,11 +181,14 @@ discountValue: number = 10; // 10% or UGX amount
   }
   getOriginalSubtotal(item: BasketItem): number | null {
     if (!item.isDiscounted || !item.originalBasePrice) return null;
-  
-    const optionsCost = item.options?.reduce((sum, opt) => sum + (opt.cost || 0), 0) || 0;
-    const extrasCost = item.extras?.reduce((sum, ex) => sum + (ex.cost || 0), 0) || 0;
-  
-    return (item.originalBasePrice + optionsCost + extrasCost) * item.quantity;
+
+    const modifiersCost = (item.selectedModifiers || []).reduce(
+      (sum, mod) => sum + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
+      0
+    );
+    const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
+
+    return (item.originalBasePrice + modifiersCost + extrasCost) * item.quantity;
   }
   getTotalSavings(): number {
     return this.basketItems.reduce((total, item) => {
@@ -235,31 +222,31 @@ discountValue: number = 10; // 10% or UGX amount
       }
     );
   }
-  getSubtotalOld(item: BasketItem): number {
-    const optionsCost = item.options?.reduce((sum: number, opt: any) => sum + (opt.cost || 0), 0) || 0;
-    const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
-    const singleItemTotal = item.basePrice + optionsCost + extrasCost;
-    return singleItemTotal * item.quantity;
-  }
   getSubtotal(item: BasketItem): number {
-    const optionsCost = item.options?.reduce((sum: number, opt: any) => sum + (opt.cost || 0), 0) || 0;
+    const modifiersCost = (item.selectedModifiers || []).reduce(
+      (sum, mod) => sum + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
+      0
+    );
     const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
-    const effectiveBasePrice = item.basePrice; // already discounted if applicable
-  
-    return (effectiveBasePrice + optionsCost + extrasCost) * item.quantity;
+    const effectiveBasePrice = item.basePrice;
+
+    return (effectiveBasePrice + modifiersCost + extrasCost) * item.quantity;
   }
-  
+
   shouldShowSubtotal(item: BasketItem): boolean {
-    // Show subtotal whenever the line total differs from base price
-    // (i.e. has options with cost, has extras with cost, or quantity > 1)
-    const optionsCost = item.options?.reduce((sum: number, opt: any) => sum + (opt.cost || 0), 0) || 0;
+    const modifiersCost = (item.selectedModifiers || []).reduce(
+      (sum, mod) => sum + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
+      0
+    );
     const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
-    return item.quantity > 1 || optionsCost > 0 || extrasCost > 0;
+    return item.quantity > 1 || modifiersCost > 0 || extrasCost > 0;
   }
-  
+
   showItemTotal(item: BasketItem) {
-   return item.options.some(option => option.cost > 0)
-   }
+    return (item.selectedModifiers || []).some(
+      mod => mod.choices.some(c => c.additionalCost > 0)
+    );
+  }
    getDiscountAmount(): number {
     if (!this.discountActive) return 0;
   

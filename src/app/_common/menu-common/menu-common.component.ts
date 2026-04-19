@@ -1,10 +1,11 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
-import { FormBuilder, FormArray } from '@angular/forms';
+import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Restaurant, MenuItem } from 'src/app/_models/app.models';
+import { Restaurant, MenuItem, ModifierGroup } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
+import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
 
 @Component({
     selector: 'app-menu-common',
@@ -22,7 +23,8 @@ export class MenuCommonComponent implements OnInit {
   selected_item!:MenuItem|any
   selected_quantity:number=1;
   selected_amount:number=0;
-  selected_choices:any[]=[];
+  modifierGroups: ModifierGroup[] = [];
+  selectedModifiers: Record<string, string[]> = {};
   selected_extras:any[]=[];
   currentSection=''
   currentSectionItem='';
@@ -33,22 +35,11 @@ export class MenuCommonComponent implements OnInit {
     // Search query property
    searchQuery: string = '';
   constructor(private sessionStorage:SessionStorageService,private api:ApiService,private basketService:BasketService,private router:Router,private fb:FormBuilder) {
- // this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   }
   ngOnInit(){
 this.loadMenu()
   }
 
-/*   addItem(item:Item){
-    let px=item.primary_price;
-    this.selected_choices.forEach(s=>{
-      px=+s.order.cost
-    })
-    console.log(px)
-this.basketService.addItem({itemId:item.id,itemName:item.name,price:px,quantity: this.selected_quantity,choice:0,option:0,options: this.selected_choices});
-this.udpateCart();
-this.router.navigate(['/diner/basket'])
-  } */
   removeItem(Id: string) {
     this.basketService.removeItem(Id);
     this.udpateCart();
@@ -57,7 +48,6 @@ get QuantitySum(){
  return this.basketItems.reduce((a, b) => a + b.quantity,0)
 }
   udpateCart() {
-    // Update cartItems and totalAmount after removing an item
     this.basketItems = this.basketService.Basket().items;
     this.totalAmount = this.basketService.Basket().totalAmount;
     this.SaveForProcessing();
@@ -68,56 +58,44 @@ get QuantitySum(){
   this.menu_list=x.data as any;
   this.filteredMenuList = this.menu_list;
   this.currentSection=(this.menu_list[0] as MenuItem).name as string
-      
+
     })
   }
   loadPreApprovalMenu(){
-   // this.api.get<MenuItem>(null,'restaurant-setup/menuitems/',{section:section}).subscribe((x)=>{})
   }
   SaveForProcessing(){
     this.sessionStorage.setItem('Basket',this.basketItems);
-    
+
   }
-  viewItem(i:MenuItem/* |Item */){
-this.selected_item=i as any;
-const _modifiers:FormArray= this.fb.array([]);
-/* i.options.options.forEach((o,io)=>{
-  modifiers.push(this.initOption());
-  modifiers.at(io).setValue({id:io,name:o.name,choice:o.choices})
-}) */
-this.showModal=true;
-  }
-  initOption(){
-    return this.fb.group({
-      ind:[''],
-      name:[''],
-      choice:['']
-    })
+  viewItem(i:MenuItem){
+    this.selected_item = i as any;
+    this.modifierGroups = parseModifierGroups(i.options);
+    this.selectedModifiers = {};
+    this.selected_extras = [];
+    this.showModal = true;
   }
   closeModal(){
-    this.selected_item=null;
-    this.selected_choices=[];
-    this.selected_quantity=1;
-    this.showModal=false;
+    this.selected_item = null;
+    this.modifierGroups = [];
+    this.selectedModifiers = {};
+    this.selected_extras = [];
+    this.selected_quantity = 1;
+    this.showModal = false;
   }
   AddSelectedItem(){
-    let px=this.selected_item.primary_price;
-    this.selected_choices.forEach(s=>{
-      px=px+s.order.cost
-
-    })
-    const baskItm={item:this.selected_item.id,itemName:this.selected_item.name,price:px,quantity: this.selected_quantity,choice:null,option:null,options:this.selected_choices}
-    if(this.restaurant_id){
-this.AddItem.emit(baskItm);
-    }else{
- /*          this.basketService.addItem(baskItm);
-this.udpateCart();
-this.closeModal(); */
-    }
-
-this.selected_quantity=1;
+    this.AddItem.emit({
+      item: this.selected_item.id,
+      itemName: this.selected_item.name,
+      quantity: this.selected_quantity,
+      selected_modifiers: { ...this.selectedModifiers },
+      extras: this.selected_extras.map(e => e.id),
+    });
+    this.selected_quantity = 1;
+    this.selectedModifiers = {};
+    this.selected_extras = [];
+    this.closeModal();
   }
- 
+
 addUnderScore(x:string){
   return x.replace(/ /g,"_");
 }
@@ -135,40 +113,43 @@ removeUnderscore(x:string){
 
   scrollTo(section:any,_i:number) {
     document.querySelector('#' + this.addUnderScore(section))?.scrollIntoView();
-  /*   if(i==0){
-      window.scrollBy(0, -100);
-    } */
   }
-  SetChoice(evnt:any,i:any,has_choices?:any,o?:any,_op?:any){
-const sel = {index:i, choice:has_choices,order:o}
 
-    if(evnt.checked){
-     
-      if(o?.selectable){
-        if(this.selected_choices.filter(x=>x.index==i).length>0){
-          const indo=this.selected_choices.indexOf(this.selected_choices.filter(x=>x.index==i)[0])
-          
-            this.selected_choices.splice(indo,1)
-          
-          
-        }
-      }   
-      this.selected_choices.push(sel);
-    }else{
-    // console.log(this.selected_choices.filter(x=>x.index==i))
-      if(this.selected_choices.filter(x=>x.index==i).length>0){
-        const indo=this.selected_choices.indexOf(this.selected_choices.filter(x=>x.index==i)[0])
-        
-          this.selected_choices.splice(indo,1)
-        
-        
-      }
-     /* if(this.selected_choices.includes(i)){
-        this.selected_choices.splice(i)
-      } */
+  isModifierChoiceSelected(groupId: string, choiceId: string): boolean {
+    return (this.selectedModifiers[groupId] || []).includes(choiceId);
+  }
+
+  getModifierSelectedCount(groupId: string): number {
+    return (this.selectedModifiers[groupId] || []).length;
+  }
+
+  handleModifierSingleSelect(groupId: string, choiceId: string): void {
+    const current = this.selectedModifiers[groupId] || [];
+    if (current.length === 1 && current[0] === choiceId) {
+      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [] };
+    } else {
+      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [choiceId] };
     }
-
   }
+
+  handleModifierMultiSelect(
+    groupId: string,
+    choiceId: string,
+    checked: boolean,
+    maxSelections: number
+  ): void {
+    const current = this.selectedModifiers[groupId] || [];
+    if (checked) {
+      if (current.length >= maxSelections) return;
+      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [...current, choiceId] };
+    } else {
+      this.selectedModifiers = {
+        ...this.selectedModifiers,
+        [groupId]: current.filter((id) => id !== choiceId),
+      };
+    }
+  }
+
     /**
    * Filters each menu section based on the search query.
    * If no query is entered, the full menu list is shown.
@@ -199,24 +180,16 @@ const sel = {index:i, choice:has_choices,order:o}
       if (!item.discount_details.discount_amount) return 0;
       return item.primary_price - item.discount_details.discount_amount;
     }
-    isSelected(option: any, choice: string): boolean {
-      // Check if the current choice is selected
-      return this.selected_choices.some(
-        (sel) => sel.order.name === option.name && sel.choice === choice
-      );
-    }
     isExtraSelected(extra: {id:any,name:any, primary_price:number}): boolean {
-      // Check if the current extra is selected
       return this.selected_extras.includes(extra);
     }
     SetExtra(evnt:any,i:number,extra:{id:any,name:any, primary_price:number}){
       if(evnt.checked){
         this.selected_extras.push(extra);
       }else{
-        //let indo=this.selected_extras.indexOf(this.selected_extras.filter(x=>x.id==extra.id)[0])
         this.selected_extras.splice(i,1)
       }
 
     }
-    
+
 }
