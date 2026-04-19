@@ -291,37 +291,25 @@ export interface Options {
 
 }
 
-/* export interface BasketItem {
-  itemId: string;
-  itemName: string;
-  price: number;
-  quantity: number;
-  option?:any;
-  choice?:any;
-  extras?:any[];
-  options?:any;
-} */
   export interface BasketItem {
-    itemId: string; // Unique ID of the selected item
-    itemName: string; // Name of the selected item
-    image?: string; // Optional image path used for cart thumbnails
-    basePrice: number; // Primary price of the item
-    totalPrice: number; // Final calculated price including options
-    quantity: number; // Quantity of the item selected
-    options: SelectedOption[]; // Array of selected options
-    extras: any[]; // Array of selected extras (if any)
-    isDiscounted?: boolean; // flag if discounted
-    originalBasePrice?: number;  // NEW: the pre-discount price
-    discountAmount?: number;  // NEW: discount amount in UGX
-    discountPercentage?: number;  // NEW: discount in %
+    itemId: string;
+    itemName: string;
+    image?: string;
+    basePrice: number;
+    totalPrice: number;
+    quantity: number;
+    selectedModifiers: SelectedModifier[];
+    extras: any[];
+    isDiscounted?: boolean;
+    originalBasePrice?: number;
+    discountAmount?: number;
+    discountPercentage?: number;
   }
-  
- export interface SelectedOption {
-    optionName: string; // Name of the option group (e.g., "Size", "Extras")
-    choice: string; // Selected choice for the option
-    cost: number; // Cost associated with the choice
-    optionIndex?: number; // Index of the option group within the menu item's options
-    choiceIndex?: number; // Index of the selected choice within the option group
+
+  export interface SelectedModifier {
+    groupId: string;
+    groupName: string;
+    choices: { id: string; name: string; additionalCost: number }[];
   }
 
 export interface ShoppingBasket {

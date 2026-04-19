@@ -1,18 +1,12 @@
+import { SelectedModifier } from 'src/app/_models/app.models';
+
+export { SelectedModifier } from 'src/app/_models/app.models';
+
 export interface SelectedExtra {
   id: string;
   name: string;
   price: number;
   imageUrl?: string;
-}
-
-export interface SelectedModifier {
-  groupId: string;
-  groupName: string;
-  choices: {
-    id: string;
-    name: string;
-    additionalCost: number;
-  }[];
 }
 
 export interface CartItem {

@@ -63,16 +63,16 @@
             </div>
           </div>
 
-          <!-- Selected options -->
-          <div *ngIf="(item.options?.length ?? 0) > 0" class="mt-2 space-y-1">
-            <div *ngFor="let option of item.options"
-                 class="flex justify-between text-sm text-gray-500">
-              <span>
-                {{ option.optionName }}<span *ngIf="option.choice !== 'None'">: {{ option.choice }}</span>
-              </span>
-              <span *ngIf="option.cost > 0" class="text-gray-600">
-                +UGX {{ option.cost | number }}
-              </span>
+          <!-- Selected modifiers -->
+          <div *ngIf="(item.selectedModifiers?.length ?? 0) > 0" class="mt-2 space-y-1">
+            <div *ngFor="let mod of item.selectedModifiers" class="space-y-0.5">
+              <div *ngFor="let choice of mod.choices"
+                   class="flex justify-between text-sm text-gray-500">
+                <span>{{ mod.groupName }}: {{ choice.name }}</span>
+                <span *ngIf="choice.additionalCost > 0" class="text-gray-600">
+                  +UGX {{ choice.additionalCost | number }}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -91,7 +91,7 @@
           <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
             <div class="flex items-center gap-2" (click)="$event.stopPropagation()">
               <!-- Minus -->
-              <button (click)="removeItem(item.itemId, item.options)"
+              <button (click)="removeItem(item.itemId, item.selectedModifiers)"
                       class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

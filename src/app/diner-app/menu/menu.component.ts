@@ -2,11 +2,12 @@ import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { MenuItem, Restaurant } from 'src/app/_models/app.models';
+import { MenuItem, ModifierGroup, Restaurant, SelectedModifier } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
+import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
 import { environment } from 'src/environments/environment';
 
 @Component({
@@ -41,7 +42,8 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   selected_item!:MenuItem|any
   selected_quantity:number=1;
   selected_amount:number=0;
-  selected_choices:any[]=[];
+  modifierGroups: ModifierGroup[] = [];
+  selectedModifiers: Record<string, string[]> = {};
   currentSection=''
   currentSectionItem=''
    // New filtered list for search results
@@ -177,7 +179,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   }
   /**
    * Computes the total price for the current item including selected
-   * modifiers/options, extras, and quantity — used for the dynamic
+   * modifiers, extras, and quantity — used for the dynamic
    * "Add — UGX X,XXX" button.
    */
   get computedItemTotal(): number {
@@ -185,13 +187,18 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     const basePrice = this.selected_item?.running_discount
       ? (this.selected_item?.discount_details?.discount_amount ?? this.selected_item.primary_price)
       : this.selected_item.primary_price;
-    const optionsCost = this.selected_choices.reduce(
-      (acc: number, sel: any) => acc + (sel.order?.cost || 0), 0
-    );
+    let modifiersCost = 0;
+    for (const group of this.modifierGroups) {
+      const selectedIds = this.selectedModifiers[group.id] || [];
+      for (const choiceId of selectedIds) {
+        const choice = group.choices.find(c => c.id === choiceId);
+        if (choice) modifiersCost += choice.additionalCost;
+      }
+    }
     const extrasCost = this.selected_extras.reduce(
       (acc: number, extra: any) => acc + (extra.primary_price || 0), 0
     );
-    return (basePrice + optionsCost + extrasCost) * this.selected_quantity;
+    return (basePrice + modifiersCost + extrasCost) * this.selected_quantity;
   }
   /**
    * Filters each menu section based on the search query.
@@ -227,16 +234,6 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
 
     this.filteredMenuList = result;
   }
-/*   addItem(item:Item){
-    let px=item.primary_price;
-    this.selected_choices.forEach(s=>{
-      px=+s.order.cost
-    })
-    console.log(px)
-this.basketService.addItem({itemId:item.id,itemName:item.name,price:px,quantity: this.selected_quantity,choice:0,option:0,options: this.selected_choices});
-this.udpateCart();
-this.router.navigate(['/diner/basket'])
-  } */
   removeItem(Id: string) {
     this.basketService.removeItem(Id);
     this.udpateCart();
@@ -343,18 +340,13 @@ get QuantitySum(){
 
     this.selected_item = menuItem;
     this.selected_quantity = basketItem.quantity;
+    this.modifierGroups = parseModifierGroups(menuItem.options);
 
-    // Reconstruct selected_choices from stored optionIndex/choiceIndex
-    this.selected_choices = (basketItem.options || [])
-      .filter((opt: any) => opt.choice && opt.choice !== 'None')
-      .map((opt: any) => {
-        const optionGroup = menuItem.options?.options?.[opt.optionIndex];
-        return optionGroup
-          ? { index: opt.optionIndex, choice: opt.choice,
-              choiceIndex: opt.choiceIndex, order: optionGroup }
-          : null;
-      })
-      .filter(Boolean);
+    // Reconstruct selectedModifiers from stored groupId → choiceIds mapping
+    this.selectedModifiers = {};
+    for (const mod of (basketItem.selectedModifiers || [])) {
+      this.selectedModifiers[mod.groupId] = mod.choices.map((c: any) => c.id);
+    }
 
     // Reconstruct selected_extras by id (use the menuItem's own refs so
     // isExtraSelected's identity-based check matches)
@@ -362,7 +354,7 @@ get QuantitySum(){
       .map((ext: any) => (menuItem.extras || []).find((e: any) => e.id === ext.id))
       .filter(Boolean);
 
-    this.validateForm(); // also sets option.isSelected on each option group
+    this.validateForm();
     this.showModal = true;
   }
 
@@ -370,7 +362,7 @@ get QuantitySum(){
     this.isEditMode = false;
     this.editingBasketIndex = null;
     this.selected_quantity = 1;
-    this.selected_choices = [];
+    this.selectedModifiers = {};
     this.selected_extras = [];
   }
   clearSearch() {
@@ -380,25 +372,16 @@ get QuantitySum(){
 
   SaveForProcessing(){
     this.sessionStorage.setItem('Basket',this.basketItems);
-    
+
   }
-  viewItem(i:MenuItem/* |Item */){
-if (this.isOutOfStock(i)) return;
-this.selected_item=i as any;
-/* const modifiers = this.fb.array([]);
-i.options.options.forEach((o,io)=>{
-  modifiers.push(this.initOption());
-  modifiers.at(io).setValue({id:io,name:o.name,choice:o.choices})
-}) */
-this.validateForm()
-this.showModal=true;
-  }
-  initOption(){
-    return this.fb.group({
-      ind:[''],
-      name:[''],
-      choice:['']
-    })
+  viewItem(i:MenuItem){
+    if (this.isOutOfStock(i)) return;
+    this.selected_item = i as any;
+    this.modifierGroups = parseModifierGroups(i.options);
+    this.selectedModifiers = {};
+    this.selected_extras = [];
+    this.validateForm();
+    this.showModal = true;
   }
   closeModal(){
     this.showModal=false;
@@ -408,129 +391,72 @@ this.showModal=true;
     }
   }
   AddSelectedItem(){
-    this.formSubmitted = false; // Reset form submission flag
-      // Ensure the form is valid before proceeding
-  if (!this.isFormValid()) {
-    this.formSubmitted = true; // Set flag to indicate form submission
-    return;
-  }
- // Prepare selected options for visualization
- /*  const selectedOptions = this.selected_choices.map((sel) => ({
-    optionName: sel.order.name, // The name of the option group (e.g., "Size", "Extras")
-    choice: sel.choice || 'None', // The selected choice for that option
-    cost: sel.order.cost || 0, // The additional cost of the selected choice
-  })); */
-  // Prepare selected options for visualization & backend
-  const selectedOptions = this.selected_choices.map((sel, _optionIndex) => {
-    
+    this.formSubmitted = false;
+    if (!this.isFormValid()) {
+      this.formSubmitted = true;
+      return;
+    }
 
-    return {
-  optionName: sel.order.name,
-  choice: sel.choice || 'None',
-  cost: sel.order.cost || 0,
-  optionIndex: sel.index,       // option group index
-  choiceIndex: sel.choiceIndex  // numeric index from SetChoice
-/*       optionName: sel.order.name,
-      choice: sel.choice || 'None',
-      cost: sel.order.cost || 0,
-      optionIndex: optionIndex,   // index of the option group
-      choiceIndex: choiceIndex    // index of the chosen option */
+    const selectedModifiersList: SelectedModifier[] = this.modifierGroups
+      .filter(g => (this.selectedModifiers[g.id] || []).length > 0)
+      .map(g => ({
+        groupId: g.id,
+        groupName: g.name,
+        choices: (this.selectedModifiers[g.id] || [])
+          .map(cid => g.choices.find(c => c.id === cid))
+          .filter(Boolean)
+          .map(c => ({ id: c!.id, name: c!.name, additionalCost: c!.additionalCost })),
+      }));
+
+    const selectedExtras = this.selected_extras.map((extra) => ({
+      id: extra.id,
+      name: extra.name,
+      cost: extra.primary_price || 0,
+    }));
+
+    const discount = this.selected_item?.discount_details?.discount_amount ?? 0;
+    const isDiscounted = this.selected_item?.running_discount;
+
+    const originalBasePrice = this.selected_item?.primary_price;
+    const basePrice = isDiscounted ? discount : originalBasePrice;
+
+    const modifiersCost = selectedModifiersList.reduce(
+      (acc, mod) => acc + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
+      0
+    );
+    const extrasCost = selectedExtras.reduce((acc, extra) => acc + extra.cost, 0);
+    const totalPrice = basePrice + modifiersCost + extrasCost;
+
+    const basketItem = {
+      itemId: this.selected_item.id,
+      itemName: this.selected_item.name,
+      image: this.selected_item.image || null,
+      basePrice: basePrice,
+      totalPrice: totalPrice,
+      quantity: this.selected_quantity,
+      selectedModifiers: selectedModifiersList,
+      extras: selectedExtras,
+      isDiscounted: isDiscounted,
+      originalBasePrice: isDiscounted ? originalBasePrice : undefined,
+      discountAmount: isDiscounted ? originalBasePrice - basePrice : undefined,
+      discountPercentage: isDiscounted ? Math.round((1 - basePrice / originalBasePrice) * 100) : undefined
     };
-  });
 
-  // Prepare selected extras for visualization
-  const selectedExtras = this.selected_extras.map((extra) => ({
-    id:extra.id,
-    name: extra.name,
-    cost: extra.primary_price || 0,
-  }));
+    if (this.isEditMode && this.editingBasketIndex !== null) {
+      this.basketService.updateItem(this.editingBasketIndex, basketItem);
+      this.udpateCart();
+      this.closeModal();
+      return;
+    }
 
-// Check if the item has a discount
-const discount = this.selected_item?.discount_details?.discount_amount ?? 0;
-const isDiscounted = this.selected_item?.running_discount; //!!discount;
-
-const originalBasePrice = this.selected_item?.primary_price;
-const basePrice = isDiscounted ? discount : originalBasePrice; // discounted price if present
-
-// Calculate total including selected options and extras
-const totalPrice = (basePrice)
-  + selectedOptions.reduce((acc, opt) => acc + opt.cost, 0)
-  + selectedExtras.reduce((acc, extra) => acc + extra.cost, 0);
-
-// Add the item with full details to the basket
-const basketItem = {
-  itemId: this.selected_item.id,
-  itemName: this.selected_item.name,
-  image: this.selected_item.image || null,
-  basePrice: basePrice,
-  totalPrice: totalPrice,
-  quantity: this.selected_quantity,
-  options: selectedOptions,
-  extras: selectedExtras,
-  isDiscounted: isDiscounted,
-  originalBasePrice: isDiscounted ? originalBasePrice : undefined,
-  discountAmount: isDiscounted ? originalBasePrice - basePrice : undefined,
-  discountPercentage: isDiscounted ? Math.round((1 - basePrice / originalBasePrice) * 100) : undefined
-};
-
-if (this.isEditMode && this.editingBasketIndex !== null) {
-  // Replace the existing basket item in place instead of appending a new one
-  this.basketService.updateItem(this.editingBasketIndex, basketItem);
-  this.udpateCart();
-  this.closeModal(); // closeModal handles resetEditMode + navigation to basket
-  return;
-}
-
-this.basketService.addItem(basketItem);
-/*   // Prepare selected options for visualization
-  const selectedOptions = this.selected_choices.map((sel) => ({
-    optionName: sel.order.name, // The name of the option group (e.g., "Size", "Extras")
-    choice: sel.choice || 'None', // The selected choice for that option
-    cost: sel.order.cost || 0, // The additional cost of the selected choice
-  }));
-
-  // Prepare selected extras for visualization
-  const selectedExtras = this.selected_extras.map((extra) => ({
-    name: extra.name,
-    cost: extra.primary_price || 0,
-  }));
-
-
-  // Calculate the total price, including the primary item price and all selected option costs
-  const totalPrice = this.selected_item.primary_price 
-                    + selectedOptions.reduce((acc, opt) => acc + opt.cost, 0)
-                    + selectedExtras.reduce((acc, extra) => acc + extra.cost, 0);
-
-  // Add the item with options to the basket
-  const basketItem = {
-    itemId: this.selected_item.id,
-    itemName: this.selected_item.name,
-    basePrice: this.selected_item.primary_price,
-    totalPrice: totalPrice,
-    quantity: this.selected_quantity,
-    options: selectedOptions,
-    extras: selectedExtras
-  };
-
-  this.basketService.addItem(basketItem); // Add the item to the basket */
-  // Update the cart view and reset the form
-  this.udpateCart();
-  this.closeModal();
-  this.selected_quantity = 1; // Reset quantity to default
-  this.selected_choices = []; // Clear selected choices 
-  this.selected_extras = []; // Clear selected extras
-  
-/*     let px=this.selected_item.primary_price;
-    this.selected_choices.forEach(s=>{
-      px=px+s.order.cost
-      console.log(px)
-    })
-    this.basketService.addItem({itemId:this.selected_item.id,itemName:this.selected_item.name,price:px,quantity: this.selected_quantity,choice:0,option:0,options:this.selected_choices});
-this.udpateCart();
-this.closeModal();
-this.selected_quantity=1; */
+    this.basketService.addItem(basketItem);
+    this.udpateCart();
+    this.closeModal();
+    this.selected_quantity = 1;
+    this.selectedModifiers = {};
+    this.selected_extras = [];
   }
- 
+
 addUnderScore(x:string){
   return x.replace(/ /g,"_");
 }
@@ -544,7 +470,7 @@ removeUnderscore(x:string){
 
   scrollTo(section:any,_i:number) {
     document.querySelector('#' + this.addUnderScore(section))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
- 
+
   }
   checkSelected(): any {
     return this.selected_quantity > 1 ? this.selected_quantity-- : null
@@ -555,141 +481,65 @@ removeUnderscore(x:string){
   sanitizeId(name: string): string {
     return name.replace(/\s+/g, '-').toLowerCase();
   }
-/*   scrollTo(sectionName: string, index: number) {
-    const sanitizedId = this.sanitizeId(sectionName);
-    const element = document.getElementById(sanitizedId);
 
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      this.currentSection = sectionName;
-    }
-  } */
-
-  SetChoice(event: any, i: number, choiceIndex: number | null, option: any, choice?: any): void {
-const max = option.max_choices || 1;
-  const selectedForOption = this.selected_choices.filter(sel => sel.index === i);
-
-  if (choiceIndex !== null) {
-    const isMultiSelect = max > 1;
-    const existingIndex = this.selected_choices.findIndex(sel => sel.index === i && sel.choice === choice);
-
-    if (existingIndex > -1) {
-      // Deselect
-      this.selected_choices.splice(existingIndex, 1);
-    } else {
-      if (isMultiSelect) {
-        if (selectedForOption.length >= max) return; // Max reached
-        this.selected_choices.push({ index: i, choice, choiceIndex, order: option });
-      } else {
-        // Single-select mode: remove any previous, then add new
-        this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
-        this.selected_choices.push({ index: i, choice, choiceIndex, order: option });
-      }
-    }
-
-    // Update selection status for the UI
-    option.isSelected = this.selected_choices.some(sel => sel.index === i);
-  } else {
-    // Checkbox-style
-    option.isSelected = event.target.checked;
-
-    if (option.isSelected) {
-      if (selectedForOption.length >= max) {
-        option.isSelected = false;
-        return; // Max reached
-      }
-      this.selected_choices.push({ index: i, choice: null, order: option });
-    } else {
-      this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
-    }
+  isModifierChoiceSelected(groupId: string, choiceId: string): boolean {
+    return (this.selectedModifiers[groupId] || []).includes(choiceId);
   }
 
-    /* if (choiceIndex !== null) {
-    // Toggle behavior: unselect if already selected
-    const existing = this.selected_choices.find(sel => sel.index === i && sel.choice?.value === choice?.value);
-    
-    if (existing) {
-      // Already selected: unselect
-      option.isSelected = false;
-      this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
-    } else {
-      // Select new choice
-      option.choices.forEach((_: string, idx: number) => {
-        option.isSelected = (idx === choiceIndex); // only one true
-      });
+  getModifierSelectedCount(groupId: string): number {
+    return (this.selectedModifiers[groupId] || []).length;
+  }
 
-      this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
-      this.selected_choices.push({ index: i, choice: choice, order: option });
-    }
-  } else {
-    // Checkbox-style toggle
-    option.isSelected = event.target.checked;
-
-    if (option.isSelected) {
-      this.selected_choices.push({ index: i, choice: null, order: option });
+  handleModifierSingleSelect(groupId: string, choiceId: string): void {
+    const current = this.selectedModifiers[groupId] || [];
+    if (current.length === 1 && current[0] === choiceId) {
+      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [] };
     } else {
-      this.selected_choices = this.selected_choices.filter(sel => sel.index !== i);
+      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [choiceId] };
     }
-  } */
-    /* if (choiceIndex !== null) {
-      // Radio-style behavior for selectable options
-      option.choices.forEach((_: string, idx: number) => {
-        if (choiceIndex === idx) {
-          option.isSelected = true; // Mark as selected
-        }
-      });
-  
-      this.selected_choices = this.selected_choices.filter((sel) => sel.index !== i); // Remove existing selection
-      this.selected_choices.push({ index: i, choice: choice, order: option }); // Add the new choice
-    } else {
-      // Checkbox-style behavior for non-selectable options
-      option.isSelected = event.target.checked;
-      if (option.isSelected) {
-        this.selected_choices.push({ index: i, choice: null, order: option });
-      } else {
-        this.selected_choices = this.selected_choices.filter((sel) => sel.index !== i); // Remove if unchecked
-      }
-    } */
-  
-    // Validate the form after every change
     this.validateForm();
   }
-  selectedCount(i: number): number {
-  return this.selected_choices.filter(sel => sel.index === i).length;
-}
-  isSelected(option: any, choice: string): boolean {
-    // Check if the current choice is selected
-    return this.selected_choices.some(
-      (sel) => sel.order.name === option.name && sel.choice === choice
-    );
+
+  handleModifierMultiSelect(
+    groupId: string,
+    choiceId: string,
+    checked: boolean,
+    maxSelections: number
+  ): void {
+    const current = this.selectedModifiers[groupId] || [];
+    if (checked) {
+      if (current.length >= maxSelections) return;
+      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [...current, choiceId] };
+    } else {
+      this.selectedModifiers = {
+        ...this.selectedModifiers,
+        [groupId]: current.filter((id) => id !== choiceId),
+      };
+    }
+    this.validateForm();
   }
-  
+
   validateForm(): void {
-    this.errorMessages = []; // Reset error messages
-  
-    // Check all required options
-    this.selected_item?.options?.options?.forEach((option: any) => {
-      option.isSelected = this.selected_choices.some((sel) => sel.order.name === option.name); // Update state
-      if (option.required && !option.isSelected) {
-        this.errorMessages.push(`Please select an option for "${option.name}".`);
+    this.errorMessages = [];
+    for (const group of this.modifierGroups) {
+      const selectedCount = (this.selectedModifiers[group.id] || []).length;
+      if (group.minSelections > 0 && selectedCount < group.minSelections) {
+        this.errorMessages.push(
+          group.minSelections === 1
+            ? `Please select an option for "${group.name}".`
+            : `Please select at least ${group.minSelections} options for "${group.name}".`
+        );
       }
-    });
-  
-    // Set overall form validity
+    }
     this.isFormValidFlag = this.errorMessages.length === 0;
   }
-  
+
   isFormValid(): boolean {
     return this.isFormValidFlag;
   }
-  
+
   submitForm(): void {
     this.validateForm();
-    if (this.isFormValid()) {
-      // form is valid - proceed
-    } else {
-      // form is invalid - handled by validateForm
-    }
   }
   calculateDiscount(item:any): number {
     if (!item?.discount_details?.discount_amount) return 0;
@@ -707,66 +557,18 @@ const max = option.max_choices || 1;
     const pct = this.calculateDiscount(item);
     return pct > 0 ? `-${pct}%` : '';
   }
-  validateSelections(): boolean {
-    let isValid = true;
-    let totalSelected = 0;
-  
-    this.selected_item?.options?.options.forEach((option: any) => {
-      const selectedCount = option.choices?.filter((c: any) => c.isSelected).length || 0;
-  
-      option.error = null; // clear previous error
-  
-      // Count towards global total
-      totalSelected += selectedCount;
-  
-      // Per-option validation
-      if (option.required && selectedCount === 0) {
-        option.error = 'Please select at least 1 option.';
-        isValid = false;
-      }
-  
-      if (option.min_selections && selectedCount < option.min_selections) {
-        option.error = `Pick at least ${option.min_selections}`;
-        isValid = false;
-      }
-  
-      if (option.max_selections && selectedCount > option.max_selections) {
-        option.error = `Pick at most ${option.max_selections}`;
-        isValid = false;
-      }
-    });
-  
-    // Global validation
-    const globalMin = this.selected_item?.options?.min_selections;
-    const globalMax = this.selected_item?.options?.max_selections;
-  
-    this.globalError = null; // reset
-  
-    if (globalMin && totalSelected < globalMin) {
-      this.globalError = `Please select at least ${globalMin} options in total.`;
-      isValid = false;
-    }
-  
-    if (globalMax && totalSelected > globalMax) {
-      this.globalError = `You can only select up to ${globalMax} options in total.`;
-      isValid = false;
-    }
-  
-    return isValid;
-  }
   isExtraSelected(extra: {id:any,name:any, primary_price:number}): boolean {
-    // Check if the current extra is selected
     return this.selected_extras.includes(extra);
   }
   SetExtra(i:number,extra:{id:any,name:any, primary_price:number}){
     const index = this.selected_extras.findIndex(x => x.id === extra.id);
-  
+
     if (index === -1) {
-      this.selected_extras.push(extra); // Add extra if not already selected
+      this.selected_extras.push(extra);
     } else {
-      this.selected_extras.splice(index, 1); // Remove the correct extra
+      this.selected_extras.splice(index, 1);
     }
-  
+
   }
-  
+
 }
