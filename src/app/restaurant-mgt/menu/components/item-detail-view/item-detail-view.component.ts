@@ -9,7 +9,6 @@ import {
   SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { MenuService } from '../../services/menu.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -29,7 +28,7 @@ import { environment } from 'src/environments/environment';
 @Component({
   selector: 'app-item-detail-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule],
   templateUrl: './item-detail-view.component.html',
   host: {
     class: 'flex flex-col h-full min-h-0',
