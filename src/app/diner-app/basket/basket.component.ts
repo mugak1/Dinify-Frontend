@@ -123,9 +123,6 @@ discountValue: number = 10; // 10% or UGX amount
   removeItem(itemId: string, selectedModifiers: SelectedModifier[] = []) {
     this.basketService.removeItem(itemId, selectedModifiers);
     this.updateCart();
-    if (this.basketItems.length === 0) {
-      this.loc.back(); // Navigate back if the basket is empty
-    }
   }
 
   // Updates basketItems and totalAmount after adding/removing items
@@ -138,7 +135,7 @@ discountValue: number = 10; // 10% or UGX amount
   // Initiates an order
   initiateOrder() {
     const _ref = this.dialog.openModal({
-      title: 'Confirm Order',
+      title: 'Checkout',
       message: 'Are you sure you want to place this order?',
       submitButtonText: 'Order',
     }).subscribe((response: any) => {

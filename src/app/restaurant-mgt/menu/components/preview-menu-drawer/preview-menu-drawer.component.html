@@ -342,6 +342,13 @@
                   </button>
                 </div>
               } @else {
+                <!-- Upsell Carousel -->
+                <app-upsell-carousel
+                  [cartItems]="cartItems"
+                  (addItem)="onUpsellAddItem($event)"
+                  (itemNeedsModifiers)="onUpsellItemNeedsModifiers($event)">
+                </app-upsell-carousel>
+
                 @for (cartItem of cartItems; track cartItem.id) {
                   <div class="flex gap-4 border rounded-lg p-4 bg-card cursor-pointer hover:border-primary/50 transition-colors"
                        (click)="handleEditCartItem(cartItem)">
@@ -451,13 +458,6 @@
                     </div>
                   </div>
                 }
-
-                <!-- Upsell Carousel -->
-                <app-upsell-carousel
-                  [cartItems]="cartItems"
-                  (addItem)="onUpsellAddItem($event)"
-                  (itemNeedsModifiers)="onUpsellItemNeedsModifiers($event)">
-                </app-upsell-carousel>
               }
             </div>
           </div>
@@ -482,7 +482,7 @@
                 </div>
               </div>
               <button app-dn-button class="w-full h-12 text-lg" (click)="placeOrder()">
-                Place Order
+                Checkout
               </button>
             </div>
           }

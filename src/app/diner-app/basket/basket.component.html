@@ -16,6 +16,62 @@
   </div>
 
   <div class="flex-1 overflow-y-auto pb-4">
+    <!-- Empty state -->
+    <div *ngIf="basketItems.length === 0" class="text-center py-12 px-4">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+           stroke-linejoin="round" class="mx-auto text-gray-400 mb-4">
+        <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
+        <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+      </svg>
+      <p class="text-gray-500">Your basket is empty</p>
+      <button type="button" (click)="loc.back()"
+              class="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+        Browse Menu
+      </button>
+    </div>
+
+    <!-- Upsell Carousel -->
+    <div *ngIf="basketItems.length > 0 && upsellItems.length > 0" class="mt-4 px-4">
+      <h3 class="font-bold text-base text-gray-900 mb-3">
+        {{ upsellConfig?.title || 'You might also like' }}
+      </h3>
+      <div class="overflow-x-auto no-scrollbar -mx-4 px-4">
+        <div class="flex gap-3" style="width: max-content;">
+          <div *ngFor="let item of upsellItems"
+               class="w-36 flex-shrink-0 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+            <div class="w-full h-24 bg-gray-100 overflow-hidden">
+              <img *ngIf="item.item_image"
+                   [src]="url + item.item_image"
+                   [alt]="item.item_name"
+                   class="w-full h-full object-cover"
+                   loading="lazy" decoding="async" />
+              <div *ngIf="!item.item_image"
+                   class="w-full h-full flex items-center justify-center text-gray-300 text-xs">
+                No image
+              </div>
+            </div>
+            <div class="p-2.5">
+              <h4 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
+                {{ item.item_name }}
+              </h4>
+              <p class="text-red-600 font-bold text-sm mt-1">
+                UGX {{ item.item_price | number }}
+              </p>
+              <button (click)="addUpsellItem(item)"
+                      class="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"/><path d="M12 5v14"/>
+                </svg>
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Basket Items -->
     <div *ngIf="basketItems.length > 0" class="flex flex-col px-4 mt-4">
       <div *ngFor="let item of basketItems; let idx = index"
@@ -115,47 +171,6 @@
         </div>
       </div>
 
-      <!-- Upsell Carousel -->
-      <div *ngIf="upsellItems.length > 0" class="mt-6">
-        <h3 class="font-bold text-base text-gray-900 mb-3">
-          {{ upsellConfig?.title || 'You might also like' }}
-        </h3>
-        <div class="overflow-x-auto no-scrollbar -mx-4 px-4">
-          <div class="flex gap-3" style="width: max-content;">
-            <div *ngFor="let item of upsellItems"
-                 class="w-36 flex-shrink-0 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-              <div class="w-full h-24 bg-gray-100 overflow-hidden">
-                <img *ngIf="item.item_image"
-                     [src]="url + item.item_image"
-                     [alt]="item.item_name"
-                     class="w-full h-full object-cover"
-                     loading="lazy" decoding="async" />
-                <div *ngIf="!item.item_image"
-                     class="w-full h-full flex items-center justify-center text-gray-300 text-xs">
-                  No image
-                </div>
-              </div>
-              <div class="p-2.5">
-                <h4 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
-                  {{ item.item_name }}
-                </h4>
-                <p class="text-red-600 font-bold text-sm mt-1">
-                  UGX {{ item.item_price | number }}
-                </p>
-                <button (click)="addUpsellItem(item)"
-                        class="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 12h14"/><path d="M12 5v14"/>
-                  </svg>
-                  Add
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Order Totals -->
       <div class="mt-4 space-y-2">
         <!-- Savings banner -->
@@ -171,28 +186,28 @@
           <span class="text-lg font-bold text-gray-900">UGX {{ totalAmount | number }}</span>
         </div>
       </div>
-    </div>
 
-    <!-- Comments Section -->
-    <div class="mt-4 px-4">
-      <label class="block text-sm font-medium text-gray-700 mb-1">Special instructions</label>
-      <textarea
-        [(ngModel)]="order_remarks"
-        placeholder="Any allergies, preferences, or requests..."
-        rows="2"
-        class="bg-white border border-gray-300 text-gray-900 rounded-xl w-full p-3 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
-      </textarea>
+      <!-- Comments Section -->
+      <div class="mt-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Special instructions</label>
+        <textarea
+          [(ngModel)]="order_remarks"
+          placeholder="Any allergies, preferences, or requests..."
+          rows="2"
+          class="bg-white border border-gray-300 text-gray-900 rounded-xl w-full p-3 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+        </textarea>
+      </div>
     </div>
 
     <app-diner-footer></app-diner-footer>
   </div>
 
-  <!-- Confirm Order Button (sticky footer) -->
+  <!-- Checkout Button (sticky footer) -->
   <div *ngIf="basketItems.length > 0"
        class="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg">
     <button (click)="initiateOrder()"
             class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl py-3.5 px-4 font-semibold text-base transition-colors">
-      Confirm Order — UGX {{ totalAmount | number }}
+      Checkout — UGX {{ totalAmount | number }}
     </button>
   </div>
 </div>
