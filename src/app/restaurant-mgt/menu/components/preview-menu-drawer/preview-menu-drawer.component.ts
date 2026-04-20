@@ -312,6 +312,12 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     };
   }
 
+  /** Filters out empty/blank allergen entries */
+  getVisibleAllergens(allergens: string[] | null | undefined): string[] {
+    if (!allergens) return [];
+    return allergens.filter((a: string | null | undefined) => !!a && a.toString().trim().length > 0);
+  }
+
   getDiscountPercent(item: any): number {
     const original = parseFloat(item?.primary_price) || 0;
     const discounted = parseFloat(item?.discount_details?.discount_amount) || 0;
