@@ -185,8 +185,8 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   get computedItemTotal(): number {
     if (!this.selected_item) return 0;
     const basePrice = this.selected_item?.running_discount
-      ? (this.selected_item?.discount_details?.discount_amount ?? this.selected_item.primary_price)
-      : this.selected_item.primary_price;
+      ? (Number(this.selected_item?.discount_details?.discount_amount) || 0)
+      : (Number(this.selected_item.primary_price) || 0);
     let modifiersCost = 0;
     for (const group of this.modifierGroups) {
       const selectedIds = this.selectedModifiers[group.id] || [];
@@ -196,7 +196,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
       }
     }
     const extrasCost = this.selected_extras.reduce(
-      (acc: number, extra: any) => acc + (extra.primary_price || 0), 0
+      (acc: number, extra: any) => acc + (Number(extra.primary_price) || 0), 0
     );
     return (basePrice + modifiersCost + extrasCost) * this.selected_quantity;
   }
@@ -411,13 +411,13 @@ get QuantitySum(){
     const selectedExtras = this.selected_extras.map((extra) => ({
       id: extra.id,
       name: extra.name,
-      cost: extra.primary_price || 0,
+      cost: Number(extra.primary_price) || 0,
     }));
 
-    const discount = this.selected_item?.discount_details?.discount_amount ?? 0;
+    const discount = Number(this.selected_item?.discount_details?.discount_amount) || 0;
     const isDiscounted = this.selected_item?.running_discount;
 
-    const originalBasePrice = this.selected_item?.primary_price;
+    const originalBasePrice = Number(this.selected_item?.primary_price) || 0;
     const basePrice = isDiscounted ? discount : originalBasePrice;
 
     const modifiersCost = selectedModifiersList.reduce(
@@ -543,11 +543,13 @@ removeUnderscore(x:string){
   }
   calculateDiscount(item:any): number {
     if (!item?.discount_details?.discount_amount) return 0;
-    return Math.round(((item.primary_price - item.discount_details.discount_amount) / item.primary_price) * 100);
+    const price = Number(item.primary_price) || 0;
+    const discountAmt = Number(item.discount_details.discount_amount) || 0;
+    return Math.round(((price - discountAmt) / price) * 100);
   }
   priceSaved(item:any): number {
     if (!item?.discount_details?.discount_amount) return 0;
-    return item.primary_price - item.discount_details.discount_amount;
+    return Number(item.primary_price) - Number(item.discount_details.discount_amount);
   }
   isOutOfStock(item: any): boolean {
     return item.in_stock === false;

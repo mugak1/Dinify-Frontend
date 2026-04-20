@@ -185,7 +185,7 @@ discountValue: number = 10; // 10% or UGX amount
     );
     const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
 
-    return (item.originalBasePrice + modifiersCost + extrasCost) * item.quantity;
+    return (Number(item.originalBasePrice) + modifiersCost + extrasCost) * item.quantity;
   }
   getTotalSavings(): number {
     return this.basketItems.reduce((total, item) => {
@@ -225,7 +225,7 @@ discountValue: number = 10; // 10% or UGX amount
       0
     );
     const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
-    const effectiveBasePrice = item.basePrice;
+    const effectiveBasePrice = Number(item.basePrice) || 0;
 
     return (effectiveBasePrice + modifiersCost + extrasCost) * item.quantity;
   }
