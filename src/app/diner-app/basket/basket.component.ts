@@ -40,6 +40,7 @@ discountValue: number = 10; // 10% or UGX amount
     private router: Router,
     private messageService: MessageService
   ) {
+    console.log('[DIAG] BasketComponent constructor START');
     // Initialize basket from session storage
     this.basket_items = this.sessionStorage.getItem<BasketItem[]>('Basket') || [];
     this.basketService.Basket = signal<ShoppingBasket>({
@@ -57,7 +58,10 @@ discountValue: number = 10; // 10% or UGX amount
       this.upsellConfig = upsellRaw;
       this.computeUpsellItems();
     }
+    console.log('[DIAG] BasketComponent constructor END — basketItems:', this.basketItems);
   }
+
+  ngOnInit() { console.log('[DIAG] BasketComponent ngOnInit'); }
 
   // Filters and trims the upsell list based on config + current basket state
   computeUpsellItems(): void {

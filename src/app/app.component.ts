@@ -1,4 +1,5 @@
 import { Component, ViewChild, ViewContainerRef, AfterViewInit } from '@angular/core';
+import { Router, NavigationEnd, NavigationStart, NavigationError, NavigationCancel } from '@angular/router';
 import { MessageService } from './_services/message.service';
 import { ConfirmDialogService } from './_common/confirm-dialog.service';
 import { ConfirmDialogComponent } from './_common/confirm-dialog/confirm-dialog.component';
@@ -12,8 +13,12 @@ import { ConfirmDialogComponent } from './_common/confirm-dialog/confirm-dialog.
 export class AppComponent implements AfterViewInit {
   title = 'dinify_frontend';
   @ViewChild("modalcontent", { read: ViewContainerRef }) contentRef!: ViewContainerRef;
-  constructor(public messageService: MessageService,private dialog:ConfirmDialogService){
- 
+  constructor(public messageService: MessageService,private dialog:ConfirmDialogService,private _diagRouter: Router){
+    this._diagRouter.events.subscribe(e => {
+      if (e instanceof NavigationStart || e instanceof NavigationEnd || e instanceof NavigationError || e instanceof NavigationCancel) {
+        console.log('[DIAG] Router event:', e.constructor.name, (e as any).url ?? (e as any).reason ?? '');
+      }
+    });
   }
 
   ngAfterViewInit(){
