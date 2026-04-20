@@ -547,9 +547,9 @@
         }
       </div>
       <!-- Tags -->
-      @if (item.allergens?.length) {
+      @if (item.allergens?.filter(a => a && a.trim()).length) {
         <div class="mt-2 flex flex-wrap gap-1">
-          @for (tag of item.allergens; track tag) {
+          @for (tag of item.allergens.filter(a => a && a.trim()); track tag) {
             <span [class]="'inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ' + getTagBadge(tag).colorClasses">
               <span [innerHTML]="getTagBadge(tag).iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
               {{ tag }}

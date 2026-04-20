@@ -144,7 +144,7 @@
     </header>
   
     
-      <router-outlet *ngIf="table"></router-outlet>
+      <router-outlet *ngIf="table || restaurant_id"></router-outlet>
    
   </div>
   <div *ngIf="showProfileMenu" class="opacity-25 fixed inset-0 z-40 bg-black"></div>

@@ -89,6 +89,12 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     };
   }
 
+  /** Filters out empty/blank allergen entries */
+  getVisibleAllergens(allergens: string[] | null | undefined): string[] {
+    if (!allergens) return [];
+    return allergens.filter(a => a && a.trim());
+  }
+
   get filterableTags(): any[] {
     return this.presetTags.filter((t: any) => t.filterable);
   }
