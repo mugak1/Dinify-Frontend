@@ -314,8 +314,8 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
   /** Filters out empty/blank allergen entries */
   getVisibleAllergens(allergens: string[] | null | undefined): string[] {
-    if (!allergens) return [];
-    return allergens.filter((a: string | null | undefined) => !!a && a.toString().trim().length > 0);
+    if (!Array.isArray(allergens)) return [];
+    return allergens.filter((a: any) => typeof a === 'string' && a.trim().length > 0);
   }
 
   getDiscountPercent(item: any): number {
