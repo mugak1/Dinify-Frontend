@@ -143,6 +143,26 @@
   }
 }
 
+/* Prevent iOS Safari from auto-zooming when the user focuses a text
+   input. Safari auto-zooms whenever computed font-size < 16px. Our
+   root font-size is 14px (see html rule above), which would trigger
+   it on every text input. Absolute 16px (not rem) overrides this
+   without forcing the root to 16px. Inputs don't visibly appear
+   larger because 16px vs 14px is a 2px delta, acceptable. */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="number"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */
   .no-scrollbar::-webkit-scrollbar {

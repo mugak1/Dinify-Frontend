@@ -50,3 +50,11 @@
   -ms-overflow-style: none; /* Internet Explorer 10+ */
   scrollbar-width: none; /* Firefox */
 }
+
+/* iOS Safari auto-zooms inputs with computed font-size < 16px on focus.
+   The global `html { font-size: 14px }` in styles.css makes Tailwind's
+   `text-base` resolve to 14px, which triggers the zoom. Force the search
+   input to 16px in absolute px (not rem) so the zoom doesn't fire. */
+input[type="text"][placeholder="Search menu..."] {
+  font-size: 16px;
+}
