@@ -40,6 +40,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   totalAmount = this.basketService.Basket().totalAmount;
   showModal=false;
   selected_item!:MenuItem|any
+  heroImageLoaded: boolean = false;
   selected_quantity:number=1;
   selected_amount:number=0;
   modifierGroups: ModifierGroup[] = [];
@@ -360,6 +361,7 @@ get QuantitySum(){
       .map((ext: any) => (menuItem.extras || []).find((e: any) => e.id === ext.id))
       .filter(Boolean);
 
+    this.heroImageLoaded = false;
     this.validateForm();
     this.showModal = true;
   }
@@ -386,6 +388,7 @@ get QuantitySum(){
     this.modifierGroups = parseModifierGroups(i.options);
     this.selectedModifiers = {};
     this.selected_extras = [];
+    this.heroImageLoaded = false;
     this.validateForm();
     this.showModal = true;
   }

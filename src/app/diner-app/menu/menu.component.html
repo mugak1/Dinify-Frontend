@@ -345,11 +345,17 @@
     <!-- Scrollable body (single scroll context) -->
     <div class="flex-1 min-h-0 overflow-y-auto">
 
-      <!-- Hero image — edge to edge -->
-      <div *ngIf="selected_item.image" class="w-full aspect-[4/3] overflow-hidden bg-gray-100">
+      <!-- Hero image — edge to edge. Skeleton covers the box until the
+           image loads, for the unhappy-path cases the menu preload can't
+           cover (preload timeout, cache eviction, early tap). -->
+      <div *ngIf="selected_item.image" class="w-full aspect-[4/3] overflow-hidden bg-gray-100 relative">
+        <div *ngIf="!heroImageLoaded" class="absolute inset-0 bg-gray-200 animate-pulse"></div>
         <img [src]="url + selected_item.image"
              [alt]="selected_item.name"
-             class="w-full h-full object-cover" />
+             class="w-full h-full object-cover transition-opacity duration-200"
+             [class.opacity-0]="!heroImageLoaded"
+             (load)="heroImageLoaded = true"
+             (error)="heroImageLoaded = true" />
       </div>
 
       <!-- Badge row -->
