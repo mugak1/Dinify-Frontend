@@ -25,6 +25,8 @@ export class BasketComponent {
   url = environment.apiUrl;
   upsellConfig: any = null;
   upsellItems: any[] = [];
+  imageLoaded: Record<string, boolean> = {};
+  imageErrored: Record<string, boolean> = {};
 
   discountActive: boolean = false; // Set to true only if discount is available
 discountType: 'percentage' | 'flat' = 'percentage';
@@ -74,6 +76,15 @@ discountValue: number = 10; // 10% or UGX amount
       items = items.filter((i: any) => !basketIds.has(i.item_id || i.menu_item));
     }
     this.upsellItems = items.slice(0, this.upsellConfig.max_items_to_show || 6);
+  }
+
+  onUpsellImageLoad(itemId: string): void {
+    this.imageLoaded[itemId] = true;
+  }
+
+  onUpsellImageError(itemId: string): void {
+    this.imageErrored[itemId] = true;
+    this.imageLoaded[itemId] = true;
   }
 
   // Adds an upsell item to the basket (simple items — no modifiers/extras)
