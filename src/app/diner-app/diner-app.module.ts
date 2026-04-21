@@ -30,9 +30,6 @@ const routes: Routes = [
   { path: '**', redirectTo: '' }
   ];
 
-console.log('[DIAG] DinerAppModule routes registered:', routes.map(r => r.path));
-
-
 @NgModule({
   declarations: [
     DinersMenuComponent,

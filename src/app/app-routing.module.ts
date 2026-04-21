@@ -18,13 +18,7 @@ const routes: Routes = [
 {path:'welcome',component:WelcomeComponent,title:'Welcome'},
 {path:'rest-app',component:RestaurantMgtComponent,canActivate:[AuthGuard],data:{roles:['restaurant_staff']},loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module').then(m => m.RestaurantMgtModule)},
 {path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin']},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
-{path:'diner',component:DinerAppComponent,loadChildren: () => {
-  console.log('[DIAG] Lazy-loading DinerAppModule');
-  return import('./diner-app/diner-app.module').then(m => {
-    console.log('[DIAG] DinerAppModule loaded:', m);
-    return m.DinerAppModule;
-  });
-}},
+{path:'diner',component:DinerAppComponent,loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
 { path: "lock-otp-exp", component: LockScreenComponent },
 { path: 'privacy', loadComponent: () => import('./legal/privacy-policy/privacy-policy.component').then(m => m.PrivacyPolicyComponent), title: 'Privacy Policy' },
 { path: 'terms', loadComponent: () => import('./legal/terms-and-conditions/terms-and-conditions.component').then(m => m.TermsAndConditionsComponent), title: 'Terms and Conditions' },

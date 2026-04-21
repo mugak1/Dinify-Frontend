@@ -25,7 +25,6 @@ button_action='';
 
 
 constructor(private readonly sessionStorage: SessionStorageService,private route:ActivatedRoute,private api:ApiService,public auth:AuthenticationService) {
-  console.log('[DIAG] DinerAppComponent ctor — route:', this.route.snapshot.url, 'children:', this.route.children.length);
   /**/if(this.route.children.length>0){
    this.route.children.at(0)?.params.subscribe(x=>{
  if(x['table']){
@@ -33,27 +32,23 @@ constructor(private readonly sessionStorage: SessionStorageService,private route
    this.getTableDetails(x['table']);
  }else{
 
-  console.log('[DIAG] DinerAppComponent reading sessionStorage');
   const restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   this.table=this.sessionStorage.getItem<Restaurant>('Table') as any;
   this.table_id=this.table?.id
   this.restaurant_name=restaurant?.name;
 this.restaurant_id=restaurant?.id;
 this.branding_configs=restaurant?.branding_configuration;
-console.log('[DIAG] DinerAppComponent state:', { table: this.table, restaurant_id: this.restaurant_id });
 }
 
 })
   } else{
 
-    console.log('[DIAG] DinerAppComponent reading sessionStorage');
     const restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
     this.table=this.sessionStorage.getItem<Restaurant>('Table') as any;
     this.table_id=this.table?.id
     this.restaurant_name=restaurant?.name;
 this.restaurant_id=restaurant?.id;
 this.branding_configs=restaurant?.branding_configuration;
-console.log('[DIAG] DinerAppComponent state:', { table: this.table, restaurant_id: this.restaurant_id });
   }
 
 

@@ -1,4 +1,4 @@
-<div *ngIf="table||restaurant_id">
+<div>
     <header *ngIf="branding_configs" [style.background-color]="branding_configs?.home?.bgColor" class="absolute inset-x-0 top-0 z-50">
       <nav [style.background-color]="branding_configs?.home?.headerColor" class="fixed w-full top-0 left-0 flex items-center justify-between p-4 lg:px-8" aria-label="Global">
         <div  class="flex lg:flex-1">
@@ -144,7 +144,7 @@
     </header>
   
     
-      <router-outlet *ngIf="table || restaurant_id"></router-outlet>
+      <router-outlet></router-outlet>
    
   </div>
   <div *ngIf="showProfileMenu" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
