@@ -21,7 +21,6 @@ export class BasketComponent {
   basketItems: BasketItem[];
   table?: TableScan|any;
   order_initiated?: OrderInitiated;
-  order_remarks = '';
   restaurant: any;
   url = environment.apiUrl;
   upsellConfig: any = null;
@@ -143,7 +142,6 @@ discountValue: number = 10; // 10% or UGX amount
       const orderPayload = {
         restaurant: this.restaurant?.id,
         table: this.table?.id,
-        order_remarks: this.order_remarks,
         items: this.basketItems.map((item) => ({
           item: item.itemId,
           quantity: item.quantity,
