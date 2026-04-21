@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
-import { UpsellConfig } from 'src/app/_models/app.models';
+import { ApiResponse, UpsellConfig } from 'src/app/_models/app.models';
 
 /**
  * Response shape for single-resource upsell config endpoints.
@@ -39,8 +39,9 @@ export class UpsellService {
 
     this.api.get<UpsellConfig>(null, 'restaurant-setup/upsell-config/', { restaurant: restaurantId })
       .subscribe({
-        next: (res: UpsellConfigResponse) => {
-          this._config$.next(res?.data ?? null);
+        next: (res: ApiResponse<UpsellConfig>) => {
+          const response = res as unknown as UpsellConfigResponse;
+          this._config$.next(response?.data ?? null);
           this._isLoading$.next(false);
         },
         error: () => {
