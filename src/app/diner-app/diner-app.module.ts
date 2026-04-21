@@ -18,13 +18,9 @@ const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
   {path:'menu-item/:id',component:MenuItemDetailComponent},
-  {path:'menu/basket',component:BasketComponent,title:'Basket'},
-  {path:'menu/error',component:ErrorPageComponent},
-  {path:'menu/basket/order-complete',component:OrderCompleteComponent},
   {path:'basket',component:BasketComponent,title:'Basket'},
   {path:'basket/order-complete',component:OrderCompleteComponent},
   {path:'orders',component:OrdersComponent},
-  {path:'order-complete',component:OrderCompleteComponent},
   {path:'error',component:ErrorPageComponent},
   {path:'payment-details/:id', component:PaymentDetailsComponent},
   { path: '**', redirectTo: '' }
