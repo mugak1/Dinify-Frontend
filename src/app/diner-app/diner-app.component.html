@@ -1,4 +1,5 @@
-<div>
+<app-no-table *ngIf="!table"></app-no-table>
+<div *ngIf="table">
     <header *ngIf="branding_configs" [style.background-color]="branding_configs?.home?.bgColor" class="absolute inset-x-0 top-0 z-50">
       <nav [style.background-color]="branding_configs?.home?.headerColor" class="fixed w-full top-0 left-0 flex items-center justify-between p-4 lg:px-8" aria-label="Global">
         <div  class="flex lg:flex-1">
@@ -147,9 +148,9 @@
       <router-outlet></router-outlet>
    
   </div>
-  <div *ngIf="showProfileMenu" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
- 
-  <div *ngIf="showProfileMenu"  tabindex="-1"  class="bg-white fixed top-0 left-0 right-0 z-50 items-center justify-center w-full overflow-x-hidden overflow-y-auto md:inset-0">
+  <div *ngIf="table && showProfileMenu" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
+
+  <div *ngIf="table && showProfileMenu"  tabindex="-1"  class="bg-white fixed top-0 left-0 right-0 z-50 items-center justify-center w-full overflow-x-hidden overflow-y-auto md:inset-0">
       <div  class="flex flex-col w-screen h-dvh mx-auto my-auto rounded-lg">
         <div  class=" sticky top-0 flex flex-col items-start justify-between p-4 rounded-t bg-white z-10">
           <span class="text-2xl font-black"></span>

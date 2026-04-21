@@ -19,6 +19,7 @@ import { DinifyCommonModule } from "./_common/dinify-common.module";
 import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { StorageModule } from './_services/storage/storage.module';
+import { NoTableComponent } from './diner-app/no-table/no-table.component';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -37,7 +38,8 @@ import { StorageModule } from './_services/storage/storage.module';
         NgxIntlTelephoneInputModule,
         DinifyCommonModule,
         FormsModule,
-        StorageModule.forRoot({ prefix: 'dinify' })], providers: [
+        StorageModule.forRoot({ prefix: 'dinify' }),
+        NoTableComponent], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),

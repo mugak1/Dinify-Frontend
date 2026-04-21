@@ -1,0 +1,38 @@
+<main class="min-h-screen flex items-center justify-center bg-white px-6 py-12">
+    <div class="max-w-md w-full flex flex-col items-center text-center">
+        <svg
+            class="text-red-600 mb-8"
+            width="96"
+            height="96"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            focusable="false">
+            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+            <path d="M14 14h3v3h-3z"></path>
+            <path d="M20 14v3"></path>
+            <path d="M14 20h3"></path>
+            <path d="M20 20h1"></path>
+        </svg>
+
+        <h1 class="text-2xl font-semibold text-gray-900 mb-4">
+            Scan to Start Your Order
+        </h1>
+
+        <p class="text-base text-gray-700 leading-relaxed">
+            To place an order, please scan the QR code on your table.
+            If you've already scanned and are seeing this page, your session
+            may have expired &mdash; please scan again.
+        </p>
+
+        <p *ngIf="restaurantName" class="mt-8 text-sm text-gray-500">
+            {{ restaurantName }}
+        </p>
+    </div>
+</main>
