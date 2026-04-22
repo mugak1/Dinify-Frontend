@@ -157,7 +157,7 @@
 
 
   
-<div style="height: calc(100dvh - 100px);" *ngIf="!isLoading && filteredMenuList" class="flex flex-col px-6 overflow-y-scroll pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)" >
+<div *ngIf="!isLoading && filteredMenuList" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)">
 
     <!-- Featured Section: collects all items with is_featured across all visible sections -->
     <div *ngIf="featuredItems.length > 0" id="Featured" class="flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
@@ -198,7 +198,6 @@
       </svg>
 
   </div>
-  <app-diner-footer></app-diner-footer>
 </div>
 
 <!-- Shared item card template — used by both the Featured section and the regular section listings -->

@@ -1,5 +1,5 @@
 <app-no-table *ngIf="!table"></app-no-table>
-<div *ngIf="table">
+<div *ngIf="table" class="pb-24 lg:pb-0">
     <header *ngIf="branding_configs" [style.background-color]="branding_configs?.home?.bgColor" class="absolute inset-x-0 top-0 z-50">
       <nav [style.background-color]="branding_configs?.home?.headerColor" class="fixed w-full top-0 left-0 flex items-center justify-between p-4 lg:px-8" aria-label="Global">
         <div  class="flex lg:flex-1">
@@ -153,14 +153,16 @@
 
         <!-- Persistent basket sidebar, lg:+ only -->
         <aside class="hidden lg:block lg:w-1/3 lg:min-w-[360px] lg:max-w-[480px]
-                      lg:mt-16 lg:mr-4 lg:ml-4
-                      lg:sticky lg:top-16
-                      lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto
+                      lg:mt-28 lg:mr-4 lg:ml-4
+                      lg:sticky lg:top-28
+                      lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto
                       lg:bg-white lg:rounded-lg lg:shadow-sm
                       lg:border lg:border-gray-200">
           <app-basket-body></app-basket-body>
         </aside>
       </div>
+
+      <app-diner-footer></app-diner-footer>
 
   </div>
   <div *ngIf="table && showProfileMenu" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
