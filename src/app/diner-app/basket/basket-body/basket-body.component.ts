@@ -1,5 +1,5 @@
 import { CommonModule, Location } from '@angular/common';
-import { Component, signal } from '@angular/core';
+import { Component, signal, ViewChild, ElementRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { BasketItem, OrderInitiated, Restaurant, SelectedModifier, ShoppingBasket, TableScan } from 'src/app/_models/app.models';
@@ -19,8 +19,6 @@ import { DinerFooterComponent } from '../../diner-footer/diner-footer.component'
 })
 export class BasketBodyComponent {
   basket_items: BasketItem[] = [];
-  totalAmount: number;
-  basketItems: BasketItem[];
   table?: TableScan|any;
   order_initiated?: OrderInitiated;
   restaurant: any;
@@ -29,6 +27,15 @@ export class BasketBodyComponent {
   upsellItems: any[] = [];
   imageLoaded: Record<string, boolean> = {};
   imageErrored: Record<string, boolean> = {};
+  @ViewChild('upsellCarousel') upsellCarousel?: ElementRef<HTMLDivElement>;
+
+  get basketItems(): BasketItem[] {
+    return this.basketService.Basket()?.items ?? [];
+  }
+
+  get totalAmount(): number {
+    return this.basketService.Basket()?.totalAmount ?? 0;
+  }
 
   discountActive: boolean = false; // Set to true only if discount is available
 discountType: 'percentage' | 'flat' = 'percentage';
@@ -49,8 +56,6 @@ discountValue: number = 10; // 10% or UGX amount
       items: this.basket_items,
       totalAmount: this.basketService.calculateTotalAmount(this.basket_items),
     });
-    this.basketItems = this.basketService.Basket().items;
-    this.totalAmount = this.basketService.Basket().totalAmount;
     this.table = this.sessionStorage.getItem<TableScan>('Table');
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
 
@@ -139,9 +144,14 @@ discountValue: number = 10; // 10% or UGX amount
 
   // Updates basketItems and totalAmount after adding/removing items
   updateCart() {
-    this.basketItems = this.basketService.Basket().items;
-    this.totalAmount = this.basketService.Basket().totalAmount;
     this.computeUpsellItems();
+  }
+
+  scrollUpsells(direction: 'left' | 'right'): void {
+    const el = this.upsellCarousel?.nativeElement;
+    if (!el) return;
+    const delta = 160;
+    el.scrollBy({ left: direction === 'left' ? -delta : delta, behavior: 'smooth' });
   }
 
   // Initiates an order
