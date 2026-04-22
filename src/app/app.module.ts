@@ -20,6 +20,7 @@ import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { StorageModule } from './_services/storage/storage.module';
 import { NoTableComponent } from './diner-app/no-table/no-table.component';
+import { BasketBodyComponent } from './diner-app/basket/basket-body/basket-body.component';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -39,7 +40,8 @@ import { NoTableComponent } from './diner-app/no-table/no-table.component';
         DinifyCommonModule,
         FormsModule,
         StorageModule.forRoot({ prefix: 'dinify' }),
-        NoTableComponent], providers: [
+        NoTableComponent,
+        BasketBodyComponent], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),

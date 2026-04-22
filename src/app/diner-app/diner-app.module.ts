@@ -31,7 +31,6 @@ const routes: Routes = [
   declarations: [
     DinersMenuComponent,
     BasketComponent,
-    BasketBodyComponent,
     MenuItemDetailComponent,
     OrdersComponent,
     PaymentDetailsComponent,
@@ -48,7 +47,8 @@ const routes: Routes = [
     NgxCurrencyDirective,
     FormsModule,
     ErrorPageComponent,
-    DinerFooterComponent
+    DinerFooterComponent,
+    BasketBodyComponent
 ],
   exports:[
     RouterModule,

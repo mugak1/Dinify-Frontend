@@ -1,4 +1,4 @@
-import { Location } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
@@ -8,12 +8,14 @@ import { BasketService } from 'src/app/_services/basket.service';
 import { MessageService } from 'src/app/_services/message.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { environment } from 'src/environments/environment';
+import { DinerFooterComponent } from '../../diner-footer/diner-footer.component';
 
 @Component({
     selector: 'app-basket-body',
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],
-    standalone: false
+    standalone: true,
+    imports: [CommonModule, DinerFooterComponent]
 })
 export class BasketBodyComponent {
   basket_items: BasketItem[] = [];

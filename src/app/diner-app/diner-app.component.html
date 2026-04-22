@@ -144,9 +144,21 @@
       </div>
     </header>
   
-    
-      <router-outlet></router-outlet>
-   
+
+      <div class="lg:flex lg:items-start">
+        <!-- Main content column -->
+        <div class="lg:flex-1 lg:min-w-0">
+          <router-outlet></router-outlet>
+        </div>
+
+        <!-- Persistent basket sidebar, lg:+ only -->
+        <aside class="hidden lg:block lg:w-1/3 lg:min-w-[360px] lg:max-w-[480px]
+                      lg:h-[calc(100dvh-3rem)] lg:mt-12 lg:sticky lg:top-12
+                      lg:border-l lg:border-gray-200 lg:bg-white lg:overflow-y-auto">
+          <app-basket-body></app-basket-body>
+        </aside>
+      </div>
+
   </div>
   <div *ngIf="table && showProfileMenu" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
 
