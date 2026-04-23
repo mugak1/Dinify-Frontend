@@ -1,6 +1,7 @@
 import { CommonModule, Location } from '@angular/common';
-import { Component, signal, ViewChild, ElementRef } from '@angular/core';
+import { Component, signal, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { BasketItem, OrderInitiated, Restaurant, SelectedModifier, ShoppingBasket, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
@@ -17,7 +18,7 @@ import { DinerFooterComponent } from '../../diner-footer/diner-footer.component'
     standalone: true,
     imports: [CommonModule, DinerFooterComponent]
 })
-export class BasketBodyComponent {
+export class BasketBodyComponent implements OnInit, OnDestroy {
   basket_items: BasketItem[] = [];
   table?: TableScan|any;
   order_initiated?: OrderInitiated;
@@ -28,6 +29,7 @@ export class BasketBodyComponent {
   imageLoaded: Record<string, boolean> = {};
   imageErrored: Record<string, boolean> = {};
   @ViewChild('upsellCarousel') upsellCarousel?: ElementRef<HTMLDivElement>;
+  private upsellStorageSub?: Subscription;
 
   get basketItems(): BasketItem[] {
     return this.basketService.Basket()?.items ?? [];
@@ -59,11 +61,35 @@ discountValue: number = 10; // 10% or UGX amount
     this.table = this.sessionStorage.getItem<TableScan>('Table');
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
 
-    // Load upsell config cached by the menu component on show-menu
+    this.loadUpsellFromStorage();
+  }
+
+  ngOnInit(): void {
+    this.upsellStorageSub = this.sessionStorage.StorageValue.subscribe((key: any) => {
+      // StorageValue emits the prefixed key (e.g. "[dinify-diner-app]upsellConfig").
+      // Use includes() for prefix-agnostic matching — mirrors menu.component.ts:63.
+      if (typeof key !== 'string' || !key.includes('upsellConfig')) return;
+      this.loadUpsellFromStorage();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.upsellStorageSub?.unsubscribe();
+  }
+
+  /**
+   * Reads upsellConfig from session storage and recomputes the upsell carousel.
+   * Called once at construction and again whenever the menu component writes
+   * a fresh config after its show-menu API call resolves.
+   */
+  private loadUpsellFromStorage(): void {
     const upsellRaw = this.sessionStorage.getItem<any>('upsellConfig');
     if (upsellRaw?.enabled && upsellRaw?.items?.length > 0) {
       this.upsellConfig = upsellRaw;
       this.computeUpsellItems();
+    } else {
+      this.upsellConfig = null;
+      this.upsellItems = [];
     }
   }
 
