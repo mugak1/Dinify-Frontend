@@ -1,166 +1,27 @@
-<div  class="flex flex-col mt-12">
+<div  class="flex flex-col">
 
-<!-- Sticky Header: Search + Section Tabs -->
-<div *ngIf="!showSearch && !isLoading"
-     class="w-full top-[49px] left-0 bg-white z-10 sticky border-b border-gray-200">
-  <div class="flex items-center gap-2 px-4 py-2.5">
+<app-menu-nav-bar *ngIf="isInRestApp"></app-menu-nav-bar>
 
-    <!-- Search icon -->
-    <button (click)="toggleSearch()"
-            class="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M21 21l-4.35-4.35M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>
-      </svg>
-    </button>
-
-    <!-- Filter button (only if filterable tags exist) -->
-    <button *ngIf="filterableTags.length > 0"
-            (click)="openTagFilter()"
-            class="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors relative">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <line x1="4" x2="4" y1="21" y2="14" stroke="currentColor" stroke-width="2"/>
-        <line x1="4" x2="4" y1="10" y2="3" stroke="currentColor" stroke-width="2"/>
-        <line x1="12" x2="12" y1="21" y2="12" stroke="currentColor" stroke-width="2"/>
-        <line x1="12" x2="12" y1="8" y2="3" stroke="currentColor" stroke-width="2"/>
-        <line x1="20" x2="20" y1="21" y2="16" stroke="currentColor" stroke-width="2"/>
-        <line x1="20" x2="20" y1="12" y2="3" stroke="currentColor" stroke-width="2"/>
-        <line x1="2" x2="6" y1="14" y2="14" stroke="currentColor" stroke-width="2"/>
-        <line x1="10" x2="14" y1="8" y2="8" stroke="currentColor" stroke-width="2"/>
-        <line x1="18" x2="22" y1="16" y2="16" stroke="currentColor" stroke-width="2"/>
-      </svg>
-      <span *ngIf="selectedTags.length > 0"
-            class="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-        {{ selectedTags.length }}
-      </span>
-    </button>
-
-    <!-- Pill tabs (native horizontal scroll, no arrows) -->
-    <div class="flex-1 overflow-x-auto no-scrollbar">
-      <div class="flex gap-2">
-        <!-- Featured pill (first, only when featured items exist) -->
-        <button *ngIf="featuredItems.length > 0"
-                (click)="!searchQuery ? scrollTo('Featured', -1) : false"
-                class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
-                [ngClass]="{
-                  'bg-red-600 text-white shadow-sm': currentSection === 'Featured',
-                  'bg-gray-100 text-gray-700 hover:bg-gray-200': currentSection !== 'Featured'
-                }">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-               [attr.fill]="currentSection === 'Featured' ? '#ffffff' : '#eab308'"
-               [attr.stroke]="currentSection === 'Featured' ? '#ffffff' : '#eab308'"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-          Featured
-        </button>
-
-        <button *ngFor="let s of filteredMenuList; let i = index"
-                (click)="!searchQuery ? scrollTo(s.name, i) : false"
-                class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
-                [ngClass]="{
-                  'bg-red-600 text-white shadow-sm': removeUnderscore(currentSection) === s.name,
-                  'bg-gray-100 text-gray-700 hover:bg-gray-200': removeUnderscore(currentSection) !== s.name
-                }">
-          {{ s?.name }}
-        </button>
+<!-- Skeleton cards -->
+<div *ngIf="navState.isLoading()" class="flex flex-col px-6 pt-4">
+  <div *ngFor="let _ of [1,2,3,4,5]"
+       class="mb-3 rounded-none bg-white shadow-sm border border-gray-100">
+    <div class="flex gap-3 p-3">
+      <div class="flex-1 min-w-0 flex flex-col gap-2">
+        <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
+        <div class="h-3 w-full bg-gray-200 animate-pulse rounded"></div>
+        <div class="h-3 w-5/6 bg-gray-200 animate-pulse rounded"></div>
+        <div class="h-4 w-24 bg-gray-200 animate-pulse rounded mt-auto"></div>
       </div>
+      <div class="w-[112px] h-[112px] bg-gray-200 animate-pulse rounded-none flex-shrink-0"></div>
     </div>
   </div>
 </div>
 
-<!-- Skeleton loading state -->
-<div *ngIf="isLoading" class="w-full">
-  <!-- Skeleton tab bar -->
-  <div class="w-full top-[49px] left-0 bg-white z-10 sticky border-b border-gray-200">
-    <div class="flex items-center gap-2 px-4 py-2.5">
-      <div class="flex-shrink-0 w-9 h-9 bg-gray-200 animate-pulse rounded"></div>
-      <div class="flex-1 flex gap-2 overflow-hidden">
-        <div class="flex-shrink-0 h-7 w-24 bg-gray-200 animate-pulse rounded-full"></div>
-        <div class="flex-shrink-0 h-7 w-20 bg-gray-200 animate-pulse rounded-full"></div>
-        <div class="flex-shrink-0 h-7 w-16 bg-gray-200 animate-pulse rounded-full"></div>
-        <div class="flex-shrink-0 h-7 w-20 bg-gray-200 animate-pulse rounded-full"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Skeleton cards -->
-  <div class="flex flex-col px-6 pt-4">
-    <div *ngFor="let _ of [1,2,3,4,5]"
-         class="mb-3 rounded-none bg-white shadow-sm border border-gray-100">
-      <div class="flex gap-3 p-3">
-        <div class="flex-1 min-w-0 flex flex-col gap-2">
-          <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
-          <div class="h-3 w-full bg-gray-200 animate-pulse rounded"></div>
-          <div class="h-3 w-5/6 bg-gray-200 animate-pulse rounded"></div>
-          <div class="h-4 w-24 bg-gray-200 animate-pulse rounded mt-auto"></div>
-        </div>
-        <div class="w-[112px] h-[112px] bg-gray-200 animate-pulse rounded-none flex-shrink-0"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<!-- Active tag filter badges -->
-<div *ngIf="selectedTags.length > 0" class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-2">
-  <span class="text-xs text-gray-500">Filters:</span>
-  <span *ngFor="let tagName of selectedTags"
-        class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
-        [ngClass]="getTagBadge(tagName).colorClasses">
-    <span [innerHTML]="getTagBadge(tagName).iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
-    {{ tagName }}
-    <button (click)="removeTag(tagName); $event.stopPropagation()"
-            class="ml-0.5 rounded-full hover:bg-black/10 p-0.5">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-      </svg>
-    </button>
-  </span>
-  <button (click)="clearAllTags()" class="text-xs text-red-600 font-medium px-2 py-1 hover:text-red-700">
-    Clear all
-  </button>
-</div>
-
-<!-- Search Bar (replaces tabs when active) -->
-<div *ngIf="showSearch"
-     class="w-full top-[49px] left-0 bg-white z-10 sticky border-b border-gray-200">
-  <div class="flex items-center gap-2 px-4 py-2.5">
-    <div class="relative flex-1">
-      <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="18" height="18"
-           viewBox="0 0 24 24" fill="none">
-        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M21 21l-4.35-4.35M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>
-      </svg>
-      <input type="text"
-             placeholder="Search menu..."
-             [(ngModel)]="searchQuery"
-             (input)="filterMenu()"
-             class="w-full pl-10 pr-8 py-2 bg-gray-100 text-gray-900 rounded-full text-base focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white border border-transparent focus:border-red-500" />
-      <button *ngIf="searchQuery"
-              (click)="clearSearch()"
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M18 6 6 18M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-
-    <button (click)="toggleSearch()"
-            class="flex-shrink-0 text-sm font-medium text-red-600 hover:text-red-700 px-2 py-2">
-      Cancel
-    </button>
-  </div>
-</div>
-
-
-  
-<div *ngIf="!isLoading && filteredMenuList" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)">
+<div *ngIf="!navState.isLoading() && navState.filteredMenuList()" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)">
 
     <!-- Featured Section: collects all items with is_featured across all visible sections -->
-    <div *ngIf="featuredItems.length > 0" id="Featured" class="flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
+    <div *ngIf="navState.featuredItems().length > 0" id="Featured" class="flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
       <span class="font-bold text-xl pt-4 pb-2 flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
              fill="#eab308" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -169,13 +30,13 @@
         Featured
       </span>
       <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
-        <ng-container *ngFor="let i of featuredItems">
+        <ng-container *ngFor="let i of navState.featuredItems()">
           <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: i }"></ng-container>
         </ng-container>
       </div>
     </div>
 
-    <div id="{{addUnderScore(s.name)}}" *ngFor="let s of filteredMenuList;let is=index; let last=last" class="flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
+    <div id="{{addUnderScore(s.name)}}" *ngFor="let s of navState.filteredMenuList();let is=index; let last=last" class="flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
        <span class="font-bold text-xl pt-4 pb-2">{{s?.name}}</span>
        <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
         <ng-container *ngFor="let i of s?.items">
@@ -183,7 +44,7 @@
         </ng-container>
        </div>
     </div>
-    <div *ngIf="(!filteredMenuList || !filteredMenuList.length)&& menu_list.length" class="flex flex-col items-center justify-center h-full w-full">
+    <div *ngIf="(!navState.filteredMenuList() || !navState.filteredMenuList()?.length) && menu_list.length" class="flex flex-col items-center justify-center h-full w-full">
       <svg width="300px" height="200px" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- Magnifying Glass -->
         <circle cx="100" cy="80" r="50" stroke="#d1d5db" stroke-width="6" fill="none"/>
@@ -249,8 +110,8 @@
         <div *ngIf="getVisibleAllergens(i.allergens).length > 0" class="flex flex-wrap gap-1 mt-2">
           <span *ngFor="let tag of getVisibleAllergens(i.allergens)"
                 class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-                [ngClass]="getTagBadge(tag).colorClasses">
-            <span [innerHTML]="getTagBadge(tag).iconSvg"
+                [ngClass]="navState.getTagBadge(tag).colorClasses">
+            <span [innerHTML]="navState.getTagBadge(tag).iconSvg"
                   class="[&>svg]:h-3 [&>svg]:w-3"></span>
             {{ tag }}
           </span>
@@ -418,8 +279,8 @@
         <div class="flex flex-wrap gap-2">
           <span *ngFor="let tag of getVisibleAllergens(selected_item.allergens)"
                 class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full"
-                [ngClass]="getTagBadge(tag).colorClasses">
-            <span [innerHTML]="getTagBadge(tag).iconSvg"
+                [ngClass]="navState.getTagBadge(tag).colorClasses">
+            <span [innerHTML]="navState.getTagBadge(tag).iconSvg"
                   class="[&>svg]:h-3.5 [&>svg]:w-3.5"></span>
             {{ tag }}
           </span>
@@ -586,10 +447,10 @@
     </div>
 
 <!-- Tag Filter Bottom Sheet -->
-<ng-container *ngIf="showTagFilter">
+<ng-container *ngIf="navState.showTagFilter()">
   <div class="fixed inset-0 z-50">
     <!-- Backdrop -->
-    <div class="fixed inset-0 bg-black/50" (click)="showTagFilter = false"></div>
+    <div class="fixed inset-0 bg-black/50" (click)="navState.closeTagFilter()"></div>
 
     <!-- Sheet -->
     <div class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-lg flex flex-col"
@@ -610,26 +471,26 @@
 
       <!-- Tag list (scrollable) -->
       <div class="flex-1 overflow-y-auto px-6 pb-4">
-        <div *ngIf="filterableTags.length === 0" class="text-center py-8 text-gray-400">
+        <div *ngIf="navState.filterableTags().length === 0" class="text-center py-8 text-gray-400">
           No filter options available
         </div>
 
         <div class="space-y-2">
-          <button *ngFor="let tag of filterableTags"
-                  (click)="toggleTagSelection(tag.name)"
+          <button *ngFor="let tag of navState.filterableTags()"
+                  (click)="navState.toggleTagSelection(tag.name)"
                   class="w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left"
                   [ngClass]="{
-                    'border-red-500 bg-red-50': isTagSelected(tag.name),
-                    'border-gray-200 hover:bg-gray-50': !isTagSelected(tag.name)
+                    'border-red-500 bg-red-50': navState.isTagSelected(tag.name),
+                    'border-gray-200 hover:bg-gray-50': !navState.isTagSelected(tag.name)
                   }">
 
             <!-- Checkbox -->
             <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
                  [ngClass]="{
-                   'bg-red-600 border-red-600': isTagSelected(tag.name),
-                   'border-gray-300': !isTagSelected(tag.name)
+                   'bg-red-600 border-red-600': navState.isTagSelected(tag.name),
+                   'border-gray-300': !navState.isTagSelected(tag.name)
                  }">
-              <svg *ngIf="isTagSelected(tag.name)"
+              <svg *ngIf="navState.isTagSelected(tag.name)"
                    xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
                    stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20 6 9 17l-5-5"/>
@@ -638,8 +499,8 @@
 
             <!-- Tag icon + color -->
             <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                 [ngClass]="getTagBadge(tag.name).colorClasses"
-                 [innerHTML]="getTagBadge(tag.name).iconSvg">
+                 [ngClass]="navState.getTagBadge(tag.name).colorClasses"
+                 [innerHTML]="navState.getTagBadge(tag.name).iconSvg">
             </div>
 
             <!-- Tag name -->
@@ -655,14 +516,14 @@
 
       <!-- Footer -->
       <div class="px-6 py-4 border-t border-gray-200 flex gap-3">
-        <button (click)="clearLocalTagSelection(); showTagFilter = false"
-                [disabled]="localSelectedTags.length === 0"
+        <button (click)="navState.clearLocalTagSelection(); navState.closeTagFilter()"
+                [disabled]="navState.localSelectedTags().length === 0"
                 class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-colors hover:bg-gray-50">
           Clear All
         </button>
-        <button (click)="onTagFilterApply(localSelectedTags)"
+        <button (click)="navState.applyTagFilter()"
                 class="flex-1 py-3 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors">
-          Apply{{ localSelectedTags.length > 0 ? ' (' + localSelectedTags.length + ')' : '' }}
+          Apply{{ navState.localSelectedTags().length > 0 ? ' (' + navState.localSelectedTags().length + ')' : '' }}
         </button>
       </div>
     </div>

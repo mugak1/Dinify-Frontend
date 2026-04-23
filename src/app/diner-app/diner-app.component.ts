@@ -5,6 +5,7 @@ import { SessionStorageService } from '../_services/storage/session-storage.serv
 import { BrandingConfiguration, Restaurant, TableScan } from '../_models/app.models';
 import { AuthenticationService } from '../_services/authentication.service';
 import { environment } from 'src/environments/environment';
+import { MenuNavStateService } from './menu/menu-nav-state.service';
 
 @Component({
     selector: 'app-diner-app',
@@ -24,7 +25,7 @@ button_action='';
   showProfileMenu: boolean=false;
 
 
-constructor(private readonly sessionStorage: SessionStorageService,private route:ActivatedRoute,private api:ApiService,public auth:AuthenticationService) {
+constructor(private readonly sessionStorage: SessionStorageService,private route:ActivatedRoute,private api:ApiService,public auth:AuthenticationService,public navState: MenuNavStateService) {
   /**/if(this.route.children.length>0){
    this.route.children.at(0)?.params.subscribe(x=>{
  if(x['table']){

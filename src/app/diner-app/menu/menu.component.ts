@@ -6,9 +6,9 @@ import { MenuItem, ModifierGroup, Restaurant, SelectedModifier } from 'src/app/_
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
-import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
 import { environment } from 'src/environments/environment';
+import { MenuNavStateService } from './menu-nav-state.service';
 
 @Component({
     selector: 'app-diners-menu',
@@ -19,20 +19,12 @@ import { environment } from 'src/environments/environment';
 export class DinersMenuComponent implements OnInit, OnDestroy {
   url = environment.apiUrl;
 
-  showSearch:boolean=false;
   globalError:string|null=null;
   selected_extras: any[]=[];
   formSubmitted = false;
-  isLoading: boolean = true;
+  isInRestApp = false;
   private storageSub?: Subscription;
 
-
-  toggleSearch() {
-    this.showSearch = !this.showSearch;
-    if (!this.showSearch) {
-      this.clearSearch();
-    }
-  }
   @Input() restaurant?:Restaurant;
   @Input()restaurant_id:any='';
   menu_list?:MenuItem[]|any=[];
@@ -45,24 +37,22 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   selected_amount:number=0;
   modifierGroups: ModifierGroup[] = [];
   selectedModifiers: Record<string, string[]> = {};
-  currentSection=''
   currentSectionItem=''
-   // New filtered list for search results
-   filteredMenuList?: MenuItem[] | any = [];
-   // Search query property
-  searchQuery: string = '';
   errorMessages: any[]=[];
   isFormValidFlag: boolean=true;
   editingBasketIndex: number | null = null;
   isEditMode = false;
-  presetTags: any[] = [];
-  showTagFilter = false;
-  selectedTags: string[] = [];
-  localSelectedTags: string[] = [];
 
-  constructor(private sessionStorage:SessionStorageService,private api:ApiService,private basketService:BasketService,private router:Router,private fb:FormBuilder) {
+  constructor(
+    private sessionStorage: SessionStorageService,
+    private api: ApiService,
+    private basketService: BasketService,
+    private router: Router,
+    private fb: FormBuilder,
+    public navState: MenuNavStateService,
+  ) {
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
-  this.presetTags = this.restaurant?.preset_tags || [];
+  this.navState.setPresetTags(this.restaurant?.preset_tags || []);
   this.udpateCart();
 
   // When coming directly from a QR scan, the table-scan API call in the
@@ -74,7 +64,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
       const r = this.sessionStorage.getItem<Restaurant>('restaurant') as any;
       if (!r) return;
       this.restaurant = r;
-      this.presetTags = this.restaurant?.preset_tags || [];
+      this.navState.setPresetTags(this.restaurant?.preset_tags || []);
       this.storageSub?.unsubscribe();
       this.storageSub = undefined;
       this.tryLoadMenu();
@@ -82,22 +72,10 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   }
   }
 
-  getTagBadge(tagName: string): { colorClasses: string; iconSvg: string } {
-    const preset = this.presetTags.find((p: any) => p.name === tagName);
-    return {
-      colorClasses: preset ? getTagColorClasses(preset.color) : 'bg-gray-100 text-gray-700',
-      iconSvg: preset ? getTagIcon(preset.icon) : '',
-    };
-  }
-
   /** Filters out empty/blank allergen entries */
   getVisibleAllergens(allergens: string[] | null | undefined): string[] {
     if (!Array.isArray(allergens)) return [];
     return allergens.filter((a: any) => typeof a === 'string' && a.trim().length > 0);
-  }
-
-  get filterableTags(): any[] {
-    return this.presetTags.filter((t: any) => t.filterable);
   }
 
   getTagItemCount(tagName: string): number {
@@ -111,41 +89,9 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     return count;
   }
 
-  openTagFilter(): void {
-    this.localSelectedTags = [...this.selectedTags];
-    this.showTagFilter = true;
-  }
-
-  toggleTagSelection(tagName: string): void {
-    this.localSelectedTags = this.localSelectedTags.includes(tagName)
-      ? this.localSelectedTags.filter(t => t !== tagName)
-      : [...this.localSelectedTags, tagName];
-  }
-
-  isTagSelected(tagName: string): boolean {
-    return this.localSelectedTags.includes(tagName);
-  }
-
-  clearLocalTagSelection(): void {
-    this.localSelectedTags = [];
-  }
-
-  onTagFilterApply(tags: string[]): void {
-    this.selectedTags = tags;
-    this.showTagFilter = false;
-    this.filterMenu();
-  }
-
-  removeTag(tagName: string): void {
-    this.selectedTags = this.selectedTags.filter(t => t !== tagName);
-    this.filterMenu();
-  }
-
-  clearAllTags(): void {
-    this.selectedTags = [];
-    this.filterMenu();
-  }
   ngOnInit(){
+    this.isInRestApp = this.router.url.includes('rest-app');
+    this.navState.setMenuActive(true);
     // If restaurant is already available (session storage sync-read OR @Input()
     // from staff ordering), proceed immediately. Otherwise the StorageValue
     // subscription in the constructor will call tryLoadMenu() once it arrives.
@@ -156,6 +102,14 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.storageSub?.unsubscribe();
+    this.navState.setMenuActive(false);
+    this.navState.setMenuList(null);
+    this.navState.setLoading(true);
+    this.navState.searchQuery.set('');
+    this.navState.showSearch.set(false);
+    this.navState.selectedTags.set([]);
+    this.navState.showTagFilter.set(false);
+    this.navState.currentSection.set('');
   }
 
   private tryLoadMenu(): void {
@@ -170,20 +124,6 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Collects all featured items across all currently-visible sections
-   * (respects active tag / search filters via filteredMenuList).
-   */
-  get featuredItems(): any[] {
-    if (!this.filteredMenuList?.length) return [];
-    const out: any[] = [];
-    for (const section of this.filteredMenuList) {
-      for (const item of section?.items || []) {
-        if (item?.is_featured) out.push(item);
-      }
-    }
-    return out;
-  }
   /**
    * Computes the total price for the current item including selected
    * modifiers, extras, and quantity — used for the dynamic
@@ -207,40 +147,6 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     );
     return (basePrice + modifiersCost + extrasCost) * this.selected_quantity;
   }
-  /**
-   * Filters each menu section based on the search query.
-   * If no query is entered, the full menu list is shown.
-   */
-  filterMenu() {
-    if (!this.menu_list) return;
-
-    let result = this.menu_list;
-
-    if (this.selectedTags.length > 0) {
-      result = result
-        .map((section: any) => ({
-          ...section,
-          items: (section.items || []).filter((item: any) =>
-            this.selectedTags.some(tag => item.allergens?.includes(tag))
-          )
-        }))
-        .filter((section: any) => section.items.length > 0);
-    }
-
-    if (this.searchQuery) {
-      const q = this.searchQuery.toLowerCase();
-      result = result
-        .map((section: any) => ({
-          ...section,
-          items: (section.items || []).filter((item: any) =>
-            item.name.toLowerCase().includes(q)
-          )
-        }))
-        .filter((section: any) => section.items.length > 0);
-    }
-
-    this.filteredMenuList = result;
-  }
   removeItem(Id: string) {
     this.basketService.removeItem(Id);
     this.udpateCart();
@@ -255,13 +161,13 @@ get QuantitySum(){
     this.SaveForProcessing();
   }
   loadMenu(){
-    this.isLoading = true;
+    this.navState.setLoading(true);
     this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id}).subscribe({
       next: (x:any) => {
         this.menu_list=(x?.data as any) ?? [];
-        // Initially set the filtered list to the complete menu list
-        this.filteredMenuList = this.menu_list;
-        this.currentSection=((this.menu_list?.[0] as MenuItem)?.name as string) ?? ''
+        this.navState.setMenuList(this.menu_list);
+        this.navState.filterMenu();
+        this.navState.setCurrentSection(((this.menu_list?.[0] as MenuItem)?.name as string) ?? '');
         // Cache upsell config so the basket can render it without another round-trip
         if (x?.upsell) {
           this.sessionStorage.setItem('upsellConfig', x.upsell);
@@ -274,11 +180,11 @@ get QuantitySum(){
         // into the browser cache, so the reveal paints with no pop-in. A 5s
         // timeout caps the wait in case a CDN stalls.
         this.preloadImages(this.menu_list).then(() => {
-          this.isLoading = false;
+          this.navState.setLoading(false);
         });
       },
       error: () => {
-        this.isLoading = false;
+        this.navState.setLoading(false);
       }
     })
   }
@@ -372,10 +278,6 @@ get QuantitySum(){
     this.selected_quantity = 1;
     this.selectedModifiers = {};
     this.selected_extras = [];
-  }
-  clearSearch() {
-    this.searchQuery = '';
-    this.filterMenu();
   }
 
   SaveForProcessing(){
@@ -474,7 +376,7 @@ removeUnderscore(x:string){
   return x.replace(/_/g," ");
 }
   onSectionChange(sectionId: string) {
-    this.currentSection = sectionId;
+    this.navState.setCurrentSection(sectionId);
   }
 
   scrollTo(section:any,_i:number) {
