@@ -1,0 +1,135 @@
+<div class="w-full mt-[60px] sticky top-[60px] z-40 bg-white border-b border-gray-200">
+
+  <!-- Pills view -->
+  <div *ngIf="!navState.showSearch() && !navState.isLoading()">
+    <div class="flex items-center gap-2 px-4 py-2.5">
+
+      <!-- Search icon -->
+      <button (click)="navState.toggleSearch()"
+              class="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-4.35-4.35M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>
+        </svg>
+      </button>
+
+      <!-- Filter button (only if filterable tags exist) -->
+      <button *ngIf="navState.filterableTags().length > 0"
+              (click)="navState.openTagFilter()"
+              class="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors relative">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <line x1="4" x2="4" y1="21" y2="14" stroke="currentColor" stroke-width="2"/>
+          <line x1="4" x2="4" y1="10" y2="3" stroke="currentColor" stroke-width="2"/>
+          <line x1="12" x2="12" y1="21" y2="12" stroke="currentColor" stroke-width="2"/>
+          <line x1="12" x2="12" y1="8" y2="3" stroke="currentColor" stroke-width="2"/>
+          <line x1="20" x2="20" y1="21" y2="16" stroke="currentColor" stroke-width="2"/>
+          <line x1="20" x2="20" y1="12" y2="3" stroke="currentColor" stroke-width="2"/>
+          <line x1="2" x2="6" y1="14" y2="14" stroke="currentColor" stroke-width="2"/>
+          <line x1="10" x2="14" y1="8" y2="8" stroke="currentColor" stroke-width="2"/>
+          <line x1="18" x2="22" y1="16" y2="16" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span *ngIf="navState.selectedTags().length > 0"
+              class="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+          {{ navState.selectedTags().length }}
+        </span>
+      </button>
+
+      <!-- Pill tabs (native horizontal scroll, no arrows) -->
+      <div class="flex-1 overflow-x-auto no-scrollbar">
+        <div class="flex gap-2">
+          <!-- Featured pill (first, only when featured items exist) -->
+          <button *ngIf="navState.featuredItems().length > 0"
+                  (click)="!navState.searchQuery() ? scrollTo('Featured', -1) : false"
+                  class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
+                  [ngClass]="{
+                    'bg-red-600 text-white shadow-sm': navState.currentSection() === 'Featured',
+                    'bg-gray-100 text-gray-700 hover:bg-gray-200': navState.currentSection() !== 'Featured'
+                  }">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                 [attr.fill]="navState.currentSection() === 'Featured' ? '#ffffff' : '#eab308'"
+                 [attr.stroke]="navState.currentSection() === 'Featured' ? '#ffffff' : '#eab308'"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Featured
+          </button>
+
+          <button *ngFor="let s of navState.filteredMenuList(); let i = index"
+                  (click)="!navState.searchQuery() ? scrollTo(s.name, i) : false"
+                  class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
+                  [ngClass]="{
+                    'bg-red-600 text-white shadow-sm': removeUnderscore(navState.currentSection()) === s.name,
+                    'bg-gray-100 text-gray-700 hover:bg-gray-200': removeUnderscore(navState.currentSection()) !== s.name
+                  }">
+            {{ s?.name }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skeleton nav bar -->
+  <div *ngIf="navState.isLoading()">
+    <div class="flex items-center gap-2 px-4 py-2.5">
+      <div class="flex-shrink-0 w-9 h-9 bg-gray-200 animate-pulse rounded"></div>
+      <div class="flex-1 flex gap-2 overflow-hidden">
+        <div class="flex-shrink-0 h-7 w-24 bg-gray-200 animate-pulse rounded-full"></div>
+        <div class="flex-shrink-0 h-7 w-20 bg-gray-200 animate-pulse rounded-full"></div>
+        <div class="flex-shrink-0 h-7 w-16 bg-gray-200 animate-pulse rounded-full"></div>
+        <div class="flex-shrink-0 h-7 w-20 bg-gray-200 animate-pulse rounded-full"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search input view -->
+  <div *ngIf="navState.showSearch()">
+    <div class="flex items-center gap-2 px-4 py-2.5">
+      <div class="relative flex-1">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="18" height="18"
+             viewBox="0 0 24 24" fill="none">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-4.35-4.35M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>
+        </svg>
+        <input type="text"
+               placeholder="Search menu..."
+               [ngModel]="navState.searchQuery()"
+               (ngModelChange)="navState.searchQuery.set($event); navState.filterMenu()"
+               class="w-full pl-10 pr-8 py-2 bg-gray-100 text-gray-900 rounded-full text-base focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white border border-transparent focus:border-red-500" />
+        <button *ngIf="navState.searchQuery()"
+                (click)="navState.clearSearch()"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <button (click)="navState.toggleSearch()"
+              class="flex-shrink-0 text-sm font-medium text-red-600 hover:text-red-700 px-2 py-2">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- Active tag filter badges -->
+  <div *ngIf="navState.selectedTags().length > 0" class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-2">
+    <span class="text-xs text-gray-500">Filters:</span>
+    <span *ngFor="let tagName of navState.selectedTags()"
+          class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
+          [ngClass]="navState.getTagBadge(tagName).colorClasses">
+      <span [innerHTML]="navState.getTagBadge(tagName).iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
+      {{ tagName }}
+      <button (click)="navState.removeTag(tagName); $event.stopPropagation()"
+              class="ml-0.5 rounded-full hover:bg-black/10 p-0.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+        </svg>
+      </button>
+    </span>
+    <button (click)="navState.clearAllTags()" class="text-xs text-red-600 font-medium px-2 py-1 hover:text-red-700">
+      Clear all
+    </button>
+  </div>
+</div>

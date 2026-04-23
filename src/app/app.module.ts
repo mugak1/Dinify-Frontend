@@ -22,6 +22,7 @@ import { StorageModule } from './_services/storage/storage.module';
 import { NoTableComponent } from './diner-app/no-table/no-table.component';
 import { BasketBodyComponent } from './diner-app/basket/basket-body/basket-body.component';
 import { DinerFooterComponent } from './diner-app/diner-footer/diner-footer.component';
+import { MenuNavBarComponent } from './diner-app/menu/menu-nav-bar/menu-nav-bar.component';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -43,7 +44,8 @@ import { DinerFooterComponent } from './diner-app/diner-footer/diner-footer.comp
         StorageModule.forRoot({ prefix: 'dinify' }),
         NoTableComponent,
         BasketBodyComponent,
-        DinerFooterComponent], providers: [
+        DinerFooterComponent,
+        MenuNavBarComponent], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),
