@@ -1,7 +1,7 @@
 <app-no-table *ngIf="!table"></app-no-table>
 <div *ngIf="table" class="pb-24 lg:pb-0">
     <header *ngIf="branding_configs" [style.background-color]="branding_configs?.home?.bgColor" class="fixed inset-x-0 top-0 z-50">
-      <nav [style.background-color]="branding_configs?.home?.headerColor" class="flex items-center justify-between p-4 lg:px-8" aria-label="Global">
+      <nav [style.background-color]="branding_configs?.home?.headerColor" class="flex items-center justify-between h-[60px] px-4 lg:px-8" aria-label="Global">
         <div  class="flex lg:flex-1">
           <a [routerLink]="['/diner/h/',table_id]" class="-m-1.5 p-1.5">
             <span class="sr-only">{{restaurant_name}}</span>
@@ -144,7 +144,9 @@
       </div>
     </header>
 
-    <app-menu-nav-bar *ngIf="navState.isMenuActive()"></app-menu-nav-bar>
+    <div *ngIf="navState.isMenuActive()" class="mt-[60px]">
+      <app-menu-nav-bar [stickyTop]="'60px'"></app-menu-nav-bar>
+    </div>
 
       <div class="lg:flex lg:items-start">
         <!-- Main content column -->
@@ -154,8 +156,8 @@
 
         <!-- Persistent basket sidebar, lg:+ only -->
         <aside class="hidden lg:block lg:w-1/3 lg:min-w-[360px] lg:max-w-[480px]
-                      lg:mt-28 lg:mr-4 lg:ml-4
-                      lg:sticky lg:top-28
+                      lg:mr-4 lg:ml-4
+                      lg:sticky lg:top-[112px]
                       lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto
                       lg:bg-white lg:rounded-none lg:shadow-sm
                       lg:border lg:border-gray-200">

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MenuNavStateService } from '../menu-nav-state.service';
@@ -10,6 +10,8 @@ import { MenuNavStateService } from '../menu-nav-state.service';
   templateUrl: './menu-nav-bar.component.html',
 })
 export class MenuNavBarComponent {
+  @Input() stickyTop: string = '49px';
+
   constructor(public navState: MenuNavStateService) {}
 
   removeUnderscore(x: string): string {

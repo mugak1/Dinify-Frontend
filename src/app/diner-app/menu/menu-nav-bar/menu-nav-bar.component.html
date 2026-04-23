@@ -1,4 +1,4 @@
-<div class="w-full mt-[60px] sticky top-[60px] z-40 bg-white border-b border-gray-200">
+<div class="w-full sticky z-40 bg-white border-b border-gray-200" [style.top]="stickyTop">
 
   <!-- Pills view -->
   <div *ngIf="!navState.showSearch() && !navState.isLoading()">
