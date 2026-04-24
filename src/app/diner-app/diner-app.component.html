@@ -144,9 +144,8 @@
       </div>
     </header>
 
-    <div *ngIf="navState.isMenuActive()" class="mt-[60px]">
-      <app-menu-nav-bar [stickyTop]="'60px'"></app-menu-nav-bar>
-    </div>
+    <div [ngClass]="{ 'mt-[60px]': navState.isMenuActive() }">
+      <app-menu-nav-bar *ngIf="navState.isMenuActive()" [stickyTop]="'60px'"></app-menu-nav-bar>
 
       <div class="lg:flex lg:items-start">
         <!-- Main content column -->
@@ -164,6 +163,7 @@
           <app-basket-body></app-basket-body>
         </aside>
       </div>
+    </div>
 
       <app-diner-footer></app-diner-footer>
 
