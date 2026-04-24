@@ -167,7 +167,10 @@ get QuantitySum(){
         this.menu_list=(x?.data as any) ?? [];
         this.navState.setMenuList(this.menu_list);
         this.navState.filterMenu();
-        this.navState.setCurrentSection(((this.menu_list?.[0] as MenuItem)?.name as string) ?? '');
+        const firstSectionName = (this.menu_list?.[0] as MenuItem)?.name as string | undefined;
+        this.navState.setCurrentSection(
+          this.navState.featuredItems().length > 0 ? 'Featured' : (firstSectionName ?? '')
+        );
         // Cache upsell config so the basket can render it without another round-trip
         if (x?.upsell) {
           this.sessionStorage.setItem('upsellConfig', x.upsell);

@@ -21,7 +21,7 @@
 <div *ngIf="!navState.isLoading() && navState.filteredMenuList()" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)">
 
     <!-- Featured Section: collects all items with is_featured across all visible sections -->
-    <div *ngIf="navState.featuredItems().length > 0" id="Featured" class="scroll-mt-[140px] flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
+    <div *ngIf="navState.featuredItems().length > 0" id="Featured" class="scroll-mt-[var(--menu-nav-stack-height)] flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
       <span class="font-bold text-xl pt-4 pb-2 flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
              fill="#eab308" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -36,7 +36,7 @@
       </div>
     </div>
 
-    <div id="{{addUnderScore(s.name)}}" *ngFor="let s of navState.filteredMenuList();let is=index; let last=last" class="scroll-mt-[140px] flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
+    <div id="{{addUnderScore(s.name)}}" *ngFor="let s of navState.filteredMenuList();let is=index; let last=last" class="scroll-mt-[var(--menu-nav-stack-height)] flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
        <span class="font-bold text-xl pt-4 pb-2">{{s?.name}}</span>
        <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
         <ng-container *ngFor="let i of s?.items">
