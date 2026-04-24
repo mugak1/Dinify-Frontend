@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MenuNavStateService } from '../menu-nav-state.service';
@@ -8,11 +8,17 @@ import { MenuNavStateService } from '../menu-nav-state.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './menu-nav-bar.component.html',
+  styles: [':host { display: block; }'],
 })
-export class MenuNavBarComponent {
+export class MenuNavBarComponent implements OnInit {
   @Input() stickyTop: string = '49px';
 
   constructor(public navState: MenuNavStateService) {}
+
+  ngOnInit(): void {
+    const px = parseInt(this.stickyTop, 10);
+    this.navState.setStickyTopPx(Number.isFinite(px) ? px : 49);
+  }
 
   removeUnderscore(x: string): string {
     return x.replace(/_/g, ' ');
@@ -26,5 +32,6 @@ export class MenuNavBarComponent {
     document
       .querySelector('#' + this.addUnderscore(section))
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.navState.setCurrentSection(this.addUnderscore(section));
   }
 }

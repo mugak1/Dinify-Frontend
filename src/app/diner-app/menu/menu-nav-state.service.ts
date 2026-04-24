@@ -1,4 +1,4 @@
-import { Injectable, Signal, WritableSignal, computed, signal } from '@angular/core';
+import { Injectable, Signal, WritableSignal, computed, effect, signal } from '@angular/core';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 
 @Injectable({ providedIn: 'root' })
@@ -17,6 +17,46 @@ export class MenuNavStateService {
   localSelectedTags: WritableSignal<string[]> = signal<string[]>([]);
 
   isMenuActive: WritableSignal<boolean> = signal(false);
+
+  /**
+   * Pixel offset at which the nav bar sticks to the viewport top. Set by
+   * MenuNavBarComponent from its `stickyTop` @Input on mount. Default 49 matches
+   * the rest-app inline nav bar; the diner shell overrides to 60.
+   */
+  stickyTopPx: WritableSignal<number> = signal(49);
+
+  /**
+   * Total vertical space occupied by the sticky header + nav bar from the
+   * viewport top, in pixels. Drives both the section scroll-margin-top
+   * (so clicked pills land flush against the nav bar bottom) and — by
+   * virtue of the scroll-spy host sitting at this same document Y — the
+   * scroll-spy reading line. Grows when tag filters are active because
+   * the filter-badge row adds ~32px below the pill row.
+   */
+  navStackHeight: Signal<number> = computed(() => {
+    const PILL_ROW_PX = 52;
+    const FILTER_ROW_PX = 32;
+    return (
+      this.stickyTopPx() +
+      PILL_ROW_PX +
+      (this.selectedTags().length > 0 ? FILTER_ROW_PX : 0)
+    );
+  });
+
+  constructor() {
+    // Mirror navStackHeight into a CSS custom property on :root so that
+    // section `scroll-mt-[var(--menu-nav-stack-height)]` tracks the real
+    // nav bar height reactively. Effect runs on service instantiation
+    // (setting an initial value) and on every change to stickyTopPx or
+    // selectedTags. The service is providedIn:'root', so the effect's
+    // lifetime matches the app's.
+    effect(() => {
+      document.documentElement.style.setProperty(
+        '--menu-nav-stack-height',
+        `${this.navStackHeight()}px`,
+      );
+    });
+  }
 
   featuredItems: Signal<any[]> = computed(() => {
     const list = this.filteredMenuList();
@@ -52,6 +92,10 @@ export class MenuNavStateService {
 
   setCurrentSection(name: string): void {
     this.currentSection.set(name);
+  }
+
+  setStickyTopPx(px: number): void {
+    this.stickyTopPx.set(px);
   }
 
   toggleSearch(): void {

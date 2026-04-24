@@ -133,7 +133,10 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
         this.itemToRemove = null;
         this.returnToCart = false;
         setTimeout(() => {
-          if (this.availableSections.length > 0 && !this.activeSection) {
+          if (this.activeSection) return;
+          if (this.featuredItems.length > 0) {
+            this.activeSection = 'featured';
+          } else if (this.availableSections.length > 0) {
             this.activeSection = this.availableSections[0].id;
           }
         }, 200);
