@@ -19,6 +19,19 @@ export class MenuNavStateService {
   isMenuActive: WritableSignal<boolean> = signal(false);
 
   /**
+   * When a pill is clicked, we optimistically set currentSection and record
+   * the click target here. During the smooth-scroll animation, window:scroll
+   * events fire and the spy emits the section currently at the threshold
+   * (usually "Featured" early in the animation). Those spy emissions would
+   * clobber the click's intent — so menu.component.ts's onSectionChange
+   * suppresses them while this is set, committing only when the spy emits
+   * a matching value (scroll has arrived) or after a 1000ms timeout
+   * (fallback if the scroll is interrupted).
+   */
+  pendingClickTarget: WritableSignal<string | null> = signal<string | null>(null);
+  private pendingClickTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
    * Pixel offset at which the nav bar sticks to the viewport top. Set by
    * MenuNavBarComponent from its `stickyTop` @Input on mount. Default 49 matches
    * the rest-app inline nav bar; the diner shell overrides to 60.
@@ -96,6 +109,24 @@ export class MenuNavStateService {
 
   setStickyTopPx(px: number): void {
     this.stickyTopPx.set(px);
+  }
+
+  setPendingClickTarget(target: string): void {
+    if (this.pendingClickTimer) {
+      clearTimeout(this.pendingClickTimer);
+    }
+    this.pendingClickTarget.set(target);
+    this.pendingClickTimer = setTimeout(() => {
+      this.clearPendingClickTarget();
+    }, 1000);
+  }
+
+  clearPendingClickTarget(): void {
+    if (this.pendingClickTimer) {
+      clearTimeout(this.pendingClickTimer);
+      this.pendingClickTimer = null;
+    }
+    this.pendingClickTarget.set(null);
   }
 
   toggleSearch(): void {

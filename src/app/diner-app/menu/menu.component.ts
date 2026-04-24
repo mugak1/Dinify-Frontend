@@ -110,6 +110,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     this.navState.selectedTags.set([]);
     this.navState.showTagFilter.set(false);
     this.navState.currentSection.set('');
+    this.navState.clearPendingClickTarget();
   }
 
   private tryLoadMenu(): void {
@@ -378,7 +379,18 @@ addUnderScore(x:string){
 removeUnderscore(x:string){
   return x.replace(/_/g," ");
 }
-  onSectionChange(sectionId: string) {
+  onSectionChange(sectionId: string): void {
+    const pending = this.navState.pendingClickTarget();
+    if (pending) {
+      if (sectionId === pending) {
+        // Scroll has arrived at the click target — commit and release the lock.
+        this.navState.setCurrentSection(sectionId);
+        this.navState.clearPendingClickTarget();
+      }
+      // Otherwise: the smooth-scroll animation is mid-flight and the spy is
+      // emitting intermediate sections. Don't clobber the click's intent.
+      return;
+    }
     this.navState.setCurrentSection(sectionId);
   }
 
