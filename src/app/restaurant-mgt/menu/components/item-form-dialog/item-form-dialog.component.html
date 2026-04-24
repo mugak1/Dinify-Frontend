@@ -47,7 +47,9 @@
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                    [class.border-destructive]="attemptedSave && form.get('name')?.invalid"
                    placeholder="Item name" />
-            <p *ngIf="attemptedSave && form.get('name')?.invalid" class="text-xs text-destructive mt-1">Name is required</p>
+            <p *ngIf="form.get('name')?.touched && form.get('name')?.invalid" class="text-xs text-destructive mt-1">
+              {{ form.get('name')?.errors?.['required'] ? 'Name is required' : 'Name must be at least 2 characters' }}
+            </p>
           </div>
 
           <!-- Section dropdown -->

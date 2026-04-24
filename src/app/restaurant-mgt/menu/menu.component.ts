@@ -6,6 +6,7 @@ import { MenuService, SortMode } from './services/menu.service';
 import { TagService } from './services/tag.service';
 import { CartService } from './services/cart.service';
 import { UpsellService } from './services/upsell.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
     selector: 'app-menu',
@@ -55,7 +56,8 @@ export class MenuComponent {
     private menuService: MenuService,
     private tagService: TagService,
     private cartService: CartService,
-    private upsellService: UpsellService
+    private upsellService: UpsellService,
+    private toast: ToastService
   ) {
     const depth = this.route.pathFromRoot.length;
     this.isThirdChild = (depth === 5);
@@ -127,10 +129,11 @@ export class MenuComponent {
 
     op.subscribe({
       next: () => {
+        this.toast.success(payload.id ? 'Section updated' : 'Section created');
         this.menuService.loadSections(this.restaurant);
       },
-      error: () => {
-        this.menuService.loadSections(this.restaurant);
+      error: (err) => {
+        this.toast.error(this.extractErrorMessage(err, 'Failed to save section'));
       }
     });
   }
@@ -198,10 +201,11 @@ export class MenuComponent {
 
     op.subscribe({
       next: () => {
+        this.toast.success(payload.id ? 'Item updated' : 'Item created');
         this.menuService.refreshAll();
       },
-      error: () => {
-        this.menuService.refreshAll();
+      error: (err) => {
+        this.toast.error(this.extractErrorMessage(err, 'Failed to save item'));
       }
     });
   }
@@ -278,5 +282,11 @@ export class MenuComponent {
   closePreview(): void {
     this.previewOpen = false;
     this.cartService.clearCart();
+  }
+
+  private extractErrorMessage(err: unknown, fallback: string): string {
+    if (typeof err === 'string') return err;
+    const e = err as any;
+    return e?.error?.message || e?.message || fallback;
   }
 }

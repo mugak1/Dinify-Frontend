@@ -133,7 +133,7 @@ export class SectionFormDialogComponent implements OnChanges {
   private buildForm(): void {
     this.form = this.fb.group({
       id: [''],
-      name: ['', Validators.required],
+      name: ['', [Validators.required, Validators.minLength(2)]],
       restaurant: [''],
       description: [''],
       section_banner_image: [null],

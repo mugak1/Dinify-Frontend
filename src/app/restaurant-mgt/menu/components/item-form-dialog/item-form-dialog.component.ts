@@ -337,7 +337,7 @@ export class ItemFormDialogComponent implements OnChanges {
   private buildForm(): void {
     this.form = this.fb.group({
       id: [''],
-      name: ['', Validators.required],
+      name: ['', [Validators.required, Validators.minLength(2)]],
       section: ['', Validators.required],
       description: [''],
       calories: [null],
