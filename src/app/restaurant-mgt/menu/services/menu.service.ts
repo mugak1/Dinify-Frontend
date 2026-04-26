@@ -15,14 +15,23 @@ export class MenuService {
   // State
   // ---------------------------------------------------------------------------
 
-  private readonly _sections$ = new BehaviorSubject<MenuSectionListItem[]>([]);
-  readonly sections$ = this._sections$.asObservable();
+  private readonly _rawSections$ = new BehaviorSubject<MenuSectionListItem[]>([]);
 
   private readonly _selectedSectionId$ = new BehaviorSubject<string | null>(null);
   readonly selectedSectionId$ = this._selectedSectionId$.asObservable();
 
   private readonly _allItems$ = new BehaviorSubject<MenuItem[]>([]);
   readonly allItems$ = this._allItems$.asObservable();
+
+  readonly sections$: Observable<MenuSectionListItem[]> = combineLatest([
+    this._rawSections$,
+    this._allItems$,
+  ]).pipe(
+    map(([sections, allItems]) => sections.map(section => ({
+      ...section,
+      item_count: allItems.filter(item => (item as any).section === section.id).length,
+    })))
+  );
 
   readonly items$: Observable<MenuItem[]> = combineLatest([
     this._allItems$,
@@ -84,7 +93,7 @@ export class MenuService {
       .subscribe({
         next: (res: ApiResponse<MenuSectionListItem>) => {
           const sections = res?.data?.records ?? [];
-          this._sections$.next(sections);
+          this._rawSections$.next(sections);
           this._isLoading$.next(false);
           if (sections.length > 0) {
             const currentId = this._selectedSectionId$.getValue();
@@ -276,11 +285,11 @@ export class MenuService {
   }
 
   getSectionsSnapshot(): MenuSectionListItem[] {
-    return this._sections$.getValue();
+    return this._rawSections$.getValue();
   }
 
   updateSectionsLocally(sections: MenuSectionListItem[]): void {
-    this._sections$.next(sections);
+    this._rawSections$.next(sections);
   }
 
   getItemsSnapshot(): MenuItem[] {
@@ -303,16 +312,16 @@ export class MenuService {
   }
 
   removeSectionLocally(sectionId: string): void {
-    const currentSections = this._sections$.getValue();
-    this._sections$.next(currentSections.filter(s => s.id !== sectionId));
+    const currentSections = this._rawSections$.getValue();
+    this._rawSections$.next(currentSections.filter(s => s.id !== sectionId));
   }
 
   updateSectionLocally(sectionId: string, changes: Partial<MenuSectionListItem>): void {
-    const current = this._sections$.getValue();
+    const current = this._rawSections$.getValue();
     const updated = current.map(s =>
       s.id === sectionId ? { ...s, ...changes } : s
     );
-    this._sections$.next(updated);
+    this._rawSections$.next(updated);
   }
 
   // ---------------------------------------------------------------------------
