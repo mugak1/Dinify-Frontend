@@ -38,6 +38,13 @@
                    accept="image/jpeg,image/png,image/gif"
                    (change)="onFileSelected($event)"
                    class="mt-2 block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+            <div *ngIf="isCompressing" class="mt-2 flex items-center text-xs text-muted-foreground">
+              <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+              </svg>
+              Compressing image…
+            </div>
           </div>
 
           <!-- Name -->
@@ -254,7 +261,7 @@
     <div class="flex justify-end gap-3 pt-5">
       <button type="button" app-dn-button variant="outline" (click)="onClose()">Cancel</button>
       <button type="submit" app-dn-button variant="default"
-              [disabled]="form.invalid || hasModifiersErrors || hasDiscountsErrors">
+              [disabled]="form.invalid || hasModifiersErrors || hasDiscountsErrors || isCompressing">
         {{ item ? 'Update' : 'Create' }}
       </button>
     </div>

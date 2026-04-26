@@ -18,8 +18,10 @@ import { ItemExtrasTabComponent } from '../item-extras-tab/item-extras-tab.compo
 import { MenuItem, MenuSectionListItem, ItemModifiers, ItemDiscountDetails } from 'src/app/_models/app.models';
 import { MenuService } from '../../services/menu.service';
 import { TagService, PresetTag } from '../../services/tag.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 import { environment } from 'src/environments/environment';
+import imageCompression from 'browser-image-compression';
 
 @Component({
   selector: 'app-item-form-dialog',
@@ -63,11 +65,13 @@ export class ItemFormDialogComponent implements OnChanges {
   itemExtrasApplicable: string[] = [];
   availableExtras$: Observable<MenuItem[]>;
   presetTags$: Observable<PresetTag[]>;
+  isCompressing = false;
 
   constructor(
     private fb: FormBuilder,
     private menuService: MenuService,
-    private tagService: TagService
+    private tagService: TagService,
+    private toast: ToastService
   ) {
     this.sections$ = this.menuService.sections$;
     this.availableExtras$ = this.menuService.extras$;
@@ -151,24 +155,62 @@ export class ItemFormDialogComponent implements OnChanges {
     }
   }
 
-  onFileSelected(event: Event): void {
+  async onFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-
     if (!file) return;
 
     const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
     if (!validTypes.includes(file.type)) {
+      this.toast.error('Image must be JPEG, PNG, or GIF.');
+      input.value = '';
       return;
     }
 
-    this.form.get('image')?.setValue(file);
+    // Hard upper bound — refuse files over 25 MB before we even try to compress.
+    // Keeps memory usage bounded on low-end devices.
+    const HARD_LIMIT_BYTES = 25 * 1024 * 1024;
+    if (file.size > HARD_LIMIT_BYTES) {
+      this.toast.error('Image is too large. Please pick one under 25 MB.');
+      input.value = '';
+      return;
+    }
+
+    // Skip compression for already-small images (under 200 KB).
+    // Compression of small images wastes CPU and can occasionally produce
+    // a *larger* output due to JPEG re-encode overhead.
+    const SKIP_THRESHOLD_BYTES = 200 * 1024;
+    let finalFile: File = file;
+
+    if (file.size > SKIP_THRESHOLD_BYTES) {
+      this.isCompressing = true;
+      try {
+        const compressed = await imageCompression(file, {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1280,
+          useWebWorker: true,
+          initialQuality: 0.85,
+          fileType: 'image/jpeg',
+        });
+        finalFile = compressed.size < file.size ? new File(
+          [compressed],
+          file.name.replace(/\.(png|gif)$/i, '.jpg'),
+          { type: compressed.type, lastModified: Date.now() }
+        ) : file;
+      } catch (err) {
+        console.error('Image compression failed:', err);
+        this.toast.error('Could not compress image; uploading original (may be slow).');
+        finalFile = file;
+      } finally {
+        this.isCompressing = false;
+      }
+    }
+
+    this.form.get('image')?.setValue(finalFile);
 
     const reader = new FileReader();
-    reader.onload = () => {
-      this.imagePreview = reader.result as string;
-    };
-    reader.readAsDataURL(file);
+    reader.onload = () => { this.imagePreview = reader.result as string; };
+    reader.readAsDataURL(finalFile);
   }
 
   onAllergenAdd(value: string): void {
