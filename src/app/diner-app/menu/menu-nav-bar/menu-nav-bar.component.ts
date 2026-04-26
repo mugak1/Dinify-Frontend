@@ -31,10 +31,13 @@ export class MenuNavBarComponent implements OnInit {
     return x.replace(/ /g, '_');
   }
 
-  scrollTo(section: string, _i: number): void {
+  scrollTo(section: string, _i: number, event?: Event): void {
     const id = this.addUnderscore(section);
     document.querySelector('#' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     this.navState.setCurrentSection(id);
     this.navState.setPendingClickTarget(id);
+
+    const pill = event?.currentTarget as HTMLElement | undefined;
+    pill?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }
 }
