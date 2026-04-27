@@ -138,9 +138,16 @@
 
       <!-- Actions -->
       <div class="flex justify-end gap-2 pt-2">
-        <button type="button" app-dn-button variant="outline" (click)="onClose()">Cancel</button>
-        <button type="submit" app-dn-button variant="default" [disabled]="form.invalid">
-          {{ section ? 'Update' : 'Create' }}
+        <button type="button" app-dn-button variant="outline" [disabled]="isSaving" (click)="onClose()">Cancel</button>
+        <button type="submit" app-dn-button variant="default" [disabled]="form.invalid || isSaving">
+          <ng-container *ngIf="!isSaving">{{ section ? 'Update' : 'Create' }}</ng-container>
+          <span *ngIf="isSaving" class="inline-flex items-center">
+            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+            </svg>
+            {{ section ? 'Updating…' : 'Creating…' }}
+          </span>
         </button>
       </div>
     </form>
