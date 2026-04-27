@@ -56,14 +56,10 @@
         </div>
 
         <!-- Desktop section name (hidden on mobile) -->
-        <ng-container *ngIf="sections$ | async as allSections">
-          <ng-container *ngIf="selectedSectionId$ | async as selId">
-            <h2 *ngFor="let sec of allSections"
-                class="hidden md:block text-xl font-semibold text-foreground">
-              <span *ngIf="sec.id === selId">{{ sec.name }}</span>
-            </h2>
-          </ng-container>
-        </ng-container>
+        <h2 *ngIf="selectedSection$ | async as section"
+            class="hidden md:block text-xl font-semibold text-foreground">
+          {{ section.name }}
+        </h2>
 
         <div class="flex items-center gap-2">
           <!-- Sort dropdown -->

@@ -1,5 +1,6 @@
 import { Component, HostListener } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { Observable, combineLatest, map } from 'rxjs';
 import { MenuItem, MenuSectionListItem, RestaurantDetail } from 'src/app/_models/app.models';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MenuService, SortMode } from './services/menu.service';
@@ -49,6 +50,12 @@ export class MenuComponent {
   // Observables for template
   sections$ = this.menuService.sections$;
   selectedSectionId$ = this.menuService.selectedSectionId$;
+  selectedSection$: Observable<MenuSectionListItem | undefined> = combineLatest([
+    this.sections$,
+    this.selectedSectionId$,
+  ]).pipe(
+    map(([sections, selId]) => sections.find(s => s.id === selId) ?? undefined)
+  );
 
   // Approval bar
   isThirdChild = false;
