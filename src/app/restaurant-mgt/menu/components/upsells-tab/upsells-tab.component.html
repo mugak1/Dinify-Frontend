@@ -103,7 +103,7 @@
            cdkDropList
            (cdkDropListDropped)="onDrop($event)"
            class="space-y-2">
-        <div *ngFor="let item of config!.items; trackBy: trackByUpsellItemId"
+        <div *ngFor="let item of (config!.items | safeArray); trackBy: trackByUpsellItemId"
              cdkDrag
              class="flex items-center gap-3 p-3 border border-border rounded-lg bg-background hover:bg-muted/50 transition-colors">
 

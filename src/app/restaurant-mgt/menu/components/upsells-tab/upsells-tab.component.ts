@@ -11,6 +11,7 @@ import { UpsellConfig, UpsellItem, MenuItem, MenuSectionListItem } from 'src/app
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
 import { CardComponent } from 'src/app/_shared/ui/card/card.component';
+import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
 import { AddUpsellItemModalComponent } from '../add-upsell-item-modal/add-upsell-item-modal.component';
 import { UpsellPreviewModalComponent } from '../upsell-preview-modal/upsell-preview-modal.component';
 import { environment } from 'src/environments/environment';
@@ -25,6 +26,7 @@ import { environment } from 'src/environments/environment';
     ButtonComponent,
     SwitchComponent,
     CardComponent,
+    SafeArrayPipe,
     AddUpsellItemModalComponent,
     UpsellPreviewModalComponent,
   ],

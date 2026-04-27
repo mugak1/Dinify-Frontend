@@ -16,6 +16,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription, combineLatest } from 'rxjs';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
+import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
 import { MenuService, SortMode } from '../../services/menu.service';
 import { CartService } from '../../services/cart.service';
 import { TagService, PresetTag } from '../../services/tag.service';
@@ -52,6 +53,7 @@ type DrawerView = 'list' | 'detail' | 'cart';
     TagFilterSheetComponent,
     UpsellCarouselComponent,
     ScrollSpyCommonDirective,
+    SafeArrayPipe,
   ],
   templateUrl: './preview-menu-drawer.component.html',
 })

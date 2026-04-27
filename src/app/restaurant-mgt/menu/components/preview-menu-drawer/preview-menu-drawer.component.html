@@ -401,11 +401,11 @@
                       <!-- Selected modifiers -->
                       @if (cartItem.selectedModifiers.length > 0) {
                         <div class="mt-2 space-y-1">
-                          @for (modifier of cartItem.selectedModifiers; track modifier.groupId) {
+                          @for (modifier of (cartItem.selectedModifiers | safeArray); track modifier.groupId) {
                             <div class="text-xs">
                               <span class="text-muted-foreground">{{ modifier.groupName }}: </span>
                               <span class="font-medium">
-                                @for (choice of modifier.choices; track choice.id; let last = $last) {
+                                @for (choice of (modifier.choices | safeArray); track choice.id; let last = $last) {
                                   {{ choice.name }}{{ !last ? ', ' : '' }}
                                 }
                               </span>
@@ -423,7 +423,7 @@
                       @if (cartItem.selectedExtras.length > 0) {
                         <div class="mt-2 space-y-1">
                           <p class="text-xs font-medium text-muted-foreground">Extras:</p>
-                          @for (extra of cartItem.selectedExtras; track extra.id) {
+                          @for (extra of (cartItem.selectedExtras | safeArray); track extra.id) {
                             <div class="flex items-center justify-between text-xs">
                               <span class="text-muted-foreground">{{ extra.name }}</span>
                               <span class="text-muted-foreground">+{{ formatPrice(extra.price) }}</span>
