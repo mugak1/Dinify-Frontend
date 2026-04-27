@@ -69,40 +69,28 @@ export class ItemListComponent {
   }
 
   onToggleAvailability(event: { id: string; available: boolean }): void {
-    // Optimistic update — UI changes instantly
     this.menuService.updateItemLocally(event.id, { available: event.available });
-    // API call in background — no refreshAll needed on success
     this.menuService.toggleItemAvailability(event.id, event.available).subscribe({
       error: () => {
-        // Revert on failure
         this.menuService.updateItemLocally(event.id, { available: !event.available });
-        this.menuService.refreshAll();
       }
     });
   }
 
   onToggleBadge(event: { id: string; [key: string]: any }, field: 'is_featured' | 'is_popular' | 'is_new'): void {
-    // Optimistic update — UI changes instantly
     this.menuService.updateItemLocally(event.id, { [field]: event[field] });
-    // API call in background — no refreshAll needed on success
     this.menuService.toggleItemBadge(event.id, field, event[field]).subscribe({
       error: () => {
-        // Revert on failure
         this.menuService.updateItemLocally(event.id, { [field]: !event[field] });
-        this.menuService.refreshAll();
       }
     });
   }
 
   onToggleStock(event: { id: string; in_stock: boolean }): void {
-    // Optimistic update — UI changes instantly
     this.menuService.updateItemLocally(event.id, { in_stock: event.in_stock });
-    // API call in background — no refreshAll needed on success
     this.menuService.toggleItemStock(event.id, event.in_stock).subscribe({
       error: () => {
-        // Revert on failure
         this.menuService.updateItemLocally(event.id, { in_stock: !event.in_stock });
-        this.menuService.refreshAll();
       }
     });
   }
@@ -162,14 +150,23 @@ export class ItemListComponent {
     const ids = Array.from(this.selectedItemIds);
     if (ids.length === 0) return;
 
+    // Optimistic local update — UI reflects new state immediately.
+    ids.forEach(id => this.menuService.updateItemLocally(id, { available }));
+
     const calls = ids.map((id) =>
       this.menuService.toggleItemAvailability(id, available)
     );
 
-    forkJoin(calls).subscribe(() => {
-      this.selectedItemIds.clear();
-      this.selectionMode = false;
-      this.menuService.refreshAll();
+    forkJoin(calls).subscribe({
+      next: () => {
+        this.selectedItemIds.clear();
+        this.selectionMode = false;
+      },
+      error: () => {
+        // Some calls may have succeeded and some failed — safest reconciliation
+        // is a single refresh of the items list rather than reverting every id.
+        this.menuService.refreshAll();
+      }
     });
   }
 
@@ -185,14 +182,21 @@ export class ItemListComponent {
     const ids = Array.from(this.selectedItemIds);
     if (ids.length === 0) return;
 
+    // Optimistic local update.
+    ids.forEach(id => this.menuService.updateItemLocally(id, { [field]: value }));
+
     const calls = ids.map((id) => this.menuService.toggleItemBadge(id, field, value));
 
-    forkJoin(calls).subscribe(() => {
-      const action = value ? 'Added' : 'Removed';
-      this.toast.success(`${action} ${label} badge ${value ? 'to' : 'from'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
-      this.selectedItemIds.clear();
-      this.selectionMode = false;
-      this.menuService.refreshAll();
+    forkJoin(calls).subscribe({
+      next: () => {
+        const action = value ? 'Added' : 'Removed';
+        this.toast.success(`${action} ${label} badge ${value ? 'to' : 'from'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
+        this.selectedItemIds.clear();
+        this.selectionMode = false;
+      },
+      error: () => {
+        this.menuService.refreshAll();
+      }
     });
   }
 }

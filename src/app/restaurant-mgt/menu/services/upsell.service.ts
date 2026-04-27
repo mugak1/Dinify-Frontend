@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { ApiService } from 'src/app/_services/api.service';
-import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ApiResponse, UpsellConfig } from 'src/app/_models/app.models';
 
 /**
@@ -30,8 +29,7 @@ export class UpsellService {
   readonly isSaving$ = this._isSaving$.asObservable();
 
   constructor(
-    private api: ApiService,
-    private auth: AuthenticationService
+    private api: ApiService
   ) {}
 
   loadConfig(restaurantId: string): void {
@@ -65,22 +63,16 @@ export class UpsellService {
   addItems(configId: string, itemIds: string[]): Observable<any> {
     return this.api.postPatch(
       'restaurant-setup/upsell-config/items/', { config: configId, item_ids: itemIds }, 'post'
-    ).pipe(
-      tap(() => this.reloadConfig())
     );
   }
 
   removeItem(itemId: string): Observable<any> {
-    return this.api.Delete('restaurant-setup/upsell-config/items/', { id: itemId }).pipe(
-      tap(() => this.reloadConfig())
-    );
+    return this.api.Delete('restaurant-setup/upsell-config/items/', { id: itemId });
   }
 
   reorderItems(configId: string, itemIds: string[]): Observable<any> {
     return this.api.postPatch(
       'restaurant-setup/upsell-config/items/reorder/', { config: configId, item_ids: itemIds }, 'post'
-    ).pipe(
-      tap(() => this.reloadConfig())
     );
   }
 
@@ -88,10 +80,7 @@ export class UpsellService {
     return this._config$.getValue();
   }
 
-  private reloadConfig(): void {
-    const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
-    if (restaurantId) {
-      this.loadConfig(restaurantId);
-    }
+  setConfigLocally(config: UpsellConfig | null): void {
+    this._config$.next(config);
   }
 }
