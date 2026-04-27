@@ -85,7 +85,7 @@
         <!-- Vertical list with drag-drop -->
         <div *ngIf="items.length > 0"
              cdkDropList
-             [cdkDropListDisabled]="selectionMode"
+             [cdkDropListDisabled]="selectionMode || (sortMode$ | async) !== 'manual'"
              (cdkDropListDropped)="onDrop($event)"
              class="space-y-3"
              [class.pb-20]="selectedItemIds.size > 0">
@@ -108,10 +108,10 @@
                 Featured
               </div>
               <div *ngFor="let item of grouped.featured; trackBy: trackById"
-                   cdkDrag [cdkDragDisabled]="selectionMode">
+                   cdkDrag [cdkDragDisabled]="selectionMode || (sortMode$ | async) !== 'manual'">
                 <app-item-card
                   [item]="item"
-                  [showDragHandle]="!selectionMode"
+                  [showDragHandle]="!selectionMode && (sortMode$ | async) === 'manual'"
                   [selectionMode]="selectionMode"
                   [isSelected]="isItemSelected(item.id)"
                   (edit)="editItem.emit(item)"
@@ -134,10 +134,10 @@
 
             <!-- Regular items -->
             <div *ngFor="let item of grouped.regular; trackBy: trackById"
-                 cdkDrag [cdkDragDisabled]="selectionMode">
+                 cdkDrag [cdkDragDisabled]="selectionMode || (sortMode$ | async) !== 'manual'">
               <app-item-card
                 [item]="item"
-                [showDragHandle]="!selectionMode"
+                [showDragHandle]="!selectionMode && (sortMode$ | async) === 'manual'"
                 [selectionMode]="selectionMode"
                 [isSelected]="isItemSelected(item.id)"
                 (edit)="editItem.emit(item)"

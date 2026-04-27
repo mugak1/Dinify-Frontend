@@ -304,6 +304,14 @@ export class MenuService {
     );
   }
 
+  reorderItems(sectionId: string, orderedIds: string[]): Observable<any> {
+    return this.api.postPatch(
+      'restaurant-setup/reorder-section-items/',
+      { section_id: sectionId, ordered_ids: orderedIds },
+      'put'
+    );
+  }
+
   searchItems(query: string, _restaurantId: string): void {
     const trimmed = query.trim().toLowerCase();
     if (!trimmed) {
@@ -368,6 +376,10 @@ export class MenuService {
     return this._allItems$.getValue().filter(item => (item as any).section === sectionId);
   }
 
+  getSelectedSectionId(): string | null {
+    return this._selectedSectionId$.getValue();
+  }
+
   updateItemLocally(itemId: string, changes: Partial<MenuItem>): void {
     const allItems = this._allItems$.getValue();
     this._allItems$.next(
@@ -403,6 +415,45 @@ export class MenuService {
       allItems.map(i => i.id === normalized.id ? normalized : i)
     );
     // items$, extras$ update automatically via derivation.
+  }
+
+  /**
+   * Reorder items WITHIN a single section in `_allItems$`, preserving the
+   * relative position of items in OTHER sections. Used for optimistic UI
+   * updates when the user drags an item — the rendered order updates
+   * immediately, the backend call follows.
+   *
+   * Walks `_allItems$` once, and whenever it encounters an item belonging to
+   * `sectionId`, replaces it in place with the next item from the reordered
+   * sequence. Items in other sections keep their original positions.
+   *
+   * Quietly ignores ids in `orderedIds` that don't currently exist in the
+   * section — the caller has already validated the order against a snapshot
+   * of `getItemsSnapshot()`, so a stray id here would represent a race we
+   * can't recover from optimistically anyway. The backend reorder call will
+   * either succeed (new state correct) or fail and we refreshAll() to recover.
+   */
+  updateItemsOrderLocally(sectionId: string, orderedIds: string[]): void {
+    const allItems = this._allItems$.getValue();
+    const sectionItemsById = new Map<string, MenuItem>(
+      allItems
+        .filter(i => (i as any).section === sectionId)
+        .map(i => [i.id, i] as const)
+    );
+
+    const reorderedSection: MenuItem[] = orderedIds
+      .map(id => sectionItemsById.get(id))
+      .filter((i): i is MenuItem => !!i);
+
+    let cursor = 0;
+    const newAllItems = allItems.map(item => {
+      if ((item as any).section === sectionId) {
+        return reorderedSection[cursor++] ?? item;
+      }
+      return item;
+    });
+
+    this._allItems$.next(newAllItems);
   }
 
   removeSectionLocally(sectionId: string): void {

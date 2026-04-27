@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Observable, forkJoin } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -53,13 +53,44 @@ export class ItemListComponent {
     );
   }
 
-  onDrop(_event: CdkDragDrop<MenuItem[]>): void {
-    // Item-level reordering requires a `listing_position` column on MenuItem
-    // (currently missing) and a separate backend endpoint. Pending follow-up
-    // prompt 10b. Until then this handler is a no-op — the drag UI completes
-    // visually via cdk-drag-drop's defaults, but no persistence happens.
-    // No optimistic local update either: better to let the visual snap back
-    // on the next render than to lie about the order changing.
+  onDrop(event: CdkDragDrop<MenuItem[]>): void {
+    if (event.previousIndex === event.currentIndex) return;
+
+    // Build the flat DOM order for this section: featured items render
+    // first, then regular items. The cdkDropList's previousIndex /
+    // currentIndex are positional within this flat ordering.
+    const sectionItems = this.menuService.getItemsSnapshot();
+    const featured = sectionItems.filter(i => !!i.is_featured);
+    const regular = sectionItems.filter(i => !i.is_featured);
+    const flat = [...featured, ...regular];
+
+    // Reject cross-group drags (featured ↔ regular). Matches Lovable's
+    // behaviour: featured-ness is a separate axis, controlled by toggling
+    // the badge — not by where you drop. The dragged item snaps back via
+    // cdk's default behaviour because we never mutate state here.
+    const featuredCount = featured.length;
+    const sourceIsFeatured = event.previousIndex < featuredCount;
+    const targetIsFeatured = event.currentIndex < featuredCount;
+    if (sourceIsFeatured !== targetIsFeatured) return;
+
+    // Compute the new flat order.
+    const newOrder = [...flat];
+    moveItemInArray(newOrder, event.previousIndex, event.currentIndex);
+    const orderedIds = newOrder.map(i => i.id);
+
+    const sectionId = this.menuService.getSelectedSectionId();
+    if (!sectionId) return;
+
+    // Optimistic update — UI snaps to new order immediately.
+    this.menuService.updateItemsOrderLocally(sectionId, orderedIds);
+
+    // Persist. On error, refresh from backend to revert to the actual state.
+    this.menuService.reorderItems(sectionId, orderedIds).subscribe({
+      error: () => {
+        this.toast.error('Could not save the new order. Refreshing...');
+        this.menuService.refreshAll();
+      },
+    });
   }
 
   onToggleAvailability(event: { id: string; available: boolean }): void {
