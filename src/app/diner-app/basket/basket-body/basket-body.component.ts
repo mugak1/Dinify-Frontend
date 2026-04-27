@@ -1,5 +1,5 @@
 import { CommonModule, Location } from '@angular/common';
-import { Component, signal, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, Component, signal, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
@@ -18,7 +18,7 @@ import { DinerFooterComponent } from '../../diner-footer/diner-footer.component'
     standalone: true,
     imports: [CommonModule, DinerFooterComponent]
 })
-export class BasketBodyComponent implements OnInit, OnDestroy {
+export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   basket_items: BasketItem[] = [];
   table?: TableScan|any;
   order_initiated?: OrderInitiated;
@@ -28,8 +28,11 @@ export class BasketBodyComponent implements OnInit, OnDestroy {
   upsellItems: any[] = [];
   imageLoaded: Record<string, boolean> = {};
   imageErrored: Record<string, boolean> = {};
+  canScrollLeft = false;
+  canScrollRight = false;
   @ViewChild('upsellCarousel') upsellCarousel?: ElementRef<HTMLDivElement>;
   private upsellStorageSub?: Subscription;
+  private readonly onResize = () => this.checkScroll();
 
   get basketItems(): BasketItem[] {
     return this.basketService.Basket()?.items ?? [];
@@ -73,8 +76,29 @@ discountValue: number = 10; // 10% or UGX amount
     });
   }
 
+  ngAfterViewInit(): void {
+    window.addEventListener('resize', this.onResize);
+    setTimeout(() => this.checkScroll(), 0);
+  }
+
   ngOnDestroy(): void {
     this.upsellStorageSub?.unsubscribe();
+    window.removeEventListener('resize', this.onResize);
+  }
+
+  get showArrows(): boolean {
+    return this.upsellItems.length > 2;
+  }
+
+  checkScroll(): void {
+    const el = this.upsellCarousel?.nativeElement;
+    if (!el) {
+      this.canScrollLeft = false;
+      this.canScrollRight = false;
+      return;
+    }
+    this.canScrollLeft = el.scrollLeft > 5;
+    this.canScrollRight = el.scrollLeft < el.scrollWidth - el.clientWidth - 5;
   }
 
   /**
@@ -109,6 +133,7 @@ discountValue: number = 10; // 10% or UGX amount
       items = items.filter((i: any) => !basketIds.has(i.item_id || i.menu_item));
     }
     this.upsellItems = items.slice(0, this.upsellConfig.max_items_to_show || 6);
+    setTimeout(() => this.checkScroll(), 0);
   }
 
   onUpsellImageLoad(itemId: string): void {
@@ -176,8 +201,10 @@ discountValue: number = 10; // 10% or UGX amount
   scrollUpsells(direction: 'left' | 'right'): void {
     const el = this.upsellCarousel?.nativeElement;
     if (!el) return;
-    const delta = 160;
-    el.scrollBy({ left: direction === 'left' ? -delta : delta, behavior: 'smooth' });
+    const firstChild = el.firstElementChild as HTMLElement | null;
+    if (!firstChild) return;
+    const itemWidth = firstChild.offsetWidth + 12;
+    el.scrollBy({ left: direction === 'left' ? -itemWidth : itemWidth, behavior: 'smooth' });
   }
 
   // Initiates an order
