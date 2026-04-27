@@ -27,6 +27,7 @@ export class MenuComponent {
 
   itemFormOpen = false;
   editingItem?: MenuItem;
+  isSavingItem = false;
 
   itemDeleteOpen = false;
   deletingItem?: MenuItem;
@@ -192,20 +193,39 @@ export class MenuComponent {
   }
 
   onItemSaved(payload: any): void {
-    // Close dialog immediately — user doesn't need to wait
-    this.closeItemForm();
+    // Don't close the dialog yet — keep it open so the user sees the spinner
+    // and so a save error preserves their input.
+    this.isSavingItem = true;
 
-    const op = payload.id
+    const isUpdate = !!payload.id;
+    const op = isUpdate
       ? this.menuService.updateItem(payload)
       : this.menuService.createItem(payload);
 
     op.subscribe({
-      next: () => {
-        this.toast.success(payload.id ? 'Item updated' : 'Item created');
-        this.menuService.refreshAll();
+      next: (res: any) => {
+        this.isSavingItem = false;
+
+        // Backend response shape: { status, message, data: <record> }.
+        const savedItem = res?.data;
+        if (savedItem && savedItem.id) {
+          if (isUpdate) {
+            this.menuService.updateItemFullyLocally(savedItem);
+          } else {
+            this.menuService.addItemLocally(savedItem);
+          }
+        } else {
+          // Defensive fallback: refetch if the response shape is unexpected.
+          this.menuService.refreshAll();
+        }
+
+        this.toast.success(isUpdate ? 'Item updated' : 'Item created');
+        this.closeItemForm();
       },
       error: (err) => {
+        this.isSavingItem = false;
         this.toast.error(this.extractErrorMessage(err, 'Failed to save item'));
+        // Dialog stays open; user can fix and retry.
       }
     });
   }

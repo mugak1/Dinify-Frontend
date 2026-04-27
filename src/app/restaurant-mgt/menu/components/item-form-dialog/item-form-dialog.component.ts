@@ -48,6 +48,7 @@ export class ItemFormDialogComponent implements OnChanges {
   @Input() open = false;
   @Input() item?: MenuItem;
   @Input() sectionId?: string;
+  @Input() isSaving: boolean = false;
 
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<any>();

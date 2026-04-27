@@ -311,6 +311,27 @@ export class MenuService {
     // items$ and extras$ update automatically via derivation
   }
 
+  addItemLocally(item: MenuItem): void {
+    const allItems = this._allItems$.getValue();
+    // Guard against double-insert (e.g. backend somehow returns an existing id).
+    if (allItems.some(i => i.id === item.id)) {
+      this._allItems$.next(
+        allItems.map(i => i.id === item.id ? item : i)
+      );
+      return;
+    }
+    this._allItems$.next([...allItems, item]);
+    // items$, extras$, and section item_count all update automatically via derivation.
+  }
+
+  updateItemFullyLocally(item: MenuItem): void {
+    const allItems = this._allItems$.getValue();
+    this._allItems$.next(
+      allItems.map(i => i.id === item.id ? item : i)
+    );
+    // items$, extras$ update automatically via derivation.
+  }
+
   removeSectionLocally(sectionId: string): void {
     const currentSections = this._rawSections$.getValue();
     this._rawSections$.next(currentSections.filter(s => s.id !== sectionId));

@@ -178,6 +178,7 @@
   [open]="itemFormOpen"
   [item]="editingItem"
   [sectionId]="(selectedSectionId$ | async) ?? undefined"
+  [isSaving]="isSavingItem"
   (closed)="closeItemForm()"
   (saved)="onItemSaved($event)">
 </app-item-form-dialog>
