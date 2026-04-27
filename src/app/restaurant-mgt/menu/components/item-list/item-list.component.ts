@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { Observable, forkJoin } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -53,19 +53,13 @@ export class ItemListComponent {
     );
   }
 
-  onDrop(event: CdkDragDrop<MenuItem[]>): void {
-    // The DOM renders featured items first, then regular items, as a single
-    // cdkDropList. Reorder the matching DOM-order array so previousIndex/
-    // currentIndex line up with the rendered sequence.
-    const snapshot = this.menuService.getItemsSnapshot();
-    const items = [
-      ...snapshot.filter((i) => !!i.is_featured),
-      ...snapshot.filter((i) => !i.is_featured),
-    ];
-    moveItemInArray(items, event.previousIndex, event.currentIndex);
-
-    const ordering = items.map((item, i) => ({ id: item.id, listing_position: i + 1 }));
-    this.menuService.reorderItems(ordering).subscribe();
+  onDrop(_event: CdkDragDrop<MenuItem[]>): void {
+    // Item-level reordering requires a `listing_position` column on MenuItem
+    // (currently missing) and a separate backend endpoint. Pending follow-up
+    // prompt 10b. Until then this handler is a no-op — the drag UI completes
+    // visually via cdk-drag-drop's defaults, but no persistence happens.
+    // No optimistic local update either: better to let the visual snap back
+    // on the next render than to lie about the order changing.
   }
 
   onToggleAvailability(event: { id: string; available: boolean }): void {

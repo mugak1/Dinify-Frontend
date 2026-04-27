@@ -228,9 +228,9 @@ export class MenuService {
     );
   }
 
-  reorderItems(ordering: { id: string; listing_position: number }[]): Observable<any> {
+  reorderSections(orderedIds: string[]): Observable<any> {
     return this.api.postPatch(
-      'restaurant-setup/reorder-menu-items/', { ordering }, 'put'
+      'restaurant-setup/reorder-menu-sections/', { ordered_ids: orderedIds }, 'put'
     );
   }
 

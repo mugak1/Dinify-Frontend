@@ -70,8 +70,17 @@ export class SectionRailComponent {
     moveItemInArray(sections, event.previousIndex, event.currentIndex);
     this.menuService.updateSectionsLocally(sections);
 
-    const ordering = sections.map((s, i) => ({ id: s.id, listing_position: i + 1 }));
-    this.menuService.reorderItems(ordering).subscribe();
+    const orderedIds = sections.map(s => s.id);
+    this.menuService.reorderSections(orderedIds).subscribe({
+      error: () => {
+        // Reorder failed server-side. Revert the optimistic UI by refetching
+        // sections — the backend is the source of truth.
+        const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
+        if (restaurantId) {
+          this.menuService.loadSections(restaurantId);
+        }
+      }
+    });
   }
 
   toggleReorderMode(): void {
