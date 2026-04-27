@@ -25,6 +25,8 @@ export class MenuComponent {
   sectionDeleteOpen = false;
   editingSection?: MenuSectionListItem;
 
+  isSavingSection = false;
+
   itemFormOpen = false;
   editingItem?: MenuItem;
   isSavingItem = false;
@@ -121,20 +123,26 @@ export class MenuComponent {
   }
 
   onSectionSaved(payload: any): void {
-    // Close dialog immediately
-    this.closeSectionForm();
+    // Don't close the dialog yet — keep it open so the user sees the spinner
+    // and so a save error preserves their input.
+    this.isSavingSection = true;
 
-    const op = payload.id
+    const isUpdate = !!payload.id;
+    const op = isUpdate
       ? this.menuService.updateSection(payload)
       : this.menuService.createSection(payload);
 
     op.subscribe({
       next: () => {
-        this.toast.success(payload.id ? 'Section updated' : 'Section created');
+        this.isSavingSection = false;
+        this.toast.success(isUpdate ? 'Section updated' : 'Section created');
         this.menuService.loadSections(this.restaurant);
+        this.closeSectionForm();
       },
       error: (err) => {
+        this.isSavingSection = false;
         this.toast.error(this.extractErrorMessage(err, 'Failed to save section'));
+        // Dialog stays open; user can fix and retry without losing typed input.
       }
     });
   }

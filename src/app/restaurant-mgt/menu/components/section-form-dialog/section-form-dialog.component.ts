@@ -30,6 +30,7 @@ export class SectionFormDialogComponent implements OnChanges {
   @Input() section?: MenuSectionListItem;
   @Input() restaurantId = '';
   @Input() deleteMode = false;
+  @Input() isSaving: boolean = false;
 
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<any>();
