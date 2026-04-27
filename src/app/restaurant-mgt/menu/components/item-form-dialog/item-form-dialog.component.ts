@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -53,6 +53,8 @@ export class ItemFormDialogComponent implements OnChanges {
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<any>();
 
+  @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
+
   form!: FormGroup;
   sections$: Observable<MenuSectionListItem[]>;
   imagePreview = '';
@@ -67,6 +69,7 @@ export class ItemFormDialogComponent implements OnChanges {
   availableExtras$: Observable<MenuItem[]>;
   presetTags$: Observable<PresetTag[]>;
   isCompressing = false;
+  clearImageRequested = false;
 
   constructor(
     private fb: FormBuilder,
@@ -86,6 +89,7 @@ export class ItemFormDialogComponent implements OnChanges {
       this.imagePreview = '';
       this.activeTab = 'details';
       this.attemptedSave = false;
+      this.clearImageRequested = false;
       this.itemModifiers = { hasModifiers: false, groups: [] };
       this.itemHasDiscount = false;
       this.itemDiscountDetails = null;
@@ -208,10 +212,20 @@ export class ItemFormDialogComponent implements OnChanges {
     }
 
     this.form.get('image')?.setValue(finalFile);
+    this.clearImageRequested = false;
 
     const reader = new FileReader();
     reader.onload = () => { this.imagePreview = reader.result as string; };
     reader.readAsDataURL(finalFile);
+  }
+
+  onRemoveImage(): void {
+    this.clearImageRequested = true;
+    this.imagePreview = '';
+    this.form.get('image')?.setValue(null);
+    if (this.fileInput) {
+      this.fileInput.nativeElement.value = '';
+    }
   }
 
   onAllergenAdd(value: string): void {
@@ -331,6 +345,14 @@ export class ItemFormDialogComponent implements OnChanges {
     // If image is a string (existing URL, not changed), remove from payload
     // so the API service doesn't try to send it as FormData
     if (typeof payload.image === 'string') {
+      delete payload.image;
+    }
+
+    // If the user explicitly removed the image and didn't replace it,
+    // signal the backend to clear it. The image field itself should not
+    // be sent — clear_image is the unambiguous signal.
+    if (this.clearImageRequested && !payload.image) {
+      payload.clear_image = true;
       delete payload.image;
     }
 
