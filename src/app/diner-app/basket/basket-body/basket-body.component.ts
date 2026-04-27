@@ -9,14 +9,13 @@ import { BasketService } from 'src/app/_services/basket.service';
 import { MessageService } from 'src/app/_services/message.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { environment } from 'src/environments/environment';
-import { DinerFooterComponent } from '../../diner-footer/diner-footer.component';
 
 @Component({
     selector: 'app-basket-body',
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],
     standalone: true,
-    imports: [CommonModule, DinerFooterComponent]
+    imports: [CommonModule]
 })
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   basket_items: BasketItem[] = [];
