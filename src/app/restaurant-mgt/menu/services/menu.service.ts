@@ -82,6 +82,50 @@ export class MenuService {
   ) {}
 
   // ---------------------------------------------------------------------------
+  // Boundary normalization
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Coerces a backend MenuItem record's JSONField values to their expected
+   * shapes. Older items with corrupted JSONField data (e.g. allergens stored
+   * as an object literal instead of an array) would otherwise cause NG0901
+   * errors when their values feed into *ngFor in the templates.
+   *
+   * This is intentionally tolerant: anything that doesn't match the expected
+   * type is replaced with the empty form (array → [], object → {}). We do not
+   * attempt to "interpret" malformed data — if it's wrong, treat it as empty
+   * and let the user re-enter it through the form if they care.
+   */
+  private normalizeMenuItem(item: any): any {
+    if (!item || typeof item !== 'object') return item;
+    return {
+      ...item,
+      allergens: Array.isArray(item.allergens) ? item.allergens : [],
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      extras_applicable: Array.isArray(item.extras_applicable) ? item.extras_applicable : [],
+      options: this.normalizeOptions(item.options),
+      discount_details: (item.discount_details && typeof item.discount_details === 'object' && !Array.isArray(item.discount_details))
+        ? item.discount_details
+        : {},
+    };
+  }
+
+  private normalizeOptions(options: any): any {
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+      return { hasModifiers: false, groups: [] };
+    }
+    return {
+      hasModifiers: !!options.hasModifiers,
+      groups: Array.isArray(options.groups)
+        ? options.groups.map((group: any) => ({
+            ...group,
+            choices: Array.isArray(group?.choices) ? group.choices : [],
+          }))
+        : [],
+    };
+  }
+
+  // ---------------------------------------------------------------------------
   // Sections
   // ---------------------------------------------------------------------------
 
@@ -187,7 +231,8 @@ export class MenuService {
     this.api.get<MenuItem>(null, 'restaurant-setup/menuitems/', { restaurant: restaurantId })
       .subscribe({
         next: (res: ApiResponse<MenuItem>) => {
-          this._allItems$.next(res?.data?.records ?? []);
+          const records = res?.data?.records ?? [];
+          this._allItems$.next(records.map(item => this.normalizeMenuItem(item)));
         },
       });
   }
@@ -313,22 +358,24 @@ export class MenuService {
   }
 
   addItemLocally(item: MenuItem): void {
+    const normalized = this.normalizeMenuItem(item);
     const allItems = this._allItems$.getValue();
     // Guard against double-insert (e.g. backend somehow returns an existing id).
-    if (allItems.some(i => i.id === item.id)) {
+    if (allItems.some(i => i.id === normalized.id)) {
       this._allItems$.next(
-        allItems.map(i => i.id === item.id ? item : i)
+        allItems.map(i => i.id === normalized.id ? normalized : i)
       );
       return;
     }
-    this._allItems$.next([...allItems, item]);
+    this._allItems$.next([...allItems, normalized]);
     // items$, extras$, and section item_count all update automatically via derivation.
   }
 
   updateItemFullyLocally(item: MenuItem): void {
+    const normalized = this.normalizeMenuItem(item);
     const allItems = this._allItems$.getValue();
     this._allItems$.next(
-      allItems.map(i => i.id === item.id ? item : i)
+      allItems.map(i => i.id === normalized.id ? normalized : i)
     );
     // items$, extras$ update automatically via derivation.
   }

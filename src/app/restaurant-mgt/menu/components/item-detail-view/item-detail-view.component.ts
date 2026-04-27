@@ -23,12 +23,13 @@ import {
 } from '../../utils/price-utils';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
+import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
 import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-item-detail-view',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SafeArrayPipe],
   templateUrl: './item-detail-view.component.html',
   host: {
     class: 'flex flex-col h-full min-h-0',

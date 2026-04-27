@@ -92,7 +92,7 @@
         <h4 class="text-sm font-semibold text-muted-foreground mb-2">Dietary Info</h4>
         <div class="flex flex-wrap gap-2">
           <span
-            *ngFor="let tag of item.allergens"
+            *ngFor="let tag of item.allergens | safeArray"
             class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border"
             [ngClass]="getTagClasses(tag)"
           >
@@ -104,7 +104,7 @@
 
       <!-- Modifier Groups -->
       <ng-container *ngIf="hasModifierGroups">
-        <div *ngFor="let group of modifierGroups" class="border rounded-xl p-4 space-y-3">
+        <div *ngFor="let group of modifierGroups | safeArray" class="border rounded-xl p-4 space-y-3">
           <div class="flex items-center gap-2 flex-wrap">
             <!-- Radio icon for single, checkbox icon for multi -->
             <svg *ngIf="group.selectionType === 'single'"
@@ -134,7 +134,7 @@
           <!-- Single select (radio) -->
           <div *ngIf="group.selectionType === 'single'" class="space-y-2">
             <label
-              *ngFor="let choice of group.choices"
+              *ngFor="let choice of group.choices | safeArray"
               (click)="handleSingleSelect(group.id, choice.id)"
               class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-border last:border-0"
             >
@@ -174,7 +174,7 @@
           <!-- Multi select (checkbox) -->
           <div *ngIf="group.selectionType !== 'single'" class="space-y-2">
             <label
-              *ngFor="let choice of group.choices"
+              *ngFor="let choice of group.choices | safeArray"
               (click)="handleMultiSelect(group.id, choice.id, !isModifierSelected(group.id, choice.id), group.maxSelections)"
               class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-border last:border-0"
               [class.opacity-50]="!isModifierSelected(group.id, choice.id) && getSelectedCount(group.id) >= group.maxSelections"
@@ -228,7 +228,7 @@
         </div>
         <div class="space-y-1">
           <label
-            *ngFor="let extra of extraItems"
+            *ngFor="let extra of extraItems | safeArray"
             (click)="toggleExtra(extra.id)"
             class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-border last:border-0"
           >

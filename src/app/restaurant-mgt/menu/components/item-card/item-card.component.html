@@ -249,7 +249,7 @@
       <!-- Row 3: Allergens (only if present) -->
       <div *ngIf="item.allergens && item.allergens.length > 0"
            class="flex flex-wrap gap-1 mt-2">
-        <app-dn-badge *ngFor="let allergen of item.allergens" variant="secondary" class="text-xs">
+        <app-dn-badge *ngFor="let allergen of item.allergens | safeArray" variant="secondary" class="text-xs">
           {{ allergen }}
         </app-dn-badge>
       </div>

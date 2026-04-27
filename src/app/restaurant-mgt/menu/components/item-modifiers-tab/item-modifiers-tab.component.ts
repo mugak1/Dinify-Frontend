@@ -15,6 +15,7 @@ import {
 } from '@angular/cdk/drag-drop';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
+import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
 import {
   ItemModifiers,
   ModifierGroup,
@@ -30,6 +31,7 @@ import {
     DragDropModule,
     SwitchComponent,
     ButtonComponent,
+    SafeArrayPipe,
   ],
   templateUrl: './item-modifiers-tab.component.html',
 })
