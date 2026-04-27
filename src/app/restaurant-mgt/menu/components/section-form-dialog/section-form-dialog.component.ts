@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -36,6 +36,8 @@ export class SectionFormDialogComponent implements OnChanges {
   @Output() saved = new EventEmitter<any>();
   @Output() deleted = new EventEmitter<{ id: string; reason: string }>();
 
+  @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
+
   form!: FormGroup;
   deleteReason = '';
   imagePreview = '';
@@ -43,6 +45,7 @@ export class SectionFormDialogComponent implements OnChanges {
   schedules: SectionSchedule[] = [];
   scheduleError: string | null = null;
   isScheduleOpen = false;
+  clearImageRequested = false;
 
   constructor(private fb: FormBuilder) {
     this.buildForm();
@@ -54,6 +57,7 @@ export class SectionFormDialogComponent implements OnChanges {
       this.deleteReason = '';
       this.imagePreview = '';
       this.scheduleError = null;
+      this.clearImageRequested = false;
 
       if (this.section) {
         this.form.patchValue({
@@ -83,11 +87,21 @@ export class SectionFormDialogComponent implements OnChanges {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (file) {
       this.form.get('section_banner_image')?.setValue(file);
+      this.clearImageRequested = false;
       const reader = new FileReader();
       reader.onload = () => {
         this.imagePreview = reader.result as string;
       };
       reader.readAsDataURL(file);
+    }
+  }
+
+  onRemoveImage(): void {
+    this.clearImageRequested = true;
+    this.imagePreview = '';
+    this.form.get('section_banner_image')?.setValue(null);
+    if (this.fileInput) {
+      this.fileInput.nativeElement.value = '';
     }
   }
 
@@ -113,6 +127,11 @@ export class SectionFormDialogComponent implements OnChanges {
 
     // If banner image is a string (existing URL, not changed), remove from payload
     if (typeof payload.section_banner_image === 'string') {
+      delete payload.section_banner_image;
+    }
+
+    if (this.clearImageRequested && !payload.section_banner_image) {
+      payload.clear_section_banner_image = true;
       delete payload.section_banner_image;
     }
 
