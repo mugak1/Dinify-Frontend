@@ -60,11 +60,22 @@
       <!-- Banner Image -->
       <div>
         <label class="block text-sm font-medium text-foreground mb-1.5">Banner Image</label>
-        <img *ngIf="imagePreview"
-             [src]="imagePreview"
-             alt="Banner preview"
-             class="h-28 w-full object-cover rounded-lg mb-2" />
-        <input type="file"
+        <div class="relative" *ngIf="imagePreview">
+          <img [src]="imagePreview"
+               alt="Banner preview"
+               class="h-28 w-full object-cover rounded-lg mb-2" />
+          <button type="button"
+                  (click)="onRemoveImage()"
+                  class="absolute top-2 right-2 inline-flex items-center justify-center w-7 h-7 rounded-full bg-background/90 hover:bg-background text-foreground shadow-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+                  aria-label="Remove banner image">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <input #fileInput
+               type="file"
                accept="image/*"
                (change)="onFileSelected($event)"
                class="block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
