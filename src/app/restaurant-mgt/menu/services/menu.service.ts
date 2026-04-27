@@ -23,14 +23,38 @@ export class MenuService {
   private readonly _allItems$ = new BehaviorSubject<MenuItem[]>([]);
   readonly allItems$ = this._allItems$.asObservable();
 
+  /**
+   * Whether _allItems$ has received its first successful response. Until this
+   * is true, sections$ should use the backend-provided item_count instead of
+   * the frontend-derived count — otherwise the derivation produces 0 for every
+   * section during the gap between sections-GET and items-GET, causing a brief
+   * "0 Items" flicker on initial page load.
+   *
+   * Once flipped to true, this stays true for the lifetime of the service.
+   * Subsequent loadAllItems calls (e.g. via refreshAll on error fallback)
+   * don't reset it, because the existing derived counts are correct enough
+   * during a refetch — better to show slightly stale derived counts during a
+   * refetch than to flicker back to backend counts and back again.
+   */
+  private readonly _allItemsLoaded$ = new BehaviorSubject<boolean>(false);
+
   readonly sections$: Observable<MenuSectionListItem[]> = combineLatest([
     this._rawSections$,
     this._allItems$,
+    this._allItemsLoaded$,
   ]).pipe(
-    map(([sections, allItems]) => sections.map(section => ({
-      ...section,
-      item_count: allItems.filter(item => (item as any).section === section.id).length,
-    })))
+    map(([sections, allItems, itemsLoaded]) => {
+      if (!itemsLoaded) {
+        // Items haven't returned yet on this page load. Use backend's
+        // pre-computed item_count rather than deriving 0 from an empty
+        // _allItems$.
+        return sections;
+      }
+      return sections.map(section => ({
+        ...section,
+        item_count: allItems.filter(item => (item as any).section === section.id).length,
+      }));
+    })
   );
 
   readonly items$: Observable<MenuItem[]> = combineLatest([
@@ -233,6 +257,7 @@ export class MenuService {
         next: (res: ApiResponse<MenuItem>) => {
           const records = res?.data?.records ?? [];
           this._allItems$.next(records.map(item => this.normalizeMenuItem(item)));
+          this._allItemsLoaded$.next(true);
         },
       });
   }
