@@ -6,7 +6,6 @@ import { Subscription } from 'rxjs';
 
 import { UpsellService } from '../../services/upsell.service';
 import { MenuService } from '../../services/menu.service';
-import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { UpsellConfig, UpsellItem, MenuItem, MenuSectionListItem } from 'src/app/_models/app.models';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
@@ -46,16 +45,14 @@ export class UpsellsTabComponent implements OnInit, OnDestroy {
   constructor(
     private upsellService: UpsellService,
     private menuService: MenuService,
-    private auth: AuthenticationService,
     private toast: ToastService
   ) {}
 
   ngOnInit(): void {
-    const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
-    if (restaurantId) {
-      this.upsellService.loadConfig(restaurantId);
-      this.menuService.loadAllItems(restaurantId);
-    }
+    // Items, sections, and upsell config are already loaded by the parent
+    // MenuComponent when the menu page mounts. We just subscribe to the
+    // streams here. If a future refactor changes that ordering, this tab
+    // will appear empty until the parent fetches resolve.
 
     this.subs.push(
       this.upsellService.config$.subscribe(config => {
@@ -92,41 +89,41 @@ export class UpsellsTabComponent implements OnInit, OnDestroy {
 
   onToggleEnabled(enabled: boolean): void {
     if (!this.config) return;
-    this.upsellService.updateConfig({ id: this.config.id, enabled }).subscribe(() => {
+    this.upsellService.updateConfig({ id: this.config.id, enabled }).subscribe((res) => {
       this.toast.success(enabled ? 'Upsells enabled' : 'Upsells disabled');
-      this.reloadConfig();
+      if (res?.data) this.upsellService.setConfigLocally(res.data);
     });
   }
 
   onTitleBlur(): void {
     if (!this.config || this.localTitle === this.config.title) return;
-    this.upsellService.updateConfig({ id: this.config.id, title: this.localTitle }).subscribe(() => {
+    this.upsellService.updateConfig({ id: this.config.id, title: this.localTitle }).subscribe((res) => {
       this.toast.success('Title updated');
-      this.reloadConfig();
+      if (res?.data) this.upsellService.setConfigLocally(res.data);
     });
   }
 
   onMaxItemsChange(value: string): void {
     if (!this.config) return;
-    this.upsellService.updateConfig({ id: this.config.id, max_items_to_show: +value }).subscribe(() => {
+    this.upsellService.updateConfig({ id: this.config.id, max_items_to_show: +value }).subscribe((res) => {
       this.toast.success('Display settings updated');
-      this.reloadConfig();
+      if (res?.data) this.upsellService.setConfigLocally(res.data);
     });
   }
 
   onHideIfInBasketChange(value: boolean): void {
     if (!this.config) return;
-    this.upsellService.updateConfig({ id: this.config.id, hide_if_in_basket: value }).subscribe(() => {
+    this.upsellService.updateConfig({ id: this.config.id, hide_if_in_basket: value }).subscribe((res) => {
       this.toast.success('Display settings updated');
-      this.reloadConfig();
+      if (res?.data) this.upsellService.setConfigLocally(res.data);
     });
   }
 
   onHideOutOfStockChange(value: boolean): void {
     if (!this.config) return;
-    this.upsellService.updateConfig({ id: this.config.id, hide_out_of_stock: value }).subscribe(() => {
+    this.upsellService.updateConfig({ id: this.config.id, hide_out_of_stock: value }).subscribe((res) => {
       this.toast.success('Display settings updated');
-      this.reloadConfig();
+      if (res?.data) this.upsellService.setConfigLocally(res.data);
     });
   }
 
@@ -136,15 +133,17 @@ export class UpsellsTabComponent implements OnInit, OnDestroy {
 
   onAddItems(itemIds: string[]): void {
     if (!this.config) return;
-    this.upsellService.addItems(this.config.id, itemIds).subscribe(() => {
+    this.upsellService.addItems(this.config.id, itemIds).subscribe((res) => {
       this.addModalOpen = false;
       this.toast.success(`${itemIds.length} item${itemIds.length !== 1 ? 's' : ''} added`);
+      if (res?.data) this.upsellService.setConfigLocally(res.data);
     });
   }
 
   onRemoveItem(item: UpsellItem): void {
-    this.upsellService.removeItem(item.id).subscribe(() => {
+    this.upsellService.removeItem(item.id).subscribe((res) => {
       this.toast.success('Item removed');
+      if (res?.data) this.upsellService.setConfigLocally(res.data);
     });
   }
 
@@ -155,7 +154,9 @@ export class UpsellsTabComponent implements OnInit, OnDestroy {
     // Optimistic update
     this.config = { ...this.config, items };
     const itemIds = items.map(i => i.id);
-    this.upsellService.reorderItems(this.config.id, itemIds).subscribe();
+    this.upsellService.reorderItems(this.config.id, itemIds).subscribe((res) => {
+      if (res?.data) this.upsellService.setConfigLocally(res.data);
+    });
   }
 
   getUpsellItemImage(item: UpsellItem): string {
@@ -166,12 +167,5 @@ export class UpsellsTabComponent implements OnInit, OnDestroy {
 
   trackByUpsellItemId(_index: number, item: UpsellItem): string {
     return item.id;
-  }
-
-  private reloadConfig(): void {
-    const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
-    if (restaurantId) {
-      this.upsellService.loadConfig(restaurantId);
-    }
   }
 }

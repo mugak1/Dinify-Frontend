@@ -234,21 +234,22 @@ export class MenuService {
     );
   }
 
-  searchItems(query: string, restaurantId: string): void {
-    this._isSearching$.next(true);
-    this._searchResults$.next([]);
+  searchItems(query: string, _restaurantId: string): void {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) {
+      this._searchResults$.next([]);
+      return;
+    }
 
-    this.api.get<MenuItem>(null, 'restaurant-setup/menuitems/', { name: query, restaurant: restaurantId })
-      .subscribe({
-        next: (res: ApiResponse<MenuItem>) => {
-          this._searchResults$.next(res?.data?.records ?? []);
-          this._isSearching$.next(false);
-        },
-        error: (err) => {
-          this._error$.next(err?.message ?? 'Search failed');
-          this._isSearching$.next(false);
-        }
-      });
+    const allItems = this._allItems$.getValue();
+    const matches = allItems.filter(item => {
+      const name = (item.name ?? '').toLowerCase();
+      const description = (item.description ?? '').toLowerCase();
+      return name.includes(trimmed) || description.includes(trimmed);
+    });
+
+    this._searchResults$.next(matches);
+    // _isSearching$ is intentionally not toggled — search is now synchronous.
   }
 
   updateItemImage(data: any): Observable<any> {
