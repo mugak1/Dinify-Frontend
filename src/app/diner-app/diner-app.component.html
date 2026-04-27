@@ -1,5 +1,5 @@
 <app-no-table *ngIf="!table"></app-no-table>
-<div *ngIf="table" [class.pb-24]="basketService.Basket().items.length > 0" class="min-h-screen flex flex-col lg:pb-0">
+<div *ngIf="table" class="min-h-screen flex flex-col">
     <header *ngIf="branding_configs" [style.background-color]="branding_configs?.home?.bgColor" class="fixed inset-x-0 top-0 z-50">
       <nav [style.background-color]="branding_configs?.home?.headerColor" class="flex items-center justify-between h-[60px] px-4 lg:px-8" aria-label="Global">
         <div  class="flex lg:flex-1">
