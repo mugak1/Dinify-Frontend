@@ -75,6 +75,8 @@
             <input type="text"
                    [(ngModel)]="group.name"
                    (ngModelChange)="emitChange()"
+                   autocapitalize="off"
+                   autocorrect="off"
                    placeholder="e.g. Choose your size"
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             <div *ngIf="!group.name?.trim()"
@@ -167,6 +169,8 @@
                 <input type="text"
                        [(ngModel)]="choice.name"
                        (ngModelChange)="emitChange()"
+                       autocapitalize="off"
+                       autocorrect="off"
                        placeholder="Choice name"
                        class="flex-1 min-w-0 border border-input bg-background text-foreground rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
 

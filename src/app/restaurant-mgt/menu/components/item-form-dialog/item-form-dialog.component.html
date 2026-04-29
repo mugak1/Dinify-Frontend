@@ -62,6 +62,8 @@
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Name *</label>
             <input formControlName="name"
+                   autocapitalize="off"
+                   autocorrect="off"
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                    [class.border-destructive]="attemptedSave && form.get('name')?.invalid"
                    placeholder="Item name" />
@@ -158,6 +160,8 @@
 
             <!-- Free text input -->
             <input #tagInput
+                   autocapitalize="off"
+                   autocorrect="off"
                    placeholder="Add custom tag and press Enter"
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                    (keydown.enter)="onAllergenAdd(tagInput.value); tagInput.value = ''; $event.preventDefault()" />
