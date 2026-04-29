@@ -212,6 +212,24 @@ describe('AuthenticationService', () => {
       req.flush({ access: 'new-access' });
     });
 
+    it('should persist the rotated refresh token when the response includes one (ROTATE_REFRESH_TOKENS=True)', (done) => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
+
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      svc.attemptTokenRefresh().subscribe((result) => {
+        expect(result).toBe('new-access');
+        expect(svc.userValue!.token).toBe('new-access');
+        expect(svc.userValue!.refresh).toBe('new-refresh');
+        const stored = JSON.parse(localStorage.getItem('user')!);
+        expect(stored.token).toBe('new-access');
+        expect(stored.refresh).toBe('new-refresh');
+        done();
+      });
+
+      const req = httpMock.expectOne(`${base}/users/auth/token/refresh/`);
+      req.flush({ access: 'new-access', refresh: 'new-refresh' });
+    });
+
     it('should return null (and NOT call logout) when refresh endpoint returns 401', (done) => {
       localStorage.setItem('user', JSON.stringify(userWithRefresh));
 
