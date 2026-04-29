@@ -20,18 +20,23 @@
       <h3 class="font-bold text-base text-gray-900">
         {{ upsellConfig?.title || 'You might also like' }}
       </h3>
-      <!-- Desktop-only chevron controls -->
-      <div class="hidden lg:flex items-center gap-1">
-        <button type="button" (click)="scrollUpsells('left')"
-                class="inline-flex items-center justify-center w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+      <div *ngIf="showArrows" class="flex items-center gap-1">
+        <button type="button" (click)="scrollUpsells('left')" [disabled]="!canScrollLeft"
+                [class]="'inline-flex items-center justify-center w-7 h-7 rounded-full border transition-colors ' +
+                  (canScrollLeft
+                    ? 'border-gray-300 text-gray-500 hover:bg-gray-100 active:bg-gray-200 cursor-pointer'
+                    : 'border-gray-200 text-gray-300 cursor-not-allowed')"
                 aria-label="Previous upsells">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="m15 18-6-6 6-6"/>
           </svg>
         </button>
-        <button type="button" (click)="scrollUpsells('right')"
-                class="inline-flex items-center justify-center w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+        <button type="button" (click)="scrollUpsells('right')" [disabled]="!canScrollRight"
+                [class]="'inline-flex items-center justify-center w-7 h-7 rounded-full border transition-colors ' +
+                  (canScrollRight
+                    ? 'border-gray-300 text-gray-500 hover:bg-gray-100 active:bg-gray-200 cursor-pointer'
+                    : 'border-gray-200 text-gray-300 cursor-not-allowed')"
                 aria-label="Next upsells">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -40,44 +45,44 @@
         </button>
       </div>
     </div>
-    <div #upsellCarousel class="overflow-x-auto no-scrollbar -mx-4 px-4 scroll-smooth">
-      <div class="flex gap-3" style="width: max-content;">
-        <div *ngFor="let item of upsellItems; let i = index"
-             class="w-36 flex-shrink-0 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-          <div class="w-full h-24 bg-gray-100 overflow-hidden relative">
-            <div *ngIf="item.item_image
-                       && !imageLoaded[item.item_id || item.menu_item]
-                       && !imageErrored[item.item_id || item.menu_item]"
-                 class="absolute inset-0 bg-gray-200 animate-pulse"></div>
-            <img *ngIf="item.item_image && !imageErrored[item.item_id || item.menu_item]"
-                 [src]="url + item.item_image"
-                 [alt]="item.item_name"
-                 class="w-full h-full object-cover transition-opacity duration-200"
-                 [class.opacity-0]="!imageLoaded[item.item_id || item.menu_item]"
-                 [attr.fetchpriority]="i < 2 ? 'high' : null"
-                 (load)="onUpsellImageLoad(item.item_id || item.menu_item)"
-                 (error)="onUpsellImageError(item.item_id || item.menu_item)" />
-            <div *ngIf="!item.item_image || imageErrored[item.item_id || item.menu_item]"
-                 class="w-full h-full flex items-center justify-center text-gray-300 text-xs">
-              No image
-            </div>
+    <div #upsellCarousel
+         (scroll)="checkScroll()"
+         class="grid grid-flow-col auto-cols-[calc(50%-6px)] gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2">
+      <div *ngFor="let item of upsellItems; let i = index"
+           class="snap-start rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+        <div class="w-full h-24 bg-gray-100 overflow-hidden relative">
+          <div *ngIf="item.item_image
+                     && !imageLoaded[item.item_id || item.menu_item]
+                     && !imageErrored[item.item_id || item.menu_item]"
+               class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+          <img *ngIf="item.item_image && !imageErrored[item.item_id || item.menu_item]"
+               [src]="url + item.item_image"
+               [alt]="item.item_name"
+               class="w-full h-full object-cover transition-opacity duration-200"
+               [class.opacity-0]="!imageLoaded[item.item_id || item.menu_item]"
+               [attr.fetchpriority]="i < 2 ? 'high' : null"
+               (load)="onUpsellImageLoad(item.item_id || item.menu_item)"
+               (error)="onUpsellImageError(item.item_id || item.menu_item)" />
+          <div *ngIf="!item.item_image || imageErrored[item.item_id || item.menu_item]"
+               class="w-full h-full flex items-center justify-center text-gray-300 text-xs">
+            No image
           </div>
-          <div class="p-2.5">
-            <h4 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
-              {{ item.item_name }}
-            </h4>
-            <p class="text-red-600 font-bold text-sm mt-1">
-              UGX {{ item.item_price | number }}
-            </p>
-            <button (click)="addUpsellItem(item)"
-                    class="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14"/><path d="M12 5v14"/>
-              </svg>
-              Add
-            </button>
-          </div>
+        </div>
+        <div class="p-2.5">
+          <h4 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
+            {{ item.item_name }}
+          </h4>
+          <p class="text-red-600 font-bold text-sm mt-1">
+            UGX {{ item.item_price | number }}
+          </p>
+          <button (click)="addUpsellItem(item)"
+                  class="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"/><path d="M12 5v14"/>
+            </svg>
+            Add
+          </button>
         </div>
       </div>
     </div>
@@ -199,9 +204,6 @@
     </div>
   </div>
 
-  <div class="lg:hidden">
-    <app-diner-footer></app-diner-footer>
-  </div>
 </div>
 
 <!-- Checkout Button (sticky footer) -->

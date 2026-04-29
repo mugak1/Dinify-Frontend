@@ -14,7 +14,6 @@ import { PaymentDetailsComponent } from './payment-details/payment-details.compo
 import { OrderCompleteComponent } from './order-complete/order-complete.component';
 import { NgxCurrencyDirective } from 'ngx-currency';
 import { ErrorPageComponent } from "./error-page/error-page.component";
-import { DinerFooterComponent } from './diner-footer/diner-footer.component';
 import { MenuNavBarComponent } from './menu/menu-nav-bar/menu-nav-bar.component';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
@@ -48,7 +47,6 @@ const routes: Routes = [
     NgxCurrencyDirective,
     FormsModule,
     ErrorPageComponent,
-    DinerFooterComponent,
     BasketBodyComponent,
     MenuNavBarComponent
 ],
