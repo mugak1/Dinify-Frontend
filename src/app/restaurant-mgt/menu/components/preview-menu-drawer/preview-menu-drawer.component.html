@@ -206,23 +206,15 @@
              appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)"
              class="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-6">
 
-          <!-- Featured Section -->
-          @if (featuredItems.length > 0) {
-            <div id="sec-featured">
-              <h2 class="text-xl font-bold mb-4 py-2 border-b flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                     fill="#eab308" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                Featured
-              </h2>
-              <div class="space-y-4">
-                @for (item of featuredItems; track item.id) {
-                  <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: 'featured-' }"></ng-container>
-                }
-              </div>
-            </div>
-          }
+          <!-- Featured Section: horizontal-scrolling carousel.
+               Note: regular category sections below intentionally still use the
+               inline #itemCard template — this PR only converts Featured. -->
+          <app-featured-carousel
+            [items]="featuredItems"
+            sectionId="sec-featured"
+            scrollMarginVar=""
+            (itemTap)="handleItemClick($event)">
+          </app-featured-carousel>
 
           <!-- Regular Sections -->
           @for (section of availableSections; track section.id) {

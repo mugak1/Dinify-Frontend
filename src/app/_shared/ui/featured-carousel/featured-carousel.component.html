@@ -1,0 +1,80 @@
+<div *ngIf="items?.length"
+     [id]="sectionId || null"
+     [style.scroll-margin-top]="scrollMarginVar || null"
+     class="flex flex-col w-full">
+  <span class="font-bold text-xl pt-4 pb-2 flex items-center gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+         fill="#eab308" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+    Featured
+  </span>
+
+  <div class="flex gap-2.5 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2">
+    <div *ngFor="let i of items"
+         class="snap-start flex-shrink-0 w-[175px] rounded-2xl bg-white shadow-sm ring-1 ring-black/5 group transition-all duration-200 ease-out overflow-hidden"
+         [class.opacity-60]="isOutOfStock(i)"
+         [class.cursor-not-allowed]="isOutOfStock(i)"
+         [ngClass]="{ 'cursor-pointer hover:shadow-lg hover:-translate-y-0.5 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }"
+         (click)="onCardTap(i)">
+
+      <!-- Image with badge overlays -->
+      <div class="w-full aspect-square overflow-hidden bg-gray-100 relative"
+           [class.grayscale]="isOutOfStock(i)">
+
+        <!-- Badge overlays (no FEATURED — redundant inside Featured section) -->
+        <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
+          <span *ngIf="hasDiscount(i) && !isOutOfStock(i)"
+                class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+            {{ getDiscountBadge(i) }}
+          </span>
+          <span *ngIf="i?.is_popular && !isOutOfStock(i)"
+                class="bg-orange-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+            Popular
+          </span>
+          <span *ngIf="i?.is_new && !isOutOfStock(i)"
+                class="bg-green-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+            </svg>
+            New
+          </span>
+        </div>
+
+        <img *ngIf="i.image"
+             [src]="imageBaseUrl + i.image"
+             [alt]="i.name"
+             class="w-full h-full object-cover transition-transform duration-300"
+             [ngClass]="{ 'group-hover:scale-105': !isOutOfStock(i) }"
+             decoding="async" />
+      </div>
+
+      <!-- Body: name + price only (no description, by design) -->
+      <div class="p-3 flex flex-col gap-1">
+        <h3 class="font-bold text-sm text-gray-900 line-clamp-2 leading-tight">{{ i.name }}</h3>
+
+        <span *ngIf="isOutOfStock(i)"
+              class="inline-flex items-center self-start rounded-full bg-gray-200 text-gray-600 text-[10px] font-medium px-2 py-0.5">
+          Sold out
+        </span>
+
+        <div class="mt-auto pt-1">
+          <ng-container *ngIf="hasDiscount(i) && !isOutOfStock(i); else normalPrice">
+            <span class="text-red-600 font-bold text-sm">UGX {{ i?.discount_details?.discount_amount | number }}</span>
+            <span class="line-through text-gray-400 text-xs ml-1">UGX {{ i.primary_price | number }}</span>
+          </ng-container>
+          <ng-template #normalPrice>
+            <span [class]="isOutOfStock(i) ? 'text-gray-400 font-bold text-sm' : 'text-red-600 font-bold text-sm'">
+              UGX {{ i.primary_price | number }}
+            </span>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

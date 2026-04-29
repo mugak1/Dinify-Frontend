@@ -38,6 +38,7 @@ import { ItemDetailViewComponent } from '../item-detail-view/item-detail-view.co
 import { TagFilterSheetComponent } from '../tag-filter-sheet/tag-filter-sheet.component';
 import { UpsellCarouselComponent } from '../upsell-carousel/upsell-carousel.component';
 import { ScrollSpyCommonDirective } from 'src/app/_common/scroll-spy-common.directive';
+import { FeaturedCarouselComponent } from 'src/app/_shared/ui/featured-carousel/featured-carousel.component';
 
 type DrawerView = 'list' | 'detail' | 'cart';
 
@@ -54,6 +55,7 @@ type DrawerView = 'list' | 'detail' | 'cart';
     UpsellCarouselComponent,
     ScrollSpyCommonDirective,
     SafeArrayPipe,
+    FeaturedCarouselComponent,
   ],
   templateUrl: './preview-menu-drawer.component.html',
 })
