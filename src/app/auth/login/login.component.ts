@@ -46,6 +46,7 @@ showRestaurantSelector = false;
 showLoginForm = true; // default state
 availableRestaurants: any[] = [];
 selectedRestaurant: any = null;
+inactivityNotice = false;
 
   constructor(
       private formBuilder: FormBuilder,
@@ -65,6 +66,7 @@ selectedRestaurant: any = null;
           username: ['', Validators.required],
           password: ['', Validators.required]
       });
+      this.inactivityNotice = this.route.snapshot.queryParams['reason'] === 'inactivity';
   }
 
   // convenience getter for easy access to form fields
