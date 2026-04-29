@@ -271,7 +271,7 @@ describe('AuthenticationService', () => {
         token: 'old', refresh: 'old-r',
         profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }
       }));
-      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
 
       const result = svc.UpdateUser({ valid: true, token: 'new-token', refresh: 'new-refresh' });
       expect(result!.token).toBe('new-token');
