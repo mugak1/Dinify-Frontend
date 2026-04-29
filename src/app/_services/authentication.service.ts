@@ -154,4 +154,30 @@ this.userSubject.next(u as any)
       this.router.navigate(['/login']);
       }
   }
+
+  /**
+   * Logout triggered by client-side inactivity timer (15 min idle).
+   * Distinct from logout() so the login page can show a different message,
+   * and so the current authenticated route is preserved as returnUrl.
+   * Skips returnUrl capture for unauthenticated routes to avoid bouncing
+   * the user back to /login or mid-flow auth screens (e.g. lock-otp-exp).
+   */
+  logoutDueToInactivity() {
+      const currentUrl = this.router.url || '';
+      const path = currentUrl.split('?')[0];
+      const skipReturnUrl =
+          !path ||
+          path === '/' ||
+          path.startsWith('/login') ||
+          path.startsWith('/register') ||
+          path.startsWith('/forgot-password') ||
+          path.startsWith('/lock-otp-exp');
+      const queryParams: { returnUrl?: string; reason: string } = { reason: 'inactivity' };
+      if (!skipReturnUrl) {
+          queryParams.returnUrl = currentUrl;
+      }
+      this.resetStorage();
+      this.userSubject.next(null);
+      this.router.navigate(['/login'], { queryParams });
+  }
 }
