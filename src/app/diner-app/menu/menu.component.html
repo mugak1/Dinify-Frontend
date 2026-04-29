@@ -5,7 +5,7 @@
 <!-- Skeleton cards -->
 <div *ngIf="navState.isLoading()" class="flex flex-col px-6 pt-4">
   <div *ngFor="let _ of [1,2,3,4,5]"
-       class="mb-3 rounded-none bg-white shadow-md">
+       class="mb-3 rounded-none bg-white shadow-lg">
     <div class="flex gap-3 p-3">
       <div class="flex-1 min-w-0 flex flex-col gap-2">
         <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
@@ -55,10 +55,10 @@
 
 <!-- Shared item card template — used by both the Featured section and the regular section listings -->
 <ng-template #itemCard let-i>
-  <div class="mb-3 rounded-none bg-white shadow-md group transition-all duration-200 ease-out"
+  <div class="mb-3 rounded-none bg-white shadow-lg group transition-all duration-200 ease-out"
        [class.opacity-60]="isOutOfStock(i)"
        [class.cursor-not-allowed]="isOutOfStock(i)"
-       [ngClass]="{ 'cursor-pointer hover:shadow-lg hover:-translate-y-0.5 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }">
+       [ngClass]="{ 'cursor-pointer hover:shadow-xl hover:-translate-y-0.5 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }">
     <div class="flex gap-3 p-3" (click)="viewItem(i)">
 
       <!-- LEFT: Text content -->
