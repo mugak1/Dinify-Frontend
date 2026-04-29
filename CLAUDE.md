@@ -76,7 +76,6 @@ They are all standalone and go in the module `imports` array.
 
 ## Known Issues & Deferred Work
 - `ngx-intl-telephone-input` used in 5 templates — do not add new usages
-- Token refresh logic pending backend endpoint confirmation
 - localStorage to httpOnly cookie migration requires backend coordination
 - Login 500 regression still outstanding — parked pending Apache log access
 
