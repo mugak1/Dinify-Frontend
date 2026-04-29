@@ -29,7 +29,7 @@
 
 4. **JWT tokens stored in localStorage** — Authentication tokens and user profile data are stored in `localStorage`, which is accessible to any JavaScript running on the page (including XSS payloads). Combined with the SafePipe issue, this creates a high-risk chain.
 
-5. **No token refresh mechanism** — There is no token expiry check or automatic refresh flow. Once a JWT is issued, it is used indefinitely until the user manually logs out or receives a 401 from the API.
+5. ~~**No token refresh mechanism**~~ — Resolved: `ErrorInterceptor` performs reactive 401 → refresh → retry against SimpleJWT's `TokenRefreshView`, with single-flight queueing.
 
 ### Overall Assessment
 
@@ -158,16 +158,18 @@ Additional sensitive data in localStorage:
 
 ---
 
-### F05 — HIGH: No Token Refresh Mechanism
+### F05 — HIGH: No Token Refresh Mechanism — RESOLVED
 
-The `LoginResponse` model includes a `refresh` token, but it is never used. There is no:
-- Token expiry check before API calls
-- Automatic token refresh on 401 response
-- Token rotation logic
+**Status:** Resolved. `ErrorInterceptor` now performs reactive 401 → refresh →
+retry against SimpleJWT's `TokenRefreshView`
+(`POST /api/{version}/users/auth/token/refresh/`), with single-flight queueing
+for concurrent 401s. Refresh requests bypass interceptors via `HttpBackend` to
+prevent recursion. See `BACKEND_DEPENDENCIES.md` §1 for the contract.
 
-The `ErrorInterceptor` simply logs the user out on 401/403 — it does not attempt to refresh.
-
-**Recommended Fix:** Implement a token refresh interceptor that detects expired JWTs, refreshes them using the `refresh` token endpoint, and retries the failed request.
+Token rotation is intentionally not enabled on the backend
+(`ROTATE_REFRESH_TOKENS = False`), so the stored refresh token is reused
+across access-token refreshes. Proactive expiry checking on the frontend is
+not implemented and is not needed — the interceptor handles expiry reactively.
 
 ---
 
@@ -263,7 +265,7 @@ While the current environment files do not contain secrets (only API base URLs),
 ### Fix Before UAT
 
 5. **F04** — Evaluate migration from `localStorage` to secure cookie-based token storage.
-6. **F05** — Implement token refresh logic using the existing `refresh` token.
+6. **F05** — Resolved: silent refresh wired against SimpleJWT `TokenRefreshView`.
 7. **F10** — Replace `document.write()` receipt printing with a sanitised approach.
 8. **F11/F13** — Replace all `alert()` calls with the existing `MessageService` or a toast component.
 9. **F12** — Remove all 181 console statements (or gate behind `environment.production` check).

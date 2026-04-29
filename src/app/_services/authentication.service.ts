@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, of, map } from 'rxjs';
+import { BehaviorSubject, Observable, of, map, catchError } from 'rxjs';
 import { ApiResponse, LoginResponse, OTPResponse, RestaurantDetail, RestaurantRole} from '../_models/app.models';
-import { HttpClient } from '@angular/common/http';
+import { HttpBackend, HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 
 @Injectable({
@@ -12,13 +12,17 @@ export class AuthenticationService {
   private userSubject: BehaviorSubject<LoginResponse | null>;
   public user: Observable<LoginResponse | null>;
   private _base = `${environment.apiUrl}/api/${environment.version}`;
+  private rawHttp: HttpClient;
 
   constructor(
       private router: Router,
-      private http: HttpClient
+      private http: HttpClient,
+      httpBackend: HttpBackend
   ) {
       this.userSubject = new BehaviorSubject(JSON.parse(localStorage.getItem('user')!));
       this.user = this.userSubject.asObservable();
+      // Bypasses interceptors so refresh requests can't recurse through ErrorInterceptor.handle401.
+      this.rawHttp = new HttpClient(httpBackend);
   }
 
   public get userValue() {
@@ -98,17 +102,25 @@ this.userSubject.next(u as any)
   }
 
   /**
-   * Attempt a silent token refresh using the stored refresh token.
+   * Silent access-token refresh.
    *
-   * BACKEND DEPENDENCY: This requires the backend to expose:
+   * Backend endpoint is SimpleJWT's TokenRefreshView, which uses the native
+   * top-level shape — NOT the wrapped `{data: ...}` envelope used elsewhere
+   * in the Dinify API:
    *   POST /api/{version}/users/auth/token/refresh/
    *   Request:  { "refresh": "<refresh-token>" }
-   *   Response: { "data": { "token": "<new-access>", "refresh": "<new-refresh>" } }
+   *   Response: { "access": "<new-access-token>" }
    *
-   * Until the backend endpoint is confirmed, this method returns null
-   * (triggering a logout in the error interceptor).
+   * Assumes ROTATE_REFRESH_TOKENS = False on the backend, so only `access` is
+   * returned and the stored refresh token is reused. If rotation is later
+   * enabled, also persist `response.refresh` here.
    *
-   * To enable: uncomment the HTTP call below and remove the `of(null)` fallback.
+   * Uses HttpBackend (rawHttp) to bypass interceptors — otherwise a 401 from
+   * this endpoint would re-enter ErrorInterceptor.handle401 and deadlock the
+   * single-flight queue.
+   *
+   * Returns the new access token on success, or null on any failure. Never
+   * calls logout(); that decision belongs to ErrorInterceptor.
    */
   attemptTokenRefresh(): Observable<string | null> {
     const user = this.userValue;
@@ -116,25 +128,21 @@ this.userSubject.next(u as any)
       return of(null);
     }
 
-    // --- Uncomment when backend refresh endpoint is confirmed ---
-    // return this.http.post<ApiResponse<{ token: string; refresh: string }>>(
-    //   `${this._base}/users/auth/token/refresh/`,
-    //   { refresh: user.refresh }
-    // ).pipe(
-    //   map((response) => {
-    //     const data = response.data;
-    //     if (data?.token) {
-    //       const updated = { ...user, token: data.token, refresh: data.refresh };
-    //       localStorage.setItem('user', JSON.stringify(updated));
-    //       this.userSubject.next(updated as any);
-    //       return data.token;
-    //     }
-    //     return null;
-    //   })
-    // );
-
-    // Fallback: refresh not yet available from backend
-    return of(null);
+    return this.rawHttp.post<{ access: string }>(
+      `${this._base}/users/auth/token/refresh/`,
+      { refresh: user.refresh }
+    ).pipe(
+      map((response) => {
+        if (!response?.access) {
+          return null;
+        }
+        const updated = { ...user, token: response.access };
+        localStorage.setItem('user', JSON.stringify(updated));
+        this.userSubject.next(updated as any);
+        return response.access;
+      }),
+      catchError(() => of(null))
+    );
   }
 
   logout(no_redirect?:boolean) {

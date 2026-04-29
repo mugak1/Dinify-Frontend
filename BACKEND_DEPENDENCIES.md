@@ -10,34 +10,32 @@ endpoints, payload shapes) and what the backend team needs to confirm or expose.
 
 ## 1. Token Refresh Endpoint
 
-**Status:** Blocked — frontend infrastructure is wired but disabled.
+**Status:** Active — wired against SimpleJWT's `TokenRefreshView`.
 
 **Frontend evidence:**
 - `LoginResponse` and `OTPResponse` models include a `refresh: string` field
   (`src/app/_models/app.models.ts:25,33`).
-- `AuthenticationService.attemptTokenRefresh()` is stubbed, returning `of(null)`
-  (`src/app/_services/authentication.service.ts:113-138`).
+- `AuthenticationService.attemptTokenRefresh()` POSTs the refresh token and
+  updates the stored access token on success
+  (`src/app/_services/authentication.service.ts`).
 - `ErrorInterceptor.handle401()` calls `attemptTokenRefresh()` on 401 and retries
-  the request if a new token is returned
-  (`src/app/_helpers/error.interceptor.ts:65-95`).
+  the request with the new token, with single-flight queueing for concurrent 401s
+  (`src/app/_helpers/error.interceptor.ts`).
 
-**Expected backend contract:**
+**Backend contract (SimpleJWT native shape — NOT the wrapped `{data: ...}` envelope):**
 ```
 POST /api/{version}/users/auth/token/refresh/
 Request:  { "refresh": "<refresh-token-string>" }
-Response: {
-  "data": {
-    "token": "<new-access-token>",
-    "refresh": "<new-refresh-token>"
-  }
-}
+Response: { "access": "<new-access-token>" }
 ```
 
-**Action needed:** Backend team confirms endpoint URL, request/response shape, and
-HTTP status codes (200 on success, 401 if refresh token is expired/invalid).
+**Assumption:** `ROTATE_REFRESH_TOKENS = False` on the backend, so the response
+contains only `access` and the stored refresh token is reused. If rotation is
+later enabled, `attemptTokenRefresh()` must also persist `response.refresh`.
 
-**To activate:** Uncomment the HTTP call in
-`AuthenticationService.attemptTokenRefresh()` and remove the `of(null)` fallback.
+**Loop avoidance:** The refresh request is sent via `HttpBackend` to bypass the
+auth and error interceptors. A 401 from the refresh endpoint must not re-enter
+`ErrorInterceptor.handle401`, since that would deadlock the single-flight queue.
 
 ---
 
@@ -250,7 +248,7 @@ for current stabilization but recommended before production launch.
 
 | Dependency | Status | Blocking? |
 |------------|--------|-----------|
-| Token refresh endpoint | Stubbed, needs confirmation | Yes — for silent refresh |
+| Token refresh endpoint | Active (SimpleJWT TokenRefreshView) | No |
 | Login response shape | In use, needs confirmation | No — working in practice |
 | Role payload shape | In use, needs confirmation | No — working in practice |
 | Password change fields | In use, needs confirmation | No — working in practice |

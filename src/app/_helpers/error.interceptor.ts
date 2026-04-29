@@ -48,20 +48,6 @@ export class ErrorInterceptor implements HttpInterceptor {
         );
     }
 
-    /**
-     * Handle 401 responses by attempting a silent token refresh.
-     *
-     * BACKEND DEPENDENCY: Silent refresh requires the backend to expose a
-     * token refresh endpoint. The expected contract is:
-     *
-     *   POST /api/{version}/users/auth/token/refresh/
-     *   Request body:  { "refresh": "<refresh-token>" }
-     *   Response body: { "data": { "token": "<new-access-token>", "refresh": "<new-refresh-token>" } }
-     *
-     * Once the backend exposes this endpoint, uncomment the refresh call in
-     * AuthenticationService.refreshToken() and this interceptor will
-     * automatically retry failed requests with the new access token.
-     */
     private handle401(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
         if (!this.isRefreshing) {
             this.isRefreshing = true;

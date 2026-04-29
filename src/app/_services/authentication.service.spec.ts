@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Router } from '@angular/router';
 import { AuthenticationService } from './authentication.service';
 import { environment } from 'src/environments/environment';
-import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { HttpBackend, HttpClient, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('AuthenticationService', () => {
   let service: AuthenticationService;
@@ -50,7 +50,7 @@ describe('AuthenticationService', () => {
       localStorage.setItem('user', JSON.stringify(stored));
 
       // Re-create service to pick up localStorage
-      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       expect(svc.userValue).toBeTruthy();
       expect(svc.userValue!.token).toBe('abc');
     });
@@ -164,34 +164,86 @@ describe('AuthenticationService', () => {
   });
 
   describe('attemptTokenRefresh', () => {
+    const userWithRefresh = {
+      token: 'old-access',
+      refresh: 'refresh-123',
+      profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+      require_otp: false,
+      prompt_password_change: false
+    };
+
     it('should return null when no user is logged in', (done) => {
       service.attemptTokenRefresh().subscribe((result) => {
         expect(result).toBeNull();
         done();
       });
+      httpMock.expectNone(`${base}/users/auth/token/refresh/`);
     });
 
     it('should return null when user has no refresh token', (done) => {
-      // Simulate a user without refresh token
       localStorage.setItem('user', JSON.stringify({ token: 'abc', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] } }));
 
-      // Re-create to pick up the stored user
-      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       svc.attemptTokenRefresh().subscribe((result) => {
         expect(result).toBeNull();
         done();
       });
+      httpMock.expectNone(`${base}/users/auth/token/refresh/`);
     });
 
-    it('should return null (fallback) even when user has refresh token — backend not yet available', (done) => {
-      localStorage.setItem('user', JSON.stringify({ token: 'abc', refresh: 'refresh-123', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] } }));
+    it('should POST refresh token and resolve to new access token from native SimpleJWT shape', (done) => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
 
-      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       svc.attemptTokenRefresh().subscribe((result) => {
-        // Currently returns null because refresh endpoint is stubbed
+        expect(result).toBe('new-access');
+        expect(svc.userValue!.token).toBe('new-access');
+        // Refresh token must be preserved (ROTATE_REFRESH_TOKENS=False).
+        expect(svc.userValue!.refresh).toBe('refresh-123');
+        const stored = JSON.parse(localStorage.getItem('user')!);
+        expect(stored.token).toBe('new-access');
+        expect(stored.refresh).toBe('refresh-123');
+        done();
+      });
+
+      const req = httpMock.expectOne(`${base}/users/auth/token/refresh/`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ refresh: 'refresh-123' });
+      req.flush({ access: 'new-access' });
+    });
+
+    it('should return null (and NOT call logout) when refresh endpoint returns 401', (done) => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
+
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const logoutSpy = spyOn(svc, 'logout');
+
+      svc.attemptTokenRefresh().subscribe((result) => {
+        expect(result).toBeNull();
+        // Architectural contract: the service must not unilaterally log out.
+        // ErrorInterceptor owns that decision based on the null return value.
+        expect(logoutSpy).not.toHaveBeenCalled();
+        // The stored user must remain untouched on failure so the interceptor
+        // can still observe userValue when it decides to log out.
+        expect(svc.userValue!.token).toBe('old-access');
+        done();
+      });
+
+      const req = httpMock.expectOne(`${base}/users/auth/token/refresh/`);
+      req.flush({ detail: 'Token is invalid or expired', code: 'token_not_valid' }, { status: 401, statusText: 'Unauthorized' });
+    });
+
+    it('should return null when response is missing the access field', (done) => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
+
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      svc.attemptTokenRefresh().subscribe((result) => {
         expect(result).toBeNull();
         done();
       });
+
+      const req = httpMock.expectOne(`${base}/users/auth/token/refresh/`);
+      req.flush({});
     });
   });
 
@@ -219,7 +271,7 @@ describe('AuthenticationService', () => {
         token: 'old', refresh: 'old-r',
         profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }
       }));
-      const svc = new AuthenticationService(router, TestBed.inject(HttpTestingController) as any);
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
 
       const result = svc.UpdateUser({ valid: true, token: 'new-token', refresh: 'new-refresh' });
       expect(result!.token).toBe('new-token');
