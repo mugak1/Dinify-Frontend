@@ -109,11 +109,20 @@ this.userSubject.next(u as any)
    * in the Dinify API:
    *   POST /api/{version}/users/auth/token/refresh/
    *   Request:  { "refresh": "<refresh-token>" }
-   *   Response: { "access": "<new-access-token>" }
+   *   Response (ROTATE_REFRESH_TOKENS = False): { "access": "<new-access>" }
+   *   Response (ROTATE_REFRESH_TOKENS = True ): { "access": "<new-access>",
+   *                                               "refresh": "<new-refresh>" }
    *
-   * Assumes ROTATE_REFRESH_TOKENS = False on the backend, so only `access` is
-   * returned and the stored refresh token is reused. If rotation is later
-   * enabled, also persist `response.refresh` here.
+   * Handles both shapes. When `refresh` is present in the response (rotation
+   * on), the stored refresh token is replaced — otherwise it's left as-is so
+   * the existing refresh token continues to be reused (rotation off).
+   *
+   * This forwards-compatibility ships ahead of the backend rotation flip: a
+   * separate backend PR enables ROTATE_REFRESH_TOKENS = True, at which point
+   * the original refresh would be blacklisted on first use. Persisting the
+   * rotated refresh here means the FE keeps a valid token across the cutover
+   * without a coordinated deploy. Until rotation flips on, the `refresh`
+   * branch below is a no-op.
    *
    * Uses HttpBackend (rawHttp) to bypass interceptors — otherwise a 401 from
    * this endpoint would re-enter ErrorInterceptor.handle401 and deadlock the
@@ -128,7 +137,7 @@ this.userSubject.next(u as any)
       return of(null);
     }
 
-    return this.rawHttp.post<{ access: string }>(
+    return this.rawHttp.post<{ access: string; refresh?: string }>(
       `${this._base}/users/auth/token/refresh/`,
       { refresh: user.refresh }
     ).pipe(
@@ -136,7 +145,10 @@ this.userSubject.next(u as any)
         if (!response?.access) {
           return null;
         }
-        const updated = { ...user, token: response.access };
+        const updated: any = { ...user, token: response.access };
+        if (response.refresh) {
+          updated.refresh = response.refresh;
+        }
         localStorage.setItem('user', JSON.stringify(updated));
         this.userSubject.next(updated as any);
         return response.access;
