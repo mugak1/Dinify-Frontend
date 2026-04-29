@@ -42,7 +42,7 @@
             <!-- Skeleton cards -->
             <div class="flex flex-col px-6 pt-4">
               @for (_ of [1,2,3,4,5]; track $index) {
-                <div class="mb-3 rounded-none bg-white shadow-md">
+                <div class="mb-3 rounded-none bg-white shadow-lg">
                   <div class="flex gap-3 p-3">
                     <div class="flex-1 min-w-0 flex flex-col gap-2">
                       <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
@@ -500,7 +500,7 @@
 <ng-template #itemCard let-item let-prefix="prefix">
   <button
     (click)="handleItemClick(item)"
-    [class]="'w-full flex gap-4 rounded-none p-4 bg-card shadow-md text-left border-2 transition-colors duration-200 ' +
+    [class]="'w-full flex gap-4 rounded-none p-4 bg-card shadow-lg text-left border-2 transition-colors duration-200 ' +
       (isOutOfStock(item)
         ? 'opacity-60 border-transparent cursor-not-allowed'
         : 'border-transparent hover:border-primary')">
