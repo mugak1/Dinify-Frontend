@@ -52,6 +52,17 @@
              class="w-full h-full object-cover transition-transform duration-300"
              [ngClass]="{ 'group-hover:scale-105': !isOutOfStock(i) }"
              decoding="async" />
+
+        <!-- Quick-add affordance: decorative-only "+" indicating tappability.
+             Clicks bubble to the parent card's onCardTap handler. -->
+        <span *ngIf="!isOutOfStock(i)"
+              aria-hidden="true"
+              class="absolute bottom-2 right-2 z-10 h-8 w-8 rounded-full bg-white shadow-md flex items-center justify-center text-gray-900 cursor-pointer transition-shadow group-hover:shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="M12 5v14"/>
+          </svg>
+        </span>
       </div>
 
       <!-- Body: name + price only (no description, by design) -->
