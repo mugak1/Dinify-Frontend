@@ -103,7 +103,8 @@
                   <div class="flex gap-2">
                     <!-- Featured pill (first, only when featured items exist) -->
                     @if (featuredItems.length > 0) {
-                      <button (click)="scrollToFeatured(); $event.stopPropagation()"
+                      <button data-section-id="featured"
+                              (click)="scrollToFeatured(); $event.stopPropagation()"
                               class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
                               [class]="activeSection === 'featured'
                                 ? 'bg-red-600 text-white shadow-sm'
@@ -119,7 +120,8 @@
                     }
 
                     @for (section of availableSections; track section.id) {
-                      <button (click)="scrollToSection(section.id); $event.stopPropagation()"
+                      <button [attr.data-section-id]="section.id"
+                              (click)="scrollToSection(section.id); $event.stopPropagation()"
                               class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
                               [class]="activeSection === section.id
                                 ? 'bg-red-600 text-white shadow-sm'
