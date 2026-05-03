@@ -12,10 +12,10 @@
 
   <div class="flex gap-2.5 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2">
     <div *ngFor="let i of items"
-         class="snap-start flex-shrink-0 w-[175px] rounded-none bg-white shadow-lg group transition-all duration-200 ease-out overflow-hidden"
+         class="snap-start flex-shrink-0 w-[175px] rounded-none bg-white shadow-xl group transition-all duration-200 ease-out overflow-hidden"
          [class.opacity-60]="isOutOfStock(i)"
          [class.cursor-not-allowed]="isOutOfStock(i)"
-         [ngClass]="{ 'cursor-pointer hover:shadow-xl hover:-translate-y-0.5 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }"
+         [ngClass]="{ 'cursor-pointer hover:shadow-2xl hover:-translate-y-0.5 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }"
          (click)="onCardTap(i)">
 
       <!-- Image with badge overlays -->

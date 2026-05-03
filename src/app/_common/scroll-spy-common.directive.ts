@@ -38,16 +38,34 @@ export class ScrollSpyCommonDirective {
     }
 
     private findCurrentSection(scrollTop: number, parentOffset: number) {
-        let currentSection: string = '';
         const children = this._el.nativeElement.children;
+        const spiedSections: HTMLElement[] = [];
         for (let i = 0; i < children.length; i++) {
             const element = children[i];
             if (this.spiedTags.some(spiedTag => spiedTag === element.tagName)) {
+                spiedSections.push(element);
+            }
+        }
+        if (spiedSections.length === 0) return;
+
+        // At the very top, always emit the first section. Guards against any
+        // sub-pixel offset math leaving the first (often short) section
+        // un-matched at scrollY 0.
+        let currentSection: string;
+        if (scrollTop < 4) {
+            currentSection = spiedSections[0].id;
+        } else {
+            // Last section whose top is <= threshold; fallback to first when
+            // none satisfy (e.g. sticky-header offsets place all sections
+            // below the threshold at the top of the page).
+            currentSection = spiedSections[0].id;
+            for (const element of spiedSections) {
                 if ((element.offsetTop - parentOffset) <= scrollTop) {
                     currentSection = element.id;
                 }
             }
         }
+
         if (currentSection !== this.currentSection) {
             this.currentSection = currentSection;
             this.sectionChange.emit(this.currentSection);
