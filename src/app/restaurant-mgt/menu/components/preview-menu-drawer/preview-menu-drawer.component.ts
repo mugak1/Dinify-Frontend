@@ -66,6 +66,15 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   @ViewChild('scrollContent') scrollContent!: ElementRef<HTMLDivElement>;
   @ViewChild('stickyHeader') stickyHeader!: ElementRef<HTMLDivElement>;
 
+  constructor(
+    private menuService: MenuService,
+    public cartService: CartService,
+    private tagService: TagService,
+    private upsellService: UpsellService,
+    private toast: ToastService,
+    private host: ElementRef<HTMLElement>,
+  ) {}
+
   // State
   view: DrawerView = 'list';
   searchTerm = '';
@@ -90,14 +99,6 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
   private dataSub?: Subscription;
   private cartSub?: Subscription;
-
-  constructor(
-    private menuService: MenuService,
-    public cartService: CartService,
-    private tagService: TagService,
-    private upsellService: UpsellService,
-    private toast: ToastService
-  ) {}
 
   ngOnInit(): void {
     this.dataSub = combineLatest([
@@ -263,10 +264,19 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     this.activeSection = sectionId === 'sec-featured'
       ? 'featured'
       : sectionId.replace(/^sec-/, '');
+    this.scrollActivePillIntoView(this.activeSection);
   }
 
   scrollToFeatured(): void {
     this.scrollToSection('featured');
+  }
+
+  private scrollActivePillIntoView(id: string): void {
+    if (!id) return;
+    const pill = this.host.nativeElement.querySelector<HTMLElement>(
+      `[data-section-id="${CSS.escape(id)}"]`,
+    );
+    pill?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
   }
 
   toggleSearch(): void {
@@ -283,6 +293,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     if (!target) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     this.activeSection = sectionId;
+    this.scrollActivePillIntoView(sectionId);
   }
 
   // ─── Item Helpers ───────────────────────────────────────────────
