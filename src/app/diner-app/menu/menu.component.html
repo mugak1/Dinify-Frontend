@@ -25,8 +25,10 @@
          (intentional merchandising parity).
          Wrapped in a #Featured DIV so the scroll-spy (which only inspects
          direct DIV children) tracks Featured as a section — otherwise the
-         pill never re-highlights when scrolling back to the top. -->
-    <div id="Featured" class="scroll-mt-[var(--menu-nav-stack-height)]">
+         pill never re-highlights when scrolling back to the top. The DIV is
+         gated on featuredItems().length > 0 so the spy never emits 'Featured'
+         into a state where no Featured pill exists in the nav bar. -->
+    <div *ngIf="navState.featuredItems().length > 0" id="Featured" class="scroll-mt-[var(--menu-nav-stack-height)]">
       <app-featured-carousel
         [items]="navState.featuredItems()"
         (itemTap)="viewItem($event)">
