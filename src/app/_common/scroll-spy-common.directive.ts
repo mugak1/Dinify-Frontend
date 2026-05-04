@@ -1,15 +1,37 @@
-import { Directive, Input, EventEmitter, Output, ElementRef, HostListener } from '@angular/core';
+import { AfterViewInit, Directive, Input, EventEmitter, Output, ElementRef, HostListener } from '@angular/core';
 
 @Directive({
     selector: '[appScrollSpy]',
     standalone: true
 })
-export class ScrollSpyCommonDirective {
+export class ScrollSpyCommonDirective implements AfterViewInit {
     @Input() public spiedTags: any[] = [];
     @Output() public sectionChange = new EventEmitter<string>();
     private currentSection?: string;
 
     constructor(private _el: ElementRef) {}
+
+    ngAfterViewInit(): void {
+        // Seed initial section detection without waiting for a scroll event.
+        // Catches browser scroll restoration (page mounted with scrollY > 0)
+        // and the scrollY=0 case where no scroll event ever fires. Deferred
+        // a tick so the spied children are in the DOM by the time we measure.
+        setTimeout(() => {
+            const el = this._el.nativeElement as HTMLElement;
+            const computed = window.getComputedStyle(el);
+            const overflowY = computed.overflowY;
+            if (overflowY === 'scroll' || overflowY === 'auto') {
+                const scrollTop = el.scrollTop;
+                const parentOffset = el.offsetTop;
+                this.findCurrentSection(scrollTop, parentOffset);
+            } else {
+                const rect = el.getBoundingClientRect();
+                const scrollTop = window.scrollY;
+                const parentOffset = rect.top + scrollTop;
+                this.findCurrentSection(scrollTop, parentOffset);
+            }
+        }, 0);
+    }
 
     @HostListener('scroll', ['$event'])
     onHostScroll(event: any) {

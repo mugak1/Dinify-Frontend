@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, effect } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -51,6 +51,21 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     public navState: MenuNavStateService,
   ) {
+  // Seed currentSection reactively whenever the menu loads (or reloads after
+  // ngOnDestroy clears it). Self-healing: if currentSection ever falls back
+  // to '' while a menu is loaded, this re-fires and re-populates it. Idempotent
+  // on a non-empty currentSection, so it never clobbers scroll-spy emissions
+  // or pill clicks. Replaces a prior imperative setCurrentSection() call in
+  // loadMenu that didn't take visual effect on initial load.
+  effect(() => {
+    const list = this.navState.filteredMenuList();
+    if (!list?.length) return;
+    if (this.navState.currentSection()) return;
+    const firstSectionName = list[0]?.name as string | undefined;
+    this.navState.setCurrentSection(
+      this.navState.featuredItems().length > 0 ? 'Featured' : (firstSectionName ?? ''),
+    );
+  });
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   this.navState.setPresetTags(this.restaurant?.preset_tags || []);
   this.udpateCart();
@@ -168,10 +183,8 @@ get QuantitySum(){
         this.menu_list=(x?.data as any) ?? [];
         this.navState.setMenuList(this.menu_list);
         this.navState.filterMenu();
-        const firstSectionName = (this.menu_list?.[0] as MenuItem)?.name as string | undefined;
-        this.navState.setCurrentSection(
-          this.navState.featuredItems().length > 0 ? 'Featured' : (firstSectionName ?? '')
-        );
+        // currentSection is seeded by the constructor effect that watches
+        // filteredMenuList — no imperative call needed here.
         // Cache upsell config so the basket can render it without another round-trip
         if (x?.upsell) {
           this.sessionStorage.setItem('upsellConfig', x.upsell);
