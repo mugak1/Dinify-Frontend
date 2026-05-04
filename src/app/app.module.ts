@@ -23,6 +23,7 @@ import { NoTableComponent } from './diner-app/no-table/no-table.component';
 import { BasketBodyComponent } from './diner-app/basket/basket-body/basket-body.component';
 import { DinerFooterComponent } from './diner-app/diner-footer/diner-footer.component';
 import { MenuNavBarComponent } from './diner-app/menu/menu-nav-bar/menu-nav-bar.component';
+import { DinerHeaderComponent } from './diner-app/diner-header/diner-header.component';
 import { ToastComponent } from './_shared/ui/toast/toast.component';
 
 @NgModule({ declarations: [
@@ -47,6 +48,7 @@ import { ToastComponent } from './_shared/ui/toast/toast.component';
         BasketBodyComponent,
         DinerFooterComponent,
         MenuNavBarComponent,
+        DinerHeaderComponent,
         ToastComponent], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
