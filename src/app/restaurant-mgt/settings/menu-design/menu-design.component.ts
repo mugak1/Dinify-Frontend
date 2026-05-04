@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
@@ -12,19 +12,6 @@ import { AuthenticationService } from 'src/app/_services/authentication.service'
 })
 export class MenuDesignComponent {
   ConfigForm!:FormGroup
-  color = '#ff00ff';
-  branding_configs={
-    home:{
-  bgColor:'#ffffff',
-  headerColor:'#000000',
-  headerShow:'text', //logo or text
-  headerShowName:'Title',
-  headerFontWeight:'800',
-  headerCase:'uppercase',//lowercase or uppercase or capitalize
-  viewMenuBgColor:'#000000',
-  viewMenuTextColor:'#ffffff',
-    }
-  }
   coverfileName='';
   restaurant: any;
   rest:any;
@@ -110,19 +97,13 @@ this.rest=x?.data as any;
 if(load_form){
  this.ConfigForm=this.fb.group({
   home:this.fb.group({
-    bgColor:['#ffffff'],
-    headerColor:['#ffffff'],
-    headerShow:['text'], //logo or text
-    headerShowName:[this.rest.name],
-    headerTextColor:['#ffffff'],
-    headerFontWeight:['800'],
-    headerCase:['uppercase'],//lowercase or uppercase or capitalize
-    viewMenuBgColor:['#ffffff'],
-    viewMenuTextColor:['#000000'],
-      })
+    header_style: ['solid', [Validators.required]],
+    brand_color: ['#171717', [Validators.required]],
+    logo_display: ['name_only', [Validators.required]],
+    tagline: ['', [Validators.maxLength(40)]],
+  })
 })
 }
-this.branding_configs.home.headerShowName=this.branding_configs.home.headerShowName?this.branding_configs.home.headerShowName:this.rest?.name
 
 if(Object.keys(this.rest.branding_configuration).length==0){
 this.Save();

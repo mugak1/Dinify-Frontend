@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../_services/api.service';
 import { SessionStorageService } from '../_services/storage/session-storage.service';
-import { BrandingConfiguration, Restaurant, TableScan } from '../_models/app.models';
+import { Restaurant, TableScan } from '../_models/app.models';
 import { AuthenticationService } from '../_services/authentication.service';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
@@ -17,7 +17,7 @@ import { BasketService } from '../_services/basket.service';
 export class DinerAppComponent {
 restaurant_name = '';
 restaurant_id = '';
-branding_configs!:BrandingConfiguration;
+branding_configs:any;
 table!:TableScan
 logo!: string;
 url = environment.apiUrl;

@@ -246,15 +246,10 @@ export interface BrandingConfiguration {
 }
 
 export interface Home {
-  bgColor: string
-  headerCase: string
-  headerShow: string
-  headerColor: string
-  headerTextColor:string
-  headerShowName: string
-  viewMenuBgColor: string
-  headerFontWeight: string
-  viewMenuTextColor: string
+  header_style: 'cover' | 'solid' | 'minimal'
+  brand_color: string
+  logo_display: 'logo_only' | 'name_only' | 'logo_and_name'
+  tagline: string
 }
 export interface Item {
   id: string
