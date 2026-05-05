@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, EMPTY } from 'rxjs';
-import { expand, map, reduce } from 'rxjs/operators';
+import { Observable, EMPTY, defer, of } from 'rxjs';
+import { catchError, expand, map, reduce } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 import { ApiResponse } from '../_models/app.models';
 
@@ -30,30 +30,90 @@ export class ApiService {
    * has_next is what tells us whether to fetch page N+1, and parallel
    * speculative fetching would over-issue requests on the common short-list
    * case.
+   *
+   * Termination signals (any one stops the loop):
+   *   - has_next === false on the canonical pagination block
+   *   - records array is empty or shorter than records_per_page (we are past
+   *     the real last page even if the backend says has_next: true)
+   *   - MAX_PAGES hard cap reached (defensive guard against runaway loops)
+   *   - a per-page request fails (the loop ends and partial data is returned)
    */
   loadAllPages<T>(
     url: string,
     parameters: Record<string, any> = {},
     version?: string,
   ): Observable<T[]> {
-    const fetchPage = (page: number): Observable<ApiResponse<T>> =>
-      this.get<T>(null, url, { ...parameters, page }, version);
+    // 50 pages * 25 records/page = 1250 records, well above any real menu.
+    // If we ever cap, log loudly so the runaway can be diagnosed.
+    const MAX_PAGES = 50;
 
-    return fetchPage(1).pipe(
-      expand(res => {
-        const hasNext = res?.data?.pagination?.has_next === true;
-        if (!hasNext) return EMPTY;
-        const nextPage = (res?.data?.pagination?.current_page ?? 1) + 1;
-        return fetchPage(nextPage);
-      }),
-      map(res => {
-        const data: any = res?.data;
-        if (data && Array.isArray(data.records)) return data.records as T[];
-        if (Array.isArray(data)) return data as T[];
-        return [] as T[];
-      }),
-      reduce((acc, records) => acc.concat(records), [] as T[]),
-    );
+    return defer(() => {
+      let pagesFetched = 0;
+
+      const fetchPageSafe = (
+        page: number,
+      ): Observable<ApiResponse<T> | null> => {
+        pagesFetched += 1;
+        return this.get<T>(null, url, { ...parameters, page }, version).pipe(
+          catchError((err) => {
+            console.warn(
+              `[loadAllPages] ${url} page ${page} failed; ` +
+                `returning partial data collected so far.`,
+              err,
+            );
+            return of(null);
+          }),
+        );
+      };
+
+      return fetchPageSafe(1).pipe(
+        expand((res) => {
+          if (!res) return EMPTY;
+
+          if (pagesFetched >= MAX_PAGES) {
+            console.warn(
+              `[loadAllPages] ${url} hit MAX_PAGES cap (${MAX_PAGES}); ` +
+                `returning collected records to guard against runaway pagination.`,
+            );
+            return EMPTY;
+          }
+
+          // Backend may surface pagination at data.pagination (DinifyPaginator)
+          // or at the top level. Prefer the canonical location, fall back.
+          const data: any = res.data;
+          const pagination =
+            data?.pagination ?? (res as any)?.pagination ?? null;
+
+          if (!pagination || pagination.has_next !== true) return EMPTY;
+
+          // Defensive: trust records over has_next. If the page came back
+          // empty or under-filled, we are past the real last page no matter
+          // what the flag says — this is the guard that stops a buggy
+          // has_next: true from looping forever.
+          const records: any[] = Array.isArray(data?.records) ? data.records : [];
+          const recordsPerPage = pagination?.records_per_page;
+          if (records.length === 0) return EMPTY;
+          if (
+            typeof recordsPerPage === 'number' &&
+            recordsPerPage > 0 &&
+            records.length < recordsPerPage
+          ) {
+            return EMPTY;
+          }
+
+          const nextPage = (pagination?.current_page ?? pagesFetched) + 1;
+          return fetchPageSafe(nextPage);
+        }),
+        map((res) => {
+          if (!res) return [] as T[];
+          const data: any = res.data;
+          if (data && Array.isArray(data.records)) return data.records as T[];
+          if (Array.isArray(data)) return data as T[];
+          return [] as T[];
+        }),
+        reduce((acc, records) => acc.concat(records), [] as T[]),
+      );
+    });
   }
 
   postPatch(url: string, data: any,method:'get'|'post'|'put', id?:any, params?:object, isFormData?: boolean,version?:string,_has_false?:boolean){
