@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, combineLatest, map } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MenuItem, MenuSectionListItem, ApiResponse } from 'src/app/_models/app.models';
@@ -52,6 +53,12 @@ export class MenuService {
 
   private readonly _isSearching$ = new BehaviorSubject<boolean>(false);
   readonly isSearching$ = this._isSearching$.asObservable();
+
+  // Re-entrancy guard for loadAllItems. The "load all once, filter client-side"
+  // architecture should only ever have one in-flight pagination loop; this
+  // flag is the last line of defence against future callers accidentally
+  // re-triggering the load while the first call is still draining pages.
+  private allItemsLoading = false;
 
   // ---------------------------------------------------------------------------
   // Derived state
@@ -165,8 +172,13 @@ export class MenuService {
   }
 
   selectSection(id: string): void {
+    // Pure selection — items$ derives from _allItems$ + _selectedSectionId$,
+    // so simply advancing the selection re-filters the already-loaded items.
+    // Triggering a fetch from here caused the duplicate menuitems requests
+    // because loadSections auto-selects before the parallel loadAllItems has
+    // finished, and an empty _allItems$ snapshot misled loadItems into
+    // re-entering loadAllPages.
     this._selectedSectionId$.next(id);
-    this.loadItems(id);
   }
 
   toggleSectionAvailability(id: string, available: boolean): Observable<any> {
@@ -209,21 +221,14 @@ export class MenuService {
   // Items
   // ---------------------------------------------------------------------------
 
-  loadItems(sectionId: string): void {
-    // items$ is derived from allItems$ + selectedSectionId$.
-    // If allItems$ is empty, trigger a load; otherwise the derived stream handles it.
-    if (this._allItems$.getValue().length === 0) {
-      const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
-      if (restaurantId) {
-        this.loadAllItems(restaurantId);
-      }
-    }
-  }
-
   loadAllItems(restaurantId: string): void {
+    if (this.allItemsLoading) return;
+    this.allItemsLoading = true;
     this.api.loadAllPages<MenuItem>(
       'restaurant-setup/menuitems/',
       { restaurant: restaurantId }
+    ).pipe(
+      finalize(() => { this.allItemsLoading = false; })
     ).subscribe({
       next: (records: MenuItem[]) => {
         this._allItems$.next(records.map(item => this.normalizeMenuItem(item)));

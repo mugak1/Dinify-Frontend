@@ -31,10 +31,17 @@ export class ApiService {
    * speculative fetching would over-issue requests on the common short-list
    * case.
    *
+   * The page number is tracked locally rather than read from
+   * `pagination.current_page`. The backend's DinifyPaginator returns
+   * `current_page` as a string (`request.GET.get('page')` without int
+   * coercion), so reading it back and adding 1 yields `"1" + 1 === "11"`
+   * — the previous regression. Keeping the counter in JS guarantees a
+   * numeric increment regardless of backend type fidelity.
+   *
    * Termination signals (any one stops the loop):
    *   - has_next === false on the canonical pagination block
-   *   - records array is empty or shorter than records_per_page (we are past
-   *     the real last page even if the backend says has_next: true)
+   *   - records array is empty or shorter than page_size (we are past the
+   *     real last page even if the backend says has_next: true)
    *   - MAX_PAGES hard cap reached (defensive guard against runaway loops)
    *   - a per-page request fails (the loop ends and partial data is returned)
    */
@@ -47,30 +54,27 @@ export class ApiService {
     // If we ever cap, log loudly so the runaway can be diagnosed.
     const MAX_PAGES = 50;
 
-    return defer(() => {
-      let pagesFetched = 0;
+    const fetchPage = (
+      page: number,
+    ): Observable<{ page: number; res: ApiResponse<T> | null }> =>
+      this.get<T>(null, url, { ...parameters, page }, version).pipe(
+        map((res) => ({ page, res: res as ApiResponse<T> | null })),
+        catchError((err) => {
+          console.warn(
+            `[loadAllPages] ${url} page ${page} failed; ` +
+              `returning partial data collected so far.`,
+            err,
+          );
+          return of({ page, res: null });
+        }),
+      );
 
-      const fetchPageSafe = (
-        page: number,
-      ): Observable<ApiResponse<T> | null> => {
-        pagesFetched += 1;
-        return this.get<T>(null, url, { ...parameters, page }, version).pipe(
-          catchError((err) => {
-            console.warn(
-              `[loadAllPages] ${url} page ${page} failed; ` +
-                `returning partial data collected so far.`,
-              err,
-            );
-            return of(null);
-          }),
-        );
-      };
-
-      return fetchPageSafe(1).pipe(
-        expand((res) => {
+    return defer(() =>
+      fetchPage(1).pipe(
+        expand(({ page, res }) => {
           if (!res) return EMPTY;
 
-          if (pagesFetched >= MAX_PAGES) {
+          if (page >= MAX_PAGES) {
             console.warn(
               `[loadAllPages] ${url} hit MAX_PAGES cap (${MAX_PAGES}); ` +
                 `returning collected records to guard against runaway pagination.`,
@@ -90,21 +94,21 @@ export class ApiService {
           // empty or under-filled, we are past the real last page no matter
           // what the flag says — this is the guard that stops a buggy
           // has_next: true from looping forever.
+          // The DinifyPaginator surfaces page size as `page_size`; older
+          // shapes used `records_per_page`, fall back for compatibility.
           const records: any[] = Array.isArray(data?.records) ? data.records : [];
-          const recordsPerPage = pagination?.records_per_page;
+          const pageSizeRaw = pagination?.page_size ?? pagination?.records_per_page;
+          const pageSize = typeof pageSizeRaw === 'number'
+            ? pageSizeRaw
+            : Number(pageSizeRaw);
           if (records.length === 0) return EMPTY;
-          if (
-            typeof recordsPerPage === 'number' &&
-            recordsPerPage > 0 &&
-            records.length < recordsPerPage
-          ) {
+          if (Number.isFinite(pageSize) && pageSize > 0 && records.length < pageSize) {
             return EMPTY;
           }
 
-          const nextPage = (pagination?.current_page ?? pagesFetched) + 1;
-          return fetchPageSafe(nextPage);
+          return fetchPage(page + 1);
         }),
-        map((res) => {
+        map(({ res }) => {
           if (!res) return [] as T[];
           const data: any = res.data;
           if (data && Array.isArray(data.records)) return data.records as T[];
@@ -112,8 +116,8 @@ export class ApiService {
           return [] as T[];
         }),
         reduce((acc, records) => acc.concat(records), [] as T[]),
-      );
-    });
+      ),
+    );
   }
 
   postPatch(url: string, data: any,method:'get'|'post'|'put', id?:any, params?:object, isFormData?: boolean,version?:string,_has_false?:boolean){
