@@ -1,6 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, EMPTY } from 'rxjs';
+import { expand, map, reduce } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 import { ApiResponse } from '../_models/app.models';
 
@@ -10,11 +11,51 @@ import { ApiResponse } from '../_models/app.models';
 export class ApiService {
   _base: string = `${environment.apiUrl}/api/${environment.version}`;
   constructor(private _http: HttpClient) { }
-  
+
   get<T>(id: any,url: string, parameters = {},version?:any):Observable<ApiResponse<T>> {
     const l = this.correctFormatForQueryUrl(parameters);
     return this._http["get"](`${version?environment.apiUrl + '/api/' + version:this._base}/${url}${id ? "/" + id : ""}${l}`) as any;
   }
+
+  /**
+   * Fetches every page of a paginated list endpoint and emits the concatenated
+   * records once. Honours the DinifyPaginator response shape:
+   *   { data: { records: T[], pagination: { has_next, current_page, ... } } }
+   *
+   * If the response has no pagination block (single-resource or non-paginated
+   * list endpoints), returns `data.records` if it is an array, else `data` if
+   * it is an array, else an empty array — the caller stays unaware of paging.
+   *
+   * Pages are fetched sequentially. Sequential is correct here: page N's
+   * has_next is what tells us whether to fetch page N+1, and parallel
+   * speculative fetching would over-issue requests on the common short-list
+   * case.
+   */
+  loadAllPages<T>(
+    url: string,
+    parameters: Record<string, any> = {},
+    version?: string,
+  ): Observable<T[]> {
+    const fetchPage = (page: number): Observable<ApiResponse<T>> =>
+      this.get<T>(null, url, { ...parameters, page }, version);
+
+    return fetchPage(1).pipe(
+      expand(res => {
+        const hasNext = res?.data?.pagination?.has_next === true;
+        if (!hasNext) return EMPTY;
+        const nextPage = (res?.data?.pagination?.current_page ?? 1) + 1;
+        return fetchPage(nextPage);
+      }),
+      map(res => {
+        const data: any = res?.data;
+        if (data && Array.isArray(data.records)) return data.records as T[];
+        if (Array.isArray(data)) return data as T[];
+        return [] as T[];
+      }),
+      reduce((acc, records) => acc.concat(records), [] as T[]),
+    );
+  }
+
   postPatch(url: string, data: any,method:'get'|'post'|'put', id?:any, params?:object, isFormData?: boolean,version?:string,_has_false?:boolean){
     const queryParams = this.correctFormatForQueryUrl(params);
 
