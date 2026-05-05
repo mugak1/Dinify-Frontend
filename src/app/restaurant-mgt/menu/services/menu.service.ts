@@ -23,39 +23,7 @@ export class MenuService {
   private readonly _allItems$ = new BehaviorSubject<MenuItem[]>([]);
   readonly allItems$ = this._allItems$.asObservable();
 
-  /**
-   * Whether _allItems$ has received its first successful response. Until this
-   * is true, sections$ should use the backend-provided item_count instead of
-   * the frontend-derived count — otherwise the derivation produces 0 for every
-   * section during the gap between sections-GET and items-GET, causing a brief
-   * "0 Items" flicker on initial page load.
-   *
-   * Once flipped to true, this stays true for the lifetime of the service.
-   * Subsequent loadAllItems calls (e.g. via refreshAll on error fallback)
-   * don't reset it, because the existing derived counts are correct enough
-   * during a refetch — better to show slightly stale derived counts during a
-   * refetch than to flicker back to backend counts and back again.
-   */
-  private readonly _allItemsLoaded$ = new BehaviorSubject<boolean>(false);
-
-  readonly sections$: Observable<MenuSectionListItem[]> = combineLatest([
-    this._rawSections$,
-    this._allItems$,
-    this._allItemsLoaded$,
-  ]).pipe(
-    map(([sections, allItems, itemsLoaded]) => {
-      if (!itemsLoaded) {
-        // Items haven't returned yet on this page load. Use backend's
-        // pre-computed item_count rather than deriving 0 from an empty
-        // _allItems$.
-        return sections;
-      }
-      return sections.map(section => ({
-        ...section,
-        item_count: allItems.filter(item => (item as any).section === section.id).length,
-      }));
-    })
-  );
+  readonly sections$: Observable<MenuSectionListItem[]> = this._rawSections$.asObservable();
 
   readonly items$: Observable<MenuItem[]> = combineLatest([
     this._allItems$,
@@ -157,24 +125,25 @@ export class MenuService {
     this._isLoading$.next(true);
     this._error$.next(null);
 
-    this.api.get<MenuSectionListItem>(null, 'restaurant-setup/menusections/', { restaurant: restaurantId })
-      .subscribe({
-        next: (res: ApiResponse<MenuSectionListItem>) => {
-          const sections = res?.data?.records ?? [];
-          this._rawSections$.next(sections);
-          this._isLoading$.next(false);
-          if (sections.length > 0) {
-            const currentId = this._selectedSectionId$.getValue();
-            if (!currentId || !sections.find(s => s.id === currentId)) {
-              this.selectSection(sections[0].id);
-            }
+    this.api.loadAllPages<MenuSectionListItem>(
+      'restaurant-setup/menusections/',
+      { restaurant: restaurantId }
+    ).subscribe({
+      next: (sections: MenuSectionListItem[]) => {
+        this._rawSections$.next(sections);
+        this._isLoading$.next(false);
+        if (sections.length > 0) {
+          const currentId = this._selectedSectionId$.getValue();
+          if (!currentId || !sections.find(s => s.id === currentId)) {
+            this.selectSection(sections[0].id);
           }
-        },
-        error: (err) => {
-          this._error$.next(err?.message ?? 'Failed to load sections');
-          this._isLoading$.next(false);
         }
-      });
+      },
+      error: (err) => {
+        this._error$.next(err?.message ?? 'Failed to load sections');
+        this._isLoading$.next(false);
+      }
+    });
   }
 
   createSection(data: any): Observable<any> {
@@ -252,14 +221,14 @@ export class MenuService {
   }
 
   loadAllItems(restaurantId: string): void {
-    this.api.get<MenuItem>(null, 'restaurant-setup/menuitems/', { restaurant: restaurantId })
-      .subscribe({
-        next: (res: ApiResponse<MenuItem>) => {
-          const records = res?.data?.records ?? [];
-          this._allItems$.next(records.map(item => this.normalizeMenuItem(item)));
-          this._allItemsLoaded$.next(true);
-        },
-      });
+    this.api.loadAllPages<MenuItem>(
+      'restaurant-setup/menuitems/',
+      { restaurant: restaurantId }
+    ).subscribe({
+      next: (records: MenuItem[]) => {
+        this._allItems$.next(records.map(item => this.normalizeMenuItem(item)));
+      },
+    });
   }
 
   createItem(data: any): Observable<any> {
@@ -382,16 +351,26 @@ export class MenuService {
 
   updateItemLocally(itemId: string, changes: Partial<MenuItem>): void {
     const allItems = this._allItems$.getValue();
+    const before = allItems.find(item => item.id === itemId);
     this._allItems$.next(
       allItems.map(item => item.id === itemId ? { ...item, ...changes } : item)
     );
-    // items$ and extras$ update automatically via derivation
+    // Section change moves an item between sections — adjust both counts.
+    const nextSection = (changes as any).section;
+    const prevSection = before ? (before as any).section : undefined;
+    if (nextSection && prevSection && nextSection !== prevSection) {
+      this.adjustSectionItemCount(prevSection, -1);
+      this.adjustSectionItemCount(nextSection, +1);
+    }
   }
 
   removeItemLocally(itemId: string): void {
     const allItems = this._allItems$.getValue();
+    const removed = allItems.find(item => item.id === itemId);
     this._allItems$.next(allItems.filter(item => item.id !== itemId));
-    // items$ and extras$ update automatically via derivation
+    if (removed) {
+      this.adjustSectionItemCount((removed as any).section, -1);
+    }
   }
 
   addItemLocally(item: MenuItem): void {
@@ -405,16 +384,22 @@ export class MenuService {
       return;
     }
     this._allItems$.next([...allItems, normalized]);
-    // items$, extras$, and section item_count all update automatically via derivation.
+    this.adjustSectionItemCount((normalized as any).section, +1);
   }
 
   updateItemFullyLocally(item: MenuItem): void {
     const normalized = this.normalizeMenuItem(item);
     const allItems = this._allItems$.getValue();
+    const before = allItems.find(i => i.id === normalized.id);
     this._allItems$.next(
       allItems.map(i => i.id === normalized.id ? normalized : i)
     );
-    // items$, extras$ update automatically via derivation.
+    const prevSection = before ? (before as any).section : undefined;
+    const nextSection = (normalized as any).section;
+    if (nextSection && prevSection && nextSection !== prevSection) {
+      this.adjustSectionItemCount(prevSection, -1);
+      this.adjustSectionItemCount(nextSection, +1);
+    }
   }
 
   /**
@@ -492,5 +477,22 @@ export class MenuService {
   private hasFileValue(obj: any): boolean {
     if (!obj || typeof obj !== 'object') return false;
     return Object.values(obj).some(v => v instanceof File);
+  }
+
+  /**
+   * Bumps `item_count` for a section by `delta` (e.g. +1 on add, -1 on remove)
+   * in the local sections cache so the rail counter reflects optimistic
+   * mutations until the next loadSections call. Floors at 0.
+   */
+  private adjustSectionItemCount(sectionId: string | undefined | null, delta: number): void {
+    if (!sectionId) return;
+    const sections = this._rawSections$.getValue();
+    let changed = false;
+    const next = sections.map(s => {
+      if (s.id !== sectionId) return s;
+      changed = true;
+      return { ...s, item_count: Math.max(0, (s.item_count ?? 0) + delta) };
+    });
+    if (changed) this._rawSections$.next(next);
   }
 }
