@@ -125,13 +125,12 @@ export interface MenuItem {
   has_extras:boolean
   extras:any[],
   has_discount:boolean;
-  discount_details?:any
+  discount_details?: DiscountDetails | null
   is_featured?: boolean
   is_popular?: boolean
   is_new?: boolean
   in_stock?: boolean
   is_special?: boolean
-  discount_percentage?: number
 }
 
 export interface ModifierChoice {
@@ -156,18 +155,26 @@ export interface ItemModifiers {
   groups: ModifierGroup[];
 }
 
-export interface ItemDiscountDetails {
+/**
+ * Canonical discount_details shape — must match restaurants_app/models.py:234-242.
+ * discount_percentage and discount_amount are SUBTRACTION values
+ * (percentage 0..100 to subtract, or UGX amount to subtract from primary_price).
+ * Pre-0042 buggy keys (raw_discount_value / raw_discount_type) are migrated
+ * out of all production rows and must not be reintroduced.
+ */
+export interface DiscountDetails {
   discount_type?: 'percentage' | 'fixed';
-  discount_amount: number;
   discount_percentage?: number;
-  start_date: string;
-  end_date: string;
+  discount_amount?: number;
+  recurring_days?: number[];
+  start_date?: string;
+  end_date?: string;
   start_time?: string;
   end_time?: string;
-  recurring_days: number[];
-  raw_discount_value?: number;
-  raw_discount_type?: 'percentage' | 'fixed';
 }
+
+/** @deprecated Alias kept for existing imports — prefer DiscountDetails. */
+export type ItemDiscountDetails = DiscountDetails;
 
 export interface TableListItem {
   id: string
