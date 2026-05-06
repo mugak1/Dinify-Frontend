@@ -6,6 +6,38 @@ import { ItemFormDialogComponent } from './item-form-dialog.component';
 import { MenuService } from '../../services/menu.service';
 import { TagService } from '../../services/tag.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
+import { DiscountDetails, MenuItem } from 'src/app/_models/app.models';
+
+function makeMenuItem(overrides: Partial<MenuItem>): MenuItem {
+  return {
+    id: 'item-1',
+    name: 'Existing',
+    description: '',
+    primary_price: '10000',
+    discounted_price: null,
+    running_discount: false,
+    image: null,
+    section: 'sec-1',
+    group: null,
+    available: true,
+    in_stock: true,
+    is_extra: false,
+    is_special: false,
+    is_featured: false,
+    is_popular: false,
+    is_new: false,
+    has_options: false,
+    options: { hasModifiers: false, groups: [] },
+    has_extras: false,
+    extras: [],
+    tags: [],
+    allergens: [],
+    discount_details: null,
+    discount_percentage: 0,
+    calories: null,
+    ...overrides,
+  };
+}
 
 describe('ItemFormDialogComponent — canonical discount_details', () => {
   let fixture: ComponentFixture<ItemFormDialogComponent>;
@@ -118,34 +150,21 @@ describe('ItemFormDialogComponent — canonical discount_details', () => {
   });
 
   it('loads canonical percentage shape into the form on edit', () => {
-    component.item = {
-      id: 'item-1',
-      name: 'Existing',
-      description: '',
-      primary_price: 10000,
-      discounted_price: 8000,
-      running_discount: true,
-      image: '',
-      available: true,
-      has_options: false,
-      options: { hasModifiers: false, groups: [] },
-      group: { id: null, name: null },
-      allergens: [] as any,
-      is_extra: false,
-      has_extras: false,
-      extras: [],
-      has_discount: true,
-      discount_details: {
-        discount_type: 'percentage',
-        discount_percentage: 20,
-        discount_amount: 0,
-        recurring_days: [1, 2, 3, 4, 5, 6, 7],
-        start_date: '',
-        end_date: '',
-        start_time: '',
-        end_time: '',
-      },
+    const dd: DiscountDetails = {
+      discount_type: 'percentage',
+      discount_percentage: 20,
+      discount_amount: 0,
+      recurring_days: [1, 2, 3, 4, 5, 6, 7],
+      start_date: '',
+      end_date: '',
+      start_time: '',
+      end_time: '',
     };
+    component.item = makeMenuItem({
+      discounted_price: '8000',
+      running_discount: true,
+      discount_details: dd,
+    });
 
     component.open = true;
     component.ngOnChanges({
@@ -158,34 +177,21 @@ describe('ItemFormDialogComponent — canonical discount_details', () => {
   });
 
   it('loads canonical fixed shape into the form on edit', () => {
-    component.item = {
-      id: 'item-1',
-      name: 'Existing',
-      description: '',
-      primary_price: 10000,
-      discounted_price: 8000,
-      running_discount: true,
-      image: '',
-      available: true,
-      has_options: false,
-      options: { hasModifiers: false, groups: [] },
-      group: { id: null, name: null },
-      allergens: [] as any,
-      is_extra: false,
-      has_extras: false,
-      extras: [],
-      has_discount: true,
-      discount_details: {
-        discount_type: 'fixed',
-        discount_percentage: 0,
-        discount_amount: 2000,
-        recurring_days: [1, 2, 3, 4, 5, 6, 7],
-        start_date: '',
-        end_date: '',
-        start_time: '',
-        end_time: '',
-      },
+    const dd: DiscountDetails = {
+      discount_type: 'fixed',
+      discount_percentage: 0,
+      discount_amount: 2000,
+      recurring_days: [1, 2, 3, 4, 5, 6, 7],
+      start_date: '',
+      end_date: '',
+      start_time: '',
+      end_time: '',
     };
+    component.item = makeMenuItem({
+      discounted_price: '8000',
+      running_discount: true,
+      discount_details: dd,
+    });
 
     component.open = true;
     component.ngOnChanges({
@@ -197,25 +203,10 @@ describe('ItemFormDialogComponent — canonical discount_details', () => {
   });
 
   it('treats item with no discount details as no-discount on edit', () => {
-    component.item = {
-      id: 'item-1',
-      name: 'Existing',
-      description: '',
-      primary_price: 10000,
-      discounted_price: null,
+    component.item = makeMenuItem({
       running_discount: false,
-      image: '',
-      available: true,
-      has_options: false,
-      options: { hasModifiers: false, groups: [] },
-      group: { id: null, name: null },
-      allergens: [] as any,
-      is_extra: false,
-      has_extras: false,
-      extras: [],
-      has_discount: false,
       discount_details: null,
-    };
+    });
 
     component.open = true;
     component.ngOnChanges({
