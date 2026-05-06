@@ -6,6 +6,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { BadgeComponent } from 'src/app/_shared/ui/badge/badge.component';
 import { TooltipDirective } from 'src/app/_shared/ui/tooltip/tooltip.directive';
 import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
+import { isDiscountActive } from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
 
 @Component({
@@ -68,6 +69,6 @@ export class ItemCardComponent {
   }
 
   get hasDiscount(): boolean {
-    return !!this.item?.discount_details?.discount_amount;
+    return isDiscountActive(this.item?.discount_details);
   }
 }

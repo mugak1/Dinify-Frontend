@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { CartItem, SelectedModifier, SelectedExtra } from '../models/cart.model';
-import { getCurrentPrice } from '../utils/price-utils';
+import { getCurrentPrice } from 'src/app/_shared/utils/price-utils';
 
 @Injectable({
   providedIn: 'root'

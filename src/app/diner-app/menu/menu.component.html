@@ -96,7 +96,7 @@
         <!-- Price -->
         <div class="mt-auto pt-2">
           <ng-container *ngIf="i?.running_discount && !isOutOfStock(i); else normalPriceCard">
-            <span class="text-red-600 font-bold text-base">UGX {{ i?.discount_details?.discount_amount | number }}</span>
+            <span class="text-red-600 font-bold text-base">UGX {{ getDisplayPrice(i) | number }}</span>
             <span class="line-through text-gray-400 text-sm ml-2">UGX {{ i.primary_price | number }}</span>
           </ng-container>
           <ng-template #normalPriceCard>
@@ -272,7 +272,7 @@
               UGX {{ selected_item.primary_price | number }}
             </span>
             <span class="text-2xl font-bold text-red-600">
-              UGX {{ selected_item.discount_details?.discount_amount | number }}
+              UGX {{ getDisplayPrice(selected_item) | number }}
             </span>
           </ng-container>
           <ng-template #detailNormalPrice>

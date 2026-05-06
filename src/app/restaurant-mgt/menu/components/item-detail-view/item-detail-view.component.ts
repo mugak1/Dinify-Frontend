@@ -20,7 +20,7 @@ import {
   isDiscountActive,
   getDiscountBadgeText,
   calculateSavings,
-} from '../../utils/price-utils';
+} from 'src/app/_shared/utils/price-utils';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
 import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';

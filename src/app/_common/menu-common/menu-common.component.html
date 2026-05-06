@@ -61,7 +61,7 @@
             
                   <div class="flex flex-col mt-2">
                     <ng-container *ngIf="i?.running_discount; else normalPrice">
-                      <span class="text-red-600 font-bold text-lg">UGX {{ i?.discount_details?.discount_amount | number }}</span>
+                      <span class="text-red-600 font-bold text-lg">UGX {{ getDisplayPrice(i) | number }}</span>
                       <div class="flex justify-between items-center">
                         <span class="line-through text-gray-400 text-sm">UGX {{ i.primary_price | number }}</span>
                       </div>
@@ -180,7 +180,7 @@
                             <p class="text-2xl font-black pt-6 px-6">{{selected_item.name}} </p>
                             <div class="flex items-center gap-2 mt-2 px-6">
                               <span class="text-red-600 font-extrabold text-2xl">
-                                UGX {{ selected_item.running_discount ? selected_item.discount_details?.discount_amount : selected_item.primary_price | number }}
+                                UGX {{ (selected_item.running_discount ? getDisplayPrice(selected_item) : selected_item.primary_price) | number }}
                               </span>
                             </div>
                           <p class="px-6" *ngIf="selected_item?.running_discount">
