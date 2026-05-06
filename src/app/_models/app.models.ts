@@ -159,8 +159,11 @@ export interface ItemModifiers {
 export interface ItemDiscountDetails {
   discount_type?: 'percentage' | 'fixed';
   discount_amount: number;
+  discount_percentage?: number;
   start_date: string;
   end_date: string;
+  start_time?: string;
+  end_time?: string;
   recurring_days: number[];
   raw_discount_value?: number;
   raw_discount_type?: 'percentage' | 'fixed';
