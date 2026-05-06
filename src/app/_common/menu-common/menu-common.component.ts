@@ -6,6 +6,7 @@ import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
+import { getCurrentPrice, calculateSavings } from 'src/app/_shared/utils/price-utils';
 
 @Component({
     selector: 'app-menu-common',
@@ -173,12 +174,18 @@ removeUnderscore(x:string){
       this.filterMenu();
     }
     calculateDiscount(item:any): number {
-      if (!item.discount_details.discount_amount) return 0;
-      return Math.round(((item.primary_price - item.discount_details.discount_amount) / item.primary_price) * 100);
+      if (!item) return 0;
+      const price = Number(item.primary_price) || 0;
+      const savings = calculateSavings(price, item.discount_details);
+      if (price <= 0 || savings <= 0) return 0;
+      return Math.round((savings / price) * 100);
     }
     priceSaved(item:any): number {
-      if (!item.discount_details.discount_amount) return 0;
-      return item.primary_price - item.discount_details.discount_amount;
+      if (!item) return 0;
+      return calculateSavings(Number(item.primary_price) || 0, item.discount_details);
+    }
+    getDisplayPrice(item: any): number {
+      return getCurrentPrice(item as MenuItem);
     }
     isExtraSelected(extra: {id:any,name:any, primary_price:number}): boolean {
       return this.selected_extras.includes(extra);

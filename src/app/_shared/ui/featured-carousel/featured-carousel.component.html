@@ -76,7 +76,7 @@
 
         <div class="mt-auto pt-1">
           <ng-container *ngIf="hasDiscount(i) && !isOutOfStock(i); else normalPrice">
-            <span class="text-red-600 font-bold text-sm">UGX {{ i?.discount_details?.discount_amount | number }}</span>
+            <span class="text-red-600 font-bold text-sm">UGX {{ getDisplayPrice(i) | number }}</span>
             <span class="line-through text-gray-400 text-xs ml-1">UGX {{ i.primary_price | number }}</span>
           </ng-container>
           <ng-template #normalPrice>

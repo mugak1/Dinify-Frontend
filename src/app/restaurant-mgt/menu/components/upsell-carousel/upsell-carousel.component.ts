@@ -16,7 +16,7 @@ import { MenuService } from '../../services/menu.service';
 import { TagService, PresetTag } from '../../services/tag.service';
 import { CartItem } from '../../models/cart.model';
 import { UpsellConfig } from 'src/app/_models/app.models';
-import { getCurrentPrice, formatUGX, isDiscountActive } from '../../utils/price-utils';
+import { getCurrentPrice, formatUGX, isDiscountActive } from 'src/app/_shared/utils/price-utils';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
 import { environment } from 'src/environments/environment';

@@ -7,6 +7,11 @@ import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
+import {
+  getCurrentPrice,
+  calculateSavings,
+  getDiscountBadgeText,
+} from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
 
@@ -148,7 +153,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   get computedItemTotal(): number {
     if (!this.selected_item) return 0;
     const basePrice = this.selected_item?.running_discount
-      ? (Number(this.selected_item?.discount_details?.discount_amount) || 0)
+      ? getCurrentPrice(this.selected_item)
       : (Number(this.selected_item.primary_price) || 0);
     let modifiersCost = 0;
     for (const group of this.modifierGroups) {
@@ -342,11 +347,9 @@ get QuantitySum(){
       cost: Number(extra.primary_price) || 0,
     }));
 
-    const discount = Number(this.selected_item?.discount_details?.discount_amount) || 0;
     const isDiscounted = this.selected_item?.running_discount;
-
     const originalBasePrice = Number(this.selected_item?.primary_price) || 0;
-    const basePrice = isDiscounted ? discount : originalBasePrice;
+    const basePrice = isDiscounted ? getCurrentPrice(this.selected_item) : originalBasePrice;
 
     const modifiersCost = selectedModifiersList.reduce(
       (acc, mod) => acc + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
@@ -481,22 +484,26 @@ removeUnderscore(x:string){
     this.validateForm();
   }
   calculateDiscount(item:any): number {
-    if (!item?.discount_details?.discount_amount) return 0;
+    if (!item) return 0;
+    const savings = calculateSavings(Number(item.primary_price) || 0, item.discount_details);
     const price = Number(item.primary_price) || 0;
-    const discountAmt = Number(item.discount_details.discount_amount) || 0;
-    return Math.round(((price - discountAmt) / price) * 100);
+    if (savings <= 0 || price <= 0) return 0;
+    return Math.round((savings / price) * 100);
   }
   priceSaved(item:any): number {
-    if (!item?.discount_details?.discount_amount) return 0;
-    return Number(item.primary_price) - Number(item.discount_details.discount_amount);
+    if (!item) return 0;
+    return calculateSavings(Number(item.primary_price) || 0, item.discount_details);
   }
   isOutOfStock(item: any): boolean {
     return item.in_stock === false;
   }
   getDiscountBadge(item: any): string {
     if (!item?.running_discount) return '';
-    const pct = this.calculateDiscount(item);
-    return pct > 0 ? `-${pct}%` : '';
+    return getDiscountBadgeText(item?.discount_details, Number(item?.primary_price) || 0);
+  }
+  /** Final price to display when an item is discounted (post-canonical-shape). */
+  getDisplayPrice(item: any): number {
+    return getCurrentPrice(item as MenuItem);
   }
   isExtraSelected(extra: {id:any,name:any, primary_price:number}): boolean {
     return this.selected_extras.includes(extra);

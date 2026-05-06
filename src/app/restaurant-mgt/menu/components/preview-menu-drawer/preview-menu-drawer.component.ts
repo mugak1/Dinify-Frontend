@@ -30,7 +30,7 @@ import {
   isDiscountActive,
   getDiscountBadgeText,
   calculateSavings,
-} from '../../utils/price-utils';
+} from 'src/app/_shared/utils/price-utils';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 import { isSectionCurrentlyActive } from '../../utils/schedule-utils';
 import { environment } from 'src/environments/environment';
@@ -337,10 +337,10 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   }
 
   getDiscountPercent(item: any): number {
-    const original = parseFloat(item?.primary_price) || 0;
-    const discounted = parseFloat(item?.discount_details?.discount_amount) || 0;
-    if (!original || !discounted) return 0;
-    return Math.round(((original - discounted) / original) * 100);
+    const primary = parseFloat(item?.primary_price) || 0;
+    const savings = calculateSavings(primary, item?.discount_details);
+    if (primary <= 0 || savings <= 0) return 0;
+    return Math.round((savings / primary) * 100);
   }
 
   getItemSavingsFromItem(item: any): number {
