@@ -42,26 +42,24 @@ export class AddUpsellItemModalComponent implements OnChanges {
     const term = this.searchTerm.toLowerCase().trim();
     const groups: GroupedItems[] = [];
 
-    // Build a section name map
+    // Build a section name map (section UUID → section name)
     const sectionMap = new Map<string, string>();
     this.sections.forEach(s => sectionMap.set(s.id, s.name));
 
-    // Group items by section (group.id)
+    // Group items by their parent menu section (item.section is a UUID FK).
     const grouped = new Map<string, MenuItem[]>();
     for (const item of this.menuItems) {
-      // Filter by search
       if (term && !item.name?.toLowerCase().includes(term)) continue;
-      // Filter by category (section)
-      if (this.selectedCategory !== 'all' && item.group?.id !== this.selectedCategory) continue;
+      if (this.selectedCategory !== 'all' && item.section !== this.selectedCategory) continue;
 
-      const groupId = item.group?.id || 'uncategorized';
-      if (!grouped.has(groupId)) grouped.set(groupId, []);
-      grouped.get(groupId)!.push(item);
+      const sectionId = item.section || 'uncategorized';
+      if (!grouped.has(sectionId)) grouped.set(sectionId, []);
+      grouped.get(sectionId)!.push(item);
     }
 
-    grouped.forEach((items, groupId) => {
+    grouped.forEach((items, sectionId) => {
       groups.push({
-        sectionName: sectionMap.get(groupId) || items[0]?.group?.name || 'Uncategorized',
+        sectionName: sectionMap.get(sectionId) || 'Uncategorized',
         items,
       });
     });

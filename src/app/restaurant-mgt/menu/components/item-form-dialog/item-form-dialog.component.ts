@@ -100,26 +100,20 @@ export class ItemFormDialogComponent implements OnChanges {
       if (this.item) {
         // Load modifiers from existing item
         if (this.item.options) {
-          this.itemModifiers = typeof this.item.options === 'string'
-            ? JSON.parse(this.item.options)
-            : this.item.options;
+          this.itemModifiers = this.item.options;
         }
 
         // Load extras from existing item
         this.itemIsExtra = this.item.is_extra ?? false;
         this.itemHasExtras = this.item.has_extras ?? false;
-        this.itemExtrasApplicable = (this.item.extras ?? []).map(
-          (e: any) => (typeof e === 'string' ? e : e.id)
-        );
+        this.itemExtrasApplicable = (this.item.extras ?? []).map(e => e.id);
 
         // Load discount from existing item — read canonical schema only.
         // Pre-0042 buggy rows (raw_discount_value/raw_discount_type) are
         // migrated by the backend before this code runs.
-        this.itemHasDiscount = this.item.running_discount ?? this.item.has_discount ?? false;
+        this.itemHasDiscount = this.item.running_discount ?? false;
         if (this.item.discount_details) {
-          const dd = typeof this.item.discount_details === 'string'
-            ? JSON.parse(this.item.discount_details)
-            : this.item.discount_details;
+          const dd = this.item.discount_details;
           if (dd && (Number(dd.discount_percentage) || Number(dd.discount_amount))) {
             const isPct = dd.discount_type === 'percentage'
               || (Number(dd.discount_percentage) || 0) > 0;

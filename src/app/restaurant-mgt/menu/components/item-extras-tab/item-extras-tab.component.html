@@ -44,7 +44,7 @@
                (click)="$event.stopPropagation()"
                (change)="toggleExtra(extra.id)" />
         <span class="flex-1 text-sm text-foreground">{{ extra.name }}</span>
-        <span class="text-xs text-muted-foreground">UGX {{ formatUGX(extra.primary_price) }}</span>
+        <span class="text-xs text-muted-foreground">UGX {{ formatUGX(toNumber(extra.primary_price)) }}</span>
       </div>
     </div>
 

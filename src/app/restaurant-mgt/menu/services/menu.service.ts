@@ -31,7 +31,7 @@ export class MenuService {
     this._selectedSectionId$,
   ]).pipe(
     map(([allItems, sectionId]) =>
-      sectionId ? allItems.filter(item => (item as any).section === sectionId) : []
+      sectionId ? allItems.filter(item => item.section === sectionId) : []
     )
   );
 
@@ -347,7 +347,7 @@ export class MenuService {
 
   getItemsSnapshot(): MenuItem[] {
     const sectionId = this._selectedSectionId$.getValue();
-    return this._allItems$.getValue().filter(item => (item as any).section === sectionId);
+    return this._allItems$.getValue().filter(item => item.section === sectionId);
   }
 
   getSelectedSectionId(): string | null {
@@ -361,8 +361,8 @@ export class MenuService {
       allItems.map(item => item.id === itemId ? { ...item, ...changes } : item)
     );
     // Section change moves an item between sections — adjust both counts.
-    const nextSection = (changes as any).section;
-    const prevSection = before ? (before as any).section : undefined;
+    const nextSection = changes.section;
+    const prevSection = before?.section;
     if (nextSection && prevSection && nextSection !== prevSection) {
       this.adjustSectionItemCount(prevSection, -1);
       this.adjustSectionItemCount(nextSection, +1);
@@ -374,7 +374,7 @@ export class MenuService {
     const removed = allItems.find(item => item.id === itemId);
     this._allItems$.next(allItems.filter(item => item.id !== itemId));
     if (removed) {
-      this.adjustSectionItemCount((removed as any).section, -1);
+      this.adjustSectionItemCount(removed.section, -1);
     }
   }
 
@@ -389,7 +389,7 @@ export class MenuService {
       return;
     }
     this._allItems$.next([...allItems, normalized]);
-    this.adjustSectionItemCount((normalized as any).section, +1);
+    this.adjustSectionItemCount(normalized.section, +1);
   }
 
   updateItemFullyLocally(item: MenuItem): void {
@@ -399,8 +399,8 @@ export class MenuService {
     this._allItems$.next(
       allItems.map(i => i.id === normalized.id ? normalized : i)
     );
-    const prevSection = before ? (before as any).section : undefined;
-    const nextSection = (normalized as any).section;
+    const prevSection = before?.section;
+    const nextSection = normalized.section;
     if (nextSection && prevSection && nextSection !== prevSection) {
       this.adjustSectionItemCount(prevSection, -1);
       this.adjustSectionItemCount(nextSection, +1);
@@ -427,7 +427,7 @@ export class MenuService {
     const allItems = this._allItems$.getValue();
     const sectionItemsById = new Map<string, MenuItem>(
       allItems
-        .filter(i => (i as any).section === sectionId)
+        .filter(i => i.section === sectionId)
         .map(i => [i.id, i] as const)
     );
 
@@ -437,7 +437,7 @@ export class MenuService {
 
     let cursor = 0;
     const newAllItems = allItems.map(item => {
-      if ((item as any).section === sectionId) {
+      if (item.section === sectionId) {
         return reorderedSection[cursor++] ?? item;
       }
       return item;
@@ -470,9 +470,9 @@ export class MenuService {
           (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base' })
         );
       case 'price-low':
-        return items.sort((a, b) => (a.primary_price ?? 0) - (b.primary_price ?? 0));
+        return items.sort((a, b) => (Number(a.primary_price) || 0) - (Number(b.primary_price) || 0));
       case 'price-high':
-        return items.sort((a, b) => (b.primary_price ?? 0) - (a.primary_price ?? 0));
+        return items.sort((a, b) => (Number(b.primary_price) || 0) - (Number(a.primary_price) || 0));
       case 'manual':
       default:
         return items;

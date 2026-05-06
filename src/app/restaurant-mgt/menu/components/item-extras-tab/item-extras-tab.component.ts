@@ -76,6 +76,10 @@ export class ItemExtrasTabComponent implements OnChanges {
     return amount.toLocaleString('en-UG');
   }
 
+  toNumber(value: string | number | null | undefined): number {
+    return Number(value) || 0;
+  }
+
   private emitChange(): void {
     this.extrasChange.emit({
       isExtra: this.markedAsExtra,

@@ -107,30 +107,48 @@ export interface MenuSectionListItem {
   availability?: 'always' | 'scheduled'
   schedules?: SectionSchedule[]
 }
+export interface MenuItemGroup {
+  id: string;
+  name: string;
+}
+
+export interface MenuItemExtraRef {
+  id: string;
+  name: string;
+  // DRF serialises DecimalField as a string; matches primary_price below.
+  primary_price: string;
+}
+
+/**
+ * Faithful shape of restaurants_app.serializers.SerializerPublicGetMenuItem.
+ * Decimal fields are strings (DRF default); section is a UUID FK string.
+ */
 export interface MenuItem {
-  id: string
-  name: string
-  description: any
-  calories?: number | null
-  primary_price: number
-  discounted_price: any
-  running_discount: boolean
-  image: string
-  available: boolean
-  has_options: boolean
-  options: ItemModifiers | string
-  group:{id:any,name:any},
-  allergens:[]
-  is_extra:boolean
-  has_extras:boolean
-  extras:any[],
-  has_discount:boolean;
-  discount_details?: DiscountDetails | null
-  is_featured?: boolean
-  is_popular?: boolean
-  is_new?: boolean
-  in_stock?: boolean
-  is_special?: boolean
+  id: string;
+  name: string;
+  description: string | null;
+  calories: number | null;
+  primary_price: string;
+  discounted_price: string | null;
+  running_discount: boolean;
+  image: string | null;
+  section: string;
+  group: MenuItemGroup | null;
+  available: boolean;
+  in_stock: boolean;
+  is_extra: boolean;
+  is_special: boolean;
+  is_featured: boolean;
+  is_popular: boolean;
+  is_new: boolean;
+  has_options: boolean;
+  options: ItemModifiers;
+  has_extras: boolean;
+  extras: MenuItemExtraRef[];
+  tags: string[];
+  allergens: string[];
+  discount_details: DiscountDetails | null;
+  discount_percentage: number;
 }
 
 export interface ModifierChoice {
