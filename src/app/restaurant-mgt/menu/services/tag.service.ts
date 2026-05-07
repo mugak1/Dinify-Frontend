@@ -43,7 +43,7 @@ export class TagService {
   savePresetTags(restaurantId: string, tags: PresetTag[]): Observable<any> {
     return this.api.postPatch(
       'restaurant-setup/preset-tags/',
-      { restaurant: restaurantId, tags: JSON.stringify(tags) },
+      { restaurant: restaurantId, tags },
       'put'
     ).pipe(
       tap(() => this._presetTags$.next(tags))
