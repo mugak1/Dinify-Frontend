@@ -92,10 +92,10 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   }
   }
 
-  /** Filters out empty/blank allergen entries */
-  getVisibleAllergens(allergens: string[] | null | undefined): string[] {
-    if (!Array.isArray(allergens)) return [];
-    return allergens.filter((a: any) => typeof a === 'string' && a.trim().length > 0);
+  /** Filters out empty/blank tag entries */
+  getVisibleTags(tags: string[] | null | undefined): string[] {
+    if (!Array.isArray(tags)) return [];
+    return tags.filter((t: any) => typeof t === 'string' && t.trim().length > 0);
   }
 
   getTagItemCount(tagName: string): number {
@@ -103,7 +103,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     let count = 0;
     for (const section of this.menu_list) {
       for (const item of section.items || []) {
-        if (item.allergens?.includes(tagName)) count++;
+        if (item.tags?.includes(tagName)) count++;
       }
     }
     return count;

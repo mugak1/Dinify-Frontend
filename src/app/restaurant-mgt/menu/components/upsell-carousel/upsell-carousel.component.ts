@@ -148,7 +148,7 @@ export class UpsellCarouselComponent implements OnInit, OnDestroy {
   }
 
   getItemTags(item: any): { name: string; colorClasses: string; iconSvg: string }[] {
-    const tags = item.allergens || [];
+    const tags = item.tags || [];
     return tags.slice(0, 2).map((tagName: string) => {
       const preset = this.presetTags.find(p => p.name === tagName);
       return {
@@ -160,7 +160,7 @@ export class UpsellCarouselComponent implements OnInit, OnDestroy {
   }
 
   getRemainingTagCount(item: any): number {
-    const tags = item.allergens || [];
+    const tags = item.tags || [];
     return Math.max(0, tags.length - 2);
   }
 }

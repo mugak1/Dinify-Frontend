@@ -154,7 +154,7 @@ export class MenuNavStateService {
         .map((section: any) => ({
           ...section,
           items: (section.items || []).filter((item: any) =>
-            tags.some(tag => item.allergens?.includes(tag)),
+            tags.some(tag => item.tags?.includes(tag)),
           ),
         }))
         .filter((section: any) => section.items.length > 0);

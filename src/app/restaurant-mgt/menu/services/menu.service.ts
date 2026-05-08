@@ -86,7 +86,7 @@ export class MenuService {
 
   /**
    * Coerces a backend MenuItem record's JSONField values to their expected
-   * shapes. Older items with corrupted JSONField data (e.g. allergens stored
+   * shapes. Older items with corrupted JSONField data (e.g. tags stored
    * as an object literal instead of an array) would otherwise cause NG0901
    * errors when their values feed into *ngFor in the templates.
    *
