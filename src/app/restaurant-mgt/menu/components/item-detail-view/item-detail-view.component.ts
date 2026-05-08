@@ -308,8 +308,14 @@ export class ItemDetailViewComponent implements OnInit, OnChanges, OnDestroy {
       extrasTotal: this.extrasCost * this.quantity,
     });
 
+    // Local cleanup of form state. The parent
+    // (PreviewMenuDrawerComponent.handleAddToCart) handles all post-add
+    // navigation (view, selectedItem, editingCartItem, returnToCart).
+    // Do NOT emit `back` here — doing so causes a double-emission that
+    // races handleBackFromDetail against the just-completed
+    // handleAddToCart, clobbering the navigation intent for
+    // edit-cart-item and upsell-needs-modifiers flows.
     this.resetState();
-    this.back.emit();
   }
 
   // ── Private helpers ──────────────────────────────────────────────────
