@@ -39,6 +39,7 @@ import { TagFilterSheetComponent } from '../tag-filter-sheet/tag-filter-sheet.co
 import { UpsellCarouselComponent } from '../upsell-carousel/upsell-carousel.component';
 import { ScrollSpyCommonDirective } from 'src/app/_common/scroll-spy-common.directive';
 import { FeaturedCarouselComponent } from 'src/app/_shared/ui/featured-carousel/featured-carousel.component';
+import { AllergenDisclaimerComponent } from 'src/app/_shared/ui/allergen-disclaimer/allergen-disclaimer.component';
 
 type DrawerView = 'list' | 'detail' | 'cart';
 
@@ -56,6 +57,7 @@ type DrawerView = 'list' | 'detail' | 'cart';
     ScrollSpyCommonDirective,
     SafeArrayPipe,
     FeaturedCarouselComponent,
+    AllergenDisclaimerComponent,
   ],
   templateUrl: './preview-menu-drawer.component.html',
 })
