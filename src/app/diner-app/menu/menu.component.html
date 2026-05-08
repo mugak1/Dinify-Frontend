@@ -479,89 +479,15 @@
       </button>
     </div>
 
-<!-- Tag Filter Bottom Sheet -->
-<ng-container *ngIf="navState.showTagFilter()">
-  <div class="fixed inset-0 z-50">
-    <!-- Backdrop -->
-    <div class="fixed inset-0 bg-black/50" (click)="navState.closeTagFilter()"></div>
-
-    <!-- Sheet -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-lg flex flex-col"
-         style="max-height: 70vh;">
-
-      <!-- Handle bar -->
-      <div class="flex justify-center pt-3 pb-1">
-        <div class="w-10 h-1 rounded-full bg-gray-300"></div>
-      </div>
-
-      <!-- Header -->
-      <div class="px-6 pb-4">
-        <h2 class="text-lg font-bold text-gray-900">Filter by Dietary Preference</h2>
-        <p class="text-sm text-gray-500 mt-1">
-          Show only items matching your preferences
-        </p>
-      </div>
-
-      <!-- Tag list (scrollable) -->
-      <div class="flex-1 overflow-y-auto px-6 pb-4">
-        <div *ngIf="navState.filterableTags().length === 0" class="text-center py-8 text-gray-400">
-          No filter options available
-        </div>
-
-        <div class="space-y-2">
-          <button *ngFor="let tag of navState.filterableTags()"
-                  (click)="navState.toggleTagSelection(tag.name)"
-                  class="w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left"
-                  [ngClass]="{
-                    'border-red-500 bg-red-50': navState.isTagSelected(tag.name),
-                    'border-gray-200 hover:bg-gray-50': !navState.isTagSelected(tag.name)
-                  }">
-
-            <!-- Checkbox -->
-            <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
-                 [ngClass]="{
-                   'bg-red-600 border-red-600': navState.isTagSelected(tag.name),
-                   'border-gray-300': !navState.isTagSelected(tag.name)
-                 }">
-              <svg *ngIf="navState.isTagSelected(tag.name)"
-                   xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                   stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 6 9 17l-5-5"/>
-              </svg>
-            </div>
-
-            <!-- Tag icon + color -->
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                 [ngClass]="navState.getTagBadge(tag.name).colorClasses"
-                 [innerHTML]="navState.getTagBadge(tag.name).iconSvg">
-            </div>
-
-            <!-- Tag name -->
-            <span class="font-medium text-gray-900 flex-1">{{ tag.name }}</span>
-
-            <!-- Item count -->
-            <span class="text-sm text-gray-400">
-              {{ getTagItemCount(tag.name) }} {{ getTagItemCount(tag.name) === 1 ? 'item' : 'items' }}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Footer -->
-      <div class="px-6 py-4 border-t border-gray-200 flex gap-3">
-        <button (click)="navState.clearLocalTagSelection(); navState.closeTagFilter()"
-                [disabled]="navState.localSelectedTags().length === 0"
-                class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-colors hover:bg-gray-50">
-          Clear All
-        </button>
-        <button (click)="navState.applyTagFilter()"
-                class="flex-1 py-3 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors">
-          Apply{{ navState.localSelectedTags().length > 0 ? ' (' + navState.localSelectedTags().length + ')' : '' }}
-        </button>
-      </div>
-    </div>
   </div>
-</ng-container>
 
-  </div>
+<!-- Tag Filter Modal — top-level so it renders regardless of item-detail state -->
+<app-tag-filter-sheet
+  [open]="navState.showTagFilter()"
+  [tags]="navState.presetTags()"
+  [selectedTags]="navState.selectedTags()"
+  [items]="navState.allItems()"
+  (openChange)="navState.setTagFilterOpen($event)"
+  (apply)="navState.applyTagFilter($event)">
+</app-tag-filter-sheet>
      
