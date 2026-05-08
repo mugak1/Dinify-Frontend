@@ -137,7 +137,7 @@ export class ItemFormDialogComponent implements OnChanges {
           calories: this.item.calories ?? null,
           primary_price: this.item.primary_price,
           available: this.item.available,
-          allergens: this.item.allergens ?? [],
+          tags: this.item.tags ?? [],
           image: this.item.image,
           is_featured: this.item.is_featured ?? false,
           is_popular: this.item.is_popular ?? false,
@@ -230,32 +230,32 @@ export class ItemFormDialogComponent implements OnChanges {
     }
   }
 
-  onAllergenAdd(value: string): void {
+  onTagAdd(value: string): void {
     const trimmed = value?.trim();
     if (!trimmed) return;
 
-    const current: string[] = this.form.get('allergens')?.value ?? [];
-    this.form.get('allergens')?.setValue([...current, trimmed]);
+    const current: string[] = this.form.get('tags')?.value ?? [];
+    this.form.get('tags')?.setValue([...current, trimmed]);
   }
 
-  onAllergenRemove(index: number): void {
-    const current: string[] = [...(this.form.get('allergens')?.value ?? [])];
+  onTagRemove(index: number): void {
+    const current: string[] = [...(this.form.get('tags')?.value ?? [])];
     current.splice(index, 1);
-    this.form.get('allergens')?.setValue(current);
+    this.form.get('tags')?.setValue(current);
   }
 
   onPresetTagToggle(tagName: string): void {
-    const current: string[] = this.form.get('allergens')?.value ?? [];
+    const current: string[] = this.form.get('tags')?.value ?? [];
     if (current.includes(tagName)) {
-      this.form.get('allergens')?.setValue(current.filter((t: string) => t !== tagName));
+      this.form.get('tags')?.setValue(current.filter((t: string) => t !== tagName));
     } else {
       if (current.length >= 20) return;
-      this.form.get('allergens')?.setValue([...current, tagName]);
+      this.form.get('tags')?.setValue([...current, tagName]);
     }
   }
 
   isTagSelected(tagName: string): boolean {
-    const current: string[] = this.form.get('allergens')?.value ?? [];
+    const current: string[] = this.form.get('tags')?.value ?? [];
     return current.includes(tagName);
   }
 
@@ -445,7 +445,7 @@ export class ItemFormDialogComponent implements OnChanges {
       image: [null],
       primary_price: [0, [Validators.required, Validators.min(1)]],
       available: [true],
-      allergens: [[] as string[]],
+      tags: [[] as string[]],
       is_featured: [false],
       is_popular: [false],
       is_new: [false],

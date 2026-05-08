@@ -106,9 +106,9 @@
           </ng-template>
         </div>
 
-        <!-- Allergen / tag pills -->
-        <div *ngIf="getVisibleAllergens(i.allergens).length > 0" class="flex flex-wrap gap-1 mt-2">
-          <span *ngFor="let tag of getVisibleAllergens(i.allergens)"
+        <!-- Menu tag pills -->
+        <div *ngIf="getVisibleTags(i.tags).length > 0" class="flex flex-wrap gap-1 mt-2">
+          <span *ngFor="let tag of getVisibleTags(i.tags)"
                 class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
                 [ngClass]="navState.getTagBadge(tag).colorClasses">
             <span [innerHTML]="navState.getTagBadge(tag).iconSvg"
@@ -293,11 +293,11 @@
         </p>
       </div>
 
-      <!-- Dietary info -->
-      <div *ngIf="getVisibleAllergens(selected_item.allergens).length > 0" class="px-6 pt-4">
-        <h4 class="font-semibold text-sm text-gray-700 mb-2">Dietary Info</h4>
+      <!-- Menu tags -->
+      <div *ngIf="getVisibleTags(selected_item.tags).length > 0" class="px-6 pt-4">
+        <h4 class="font-semibold text-sm text-gray-700 mb-2">Menu tags</h4>
         <div class="flex flex-wrap gap-2">
-          <span *ngFor="let tag of getVisibleAllergens(selected_item.allergens)"
+          <span *ngFor="let tag of getVisibleTags(selected_item.tags)"
                 class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full"
                 [ngClass]="navState.getTagBadge(tag).colorClasses">
             <span [innerHTML]="navState.getTagBadge(tag).iconSvg"

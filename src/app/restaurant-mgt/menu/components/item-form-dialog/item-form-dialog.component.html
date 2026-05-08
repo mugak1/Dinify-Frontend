@@ -126,9 +126,9 @@
             <span class="text-sm text-foreground">Available</span>
           </div>
 
-          <!-- Tags / Allergens -->
+          <!-- Menu tags -->
           <div>
-            <label class="block text-sm font-medium text-foreground mb-1.5">Tags / Allergens</label>
+            <label class="block text-sm font-medium text-foreground mb-1.5">Menu tags</label>
 
             <!-- Preset tag quick-select buttons -->
             <div *ngIf="presetTags$ | async as presetTags" class="flex flex-wrap gap-1.5 mb-2">
@@ -147,12 +147,12 @@
             </div>
 
             <!-- Selected tags display -->
-            <div *ngIf="form.get('allergens')?.value?.length" class="flex flex-wrap gap-1 mb-2">
+            <div *ngIf="form.get('tags')?.value?.length" class="flex flex-wrap gap-1 mb-2">
               <span
-                *ngFor="let tag of form.get('allergens')?.value; let i = index"
+                *ngFor="let tag of form.get('tags')?.value; let i = index"
                 class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer"
                 [ngClass]="getSelectedTagClasses(tag)"
-                (click)="onAllergenRemove(i)"
+                (click)="onTagRemove(i)"
               >
                 {{ tag }} &times;
               </span>
@@ -164,7 +164,7 @@
                    autocorrect="off"
                    placeholder="Add custom tag and press Enter"
                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                   (keydown.enter)="onAllergenAdd(tagInput.value); tagInput.value = ''; $event.preventDefault()" />
+                   (keydown.enter)="onTagAdd(tagInput.value); tagInput.value = ''; $event.preventDefault()" />
           </div>
 
           <!-- Badges -->

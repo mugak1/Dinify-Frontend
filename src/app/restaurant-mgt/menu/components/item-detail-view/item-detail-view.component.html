@@ -87,12 +87,12 @@
       <!-- Description -->
       <p *ngIf="item.description" class="text-muted-foreground">{{ item.description }}</p>
 
-      <!-- Dietary Info -->
-      <div *ngIf="item.allergens?.length">
-        <h4 class="text-sm font-semibold text-muted-foreground mb-2">Dietary Info</h4>
+      <!-- Menu tags -->
+      <div *ngIf="item.tags?.length">
+        <h4 class="text-sm font-semibold text-muted-foreground mb-2">Menu tags</h4>
         <div class="flex flex-wrap gap-2">
           <span
-            *ngFor="let tag of item.allergens | safeArray"
+            *ngFor="let tag of item.tags | safeArray"
             class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border"
             [ngClass]="getTagClasses(tag)"
           >

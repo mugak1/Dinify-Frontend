@@ -185,7 +185,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
     if (this.selectedTags.length > 0) {
       featured = featured.filter(item =>
-        this.selectedTags.some(tag => item.allergens?.includes(tag))
+        this.selectedTags.some(tag => item.tags?.includes(tag))
       );
     }
 
@@ -215,7 +215,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
     if (this.selectedTags.length > 0) {
       items = items.filter(item =>
-        this.selectedTags.some(tag => item.allergens?.includes(tag))
+        this.selectedTags.some(tag => item.tags?.includes(tag))
       );
     }
 
@@ -330,10 +330,10 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     };
   }
 
-  /** Filters out empty/blank allergen entries */
-  getVisibleAllergens(allergens: string[] | null | undefined): string[] {
-    if (!Array.isArray(allergens)) return [];
-    return allergens.filter((a: any) => typeof a === 'string' && a.trim().length > 0);
+  /** Filters out empty/blank tag entries */
+  getVisibleTags(tags: string[] | null | undefined): string[] {
+    if (!Array.isArray(tags)) return [];
+    return tags.filter((t: any) => typeof t === 'string' && t.trim().length > 0);
   }
 
   getDiscountPercent(item: any): number {
