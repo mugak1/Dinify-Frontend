@@ -87,6 +87,18 @@ export class MenuNavStateService {
     this.presetTags().filter((t: any) => t.filterable),
   );
 
+  allItems: Signal<any[]> = computed(() => {
+    const list = this.menuList();
+    if (!list?.length) return [];
+    const out: any[] = [];
+    for (const section of list as any[]) {
+      for (const item of section?.items || []) {
+        out.push(item);
+      }
+    }
+    return out;
+  });
+
   setMenuList(list: any[] | null): void {
     this.menuList.set(list);
   }
@@ -184,6 +196,10 @@ export class MenuNavStateService {
     this.showTagFilter.set(false);
   }
 
+  setTagFilterOpen(open: boolean): void {
+    this.showTagFilter.set(open);
+  }
+
   removeTag(tagName: string): void {
     this.selectedTags.set(this.selectedTags().filter(t => t !== tagName));
     this.filterMenu();
@@ -219,8 +235,8 @@ export class MenuNavStateService {
     this.localSelectedTags.set([]);
   }
 
-  applyTagFilter(): void {
-    this.selectedTags.set([...this.localSelectedTags()]);
+  applyTagFilter(tags: string[]): void {
+    this.selectedTags.set([...tags]);
     this.showTagFilter.set(false);
     this.filterMenu();
   }

@@ -46,7 +46,7 @@ export class TagFilterSheetComponent implements OnChanges {
     }
   }
 
-  clearAll(): void {
+  reset(): void {
     this.localSelectedTags = [];
   }
 
