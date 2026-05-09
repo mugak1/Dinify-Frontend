@@ -128,13 +128,13 @@ export class ApiService {
   if (isFormData) {
     payload = this.toFormData(data);  // Don't reduce or filter FormData input
   } else {
-    // Preserve all values except null and undefined.
-    // The has_false flag kept all entries; without it the old code stripped
-    // legitimate falsey values (false, 0, ""). Now the default behaviour is
-    // safe for falsey values, and has_false is kept for backward compat.
+    // Preserve all values except undefined.
+    // Null is now the canonical "clear this field" signal — the
+    // previously-stripped null behaviour was a workaround for a
+    // Secretary semantic flaw that has been fixed.
     payload = Object.entries(data).reduce(
       (y: { [key: string]: any }, [w, T]) => {
-        if (T !== null && T !== undefined) {
+        if (T !== undefined) {
           y[w] = T;
         }
         return y;
