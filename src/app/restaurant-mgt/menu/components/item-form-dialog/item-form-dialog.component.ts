@@ -406,33 +406,11 @@ export class ItemFormDialogComponent implements OnChanges {
     payload.has_extras = this.itemHasExtras;
     payload.extras_applicable = JSON.stringify(this.itemExtrasApplicable);
 
-    this.addClearSentinels(payload);
-
     this.saved.emit(payload);
   }
 
   onClose(): void {
     this.closed.emit();
-  }
-
-  /**
-   * For each nullable field that was set on the original item but is
-   * null in the outgoing payload, replace the null with a `clear_<field>`
-   * sentinel. ApiService strips null values from JSON payloads
-   * (api.service.ts:137), so the sentinel is the unambiguous "clear me"
-   * signal — same pattern as clear_image. The matching backend handler
-   * lives in restaurants_app/endpoints/restaurant_setup.py.
-   */
-  private addClearSentinels(payload: any): void {
-    const NULLABLE_CLEARABLE = ['calories', 'discounted_price'];
-    for (const field of NULLABLE_CLEARABLE) {
-      const originalValue = (this.item as any)?.[field];
-      const wasSet = originalValue !== null && originalValue !== undefined;
-      if (wasSet && payload[field] === null) {
-        payload[`clear_${field}`] = true;
-        delete payload[field];
-      }
-    }
   }
 
   private buildForm(): void {
