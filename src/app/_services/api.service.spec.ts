@@ -51,12 +51,14 @@ describe('ApiService', () => {
       expect(req.request.body).toEqual({ description: '', name: 'Item' });
     });
 
-    it('should strip null values from payload', () => {
+    it('should preserve null values in payload', () => {
+      // Null is the canonical "clear this field" signal — it must
+      // travel to the backend so Secretary can null the column.
       const data = { name: 'Item', deleted: null };
       service.postPatch('items/', data, 'post').subscribe();
 
       const req = httpMock.expectOne(`${base}/items/`);
-      expect(req.request.body).toEqual({ name: 'Item' });
+      expect(req.request.body).toEqual({ name: 'Item', deleted: null });
     });
 
     it('should strip undefined values from payload', () => {
