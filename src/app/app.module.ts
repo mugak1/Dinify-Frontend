@@ -25,7 +25,6 @@ import { DinerFooterComponent } from './diner-app/diner-footer/diner-footer.comp
 import { MenuNavBarComponent } from './diner-app/menu/menu-nav-bar/menu-nav-bar.component';
 import { DinerHeaderComponent } from './diner-app/diner-header/diner-header.component';
 import { ToastComponent } from './_shared/ui/toast/toast.component';
-import { AllergenDisclaimerComponent } from './_shared/ui/allergen-disclaimer/allergen-disclaimer.component';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -50,8 +49,7 @@ import { AllergenDisclaimerComponent } from './_shared/ui/allergen-disclaimer/al
         DinerFooterComponent,
         MenuNavBarComponent,
         DinerHeaderComponent,
-        ToastComponent,
-        AllergenDisclaimerComponent], providers: [
+        ToastComponent], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),
