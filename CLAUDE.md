@@ -16,10 +16,16 @@ Deployed to Firebase Hosting at dinify-uat.web.app.
 - Phase 0 (Foundation): ✅ Complete
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
 - Phase 2 (Dashboard): ✅ Complete — USE_MOCK_DATA still true in DashboardService
-- Diner App menu redesign: ✅ Complete
+- Diner App menu redesign: ✅ Complete (sticky brand strip, scroll-aware nav
+  pills, quick-add affordance, allergen-safety disclaimer banner)
 - Dashboard responsiveness: ✅ Complete
-- Phase 3 (Tables module): 🔄 In progress — all 11 components built,
-  TablesService uses USE_MOCK_DATA = true, real API wiring deferred
+- Phase 3 (Tables module): 🔄 In progress
+  - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`)
+  - Service View (reservations, waitlist, seated parties): still mock
+    (`USE_MOCK_SERVICE = true`)
+- Menu polish pass: ✅ Complete — canonical `discount_details` shape, native
+  `preset_tags` arrays, paginated menusections/menuitems, allergens rewired
+  onto the `tags` field as the dietary-tag source of truth
 
 ## Deployment Rules — CRITICAL
 - Pushing to main triggers automatic Firebase deployment via GitHub Actions
@@ -45,14 +51,18 @@ The module uses a deliberate mixed pattern — follow it exactly:
 
 ## Shared UI Component Library
 A shared component library lives in `src/app/_shared/ui/`:
-badge, button, card, dialog, sheet, switch, tabs, toast, tooltip
+allergen-disclaimer, badge, button, card, dialog, featured-carousel,
+sheet, switch, tabs, toast, tooltip — plus the `SafeArrayPipe` utility.
 
-Always use these existing components before creating new ones.
-They are all standalone and go in the module `imports` array.
+Re-exports live in `src/app/_shared/ui/index.ts`. Always use these
+existing components before creating new ones. They are all standalone
+and go in the module `imports` array.
 
 ## Angular Rules
 - Always set `outputHashing: "all"` across ALL build configurations
-- Never use lucide-angular — use inline SVGs instead
+- Never use lucide-angular in new code — use inline SVGs instead. (The
+  legacy Platform Admin module `dinify-mgt` still imports it; do not
+  extend that usage.)
 
 ## Styling Rules
 - `overflow-hidden` on layout containers is intentional — matches the
@@ -64,23 +74,52 @@ They are all standalone and go in the module `imports` array.
   - `available`: controls whether the item appears on the menu at all
   - `in_stock`: controls whether the item can be ordered. False = "Sold out" badge
 - These require separate UI controls and separate API calls
+- Dietary tags live on `MenuItem.tags` (allergens were rewired onto this
+  field). There is no separate `allergens` array on the model
+- `discount_details` has a single canonical shape — do NOT introduce
+  `raw_*` mirrors of its fields
+- `preset_tags` is sent to the backend as a native array, never a
+  JSON-stringified array
+- To clear a nullable field on PATCH, send `null` directly. The
+  `clear_<field>` sentinel pattern was removed; `ApiService.postPatch`
+  now preserves `null` end-to-end
 
 ## Mock Data Pattern
-- Both DashboardService and TablesService use `USE_MOCK_DATA = true`
-- Use the same pattern for any new module service
+- DashboardService still uses a single `USE_MOCK_DATA = true` flag
+- TablesService now splits the flag in two:
+  - `USE_MOCK_SETUP = false` — Setup View (areas, tables) is real-wired
+  - `USE_MOCK_SERVICE = true` — Service View (reservations, waitlist,
+    seated parties) is still mock
+- For any new module service, follow the same constant-flag pattern.
+  Split flags by sub-domain when different views go live at different times
 - Dashboard real endpoint: `api/v1/reports/restaurant/dashboard/`
 - Tables real endpoints: reservations, waitlist, table-actions — all exist
-  in the backend already
-- Only flip USE_MOCK_DATA to false when design is finalised and
-  the backend endpoint is confirmed
+  in the backend already and remain to be wired for the Service View
+- Only flip a mock flag to `false` when design is finalised and the
+  backend endpoint is confirmed
 
 ## Known Issues & Deferred Work
-- `ngx-intl-telephone-input` used in 5 templates — do not add new usages
+- `ngx-intl-telephone-input` used across ~8 files (auth, dinify-mgt,
+  _common) — do not add new usages
 - localStorage to httpOnly cookie migration requires backend coordination
 - Login 500 regression still outstanding — parked pending Apache log access
+- Tables Service View still on mock data — real reservations/waitlist
+  endpoints exist but are not yet wired
 
 ## Verification
 Before raising any PR:
-1. Run `ng build` and confirm zero errors
-2. Check for TypeScript errors
-3. Confirm standalone components are in `imports`, not `declarations`
+1. Run `npm run type-check` and confirm zero TypeScript errors
+2. Run `npm run lint` and confirm clean
+3. Run `npm run test:ci` for any module you touched
+4. Run `npm run build:prod` and confirm zero errors
+5. Confirm standalone components are in `imports`, not `declarations`
+
+CI (`.github/workflows/ci.yml`) runs all four (`type-check`, `lint`,
+`test:ci`, `build:prod`) on every PR to `main`. The UAT deploy workflow
+(`deploy-uat.yml`) builds with `--configuration=uat` and pushes to the
+`dinify-uat` Firebase Hosting target on every merge to `main`.
+
+## Available Slash Commands
+- `/lovable-check` — audit a planned UI change against the Lovable
+  prototype before writing code
+- `/update-context` — re-audit the repo and refresh this file
