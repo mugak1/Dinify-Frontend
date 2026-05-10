@@ -104,118 +104,124 @@
         </div>
 
         <!-- Right-side inline actions -->
-        <div class="flex items-center gap-1 flex-shrink-0" (click)="$event.stopPropagation()">
+        <div class="flex flex-wrap items-center justify-end gap-2 md:gap-3 flex-shrink-0" (click)="$event.stopPropagation()">
 
-          <!-- Featured toggle -->
-          <button app-dn-button
-                  variant="ghost"
-                  size="icon"
-                  class="h-8 w-8"
-                  [class.bg-amber-50]="item.is_featured"
-                  [class.hover:bg-amber-100]="item.is_featured"
-                  [class.text-amber-600]="item.is_featured"
-                  [class.text-muted-foreground]="!item.is_featured"
-                  [appTooltip]="item.is_featured ? 'Remove from featured' : 'Mark as Featured'"
-                  (click)="toggleFeatured.emit({ id: item.id, is_featured: !item.is_featured })">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 [class.fill-current]="item.is_featured">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-            </svg>
-          </button>
-
-          <!-- Popular toggle -->
-          <button app-dn-button
-                  variant="ghost"
-                  size="icon"
-                  class="h-8 w-8"
-                  [class.bg-orange-50]="item.is_popular"
-                  [class.hover:bg-orange-100]="item.is_popular"
-                  [class.text-orange-600]="item.is_popular"
-                  [class.text-muted-foreground]="!item.is_popular"
-                  [appTooltip]="item.is_popular ? 'Remove popular badge' : 'Mark as Popular'"
-                  (click)="togglePopular.emit({ id: item.id, is_popular: !item.is_popular })">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 [class.fill-current]="item.is_popular">
-              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
-            </svg>
-          </button>
-
-          <!-- New toggle -->
-          <button app-dn-button
-                  variant="ghost"
-                  size="icon"
-                  class="h-8 w-8"
-                  [class.bg-emerald-50]="item.is_new"
-                  [class.hover:bg-emerald-100]="item.is_new"
-                  [class.text-emerald-600]="item.is_new"
-                  [class.text-muted-foreground]="!item.is_new"
-                  [appTooltip]="item.is_new ? 'Remove New badge' : 'Mark as New'"
-                  (click)="toggleNew.emit({ id: item.id, is_new: !item.is_new })">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 [class.fill-current]="item.is_new">
-              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-              <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
-            </svg>
-          </button>
-
-          <!-- Stock status dropdown -->
-          <div class="relative">
+          <!-- Group A: Badge toggles (featured / popular / new) -->
+          <div class="flex items-center gap-1 rounded-xl bg-muted/30 p-1">
+            <!-- Featured toggle -->
             <button app-dn-button
-                    [variant]="inStock ? 'outline' : 'destructive'"
-                    size="default"
-                    class="h-8 gap-1.5 text-xs"
-                    [appTooltip]="inStock ? 'In stock' : 'Out of stock'"
-                    (click)="onStockButtonClick($event)">
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8"
+                    [class.bg-amber-50]="item.is_featured"
+                    [class.hover:bg-amber-100]="item.is_featured"
+                    [class.text-amber-600]="item.is_featured"
+                    [class.text-muted-foreground]="!item.is_featured"
+                    [appTooltip]="item.is_featured ? 'Remove from featured' : 'Mark as Featured'"
+                    (click)="toggleFeatured.emit({ id: item.id, is_featured: !item.is_featured })">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16.5 9.4 7.55 4.24"/>
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                <path d="m3.3 7 8.7 5 8.7-5"/>
-                <path d="M12 22V12"/>
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   [class.fill-current]="item.is_featured">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
-              <span class="hidden lg:inline">{{ inStock ? 'In stock' : 'Out' }}</span>
             </button>
-            <div *ngIf="showStockMenu"
-                 class="absolute right-0 top-full mt-1 z-20 w-40 bg-card border border-border rounded-md shadow-lg py-1">
-              <button type="button"
-                      class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent"
-                      (click)="setStock(true)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="none"
+
+            <!-- Popular toggle -->
+            <button app-dn-button
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8"
+                    [class.bg-orange-50]="item.is_popular"
+                    [class.hover:bg-orange-100]="item.is_popular"
+                    [class.text-orange-600]="item.is_popular"
+                    [class.text-muted-foreground]="!item.is_popular"
+                    [appTooltip]="item.is_popular ? 'Remove popular badge' : 'Mark as Popular'"
+                    (click)="togglePopular.emit({ id: item.id, is_popular: !item.is_popular })">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   [class.fill-current]="item.is_popular">
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+              </svg>
+            </button>
+
+            <!-- New toggle -->
+            <button app-dn-button
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8"
+                    [class.bg-emerald-50]="item.is_new"
+                    [class.hover:bg-emerald-100]="item.is_new"
+                    [class.text-emerald-600]="item.is_new"
+                    [class.text-muted-foreground]="!item.is_new"
+                    [appTooltip]="item.is_new ? 'Remove New badge' : 'Mark as New'"
+                    (click)="toggleNew.emit({ id: item.id, is_new: !item.is_new })">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   [class.fill-current]="item.is_new">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Group B: Stock + availability -->
+          <div class="flex items-center gap-1.5">
+            <!-- Stock status dropdown -->
+            <div class="relative">
+              <button app-dn-button
+                      [variant]="inStock ? 'outline' : 'destructive'"
+                      size="default"
+                      class="h-8 gap-1.5 text-xs"
+                      [appTooltip]="inStock ? 'In stock' : 'Out of stock'"
+                      (click)="onStockButtonClick($event)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M16.5 9.4 7.55 4.24"/>
                   <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
                   <path d="m3.3 7 8.7 5 8.7-5"/>
                   <path d="M12 22V12"/>
                 </svg>
-                In stock
+                <span class="hidden lg:inline">{{ inStock ? 'In stock' : 'Out' }}</span>
               </button>
-              <button type="button"
-                      class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent"
-                      (click)="setStock(false)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-destructive" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                  <path d="m7.5 4.27 9 5.15"/>
-                  <path d="m3.3 7 8.7 5 8.7-5"/>
-                  <path d="M12 22V12"/>
-                  <path d="m17 13 5 5m-5 0 5-5"/>
-                </svg>
-                Out of stock
-              </button>
+              <div *ngIf="showStockMenu"
+                   class="absolute right-0 top-full mt-1 z-20 w-40 bg-card border border-border rounded-md shadow-lg py-1">
+                <button type="button"
+                        class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent"
+                        (click)="setStock(true)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16.5 9.4 7.55 4.24"/>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <path d="m3.3 7 8.7 5 8.7-5"/>
+                    <path d="M12 22V12"/>
+                  </svg>
+                  In stock
+                </button>
+                <button type="button"
+                        class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent"
+                        (click)="setStock(false)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-destructive" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <path d="m7.5 4.27 9 5.15"/>
+                    <path d="m3.3 7 8.7 5 8.7-5"/>
+                    <path d="M12 22V12"/>
+                    <path d="m17 13 5 5m-5 0 5-5"/>
+                  </svg>
+                  Out of stock
+                </button>
+              </div>
             </div>
+
+            <!-- Availability switch -->
+            <app-dn-switch
+              [checked]="item.available"
+              (checkedChange)="toggleAvailability.emit({ id: item.id, available: $event })">
+            </app-dn-switch>
           </div>
 
-          <!-- Availability switch -->
-          <app-dn-switch
-            [checked]="item.available"
-            (checkedChange)="toggleAvailability.emit({ id: item.id, available: $event })">
-          </app-dn-switch>
-
-          <!-- Edit + Delete (hover-reveal on desktop, always visible on mobile) -->
-          <div class="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity duration-150">
+          <!-- Group C: Edit + Delete (always visible) -->
+          <div class="flex items-center gap-1">
             <!-- Edit -->
             <button app-dn-button variant="ghost" size="icon" class="h-8 w-8"
                     [appTooltip]="'Edit item'"
