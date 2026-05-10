@@ -24,7 +24,7 @@ import { CommonChartModule } from '../_common/common-chart/common-chart.module';
 import { TablesComponent } from './tables/tables.component';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { RestProfileComponent } from './settings/rest-profile/rest-profile.component';
-import { MenuDesignComponent } from './settings/menu-design/menu-design.component';
+import { BrandingComponent } from './settings/branding/branding.component';
 import { OrdersComponent } from './orders/orders.component';
 import { ReportsComponent } from './reports/reports.component';
 import { ReportDetailComponent } from './report-detail/report-detail.component';
@@ -61,7 +61,7 @@ const routes: Routes = [
   {path:'settings',component:SettingsComponent,title:'Settings',children:[
     {path: "", redirectTo: "rest-users", pathMatch: "full"},
     {path:'restaurant-profile',component:RestProfileComponent},
-    {path:'menu-design',component:MenuDesignComponent},
+    {path:'branding',component:BrandingComponent},
     {path:'rest-users',component:RestUsersComponent,title:'Users'},
     {path:'billing',component:BillingComponent,title:'Billing'},
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing'}
@@ -87,7 +87,7 @@ const routes: Routes = [
     SettingsComponent,
     MenuComponent,
     RestProfileComponent,
-    MenuDesignComponent,
+    BrandingComponent,
     OrdersComponent,
     ReportsComponent,
     ReportDetailComponent,
