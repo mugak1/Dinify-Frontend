@@ -16,9 +16,9 @@ import {
   getMenuItemCardImagePath,
   getMenuItemDetailImagePath,
 } from 'src/app/_shared/utils/image-utils';
+import { ImagePreloader } from 'src/app/_shared/utils/image-preloader';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
-import { MenuImagePreloadService } from './menu-image-preload.service';
 
 @Component({
     selector: 'app-diners-menu',
@@ -52,6 +52,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   isFormValidFlag: boolean=true;
   editingBasketIndex: number | null = null;
   isEditMode = false;
+  private imagePreloader = new ImagePreloader();
 
   constructor(
     private sessionStorage: SessionStorageService,
@@ -60,7 +61,6 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     private router: Router,
     private fb: FormBuilder,
     public navState: MenuNavStateService,
-    private preloadService: MenuImagePreloadService,
   ) {
   // Seed currentSection reactively whenever the menu loads (or reloads after
   // ngOnDestroy clears it). Self-healing: if currentSection ever falls back
@@ -78,11 +78,11 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     );
   });
   // When a category pill is tapped, MenuNavBarComponent sets
-  // pendingClickTarget alongside kicking off the smooth-scroll. We push that
-  // section's first card images to the front of the shared preload queue so
-  // they paint from cache by the time the scroll arrives. Already-completed
-  // and in-flight URLs are skipped inside the service; the per-image fade
-  // fallback covers anything that doesn't make it in time.
+  // pendingClickTarget alongside kicking off the smooth-scroll. We promote
+  // that section's first card images ahead of the staged background pass
+  // so they paint from cache by the time the scroll lands. Already-done
+  // and in-flight URLs are skipped inside the preloader; the per-image
+  // fade fallback covers anything that doesn't make it in time.
   effect(() => {
     const target = this.navState.pendingClickTarget();
     if (!target) return;
@@ -215,12 +215,11 @@ get QuantitySum(){
         }
         // If the user tapped a basket item, re-open the detail modal pre-populated
         this.checkEditMode();
-        // Keep the skeleton visible until every item image has been preloaded
-        // into the browser cache, so the reveal paints with no pop-in. A 5s
-        // timeout caps the wait in case a CDN stalls.
-        this.preloadImages(this.menu_list).then(() => {
-          this.navState.setLoading(false);
-        });
+        // Staged preload: race the above-the-fold cards against a short
+        // timeout, reveal the menu, then keep preloading the rest quietly
+        // in the background. Slow networks no longer block the reveal on
+        // every image — only on what the diner actually sees first.
+        this.runStagedImagePreload(this.menu_list);
       },
       error: () => {
         this.navState.setLoading(false);
@@ -229,49 +228,100 @@ get QuantitySum(){
   }
 
   /**
-   * Preloads every item image in the menu into the browser cache via the
-   * shared preload queue. Resolves when all requested URLs have fired load
-   * or error, or after 5s — whichever comes first. Broken images never
-   * block; a missing image list short-circuits. The queue is FIFO, so URLs
-   * enter in document order; pill clicks promote target-section URLs to
-   * the front via prioritizeSectionPreload().
+   * Staged image preload for slower mobile networks:
+   *   1. Race the above-the-fold cards (featured carousel + first section, capped
+   *      at CRITICAL_BUDGET) against a short timeout. Reveal the menu as soon
+   *      as the critical set finishes or the timeout fires.
+   *   2. Quietly preload the remaining card images in the background with low
+   *      concurrency so they paint instantly once scrolled into view.
+   *
+   * The shared preloader instance deduplicates across both stages so the
+   * background pass never re-requests a critical image that's still in flight.
+   * When a category pill is tapped, prioritizeSectionPreload() promotes that
+   * section's first card images ahead of the background queue.
    */
-  private preloadImages(menuSections: any[]): Promise<void> {
-    const imageUrls: string[] = [];
-    for (const section of menuSections || []) {
+  private runStagedImagePreload(menuSections: any[]): void {
+    const criticalUrls = this.collectCriticalCardUrls(menuSections);
+    const allUrls = this.collectAllCardUrls(menuSections);
+
+    this.imagePreloader
+      .preload(criticalUrls, { concurrency: 4, timeoutMs: 1800 })
+      .then(() => {
+        this.navState.setLoading(false);
+        // Fire-and-forget: the remaining images load with low concurrency
+        // so they don't compete with in-viewport interactions.
+        this.imagePreloader.preloadBackground(allUrls, 3);
+      });
+  }
+
+  /**
+   * URLs that should be preloaded before the menu reveals — featured carousel
+   * items plus the first visible section, deduplicated by item id and capped
+   * at CRITICAL_BUDGET items. Falls back to the first N items overall when no
+   * featured/first-section data exists.
+   */
+  private collectCriticalCardUrls(menuSections: any[]): string[] {
+    const CRITICAL_BUDGET = 10;
+    const FEATURED_BUDGET = 6;
+
+    if (!menuSections?.length) return [];
+
+    const featured: any[] = [];
+    for (const section of menuSections) {
       for (const item of section?.items || []) {
-        const cardPath = getMenuItemCardImagePath(item);
-        if (cardPath) {
-          imageUrls.push(this.url + cardPath);
-        }
+        if (item?.is_featured) featured.push(item);
+        if (featured.length >= FEATURED_BUDGET) break;
+      }
+      if (featured.length >= FEATURED_BUDGET) break;
+    }
+
+    const firstSectionItems: any[] = menuSections[0]?.items || [];
+
+    const seenIds = new Set<string>();
+    const critical: any[] = [];
+    for (const item of [...featured, ...firstSectionItems]) {
+      if (!item || (item.id && seenIds.has(item.id))) continue;
+      if (item.id) seenIds.add(item.id);
+      critical.push(item);
+      if (critical.length >= CRITICAL_BUDGET) break;
+    }
+
+    return this.itemsToCardUrls(critical);
+  }
+
+  /** Every card URL across every section — used for the background pass. */
+  private collectAllCardUrls(menuSections: any[]): string[] {
+    if (!menuSections?.length) return [];
+    const all: any[] = [];
+    for (const section of menuSections) {
+      for (const item of section?.items || []) {
+        all.push(item);
       }
     }
+    return this.itemsToCardUrls(all);
+  }
 
-    if (imageUrls.length === 0) {
-      return Promise.resolve();
+  private itemsToCardUrls(items: any[]): string[] {
+    const urls: string[] = [];
+    for (const item of items) {
+      const path = getMenuItemCardImagePath(item);
+      if (path) urls.push(this.url + path);
     }
-
-    const imagePromises = imageUrls.map(url => this.preloadService.request(url));
-    const timeout = new Promise<void>(resolve => setTimeout(resolve, 5000));
-    return Promise.race([Promise.all(imagePromises).then(() => {}), timeout]);
+    return urls;
   }
 
   /**
    * Resolves a clicked pill's section id (underscored section name, or the
    * sentinel `Featured`) to its items, then promotes the first card images
-   * to the front of the preload queue. Capped at 8 — the user typically
+   * ahead of the staged background pass. Capped at 8 — the user typically
    * sees ~2–4 cards above the fold; the extra slack covers the first
    * upward scroll without flooding the queue.
    */
   private prioritizeSectionPreload(sectionId: string): void {
     const items = this.findSectionItems(sectionId);
     if (!items.length) return;
-    const urls: string[] = [];
-    for (const item of items.slice(0, 8)) {
-      const path = getMenuItemCardImagePath(item);
-      if (path) urls.push(this.url + path);
-    }
-    if (urls.length) this.preloadService.prioritize(urls);
+    const urls = this.itemsToCardUrls(items.slice(0, 8));
+    if (urls.length) this.imagePreloader.prioritize(urls);
   }
 
   private findSectionItems(sectionId: string): any[] {
@@ -542,6 +592,10 @@ removeUnderscore(x:string){
   getCardImageUrl(item: MenuItem | any): string | null {
     const path = getMenuItemCardImagePath(item);
     return path ? this.url + path : null;
+  }
+  getCardImgClass(item: MenuItem | any): string {
+    const base = 'w-full h-full object-cover transition-[transform,opacity] duration-300';
+    return this.isOutOfStock(item) ? base : `${base} group-hover:scale-105`;
   }
   getDetailImageUrl(item: MenuItem | any): string | null {
     const path = getMenuItemDetailImagePath(item);
