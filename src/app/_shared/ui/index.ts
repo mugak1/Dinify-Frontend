@@ -9,3 +9,4 @@ export { ToastComponent } from './toast/toast.component';
 export { ToastService } from './toast/toast.service';
 export { SafeArrayPipe } from './safe-array.pipe';
 export { AllergenDisclaimerComponent } from './allergen-disclaimer/allergen-disclaimer.component';
+export { ImageWithSkeletonComponent } from './image-with-skeleton/image-with-skeleton.component';

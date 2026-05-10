@@ -506,6 +506,10 @@ removeUnderscore(x:string){
     const path = getMenuItemCardImagePath(item);
     return path ? this.url + path : null;
   }
+  getCardImgClass(item: MenuItem | any): string {
+    const base = 'w-full h-full object-cover transition-[transform,opacity] duration-300';
+    return this.isOutOfStock(item) ? base : `${base} group-hover:scale-105`;
+  }
   getDetailImageUrl(item: MenuItem | any): string | null {
     const path = getMenuItemDetailImagePath(item);
     return path ? this.url + path : null;
