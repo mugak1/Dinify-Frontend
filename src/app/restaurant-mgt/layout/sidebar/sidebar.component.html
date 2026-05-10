@@ -1,5 +1,5 @@
 <!-- Wrapper div: relative for toggle button positioning -->
-<div class="relative flex-none fixed lg:relative inset-y-0 left-0 z-50"
+<div class="group relative flex-none fixed lg:relative inset-y-0 left-0 z-50"
      [ngClass]="{ 'hidden lg:block': !isOpen }">
 
   <aside class="bg-sidebar text-sidebar-foreground flex flex-col h-full transition-all duration-300 border-r border-sidebar-border"
@@ -114,7 +114,7 @@
 
   <!-- Toggle button: OUTSIDE aside, INSIDE wrapper -->
   <button (click)="sidebarToggle.emit()"
-          class="absolute top-5 -right-3 z-10 bg-white ring-1 ring-black/10 rounded-full w-6 h-6 hover:bg-gray-50 text-sidebar-foreground shadow-lg hidden lg:flex items-center justify-center">
+          class="absolute top-5 -right-3 z-10 bg-white ring-1 ring-black/5 rounded-full w-6 h-6 hover:bg-gray-50 text-sidebar-foreground/70 hover:text-sidebar-foreground shadow-sm hidden lg:flex items-center justify-center opacity-50 hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path [attr.d]="isOpen ? 'm11 17-5-5 5-5' : 'm6 17 5-5-5-5'"/>
       <path [attr.d]="isOpen ? 'm18 17-5-5 5-5' : 'm13 17 5-5-5-5'"/>
