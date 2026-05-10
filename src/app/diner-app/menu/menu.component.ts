@@ -18,6 +18,7 @@ import {
 } from 'src/app/_shared/utils/image-utils';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
+import { MenuImagePreloadService } from './menu-image-preload.service';
 
 @Component({
     selector: 'app-diners-menu',
@@ -59,6 +60,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     private router: Router,
     private fb: FormBuilder,
     public navState: MenuNavStateService,
+    private preloadService: MenuImagePreloadService,
   ) {
   // Seed currentSection reactively whenever the menu loads (or reloads after
   // ngOnDestroy clears it). Self-healing: if currentSection ever falls back
@@ -74,6 +76,17 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     this.navState.setCurrentSection(
       this.navState.featuredItems().length > 0 ? 'Featured' : (firstSectionName ?? ''),
     );
+  });
+  // When a category pill is tapped, MenuNavBarComponent sets
+  // pendingClickTarget alongside kicking off the smooth-scroll. We push that
+  // section's first card images to the front of the shared preload queue so
+  // they paint from cache by the time the scroll arrives. Already-completed
+  // and in-flight URLs are skipped inside the service; the per-image fade
+  // fallback covers anything that doesn't make it in time.
+  effect(() => {
+    const target = this.navState.pendingClickTarget();
+    if (!target) return;
+    this.prioritizeSectionPreload(target);
   });
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   this.navState.setPresetTags(this.restaurant?.preset_tags || []);
@@ -216,9 +229,12 @@ get QuantitySum(){
   }
 
   /**
-   * Preloads every item image in the menu into the browser cache.
-   * Resolves when all images have fired load or error, or after 5s — whichever
-   * comes first. Broken images never block; a missing image list short-circuits.
+   * Preloads every item image in the menu into the browser cache via the
+   * shared preload queue. Resolves when all requested URLs have fired load
+   * or error, or after 5s — whichever comes first. Broken images never
+   * block; a missing image list short-circuits. The queue is FIFO, so URLs
+   * enter in document order; pill clicks promote target-section URLs to
+   * the front via prioritizeSectionPreload().
    */
   private preloadImages(menuSections: any[]): Promise<void> {
     const imageUrls: string[] = [];
@@ -235,17 +251,38 @@ get QuantitySum(){
       return Promise.resolve();
     }
 
-    const imagePromises = imageUrls.map(url =>
-      new Promise<void>(resolve => {
-        const img = new Image();
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-        img.src = url;
-      })
-    );
-
+    const imagePromises = imageUrls.map(url => this.preloadService.request(url));
     const timeout = new Promise<void>(resolve => setTimeout(resolve, 5000));
     return Promise.race([Promise.all(imagePromises).then(() => {}), timeout]);
+  }
+
+  /**
+   * Resolves a clicked pill's section id (underscored section name, or the
+   * sentinel `Featured`) to its items, then promotes the first card images
+   * to the front of the preload queue. Capped at 8 — the user typically
+   * sees ~2–4 cards above the fold; the extra slack covers the first
+   * upward scroll without flooding the queue.
+   */
+  private prioritizeSectionPreload(sectionId: string): void {
+    const items = this.findSectionItems(sectionId);
+    if (!items.length) return;
+    const urls: string[] = [];
+    for (const item of items.slice(0, 8)) {
+      const path = getMenuItemCardImagePath(item);
+      if (path) urls.push(this.url + path);
+    }
+    if (urls.length) this.preloadService.prioritize(urls);
+  }
+
+  private findSectionItems(sectionId: string): any[] {
+    if (sectionId === 'Featured') return this.navState.featuredItems();
+    const sections = this.navState.filteredMenuList() || this.menu_list || [];
+    for (const section of sections as any[]) {
+      if (this.addUnderScore(section?.name || '') === sectionId) {
+        return section?.items || [];
+      }
+    }
+    return [];
   }
 
   /**
