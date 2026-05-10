@@ -1,11 +1,11 @@
-<div class="rounded-none p-3 md:p-4 bg-card shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+<div class="group rounded-2xl border border-border p-4 md:p-6 bg-card shadow-sm hover:shadow-md hover:border-border/80 transition-all duration-200 cursor-pointer"
      [class.opacity-60]="(!item.available || item.in_stock === false) && !selectionMode"
      [class.ring-2]="isSelected"
      [class.ring-primary]="isSelected"
      [class.bg-primary/5]="isSelected"
      (click)="onCardClick()">
 
-  <div class="flex gap-3 md:gap-4">
+  <div class="flex gap-4 md:gap-5">
 
     <!-- Selection checkbox -->
     <div *ngIf="selectionMode"
@@ -36,7 +36,7 @@
     </div>
 
     <!-- Thumbnail -->
-    <div class="w-16 h-16 md:w-24 md:h-24 rounded-none bg-muted flex-shrink-0 overflow-hidden">
+    <div class="w-20 h-20 md:w-28 md:h-28 rounded-xl bg-muted flex-shrink-0 overflow-hidden">
       <img *ngIf="imageUrl"
            [src]="imageUrl"
            [alt]="item.name"
@@ -52,7 +52,7 @@
     <div class="flex-1 min-w-0">
 
       <!-- Row 1: Name + badges + action buttons -->
-      <div class="flex items-start justify-between gap-2 mb-1">
+      <div class="flex items-start justify-between gap-2 mb-2">
 
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
@@ -100,7 +100,7 @@
           </div>
 
           <p *ngIf="item.description"
-             class="text-sm text-muted-foreground line-clamp-2 mt-0.5">{{ item.description }}</p>
+             class="text-sm text-muted-foreground line-clamp-2 mt-1">{{ item.description }}</p>
         </div>
 
         <!-- Right-side inline actions -->
@@ -108,12 +108,12 @@
 
           <!-- Featured toggle -->
           <button app-dn-button
-                  [variant]="item.is_featured ? 'default' : 'ghost'"
+                  variant="ghost"
                   size="icon"
                   class="h-8 w-8"
-                  [class.bg-amber-500]="item.is_featured"
-                  [class.hover:bg-amber-600]="item.is_featured"
-                  [class.text-white]="item.is_featured"
+                  [class.bg-amber-50]="item.is_featured"
+                  [class.hover:bg-amber-100]="item.is_featured"
+                  [class.text-amber-600]="item.is_featured"
                   [class.text-muted-foreground]="!item.is_featured"
                   [appTooltip]="item.is_featured ? 'Remove from featured' : 'Mark as Featured'"
                   (click)="toggleFeatured.emit({ id: item.id, is_featured: !item.is_featured })">
@@ -126,12 +126,12 @@
 
           <!-- Popular toggle -->
           <button app-dn-button
-                  [variant]="item.is_popular ? 'default' : 'ghost'"
+                  variant="ghost"
                   size="icon"
                   class="h-8 w-8"
-                  [class.bg-orange-500]="item.is_popular"
-                  [class.hover:bg-orange-600]="item.is_popular"
-                  [class.text-white]="item.is_popular"
+                  [class.bg-orange-50]="item.is_popular"
+                  [class.hover:bg-orange-100]="item.is_popular"
+                  [class.text-orange-600]="item.is_popular"
                   [class.text-muted-foreground]="!item.is_popular"
                   [appTooltip]="item.is_popular ? 'Remove popular badge' : 'Mark as Popular'"
                   (click)="togglePopular.emit({ id: item.id, is_popular: !item.is_popular })">
@@ -144,12 +144,12 @@
 
           <!-- New toggle -->
           <button app-dn-button
-                  [variant]="item.is_new ? 'default' : 'ghost'"
+                  variant="ghost"
                   size="icon"
                   class="h-8 w-8"
-                  [class.bg-green-500]="item.is_new"
-                  [class.hover:bg-green-600]="item.is_new"
-                  [class.text-white]="item.is_new"
+                  [class.bg-emerald-50]="item.is_new"
+                  [class.hover:bg-emerald-100]="item.is_new"
+                  [class.text-emerald-600]="item.is_new"
                   [class.text-muted-foreground]="!item.is_new"
                   [appTooltip]="item.is_new ? 'Remove New badge' : 'Mark as New'"
                   (click)="toggleNew.emit({ id: item.id, is_new: !item.is_new })">
@@ -208,40 +208,43 @@
             </div>
           </div>
 
-          <!-- Edit -->
-          <button app-dn-button variant="ghost" size="icon" class="h-8 w-8"
-                  [appTooltip]="'Edit item'"
-                  (click)="edit.emit()">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
-              <path d="m15 5 4 4"/>
-            </svg>
-          </button>
-
           <!-- Availability switch -->
           <app-dn-switch
             [checked]="item.available"
             (checkedChange)="toggleAvailability.emit({ id: item.id, available: $event })">
           </app-dn-switch>
 
-          <!-- Delete -->
-          <button app-dn-button variant="ghost" size="icon" class="h-8 w-8 text-destructive"
-                  [appTooltip]="'Delete item'"
-                  (click)="delete.emit()">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-              <line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>
-            </svg>
-          </button>
+          <!-- Edit + Delete (hover-reveal on desktop, always visible on mobile) -->
+          <div class="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity duration-150">
+            <!-- Edit -->
+            <button app-dn-button variant="ghost" size="icon" class="h-8 w-8"
+                    [appTooltip]="'Edit item'"
+                    (click)="edit.emit()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+                <path d="m15 5 4 4"/>
+              </svg>
+            </button>
+
+            <!-- Delete -->
+            <button app-dn-button variant="ghost" size="icon" class="h-8 w-8 text-destructive"
+                    [appTooltip]="'Delete item'"
+                    (click)="delete.emit()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                <line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Row 2: Price -->
-      <div class="flex items-center gap-2 mt-1">
-        <span class="text-base md:text-lg font-bold text-primary">
+      <div class="flex items-center gap-2 mt-2">
+        <span class="text-lg md:text-xl font-bold text-primary">
           UGX {{ item.primary_price | number }}
         </span>
       </div>
