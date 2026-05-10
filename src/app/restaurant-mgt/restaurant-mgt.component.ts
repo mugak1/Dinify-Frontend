@@ -17,6 +17,7 @@ export class RestaurantMgtComponent {
   sidebarOpen = false;
   isChildComponent = false;
   has_tables = false;
+  isMenuRoute = false;
   baseUrl = environment.apiUrl;
 
   constructor(
@@ -45,8 +46,11 @@ export class RestaurantMgtComponent {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe(() => {
         this.has_tables = this.router.url.includes('tables');
+        this.isMenuRoute = /\/menu(\/|\?|$)/.test(this.router.url);
         this.cdr.detectChanges();
       });
+
+    this.isMenuRoute = /\/menu(\/|\?|$)/.test(this.router.url);
   }
 
   logout(): void {
