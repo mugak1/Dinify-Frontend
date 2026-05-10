@@ -193,6 +193,9 @@ describe('ImagePreloader', () => {
       await new Promise(r => setTimeout(r, 5));
       expect(fake.requested).toContain('p');
       expect(fake.requested).not.toContain('b');
+      // Drain pending loads so the leftover background lane doesn't fire
+      // `new Image()` into the next test's fake.
+      await new Promise(r => setTimeout(r, 100));
     } finally {
       fake.restore();
     }
