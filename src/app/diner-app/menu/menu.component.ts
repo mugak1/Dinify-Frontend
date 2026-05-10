@@ -12,6 +12,10 @@ import {
   calculateSavings,
   getDiscountBadgeText,
 } from 'src/app/_shared/utils/price-utils';
+import {
+  getMenuItemCardImagePath,
+  getMenuItemDetailImagePath,
+} from 'src/app/_shared/utils/image-utils';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
 
@@ -220,8 +224,9 @@ get QuantitySum(){
     const imageUrls: string[] = [];
     for (const section of menuSections || []) {
       for (const item of section?.items || []) {
-        if (item?.image) {
-          imageUrls.push(this.url + item.image);
+        const cardPath = getMenuItemCardImagePath(item);
+        if (cardPath) {
+          imageUrls.push(this.url + cardPath);
         }
       }
     }
@@ -496,6 +501,14 @@ removeUnderscore(x:string){
   }
   isOutOfStock(item: any): boolean {
     return item.in_stock === false;
+  }
+  getCardImageUrl(item: MenuItem | any): string | null {
+    const path = getMenuItemCardImagePath(item);
+    return path ? this.url + path : null;
+  }
+  getDetailImageUrl(item: MenuItem | any): string | null {
+    const path = getMenuItemDetailImagePath(item);
+    return path ? this.url + path : null;
   }
   getDiscountBadge(item: any): string {
     if (!item?.running_discount) return '';
