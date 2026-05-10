@@ -1,8 +1,8 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Observable, forkJoin } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, Subject, forkJoin } from 'rxjs';
+import { map, takeUntil } from 'rxjs/operators';
 
 import { MenuService, SortMode } from '../../services/menu.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
@@ -19,7 +19,7 @@ import { BulkStockBarComponent } from '../bulk-stock-bar/bulk-stock-bar.componen
   templateUrl: './item-list.component.html',
   host: { class: 'flex-1 flex flex-col overflow-hidden min-w-0' }
 })
-export class ItemListComponent {
+export class ItemListComponent implements OnInit, OnDestroy {
 
   @Output() editItem = new EventEmitter<MenuItem>();
   @Output() deleteItem = new EventEmitter<MenuItem>();
@@ -36,6 +36,10 @@ export class ItemListComponent {
   selectionMode = false;
   selectedItemIds = new Set<string>();
 
+  itemReorderMode = false;
+
+  private readonly destroy$ = new Subject<void>();
+
   constructor(
     private menuService: MenuService,
     private auth: AuthenticationService,
@@ -51,6 +55,32 @@ export class ItemListComponent {
         regular: items.filter((i) => !i.is_featured),
       }))
     );
+  }
+
+  ngOnInit(): void {
+    // Reorder mode only makes sense in manual sort. If the user switches to
+    // another sort, silently leave reorder mode.
+    this.sortMode$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((mode) => {
+        if (mode !== 'manual' && this.itemReorderMode) {
+          this.itemReorderMode = false;
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  toggleReorderMode(): void {
+    this.itemReorderMode = !this.itemReorderMode;
+    if (this.itemReorderMode) {
+      // Reorder and selection are mutually exclusive.
+      this.selectionMode = false;
+      this.selectedItemIds.clear();
+    }
   }
 
   onDrop(event: CdkDragDrop<MenuItem[]>): void {
@@ -134,7 +164,10 @@ export class ItemListComponent {
 
   toggleSelectionMode(): void {
     this.selectionMode = !this.selectionMode;
-    if (!this.selectionMode) {
+    if (this.selectionMode) {
+      // Reorder and selection are mutually exclusive.
+      this.itemReorderMode = false;
+    } else {
       this.selectedItemIds.clear();
     }
   }
