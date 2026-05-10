@@ -10,6 +10,7 @@ import { DinifyMgtComponent } from './dinify-mgt/dinify-mgt.component';
 import { DinerAppComponent } from './diner-app/diner-app.component';
 import { LoginComponent } from './auth/login/login.component';
 import { AuthInterceptor } from './_helpers/auth.interceptor';
+import { CacheControlInterceptor } from './_helpers/cache-control.interceptor';
 import { ErrorInterceptor } from './_helpers/error.interceptor';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RegisterComponent } from './auth/register/register.component';
@@ -49,6 +50,7 @@ import { ToastComponent } from './_shared/ui/toast/toast.component';
         MenuNavBarComponent,
         ToastComponent], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+        { provide: HTTP_INTERCEPTORS, useClass: CacheControlInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),
     ] })
