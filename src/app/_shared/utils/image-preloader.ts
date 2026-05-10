@@ -9,10 +9,14 @@
  *      the critical set is already cached.
  *   2. A fire-and-forget `preloadBackground()` for the remaining cards, kicked
  *      off after the menu reveals.
+ *   3. `prioritize()` for URLs that need to jump ahead of the background pass,
+ *      e.g. when the diner taps a category pill — drained by a small pool of
+ *      dedicated lanes alongside the background workers so the target images
+ *      start downloading immediately even if the FIFO background queue has
+ *      not reached them yet.
  *
- * Both stages share `done` / `inFlight` sets so the background pass never
- * re-requests an image the critical pass already started, and re-entry into
- * `preload()` (e.g. for a re-loaded menu) is cheap.
+ * All three paths share `done` / `inFlight` sets so a follow-up request never
+ * re-fetches an image another path already started.
  */
 export interface ImagePreloadOptions {
   /** Maximum images fetched in parallel. Clamped to >= 1. */
@@ -26,8 +30,12 @@ export interface ImagePreloadOptions {
 }
 
 export class ImagePreloader {
+  private static readonly MAX_PRIORITY_LANES = 4;
+
   private readonly done = new Set<string>();
   private readonly inFlight = new Set<string>();
+  private readonly priorityQueue: string[] = [];
+  private priorityLanes = 0;
 
   /**
    * Preloads the supplied URLs with limited concurrency, resolving when all
@@ -53,6 +61,43 @@ export class ImagePreloader {
     const queue = this.dedupe(urls);
     if (queue.length === 0) return;
     void this.runWithConcurrency(queue, concurrency);
+  }
+
+  /**
+   * Promote `urls` ahead of any background work. URLs land at the front of
+   * a class-level priority queue (preserving the supplied order — `urls[0]`
+   * ends up first) and a small pool of dedicated lanes drains it alongside
+   * any in-flight `preloadBackground()` workers, so the target images start
+   * downloading immediately.
+   *
+   * URLs already completed or already in flight are skipped — their browser
+   * priority can't be changed retroactively, so the caller should fall back
+   * to per-image fade/skeleton for any that don't make it in time. Repeated
+   * calls merge into the same queue, with the most recent call's URLs at
+   * the very front.
+   */
+  prioritize(urls: string[]): void {
+    if (!urls?.length) return;
+    const seen = new Set(this.priorityQueue);
+    for (let i = urls.length - 1; i >= 0; i--) {
+      const url = urls[i];
+      if (!url) continue;
+      if (this.done.has(url) || this.inFlight.has(url)) continue;
+      if (seen.has(url)) {
+        const idx = this.priorityQueue.indexOf(url);
+        if (idx >= 0) this.priorityQueue.splice(idx, 1);
+      } else {
+        seen.add(url);
+      }
+      this.priorityQueue.unshift(url);
+    }
+    while (
+      this.priorityLanes < ImagePreloader.MAX_PRIORITY_LANES &&
+      this.priorityQueue.length > 0
+    ) {
+      this.priorityLanes++;
+      void this.priorityWorker();
+    }
   }
 
   /** Visible for tests. */
@@ -100,6 +145,33 @@ export class ImagePreloader {
         const finish = (): void => {
           this.inFlight.delete(url);
           this.done.add(url);
+          pump();
+        };
+        img.onload = finish;
+        img.onerror = finish;
+        img.src = url;
+      };
+      pump();
+    });
+  }
+
+  private priorityWorker(): Promise<void> {
+    return new Promise<void>(resolve => {
+      const pump = (): void => {
+        let url: string | undefined;
+        while ((url = this.priorityQueue.shift()) !== undefined) {
+          if (!this.done.has(url) && !this.inFlight.has(url)) break;
+        }
+        if (!url) {
+          this.priorityLanes--;
+          resolve();
+          return;
+        }
+        this.inFlight.add(url);
+        const img = new Image();
+        const finish = (): void => {
+          this.inFlight.delete(url!);
+          this.done.add(url!);
           pump();
         };
         img.onload = finish;

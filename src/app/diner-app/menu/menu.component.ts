@@ -77,6 +77,17 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
       this.navState.featuredItems().length > 0 ? 'Featured' : (firstSectionName ?? ''),
     );
   });
+  // When a category pill is tapped, MenuNavBarComponent sets
+  // pendingClickTarget alongside kicking off the smooth-scroll. We promote
+  // that section's first card images ahead of the staged background pass
+  // so they paint from cache by the time the scroll lands. Already-done
+  // and in-flight URLs are skipped inside the preloader; the per-image
+  // fade fallback covers anything that doesn't make it in time.
+  effect(() => {
+    const target = this.navState.pendingClickTarget();
+    if (!target) return;
+    this.prioritizeSectionPreload(target);
+  });
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   this.navState.setPresetTags(this.restaurant?.preset_tags || []);
   this.udpateCart();
@@ -226,6 +237,8 @@ get QuantitySum(){
    *
    * The shared preloader instance deduplicates across both stages so the
    * background pass never re-requests a critical image that's still in flight.
+   * When a category pill is tapped, prioritizeSectionPreload() promotes that
+   * section's first card images ahead of the background queue.
    */
   private runStagedImagePreload(menuSections: any[]): void {
     const criticalUrls = this.collectCriticalCardUrls(menuSections);
@@ -295,6 +308,31 @@ get QuantitySum(){
       if (path) urls.push(this.url + path);
     }
     return urls;
+  }
+
+  /**
+   * Resolves a clicked pill's section id (underscored section name, or the
+   * sentinel `Featured`) to its items, then promotes the first card images
+   * ahead of the staged background pass. Capped at 8 — the user typically
+   * sees ~2–4 cards above the fold; the extra slack covers the first
+   * upward scroll without flooding the queue.
+   */
+  private prioritizeSectionPreload(sectionId: string): void {
+    const items = this.findSectionItems(sectionId);
+    if (!items.length) return;
+    const urls = this.itemsToCardUrls(items.slice(0, 8));
+    if (urls.length) this.imagePreloader.prioritize(urls);
+  }
+
+  private findSectionItems(sectionId: string): any[] {
+    if (sectionId === 'Featured') return this.navState.featuredItems();
+    const sections = this.navState.filteredMenuList() || this.menu_list || [];
+    for (const section of sections as any[]) {
+      if (this.addUnderScore(section?.name || '') === sectionId) {
+        return section?.items || [];
+      }
+    }
+    return [];
   }
 
   /**

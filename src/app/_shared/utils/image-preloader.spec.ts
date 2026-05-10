@@ -144,4 +144,101 @@ describe('ImagePreloader', () => {
       fake.restore();
     }
   });
+
+  it('prioritize() loads URLs with no background pass running', async () => {
+    const fake = installFakeImage({ delayMs: 0 });
+    try {
+      const preloader = new ImagePreloader();
+      preloader.prioritize(['x', 'y']);
+      await new Promise(r => setTimeout(r, 20));
+      expect(fake.requested.sort()).toEqual(['x', 'y']);
+      expect(preloader.isPreloaded('x')).toBe(true);
+      expect(preloader.isPreloaded('y')).toBe(true);
+    } finally {
+      fake.restore();
+    }
+  });
+
+  it('prioritize() does not re-request URLs already in flight from preloadBackground', async () => {
+    const fake = installFakeImage({ delayMs: 30 });
+    try {
+      const preloader = new ImagePreloader();
+      preloader.preloadBackground(['a', 'b', 'c'], 3);
+      // Let the background lanes start their loads.
+      await new Promise(r => setTimeout(r, 0));
+      preloader.prioritize(['a', 'd']);
+      await new Promise(r => setTimeout(r, 60));
+      const counts = fake.requested.reduce<Record<string, number>>((acc, u) => {
+        acc[u] = (acc[u] ?? 0) + 1;
+        return acc;
+      }, {});
+      expect(counts['a']).toBe(1);
+      expect(counts['d']).toBe(1);
+    } finally {
+      fake.restore();
+    }
+  });
+
+  it('prioritize() runs alongside a saturated background pass', async () => {
+    const fake = installFakeImage({ delayMs: 30 });
+    try {
+      const preloader = new ImagePreloader();
+      // Concurrency 1 → 'a' starts loading, 'b' sits in the background queue.
+      preloader.preloadBackground(['a', 'b'], 1);
+      await new Promise(r => setTimeout(r, 0));
+      preloader.prioritize(['p']);
+      // The priority lane is dedicated, so 'p' starts immediately rather
+      // than waiting for 'a' to finish — verify it is requested before
+      // 'a' has had time to complete.
+      await new Promise(r => setTimeout(r, 5));
+      expect(fake.requested).toContain('p');
+      expect(fake.requested).not.toContain('b');
+      // Drain pending loads so the leftover background lane doesn't fire
+      // `new Image()` into the next test's fake.
+      await new Promise(r => setTimeout(r, 100));
+    } finally {
+      fake.restore();
+    }
+  });
+
+  it('prioritize() dedupes repeated calls', async () => {
+    const fake = installFakeImage({ delayMs: 5 });
+    try {
+      const preloader = new ImagePreloader();
+      preloader.prioritize(['a', 'b']);
+      preloader.prioritize(['a', 'b']);
+      await new Promise(r => setTimeout(r, 30));
+      expect(fake.requested.sort()).toEqual(['a', 'b']);
+    } finally {
+      fake.restore();
+    }
+  });
+
+  it('prioritize() respects its lane cap', async () => {
+    const fake = installFakeImage({ delayMs: 20 });
+    try {
+      const preloader = new ImagePreloader();
+      preloader.prioritize(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+      await new Promise(r => setTimeout(r, 5));
+      expect(fake.getPeakInFlight()).toBeLessThanOrEqual(4);
+      await new Promise(r => setTimeout(r, 60));
+      expect(fake.requested.sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+    } finally {
+      fake.restore();
+    }
+  });
+
+  it('prioritize() skips already-preloaded URLs', async () => {
+    const fake = installFakeImage({ delayMs: 0 });
+    try {
+      const preloader = new ImagePreloader();
+      await preloader.preload(['a'], { concurrency: 1 });
+      const before = fake.requested.length;
+      preloader.prioritize(['a', 'b']);
+      await new Promise(r => setTimeout(r, 20));
+      expect(fake.requested.slice(before).sort()).toEqual(['b']);
+    } finally {
+      fake.restore();
+    }
+  });
 });
