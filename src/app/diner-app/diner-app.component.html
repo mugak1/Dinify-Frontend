@@ -1,14 +1,7 @@
 <app-no-table *ngIf="!table"></app-no-table>
 <div *ngIf="table" class="min-h-screen flex flex-col">
-  <app-diner-header #dinerHeader
-    [brandingConfigs]="branding_configs"
-    [restaurantName]="restaurant_name"
-    [logoUrl]="logo ? url + '/media/' + logo : null"
-    [coverPhotoUrl]="coverPhoto ? url + '/media/' + coverPhoto : null">
-  </app-diner-header>
-
   <div #brandStrip
-       class="brand-strip fixed inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2 opacity-0 pointer-events-none transition-opacity duration-150"
+       class="brand-strip fixed inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2"
        [style.background-color]="brandStripBgColor"
        [style.color]="brandStripTextColor">
     <img *ngIf="logo"
