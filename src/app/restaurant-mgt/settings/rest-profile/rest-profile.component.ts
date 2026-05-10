@@ -39,7 +39,6 @@ export class RestProfileComponent {
       name:['',Validators.required],
       location:['',Validators.required],
       logo:['',Validators.required],
-      cover_photo:[''],
       status:['',Validators.required],
       require_order_prepayments:[false],
       expose_order_ratings:[false],

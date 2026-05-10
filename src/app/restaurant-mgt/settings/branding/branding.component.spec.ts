@@ -3,15 +3,15 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { MenuDesignComponent } from './menu-design.component';
+import { BrandingComponent } from './branding.component';
 
-describe('MenuDesignComponent', () => {
-  let component: MenuDesignComponent;
-  let fixture: ComponentFixture<MenuDesignComponent>;
+describe('BrandingComponent', () => {
+  let component: BrandingComponent;
+  let fixture: ComponentFixture<BrandingComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [MenuDesignComponent],
+      declarations: [BrandingComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -21,7 +21,7 @@ describe('MenuDesignComponent', () => {
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(MenuDesignComponent);
+    fixture = TestBed.createComponent(BrandingComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

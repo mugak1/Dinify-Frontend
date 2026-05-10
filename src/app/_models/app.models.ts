@@ -74,7 +74,6 @@ export interface RestaurantList {
   location: string
   logo: string
   status:string
-  cover_photo: any
   owner:User
 }
 export interface User {
@@ -238,7 +237,6 @@ export interface RestaurantDetail {
   name: string
   location: string
   logo: string
-  cover_photo: string
   status: string
   require_order_prepayments: boolean
   expose_order_ratings: boolean
@@ -263,7 +261,6 @@ export interface Restaurant {
   id: string
   name: string
   logo: string
-  cover_photo: any
   menu_approval_status:any
   branding_configuration: BrandingConfiguration
   preset_tags?: any[]
@@ -274,10 +271,7 @@ export interface BrandingConfiguration {
 }
 
 export interface Home {
-  header_style: 'cover' | 'solid' | 'minimal'
   brand_color: string
-  logo_display: 'logo_only' | 'name_only' | 'logo_and_name'
-  tagline: string
 }
 export interface Item {
   id: string
