@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { environment } from 'src/environments/environment';
 import { getCurrentPrice, getDiscountBadgeText } from 'src/app/_shared/utils/price-utils';
+import { getMenuItemCardImagePath } from 'src/app/_shared/utils/image-utils';
 import { MenuItem } from 'src/app/_models/app.models';
 
 @Component({
@@ -34,6 +35,11 @@ export class FeaturedCarouselComponent {
 
   getDisplayPrice(item: any): number {
     return getCurrentPrice(item as MenuItem);
+  }
+
+  getCardImageUrl(item: any): string | null {
+    const path = getMenuItemCardImagePath(item);
+    return path ? this.imageBaseUrl + path : null;
   }
 
   onCardTap(item: any): void {
