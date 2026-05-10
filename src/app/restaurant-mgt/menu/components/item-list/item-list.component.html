@@ -1,16 +1,28 @@
 <div class="flex-1 flex flex-col overflow-hidden bg-neutral-50">
 
-  <!-- Selection toolbar -->
+  <!-- Selection / reorder toolbar -->
   <div class="flex items-center justify-between gap-3 px-5 md:px-6 pt-5">
     <p class="text-sm text-muted-foreground">
-      {{ selectionMode ? 'Tap items to select' : 'Manage your menu items' }}
+      {{ selectionMode ? 'Tap items to select'
+         : itemReorderMode ? 'Drag items to reorder'
+         : 'Manage your menu items' }}
     </p>
-    <button app-dn-button
-            [variant]="selectionMode ? 'default' : 'outline'"
-            size="default"
-            (click)="toggleSelectionMode()">
-      {{ selectionMode ? 'Done selecting' : 'Select items' }}
-    </button>
+    <div class="flex items-center gap-2">
+      <button app-dn-button
+              *ngIf="(sortMode$ | async) === 'manual' && !selectionMode"
+              [variant]="itemReorderMode ? 'default' : 'outline'"
+              size="default"
+              (click)="toggleReorderMode()">
+        {{ itemReorderMode ? 'Done reordering' : 'Reorder' }}
+      </button>
+      <button app-dn-button
+              *ngIf="!itemReorderMode"
+              [variant]="selectionMode ? 'default' : 'outline'"
+              size="default"
+              (click)="toggleSelectionMode()">
+        {{ selectionMode ? 'Done selecting' : 'Select items' }}
+      </button>
+    </div>
   </div>
 
   <div class="flex-1 px-5 md:px-6 py-5 overflow-y-auto">
@@ -88,13 +100,13 @@
         <!-- Vertical list with drag-drop -->
         <div *ngIf="items.length > 0"
              cdkDropList
-             [cdkDropListDisabled]="selectionMode || (sortMode$ | async) !== 'manual'"
+             [cdkDropListDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'"
              (cdkDropListDropped)="onDrop($event)"
              class="space-y-4"
              [class.pb-20]="selectedItemIds.size > 0">
 
-          <!-- Drag helper text (manual sort mode only) -->
-          <p *ngIf="(sortMode$ | async) === 'manual' && !selectionMode"
+          <!-- Drag helper text (reorder mode only) -->
+          <p *ngIf="itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual'"
              class="text-sm text-muted-foreground">
             Drag items by the handle to change the order.
           </p>
@@ -111,10 +123,10 @@
                 Featured
               </div>
               <div *ngFor="let item of grouped.featured; trackBy: trackById"
-                   cdkDrag [cdkDragDisabled]="selectionMode || (sortMode$ | async) !== 'manual'">
+                   cdkDrag [cdkDragDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'">
                 <app-item-card
                   [item]="item"
-                  [showDragHandle]="!selectionMode && (sortMode$ | async) === 'manual'"
+                  [showDragHandle]="itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual'"
                   [selectionMode]="selectionMode"
                   [isSelected]="isItemSelected(item.id)"
                   (edit)="editItem.emit(item)"
@@ -137,10 +149,10 @@
 
             <!-- Regular items -->
             <div *ngFor="let item of grouped.regular; trackBy: trackById"
-                 cdkDrag [cdkDragDisabled]="selectionMode || (sortMode$ | async) !== 'manual'">
+                 cdkDrag [cdkDragDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'">
               <app-item-card
                 [item]="item"
-                [showDragHandle]="!selectionMode && (sortMode$ | async) === 'manual'"
+                [showDragHandle]="itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual'"
                 [selectionMode]="selectionMode"
                 [isSelected]="isItemSelected(item.id)"
                 (edit)="editItem.emit(item)"
