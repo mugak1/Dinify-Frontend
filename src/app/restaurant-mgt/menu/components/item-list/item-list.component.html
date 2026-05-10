@@ -1,19 +1,22 @@
-<div class="flex-1 flex flex-col overflow-hidden">
+<div class="flex-1 flex flex-col overflow-hidden bg-neutral-50">
 
   <!-- Selection toolbar -->
-  <div class="flex items-center justify-end gap-2 px-4 pt-4">
+  <div class="flex items-center justify-between gap-3 px-5 md:px-6 pt-5">
+    <p class="text-sm text-muted-foreground">
+      {{ selectionMode ? 'Tap items to select' : 'Manage your menu items' }}
+    </p>
     <button app-dn-button
             [variant]="selectionMode ? 'default' : 'outline'"
             size="default"
             (click)="toggleSelectionMode()">
-      {{ selectionMode ? 'Done' : 'Select' }}
+      {{ selectionMode ? 'Done selecting' : 'Select items' }}
     </button>
   </div>
 
-  <div class="flex-1 p-4 overflow-y-auto">
+  <div class="flex-1 px-5 md:px-6 py-5 overflow-y-auto">
 
     <!-- Loading state -->
-    <div *ngIf="isLoading$ | async" class="space-y-3">
+    <div *ngIf="isLoading$ | async" class="space-y-4">
       <div *ngFor="let s of skeletons"
            class="border rounded-lg p-3 md:p-4 bg-card">
         <div class="flex gap-3 md:gap-4">
@@ -87,7 +90,7 @@
              cdkDropList
              [cdkDropListDisabled]="selectionMode || (sortMode$ | async) !== 'manual'"
              (cdkDropListDropped)="onDrop($event)"
-             class="space-y-3"
+             class="space-y-4"
              [class.pb-20]="selectedItemIds.size > 0">
 
           <!-- Drag helper text (manual sort mode only) -->
