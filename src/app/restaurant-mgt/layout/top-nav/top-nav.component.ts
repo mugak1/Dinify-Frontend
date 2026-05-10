@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -23,6 +23,7 @@ interface DateRangeOption {
 export class TopNavComponent implements OnInit, OnDestroy {
   @Output() menuClick = new EventEmitter<void>();
   @Output() logoutClick = new EventEmitter<void>();
+  @Input() compact = false;
 
   baseUrl = environment.apiUrl;
 
