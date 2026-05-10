@@ -1,4 +1,4 @@
-<aside class="hidden md:flex flex-col w-72 min-w-[288px] border-r border-border bg-card h-full">
+<aside class="hidden md:flex flex-col w-80 min-w-[320px] border-r border-border bg-card h-full">
 
   <!-- Header -->
   <div class="p-5 flex items-center justify-between">
@@ -31,16 +31,16 @@
     <div cdkDropList
          [cdkDropListDisabled]="!reorderMode"
          (cdkDropListDropped)="onDrop($event)"
-         class="space-y-2">
+         class="space-y-2.5">
 
       <ng-container *ngIf="{ sections: sections$ | async, selectedId: selectedSectionId$ | async } as vm">
         <div *ngFor="let section of vm.sections; trackBy: trackById"
              cdkDrag
              [cdkDragDisabled]="!reorderMode"
-             class="p-3 rounded-lg border-2 transition-all cursor-pointer"
+             class="group p-3.5 rounded-2xl border transition-all cursor-pointer"
              [ngClass]="{
-               'border-primary shadow-sm': vm.selectedId === section.id,
-               'border-border hover:border-primary/50': vm.selectedId !== section.id,
+               'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20': vm.selectedId === section.id,
+               'border-border hover:bg-muted/50': vm.selectedId !== section.id,
                'opacity-50 grayscale': !section.available
              }"
              (click)="onSelect(section.id)">
@@ -78,18 +78,23 @@
                 [checked]="section.available"
                 (checkedChange)="onToggleAvailability(section.id, $event)">
               </app-dn-switch>
-              <!-- Pencil icon -->
-              <button app-dn-button variant="ghost" size="icon"
-                      class="h-8 w-8"
-                      (click)="editSection.emit(section.id)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
-              </button>
-              <!-- Trash icon -->
-              <button app-dn-button variant="ghost" size="icon"
-                      class="h-8 w-8 text-destructive"
-                      (click)="deleteSection.emit(section.id)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-              </button>
+              <!-- Edit + Delete (hover-reveal on desktop, always visible on mobile) -->
+              <div class="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity duration-150">
+                <!-- Pencil icon -->
+                <button app-dn-button variant="ghost" size="icon"
+                        class="h-8 w-8"
+                        [appTooltip]="'Edit section'"
+                        (click)="editSection.emit(section.id)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                </button>
+                <!-- Trash icon -->
+                <button app-dn-button variant="ghost" size="icon"
+                        class="h-8 w-8 text-destructive"
+                        [appTooltip]="'Delete section'"
+                        (click)="deleteSection.emit(section.id)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
