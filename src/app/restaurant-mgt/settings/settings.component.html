@@ -12,6 +12,13 @@
             <span [ngClass]="{'text-d-red':restusersla?.isActive}" class="my-auto">Users</span>
         </a>
 
+        <a class="flex flex-row" [routerLink]="['preset-tags']" routerLinkActive="active" #presettagsla="routerLinkActive">
+            <svg class="h-7 w-7 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path attr.fill="{{presettagsla.isActive?'#FF2C32':'black'}}" d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42L12.586 2.586zM4 4h7.172l8.704 8.704a.426.426 0 0 1 0 .603l-6.579 6.579a.426.426 0 0 1-.603 0L4 11.172V4zm3.5 4.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
+            </svg>
+            <span [ngClass]="{'text-d-red':presettagsla?.isActive}" class="my-auto">Preset Tags</span>
+        </a>
+
         <a class="flex flex-row" [routerLink]="['branding']" routerLinkActive="active" #brandingla="routerLinkActive">
             <svg class="h-7 w-7 mr-2" viewBox="0 0 32 32">
                 <g>

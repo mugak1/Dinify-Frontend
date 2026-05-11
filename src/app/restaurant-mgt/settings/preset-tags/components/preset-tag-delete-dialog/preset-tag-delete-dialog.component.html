@@ -1,0 +1,55 @@
+<app-dn-dialog [open]="open" maxWidth="sm" (closed)="onCancel()">
+  @if (tag) {
+    <div class="space-y-3">
+      <div class="flex items-start gap-2">
+        @if (isAllergenInUse) {
+          <span class="text-amber-500 mt-0.5" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          </span>
+        }
+        <h3
+          class="text-base font-semibold"
+          [class.text-red-700]="isAllergenInUse"
+          [class.text-gray-900]="!isAllergenInUse"
+        >{{ title }}</h3>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-500">Tag:</span>
+        <app-tag-pill
+          [name]="tag.name"
+          [icon]="tag.icon"
+          [colour]="tag.colour"
+          size="sm"
+        ></app-tag-pill>
+      </div>
+
+      @if (isUnused) {
+        <p class="text-sm text-gray-700">
+          This tag isn't currently on any menu items. Deleting it removes it from your catalog.
+        </p>
+      } @else if (isAllergenInUse) {
+        <p class="text-sm text-red-700">
+          This allergen is currently flagged on <strong>{{ usageCount }}</strong> item{{ usageCount === 1 ? '' : 's' }}. Deleting it will remove the safety warning from those items, which could mislead diners with allergies.
+        </p>
+      } @else {
+        <p class="text-sm text-gray-700">
+          This tag is currently on <strong>{{ usageCount }}</strong> item{{ usageCount === 1 ? '' : 's' }}. They'll keep their other tags but lose this one.
+        </p>
+      }
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+        <button
+          type="button"
+          class="px-3 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          (click)="onCancel()"
+        >Cancel</button>
+        <button
+          type="button"
+          [class]="'px-3 py-2 text-sm rounded text-white ' + (isAllergenInUse ? 'bg-red-700 hover:bg-red-800' : 'bg-d-red hover:bg-red-800')"
+          (click)="onConfirm()"
+        >Delete tag</button>
+      </div>
+    </div>
+  }
+</app-dn-dialog>
