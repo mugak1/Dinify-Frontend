@@ -18,6 +18,7 @@ import { MenuNavBarComponent } from './menu/menu-nav-bar/menu-nav-bar.component'
 import { FeaturedCarouselComponent } from '../_shared/ui/featured-carousel/featured-carousel.component';
 import { TagFilterSheetComponent } from '../restaurant-mgt/menu/components/tag-filter-sheet/tag-filter-sheet.component';
 import { TagPillComponent } from '../_shared/tags/tag-pill.component';
+import { TagOverflowPillComponent } from '../_shared/tags/tag-overflow-pill.component';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
@@ -54,7 +55,8 @@ const routes: Routes = [
     MenuNavBarComponent,
     FeaturedCarouselComponent,
     TagFilterSheetComponent,
-    TagPillComponent
+    TagPillComponent,
+    TagOverflowPillComponent
 ],
   exports:[
     RouterModule,

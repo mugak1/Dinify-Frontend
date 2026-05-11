@@ -41,6 +41,8 @@ import { ScrollSpyCommonDirective } from 'src/app/_common/scroll-spy-common.dire
 import { FeaturedCarouselComponent } from 'src/app/_shared/ui/featured-carousel/featured-carousel.component';
 import { AllergenDisclaimerComponent } from 'src/app/_shared/ui/allergen-disclaimer/allergen-disclaimer.component';
 import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
+import { TagOverflowPillComponent } from 'src/app/_shared/tags/tag-overflow-pill.component';
+import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
 import { MenuItemTagRef } from 'src/app/_models/app.models';
 
 type DrawerView = 'list' | 'detail' | 'cart';
@@ -61,6 +63,7 @@ type DrawerView = 'list' | 'detail' | 'cart';
     FeaturedCarouselComponent,
     AllergenDisclaimerComponent,
     TagPillComponent,
+    TagOverflowPillComponent,
   ],
   templateUrl: './preview-menu-drawer.component.html',
 })
@@ -348,6 +351,13 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
         return null;
       })
       .filter((t): t is MenuItemTagRef => t !== null);
+  }
+
+  /** Per-card tag truncation that mirrors the diner card exactly:
+   *  allergens always visible (safety-critical), non-allergens capped at
+   *  2 with a "+N" indicator. The detail view renders every tag. */
+  getCardTags(tags: MenuItemTagRef[] | any[] | null | undefined): TagCardSplit<MenuItemTagRef> {
+    return splitTagsForCard(this.getVisibleTags(tags));
   }
 
   getDiscountPercent(item: any): number {
