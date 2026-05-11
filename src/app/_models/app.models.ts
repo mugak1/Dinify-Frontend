@@ -131,7 +131,6 @@ export interface MenuItem {
   discounted_price: string | null;
   running_discount: boolean;
   image: string | null;
-  image_thumbnail?: string | null;
   section: string;
   group: MenuItemGroup | null;
   available: boolean;
