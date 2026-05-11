@@ -1,0 +1,159 @@
+<div class="w-full bg-white rounded shadow">
+  <div class="px-4 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+    <div>
+      <h2 class="text-lg font-semibold text-gray-900">Preset Tags</h2>
+      <p class="text-sm text-gray-500 mt-1">
+        Manage the tags that diners see on your menu items.
+      </p>
+    </div>
+    <button
+      type="button"
+      (click)="openAdd()"
+      class="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded px-3 py-2"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      Add tag
+    </button>
+  </div>
+
+  <!-- Loading -->
+  @if (loadState === 'loading') {
+    <ul class="divide-y divide-gray-100">
+      @for (i of [0,1,2,3,4]; track i) {
+        <li class="px-4 py-3 flex items-center gap-3 animate-pulse">
+          <div class="h-5 w-5 bg-gray-200 rounded"></div>
+          <div class="h-6 w-32 bg-gray-200 rounded-full"></div>
+          <div class="h-5 w-20 bg-gray-200 rounded ml-auto"></div>
+          <div class="h-5 w-10 bg-gray-200 rounded"></div>
+        </li>
+      }
+    </ul>
+  }
+
+  <!-- Error -->
+  @if (loadState === 'error') {
+    <div class="px-4 py-10 text-center">
+      <p class="text-sm text-gray-700">Couldn't load your tags.</p>
+      <button
+        type="button"
+        (click)="retry()"
+        class="mt-3 inline-flex items-center text-sm font-medium text-d-red hover:underline"
+      >
+        Try again
+      </button>
+    </div>
+  }
+
+  <!-- Ready: empty -->
+  @if (loadState === 'ready' && tags.length === 0) {
+    <div class="px-4 py-10 text-center">
+      <p class="text-sm text-gray-700">No tags yet.</p>
+      <p class="text-xs text-gray-500 mt-1">
+        Add your first tag to start categorising your menu.
+      </p>
+      <button
+        type="button"
+        (click)="openAdd()"
+        class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-white bg-d-red hover:bg-red-800 rounded px-3 py-2"
+      >
+        + Add your first tag
+      </button>
+    </div>
+  }
+
+  <!-- Ready: list -->
+  @if (loadState === 'ready' && tags.length > 0) {
+    <ul
+      cdkDropList
+      (cdkDropListDropped)="onDrop($event)"
+      class="divide-y divide-gray-100"
+    >
+      @for (tag of tags; track trackById($index, tag)) {
+        <li
+          cdkDrag
+          [cdkDragData]="tag"
+          class="px-4 py-3 flex items-center gap-3 bg-white"
+        >
+          <!-- Drag handle -->
+          <button
+            type="button"
+            cdkDragHandle
+            class="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+            aria-label="Drag to reorder"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </button>
+
+          <!-- Pill -->
+          <app-tag-pill
+            [name]="tag.name"
+            [icon]="tag.icon"
+            [colour]="tag.colour"
+            size="sm"
+          ></app-tag-pill>
+
+          <!-- System preset marker -->
+          @if (tag.is_system_preset) {
+            <span class="text-[11px] text-gray-400">Default</span>
+          }
+
+          <!-- Category -->
+          <span
+            class="ml-2 text-[11px] font-medium rounded-full px-2 py-0.5"
+            [class]="categoryBadgeClass(tag.category)"
+          >
+            {{ categoryLabel(tag.category) }}
+          </span>
+
+          <!-- Filterable toggle -->
+          <label class="ml-auto inline-flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              class="h-4 w-4 accent-d-red"
+              [checked]="tag.filterable"
+              (change)="toggleFilterable(tag)"
+            />
+            Filterable
+          </label>
+
+          <!-- Edit -->
+          <button
+            type="button"
+            (click)="openEdit(tag)"
+            class="text-gray-500 hover:text-gray-900 p-1 rounded"
+            aria-label="Edit tag"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+
+          <!-- Delete -->
+          <button
+            type="button"
+            (click)="openDelete(tag)"
+            class="text-gray-500 hover:text-d-red p-1 rounded"
+            aria-label="Delete tag"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+<app-preset-tag-form-dialog
+  [open]="formOpen"
+  [tag]="editingTag"
+  [existingTags]="tags"
+  [saving]="saving"
+  (closed)="onFormClosed()"
+  (save)="onFormSaved($event)"
+></app-preset-tag-form-dialog>
+
+<app-preset-tag-delete-dialog
+  [open]="deleteOpen"
+  [tag]="tagPendingDelete"
+  [usageCount]="tagPendingDeleteCount"
+  (cancelled)="onDeleteCancelled()"
+  (confirmed)="onDeleteConfirmed()"
+></app-preset-tag-delete-dialog>

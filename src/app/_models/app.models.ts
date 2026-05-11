@@ -815,6 +815,23 @@ export interface GroupedTableAreas {
   isCollapsed:boolean
 }
 
+export interface RestaurantTag {
+  id: string;
+  name: string;
+  category: 'allergen' | 'dietary' | 'descriptor';
+  icon: string | null;
+  colour: string;
+  filterable: boolean;
+  display_order: number;
+  is_system_preset: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RestaurantTagUsageCount {
+  count: number;
+}
+
 export interface UpsellConfig {
   id: string;
   enabled: boolean;

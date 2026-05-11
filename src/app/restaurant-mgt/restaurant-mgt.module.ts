@@ -54,6 +54,7 @@ import { UpsellCarouselComponent } from './menu/components/upsell-carousel/upsel
 import { PreviewMenuDrawerComponent } from './menu/components/preview-menu-drawer/preview-menu-drawer.component';
 import { DialogComponent } from '../_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from '../_shared/ui/button/button.component';
+import { PresetTagsComponent } from './settings/preset-tags/preset-tags.component';
 
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
@@ -63,6 +64,7 @@ const routes: Routes = [
     {path:'restaurant-profile',component:RestProfileComponent},
     {path:'branding',component:BrandingComponent},
     {path:'rest-users',component:RestUsersComponent,title:'Users'},
+    {path:'preset-tags',component:PresetTagsComponent,title:'Preset Tags'},
     {path:'billing',component:BillingComponent,title:'Billing'},
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing'}
   ]},
@@ -144,6 +146,7 @@ const routes: Routes = [
     DialogComponent,
     ButtonComponent,
     TablesComponent,
+    PresetTagsComponent,
 ],
   exports:[
     RouterModule
