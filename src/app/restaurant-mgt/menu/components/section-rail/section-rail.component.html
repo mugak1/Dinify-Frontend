@@ -69,7 +69,7 @@
                       [class.bg-muted-foreground]="!isSectionActive(section)"></span>
               </div>
               <p class="text-sm text-muted-foreground">
-                {{ section.item_count || 0 }} Item{{ section.item_count === 1 ? '' : 's' }}
+                <span class="text-red-600 font-semibold">{{ section.item_count || 0 }}</span> Item{{ section.item_count === 1 ? '' : 's' }}
               </p>
             </div>
 
