@@ -16,7 +16,6 @@ import { NgxCurrencyDirective } from 'ngx-currency';
 import { ErrorPageComponent } from "./error-page/error-page.component";
 import { MenuNavBarComponent } from './menu/menu-nav-bar/menu-nav-bar.component';
 import { FeaturedCarouselComponent } from '../_shared/ui/featured-carousel/featured-carousel.component';
-import { ImageWithSkeletonComponent } from '../_shared/ui/image-with-skeleton/image-with-skeleton.component';
 import { TagFilterSheetComponent } from '../restaurant-mgt/menu/components/tag-filter-sheet/tag-filter-sheet.component';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
@@ -53,7 +52,6 @@ const routes: Routes = [
     BasketBodyComponent,
     MenuNavBarComponent,
     FeaturedCarouselComponent,
-    ImageWithSkeletonComponent,
     TagFilterSheetComponent
 ],
   exports:[

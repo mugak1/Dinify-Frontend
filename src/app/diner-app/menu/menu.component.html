@@ -119,17 +119,8 @@
       </div>
 
       <!-- RIGHT: Image with badge overlays -->
-      <div class="w-[112px] h-[112px] rounded-none overflow-hidden flex-shrink-0 relative bg-gray-100"
+      <div class="w-[112px] h-[112px] rounded-none overflow-hidden flex-shrink-0 relative"
            [class.grayscale]="isOutOfStock(i)">
-
-        <!-- Per-image skeleton + fade-in + neutral error placeholder. Sits
-             behind the absolutely-positioned badges/quick-add overlay so the
-             plus button and badges stay visible regardless of image state. -->
-        <app-image-with-skeleton
-          [src]="getCardImageUrl(i)"
-          [alt]="i.name"
-          [imgClass]="getCardImgClass(i)">
-        </app-image-with-skeleton>
 
         <!-- Badge overlays (top-left stack) -->
         <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
@@ -162,6 +153,16 @@
             New
           </span>
         </div>
+
+        <!-- Eager native <img>: images are preloaded before the menu reveals,
+             so this paints from cache immediately without any lazy delay.
+             Uses the lighter thumbnail when the backend supplies one. -->
+        <img *ngIf="getCardImageUrl(i) as cardImageUrl"
+             [src]="cardImageUrl"
+             [alt]="i.name"
+             class="w-full h-full object-cover transition-transform duration-300"
+             [ngClass]="{ 'group-hover:scale-105': !isOutOfStock(i) }"
+             decoding="async" />
 
         <!-- Quick-add affordance: decorative-only "+" indicating tappability.
              Clicks bubble to the parent card's viewItem handler. -->
