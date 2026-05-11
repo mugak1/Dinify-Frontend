@@ -83,8 +83,8 @@
         <!-- Discount badge inline (only when not sold out) -->
         <span *ngIf="i?.running_discount && !isOutOfStock(i)"
               class="inline-flex items-center self-start bg-black text-white text-xs font-medium px-2 py-0.5 rounded-full mt-1">
-          -{{ calculateDiscount(i) }}%
-          <span class="ml-1 text-gray-400">Save UGX {{ priceSaved(i) | number }}</span>
+          {{ calculateDiscount(i) }}% off
+          <span class="ml-1 text-gray-400">· Save UGX {{ priceSaved(i) | number }}</span>
         </span>
 
         <!-- Description -->
@@ -122,19 +122,9 @@
       <div class="w-[112px] h-[112px] rounded-none overflow-hidden flex-shrink-0 relative"
            [class.grayscale]="isOutOfStock(i)">
 
-        <!-- Badge overlays (top-left stack) -->
+        <!-- Badge overlay (single-badge policy: Popular > New; Featured suppressed on cards) -->
         <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
-          <!-- Featured badge -->
-          <span *ngIf="i?.is_featured && !isOutOfStock(i)"
-                class="bg-amber-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
-            ★ Featured
-          </span>
-          <!-- Discount % badge -->
-          <span *ngIf="i?.running_discount && !isOutOfStock(i)"
-                class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-            {{ getDiscountBadge(i) }}
-          </span>
-          <!-- Popular badge -->
+          <!-- Popular badge (takes priority over New) -->
           <span *ngIf="i?.is_popular && !isOutOfStock(i)"
                 class="bg-orange-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
@@ -143,8 +133,8 @@
             </svg>
             Popular
           </span>
-          <!-- New badge -->
-          <span *ngIf="i?.is_new && !isOutOfStock(i)"
+          <!-- New badge (only when not Popular) -->
+          <span *ngIf="i?.is_new && !i?.is_popular && !isOutOfStock(i)"
                 class="bg-green-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

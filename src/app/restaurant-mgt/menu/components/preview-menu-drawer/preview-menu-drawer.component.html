@@ -520,8 +520,8 @@
       </div>
       @if (hasActiveDiscount(item) && !isOutOfStock(item)) {
         <span class="inline-flex items-center self-start bg-black text-white text-xs font-medium px-2 py-0.5 rounded-full mt-1">
-          -{{ getDiscountPercent(item) }}%
-          <span class="ml-1 text-gray-400">Save {{ formatPrice(getItemSavingsFromItem(item)) }}</span>
+          {{ getDiscountPercent(item) }}% off
+          <span class="ml-1 text-gray-400">· Save {{ formatPrice(getItemSavingsFromItem(item)) }}</span>
         </span>
       }
       @if (item.description) {
@@ -559,18 +559,8 @@
     <!-- Right: image with overlay badges -->
     <div [class]="'w-28 h-28 rounded-none bg-muted flex-shrink-0 overflow-hidden shadow-sm relative ' +
       (isOutOfStock(item) ? 'grayscale' : '')">
-      <!-- Badge overlays -->
+      <!-- Badge overlay (single-badge policy: Popular > New; Featured suppressed on cards) -->
       <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
-        @if (item.is_featured && !isOutOfStock(item)) {
-          <span class="bg-amber-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
-            ★ Featured
-          </span>
-        }
-        @if (hasActiveDiscount(item) && !isOutOfStock(item)) {
-          <span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-            {{ getDiscountBadge(item) }}
-          </span>
-        }
         @if (item.is_popular && !isOutOfStock(item)) {
           <span class="bg-orange-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
@@ -580,7 +570,7 @@
             Popular
           </span>
         }
-        @if (item.is_new && !isOutOfStock(item)) {
+        @if (item.is_new && !item.is_popular && !isOutOfStock(item)) {
           <span class="bg-green-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
