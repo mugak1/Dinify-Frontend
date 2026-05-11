@@ -46,8 +46,8 @@
           </span>
         </div>
 
-        <img *ngIf="getCardImageUrl(i) as cardImageUrl"
-             [src]="cardImageUrl"
+        <img *ngIf="i.image"
+             [src]="imageBaseUrl + i.image"
              [alt]="i.name"
              class="w-full h-full object-cover transition-transform duration-300"
              [ngClass]="{ 'group-hover:scale-105': !isOutOfStock(i) }"
