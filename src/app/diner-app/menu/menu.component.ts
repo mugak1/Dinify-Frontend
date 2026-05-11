@@ -16,7 +16,6 @@ import {
   getMenuItemCardImagePath,
   getMenuItemDetailImagePath,
 } from 'src/app/_shared/utils/image-utils';
-import { ImagePreloader } from 'src/app/_shared/utils/image-preloader';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
 
@@ -52,7 +51,6 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   isFormValidFlag: boolean=true;
   editingBasketIndex: number | null = null;
   isEditMode = false;
-  private imagePreloader = new ImagePreloader();
 
   constructor(
     private sessionStorage: SessionStorageService,
@@ -204,11 +202,12 @@ get QuantitySum(){
         }
         // If the user tapped a basket item, re-open the detail modal pre-populated
         this.checkEditMode();
-        // Staged preload: race the above-the-fold cards against a short
-        // timeout, reveal the menu, then keep preloading the rest quietly
-        // in the background. Slow networks no longer block the reveal on
-        // every image — only on what the diner actually sees first.
-        this.runStagedImagePreload(this.menu_list);
+        // Keep the skeleton visible until every item image has been preloaded
+        // into the browser cache, so the reveal paints with no pop-in. A 5s
+        // timeout caps the wait in case a CDN stalls.
+        this.preloadImages(this.menu_list).then(() => {
+          this.navState.setLoading(false);
+        });
       },
       error: () => {
         this.navState.setLoading(false);
@@ -217,84 +216,36 @@ get QuantitySum(){
   }
 
   /**
-   * Staged image preload for slower mobile networks:
-   *   1. Race the above-the-fold cards (featured carousel + first section, capped
-   *      at CRITICAL_BUDGET) against a short timeout. Reveal the menu as soon
-   *      as the critical set finishes or the timeout fires.
-   *   2. Quietly preload the remaining card images in the background with low
-   *      concurrency so they paint instantly once scrolled into view.
-   *
-   * The shared preloader instance deduplicates across both stages so the
-   * background pass never re-requests a critical image that's still in flight.
+   * Preloads every item image in the menu into the browser cache.
+   * Resolves when all images have fired load or error, or after 5s — whichever
+   * comes first. Broken images never block; a missing image list short-circuits.
    */
-  private runStagedImagePreload(menuSections: any[]): void {
-    const criticalUrls = this.collectCriticalCardUrls(menuSections);
-    const allUrls = this.collectAllCardUrls(menuSections);
-
-    this.imagePreloader
-      .preload(criticalUrls, { concurrency: 4, timeoutMs: 1800 })
-      .then(() => {
-        this.navState.setLoading(false);
-        // Fire-and-forget: the remaining images load with low concurrency
-        // so they don't compete with in-viewport interactions.
-        this.imagePreloader.preloadBackground(allUrls, 3);
-      });
-  }
-
-  /**
-   * URLs that should be preloaded before the menu reveals — featured carousel
-   * items plus the first visible section, deduplicated by item id and capped
-   * at CRITICAL_BUDGET items. Falls back to the first N items overall when no
-   * featured/first-section data exists.
-   */
-  private collectCriticalCardUrls(menuSections: any[]): string[] {
-    const CRITICAL_BUDGET = 10;
-    const FEATURED_BUDGET = 6;
-
-    if (!menuSections?.length) return [];
-
-    const featured: any[] = [];
-    for (const section of menuSections) {
+  private preloadImages(menuSections: any[]): Promise<void> {
+    const imageUrls: string[] = [];
+    for (const section of menuSections || []) {
       for (const item of section?.items || []) {
-        if (item?.is_featured) featured.push(item);
-        if (featured.length >= FEATURED_BUDGET) break;
-      }
-      if (featured.length >= FEATURED_BUDGET) break;
-    }
-
-    const firstSectionItems: any[] = menuSections[0]?.items || [];
-
-    const seenIds = new Set<string>();
-    const critical: any[] = [];
-    for (const item of [...featured, ...firstSectionItems]) {
-      if (!item || (item.id && seenIds.has(item.id))) continue;
-      if (item.id) seenIds.add(item.id);
-      critical.push(item);
-      if (critical.length >= CRITICAL_BUDGET) break;
-    }
-
-    return this.itemsToCardUrls(critical);
-  }
-
-  /** Every card URL across every section — used for the background pass. */
-  private collectAllCardUrls(menuSections: any[]): string[] {
-    if (!menuSections?.length) return [];
-    const all: any[] = [];
-    for (const section of menuSections) {
-      for (const item of section?.items || []) {
-        all.push(item);
+        const cardPath = getMenuItemCardImagePath(item);
+        if (cardPath) {
+          imageUrls.push(this.url + cardPath);
+        }
       }
     }
-    return this.itemsToCardUrls(all);
-  }
 
-  private itemsToCardUrls(items: any[]): string[] {
-    const urls: string[] = [];
-    for (const item of items) {
-      const path = getMenuItemCardImagePath(item);
-      if (path) urls.push(this.url + path);
+    if (imageUrls.length === 0) {
+      return Promise.resolve();
     }
-    return urls;
+
+    const imagePromises = imageUrls.map(url =>
+      new Promise<void>(resolve => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = url;
+      })
+    );
+
+    const timeout = new Promise<void>(resolve => setTimeout(resolve, 5000));
+    return Promise.race([Promise.all(imagePromises).then(() => {}), timeout]);
   }
 
   /**
