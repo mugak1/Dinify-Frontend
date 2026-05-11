@@ -16,7 +16,7 @@ import { NgxCurrencyDirective } from 'ngx-currency';
 import { ErrorPageComponent } from "./error-page/error-page.component";
 import { MenuNavBarComponent } from './menu/menu-nav-bar/menu-nav-bar.component';
 import { FeaturedCarouselComponent } from '../_shared/ui/featured-carousel/featured-carousel.component';
-import { TagFilterSheetComponent } from '../restaurant-mgt/menu/components/tag-filter-sheet/tag-filter-sheet.component';
+import { DinerTagFilterSheetComponent } from './menu/diner-tag-filter-sheet/diner-tag-filter-sheet.component';
 import { TagPillComponent } from '../_shared/tags/tag-pill.component';
 import { TagOverflowPillComponent } from '../_shared/tags/tag-overflow-pill.component';
 const routes: Routes = [
@@ -54,7 +54,7 @@ const routes: Routes = [
     BasketBodyComponent,
     MenuNavBarComponent,
     FeaturedCarouselComponent,
-    TagFilterSheetComponent,
+    DinerTagFilterSheetComponent,
     TagPillComponent,
     TagOverflowPillComponent
 ],

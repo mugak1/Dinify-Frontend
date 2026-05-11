@@ -13,8 +13,8 @@
         </svg>
       </button>
 
-      <!-- Filter button (only if filterable tags exist) -->
-      <button *ngIf="navState.filterableTags().length > 0"
+      <!-- Filter button (only if filterable tags exist on the loaded menu) -->
+      <button *ngIf="navState.hasAnyFilterOptions()"
               (click)="navState.openTagFilter()"
               class="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors relative">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -28,9 +28,9 @@
           <line x1="10" x2="14" y1="8" y2="8" stroke="currentColor" stroke-width="2"/>
           <line x1="18" x2="22" y1="16" y2="16" stroke="currentColor" stroke-width="2"/>
         </svg>
-        <span *ngIf="navState.selectedTags().length > 0"
+        <span *ngIf="navState.hasActiveFilters()"
               class="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-          {{ navState.selectedTags().length }}
+          {{ navState.activeFilterCount() }}
         </span>
       </button>
 
@@ -114,23 +114,24 @@
     </div>
   </div>
 
-  <!-- Active tag filter badges -->
-  <div *ngIf="navState.selectedTags().length > 0" class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-2">
+  <!-- Active filter badges (dietary + allergen) -->
+  <div *ngIf="navState.hasActiveFilters()" class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-2">
     <span class="text-xs text-gray-500">Filters:</span>
-    <span *ngFor="let tagName of navState.selectedTags()"
-          class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
-          [ngClass]="navState.getTagBadge(tagName).colorClasses">
-      <span [innerHTML]="navState.getTagBadge(tagName).iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
-      {{ tagName }}
-      <button (click)="navState.removeTag(tagName); $event.stopPropagation()"
-              class="ml-0.5 rounded-full hover:bg-black/10 p-0.5">
+    <ng-container *ngFor="let opt of activeFilterChips()">
+      <app-tag-pill [name]="opt.category === 'allergen' ? 'No ' + opt.name : opt.name"
+                    [icon]="opt.icon"
+                    [colour]="opt.colour"
+                    size="sm"></app-tag-pill>
+      <button (click)="removeFilter(opt); $event.stopPropagation()"
+              [attr.aria-label]="'Remove ' + opt.name + ' filter'"
+              class="-ml-1 rounded-full hover:bg-black/10 p-0.5 text-gray-500">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
         </svg>
       </button>
-    </span>
-    <button (click)="navState.clearAllTags()" class="text-xs text-red-600 font-medium px-2 py-1 hover:text-red-700">
+    </ng-container>
+    <button (click)="navState.clearAllFilters()" class="text-xs text-red-600 font-medium px-2 py-1 hover:text-red-700">
       Clear all
     </button>
   </div>
