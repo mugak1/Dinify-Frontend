@@ -46,12 +46,12 @@
           </span>
         </div>
 
-        <!-- Per-image skeleton + fade-in + neutral error placeholder. -->
-        <app-image-with-skeleton
-          [src]="getCardImageUrl(i)"
-          [alt]="i.name"
-          [imgClass]="getCardImgClass(i)">
-        </app-image-with-skeleton>
+        <img *ngIf="getCardImageUrl(i) as cardImageUrl"
+             [src]="cardImageUrl"
+             [alt]="i.name"
+             class="w-full h-full object-cover transition-transform duration-300"
+             [ngClass]="{ 'group-hover:scale-105': !isOutOfStock(i) }"
+             decoding="async" />
 
         <!-- Quick-add affordance: decorative-only "+" indicating tappability.
              Clicks bubble to the parent card's onCardTap handler. -->

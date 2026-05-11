@@ -4,12 +4,11 @@ import { environment } from 'src/environments/environment';
 import { getCurrentPrice, getDiscountBadgeText } from 'src/app/_shared/utils/price-utils';
 import { getMenuItemCardImagePath } from 'src/app/_shared/utils/image-utils';
 import { MenuItem } from 'src/app/_models/app.models';
-import { ImageWithSkeletonComponent } from '../image-with-skeleton/image-with-skeleton.component';
 
 @Component({
   selector: 'app-featured-carousel',
   standalone: true,
-  imports: [CommonModule, ImageWithSkeletonComponent],
+  imports: [CommonModule],
   templateUrl: './featured-carousel.component.html',
 })
 export class FeaturedCarouselComponent {
@@ -41,11 +40,6 @@ export class FeaturedCarouselComponent {
   getCardImageUrl(item: any): string | null {
     const path = getMenuItemCardImagePath(item);
     return path ? this.imageBaseUrl + path : null;
-  }
-
-  getCardImgClass(item: any): string {
-    const base = 'w-full h-full object-cover transition-[transform,opacity] duration-300';
-    return this.isOutOfStock(item) ? base : `${base} group-hover:scale-105`;
   }
 
   onCardTap(item: any): void {
