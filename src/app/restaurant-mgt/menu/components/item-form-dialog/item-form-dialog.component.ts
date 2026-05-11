@@ -5,7 +5,6 @@ import { Observable } from 'rxjs';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
-import { BadgeComponent } from 'src/app/_shared/ui/badge/badge.component';
 import {
   TabsComponent,
   TabListComponent,
@@ -17,9 +16,9 @@ import { ItemDiscountsTabComponent } from '../item-discounts-tab/item-discounts-
 import { ItemExtrasTabComponent } from '../item-extras-tab/item-extras-tab.component';
 import { MenuItem, MenuSectionListItem, ItemModifiers, ItemDiscountDetails } from 'src/app/_models/app.models';
 import { MenuService } from '../../services/menu.service';
-import { TagService, PresetTag } from '../../services/tag.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
-import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
+import { AuthenticationService } from 'src/app/_services/authentication.service';
+import { MenuItemTagSelectorComponent } from 'src/app/_shared/tags/menu-item-tag-selector.component';
 import { environment } from 'src/environments/environment';
 import imageCompression from 'browser-image-compression';
 
@@ -32,7 +31,6 @@ import imageCompression from 'browser-image-compression';
     DialogComponent,
     ButtonComponent,
     SwitchComponent,
-    BadgeComponent,
     TabsComponent,
     TabListComponent,
     TabTriggerComponent,
@@ -40,6 +38,7 @@ import imageCompression from 'browser-image-compression';
     ItemModifiersTabComponent,
     ItemDiscountsTabComponent,
     ItemExtrasTabComponent,
+    MenuItemTagSelectorComponent,
   ],
   templateUrl: './item-form-dialog.component.html',
 })
@@ -67,19 +66,20 @@ export class ItemFormDialogComponent implements OnChanges {
   itemHasExtras = false;
   itemExtrasApplicable: string[] = [];
   availableExtras$: Observable<MenuItem[]>;
-  presetTags$: Observable<PresetTag[]>;
   isCompressing = false;
   clearImageRequested = false;
+  restaurantId = '';
+  selectedTagIds: string[] = [];
 
   constructor(
     private fb: FormBuilder,
     private menuService: MenuService,
-    private tagService: TagService,
-    private toast: ToastService
+    private toast: ToastService,
+    private auth: AuthenticationService,
   ) {
     this.sections$ = this.menuService.sections$;
     this.availableExtras$ = this.menuService.extras$;
-    this.presetTags$ = this.tagService.presetTags$;
+    this.restaurantId = this.auth.currentRestaurantRole?.restaurant_id ?? '';
     this.buildForm();
   }
 
@@ -96,6 +96,7 @@ export class ItemFormDialogComponent implements OnChanges {
       this.itemIsExtra = false;
       this.itemHasExtras = false;
       this.itemExtrasApplicable = [];
+      this.selectedTagIds = [];
 
       if (this.item) {
         // Load modifiers from existing item
@@ -130,6 +131,12 @@ export class ItemFormDialogComponent implements OnChanges {
             };
           }
         }
+        this.selectedTagIds = Array.isArray(this.item.tags)
+          ? this.item.tags
+              .map((t: any) => (t && typeof t === 'object' ? t.id : t))
+              .filter((id: any): id is string => typeof id === 'string' && !!id)
+          : [];
+
         this.form.patchValue({
           id: this.item.id,
           name: this.item.name,
@@ -137,7 +144,6 @@ export class ItemFormDialogComponent implements OnChanges {
           calories: this.item.calories ?? null,
           primary_price: this.item.primary_price,
           available: this.item.available,
-          tags: this.item.tags ?? [],
           image: this.item.image,
           is_featured: this.item.is_featured ?? false,
           is_popular: this.item.is_popular ?? false,
@@ -230,48 +236,8 @@ export class ItemFormDialogComponent implements OnChanges {
     }
   }
 
-  onTagAdd(value: string): void {
-    const trimmed = value?.trim();
-    if (!trimmed) return;
-
-    const current: string[] = this.form.get('tags')?.value ?? [];
-    this.form.get('tags')?.setValue([...current, trimmed]);
-  }
-
-  onTagRemove(index: number): void {
-    const current: string[] = [...(this.form.get('tags')?.value ?? [])];
-    current.splice(index, 1);
-    this.form.get('tags')?.setValue(current);
-  }
-
-  onPresetTagToggle(tagName: string): void {
-    const current: string[] = this.form.get('tags')?.value ?? [];
-    if (current.includes(tagName)) {
-      this.form.get('tags')?.setValue(current.filter((t: string) => t !== tagName));
-    } else {
-      if (current.length >= 20) return;
-      this.form.get('tags')?.setValue([...current, tagName]);
-    }
-  }
-
-  isTagSelected(tagName: string): boolean {
-    const current: string[] = this.form.get('tags')?.value ?? [];
-    return current.includes(tagName);
-  }
-
-  getPresetTagColorClasses(tag: PresetTag): string {
-    return getTagColorClasses(tag.color);
-  }
-
-  getPresetTagIconSvg(tag: PresetTag): string {
-    return getTagIcon(tag.icon);
-  }
-
-  getSelectedTagClasses(tagName: string): string {
-    const presetTags = this.tagService.getPresetTagsSnapshot();
-    const match = presetTags.find((t) => t.name === tagName);
-    if (match) return getTagColorClasses(match.color);
-    return 'bg-gray-100 text-gray-800';
+  onSelectedTagIdsChange(ids: string[]): void {
+    this.selectedTagIds = ids;
   }
 
   onModifiersChange(modifiers: ItemModifiers): void {
@@ -406,6 +372,10 @@ export class ItemFormDialogComponent implements OnChanges {
     payload.has_extras = this.itemHasExtras;
     payload.extras_applicable = JSON.stringify(this.itemExtrasApplicable);
 
+    // Tags now ride on the structured `tag_ids` field — the legacy free-text
+    // `tags` array is no longer accepted by the backend.
+    payload.tag_ids = [...this.selectedTagIds];
+
     this.saved.emit(payload);
   }
 
@@ -423,7 +393,6 @@ export class ItemFormDialogComponent implements OnChanges {
       image: [null],
       primary_price: [0, [Validators.required, Validators.min(1)]],
       available: [true],
-      tags: [[] as string[]],
       is_featured: [false],
       is_popular: [false],
       is_new: [false],

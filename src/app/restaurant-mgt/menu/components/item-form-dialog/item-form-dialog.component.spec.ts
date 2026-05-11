@@ -4,8 +4,8 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 import { ItemFormDialogComponent } from './item-form-dialog.component';
 import { MenuService } from '../../services/menu.service';
-import { TagService } from '../../services/tag.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
+import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { DiscountDetails, MenuItem } from 'src/app/_models/app.models';
 
 function makeMenuItem(overrides: Partial<MenuItem>): MenuItem {
@@ -48,17 +48,17 @@ describe('ItemFormDialogComponent — canonical discount_details', () => {
       sections$: of([]),
       extras$: of([]),
     };
-    const tagStub = {
-      presetTags$: of([]),
-    };
     const toastStub = { error: () => {}, success: () => {}, info: () => {} };
+    const authStub = {
+      currentRestaurantRole: { restaurant_id: 'rest-1' },
+    };
 
     await TestBed.configureTestingModule({
       imports: [ItemFormDialogComponent],
       providers: [
         { provide: MenuService, useValue: menuStub },
-        { provide: TagService, useValue: tagStub },
         { provide: ToastService, useValue: toastStub },
+        { provide: AuthenticationService, useValue: authStub },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],

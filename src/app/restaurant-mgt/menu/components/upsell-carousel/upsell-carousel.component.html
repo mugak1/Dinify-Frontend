@@ -68,14 +68,16 @@
             <!-- Tags -->
             @if (getItemTags(item).length > 0) {
               <div class="flex flex-wrap gap-1">
-                @for (tag of getItemTags(item); track tag.name) {
-                  <span [class]="'inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium ' + tag.colorClasses">
-                    <span [innerHTML]="tag.iconSvg" class="[&>svg]:h-2.5 [&>svg]:w-2.5"></span>
-                    {{ tag.name }}
-                  </span>
+                @for (tag of getItemTags(item); track tag.id) {
+                  <app-tag-pill
+                    [name]="tag.name"
+                    [icon]="tag.icon"
+                    [colour]="tag.colour"
+                    size="sm"
+                  ></app-tag-pill>
                 }
                 @if (getRemainingTagCount(item) > 0) {
-                  <span class="text-[9px] text-muted-foreground">
+                  <span class="text-[9px] text-muted-foreground self-center">
                     +{{ getRemainingTagCount(item) }}
                   </span>
                 }

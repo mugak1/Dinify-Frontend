@@ -546,11 +546,13 @@
       @let visibleTags = getVisibleTags(item.tags);
       @if (visibleTags.length) {
         <div class="mt-2 flex flex-wrap gap-1">
-          @for (tag of visibleTags; track tag) {
-            <span [class]="'inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ' + getTagBadge(tag).colorClasses">
-              <span [innerHTML]="getTagBadge(tag).iconSvg" class="[&>svg]:h-3 [&>svg]:w-3"></span>
-              {{ tag }}
-            </span>
+          @for (tag of visibleTags; track tag.id) {
+            <app-tag-pill
+              [name]="tag.name"
+              [icon]="tag.icon"
+              [colour]="tag.colour"
+              size="sm"
+            ></app-tag-pill>
           }
         </div>
       }

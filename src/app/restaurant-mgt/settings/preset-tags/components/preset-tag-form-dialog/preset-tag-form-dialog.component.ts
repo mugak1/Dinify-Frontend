@@ -40,6 +40,9 @@ export class PresetTagFormDialogComponent implements OnChanges {
   @Input() tag: RestaurantTag | null = null;
   @Input() existingTags: RestaurantTag[] = [];
   @Input() saving = false;
+  /** Pre-filled name when the dialog opens to create a new tag (no `tag`).
+   *  Used by the menu-item tag typeahead for the "+ Create 'X'" flow. */
+  @Input() initialName: string | null = null;
 
   @Output() closed = new EventEmitter<void>();
   @Output() save = new EventEmitter<RestaurantTagPayload>();
@@ -127,11 +130,12 @@ export class PresetTagFormDialogComponent implements OnChanges {
       this.icon = this.tag.icon ?? null;
       this.filterable = !!this.tag.filterable;
     } else {
-      this.name = '';
+      this.name = this.initialName?.trim() ?? '';
       this.category = 'dietary';
       this.colour = 'gray';
       this.icon = null;
       this.filterable = true;
+      if (this.name) this.nameError = this.validateName();
     }
   }
 

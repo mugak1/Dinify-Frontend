@@ -97,10 +97,23 @@ export class MenuService {
    */
   private normalizeMenuItem(item: any): any {
     if (!item || typeof item !== 'object') return item;
+    // Post-PR3, tags are objects ({id,name,category,icon,colour}); tolerate
+    // the legacy string[] shape one release more in case a stale cached
+    // payload sneaks through, then drop the fallback.
+    const rawTags = Array.isArray(item.tags) ? item.tags : [];
+    const tags = rawTags
+      .map((t: any) => {
+        if (t && typeof t === 'object' && t.name) return t;
+        if (typeof t === 'string' && t.trim()) {
+          return { id: t, name: t, category: 'descriptor', icon: null, colour: 'gray' };
+        }
+        return null;
+      })
+      .filter((t: any) => t !== null);
     return {
       ...item,
       allergens: Array.isArray(item.allergens) ? item.allergens : [],
-      tags: Array.isArray(item.tags) ? item.tags : [],
+      tags,
       extras_applicable: Array.isArray(item.extras_applicable) ? item.extras_applicable : [],
       options: this.normalizeOptions(item.options),
       discount_details: (item.discount_details && typeof item.discount_details === 'object' && !Array.isArray(item.discount_details))

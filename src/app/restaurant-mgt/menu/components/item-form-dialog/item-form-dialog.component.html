@@ -126,45 +126,14 @@
             <span class="text-sm text-foreground">Available</span>
           </div>
 
-          <!-- Menu tags -->
+          <!-- Menu tags — typeahead backed by the restaurant's tag catalog -->
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Menu tags</label>
-
-            <!-- Preset tag quick-select buttons -->
-            <div *ngIf="presetTags$ | async as presetTags" class="flex flex-wrap gap-1.5 mb-2">
-              <button
-                *ngFor="let pt of presetTags"
-                type="button"
-                (click)="onPresetTagToggle(pt.name)"
-                class="inline-flex items-center gap-1 h-7 text-xs px-2 py-0.5 rounded border transition-colors"
-                [ngClass]="isTagSelected(pt.name)
-                  ? getPresetTagColorClasses(pt) + ' border-transparent'
-                  : 'border-input text-muted-foreground hover:bg-accent'"
-              >
-                <span [innerHTML]="getPresetTagIconSvg(pt)"></span>
-                {{ pt.name }}
-              </button>
-            </div>
-
-            <!-- Selected tags display -->
-            <div *ngIf="form.get('tags')?.value?.length" class="flex flex-wrap gap-1 mb-2">
-              <span
-                *ngFor="let tag of form.get('tags')?.value; let i = index"
-                class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer"
-                [ngClass]="getSelectedTagClasses(tag)"
-                (click)="onTagRemove(i)"
-              >
-                {{ tag }} &times;
-              </span>
-            </div>
-
-            <!-- Free text input -->
-            <input #tagInput
-                   autocapitalize="off"
-                   autocorrect="off"
-                   placeholder="Add custom tag and press Enter"
-                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                   (keydown.enter)="onTagAdd(tagInput.value); tagInput.value = ''; $event.preventDefault()" />
+            <app-menu-item-tag-selector
+              [restaurantId]="restaurantId"
+              [selectedTagIds]="selectedTagIds"
+              (selectedTagIdsChange)="onSelectedTagIdsChange($event)">
+            </app-menu-item-tag-selector>
           </div>
 
           <!-- Badges -->

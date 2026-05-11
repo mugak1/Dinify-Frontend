@@ -165,9 +165,13 @@ export class MenuNavStateService {
       result = result
         .map((section: any) => ({
           ...section,
-          items: (section.items || []).filter((item: any) =>
-            tags.some(tag => item.tags?.includes(tag)),
-          ),
+          items: (section.items || []).filter((item: any) => {
+            const itemTags: any[] = Array.isArray(item.tags) ? item.tags : [];
+            const itemTagNames = itemTags.map((t: any) =>
+              typeof t === 'string' ? t : t?.name,
+            );
+            return tags.some((tag) => itemTagNames.includes(tag));
+          }),
         }))
         .filter((section: any) => section.items.length > 0);
     }

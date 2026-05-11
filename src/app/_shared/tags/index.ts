@@ -14,3 +14,4 @@ export {
   isTagColour,
 } from './tag-palette';
 export { TagPillComponent } from './tag-pill.component';
+export { MenuItemTagSelectorComponent } from './menu-item-tag-selector.component';

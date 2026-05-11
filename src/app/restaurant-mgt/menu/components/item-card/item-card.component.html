@@ -258,9 +258,11 @@
       <!-- Row 3: Menu tags (only if present) -->
       <div *ngIf="item.tags && item.tags.length > 0"
            class="flex flex-wrap gap-1 mt-2">
-        <app-dn-badge *ngFor="let tag of item.tags | safeArray" variant="secondary" class="text-xs">
-          {{ tag }}
-        </app-dn-badge>
+        <app-tag-pill *ngFor="let tag of item.tags | safeArray"
+                      [name]="tag?.name || ''"
+                      [icon]="tag?.icon ?? null"
+                      [colour]="tag?.colour || 'gray'"
+                      size="sm"></app-tag-pill>
       </div>
     </div>
   </div>

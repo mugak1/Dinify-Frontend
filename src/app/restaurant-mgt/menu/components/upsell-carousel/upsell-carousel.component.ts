@@ -17,14 +17,14 @@ import { TagService, PresetTag } from '../../services/tag.service';
 import { CartItem } from '../../models/cart.model';
 import { UpsellConfig } from 'src/app/_models/app.models';
 import { getCurrentPrice, formatUGX, isDiscountActive } from 'src/app/_shared/utils/price-utils';
-import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
+import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-upsell-carousel',
   standalone: true,
-  imports: [CommonModule, ButtonComponent],
+  imports: [CommonModule, ButtonComponent, TagPillComponent],
   templateUrl: './upsell-carousel.component.html',
 })
 export class UpsellCarouselComponent implements OnInit, OnDestroy {
@@ -147,20 +147,30 @@ export class UpsellCarouselComponent implements OnInit, OnDestroy {
     return isDiscountActive(item.discount_details);
   }
 
-  getItemTags(item: any): { name: string; colorClasses: string; iconSvg: string }[] {
-    const tags = item.tags || [];
-    return tags.slice(0, 2).map((tagName: string) => {
-      const preset = this.presetTags.find(p => p.name === tagName);
+  getItemTags(item: any): { id: string; name: string; icon: string | null; colour: string }[] {
+    const tags = Array.isArray(item?.tags) ? item.tags : [];
+    return tags.slice(0, 2).map((t: any) => {
+      if (t && typeof t === 'object' && t.name) {
+        return {
+          id: t.id ?? t.name,
+          name: t.name,
+          icon: t.icon ?? null,
+          colour: t.colour ?? 'gray',
+        };
+      }
+      // Legacy string tag — fall back to preset_tags lookup for colour/icon.
+      const preset = this.presetTags.find(p => p.name === t);
       return {
-        name: tagName,
-        colorClasses: preset ? getTagColorClasses(preset.color) : 'bg-muted text-muted-foreground',
-        iconSvg: preset ? getTagIcon(preset.icon) : '',
+        id: typeof t === 'string' ? t : '',
+        name: typeof t === 'string' ? t : '',
+        icon: preset?.icon ?? null,
+        colour: preset?.color ?? 'gray',
       };
     });
   }
 
   getRemainingTagCount(item: any): number {
-    const tags = item.tags || [];
+    const tags = Array.isArray(item?.tags) ? item.tags : [];
     return Math.max(0, tags.length - 2);
   }
 }

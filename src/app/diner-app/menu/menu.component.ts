@@ -2,7 +2,7 @@ import { Component, Input, OnDestroy, OnInit, effect } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { MenuItem, ModifierGroup, Restaurant, SelectedModifier } from 'src/app/_models/app.models';
+import { MenuItem, MenuItemTagRef, ModifierGroup, Restaurant, SelectedModifier } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -92,10 +92,25 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   }
   }
 
-  /** Filters out empty/blank tag entries */
-  getVisibleTags(tags: string[] | null | undefined): string[] {
+  /** Normalises the tags payload to MenuItemTagRef[]. Tolerates the legacy
+   *  string[] shape too — pre-PR1 menu data may still arrive from a stale
+   *  cache and we don't want it to crash the renderer. */
+  getVisibleTags(tags: MenuItemTagRef[] | any[] | null | undefined): MenuItemTagRef[] {
     if (!Array.isArray(tags)) return [];
-    return tags.filter((t: any) => typeof t === 'string' && t.trim().length > 0);
+    return tags
+      .map((t: any): MenuItemTagRef | null => {
+        if (t && typeof t === 'object' && t.name) {
+          return {
+            id: t.id ?? t.name,
+            name: t.name,
+            category: t.category ?? 'descriptor',
+            icon: t.icon ?? null,
+            colour: t.colour ?? 'gray',
+          };
+        }
+        return null;
+      })
+      .filter((t): t is MenuItemTagRef => t !== null);
   }
 
   getTagItemCount(tagName: string): number {
@@ -103,7 +118,12 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     let count = 0;
     for (const section of this.menu_list) {
       for (const item of section.items || []) {
-        if (item.tags?.includes(tagName)) count++;
+        if (!Array.isArray(item.tags)) continue;
+        if (item.tags.some((t: any) =>
+          (typeof t === 'string' ? t : t?.name) === tagName,
+        )) {
+          count++;
+        }
       }
     }
     return count;
