@@ -17,6 +17,7 @@ import { ErrorPageComponent } from "./error-page/error-page.component";
 import { MenuNavBarComponent } from './menu/menu-nav-bar/menu-nav-bar.component';
 import { FeaturedCarouselComponent } from '../_shared/ui/featured-carousel/featured-carousel.component';
 import { TagFilterSheetComponent } from '../restaurant-mgt/menu/components/tag-filter-sheet/tag-filter-sheet.component';
+import { TagPillComponent } from '../_shared/tags/tag-pill.component';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
@@ -52,7 +53,8 @@ const routes: Routes = [
     BasketBodyComponent,
     MenuNavBarComponent,
     FeaturedCarouselComponent,
-    TagFilterSheetComponent
+    TagFilterSheetComponent,
+    TagPillComponent
 ],
   exports:[
     RouterModule,

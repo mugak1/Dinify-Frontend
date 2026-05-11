@@ -13,7 +13,7 @@ import { Subscription } from 'rxjs';
 import { MenuService } from '../../services/menu.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SelectedModifier, SelectedExtra } from '../../models/cart.model';
-import { ModifierGroup } from 'src/app/_models/app.models';
+import { MenuItemTagRef, ModifierGroup } from 'src/app/_models/app.models';
 import {
   getCurrentPrice,
   formatUGX,
@@ -21,15 +21,15 @@ import {
   getDiscountBadgeText,
   calculateSavings,
 } from 'src/app/_shared/utils/price-utils';
-import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
 import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
+import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-item-detail-view',
   standalone: true,
-  imports: [CommonModule, SafeArrayPipe],
+  imports: [CommonModule, SafeArrayPipe, TagPillComponent],
   templateUrl: './item-detail-view.component.html',
   host: {
     class: 'flex flex-col h-full min-h-0',
@@ -180,16 +180,25 @@ export class ItemDetailViewComponent implements OnInit, OnChanges, OnDestroy {
     return this.selectedExtras.includes(extraId);
   }
 
-  getTagClasses(tagName: string): string {
-    const match = this.presetTags.find((t) => t.name === tagName);
-    if (!match) return 'bg-gray-100 text-gray-800';
-    return getTagColorClasses(match.color);
-  }
-
-  getTagIconSvg(tagName: string): string {
-    const match = this.presetTags.find((t) => t.name === tagName);
-    if (!match?.icon) return '';
-    return getTagIcon(match.icon);
+  /** Coerces the tags payload to MenuItemTagRef[]. Tolerates the legacy
+   *  string[] shape defensively, in case stale cached data is in flight. */
+  getItemTags(): MenuItemTagRef[] {
+    const tags = this.item?.tags;
+    if (!Array.isArray(tags)) return [];
+    return tags
+      .map((t: any): MenuItemTagRef | null => {
+        if (t && typeof t === 'object' && t.name) {
+          return {
+            id: t.id ?? t.name,
+            name: t.name,
+            category: t.category ?? 'descriptor',
+            icon: t.icon ?? null,
+            colour: t.colour ?? 'gray',
+          };
+        }
+        return null;
+      })
+      .filter((t): t is MenuItemTagRef => t !== null);
   }
 
   getCurrentExtraPrice(extra: any): number {

@@ -108,13 +108,11 @@
 
         <!-- Menu tag pills -->
         <div *ngIf="getVisibleTags(i.tags).length > 0" class="flex flex-wrap gap-1 mt-2">
-          <span *ngFor="let tag of getVisibleTags(i.tags)"
-                class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-                [ngClass]="navState.getTagBadge(tag).colorClasses">
-            <span [innerHTML]="navState.getTagBadge(tag).iconSvg"
-                  class="[&>svg]:h-3 [&>svg]:w-3"></span>
-            {{ tag }}
-          </span>
+          <app-tag-pill *ngFor="let tag of getVisibleTags(i.tags)"
+                        [name]="tag.name"
+                        [icon]="tag.icon"
+                        [colour]="tag.colour"
+                        size="sm"></app-tag-pill>
         </div>
       </div>
 
@@ -287,13 +285,11 @@
       <div *ngIf="getVisibleTags(selected_item.tags).length > 0" class="px-6 pt-4">
         <h4 class="font-semibold text-sm text-gray-700 mb-2">Menu tags</h4>
         <div class="flex flex-wrap gap-2">
-          <span *ngFor="let tag of getVisibleTags(selected_item.tags)"
-                class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full"
-                [ngClass]="navState.getTagBadge(tag).colorClasses">
-            <span [innerHTML]="navState.getTagBadge(tag).iconSvg"
-                  class="[&>svg]:h-3.5 [&>svg]:w-3.5"></span>
-            {{ tag }}
-          </span>
+          <app-tag-pill *ngFor="let tag of getVisibleTags(selected_item.tags)"
+                        [name]="tag.name"
+                        [icon]="tag.icon"
+                        [colour]="tag.colour"
+                        size="md"></app-tag-pill>
         </div>
       </div>
 

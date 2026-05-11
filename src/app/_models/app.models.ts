@@ -119,6 +119,20 @@ export interface MenuItemExtraRef {
 }
 
 /**
+ * Embedded tag object on a MenuItem — matches the shape returned by
+ * SerializerPublicGetMenuItem.get_tags(): {id, name, category, icon, colour}.
+ * This is the subset of RestaurantTag carried on the item, not the full
+ * catalog row (no filterable / display_order / is_system_preset).
+ */
+export interface MenuItemTagRef {
+  id: string;
+  name: string;
+  category: 'allergen' | 'dietary' | 'descriptor';
+  icon: string | null;
+  colour: string;
+}
+
+/**
  * Faithful shape of restaurants_app.serializers.SerializerPublicGetMenuItem.
  * Decimal fields are strings (DRF default); section is a UUID FK string.
  */
@@ -144,7 +158,7 @@ export interface MenuItem {
   options: ItemModifiers;
   has_extras: boolean;
   extras: MenuItemExtraRef[];
-  tags: string[];
+  tags: MenuItemTagRef[];
   allergens: string[];
   discount_details: DiscountDetails | null;
   discount_percentage: number;

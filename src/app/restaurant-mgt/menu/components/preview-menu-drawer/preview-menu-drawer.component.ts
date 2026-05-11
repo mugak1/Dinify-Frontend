@@ -40,6 +40,8 @@ import { UpsellCarouselComponent } from '../upsell-carousel/upsell-carousel.comp
 import { ScrollSpyCommonDirective } from 'src/app/_common/scroll-spy-common.directive';
 import { FeaturedCarouselComponent } from 'src/app/_shared/ui/featured-carousel/featured-carousel.component';
 import { AllergenDisclaimerComponent } from 'src/app/_shared/ui/allergen-disclaimer/allergen-disclaimer.component';
+import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
+import { MenuItemTagRef } from 'src/app/_models/app.models';
 
 type DrawerView = 'list' | 'detail' | 'cart';
 
@@ -58,6 +60,7 @@ type DrawerView = 'list' | 'detail' | 'cart';
     SafeArrayPipe,
     FeaturedCarouselComponent,
     AllergenDisclaimerComponent,
+    TagPillComponent,
   ],
   templateUrl: './preview-menu-drawer.component.html',
 })
@@ -324,18 +327,27 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     return formatUGX(amount);
   }
 
-  getTagBadge(tagName: string): { colorClasses: string; iconSvg: string } {
-    const preset = this.presetTags.find(p => p.name === tagName);
-    return {
-      colorClasses: preset ? getTagColorClasses(preset.color) : 'bg-muted text-muted-foreground',
-      iconSvg: preset ? getTagIcon(preset.icon) : '',
-    };
-  }
-
-  /** Filters out empty/blank tag entries */
-  getVisibleTags(tags: string[] | null | undefined): string[] {
+  /** Filters out empty/malformed tag entries.
+   *
+   *  Tags are now structured objects from the restaurant tag catalog (post-PR3);
+   *  pre-PR1 menu items had a free-text string[] which we still tolerate
+   *  defensively in case a stale cached payload sneaks through. */
+  getVisibleTags(tags: MenuItemTagRef[] | any[] | null | undefined): MenuItemTagRef[] {
     if (!Array.isArray(tags)) return [];
-    return tags.filter((t: any) => typeof t === 'string' && t.trim().length > 0);
+    return tags
+      .map((t: any): MenuItemTagRef | null => {
+        if (t && typeof t === 'object' && t.name) {
+          return {
+            id: t.id ?? t.name,
+            name: t.name,
+            category: t.category ?? 'descriptor',
+            icon: t.icon ?? null,
+            colour: t.colour ?? 'gray',
+          };
+        }
+        return null;
+      })
+      .filter((t): t is MenuItemTagRef => t !== null);
   }
 
   getDiscountPercent(item: any): number {

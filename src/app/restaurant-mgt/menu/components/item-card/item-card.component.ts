@@ -6,13 +6,14 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { BadgeComponent } from 'src/app/_shared/ui/badge/badge.component';
 import { TooltipDirective } from 'src/app/_shared/ui/tooltip/tooltip.directive';
 import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
+import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import { isDiscountActive } from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-item-card',
   standalone: true,
-  imports: [CommonModule, SwitchComponent, ButtonComponent, BadgeComponent, TooltipDirective, SafeArrayPipe],
+  imports: [CommonModule, SwitchComponent, ButtonComponent, BadgeComponent, TooltipDirective, SafeArrayPipe, TagPillComponent],
   templateUrl: './item-card.component.html',
 })
 export class ItemCardComponent {

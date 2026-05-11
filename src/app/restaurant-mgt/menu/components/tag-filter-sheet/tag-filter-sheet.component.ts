@@ -31,7 +31,12 @@ export class TagFilterSheetComponent implements OnChanges {
   }
 
   getItemCount(tagName: string): number {
-    return this.items.filter(item => item.tags?.includes(tagName)).length;
+    return this.items.filter((item) => {
+      if (!Array.isArray(item?.tags)) return false;
+      return item.tags.some((t: any) =>
+        (typeof t === 'string' ? t : t?.name) === tagName,
+      );
+    }).length;
   }
 
   isSelected(tagName: string): boolean {

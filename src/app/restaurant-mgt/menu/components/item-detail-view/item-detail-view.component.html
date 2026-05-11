@@ -88,17 +88,16 @@
       <p *ngIf="item.description" class="text-muted-foreground">{{ item.description }}</p>
 
       <!-- Menu tags -->
-      <div *ngIf="item.tags?.length">
+      <div *ngIf="getItemTags().length">
         <h4 class="text-sm font-semibold text-muted-foreground mb-2">Menu tags</h4>
         <div class="flex flex-wrap gap-2">
-          <span
-            *ngFor="let tag of item.tags | safeArray"
-            class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border"
-            [ngClass]="getTagClasses(tag)"
-          >
-            <span [innerHTML]="getTagIconSvg(tag)"></span>
-            {{ tag }}
-          </span>
+          <app-tag-pill
+            *ngFor="let tag of getItemTags()"
+            [name]="tag.name"
+            [icon]="tag.icon"
+            [colour]="tag.colour"
+            size="md"
+          ></app-tag-pill>
         </div>
       </div>
 
