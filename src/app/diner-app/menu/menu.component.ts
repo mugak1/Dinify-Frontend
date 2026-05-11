@@ -14,6 +14,7 @@ import {
 } from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
+import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
 
 @Component({
     selector: 'app-diners-menu',
@@ -111,6 +112,13 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
         return null;
       })
       .filter((t): t is MenuItemTagRef => t !== null);
+  }
+
+  /** Per-card tag truncation: keep allergens (safety-critical), cap
+   *  non-allergens at 2 with a "+N" indicator for the rest. The detail
+   *  modal continues to render every tag via getVisibleTags. */
+  getCardTags(tags: MenuItemTagRef[] | any[] | null | undefined): TagCardSplit<MenuItemTagRef> {
+    return splitTagsForCard(this.getVisibleTags(tags));
   }
 
   getTagItemCount(tagName: string): number {

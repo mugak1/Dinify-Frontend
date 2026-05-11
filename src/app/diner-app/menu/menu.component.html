@@ -106,14 +106,21 @@
           </ng-template>
         </div>
 
-        <!-- Menu tag pills -->
-        <div *ngIf="getVisibleTags(i.tags).length > 0" class="flex flex-wrap gap-1 mt-2">
-          <app-tag-pill *ngFor="let tag of getVisibleTags(i.tags)"
-                        [name]="tag.name"
-                        [icon]="tag.icon"
-                        [colour]="tag.colour"
-                        size="sm"></app-tag-pill>
-        </div>
+        <!-- Menu tag pills: allergens always visible, non-allergens capped
+             at 2 with a "+N" overflow indicator. Tapping the card (incl.
+             "+N") opens the detail modal which renders every tag. -->
+        <ng-container *ngIf="getCardTags(i.tags) as cardTags">
+          <div *ngIf="cardTags.visible.length > 0 || cardTags.hiddenCount > 0"
+               class="flex flex-wrap gap-1 mt-2">
+            <app-tag-pill *ngFor="let tag of cardTags.visible"
+                          [name]="tag.name"
+                          [icon]="tag.icon"
+                          [colour]="tag.colour"
+                          size="sm"></app-tag-pill>
+            <app-tag-overflow-pill *ngIf="cardTags.hiddenCount > 0"
+                                   [count]="cardTags.hiddenCount"></app-tag-overflow-pill>
+          </div>
+        </ng-container>
       </div>
 
       <!-- RIGHT: Image with badge overlays -->
