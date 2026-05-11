@@ -54,9 +54,16 @@
         <path d="M90 95 Q100 105 110 95" stroke="#d1d5db" stroke-width="4" stroke-linecap="round" fill="none"/>
 
         <!-- Text -->
-        <text x="50%" y="180" text-anchor="middle" fill="#6b7280" font-size="16px">No items found</text>
+        <text x="50%" y="180" text-anchor="middle" fill="#6b7280" font-size="16px">
+          {{ navState.hasActiveFilters() ? 'No items match your filters' : 'No items found' }}
+        </text>
       </svg>
-
+      <button *ngIf="navState.hasActiveFilters()"
+              type="button"
+              (click)="navState.clearAllFilters()"
+              class="-mt-6 text-sm font-semibold text-red-600 hover:text-red-700 px-4 py-2">
+        Clear filters
+      </button>
   </div>
 </div>
 
@@ -474,13 +481,6 @@
 
   </div>
 
-<!-- Tag Filter Modal — top-level so it renders regardless of item-detail state -->
-<app-tag-filter-sheet
-  [open]="navState.showTagFilter()"
-  [tags]="navState.presetTags()"
-  [selectedTags]="navState.selectedTags()"
-  [items]="navState.allItems()"
-  (openChange)="navState.setTagFilterOpen($event)"
-  (apply)="navState.applyTagFilter($event)">
-</app-tag-filter-sheet>
+<!-- Tag Filter Sheet — top-level so it renders regardless of item-detail state -->
+<app-diner-tag-filter-sheet></app-diner-tag-filter-sheet>
      

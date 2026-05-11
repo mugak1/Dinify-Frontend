@@ -1,12 +1,13 @@
-import { Component, ElementRef, Input, OnInit, effect } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, Signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MenuNavStateService } from '../menu-nav-state.service';
+import { TagPillComponent } from 'src/app/_shared/tags';
+import { MenuFilterOption, MenuNavStateService } from '../menu-nav-state.service';
 
 @Component({
   selector: 'app-menu-nav-bar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TagPillComponent],
   templateUrl: './menu-nav-bar.component.html',
   host: {
     class: 'block sticky z-40 bg-white border-b border-gray-200',
@@ -15,6 +16,16 @@ import { MenuNavStateService } from '../menu-nav-state.service';
 })
 export class MenuNavBarComponent implements OnInit {
   @Input() stickyTop: string = '49px';
+
+  /** Chips shown in the active-filters row — dietary first, then allergens. */
+  activeFilterChips: Signal<MenuFilterOption[]> = computed(() => {
+    const dietarySelected = new Set(this.navState.selectedDietary());
+    const allergensSelected = new Set(this.navState.selectedAllergens());
+    return [
+      ...this.navState.dietaryFilterOptions().filter((o) => dietarySelected.has(o.id)),
+      ...this.navState.allergenFilterOptions().filter((o) => allergensSelected.has(o.id)),
+    ];
+  });
 
   constructor(
     public navState: MenuNavStateService,
@@ -52,5 +63,13 @@ export class MenuNavBarComponent implements OnInit {
     document.querySelector('#' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     this.navState.setCurrentSection(id);
     this.navState.setPendingClickTarget(id);
+  }
+
+  removeFilter(opt: MenuFilterOption): void {
+    if (opt.category === 'allergen') {
+      this.navState.toggleAllergen(opt.id);
+    } else {
+      this.navState.toggleDietary(opt.id);
+    }
   }
 }

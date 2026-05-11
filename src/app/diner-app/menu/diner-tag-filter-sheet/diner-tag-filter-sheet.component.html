@@ -1,0 +1,131 @@
+@if (navState.showTagFilter()) {
+  <div class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/50 transition-opacity"
+         (click)="navState.closeTagFilter()"></div>
+
+    <!-- Bottom-sheet panel (centred on >= sm) -->
+    <div class="relative z-[60] bg-white w-full sm:mx-4 sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-lg flex flex-col overflow-hidden"
+         style="max-height: 85vh;"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="diner-filter-sheet-title">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200">
+        <div class="flex items-baseline gap-2">
+          <h2 id="diner-filter-sheet-title" class="text-lg font-bold text-gray-900">Filters</h2>
+          @if (navState.activeFilterCount() > 0) {
+            <span class="text-sm font-semibold text-red-600">
+              ({{ navState.activeFilterCount() }})
+            </span>
+          }
+        </div>
+        <div class="flex items-center gap-1">
+          @if (navState.activeFilterCount() > 0) {
+            <button type="button"
+                    (click)="navState.clearAllFilters()"
+                    class="text-sm font-semibold text-red-600 hover:text-red-700 px-2 py-1">
+              Clear
+            </button>
+          }
+          <button type="button"
+                  (click)="navState.closeTagFilter()"
+                  aria-label="Close filters"
+                  class="inline-flex items-center justify-center h-9 w-9 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Body (scrollable) -->
+      <div class="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+        @if (navState.dietaryFilterOptions().length > 0) {
+          <section>
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+              Dietary preferences
+            </h3>
+            <ul class="space-y-2">
+              @for (opt of navState.dietaryFilterOptions(); track opt.id) {
+                <li>
+                  <button type="button"
+                          (click)="navState.toggleDietary(opt.id)"
+                          [attr.aria-pressed]="navState.isDietarySelected(opt.id)"
+                          class="w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left"
+                          [class]="navState.isDietarySelected(opt.id)
+                            ? 'border-red-500 bg-red-50'
+                            : 'border-gray-200 hover:bg-gray-50'">
+                    <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+                         [class]="navState.isDietarySelected(opt.id)
+                           ? 'bg-red-600 border-red-600'
+                           : 'border-gray-300'">
+                      @if (navState.isDietarySelected(opt.id)) {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                             stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M20 6 9 17l-5-5"/>
+                        </svg>
+                      }
+                    </div>
+                    <app-tag-pill [name]="opt.name"
+                                  [icon]="opt.icon"
+                                  [colour]="opt.colour"
+                                  size="md"></app-tag-pill>
+                    <span class="ml-auto text-sm text-gray-400 tabular-nums">
+                      ({{ navState.dietaryOptionCount(opt.id) }})
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
+        @if (navState.allergenFilterOptions().length > 0) {
+          <section>
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+              Allergens to avoid
+            </h3>
+            <p class="text-xs text-gray-500 mb-3">
+              Tap to hide items carrying any of these allergens.
+            </p>
+            <ul class="space-y-2">
+              @for (opt of navState.allergenFilterOptions(); track opt.id) {
+                <li>
+                  <button type="button"
+                          (click)="navState.toggleAllergen(opt.id)"
+                          [attr.aria-pressed]="navState.isAllergenSelected(opt.id)"
+                          class="w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left"
+                          [class]="navState.isAllergenSelected(opt.id)
+                            ? 'border-red-500 bg-red-50'
+                            : 'border-gray-200 hover:bg-gray-50'">
+                    <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+                         [class]="navState.isAllergenSelected(opt.id)
+                           ? 'bg-red-600 border-red-600'
+                           : 'border-gray-300'">
+                      @if (navState.isAllergenSelected(opt.id)) {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                             stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M20 6 9 17l-5-5"/>
+                        </svg>
+                      }
+                    </div>
+                    <app-tag-pill [name]="opt.name"
+                                  [icon]="opt.icon"
+                                  [colour]="opt.colour"
+                                  size="md"></app-tag-pill>
+                    <span class="ml-auto text-sm text-gray-400 tabular-nums">
+                      ({{ navState.allergenOptionCount(opt.id) }})
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+      </div>
+    </div>
+  </div>
+}

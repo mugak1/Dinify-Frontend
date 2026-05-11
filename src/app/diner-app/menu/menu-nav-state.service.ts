@@ -1,5 +1,21 @@
 import { Injectable, Signal, WritableSignal, computed, effect, signal } from '@angular/core';
-import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
+import { MenuItemTagRef } from 'src/app/_models/app.models';
+import { filterMenuItems, TagId } from 'src/app/_shared/tags';
+
+/**
+ * Filter option derived from the loaded menu — a tag that (a) actually
+ * appears on at least one item and (b) the restaurant has marked
+ * `filterable` in its preset catalog. The richer fields (icon, colour,
+ * category) are sourced from the item's tag ref so the filter sheet
+ * doesn't depend on the preset catalog carrying display metadata.
+ */
+export interface MenuFilterOption {
+  id: TagId;
+  name: string;
+  icon: string | null;
+  colour: string;
+  category: MenuItemTagRef['category'];
+}
 
 @Injectable({ providedIn: 'root' })
 export class MenuNavStateService {
@@ -11,10 +27,13 @@ export class MenuNavStateService {
   showSearch: WritableSignal<boolean> = signal(false);
   isLoading: WritableSignal<boolean> = signal(true);
 
-  selectedTags: WritableSignal<string[]> = signal<string[]>([]);
+  /** Selected dietary tag IDs — positive AND filter. */
+  selectedDietary: WritableSignal<TagId[]> = signal<TagId[]>([]);
+  /** Selected allergen tag IDs — negative ANY filter. */
+  selectedAllergens: WritableSignal<TagId[]> = signal<TagId[]>([]);
+
   presetTags: WritableSignal<any[]> = signal<any[]>([]);
   showTagFilter: WritableSignal<boolean> = signal(false);
-  localSelectedTags: WritableSignal<string[]> = signal<string[]>([]);
 
   isMenuActive: WritableSignal<boolean> = signal(false);
 
@@ -38,6 +57,13 @@ export class MenuNavStateService {
    */
   stickyTopPx: WritableSignal<number> = signal(49);
 
+  /** Total number of currently-applied filters across both dimensions. */
+  activeFilterCount: Signal<number> = computed(
+    () => this.selectedDietary().length + this.selectedAllergens().length,
+  );
+
+  hasActiveFilters: Signal<boolean> = computed(() => this.activeFilterCount() > 0);
+
   /**
    * Total vertical space occupied by the sticky header + nav bar from the
    * viewport top, in pixels. Drives both the section scroll-margin-top
@@ -52,7 +78,7 @@ export class MenuNavStateService {
     return (
       this.stickyTopPx() +
       PILL_ROW_PX +
-      (this.selectedTags().length > 0 ? FILTER_ROW_PX : 0)
+      (this.hasActiveFilters() ? FILTER_ROW_PX : 0)
     );
   });
 
@@ -61,8 +87,8 @@ export class MenuNavStateService {
     // section `scroll-mt-[var(--menu-nav-stack-height)]` tracks the real
     // nav bar height reactively. Effect runs on service instantiation
     // (setting an initial value) and on every change to stickyTopPx or
-    // selectedTags. The service is providedIn:'root', so the effect's
-    // lifetime matches the app's.
+    // the active-filter count. The service is providedIn:'root', so the
+    // effect's lifetime matches the app's.
     effect(() => {
       document.documentElement.style.setProperty(
         '--menu-nav-stack-height',
@@ -83,10 +109,6 @@ export class MenuNavStateService {
     return out;
   });
 
-  filterableTags: Signal<any[]> = computed(() =>
-    this.presetTags().filter((t: any) => t.filterable),
-  );
-
   allItems: Signal<any[]> = computed(() => {
     const list = this.menuList();
     if (!list?.length) return [];
@@ -98,6 +120,68 @@ export class MenuNavStateService {
     }
     return out;
   });
+
+  /**
+   * Lookup of preset tag id → whether the restaurant flagged the tag as
+   * filterable. Tolerates the legacy `id`-or-`tag_id` and missing
+   * filterable shapes — anything without `id` is skipped.
+   */
+  private filterablePresetIds: Signal<Set<TagId>> = computed(() => {
+    const out = new Set<TagId>();
+    for (const t of this.presetTags() ?? []) {
+      const id = (t?.id ?? t?.tag_id) as TagId | undefined;
+      if (!id) continue;
+      if (t?.filterable === true) out.add(id);
+    }
+    return out;
+  });
+
+  /**
+   * Filter options surfaced in the bottom-sheet — the intersection of
+   * tags actually applied to at least one loaded item AND tags the
+   * restaurant has marked as filterable. Deduped by id, ordered by the
+   * first appearance in the menu so siblings of the same category land
+   * together in display_order.
+   */
+  filterOptions: Signal<MenuFilterOption[]> = computed(() => {
+    const filterable = this.filterablePresetIds();
+    if (filterable.size === 0) return [];
+    const seen = new Set<TagId>();
+    const out: MenuFilterOption[] = [];
+    for (const item of this.allItems()) {
+      const tags = Array.isArray(item?.tags) ? item.tags : [];
+      for (const t of tags) {
+        if (!t || typeof t !== 'object') continue;
+        const id = t.id as TagId | undefined;
+        if (!id || seen.has(id) || !filterable.has(id)) continue;
+        const category = (t.category ?? 'descriptor') as MenuItemTagRef['category'];
+        if (category !== 'dietary' && category !== 'allergen') continue;
+        seen.add(id);
+        out.push({
+          id,
+          name: String(t.name ?? ''),
+          icon: t.icon ?? null,
+          colour: t.colour ?? 'gray',
+          category,
+        });
+      }
+    }
+    return out;
+  });
+
+  dietaryFilterOptions: Signal<MenuFilterOption[]> = computed(() =>
+    this.filterOptions().filter((o) => o.category === 'dietary'),
+  );
+
+  allergenFilterOptions: Signal<MenuFilterOption[]> = computed(() =>
+    this.filterOptions().filter((o) => o.category === 'allergen'),
+  );
+
+  hasAnyFilterOptions: Signal<boolean> = computed(
+    () =>
+      this.dietaryFilterOptions().length > 0 ||
+      this.allergenFilterOptions().length > 0,
+  );
 
   setMenuList(list: any[] | null): void {
     this.menuList.set(list);
@@ -153,46 +237,42 @@ export class MenuNavStateService {
     this.filterMenu();
   }
 
+  /**
+   * Recomputes `filteredMenuList` from the loaded menu by:
+   *   1. running the pure tag filter helper over each section's items
+   *      (dietary AND + allergen ANY-hide), then
+   *   2. applying the search-name filter.
+   * Sections with zero remaining items are dropped so the diner never
+   * sees an empty "Breakfast" heading after filtering.
+   */
   filterMenu(): void {
     const menu = this.menuList();
     if (!menu) return;
 
-    let result: any[] = menu as any[];
-    const tags = this.selectedTags();
+    const dietary = this.selectedDietary();
+    const allergens = this.selectedAllergens();
     const query = this.searchQuery();
 
-    if (tags.length > 0) {
-      result = result
-        .map((section: any) => ({
-          ...section,
-          items: (section.items || []).filter((item: any) => {
-            const itemTags: any[] = Array.isArray(item.tags) ? item.tags : [];
-            const itemTagNames = itemTags.map((t: any) =>
-              typeof t === 'string' ? t : t?.name,
-            );
-            return tags.some((tag) => itemTagNames.includes(tag));
-          }),
-        }))
-        .filter((section: any) => section.items.length > 0);
-    }
+    let result: any[] = (menu as any[]).map((section: any) => ({
+      ...section,
+      items: filterMenuItems(section.items || [], dietary, allergens),
+    }));
 
     if (query) {
       const q = query.toLowerCase();
-      result = result
-        .map((section: any) => ({
-          ...section,
-          items: (section.items || []).filter((item: any) =>
-            item.name.toLowerCase().includes(q),
-          ),
-        }))
-        .filter((section: any) => section.items.length > 0);
+      result = result.map((section: any) => ({
+        ...section,
+        items: section.items.filter((item: any) =>
+          (item?.name ?? '').toLowerCase().includes(q),
+        ),
+      }));
     }
 
+    result = result.filter((section: any) => section.items.length > 0);
     this.filteredMenuList.set(result);
   }
 
   openTagFilter(): void {
-    this.localSelectedTags.set([...this.selectedTags()]);
     this.showTagFilter.set(true);
   }
 
@@ -204,44 +284,57 @@ export class MenuNavStateService {
     this.showTagFilter.set(open);
   }
 
-  removeTag(tagName: string): void {
-    this.selectedTags.set(this.selectedTags().filter(t => t !== tagName));
-    this.filterMenu();
-  }
-
-  clearAllTags(): void {
-    this.selectedTags.set([]);
-    this.filterMenu();
-  }
-
-  getTagBadge(tagName: string): { colorClasses: string; iconSvg: string } {
-    const preset = this.presetTags().find((p: any) => p.name === tagName);
-    return {
-      colorClasses: preset ? getTagColorClasses(preset.color) : 'bg-gray-100 text-gray-700',
-      iconSvg: preset ? getTagIcon(preset.icon) : '',
-    };
-  }
-
-  toggleTagSelection(tagName: string): void {
-    const current = this.localSelectedTags();
-    this.localSelectedTags.set(
-      current.includes(tagName)
-        ? current.filter(t => t !== tagName)
-        : [...current, tagName],
+  /** Toggles a dietary tag id in/out of the selection and re-filters live. */
+  toggleDietary(tagId: TagId): void {
+    const current = this.selectedDietary();
+    this.selectedDietary.set(
+      current.includes(tagId)
+        ? current.filter((t) => t !== tagId)
+        : [...current, tagId],
     );
-  }
-
-  isTagSelected(tagName: string): boolean {
-    return this.localSelectedTags().includes(tagName);
-  }
-
-  clearLocalTagSelection(): void {
-    this.localSelectedTags.set([]);
-  }
-
-  applyTagFilter(tags: string[]): void {
-    this.selectedTags.set([...tags]);
-    this.showTagFilter.set(false);
     this.filterMenu();
+  }
+
+  /** Toggles an allergen tag id in/out of the selection and re-filters live. */
+  toggleAllergen(tagId: TagId): void {
+    const current = this.selectedAllergens();
+    this.selectedAllergens.set(
+      current.includes(tagId)
+        ? current.filter((t) => t !== tagId)
+        : [...current, tagId],
+    );
+    this.filterMenu();
+  }
+
+  isDietarySelected(tagId: TagId): boolean {
+    return this.selectedDietary().includes(tagId);
+  }
+
+  isAllergenSelected(tagId: TagId): boolean {
+    return this.selectedAllergens().includes(tagId);
+  }
+
+  /** Clears both dimensions and re-filters. */
+  clearAllFilters(): void {
+    this.selectedDietary.set([]);
+    this.selectedAllergens.set([]);
+    this.filterMenu();
+  }
+
+  /**
+   * Count of items that would be visible if only this dietary tag were
+   * the active filter — i.e. items carrying it. Used for the live
+   * "(8)" hint next to each chip.
+   */
+  dietaryOptionCount(tagId: TagId): number {
+    return filterMenuItems(this.allItems(), [tagId], []).length;
+  }
+
+  /**
+   * Count of items that would be visible if only this allergen filter
+   * were active — i.e. items NOT carrying it.
+   */
+  allergenOptionCount(tagId: TagId): number {
+    return filterMenuItems(this.allItems(), [], [tagId]).length;
   }
 }

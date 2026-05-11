@@ -121,22 +121,6 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     return splitTagsForCard(this.getVisibleTags(tags));
   }
 
-  getTagItemCount(tagName: string): number {
-    if (!this.menu_list) return 0;
-    let count = 0;
-    for (const section of this.menu_list) {
-      for (const item of section.items || []) {
-        if (!Array.isArray(item.tags)) continue;
-        if (item.tags.some((t: any) =>
-          (typeof t === 'string' ? t : t?.name) === tagName,
-        )) {
-          count++;
-        }
-      }
-    }
-    return count;
-  }
-
   ngOnInit(){
     this.isInRestApp = this.router.url.includes('rest-app');
     this.navState.setMenuActive(true);
@@ -155,7 +139,8 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     this.navState.setLoading(true);
     this.navState.searchQuery.set('');
     this.navState.showSearch.set(false);
-    this.navState.selectedTags.set([]);
+    this.navState.selectedDietary.set([]);
+    this.navState.selectedAllergens.set([]);
     this.navState.showTagFilter.set(false);
     this.navState.currentSection.set('');
     this.navState.clearPendingClickTarget();

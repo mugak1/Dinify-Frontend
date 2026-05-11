@@ -22,3 +22,9 @@ export {
   TagCardSplit,
   TagCardSplittable,
 } from './tag-truncation';
+export {
+  filterMenuItems,
+  FilterableMenuItem,
+  FilterableTagRef,
+  TagId,
+} from './filter-menu';
