@@ -1,20 +1,18 @@
 import { Component, Input, OnDestroy, OnInit, effect } from '@angular/core';
-import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { BasketItem, MenuItem, MenuItemTagRef, ModifierGroup, Restaurant, SelectedModifier } from 'src/app/_models/app.models';
+import { BasketItem, MenuItem, MenuItemTagRef, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
-import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
 import {
   getCurrentPrice,
   calculateSavings,
-  getDiscountBadgeText,
 } from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
 import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
+import { menuItemUrl } from '../menu-item-detail/menu-item-url';
 
 @Component({
     selector: 'app-diners-menu',
@@ -23,77 +21,68 @@ import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncat
     standalone: false
 })
 export class DinersMenuComponent implements OnInit, OnDestroy {
+  // One-shot sessionStorage key for restoring the menu's scroll position when
+  // returning from the item-detail page. Cleared on read so a fresh menu load
+  // (no prior item-detail navigation) lands at the top.
+  private static readonly SCROLL_RESTORE_KEY = 'diner.menu.scrollY';
+
   url = environment.apiUrl;
 
-  globalError:string|null=null;
-  selected_extras: any[]=[];
-  formSubmitted = false;
+  globalError: string | null = null;
   isInRestApp = false;
   private storageSub?: Subscription;
 
-  @Input() restaurant?:Restaurant;
-  @Input()restaurant_id:any='';
-  menu_list?:MenuItem[]|any=[];
+  @Input() restaurant?: Restaurant;
+  @Input() restaurant_id: any = '';
+  menu_list?: MenuItem[] | any = [];
+
   get basketItems(): BasketItem[] {
     return this.basketService.Basket()?.items ?? [];
   }
   get totalAmount(): number {
     return this.basketService.Basket()?.totalAmount ?? 0;
   }
-  showModal=false;
-  selected_item!:MenuItem|any
-  heroImageLoaded: boolean = false;
-  selected_quantity:number=1;
-  selected_amount:number=0;
-  modifierGroups: ModifierGroup[] = [];
-  selectedModifiers: Record<string, string[]> = {};
-  currentSectionItem=''
-  errorMessages: any[]=[];
-  isFormValidFlag: boolean=true;
-  editingBasketIndex: number | null = null;
-  isEditMode = false;
 
   constructor(
     private sessionStorage: SessionStorageService,
     private api: ApiService,
     private basketService: BasketService,
     private router: Router,
-    private fb: FormBuilder,
     public navState: MenuNavStateService,
   ) {
-  // Seed currentSection reactively whenever the menu loads (or reloads after
-  // ngOnDestroy clears it). Self-healing: if currentSection ever falls back
-  // to '' while a menu is loaded, this re-fires and re-populates it. Idempotent
-  // on a non-empty currentSection, so it never clobbers scroll-spy emissions
-  // or pill clicks. Replaces a prior imperative setCurrentSection() call in
-  // loadMenu that didn't take visual effect on initial load.
-  effect(() => {
-    const list = this.navState.filteredMenuList();
-    if (!list?.length) return;
-    if (this.navState.currentSection()) return;
-    const firstSectionName = list[0]?.name as string | undefined;
-    this.navState.setCurrentSection(
-      this.navState.featuredItems().length > 0 ? 'Featured' : (firstSectionName ?? ''),
-    );
-  });
-  this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
-  this.navState.setPresetTags(this.restaurant?.preset_tags || []);
-
-  // When coming directly from a QR scan, the table-scan API call in the
-  // DinerAppComponent wrapper may not have resolved yet — so session storage
-  // may still be empty. Wait for the `restaurant` key to be set, then load.
-  if (!this.restaurant) {
-    this.storageSub = this.sessionStorage.StorageValue.subscribe((key: any) => {
-      if (typeof key !== 'string' || !key.includes('restaurant')) return;
-      const r = this.sessionStorage.getItem<Restaurant>('restaurant') as any;
-      if (!r) return;
-      this.restaurant = r;
-      this.navState.setPresetTags(this.restaurant?.preset_tags || []);
-      this.storageSub?.unsubscribe();
-      this.storageSub = undefined;
-      this.tryLoadMenu();
+    // Seed currentSection reactively whenever the menu loads (or reloads after
+    // ngOnDestroy clears it). Self-healing: if currentSection ever falls back
+    // to '' while a menu is loaded, this re-fires and re-populates it. Idempotent
+    // on a non-empty currentSection, so it never clobbers scroll-spy emissions
+    // or pill clicks. Replaces a prior imperative setCurrentSection() call in
+    // loadMenu that didn't take visual effect on initial load.
+    effect(() => {
+      const list = this.navState.filteredMenuList();
+      if (!list?.length) return;
+      if (this.navState.currentSection()) return;
+      const firstSectionName = list[0]?.name as string | undefined;
+      this.navState.setCurrentSection(
+        this.navState.featuredItems().length > 0 ? 'Featured' : (firstSectionName ?? ''),
+      );
     });
-  }
+    this.restaurant = this.sessionStorage.getItem<Restaurant>('restaurant') as any;
+    this.navState.setPresetTags(this.restaurant?.preset_tags || []);
+
+    // When coming directly from a QR scan, the table-scan API call in the
+    // DinerAppComponent wrapper may not have resolved yet — so session storage
+    // may still be empty. Wait for the `restaurant` key to be set, then load.
+    if (!this.restaurant) {
+      this.storageSub = this.sessionStorage.StorageValue.subscribe((key: any) => {
+        if (typeof key !== 'string' || !key.includes('restaurant')) return;
+        const r = this.sessionStorage.getItem<Restaurant>('restaurant') as any;
+        if (!r) return;
+        this.restaurant = r;
+        this.navState.setPresetTags(this.restaurant?.preset_tags || []);
+        this.storageSub?.unsubscribe();
+        this.storageSub = undefined;
+        this.tryLoadMenu();
+      });
+    }
   }
 
   /** Normalises the tags payload to MenuItemTagRef[]. Tolerates the legacy
@@ -119,12 +108,12 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
 
   /** Per-card tag truncation: keep allergens (safety-critical), cap
    *  non-allergens at 2 with a "+N" indicator for the rest. The detail
-   *  modal continues to render every tag via getVisibleTags. */
+   *  page continues to render every tag via getVisibleTags. */
   getCardTags(tags: MenuItemTagRef[] | any[] | null | undefined): TagCardSplit<MenuItemTagRef> {
     return splitTagsForCard(this.getVisibleTags(tags));
   }
 
-  ngOnInit(){
+  ngOnInit() {
     this.isInRestApp = this.router.url.includes('rest-app');
     this.navState.setMenuActive(true);
     // If restaurant is already available (session storage sync-read OR @Input()
@@ -150,51 +139,30 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   }
 
   private tryLoadMenu(): void {
-    if(this.restaurant?.menu_approval_status=='approve'||(this.restaurant as any)?.first_time_menu_approval){
-      this.loadMenu()
-    }else{
-      if(!this.router.url.includes('rest-app')){
-      this.router.navigate(['/diner','error'])
-      }else{
-        this.router.navigate([this.router.url,'error'])
+    if (this.restaurant?.menu_approval_status == 'approve' || (this.restaurant as any)?.first_time_menu_approval) {
+      this.loadMenu();
+    } else {
+      if (!this.router.url.includes('rest-app')) {
+        this.router.navigate(['/diner', 'error']);
+      } else {
+        this.router.navigate([this.router.url, 'error']);
       }
     }
   }
 
-  /**
-   * Computes the total price for the current item including selected
-   * modifiers, extras, and quantity — used for the dynamic
-   * "Add — UGX X,XXX" button.
-   */
-  get computedItemTotal(): number {
-    if (!this.selected_item) return 0;
-    const basePrice = this.selected_item?.running_discount
-      ? getCurrentPrice(this.selected_item)
-      : (Number(this.selected_item.primary_price) || 0);
-    let modifiersCost = 0;
-    for (const group of this.modifierGroups) {
-      const selectedIds = this.selectedModifiers[group.id] || [];
-      for (const choiceId of selectedIds) {
-        const choice = group.choices.find(c => c.id === choiceId);
-        if (choice) modifiersCost += choice.additionalCost;
-      }
-    }
-    const extrasCost = this.selected_extras.reduce(
-      (acc: number, extra: any) => acc + (Number(extra.primary_price) || 0), 0
-    );
-    return (basePrice + modifiersCost + extrasCost) * this.selected_quantity;
-  }
   removeItem(Id: string) {
     this.basketService.removeItem(Id);
   }
-get QuantitySum(){
- return this.basketItems.reduce((a, b) => a + b.quantity,0)
-}
-  loadMenu(){
+
+  get QuantitySum() {
+    return this.basketItems.reduce((a, b) => a + b.quantity, 0);
+  }
+
+  loadMenu() {
     this.navState.setLoading(true);
-    this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id}).subscribe({
-      next: (x:any) => {
-        this.menu_list=(x?.data as any) ?? [];
+    this.api.get<MenuItem>(null, 'orders/journey/show-menu/', { restaurant: this.restaurant_id ? this.restaurant_id : this.restaurant?.id }).subscribe({
+      next: (x: any) => {
+        this.menu_list = (x?.data as any) ?? [];
         this.navState.setMenuList(this.menu_list);
         this.navState.filterMenu();
         // currentSection is seeded by the constructor effect that watches
@@ -205,19 +173,22 @@ get QuantitySum(){
         } else {
           this.sessionStorage.removeItem?.('upsellConfig');
         }
-        // If the user tapped a basket item, re-open the detail modal pre-populated
-        this.checkEditMode();
         // Keep the skeleton visible until every item image has been preloaded
         // into the browser cache, so the reveal paints with no pop-in. A 5s
         // timeout caps the wait in case a CDN stalls.
         this.preloadImages(this.menu_list).then(() => {
           this.navState.setLoading(false);
+          // Restore scroll only once the menu is rendered and has height —
+          // otherwise window.scrollTo is a no-op. Imperative here (rather
+          // than another effect) keeps ordering relative to setLoading
+          // explicit.
+          this.restoreScrollIfReturning();
         });
       },
       error: () => {
         this.navState.setLoading(false);
       }
-    })
+    });
   }
 
   /**
@@ -252,152 +223,47 @@ get QuantitySum(){
     return Promise.race([Promise.all(imagePromises).then(() => {}), timeout]);
   }
 
-  /**
-   * Locates a menu item by its id across all sections of the loaded menu.
-   */
-  findMenuItemById(itemId: string): any {
-    for (const section of this.menu_list || []) {
-      const item = (section.items || []).find((i: any) => i.id === itemId);
-      if (item) return item;
-    }
-    return null;
-  }
-
-  /**
-   * If sessionStorage has an `editingBasketItem` context, enter edit mode:
-   * pre-populate the detail modal selections from the basket item and open it.
-   */
-  private checkEditMode(): void {
-    const editContext = this.sessionStorage.getItem<any>('editingBasketItem');
-    if (!editContext) return;
-    // Clear immediately so it doesn't re-fire on a future menu visit
-    this.sessionStorage.removeItem('editingBasketItem');
-
-    const menuItem = this.findMenuItemById(editContext.itemId);
-    if (!menuItem) return;
-
-    const basketItem = this.basketItems[editContext.basketIndex];
-    if (!basketItem) return;
-
-    this.editingBasketIndex = editContext.basketIndex;
-    this.isEditMode = true;
-
-    this.selected_item = menuItem;
-    this.selected_quantity = basketItem.quantity;
-    this.modifierGroups = parseModifierGroups(menuItem.options);
-
-    // Reconstruct selectedModifiers from stored groupId → choiceIds mapping
-    this.selectedModifiers = {};
-    for (const mod of (basketItem.selectedModifiers || [])) {
-      this.selectedModifiers[mod.groupId] = mod.choices.map((c: any) => c.id);
-    }
-
-    // Reconstruct selected_extras by id (use the menuItem's own refs so
-    // isExtraSelected's identity-based check matches)
-    this.selected_extras = (basketItem.extras || [])
-      .map((ext: any) => (menuItem.extras || []).find((e: any) => e.id === ext.id))
-      .filter(Boolean);
-
-    this.heroImageLoaded = false;
-    this.validateForm();
-    this.showModal = true;
-  }
-
-  private resetEditMode(): void {
-    this.isEditMode = false;
-    this.editingBasketIndex = null;
-    this.selected_quantity = 1;
-    this.selectedModifiers = {};
-    this.selected_extras = [];
-  }
-
-  viewItem(i:MenuItem){
+  viewItem(i: MenuItem) {
     if (this.isOutOfStock(i)) return;
-    this.selected_item = i as any;
-    this.modifierGroups = parseModifierGroups(i.options);
-    this.selectedModifiers = {};
-    this.selected_extras = [];
-    this.heroImageLoaded = false;
-    this.validateForm();
-    this.showModal = true;
+    this.saveScrollForReturn();
+    const tableId = (this.sessionStorage.getItem<TableScan>('Table') as TableScan | null)?.id ?? '';
+    this.router.navigate(menuItemUrl(tableId, i.id));
   }
-  closeModal(){
-    this.showModal=false;
-    if (this.isEditMode) {
-      this.resetEditMode();
-      this.router.navigate(['/diner/basket']);
+
+  /** Best-effort persist of the current scroll Y so we can restore it when
+   *  the diner returns from the item-detail page. Wrapped in try/catch
+   *  because a storage failure must never block navigation. */
+  private saveScrollForReturn(): void {
+    try {
+      this.sessionStorage.setItem(DinersMenuComponent.SCROLL_RESTORE_KEY, window.scrollY);
+    } catch {
+      // intentionally silent
     }
   }
-  AddSelectedItem(){
-    this.formSubmitted = false;
-    if (!this.isFormValid()) {
-      this.formSubmitted = true;
+
+  /** One-shot: reads the stored scroll Y, removes the key, and defers the
+   *  scroll to the next macrotask so layout has settled. Returning a fresh
+   *  load (no key) lands at the top. */
+  private restoreScrollIfReturning(): void {
+    let savedY: number | null = null;
+    try {
+      savedY = this.sessionStorage.getItem<number>(DinersMenuComponent.SCROLL_RESTORE_KEY);
+    } catch {
       return;
     }
-
-    const selectedModifiersList: SelectedModifier[] = this.modifierGroups
-      .filter(g => (this.selectedModifiers[g.id] || []).length > 0)
-      .map(g => ({
-        groupId: g.id,
-        groupName: g.name,
-        choices: (this.selectedModifiers[g.id] || [])
-          .map(cid => g.choices.find(c => c.id === cid))
-          .filter(Boolean)
-          .map(c => ({ id: c!.id, name: c!.name, additionalCost: c!.additionalCost })),
-      }));
-
-    const selectedExtras = this.selected_extras.map((extra) => ({
-      id: extra.id,
-      name: extra.name,
-      cost: Number(extra.primary_price) || 0,
-    }));
-
-    const isDiscounted = this.selected_item?.running_discount;
-    const originalBasePrice = Number(this.selected_item?.primary_price) || 0;
-    const basePrice = isDiscounted ? getCurrentPrice(this.selected_item) : originalBasePrice;
-
-    const modifiersCost = selectedModifiersList.reduce(
-      (acc, mod) => acc + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
-      0
-    );
-    const extrasCost = selectedExtras.reduce((acc, extra) => acc + extra.cost, 0);
-    const totalPrice = basePrice + modifiersCost + extrasCost;
-
-    const basketItem = {
-      itemId: this.selected_item.id,
-      itemName: this.selected_item.name,
-      image: this.selected_item.image || null,
-      basePrice: basePrice,
-      totalPrice: totalPrice,
-      quantity: this.selected_quantity,
-      selectedModifiers: selectedModifiersList,
-      extras: selectedExtras,
-      isDiscounted: isDiscounted,
-      originalBasePrice: isDiscounted ? originalBasePrice : undefined,
-      discountAmount: isDiscounted ? originalBasePrice - basePrice : undefined,
-      discountPercentage: isDiscounted ? Math.round((1 - basePrice / originalBasePrice) * 100) : undefined
-    };
-
-    if (this.isEditMode && this.editingBasketIndex !== null) {
-      this.basketService.updateItem(this.editingBasketIndex, basketItem);
-      this.closeModal();
-      return;
-    }
-
-    this.basketService.addItem(basketItem);
-    this.closeModal();
-    this.selected_quantity = 1;
-    this.selectedModifiers = {};
-    this.selected_extras = [];
+    if (savedY === null || typeof savedY !== 'number') return;
+    this.sessionStorage.removeItem(DinersMenuComponent.SCROLL_RESTORE_KEY);
+    setTimeout(() => window.scrollTo({ top: savedY!, behavior: 'instant' as ScrollBehavior }), 0);
   }
 
-addUnderScore(x:string){
-  return x.replace(/ /g,"_");
-}
+  addUnderScore(x: string) {
+    return x.replace(/ /g, "_");
+  }
 
-removeUnderscore(x:string){
-  return x.replace(/_/g," ");
-}
+  removeUnderscore(x: string) {
+    return x.replace(/_/g, " ");
+  }
+
   onSectionChange(sectionId: string): void {
     const pending = this.navState.pendingClickTarget();
     if (pending) {
@@ -413,113 +279,33 @@ removeUnderscore(x:string){
     this.navState.setCurrentSection(sectionId);
   }
 
-  scrollTo(section:any,_i:number) {
+  scrollTo(section: any, _i: number) {
     document.querySelector('#' + this.addUnderScore(section))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
-  }
-  checkSelected(): any {
-    return this.selected_quantity > 1 ? this.selected_quantity-- : null
-  }
-  AddSelected(): any {
-    this.selected_quantity++
-  }
   sanitizeId(name: string): string {
     return name.replace(/\s+/g, '-').toLowerCase();
   }
 
-  isModifierChoiceSelected(groupId: string, choiceId: string): boolean {
-    return (this.selectedModifiers[groupId] || []).includes(choiceId);
-  }
-
-  getModifierSelectedCount(groupId: string): number {
-    return (this.selectedModifiers[groupId] || []).length;
-  }
-
-  handleModifierSingleSelect(groupId: string, choiceId: string): void {
-    const current = this.selectedModifiers[groupId] || [];
-    if (current.length === 1 && current[0] === choiceId) {
-      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [] };
-    } else {
-      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [choiceId] };
-    }
-    this.validateForm();
-  }
-
-  handleModifierMultiSelect(
-    groupId: string,
-    choiceId: string,
-    checked: boolean,
-    maxSelections: number
-  ): void {
-    const current = this.selectedModifiers[groupId] || [];
-    if (checked) {
-      if (current.length >= maxSelections) return;
-      this.selectedModifiers = { ...this.selectedModifiers, [groupId]: [...current, choiceId] };
-    } else {
-      this.selectedModifiers = {
-        ...this.selectedModifiers,
-        [groupId]: current.filter((id) => id !== choiceId),
-      };
-    }
-    this.validateForm();
-  }
-
-  validateForm(): void {
-    this.errorMessages = [];
-    for (const group of this.modifierGroups) {
-      const selectedCount = (this.selectedModifiers[group.id] || []).length;
-      if (group.minSelections > 0 && selectedCount < group.minSelections) {
-        this.errorMessages.push(
-          group.minSelections === 1
-            ? `Please select an option for "${group.name}".`
-            : `Please select at least ${group.minSelections} options for "${group.name}".`
-        );
-      }
-    }
-    this.isFormValidFlag = this.errorMessages.length === 0;
-  }
-
-  isFormValid(): boolean {
-    return this.isFormValidFlag;
-  }
-
-  submitForm(): void {
-    this.validateForm();
-  }
-  calculateDiscount(item:any): number {
+  calculateDiscount(item: any): number {
     if (!item) return 0;
     const savings = calculateSavings(Number(item.primary_price) || 0, item.discount_details);
     const price = Number(item.primary_price) || 0;
     if (savings <= 0 || price <= 0) return 0;
     return Math.round((savings / price) * 100);
   }
-  priceSaved(item:any): number {
+
+  priceSaved(item: any): number {
     if (!item) return 0;
     return calculateSavings(Number(item.primary_price) || 0, item.discount_details);
   }
+
   isOutOfStock(item: any): boolean {
     return item.in_stock === false;
   }
-  getDiscountBadge(item: any): string {
-    if (!item?.running_discount) return '';
-    return getDiscountBadgeText(item?.discount_details, Number(item?.primary_price) || 0);
-  }
+
   /** Final price to display when an item is discounted (post-canonical-shape). */
   getDisplayPrice(item: any): number {
     return getCurrentPrice(item as MenuItem);
   }
-  isExtraSelected(extra: {id:any,name:any, primary_price:number}): boolean {
-    return this.selected_extras.includes(extra);
-  }
-  SetExtra(i:number,extra:{id:any,name:any, primary_price:number}){
-    const index = this.selected_extras.findIndex(x => x.id === extra.id);
-
-    if (index === -1) {
-      this.selected_extras.push(extra);
-    } else {
-      this.selected_extras.splice(index, 1);
-    }
-
-  }
-
 }

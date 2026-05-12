@@ -1,4 +1,4 @@
-import { Component, OnDestroy, effect, signal } from '@angular/core';
+import { Component, OnDestroy, computed, effect, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
@@ -44,6 +44,8 @@ export class MenuItemDetailComponent implements OnDestroy {
   isFormValidFlag = signal<boolean>(true);
   loading = signal<boolean>(true);
   notFound = signal<boolean>(false);
+  editingIndex = signal<number | null>(null);
+  isEditMode = computed(() => this.editingIndex() !== null);
 
   private storageSub?: Subscription;
   private menuFetchTriggered = false;
@@ -60,6 +62,8 @@ export class MenuItemDetailComponent implements OnDestroy {
     // effect's first run (effects run after the first change detection).
     this.table = this.route.snapshot.paramMap.get('table') ?? '';
     this.itemId = this.route.snapshot.paramMap.get('itemId') ?? '';
+    const editing = this.route.snapshot.queryParamMap.get('editingIndex');
+    this.editingIndex.set(editing !== null ? Number(editing) : null);
 
     // Resolve the item from `allItems` whenever the menu populates. Idempotent
     // — skips work once `item` is set so it doesn't re-fire on later signal
@@ -75,6 +79,31 @@ export class MenuItemDetailComponent implements OnDestroy {
         this.selectedModifiers.set({});
         this.selectedExtras.set([]);
         this.heroImageLoaded.set(false);
+        // Edit-mode pre-population: when arriving with ?editingIndex=<n>, rebuild
+        // the prior selections from the basket entry at that index. Falls back to
+        // add mode if the index is out of range (e.g. basket was cleared between
+        // navigations).
+        const idx = this.editingIndex();
+        if (idx !== null) {
+          const basketItem = this.basketService.Basket().items[idx];
+          if (basketItem) {
+            this.quantity.set(basketItem.quantity);
+            const reconstructed: Record<string, string[]> = {};
+            for (const mod of basketItem.selectedModifiers || []) {
+              reconstructed[mod.groupId] = mod.choices.map((c) => c.id);
+            }
+            this.selectedModifiers.set(reconstructed);
+            // Use the menuItem's own extra refs so isExtraSelected's identity
+            // check matches.
+            this.selectedExtras.set(
+              (basketItem.extras || [])
+                .map((ext: any) => (found.extras || []).find((e: any) => e.id === ext.id))
+                .filter((e: MenuItemExtraRef | undefined): e is MenuItemExtraRef => !!e),
+            );
+          } else {
+            this.editingIndex.set(null);
+          }
+        }
         this.validateForm();
         this.loading.set(false);
       } else {
@@ -321,8 +350,14 @@ export class MenuItemDetailComponent implements OnDestroy {
         : undefined,
     };
 
-    this.basketService.addItem(basketItem);
-    this.goBack();
+    const idx = this.editingIndex();
+    if (idx !== null) {
+      this.basketService.updateItem(idx, basketItem);
+      this.router.navigate(['/diner', 'basket']);
+    } else {
+      this.basketService.addItem(basketItem);
+      this.goBack();
+    }
   }
 
   goBack(): void {

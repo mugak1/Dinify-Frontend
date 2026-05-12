@@ -9,6 +9,7 @@ import { BasketService } from 'src/app/_services/basket.service';
 import { MessageService } from 'src/app/_services/message.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { environment } from 'src/environments/environment';
+import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
 
 @Component({
     selector: 'app-basket-body',
@@ -167,16 +168,16 @@ discountValue: number = 10; // 10% or UGX amount
     this.updateCart();
   }
 
-  // Stores edit context and navigates back to the menu so the item detail modal
-  // can re-open with existing selections pre-populated.
+  // Navigates to the item-detail page in edit mode. The detail page reads
+  // `editingIndex` from the query params and rebuilds the prior selections
+  // from the basket entry at that index.
   editItem(index: number): void {
     const item = this.basketItems[index];
     if (!item) return;
-    this.sessionStorage.setItem('editingBasketItem', {
-      basketIndex: index,
-      itemId: item.itemId,
+    const tableId = this.table?.id ?? '';
+    this.router.navigate(menuItemUrl(tableId, item.itemId), {
+      queryParams: { editingIndex: index },
     });
-    this.loc.back();
   }
 
   // Removes an item from the basket
