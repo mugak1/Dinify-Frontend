@@ -1,30 +1,344 @@
-import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnDestroy, effect, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+import {
+  BasketItem,
+  MenuItem,
+  MenuItemExtraRef,
+  MenuItemTagRef,
+  ModifierGroup,
+  Restaurant,
+  SelectedModifier,
+} from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
+import { BasketService } from 'src/app/_services/basket.service';
+import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
+import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
+import {
+  getCurrentPrice,
+  calculateSavings,
+} from 'src/app/_shared/utils/price-utils';
+import { environment } from 'src/environments/environment';
+import { MenuNavStateService } from '../menu/menu-nav-state.service';
 
 @Component({
-    selector: 'app-menu-item-detail',
-    templateUrl: './menu-item-detail.component.html',
-    styleUrls: ['./menu-item-detail.component.css'],
-    standalone: false
+  selector: 'app-menu-item-detail',
+  templateUrl: './menu-item-detail.component.html',
+  styleUrls: ['./menu-item-detail.component.css'],
+  standalone: false,
 })
-export class MenuItemDetailComponent {
+export class MenuItemDetailComponent implements OnDestroy {
+  url = environment.apiUrl;
 
-  /**
-   *
-   */
-  constructor(private api:ApiService,private router:Router) {
-   this.router.url.includes('tables')
-    
-  }
-  getTableDetails(id:any){
-    this.api.get<any>(null,'orders/journey/table-scan/?table='+id).subscribe(_x=>{
-    /* this.table=x.data as any;
-    
-    this.sessionStorage.setItem('restaurant',this.table.restaurant);
-    this.restaurant_name=this.table.restaurant.name;
-    this.restaurant_id=this.table.restaurant.id;
-    this.branding_configs=this.table.restaurant.branding_configuration */
-    })
+  readonly table: string;
+  readonly itemId: string;
+
+  item = signal<MenuItem | null>(null);
+  quantity = signal<number>(1);
+  modifierGroups = signal<ModifierGroup[]>([]);
+  selectedModifiers = signal<Record<string, string[]>>({});
+  selectedExtras = signal<MenuItemExtraRef[]>([]);
+  heroImageLoaded = signal<boolean>(false);
+  formSubmitted = signal<boolean>(false);
+  errorMessages = signal<string[]>([]);
+  isFormValidFlag = signal<boolean>(true);
+  loading = signal<boolean>(true);
+  notFound = signal<boolean>(false);
+
+  private storageSub?: Subscription;
+  private menuFetchTriggered = false;
+
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    public navState: MenuNavStateService,
+    private basketService: BasketService,
+    private sessionStorage: SessionStorageService,
+    private api: ApiService,
+  ) {
+    // Read params in the constructor so they're set before the resolution
+    // effect's first run (effects run after the first change detection).
+    this.table = this.route.snapshot.paramMap.get('table') ?? '';
+    this.itemId = this.route.snapshot.paramMap.get('itemId') ?? '';
+
+    // Resolve the item from `allItems` whenever the menu populates. Idempotent
+    // — skips work once `item` is set so it doesn't re-fire on later signal
+    // emissions (filter changes, etc.).
+    effect(() => {
+      if (this.item()) return;
+      const all = this.navState.allItems();
+      if (!all.length) return;
+      const found = all.find((i) => i?.id === this.itemId) as MenuItem | undefined;
+      if (found) {
+        this.item.set(found);
+        this.modifierGroups.set(parseModifierGroups(found.options));
+        this.selectedModifiers.set({});
+        this.selectedExtras.set([]);
+        this.heroImageLoaded.set(false);
+        this.validateForm();
+        this.loading.set(false);
+      } else {
+        this.loading.set(false);
+        this.notFound.set(true);
+      }
+    });
+
+    // Warm-load path — if the menu is already in nav state, the resolution
+    // effect will resolve the item on its first run. Otherwise, fetch.
+    if (this.navState.menuList()?.length) {
+      return;
     }
+
+    // Cold-load path — fetch the menu ourselves. If sessionStorage already has
+    // the restaurant, fetch immediately. Otherwise wait for DinerAppComponent's
+    // table-scan call to land.
+    const restaurant = this.sessionStorage.getItem<Restaurant>('restaurant') as Restaurant | null;
+    if (restaurant?.id) {
+      this.fetchMenu(restaurant.id);
+      return;
+    }
+
+    this.storageSub = this.sessionStorage.StorageValue.subscribe((key: any) => {
+      if (typeof key !== 'string' || !key.includes('restaurant')) return;
+      const r = this.sessionStorage.getItem<Restaurant>('restaurant') as Restaurant | null;
+      if (!r?.id) return;
+      this.storageSub?.unsubscribe();
+      this.storageSub = undefined;
+      this.fetchMenu(r.id);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.storageSub?.unsubscribe();
+  }
+
+  // TODO(PR-5b+): this duplicates MenuComponent.loadMenu's fetch leg. Extract
+  // a `MenuNavStateService.loadMenuFor(restaurantId)` helper once both call
+  // sites can share it; left inline here to keep PR 5a additive.
+  private fetchMenu(restaurantId: string): void {
+    if (this.menuFetchTriggered) return;
+    this.menuFetchTriggered = true;
+    this.api
+      .get<MenuItem>(null, 'orders/journey/show-menu/', { restaurant: restaurantId })
+      .subscribe({
+        next: (x: any) => {
+          this.navState.setMenuList((x?.data as any) ?? []);
+          this.navState.filterMenu();
+          // The allItems effect picks up the change and resolves the item.
+        },
+        error: (err) => {
+          console.warn('[MenuItemDetailComponent] menu fetch failed', err);
+          this.loading.set(false);
+          this.notFound.set(true);
+        },
+      });
+  }
+
+  getDisplayPrice(item: MenuItem): number {
+    return getCurrentPrice(item);
+  }
+
+  priceSaved(item: MenuItem): number {
+    if (!item) return 0;
+    return calculateSavings(Number(item.primary_price) || 0, item.discount_details);
+  }
+
+  /** Normalises the tags payload to MenuItemTagRef[]. Tolerates legacy
+   *  string[] shapes that may still arrive from a stale cache. */
+  getVisibleTags(tags: MenuItemTagRef[] | any[] | null | undefined): MenuItemTagRef[] {
+    if (!Array.isArray(tags)) return [];
+    return tags
+      .map((t: any): MenuItemTagRef | null => {
+        if (t && typeof t === 'object' && t.name) {
+          return {
+            id: t.id ?? t.name,
+            name: t.name,
+            category: t.category ?? 'descriptor',
+            icon: t.icon ?? null,
+            colour: t.colour ?? 'gray',
+          };
+        }
+        return null;
+      })
+      .filter((t): t is MenuItemTagRef => t !== null);
+  }
+
+  isOutOfStock(item: MenuItem | null): boolean {
+    return !!item && item.in_stock === false;
+  }
+
+  isExtraSelected(extra: MenuItemExtraRef): boolean {
+    return this.selectedExtras().includes(extra);
+  }
+
+  setExtra(extra: MenuItemExtraRef): void {
+    const current = this.selectedExtras();
+    const idx = current.findIndex((x) => x.id === extra.id);
+    this.selectedExtras.set(
+      idx === -1 ? [...current, extra] : current.filter((_, i) => i !== idx),
+    );
+  }
+
+  isModifierChoiceSelected(groupId: string, choiceId: string): boolean {
+    return (this.selectedModifiers()[groupId] || []).includes(choiceId);
+  }
+
+  getModifierSelectedCount(groupId: string): number {
+    return (this.selectedModifiers()[groupId] || []).length;
+  }
+
+  handleModifierSingleSelect(groupId: string, choiceId: string): void {
+    const map = this.selectedModifiers();
+    const current = map[groupId] || [];
+    const next =
+      current.length === 1 && current[0] === choiceId
+        ? { ...map, [groupId]: [] }
+        : { ...map, [groupId]: [choiceId] };
+    this.selectedModifiers.set(next);
+    this.validateForm();
+  }
+
+  handleModifierMultiSelect(
+    groupId: string,
+    choiceId: string,
+    checked: boolean,
+    maxSelections: number,
+  ): void {
+    const map = this.selectedModifiers();
+    const current = map[groupId] || [];
+    if (checked) {
+      if (current.length >= maxSelections) return;
+      this.selectedModifiers.set({ ...map, [groupId]: [...current, choiceId] });
+    } else {
+      this.selectedModifiers.set({
+        ...map,
+        [groupId]: current.filter((id) => id !== choiceId),
+      });
+    }
+    this.validateForm();
+  }
+
+  validateForm(): void {
+    const errors: string[] = [];
+    for (const group of this.modifierGroups()) {
+      const selectedCount = (this.selectedModifiers()[group.id] || []).length;
+      if (group.minSelections > 0 && selectedCount < group.minSelections) {
+        errors.push(
+          group.minSelections === 1
+            ? `Please select an option for "${group.name}".`
+            : `Please select at least ${group.minSelections} options for "${group.name}".`,
+        );
+      }
+    }
+    this.errorMessages.set(errors);
+    this.isFormValidFlag.set(errors.length === 0);
+  }
+
+  isFormValid(): boolean {
+    return this.isFormValidFlag();
+  }
+
+  submitForm(): void {
+    this.validateForm();
+  }
+
+  get computedItemTotal(): number {
+    const item = this.item();
+    if (!item) return 0;
+    const basePrice = item.running_discount
+      ? getCurrentPrice(item)
+      : Number(item.primary_price) || 0;
+    let modifiersCost = 0;
+    const selected = this.selectedModifiers();
+    for (const group of this.modifierGroups()) {
+      const selectedIds = selected[group.id] || [];
+      for (const choiceId of selectedIds) {
+        const choice = group.choices.find((c) => c.id === choiceId);
+        if (choice) modifiersCost += choice.additionalCost;
+      }
+    }
+    const extrasCost = this.selectedExtras().reduce(
+      (acc, extra) => acc + (Number(extra.primary_price) || 0),
+      0,
+    );
+    return (basePrice + modifiersCost + extrasCost) * this.quantity();
+  }
+
+  addToBasket(): void {
+    if (!this.isFormValid()) {
+      this.formSubmitted.set(true);
+      return;
+    }
+    const item = this.item();
+    if (!item || this.isOutOfStock(item)) return;
+
+    this.formSubmitted.set(false);
+
+    const groups = this.modifierGroups();
+    const selectedModifiers = this.selectedModifiers();
+    const selectedModifiersList: SelectedModifier[] = groups
+      .filter((g) => (selectedModifiers[g.id] || []).length > 0)
+      .map((g) => ({
+        groupId: g.id,
+        groupName: g.name,
+        choices: (selectedModifiers[g.id] || [])
+          .map((cid) => g.choices.find((c) => c.id === cid))
+          .filter(Boolean)
+          .map((c) => ({ id: c!.id, name: c!.name, additionalCost: c!.additionalCost })),
+      }));
+
+    const selectedExtras = this.selectedExtras().map((extra) => ({
+      id: extra.id,
+      name: extra.name,
+      cost: Number(extra.primary_price) || 0,
+    }));
+
+    const isDiscounted = item.running_discount;
+    const originalBasePrice = Number(item.primary_price) || 0;
+    const basePrice = isDiscounted ? getCurrentPrice(item) : originalBasePrice;
+
+    const modifiersCost = selectedModifiersList.reduce(
+      (acc, mod) => acc + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
+      0,
+    );
+    const extrasCost = selectedExtras.reduce((acc, extra) => acc + extra.cost, 0);
+    const totalPrice = basePrice + modifiersCost + extrasCost;
+
+    const basketItem: BasketItem = {
+      itemId: item.id,
+      itemName: item.name,
+      image: item.image || undefined,
+      basePrice,
+      totalPrice,
+      quantity: this.quantity(),
+      selectedModifiers: selectedModifiersList,
+      extras: selectedExtras,
+      isDiscounted,
+      originalBasePrice: isDiscounted ? originalBasePrice : undefined,
+      discountAmount: isDiscounted ? originalBasePrice - basePrice : undefined,
+      discountPercentage: isDiscounted
+        ? Math.round((1 - basePrice / originalBasePrice) * 100)
+        : undefined,
+    };
+
+    this.basketService.addItem(basketItem);
+    this.goBack();
+  }
+
+  goBack(): void {
+    if (this.table) {
+      this.router.navigate(['/diner', 'h', this.table]);
+    } else {
+      this.router.navigate(['/diner']);
+    }
+  }
+
+  decrementQuantity(): void {
+    const q = this.quantity();
+    if (q > 1) this.quantity.set(q - 1);
+  }
+
+  incrementQuantity(): void {
+    this.quantity.set(this.quantity() + 1);
+  }
 }

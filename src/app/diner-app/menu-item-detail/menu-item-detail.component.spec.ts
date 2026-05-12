@@ -3,6 +3,8 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { WINDOW } from '../../_services/storage/window.token';
+import { STORAGE_KEY_PREFIX } from '../../_services/storage/storage-key-prefix.token';
 import { MenuItemDetailComponent } from './menu-item-detail.component';
 
 describe('MenuItemDetailComponent', () => {
@@ -16,6 +18,8 @@ describe('MenuItemDetailComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: '' },
       ],
       schemas: [NO_ERRORS_SCHEMA],
     })

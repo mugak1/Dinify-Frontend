@@ -22,12 +22,12 @@ import { TagOverflowPillComponent } from '../_shared/tags/tag-overflow-pill.comp
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
-  {path:'menu-item/:id',component:MenuItemDetailComponent},
   {path:'basket',component:BasketComponent,title:'Basket'},
   {path:'basket/order-complete',component:OrderCompleteComponent},
   {path:'orders',component:OrdersComponent},
   {path:'error',component:ErrorPageComponent},
   {path:'payment-details/:id', component:PaymentDetailsComponent},
+  { path: 'h/:table/item/:itemId', component: MenuItemDetailComponent, title: 'Menu' },
   { path: '**', redirectTo: '' }
   ];
 
