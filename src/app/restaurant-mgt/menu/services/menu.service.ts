@@ -3,7 +3,11 @@ import { BehaviorSubject, Observable, combineLatest, map } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
+import { LocalStorageService } from 'src/app/_services/storage/local-storage.service';
+import { PersistedBehaviorSubject } from 'src/app/_services/storage/persisted-state';
 import { MenuItem, MenuSectionListItem, ApiResponse } from 'src/app/_models/app.models';
+
+const SORT_MODES = ['manual', 'a-z', 'price-low', 'price-high'] as const;
 
 export type SortMode = 'manual' | 'a-z' | 'price-low' | 'price-high';
 
@@ -39,8 +43,8 @@ export class MenuService {
     map(items => items.filter(item => item.is_extra === true))
   );
 
-  private readonly _sortMode$ = new BehaviorSubject<SortMode>('manual');
-  readonly sortMode$ = this._sortMode$.asObservable();
+  private readonly _sortMode$!: PersistedBehaviorSubject<SortMode>;
+  readonly sortMode$!: Observable<SortMode>;
 
   private readonly _isLoading$ = new BehaviorSubject<boolean>(false);
   readonly isLoading$ = this._isLoading$.asObservable();
@@ -64,12 +68,7 @@ export class MenuService {
   // Derived state
   // ---------------------------------------------------------------------------
 
-  readonly sortedItems$: Observable<MenuItem[]> = combineLatest([
-    this.items$,
-    this._sortMode$
-  ]).pipe(
-    map(([items, mode]) => this.applySortMode([...items], mode))
-  );
+  readonly sortedItems$!: Observable<MenuItem[]>;
 
   // ---------------------------------------------------------------------------
   // Constructor
@@ -77,8 +76,20 @@ export class MenuService {
 
   constructor(
     private api: ApiService,
-    private auth: AuthenticationService
-  ) {}
+    private auth: AuthenticationService,
+    private storage: LocalStorageService
+  ) {
+    this._sortMode$ = new PersistedBehaviorSubject<SortMode>('manual', {
+      storage: this.storage,
+      getKey: () => `menu.sortMode:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
+      validate: (v): v is SortMode =>
+        typeof v === 'string' && (SORT_MODES as readonly string[]).includes(v),
+    });
+    this.sortMode$ = this._sortMode$.asObservable();
+    this.sortedItems$ = combineLatest([this.items$, this._sortMode$]).pipe(
+      map(([items, mode]) => this.applySortMode([...items], mode))
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Boundary normalization
