@@ -36,7 +36,6 @@ export class MenuComponent {
   deletingItem?: MenuItem;
 
   searchOpen = false;
-  presetTagsOpen = false;
 
   // Preview drawer
   previewOpen = false;
