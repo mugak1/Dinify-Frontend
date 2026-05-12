@@ -47,7 +47,6 @@ import { MenuSearchComponent } from './menu/components/menu-search/menu-search.c
 import { StorageModule } from '../_services/storage/storage.module';
 import { UpsellsTabComponent } from './menu/components/upsells-tab/upsells-tab.component';
 import { ItemDetailViewComponent } from './menu/components/item-detail-view/item-detail-view.component';
-import { PresetTagsConfigComponent } from './menu/components/preset-tags-config/preset-tags-config.component';
 import { TabsComponent, TabListComponent, TabTriggerComponent, TabContentComponent } from '../_shared/ui/tabs/tabs.component';
 import { TagFilterSheetComponent } from './menu/components/tag-filter-sheet/tag-filter-sheet.component';
 import { UpsellCarouselComponent } from './menu/components/upsell-carousel/upsell-carousel.component';
@@ -135,7 +134,6 @@ const routes: Routes = [
     StorageModule.forRoot({ prefix: 'dinify-restaurant-mgt' }),
     UpsellsTabComponent,
     ItemDetailViewComponent,
-    PresetTagsConfigComponent,
     TabsComponent,
     TabListComponent,
     TabTriggerComponent,
