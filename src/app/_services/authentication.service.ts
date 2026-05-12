@@ -5,6 +5,21 @@ import { ApiResponse, LoginResponse, OTPResponse, RestaurantDetail, RestaurantRo
 import { HttpBackend, HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 
+/**
+ * Persisted state keys that survive operator logout. Everything else under
+ * the [dinify] localStorage prefix is cleared on logout so each session
+ * starts from each module's default navigational state (selected section,
+ * active view, area filter, etc.). Viewing preferences — how the operator
+ * likes things displayed — go here.
+ *
+ * Match is by key prefix (the part before any :<restaurantId> suffix), so
+ * `menu.sortMode:` covers `menu.sortMode:abc-123`, `menu.sortMode:def-456`,
+ * etc. across multiple restaurant memberships.
+ */
+const LOGOUT_PRESERVE_PREFIXES: readonly string[] = [
+  '[dinify]menu.sortMode:',
+] as const;
+
 @Injectable({
   providedIn: 'root'
 })
@@ -95,10 +110,31 @@ this.userSubject.next(u as any)
     localStorage.setItem('current_resta', JSON.stringify((restaurant)));    
   }
 
-  resetStorage(){
+  resetStorage() {
     localStorage.removeItem('rest_role');
     localStorage.removeItem('current_resta');
     localStorage.removeItem('user');
+    this.clearPersistedNavState();
+  }
+
+  private clearPersistedNavState(): void {
+    // Snapshot keys first — mutating localStorage while iterating it by index
+    // shifts subsequent indices and skips entries.
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (!key.startsWith('[dinify]')) continue;
+      if (LOGOUT_PRESERVE_PREFIXES.some(p => key.startsWith(p))) continue;
+      keysToRemove.push(key);
+    }
+    keysToRemove.forEach(k => {
+      try {
+        localStorage.removeItem(k);
+      } catch (e) {
+        console.warn('[auth] failed to clear nav-state key', k, e);
+      }
+    });
   }
 
   /**
@@ -157,14 +193,16 @@ this.userSubject.next(u as any)
     );
   }
 
-  logout(no_redirect?:boolean) {
-      // remove user from local storage to log user out
-      localStorage.removeItem('user');
-      this.resetStorage();
-      this.userSubject.next(null);
-      if(!no_redirect){
-      this.router.navigate(['/login']);
-      }
+  logout(no_redirect?: boolean) {
+    this.resetStorage();
+    this.userSubject.next(null);
+    if (!no_redirect) {
+      // Hard reload so all providedIn:'root' services are destroyed and
+      // re-seeded from cleaned localStorage on the next login. Soft
+      // navigation would leave in-memory PersistedBehaviorSubject values
+      // intact, defeating the storage clear.
+      window.location.href = '/login';
+    }
   }
 
   /**
@@ -175,21 +213,23 @@ this.userSubject.next(u as any)
    * the user back to /login or mid-flow auth screens (e.g. lock-otp-exp).
    */
   logoutDueToInactivity() {
-      const currentUrl = this.router.url || '';
-      const path = currentUrl.split('?')[0];
-      const skipReturnUrl =
-          !path ||
-          path === '/' ||
-          path.startsWith('/login') ||
-          path.startsWith('/register') ||
-          path.startsWith('/forgot-password') ||
-          path.startsWith('/lock-otp-exp');
-      const queryParams: { returnUrl?: string; reason: string } = { reason: 'inactivity' };
-      if (!skipReturnUrl) {
-          queryParams.returnUrl = currentUrl;
-      }
-      this.resetStorage();
-      this.userSubject.next(null);
-      this.router.navigate(['/login'], { queryParams });
+    const currentUrl = this.router.url || '';
+    const path = currentUrl.split('?')[0];
+    const skipReturnUrl =
+      !path ||
+      path === '/' ||
+      path.startsWith('/login') ||
+      path.startsWith('/register') ||
+      path.startsWith('/forgot-password') ||
+      path.startsWith('/lock-otp-exp');
+
+    this.resetStorage();
+    this.userSubject.next(null);
+
+    const params = new URLSearchParams({ reason: 'inactivity' });
+    if (!skipReturnUrl) {
+      params.set('returnUrl', currentUrl);
+    }
+    window.location.href = `/login?${params.toString()}`;
   }
 }
