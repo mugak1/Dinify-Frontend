@@ -72,4 +72,25 @@ export class MenuNavBarComponent implements OnInit {
       this.navState.toggleDietary(opt.id);
     }
   }
+
+  /**
+   * Renders the display name for an active filter chip outside the
+   * filter sheet. For allergens, strips a leading "Contains " prefix
+   * (case-insensitive) before prepending "No ", so "Contains Gluten"
+   * becomes "No Gluten" rather than the grammatically-broken
+   * "No Contains Gluten". For dietary tags, returns the name unchanged.
+   *
+   * Tags without the "Contains " prefix (e.g. a custom allergen named
+   * "Shellfish") fall back to a plain "No <name>" composition.
+   *
+   * NOTE: this is chip-only. The filter sheet itself continues to show
+   * the raw tag name ("Contains Gluten") next to its checkbox, which
+   * reads correctly in that context — the diner is toggling the
+   * statement "contains gluten" on or off.
+   */
+  chipDisplayName(opt: MenuFilterOption): string {
+    if (opt.category !== 'allergen') return opt.name;
+    const stripped = opt.name.replace(/^contains\s+/i, '');
+    return `No ${stripped}`;
+  }
 }
