@@ -1,9 +1,9 @@
 import { CommonModule, Location } from '@angular/common';
-import { AfterViewInit, Component, signal, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
-import { BasketItem, OrderInitiated, Restaurant, SelectedModifier, ShoppingBasket, TableScan } from 'src/app/_models/app.models';
+import { BasketItem, OrderInitiated, Restaurant, SelectedModifier, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { MessageService } from 'src/app/_services/message.service';
@@ -18,7 +18,6 @@ import { environment } from 'src/environments/environment';
     imports: [CommonModule]
 })
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
-  basket_items: BasketItem[] = [];
   table?: TableScan|any;
   order_initiated?: OrderInitiated;
   restaurant: any;
@@ -54,12 +53,6 @@ discountValue: number = 10; // 10% or UGX amount
     private router: Router,
     private messageService: MessageService
   ) {
-    // Initialize basket from session storage
-    this.basket_items = this.sessionStorage.getItem<BasketItem[]>('Basket') || [];
-    this.basketService.Basket = signal<ShoppingBasket>({
-      items: this.basket_items,
-      totalAmount: this.basketService.calculateTotalAmount(this.basket_items),
-    });
     this.table = this.sessionStorage.getItem<TableScan>('Table');
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
 
