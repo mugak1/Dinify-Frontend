@@ -1,4 +1,5 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, DestroyRef, HostListener, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, combineLatest, map } from 'rxjs';
 import { MenuItem, MenuSectionListItem, RestaurantDetail } from 'src/app/_models/app.models';
@@ -46,6 +47,8 @@ export class MenuComponent {
   // Sort
   sortMode: SortMode = 'manual';
 
+  private destroyRef = inject(DestroyRef);
+
   // Observables for template
   sections$ = this.menuService.sections$;
   selectedSectionId$ = this.menuService.selectedSectionId$;
@@ -85,6 +88,10 @@ export class MenuComponent {
       this.tagService.loadPresetTags(this.restaurant);
       this.upsellService.loadConfig(this.restaurant);
     }
+
+    this.menuService.sortMode$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(mode => (this.sortMode = mode));
   }
 
   @HostListener('document:keydown', ['$event'])
