@@ -4,6 +4,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { MenuComponent } from './menu.component';
+import { WINDOW } from 'src/app/_services/storage/window.token';
+import { STORAGE_KEY_PREFIX } from 'src/app/_services/storage/storage-key-prefix.token';
 
 describe('MenuComponent', () => {
   let component: MenuComponent;
@@ -16,6 +18,8 @@ describe('MenuComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: 'dinify' },
       ],
       schemas: [NO_ERRORS_SCHEMA],
     })
