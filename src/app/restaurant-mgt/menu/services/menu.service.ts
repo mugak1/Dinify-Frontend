@@ -78,27 +78,7 @@ export class MenuService {
   constructor(
     private api: ApiService,
     private auth: AuthenticationService
-  ) {
-    this.hydrateSortMode();
-  }
-
-  private sortModeStorageKey(): string | null {
-    const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
-    return restaurantId ? `menu.sortMode.${restaurantId}` : null;
-  }
-
-  private hydrateSortMode(): void {
-    const key = this.sortModeStorageKey();
-    if (!key) return;
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored === 'manual' || stored === 'a-z' || stored === 'price-low' || stored === 'price-high') {
-        this._sortMode$.next(stored);
-      }
-    } catch {
-      // localStorage unavailable (private mode, etc.) — silently fall back to 'manual'
-    }
-  }
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Boundary normalization
@@ -361,7 +341,6 @@ export class MenuService {
     const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
     if (!restaurantId) return;
 
-    this.hydrateSortMode();
     this.loadSections(restaurantId);
     this.loadAllItems(restaurantId);
     // items$ and extras$ update automatically via derivation from allItems$
@@ -369,13 +348,6 @@ export class MenuService {
 
   setSortMode(mode: SortMode): void {
     this._sortMode$.next(mode);
-    const key = this.sortModeStorageKey();
-    if (!key) return;
-    try {
-      localStorage.setItem(key, mode);
-    } catch {
-      // Best-effort persistence — ignore quota / private-mode failures
-    }
   }
 
   getSectionsSnapshot(): MenuSectionListItem[] {
