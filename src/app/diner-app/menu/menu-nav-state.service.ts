@@ -365,19 +365,26 @@ export class MenuNavStateService {
   }
 
   /**
-   * Count of items that would be visible if only this dietary tag were
-   * the active filter — i.e. items carrying it. Used for the live
-   * "(8)" hint next to each chip.
+   * Count of items carrying this dietary tag. Shown as the "(n)" hint
+   * next to each dietary option in the filter sheet. Symmetric with
+   * allergenOptionCount — both report "items with this tag".
    */
   dietaryOptionCount(tagId: TagId): number {
     return filterMenuItems(this.allItems(), [tagId], []).length;
   }
 
   /**
-   * Count of items that would be visible if only this allergen filter
-   * were active — i.e. items NOT carrying it.
+   * Count of items carrying this allergen tag. Shown as the "(n)" hint
+   * next to each allergen in the filter sheet. Symmetric with
+   * dietaryOptionCount — both report "items with this tag" so the diner
+   * reads the label and number as a single thought.
+   *
+   * Why not the inverse (items remaining if the filter were applied)?
+   * Because the label sitting next to the count is the allergen noun
+   * ("Contains Gluten"). Diners pair the number with the label
+   * unavoidably; the count must agree with that pairing.
    */
   allergenOptionCount(tagId: TagId): number {
-    return filterMenuItems(this.allItems(), [], [tagId]).length;
+    return filterMenuItems(this.allItems(), [tagId], []).length;
   }
 }

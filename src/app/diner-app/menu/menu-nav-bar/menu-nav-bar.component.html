@@ -118,12 +118,12 @@
   <div *ngIf="navState.hasActiveFilters()" class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-2">
     <span class="text-xs text-gray-500">Filters:</span>
     <ng-container *ngFor="let opt of activeFilterChips()">
-      <app-tag-pill [name]="opt.category === 'allergen' ? 'No ' + opt.name : opt.name"
+      <app-tag-pill [name]="chipDisplayName(opt)"
                     [icon]="opt.icon"
                     [colour]="opt.colour"
                     size="sm"></app-tag-pill>
       <button (click)="removeFilter(opt); $event.stopPropagation()"
-              [attr.aria-label]="'Remove ' + opt.name + ' filter'"
+              [attr.aria-label]="'Remove ' + chipDisplayName(opt) + ' filter'"
               class="-ml-1 rounded-full hover:bg-black/10 p-0.5 text-gray-500">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
