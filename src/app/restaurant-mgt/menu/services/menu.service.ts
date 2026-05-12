@@ -22,22 +22,15 @@ export class MenuService {
 
   private readonly _rawSections$ = new BehaviorSubject<MenuSectionListItem[]>([]);
 
-  private readonly _selectedSectionId$ = new BehaviorSubject<string | null>(null);
-  readonly selectedSectionId$ = this._selectedSectionId$.asObservable();
+  private readonly _selectedSectionId$!: PersistedBehaviorSubject<string | null>;
+  readonly selectedSectionId$!: Observable<string | null>;
 
   private readonly _allItems$ = new BehaviorSubject<MenuItem[]>([]);
   readonly allItems$ = this._allItems$.asObservable();
 
   readonly sections$: Observable<MenuSectionListItem[]> = this._rawSections$.asObservable();
 
-  readonly items$: Observable<MenuItem[]> = combineLatest([
-    this._allItems$,
-    this._selectedSectionId$,
-  ]).pipe(
-    map(([allItems, sectionId]) =>
-      sectionId ? allItems.filter(item => item.section === sectionId) : []
-    )
-  );
+  readonly items$!: Observable<MenuItem[]>;
 
   readonly extras$: Observable<MenuItem[]> = this._allItems$.pipe(
     map(items => items.filter(item => item.is_extra === true))
@@ -79,6 +72,20 @@ export class MenuService {
     private auth: AuthenticationService,
     private storage: LocalStorageService
   ) {
+    this._selectedSectionId$ = new PersistedBehaviorSubject<string | null>(null, {
+      storage: this.storage,
+      getKey: () => `menu.selectedSection:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
+      validate: (v): v is string | null => v === null || typeof v === 'string',
+    });
+    this.selectedSectionId$ = this._selectedSectionId$.asObservable();
+    this.items$ = combineLatest([
+      this._allItems$,
+      this._selectedSectionId$,
+    ]).pipe(
+      map(([allItems, sectionId]) =>
+        sectionId ? allItems.filter(item => item.section === sectionId) : []
+      )
+    );
     this._sortMode$ = new PersistedBehaviorSubject<SortMode>('manual', {
       storage: this.storage,
       getKey: () => `menu.sortMode:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
