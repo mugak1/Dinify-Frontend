@@ -72,6 +72,45 @@ export class PersistedBehaviorSubject<T> extends BehaviorSubject<T> {
 }
 
 /**
+ * A plain wrapper around a single value that transparently persists writes
+ * through a StorageService. Sibling primitive to PersistedBehaviorSubject
+ * and persistedSignal — use this when the consumer is a component-level
+ * plain property rather than a reactive subject or signal.
+ *
+ * Read the current value via .value. Writes via the .value setter persist
+ * synchronously. Seed and write failure handling mirror the other two
+ * primitives in this file (see readSeed; setItem wrapped in try/catch with
+ * console.warn on failure).
+ *
+ * Typical consumer pattern: pair with a getter/setter on the component
+ * class so template bindings using direct assignment (e.g.
+ * (click)="activeTab = 'waitlist'") keep working unchanged.
+ */
+export class PersistedValue<T> {
+  private _value: T;
+  private readonly options: PersistedStateOptions<T>;
+
+  constructor(defaultValue: T, options: PersistedStateOptions<T>) {
+    this._value = readSeed(defaultValue, options);
+    this.options = options;
+  }
+
+  get value(): T {
+    return this._value;
+  }
+
+  set value(newValue: T) {
+    this._value = newValue;
+    const key = this.options.getKey();
+    try {
+      this.options.storage.setItem(key, newValue);
+    } catch (e) {
+      console.warn('[PersistedValue] failed to persist', key, e);
+    }
+  }
+}
+
+/**
  * A WritableSignal whose .set() and .update() writes are transparently
  * persisted through a StorageService. The seed is read from storage on
  * creation (falling back to defaultValue if absent, unreadable, or rejected

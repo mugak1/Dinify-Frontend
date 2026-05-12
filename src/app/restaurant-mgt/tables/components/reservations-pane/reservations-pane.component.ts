@@ -6,6 +6,9 @@ import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
+import { AuthenticationService } from '../../../../_services/authentication.service';
+import { LocalStorageService } from '../../../../_services/storage/local-storage.service';
+import { PersistedValue } from '../../../../_services/storage/persisted-state';
 import {
   Reservation,
   WaitlistEntry,
@@ -53,7 +56,14 @@ export class ReservationsPaneComponent {
   @Output() markNoShow = new EventEmitter<string>();
   @Output() seatFromWaitlist = new EventEmitter<{ waitlistId: string; tableId: string }>();
 
-  activeTab: TabType = 'reservations';
+  private readonly _activeTab!: PersistedValue<TabType>;
+
+  get activeTab(): TabType {
+    return this._activeTab.value;
+  }
+  set activeTab(value: TabType) {
+    this._activeTab.value = value;
+  }
 
   // Edit reservation dialog
   editingRes: Reservation | null = null;
@@ -77,7 +87,17 @@ export class ReservationsPaneComponent {
   // Per-card dropdown
   openMenuId: string | null = null;
 
-  constructor(private toast: ToastService) {}
+  constructor(
+    private toast: ToastService,
+    private auth: AuthenticationService,
+    private localStorage: LocalStorageService,
+  ) {
+    this._activeTab = new PersistedValue<TabType>('reservations', {
+      storage: this.localStorage,
+      getKey: () => `tables.reservationsPaneTab:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
+      validate: (v): v is TabType => v === 'reservations' || v === 'waitlist' || v === 'seated',
+    });
+  }
 
   // ── Helpers ───────────────────────────────────────────
 
