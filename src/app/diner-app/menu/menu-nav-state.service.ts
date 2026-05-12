@@ -1,5 +1,7 @@
 import { Injectable, Signal, WritableSignal, computed, effect, signal } from '@angular/core';
 import { MenuItemTagRef } from 'src/app/_models/app.models';
+import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
+import { persistedSignal } from 'src/app/_services/storage/persisted-state';
 import { filterMenuItems, TagId } from 'src/app/_shared/tags';
 
 /**
@@ -27,10 +29,13 @@ export class MenuNavStateService {
   showSearch: WritableSignal<boolean> = signal(false);
   isLoading: WritableSignal<boolean> = signal(true);
 
-  /** Selected dietary tag IDs — positive AND filter. */
-  selectedDietary: WritableSignal<TagId[]> = signal<TagId[]>([]);
-  /** Selected allergen tag IDs — negative ANY filter. */
-  selectedAllergens: WritableSignal<TagId[]> = signal<TagId[]>([]);
+  /** Selected dietary tag IDs — positive AND filter. Persisted to
+   *  sessionStorage so a refresh within the visit preserves the diner's
+   *  choices; closing the tab resets, by design. Assigned in the constructor
+   *  because persistedSignal needs the injected SessionStorageService. */
+  readonly selectedDietary!: WritableSignal<TagId[]>;
+  /** Selected allergen tag IDs — negative ANY filter. See selectedDietary. */
+  readonly selectedAllergens!: WritableSignal<TagId[]>;
 
   presetTags: WritableSignal<any[]> = signal<any[]>([]);
   showTagFilter: WritableSignal<boolean> = signal(false);
@@ -82,7 +87,21 @@ export class MenuNavStateService {
     );
   });
 
-  constructor() {
+  constructor(private sessionStorage: SessionStorageService) {
+    const isTagIdArray = (v: unknown): v is TagId[] =>
+      Array.isArray(v) && v.every((item) => typeof item === 'string');
+
+    this.selectedDietary = persistedSignal<TagId[]>([], {
+      storage: this.sessionStorage,
+      getKey: () => 'diner.selectedDietary',
+      validate: isTagIdArray,
+    });
+    this.selectedAllergens = persistedSignal<TagId[]>([], {
+      storage: this.sessionStorage,
+      getKey: () => 'diner.selectedAllergens',
+      validate: isTagIdArray,
+    });
+
     // Mirror navStackHeight into a CSS custom property on :root so that
     // section `scroll-mt-[var(--menu-nav-stack-height)]` tracks the real
     // nav bar height reactively. Effect runs on service instantiation
@@ -94,6 +113,30 @@ export class MenuNavStateService {
         '--menu-nav-stack-height',
         `${this.navStackHeight()}px`,
       );
+    });
+
+    // Prune persisted selections that no longer correspond to a filterable
+    // tag on any loaded item — e.g. the operator edited the preset catalog
+    // or item tags between visits. Gated on menuList() so the empty initial
+    // filterOptions can't clobber a freshly-rehydrated selection before the
+    // menu fetch lands.
+    effect(() => {
+      if (this.menuList() === null) return;
+
+      const validDietary = new Set(this.dietaryFilterOptions().map((o) => o.id));
+      const validAllergens = new Set(this.allergenFilterOptions().map((o) => o.id));
+
+      const dietary = this.selectedDietary();
+      const prunedDietary = dietary.filter((id) => validDietary.has(id));
+      if (prunedDietary.length !== dietary.length) {
+        this.selectedDietary.set(prunedDietary);
+      }
+
+      const allergens = this.selectedAllergens();
+      const prunedAllergens = allergens.filter((id) => validAllergens.has(id));
+      if (prunedAllergens.length !== allergens.length) {
+        this.selectedAllergens.set(prunedAllergens);
+      }
     });
   }
 
