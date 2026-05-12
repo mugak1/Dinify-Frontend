@@ -134,10 +134,14 @@ describe('AuthenticationService', () => {
   });
 
   describe('logout', () => {
+    let redirectSpy: jasmine.Spy;
+
     beforeEach(() => {
       localStorage.setItem('user', '{"token":"t"}');
       localStorage.setItem('rest_role', '{"role":"admin"}');
       localStorage.setItem('current_resta', '{"id":"r1"}');
+      // Stub the hard redirect so tests don't actually navigate the Karma host page.
+      redirectSpy = spyOn<any>(service, 'hardRedirect');
     });
 
     it('should clear all localStorage keys', () => {
@@ -147,19 +151,67 @@ describe('AuthenticationService', () => {
       expect(localStorage.getItem('current_resta')).toBeNull();
     });
 
+    it('should clear persisted [dinify] nav state but preserve menu.sortMode', () => {
+      localStorage.setItem('[dinify]menu.selectedSection:r1', '{"value":"sec-1"}');
+      localStorage.setItem('[dinify]tables.activeView:r1', '{"value":"reservations"}');
+      localStorage.setItem('[dinify]menu.sortMode:r1', '{"value":"a-z"}');
+      localStorage.setItem('[dinify]menu.sortMode:r2', '{"value":"price-low"}');
+      localStorage.setItem('unrelated', 'keep-me');
+
+      service.logout(true);
+
+      expect(localStorage.getItem('[dinify]menu.selectedSection:r1')).toBeNull();
+      expect(localStorage.getItem('[dinify]tables.activeView:r1')).toBeNull();
+      expect(localStorage.getItem('[dinify]menu.sortMode:r1')).toBe('{"value":"a-z"}');
+      expect(localStorage.getItem('[dinify]menu.sortMode:r2')).toBe('{"value":"price-low"}');
+      expect(localStorage.getItem('unrelated')).toBe('keep-me');
+    });
+
     it('should set userValue to null', () => {
       service.logout(true);
       expect(service.userValue).toBeNull();
     });
 
-    it('should navigate to /login by default', () => {
+    it('should hard-redirect to /login by default', () => {
       service.logout();
-      expect(router.navigate).toHaveBeenCalledWith(['/login']);
+      expect(redirectSpy).toHaveBeenCalledWith('/login');
+      expect(router.navigate).not.toHaveBeenCalled();
     });
 
-    it('should not navigate when no_redirect is true', () => {
+    it('should not redirect when no_redirect is true', () => {
       service.logout(true);
+      expect(redirectSpy).not.toHaveBeenCalled();
       expect(router.navigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('logoutDueToInactivity', () => {
+    let redirectSpy: jasmine.Spy;
+
+    beforeEach(() => {
+      localStorage.setItem('user', '{"token":"t"}');
+      redirectSpy = spyOn<any>(service, 'hardRedirect');
+    });
+
+    it('should hard-redirect to /login with reason=inactivity and returnUrl when on a protected route', () => {
+      (router as any).url = '/restaurant/dashboard';
+      service.logoutDueToInactivity();
+      expect(redirectSpy).toHaveBeenCalledTimes(1);
+      const url = redirectSpy.calls.mostRecent().args[0] as string;
+      expect(url.startsWith('/login?')).toBeTrue();
+      const params = new URLSearchParams(url.split('?')[1]);
+      expect(params.get('reason')).toBe('inactivity');
+      expect(params.get('returnUrl')).toBe('/restaurant/dashboard');
+      expect(service.userValue).toBeNull();
+    });
+
+    it('should omit returnUrl when triggered from an unauthenticated route', () => {
+      (router as any).url = '/login';
+      service.logoutDueToInactivity();
+      const url = redirectSpy.calls.mostRecent().args[0] as string;
+      const params = new URLSearchParams(url.split('?')[1]);
+      expect(params.get('reason')).toBe('inactivity');
+      expect(params.get('returnUrl')).toBeNull();
     });
   });
 
