@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Restaurant, MenuItem, ModifierGroup } from 'src/app/_models/app.models';
+import { BasketItem, Restaurant, MenuItem, ModifierGroup } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -18,8 +18,12 @@ export class MenuCommonComponent implements OnInit {
   restaurant?:Restaurant|any;
   @Input()restaurant_id:any='';
   menu_list?:MenuItem[]|any=[];
-  basketItems = this.basketService.Basket().items;
-  totalAmount = this.basketService.Basket().totalAmount;
+  get basketItems(): BasketItem[] {
+    return this.basketService.Basket()?.items ?? [];
+  }
+  get totalAmount(): number {
+    return this.basketService.Basket()?.totalAmount ?? 0;
+  }
   showModal=false;
   selected_item!:MenuItem|any
   selected_quantity:number=1;
@@ -43,16 +47,10 @@ this.loadMenu()
 
   removeItem(Id: string) {
     this.basketService.removeItem(Id);
-    this.udpateCart();
   }
 get QuantitySum(){
  return this.basketItems.reduce((a, b) => a + b.quantity,0)
 }
-  udpateCart() {
-    this.basketItems = this.basketService.Basket().items;
-    this.totalAmount = this.basketService.Basket().totalAmount;
-    this.SaveForProcessing();
-  }
   loadMenu(){
 
     this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id,'ignore-approval':true}).subscribe((x)=>{
@@ -63,10 +61,6 @@ get QuantitySum(){
     })
   }
   loadPreApprovalMenu(){
-  }
-  SaveForProcessing(){
-    this.sessionStorage.setItem('Basket',this.basketItems);
-
   }
   viewItem(i:MenuItem){
     this.selected_item = i as any;

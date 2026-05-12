@@ -2,7 +2,7 @@ import { Component, Input, OnDestroy, OnInit, effect } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { MenuItem, MenuItemTagRef, ModifierGroup, Restaurant, SelectedModifier } from 'src/app/_models/app.models';
+import { BasketItem, MenuItem, MenuItemTagRef, ModifierGroup, Restaurant, SelectedModifier } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -34,8 +34,12 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   @Input() restaurant?:Restaurant;
   @Input()restaurant_id:any='';
   menu_list?:MenuItem[]|any=[];
-  basketItems = this.basketService.Basket().items;
-  totalAmount = this.basketService.Basket().totalAmount;
+  get basketItems(): BasketItem[] {
+    return this.basketService.Basket()?.items ?? [];
+  }
+  get totalAmount(): number {
+    return this.basketService.Basket()?.totalAmount ?? 0;
+  }
   showModal=false;
   selected_item!:MenuItem|any
   heroImageLoaded: boolean = false;
@@ -74,7 +78,6 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   });
   this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   this.navState.setPresetTags(this.restaurant?.preset_tags || []);
-  this.udpateCart();
 
   // When coming directly from a QR scan, the table-scan API call in the
   // DinerAppComponent wrapper may not have resolved yet — so session storage
@@ -183,17 +186,10 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   }
   removeItem(Id: string) {
     this.basketService.removeItem(Id);
-    this.udpateCart();
   }
 get QuantitySum(){
  return this.basketItems.reduce((a, b) => a + b.quantity,0)
 }
-  udpateCart() {
-    // Update cartItems and totalAmount after removing an item
-    this.basketItems = this.basketService.Basket().items;
-    this.totalAmount = this.basketService.Basket().totalAmount;
-    this.SaveForProcessing();
-  }
   loadMenu(){
     this.navState.setLoading(true);
     this.api.get<MenuItem>(null,'orders/journey/show-menu/',{restaurant:this.restaurant_id?this.restaurant_id:this.restaurant?.id}).subscribe({
@@ -315,10 +311,6 @@ get QuantitySum(){
     this.selected_extras = [];
   }
 
-  SaveForProcessing(){
-    this.sessionStorage.setItem('Basket',this.basketItems);
-
-  }
   viewItem(i:MenuItem){
     if (this.isOutOfStock(i)) return;
     this.selected_item = i as any;
@@ -388,13 +380,11 @@ get QuantitySum(){
 
     if (this.isEditMode && this.editingBasketIndex !== null) {
       this.basketService.updateItem(this.editingBasketIndex, basketItem);
-      this.udpateCart();
       this.closeModal();
       return;
     }
 
     this.basketService.addItem(basketItem);
-    this.udpateCart();
     this.closeModal();
     this.selected_quantity = 1;
     this.selectedModifiers = {};

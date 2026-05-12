@@ -1,14 +1,28 @@
-import { Injectable,signal} from '@angular/core';
+import { Injectable, WritableSignal } from '@angular/core';
 import { BasketItem, ShoppingBasket, SelectedModifier } from '../_models/app.models';
+import { SessionStorageService } from './storage/session-storage.service';
+import { persistedSignal } from './storage/persisted-state';
 
 @Injectable({
   providedIn: 'root'
 })
 export class BasketService {
-  Basket = signal<ShoppingBasket>({
-    items: [],
-    totalAmount: 0,
-  });
+  readonly Basket!: WritableSignal<ShoppingBasket>;
+
+  constructor(private sessionStorage: SessionStorageService) {
+    this.Basket = persistedSignal<ShoppingBasket>(
+      { items: [], totalAmount: 0 },
+      {
+        storage: this.sessionStorage,
+        getKey: () => 'diner.basket',
+        validate: (v): v is ShoppingBasket =>
+          v != null &&
+          typeof v === 'object' &&
+          Array.isArray((v as Partial<ShoppingBasket>).items) &&
+          typeof (v as Partial<ShoppingBasket>).totalAmount === 'number',
+      },
+    );
+  }
 
   // Calculates the total amount of the basket
   public calculateTotalAmount(items: BasketItem[]): number {
