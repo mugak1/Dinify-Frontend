@@ -4,6 +4,8 @@ import { Subject, combineLatest } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
 import { AuthenticationService } from '../../../../_services/authentication.service';
+import { LocalStorageService } from '../../../../_services/storage/local-storage.service';
+import { PersistedValue } from '../../../../_services/storage/persisted-state';
 import { TablesService } from '../../services/tables.service';
 import { ServiceToolbarComponent, ServiceMetrics } from '../service-toolbar/service-toolbar.component';
 import { FloorPlanCanvasComponent } from '../floor-plan-canvas/floor-plan-canvas.component';
@@ -45,13 +47,8 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   waitlist: WaitlistEntry[] = [];
   seatedParties: SeatedParty[] = [];
 
-  filters: TableFilters = {
-    area: 'all',
-    status: [],
-    servers: [],
-    tableSize: [],
-    search: '',
-  };
+  private readonly _persistedArea!: PersistedValue<string>;
+  filters!: TableFilters;
 
   selectedTableId: string | null = null;
   selectedTableIds: string[] = [];
@@ -64,7 +61,21 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
     private tablesService: TablesService,
     private toast: ToastService,
     private auth: AuthenticationService,
-  ) {}
+    private localStorage: LocalStorageService,
+  ) {
+    this._persistedArea = new PersistedValue<string>('all', {
+      storage: this.localStorage,
+      getKey: () => `tables.areaFilter:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
+      validate: (v): v is string => typeof v === 'string',
+    });
+    this.filters = {
+      area: this._persistedArea.value,
+      status: [],
+      servers: [],
+      tableSize: [],
+      search: '',
+    };
+  }
 
   private get restaurantId(): string {
     return this.auth.currentRestaurantRole?.restaurant_id ?? '';
@@ -80,6 +91,14 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(([areas, tables, reservations, waitlist]) => {
         this.areas = areas;
+        if (
+          areas.length > 0 &&
+          this.filters.area !== 'all' &&
+          !areas.find(a => a.id === this.filters.area && a.isActive)
+        ) {
+          this.filters = { ...this.filters, area: 'all' };
+          this._persistedArea.value = 'all';
+        }
         this.tables = tables;
         this.reservations = reservations;
         this.waitlist = waitlist;
@@ -156,6 +175,9 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   // ── Filter change ─────────────────────────────────────
 
   onFiltersChange(filters: TableFilters): void {
+    if (filters.area !== this.filters.area) {
+      this._persistedArea.value = filters.area;
+    }
     this.filters = filters;
   }
 
