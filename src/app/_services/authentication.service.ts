@@ -201,7 +201,7 @@ this.userSubject.next(u as any)
       // re-seeded from cleaned localStorage on the next login. Soft
       // navigation would leave in-memory PersistedBehaviorSubject values
       // intact, defeating the storage clear.
-      window.location.href = '/login';
+      this.hardRedirect('/login');
     }
   }
 
@@ -230,6 +230,12 @@ this.userSubject.next(u as any)
     if (!skipReturnUrl) {
       params.set('returnUrl', currentUrl);
     }
-    window.location.href = `/login?${params.toString()}`;
+    this.hardRedirect(`/login?${params.toString()}`);
+  }
+
+  // Indirection over `window.location.href = url` so unit tests can spy on
+  // navigation without actually unloading the Karma host page.
+  protected hardRedirect(url: string): void {
+    window.location.href = url;
   }
 }
