@@ -39,7 +39,6 @@ import { TagFilterSheetComponent } from '../tag-filter-sheet/tag-filter-sheet.co
 import { UpsellCarouselComponent } from '../upsell-carousel/upsell-carousel.component';
 import { ScrollSpyCommonDirective } from 'src/app/_common/scroll-spy-common.directive';
 import { FeaturedCarouselComponent } from 'src/app/_shared/ui/featured-carousel/featured-carousel.component';
-import { AllergenDisclaimerComponent } from 'src/app/_shared/ui/allergen-disclaimer/allergen-disclaimer.component';
 import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import { TagOverflowPillComponent } from 'src/app/_shared/tags/tag-overflow-pill.component';
 import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
@@ -61,7 +60,6 @@ type DrawerView = 'list' | 'detail' | 'cart';
     ScrollSpyCommonDirective,
     SafeArrayPipe,
     FeaturedCarouselComponent,
-    AllergenDisclaimerComponent,
     TagPillComponent,
     TagOverflowPillComponent,
   ],
