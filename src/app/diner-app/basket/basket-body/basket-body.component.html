@@ -191,9 +191,18 @@
     <div class="mt-4 space-y-2">
       <!-- Savings banner -->
       <div *ngIf="getTotalSavings() > 0"
-           class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between mb-3">
-        <span class="text-green-700 font-medium text-sm">Total savings</span>
-        <span class="text-green-700 font-bold">UGX {{ getTotalSavings() | number }}</span>
+           class="bg-emerald-700 text-white rounded-xl p-4 flex items-center gap-3.5 mb-3">
+        <div class="flex-shrink-0 w-11 h-11 rounded-full bg-white/20 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
+            <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span class="text-[11px] uppercase tracking-widest font-medium text-white/85">Total savings</span>
+          <span class="text-[22px] font-bold leading-tight tabular-nums">UGX {{ getTotalSavings() | number }}</span>
+        </div>
       </div>
 
       <!-- Total -->
