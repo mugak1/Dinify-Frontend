@@ -99,11 +99,11 @@
                           [attr.aria-pressed]="navState.isAllergenSelected(opt.id)"
                           class="w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left"
                           [class]="navState.isAllergenSelected(opt.id)
-                            ? 'border-red-500 bg-red-50'
+                            ? 'border-amber-500 bg-amber-50'
                             : 'border-gray-200 hover:bg-gray-50'">
                     <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
                          [class]="navState.isAllergenSelected(opt.id)
-                           ? 'bg-red-600 border-red-600'
+                           ? 'bg-amber-600 border-amber-600'
                            : 'border-gray-300'">
                       @if (navState.isAllergenSelected(opt.id)) {
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
