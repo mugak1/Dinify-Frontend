@@ -107,11 +107,11 @@
                               (click)="scrollToFeatured(); $event.stopPropagation()"
                               class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
                               [class]="activeSection === 'featured'
-                                ? 'bg-red-600 text-white shadow-sm'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                                ? 'bg-amber-400 text-gray-900 shadow-sm'
+                                : 'bg-gray-100 text-gray-900 hover:bg-gray-200'">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                             [attr.fill]="activeSection === 'featured' ? '#ffffff' : '#eab308'"
-                             [attr.stroke]="activeSection === 'featured' ? '#ffffff' : '#eab308'"
+                             [attr.fill]="activeSection === 'featured' ? '#b45309' : '#fbbf24'"
+                             [attr.stroke]="activeSection === 'featured' ? '#b45309' : '#fbbf24'"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                         </svg>
@@ -125,7 +125,7 @@
                               class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
                               [class]="activeSection === section.id
                                 ? 'bg-red-600 text-white shadow-sm'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                                : 'bg-gray-100 text-gray-900 hover:bg-gray-200'">
                         {{ section.name }}
                       </button>
                     }
@@ -517,9 +517,9 @@
         }
       </div>
       @if (hasActiveDiscount(item) && !isOutOfStock(item)) {
-        <span class="inline-flex items-center self-start bg-black text-white text-xs font-medium px-2 py-0.5 rounded-full mt-1">
+        <span class="inline-flex items-center self-start bg-red-500 text-white text-xs font-medium px-2 py-0.5 rounded-full mt-1">
           {{ getDiscountPercent(item) }}% off
-          <span class="ml-1 text-gray-400">· Save {{ formatPrice(getItemSavingsFromItem(item)) }}</span>
+          <span class="ml-1 text-red-100">· Save {{ formatPrice(getItemSavingsFromItem(item)) }}</span>
         </span>
       }
       @if (item.description) {

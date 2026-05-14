@@ -89,9 +89,9 @@
 
         <!-- Discount badge inline (only when not sold out) -->
         <span *ngIf="i?.running_discount && !isOutOfStock(i)"
-              class="inline-flex items-center self-start bg-black text-white text-xs font-medium px-2 py-0.5 rounded-full mt-1">
+              class="inline-flex items-center self-start bg-red-500 text-white text-xs font-medium px-2 py-0.5 rounded-full mt-1">
           {{ calculateDiscount(i) }}% off
-          <span class="ml-1 text-gray-400">· Save UGX {{ priceSaved(i) | number }}</span>
+          <span class="ml-1 text-red-100">· Save UGX {{ priceSaved(i) | number }}</span>
         </span>
 
         <!-- Description -->
