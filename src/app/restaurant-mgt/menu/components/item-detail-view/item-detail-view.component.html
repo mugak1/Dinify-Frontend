@@ -32,7 +32,7 @@
       <!-- Badge row -->
       <div *ngIf="item.is_featured || item.is_popular || item.is_new" class="flex flex-wrap gap-2">
         <span *ngIf="item.is_featured"
-              class="inline-flex items-center gap-1 bg-amber-500 text-white text-xs font-semibold uppercase px-2 py-1 rounded">
+              class="inline-flex items-center gap-1 bg-amber-400 text-gray-900 text-xs font-semibold uppercase px-2 py-1 rounded">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -61,7 +61,7 @@
       <!-- Name + calories -->
       <div>
         <h2 class="text-2xl font-bold text-foreground">{{ item.name }}</h2>
-        <p *ngIf="item.calories" class="text-sm font-bold text-foreground mt-1">
+        <p *ngIf="item.calories" class="text-sm font-bold text-muted-foreground mt-1">
           {{ item.calories }} kcal
         </p>
       </div>
@@ -79,9 +79,18 @@
 
       <!-- Savings callout -->
       <div *ngIf="hasDiscount"
-           class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
-        <span class="text-green-700 font-medium text-sm">You save</span>
-        <span class="text-green-700 font-bold">{{ formatPrice(savings) }}</span>
+           class="bg-emerald-700 text-white rounded-xl p-4 flex items-center gap-3.5">
+        <div class="flex-shrink-0 w-11 h-11 rounded-full bg-white/20 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
+            <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span class="text-[11px] uppercase tracking-widest font-medium text-white/85">You save</span>
+          <span class="text-[22px] font-bold leading-tight tabular-nums">{{ formatPrice(savings) }}</span>
+        </div>
       </div>
 
       <!-- Description -->
