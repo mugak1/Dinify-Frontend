@@ -127,7 +127,12 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.storageSub?.unsubscribe();
     this.navState.setMenuActive(false);
-    this.navState.setMenuList(null);
+    // Intentionally NOT clearing the menu list here. The item-detail page is a
+    // sibling route that constructs after this component is destroyed, so it
+    // resolves the tapped item from the shared store — leaving the data in place
+    // lets it do so without refetching the whole show-menu payload. loadMenu()
+    // overwrites the store on menu re-entry, so this never goes stale; do not
+    // "restore" a setMenuList(null) here.
     this.navState.setLoading(true);
     this.navState.searchQuery.set('');
     this.navState.showSearch.set(false);

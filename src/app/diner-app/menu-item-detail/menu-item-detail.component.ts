@@ -65,51 +65,19 @@ export class MenuItemDetailComponent implements OnDestroy {
     const editing = this.route.snapshot.queryParamMap.get('editingIndex');
     this.editingIndex.set(editing !== null ? Number(editing) : null);
 
+    // Synchronous warm-path resolution: when the shared store survived the
+    // menu→detail navigation, the item resolves here in the constructor and
+    // clears `loading` before the first change-detection pass — no skeleton
+    // flash. On a genuine cold load `allItems()` is empty, so this returns
+    // having changed nothing and the effect/fetch path below takes over.
+    this.resolveItemFromState();
+
     // Resolve the item from `allItems` whenever the menu populates. Idempotent
     // — skips work once `item` is set so it doesn't re-fire on later signal
-    // emissions (filter changes, etc.).
+    // emissions (filter changes, etc.). Still needed on the cold path: it reads
+    // allItems() and re-fires once the fetched menu lands.
     effect(() => {
-      if (this.item()) return;
-      const all = this.navState.allItems();
-      if (!all.length) return;
-      const found = all.find((i) => i?.id === this.itemId) as MenuItem | undefined;
-      if (found) {
-        this.item.set(found);
-        this.modifierGroups.set(parseModifierGroups(found.options));
-        this.selectedModifiers.set({});
-        this.selectedExtras.set([]);
-        this.heroImageLoaded.set(false);
-        // Edit-mode pre-population: when arriving with ?editingIndex=<n>, rebuild
-        // the prior selections from the basket entry at that index. Falls back to
-        // add mode if the index is out of range (e.g. basket was cleared between
-        // navigations).
-        const idx = this.editingIndex();
-        if (idx !== null) {
-          const basketItem = this.basketService.Basket().items[idx];
-          if (basketItem) {
-            this.quantity.set(basketItem.quantity);
-            const reconstructed: Record<string, string[]> = {};
-            for (const mod of basketItem.selectedModifiers || []) {
-              reconstructed[mod.groupId] = mod.choices.map((c) => c.id);
-            }
-            this.selectedModifiers.set(reconstructed);
-            // Use the menuItem's own extra refs so isExtraSelected's identity
-            // check matches.
-            this.selectedExtras.set(
-              (basketItem.extras || [])
-                .map((ext: any) => (found.extras || []).find((e: any) => e.id === ext.id))
-                .filter((e: MenuItemExtraRef | undefined): e is MenuItemExtraRef => !!e),
-            );
-          } else {
-            this.editingIndex.set(null);
-          }
-        }
-        this.validateForm();
-        this.loading.set(false);
-      } else {
-        this.loading.set(false);
-        this.notFound.set(true);
-      }
+      this.resolveItemFromState();
     });
 
     // Warm-load path — if the menu is already in nav state, the resolution
@@ -139,6 +107,57 @@ export class MenuItemDetailComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.storageSub?.unsubscribe();
+  }
+
+  /**
+   * Resolves the tapped item from the shared menu store (`allItems`). Idempotent
+   * — skips work once `item` is set so it doesn't re-do work on later signal
+   * emissions (filter changes, etc.). Returns having changed nothing when the
+   * store is empty (cold load before the fetch lands), so it's safe to call both
+   * synchronously from the constructor and from the resolution effect.
+   */
+  private resolveItemFromState(): void {
+    if (this.item()) return;
+    const all = this.navState.allItems();
+    if (!all.length) return;
+    const found = all.find((i) => i?.id === this.itemId) as MenuItem | undefined;
+    if (found) {
+      this.item.set(found);
+      this.modifierGroups.set(parseModifierGroups(found.options));
+      this.selectedModifiers.set({});
+      this.selectedExtras.set([]);
+      this.heroImageLoaded.set(false);
+      // Edit-mode pre-population: when arriving with ?editingIndex=<n>, rebuild
+      // the prior selections from the basket entry at that index. Falls back to
+      // add mode if the index is out of range (e.g. basket was cleared between
+      // navigations).
+      const idx = this.editingIndex();
+      if (idx !== null) {
+        const basketItem = this.basketService.Basket().items[idx];
+        if (basketItem) {
+          this.quantity.set(basketItem.quantity);
+          const reconstructed: Record<string, string[]> = {};
+          for (const mod of basketItem.selectedModifiers || []) {
+            reconstructed[mod.groupId] = mod.choices.map((c) => c.id);
+          }
+          this.selectedModifiers.set(reconstructed);
+          // Use the menuItem's own extra refs so isExtraSelected's identity
+          // check matches.
+          this.selectedExtras.set(
+            (basketItem.extras || [])
+              .map((ext: any) => (found.extras || []).find((e: any) => e.id === ext.id))
+              .filter((e: MenuItemExtraRef | undefined): e is MenuItemExtraRef => !!e),
+          );
+        } else {
+          this.editingIndex.set(null);
+        }
+      }
+      this.validateForm();
+      this.loading.set(false);
+    } else {
+      this.loading.set(false);
+      this.notFound.set(true);
+    }
   }
 
   // TODO(PR-5b+): this duplicates MenuComponent.loadMenu's fetch leg. Extract
