@@ -73,7 +73,10 @@
        [class.opacity-60]="isOutOfStock(i)"
        [class.cursor-not-allowed]="isOutOfStock(i)"
        [ngClass]="{ 'cursor-pointer hover:shadow-2xl hover:-translate-y-0.5 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }">
-    <div class="flex gap-3 p-3 flex-1" (click)="viewItem(i)">
+    <div class="flex flex-col gap-[18px] p-[18px] flex-1" (click)="viewItem(i)">
+
+      <!-- TOP REGION: text column + image side by side -->
+      <div class="flex gap-4">
 
       <!-- LEFT: Text content -->
       <div class="flex-1 min-w-0 flex flex-col">
@@ -87,58 +90,18 @@
           </span>
         </div>
 
+        <!-- Calories meta line, directly under the name -->
+        <span *ngIf="i.calories" class="block text-xs font-bold text-gray-500 mt-1">{{ i.calories }} kcal</span>
+
         <!-- Discount badge inline (only when not sold out) -->
         <span *ngIf="i?.running_discount && !isOutOfStock(i)"
-              class="inline-flex items-center self-start bg-red-500 text-white text-xs font-medium px-2 py-0.5 rounded-full mt-1">
+              class="inline-flex items-center self-start bg-red-500 text-white text-xs font-medium px-2 py-0.5 rounded-full mt-2">
           {{ calculateDiscount(i) }}% off
           <span class="ml-1 text-red-100">· Save UGX {{ priceSaved(i) | number }}</span>
         </span>
 
         <!-- Description -->
-        <p class="text-sm text-gray-500 line-clamp-2 mt-1">{{ i.description }}</p>
-
-        <!-- Bottom-pinned meta footer: calories, then price + dietary tags on one row.
-             Pinned with mt-auto so it sits at the card's bottom edge regardless of
-             description length, keeping price/tags aligned across every card in a row. -->
-        <div class="mt-auto pt-2">
-
-          <!-- Calories (optional) -->
-          <span *ngIf="i.calories" class="block text-xs font-bold text-gray-500">{{ i.calories }} kcal</span>
-
-          <!-- Price (left) + dietary/allergen pills (right) on one baseline-aligned row.
-               Price never shrinks; pills wrap upward on the rare card with many tags,
-               leaving the price bottom-aligned on every card. -->
-          <div class="flex items-end justify-between gap-2 mt-1">
-
-            <!-- Price -->
-            <div class="flex-shrink-0">
-              <ng-container *ngIf="i?.running_discount && !isOutOfStock(i); else normalPriceCard">
-                <span class="text-red-600 font-bold text-base">UGX {{ getDisplayPrice(i) | number }}</span>
-                <span class="line-through text-gray-400 text-sm ml-2">UGX {{ i.primary_price | number }}</span>
-              </ng-container>
-              <ng-template #normalPriceCard>
-                <span [class]="isOutOfStock(i) ? 'text-gray-400 font-bold text-base' : 'text-red-600 font-bold text-base'">
-                  UGX {{ i.primary_price | number }}
-                </span>
-              </ng-template>
-            </div>
-
-            <!-- Dietary / allergen pills -->
-            <ng-container *ngIf="getCardTags(i.tags) as cardTags">
-              <div *ngIf="cardTags.visible.length > 0 || cardTags.hiddenCount > 0"
-                   class="flex flex-wrap justify-end gap-1">
-                <app-tag-pill *ngFor="let tag of cardTags.visible"
-                              [name]="tag.name"
-                              [icon]="tag.icon"
-                              [colour]="tag.colour"
-                              size="sm"></app-tag-pill>
-                <app-tag-overflow-pill *ngIf="cardTags.hiddenCount > 0"
-                                       [count]="cardTags.hiddenCount"></app-tag-overflow-pill>
-              </div>
-            </ng-container>
-
-          </div>
-        </div>
+        <p class="text-sm text-gray-500 line-clamp-2 mt-2">{{ i.description }}</p>
       </div>
 
       <!-- RIGHT: Image with badge overlays -->
@@ -186,6 +149,42 @@
             <path d="M5 12h14"/><path d="M12 5v14"/>
           </svg>
         </span>
+      </div>
+
+      </div><!-- /TOP REGION -->
+
+      <!-- Full-width footer: price bottom-left, dietary/allergen pills bottom-right.
+           mt-auto pins it to the card's bottom edge so it stays aligned across cards
+           regardless of the text height above it. -->
+      <div class="mt-auto flex items-end justify-between gap-3">
+
+        <!-- Price -->
+        <div class="flex-shrink-0">
+          <ng-container *ngIf="i?.running_discount && !isOutOfStock(i); else normalPriceCard">
+            <span class="text-red-600 font-bold text-base">UGX {{ getDisplayPrice(i) | number }}</span>
+            <span class="line-through text-gray-400 text-sm ml-2">UGX {{ i.primary_price | number }}</span>
+          </ng-container>
+          <ng-template #normalPriceCard>
+            <span [class]="isOutOfStock(i) ? 'text-gray-400 font-bold text-base' : 'text-red-600 font-bold text-base'">
+              UGX {{ i.primary_price | number }}
+            </span>
+          </ng-template>
+        </div>
+
+        <!-- Dietary / allergen pills -->
+        <ng-container *ngIf="getCardTags(i.tags) as cardTags">
+          <div *ngIf="cardTags.visible.length > 0 || cardTags.hiddenCount > 0"
+               class="flex flex-wrap justify-end gap-1">
+            <app-tag-pill *ngFor="let tag of cardTags.visible"
+                          [name]="tag.name"
+                          [icon]="tag.icon"
+                          [colour]="tag.colour"
+                          size="sm"></app-tag-pill>
+            <app-tag-overflow-pill *ngIf="cardTags.hiddenCount > 0"
+                                   [count]="cardTags.hiddenCount"></app-tag-overflow-pill>
+          </div>
+        </ng-container>
+
       </div>
     </div>
   </div>
