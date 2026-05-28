@@ -49,6 +49,17 @@ export class MenuNavStateService {
   presetTags: WritableSignal<any[]> = signal<any[]>([]);
   showTagFilter: WritableSignal<boolean> = signal(false);
 
+  /** Draft (uncommitted) filter selections edited inside the filter sheet.
+   *  Seeded from the applied selections each time the sheet opens; copied back
+   *  to the applied signals only on Apply. Deliberately NOT persisted — an
+   *  unapplied draft must not survive a refresh. */
+  draftDietary: WritableSignal<TagId[]> = signal<TagId[]>([]);
+  draftAllergens: WritableSignal<TagId[]> = signal<TagId[]>([]);
+
+  draftFilterCount: Signal<number> = computed(
+    () => this.draftDietary().length + this.draftAllergens().length,
+  );
+
   isMenuActive: WritableSignal<boolean> = signal(false);
 
   /**
@@ -329,6 +340,8 @@ export class MenuNavStateService {
   }
 
   openTagFilter(): void {
+    this.draftDietary.set([...this.selectedDietary()]);
+    this.draftAllergens.set([...this.selectedAllergens()]);
     this.showTagFilter.set(true);
   }
 
@@ -337,7 +350,54 @@ export class MenuNavStateService {
   }
 
   setTagFilterOpen(open: boolean): void {
-    this.showTagFilter.set(open);
+    if (open) {
+      this.openTagFilter();
+    } else {
+      this.closeTagFilter();
+    }
+  }
+
+  /** Toggles a dietary tag id in/out of the DRAFT. No live re-filter — the
+   *  draft is committed only by applyDraftFilters(). */
+  toggleDraftDietary(tagId: TagId): void {
+    const current = this.draftDietary();
+    this.draftDietary.set(
+      current.includes(tagId)
+        ? current.filter((t) => t !== tagId)
+        : [...current, tagId],
+    );
+  }
+
+  toggleDraftAllergen(tagId: TagId): void {
+    const current = this.draftAllergens();
+    this.draftAllergens.set(
+      current.includes(tagId)
+        ? current.filter((t) => t !== tagId)
+        : [...current, tagId],
+    );
+  }
+
+  isDraftDietarySelected(tagId: TagId): boolean {
+    return this.draftDietary().includes(tagId);
+  }
+
+  isDraftAllergenSelected(tagId: TagId): boolean {
+    return this.draftAllergens().includes(tagId);
+  }
+
+  /** Clears the DRAFT only (the in-sheet Reset). Applied filters stay until
+   *  the diner taps Apply. */
+  clearDraft(): void {
+    this.draftDietary.set([]);
+    this.draftAllergens.set([]);
+  }
+
+  /** Commits draft -> applied (persisted) selections, re-filters, and closes. */
+  applyDraftFilters(): void {
+    this.selectedDietary.set([...this.draftDietary()]);
+    this.selectedAllergens.set([...this.draftAllergens()]);
+    this.filterMenu();
+    this.closeTagFilter();
   }
 
   /** Toggles a dietary tag id in/out of the selection and re-filters live. */
