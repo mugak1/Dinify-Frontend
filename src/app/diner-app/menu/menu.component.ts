@@ -31,6 +31,10 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   globalError: string | null = null;
   isInRestApp = false;
   private storageSub?: Subscription;
+  // Background revalidation bookkeeping: seq guards against a stale response
+  // overwriting fresher data; refreshSub is torn down in ngOnDestroy.
+  private refreshSeq = 0;
+  private refreshSub?: Subscription;
 
   @Input() restaurant?: Restaurant;
   @Input() restaurant_id: any = '';
@@ -126,6 +130,9 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.storageSub?.unsubscribe();
+    // Tear down any mid-flight background revalidation — the next menu entry
+    // revalidates again anyway.
+    this.refreshSub?.unsubscribe();
     this.navState.setMenuActive(false);
     // Intentionally NOT clearing the menu list here. The item-detail page is a
     // sibling route that constructs after this component is destroyed, so it
@@ -164,20 +171,43 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   }
 
   loadMenu() {
+    const rid = this.restaurant_id || this.restaurant?.id;
+    // Warm entry: the store still holds a menu FOR THIS restaurant (survived
+    // menu↔item). Render it immediately and revalidate silently — no skeleton,
+    // no preload gate. A cold load only happens on first entry, a hard refresh,
+    // or a different restaurant.
+    const warm =
+      this.navState.menuList() != null &&
+      this.navState.loadedRestaurantId() === rid;
+    if (warm) {
+      // Clear any leftover isLoading=true that ngOnDestroy set on the way out.
+      // This runs synchronously in ngOnInit BEFORE the first render, so the
+      // skeleton never flashes.
+      this.navState.setLoading(false);
+      // Re-derive filteredMenuList from the surviving data + live filter signals
+      // (search/tag selections persist across the round trip).
+      this.navState.filterMenu();
+      // Land where the diner was before tapping into the item.
+      this.restoreScrollIfReturning();
+      this.refreshMenuInBackground(rid);
+      return;
+    }
+    this.coldLoadMenu(rid);
+  }
+
+  /** First load / hard refresh / different restaurant. Today's exact behaviour,
+   *  plus stamping which restaurant the cached menu belongs to. */
+  private coldLoadMenu(rid: any) {
     this.navState.setLoading(true);
-    this.api.get<MenuItem>(null, 'orders/journey/show-menu/', { restaurant: this.restaurant_id ? this.restaurant_id : this.restaurant?.id }).subscribe({
+    this.navState.setLoadedRestaurantId(rid);
+    this.api.get<MenuItem>(null, 'orders/journey/show-menu/', { restaurant: rid }).subscribe({
       next: (x: any) => {
         this.menu_list = (x?.data as any) ?? [];
         this.navState.setMenuList(this.menu_list);
         this.navState.filterMenu();
         // currentSection is seeded by the constructor effect that watches
         // filteredMenuList — no imperative call needed here.
-        // Cache upsell config so the basket can render it without another round-trip
-        if (x?.upsell) {
-          this.sessionStorage.setItem('upsellConfig', x.upsell);
-        } else {
-          this.sessionStorage.removeItem?.('upsellConfig');
-        }
+        this.cacheUpsell(x);
         // Keep the skeleton visible until every item image has been preloaded
         // into the browser cache, so the reveal paints with no pop-in. A 5s
         // timeout caps the wait in case a CDN stalls.
@@ -194,6 +224,42 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
         this.navState.setLoading(false);
       }
     });
+  }
+
+  /** Silent revalidation behind a warm render. Never touches setLoading and
+   *  never runs the preloadImages gate (first-visit images are already cached;
+   *  a genuinely new image lazy-loads into its fixed-size slot). A per-instance
+   *  sequence number plus a restaurant re-check guard against a stale response
+   *  swapping in after the diner has moved on. */
+  private refreshMenuInBackground(rid: any) {
+    const seq = ++this.refreshSeq;
+    this.refreshSub?.unsubscribe();
+    this.refreshSub = this.api.get<MenuItem>(null, 'orders/journey/show-menu/', { restaurant: rid }).subscribe({
+      next: (x: any) => {
+        if (seq !== this.refreshSeq) return;                              // superseded
+        if ((this.restaurant_id || this.restaurant?.id) !== rid) return;  // restaurant changed
+        const fresh = (x?.data as any) ?? [];
+        this.menu_list = fresh;
+        this.navState.setMenuList(fresh);
+        this.navState.setLoadedRestaurantId(rid);
+        this.navState.filterMenu();
+        this.cacheUpsell(x);
+      },
+      error: () => {
+        // Keep the cached menu shown; never setLoading(true) here. The next
+        // entry revalidates again anyway.
+      }
+    });
+  }
+
+  /** Cache upsell config so the basket can render it without another round-trip.
+   *  Shared by cold load and background refresh so they stay in parity. */
+  private cacheUpsell(x: any): void {
+    if (x?.upsell) {
+      this.sessionStorage.setItem('upsellConfig', x.upsell);
+    } else {
+      this.sessionStorage.removeItem?.('upsellConfig');
+    }
   }
 
   /**
@@ -313,4 +379,10 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   getDisplayPrice(item: any): number {
     return getCurrentPrice(item as MenuItem);
   }
+
+  /** trackBy for the section and item loops so the silent background swap
+   *  reuses existing DOM instead of repainting — no flash or scroll jump
+   *  when fresh data lands. */
+  trackSection = (_: number, s: any) => s?.id ?? s?.name;
+  trackItem = (_: number, item: any) => item?.id;
 }
