@@ -24,6 +24,15 @@ export class MenuNavStateService {
   menuList: WritableSignal<any[] | null> = signal<any[] | null>(null);
   filteredMenuList: WritableSignal<any[] | null> = signal<any[] | null>(null);
 
+  /**
+   * Id of the restaurant the cached `menuList` belongs to. Lets menu re-entry
+   * tell a warm hit (same restaurant — render cached, revalidate in background)
+   * from a cold load (different restaurant or first load). Intentionally NOT
+   * cleared in any reset path — it must survive menu↔item exactly like
+   * `menuList` does; the cold load overwrites it for a new restaurant.
+   */
+  loadedRestaurantId: WritableSignal<string | null> = signal<string | null>(null);
+
   currentSection: WritableSignal<string> = signal('');
   searchQuery: WritableSignal<string> = signal('');
   showSearch: WritableSignal<boolean> = signal(false);
@@ -228,6 +237,10 @@ export class MenuNavStateService {
 
   setMenuList(list: any[] | null): void {
     this.menuList.set(list);
+  }
+
+  setLoadedRestaurantId(id: string | null): void {
+    this.loadedRestaurantId.set(id);
   }
 
   setPresetTags(tags: any[]): void {
