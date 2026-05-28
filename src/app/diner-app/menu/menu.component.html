@@ -73,7 +73,7 @@
        [class.opacity-60]="isOutOfStock(i)"
        [class.cursor-not-allowed]="isOutOfStock(i)"
        [ngClass]="{ 'cursor-pointer hover:shadow-2xl hover:-translate-y-0.5 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }">
-    <div class="flex flex-col gap-[18px] p-[18px] flex-1" (click)="viewItem(i)">
+    <div class="flex flex-col gap-[12px] md:gap-[18px] p-[18px] flex-1" (click)="viewItem(i)">
 
       <!-- TOP REGION: text column + image side by side -->
       <div class="flex gap-4">
@@ -105,7 +105,7 @@
       </div>
 
       <!-- RIGHT: Image with badge overlays -->
-      <div class="w-[112px] h-[112px] rounded-none overflow-hidden flex-shrink-0 relative"
+      <div class="w-[80px] h-[80px] md:w-[112px] md:h-[112px] rounded-none overflow-hidden flex-shrink-0 relative"
            [class.grayscale]="isOutOfStock(i)">
 
         <!-- Badge overlay (single-badge policy: Popular > New; Featured suppressed on cards) -->
