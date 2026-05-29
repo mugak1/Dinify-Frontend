@@ -290,23 +290,30 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
   getOriginalSubtotal(item: BasketItem): number | null {
-    if (!item.isDiscounted || !item.originalBasePrice) return null;
+    const parentDiscounted = !!item.isDiscounted && item.originalBasePrice != null;
+    const extrasDiscounted = this.hasDiscountedExtra(item);
+    if (!parentDiscounted && !extrasDiscounted) return null;
 
     const modifiersCost = (item.selectedModifiers || []).reduce(
       (sum, mod) => sum + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
       0
     );
-    const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
+    const extrasOriginal = item.extras?.reduce(
+      (sum: number, ex: any) => sum + (Number(ex.originalCost ?? ex.cost) || 0),
+      0
+    ) || 0;
+    const baseOriginal = parentDiscounted
+      ? Number(item.originalBasePrice)
+      : Number(item.basePrice) || 0;
 
-    return (Number(item.originalBasePrice) + modifiersCost + extrasCost) * item.quantity;
+    return (baseOriginal + modifiersCost + extrasOriginal) * item.quantity;
   }
   getTotalSavings(): number {
     return this.basketItems.reduce((total, item) => {
-      if (!item.isDiscounted || !item.originalBasePrice) return total;
-
-      const discountedSubtotal = this.getSubtotal(item);
       const originalSubtotal = this.getOriginalSubtotal(item);
-      return total + ((originalSubtotal ?? 0) - discountedSubtotal);
+      if (originalSubtotal == null) return total;
+      const discountedSubtotal = this.getSubtotal(item);
+      return total + (originalSubtotal - discountedSubtotal);
     }, 0);
   }
 
@@ -399,6 +406,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     );
   }
+  /** True when a stored basket extra carries a discount (original > charged). */
+  isExtraDiscounted(ex: any): boolean {
+    return !!ex && ex.originalCost != null && Number(ex.originalCost) > Number(ex.cost ?? 0);
+  }
+
+  private hasDiscountedExtra(item: BasketItem): boolean {
+    return (item.extras || []).some((ex: any) => this.isExtraDiscounted(ex));
+  }
+
   getSubtotal(item: BasketItem): number {
     const modifiersCost = (item.selectedModifiers || []).reduce(
       (sum, mod) => sum + mod.choices.reduce((s, c) => s + c.additionalCost, 0),

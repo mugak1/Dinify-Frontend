@@ -275,7 +275,15 @@
                     </div>
                     <span class="text-sm" [class.font-semibold]="isExtraSelected(o)">{{ o?.name }}</span>
                   </div>
-                  <span class="text-sm text-gray-500">+UGX {{ o.primary_price | number }}</span>
+                  <span class="text-sm">
+                    <ng-container *ngIf="extraIsDiscounted(o); else extraNormalPrice">
+                      <span class="text-gray-400 line-through mr-1">UGX {{ o.primary_price | number }}</span>
+                      <span class="text-red-600 font-medium">+UGX {{ extraEffectivePrice(o) | number }}</span>
+                    </ng-container>
+                    <ng-template #extraNormalPrice>
+                      <span class="text-gray-500">+UGX {{ o.primary_price | number }}</span>
+                    </ng-template>
+                  </span>
                 </label>
               </div>
             </div>

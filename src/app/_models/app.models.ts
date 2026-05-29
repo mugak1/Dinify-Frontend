@@ -116,6 +116,11 @@ export interface MenuItemExtraRef {
   name: string;
   // DRF serialises DecimalField as a string; matches primary_price below.
   primary_price: string;
+  // Discount rules for this extra — same shape as MenuItem.discount_details.
+  // Optional: legacy/cached payloads predate it; absent or {} ⇒ no discount.
+  // The effective price is recomputed client-side via getCurrentPriceFromDetails,
+  // mirroring how the parent item's price is derived.
+  discount_details?: DiscountDetails | null;
 }
 
 /**
