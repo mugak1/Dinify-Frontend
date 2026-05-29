@@ -9,6 +9,7 @@ import {
   getCurrentPrice,
   calculateSavings,
 } from 'src/app/_shared/utils/price-utils';
+import { matchedDescriptionOnly } from 'src/app/_shared/utils/menu-search';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
 import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
@@ -373,6 +374,12 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
 
   isOutOfStock(item: any): boolean {
     return item.in_stock === false;
+  }
+
+  /** True when the active search matched this item via its description only —
+   *  drives the "Contains" chip on the card. */
+  descMatchOnly(i: any): boolean {
+    return matchedDescriptionOnly(i, this.navState.searchQuery());
   }
 
   /** Final price to display when an item is discounted (post-canonical-shape). */
