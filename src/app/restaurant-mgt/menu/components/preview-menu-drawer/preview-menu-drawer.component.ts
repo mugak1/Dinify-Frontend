@@ -44,6 +44,8 @@ import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import { TagOverflowPillComponent } from 'src/app/_shared/tags/tag-overflow-pill.component';
 import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
 import { MenuItemTagRef } from 'src/app/_models/app.models';
+import { searchMenuItems, matchedDescriptionOnly } from 'src/app/_shared/utils/menu-search';
+import { HighlightPipe } from 'src/app/_shared/ui/highlight.pipe';
 
 type DrawerView = 'list' | 'detail' | 'cart';
 
@@ -63,6 +65,7 @@ type DrawerView = 'list' | 'detail' | 'cart';
     FeaturedCarouselComponent,
     TagPillComponent,
     TagOverflowPillComponent,
+    HighlightPipe,
   ],
   templateUrl: './preview-menu-drawer.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -160,44 +163,62 @@ export class PreviewMenuDrawerComponent implements OnChanges {
   // ─── Featured Items ─────────────────────────────────────────────
 
   featuredItems = computed<any[]>(() => {
+    if (this.isSearching()) return [];
     const activeSectionIds = new Set(this.availableSections().map((s) => s.id));
     let featured = this.allItems().filter(
       (i) => i.is_featured && i.available && activeSectionIds.has(i.section),
     );
     featured = featured.filter((item) => this.matchesSelectedTags(item));
-    const term = this.searchTerm().toLowerCase();
-    if (term) {
-      featured = featured.filter(
-        (i) =>
-          i.name?.toLowerCase().includes(term) ||
-          i.description?.toLowerCase().includes(term),
-      );
-    }
     return this.sortItems(featured);
   });
 
-  /** Sections with their tag+search-filtered, sorted items. Sections that end up with zero
-   *  items are DROPPED so the drawer never shows an empty heading (mirrors the diner menu). */
+  /** Sections with their tag-filtered, sorted items. Sections that end up with zero
+   *  items are DROPPED so the drawer never shows an empty heading (mirrors the diner menu).
+   *  Yields nothing during an active search — results flow through searchResults instead. */
   filteredSections = computed<any[]>(() => {
-    const term = this.searchTerm().toLowerCase();
+    if (this.isSearching()) return [];
     return this.availableSections()
       .map((section) => {
-        let items = this.getAvailableItems(section.id);
-        items = items.filter((item) => this.matchesSelectedTags(item));
-        if (term) {
-          items = items.filter(
-            (i) =>
-              i.name?.toLowerCase().includes(term) ||
-              i.description?.toLowerCase().includes(term),
-          );
-        }
+        const items = this.getAvailableItems(section.id).filter((item) =>
+          this.matchesSelectedTags(item),
+        );
         return { ...section, items };
       })
       .filter((section) => section.items.length > 0);
   });
 
-  hasAnyResults = computed<boolean>(
-    () => this.featuredItems().length > 0 || this.filteredSections().length > 0,
+  /**
+   * Flat, ranked search results (name matches first, then description-only, each
+   * in menu order). Built from the tag-filtered available items so tag filters
+   * apply before ranking — parity with the diner. Empty when the (trimmed) query
+   * is blank. When this is non-empty the browse computeds short-circuit to [],
+   * so only one view renders at a time.
+   */
+  searchResults = computed<any[]>(() => {
+    if (!this.searchTerm().trim()) return [];
+    const flat: any[] = [];
+    for (const section of this.availableSections()) {
+      const items = this.getAvailableItems(section.id).filter((item) =>
+        this.matchesSelectedTags(item),
+      );
+      for (const item of items) flat.push(item);
+    }
+    return searchMenuItems(flat, this.searchTerm());
+  });
+
+  /** Active search predicate — drives the browse/search view switch. */
+  isSearching = computed<boolean>(() => this.searchTerm().trim().length > 0);
+
+  /** True when the active search matched this item via its description only —
+   *  drives the "Contains" chip on the card. */
+  descMatchOnly(item: any): boolean {
+    return matchedDescriptionOnly(item, this.searchTerm());
+  }
+
+  hasAnyResults = computed<boolean>(() =>
+    this.isSearching()
+      ? this.searchResults().length > 0
+      : this.featuredItems().length > 0 || this.filteredSections().length > 0,
   );
 
   // ─── Section Items ──────────────────────────────────────────────
