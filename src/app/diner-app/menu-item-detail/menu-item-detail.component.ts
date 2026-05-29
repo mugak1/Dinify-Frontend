@@ -1,4 +1,4 @@
-import { Component, OnDestroy, computed, effect, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
@@ -27,7 +27,7 @@ import { MenuNavStateService } from '../menu/menu-nav-state.service';
   styleUrls: ['./menu-item-detail.component.css'],
   standalone: false,
 })
-export class MenuItemDetailComponent implements OnDestroy {
+export class MenuItemDetailComponent implements OnInit, OnDestroy {
   url = environment.apiUrl;
 
   readonly table: string;
@@ -103,6 +103,14 @@ export class MenuItemDetailComponent implements OnDestroy {
       this.storageSub = undefined;
       this.fetchMenu(r.id);
     });
+  }
+
+  ngOnInit(): void {
+    // The item-detail page should always open scrolled to the top, regardless
+    // of where the diner was scrolled on the menu when they tapped in. The
+    // menu preserves its own scroll position separately for the return trip,
+    // so this does not interfere with back-navigation restore.
+    window.scrollTo({ top: 0, left: 0 });
   }
 
   ngOnDestroy(): void {
