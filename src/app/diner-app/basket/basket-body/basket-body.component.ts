@@ -316,7 +316,16 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.api.postPatch('orders/submit/', payload, 'put').subscribe(
       (_response: any) => {
         this.dialog.closeModal();
-        this.router.navigate(['/diner', 'basket', 'order-complete']); // Navigate to the order-complete page
+        // Forward the table for the confirmation page (captured before the
+        // sessionStorage clear below), and replaceUrl so Back doesn't return to
+        // the basket/confirm state.
+        this.router.navigate(['/diner', 'basket', 'order-complete'], {
+          replaceUrl: true,
+          state: {
+            tableNumber: this.table?.number ?? null,
+            tableId: this.table?.id ?? null,
+          },
+        });
 
         this.basketService.clearBasket(); // Clear the basket
         this.sessionStorage.clear();
