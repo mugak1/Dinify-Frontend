@@ -136,16 +136,32 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Adds an upsell item to the basket (simple items — no modifiers/extras)
   addUpsellItem(upsellItem: any): void {
-    const price = parseFloat(upsellItem.item_price) || 0;
+    const original = parseFloat(upsellItem.item_price) || 0;
+    const discounted =
+      upsellItem.item_discounted_price != null
+        ? parseFloat(upsellItem.item_discounted_price)
+        : null;
+    // Only treat as discounted when the flag is set AND a valid lower price is present.
+    const isDiscounted =
+      !!upsellItem.item_running_discount && discounted != null && discounted < original;
+    const basePrice = isDiscounted ? (discounted as number) : original;
+
     this.basketService.addItem({
       itemId: upsellItem.item_id || upsellItem.menu_item,
       itemName: upsellItem.item_name,
-      image: upsellItem.item_image || null,
-      basePrice: price,
-      totalPrice: price,
+      image: upsellItem.item_image || undefined,
+      basePrice,
+      totalPrice: basePrice, // upsell items have no modifiers/extras
       quantity: 1,
       selectedModifiers: [],
       extras: [],
+      isDiscounted,
+      originalBasePrice: isDiscounted ? original : undefined,
+      discountAmount: isDiscounted ? original - basePrice : undefined,
+      discountPercentage: isDiscounted
+        ? (Number(upsellItem.item_discount_percentage) ||
+           Math.round((1 - basePrice / original) * 100))
+        : undefined,
     } as any);
     this.updateCart();
   }

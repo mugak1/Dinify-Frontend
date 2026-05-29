@@ -72,9 +72,15 @@
           <h4 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
             {{ item.item_name }}
           </h4>
-          <p class="text-red-600 font-bold text-sm mt-1">
-            UGX {{ item.item_price | number }}
-          </p>
+          <div class="mt-1">
+            <ng-container *ngIf="item.item_running_discount && item.item_discounted_price !== null && item.item_discounted_price !== undefined; else upsellNormalPrice">
+              <span class="text-red-600 font-bold text-sm">UGX {{ item.item_discounted_price | number }}</span>
+              <span class="line-through text-gray-400 text-xs ml-1">UGX {{ item.item_price | number }}</span>
+            </ng-container>
+            <ng-template #upsellNormalPrice>
+              <span class="text-red-600 font-bold text-sm">UGX {{ item.item_price | number }}</span>
+            </ng-template>
+          </div>
           <button (click)="addUpsellItem(item)"
                   class="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
