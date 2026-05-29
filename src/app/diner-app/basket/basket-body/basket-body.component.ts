@@ -41,10 +41,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.basketService.Basket()?.totalAmount ?? 0;
   }
 
-  discountActive: boolean = false; // Set to true only if discount is available
-discountType: 'percentage' | 'flat' = 'percentage';
-discountValue: number = 10; // 10% or UGX amount
-
   constructor(
     private sessionStorage: SessionStorageService,
     private basketService: BasketService,
@@ -267,7 +263,7 @@ discountValue: number = 10; // 10% or UGX amount
     this.api.postPatch('orders/submit/', payload, 'put').subscribe(
       (_response: any) => {
         this.dialog.closeModal();
-        this.router.navigate([this.router.url,'order-complete']); // Navigate to the order-complete page
+        this.router.navigate(['/diner', 'basket', 'order-complete']); // Navigate to the order-complete page
 
         this.basketService.clearBasket(); // Clear the basket
         this.sessionStorage.clear();
@@ -302,17 +298,5 @@ discountValue: number = 10; // 10% or UGX amount
     return (item.selectedModifiers || []).some(
       mod => mod.choices.some(c => c.additionalCost > 0)
     );
-  }
-   getDiscountAmount(): number {
-    if (!this.discountActive) return 0;
-
-    const rawTotal = this.totalAmount;
-    return this.discountType === 'percentage'
-      ? (rawTotal * this.discountValue) / 100
-      : this.discountValue;
-  }
-
-  getFinalTotal(): number {
-    return Math.max(0, this.totalAmount - this.getDiscountAmount());
   }
 }
