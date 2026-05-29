@@ -208,34 +208,44 @@
              appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)"
              class="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-6">
 
-          <!-- Featured Section: horizontal-scrolling carousel.
-               Note: regular category sections below intentionally still use the
-               inline #itemCard template — this PR only converts Featured. -->
-          @if (featuredItems().length > 0) {
-            <div id="sec-featured">
-              <app-featured-carousel
-                [items]="featuredItems()"
-                sectionId=""
-                scrollMarginVar=""
-                (itemTap)="handleItemClick($event)">
-              </app-featured-carousel>
-            </div>
+          <!-- Browse mode: featured carousel + grouped sections -->
+          @if (!isSearching()) {
+            <!-- Featured Section: horizontal-scrolling carousel. -->
+            @if (featuredItems().length > 0) {
+              <div id="sec-featured">
+                <app-featured-carousel
+                  [items]="featuredItems()"
+                  sectionId=""
+                  scrollMarginVar=""
+                  (itemTap)="handleItemClick($event)">
+                </app-featured-carousel>
+              </div>
+            }
+
+            <!-- Regular Sections -->
+            @for (section of filteredSections(); track section.id) {
+              <div [id]="'sec-' + section.id">
+                <h2 [class]="'text-xl font-bold mb-4 py-2 border-b transition-colors duration-200 ' +
+                  (activeSection() === section.id
+                    ? 'text-primary border-primary'
+                    : 'text-foreground border-border')">
+                  {{ section.name }}
+                </h2>
+                <div class="space-y-4">
+                  @for (item of section.items; track item.id) {
+                    <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: '' }"></ng-container>
+                  }
+                </div>
+              </div>
+            }
           }
 
-          <!-- Regular Sections -->
-          @for (section of filteredSections(); track section.id) {
-            <div [id]="'sec-' + section.id">
-              <h2 [class]="'text-xl font-bold mb-4 py-2 border-b transition-colors duration-200 ' +
-                (activeSection() === section.id
-                  ? 'text-primary border-primary'
-                  : 'text-foreground border-border')">
-                {{ section.name }}
-              </h2>
-              <div class="space-y-4">
-                @for (item of section.items; track item.id) {
-                  <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: '' }"></ng-container>
-                }
-              </div>
+          <!-- Search mode: flat, ranked results (no sections, no featured) -->
+          @if (isSearching()) {
+            <div class="space-y-4">
+              @for (item of searchResults(); track item.id) {
+                <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: '' }"></ng-container>
+              }
             </div>
           }
 
@@ -506,7 +516,7 @@
     <!-- Left: text -->
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 flex-wrap">
-        <h3 class="font-semibold text-lg">{{ item.name }}</h3>
+        <h3 class="font-semibold text-lg"><ng-container *ngFor="let seg of (item.name | highlight: searchTerm())"><mark *ngIf="seg.match" class="bg-amber-200 text-foreground rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></h3>
         @if (isOutOfStock(item)) {
           <span class="inline-flex items-center rounded-full bg-gray-200 text-gray-700 text-xs px-2 py-0.5">
             Sold out
@@ -519,8 +529,13 @@
           <span class="ml-1 text-red-100">· Save {{ formatPrice(getItemSavingsFromItem(item)) }}</span>
         </span>
       }
+      @if (isSearching() && descMatchOnly(item)) {
+        <span class="inline-flex items-center self-start bg-amber-50 text-amber-700 text-xs font-medium px-2 py-0.5 rounded-full mt-1">
+          Contains "{{ searchTerm() }}"
+        </span>
+      }
       @if (item.description) {
-        <p class="text-sm text-muted-foreground mt-1 line-clamp-2">{{ item.description }}</p>
+        <p class="text-sm text-muted-foreground mt-1 line-clamp-2"><ng-container *ngFor="let seg of (item.description | highlight: searchTerm())"><mark *ngIf="seg.match" class="bg-amber-200 text-foreground rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></p>
       }
       @if (item.calories) {
         <span class="text-xs font-semibold text-muted-foreground mt-1">{{ item.calories }} kcal</span>
