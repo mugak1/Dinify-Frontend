@@ -74,6 +74,37 @@ export class BasketService {
     });
   }
 
+  /** Increments the quantity of the basket line at `index` by 1. Operates by
+   *  index (not identity) so it is unambiguous when two lines share the same
+   *  item and modifiers but differ only by extras. */
+  public incrementItem(index: number): void {
+    this.Basket.update((currentBasket) => {
+      const item = currentBasket.items[index];
+      if (item) {
+        item.quantity += 1;
+        currentBasket.totalAmount = this.calculateTotalAmount(currentBasket.items);
+      }
+      return currentBasket;
+    });
+  }
+
+  /** Decrements the quantity of the basket line at `index` by 1, removing the
+   *  line entirely when it would reach 0. Index-based for the same reason as
+   *  incrementItem. */
+  public decrementItem(index: number): void {
+    this.Basket.update((currentBasket) => {
+      const item = currentBasket.items[index];
+      if (!item) return currentBasket;
+      if (item.quantity <= 1) {
+        currentBasket.items = currentBasket.items.filter((_, i) => i !== index);
+      } else {
+        item.quantity -= 1;
+      }
+      currentBasket.totalAmount = this.calculateTotalAmount(currentBasket.items);
+      return currentBasket;
+    });
+  }
+
   // Replaces a basket item at the given index with a new item.
   // Used when editing an existing basket item's selections.
   public updateItem(index: number, item: BasketItem): void {
