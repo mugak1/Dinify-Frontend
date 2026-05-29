@@ -335,6 +335,7 @@ export interface OrderInitiated {
   order_items: OrderItem[]
   unavailable_items: any[]
   available_items: AvailableItem[]
+  unavailable_extras: any[]
 }
 
 export interface OrderDetails {
@@ -350,6 +351,7 @@ export interface OrderDetails {
   no_items: number
   no_unavailable_items: number
   no_available_items: number
+  no_unavailable_extras: number
   order_status: string
   payment_status: string
 }
