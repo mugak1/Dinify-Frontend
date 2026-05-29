@@ -51,7 +51,7 @@
     </div>
 
     <div id="{{addUnderScore(s.name)}}" *ngFor="let s of navState.filteredMenuList();let is=index; let last=last; trackBy: trackSection" class="scroll-mt-[var(--menu-nav-stack-height)] flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
-       <span class="font-bold text-xl pt-4 pb-2">{{s?.name}}</span>
+       <span class="font-display font-bold text-xl pt-4 pb-2">{{s?.name}}</span>
        <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
         <ng-container *ngFor="let i of s?.items; trackBy: trackItem">
           <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: i }"></ng-container>
@@ -98,7 +98,7 @@
 
         <!-- Item name + sold-out pill -->
         <div class="flex items-center gap-2 flex-wrap">
-          <h3 class="font-bold text-base text-gray-900"><ng-container *ngFor="let seg of (i.name | highlight: navState.searchQuery())"><mark *ngIf="seg.match" class="bg-amber-200 text-gray-900 rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></h3>
+          <h3 class="font-display font-bold text-base text-gray-900"><ng-container *ngFor="let seg of (i.name | highlight: navState.searchQuery())"><mark *ngIf="seg.match" class="bg-amber-200 text-gray-900 rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></h3>
           <span *ngIf="isOutOfStock(i)"
                 class="inline-flex items-center rounded-full bg-gray-200 text-gray-600 text-xs font-medium px-2 py-0.5">
             Sold out

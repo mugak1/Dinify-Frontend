@@ -41,7 +41,7 @@
           <button *ngIf="navState.featuredItems().length > 0"
                   data-section-id="Featured"
                   (click)="!navState.searchQuery() ? scrollTo('Featured', -1, $event) : false"
-                  class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
+                  class="font-display flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
                   [ngClass]="{
                     'bg-amber-400 text-gray-900 shadow-sm': navState.currentSection() === 'Featured',
                     'bg-gray-100 text-gray-900 hover:bg-gray-200': navState.currentSection() !== 'Featured'
@@ -58,7 +58,7 @@
           <button *ngFor="let s of navState.filteredMenuList(); let i = index"
                   [attr.data-section-id]="addUnderscore(s.name)"
                   (click)="!navState.searchQuery() ? scrollTo(s.name, i, $event) : false"
-                  class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
+                  class="font-display flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
                   [ngClass]="{
                     'bg-red-600 text-white shadow-sm': removeUnderscore(navState.currentSection()) === s.name,
                     'bg-gray-100 text-gray-900 hover:bg-gray-200': removeUnderscore(navState.currentSection()) !== s.name
