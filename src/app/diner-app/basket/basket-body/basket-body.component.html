@@ -163,7 +163,7 @@
         <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
           <div class="flex items-center gap-2" (click)="$event.stopPropagation()">
             <!-- Minus -->
-            <button (click)="removeItem(item.itemId, item.selectedModifiers)"
+            <button (click)="decrementItem(idx)"
                     class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -172,7 +172,7 @@
             </button>
             <span class="w-6 text-center font-semibold text-sm tabular-nums">{{ item.quantity }}</span>
             <!-- Plus -->
-            <button (click)="addItem(item)"
+            <button (click)="incrementItem(idx)"
                     class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

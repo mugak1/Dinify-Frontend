@@ -3,7 +3,7 @@ import { AfterViewInit, Component, ViewChild, ElementRef, OnDestroy, OnInit } fr
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
-import { BasketItem, OrderInitiated, Restaurant, SelectedModifier, TableScan } from 'src/app/_models/app.models';
+import { BasketItem, OrderInitiated, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { MessageService } from 'src/app/_services/message.service';
@@ -154,17 +154,9 @@ discountValue: number = 10; // 10% or UGX amount
     this.updateCart();
   }
 
-  // Adds an item to the basket
-  addItem(item: BasketItem) {
-    this.basketService.addItem({
-      itemId: item.itemId,
-      itemName: item.itemName,
-      basePrice: item.basePrice,
-      totalPrice: item.totalPrice,
-      quantity: 1,
-      selectedModifiers: item.selectedModifiers,
-      extras: item.extras
-    });
+  // Increments the quantity of the basket line at `index` (by index, not identity).
+  incrementItem(index: number): void {
+    this.basketService.incrementItem(index);
     this.updateCart();
   }
 
@@ -180,9 +172,9 @@ discountValue: number = 10; // 10% or UGX amount
     });
   }
 
-  // Removes an item from the basket
-  removeItem(itemId: string, selectedModifiers: SelectedModifier[] = []) {
-    this.basketService.removeItem(itemId, selectedModifiers);
+  // Decrements the quantity of the basket line at `index`; removes it at 0.
+  decrementItem(index: number): void {
+    this.basketService.decrementItem(index);
     this.updateCart();
   }
 
