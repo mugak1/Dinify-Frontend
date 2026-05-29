@@ -172,11 +172,11 @@
                 <div class="flex items-center gap-2 flex-wrap">
                   <h4 class="font-semibold text-base">{{ group.name }}</h4>
                   <span *ngIf="group.required"
-                        class="bg-gray-900 text-white text-xs font-medium px-2 py-0.5 rounded">
+                        class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
                     Required
                   </span>
                   <span *ngIf="!group.required"
-                        class="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded">
+                        class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
                     Optional
                   </span>
                 </div>
@@ -196,13 +196,13 @@
                          class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
                          (click)="handleModifierSingleSelect(group.id, choice.id)">
                     <div class="flex items-center gap-3">
-                      <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                      <div class="h-[20px] w-[20px] rounded-full border-2 flex items-center justify-center flex-shrink-0"
                            [ngClass]="{
-                             'border-black bg-black': isModifierChoiceSelected(group.id, choice.id),
+                             'border-red-600 bg-red-600': isModifierChoiceSelected(group.id, choice.id),
                              'border-gray-300': !isModifierChoiceSelected(group.id, choice.id)
                            }">
                         <svg *ngIf="isModifierChoiceSelected(group.id, choice.id)" xmlns="http://www.w3.org/2000/svg"
-                             class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none"
+                             class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M20 6 9 17l-5-5"/>
                         </svg>
@@ -224,13 +224,13 @@
                          [class.cursor-not-allowed]="!isModifierChoiceSelected(group.id, choice.id) && getModifierSelectedCount(group.id) >= group.maxSelections"
                          (click)="handleModifierMultiSelect(group.id, choice.id, !isModifierChoiceSelected(group.id, choice.id), group.maxSelections)">
                     <div class="flex items-center gap-3">
-                      <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0"
+                      <div class="h-[20px] w-[20px] rounded border-2 flex items-center justify-center flex-shrink-0"
                            [ngClass]="{
-                             'border-black bg-black': isModifierChoiceSelected(group.id, choice.id),
+                             'border-red-600 bg-red-600': isModifierChoiceSelected(group.id, choice.id),
                              'border-gray-300': !isModifierChoiceSelected(group.id, choice.id)
                            }">
                         <svg *ngIf="isModifierChoiceSelected(group.id, choice.id)" xmlns="http://www.w3.org/2000/svg"
-                             class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none"
+                             class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M20 6 9 17l-5-5"/>
                         </svg>
@@ -255,20 +255,20 @@
             <div class="border border-gray-200 rounded-xl p-4 space-y-3">
               <div class="flex items-center gap-2">
                 <h4 class="font-semibold text-base">Add Extras</h4>
-                <span class="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded">Optional</span>
+                <span class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">Optional</span>
               </div>
               <div class="space-y-1">
                 <label *ngFor="let o of it.extras"
                        class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
                        (click)="setExtra(o)">
                   <div class="flex items-center gap-3">
-                    <div class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0"
+                    <div class="h-[20px] w-[20px] rounded border-2 flex items-center justify-center flex-shrink-0"
                          [ngClass]="{
-                           'border-black bg-black': isExtraSelected(o),
+                           'border-red-600 bg-red-600': isExtraSelected(o),
                            'border-gray-300': !isExtraSelected(o)
                          }">
                       <svg *ngIf="isExtraSelected(o)" xmlns="http://www.w3.org/2000/svg"
-                           class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none"
+                           class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
                            stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M20 6 9 17l-5-5"/>
                       </svg>
