@@ -24,7 +24,7 @@
         </div>
 
         <!-- Skeleton loading state -->
-        @if (isLoading) {
+        @if (isLoading()) {
           <div class="flex-1 overflow-hidden">
             <!-- Skeleton tab bar -->
             <div class="w-full bg-white border-b border-gray-200">
@@ -58,7 +58,7 @@
           </div>
         }
 
-        @if (!isLoading) {
+        @if (!isLoading()) {
 
         <!-- Sticky header: icons + tabs (or search bar) + active filter badges -->
         <div #stickyHeader class="flex-shrink-0 bg-background relative z-20">
@@ -90,9 +90,9 @@
                       <line x1="10" x2="14" y1="8" y2="8" stroke="currentColor" stroke-width="2"/>
                       <line x1="18" x2="22" y1="16" y2="16" stroke="currentColor" stroke-width="2"/>
                     </svg>
-                    @if (selectedTags.length > 0) {
+                    @if (selectedTags().length > 0) {
                       <span class="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                        {{ selectedTags.length }}
+                        {{ selectedTags().length }}
                       </span>
                     }
                   </button>
@@ -102,16 +102,16 @@
                 <div class="flex-1 overflow-x-auto no-scrollbar">
                   <div class="flex gap-2">
                     <!-- Featured pill (first, only when featured items exist) -->
-                    @if (featuredItems.length > 0) {
+                    @if (featuredItems().length > 0) {
                       <button data-section-id="featured"
                               (click)="scrollToFeatured(); $event.stopPropagation()"
                               class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
-                              [class]="activeSection === 'featured'
+                              [class]="activeSection() === 'featured'
                                 ? 'bg-amber-400 text-gray-900 shadow-sm'
                                 : 'bg-gray-100 text-gray-900 hover:bg-gray-200'">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                             [attr.fill]="activeSection === 'featured' ? '#b45309' : '#fbbf24'"
-                             [attr.stroke]="activeSection === 'featured' ? '#b45309' : '#fbbf24'"
+                             [attr.fill]="activeSection() === 'featured' ? '#b45309' : '#fbbf24'"
+                             [attr.stroke]="activeSection() === 'featured' ? '#b45309' : '#fbbf24'"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                         </svg>
@@ -119,11 +119,11 @@
                       </button>
                     }
 
-                    @for (section of availableSections; track section.id) {
+                    @for (section of availableSections(); track section.id) {
                       <button [attr.data-section-id]="section.id"
                               (click)="scrollToSection(section.id); $event.stopPropagation()"
                               class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
-                              [class]="activeSection === section.id
+                              [class]="activeSection() === section.id
                                 ? 'bg-red-600 text-white shadow-sm'
                                 : 'bg-gray-100 text-gray-900 hover:bg-gray-200'">
                         {{ section.name }}
@@ -147,10 +147,10 @@
                   </svg>
                   <input type="text"
                          placeholder="Search menu..."
-                         [(ngModel)]="searchTerm"
+                         [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)"
                          class="w-full pl-10 pr-8 py-2 bg-gray-100 text-gray-900 rounded-full text-base focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white border border-transparent focus:border-red-500"/>
-                  @if (searchTerm) {
-                    <button (click)="searchTerm = ''"
+                  @if (searchTerm()) {
+                    <button (click)="searchTerm.set('')"
                             class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -168,10 +168,10 @@
           }
 
           <!-- Active filter badges (own row, mirrors diner) -->
-          @if (selectedTags.length > 0) {
+          @if (selectedTags().length > 0) {
             <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-2">
               <span class="text-xs text-gray-500">Filters:</span>
-              @for (tagName of selectedTags; track tagName) {
+              @for (tagName of selectedTags(); track tagName) {
                 <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
                       [class]="getTagColor(tagName)">
                   <span [innerHTML]="getTagIconSvg(tagName)" class="[&>svg]:h-3 [&>svg]:w-3"></span>
@@ -195,9 +195,9 @@
           <!-- Tag Filter Sheet -->
           <app-tag-filter-sheet
             [open]="showTagFilter"
-            [tags]="presetTags"
-            [selectedTags]="selectedTags"
-            [items]="allItems"
+            [tags]="presetTags()"
+            [selectedTags]="selectedTags()"
+            [items]="allItems()"
             (openChange)="showTagFilter = $event"
             (apply)="onTagFilterApply($event)">
           </app-tag-filter-sheet>
@@ -211,10 +211,10 @@
           <!-- Featured Section: horizontal-scrolling carousel.
                Note: regular category sections below intentionally still use the
                inline #itemCard template — this PR only converts Featured. -->
-          @if (featuredItems.length > 0) {
+          @if (featuredItems().length > 0) {
             <div id="sec-featured">
               <app-featured-carousel
-                [items]="featuredItems"
+                [items]="featuredItems()"
                 sectionId=""
                 scrollMarginVar=""
                 (itemTap)="handleItemClick($event)">
@@ -223,31 +223,24 @@
           }
 
           <!-- Regular Sections -->
-          @for (section of availableSections; track section.id) {
-            @if (shouldShowSection(section.id)) {
-              <div [id]="'sec-' + section.id">
-                <h2 [class]="'text-xl font-bold mb-4 py-2 border-b transition-colors duration-200 ' +
-                  (activeSection === section.id
-                    ? 'text-primary border-primary'
-                    : 'text-foreground border-border')">
-                  {{ section.name }}
-                </h2>
-
-                @if (getFilteredItems(section.id).length === 0) {
-                  <p class="text-center text-muted-foreground py-4">No items available</p>
-                } @else {
-                  <div class="space-y-4">
-                    @for (item of getFilteredItems(section.id); track item.id) {
-                      <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: '' }"></ng-container>
-                    }
-                  </div>
+          @for (section of filteredSections(); track section.id) {
+            <div [id]="'sec-' + section.id">
+              <h2 [class]="'text-xl font-bold mb-4 py-2 border-b transition-colors duration-200 ' +
+                (activeSection() === section.id
+                  ? 'text-primary border-primary'
+                  : 'text-foreground border-border')">
+                {{ section.name }}
+              </h2>
+              <div class="space-y-4">
+                @for (item of section.items; track item.id) {
+                  <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: item, prefix: '' }"></ng-container>
                 }
               </div>
-            }
+            </div>
           }
 
           <!-- Empty state (no items match current filters) -->
-          @if (!hasAnyResults) {
+          @if (!hasAnyResults()) {
             <div class="flex flex-col items-center justify-center h-full w-full">
               <svg width="300px" height="200px" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Magnifying Glass -->
@@ -293,7 +286,7 @@
         <app-item-detail-view
           [item]="editingCartItem?.item || selectedItem"
           [editingCartItem]="editingCartItem"
-          [presetTags]="presetTags"
+          [presetTags]="presetTags()"
           (back)="handleBackFromDetail()"
           (addToCart)="handleAddToCart($event)">
         </app-item-detail-view>
@@ -325,7 +318,7 @@
           <!-- Cart Content -->
           <div class="flex-1 overflow-y-auto min-h-0">
             <div class="p-4 space-y-4 pb-8">
-              @if (cartItems.length === 0) {
+              @if (cartItems().length === 0) {
                 <!-- Empty state -->
                 <div class="text-center py-12">
                   <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
@@ -342,12 +335,12 @@
               } @else {
                 <!-- Upsell Carousel -->
                 <app-upsell-carousel
-                  [cartItems]="cartItems"
+                  [cartItems]="cartItems()"
                   (addItem)="onUpsellAddItem($event)"
                   (itemNeedsModifiers)="onUpsellItemNeedsModifiers($event)">
                 </app-upsell-carousel>
 
-                @for (cartItem of cartItems; track cartItem.id) {
+                @for (cartItem of cartItems(); track cartItem.id) {
                   <div class="flex gap-4 border rounded-lg p-4 bg-card cursor-pointer hover:border-primary/50 transition-colors"
                        (click)="handleEditCartItem(cartItem)">
                     <!-- Thumbnail -->
@@ -461,7 +454,7 @@
           </div>
 
           <!-- Sticky footer -->
-          @if (cartItems.length > 0) {
+          @if (cartItems().length > 0) {
             <div class="border-t bg-background flex-shrink-0 p-4 space-y-3">
               <div class="space-y-2">
                 @if (totalSavings > 0) {
