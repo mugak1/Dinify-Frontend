@@ -332,6 +332,37 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       (error) => {
         this.dialog.closeModal();
+
+        // ── TEMP/TODO(orders-module): ongoing-order dev shim ──────────────────
+        // When orders/submit/ fails with HTTP 400 because the table already has
+        // an ongoing order, the backend returns that order's id at data.order_id.
+        // The ErrorInterceptor forwards this one case as the structured body (it
+        // strips every other error down to a string), so detect it here and treat
+        // it as a soft success: run the SAME post-submit path as the success
+        // branch above (forward the table, clear the basket, replaceUrl), using
+        // the returned order_id as the reference. There is no UI yet to view or
+        // close orders; remove this block (and its twin in error.interceptor.ts)
+        // when the orders module lands.
+        const ongoingOrderId = error?.data?.order_id;
+        if (
+          error?.status === 400 &&
+          typeof ongoingOrderId === 'string' &&
+          ongoingOrderId.trim().length > 0
+        ) {
+          this.router.navigate(['/diner', 'basket', 'order-complete'], {
+            replaceUrl: true,
+            state: {
+              tableNumber: this.table?.number ?? null,
+              tableId: this.table?.id ?? null,
+              orderRef: ongoingOrderId,
+            },
+          });
+          this.basketService.clearBasket();
+          this.sessionStorage.clear();
+          return;
+        }
+        // ── end TEMP shim ─────────────────────────────────────────────────────
+
         this.messageService.addMessage({severity:'error', summary:'Error', message: error.message});
       }
     );
