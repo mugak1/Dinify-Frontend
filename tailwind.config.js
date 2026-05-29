@@ -1,3 +1,5 @@
+const plugin = require('tailwindcss/plugin');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   mode: 'jit',
@@ -99,5 +101,11 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(({ addVariant }) => {
+      // Hover styles that apply only on devices with a hover-capable, fine pointer
+      // (desktop/laptop). On touch, `(hover: hover)` is false so these never stick after a tap.
+      addVariant('desktop-hover', '@media (hover: hover) and (pointer: fine) { &:hover }');
+    }),
+  ],
 };

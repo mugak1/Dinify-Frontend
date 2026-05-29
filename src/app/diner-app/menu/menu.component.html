@@ -58,7 +58,7 @@
         </ng-container>
        </div>
     </div>
-    <div *ngIf="(!navState.filteredMenuList() || !navState.filteredMenuList()?.length) && menu_list.length" class="flex flex-col items-center justify-center h-full w-full">
+    <div *ngIf="(!navState.filteredMenuList() || !navState.filteredMenuList()?.length) && navState.menuList()?.length" class="flex flex-col items-center justify-center h-full w-full">
       <svg width="300px" height="200px" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- Magnifying Glass -->
         <circle cx="100" cy="80" r="50" stroke="#d1d5db" stroke-width="6" fill="none"/>
@@ -66,7 +66,7 @@
 
         <!-- Sad Face -->
         <circle cx="100" cy="80" r="5" fill="#d1d5db"/>
-        <path d="M90 95 Q100 105 110 95" stroke="#d1d5db" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <path d="M90 95 Q100 85 110 95" stroke="#d1d5db" stroke-width="4" stroke-linecap="round" fill="none"/>
 
         <!-- Text -->
         <text x="50%" y="180" text-anchor="middle" fill="#6b7280" font-size="16px">
@@ -87,7 +87,7 @@
   <div class="mb-3 rounded-none bg-white shadow-2xl group transition-all duration-200 ease-out flex flex-col"
        [class.opacity-60]="isOutOfStock(i)"
        [class.cursor-not-allowed]="isOutOfStock(i)"
-       [ngClass]="{ 'cursor-pointer hover:shadow-[0_28px_55px_-12px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }">
+       [ngClass]="{ 'cursor-pointer hover:shadow-[0_28px_55px_-12px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 desktop-hover:ring-2 desktop-hover:ring-inset desktop-hover:ring-red-600 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }">
     <div class="flex flex-col gap-[12px] md:gap-[18px] p-[18px] flex-1" (click)="viewItem(i)">
 
       <!-- TOP REGION: text column + image side by side -->
