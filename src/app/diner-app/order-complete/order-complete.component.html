@@ -1,20 +1,40 @@
-<div class="px-6">
-    <div class="min-h-[60vh] flex flex-col justify-center items-center text-center py-3 font-medium">
-        <svg  class="mb-28 mx-auto -mt-56" fill="#000000" height="90px" width="90px" version="1.1" viewBox="0 0 52 52">
-       
-            <g>
-                <g>
-                    <path class="shadow fill-green-500"
-                        d="M26,0C11.664,0,0,11.663,0,26s11.664,26,26,26s26-11.663,26-26S40.336,0,26,0z M26,50C12.767,50,2,39.233,2,26 S12.767,2,26,2s24,10.767,24,24S39.233,50,26,50z">
-                    </path>
-                    <path class="shadow fill-green-500"
-                        d="M38.252,15.336l-15.369,17.29l-9.259-7.407c-0.43-0.345-1.061-0.274-1.405,0.156c-0.345,0.432-0.275,1.061,0.156,1.406 l10,8C22.559,34.928,22.78,35,23,35c0.276,0,0.551-0.114,0.748-0.336l16-18c0.367-0.412,0.33-1.045-0.083-1.411 C39.251,14.885,38.62,14.922,38.252,15.336z">
-                    </path>
-                </g>
-            </g>
-        </svg>
-       <strong class="mx-auto text-gray-500 -mt-3">Your order has been placed successfully</strong>
-       <p *ngIf="!isDinerApp" class="mt-6 font-thin">Just wanted to confirm, your meal is on the way. Thank you!</p>
-       <p *ngIf="!isDinerApp" class="mt-3 font-thin">After you have completed your hearty meal, scan the QR code or tap the restaurant name in the top left corner, to pay your bill.</p>
+<div class="min-h-[100dvh] bg-background flex flex-col items-center justify-center px-5 py-10">
+  <div class="w-full max-w-md bg-white rounded-none shadow-xl px-7 py-9 flex flex-col items-center text-center">
+    <!-- Emerald success marker: sharp square tile with a white check -->
+    <div class="w-16 h-16 rounded-none bg-emerald-600 flex items-center justify-center mb-6">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-white" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+           stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
     </div>
+
+    <!-- Headline in the display font (Bricolage) -->
+    <h1 class="font-display text-3xl font-bold text-gray-900 mb-2">Order placed</h1>
+
+    <!-- Payment-neutral subtext -->
+    <p class="font-sans text-sm text-gray-500 leading-relaxed mb-6">
+      Your order has been sent to the kitchen. Someone will bring it to your table shortly.
+    </p>
+
+    <!-- Order reference + optional table row -->
+    <div class="w-full space-y-3 mb-7">
+      <div class="rounded-none border border-gray-200 bg-gray-50 px-4 py-3 text-left">
+        <span class="block font-sans text-[11px] uppercase tracking-widest text-gray-400 mb-1">Order reference</span>
+        <span class="block font-sans text-lg font-semibold text-gray-900 tabular-nums">{{ orderRef() }}</span>
+      </div>
+
+      <div *ngIf="tableNumber() !== null"
+           class="rounded-none border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
+        <span class="font-sans text-[11px] uppercase tracking-widest text-gray-400">Table</span>
+        <span class="font-sans text-base font-semibold text-gray-900 tabular-nums">{{ tableNumber() }}</span>
+      </div>
+    </div>
+
+    <!-- Full-width back-to-menu button (sharp corners) -->
+    <button type="button" (click)="backToMenu()"
+            class="w-full inline-flex items-center justify-center rounded-none bg-red-600 hover:bg-red-700 active:bg-red-800 text-white py-3.5 px-4 font-sans font-semibold text-base transition-colors">
+      Back to menu
+    </button>
+  </div>
 </div>
