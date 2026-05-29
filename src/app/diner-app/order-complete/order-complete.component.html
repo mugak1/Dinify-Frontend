@@ -19,7 +19,7 @@
 
     <!-- Order reference + optional table row -->
     <div class="w-full space-y-3 mb-7">
-      <div class="rounded-none border border-gray-200 bg-gray-50 px-4 py-3 text-left">
+      <div *ngIf="orderRef()" class="rounded-none border border-gray-200 bg-gray-50 px-4 py-3 text-left">
         <span class="block font-sans text-[11px] uppercase tracking-widest text-gray-400 mb-1">Order reference</span>
         <span class="block font-sans text-lg font-semibold text-gray-900 tabular-nums">{{ orderRef() }}</span>
       </div>
