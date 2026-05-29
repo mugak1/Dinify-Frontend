@@ -49,10 +49,18 @@ export class CartService {
   updateQuantity(cartItemId: string, quantity: number): void {
     const items = this.itemsSubject.getValue().map(cartItem => {
       if (cartItem.id === cartItemId) {
-        const totalPrice = (cartItem.itemPrice * quantity) + cartItem.extrasTotal;
+        // extrasTotal is stored already scaled by the line's quantity (the detail
+        // view emits extrasCost * quantity), unlike modifiersTotal which is per-unit.
+        // So when the quantity changes we must RE-scale extras: recover the per-unit
+        // extras from the in-sync stored pair, then apply the new quantity. Persisting
+        // the rescaled extrasTotal keeps the next +/- correct too. (cartItem.quantity
+        // is always >= 1 on this path; guard the division regardless.)
+        const perUnitExtras = cartItem.quantity > 0 ? cartItem.extrasTotal / cartItem.quantity : 0;
+        const extrasTotal = perUnitExtras * quantity;
+        const totalPrice = (cartItem.itemPrice * quantity) + extrasTotal;
         const primaryPrice = parseFloat(cartItem.item.primary_price) || 0;
-        const originalPrice = (primaryPrice + cartItem.modifiersTotal) * quantity + cartItem.extrasTotal;
-        return { ...cartItem, quantity, totalPrice, originalPrice };
+        const originalPrice = (primaryPrice + cartItem.modifiersTotal) * quantity + extrasTotal;
+        return { ...cartItem, quantity, totalPrice, originalPrice, extrasTotal };
       }
       return cartItem;
     });
