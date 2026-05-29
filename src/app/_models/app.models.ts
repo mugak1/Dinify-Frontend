@@ -154,6 +154,9 @@ export interface MenuItem {
   is_featured: boolean;
   is_popular: boolean;
   is_new: boolean;
+  age_restricted?: boolean;
+  extras_min_selections?: number;
+  extras_max_selections?: number | null;
   has_options: boolean;
   options: ItemModifiers;
   has_extras: boolean;

@@ -230,9 +230,14 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
   setExtra(extra: MenuItemExtraRef): void {
     const current = this.selectedExtras();
     const idx = current.findIndex((x) => x.id === extra.id);
-    this.selectedExtras.set(
-      idx === -1 ? [...current, extra] : current.filter((_, i) => i !== idx),
-    );
+    if (idx === -1) {
+      const max = this.item()?.extras_max_selections;
+      if (max && current.length >= max) return; // at max — ignore
+      this.selectedExtras.set([...current, extra]);
+    } else {
+      this.selectedExtras.set(current.filter((_, i) => i !== idx));
+    }
+    this.validateForm();
   }
 
   isModifierChoiceSelected(groupId: string, choiceId: string): boolean {
@@ -284,6 +289,16 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
             ? `Please select an option for "${group.name}".`
             : `Please select at least ${group.minSelections} options for "${group.name}".`,
         );
+      }
+    }
+    const item = this.item();
+    if (item?.has_extras) {
+      const minExtras = item.extras_min_selections ?? 0;
+      const count = this.selectedExtras().length;
+      if (minExtras > 0 && count < minExtras) {
+        errors.push(minExtras === 1
+          ? 'Please add at least one extra.'
+          : `Please add at least ${minExtras} extras.`);
       }
     }
     this.errorMessages.set(errors);
