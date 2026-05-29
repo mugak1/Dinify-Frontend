@@ -21,6 +21,7 @@ import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   table?: TableScan|any;
   order_initiated?: OrderInitiated;
+  showUnavailableSheet = false;
   restaurant: any;
   url = environment.apiUrl;
   upsellConfig: any = null;
@@ -233,8 +234,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           (response: any) => {
             if (response.status === 200) {
               this.order_initiated = response.data;
-              if (this.order_initiated?.order_details?.no_unavailable_items === 0) {
-                this.submitOrder(); // Automatically submit if no unavailable items
+              const od = this.order_initiated?.order_details;
+              const unavailableCount =
+                (od?.no_unavailable_items ?? 0) + (od?.no_unavailable_extras ?? 0);
+              if (unavailableCount === 0) {
+                this.submitOrder(); // everything available — commit straight away
+              } else {
+                // One or more items/extras sold out or were pulled since they were added.
+                // Close the confirm dialog and let the diner review what dropped and the new
+                // total, instead of dead-ending or silently trimming the order.
+                this.dialog.closeModal();
+                this.showUnavailableSheet = true;
               }
             } else {
               this.messageService.addMessage({severity:'info', summary:'Info', message: response.message});
@@ -269,6 +279,33 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
+
+  /** Whole dishes that became unavailable at checkout. */
+  get unavailableItems(): any[] {
+    return this.order_initiated?.unavailable_items ?? [];
+  }
+
+  /** Extras that became unavailable (their parent dish is still orderable). */
+  get unavailableExtras(): any[] {
+    return this.order_initiated?.unavailable_extras ?? [];
+  }
+
+  /** Recalculated amount payable for the remaining items. Unavailable lines are
+   *  zeroed server-side, so actual_cost already excludes them. */
+  get reviewedTotal(): number {
+    return Number(this.order_initiated?.order_details?.actual_cost) || 0;
+  }
+
+  /** Diner accepted the trimmed order — commit the already-initiated order. */
+  confirmPartialOrder(): void {
+    this.showUnavailableSheet = false;
+    this.submitOrder();
+  }
+
+  /** Diner backed out — return to the basket unchanged (no submit, no basket mutation). */
+  cancelPartialOrder(): void {
+    this.showUnavailableSheet = false;
+  }
 
   // Submits the order to the server
   submitOrder() {
