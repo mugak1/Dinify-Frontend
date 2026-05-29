@@ -39,6 +39,22 @@ export class ErrorInterceptor implements HttpInterceptor {
                     this.authenticationService.logout();
                 }
 
+                // ── TEMP/TODO(orders-module): ongoing-order dev shim ───────────────
+                // orders/submit/ returns HTTP 400 { status, message, data:{ order_id } }
+                // when the table already has an ongoing order. There is no UI yet to
+                // view/close orders, so the basket treats this single case as a soft
+                // success and routes the diner to order-complete (see
+                // basket-body.component.ts submitOrder()). Forward the structured body
+                // untouched — and do NOT toast it, since it is handled as success — so
+                // the component can read order_id. Scoped to orders/submit so every
+                // other error keeps the string + toast behaviour below. Delete this
+                // block (and its twin in basket-body.component.ts) when the orders
+                // module lands.
+                if (request.url.includes('orders/submit') && err.status === 400 && err.error?.data?.order_id) {
+                    return throwError(() => err.error);
+                }
+                // ── end TEMP shim ──────────────────────────────────────────────────
+
                 const error = err.error?.message || err.statusText;
                 if (error) {
                     this.message.add(error);
