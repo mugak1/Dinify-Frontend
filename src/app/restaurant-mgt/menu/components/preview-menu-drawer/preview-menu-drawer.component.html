@@ -211,12 +211,16 @@
           <!-- Featured Section: horizontal-scrolling carousel.
                Note: regular category sections below intentionally still use the
                inline #itemCard template — this PR only converts Featured. -->
-          <app-featured-carousel
-            [items]="featuredItems"
-            sectionId="sec-featured"
-            scrollMarginVar=""
-            (itemTap)="handleItemClick($event)">
-          </app-featured-carousel>
+          @if (featuredItems.length > 0) {
+            <div id="sec-featured">
+              <app-featured-carousel
+                [items]="featuredItems"
+                sectionId=""
+                scrollMarginVar=""
+                (itemTap)="handleItemClick($event)">
+              </app-featured-carousel>
+            </div>
+          }
 
           <!-- Regular Sections -->
           @for (section of availableSections; track section.id) {

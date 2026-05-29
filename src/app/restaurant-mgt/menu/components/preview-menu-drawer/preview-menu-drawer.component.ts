@@ -189,11 +189,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
       i => i.is_featured && i.available && activeSectionIds.has(i.section)
     );
 
-    if (this.selectedTags.length > 0) {
-      featured = featured.filter(item =>
-        this.selectedTags.some(tag => item.tags?.includes(tag))
-      );
-    }
+    featured = featured.filter((item) => this.matchesSelectedTags(item));
 
     if (this.searchTerm) {
       const term = this.searchTerm.toLowerCase();
@@ -219,11 +215,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   getFilteredItems(sectionId: string): any[] {
     let items = this.getAvailableItems(sectionId);
 
-    if (this.selectedTags.length > 0) {
-      items = items.filter(item =>
-        this.selectedTags.some(tag => item.tags?.includes(tag))
-      );
-    }
+    items = items.filter((item) => this.matchesSelectedTags(item));
 
     if (this.searchTerm) {
       const term = this.searchTerm.toLowerCase();
@@ -356,6 +348,24 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
    *  2 with a "+N" indicator. The detail view renders every tag. */
   getCardTags(tags: MenuItemTagRef[] | any[] | null | undefined): TagCardSplit<MenuItemTagRef> {
     return splitTagsForCard(this.getVisibleTags(tags));
+  }
+
+  /** True when the item carries a tag matching the given preset-tag NAME.
+   *  selectedTags holds tag names (TagFilterSheetComponent emits names); item.tags
+   *  are objects ({id,name,...}) after normalizeMenuItem. Tolerate the legacy string[]
+   *  shape defensively — mirrors TagFilterSheetComponent.getItemCount. */
+  private itemHasTag(item: any, tagName: string): boolean {
+    const tags = Array.isArray(item?.tags) ? item.tags : [];
+    return tags.some((t: any) => (typeof t === 'string' ? t : t?.name) === tagName);
+  }
+
+  /** True when the item matches the active tag filter (AND-any across selected tags).
+   *  No filter selected → always true. */
+  private matchesSelectedTags(item: any): boolean {
+    return (
+      this.selectedTags.length === 0 ||
+      this.selectedTags.some((tagName) => this.itemHasTag(item, tagName))
+    );
   }
 
   getDiscountPercent(item: any): number {
