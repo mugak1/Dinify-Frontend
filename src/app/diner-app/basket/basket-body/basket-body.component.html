@@ -159,8 +159,14 @@
           <div *ngFor="let extra of item.extras"
                class="flex justify-between text-sm text-gray-500">
             <span>+ {{ extra.name }}</span>
-            <span *ngIf="extra.cost > 0" class="text-gray-600">
-              +UGX {{ extra.cost | number }}
+            <span class="text-gray-600">
+              <ng-container *ngIf="isExtraDiscounted(extra); else extraCostNormal">
+                <span class="text-gray-400 line-through mr-1">UGX {{ extra.originalCost | number }}</span>
+                <span class="text-red-600">+UGX {{ extra.cost | number }}</span>
+              </ng-container>
+              <ng-template #extraCostNormal>
+                <span *ngIf="extra.cost > 0">+UGX {{ extra.cost | number }}</span>
+              </ng-template>
             </span>
           </div>
         </div>

@@ -16,6 +16,7 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
 import {
   getCurrentPrice,
+  getCurrentPriceFromDetails,
   calculateSavings,
 } from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
@@ -199,6 +200,18 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
     return calculateSavings(Number(item.primary_price) || 0, item.discount_details);
   }
 
+  /** Effective (discount-aware) price of an extra, recomputed client-side
+   *  from its discount_details — mirrors the parent item's price path so an
+   *  extra shows the same figure whether viewed standalone or as an extra. */
+  extraEffectivePrice(extra: MenuItemExtraRef): number {
+    return getCurrentPriceFromDetails(Number(extra.primary_price) || 0, extra.discount_details);
+  }
+
+  /** True when the extra has an active discount right now (effective < base). */
+  extraIsDiscounted(extra: MenuItemExtraRef): boolean {
+    return this.extraEffectivePrice(extra) < (Number(extra.primary_price) || 0);
+  }
+
   /** Normalises the tags payload to MenuItemTagRef[]. Tolerates legacy
    *  string[] shapes that may still arrive from a stale cache. */
   getVisibleTags(tags: MenuItemTagRef[] | any[] | null | undefined): MenuItemTagRef[] {
@@ -329,7 +342,7 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
       }
     }
     const extrasCost = this.selectedExtras().reduce(
-      (acc, extra) => acc + (Number(extra.primary_price) || 0),
+      (acc, extra) => acc + this.extraEffectivePrice(extra),
       0,
     );
     return (basePrice + modifiersCost + extrasCost) * this.quantity();
@@ -358,11 +371,16 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
           .map((c) => ({ id: c!.id, name: c!.name, additionalCost: c!.additionalCost })),
       }));
 
-    const selectedExtras = this.selectedExtras().map((extra) => ({
-      id: extra.id,
-      name: extra.name,
-      cost: Number(extra.primary_price) || 0,
-    }));
+    const selectedExtras = this.selectedExtras().map((extra) => {
+      const original = Number(extra.primary_price) || 0;
+      const effective = this.extraEffectivePrice(extra);
+      return {
+        id: extra.id,
+        name: extra.name,
+        cost: effective,
+        ...(effective < original ? { originalCost: original } : {}),
+      };
+    });
 
     const isDiscounted = item.running_discount;
     const originalBasePrice = Number(item.primary_price) || 0;
