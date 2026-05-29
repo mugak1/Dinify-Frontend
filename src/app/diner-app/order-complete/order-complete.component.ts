@@ -8,9 +8,10 @@ import { Router } from '@angular/router';
     standalone: false
 })
 export class OrderCompleteComponent {
-  /** Client-side placeholder reference for display only — NOT a real backend
-   *  order id. Generated once per visit, e.g. "DN-4821". */
-  readonly orderRef = signal<string>(this.generatePlaceholderRef());
+  /** Order reference forwarded from checkout via navigation state; shown only
+   *  when present. The placeholder checkout sends no reference (row hidden); the
+   *  real flow can forward a backend order id here. */
+  readonly orderRef = signal<string | null>(null);
 
   /** Table number forwarded from checkout via router navigation state. Null when
    *  the diner has no table context, in which case the Table row is omitted. */
@@ -32,11 +33,9 @@ export class OrderCompleteComponent {
 
     const id = state['tableId'];
     this.tableId = typeof id === 'string' && id.length > 0 ? id : null;
-  }
 
-  /** Simple client-side reference like "DN-4821" — a display placeholder only. */
-  private generatePlaceholderRef(): string {
-    return 'DN-' + Math.floor(1000 + Math.random() * 9000);
+    const ref = state['orderRef'];
+    this.orderRef.set(typeof ref === 'string' && ref.trim().length > 0 ? ref : null);
   }
 
   /** Returns the diner to the menu. With a forwarded table id we route through
