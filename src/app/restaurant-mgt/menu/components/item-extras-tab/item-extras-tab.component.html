@@ -23,6 +23,24 @@
   <!-- Extras list -->
   <ng-container *ngIf="enabled">
 
+    <!-- Min / Max selection limits -->
+    <div class="flex items-center gap-2">
+      <div>
+        <label class="block text-xs font-medium text-muted-foreground mb-1">Min extras</label>
+        <input type="number" [(ngModel)]="minSelections" (ngModelChange)="emitChange()" min="0"
+               class="w-20 border border-input bg-background text-foreground rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-muted-foreground mb-1">Max extras</label>
+        <input type="number" [(ngModel)]="maxSelections" (ngModelChange)="emitChange()" min="0"
+               class="w-20 border border-input bg-background text-foreground rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+        <span class="block text-[11px] text-muted-foreground mt-1">0 = unlimited</span>
+      </div>
+    </div>
+    <div *ngIf="maxSelections && minSelections > maxSelections" class="text-xs text-destructive">
+      Minimum extras cannot exceed maximum extras.
+    </div>
+
     <!-- Empty state -->
     <p *ngIf="filteredExtras.length === 0"
        class="text-sm text-muted-foreground py-4 text-center">

@@ -23,22 +23,36 @@ export class ItemExtrasTabComponent implements OnChanges {
   @Input() selectedExtraIds: string[] = [];
   @Input() availableExtras: MenuItem[] = [];
   @Input() currentItemId = '';
+  @Input() extrasMin = 0;
+  @Input() extrasMax: number | null = null;
 
   @Output() extrasChange = new EventEmitter<{
     isExtra: boolean;
     hasExtras: boolean;
     extrasApplicable: string[];
+    extrasMin: number;
+    extrasMax: number | null;
   }>();
 
   enabled = false;
   markedAsExtra = false;
   selectedIds = new Set<string>();
+  minSelections = 0;
+  maxSelections: number | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['isExtra'] || changes['hasExtras'] || changes['selectedExtraIds']) {
+    if (
+      changes['isExtra'] ||
+      changes['hasExtras'] ||
+      changes['selectedExtraIds'] ||
+      changes['extrasMin'] ||
+      changes['extrasMax']
+    ) {
       this.markedAsExtra = this.isExtra;
       this.enabled = this.hasExtras;
       this.selectedIds = new Set(this.selectedExtraIds ?? []);
+      this.minSelections = this.extrasMin ?? 0;
+      this.maxSelections = this.extrasMax ?? null;
     }
   }
 
@@ -80,11 +94,13 @@ export class ItemExtrasTabComponent implements OnChanges {
     return Number(value) || 0;
   }
 
-  private emitChange(): void {
+  emitChange(): void {
     this.extrasChange.emit({
       isExtra: this.markedAsExtra,
       hasExtras: this.enabled,
       extrasApplicable: Array.from(this.selectedIds),
+      extrasMin: this.minSelections,
+      extrasMax: this.maxSelections,
     });
   }
 }

@@ -65,6 +65,8 @@ export class ItemFormDialogComponent implements OnChanges {
   itemIsExtra = false;
   itemHasExtras = false;
   itemExtrasApplicable: string[] = [];
+  itemExtrasMin = 0;
+  itemExtrasMax: number | null = null;
   availableExtras$: Observable<MenuItem[]>;
   isCompressing = false;
   clearImageRequested = false;
@@ -96,6 +98,8 @@ export class ItemFormDialogComponent implements OnChanges {
       this.itemIsExtra = false;
       this.itemHasExtras = false;
       this.itemExtrasApplicable = [];
+      this.itemExtrasMin = 0;
+      this.itemExtrasMax = null;
       this.selectedTagIds = [];
 
       if (this.item) {
@@ -108,6 +112,8 @@ export class ItemFormDialogComponent implements OnChanges {
         this.itemIsExtra = this.item.is_extra ?? false;
         this.itemHasExtras = this.item.has_extras ?? false;
         this.itemExtrasApplicable = (this.item.extras ?? []).map(e => e.id);
+        this.itemExtrasMin = this.item.extras_min_selections ?? 0;
+        this.itemExtrasMax = this.item.extras_max_selections ?? null;
 
         // Load discount from existing item — read canonical schema only.
         // Pre-0042 buggy rows (raw_discount_value/raw_discount_type) are
@@ -148,6 +154,7 @@ export class ItemFormDialogComponent implements OnChanges {
           is_featured: this.item.is_featured ?? false,
           is_popular: this.item.is_popular ?? false,
           is_new: this.item.is_new ?? false,
+          age_restricted: this.item.age_restricted ?? false,
           in_stock: this.item.in_stock ?? true,
         });
 
@@ -249,10 +256,12 @@ export class ItemFormDialogComponent implements OnChanges {
     this.itemDiscountDetails = data.discountDetails;
   }
 
-  onExtrasChange(data: { isExtra: boolean; hasExtras: boolean; extrasApplicable: string[] }): void {
+  onExtrasChange(data: { isExtra: boolean; hasExtras: boolean; extrasApplicable: string[]; extrasMin: number; extrasMax: number | null }): void {
     this.itemIsExtra = data.isExtra;
     this.itemHasExtras = data.hasExtras;
     this.itemExtrasApplicable = data.extrasApplicable;
+    this.itemExtrasMin = data.extrasMin;
+    this.itemExtrasMax = data.extrasMax;
   }
 
   get hasDetailsErrors(): boolean {
@@ -278,7 +287,10 @@ export class ItemFormDialogComponent implements OnChanges {
     });
   }
 
-  get hasExtrasErrors(): boolean { return false; }
+  get hasExtrasErrors(): boolean {
+    return this.itemHasExtras && this.itemExtrasMax != null
+      && this.itemExtrasMax > 0 && this.itemExtrasMin > this.itemExtrasMax;
+  }
 
   get hasDiscountsErrors(): boolean {
     if (!this.itemHasDiscount) return false;
@@ -371,6 +383,8 @@ export class ItemFormDialogComponent implements OnChanges {
     payload.is_extra = this.itemIsExtra;
     payload.has_extras = this.itemHasExtras;
     payload.extras_applicable = JSON.stringify(this.itemExtrasApplicable);
+    payload.extras_min_selections = this.itemExtrasMin || 0;
+    payload.extras_max_selections = this.itemExtrasMax || null;
 
     // Tags now ride on the structured `tag_ids` field — the legacy free-text
     // `tags` array is no longer accepted by the backend.
@@ -396,6 +410,7 @@ export class ItemFormDialogComponent implements OnChanges {
       is_featured: [false],
       is_popular: [false],
       is_new: [false],
+      age_restricted: [false],
       in_stock: [true],
     });
   }
