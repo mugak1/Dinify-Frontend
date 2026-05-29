@@ -1,19 +1,20 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   EventEmitter,
   HostListener,
   Input,
   OnChanges,
-  OnDestroy,
-  OnInit,
   Output,
   SimpleChanges,
   ViewChild,
+  computed,
+  signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription, combineLatest } from 'rxjs';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
@@ -64,8 +65,9 @@ type DrawerView = 'list' | 'detail' | 'cart';
     TagOverflowPillComponent,
   ],
   templateUrl: './preview-menu-drawer.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges {
+export class PreviewMenuDrawerComponent implements OnChanges {
   @Input() open = false;
   @Output() closed = new EventEmitter<void>();
 
@@ -81,74 +83,48 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     private host: ElementRef<HTMLElement>,
   ) {}
 
+  // Service streams as signals (toSignal handles teardown — no manual subscriptions)
+  sections = toSignal(this.menuService.sections$, { initialValue: [] as MenuSectionListItem[] });
+  allItems = toSignal(this.menuService.allItems$, { initialValue: [] as any[] });
+  presetTags = toSignal(this.tagService.presetTags$, { initialValue: [] as PresetTag[] });
+  sortMode = toSignal(this.menuService.sortMode$, { initialValue: 'manual' as SortMode });
+  isLoading = toSignal(this.menuService.isLoading$, { initialValue: false });
+  cartItems = toSignal(this.cartService.items$, { initialValue: [] as CartItem[] });
+
+  // Local state as signals (so OnPush re-renders when they change)
+  searchTerm = signal('');
+  selectedTags = signal<string[]>([]);
+  activeSection = signal('');
+
   // State
   view: DrawerView = 'list';
-  searchTerm = '';
   showSearch = false;
-  activeSection = '';
-  isLoading = false;
   selectedItem: any = null;
   editingCartItem: CartItem | null = null;
-  selectedTags: string[] = [];
   showTagFilter = false;
   itemToRemove: CartItem | null = null;
   returnToCart = false;
 
-  // Data
-  sections: MenuSectionListItem[] = [];
-  allItems: any[] = [];
-  cartItems: CartItem[] = [];
-  presetTags: PresetTag[] = [];
-  sortMode: SortMode = 'manual';
-
   imageBaseUrl = environment.apiUrl;
-
-  private dataSub?: Subscription;
-  private cartSub?: Subscription;
-
-  ngOnInit(): void {
-    this.dataSub = combineLatest([
-      this.menuService.sections$,
-      this.menuService.allItems$,
-      this.tagService.presetTags$,
-      this.menuService.sortMode$,
-      this.menuService.isLoading$,
-    ]).subscribe(([sections, allItems, presetTags, sortMode, isLoading]) => {
-      this.sections = sections;
-      this.allItems = allItems;
-      this.presetTags = presetTags;
-      this.sortMode = sortMode;
-      this.isLoading = isLoading;
-    });
-
-    this.cartSub = this.cartService.items$.subscribe(items => {
-      this.cartItems = items;
-    });
-  }
-
-  ngOnDestroy(): void {
-    this.dataSub?.unsubscribe();
-    this.cartSub?.unsubscribe();
-  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['open']) {
       if (this.open) {
         this.view = 'list';
-        this.searchTerm = '';
+        this.searchTerm.set('');
         this.showSearch = false;
         this.selectedItem = null;
         this.editingCartItem = null;
-        this.selectedTags = [];
+        this.selectedTags.set([]);
         this.showTagFilter = false;
         this.itemToRemove = null;
         this.returnToCart = false;
         setTimeout(() => {
-          if (this.activeSection) return;
-          if (this.featuredItems.length > 0) {
-            this.activeSection = 'featured';
-          } else if (this.availableSections.length > 0) {
-            this.activeSection = this.availableSections[0].id;
+          if (this.activeSection()) return;
+          if (this.featuredItems().length > 0) {
+            this.activeSection.set('featured');
+          } else if (this.availableSections().length > 0) {
+            this.activeSection.set(this.availableSections()[0].id);
           }
         }, 200);
       }
@@ -157,12 +133,12 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
   // ─── Computed ────────────────────────────────────────────────────
 
-  get availableSections(): MenuSectionListItem[] {
-    return this.sections.filter(s => s.available && isSectionCurrentlyActive(s));
-  }
+  availableSections = computed<MenuSectionListItem[]>(() =>
+    this.sections().filter((s) => s.available && isSectionCurrentlyActive(s)),
+  );
 
   get filterableTags(): PresetTag[] {
-    return this.presetTags.filter(t => t.filterable);
+    return this.presetTags().filter(t => t.filterable);
   }
 
   get totalItems(): number {
@@ -183,67 +159,59 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
   // ─── Featured Items ─────────────────────────────────────────────
 
-  get featuredItems(): any[] {
-    const activeSectionIds = new Set(this.availableSections.map(s => s.id));
-    let featured = this.allItems.filter(
-      i => i.is_featured && i.available && activeSectionIds.has(i.section)
+  featuredItems = computed<any[]>(() => {
+    const activeSectionIds = new Set(this.availableSections().map((s) => s.id));
+    let featured = this.allItems().filter(
+      (i) => i.is_featured && i.available && activeSectionIds.has(i.section),
     );
-
     featured = featured.filter((item) => this.matchesSelectedTags(item));
-
-    if (this.searchTerm) {
-      const term = this.searchTerm.toLowerCase();
+    const term = this.searchTerm().toLowerCase();
+    if (term) {
       featured = featured.filter(
-        i =>
+        (i) =>
           i.name?.toLowerCase().includes(term) ||
-          i.description?.toLowerCase().includes(term)
+          i.description?.toLowerCase().includes(term),
       );
     }
-
     return this.sortItems(featured);
-  }
+  });
+
+  /** Sections with their tag+search-filtered, sorted items. Sections that end up with zero
+   *  items are DROPPED so the drawer never shows an empty heading (mirrors the diner menu). */
+  filteredSections = computed<any[]>(() => {
+    const term = this.searchTerm().toLowerCase();
+    return this.availableSections()
+      .map((section) => {
+        let items = this.getAvailableItems(section.id);
+        items = items.filter((item) => this.matchesSelectedTags(item));
+        if (term) {
+          items = items.filter(
+            (i) =>
+              i.name?.toLowerCase().includes(term) ||
+              i.description?.toLowerCase().includes(term),
+          );
+        }
+        return { ...section, items };
+      })
+      .filter((section) => section.items.length > 0);
+  });
+
+  hasAnyResults = computed<boolean>(
+    () => this.featuredItems().length > 0 || this.filteredSections().length > 0,
+  );
 
   // ─── Section Items ──────────────────────────────────────────────
 
   getAvailableItems(sectionId: string): any[] {
-    const sectionItems = this.allItems.filter(
+    const sectionItems = this.allItems().filter(
       i => i.section === sectionId && i.available
     );
     return this.sortItems(sectionItems);
   }
 
-  getFilteredItems(sectionId: string): any[] {
-    let items = this.getAvailableItems(sectionId);
-
-    items = items.filter((item) => this.matchesSelectedTags(item));
-
-    if (this.searchTerm) {
-      const term = this.searchTerm.toLowerCase();
-      items = items.filter(
-        i =>
-          i.name?.toLowerCase().includes(term) ||
-          i.description?.toLowerCase().includes(term)
-      );
-    }
-
-    return items;
-  }
-
-  shouldShowSection(sectionId: string): boolean {
-    if (this.searchTerm || this.selectedTags.length > 0) {
-      return this.getFilteredItems(sectionId).length > 0;
-    }
-    return true;
-  }
-
-  get hasAnyResults(): boolean {
-    if (this.featuredItems.length > 0) return true;
-    return this.availableSections.some(s => this.getFilteredItems(s.id).length > 0);
-  }
-
   private sortItems(items: any[]): any[] {
     const sorted = [...items];
-    switch (this.sortMode) {
+    switch (this.sortMode()) {
       case 'a-z':
         return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       case 'price-low':
@@ -259,10 +227,9 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
 
   onSectionChange(sectionId: string): void {
     if (!sectionId) return;
-    this.activeSection = sectionId === 'sec-featured'
-      ? 'featured'
-      : sectionId.replace(/^sec-/, '');
-    this.scrollActivePillIntoView(this.activeSection);
+    const id = sectionId === 'sec-featured' ? 'featured' : sectionId.replace(/^sec-/, '');
+    this.activeSection.set(id);
+    this.scrollActivePillIntoView(id);
   }
 
   scrollToFeatured(): void {
@@ -280,7 +247,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   toggleSearch(): void {
     this.showSearch = !this.showSearch;
     if (!this.showSearch) {
-      this.searchTerm = '';
+      this.searchTerm.set('');
     }
   }
 
@@ -290,7 +257,7 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
     const target = container.querySelector<HTMLElement>(`#sec-${sectionId}`);
     if (!target) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    this.activeSection = sectionId;
+    this.activeSection.set(sectionId);
     this.scrollActivePillIntoView(sectionId);
   }
 
@@ -363,8 +330,8 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
    *  No filter selected → always true. */
   private matchesSelectedTags(item: any): boolean {
     return (
-      this.selectedTags.length === 0 ||
-      this.selectedTags.some((tagName) => this.itemHasTag(item, tagName))
+      this.selectedTags().length === 0 ||
+      this.selectedTags().some((tagName) => this.itemHasTag(item, tagName))
     );
   }
 
@@ -507,24 +474,24 @@ export class PreviewMenuDrawerComponent implements OnInit, OnDestroy, OnChanges 
   // ─── Tag Filter ─────────────────────────────────────────────────
 
   onTagFilterApply(tags: string[]): void {
-    this.selectedTags = tags;
+    this.selectedTags.set(tags);
   }
 
   removeTag(tagName: string): void {
-    this.selectedTags = this.selectedTags.filter(t => t !== tagName);
+    this.selectedTags.set(this.selectedTags().filter(t => t !== tagName));
   }
 
   clearAllTags(): void {
-    this.selectedTags = [];
+    this.selectedTags.set([]);
   }
 
   getTagColor(tagName: string): string {
-    const preset = this.presetTags.find(p => p.name === tagName);
+    const preset = this.presetTags().find(p => p.name === tagName);
     return preset ? getTagColorClasses(preset.color) : 'bg-muted text-muted-foreground';
   }
 
   getTagIconSvg(tagName: string): string {
-    const preset = this.presetTags.find(p => p.name === tagName);
+    const preset = this.presetTags().find(p => p.name === tagName);
     return preset ? getTagIcon(preset.icon) : '';
   }
 
