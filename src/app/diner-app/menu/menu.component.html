@@ -18,7 +18,22 @@
   </div>
 </div>
 
-<div *ngIf="!navState.isLoading() && navState.filteredMenuList()" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)">
+<!-- Search mode: flat, ranked results (no sections, no featured). Shown only while
+     the query is non-blank; the browse view below handles the empty-query case. -->
+<div *ngIf="!navState.isLoading() && navState.searchQuery().trim()"
+     class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0">
+  <div *ngIf="navState.searchResults().length > 0" class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
+    <ng-container *ngFor="let i of navState.searchResults(); trackBy: trackItem">
+      <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: i }"></ng-container>
+    </ng-container>
+  </div>
+  <div *ngIf="navState.searchResults().length === 0"
+       class="flex flex-col items-center justify-center py-16 text-center">
+    <p class="text-gray-500">No dishes match "<span class="font-semibold text-gray-700">{{ navState.searchQuery() }}</span>"</p>
+  </div>
+</div>
+
+<div *ngIf="!navState.isLoading() && !navState.searchQuery().trim() && navState.filteredMenuList()" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)">
 
     <!-- Featured Section: horizontal-scrolling carousel of items with is_featured.
          Items also continue to render in their natural category sections below
@@ -83,7 +98,7 @@
 
         <!-- Item name + sold-out pill -->
         <div class="flex items-center gap-2 flex-wrap">
-          <h3 class="font-bold text-base text-gray-900">{{ i.name }}</h3>
+          <h3 class="font-bold text-base text-gray-900"><ng-container *ngFor="let seg of (i.name | highlight: navState.searchQuery())"><mark *ngIf="seg.match" class="bg-amber-200 text-gray-900 rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></h3>
           <span *ngIf="isOutOfStock(i)"
                 class="inline-flex items-center rounded-full bg-gray-200 text-gray-600 text-xs font-medium px-2 py-0.5">
             Sold out
@@ -100,8 +115,14 @@
           <span class="ml-1 text-red-100">· Save UGX {{ priceSaved(i) | number }}</span>
         </span>
 
+        <!-- "Contains" cue for description-only search matches -->
+        <span *ngIf="navState.searchQuery().trim() && descMatchOnly(i)"
+              class="inline-flex items-center self-start bg-amber-50 text-amber-700 text-xs font-medium px-2 py-0.5 rounded-full mt-2">
+          Contains "{{ navState.searchQuery() }}"
+        </span>
+
         <!-- Description -->
-        <p class="text-sm text-gray-500 line-clamp-2 mt-2">{{ i.description }}</p>
+        <p class="text-sm text-gray-500 line-clamp-2 mt-2"><ng-container *ngFor="let seg of (i.description | highlight: navState.searchQuery())"><mark *ngIf="seg.match" class="bg-amber-200 text-gray-900 rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></p>
       </div>
 
       <!-- RIGHT: Image with badge overlays -->

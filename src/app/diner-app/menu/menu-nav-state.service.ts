@@ -3,6 +3,7 @@ import { MenuItemTagRef } from 'src/app/_models/app.models';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { persistedSignal } from 'src/app/_services/storage/persisted-state';
 import { filterMenuItems, TagId } from 'src/app/_shared/tags';
+import { searchMenuItems } from 'src/app/_shared/utils/menu-search';
 
 /**
  * Filter option derived from the loaded menu — a tag that (a) actually
@@ -185,6 +186,22 @@ export class MenuNavStateService {
   });
 
   /**
+   * Flat, ranked search results for the diner search view. Name matches first,
+   * then description-only matches, each in menu order. Derived from the
+   * tag-filtered grouped list (filteredMenuList) so dietary/allergen filters
+   * apply before ranking. Empty when the (trimmed) query is blank.
+   */
+  searchResults: Signal<any[]> = computed(() => {
+    if (!this.searchQuery().trim()) return [];
+    const grouped = this.filteredMenuList() ?? [];
+    const flat: any[] = [];
+    for (const section of grouped as any[]) {
+      for (const item of section?.items ?? []) flat.push(item);
+    }
+    return searchMenuItems(flat, this.searchQuery());
+  });
+
+  /**
    * Lookup of preset tag id → whether the restaurant flagged the tag as
    * filterable. Tolerates the legacy `id`-or-`tag_id` and missing
    * filterable shapes — anything without `id` is skipped.
@@ -301,16 +318,16 @@ export class MenuNavStateService {
 
   clearSearch(): void {
     this.searchQuery.set('');
-    this.filterMenu();
   }
 
   /**
-   * Recomputes `filteredMenuList` from the loaded menu by:
-   *   1. running the pure tag filter helper over each section's items
-   *      (dietary AND + allergen ANY-hide), then
-   *   2. applying the search-name filter.
-   * Sections with zero remaining items are dropped so the diner never
-   * sees an empty "Breakfast" heading after filtering.
+   * Recomputes `filteredMenuList` from the loaded menu by running the pure tag
+   * filter helper over each section's items (dietary AND + allergen ANY-hide).
+   * Sections with zero remaining items are dropped so the diner never sees an
+   * empty "Breakfast" heading after filtering.
+   *
+   * Search is no longer applied here — it is a separate ranked computed
+   * (`searchResults`) derived from this tag-filtered list.
    */
   filterMenu(): void {
     const menu = this.menuList();
@@ -318,22 +335,11 @@ export class MenuNavStateService {
 
     const dietary = this.selectedDietary();
     const allergens = this.selectedAllergens();
-    const query = this.searchQuery();
 
     let result: any[] = (menu as any[]).map((section: any) => ({
       ...section,
       items: filterMenuItems(section.items || [], dietary, allergens),
     }));
-
-    if (query) {
-      const q = query.toLowerCase();
-      result = result.map((section: any) => ({
-        ...section,
-        items: section.items.filter((item: any) =>
-          (item?.name ?? '').toLowerCase().includes(q),
-        ),
-      }));
-    }
 
     result = result.filter((section: any) => section.items.length > 0);
     this.filteredMenuList.set(result);

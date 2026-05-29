@@ -95,7 +95,7 @@
         <input type="text"
                placeholder="Search menu..."
                [ngModel]="navState.searchQuery()"
-               (ngModelChange)="navState.searchQuery.set($event); navState.filterMenu()"
+               (ngModelChange)="navState.searchQuery.set($event)"
                class="w-full pl-10 pr-8 py-2 bg-gray-100 text-gray-900 rounded-full text-base focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white border border-transparent focus:border-red-500" />
         <button *ngIf="navState.searchQuery()"
                 (click)="navState.clearSearch()"
