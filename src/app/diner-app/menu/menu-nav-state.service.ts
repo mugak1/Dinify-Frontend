@@ -4,6 +4,7 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
 import { persistedSignal } from 'src/app/_services/storage/persisted-state';
 import { filterMenuItems, TagId } from 'src/app/_shared/tags';
 import { searchMenuItems } from 'src/app/_shared/utils/menu-search';
+import { SortMode, SORT_MODES, applyMenuSort } from 'src/app/_shared/utils/menu-sort';
 
 /**
  * Filter option derived from the loaded menu — a tag that (a) actually
@@ -38,6 +39,12 @@ export class MenuNavStateService {
   searchQuery: WritableSignal<string> = signal('');
   showSearch: WritableSignal<boolean> = signal(false);
   isLoading: WritableSignal<boolean> = signal(true);
+
+  /** Item sort mode applied to section items + the featured rail. Hydrated from
+   *  the show-menu response (`item_sort_mode`) at each fetch site; `'manual'` =
+   *  `listing_position` order. providedIn:'root' means it survives the warm
+   *  re-entry path (which re-runs filterMenu without re-fetching). */
+  itemSortMode: WritableSignal<SortMode> = signal<SortMode>('manual');
 
   /** Selected dietary tag IDs — positive AND filter. Persisted to
    *  sessionStorage so a refresh within the visit preserves the diner's
@@ -170,7 +177,7 @@ export class MenuNavStateService {
         if (item?.is_featured) out.push(item);
       }
     }
-    return out;
+    return applyMenuSort(out, this.itemSortMode());
   });
 
   allItems: Signal<any[]> = computed(() => {
@@ -267,6 +274,14 @@ export class MenuNavStateService {
     this.menuList.set(list);
   }
 
+  /** Apply a sort mode from the backend, falling back to 'manual' for anything
+   *  not in SORT_MODES (defensive against unknown/legacy values). */
+  setItemSortMode(mode: string | null | undefined): void {
+    this.itemSortMode.set(
+      (SORT_MODES as readonly string[]).includes(mode as string) ? (mode as SortMode) : 'manual',
+    );
+  }
+
   setLoadedRestaurantId(id: string | null): void {
     this.loadedRestaurantId.set(id);
   }
@@ -338,7 +353,10 @@ export class MenuNavStateService {
 
     let result: any[] = (menu as any[]).map((section: any) => ({
       ...section,
-      items: filterMenuItems(section.items || [], dietary, allergens),
+      items: applyMenuSort(
+        filterMenuItems(section.items || [], dietary, allergens) as any[],
+        this.itemSortMode(),
+      ),
     }));
 
     result = result.filter((section: any) => section.items.length > 0);

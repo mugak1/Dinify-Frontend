@@ -19,6 +19,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
 import { MenuService, SortMode } from '../../services/menu.service';
+import { applyMenuSort } from 'src/app/_shared/utils/menu-sort';
 import { CartService } from '../../services/cart.service';
 import { TagService, PresetTag } from '../../services/tag.service';
 import { UpsellService } from '../../services/upsell.service';
@@ -231,17 +232,7 @@ export class PreviewMenuDrawerComponent implements OnChanges {
   }
 
   private sortItems(items: any[]): any[] {
-    const sorted = [...items];
-    switch (this.sortMode()) {
-      case 'a-z':
-        return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      case 'price-low':
-        return sorted.sort((a, b) => (parseFloat(a.primary_price) || 0) - (parseFloat(b.primary_price) || 0));
-      case 'price-high':
-        return sorted.sort((a, b) => (parseFloat(b.primary_price) || 0) - (parseFloat(a.primary_price) || 0));
-      default:
-        return sorted.sort((a, b) => (a.listing_position || 0) - (b.listing_position || 0));
-    }
+    return applyMenuSort(items, this.sortMode());
   }
 
   // ─── Scroll Tracking ────────────────────────────────────────────

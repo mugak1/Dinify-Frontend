@@ -6,10 +6,13 @@ import { AuthenticationService } from 'src/app/_services/authentication.service'
 import { LocalStorageService } from 'src/app/_services/storage/local-storage.service';
 import { PersistedBehaviorSubject } from 'src/app/_services/storage/persisted-state';
 import { MenuItem, MenuSectionListItem, ApiResponse } from 'src/app/_models/app.models';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
+import { SORT_MODES, SortMode, applyMenuSort } from 'src/app/_shared/utils/menu-sort';
 
-const SORT_MODES = ['manual', 'a-z', 'price-low', 'price-high'] as const;
-
-export type SortMode = 'manual' | 'a-z' | 'price-low' | 'price-high';
+// Re-exported so existing importers (item-list, preview-menu-drawer, menu.component)
+// keep importing SortMode/SORT_MODES from this service unchanged.
+export { SORT_MODES };
+export type { SortMode };
 
 @Injectable({
   providedIn: 'root'
@@ -70,7 +73,8 @@ export class MenuService {
   constructor(
     private api: ApiService,
     private auth: AuthenticationService,
-    private storage: LocalStorageService
+    private storage: LocalStorageService,
+    private toast: ToastService
   ) {
     this._selectedSectionId$ = new PersistedBehaviorSubject<string | null>(null, {
       storage: this.storage,
@@ -94,7 +98,7 @@ export class MenuService {
     });
     this.sortMode$ = this._sortMode$.asObservable();
     this.sortedItems$ = combineLatest([this.items$, this._sortMode$]).pipe(
-      map(([items, mode]) => this.applySortMode([...items], mode))
+      map(([items, mode]) => applyMenuSort(items, mode))
     );
   }
 
@@ -361,11 +365,48 @@ export class MenuService {
 
     this.loadSections(restaurantId);
     this.loadAllItems(restaurantId);
+    this.hydrateSortMode(restaurantId);
     // items$ and extras$ update automatically via derivation from allItems$
   }
 
   setSortMode(mode: SortMode): void {
+    const prev = this._sortMode$.getValue();
+    // Optimistic: instant UI + localStorage cache via the PersistedBehaviorSubject.
     this._sortMode$.next(mode);
+
+    const restaurant = this.auth.currentRestaurantRole?.restaurant_id;
+    if (!restaurant) return; // no restaurant id → keep the optimistic local value only
+
+    // Persist server-side (mirrors updateSection's postPatch shape).
+    this.api
+      .postPatch('restaurant-setup/menu-item-sort-mode/', { restaurant, mode }, 'put', '', {}, false, '', true)
+      .subscribe({
+        error: () => {
+          this._sortMode$.next(prev);
+          this.toast.error('Failed to save sort order');
+        },
+      });
+  }
+
+  /**
+   * Server is the source of truth for the sort mode; localStorage stays only as a
+   * no-flash paint cache. On load, fetch the persisted mode and apply it when it's
+   * a valid SORT_MODES value. On error, keep the cached value.
+   */
+  private hydrateSortMode(restaurantId: string): void {
+    this.api
+      .get<any>(null, 'restaurant-setup/menu-item-sort-mode/', { restaurant: restaurantId })
+      .subscribe({
+        next: (res: any) => {
+          const it = res?.item_sort_mode;
+          if ((SORT_MODES as readonly string[]).includes(it)) {
+            this._sortMode$.next(it as SortMode);
+          }
+        },
+        error: () => {
+          /* keep the cached localStorage value */
+        },
+      });
   }
 
   getSectionsSnapshot(): MenuSectionListItem[] {
@@ -493,22 +534,6 @@ export class MenuService {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-
-  private applySortMode(items: MenuItem[], mode: SortMode): MenuItem[] {
-    switch (mode) {
-      case 'a-z':
-        return items.sort((a, b) =>
-          (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base' })
-        );
-      case 'price-low':
-        return items.sort((a, b) => (Number(a.primary_price) || 0) - (Number(b.primary_price) || 0));
-      case 'price-high':
-        return items.sort((a, b) => (Number(b.primary_price) || 0) - (Number(a.primary_price) || 0));
-      case 'manual':
-      default:
-        return items;
-    }
-  }
 
   private hasFileValue(obj: any): boolean {
     if (!obj || typeof obj !== 'object') return false;
