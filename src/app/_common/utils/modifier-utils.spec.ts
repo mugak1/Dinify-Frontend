@@ -13,12 +13,16 @@ describe('selectionConstraintPhrase', () => {
     expect(selectionConstraintPhrase(2, 5)).toBe('Select 2–5');
   });
 
-  it('optional multi → "up to 3"', () => {
-    expect(selectionConstraintPhrase(0, 3)).toBe('up to 3');
+  it('optional multi → "Select up to 3"', () => {
+    expect(selectionConstraintPhrase(0, 3)).toBe('Select up to 3');
   });
 
-  it('optional single → empty string (no count line)', () => {
-    expect(selectionConstraintPhrase(0, 1)).toBe('');
+  it('optional single → "Select up to 1"', () => {
+    expect(selectionConstraintPhrase(0, 1)).toBe('Select up to 1');
+  });
+
+  it('no ceiling (min 0, max 0) → empty string (no count line)', () => {
+    expect(selectionConstraintPhrase(0, 0)).toBe('');
   });
 
   it('honours a custom verb', () => {
