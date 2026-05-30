@@ -205,6 +205,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
       next: (x: any) => {
         this.menu_list = (x?.data as any) ?? [];
         this.navState.setMenuList(this.menu_list);
+        this.navState.setItemSortMode(x?.item_sort_mode ?? 'manual');
         this.navState.filterMenu();
         // currentSection is seeded by the constructor effect that watches
         // filteredMenuList — no imperative call needed here.
@@ -243,6 +244,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
         this.menu_list = fresh;
         this.navState.setMenuList(fresh);
         this.navState.setLoadedRestaurantId(rid);
+        this.navState.setItemSortMode(x?.item_sort_mode ?? 'manual');
         this.navState.filterMenu();
         this.cacheUpsell(x);
       },

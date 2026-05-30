@@ -180,6 +180,7 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (x: any) => {
           this.navState.setMenuList((x?.data as any) ?? []);
+          this.navState.setItemSortMode(x?.item_sort_mode ?? 'manual');
           this.navState.filterMenu();
           // The allItems effect picks up the change and resolves the item.
         },
