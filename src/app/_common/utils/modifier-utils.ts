@@ -57,7 +57,7 @@ export function selectionConstraintPhrase(min: number, max: number, verb = 'Sele
   const lo = Math.max(0, Math.floor(min || 0));
   const hi = Math.max(lo, Math.floor(max || 0));
   if (lo > 0 && lo === hi) return `${verb} ${lo}`;            // exactly N (required)
-  if (lo > 0 && lo < hi)   return `${verb} ${lo}–${hi}`; // N-M range (required)
-  if (lo === 0 && hi > 1)  return `up to ${hi}`;              // optional, up to M
-  return '';                                                  // optional single / nothing to state
+  if (lo > 0 && lo < hi)   return `${verb} ${lo}–${hi}`; // N–M range (required)
+  if (lo === 0 && hi >= 1) return `${verb} up to ${hi}`;      // optional → "Select up to N" (incl. "up to 1")
+  return '';                                                  // empty only when there is no ceiling at all
 }
