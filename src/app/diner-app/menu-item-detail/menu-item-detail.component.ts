@@ -13,7 +13,7 @@ import {
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
-import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
+import { parseModifierGroups, selectionConstraintPhrase } from 'src/app/_common/utils/modifier-utils';
 import {
   getCurrentPrice,
   getCurrentPriceFromDetails,
@@ -253,12 +253,69 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
     this.validateForm();
   }
 
+  // --- Extras selection constraints (coerced the same way as modifier groups,
+  //     so the extras block speaks the same guidance language). ---
+
+  /** Minimum extras required — non-negative integer, 0 when unset/invalid. */
+  get extrasMin(): number {
+    const n = Math.floor(Number(this.item()?.extras_min_selections));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  /** Max extras allowed — falls back to the number of extras on offer when
+   *  the backend value is unset/invalid. */
+  get extrasMax(): number {
+    const n = Math.floor(Number(this.item()?.extras_max_selections));
+    return Number.isFinite(n) && n > 0 ? n : (this.item()?.extras?.length ?? 0);
+  }
+
+  extrasRequired(): boolean {
+    return this.extrasMin > 0;
+  }
+
+  /** Count phrase for the extras block (e.g. "Select 2", "up to 3", ""). */
+  extrasConstraintLabel(): string {
+    return selectionConstraintPhrase(this.extrasMin, this.extrasMax);
+  }
+
+  /** True once the diner has hit the extras cap — used to grey out the rest. */
+  isExtrasAtMax(): boolean {
+    return this.extrasMax > 0 && this.selectedExtras().length >= this.extrasMax;
+  }
+
+  /** True when a required extras block hasn't met its minimum yet. */
+  extrasUnmet(): boolean {
+    return this.extrasMin > 0 && this.selectedExtras().length < this.extrasMin;
+  }
+
+  extrasErrorText(): string {
+    return this.extrasMin <= 1
+      ? 'Please add an extra'
+      : 'Please add at least ' + this.extrasMin + ' extras';
+  }
+
   isModifierChoiceSelected(groupId: string, choiceId: string): boolean {
     return (this.selectedModifiers()[groupId] || []).includes(choiceId);
   }
 
   getModifierSelectedCount(groupId: string): number {
     return (this.selectedModifiers()[groupId] || []).length;
+  }
+
+  /** Count phrase for a modifier group (e.g. "Select 1", "up to 3", ""). */
+  groupConstraintLabel(group: ModifierGroup): string {
+    return selectionConstraintPhrase(group.minSelections, group.maxSelections);
+  }
+
+  /** True when a required group hasn't met its minimum yet. */
+  groupUnmet(group: ModifierGroup): boolean {
+    return group.minSelections > 0 && this.getModifierSelectedCount(group.id) < group.minSelections;
+  }
+
+  groupErrorText(group: ModifierGroup): string {
+    return group.minSelections <= 1
+      ? 'Please select an option'
+      : 'Please select at least ' + group.minSelections + ' options';
   }
 
   handleModifierSingleSelect(groupId: string, choiceId: string): void {
@@ -348,9 +405,28 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
     return (basePrice + modifiersCost + extrasCost) * this.quantity();
   }
 
+  /** After a blocked submit, bring the first unmet section into view so the
+   *  freshly-revealed inline error is on screen. First unmet modifier group (in
+   *  render order) wins, else the extras block. Degrades silently if the element
+   *  isn't in the DOM. Mirrors the direct `window` access used in ngOnInit. */
+  private scrollToFirstUnmet(): void {
+    const firstUnmet = this.modifierGroups().find((g) => this.groupUnmet(g));
+    const id = firstUnmet
+      ? 'mod-group-' + firstUnmet.id
+      : this.extrasUnmet()
+        ? 'extras-section'
+        : null;
+    if (!id) return;
+    setTimeout(
+      () => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+      0,
+    );
+  }
+
   addToBasket(): void {
     if (!this.isFormValid()) {
       this.formSubmitted.set(true);
+      this.scrollToFirstUnmet();
       return;
     }
     const item = this.item();
