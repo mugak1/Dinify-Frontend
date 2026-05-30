@@ -1,20 +1,25 @@
 <div class="bg-white min-h-screen flex flex-col">
 
-  <!-- Header -->
-  <div class="flex-shrink-0 flex items-center p-4">
-    <button type="button" (click)="goBack()"
-            class="inline-flex items-center gap-2 text-gray-900 hover:text-gray-600 transition-colors">
+  <!-- Reusable floating back chip — stamped over the hero image (and the loading
+       hero skeleton). Replaces the old standalone "← Menu" header row so the image
+       bleeds directly beneath the restaurant identity bar. -->
+  <ng-template #backChip>
+    <button type="button" (click)="goBack()" aria-label="Back to menu"
+            class="absolute top-[12px] left-[12px] z-10 inline-flex items-center gap-2 min-h-[44px] px-3 bg-black/60 hover:bg-black/70 text-white rounded-none transition-colors">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
       </svg>
       <span class="font-semibold">Menu</span>
-      <span class="sr-only">Back to menu</span>
     </button>
-  </div>
+  </ng-template>
 
   <!-- Loading skeleton — mirrors menu.component.html:6-19 for visual parity. -->
   @if (loading()) {
+    <!-- Hero-shaped skeleton keeps the floating back control available while loading. -->
+    <div class="relative w-full aspect-[3/2] overflow-hidden bg-gray-200 animate-pulse lg:rounded-lg">
+      <ng-container [ngTemplateOutlet]="backChip"></ng-container>
+    </div>
     <div class="flex flex-col px-6 pt-4">
       <div *ngFor="let _ of [1,2,3,4,5]"
            class="mb-3 rounded-none bg-white shadow-xl">
@@ -53,16 +58,22 @@
                         ? 'lg:w-2/5 lg:flex-shrink-0'
                         : ''">
 
-          <!-- Hero image -->
-          <div *ngIf="it.image" class="w-full aspect-[4/3] overflow-hidden bg-gray-100 relative lg:rounded-lg">
-            <div *ngIf="!heroImageLoaded()" class="absolute inset-0 bg-gray-200 animate-pulse"></div>
-            <img [src]="url + it.image"
+          <!-- Hero image — full-bleed 3:2 frame; the floating back chip sits over it.
+               Always rendered (no *ngIf on the container) so the chip and back
+               navigation stay available even when an item has no photo; in that case
+               the gray fill is the neutral placeholder. aspect-[3/2] derives height
+               from width — no pixel/rem height, which is unreliable at 14px root. -->
+          <div class="relative w-full aspect-[3/2] overflow-hidden bg-gray-100 lg:rounded-lg">
+            <div *ngIf="it.image && !heroImageLoaded()" class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+            <img *ngIf="it.image"
+                 [src]="url + it.image"
                  [alt]="it.name"
                  class="w-full h-full object-cover transition-opacity duration-200"
                  [class.opacity-0]="!heroImageLoaded()"
                  [class.grayscale]="isOutOfStock(it)"
                  (load)="heroImageLoaded.set(true)"
                  (error)="heroImageLoaded.set(true)" />
+            <ng-container [ngTemplateOutlet]="backChip"></ng-container>
           </div>
 
           <!-- Badge row -->
