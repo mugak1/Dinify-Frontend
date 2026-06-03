@@ -21,6 +21,14 @@ function makeTicket(partial: Partial<KitchenTicket> = {}): KitchenTicket {
         modifiers: ['Spice: Medium', 'No peanuts'],
         allergen_tags: [{ name: 'Nuts', icon: 'nut', colour: 'orange' }],
         item_note: 'Peanut-free please',
+        extras: [
+          {
+            item_name_snapshot: 'Add prawns',
+            quantity: 1,
+            modifiers: ['Extra spicy'],
+            allergen_tags: [{ name: 'Shellfish', icon: 'shell', colour: 'rose' }],
+          },
+        ],
       },
     ],
     ...partial,
@@ -51,6 +59,17 @@ describe('TicketCardComponent', () => {
     expect(text).toContain('Peanut-free please');
     // server_assisted indicator
     expect(text).toContain('Server');
+  });
+
+  it('renders extras (add-ons) with their modifiers and allergens under the parent line', () => {
+    component.ticket = makeTicket();
+    component.now = Date.now();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Add prawns');
+    expect(text).toContain('Extra spicy');
+    expect(text).toContain('Shellfish');
   });
 
   it('applies the overdue escalation class past the threshold', () => {

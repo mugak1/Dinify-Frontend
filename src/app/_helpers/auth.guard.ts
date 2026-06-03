@@ -13,17 +13,29 @@ export class AuthGuard {
         const user = this.authenticationService.userValue;
         if (user) {
             // check if route is restricted by role
-            const { roles } = route.data;
-            if (roles) {
-                const hasTopLevelRole = roles.some((r: string) => user.profile.roles.includes(r));
+            const { roles, restaurant_roles } = route.data;
+            if (roles || restaurant_roles) {
+                const hasTopLevelRole = Array.isArray(roles)
+                    && roles.some((r: string) => user.profile.roles.includes(r));
 
-                // Also check restaurant_roles for 'restaurant_staff' access,
-                // since the backend may not duplicate that into profile.roles
-                const hasRestaurantRole = roles.includes('restaurant_staff')
+                // Existing 'restaurant_staff' bridge — any restaurant role grants
+                // access, since the backend may not duplicate that into profile.roles.
+                const hasRestaurantRole = Array.isArray(roles)
+                    && roles.includes('restaurant_staff')
                     && user.profile.restaurant_roles
                     && user.profile.restaurant_roles.length > 0;
 
-                if (!hasTopLevelRole && !hasRestaurantRole) {
+                // Additive: a route may require SPECIFIC restaurant roles via
+                // data.restaurant_roles (e.g. ['owner','manager','kitchen']). Granted
+                // when the user holds any of them at any restaurant. Existing routes
+                // don't set this key, so their behaviour is unchanged.
+                const requiredRestaurantRoles: string[] =
+                    Array.isArray(restaurant_roles) ? restaurant_roles : [];
+                const hasSpecificRestaurantRole = requiredRestaurantRoles.length > 0
+                    && (user.profile.restaurant_roles ?? []).some(
+                        rr => rr.roles?.some(role => requiredRestaurantRoles.includes(role)));
+
+                if (!hasTopLevelRole && !hasRestaurantRole && !hasSpecificRestaurantRole) {
                     this.router.navigate(['/']);
                     return false;
                 }

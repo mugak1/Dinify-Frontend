@@ -89,6 +89,28 @@
         </span>
       </div>
 
+      <!-- Extras (add-ons), indented under their parent line. -->
+      <div *ngIf="item.extras?.length" class="mt-1 ml-7 space-y-1">
+        <div *ngFor="let extra of item.extras" class="text-[13px]">
+          <div class="flex items-baseline gap-1.5 text-gray-300">
+            <span class="font-semibold tabular-nums shrink-0">+ {{ extra.quantity }}×</span>
+            <span class="font-medium leading-tight">{{ extra.item_name_snapshot }}</span>
+          </div>
+          <ul *ngIf="extra.modifiers.length" class="mt-0.5 ml-5 list-disc list-inside text-gray-400 text-[12px]">
+            <li *ngFor="let mod of extra.modifiers">{{ mod }}</li>
+          </ul>
+          <div *ngIf="extra.allergen_tags.length" class="mt-0.5 ml-5 flex flex-wrap gap-1">
+            <span
+              *ngFor="let tag of extra.allergen_tags"
+              class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold"
+              [ngClass]="allergenChip(tag.colour)">
+              <span class="inline-flex items-center" [innerHTML]="iconSvg(tag.icon)"></span>
+              {{ tag.name }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <p
         *ngIf="item.item_note"
         class="mt-1 ml-7 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-100 px-2 py-1 text-[13px] leading-snug">

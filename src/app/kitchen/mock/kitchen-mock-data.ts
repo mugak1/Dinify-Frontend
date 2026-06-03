@@ -63,14 +63,14 @@ export function getMockTickets(): KitchenTicket[] {
   return [
     // ── NEW ──────────────────────────────────────────────────────────────
     build('k-01', 'Table 7', 'diner_self_service', 'new', false, 0.5, [
-      { item_name_snapshot: 'Margherita Pizza', quantity: 1, modifiers: ['Size: Large', 'Extra basil'], allergen_tags: [GLUTEN, DAIRY] },
+      { item_name_snapshot: 'Margherita Pizza', quantity: 1, modifiers: ['Size: Large', 'Extra basil'], allergen_tags: [GLUTEN, DAIRY], extras: [{ item_name_snapshot: 'Extra mozzarella', quantity: 1, modifiers: [], allergen_tags: [DAIRY] }] },
       { item_name_snapshot: 'Sparkling Water', quantity: 2, modifiers: [], allergen_tags: [] },
     ]),
     build('k-02', 'Table 3', 'server_assisted', 'new', true, 1, [
       { item_name_snapshot: 'Chicken Wings', quantity: 1, modifiers: ['Sauce: Hot', 'Extra ranch'], allergen_tags: [DAIRY, SPICY], item_note: 'Allergy table — keep separate' },
     ]),
     build('k-03', 'Takeaway', 'diner_self_service', 'new', false, 2, [
-      { item_name_snapshot: 'Veggie Burger', quantity: 1, modifiers: ['No mayo'], allergen_tags: [GLUTEN, VEGAN] },
+      { item_name_snapshot: 'Veggie Burger', quantity: 1, modifiers: ['No mayo'], allergen_tags: [GLUTEN, VEGAN], extras: [{ item_name_snapshot: 'Add avocado', quantity: 1, modifiers: [], allergen_tags: [] }, { item_name_snapshot: 'Add vegan cheese', quantity: 1, modifiers: [], allergen_tags: [] }] },
       { item_name_snapshot: 'Sweet Potato Fries', quantity: 1, modifiers: [], allergen_tags: [] },
     ]),
     build('k-04', 'Table 12', 'diner_self_service', 'new', false, 4, [
@@ -176,6 +176,7 @@ export function buildInjectedTicket(): KitchenTicket {
         modifiers: ['No pickles', 'Add bacon'],
         allergen_tags: [GLUTEN, DAIRY],
         item_note: injectCounter % 3 === 0 ? 'VIP — rush this' : null,
+        extras: [{ item_name_snapshot: 'Extra cheese', quantity: 1, modifiers: [], allergen_tags: [DAIRY] }],
       },
       { item_name_snapshot: 'Fries', quantity: 1, modifiers: [], allergen_tags: [] },
     ],

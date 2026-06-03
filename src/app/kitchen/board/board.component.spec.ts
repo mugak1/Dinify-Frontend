@@ -3,16 +3,36 @@ import {
   TestBed,
   discardPeriodicTasks,
   fakeAsync,
-  tick,
 } from '@angular/core/testing';
+import { of } from 'rxjs';
 
+import { ApiService } from '../../_services/api.service';
+import { AuthenticationService } from '../../_services/authentication.service';
+import { getMockTickets } from '../mock/kitchen-mock-data';
 import { BoardComponent } from './board.component';
 
 describe('BoardComponent', () => {
   let fixture: ComponentFixture<BoardComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [BoardComponent] }).compileComponents();
+    const apiStub = {
+      get: jasmine.createSpy('get').and.callFake(() =>
+        of({ status: 200, data: { records: getMockTickets() } })),
+      postPatch: jasmine.createSpy('postPatch').and.returnValue(of({})),
+    };
+    const authStub = {
+      userValue: {
+        profile: { restaurant_roles: [{ restaurant_id: 'r1', restaurant: 'R', roles: ['kitchen'] }] },
+      },
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [BoardComponent],
+      providers: [
+        { provide: ApiService, useValue: apiStub },
+        { provide: AuthenticationService, useValue: authStub },
+      ],
+    }).compileComponents();
     fixture = TestBed.createComponent(BoardComponent);
   });
 
@@ -24,28 +44,14 @@ describe('BoardComponent', () => {
     fixture.destroy();
   });
 
-  it('renders the mock ticket set after load', fakeAsync(() => {
-    fixture.detectChanges(); // ngOnInit → loadActive()
-    tick(400); // resolve the mock delay
-    fixture.detectChanges();
+  it('renders the active ticket set after the first poll', fakeAsync(() => {
+    fixture.detectChanges(); // ngOnInit → startPolling() → first poll (sync stub)
+    fixture.detectChanges(); // render the cards from the populated signal
 
     const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-kitchen-ticket-card');
     expect(cards.length).toBeGreaterThan(0);
 
-    fixture.destroy();
-    discardPeriodicTasks(); // clear the 1s age ticker
+    fixture.destroy();       // ngOnDestroy → stopPolling()
+    discardPeriodicTasks();  // clear the 1s age ticker
   }));
-
-  it('cycles the connection state via the dev control', () => {
-    fixture.detectChanges();
-    const component = fixture.componentInstance;
-    expect(component.service.connectionState()).toBe('connected');
-    component.cycleConnection();
-    expect(component.service.connectionState()).toBe('reconnecting');
-    component.cycleConnection();
-    expect(component.service.connectionState()).toBe('offline');
-    component.cycleConnection();
-    expect(component.service.connectionState()).toBe('connected');
-    fixture.destroy();
-  });
 });

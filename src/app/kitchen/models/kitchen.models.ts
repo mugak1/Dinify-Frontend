@@ -6,6 +6,18 @@
  * rename or add fields here without coordinating the backend serializer.
  */
 
+/**
+ * An add-on attached to a ticket line (e.g. "Add bacon"). Mirrors the Phase 2
+ * nested serializer shape — same self-contained allergen snapshot as the parent
+ * line so the board needs no menu lookup.
+ */
+export interface KitchenTicketExtra {
+  item_name_snapshot: string;
+  quantity: number;
+  modifiers: string[];
+  allergen_tags: { name: string; icon: string; colour: string }[];
+}
+
 /** A single line on a kitchen ticket. */
 export interface KitchenTicketItem {
   /** Name captured at order time (immune to later menu edits). */
@@ -17,6 +29,8 @@ export interface KitchenTicketItem {
   allergen_tags: { name: string; icon: string; colour: string }[];
   /** Free-text note for this line (kitchen instruction). */
   item_note?: string | null;
+  /** Add-ons chosen for this line. Optional: many lines have none. */
+  extras?: KitchenTicketExtra[];
 }
 
 /** A kitchen ticket = one order as seen by the kitchen. */
