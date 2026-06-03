@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 
-import { ConnectionState, KitchenTicket } from '../models/kitchen.models';
+import { KitchenTicket } from '../models/kitchen.models';
 import { classifyEscalation } from '../services/kitchen-logic';
 import { KitchenOrderService } from '../services/kitchen-order.service';
 import { TicketCardComponent } from './ticket-card/ticket-card.component';
@@ -83,11 +83,10 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.service.loadActive().subscribe();
+    this.service.startPolling();
     this.tickHandle = setInterval(() => {
       const t = Date.now();
       this.now.set(t);
-      this.service.pruneServed(t);
       this.clampCurrentPage();
     }, 1000);
     if (typeof document !== 'undefined') {
@@ -96,6 +95,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.service.stopPolling();
     if (this.tickHandle) clearInterval(this.tickHandle);
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.onVisibility);
@@ -179,15 +179,6 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   isEntering(id: string): boolean { return this.enteringIds().has(id); }
-
-  // ── Connection indicator (dev toggle in Phase 1) ──────────────────────
-  cycleConnection(): void {
-    const order: ConnectionState[] = ['connected', 'reconnecting', 'offline'];
-    const i = order.indexOf(this.service.connectionState());
-    this.service.simulateConnectionState(order[(i + 1) % order.length]);
-  }
-
-  injectTicket(): void { this.service.injectNewTicket(); }
 
   // ── Sound ─────────────────────────────────────────────────────────────
   enableSound(): void {

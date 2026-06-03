@@ -28,9 +28,12 @@ describe('AuthGuard', () => {
     router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
   });
 
-  function makeRoute(roles?: string[]): ActivatedRouteSnapshot {
+  function makeRoute(roles?: string[], restaurant_roles?: string[]): ActivatedRouteSnapshot {
     const route = new ActivatedRouteSnapshot();
-    (route as any).data = roles ? { roles } : {};
+    (route as any).data = {
+      ...(roles ? { roles } : {}),
+      ...(restaurant_roles ? { restaurant_roles } : {}),
+    };
     return route;
   }
 
@@ -87,6 +90,49 @@ describe('AuthGuard', () => {
       profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['diner'], phone_number: '', other_names: '', restaurant_roles: [] }
     });
     const result = guard.canActivate(makeRoute(['dinify_admin']), makeState('/mgt-app'));
+    expect(result).toBeFalse();
+    expect(router.navigate).toHaveBeenCalledWith(['/']);
+  });
+
+  // ── Kitchen route policy (additive data.restaurant_roles) ───────────────
+  // /kitchen → roles:['dinify_admin','dinify_account_manager'],
+  //            restaurant_roles:['owner','manager','kitchen']
+  const KITCHEN_TOP = ['dinify_admin', 'dinify_account_manager'];
+  const KITCHEN_REST = ['owner', 'manager', 'kitchen'];
+
+  function setKitchenUser(topRoles: string[], restRoles: string[]) {
+    setUser({
+      token: 'test-token',
+      profile: {
+        id: '1', first_name: 'A', last_name: 'B', email: '',
+        roles: topRoles, phone_number: '', other_names: '',
+        restaurant_roles: restRoles.length
+          ? [{ restaurant_id: 'r1', restaurant: 'Rest1', roles: restRoles }]
+          : [],
+      },
+    });
+  }
+
+  it('allows /kitchen for a restaurant kitchen role', () => {
+    setKitchenUser([], ['kitchen']);
+    expect(guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
+  });
+
+  it('allows /kitchen for a restaurant owner or manager role', () => {
+    setKitchenUser([], ['manager']);
+    expect(guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
+    setKitchenUser([], ['owner']);
+    expect(guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
+  });
+
+  it('allows /kitchen for a platform dinify_account_manager', () => {
+    setKitchenUser(['dinify_account_manager'], []);
+    expect(guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
+  });
+
+  it('denies /kitchen for a user holding none of the kitchen roles', () => {
+    setKitchenUser([], ['cashier']);
+    const result = guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'));
     expect(result).toBeFalse();
     expect(router.navigate).toHaveBeenCalledWith(['/']);
   });

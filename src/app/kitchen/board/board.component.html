@@ -2,17 +2,15 @@
 <header class="h-[64px] shrink-0 flex items-center gap-3 px-4 border-b border-white/10 bg-black/30">
   <h1 class="font-display text-xl font-extrabold tracking-tight mr-1">Kitchen</h1>
 
-  <!-- Connection indicator (first-class; dev toggle cycles states in Phase 1) -->
-  <button
-    type="button"
-    (click)="cycleConnection()"
+  <!-- Connection indicator (read-only; reflects real poll health) -->
+  <div
     class="inline-flex items-center gap-2 rounded-full px-3 h-9 text-sm font-semibold border"
     [ngClass]="{
       'bg-green-500/15 text-green-200 border-green-500/40': service.connectionState() === 'connected',
       'bg-amber-500/15 text-amber-200 border-amber-500/40': service.connectionState() === 'reconnecting',
       'bg-red-500/15 text-red-200 border-red-500/40': service.connectionState() === 'offline'
     }"
-    title="Connection status (tap to simulate — Phase 1 dev control)">
+    title="Connection status">
     <span
       class="h-2.5 w-2.5 rounded-full"
       [ngClass]="{
@@ -21,7 +19,7 @@
         'bg-red-500 animate-pulse': service.connectionState() === 'offline'
       }"></span>
     <span class="capitalize">{{ service.connectionState() }}</span>
-  </button>
+  </div>
 
   <!-- Jump controls -->
   <div class="flex items-center gap-1 ml-2">
@@ -76,8 +74,6 @@
     {{ wakeLockActive() ? 'Awake' : 'Keep awake' }}
   </button>
 
-  <!-- Dev: inject ticket (mock-only) -->
-  <button type="button" (click)="injectTicket()" class="kbtn kbtn-dev" title="Inject a new ticket (Phase 1 dev control)">+ Ticket</button>
 </header>
 
 <!-- Board area: fills the viewport below the 64px bar. -->

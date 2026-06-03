@@ -23,17 +23,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   order_initiated?: OrderInitiated;
   showUnavailableSheet = false;
 
-  // ── TEMP/TODO(orders-module): placeholder checkout ───────────────────────────
-  // While the orders module is unbuilt, checkout is a pure placeholder: confirming
-  // the order goes straight to order-complete and NEVER calls the backend (no
-  // orders/initiate/, no orders/submit/, no ongoing-order handling). The real
-  // initiate→submit flow below is left intact and dormant behind this flag.
-  // TODO: flip to false to restore the real submit flow when the orders module
-  // lands, then remove this flag and the placeholder branch in initiateOrder().
-  // Explicit ": boolean" keeps the gated `false` branch from being flagged as
-  // unreachable/dead code while the literal is `true`.
-  private readonly USE_PLACEHOLDER_CHECKOUT: boolean = true;
-
   restaurant: any;
   url = environment.apiUrl;
   upsellConfig: any = null;
@@ -225,27 +214,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       submitButtonText: 'Order',
     }).subscribe((response: any) => {
       if (response?.action === 'yes') {
-        // ── TEMP/TODO(orders-module): placeholder checkout short-circuit ──────────
-        // Pure placeholder: close dialog → clear basket → go to order-complete. No
-        // backend calls, so it works on every table (incl. ones with an ongoing
-        // order) and can never block. We do NOT call sessionStorage.clear() here, so
-        // the 'Table' identity from the QR survives and repeated presses on the same
-        // table keep working without a re-scan. Remove with USE_PLACEHOLDER_CHECKOUT.
-        if (this.USE_PLACEHOLDER_CHECKOUT) {
-          this.dialog.closeModal();
-          this.basketService.clearBasket();
-          this.router.navigate(['/diner', 'basket', 'order-complete'], {
-            replaceUrl: true,
-            state: {
-              tableNumber: this.table?.number ?? null,
-              tableId: this.table?.id ?? null,
-            },
-          });
-          return;
-        }
-        // ── end TEMP placeholder ──────────────────────────────────────────────────
-
       const orderPayload = {
+        // Idempotency key — reused across retries of an unchanged basket so a
+        // retried submit returns the existing order instead of duplicating it.
+        client_order_id: this.basketService.getOrCreateClientOrderId(),
         restaurant: this.restaurant?.id,
         table: this.table?.id,
         items: this.basketItems.map((item) => ({
