@@ -254,8 +254,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
               this.messageService.addMessage({severity:'info', summary:'Info', message: response.message});
             }
           },
-          (error) => {
-            this.messageService.addMessage({severity:'error', summary:'Error', message: error.message});
+          (_error) => {
+            // The ErrorInterceptor already toasts the real backend message; just
+            // close the confirm dialog so the diner can retry.
+            this.dialog.closeModal();
           }
         );
       }
@@ -373,8 +375,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         // ── end TEMP shim ─────────────────────────────────────────────────────
-
-        this.messageService.addMessage({severity:'error', summary:'Error', message: error.message});
       }
     );
   }
