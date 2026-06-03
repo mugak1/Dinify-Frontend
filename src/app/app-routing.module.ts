@@ -9,6 +9,7 @@ import { AuthGuard } from './_helpers/auth.guard';
 import { DinerAppComponent } from './diner-app/diner-app.component';
 import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
+import { KitchenComponent } from './kitchen/kitchen.component';
 
 const routes: Routes = [
   {path:'',redirectTo:'login',pathMatch:'full'},
@@ -19,6 +20,11 @@ const routes: Routes = [
 {path:'rest-app',component:RestaurantMgtComponent,canActivate:[AuthGuard],data:{roles:['restaurant_staff']},loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module').then(m => m.RestaurantMgtModule)},
 {path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin']},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
 {path:'diner',component:DinerAppComponent,loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
+// Kitchen View — Phase 1 mock board. No AuthGuard yet so the design-review board
+// is reachable (mock-only → no real order data exposed).
+// TODO(Phase 3): add canActivate:[AuthGuard], data:{roles:['kitchen_staff']} once
+// the backend kitchen role + kitchen login exist.
+{path:'kitchen',component:KitchenComponent,loadChildren: () => import('./kitchen/kitchen.module').then(m => m.KitchenModule)},
 { path: "lock-otp-exp", component: LockScreenComponent },
 { path: 'privacy', loadComponent: () => import('./legal/privacy-policy/privacy-policy.component').then(m => m.PrivacyPolicyComponent), title: 'Privacy Policy' },
 { path: 'terms', loadComponent: () => import('./legal/terms-and-conditions/terms-and-conditions.component').then(m => m.TermsAndConditionsComponent), title: 'Terms and Conditions' },

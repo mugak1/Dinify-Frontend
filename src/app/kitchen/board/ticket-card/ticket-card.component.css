@@ -1,0 +1,33 @@
+/*
+ * Overdue cue: a pulsing tinted fill behind the card so it reads unmistakably
+ * across a busy kitchen — and stays distinct from the red advance button, since
+ * --destructive and --primary are the same red in the dark palette. A bare red
+ * border alone would blur into the button colour.
+ */
+:host {
+  display: block;
+  height: 100%;
+}
+
+.kitchen-overdue {
+  animation: kitchen-overdue-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes kitchen-overdue-pulse {
+  0%,
+  100% {
+    background-color: hsl(0 84% 60% / 0.10);
+    box-shadow: 0 0 0 0 hsl(0 84% 60% / 0.0);
+  }
+  50% {
+    background-color: hsl(0 84% 60% / 0.22);
+    box-shadow: 0 0 18px 2px hsl(0 84% 60% / 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kitchen-overdue {
+    animation: none;
+    background-color: hsl(0 84% 60% / 0.18);
+  }
+}

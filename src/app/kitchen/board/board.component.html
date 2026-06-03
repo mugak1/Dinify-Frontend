@@ -1,0 +1,113 @@
+<!-- Top chrome. Explicit h-[64px] because this height feeds the grid sizing below. -->
+<header class="h-[64px] shrink-0 flex items-center gap-3 px-4 border-b border-white/10 bg-black/30">
+  <h1 class="font-display text-xl font-extrabold tracking-tight mr-1">Kitchen</h1>
+
+  <!-- Connection indicator (first-class; dev toggle cycles states in Phase 1) -->
+  <button
+    type="button"
+    (click)="cycleConnection()"
+    class="inline-flex items-center gap-2 rounded-full px-3 h-9 text-sm font-semibold border"
+    [ngClass]="{
+      'bg-green-500/15 text-green-200 border-green-500/40': service.connectionState() === 'connected',
+      'bg-amber-500/15 text-amber-200 border-amber-500/40': service.connectionState() === 'reconnecting',
+      'bg-red-500/15 text-red-200 border-red-500/40': service.connectionState() === 'offline'
+    }"
+    title="Connection status (tap to simulate — Phase 1 dev control)">
+    <span
+      class="h-2.5 w-2.5 rounded-full"
+      [ngClass]="{
+        'bg-green-400': service.connectionState() === 'connected',
+        'bg-amber-400 animate-pulse': service.connectionState() === 'reconnecting',
+        'bg-red-500 animate-pulse': service.connectionState() === 'offline'
+      }"></span>
+    <span class="capitalize">{{ service.connectionState() }}</span>
+  </button>
+
+  <!-- Jump controls -->
+  <div class="flex items-center gap-1 ml-2">
+    <button type="button" (click)="jumpOldest()" class="kbtn">Oldest</button>
+    <button
+      type="button"
+      (click)="jumpFirstOverdue()"
+      [disabled]="!hasOverdue"
+      class="kbtn"
+      [ngClass]="{ 'kbtn-danger': hasOverdue, 'opacity-40 pointer-events-none': !hasOverdue }">
+      First overdue
+    </button>
+    <button type="button" (click)="jumpNewest()" class="kbtn">Newest</button>
+  </div>
+
+  <div class="flex-1"></div>
+
+  <!-- Pager position -->
+  <div class="flex items-center gap-1">
+    <button type="button" (click)="prevPage()" [disabled]="currentPage() === 0" class="kbtn" aria-label="Previous page">‹</button>
+    <span class="text-sm tabular-nums text-gray-300 px-1">{{ currentPage() + 1 }} / {{ pages().length }}</span>
+    <button type="button" (click)="nextPage()" [disabled]="currentPage() >= pages().length - 1" class="kbtn" aria-label="Next page">›</button>
+  </div>
+
+  <!-- Sound -->
+  <button
+    *ngIf="!soundArmed()"
+    type="button"
+    (click)="enableSound()"
+    class="kbtn kbtn-accent inline-flex items-center gap-1.5"
+    title="Browsers block autoplay — tap once to enable the new-order chime">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg>
+    Enable sound
+  </button>
+  <span
+    *ngIf="soundArmed()"
+    class="inline-flex items-center gap-1.5 text-sm text-green-300 px-2"
+    title="New-order chime armed">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/></svg>
+    Sound on
+  </span>
+
+  <!-- Wake lock -->
+  <button
+    *ngIf="wakeLockSupported"
+    type="button"
+    (click)="toggleWakeLock()"
+    class="kbtn inline-flex items-center gap-1.5"
+    [ngClass]="{ 'kbtn-accent': wakeLockActive() }"
+    [title]="wakeLockActive() ? 'Screen will stay awake' : 'Screen may sleep — tap to keep awake'">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
+    {{ wakeLockActive() ? 'Awake' : 'Keep awake' }}
+  </button>
+
+  <!-- Dev: inject ticket (mock-only) -->
+  <button type="button" (click)="injectTicket()" class="kbtn kbtn-dev" title="Inject a new ticket (Phase 1 dev control)">+ Ticket</button>
+</header>
+
+<!-- Board area: fills the viewport below the 64px bar. -->
+<div class="relative" style="height: calc(100dvh - 64px)">
+  <!-- Empty state -->
+  <div *ngIf="tickets().length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-60"><path d="M3 11h18"/><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>
+    <p class="font-display text-lg font-semibold">No active orders</p>
+    <p class="text-sm">New tickets will appear here automatically.</p>
+  </div>
+
+  <!-- Paginated snap grid (horizontal page snap, not infinite scroll) -->
+  <div
+    #pager
+    (scroll)="onPagerScroll()"
+    class="flex h-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth">
+    <section *ngFor="let page of pages()" class="snap-start shrink-0 w-full h-full p-3">
+      <div class="grid grid-cols-4 grid-rows-2 gap-3 h-full">
+        <div
+          *ngFor="let t of page"
+          class="min-h-0"
+          [ngClass]="{ 'kitchen-enter': isEntering(t.id) }">
+          <app-kitchen-ticket-card
+            [ticket]="t"
+            [now]="now()"
+            (advance)="onAdvance($event)"
+            (recall)="onRecall($event)"
+            (togglePriority)="onTogglePriority($event)"></app-kitchen-ticket-card>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

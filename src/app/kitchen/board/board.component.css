@@ -1,0 +1,73 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Shared kitchen button — large touch targets for gloved hands. */
+.kbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(0 0% 100% / 0.15);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: hsl(0 0% 88%);
+  transition: background-color 0.15s ease;
+}
+.kbtn:hover {
+  background-color: hsl(0 0% 100% / 0.1);
+}
+.kbtn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.kbtn-accent {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: transparent;
+}
+.kbtn-accent:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+.kbtn-danger {
+  background-color: hsl(0 84% 60% / 0.18);
+  color: hsl(0 90% 85%);
+  border-color: hsl(0 84% 60% / 0.4);
+}
+.kbtn-dev {
+  border-style: dashed;
+  border-color: hsl(0 0% 100% / 0.25);
+  color: hsl(0 0% 70%);
+}
+
+/* Entry animation for freshly-arrived tickets. */
+.kitchen-enter {
+  animation: kitchen-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes kitchen-enter {
+  0% {
+    transform: scale(0.92) translateY(8px);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kitchen-enter {
+    animation: none;
+  }
+}
+
+/* Thin, dark scrollbar for the pager. */
+.snap-x::-webkit-scrollbar {
+  height: 6px;
+}
+.snap-x::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 100% / 0.15);
+  border-radius: 3px;
+}
