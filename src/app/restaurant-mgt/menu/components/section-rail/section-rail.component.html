@@ -1,14 +1,14 @@
-<aside class="hidden md:flex flex-col w-80 min-w-[320px] border-r border-border bg-card h-full">
+<aside class="hidden md:flex flex-col w-80 min-w-[320px] border-r border-neutral-200 bg-neutral-50 h-full">
 
   <!-- Header -->
-  <div class="p-5 flex items-center justify-between">
+  <div class="p-5 flex flex-col gap-3">
     <h2 class="text-lg font-semibold text-foreground">Sections</h2>
     <div class="flex gap-2">
-      <button app-dn-button variant="default" size="default" (click)="newSection.emit()">
+      <button app-dn-button variant="default" size="lg" (click)="newSection.emit()">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
         Section
       </button>
-      <button app-dn-button variant="outline" size="default" (click)="newItem.emit()">
+      <button app-dn-button variant="outline" size="lg" (click)="newItem.emit()">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
         Item
       </button>
