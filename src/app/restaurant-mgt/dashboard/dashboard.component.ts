@@ -3,7 +3,15 @@ import { Subject, combineLatest, of, timer } from 'rxjs';
 import { switchMap, startWith, catchError, tap, takeUntil, map } from 'rxjs/operators';
 import { DashboardService } from './services/dashboard.service';
 import { AuthenticationService } from '../../_services/authentication.service';
-import { DashboardV2Response, DateRange, ReviewsSummaryResponse } from './models/dashboard.models';
+import { MenuService } from 'src/app/restaurant-mgt/menu/services/menu.service';
+import { MenuItem } from 'src/app/_models/app.models';
+import { environment } from 'src/environments/environment';
+import {
+  DashboardV2Response,
+  DateRange,
+  PopularItemData,
+  ReviewsSummaryResponse,
+} from './models/dashboard.models';
 
 @Component({
     selector: 'app-rest-dashboard',
@@ -18,11 +26,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   reviewsLoading = true;
   reviewsError: string | null = null;
 
+  // Placeholder Popular Items metrics with real menu-item identities overlaid.
+  popularItems: PopularItemData[] | null = null;
+  private availableMenuItems: MenuItem[] = [];
+
   private destroy$ = new Subject<void>();
 
   constructor(
     public dashboardService: DashboardService,
     private auth: AuthenticationService,
+    private menuService: MenuService,
   ) {}
 
   ngOnInit(): void {
@@ -31,6 +44,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
     if (!restaurantId) return;
+
+    // Reuse the Menu module's existing fetch path to overlay real item
+    // identities (name + image) onto the placeholder Popular Items metrics.
+    this.menuService.loadAllItems(restaurantId);
+    this.menuService.allItems$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((items) => {
+        this.availableMenuItems = items.filter((it) => it.available);
+        this.recomputePopularItems();
+      });
 
     // Dashboard data: reacts to dateRange, autoRefresh toggle, and manual refresh
     combineLatest([
@@ -59,6 +82,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.loading = false;
         if (res.data) {
           this.dashboardData = res.data;
+          this.recomputePopularItems();
         } else {
           this.error = res.error?.message || 'Failed to load dashboard data';
         }
@@ -108,6 +132,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   retryReviews(): void {
     this.dashboardService.refresh$.next();
+  }
+
+  /**
+   * Overlays real menu-item identities onto the placeholder Popular Items
+   * metrics. Revenue/qty/section stay mock; only name + image become real.
+   * Each metric row is paired positionally with an available menu item (first
+   * N in load order). Slots without a matching real item keep their mock
+   * identity, so a short or empty menu still renders the full placeholder card.
+   */
+  private recomputePopularItems(): void {
+    const metrics = this.dashboardData?.popular_items ?? null;
+    if (!metrics) {
+      this.popularItems = null;
+      return;
+    }
+    const real = this.availableMenuItems;
+    this.popularItems = metrics.map((m, i) => {
+      const it = real[i];
+      if (!it) return m;
+      return {
+        ...m,
+        item_id: it.id,
+        name: it.name,
+        image_url: it.image ? environment.apiUrl + it.image : undefined,
+      };
+    });
   }
 
   private computeDateRange(range: DateRange): { from: string; to: string } {
