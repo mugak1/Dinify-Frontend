@@ -1,149 +1,206 @@
-<div class="bg-white min-h-screen flex flex-col items-center justify-center px-4">
-                    <form [formGroup]="loginForm" (ngSubmit)="require_otp?(inputPTO?.valid?this.SubmitOTP():false) :onSubmit()" class="flex flex-col w-full max-w-md text-center">
-                          <div *ngIf="showLoginForm && !require_otp && !showRestaurantSelector" class="relative bg-white px-6 pt-8 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lg rounded-lg space-y-5">
-                            <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-10 mx-auto mb-2" />
-                            <div class="flex flex-col items-center justify-center text-center space-y-2">
-                                <div class="font-semibold text-3xl">
-                                  <p>Sign In</p>
-                                </div>
-                                <div class="flex flex-row text-sm font-medium text-gray-400">
-                                  <p>Enter your phone number and password</p>
-                                </div>
-                              </div>
-
-                              <div *ngIf="inactivityNotice && !rateLimited" class="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                                <p class="text-sm text-yellow-800">You were logged out due to inactivity. Please sign in again.</p>
-                              </div>
-
-                              <div *ngIf="rateLimited" class="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                                <p class="text-sm text-yellow-800">Too many attempts. Please wait a few minutes before trying again.</p>
-                              </div>
-
-                       <div class="text-left">
-                            <label class="mb-2 text-sm text-start text-grey-900">Phone number <span class="text-d-red">*</span></label>
-                          <intl-telephone-input class="mb-3" [cssClass]="'rounded '+(submitted && loginForm.get('username')?.errors?.['required']?'border border-d-red':'')" [preferredCountries]="preferredCountries" [selectedCountryISO]="CountryISO.Uganda" [enableAutoCountrySelect]="true" [enablePlaceholder]="true" (onChange)="onInputChange($event)">
-                          </intl-telephone-input>
-                         </div>
-                        <div class="text-left">
-                          <label class="mb-2 text-sm text-start text-grey-900">Password <span class="text-d-red">*</span></label>
-                          <div class="relative">
-                            <input
-                              [type]="fieldTextType ? 'text' : 'password'"
-                              id="password"
-                              formControlName="password"
-                              name="password"
-                              class="flex items-center py-2.5 px-3 w-full font-medium outline-none border border-gray-300 bg-white text-gray-900 rounded focus:border-d-red focus:ring-2 focus:ring-d-red/20 transition-colors"
-                              placeholder="Enter Password"
-                            />
-                            <button
-                              type="button"
-                              class="absolute inset-y-0 right-3 flex items-center"
-                              (click)="toggleFieldTextType()"
-                            >
-                              <svg *ngIf="fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M3.98 8.223A10.477 10.477 0 001.934 12c1.292 4.338 5.31 7.5 10.066 7.5.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                              </svg>
-                              <svg *ngIf="!fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                            </button>
-                          </div>
-                          <div *ngIf="f['password']?.invalid&&f['password']?.errors?.['required']&&submitted" class="text-d-red text-xs mt-1">
-                            Password is required
-                          </div>
-                        </div>
-                        <div class="flex justify-end mt-1 mb-6">
-                          <a *ngIf="!as_diner" [routerLink]="['/forgot-password']"
-                             class="text-sm font-medium text-d-red hover:underline">Forgot password?</a>
-                        </div>
-                        <button [disabled]="loading" class="flex flex-row items-center disabled:opacity-50 justify-center text-center w-full rounded-xl py-3.5 bg-d-red text-white text-sm font-medium shadow-sm hover:opacity-75 transition-opacity">
-                          <svg *ngIf="loading" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-                          </svg>
-                          Sign In
-                        </button>
-                        </div>                    
-                        <div *ngIf="require_otp" class="relative bg-white px-6 pt-8 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:max-w-lg rounded-lg">
-                            <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-10 mx-auto mb-2" />
-                        <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
-                          <div class="flex flex-col items-center justify-center text-center space-y-2">
-                            <div class="font-semibold text-3xl">
-                              <p>One Time Password(OTP)</p>
-                            </div>
-                            <div class="flex flex-row text-sm font-medium text-gray-400">
-                              <p>We have sent the OTP to your phone </p>
-                            </div>
-                          </div>
-                    
-                          <div>
-                            
-                            
-                              <div class="flex flex-col space-y-16">
-                                <div>
-                                    <app-otp-input #inputPTO="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
-                              
-                                </div>
-                    
-                                <div class="flex flex-col space-y-5">
-                                  <div>
-                                    <button [disabled]="inputPTO.invalid||isSubmittingOtp" [ngClass]="{'opacity-65 hover:cursor-not-allowed':inputPTO.invalid}" type="submit" class="flex flex-row items-center justify-center text-center w-full rounded-xl py-3.5 bg-d-red text-white text-sm font-medium shadow-sm hover:opacity-75 transition-opacity">
-                                      <svg *ngIf="isSubmittingOtp" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-                                      </svg>
-                                      {{isSubmittingOtp?'Verifying':'Verify'}} OTP
-                                    </button>
-                                  </div>
-                  
-                                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
-                                    <p *ngIf="countdown > 0">Didn't receive code? Resend OTP in {{ countdown }} seconds.</p>
-                                    <p *ngIf="countdown ===0">Didn't receive code?</p> <button type="button" *ngIf="countdown === 0" class="flex flex-row items-center text-blue-600" (click)="resendOTP()" >Resend</button>
-                                  </div>
-                                </div>
-                              </div>
-                          
-                          </div>
-                        </div>
-                    </div>
-<div *ngIf="!showLoginForm && !require_otp && !showRestaurantSelector" class="flex items-center justify-center p-10">
-  <svg class="animate-spin h-10 w-10 text-d-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle class="opacity-25" cx="12" cy="12" r="10" 
-            stroke="currentColor" stroke-width="4"></circle>
-    <path class="opacity-75" fill="currentColor" 
-          d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-  </svg>
-</div>
-<div *ngIf="showRestaurantSelector"
-     class="relative bg-white px-6 pt-8 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:max-w-lg rounded-lg">
-  <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-10 mx-auto mb-2" />
-  <div class="mx-auto flex w-full max-w-md flex-col space-y-8">
-    <div class="flex flex-col items-center justify-center text-center space-y-2">
-      <div class="font-semibold text-3xl">
-        <p>Welcome {{user}}</p>
+<div class="min-h-screen flex">
+  <!-- LEFT brand panel: desktop only, restaurant-portal only -->
+  <aside *ngIf="!as_diner"
+         class="hidden lg:flex lg:w-5/12 flex-col justify-between p-12 text-white relative overflow-hidden bg-gradient-to-br from-d-red to-[#D81F24]">
+    <!-- oversized whitened emblem watermark, cropped into the corner -->
+    <img src="assets/images/dinify-emblem.svg" alt="" aria-hidden="true"
+         class="pointer-events-none select-none absolute -bottom-20 -right-16 w-[32rem] opacity-[0.08] [filter:brightness(0)_invert(1)]" />
+    <!-- top: whitened full logo -->
+    <div class="relative z-10">
+      <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-9 [filter:brightness(0)_invert(1)]" />
+    </div>
+    <!-- bottom: headline + supporting line + feature rows -->
+    <div class="relative z-10 max-w-md space-y-8">
+      <div class="space-y-3">
+        <h2 class="font-display text-4xl font-bold leading-tight">Run your restaurant from one place.</h2>
+        <p class="text-lg text-white/80">Orders, kitchen, tables and payments — managed from a single dashboard.</p>
       </div>
-      <div class="flex flex-row text-sm font-medium text-gray-400">
-        <p>Please select the restaurant you would like to access.</p>
-      </div>
+      <ul class="space-y-4 text-white/90">
+        <li class="flex items-center gap-3">
+          <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 111.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd" /></svg>
+          </span>
+          <span>Live kitchen orders</span>
+        </li>
+        <li class="flex items-center gap-3">
+          <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 111.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd" /></svg>
+          </span>
+          <span>Mobile money built in</span>
+        </li>
+        <li class="flex items-center gap-3">
+          <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 111.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd" /></svg>
+          </span>
+          <span>QR ordering for every table</span>
+        </li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- RIGHT form column -->
+  <div class="flex-1 flex flex-col">
+    <!-- MOBILE coral header: < lg, restaurant-portal only (prevents white-on-white) -->
+    <div *ngIf="!as_diner" class="lg:hidden bg-d-red px-6 py-5 flex justify-center">
+      <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-8 [filter:brightness(0)_invert(1)]" />
     </div>
 
-    <div class="flex flex-col space-y-4 mt-4">
-      <div *ngFor="let r of availableRestaurants"
-           (click)="setRestaurant(r)"
-           class="cursor-pointer border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col items-start bg-white hover:bg-gray-50">
-        
-        <p class="font-semibold text-lg text-gray-800">
-          {{ r.restaurant }}
-        </p>
-        <p class="text-sm text-gray-500">
-          Role: <span *ngFor="let role of r.roles">{{ role |titlecase}}</span>
-        </p>
-      </div>
+    <div class="flex-1 flex items-center justify-center px-6 py-10 bg-white">
+      <form [formGroup]="loginForm" (ngSubmit)="require_otp?(inputPTO?.valid?this.SubmitOTP():false) :onSubmit()" class="flex flex-col w-full max-w-md text-center">
+
+        <!-- STATE 1: login form -->
+        <div *ngIf="showLoginForm && !require_otp && !showRestaurantSelector"
+             class="relative w-full space-y-5"
+             [ngClass]="{ 'bg-white shadow-xl rounded-2xl border border-gray-100 px-6 py-8': as_diner }">
+          <img *ngIf="as_diner" src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-10 mx-auto mb-2" />
+          <div class="flex flex-col items-center justify-center text-center space-y-2">
+            <div class="font-display font-bold text-3xl text-gray-900">
+              <p>Sign In</p>
+            </div>
+            <div class="flex flex-row text-sm font-medium text-gray-400">
+              <p>Enter your phone number and password</p>
+            </div>
+          </div>
+
+          <div *ngIf="inactivityNotice && !rateLimited" class="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p class="text-sm text-yellow-800">You were logged out due to inactivity. Please sign in again.</p>
+          </div>
+
+          <div *ngIf="rateLimited" class="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p class="text-sm text-yellow-800">Too many attempts. Please wait a few minutes before trying again.</p>
+          </div>
+
+          <div class="text-left">
+            <label class="mb-2 text-sm text-start text-grey-900">Phone number <span class="text-d-red">*</span></label>
+            <intl-telephone-input class="mb-3" [cssClass]="'rounded '+(submitted && loginForm.get('username')?.errors?.['required']?'border border-d-red':'')" [preferredCountries]="preferredCountries" [selectedCountryISO]="CountryISO.Uganda" [enableAutoCountrySelect]="true" [enablePlaceholder]="true" (onChange)="onInputChange($event)">
+            </intl-telephone-input>
+          </div>
+          <div class="text-left">
+            <label class="mb-2 text-sm text-start text-grey-900">Password <span class="text-d-red">*</span></label>
+            <div class="relative">
+              <input
+                [type]="fieldTextType ? 'text' : 'password'"
+                id="password"
+                formControlName="password"
+                name="password"
+                class="flex items-center py-2.5 px-3 w-full font-medium outline-none border border-gray-300 bg-white text-gray-900 rounded focus:border-d-red focus:ring-2 focus:ring-d-red/20 transition-colors"
+                placeholder="Enter Password"
+              />
+              <button
+                type="button"
+                class="absolute inset-y-0 right-3 flex items-center"
+                (click)="toggleFieldTextType()"
+              >
+                <svg *ngIf="fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.98 8.223A10.477 10.477 0 001.934 12c1.292 4.338 5.31 7.5 10.066 7.5.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                </svg>
+                <svg *ngIf="!fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+            </div>
+            <div *ngIf="f['password']?.invalid&&f['password']?.errors?.['required']&&submitted" class="text-d-red text-xs mt-1">
+              Password is required
+            </div>
+          </div>
+          <div class="flex justify-end mt-1 mb-6">
+            <a *ngIf="!as_diner" [routerLink]="['/forgot-password']"
+               class="text-sm font-medium text-d-red desktop-hover:underline">Forgot password?</a>
+          </div>
+          <button [disabled]="loading" class="flex flex-row items-center disabled:opacity-50 justify-center text-center w-full rounded-xl py-3.5 bg-d-red text-white text-sm font-medium shadow-sm desktop-hover:opacity-75 transition-opacity">
+            <svg *ngIf="loading" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+            </svg>
+            Sign In
+          </button>
+        </div>
+
+        <!-- STATE 2: OTP -->
+        <div *ngIf="require_otp"
+             class="relative w-full"
+             [ngClass]="{ 'bg-white shadow-xl rounded-2xl border border-gray-100 px-6 py-8': as_diner }">
+          <img *ngIf="as_diner" src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-10 mx-auto mb-2" />
+          <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
+            <div class="flex flex-col items-center justify-center text-center space-y-2">
+              <div class="font-display font-bold text-3xl text-gray-900">
+                <p>One Time Password(OTP)</p>
+              </div>
+              <div class="flex flex-row text-sm font-medium text-gray-400">
+                <p>We have sent the OTP to your phone </p>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex flex-col space-y-16">
+                <div>
+                  <app-otp-input #inputPTO="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
+                </div>
+
+                <div class="flex flex-col space-y-5">
+                  <div>
+                    <button [disabled]="inputPTO.invalid||isSubmittingOtp" [ngClass]="{'opacity-65 hover:cursor-not-allowed':inputPTO.invalid}" type="submit" class="flex flex-row items-center justify-center text-center w-full rounded-xl py-3.5 bg-d-red text-white text-sm font-medium shadow-sm desktop-hover:opacity-75 transition-opacity">
+                      <svg *ngIf="isSubmittingOtp" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+                      </svg>
+                      {{isSubmittingOtp?'Verifying':'Verify'}} OTP
+                    </button>
+                  </div>
+
+                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
+                    <p *ngIf="countdown > 0">Didn't receive code? Resend OTP in {{ countdown }} seconds.</p>
+                    <p *ngIf="countdown ===0">Didn't receive code?</p> <button type="button" *ngIf="countdown === 0" class="flex flex-row items-center text-blue-600" (click)="resendOTP()" >Resend</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STATE 3: loading spinner -->
+        <div *ngIf="!showLoginForm && !require_otp && !showRestaurantSelector" class="flex items-center justify-center p-10">
+          <svg class="animate-spin h-10 w-10 text-d-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10"
+                    stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor"
+                  d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+          </svg>
+        </div>
+
+        <!-- STATE 4: restaurant selector -->
+        <div *ngIf="showRestaurantSelector"
+             class="relative w-full"
+             [ngClass]="{ 'bg-white shadow-xl rounded-2xl border border-gray-100 px-6 py-8': as_diner }">
+          <img *ngIf="as_diner" src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-10 mx-auto mb-2" />
+          <div class="mx-auto flex w-full max-w-md flex-col space-y-8">
+            <div class="flex flex-col items-center justify-center text-center space-y-2">
+              <div class="font-display font-bold text-3xl text-gray-900">
+                <p>Welcome {{user}}</p>
+              </div>
+              <div class="flex flex-row text-sm font-medium text-gray-400">
+                <p>Please select the restaurant you would like to access.</p>
+              </div>
+            </div>
+
+            <div class="flex flex-col space-y-4 mt-4">
+              <div *ngFor="let r of availableRestaurants"
+                   (click)="setRestaurant(r)"
+                   class="cursor-pointer border rounded-xl p-4 shadow-sm desktop-hover:shadow-md transition flex flex-col items-start bg-white desktop-hover:bg-gray-50">
+
+                <p class="font-semibold text-lg text-gray-800">
+                  {{ r.restaurant }}
+                </p>
+                <p class="text-sm text-gray-500">
+                  Role: <span *ngFor="let role of r.roles">{{ role |titlecase}}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </form>
     </div>
   </div>
-</div>
-
-
-                    </form>
 </div>
