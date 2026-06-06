@@ -25,7 +25,6 @@ import { TablesComponent } from './tables/tables.component';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { RestProfileComponent } from './settings/rest-profile/rest-profile.component';
 import { BrandingComponent } from './settings/branding/branding.component';
-import { OrdersComponent } from './orders/orders.component';
 import { ReportsComponent } from './reports/reports.component';
 import { ReportDetailComponent } from './report-detail/report-detail.component';
 import { ReviewsComponent } from './reviews/reviews.component';
@@ -72,7 +71,6 @@ const routes: Routes = [
   
   {path:'reviews',component:ReviewsComponent,title:'Reviews'},
   {path:'reviews-management',component:ReviewsManagementComponent,title:'Reviews Management'},
-  {path:'orders',component:OrdersComponent,title:'Orders'},
   {path:'payments',component:PaymentsComponent,title:'Payments'},
   {path:'reports',component:ReportsComponent,title:'Reports'}, 
   {path:'support',component:SupportComponent,title:'Support'},  
@@ -89,7 +87,6 @@ const routes: Routes = [
     MenuComponent,
     RestProfileComponent,
     BrandingComponent,
-    OrdersComponent,
     ReportsComponent,
     ReportDetailComponent,
     RestUsersComponent,
