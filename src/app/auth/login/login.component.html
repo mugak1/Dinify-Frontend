@@ -149,6 +149,16 @@
                     </button>
                   </div>
 
+                  <button type="button"
+                          (click)="backToLogin()"
+                          [disabled]="isSubmittingOtp"
+                          class="mx-auto flex flex-row items-center justify-center gap-2 text-sm font-medium text-gray-500 desktop-hover:text-d-red transition-colors disabled:opacity-50">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Back to sign in
+                  </button>
+
                   <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
                     <p *ngIf="countdown > 0">Didn't receive code? Resend OTP in {{ countdown }} seconds.</p>
                     <p *ngIf="countdown ===0">Didn't receive code?</p> <button type="button" *ngIf="countdown === 0" class="flex flex-row items-center text-blue-600" (click)="resendOTP()" >Resend</button>
