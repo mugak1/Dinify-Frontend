@@ -150,8 +150,13 @@ writing new tag or price/menu logic:
   _common) — do not add new usages
 - localStorage to httpOnly cookie migration requires backend coordination
 - Login 500 regression still outstanding — parked pending Apache log access
-- Tables Service View still on mock data — real reservations/waitlist
-  endpoints exist but are not yet wired
+- Tables Service View still on mock data (`USE_MOCK_SERVICE = true`) — real
+  reservations/waitlist endpoints exist but are not yet wired. Its write
+  methods now fail loud in their non-mock branch (via `serviceViewNotWired`),
+  so wire the real endpoints before flipping the flag. `mapApiTable` also does
+  not yet map `raw.server_id` onto `RestaurantTable.serverId` (declared but
+  unpopulated) — wire that alongside the Service View; the `server_id`
+  contract may change by then
 
 ## Verification
 Before raising any PR:

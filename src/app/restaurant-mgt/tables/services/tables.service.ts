@@ -161,7 +161,7 @@ export class TablesService {
       mockSeatedParties.push(...parties);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('seatWalkIn');
   }
 
   transferTable(sourceId: string, destId: string): void {
@@ -174,7 +174,7 @@ export class TablesService {
       }
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('transferTable');
   }
 
   createReservation(data: Partial<Reservation>): void {
@@ -191,7 +191,7 @@ export class TablesService {
       this.reservations$.next([...this.reservations$.value, reservation]);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('createReservation');
   }
 
   updateReservation(data: Partial<Reservation> & { id: string }): void {
@@ -202,7 +202,7 @@ export class TablesService {
       this.reservations$.next(reservations);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('updateReservation');
   }
 
   cancelReservation(id: string): void {
@@ -213,7 +213,7 @@ export class TablesService {
       this.reservations$.next(reservations);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('cancelReservation');
   }
 
   markNoShow(id: string): void {
@@ -224,7 +224,7 @@ export class TablesService {
       this.reservations$.next(reservations);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('markNoShow');
   }
 
   seatFromWaitlist(waitlistId: string, tableId: string): void {
@@ -236,7 +236,7 @@ export class TablesService {
       }
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('seatFromWaitlist');
   }
 
   addToWaitlist(data: Partial<WaitlistEntry>): void {
@@ -252,7 +252,22 @@ export class TablesService {
       this.waitlist$.next([...this.waitlist$.value, entry]);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('addToWaitlist');
+  }
+
+  /**
+   * Service View (reservations, waitlist, seated parties) is parked behind
+   * USE_MOCK_SERVICE. Its mutations have no real endpoint wired yet, so the
+   * non-mock branch fails loud instead of silently returning void — a premature
+   * `USE_MOCK_SERVICE = false` flip surfaces here immediately rather than
+   * no-op'ing in production. The read methods are already real-wired; this
+   * guards only the parked write methods.
+   */
+  private serviceViewNotWired(method: string): never {
+    throw new Error(
+      `TablesService.${method}: Service View is not wired yet ` +
+      `(USE_MOCK_SERVICE is false). Implement the real endpoint before enabling.`,
+    );
   }
 
   updateFloorPlan(

@@ -60,3 +60,57 @@ describe('TablesService.updateFloorPlan', () => {
     expect(completed).toBeTrue();
   });
 });
+
+/**
+ * Service View is parked behind USE_MOCK_SERVICE (still `true`). Its write
+ * methods must fail loud in their non-mock branch so a premature flag flip
+ * can't silently no-op. The flag is a compile-time const, so the non-mock
+ * branch is unreachable from a unit test; the loud-failure path is asserted
+ * via the shared `serviceViewNotWired` helper, and the mock path is asserted to
+ * still mutate state (behaviour unchanged).
+ */
+describe('TablesService Service-View fail-loud guard', () => {
+  let service: TablesService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    service = TestBed.inject(TablesService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  // No Service-View mutation under test hits the network in mock mode, so any
+  // request would be an unexpected regression.
+  afterEach(() => httpMock.verify());
+
+  it('serviceViewNotWired throws a descriptive, method-named error', () => {
+    expect(() =>
+      (service as any).serviceViewNotWired('createReservation'),
+    ).toThrowError(/createReservation: Service View is not wired/);
+  });
+
+  it('mock-path reservation mutations still update state without throwing', () => {
+    expect(service.reservations$.value.length).toBe(0);
+
+    expect(() => service.createReservation({ partySize: 4 })).not.toThrow();
+    expect(service.reservations$.value.length).toBe(1);
+    const id = service.reservations$.value[0].id;
+
+    expect(() => service.updateReservation({ id, partySize: 6 })).not.toThrow();
+    expect(service.reservations$.value[0].partySize).toBe(6);
+
+    expect(() => service.markNoShow(id)).not.toThrow();
+    expect(service.reservations$.value[0].status).toBe('no_show');
+
+    expect(() => service.cancelReservation(id)).not.toThrow();
+    expect(service.reservations$.value[0].status).toBe('cancelled');
+  });
+
+  it('mock-path waitlist add still updates state without throwing', () => {
+    expect(service.waitlist$.value.length).toBe(0);
+    expect(() => service.addToWaitlist({ partySize: 2 })).not.toThrow();
+    expect(service.waitlist$.value.length).toBe(1);
+  });
+});
