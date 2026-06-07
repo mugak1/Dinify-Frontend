@@ -1,24 +1,44 @@
+import QRCode from 'qrcode';
 import { RestaurantTable, DiningArea } from '../models/tables.models';
 
 /**
  * Opens a print-ready page with QR codes for all tables in an area,
  * laid out in a 3-column grid suitable for cutting and placing on tables.
+ *
+ * QR codes are generated locally with the bundled `qrcode` library (the same
+ * one the single-QR preview uses) instead of the external api.qrserver.com
+ * service, so printing needs no third-party round-trip and leaks no table URLs.
  */
-export function generateQRPrintSheet(
+export async function generateQRPrintSheet(
   areaTables: RestaurantTable[],
   area: DiningArea,
-): void {
+): Promise<void> {
   const baseUrl = window.location.origin;
 
-  const tableCards = areaTables
+  const printable = areaTables
     .filter(t => t.hasQR)
-    .sort((a, b) => a.number - b.number)
-    .map(table => {
-      const qrMode = table.qrMode || 'order_pay';
-      const qrUrl = `${baseUrl}/diner/h/${table.id}?mode=${qrMode}`;
-      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}&margin=8`;
+    .sort((a, b) => a.number - b.number);
 
-      return `
+  if (!printable.length) return;
+
+  // Open the print window synchronously, inside the click gesture, so the
+  // browser doesn't block the popup; fill it once the QR data URLs are ready.
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+
+  const tableCards = (
+    await Promise.all(
+      printable.map(async table => {
+        const qrMode = table.qrMode || 'order_pay';
+        const qrUrl = `${baseUrl}/diner/h/${table.id}?mode=${qrMode}`;
+        const qrImageUrl = await QRCode.toDataURL(qrUrl, {
+          width: 400,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+          color: { dark: '#000000', light: '#ffffff' },
+        });
+
+        return `
         <div class="card">
           <div class="table-number">Table ${table.displayName || table.number}</div>
           <div class="area-name">${area.name}</div>
@@ -27,13 +47,9 @@ export function generateQRPrintSheet(
           <div class="scan-label">Scan to view menu &amp; order</div>
         </div>
       `;
-    })
-    .join('');
-
-  if (!tableCards) return;
-
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
+      }),
+    )
+  ).join('');
 
   printWindow.document.write(`
     <!DOCTYPE html>
