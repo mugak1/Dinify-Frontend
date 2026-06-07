@@ -22,10 +22,13 @@
         </svg>
 
         <h1 class="text-2xl font-semibold text-gray-900 mb-4">
-            Scan to Start Your Order
+            {{ message ? "We couldn't open this table" : "Scan to Start Your Order" }}
         </h1>
 
-        <p class="text-base text-gray-700 leading-relaxed">
+        <p *ngIf="message" class="text-base text-gray-700 leading-relaxed">
+            {{ message }}
+        </p>
+        <p *ngIf="!message" class="text-base text-gray-700 leading-relaxed">
             To place an order, please scan the QR code on your table.
             If you've already scanned and are seeing this page, your session
             may have expired &mdash; please scan again.
