@@ -255,29 +255,36 @@ export class TablesService {
     // TODO: real API call
   }
 
-  updateFloorPlan(tablePositions: { id: string; x: number; y: number }[]): void {
+  updateFloorPlan(
+    restaurantId: string,
+    tables: {
+      id: string;
+      floor_x: number;
+      floor_y: number;
+      floor_width: number;
+      floor_height: number;
+    }[],
+  ): Observable<any> {
+    // Optimistic local update so the canvas reflects the move immediately.
+    const byId = new Map(tables.map(g => [g.id, g]));
+    this.tables$.next(
+      this.tables$.value.map(t => {
+        const g = byId.get(t.id);
+        return g
+          ? { ...t, x: g.floor_x, y: g.floor_y, width: g.floor_width, height: g.floor_height }
+          : t;
+      }),
+    );
+
     if (USE_MOCK_SETUP) {
-      const tables = this.tables$.value.map(t => {
-        const pos = tablePositions.find(p => p.id === t.id);
-        return pos ? { ...t, x: pos.x, y: pos.y } : t;
-      });
-      this.tables$.next(tables);
-      return;
+      return of(null);
     }
-    // Optimistic local update
-    const tables = this.tables$.value.map(t => {
-      const pos = tablePositions.find(p => p.id === t.id);
-      return pos ? { ...t, x: pos.x, y: pos.y } : t;
-    });
-    this.tables$.next(tables);
-    // Persist each position to backend (fire-and-forget)
-    for (const pos of tablePositions) {
-      this.api.postPatch(
-        'restaurant-setup/tables/',
-        { id: pos.id, floor_x: pos.x, floor_y: pos.y },
-        'put', '', {}, false, '', true,
-      ).subscribe();
-    }
+    // One atomic batch save (was N fire-and-forget PUTs that swallowed errors).
+    return this.api.postPatch(
+      'restaurant-setup/table-actions/update-floor-plan/',
+      { restaurant: restaurantId, tables },
+      'post', '', {}, false, '', true,
+    );
   }
 
   // ── Setup CRUD methods ────────────────────────────────
