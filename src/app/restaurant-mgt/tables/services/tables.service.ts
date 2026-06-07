@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, forkJoin, of } from 'rxjs';
+import { BehaviorSubject, Observable, forkJoin, of, throwError } from 'rxjs';
 import { delay, map, tap } from 'rxjs/operators';
 import { ApiService } from '../../../_services/api.service';
 import {
@@ -362,12 +362,19 @@ export class TablesService {
 
   deleteArea(id: string): Observable<any> {
     if (USE_MOCK_SETUP) {
+      // Mirror the backend block: an area that still has tables cannot be
+      // deleted (no silent unassign). The tables must be moved/removed first.
+      const areaTables = this.tables$.value.filter(t => t.areaId === id);
+      if (areaTables.length > 0) {
+        return throwError(() => ({
+          error: {
+            message:
+              `Move or remove the ${areaTables.length} table(s) in this ` +
+              'area before deleting it.',
+          },
+        }));
+      }
       this.areas$.next(this.areas$.value.filter(a => a.id !== id));
-      // Unassign tables from deleted area
-      const tables = this.tables$.value.map(t =>
-        t.areaId === id ? { ...t, areaId: undefined } : t,
-      );
-      this.tables$.next(tables);
       return of(null);
     }
     return this.api.Delete('restaurant-setup/diningareas/', {
