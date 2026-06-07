@@ -13,7 +13,7 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
 })
 export class OrdersComponent {
   restaurant?:Restaurant;
-  table!:TableScan;
+  table?:TableScan;
   current_order!:OrdersListItem;
   PaymentForm!:FormGroup;
   require_otp=false;
@@ -22,8 +22,8 @@ export class OrdersComponent {
  *
  */
 constructor(private sessionStorage:SessionStorageService,private api:ApiService,private fb:FormBuilder,private router:Router) {
-  this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
-  this.table=this.sessionStorage.getItem<TableScan>('Table') as any;
+  this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') ?? undefined;
+  this.table=this.sessionStorage.getItem<TableScan>('Table') ?? undefined;
   if(this.table?.current_order){
     this.loadCurrentOrder(this.table?.current_order?.order_id);
     this.PaymentForm= this.InitPaymentForm(this.table?.current_order?.order_id);
@@ -35,7 +35,9 @@ constructor(private sessionStorage:SessionStorageService,private api:ApiService,
 loadCurrentOrder(id:any){
   this.api.get<any>(null,'orders/journey/order-details/',({order:id})).subscribe((x)=>{
     if(id){
-this.current_order=x?.data as any;
+      // order-details returns the order object directly in `data`, not the
+      // paginated Data<T> wrapper the shared ApiResponse<T> models.
+      this.current_order=x?.data as unknown as OrdersListItem;
     }
     
   })

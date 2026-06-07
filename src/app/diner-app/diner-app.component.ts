@@ -2,7 +2,7 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../_services/api.service';
 import { SessionStorageService } from '../_services/storage/session-storage.service';
-import { Restaurant, TableScan } from '../_models/app.models';
+import { Restaurant, TableScan, BrandingConfiguration } from '../_models/app.models';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
 import { BasketService } from '../_services/basket.service';
@@ -18,8 +18,8 @@ import { getContrastTextColor } from '../_common/utils/color-utils';
 export class DinerAppComponent {
   restaurant_name = '';
   restaurant_id = '';
-  branding_configs: any;
-  table!: TableScan;
+  branding_configs?: BrandingConfiguration;
+  table?: TableScan;
   logo!: string;
   url = environment.apiUrl;
   table_id!: string;
@@ -56,30 +56,38 @@ export class DinerAppComponent {
   }
 
   private hydrateFromSession(): void {
-    const restaurant = this.sessionStorage.getItem<Restaurant>('restaurant') as any;
-    this.table = this.sessionStorage.getItem<Restaurant>('Table') as any;
-    this.table_id = this.table?.id;
-    this.restaurant_name = restaurant?.name;
-    this.restaurant_id = restaurant?.id;
-    this.branding_configs = restaurant?.branding_configuration;
-    this.logo = restaurant?.logo;
+    const restaurant = this.sessionStorage.getItem<Restaurant>('restaurant');
+    this.table = this.sessionStorage.getItem<TableScan>('Table') ?? undefined;
+    this.table_id = this.table?.id ?? '';
+    if (restaurant) {
+      this.restaurant_name = restaurant.name;
+      this.restaurant_id = restaurant.id;
+      this.branding_configs = restaurant.branding_configuration;
+      this.logo = restaurant.logo;
+    }
   }
 
   getTableDetails(id: any): void {
     this.scanFailed = false;
     this.api.get<TableScan>(null, 'orders/journey/table-scan/?table=' + id).subscribe({
       next: x => {
-        this.table = x?.data as any;
-        if (!this.table) {
+        // The journey table-scan endpoint returns the TableScan directly in
+        // `data` (a single object), not the paginated `Data<T>` wrapper the
+        // shared ApiResponse<T> models — hence the explicit narrowing. Modelling
+        // the single-object journey responses properly is a post-launch typing
+        // task; out of scope for this hygiene pass.
+        const scanned = x?.data as unknown as TableScan | undefined;
+        if (!scanned) {
           this.showScanError(this.DEFAULT_UNAVAILABLE);
           return;
         }
-        this.sessionStorage.setItem('Table', this.table);
-        this.sessionStorage.setItem('restaurant', this.table?.restaurant);
-        this.logo = this.table?.restaurant?.logo;
-        this.restaurant_name = this.table?.restaurant?.name;
-        this.restaurant_id = this.table?.restaurant?.id;
-        this.branding_configs = this.table?.restaurant?.branding_configuration as any;
+        this.table = scanned;
+        this.sessionStorage.setItem('Table', scanned);
+        this.sessionStorage.setItem('restaurant', scanned.restaurant);
+        this.logo = scanned.restaurant.logo;
+        this.restaurant_name = scanned.restaurant.name;
+        this.restaurant_id = scanned.restaurant.id;
+        this.branding_configs = scanned.restaurant.branding_configuration;
       },
       error: err => {
         // Backend returns 400 (bad/missing code) or 404 (removed/disabled/
@@ -94,7 +102,7 @@ export class DinerAppComponent {
     // The global ErrorInterceptor already queued this on the MessageService
     // banner; clear it so the diner sees one clean message (the no-table panel).
     this.message.clear();
-    this.table = undefined as any;
+    this.table = undefined;
     this.scanMessage = message;
     this.scanFailed = true;
   }

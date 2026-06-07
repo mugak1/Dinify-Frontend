@@ -85,6 +85,9 @@ describe('DinerAppComponent', () => {
 
     expect(component.scanFailed).toBeFalse();
     expect(component.table).toBeTruthy();
-    expect((component.table as any).id).toBe('good-id');
+    expect(component.table?.id).toBe('good-id');
+    // The typed scan path still populates the restaurant fields off the response.
+    expect(component.restaurant_name).toBe('Test Restaurant');
+    expect(component.restaurant_id).toBe('r1');
   });
 });
