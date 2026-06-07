@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Subject, combineLatest } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
+import { MessageService } from '../../../../_services/message.service';
 import { AuthenticationService } from '../../../../_services/authentication.service';
 import { LocalStorageService } from '../../../../_services/storage/local-storage.service';
 import { PersistedValue } from '../../../../_services/storage/persisted-state';
@@ -60,6 +61,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   constructor(
     private tablesService: TablesService,
     private toast: ToastService,
+    private message: MessageService,
     private auth: AuthenticationService,
     private localStorage: LocalStorageService,
   ) {
@@ -233,8 +235,33 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   // ── Tables change (from floor plan save) ──────────────
 
   onTablesChange(updatedTables: RestaurantTable[]): void {
-    const positions = updatedTables.map(t => ({ id: t.id, x: t.x, y: t.y }));
-    this.tablesService.updateFloorPlan(positions);
+    // Existing tables are persisted atomically; new tables (no real id yet) are
+    // created individually below.
+    const geometry = updatedTables
+      .filter(t => !t.id.startsWith('t-new-'))
+      .map(t => ({
+        id: t.id,
+        floor_x: t.x,
+        floor_y: t.y,
+        floor_width: t.width,
+        floor_height: t.height,
+      }));
+
+    if (geometry.length) {
+      this.tablesService.updateFloorPlan(this.restaurantId, geometry).subscribe({
+        next: () => this.toast.success('Layout saved'),
+        error: (err) => {
+          // The interceptor already queued this on the global MessageService
+          // banner; clear it so the user sees one clean message.
+          this.message.clear();
+          this.toast.error(
+            this.extractError(err, 'Could not save the floor plan. Please try again.'),
+          );
+          // Re-sync from the server so a failed save can't leave a stale layout.
+          this.tablesService.getTables('').subscribe();
+        },
+      });
+    }
 
     // Handle new tables
     for (const t of updatedTables) {
@@ -242,6 +269,12 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
         this.tablesService.createTable(t, this.restaurantId).subscribe();
       }
     }
+  }
+
+  private extractError(err: unknown, fallback: string): string {
+    if (typeof err === 'string' && err.trim()) return err;
+    const e = err as { error?: { message?: string }; message?: string } | null;
+    return e?.error?.message || e?.message || fallback;
   }
 
   // ── Reservation handlers ──────────────────────────────
