@@ -22,7 +22,9 @@ Deployed to Firebase Hosting at dinify-uat.web.app.
   pills, quick-add affordance, allergen-safety disclaimer banner)
 - Dashboard responsiveness: ✅ Complete
 - Phase 3 (Tables module): 🔄 In progress
-  - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`)
+  - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`);
+    blocked deletes (e.g. an area that still has tables) surface the backend
+    message as a single toast (see error-handling note below)
   - Service View (reservations, waitlist, seated parties): still mock
     (`USE_MOCK_SERVICE = true`)
 - Menu polish pass: ✅ Complete — canonical `discount_details` shape, native
@@ -33,9 +35,12 @@ Deployed to Firebase Hosting at dinify-uat.web.app.
   `src/app/kitchen/` (route `/kitchen`, AuthGuard-protected).
   `KitchenOrderService.USE_MOCK_DATA = false`; HTTP polling + optimistic PATCH
   against real endpoints
-- Other restaurant-mgt surfaces (orders, payments, reviews +
-  reviews-management, reports + report-detail, support, notifications, settings
-  sub-pages) are scaffolded and routed — per-view data-wiring status varies
+- Other restaurant-mgt surfaces (payments, reviews + reviews-management,
+  reports + report-detail, support, notifications, settings sub-pages) are
+  scaffolded and routed — per-view data-wiring status varies
+- The legacy Falcon Orders page has been removed — there is no Orders route,
+  component, or sidebar entry in the restaurant portal. Live order/fulfilment
+  flow lives in the Kitchen View (KDS board) at `/kitchen`
 
 ## Deployment Rules — CRITICAL
 - Pushing to main triggers automatic Firebase deployment via GitHub Actions
@@ -52,7 +57,7 @@ Deployed to Firebase Hosting at dinify-uat.web.app.
 ## Component Pattern — CRITICAL
 The module uses a deliberate mixed pattern — follow it exactly:
 - Older components (DashboardComponent, MenuComponent, SettingsComponent,
-  OrdersComponent etc.) are NON-standalone — they go in `declarations`
+  ReportsComponent etc.) are NON-standalone — they go in `declarations`
 - Newer components (SidebarComponent, TopNavComponent, TablesComponent,
   all shared UI components) are STANDALONE — they go in `imports`
 - When creating a new component, make it standalone and add it to `imports`
@@ -115,6 +120,11 @@ writing new tag or price/menu logic:
   `new → preparing → ready → served`. Advances must be legal (no jumps);
   `recall` steps back within a recall window; `priority` is an independent
   flag. Mutations are optimistic and revert on a failed PATCH
+- Error toasts vs. the global banner: the HTTP error interceptor already
+  queues failed-request messages on the global `MessageService` (a persistent
+  app-level banner). When a component surfaces its own toast for that same
+  error (e.g. a blocked delete in the Tables Setup View), call
+  `this.message.clear()` first so the user sees one clean message, not two
 
 ## Mock Data Pattern
 - DashboardService still uses a single `USE_MOCK_DATA = true` flag
