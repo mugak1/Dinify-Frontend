@@ -1,35 +1,9 @@
 <div class="space-y-4 sm:space-y-6">
   <!-- Page Header -->
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-    <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Tables</h1>
+  <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Tables</h1>
 
-    <!-- View Toggle Pills -->
-    <div class="flex bg-muted rounded-lg p-1">
-      <button
-        type="button"
-        (click)="activeView = 'service'"
-        [class]="activeView === 'service'
-          ? 'px-4 py-2 text-sm font-medium rounded-md transition-all bg-card text-foreground shadow-sm'
-          : 'px-4 py-2 text-sm font-medium rounded-md transition-all text-muted-foreground hover:text-foreground'"
-      >
-        Service View
-      </button>
-      <button
-        type="button"
-        (click)="activeView = 'setup'"
-        [class]="activeView === 'setup'
-          ? 'px-4 py-2 text-sm font-medium rounded-md transition-all bg-card text-foreground shadow-sm'
-          : 'px-4 py-2 text-sm font-medium rounded-md transition-all text-muted-foreground hover:text-foreground'"
-      >
-        Setup View
-      </button>
-    </div>
-  </div>
-
-  <!-- View Content -->
-  @if (activeView === 'service') {
-    <app-tables-service-view />
-  } @else {
+  <!-- View Content — Service View is parked for MVP; only the Setup View ships. -->
+  @if (activeView === 'setup') {
     <app-tables-setup-view />
   }
 </div>
