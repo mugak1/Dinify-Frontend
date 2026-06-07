@@ -179,6 +179,10 @@ export function mapApiTable(raw: any, areaId?: string): RestaurantTable {
     hasQR: raw.has_qr ?? false,
     qrMode: raw.qr_mode ?? 'order_pay',
     qrRegeneratedAt: raw.qr_regenerated_at ? new Date(raw.qr_regenerated_at) : undefined,
+    // Deferred: `serverId` is intentionally not mapped from `raw.server_id`
+    // yet. Server assignment is a Service-View concern and that view is frozen
+    // (USE_MOCK_SERVICE); wire this together with the Service-View write
+    // endpoints, since the `server_id` contract may change by then.
     x: raw.floor_x ?? 50,
     y: raw.floor_y ?? 50,
     width: raw.floor_width ?? 10,
