@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { SessionStorageService } from '../../_services/storage/session-storage.service';
 import { Restaurant } from '../../_models/app.models';
 
@@ -10,6 +10,12 @@ import { Restaurant } from '../../_models/app.models';
     styleUrls: ['./no-table.component.css']
 })
 export class NoTableComponent implements OnInit {
+    /**
+     * When set, the panel shows this message as a friendly dead-end (e.g. a
+     * scanned table that's unavailable, or a bad QR code). When absent, the
+     * default "scan to start" guidance is shown.
+     */
+    @Input() message?: string;
     restaurantName = '';
 
     constructor(private readonly sessionStorage: SessionStorageService) {}
