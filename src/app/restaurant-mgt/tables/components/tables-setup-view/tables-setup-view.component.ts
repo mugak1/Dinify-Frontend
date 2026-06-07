@@ -605,7 +605,9 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
       this.toast.error('No tables with QR codes in this area');
       return;
     }
-    generateQRPrintSheet(areaTables, area);
+    // Fire-and-forget: the print window opens synchronously inside this gesture
+    // (popup-safe); QR data URLs fill it a moment later.
+    void generateQRPrintSheet(areaTables, area);
     this.toast.success(`Print sheet opened for ${area.name}`);
   }
 
