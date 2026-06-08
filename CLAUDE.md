@@ -72,8 +72,15 @@ The module uses a deliberate mixed pattern — follow it exactly:
 - Newer components (SidebarComponent, TopNavComponent, TablesComponent,
   all shared UI components) are STANDALONE — they go in `imports`
 - When creating a new component, make it standalone and add it to `imports`
-- Never put a standalone component in `declarations` — Angular silently
-  renders empty elements
+- Never put a standalone component in `declarations`. The AOT production
+  build (`npm run build:prod`) already guards this: it fails with error
+  **NG6008** ("Component … is standalone, and cannot be declared in an
+  NgModule. Did you mean to import it instead?"), and CI runs `build:prod`
+  on every PR. Note `npm run type-check` does NOT catch it (plain `tsc`
+  doesn't run the Angular compiler), so the prod build is the real gate.
+  (Verified 2026-06; supersedes the earlier "silently renders an empty
+  element" note, which does not hold for the AOT prod build — so no
+  separate lint/CI guard is needed.)
 - A lazy feature module may host a STANDALONE root component resolved
   directly by the router with an empty (or absent) `declarations` array —
   see `KitchenModule`/`BoardComponent` (mirrors the diner-app pattern)
