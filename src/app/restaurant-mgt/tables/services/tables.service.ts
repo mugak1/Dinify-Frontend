@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, forkJoin, of } from 'rxjs';
+import { BehaviorSubject, Observable, forkJoin, of, throwError } from 'rxjs';
 import { delay, map, tap } from 'rxjs/operators';
 import { ApiService } from '../../../_services/api.service';
 import {
@@ -161,7 +161,7 @@ export class TablesService {
       mockSeatedParties.push(...parties);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('seatWalkIn');
   }
 
   transferTable(sourceId: string, destId: string): void {
@@ -174,7 +174,7 @@ export class TablesService {
       }
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('transferTable');
   }
 
   createReservation(data: Partial<Reservation>): void {
@@ -191,7 +191,7 @@ export class TablesService {
       this.reservations$.next([...this.reservations$.value, reservation]);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('createReservation');
   }
 
   updateReservation(data: Partial<Reservation> & { id: string }): void {
@@ -202,7 +202,7 @@ export class TablesService {
       this.reservations$.next(reservations);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('updateReservation');
   }
 
   cancelReservation(id: string): void {
@@ -213,7 +213,7 @@ export class TablesService {
       this.reservations$.next(reservations);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('cancelReservation');
   }
 
   markNoShow(id: string): void {
@@ -224,7 +224,7 @@ export class TablesService {
       this.reservations$.next(reservations);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('markNoShow');
   }
 
   seatFromWaitlist(waitlistId: string, tableId: string): void {
@@ -236,7 +236,7 @@ export class TablesService {
       }
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('seatFromWaitlist');
   }
 
   addToWaitlist(data: Partial<WaitlistEntry>): void {
@@ -252,32 +252,54 @@ export class TablesService {
       this.waitlist$.next([...this.waitlist$.value, entry]);
       return;
     }
-    // TODO: real API call
+    this.serviceViewNotWired('addToWaitlist');
   }
 
-  updateFloorPlan(tablePositions: { id: string; x: number; y: number }[]): void {
+  /**
+   * Service View (reservations, waitlist, seated parties) is parked behind
+   * USE_MOCK_SERVICE. Its mutations have no real endpoint wired yet, so the
+   * non-mock branch fails loud instead of silently returning void — a premature
+   * `USE_MOCK_SERVICE = false` flip surfaces here immediately rather than
+   * no-op'ing in production. The read methods are already real-wired; this
+   * guards only the parked write methods.
+   */
+  private serviceViewNotWired(method: string): never {
+    throw new Error(
+      `TablesService.${method}: Service View is not wired yet ` +
+      `(USE_MOCK_SERVICE is false). Implement the real endpoint before enabling.`,
+    );
+  }
+
+  updateFloorPlan(
+    restaurantId: string,
+    tables: {
+      id: string;
+      floor_x: number;
+      floor_y: number;
+      floor_width: number;
+      floor_height: number;
+    }[],
+  ): Observable<any> {
+    // Optimistic local update so the canvas reflects the move immediately.
+    const byId = new Map(tables.map(g => [g.id, g]));
+    this.tables$.next(
+      this.tables$.value.map(t => {
+        const g = byId.get(t.id);
+        return g
+          ? { ...t, x: g.floor_x, y: g.floor_y, width: g.floor_width, height: g.floor_height }
+          : t;
+      }),
+    );
+
     if (USE_MOCK_SETUP) {
-      const tables = this.tables$.value.map(t => {
-        const pos = tablePositions.find(p => p.id === t.id);
-        return pos ? { ...t, x: pos.x, y: pos.y } : t;
-      });
-      this.tables$.next(tables);
-      return;
+      return of(null);
     }
-    // Optimistic local update
-    const tables = this.tables$.value.map(t => {
-      const pos = tablePositions.find(p => p.id === t.id);
-      return pos ? { ...t, x: pos.x, y: pos.y } : t;
-    });
-    this.tables$.next(tables);
-    // Persist each position to backend (fire-and-forget)
-    for (const pos of tablePositions) {
-      this.api.postPatch(
-        'restaurant-setup/tables/',
-        { id: pos.id, floor_x: pos.x, floor_y: pos.y },
-        'put', '', {}, false, '', true,
-      ).subscribe();
-    }
+    // One atomic batch save (was N fire-and-forget PUTs that swallowed errors).
+    return this.api.postPatch(
+      'restaurant-setup/table-actions/update-floor-plan/',
+      { restaurant: restaurantId, tables },
+      'post', '', {}, false, '', true,
+    );
   }
 
   // ── Setup CRUD methods ────────────────────────────────
@@ -362,12 +384,19 @@ export class TablesService {
 
   deleteArea(id: string): Observable<any> {
     if (USE_MOCK_SETUP) {
+      // Mirror the backend block: an area that still has tables cannot be
+      // deleted (no silent unassign). The tables must be moved/removed first.
+      const areaTables = this.tables$.value.filter(t => t.areaId === id);
+      if (areaTables.length > 0) {
+        return throwError(() => ({
+          error: {
+            message:
+              `Move or remove the ${areaTables.length} table(s) in this ` +
+              'area before deleting it.',
+          },
+        }));
+      }
       this.areas$.next(this.areas$.value.filter(a => a.id !== id));
-      // Unassign tables from deleted area
-      const tables = this.tables$.value.map(t =>
-        t.areaId === id ? { ...t, areaId: undefined } : t,
-      );
-      this.tables$.next(tables);
       return of(null);
     }
     return this.api.Delete('restaurant-setup/diningareas/', {

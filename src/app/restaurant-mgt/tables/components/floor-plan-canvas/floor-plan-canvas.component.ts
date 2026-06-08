@@ -255,7 +255,8 @@ export class FloorPlanCanvasComponent {
     this.editedPositions = {};
     this.newTables = [];
     this.isEditMode = false;
-    this.toast.success('Layout saved');
+    // Success/error feedback is now surfaced by the parent once the atomic save
+    // resolves — emitting an eager toast here would lie on a failed save.
   }
 
   // ── Zoom ──────────────────────────────────────────────
