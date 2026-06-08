@@ -1,38 +1,39 @@
 <div>
    
-     <div class="flex flex-col gap-5 lg:gap-7.5 bg-white border p-4">
+     <app-dn-card>
+     <div class="flex flex-col gap-5 lg:gap-7.5 p-4">
       <div class="card">
        <div class="card-body lg:py-7.5">
         <div class="flex flex-col items-stretch gap-5 lg:gap-7.5">
          <div class="flex flex-wrap items-center gap-5 justify-between">
           <div class="flex flex-col gap-1">
            <div class="flex items-center gap-2.5">
-            <h2 class="text-2xl font-semibold text-gray-900">
+            <h2 class="text-2xl font-semibold text-foreground">
              Billing Method: {{rest?.preferred_subscription_method==='per_order'?'Surcharge':''}}
              {{rest?.preferred_subscription_method==='monthly'?'Subscription Fee':''}}
              {{rest?.preferred_subscription_method==='yearly'?'Subscription Fee':''}} 
             </h2>
-            <span *ngIf="!(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)&& (rest?.preferred_subscription_method==='yearly'||rest?.preferred_subscription_method==='monthly')" class="border border-red-400 bg-red-200 text-d-red text-xs rounded px-2 py-1">
+            <app-dn-badge *ngIf="!(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)&& (rest?.preferred_subscription_method==='yearly'||rest?.preferred_subscription_method==='monthly')" variant="destructive">
                 {{rest?.preferred_subscription_method|titlecase}}                 
-            </span>
-            <span *ngIf="(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)" class="border border-blue-400 bg-blue-200 text-black text-xs rounded px-2 py-1">
+            </app-dn-badge>
+            <app-dn-badge *ngIf="(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)" variant="secondary">
               Free Trial                 
-          </span>
+          </app-dn-badge>
            </div>
            
 
-           <p *ngIf="rest?.preferred_subscription_method==='yearly'||rest?.preferred_subscription_method==='monthly'" class="text-2sm text-gray-700">
+           <p *ngIf="rest?.preferred_subscription_method==='yearly'||rest?.preferred_subscription_method==='monthly'" class="text-2sm text-muted-foreground">
             <span class="font-semibold">Subscription Fee:</span> UGX {{rest?.flat_fee|number}}
            </p>
-           <p *ngIf="rest?.preferred_subscription_method==='per_order'" class="text-2sm text-gray-700">
+           <p *ngIf="rest?.preferred_subscription_method==='per_order'" class="text-2sm text-muted-foreground">
             <span class="font-semibold">Percentage:</span> {{rest?.order_surcharge_percentage|number}}%
             <span class="font-semibold ml-4">Cap:</span> UGX {{rest?.order_surcharge_cap_amount|number}}
             <span class="font-semibold ml-4">Floor:</span> UGX {{rest?.order_surcharge_min_amount|number}}
            </p>
-          <!--  <p *ngIf="rest?.preferred_subscription_method=='per_order'" class="text-2sm text-gray-700">
+          <!--  <p *ngIf="rest?.preferred_subscription_method=='per_order'" class="text-2sm text-muted-foreground">
             
            </p>
-           <p *ngIf="rest?.preferred_subscription_method=='per_order'" class="text-2sm text-gray-700">
+           <p *ngIf="rest?.preferred_subscription_method=='per_order'" class="text-2sm text-muted-foreground">
             
            </p> -->
          
@@ -41,49 +42,49 @@
            <!-- <a class="btn btn-sm btn-light" href="#">
             Cancel Plan
            </a> -->
-           <button (click)="PayNow()" *ngIf="rest?.preferred_subscription_method!=='per_order'" class="text-white bg-d-red hover:opacity-75 hover:text-white focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 -mt-3.5 text-center">
+           <button app-dn-button (click)="PayNow()" *ngIf="rest?.preferred_subscription_method!=='per_order'" class="-mt-3.5">
             Pay Bill
            </button>
           </div>
          </div>
          <div class="flex items-center flex-wrap gap-2 lg:gap-5">
-            <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed bg-green-200 border-gray-400 shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
-                <span class="hover:text-gray-900  text-green-500 text-md leading-none font-medium h-12 flex my-auto mx-auto items-center">
+            <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed bg-green-200 border-border shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
+                <span class="hover:text-foreground  text-green-500 text-md leading-none font-medium h-12 flex my-auto mx-auto items-center">
                  {{rest?.subscription_validity?'Active':'Disabled'}}
                 </span>
-                <!-- <span class="text-gray-700 text-2sm">
+                <!-- <span class="text-muted-foreground text-2sm">
                  Total Bill
                 </span> -->
                </div>
-         <!--  <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-gray-400 shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
-           <span class="text-gray-900 text-md leading-none font-medium">
+         <!--  <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-border shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
+           <span class="text-foreground text-md leading-none font-medium">
             UGX 0
            </span>
-           <span class="text-gray-700 text-2sm">
+           <span class="text-muted-foreground text-2sm">
             Bill Due
            </span>
           </div>
-          <div *ngIf="rest?.preferred_subscription_method=='yearly'||rest?.preferred_subscription_method=='monthly'" class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-gray-400 shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
-           <span class="text-gray-900 text-md leading-none font-medium">
+          <div *ngIf="rest?.preferred_subscription_method=='yearly'||rest?.preferred_subscription_method=='monthly'" class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-border shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
+           <span class="text-foreground text-md leading-none font-medium">
             UGX {{rest?.flat_fee|number}}
            </span>
-           <span class="text-gray-700 text-2sm">
+           <span class="text-muted-foreground text-2sm">
             Next Bill Amount
            </span>
           </div> -->
-          <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-gray-400 shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
-          <span class="text-gray-700 text-2sm">
+          <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-border shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
+          <span class="text-muted-foreground text-2sm">
             Next Billing Date
            </span>
-            <span class="text-gray-900 text-md leading-none font-medium">
+            <span class="text-foreground text-md leading-none font-medium">
             {{(rest?.subscription_expiry_date|date:'medium')||'-----------'}}
-            <button *ngIf="canChangeBillingDate" role="link" (click)="AddDate()" class="text-base text-d-red decoration transition-colors underline hover:opacity-75">{{rest?.subscription_expiry_date?'Change':'Insert'}} Date</button>
+            <button app-dn-button variant="link" *ngIf="canChangeBillingDate" role="link" (click)="AddDate()" class="text-base">{{rest?.subscription_expiry_date?'Change':'Insert'}} Date</button>
            </span>
 
           </div>
          </div>
          <!-- <div class="flex flex-col gap-3.5">
-          <span class="text-2sm text-gray-700">
+          <span class="text-2sm text-muted-foreground">
            Usage (32 of 40 users)
           </span>
           <div class="progress progress-primary">
@@ -107,14 +108,14 @@
        </div>
        <div class="card-body lg:pb-7.5">
         <div class="grid gap-5">
-         <div class="flex items-center justify-between border border-gray-200 rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
+         <div class="flex items-center justify-between border border-border rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
           <div class="flex items-center gap-3.5">
            <img alt="" class="w-10 shrink-0" src="/static/metronic/tailwind/dist/assets/media/brand-logos/visa.svg">
            <div class="flex flex-col">
-            <a class="text-sm font-medium text-gray-900 hover:text-primary-active mb-px" href="#">
+            <a class="text-sm font-medium text-foreground hover:text-primary-active mb-px" href="#">
              Jason Tatum
             </a>
-            <span class="text-2sm text-gray-700">
+            <span class="text-2sm text-muted-foreground">
              Ending 3604  Expires on 12/2026
             </span>
            </div>
@@ -135,14 +136,14 @@
            </div>
           </div>
          </div>
-         <div class="flex items-center justify-between border border-gray-200 rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
+         <div class="flex items-center justify-between border border-border rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
           <div class="flex items-center gap-3.5">
            <img alt="" class="w-10 shrink-0" src="/static/metronic/tailwind/dist/assets/media/brand-logos/ideal.svg">
            <div class="flex flex-col">
-            <a class="text-sm font-medium text-gray-900 hover:text-primary-active mb-px" href="#">
+            <a class="text-sm font-medium text-foreground hover:text-primary-active mb-px" href="#">
              Jason Tatum
             </a>
-            <span class="text-2sm text-gray-700">
+            <span class="text-2sm text-muted-foreground">
              iDeal with ABN Ambro
             </span>
            </div>
@@ -160,14 +161,14 @@
            </div>
           </div>
          </div>
-         <div class="flex items-center justify-between border border-gray-200 rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
+         <div class="flex items-center justify-between border border-border rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
           <div class="flex items-center gap-3.5">
            <img alt="" class="w-10 shrink-0" src="/static/metronic/tailwind/dist/assets/media/brand-logos/paypal.svg">
            <div class="flex flex-col">
-            <a class="text-sm font-medium text-gray-900 hover:text-primary-active mb-px" href="#">
+            <a class="text-sm font-medium text-foreground hover:text-primary-active mb-px" href="#">
              Jason Tatum
             </a>
-            <span class="text-2sm text-gray-700">
+            <span class="text-2sm text-muted-foreground">
             
             </span>
            </div>
@@ -203,34 +204,34 @@
         <table class="table-auto">
          <tbody>
           <tr>
-           <td class="text-sm text-gray-600 min-w-36 pb-5 pe-6">
+           <td class="text-sm text-muted-foreground min-w-36 pb-5 pe-6">
             Company Name
            </td>
-           <td class="text-sm text-gray-800 pb-5">
+           <td class="text-sm text-foreground pb-5">
             KeenThemes
            </td>
           </tr>
           <tr>
-           <td class="text-sm text-gray-600 min-w-36 pb-5 pe-6">
+           <td class="text-sm text-muted-foreground min-w-36 pb-5 pe-6">
             Address
            </td>
-           <td class="text-sm text-gray-800 pb-5">
+           <td class="text-sm text-foreground pb-5">
             Keizersgracht 136, 1015 CW Amsterdam, Netherlands
            </td>
           </tr>
           <tr>
-           <td class="text-sm text-gray-600 min-w-36 pb-5 pe-6">
+           <td class="text-sm text-muted-foreground min-w-36 pb-5 pe-6">
             Contact
            </td>
-           <td class="text-sm text-gray-800 pb-5">
+           <td class="text-sm text-foreground pb-5">
             Jason Tatum
            </td>
           </tr>
           <tr>
-           <td class="text-sm text-gray-600 min-w-36 pb-5 pe-6">
+           <td class="text-sm text-muted-foreground min-w-36 pb-5 pe-6">
             VAT ID
            </td>
-           <td class="text-sm text-gray-800 pb-5">
+           <td class="text-sm text-foreground pb-5">
             NL123456789B01
            </td>
           </tr>
@@ -250,12 +251,12 @@
         </button> -->
        </div>
        <div class="card-table scrollable-x-auto">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+        <table class="w-full text-sm text-left rtl:text-right text-muted-foreground">
+            <thead class="text-xs text-muted-foreground uppercase bg-muted">
                 <tr>
                    <!--  <th scope="col" class="p-4">
                         <div class="flex items-center">
-                            <input id="checkbox-all-search" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                            <input id="checkbox-all-search" type="checkbox" class="w-4 h-4 text-primary bg-muted border-border rounded focus:ring-ring">
                             <label for="checkbox-all-search" class="sr-only">checkbox</label>
                         </div>
                     </th> -->
@@ -308,10 +309,9 @@ No transactions available
       </div>
      </div>
     </div>
-    <div *ngIf="showModal" class="opacity-50 fixed inset-0 z-40 bg-black"></div>
-<!-- Edit user modal -->
-<div *ngIf="showModal"  tabindex="-1"  class="fixed top-0 left-0 right-0 z-50 items-center justify-center w-full overflow-x-hidden overflow-y-auto md:inset-0">
-    <div  class="relative bg-white w-1/2 mx-auto my-auto p-4">
+    </app-dn-card>
+    <app-dn-dialog [open]="showModal" maxWidth="lg" (closed)="closeModal()">
+    <div class="relative">
       <!-- Modal content -->
       <div class="relative rounded-lg">
           <div  class="flex items-start justify-between p-4 rounded-t">
@@ -319,7 +319,7 @@ No transactions available
               <span *ngIf="BillingForm" class="font-thin">Insert Next Billing Date</span>
                <span *ngIf="PaymentForm" class="font-thin">Pay Subscription Now</span>
               </h3>
-             <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
+             <button type="button" (click)="closeModal()" class="text-muted-foreground bg-transparent hover:bg-accent hover:text-foreground rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
               <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                   <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
               </svg>
@@ -336,32 +336,32 @@ No transactions available
                 </label>
               </div> -->
               <div class="mt-6 sm:mt-8 lg:mt-0">
-                <div class="space-y-4 rounded-lg border border-gray-100 bg-gray-50 p-6">
+                <div class="space-y-4 rounded-lg border border-border bg-muted p-6">
                   <div class="space-y-2">
 <!--                     <dl class="flex items-center justify-between gap-4">
-                      <dt class="text-base font-normal text-gray-500 dark:text-gray-400">Original price</dt>
-                      <dd class="text-base font-medium text-gray-900 dark:text-white">$6,592.00</dd>
+                      <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Original price</dt>
+                      <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$6,592.00</dd>
                     </dl>
       
                     <dl class="flex items-center justify-between gap-4">
-                      <dt class="text-base font-normal text-gray-500 dark:text-gray-400">Savings</dt>
+                      <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Savings</dt>
                       <dd class="text-base font-medium text-green-500">-$299.00</dd>
                     </dl>
       
                     <dl class="flex items-center justify-between gap-4">
-                      <dt class="text-base font-normal text-gray-500 dark:text-gray-400">Store Pickup</dt>
-                      <dd class="text-base font-medium text-gray-900 dark:text-white">$99</dd>
+                      <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Store Pickup</dt>
+                      <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$99</dd>
                     </dl>
       
                     <dl class="flex items-center justify-between gap-4">
-                      <dt class="text-base font-normal text-gray-500 dark:text-gray-400">Tax</dt>
-                      <dd class="text-base font-medium text-gray-900 dark:text-white">$799</dd>
+                      <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Tax</dt>
+                      <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$799</dd>
                     </dl>
                   </div> -->
       
-                  <dl class="flex items-center justify-between gap-4 border-t border-gray-200 pt-2">
-                    <dt class="text-base font-semibold text-gray-900">Total Bill Due</dt>
-                    <dd class="text-base font-semibold text-gray-900">UGX {{rest?.flat_fee|number}}</dd>
+                  <dl class="flex items-center justify-between gap-4 border-t border-border pt-2">
+                    <dt class="text-base font-semibold text-foreground">Total Bill Due</dt>
+                    <dd class="text-base font-semibold text-foreground">UGX {{rest?.flat_fee|number}}</dd>
                   </dl>
                 </div>
                 </div>
@@ -372,16 +372,16 @@ No transactions available
               <div class="mt-4 flex flex-row space-x-3">
                   <div class="flex">
                       <div class="flex items-center h-5">
-                          <input formControlName="payment_form" value="full" type="radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300">
+                          <input formControlName="payment_form" value="full" type="radio" class="w-4 h-4 text-primary bg-muted border-border">
                       </div>
                       <div class="ms-2 text-sm">
-                          <label for="helper-radio" class="font-medium text-gray-900">Full Payment</label>
+                          <label for="helper-radio" class="font-medium text-foreground">Full Payment</label>
                           <p id="helper-radio-text" class="text-xs font-normal">Pay the full outstanding amount UGX {{order.actual_cost|number}}</p>
                       </div>
                   </div>
                   <div class="flex">
                       <div class="flex items-center h-5">
-                          <input formControlName="payment_form" value="split" type="radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300">
+                          <input formControlName="payment_form" value="split" type="radio" class="w-4 h-4 text-primary bg-muted border-border">
                       </div>
                       <div class="ms-2 text-sm">
                           <label for="helper-radio" class="font-medium">Split Payment</label>
@@ -390,8 +390,8 @@ No transactions available
                   </div>
               </div> -->
               <div *ngIf="PaymentForm.get('payment_form')?.value==='split'&&!require_otp" class="mt-4">
-                  <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Amount to Pay</label>
-                  <input formControlName="amount" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 ">
+                  <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Amount to Pay</label>
+                  <input formControlName="amount" class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 ">
               </div>
               <div class="mt-4" *ngIf="!require_otp">
                   <div class="text-lg">Select the Payment Method</div>
@@ -401,7 +401,7 @@ No transactions available
                       <div [ngClass]="{'grid-cols-3':!canChangeBillingDate,'grid-cols-4':canChangeBillingDate}" class="grid gap-2 w-full">
                           <div>
                               <input #momopayment formControlName="payment_mode" value="momo" class="hidden" id="radio_1" type="radio">
-                              <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-black border-2':momopayment.checked,'border-gray-300':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_1">
+                              <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-primary border-2':momopayment.checked,'border-border':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_1">
                                 <svg class="mx-auto" x="0px" y="0px"
                                 width="60px" height="60px" viewBox="0 0 276.661 276.262" enable-background="new 0 0 276.661 276.262"
                                 xml:space="preserve">
@@ -450,7 +450,7 @@ No transactions available
                           </div>
                           <div>
                               <input #cardpayment formControlName="payment_mode" value="card" class="hidden" id="radio_2" type="radio">
-                              <label for="radio_2" (click)="cardpayment.click()" [ngClass]="{'border-2 border-black':cardpayment.checked,'border-gray-300':!cardpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_2">
+                              <label for="radio_2" (click)="cardpayment.click()" [ngClass]="{'border-2 border-primary':cardpayment.checked,'border-border':!cardpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_2">
                                 <svg version="1.1" class="mx-auto" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
                                   <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
                                       <path d="M 51.751 51.893 H 3.96 c -2.184 0 -3.96 -1.777 -3.96 -3.961 v -37.6 c 0 -2.184 1.777 -3.961 3.96 -3.961 h 62.964 c 2.184 0 3.96 1.777 3.96 3.961 v 22.123 c 0 0.552 -0.447 1 -1 1 s -1 -0.448 -1 -1 V 10.332 c 0 -1.081 -0.879 -1.961 -1.96 -1.961 H 3.96 C 2.879 8.371 2 9.251 2 10.332 v 37.6 c 0 1.081 0.879 1.961 1.96 1.961 h 47.791 c 0.553 0 1 0.447 1 1 S 52.304 51.893 51.751 51.893 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
@@ -482,7 +482,7 @@ No transactions available
                           </div>
                           <div>
                             <input #collectionspayment formControlName="payment_mode" value="ova" class="hidden" id="radio_4" type="radio">
-                            <label for="radio_3" (click)="collectionspayment.click()" [ngClass]="{'border-2 border-black':collectionspayment.checked,'border-gray-300':!collectionspayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_4">
+                            <label for="radio_3" (click)="collectionspayment.click()" [ngClass]="{'border-2 border-primary':collectionspayment.checked,'border-border':!collectionspayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_4">
                              <!--    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
             
                                     <defs>
@@ -509,7 +509,7 @@ No transactions available
                         </div>
 <!-- -->                          <div *ngIf="canChangeBillingDate">
                               <input #cashpayment formControlName="payment_mode" value="cash" class="hidden" id="radio_3" type="radio">
-                              <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-black':cashpayment.checked,'border-gray-300':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
+                              <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-primary':cashpayment.checked,'border-border':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
                                   <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
               
                                       <defs>
@@ -531,30 +531,30 @@ No transactions available
                   
                   </div>
                   <div *ngIf="PaymentForm.get('payment_mode')?.value==='momo'" class="mt-4">
-                  <!--   <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Phone number</label>
-                    <input formControlName="msisdn" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "> -->
-                    <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Phone number</label>
-                    <div class="relative mt-2 rounded-md shadow-sm">
+                  <!--   <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Phone number</label>
+                    <input formControlName="msisdn" class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 "> -->
+                    <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Phone number</label>
+                    <div class="relative mt-2 rounded-md shadow-[var(--shadow-sm)]">
                         <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <span class="text-gray-500 sm:text-sm">+256</span>
+                          <span class="text-muted-foreground sm:text-sm">+256</span>
                         </div>
-                        <input type="text" formControlName="msisdn" class="block rounded w-full py-1.5 pl-[3.5rem] pr-20 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6bg-gray-50 border border-gray-300 placeholder:text-xs focus:ring-primary-600 focus:border-primary-600">
+                        <input type="text" formControlName="msisdn" class="block rounded w-full py-1.5 pl-[3.5rem] pr-20 text-foreground ring-1 ring-inset ring-border placeholder:text-muted-foreground focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6bg-muted border border-border placeholder:text-xs focus:ring-ring focus:border-ring">
                       
                       </div>
                 </div>
                   <div class="mt-8">
-                      <button type="submit" class="relative inline-flex items-center justify-center p-4 px-6 py-3 overflow-hidden font-medium bg-black text-white transition duration-300 ease-out border-2 border-gray-500 rounded-full shadow-md group w-full hover:opacity-75 active:opacity-100">
+                      <button app-dn-button type="submit" class="w-full">
         Pay Now
                       </button>
                   </div>
                   </div>
-                  <div *ngIf="require_otp" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-screen rounded-2xl">
+                  <div *ngIf="require_otp" class="relative bg-card px-6 pt-10 pb-9 shadow-[var(--shadow-lg)] mx-auto w-full max-w-screen rounded-2xl">
                     <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
                       <div class="flex flex-col items-center justify-center text-center space-y-2">
                         <div class="font-semibold text-3xl">
                           <p>One Time Password(OTP)</p>
                         </div>
-                        <div class="flex flex-row text-sm font-medium text-gray-400">
+                        <div class="flex flex-row text-sm font-medium text-muted-foreground">
                           <p>We have sent the OTP to your phone</p>
                         </div>
                         <div class="font-semibold text-xl">
@@ -569,31 +569,31 @@ No transactions available
                             <div>
                                 <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
                             <!--   <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
                               </div>
                               <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
                               </div>
                               <div class="w-16 h-16">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
                               </div>
                               <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
                               </div> -->
                             </div>
                 
                             <div class="flex flex-col space-y-5">
                               <div>
-                                <button type="submit" [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
+                                <button app-dn-button type="submit" [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
                                   Verify OTP & Pay {{'UGX '+(rest?.flat_fee|number)}}
                                 </button>
                               </div>
-                              <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 -my-2 text-gray-500">
-                                <a (click)="require_otp=false" class="flex flex-row items-center text-gray-600 underline" [routerLink]="[]" >Cancel</a>
+                              <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 -my-2 text-muted-foreground">
+                                <a (click)="require_otp=false" class="flex flex-row items-center text-muted-foreground underline" [routerLink]="[]" >Cancel</a>
                               </div>
               
-                              <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
-                                <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.PaymentForm.get('msisdn')?.value,null)" class="flex flex-row items-center text-d-red" [routerLink]="[]" >Resend</a>
+                              <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-muted-foreground">
+                                <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.PaymentForm.get('msisdn')?.value,null)" class="flex flex-row items-center text-primary" [routerLink]="[]" >Resend</a>
                               </div>
                             </div>
                           </div>
@@ -608,18 +608,18 @@ No transactions available
               </form>
               <form *ngIf="BillingForm" [formGroup]="BillingForm" class="px-3" (ngSubmit)="BillingForm.valid?SaveDate():false">
                 <div class="col-span-1">
-                  <label for="billing_date" class="block mb-2 text-sm font-medium text-gray-900">Billing Date</label>
+                  <label for="billing_date" class="block mb-2 text-sm font-medium text-foreground">Billing Date</label>
                   <!-- <input type="number" formControlName="order_surcharge_cap_amount"
-                      class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
+                      class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 "
                       placeholder="Enter the Cap"> -->
-                      <div class="relative mt-2 rounded-md shadow-sm">
+                      <div class="relative mt-2 rounded-md shadow-[var(--shadow-sm)]">
                           
                           <app-date-picker [valid]="BillingForm.get('subscription_expiry_date')?.invalid" [errorMsg]="'The billing date is required'"  (SelectedDate)="BillingForm.get('subscription_expiry_date')?.setValue($event)"></app-date-picker>
                          
                         </div>
               </div> 
               <div class="mt-8">
-                <button type="submit" class="relative inline-flex items-center justify-center p-4 px-6 py-3 overflow-hidden font-medium bg-black text-white transition duration-300 ease-out border-2 border-gray-500 rounded-full shadow-md group w-full hover:opacity-75 active:opacity-100">
+                <button app-dn-button type="submit" class="w-full">
   Save Date
                 </button>
             </div>
@@ -630,4 +630,4 @@ No transactions available
             <div>
     </div>
 </div>
-</div>
+</app-dn-dialog>

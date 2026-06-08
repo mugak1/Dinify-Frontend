@@ -1,53 +1,54 @@
 <div class="flex flex-row justify-between p-4 items-center">
-    <div class="text-xl font-bold">Reports</div>           
-  </div>
-  <div class="px-4 flex flex-row space-x-4">
-    <div  class="rounded-lg bg-white p-6 text-surface shadow-secondary-1 w-1/2 flex flex-col">
-  <h5 class="mb-2 text-xl font-medium leading-tight">Sales Report (UGX)</h5>
-  <p class="mb-4 text-base">
-    This report shows the sales/revenue made by the restaurant over a period of time; that is, daily, weekly, monthly, quarterly and annually. The user is prompted to select a desired period to view the report listing and summary overview. A custom date range may also be selected
-  </p>
-  <button [routerLink]="['sales']"
-    type="button"
-    class="mt-auto inline-block rounded bg-d-red px-6 pb-2 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-blue-accent-300 hover:shadow-blue-2 focus:bg-blue-300 focus:shadow-blue-2 focus:outline-none focus:ring-0 active:bg-blue-600 active:shadow-primary-2">
-   View
-  </button>
+  <div class="text-xl font-bold text-foreground">Reports</div>
 </div>
-<div class="flex flex-col rounded-lg bg-white p-6 text-surface shadow-secondary-1 w-1/2">
-<h5 class="mb-2 text-xl font-medium leading-tight">Menu Report </h5>
-<p class="mb-4 text-base">
-    The Menu report shows the performance of the menu items, menu groups and menu sections at a restaurant for the selected time period.
-</p>
-<button [routerLink]="['menu']"
-  type="button"
-  class="mt-auto inline-block rounded bg-d-red px-6 pb-2 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-blue-accent-300 hover:shadow-blue-2 focus:bg-blue-300 focus:shadow-blue-2 focus:outline-none focus:ring-0 active:bg-blue-600 active:shadow-primary-2">
-  View
-</button>
+
+<div class="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
+  <app-dn-card fullHeight>
+    <div class="flex h-full flex-col p-6">
+      <h5 class="mb-2 text-xl font-medium leading-tight text-foreground">Sales Report (UGX)</h5>
+      <p class="mb-4 text-base text-muted-foreground">
+        This report shows the sales/revenue made by the restaurant over a period of time; that is, daily, weekly, monthly, quarterly and annually. The user is prompted to select a desired period to view the report listing and summary overview. A custom date range may also be selected
+      </p>
+      <button app-dn-button [routerLink]="['sales']" type="button" class="mt-auto w-fit uppercase">
+        View
+      </button>
+    </div>
+  </app-dn-card>
+
+  <app-dn-card fullHeight>
+    <div class="flex h-full flex-col p-6">
+      <h5 class="mb-2 text-xl font-medium leading-tight text-foreground">Menu Report</h5>
+      <p class="mb-4 text-base text-muted-foreground">
+        The Menu report shows the performance of the menu items, menu groups and menu sections at a restaurant for the selected time period.
+      </p>
+      <button app-dn-button [routerLink]="['menu']" type="button" class="mt-auto w-fit uppercase">
+        View
+      </button>
+    </div>
+  </app-dn-card>
+
+  <app-dn-card fullHeight>
+    <div class="flex h-full flex-col p-6">
+      <h5 class="mb-2 text-xl font-medium leading-tight text-foreground">Transactions Report (UGX)</h5>
+      <p class="mb-4 text-base text-muted-foreground">
+        This report shows the payment operations of the restaurant. The user views payments received by Dinify on behalf of the restaurant as well as remittances from Dinify to the restaurants.
+        This analysis is done for the selected period, that is, daily, weekly, monthly, quarterly and annually.
+      </p>
+      <button app-dn-button [routerLink]="['transactions']" type="button" class="mt-auto w-fit uppercase">
+        View
+      </button>
+    </div>
+  </app-dn-card>
+
+  <app-dn-card fullHeight>
+    <div class="flex h-full flex-col p-6">
+      <h5 class="mb-2 text-xl font-medium leading-tight text-foreground">Diners Report</h5>
+      <p class="mb-4 text-base text-muted-foreground">
+        This report shows the list of diners using Dinify at that restaurant. The user is prompted to select their period of interest e.g. daily, weekly, monthly. quarterly and annually.
+      </p>
+      <button app-dn-button [routerLink]="['diners']" type="button" class="mt-auto w-fit uppercase">
+        View
+      </button>
+    </div>
+  </app-dn-card>
 </div>
-  </div>
-  <div class="px-4 pt-4 flex flex-row space-x-4">
-    <div  class="flex flex-col rounded-lg bg-white p-6 text-surface shadow-secondary-1 w-1/2">
-  <h5 class="mb-2 text-xl font-medium leading-tight">Transactions Report (UGX)</h5>
-  <p class="mb-4 text-base">
-    This report shows the payment operations of the restaurant. The user views payments received by Dinify on behalf of the restaurant as well as remittances from Dinify to the restaurants. 
-This analysis is done for the selected period, that is, daily, weekly, monthly, quarterly and annually.
-  </p>
-  <button [routerLink]="['transactions']"
-    type="button"
-    class="inline-block rounded bg-d-red px-6 pb-2 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-blue-accent-300 hover:shadow-blue-2 focus:bg-blue-300 focus:shadow-blue-2 focus:outline-none focus:ring-0 active:bg-blue-600 active:shadow-primary-2">
-    View
-  </button>
-</div>
-<div
-class="flex flex-col rounded-lg bg-white p-6 text-surface shadow-secondary-1 w-1/2">
-<h5 class="mb-2 text-xl font-medium leading-tight">Diners Report</h5>
-<p class="mb-4 text-base">
-    This report shows the list of diners using Dinify at that restaurant. The user is prompted to select their period of interest e.g. daily, weekly, monthly. quarterly and annually.
-</p>
-<button [routerLink]="['diners']"
-  type="button"
-  class=" mt-auto inline-block rounded bg-d-red px-6 pb-2 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-blue-accent-300 hover:shadow-blue-2 focus:bg-blue-300 focus:shadow-blue-2 focus:outline-none focus:ring-0 active:bg-blue-600 active:shadow-primary-2">
-  View
-</button>
-</div>
-  </div>
