@@ -43,7 +43,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
               Guest Reviews
             </h2>
             <a
-              routerLink="/reviews"
+              routerLink="/rest-app/reviews"
               class="text-xs sm:text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1"
             >
               View all <span aria-hidden="true">→</span>
