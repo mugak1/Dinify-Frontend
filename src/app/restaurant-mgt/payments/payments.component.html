@@ -363,7 +363,7 @@
                     
                                 <div class="flex flex-col space-y-5">
                                   <div>
-                                    <button app-dn-button type="submit" [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
+                                    <button app-dn-button type="submit" [disabled]="!!input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
                                       Verify OTP & Pay {{'UGX '+(0|number)}}
                                     </button>
                                   </div>

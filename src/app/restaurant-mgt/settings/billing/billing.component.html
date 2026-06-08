@@ -308,7 +308,6 @@ No transactions available
        </div>
       </div>
      </div>
-    </div>
     </app-dn-card>
     <app-dn-dialog [open]="showModal" maxWidth="lg" (closed)="closeModal()">
     <div class="relative">
@@ -584,7 +583,7 @@ No transactions available
                 
                             <div class="flex flex-col space-y-5">
                               <div>
-                                <button app-dn-button type="submit" [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
+                                <button app-dn-button type="submit" [disabled]="!!input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
                                   Verify OTP & Pay {{'UGX '+(rest?.flat_fee|number)}}
                                 </button>
                               </div>
@@ -631,3 +630,4 @@ No transactions available
     </div>
 </div>
 </app-dn-dialog>
+</div>
