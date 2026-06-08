@@ -53,6 +53,9 @@ import { UpsellCarouselComponent } from './menu/components/upsell-carousel/upsel
 import { PreviewMenuDrawerComponent } from './menu/components/preview-menu-drawer/preview-menu-drawer.component';
 import { DialogComponent } from '../_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from '../_shared/ui/button/button.component';
+import { CardComponent } from '../_shared/ui/card/card.component';
+import { BadgeComponent } from '../_shared/ui/badge/badge.component';
+import { SheetComponent } from '../_shared/ui/sheet/sheet.component';
 import { PresetTagsComponent } from './settings/preset-tags/preset-tags.component';
 
 const routes: Routes = [
@@ -143,6 +146,9 @@ const routes: Routes = [
     PreviewMenuDrawerComponent,
     DialogComponent,
     ButtonComponent,
+    CardComponent,
+    BadgeComponent,
+    SheetComponent,
     TablesComponent,
     PresetTagsComponent,
 ],
