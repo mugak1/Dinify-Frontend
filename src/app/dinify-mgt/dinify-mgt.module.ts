@@ -16,6 +16,7 @@ import { MgtNotificationsComponent } from './mgt-notifications/mgt-notifications
 import { MgtSupportComponent } from './mgt-support/mgt-support.component';
 import { SidebarComponent } from '../restaurant-mgt/layout/sidebar/sidebar.component';
 import { TopNavComponent } from '../restaurant-mgt/layout/top-nav/top-nav.component';
+import { CardComponent, BadgeComponent, ButtonComponent, DialogComponent } from '../_shared/ui';
 import { LucideAngularModule, LayoutDashboard, UtensilsCrossed, ClipboardList, Grid3x3, Star, ChartBar, CreditCard, LifeBuoy, Settings, ChevronLeft, ChevronRight, Menu, X, Bell } from 'lucide-angular';
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
@@ -52,6 +53,10 @@ const routes: Routes = [
     NgxCurrencyDirective,
     SidebarComponent,
     TopNavComponent,
+    CardComponent,
+    BadgeComponent,
+    ButtonComponent,
+    DialogComponent,
     LucideAngularModule.pick({ LayoutDashboard, UtensilsCrossed, ClipboardList, Grid3x3, Star, ChartBar, CreditCard, LifeBuoy, Settings, ChevronLeft, ChevronRight, Menu, X, Bell })
   ],
   exports:[

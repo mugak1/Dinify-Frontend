@@ -2,8 +2,6 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import {
-  SupportCategory,
-  SupportImpact,
   SupportIssue,
   SupportIssueStatus,
 } from 'src/app/_models/app.models';
@@ -11,39 +9,14 @@ import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { MessageService } from 'src/app/_services/message.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
-import { BadgeVariant } from 'src/app/_shared/ui/badge/badge.component';
-
-interface StatusMeta {
-  label: string;
-  variant: BadgeVariant;
-}
-
-// Single source of truth for support-issue status -> badge styling + label.
-// Amber (warning) for open and emerald (success) for resolved.
-const STATUS_META: Record<SupportIssueStatus, StatusMeta> = {
-  open: { label: 'Open', variant: 'warning' },
-  in_progress: { label: 'In progress', variant: 'default' },
-  resolved: { label: 'Resolved', variant: 'success' },
-  closed: { label: 'Closed', variant: 'secondary' },
-};
-
-const CATEGORY_LABEL: Record<SupportCategory, string> = {
-  orders_kds: 'Orders & Kitchen',
-  menu: 'Menu',
-  tables_qr: 'Tables & QR',
-  payments: 'Payments',
-  reports: 'Reports',
-  account: 'Account',
-  bug: 'Bug',
-  other: 'Other',
-};
-
-const IMPACT_LABEL: Record<SupportImpact, string> = {
-  blocking_service: 'Blocking service',
-  affecting_service: 'Affecting service',
-  non_urgent: 'Non-urgent',
-  question: 'Question',
-};
+import {
+  CATEGORY_OPTIONS,
+  IMPACT_OPTIONS,
+  StatusMeta,
+  categoryLabel as categoryLabelFn,
+  impactLabel as impactLabelFn,
+  statusMeta as statusMetaFn,
+} from 'src/app/_shared/support';
 
 // TODO: replace with real Dinify support contacts
 const SUPPORT_CONTACTS = {
@@ -51,13 +24,6 @@ const SUPPORT_CONTACTS = {
   phone: '+256700000000',
   email: 'support@dinify.example',
 };
-
-const CATEGORY_OPTIONS = (Object.keys(CATEGORY_LABEL) as SupportCategory[]).map(
-  (value) => ({ value, label: CATEGORY_LABEL[value] }),
-);
-const IMPACT_OPTIONS = (Object.keys(IMPACT_LABEL) as SupportImpact[]).map(
-  (value) => ({ value, label: IMPACT_LABEL[value] }),
-);
 
 @Component({
   selector: 'app-support',
@@ -193,14 +159,14 @@ export class SupportComponent implements OnInit {
   }
 
   statusMeta(status: SupportIssueStatus): StatusMeta {
-    return STATUS_META[status] ?? { label: status, variant: 'secondary' };
+    return statusMetaFn(status);
   }
 
   categoryLabel(category: string): string {
-    return (CATEGORY_LABEL as Record<string, string>)[category] ?? category;
+    return categoryLabelFn(category);
   }
 
   impactLabel(impact: string): string {
-    return (IMPACT_LABEL as Record<string, string>)[impact] ?? impact;
+    return impactLabelFn(impact);
   }
 }
