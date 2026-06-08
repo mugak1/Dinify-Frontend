@@ -604,31 +604,10 @@ export interface SalesReportListItem {
   time_created: string
   last_updated_by: string
 }
-export interface Ticket {
-  id: string;
-  ticket_type: 'Incident' | 'Request'| 'Problem'| 'Change'| 'feedback'|'support';
-  ticket_title: string;
-  ticket_description: string;
-  ticket_status: 'open' | 'In Progress' | 'closed';
-  resolution_notes: string;
-  time_created: string
-  time_last_updated: string
-  time_deleted: any
-  deleted: boolean
-  deletion_reason: any
-  archived: boolean
-  ticket_priority: string
-  created_by: string
-  deleted_by: any
-  restaurant: any
-  assigned_to: any
-  assigned_by: any
-}
-
 // Restaurant-facing support ticketing (api/v1/support/issues/).
 // Mirrors the restaurant read serializer — i.e. WITHOUT internal_notes or
-// assigned_to, which are admin-only. Distinct from the legacy `Ticket`
-// interface above, which the platform-admin mgt-support page still uses.
+// assigned_to, which are admin-only (those live on SupportIssueAdmin below,
+// used by the Dinify-admin triage screen).
 export type SupportCategory =
   | 'orders_kds'
   | 'menu'
@@ -667,6 +646,17 @@ export interface SupportIssue {
   created_by_name: string;
   time_created: string;
   time_last_updated: string;
+}
+
+// Admin/triage view of a support issue (api/v1/support/admin/issues/).
+// Superset of SupportIssue with the admin-only fields from the admin read
+// serializer. The assign-to-user picker is deferred for v1, but assigned_to /
+// assigned_to_name remain on the model for a later PR.
+export interface SupportIssueAdmin extends SupportIssue {
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  internal_notes: string | null;
+  created_by: string;
 }
 export interface SalesTrendListItem {
   number_of_sales: number
