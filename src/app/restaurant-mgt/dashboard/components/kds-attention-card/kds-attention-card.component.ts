@@ -64,7 +64,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
               >
                 {{ statusConfig.label }}
               </span>
-              <a routerLink="/kds/expo" class="text-xs sm:text-sm text-primary hover:underline flex items-center gap-0.5 font-medium whitespace-nowrap">
+              <a routerLink="/kitchen" class="text-xs sm:text-sm text-primary hover:underline flex items-center gap-0.5 font-medium whitespace-nowrap">
                 <span class="hidden sm:inline">Open </span>Expo <span class="text-base sm:text-lg leading-none">›</span>
               </a>
             </div>
