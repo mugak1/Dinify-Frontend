@@ -1,359 +1,235 @@
-<div class="flex flex-row justify-between px-4 items-center bg-white">
-  <div class="text-xl font-bold mt-3">Support</div>    
-  <button (click)="toggleModal()" class="inline-flex mt-3 items-center text-d-red border-d-red border focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-3 py-1.5" type="button">
-    <span class="sr-only">Action button</span>
-    New Support Request
+<div class="space-y-4 sm:space-y-6">
+  <!-- Header -->
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Support</h1>
+      <p class="text-sm text-muted-foreground">
+        Report an issue to the Dinify team and track its progress.
+      </p>
+    </div>
+    <button app-dn-button (click)="openForm()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" class="h-4 w-4 mr-2">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Report an issue
+    </button>
+  </div>
 
-</button>      
+  <!-- Direct-contact fallback -->
+  <app-dn-card>
+    <div class="p-4 sm:p-5">
+      <h2 class="text-sm font-semibold text-foreground">Need urgent help during service?</h2>
+      <p class="text-sm text-muted-foreground mt-1">Reach us directly:</p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <a [href]="'https://wa.me/' + contacts.whatsapp" target="_blank" rel="noopener"
+          class="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" class="h-4 w-4">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+          </svg>
+          WhatsApp
+        </a>
+        <a [href]="'tel:' + contacts.phone"
+          class="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" class="h-4 w-4">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+          {{ contacts.phone }}
+        </a>
+        <a [href]="'mailto:' + contacts.email"
+          class="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" class="h-4 w-4">
+            <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+            <path d="m22 7-10 5L2 7"></path>
+          </svg>
+          {{ contacts.email }}
+        </a>
+      </div>
+    </div>
+  </app-dn-card>
+
+  <!-- Reported issues -->
+  <app-dn-card>
+    <div class="p-4 sm:p-5">
+      <h2 class="text-base font-semibold text-foreground mb-3">Reported issues</h2>
+
+      <p *ngIf="loading" class="text-sm text-muted-foreground py-6 text-center">Loading…</p>
+
+      <!-- Empty state -->
+      <div *ngIf="!loading && issues.length === 0"
+        class="flex flex-col items-center justify-center text-center py-10 gap-3">
+        <p class="text-sm text-muted-foreground">You haven't reported anything yet</p>
+        <button app-dn-button variant="outline" (click)="openForm()">Report an issue</button>
+      </div>
+
+      <!-- Table -->
+      <div *ngIf="!loading && issues.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
+              <th class="py-2 pr-4 font-medium">Reference</th>
+              <th class="py-2 pr-4 font-medium">Title</th>
+              <th class="py-2 pr-4 font-medium">Category</th>
+              <th class="py-2 pr-4 font-medium">Impact</th>
+              <th class="py-2 pr-4 font-medium">Status</th>
+              <th class="py-2 pr-4 font-medium">Last updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let issue of issues" (click)="openDetail(issue)"
+              class="border-b last:border-0 cursor-pointer hover:bg-accent/50 transition-colors">
+              <td class="py-3 pr-4 font-mono text-xs font-medium text-foreground whitespace-nowrap">{{ issue.reference }}</td>
+              <td class="py-3 pr-4 text-foreground max-w-[260px] truncate">{{ issue.title }}</td>
+              <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ categoryLabel(issue.category) }}</td>
+              <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ impactLabel(issue.impact) }}</td>
+              <td class="py-3 pr-4 whitespace-nowrap">
+                <app-dn-badge [variant]="statusMeta(issue.status).variant">{{ statusMeta(issue.status).label }}</app-dn-badge>
+              </td>
+              <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ issue.time_last_updated | date: 'mediumDate' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </app-dn-card>
 </div>
 
-<form class="w-4/5 p-4 bg-white">
-  <div class="flex">
-    <label for="search-dropdown" class="mb-2 text-sm font-medium text-gray-900 sr-only">Your
-      Email</label>
-    <button id="dropdown-button"
-      class="flex-shrink-0 z-10 inline-flex items-center py-2.5 px-4 text-sm font-medium text-center text-gray-900 bg-gray-100 border border-gray-300 hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100"
-      type="button">Status <svg class="w-2.5 h-2.5 ms-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
-        fill="none" viewBox="0 0 10 6">
-        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4" />
-      </svg>
-    </button>
-    <div id="dropdown" class="z-10 hidden bg-white divide-y divide-gray-100 rounded-lg shadow w-44">
-      <ul class="py-2 text-sm text-gray-700 dark:text-gray-200" aria-labelledby="dropdown-button">
-        <li>
-          <button type="button"
-            class="inline-flex w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Mockups</button>
-        </li>
-        <li>
-          <button type="button"
-            class="inline-flex w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Templates</button>
-        </li>
-        <li>
-          <button type="button"
-            class="inline-flex w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Design</button>
-        </li>
-        <li>
-          <button type="button"
-            class="inline-flex w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Logos</button>
-        </li>
-      </ul>
+<!-- Report-an-issue form -->
+<app-dn-dialog [open]="showForm" (closed)="closeForm()" maxWidth="lg">
+  <h2 class="text-lg font-semibold text-foreground mb-1">Report an issue</h2>
+  <p class="text-sm text-muted-foreground mb-4">
+    Tell us what's going wrong and the Dinify team will take a look.
+  </p>
+  <form [formGroup]="issueForm" (ngSubmit)="submit()" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">What area is affected?</label>
+      <select formControlName="category"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <option value="" disabled>Select an area…</option>
+        <option *ngFor="let opt of categoryOptions" [value]="opt.value">{{ opt.label }}</option>
+      </select>
     </div>
-    <div class="relative w-full">
-      <input type="search" id="search-dropdown"
-        class="block p-2.5 w-full z-20 text-sm text-gray-900 bg-gray-50 border-s-gray-50 border-s-2 border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-        placeholder="Search by Issue Title" />
-      <button type="submit"
-        class="absolute top-0 end-0 p-2.5 text-sm font-medium h-full text-white bg-d-red border border-blue-700 hover:opacity-75 focus:ring-4 focus:outline-none focus:ring-blue-300">
-        <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
+
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">How serious is it?</label>
+      <select formControlName="impact"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <option value="" disabled>Select severity…</option>
+        <option *ngFor="let opt of impactOptions" [value]="opt.value">{{ opt.label }}</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Title</label>
+      <input type="text" formControlName="title" placeholder="Short summary"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">Description</label>
+      <textarea formControlName="description" rows="4"
+        placeholder="Tell us what went wrong: what you were trying to do, what you expected, and what actually happened."
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"></textarea>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1">
+          Contact phone <span class="text-muted-foreground font-normal">(optional)</span>
+        </label>
+        <input type="tel" formControlName="contact_phone"
+          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1">
+          Contact email <span class="text-muted-foreground font-normal">(optional)</span>
+        </label>
+        <input type="email" formControlName="contact_email"
+          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-foreground mb-1">
+        Preferred contact method <span class="text-muted-foreground font-normal">(optional)</span>
+      </label>
+      <select formControlName="preferred_contact_method"
+        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <option value="">No preference</option>
+        <option value="whatsapp">WhatsApp</option>
+        <option value="phone">Phone</option>
+        <option value="email">Email</option>
+      </select>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-2">
+      <button type="button" app-dn-button variant="outline" (click)="closeForm()">Cancel</button>
+      <button type="submit" app-dn-button [disabled]="issueForm.invalid || submitting">Submit request</button>
+    </div>
+  </form>
+</app-dn-dialog>
+
+<!-- Issue detail drawer (read-only) -->
+<app-dn-sheet [open]="!!selected" (closed)="closeDetail()" width="460px">
+  <div *ngIf="selected as issue" class="flex flex-col h-full">
+    <div class="flex items-start justify-between gap-3 p-5 border-b">
+      <div>
+        <p class="font-mono text-xs font-medium text-muted-foreground">{{ issue.reference }}</p>
+        <h2 class="text-lg font-semibold text-foreground mt-1">{{ issue.title }}</h2>
+      </div>
+      <button type="button" (click)="closeDetail()" aria-label="Close"
+        class="text-muted-foreground hover:text-foreground transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" class="h-5 w-5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
-        <span class="sr-only">Search</span>
       </button>
     </div>
-  </div>
-</form>
 
-<div class="flex items-center text-sm bg-white justify-between gap-2 px-4 py-2 font-medium marker:content-none hover:cursor-pointer border-b">
-
-<span class="flex gap-2 w-full mx-2 uppercase text-gray-400">
-
-
-
-    <span class="w-[10%]">
-        ticket #
-    </span>
-    <span class="w-1/2">                    
-      TITLE
-    </span>
-    <span class="w-[10%] -ms-[18px]">
-      status
-    </span>
-    <span class="w-1/5">
-      last updated
-    </span>
-</span>
-<!-- <svg class="w-5 h-5 text-gray-500 transition group-open:rotate-90" xmlns="http://www.w3.org/2000/svg"
-    width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-    <path fill-rule="evenodd"
-        d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z">
-    </path>
-</svg> -->
-</div>
-
-
-<ul class="flex flex-col gap-2 w-full mx-auto space-y-1 mt-2">
-
-  <li *ngFor="let ticket of tickets;let i = index;" class="px-4 text-sm">
-      <details class="group">
-
-          <summary
-              class="flex items-center justify-between gap-2 p-4 font-medium marker:content-none hover:cursor-pointer border bg-white">
-
-              <span class="flex gap-2 w-full">
-
-
-
-                  <span class="w-[10%]">
-                      #TIC{{i+1}}
-                  </span>
-                  <span class="w-1/2">                    
-                    {{ticket.ticket_title}}
-                  </span>
-                  <span class="w-[10%] capitalize">
-                    <span [ngClass]="{
-                      'bg-d-red text-white': ticket.ticket_status === 'open',
-                      'bg-yellow-500 text-white': ticket.ticket_status === 'In Progress',
-                      'bg-green-500 text-white': ticket.ticket_status === 'closed'
-                  }" class="inline-block mt-1 px-2 py-1 text-xs font-semibold rounded text-white">
-                      {{ticket.ticket_status}}
-                  </span>
-                  </span>
-                  <span class="w-1/5">
-                    {{ticket.time_last_updated|date:'medium'}}
-                  </span>
-                  <span *ngIf="ticket.resolution_notes" class="flex ml-auto mr-2">
-                    <svg class="w-5 h-5 my-auto" viewBox="-0.5 0 28 28" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns" fill="#000000">
-                        <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                        <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                        <g id="SVGRepo_iconCarrier"> 
-                             
-                            <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage"> 
-                                <g id="Icon-Set" sketch:type="MSLayerGroup" transform="translate(-100.000000, -1193.000000)" fill="#FF2C32"> <path d="M113,1208 C112.346,1208 109.98,1208.02 109.98,1208.02 L109.98,1213.39 L102.323,1205 L109.98,1196.6 L109.98,1202.01 C109.98,1202.01 112.48,1201.98 113,1202 C120.062,1202.22 124.966,1210.26 124.998,1214.02 C122.84,1211.25 117.17,1208 113,1208 L113,1208 Z M111.983,1200.01 L111.983,1194.11 C112.017,1193.81 111.936,1193.51 111.708,1193.28 C111.312,1192.89 110.67,1192.89 110.274,1193.28 L100.285,1204.24 C100.074,1204.45 99.984,1204.72 99.998,1205 C99.984,1205.27 100.074,1205.55 100.285,1205.76 L110.219,1216.65 C110.403,1216.88 110.67,1217.03 110.981,1217.03 C111.265,1217.03 111.518,1216.91 111.7,1216.72 C111.702,1216.72 111.706,1216.72 111.708,1216.71 C111.936,1216.49 112.017,1216.18 111.983,1215.89 C111.983,1215.89 112,1210.34 112,1210 C118.6,1210 124.569,1214.75 125.754,1221.01 C126.552,1219.17 127,1217.15 127,1215.02 C127,1206.73 120.276,1200.01 111.983,1200.01 L111.983,1200.01 Z" id="reply" sketch:type="MSShapeGroup"> </path> </g> </g> </g></svg>
-                </span>
-              </span>
-              <svg class="w-5 h-5 text-gray-500 transition group-open:rotate-90" xmlns="http://www.w3.org/2000/svg"
-                  width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fill-rule="evenodd"
-                      d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z">
-                  </path>
-              </svg>
-          </summary>
-
-          <article class="px-4 pb-4 mt-1 bg-white border">
-
-              <div class="flex flex-col gap-4 pl-2 mt-4">
-                
-<div class="flex items-start gap-2.5">
-  <!-- <img class="w-8 h-8 rounded-full" src="" alt=""> -->
-  <svg class="w-8 h-8 rounded-full" viewBox="0 0 28 28" fill="none">
-    <g>
-    <path d="M19.25 10.5C19.25 11.8924 18.6969 13.2277 17.7123 14.2123C16.7277 15.1969 15.3924 15.75 14 15.75C12.6076 15.75 11.2723 15.1969 10.2877 14.2123C9.30312 13.2277 8.75 11.8924 8.75 10.5C8.75 9.10761 9.30312 7.77226 10.2877 6.78769C11.2723 5.80312 12.6076 5.25 14 5.25C15.3924 5.25 16.7277 5.80312 17.7123 6.78769C18.6969 7.77226 19.25 9.10761 19.25 10.5Z" fill="#3C3C43"/>
-    <path fill-rule="evenodd" clip-rule="evenodd" d="M0 14C0 10.287 1.475 6.72601 4.10051 4.10051C6.72601 1.475 10.287 0 14 0C17.713 0 21.274 1.475 23.8995 4.10051C26.525 6.72601 28 10.287 28 14C28 17.713 26.525 21.274 23.8995 23.8995C21.274 26.525 17.713 28 14 28C10.287 28 6.72601 26.525 4.10051 23.8995C1.475 21.274 0 17.713 0 14ZM14 1.75C11.6931 1.75012 9.43314 2.40163 7.4802 3.62955C5.52727 4.85746 3.96074 6.61187 2.96094 8.69084C1.96113 10.7698 1.56868 13.0888 1.82875 15.381C2.08882 17.6732 2.99084 19.8454 4.431 21.6475C5.6735 19.6455 8.40875 17.5 14 17.5C19.5912 17.5 22.3248 19.6437 23.569 21.6475C25.0092 19.8454 25.9112 17.6732 26.1713 15.381C26.4313 13.0888 26.0389 10.7698 25.0391 8.69084C24.0393 6.61187 22.4727 4.85746 20.5198 3.62955C18.5669 2.40163 16.3069 1.75012 14 1.75Z" fill="#3C3C43"/>
-    </g>
-    <defs>
-    <clipPath id="clip0_454_158">
-    <rect width="28" height="28" fill="white"/>
-    </clipPath>
-    </defs>
-    </svg>
-  <div class="flex flex-col w-full max-w-[640px] leading-1.5 p-4 border-gray-200 bg-gray-100 rounded-e-xl rounded-es-xl">
-     <div class="flex items-center space-x-2 rtl:space-x-reverse">
-        <span class="text-sm font-semibold text-gray-900">{{ticket.created_by}}</span>
-        <span class="text-sm font-normal text-gray-500">{{ticket.time_created|date:'medium'}}</span>
-     </div>
-     <p class="text-sm font-normal py-2.5 text-gray-900">{{ticket.ticket_description}}.</p>
-     <span class="text-sm font-normal text-gray-500">{{ticket.resolution_notes?'':'Pending Response'}}</span>
-
-  </div>
-
-</div>
-<div *ngIf="ticket.resolution_notes" class="flex items-start gap-2.5">
-  <!-- <img class="w-8 h-8 rounded-full" src="" alt=""> -->
-
-  <svg class="w-8 h-8 rounded-full" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <title>support</title> <rect width="24" height="24" fill="none"></rect> <path d="M12,2a8,8,0,0,0-8,8v1.9A2.92,2.92,0,0,0,3,14a2.88,2.88,0,0,0,1.94,2.61C6.24,19.72,8.85,22,12,22h3V20H12c-2.26,0-4.31-1.7-5.34-4.39l-.21-.55L5.86,15A1,1,0,0,1,5,14a1,1,0,0,1,.5-.86l.5-.29V11a1,1,0,0,1,1-1H17a1,1,0,0,1,1,1v5H13.91a1.5,1.5,0,1,0-1.52,2H20a2,2,0,0,0,2-2V14a2,2,0,0,0-2-2V10A8,8,0,0,0,12,2Z"></path> </g></svg>
-  <div class="flex flex-col w-full max-w-[640px] leading-1.5 p-4 border-gray-200 bg-red-100 rounded-e-xl rounded-es-xl">
-     <div class="flex items-center space-x-2 rtl:space-x-reverse">
-        <span class="text-sm font-semibold text-gray-900">SUPPORT AGENT</span>
-        <span class="text-sm font-normal text-gray-500">{{ticket.time_last_updated|date:'medium'}}</span>
-     </div>
-     <p class="text-sm font-normal py-2.5 text-gray-900">{{ticket.resolution_notes}}.</p>
-   
-     
-
-  </div>
-
-</div>
-                 <!--  {{ticket.ticket_description}} -->
-
-              </div>
-
-          </article>
-
-      </details>
-  </li>
-
-  <li *ngIf="false">
-      <details class="group">
-
-          <summary
-              class="flex items-center justify-between gap-2 p-2 font-medium marker:content-none hover:cursor-pointer">
-
-              <span class="flex gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                      stroke="currentColor" class="w-6 h-6">
-                      <path stroke-linecap="round" stroke-linejoin="round"
-                          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-
-                  <span>
-                      Recent Documents
-                  </span>
-              </span>
-              <svg class="w-5 h-5 text-gray-500 transition group-open:rotate-90" xmlns="http://www.w3.org/2000/svg"
-                  width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fill-rule="evenodd"
-                      d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z">
-                  </path>
-              </svg>
-          </summary>
-
-          <article class="px-4 pb-4">
-              <ul class="flex flex-col gap-1 pl-2">
-                  <li><a href="">Document title</a></li>
-                  <li><a href="">Document title</a></li>
-                  <li><a href="">Document title</a></li>
-              </ul>
-          </article>
-
-      </details>
-  </li>
-
-  <li *ngIf="false">
-      <details class="group">
-
-          <summary
-              class="flex items-center justify-between gap-2 p-2 font-medium marker:content-none hover:cursor-pointer">
-
-              <span class="flex gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                      stroke="currentColor" class="w-6 h-6">
-                      <path stroke-linecap="round" stroke-linejoin="round"
-                          d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-                  </svg>
-                  <span>
-                      Popular courses
-                  </span>
-              </span>
-              <svg class="w-5 h-5 text-gray-500 transition group-open:rotate-90" xmlns="http://www.w3.org/2000/svg"
-                  width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fill-rule="evenodd"
-                      d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z">
-                  </path>
-              </svg>
-
-
-          </summary>
-
-          <article class="px-4 pb-4">
-              <ul class="flex flex-col gap-1 pl-2">
-                  <li><a href="">Course title</a></li>
-                  <li><a href="">Course title</a></li>
-                  <li><a href="">Course title</a></li>
-              </ul>
-          </article>
-
-      </details>
-  </li>
-
-</ul>
-<div *ngIf="showModal" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
-<!-- Edit user modal -->
-<div *ngIf="showModal"  tabindex="-1"   class="fixed top-0 p-4 left-0 right-0 z-50 items-center justify-center w-full overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full">
-  <div>
-    <div class="p-6 max-w-lg mx-auto bg-white rounded-xl shadow-md space-y-4" [formGroup]="ticketForm">
-      <div class="flex items-start justify-between px-4rounded-t">
-        <h1 class="text-2xl font-bold text-center">Service Tickets</h1>
-       <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
-        <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-        </svg>
-        <span class="sr-only">Close modal</span>
-    </button>
-    </div>  
-      
-
-      
-        <!-- Ticket Form -->
-        <form [formGroup]="ticketForm" (ngSubmit)="ticketForm.valid?addOrUpdateTicket():false" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Title</label>
-            <input
-              type="text"
-              formControlName="ticket_title"
-              class="bg-gray-50 border mt-1 border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
-             
-            />
-            <div *ngIf="ticketForm.get('ticket_title')?.invalid && ticketForm.get('ticket_title')?.touched" class="text-red-500 text-sm">
-              Title is required.
-            </div>
-          </div>
-      
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Description</label>
-            <textarea
-              formControlName="ticket_description"
-              class="mt-1 bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
-
-              rows="3"
-              required
-            ></textarea>
-            <div *ngIf="ticketForm.get('ticket_description')?.invalid && ticketForm.get('ticket_description')?.touched" class="text-red-500 text-sm">
-              Description is required.
-            </div>
-          </div>
-      
-          <div *ngIf="false">
-            <label class="block text-sm font-medium text-gray-700">Status</label>
-            <select
-              formControlName="ticket_status"
-              class="mt-1 bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
-            >
-              <option value="open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </div>
-      
-          <button
-            type="submit"
-            class="w-full bg-d-red text-white py-2 px-4 rounded-md hover:opacity-75"
-          >
-            {{ ticketForm.get('id')?.value ? 'Update Ticket' : 'Add Ticket'}}
-          </button>
-        </form>
-      
-        <!-- Ticket List -->
-        <ul *ngIf="false" class="space-y-2">
-          <li
-            *ngFor="let ticket of tickets"
-            class="p-4 bg-gray-100 rounded-md shadow-sm flex justify-between items-center"
-          >
-            <div>
-              <h2 class="text-lg font-bold">{{ ticket.ticket_title }}</h2>
-              <p class="text-sm text-gray-600">{{ ticket.ticket_description }}</p>
-              <span
-                class="inline-block mt-1 px-2 py-1 text-xs font-semibold rounded bg-indigo-100 text-indigo-800"
-              >
-                {{ ticket.ticket_status }}
-              </span>
-            </div>
-            <div class="space-x-2">
-              <button
-                (click)="editTicket(ticket)"
-                class="bg-yellow-500 text-white py-1 px-2 rounded hover:bg-yellow-600"
-              >
-                Edit
-              </button>
-              <button
-                (click)="deleteTicket(ticket.id)"
-                class="bg-red-500 text-white py-1 px-2 rounded hover:bg-red-600"
-              >
-                Delete
-              </button>
-            </div>
-          </li>
-        </ul>
+    <div class="p-5 space-y-4 overflow-y-auto">
+      <div class="flex flex-wrap items-center gap-2">
+        <app-dn-badge [variant]="statusMeta(issue.status).variant">{{ statusMeta(issue.status).label }}</app-dn-badge>
+        <span class="text-xs text-muted-foreground">{{ categoryLabel(issue.category) }} · {{ impactLabel(issue.impact) }}</span>
       </div>
-</div>  
-</div>
+
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Description</h3>
+        <p class="text-sm text-foreground whitespace-pre-line">{{ issue.description }}</p>
+      </div>
+
+      <div *ngIf="issue.resolution_summary">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Resolution</h3>
+        <p class="text-sm text-foreground whitespace-pre-line">{{ issue.resolution_summary }}</p>
+      </div>
+
+      <dl class="grid grid-cols-1 gap-3 text-sm border-t pt-4">
+        <div class="flex justify-between gap-3">
+          <dt class="text-muted-foreground">Reported</dt>
+          <dd class="text-foreground text-right">{{ issue.time_created | date: 'medium' }}</dd>
+        </div>
+        <div *ngIf="issue.resolved_at" class="flex justify-between gap-3">
+          <dt class="text-muted-foreground">Resolved</dt>
+          <dd class="text-foreground text-right">{{ issue.resolved_at | date: 'medium' }}</dd>
+        </div>
+        <div *ngIf="issue.closed_at" class="flex justify-between gap-3">
+          <dt class="text-muted-foreground">Closed</dt>
+          <dd class="text-foreground text-right">{{ issue.closed_at | date: 'medium' }}</dd>
+        </div>
+        <div *ngIf="issue.created_by_name" class="flex justify-between gap-3">
+          <dt class="text-muted-foreground">Reported by</dt>
+          <dd class="text-foreground text-right">{{ issue.created_by_name }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+</app-dn-sheet>

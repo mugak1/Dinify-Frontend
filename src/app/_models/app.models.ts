@@ -624,6 +624,50 @@ export interface Ticket {
   assigned_to: any
   assigned_by: any
 }
+
+// Restaurant-facing support ticketing (api/v1/support/issues/).
+// Mirrors the restaurant read serializer — i.e. WITHOUT internal_notes or
+// assigned_to, which are admin-only. Distinct from the legacy `Ticket`
+// interface above, which the platform-admin mgt-support page still uses.
+export type SupportCategory =
+  | 'orders_kds'
+  | 'menu'
+  | 'tables_qr'
+  | 'payments'
+  | 'reports'
+  | 'account'
+  | 'bug'
+  | 'other';
+export type SupportImpact =
+  | 'blocking_service'
+  | 'affecting_service'
+  | 'non_urgent'
+  | 'question';
+export type SupportIssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type PreferredContactMethod = 'whatsapp' | 'phone' | 'email';
+
+export interface SupportIssue {
+  id: string;
+  reference: string;
+  restaurant: string;
+  restaurant_name: string;
+  category: SupportCategory;
+  impact: SupportImpact;
+  status: SupportIssueStatus;
+  title: string;
+  description: string;
+  contact_phone: string | null;
+  contact_email: string | null;
+  preferred_contact_method: PreferredContactMethod | null;
+  page_url: string | null;
+  user_agent: string | null;
+  resolution_summary: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  created_by_name: string;
+  time_created: string;
+  time_last_updated: string;
+}
 export interface SalesTrendListItem {
   number_of_sales: number
   gross_sales_amount: number
