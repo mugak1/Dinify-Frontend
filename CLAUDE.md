@@ -21,12 +21,15 @@ Deployed to Firebase Hosting at dinify-uat.web.app.
 - Diner App menu redesign: ✅ Complete (sticky brand strip, scroll-aware nav
   pills, quick-add affordance, allergen-safety disclaimer banner)
 - Dashboard responsiveness: ✅ Complete
-- Phase 3 (Tables module): 🔄 In progress
+- Phase 3 (Tables module): 🔄 MVP ships Setup View only (route `dining-tables`)
   - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`);
     blocked deletes (e.g. an area that still has tables) surface the backend
     message as a single toast (see error-handling note below)
-  - Service View (reservations, waitlist, seated parties): still mock
-    (`USE_MOCK_SERVICE = true`)
+  - Service View (reservations, waitlist, seated parties): ⏸️ parked AND hidden
+    from the UI — its component/services/mocks/models stay in the repo but are
+    NOT rendered. `TablesComponent.activeView` is forced to `'setup'` (seed +
+    validate honour only `'setup'`), so re-enabling the toggle later is a small
+    revert. Service code still sits behind `USE_MOCK_SERVICE = true`
 - Menu polish pass: ✅ Complete — canonical `discount_details` shape, native
   `preset_tags` arrays, paginated menusections/menuitems, allergens rewired
   onto the `tags` field as the dietary-tag source of truth
@@ -35,9 +38,17 @@ Deployed to Firebase Hosting at dinify-uat.web.app.
   `src/app/kitchen/` (route `/kitchen`, AuthGuard-protected).
   `KitchenOrderService.USE_MOCK_DATA = false`; HTTP polling + optimistic PATCH
   against real endpoints
+- Support: ✅ real-wired — the restaurant Support page (`support/`) reads/writes
+  the `support/issues/` API; the Dinify-admin triage screen
+  (`dinify-mgt/mgt-support`) is wired against `support/admin/issues/`.
+  Status/category/impact badge styling + labels are shared from
+  `src/app/_shared/support/`
 - Other restaurant-mgt surfaces (payments, reviews + reviews-management,
-  reports + report-detail, support, notifications, settings sub-pages) are
+  reports + report-detail, notifications, settings sub-pages) are
   scaffolded and routed — per-view data-wiring status varies
+- Legal pages: standalone components in `src/app/legal/` (privacy-policy,
+  terms-and-conditions, cookie-policy), lazy-loaded as public routes
+  `/privacy`, `/terms`, `/cookies` via `loadComponent` in `app-routing.module.ts`
 - The legacy Falcon Orders page has been removed — there is no Orders route,
   component, or sidebar entry in the restaurant portal. Live order/fulfilment
   flow lives in the Kitchen View (KDS board) at `/kitchen`
@@ -108,6 +119,12 @@ writing new tag or price/menu logic:
   price/discount helpers (`getCurrentPrice`, `isDiscountActive`,
   `calculateSavings`, `getDiscountBadgeText`), and `searchMenuItems` /
   `applyMenuSort`
+- `src/app/_shared/support/` (barrel `index.ts`) — support-issue display
+  metadata: `STATUS_META`/`CATEGORY_LABEL`/`IMPACT_LABEL` maps, the matching
+  `statusMeta`/`categoryLabel`/`impactLabel` helpers, and
+  `CATEGORY_OPTIONS`/`IMPACT_OPTIONS`. Shared by the restaurant Support page and
+  the Dinify-admin triage screen — reuse before hand-rolling status badges or
+  category labels
 
 ## Angular Rules
 - Always set `outputHashing: "all"` across ALL build configurations
@@ -168,13 +185,14 @@ writing new tag or price/menu logic:
   _common) — do not add new usages
 - localStorage to httpOnly cookie migration requires backend coordination
 - Login 500 regression still outstanding — parked pending Apache log access
-- Tables Service View still on mock data (`USE_MOCK_SERVICE = true`) — real
-  reservations/waitlist endpoints exist but are not yet wired. Its write
-  methods now fail loud in their non-mock branch (via `serviceViewNotWired`),
-  so wire the real endpoints before flipping the flag. `mapApiTable` also does
-  not yet map `raw.server_id` onto `RestaurantTable.serverId` (declared but
-  unpopulated) — wire that alongside the Service View; the `server_id`
-  contract may change by then
+- Tables Service View is parked AND hidden from the UI (MVP ships Setup View
+  only); `TablesComponent.activeView` is forced to `'setup'`. It still sits on
+  mock data (`USE_MOCK_SERVICE = true`) — real reservations/waitlist endpoints
+  exist but are not yet wired. Its write methods fail loud in their non-mock
+  branch (via `serviceViewNotWired`), so wire the real endpoints before flipping
+  the flag. `mapApiTable` also does not yet map `raw.server_id` onto
+  `RestaurantTable.serverId` (declared but unpopulated) — wire that alongside
+  the Service View; the `server_id` contract may change by then
 
 ## Verification
 Before raising any PR:
@@ -183,6 +201,11 @@ Before raising any PR:
 3. Run `npm run test:ci` for any module you touched
 4. Run `npm run build:prod` and confirm zero errors
 5. Confirm standalone components are in `imports`, not `declarations`
+
+A convenience runner `scripts/verify.sh` runs all four checks in CI order
+(continuing past failures so you see every problem at once, exiting non-zero if
+any fail). It is a manual pre-PR gate — run it and paste the output into the PR;
+it is intentionally NOT wired as a hook.
 
 CI (`.github/workflows/ci.yml`) runs all four (`type-check`, `lint`,
 `test:ci`, `build:prod`) on every PR to `main`. The UAT deploy workflow
