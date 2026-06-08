@@ -9,21 +9,21 @@
                     </g> 
                 </g>
             </svg>
-            <span [ngClass]="{'text-d-red':restusersla?.isActive}" class="my-auto">Users</span>
+            <span [ngClass]="{'text-primary':restusersla?.isActive}" class="my-auto">Users</span>
         </a>
 
         <a class="flex flex-row" [routerLink]="['preset-tags']" routerLinkActive="active" #presettagsla="routerLinkActive">
             <svg class="h-7 w-7 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path attr.fill="{{presettagsla.isActive?'#FF2C32':'black'}}" d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42L12.586 2.586zM4 4h7.172l8.704 8.704a.426.426 0 0 1 0 .603l-6.579 6.579a.426.426 0 0 1-.603 0L4 11.172V4zm3.5 4.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
             </svg>
-            <span [ngClass]="{'text-d-red':presettagsla?.isActive}" class="my-auto">Preset Tags</span>
+            <span [ngClass]="{'text-primary':presettagsla?.isActive}" class="my-auto">Preset Tags</span>
         </a>
 
         <a class="flex flex-row" [routerLink]="['branding']" routerLinkActive="active" #brandingla="routerLinkActive">
             <svg class="h-7 w-7 mr-2" viewBox="0 0 32 32">
                 <g>
                     <path attr.fill="{{brandingla.isActive?'#FF2C32':'black'}}" d="M8,9H4v3h4V9z M7,11H5v-1h2V11z M8,13H4v3h4V13z M7,15H5v-1h2V15z M6,17c-1.657,0-3,1.343-3,3 s1.343,3,3,3s3-1.343,3-3S7.657,17,6,17z M6,22c-1.103,0-2-0.897-2-2c0-1.103,0.897-2,2-2s2,0.897,2,2C8,21.103,7.103,22,6,22z M21.646,11.646l0.707,0.707l-2,2l-0.707-0.707L21.646,11.646z M31,4h-1.586l-1.707-1.707c-0.391-0.391-1.023-0.391-1.414,0 L24.586,4H1C0.448,4,0,4.448,0,5v22c0,0.552,0.448,1,1,1h30c0.552,0,1-0.448,1-1V5C32,4.448,31.552,4,31,4z M16,14v4h4l8-8v13H11V9 h10L16,14z M17,14.707L19.293,17H17V14.707z M20.146,16.439l-2.586-2.586L27,4.414L29.586,7L20.146,16.439z M2,26V6h22l-2,2H10v16 h19V9l1-1v18H2z"></path> </g></svg>
-                    <span [ngClass]="{'text-d-red':brandingla?.isActive}" class="my-auto">Branding</span>
+                    <span [ngClass]="{'text-primary':brandingla?.isActive}" class="my-auto">Branding</span>
                 </a>
 
                         <a class="flex flex-row" [routerLink]="['billing']" routerLinkActive="active" #billingla="routerLinkActive">
@@ -52,7 +52,7 @@
                                     <g> <g> <circle  attr.fill="{{billingla.isActive?'#FF2C32':'black'}}" cx="118.083" cy="384.582" r="11.636"></circle> </g> </g> 
                                     <g> <g> <path attr.fill="{{billingla.isActive?'#FF2C32':'black'}}" d="M257.719,372.945h-93.091c-6.982,0-11.636,4.655-11.636,11.636s4.655,11.636,11.636,11.636h93.091 c6.982,0,11.636-4.655,11.636-11.636S264.701,372.945,257.719,372.945z"></path> </g> </g> </g>
                                 </svg>
-                            <span [ngClass]="{'text-d-red':billingla?.isActive}" class="my-auto">Billing</span>
+                            <span [ngClass]="{'text-primary':billingla?.isActive}" class="my-auto">Billing</span>
                         </a>
                         <a class="flex flex-row" [routerLink]="['restaurant-profile']" routerLinkActive="active" #restla="routerLinkActive">
                             <!-- <svg class="h-8 w-8" viewBox="0 0 42 42" fill="none">
@@ -67,7 +67,7 @@
                                     </g> 
                                 </g>
                                 </svg>
-                                <span [ngClass]="{'text-d-red':restla?.isActive}" class="my-auto">Profile Settings</span>
+                                <span [ngClass]="{'text-primary':restla?.isActive}" class="my-auto">Profile Settings</span>
                             </a>
         </div>
         <div class="sm:w-2/3 w-full mx-auto h-[calc(100dvh-9rem)] overflow-y-hidden hover:overflow-y-auto">
