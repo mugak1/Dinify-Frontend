@@ -9,15 +9,15 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 9%;
-    --card: 0 0% 96%;
+    --card: 45 36% 95%;
     --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
     --primary: 4 90% 52%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 88%;
+    --secondary: 45 18% 88%;
     --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 88%;
+    --muted: 45 18% 88%;
     --muted-foreground: 0 0% 38%;
     --accent: 4 90% 52%;
     --accent-foreground: 0 0% 100%;
@@ -28,7 +28,7 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 9%;
     --border: 0 0% 100%;
-    --input: 0 0% 85%;
+    --input: 45 14% 85%;
     --ring: 4 90% 52%;
     --radius: 0.5rem;
     --shadow-sm: 0 2px 6px 0 hsl(0 0% 0% / 0.1), 0 1px 3px -1px hsl(0 0% 0% / 0.08);
