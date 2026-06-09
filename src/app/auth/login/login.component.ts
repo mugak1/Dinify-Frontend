@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { first } from 'rxjs';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { SearchCountryField, CountryISO, PhoneNumberFormat } from 'ngx-intl-telephone-input';
-import { ApiResponse, LoginResponse, OTPResponse } from 'src/app/_models/app.models';
+import { ApiResponse, LoginResponse, OTPResponse, RestaurantRole } from 'src/app/_models/app.models';
 import { MessageService } from 'src/app/_services/message.service';
 
 @Component({
@@ -112,8 +112,9 @@ this.startCountdown();
                 }else{
                   // No OTP required and no password change needed — navigate directly
                   if (this.log_in.profile.restaurant_roles.length === 1) {
-                    this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);
-                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app';
+                    const membership = this.log_in.profile.restaurant_roles[0];
+                    this.authenticationService.setCurrentRestaurantRole(membership);
+                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || this.landingPathForMembership(membership);
                     this.router.navigateByUrl(returnUrl);
                   } else if (this.log_in.profile.roles.includes('dinify_admin')) {
                     const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/mgt-app';
@@ -162,8 +163,9 @@ if(log_otp.valid){
 const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
                   if (this.log_in.profile.restaurant_roles.length === 1) {
   // One restaurant → auto set and redirect
-  this.authenticationService.setCurrentRestaurantRole(this.log_in.profile.restaurant_roles[0]);
-  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app';
+  const membership = this.log_in.profile.restaurant_roles[0];
+  this.authenticationService.setCurrentRestaurantRole(membership);
+  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || this.landingPathForMembership(membership);
   this.router.navigateByUrl(returnUrl);
 
 } else if (this.log_in.profile.roles.includes('dinify_admin')) {
@@ -266,10 +268,24 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
       this.require_otp = false;
       this.showLoginForm = true;
     }
-    setRestaurant(restaurant: any) {
+  /**
+   * Default landing path for a single restaurant membership. Kitchen-only staff
+   * (roles include 'kitchen' but neither 'owner' nor 'manager') go straight to
+   * the Kitchen board; everyone else goes to the management portal. An explicit
+   * returnUrl deep link still takes precedence at each call site.
+   */
+  private landingPathForMembership(membership: RestaurantRole): string {
+    const roles = membership?.roles ?? [];
+    const kitchenOnly = roles.includes('kitchen')
+      && !roles.includes('owner')
+      && !roles.includes('manager');
+    return kitchenOnly ? '/kitchen' : '/rest-app';
+  }
+
+    setRestaurant(restaurant: RestaurantRole) {
   this.authenticationService.setCurrentRestaurantRole(restaurant);
 
-  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/rest-app';
+  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || this.landingPathForMembership(restaurant);
   this.router.navigateByUrl(returnUrl);
 
   this.showRestaurantSelector = false; // close selector after selection
