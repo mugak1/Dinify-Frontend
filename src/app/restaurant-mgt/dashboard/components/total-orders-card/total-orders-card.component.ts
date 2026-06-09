@@ -1,6 +1,5 @@
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions } from 'chart.js';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
@@ -22,7 +21,6 @@ interface StatusSegment {
   standalone: true,
   imports: [
     CommonModule,
-    RouterModule,
     BaseChartDirective,
     CardComponent,
     CardSkeletonComponent,
@@ -39,12 +37,6 @@ interface StatusSegment {
             <div class="min-w-0">
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
                 <h2 class="text-base sm:text-lg font-bold text-foreground">Total Orders ({{ timeframeLabel }})</h2>
-                <a
-                  routerLink="/rest-app/orders"
-                  class="text-xs text-primary hover:underline sm:hidden whitespace-nowrap"
-                >
-                  Open orders
-                </a>
               </div>
               <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                 <app-animated-number
@@ -73,12 +65,6 @@ interface StatusSegment {
                 </div>
               </div>
             </div>
-            <a
-              routerLink="/rest-app/orders"
-              class="hidden sm:block text-sm text-primary hover:underline whitespace-nowrap shrink-0"
-            >
-              View open orders
-            </a>
           </div>
 
           <hr class="border-border mb-4" />

@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener } from '@angular/core';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ApiService } from '../_services/api.service';
 import { RestaurantDetail } from '../_models/app.models';
@@ -47,10 +47,20 @@ export class RestaurantMgtComponent {
       .subscribe(() => {
         this.has_tables = this.router.url.includes('tables');
         this.isMenuRoute = /\/menu(\/|\?|$)/.test(this.router.url);
+        if (window.innerWidth < 1024) {   // < Tailwind `lg`; mobile drawer only
+          this.sidebarOpen = false;
+        }
         this.cdr.detectChanges();
       });
 
     this.isMenuRoute = /\/menu(\/|\?|$)/.test(this.router.url);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.sidebarOpen && window.innerWidth < 1024) {
+      this.sidebarOpen = false;
+    }
   }
 
   logout(): void {

@@ -39,7 +39,7 @@ import { formatCompact } from '../../utils/format.utils';
           <!-- Header -->
           <div class="flex items-start justify-between mb-4 sm:mb-5">
             <h2 class="text-base sm:text-lg font-bold text-foreground">Tables</h2>
-            <a routerLink="/dining-tables" class="text-xs sm:text-sm text-primary hover:underline whitespace-nowrap">
+            <a routerLink="/rest-app/dining-tables" class="text-xs sm:text-sm text-primary hover:underline whitespace-nowrap">
               View tables ›
             </a>
           </div>

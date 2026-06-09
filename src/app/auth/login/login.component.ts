@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ViewChild, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ViewChild, OnInit, OnDestroy } from '@angular/core';
 import { FormGroup, FormBuilder, Validators, NgModel } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { first } from 'rxjs';
@@ -13,7 +13,7 @@ import { MessageService } from 'src/app/_services/message.service';
     styleUrls: ['./login.component.css'],
     standalone: false
 })
-export class LoginComponent implements OnInit {
+export class LoginComponent implements OnInit, OnDestroy {
   countdown = 30; // Countdown starts at 30 seconds
   timer: any;
   loginForm!: FormGroup;
@@ -67,6 +67,10 @@ inactivityNotice = false;
           password: ['', Validators.required]
       });
       this.inactivityNotice = this.route.snapshot.queryParams['reason'] === 'inactivity';
+  }
+
+  ngOnDestroy(): void {
+    if (this.timer) { clearInterval(this.timer); }
   }
 
   // convenience getter for easy access to form fields
@@ -218,6 +222,7 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
     this.loginForm.get('username')?.setValue(String($event.phoneNumber).replace('+','').replace(/\s/g, ""));
      }
      startCountdown(): void {
+      if (this.timer) { clearInterval(this.timer); }
       this.timer = setInterval(() => {
         if (this.countdown > 0) {
           this.countdown--;
@@ -247,6 +252,19 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
         }
       })
       // You can add your OTP resend logic here (e.g., API call)
+    }
+    backToLogin(): void {
+      if (this.timer) { clearInterval(this.timer); }
+      this.countdown = 30;
+      this.data = '';
+      this.attempt = 0;
+      this.error = '';
+      this.isSubmittingOtp = false;
+      this.submitted = false;
+      this.message.clear();
+      this.loginForm.reset();
+      this.require_otp = false;
+      this.showLoginForm = true;
     }
     setRestaurant(restaurant: any) {
   this.authenticationService.setCurrentRestaurantRole(restaurant);

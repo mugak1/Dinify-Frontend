@@ -11,6 +11,7 @@ import { SwitchComponent } from '../../../../_shared/ui/switch/switch.component'
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
+import { MessageService } from '../../../../_services/message.service';
 import { TablesService } from '../../services/tables.service';
 import { NewAreaModalComponent } from '../new-area-modal/new-area-modal.component';
 import { NewTableModalComponent } from '../new-table-modal/new-table-modal.component';
@@ -95,6 +96,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     private tablesService: TablesService,
     private toast: ToastService,
     private auth: AuthenticationService,
+    private message: MessageService,
   ) {}
 
   private get restaurantId(): string {
@@ -270,14 +272,20 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   confirmDeleteArea(): void {
     if (!this.deleteAreaTarget) return;
-    const movedCount = this.tables.filter(
-      t => t.areaId === this.deleteAreaTarget!.id,
-    ).length;
-    this.tablesService.deleteArea(this.deleteAreaTarget.id)
-      .subscribe(() => this.refresh());
-    this.toast.success(
-      `Area deleted. ${movedCount} table(s) unassigned.`,
-    );
+    this.tablesService.deleteArea(this.deleteAreaTarget.id).subscribe({
+      next: () => {
+        this.refresh();
+        this.toast.success('Area deleted');
+      },
+      error: (err) => {
+        // The interceptor already queued this on the global MessageService (a
+        // persistent app-level banner); clear it so only one clean toast shows.
+        this.message.clear();
+        this.toast.error(
+          this.extractError(err, 'Could not delete this area. Please try again.'),
+        );
+      },
+    });
     this.deleteAreaTarget = null;
   }
 
@@ -344,10 +352,33 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   confirmDeleteTable(): void {
     if (!this.deleteTableTarget) return;
-    this.tablesService.deleteTable(this.deleteTableTarget.id)
-      .subscribe(() => this.refresh());
-    this.toast.success('Table deleted');
+    this.tablesService.deleteTable(this.deleteTableTarget.id).subscribe({
+      next: () => {
+        this.refresh();
+        this.toast.success('Table deleted');
+      },
+      error: (err) => {
+        // The interceptor already queued this on the global MessageService (a
+        // persistent app-level banner); clear it so only one clean toast shows.
+        this.message.clear();
+        this.toast.error(
+          this.extractError(err, 'Could not delete this table. Please try again.'),
+        );
+      },
+    });
     this.deleteTableTarget = null;
+  }
+
+  /**
+   * Pull a user-facing message out of a failed delete. The error interceptor
+   * re-throws the backend message as a plain string, but guard against the
+   * structured HttpErrorResponse shape too; fall back to a clear default so a
+   * blocked delete never produces a blank/generic toast.
+   */
+  private extractError(err: unknown, fallback: string): string {
+    if (typeof err === 'string' && err.trim()) return err;
+    const e = err as { error?: { message?: string }; message?: string } | null;
+    return e?.error?.message || e?.message || fallback;
   }
 
   handleTableActiveToggle(table: RestaurantTable): void {
@@ -574,7 +605,9 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
       this.toast.error('No tables with QR codes in this area');
       return;
     }
-    generateQRPrintSheet(areaTables, area);
+    // Fire-and-forget: the print window opens synchronously inside this gesture
+    // (popup-safe); QR data URLs fill it a moment later.
+    void generateQRPrintSheet(areaTables, area);
     this.toast.success(`Print sheet opened for ${area.name}`);
   }
 

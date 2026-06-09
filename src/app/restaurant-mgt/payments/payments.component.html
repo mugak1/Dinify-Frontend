@@ -4,64 +4,64 @@
             <div class="flex flex-row">
                 <div class="left-0">
                     <div class="text-xl font-light mt-3">Payments</div>  
-                   <!--  <div class="text-gray-700">
+                   <!--  <div class="text-muted-foreground">
                         <span class="font-medium">Active Orders: </span> <span class="font-bold">006</span>
                     </div>
                     <div>
                         +2%
                     </div> -->
                 </div>
-                <button (click)="DisburseNow()" class="inline-flex items-center text-d-red border-d-red border focus:outline-none hover:bg-gray-100 hover:opacity-75 active:opacity-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-3 py-1.5  ml-auto" type="button">
+                <button app-dn-button variant="outline" (click)="DisburseNow()" class="ml-auto" type="button">
                     <span class="sr-only">Action button</span>
                     Disburse Funds
                     <!-- <svg class="w-2.5 h-2.5 ms-2.5"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
                     </svg> -->
                 </button>
-      <!--           <div class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">UGX 200K</div>  -->               
+      <!--           <div class="bg-card rounded border text-muted-foreground border-border py-2 px-4 ml-auto font-bold">UGX 200K</div>  -->
             </div>
         </a>
-        <a class="block p-6 bg-gray-200 rounded text-sm">
+        <a class="block p-6 bg-muted rounded text-sm">
             <div class="flex flex-row">
                 <div class="left-0">
-                    <div class="text-gray-700">
+                    <div class="text-muted-foreground">
                         <span class="font-medium">Actual Balance</span> 
                     </div>
                     <div>
                        Today
                     </div>
                 </div>
-                <div *ngIf="acc" class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">
+                <div *ngIf="acc" class="bg-card rounded border text-muted-foreground border-border py-2 px-4 ml-auto font-bold">
                   UGX {{(++acc.card_actual_balance++acc.cash_actual_balance++acc.momo_actual_balance)|number}}
                 </div>                
             </div>
         </a>
-        <a class="block p-6 bg-gray-200 rounded text-sm">
+        <a class="block p-6 bg-muted rounded text-sm">
             <div class="flex flex-row">
                 <div class="left-0">
-                    <div class="text-gray-700">
+                    <div class="text-muted-foreground">
                         <span class="font-medium">Available Balance </span>
                     </div>
                     <div>
                         Today
                     </div>
                 </div>
-                <div class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">
+                <div class="bg-card rounded border text-muted-foreground border-border py-2 px-4 ml-auto font-bold">
                   UGX {{(++acc.card_available_balance++acc.cash_available_balance++acc.momo_available_balance)|number}}
                 </div>                
             </div>
         </a>
     </div>
-    <div class="flex-grow lg:border border-gray-300">
+    <div class="flex-grow lg:border border-border">
        <!--  <ul class="hidden text-sm font-medium text-center shadow sm:flex">
           <li class="w-full focus-within:z-10">
-              <a class="inline-block w-full p-2 text-gray-900 bg-gray-100 border-r border-gray-200  rounded-s-lg focus:ring-4 focus:ring-blue-300 active focus:outline-none font-bold">Active Orders</a>
+              <a class="inline-block w-full p-2 text-foreground bg-muted border-r border-border  rounded-s-lg focus:ring-4 focus:ring-ring active focus:outline-none font-bold">Active Orders</a>
           </li>
           <li class="w-full focus-within:z-10">
-              <a class="inline-block w-full p-2 bg-white border-r border-gray-200  hover:text-gray-700 hover:bg-gray-50 focus:ring-4 focus:ring-blue-300 focus:outline-none">Paid Orders</a>
+              <a class="inline-block w-full p-2 bg-card border-r border-border  hover:text-muted-foreground hover:bg-accent focus:ring-4 focus:ring-ring focus:outline-none">Paid Orders</a>
           </li>
           <li class="w-full focus-within:z-10">
-              <a class="inline-block w-full p-2 bg-white border-r border-gray-200  hover:text-gray-700 hover:bg-gray-50 focus:ring-4 focus:ring-blue-300 focus:outline-none">All Orders</a>
+              <a class="inline-block w-full p-2 bg-card border-r border-border  hover:text-muted-foreground hover:bg-accent focus:ring-4 focus:ring-ring focus:outline-none">All Orders</a>
           </li>
         </ul> -->
 <!---->       <div class="flex flex-1">
@@ -70,16 +70,16 @@
             <label for="table-search" class="flex justify-center align-middle"> <span class="mx-6 my-auto">Search</span></label>
         <div class="relative mr-3 flex-grow">
             <div class="absolute inset-y-0 rtl:inset-r-0 start-0 flex items-center ps-3 pointer-events-none">
-                <svg class="w-4 h-4 text-gray-500"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                <svg class="w-4 h-4 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
                 </svg>
             </div>
-        <input type="text" type="text" style="padding-top:.5rem; padding-bottom: 0.5rem;padding-right: 0.75rem;" id="table-search-users" class="block pt-2 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 w-full"placeholder="Search for payment details here">
+        <input type="text" type="text" style="padding-top:.5rem; padding-bottom: 0.5rem;padding-right: 0.75rem;" id="table-search-users" class="block pt-2 ps-10 text-sm text-foreground border border-border rounded-lg bg-muted focus:ring-ring focus:border-ring w-full"placeholder="Search for payment details here">
     </div>    
     </div>
       </div> 
           
-            <div class="pl-3 pr-1 border mt-1 border-gray-200 bg-white">
+            <div class="pl-3 pr-1 border mt-1 border-border bg-card">
               <table class="w-full py-0 text-center">
 
        <tr *ngIf="rest&&list?.length===0">
@@ -89,10 +89,10 @@
         <td class="w-[17%]"><span class="ml-4">{{m.quantity}}</span></td>
         <td class="w-[13%] !capitalize">{{m.status}}</td>
         <td class="w-[15%]">
-          <button type="button" [disabled]="m.status=='served'"  class="p-2 my-1 float-end text-white bg-blue-500 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium text-sm w-40 text-center disabled:bg-white disabled:border disabled:border-gray-300 disabled:text-gray-300" >Served</button>
+          <button type="button" [disabled]="m.status=='served'"  class="p-2 my-1 float-end text-primary-foreground bg-primary hover:bg-accent focus:ring-4 focus:outline-none focus:ring-ring font-medium text-sm w-40 text-center disabled:bg-card disabled:border disabled:border-border disabled:text-muted-foreground" >Served</button>
         </td>-->
       </tr> 
-      <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+      <thead class="text-xs text-muted-foreground uppercase bg-muted">
         <tr>
         
             <th class="text-start py-3">Date</th>
@@ -130,10 +130,8 @@
            
     
     </main>
-    <div *ngIf="showModal" class="opacity-50 fixed inset-0 z-40 bg-black"></div>
-    <!-- Edit user modal -->
-    <div *ngIf="showModal"  tabindex="-1"  class="fixed top-0 left-0 right-0 z-50 items-center justify-center w-full overflow-x-hidden overflow-y-auto md:inset-0">
-        <div  *ngIf="PaymentForm" class="relative bg-white w-1/2 mx-auto my-auto p-4">
+    <app-dn-dialog [open]="showModal" maxWidth="lg" (closed)="closeModal()">
+        <div *ngIf="PaymentForm" class="relative">
           <!-- Modal content -->
           <div class="relative rounded-lg">
               <div  class="flex items-start justify-between p-4 rounded-t">
@@ -141,7 +139,7 @@
     
                    <span class="font-thin">Disburse Collections</span>
                   </h3>
-                 <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
+                 <button type="button" (click)="closeModal()" class="text-muted-foreground bg-transparent hover:bg-accent hover:text-foreground rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
                   <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                       <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
                   </svg>
@@ -158,36 +156,36 @@
                     </label>
                   </div> -->
                   <div class="mt-6 sm:mt-8 lg:mt-0">
-                    <div class="space-y-4 rounded-lg border border-gray-100 bg-gray-50 p-6">
+                    <div class="space-y-4 rounded-lg border border-border bg-muted p-6">
                       <div *ngIf="acc" class="space-y-2">
     <!--                     <dl class="flex items-center justify-between gap-4">
-                          <dt class="text-base font-normal text-gray-500 dark:text-gray-400">Original price</dt>
-                          <dd class="text-base font-medium text-gray-900 dark:text-white">$6,592.00</dd>
+                          <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Original price</dt>
+                          <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$6,592.00</dd>
                         </dl>
           
                         <dl class="flex items-center justify-between gap-4">
-                          <dt class="text-base font-normal text-gray-500 dark:text-gray-400">Savings</dt>
+                          <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Savings</dt>
                           <dd class="text-base font-medium text-green-500">-$299.00</dd>
                         </dl>
           
                         <dl class="flex items-center justify-between gap-4">
-                          <dt class="text-base font-normal text-gray-500 dark:text-gray-400">Store Pickup</dt>
-                          <dd class="text-base font-medium text-gray-900 dark:text-white">$99</dd>
+                          <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Store Pickup</dt>
+                          <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$99</dd>
                         </dl>
           
                         <dl class="flex items-center justify-between gap-4">
-                          <dt class="text-base font-normal text-gray-500 dark:text-gray-400">Tax</dt>
-                          <dd class="text-base font-medium text-gray-900 dark:text-white">$799</dd>
+                          <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Tax</dt>
+                          <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$799</dd>
                         </dl>
                       </div> -->
           
-                      <dl class="flex items-center justify-between gap-4 border-t border-gray-200 pt-2">
-                        <dt class="text-base font-semibold text-gray-900">Actual Balance</dt>
-                        <dd class="text-base font-semibold text-gray-900">UGX {{(++acc.card_actual_balance++acc.cash_actual_balance++acc.momo_actual_balance)|number}}</dd>
+                      <dl class="flex items-center justify-between gap-4 border-t border-border pt-2">
+                        <dt class="text-base font-semibold text-foreground">Actual Balance</dt>
+                        <dd class="text-base font-semibold text-foreground">UGX {{(++acc.card_actual_balance++acc.cash_actual_balance++acc.momo_actual_balance)|number}}</dd>
                       </dl>
-                      <dl class="flex items-center justify-between gap-4 border-gray-200 pt-2">
-                        <dt class="text-base font-semibold text-gray-900">Available Balance</dt>
-                        <dd class="text-base font-semibold text-gray-900">UGX {{(++acc.card_available_balance++acc.cash_available_balance++acc.momo_available_balance)|number}}</dd>
+                      <dl class="flex items-center justify-between gap-4 border-border pt-2">
+                        <dt class="text-base font-semibold text-foreground">Available Balance</dt>
+                        <dd class="text-base font-semibold text-foreground">UGX {{(++acc.card_available_balance++acc.cash_available_balance++acc.momo_available_balance)|number}}</dd>
                       </dl>
                     </div>
                     </div>
@@ -198,16 +196,16 @@
                   <div class="mt-4 flex flex-row space-x-3">
                       <div class="flex">
                           <div class="flex items-center h-5">
-                              <input formControlName="payment_form" value="full" type="radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300">
+                              <input formControlName="payment_form" value="full" type="radio" class="w-4 h-4 text-primary bg-muted border-border">
                           </div>
                           <div class="ms-2 text-sm">
-                              <label for="helper-radio" class="font-medium text-gray-900">Full Payment</label>
+                              <label for="helper-radio" class="font-medium text-foreground">Full Payment</label>
                               <p id="helper-radio-text" class="text-xs font-normal">Pay the full outstanding amount UGX {{order.actual_cost|number}}</p>
                           </div>
                       </div>
                       <div class="flex">
                           <div class="flex items-center h-5">
-                              <input formControlName="payment_form" value="split" type="radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300">
+                              <input formControlName="payment_form" value="split" type="radio" class="w-4 h-4 text-primary bg-muted border-border">
                           </div>
                           <div class="ms-2 text-sm">
                               <label for="helper-radio" class="font-medium">Split Payment</label>
@@ -224,7 +222,7 @@
                           <div class="grid grid-cols-2 gap-2 w-full">
                               <div>
                                   <input #momopayment formControlName="payment_mode" value="momo" class="hidden" id="radio_1" type="radio">
-                                  <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-black border-2':momopayment.checked,'border-gray-300':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_1">
+                                  <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-primary border-2':momopayment.checked,'border-border':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_1">
                                     <svg class="mx-auto" x="0px" y="0px"
                                     width="60px" height="60px" viewBox="0 0 276.661 276.262" enable-background="new 0 0 276.661 276.262"
                                     xml:space="preserve">
@@ -273,7 +271,7 @@
                               </div>
                               <div>
                                   <input #cardpayment formControlName="payment_mode" value="card" class="hidden" id="radio_2" type="radio">
-                                  <label for="radio_2" (click)="cardpayment.click()" [ngClass]="{'border-2 border-black':cardpayment.checked,'border-gray-300':!cardpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_2">
+                                  <label for="radio_2" (click)="cardpayment.click()" [ngClass]="{'border-2 border-primary':cardpayment.checked,'border-border':!cardpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_2">
                                     <svg version="1.1" class="mx-auto" width="60" height="60" viewBox="0 0 24 24" xml:space="preserve">
                                         
                                             <g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M10.8321 1.24802C11.5779 0.917327 12.4221 0.917327 13.1679 1.24802L21.7995 5.0754C23.7751 5.95141 23.1703 9 21.0209 9H2.97906C0.829669 9 0.224891 5.9514 2.20047 5.0754L10.8321 1.24802ZM12.3893 3.12765C12.1407 3.01742 11.8593 3.01742 11.6107 3.12765L3.41076 6.76352C3.31198 6.80732 3.34324 6.95494 3.45129 6.95494H20.5487C20.6568 6.95494 20.688 6.80732 20.5892 6.76352L12.3893 3.12765Z" fill="#0F0F0F"></path> <path d="M2 22C2 21.4477 2.44772 21 3 21H21C21.5523 21 22 21.4477 22 22C22 22.5523 21.5523 23 21 23H3C2.44772 23 2 22.5523 2 22Z" fill="#0F0F0F"></path> <path d="M11 19C11 19.5523 11.4477 20 12 20C12.5523 20 13 19.5523 13 19V11C13 10.4477 12.5523 10 12 10C11.4477 10 11 10.4477 11 11V19Z" fill="#0F0F0F"></path> <path d="M6 20C5.44772 20 5 19.5523 5 19L5 11C5 10.4477 5.44771 10 6 10C6.55228 10 7 10.4477 7 11L7 19C7 19.5523 6.55229 20 6 20Z" fill="#0F0F0F"></path> <path d="M17 19C17 19.5523 17.4477 20 18 20C18.5523 20 19 19.5523 19 19V11C19 10.4477 18.5523 10 18 10C17.4477 10 17 10.4477 17 11V19Z" fill="#0F0F0F"></path> </g>
@@ -286,7 +284,7 @@
                              
     <!-- -->                       <!--    <div>
                                   <input #cashpayment formControlName="payment_mode" value="cash" class="hidden" id="radio_3" type="radio">
-                                  <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-black':cashpayment.checked,'border-gray-300':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
+                                  <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-primary':cashpayment.checked,'border-border':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
                                       <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
                   
                                           <defs>
@@ -308,34 +306,34 @@
                       
                       </div>
                       <div *ngIf="PaymentForm.get('payment_mode')?.value==='momo'" class="mt-4">
-                      <!--   <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Phone number</label>
-                        <input formControlName="msisdn" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "> -->
-                        <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Phone number</label>
-                        <div class="relative mt-2 rounded-md shadow-sm">
+                      <!--   <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Phone number</label>
+                        <input formControlName="msisdn" class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 "> -->
+                        <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Phone number</label>
+                        <div class="relative mt-2 rounded-md shadow-[var(--shadow-sm)]">
                             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                              <span class="text-gray-500 sm:text-sm">+256</span>
+                              <span class="text-muted-foreground sm:text-sm">+256</span>
                             </div>
-                            <input type="text" formControlName="msisdn" class="block rounded w-full py-1.5 pl-[3.5rem] pr-20 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6bg-gray-50 border border-gray-300 placeholder:text-xs focus:ring-primary-600 focus:border-primary-600">
+                            <input type="text" formControlName="msisdn" class="block rounded w-full py-1.5 pl-[3.5rem] pr-20 text-foreground ring-1 ring-inset ring-border placeholder:text-muted-foreground focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6bg-muted border border-border placeholder:text-xs focus:ring-ring focus:border-ring">
                           
                           </div>
                     </div>
                     <div *ngIf="!require_otp" class="mt-4">
-                        <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Enter Amount to Disburse</label>
-                        <input formControlName="amount" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 ">
+                        <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Amount to Disburse</label>
+                        <input formControlName="amount" class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 ">
                     </div>
                       <div class="mt-8">
-                          <button type="submit" class="relative inline-flex items-center justify-center p-4 px-6 py-3 overflow-hidden font-medium bg-black text-white transition duration-300 ease-out border-2 border-gray-500 rounded-full shadow-md group w-full hover:opacity-75 active:opacity-100">
+                          <button app-dn-button type="submit" class="w-full">
             Pay Now
                           </button>
                       </div>
                       </div>
-                      <div *ngIf="require_otp" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-screen rounded-2xl">
+                      <div *ngIf="require_otp" class="relative bg-card px-6 pt-10 pb-9 shadow-[var(--shadow-lg)] mx-auto w-full max-w-screen rounded-2xl">
                         <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
                           <div class="flex flex-col items-center justify-center text-center space-y-2">
                             <div class="font-semibold text-3xl">
                               <p>One Time Password(OTP)</p>
                             </div>
-                            <div class="flex flex-row text-sm font-medium text-gray-400">
+                            <div class="flex flex-row text-sm font-medium text-muted-foreground">
                               <p>We have sent the OTP to your phone</p>
                             </div>
                             <div class="font-semibold text-xl">
@@ -350,31 +348,31 @@
                                 <div>
                                     <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
                                 <!--   <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
                                   </div>
                                   <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
                                   </div>
                                   <div class="w-16 h-16">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
                                   </div>
                                   <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
                                   </div> -->
                                 </div>
                     
                                 <div class="flex flex-col space-y-5">
                                   <div>
-                                    <button type="submit" [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
+                                    <button app-dn-button type="submit" [disabled]="!!input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
                                       Verify OTP & Pay {{'UGX '+(0|number)}}
                                     </button>
                                   </div>
-                                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 -my-2 text-gray-500">
-                                    <a (click)="require_otp=false" class="flex flex-row items-center text-gray-600 underline" [routerLink]="[]" >Cancel</a>
+                                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 -my-2 text-muted-foreground">
+                                    <a (click)="require_otp=false" class="flex flex-row items-center text-muted-foreground underline" [routerLink]="[]" >Cancel</a>
                                   </div>
                   
-                                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
-                                    <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.PaymentForm.get('msisdn')?.value,null)" class="flex flex-row items-center text-d-red" [routerLink]="[]" >Resend</a>
+                                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-muted-foreground">
+                                    <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.PaymentForm.get('msisdn')?.value,null)" class="flex flex-row items-center text-primary" [routerLink]="[]" >Resend</a>
                                   </div>
                                 </div>
                               </div>
@@ -393,5 +391,5 @@
                 <div>
         </div>
     </div>
-    </div>
+    </app-dn-dialog>
     

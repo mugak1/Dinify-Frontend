@@ -604,25 +604,59 @@ export interface SalesReportListItem {
   time_created: string
   last_updated_by: string
 }
-export interface Ticket {
+// Restaurant-facing support ticketing (api/v1/support/issues/).
+// Mirrors the restaurant read serializer — i.e. WITHOUT internal_notes or
+// assigned_to, which are admin-only (those live on SupportIssueAdmin below,
+// used by the Dinify-admin triage screen).
+export type SupportCategory =
+  | 'orders_kds'
+  | 'menu'
+  | 'tables_qr'
+  | 'payments'
+  | 'reports'
+  | 'account'
+  | 'bug'
+  | 'other';
+export type SupportImpact =
+  | 'blocking_service'
+  | 'affecting_service'
+  | 'non_urgent'
+  | 'question';
+export type SupportIssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type PreferredContactMethod = 'whatsapp' | 'phone' | 'email';
+
+export interface SupportIssue {
   id: string;
-  ticket_type: 'Incident' | 'Request'| 'Problem'| 'Change'| 'feedback'|'support';
-  ticket_title: string;
-  ticket_description: string;
-  ticket_status: 'open' | 'In Progress' | 'closed';
-  resolution_notes: string;
-  time_created: string
-  time_last_updated: string
-  time_deleted: any
-  deleted: boolean
-  deletion_reason: any
-  archived: boolean
-  ticket_priority: string
-  created_by: string
-  deleted_by: any
-  restaurant: any
-  assigned_to: any
-  assigned_by: any
+  reference: string;
+  restaurant: string;
+  restaurant_name: string;
+  category: SupportCategory;
+  impact: SupportImpact;
+  status: SupportIssueStatus;
+  title: string;
+  description: string;
+  contact_phone: string | null;
+  contact_email: string | null;
+  preferred_contact_method: PreferredContactMethod | null;
+  page_url: string | null;
+  user_agent: string | null;
+  resolution_summary: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  created_by_name: string;
+  time_created: string;
+  time_last_updated: string;
+}
+
+// Admin/triage view of a support issue (api/v1/support/admin/issues/).
+// Superset of SupportIssue with the admin-only fields from the admin read
+// serializer. The assign-to-user picker is deferred for v1, but assigned_to /
+// assigned_to_name remain on the model for a later PR.
+export interface SupportIssueAdmin extends SupportIssue {
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  internal_notes: string | null;
+  created_by: string;
 }
 export interface SalesTrendListItem {
   number_of_sales: number

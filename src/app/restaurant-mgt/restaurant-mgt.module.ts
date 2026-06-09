@@ -25,7 +25,6 @@ import { TablesComponent } from './tables/tables.component';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { RestProfileComponent } from './settings/rest-profile/rest-profile.component';
 import { BrandingComponent } from './settings/branding/branding.component';
-import { OrdersComponent } from './orders/orders.component';
 import { ReportsComponent } from './reports/reports.component';
 import { ReportDetailComponent } from './report-detail/report-detail.component';
 import { ReviewsComponent } from './reviews/reviews.component';
@@ -53,6 +52,9 @@ import { UpsellCarouselComponent } from './menu/components/upsell-carousel/upsel
 import { PreviewMenuDrawerComponent } from './menu/components/preview-menu-drawer/preview-menu-drawer.component';
 import { DialogComponent } from '../_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from '../_shared/ui/button/button.component';
+import { CardComponent } from '../_shared/ui/card/card.component';
+import { BadgeComponent } from '../_shared/ui/badge/badge.component';
+import { SheetComponent } from '../_shared/ui/sheet/sheet.component';
 import { PresetTagsComponent } from './settings/preset-tags/preset-tags.component';
 
 const routes: Routes = [
@@ -72,7 +74,6 @@ const routes: Routes = [
   
   {path:'reviews',component:ReviewsComponent,title:'Reviews'},
   {path:'reviews-management',component:ReviewsManagementComponent,title:'Reviews Management'},
-  {path:'orders',component:OrdersComponent,title:'Orders'},
   {path:'payments',component:PaymentsComponent,title:'Payments'},
   {path:'reports',component:ReportsComponent,title:'Reports'}, 
   {path:'support',component:SupportComponent,title:'Support'},  
@@ -89,7 +90,6 @@ const routes: Routes = [
     MenuComponent,
     RestProfileComponent,
     BrandingComponent,
-    OrdersComponent,
     ReportsComponent,
     ReportDetailComponent,
     RestUsersComponent,
@@ -143,6 +143,9 @@ const routes: Routes = [
     PreviewMenuDrawerComponent,
     DialogComponent,
     ButtonComponent,
+    CardComponent,
+    BadgeComponent,
+    SheetComponent,
     TablesComponent,
     PresetTagsComponent,
 ],
