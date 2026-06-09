@@ -23,9 +23,12 @@
          [ngClass]="isOpen ? 'px-4' : 'px-2'">
       <a *ngFor="let item of navItems"
          [routerLink]="item.route" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
-         class="flex items-center rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+         #rla="routerLinkActive" ariaCurrentWhenActive="page"
+         class="relative flex items-center rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
          [ngClass]="isOpen ? 'gap-3 px-3 py-2' : 'justify-center mx-auto h-[40px] w-[40px]'"
          [appTooltip]="!isOpen ? item.label : ''">
+        <span *ngIf="rla.isActive && isOpen" aria-hidden="true"
+              class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r bg-sidebar-primary"></span>
         <svg aria-hidden="true" class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [ngSwitch]="item.icon">
           <ng-container *ngSwitchCase="'dashboard'"><svg:rect width="7" height="9" x="3" y="3" rx="1"/><svg:rect width="7" height="5" x="14" y="3" rx="1"/><svg:rect width="7" height="9" x="14" y="12" rx="1"/><svg:rect width="7" height="5" x="3" y="16" rx="1"/></ng-container>
           <ng-container *ngSwitchCase="'menu'"><svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><svg:path d="M7 2v20"/><svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></ng-container>
