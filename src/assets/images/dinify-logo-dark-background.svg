@@ -3,7 +3,7 @@
   <defs>
     <style>
       .logo-icon {
-        fill: #ff0000; /* red icon */
+        fill: #ff2c32; /* red icon */
         stroke-width: 0;
       }
 

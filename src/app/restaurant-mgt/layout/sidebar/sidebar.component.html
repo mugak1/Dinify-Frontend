@@ -10,7 +10,7 @@
          [ngClass]="{ 'justify-center': !isOpen }">
       <!-- Expanded: full logo (emblem + wordmark) -->
       <a *ngIf="isOpen" routerLink="/rest-app/dashboard" class="flex items-center overflow-hidden">
-        <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-8 w-auto max-w-[140px]" />
+        <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify" class="h-8 w-auto max-w-[140px]" />
       </a>
       <!-- Collapsed: emblem only -->
       <a *ngIf="!isOpen" routerLink="/rest-app/dashboard" class="flex items-center justify-center w-full">
@@ -47,7 +47,7 @@
   <!-- Toggle button: OUTSIDE aside, INSIDE wrapper -->
   <button (click)="sidebarToggle.emit()"
           aria-label="Toggle sidebar" [attr.aria-expanded]="isOpen"
-          class="absolute top-5 -right-3 z-10 bg-white ring-1 ring-black/5 rounded-full w-6 h-6 hover:bg-gray-50 text-sidebar-foreground/70 hover:text-sidebar-foreground shadow-sm hidden lg:flex items-center justify-center opacity-50 hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+          class="absolute top-5 -right-3 z-10 bg-sidebar ring-1 ring-sidebar-border focus-visible:ring-2 focus-visible:ring-sidebar-ring rounded-full w-6 h-6 hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground shadow-sm hidden lg:flex items-center justify-center opacity-50 hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
     <svg aria-hidden="true" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path [attr.d]="isOpen ? 'm11 17-5-5 5-5' : 'm6 17 5-5-5-5'"/>
       <path [attr.d]="isOpen ? 'm18 17-5-5 5-5' : 'm13 17 5-5-5-5'"/>
