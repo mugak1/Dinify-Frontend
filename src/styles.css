@@ -1,5 +1,6 @@
 @import '@fontsource-variable/bricolage-grotesque/wght.css';
 @import '@fontsource-variable/plus-jakarta-sans/wght.css';
+@import '@fontsource-variable/gabarito/wght.css';
 
 @tailwind base;
 @tailwind components;
@@ -118,6 +119,15 @@
   body {
     @apply no-scrollbar;
   }
+}
+
+/* Portal display tier — page titles, section/card headings, and dashboard metric
+   numbers use Gabarito; body, tables, forms, and controls stay on Plus Jakarta. */
+app-restaurant-mgt h1,
+app-restaurant-mgt h2,
+app-restaurant-mgt h3,
+app-restaurant-mgt app-animated-number {
+  font-family: "Gabarito Variable", "Plus Jakarta Sans Variable", system-ui, sans-serif;
 }
 
 .ng-submitted input.ng-invalid,.ng-submitted input.ng-invalid .error-msg,
