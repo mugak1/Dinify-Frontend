@@ -1,5 +1,5 @@
 <header
-  class="sticky top-0 z-30 bg-sidebar text-sidebar-foreground border-b border-sidebar-border px-3 sm:px-4 md:px-6"
+  class="sticky top-0 z-30 bg-card border-b border-border px-3 sm:px-4 md:px-6"
   [ngClass]="compact ? 'py-1.5 md:py-2' : 'py-3 md:py-4'"
 >
   <div
@@ -10,7 +10,7 @@
     <div class="flex items-center gap-2 sm:gap-4 flex-1">
       <button
         (click)="menuClick.emit()"
-        class="lg:hidden p-2 -ml-2 rounded-md hover:bg-sidebar-accent transition-colors flex-shrink-0"
+        class="lg:hidden p-2 -ml-2 rounded-md hover:bg-accent transition-colors flex-shrink-0"
         aria-label="Toggle sidebar"
       >
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -22,14 +22,14 @@
 
       <!-- Date range pills (dashboard only) -->
       @if (dashboardService.isDashboardActive$ | async) {
-        <div class="bg-sidebar-accent rounded-lg p-1 flex gap-1 overflow-x-auto" role="tablist" aria-label="Date range selector">
+        <div class="bg-muted rounded-lg p-1 flex gap-1 overflow-x-auto" role="tablist" aria-label="Date range selector">
           @for (range of ranges; track range.value) {
             <button
               (click)="onDateRangeChange(range.value)"
               class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 active:scale-95"
               [class]="(dashboardService.dateRange$ | async) === range.value
                 ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-sidebar-foreground/70 hover:text-sidebar-foreground'"
+                : 'text-foreground hover:text-foreground'"
               role="tab"
               [attr.aria-selected]="(dashboardService.dateRange$ | async) === range.value"
             >
@@ -47,12 +47,12 @@
 
     <!-- Row 2: Right side controls -->
     <div class="flex items-center justify-between md:justify-end gap-3 md:gap-4 flex-shrink-0"
-         [class]="(dashboardService.isDashboardActive$ | async) ? 'border-t md:border-t-0 md:border-l border-sidebar-border pt-3 md:pt-0 md:pl-4' : ''">
+         [class]="(dashboardService.isDashboardActive$ | async) ? 'border-t md:border-t-0 md:border-l border-border pt-3 md:pt-0 md:pl-4' : ''">
 
       <!-- Dashboard-specific: time, refresh status, auto-refresh toggle -->
       @if (dashboardService.isDashboardActive$ | async) {
         <!-- Current time (hidden on mobile) -->
-        <div class="hidden sm:flex items-center gap-1.5 text-xs text-sidebar-foreground">
+        <div class="hidden sm:flex items-center gap-1.5 text-xs text-foreground">
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
@@ -60,10 +60,10 @@
           <span class="font-medium tabular-nums">{{ currentTime }}</span>
         </div>
 
-        <div class="hidden sm:block w-px h-4 bg-sidebar-border"></div>
+        <div class="hidden sm:block w-px h-4 bg-border"></div>
 
         <!-- Live / Paused indicator -->
-        <div class="flex items-center gap-1.5 text-xs text-sidebar-foreground">
+        <div class="flex items-center gap-1.5 text-xs text-foreground">
           <div
             class="w-2 h-2 rounded-full"
             [class]="(dashboardService.autoRefresh$ | async) ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'"
@@ -75,7 +75,7 @@
 
         <!-- Auto-refresh toggle -->
         <div class="flex items-center gap-2">
-          <label for="auto-refresh" class="text-xs text-sidebar-foreground cursor-pointer">Auto-refresh</label>
+          <label for="auto-refresh" class="text-xs text-foreground cursor-pointer">Auto-refresh</label>
           <app-dn-switch
             size="sm"
             [checked]="(dashboardService.autoRefresh$ | async) ?? true"
@@ -90,11 +90,11 @@
         <div *ngIf="auth.currentRestaurantRole?.restaurant_id" class="hidden sm:flex items-center gap-2 mr-2">
           <img
             *ngIf="auth.currentRestaurant?.logo"
-            class="w-8 h-8 rounded-full border border-sidebar-border object-cover"
+            class="w-8 h-8 rounded-full border border-border object-cover"
             [src]="baseUrl + auth.currentRestaurant.logo"
             [alt]="auth.currentRestaurant.name"
           >
-          <span class="text-sm font-medium text-sidebar-foreground truncate max-w-[160px]">
+          <span class="text-sm font-medium text-foreground truncate max-w-[160px]">
             {{ auth.currentRestaurantRole.restaurant }}
           </span>
         </div>
@@ -102,7 +102,7 @@
         <!-- Notifications -->
         <a
           routerLink="/rest-app/notifications"
-          class="p-2 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground/70 hover:text-sidebar-foreground"
+          class="p-2 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
         >
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
@@ -111,7 +111,7 @@
         </a>
 
         <!-- Logout -->
-        <button (click)="logoutClick.emit()" class="p-2 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground/70 hover:text-sidebar-foreground" title="Logout">
+        <button (click)="logoutClick.emit()" class="p-2 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title="Logout">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/>
