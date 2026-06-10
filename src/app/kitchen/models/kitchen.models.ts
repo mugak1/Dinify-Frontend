@@ -27,8 +27,6 @@ export interface KitchenTicketItem {
   modifiers: string[];
   /** Allergen snapshot — self-contained so the board needs no menu lookup. */
   allergen_tags: { name: string; icon: string; colour: string }[];
-  /** Free-text note for this line (kitchen instruction). */
-  item_note?: string | null;
   /** Add-ons chosen for this line. Optional: many lines have none. */
   extras?: KitchenTicketExtra[];
 }

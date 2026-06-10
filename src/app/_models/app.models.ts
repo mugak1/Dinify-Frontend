@@ -410,7 +410,6 @@ export interface OrderDetail {
   order_number: number
   time_created: string
   table_details: OrderedTableDetails
-  order_remarks: any
   count_items_served: number
   total_paid: string
   balance_payable: string
@@ -439,7 +438,6 @@ export interface OrdersListItem{
   table_details: OrderedTableDetails
   count_items_served:number
   count_items_considered:number
-  order_remarks:string;
 }
 
 export interface OrderedItem {
