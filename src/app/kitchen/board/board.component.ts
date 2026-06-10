@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 
-import { KitchenTicket } from '../models/kitchen.models';
+import { FulfilmentStatus, KitchenTicket } from '../models/kitchen.models';
 import { classifyEscalation } from '../services/kitchen-logic';
 import { KitchenOrderService } from '../services/kitchen-order.service';
 import { TicketCardComponent } from './ticket-card/ticket-card.component';
@@ -64,6 +64,10 @@ export class BoardComponent implements OnInit, OnDestroy {
   private tickHandle?: ReturnType<typeof setInterval>;
   /** Previous ticket-ID set; null until the first load so we never chime on boot. */
   private prevIds: Set<string> | null = null;
+  /** Previous fulfilment status per id; rebuilt each emission so the ready cue fires once. */
+  private prevStatus = new Map<string, FulfilmentStatus>();
+  /** IDs that have already fired the overdue cue; null until the first tick (boot silence). */
+  private overdueFired: Set<string> | null = null;
   private readonly onVisibility = () => this.handleVisibility();
 
   constructor(public readonly service: KitchenOrderService) {
@@ -77,7 +81,18 @@ export class BoardComponent implements OnInit, OnDestroy {
       if (this.prevIds !== null) {
         const fresh = list.filter(t => !this.prevIds!.has(t.id) && t.fulfilment_status === 'new');
         if (fresh.length) this.onNewTickets(fresh.map(t => t.id));
+        // Order-ready cue: any ticket transitioning INTO 'ready' (fires once across
+        // the optimistic local tap and the poll that re-confirms it).
+        if (this.soundArmed()) {
+          const becameReady = list.some(
+            t => t.fulfilment_status === 'ready' && this.prevStatus.get(t.id) !== 'ready',
+          );
+          if (becameReady) this.chimeReady();
+        }
       }
+      // Rebuild every emission (outside the sentinel): seeds on first load, auto-drops
+      // departed ids, and records 'ready' so optimistic-tap + poll fire exactly once.
+      this.prevStatus = new Map(list.map(t => [t.id, t.fulfilment_status]));
       this.prevIds = ids;
     });
   }
@@ -87,6 +102,7 @@ export class BoardComponent implements OnInit, OnDestroy {
     this.tickHandle = setInterval(() => {
       const t = Date.now();
       this.now.set(t);
+      this.detectOverdue(t);
       this.clampCurrentPage();
     }, 1000);
     if (typeof document !== 'undefined') {
@@ -187,7 +203,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       this.audioCtx = new Ctor();
       void this.audioCtx.resume();
       this.soundArmed.set(true);
-      this.chime(); // confirmation blip so staff know it's armed
+      this.chimeNew(); // confirmation blip so staff know it's armed
     } catch {
       this.soundArmed.set(false);
     }
@@ -208,27 +224,86 @@ export class BoardComponent implements OnInit, OnDestroy {
       });
     }, ENTER_MS);
     // Chime (only if armed)
-    if (this.soundArmed()) this.chime();
+    if (this.soundArmed()) this.chimeNew();
   }
 
-  private chime(): void {
+  /**
+   * Play a sequence of synthesised notes through the shared AudioContext.
+   * Each note is { freq, at } (start offset in seconds) with an optional `dur`
+   * (decay end). Same sine + exponential envelope the board has always used —
+   * short, distinct, not grating; no audio files.
+   */
+  private playTones(notes: { freq: number; at: number; dur?: number }[]): void {
     const ctx = this.audioCtx;
     if (!ctx) return;
-    const now = ctx.currentTime;
-    // Two-note blip — short, distinct, not grating.
-    [880, 1320].forEach((freq, i) => {
+    const base = ctx.currentTime;
+    for (const n of notes) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.value = freq;
-      const start = now + i * 0.12;
+      osc.frequency.value = n.freq;
+      const start = base + n.at;
+      const dur = n.dur ?? 0.18;
       gain.gain.setValueAtTime(0.0001, start);
       gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
       osc.connect(gain).connect(ctx.destination);
       osc.start(start);
-      osc.stop(start + 0.2);
-    });
+      osc.stop(start + dur + 0.02);
+    }
+  }
+
+  /** New order — neutral rising two-note blip. */
+  private chimeNew(): void {
+    this.playTones([{ freq: 880, at: 0 }, { freq: 1320, at: 0.12 }]);
+  }
+
+  /** Order ready — brighter rising triad; reads as good news, clearly distinct from New. */
+  private chimeReady(): void {
+    this.playTones([
+      { freq: 1047, at: 0 },
+      { freq: 1319, at: 0.1 },
+      { freq: 1568, at: 0.2 },
+    ]);
+  }
+
+  /** Overdue — low, repeated double-buzz; insistent, unmistakably distinct from Ready. */
+  private chimeOverdue(): void {
+    this.playTones([
+      { freq: 440, at: 0, dur: 0.22 },
+      { freq: 440, at: 0.3, dur: 0.22 },
+    ]);
+  }
+
+  /**
+   * Overdue cue, driven by the 1s ticker (escalation advances with the clock,
+   * not with polls, so this cannot live in the emission effect). Fires once as a
+   * ticket first crosses into 'overdue'; the first tick seeds silently so a board
+   * opened mid-service with already-overdue tickets doesn't blast.
+   */
+  private detectOverdue(now: number): void {
+    const overdue = new Set(
+      this.tickets()
+        .filter(t => classifyEscalation(t.created_at, t.served_at, now) === 'overdue')
+        .map(t => t.id),
+    );
+    if (this.overdueFired === null) {
+      this.overdueFired = overdue; // first tick: seed without firing
+      return;
+    }
+    if (this.soundArmed()) {
+      let newly = false;
+      for (const id of overdue) {
+        if (!this.overdueFired.has(id)) {
+          newly = true;
+          break;
+        }
+      }
+      if (newly) this.chimeOverdue();
+    }
+    // Wholesale rebuild: drops ids that left the list or recovered, so a genuine
+    // re-entry can re-alert; still-overdue ids stay, so no per-second re-fire.
+    this.overdueFired = overdue;
   }
 
   // ── Wake lock ─────────────────────────────────────────────────────────

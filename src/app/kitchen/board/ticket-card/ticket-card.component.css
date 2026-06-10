@@ -1,8 +1,8 @@
 /*
  * Overdue cue: a pulsing tinted fill behind the card so it reads unmistakably
  * across a busy kitchen — and stays distinct from the red advance button, since
- * --destructive and --primary are the same red in the dark palette. A bare red
- * border alone would blur into the button colour.
+ * --destructive and --primary are the same red. A bare red border alone would
+ * blur into that button colour; the red wash over the white card reads clearly.
  */
 :host {
   display: block;
