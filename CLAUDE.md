@@ -6,6 +6,9 @@ built for Uganda and mobile-money-first markets. This repo contains three
 portals — Restaurant Management Portal, Diner App, and Platform Admin —
 plus a staff-facing Kitchen View board (route `/kitchen`).
 Deployed to Firebase Hosting at dinify-uat.web.app.
+A parallel `AGENTS.md` at the repo root carries Codex/other-agent instructions
+that defer to this file — `CLAUDE.md` remains the authoritative project guide,
+so keep it current when conventions change.
 
 ## Tech Stack
 - Angular 20 with mixed component pattern (see below)
@@ -37,7 +40,10 @@ Deployed to Firebase Hosting at dinify-uat.web.app.
   (live order data) both done. Separate top-level lazy module at
   `src/app/kitchen/` (route `/kitchen`, AuthGuard-protected).
   `KitchenOrderService.USE_MOCK_DATA = false`; HTTP polling + optimistic PATCH
-  against real endpoints
+  against real endpoints. Kitchen-only staff land here automatically on login:
+  `LoginComponent.landingPathForMembership` routes a membership whose roles
+  include `'kitchen'` but neither `'owner'` nor `'manager'` to `/kitchen`, and
+  everyone else to `/rest-app` (an explicit `returnUrl` deep link still wins)
 - Support: ✅ real-wired — the restaurant Support page (`support/`) reads/writes
   the `support/issues/` API; the Dinify-admin triage screen
   (`dinify-mgt/mgt-support`) is wired against `support/admin/issues/`.
@@ -136,6 +142,15 @@ writing new tag or price/menu logic:
 - `overflow-hidden` on layout containers is intentional — matches the
   Lovable prototype. Do not remove it to fix visual clipping issues
 - Collapse toggle elements must be inside a `relative` wrapper div
+- Typography — three variable fonts are imported in `src/styles.css`, each
+  with a distinct role. Plus Jakarta Sans is the default body (`font-sans`);
+  the `font-display` Tailwind utility maps to Bricolage Grotesque (used by the
+  diner app, Kitchen board, login, and the shared featured-carousel). The
+  restaurant portal layers a Gabarito display tier on top via a raw CSS rule —
+  `app-restaurant-mgt h1/h2/h3` and `app-animated-number` (dashboard metric
+  numbers) render in Gabarito, applied BY SELECTOR, not via `font-display`. In
+  restaurant-portal UI let that selector own heading fonts rather than reaching
+  for `font-display`/`font-*` overrides
 
 ## Key Domain Concepts
 - `MenuItem` has two independent boolean fields — NEVER conflate them:
@@ -210,7 +225,9 @@ it is intentionally NOT wired as a hook.
 CI (`.github/workflows/ci.yml`) runs all four (`type-check`, `lint`,
 `test:ci`, `build:prod`) on every PR to `main`. The UAT deploy workflow
 (`deploy-uat.yml`) builds with `--configuration=uat` and pushes to the
-`dinify-uat` Firebase Hosting target on every merge to `main`.
+`dinify-uat` Firebase Hosting target on every merge to `main`. Both workflows
+install with `npm ci --legacy-peer-deps` — use the same flag locally, since a
+plain `npm ci`/`npm install` can trip over peer-dependency conflicts.
 
 Build scripts `build:prod`, `build:uat`, and `build:staging` map to the
 matching angular.json configurations. Unit tests run on Karma + Jasmine
