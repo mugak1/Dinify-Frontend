@@ -37,15 +37,21 @@ Deployed to Firebase Hosting at dinify-uat.web.app.
   (live order data) both done. Separate top-level lazy module at
   `src/app/kitchen/` (route `/kitchen`, AuthGuard-protected).
   `KitchenOrderService.USE_MOCK_DATA = false`; HTTP polling + optimistic PATCH
-  against real endpoints
+  against real endpoints. Login routing is kitchen-aware: a single-membership
+  user whose only role is `kitchen` (not owner/manager) lands on `/kitchen`
+  after login, not `/rest-app`. The decision is centralised in the
+  `landingPathForMembership` helper (`auth/login`); an explicit `returnUrl`
+  deep link still takes precedence
 - Support: ✅ real-wired — the restaurant Support page (`support/`) reads/writes
   the `support/issues/` API; the Dinify-admin triage screen
   (`dinify-mgt/mgt-support`) is wired against `support/admin/issues/`.
   Status/category/impact badge styling + labels are shared from
   `src/app/_shared/support/`
 - Other restaurant-mgt surfaces (payments, reviews + reviews-management,
-  reports + report-detail, notifications, settings sub-pages) are
-  scaffolded and routed — per-view data-wiring status varies
+  reports + report-detail, notifications, settings sub-pages — rest-profile,
+  branding, rest-users, billing, and preset-tags) are scaffolded and routed —
+  per-view data-wiring status varies. The `preset-tags` settings page
+  (standalone `PresetTagsComponent`) manages the `preset_tags` vocabulary
 - Legal pages: standalone components in `src/app/legal/` (privacy-policy,
   terms-and-conditions, cookie-policy), lazy-loaded as public routes
   `/privacy`, `/terms`, `/cookies` via `loadComponent` in `app-routing.module.ts`
@@ -136,6 +142,11 @@ writing new tag or price/menu logic:
 - `overflow-hidden` on layout containers is intentional — matches the
   Lovable prototype. Do not remove it to fix visual clipping issues
 - Collapse toggle elements must be inside a `relative` wrapper div
+- Restaurant portal theme: light theme uses a white page background with
+  soft/warm cream card surfaces (do not flip cards back to pure grey/white).
+  The display tier (headings, dashboard stat numbers) uses the Gabarito
+  variable font; body, tables, forms, and controls stay on Plus Jakarta Sans.
+  Fonts are loaded via `@fontsource-variable/*` in `src/styles.css`
 
 ## Key Domain Concepts
 - `MenuItem` has two independent boolean fields — NEVER conflate them:
