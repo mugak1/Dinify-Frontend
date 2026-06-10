@@ -21,23 +21,23 @@ import {
 import { getTagIconSvg } from '../../../_shared/tags/tag-palette';
 
 /**
- * Dark-legible allergen chip treatments. Full class literals (not built at
- * runtime) so Tailwind's JIT scanner picks them up. The palette `colour` names
- * come from the shared tag palette; we render a tinted chip with a border so
- * each stays readable on the 6%-lightness KDS background.
+ * Allergen chip treatments. Full class literals (not built at runtime) so
+ * Tailwind's JIT scanner picks them up. The palette `colour` names come from the
+ * shared tag palette; we render a tinted chip with a border so each stays
+ * readable on the white card.
  */
 const ALLERGEN_CHIP: Record<string, string> = {
-  red: 'bg-red-500/20 text-red-200 border-red-500/40',
-  orange: 'bg-orange-500/20 text-orange-200 border-orange-500/40',
-  amber: 'bg-amber-500/20 text-amber-100 border-amber-500/40',
-  yellow: 'bg-yellow-400/20 text-yellow-100 border-yellow-400/40',
-  green: 'bg-green-500/20 text-green-200 border-green-500/40',
-  emerald: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/40',
-  cyan: 'bg-cyan-500/20 text-cyan-100 border-cyan-500/40',
-  blue: 'bg-blue-500/20 text-blue-100 border-blue-500/40',
-  purple: 'bg-purple-500/20 text-purple-100 border-purple-500/40',
-  rose: 'bg-rose-500/20 text-rose-200 border-rose-500/40',
-  gray: 'bg-white/10 text-gray-200 border-white/20',
+  red: 'bg-red-100 text-red-800 border-red-300',
+  orange: 'bg-orange-100 text-orange-800 border-orange-300',
+  amber: 'bg-amber-100 text-amber-800 border-amber-300',
+  yellow: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  green: 'bg-green-100 text-green-800 border-green-300',
+  emerald: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  cyan: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+  blue: 'bg-blue-100 text-blue-800 border-blue-300',
+  purple: 'bg-purple-100 text-purple-800 border-purple-300',
+  rose: 'bg-rose-100 text-rose-800 border-rose-300',
+  gray: 'bg-gray-100 text-gray-700 border-gray-300',
 };
 
 @Component({
