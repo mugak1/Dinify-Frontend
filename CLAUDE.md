@@ -12,6 +12,9 @@ so keep it current when conventions change.
 
 ## Tech Stack
 - Angular 20 with mixed component pattern (see below)
+- Builds/serves/tests run on the esbuild-based `@angular/build` application
+  builder (`@angular/build:application`, `:dev-server`, `:karma`) — migrated
+  off the legacy webpack `@angular-devkit/build-angular` builder
 - Tailwind CSS
 - Firebase Hosting (auto-deploys on push to main via GitHub Actions)
 - Repo: mugak1/Dinify-Frontend
@@ -225,13 +228,19 @@ it is intentionally NOT wired as a hook.
 CI (`.github/workflows/ci.yml`) runs all four (`type-check`, `lint`,
 `test:ci`, `build:prod`) on every PR to `main`. The UAT deploy workflow
 (`deploy-uat.yml`) builds with `--configuration=uat` and pushes to the
-`dinify-uat` Firebase Hosting target on every merge to `main`. Both workflows
+`dinify-uat` Firebase Hosting target on every merge to `main`. A third
+workflow (`audit.yml`, "Dependency Audit") runs `npm audit --audit-level=high`
+weekly (Mondays 06:30 UTC) and on manual dispatch — it is NOT a PR check and
+never blocks a merge; it just fires a notification if a high/critical advisory
+reappears. package.json keeps a small `overrides` block (`lodash-es`, gaxios's
+`uuid`) to hold the audit-zero baseline — don't strip it. All three workflows
 install with `npm ci --legacy-peer-deps` — use the same flag locally, since a
 plain `npm ci`/`npm install` can trip over peer-dependency conflicts.
 
 Build scripts `build:prod`, `build:uat`, and `build:staging` map to the
-matching angular.json configurations. Unit tests run on Karma + Jasmine
-(`npm run test:ci` uses ChromeHeadless).
+matching angular.json configurations, all built by the esbuild
+`@angular/build:application` builder. Unit tests run on Karma + Jasmine via the
+`@angular/build:karma` builder (`npm run test:ci` uses ChromeHeadless).
 
 ## Available Slash Commands
 - `/lovable-check` — audit a planned UI change against the Lovable
