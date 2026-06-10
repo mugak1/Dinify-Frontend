@@ -20,7 +20,6 @@ function makeTicket(partial: Partial<KitchenTicket> = {}): KitchenTicket {
         quantity: 2,
         modifiers: ['Spice: Medium', 'No peanuts'],
         allergen_tags: [{ name: 'Nuts', icon: 'nut', colour: 'orange' }],
-        item_note: 'Peanut-free please',
         extras: [
           {
             item_name_snapshot: 'Add prawns',
@@ -45,7 +44,7 @@ describe('TicketCardComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('renders order number, table, items, modifiers, allergens and note', () => {
+  it('renders order number, table, items, modifiers and allergens', () => {
     component.ticket = makeTicket();
     component.now = Date.now();
     fixture.detectChanges();
@@ -56,7 +55,6 @@ describe('TicketCardComponent', () => {
     expect(text).toContain('Pad Thai');
     expect(text).toContain('Spice: Medium');
     expect(text).toContain('Nuts');
-    expect(text).toContain('Peanut-free please');
     // server_assisted indicator
     expect(text).toContain('Server');
   });

@@ -6,7 +6,7 @@
  * exercises every UI state: each fulfilment_status, served tickets both inside
  * and outside the 10-min recall window, every age bucket (normal / approaching
  * / warning / overdue), >=2 priority tickets, modifiers, allergen badges,
- * item_notes, multi-item orders, both order sources, and enough volume to span
+ * multi-item orders, both order sources, and enough volume to span
  * multiple grid pages.
  *
  * Allergen icon names map to the shared Lucide catalog in
@@ -67,14 +67,14 @@ export function getMockTickets(): KitchenTicket[] {
       { item_name_snapshot: 'Sparkling Water', quantity: 2, modifiers: [], allergen_tags: [] },
     ]),
     build('k-02', 'Table 3', 'server_assisted', 'new', true, 1, [
-      { item_name_snapshot: 'Chicken Wings', quantity: 1, modifiers: ['Sauce: Hot', 'Extra ranch'], allergen_tags: [DAIRY, SPICY], item_note: 'Allergy table — keep separate' },
+      { item_name_snapshot: 'Chicken Wings', quantity: 1, modifiers: ['Sauce: Hot', 'Extra ranch'], allergen_tags: [DAIRY, SPICY] },
     ]),
     build('k-03', 'Takeaway', 'diner_self_service', 'new', false, 2, [
       { item_name_snapshot: 'Veggie Burger', quantity: 1, modifiers: ['No mayo'], allergen_tags: [GLUTEN, VEGAN], extras: [{ item_name_snapshot: 'Add avocado', quantity: 1, modifiers: [], allergen_tags: [] }, { item_name_snapshot: 'Add vegan cheese', quantity: 1, modifiers: [], allergen_tags: [] }] },
       { item_name_snapshot: 'Sweet Potato Fries', quantity: 1, modifiers: [], allergen_tags: [] },
     ]),
     build('k-04', 'Table 12', 'diner_self_service', 'new', false, 4, [
-      { item_name_snapshot: 'Caesar Salad', quantity: 1, modifiers: ['No croutons', 'Dressing on side'], allergen_tags: [EGG, FISH], item_note: 'Anchovy allergy — confirm dressing' },
+      { item_name_snapshot: 'Caesar Salad', quantity: 1, modifiers: ['No croutons', 'Dressing on side'], allergen_tags: [EGG, FISH] },
     ]),
 
     // ── PREPARING (spanning age buckets) ──────────────────────────────────
@@ -84,7 +84,7 @@ export function getMockTickets(): KitchenTicket[] {
     ]),
     // approaching warning (~7.5 min)
     build('k-06', 'Table 9', 'diner_self_service', 'preparing', false, 7.5, [
-      { item_name_snapshot: 'Pad Thai', quantity: 2, modifiers: ['Spice: Medium', 'No peanuts on one'], allergen_tags: [NUTS, EGG, FISH], item_note: 'One portion strictly peanut-free' },
+      { item_name_snapshot: 'Pad Thai', quantity: 2, modifiers: ['Spice: Medium', 'No peanuts on one'], allergen_tags: [NUTS, EGG, FISH] },
     ]),
     // warning (>= 8 min)
     build('k-07', 'Table 1', 'server_assisted', 'preparing', false, 9, [
@@ -97,7 +97,7 @@ export function getMockTickets(): KitchenTicket[] {
     ]),
     // overdue (>= 15 min) — big multi-item ticket (height stress test)
     build('k-09', 'Table 8', 'server_assisted', 'preparing', false, 17, [
-      { item_name_snapshot: 'Mixed Grill Platter', quantity: 1, modifiers: ['Lamb: well done', 'Add halloumi', 'No black pudding'], allergen_tags: [DAIRY, GLUTEN], item_note: 'Birthday — bring out with candle' },
+      { item_name_snapshot: 'Mixed Grill Platter', quantity: 1, modifiers: ['Lamb: well done', 'Add halloumi', 'No black pudding'], allergen_tags: [DAIRY, GLUTEN] },
       { item_name_snapshot: 'Garlic Bread', quantity: 2, modifiers: ['One without cheese'], allergen_tags: [GLUTEN, DAIRY] },
       { item_name_snapshot: 'Onion Rings', quantity: 1, modifiers: [], allergen_tags: [GLUTEN] },
       { item_name_snapshot: 'House Red (glass)', quantity: 3, modifiers: [], allergen_tags: [] },
@@ -175,7 +175,6 @@ export function buildInjectedTicket(): KitchenTicket {
         quantity: 1,
         modifiers: ['No pickles', 'Add bacon'],
         allergen_tags: [GLUTEN, DAIRY],
-        item_note: injectCounter % 3 === 0 ? 'VIP — rush this' : null,
         extras: [{ item_name_snapshot: 'Extra cheese', quantity: 1, modifiers: [], allergen_tags: [DAIRY] }],
       },
       { item_name_snapshot: 'Fries', quantity: 1, modifiers: [], allergen_tags: [] },
