@@ -49,6 +49,24 @@ export interface KitchenTicket {
   items: KitchenTicketItem[];
 }
 
+/**
+ * A menu item as the kitchen sees it for stock ("86") control. Matches the
+ * prompt-6 list serializer (GET kitchen/menu-items/) EXACTLY — snake_case, per
+ * the contract note above. The sold-out panel reads these and toggles `in_stock`
+ * via PUT kitchen/menu-items/{id}/stock/.
+ */
+export interface KitchenMenuItem {
+  /** Menu-item UUID — the PUT target for stock toggles. */
+  id: string;
+  name: string;
+  /** Orderable right now? false ⇒ "Sold out" — the 86 flag this panel toggles. */
+  in_stock: boolean;
+  /** On the menu at all? Independent of in_stock (see CLAUDE.md domain note). */
+  available: boolean;
+  /** Owning menu section, e.g. "Pizzas" — the panel groups rows by this. */
+  section_name: string;
+}
+
 // ── Local-only helper types (NOT part of the API contract) ──────────────
 
 export type FulfilmentStatus = KitchenTicket['fulfilment_status'];

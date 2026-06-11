@@ -14,7 +14,9 @@ import {
 import { FulfilmentStatus, KitchenTicket } from '../models/kitchen.models';
 import { classifyEscalation } from '../services/kitchen-logic';
 import { KitchenOrderService } from '../services/kitchen-order.service';
+import { KitchenStockService } from '../services/kitchen-stock.service';
 import { TicketCardComponent } from './ticket-card/ticket-card.component';
+import { SoldOutPanelComponent } from './sold-out-panel/sold-out-panel.component';
 
 /** Cards per page in the snap grid (4 cols × 2 rows, tablet-landscape). */
 const PAGE_SIZE = 8;
@@ -24,7 +26,7 @@ const ENTER_MS = 700;
 @Component({
   selector: 'app-kitchen-board',
   standalone: true,
-  imports: [CommonModule, TicketCardComponent],
+  imports: [CommonModule, TicketCardComponent, SoldOutPanelComponent],
   templateUrl: './board.component.html',
   styleUrls: ['./board.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -51,6 +53,9 @@ export class BoardComponent implements OnInit, OnDestroy {
   /** IDs currently playing the entry animation. */
   readonly enteringIds = signal<Set<string>>(new Set());
 
+  /** Sold-out ("86") slide-over open state — the board owns it. */
+  readonly panelOpen = signal(false);
+
   // ── Sound (gated behind a one-time tap; autoplay policy) ──────────────
   readonly soundArmed = signal(false);
   private audioCtx: AudioContext | null = null;
@@ -70,7 +75,10 @@ export class BoardComponent implements OnInit, OnDestroy {
   private overdueFired: Set<string> | null = null;
   private readonly onVisibility = () => this.handleVisibility();
 
-  constructor(public readonly service: KitchenOrderService) {
+  constructor(
+    public readonly service: KitchenOrderService,
+    public readonly stock: KitchenStockService,
+  ) {
     // New-ticket detection by diffing IDs across emissions — the same path
     // Phase 3 polling will surface new orders through. Fires chime + entry
     // animation for IDs that are genuinely new AND in 'new' status. Diffing on
@@ -99,6 +107,9 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.service.startPolling();
+    // Prime the sold-out count so the header trigger's badge is accurate before
+    // the panel is ever opened. The order board is unaffected (orders ≠ menu).
+    this.stock.loadItems();
     this.tickHandle = setInterval(() => {
       const t = Date.now();
       this.now.set(t);
@@ -127,6 +138,14 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
   onRecall(t: KitchenTicket): void { this.service.recall(t.id); }
   onTogglePriority(t: KitchenTicket): void { this.service.togglePriority(t.id); }
+
+  // ── Sold-out ("86") panel ─────────────────────────────────────────────
+  /** Refresh the item list on every open so the panel reflects recent edits. */
+  openPanel(): void {
+    this.stock.loadItems();
+    this.panelOpen.set(true);
+  }
+  closePanel(): void { this.panelOpen.set(false); }
 
   private nextOf(t: KitchenTicket) {
     const order: KitchenTicket['fulfilment_status'][] = ['new', 'preparing', 'ready', 'served'];
