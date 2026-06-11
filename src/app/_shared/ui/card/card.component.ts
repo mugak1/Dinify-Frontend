@@ -26,7 +26,7 @@ export class CardComponent {
       'text-card-foreground rounded-lg',
       'transition-all duration-200 hover:-translate-y-1',
       this.glossy
-        ? 'bg-gradient-to-b from-white via-[#FAFCFE] to-[#E7EDF3] border border-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,1),var(--shadow-lg)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),var(--shadow-lg)]'
+        ? 'bg-[linear-gradient(180deg,#ffffff_0px,#eef2f6_140px)] border border-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,1),var(--shadow-lg)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),var(--shadow-lg)]'
         : 'bg-card border shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)]',
       this.fullHeight && 'h-full'
     );
