@@ -63,6 +63,34 @@
   }
 }
 
+/* Connection escalation banner: spinner (offline) + pulse dot (reconnecting). */
+.kitchen-conn-spin {
+  animation: kitchen-conn-spin 0.9s linear infinite;
+}
+@keyframes kitchen-conn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.kitchen-conn-pulse {
+  animation: kitchen-conn-pulse 1.3s ease-in-out infinite;
+}
+@keyframes kitchen-conn-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kitchen-conn-spin,
+  .kitchen-conn-pulse {
+    animation: none;
+  }
+}
+
 /* Thin, dark scrollbar for the pager. */
 .snap-x::-webkit-scrollbar {
   height: 6px;

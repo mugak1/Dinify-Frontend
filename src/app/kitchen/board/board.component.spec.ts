@@ -9,6 +9,7 @@ import { of } from 'rxjs';
 import { ApiService } from '../../_services/api.service';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { getMockTickets } from '../mock/kitchen-mock-data';
+import { KitchenOrderService } from '../services/kitchen-order.service';
 import { BoardComponent } from './board.component';
 
 /**
@@ -115,5 +116,54 @@ describe('BoardComponent', () => {
     expect(el.querySelectorAll('app-kitchen-ticket-card').length).toBeGreaterThan(0);
 
     fixture.destroy();
+  });
+
+  describe('connection escalation banner', () => {
+    // Drives the real (root-provided) service signal via its test seam. Order matters:
+    // detectChanges() first lets ngOnInit's first (synchronous) poll settle to 'connected',
+    // THEN we force the state — otherwise that poll would clobber a pre-set value. Later polls
+    // are on setTimeout, so nothing fires inside the synchronous test body to clobber it back.
+    it('shows no banner when connected — the header dot suffices', () => {
+      const service = TestBed.inject(KitchenOrderService);
+      fixture.detectChanges();
+      service.simulateConnectionState('connected');
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="kitchen-offline-banner"]')).toBeNull();
+      expect(el.querySelector('[data-testid="kitchen-reconnecting-banner"]')).toBeNull();
+
+      fixture.destroy();
+    });
+
+    it('renders the loud offline bar when offline', () => {
+      const service = TestBed.inject(KitchenOrderService);
+      fixture.detectChanges();
+      service.simulateConnectionState('offline');
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const banner = el.querySelector('[data-testid="kitchen-offline-banner"]');
+      expect(banner).toBeTruthy();
+      expect(banner!.textContent).toContain('missing new orders');
+      expect(el.querySelector('[data-testid="kitchen-reconnecting-banner"]')).toBeNull();
+
+      fixture.destroy();
+    });
+
+    it('renders the subtler amber strip when reconnecting', () => {
+      const service = TestBed.inject(KitchenOrderService);
+      fixture.detectChanges();
+      service.simulateConnectionState('reconnecting');
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const banner = el.querySelector('[data-testid="kitchen-reconnecting-banner"]');
+      expect(banner).toBeTruthy();
+      expect(banner!.textContent).toContain('Reconnecting');
+      expect(el.querySelector('[data-testid="kitchen-offline-banner"]')).toBeNull();
+
+      fixture.destroy();
+    });
   });
 });
