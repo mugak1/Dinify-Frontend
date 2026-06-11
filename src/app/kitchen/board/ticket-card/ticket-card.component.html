@@ -79,10 +79,10 @@
 
   <!-- Items (scrolls internally for tall orders) -->
   <div class="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-    <div *ngFor="let item of ticket.items" class="text-sm">
-      <div class="flex items-baseline gap-2">
-        <span class="font-display text-base font-bold tabular-nums shrink-0">{{ item.quantity }}×</span>
-        <span class="font-semibold leading-tight">{{ item.item_name_snapshot }}</span>
+<div *ngFor="let item of ticket.items" class="text-base">
+    <div class="flex items-baseline gap-2">
+<span class="font-display text-lg font-bold tabular-nums shrink-0">{{ item.quantity }}×</span>
+      <span class="font-semibold leading-tight">{{ item.item_name_snapshot }}</span>
       </div>
 
       <ul *ngIf="item.modifiers.length" class="mt-0.5 ml-7 list-disc list-inside text-gray-600 text-[13px]">
