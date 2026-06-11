@@ -52,10 +52,14 @@ export class TicketCardComponent {
   @Input({ required: true }) ticket!: KitchenTicket;
   /** Shared clock from the board (single ticker, no per-card timers). */
   @Input({ required: true }) now = 0;
+  /** Whether the current user may void a ticket past 'new' (owner/manager). */
+  @Input() isManager = false;
 
   @Output() advance = new EventEmitter<KitchenTicket>();
   @Output() recall = new EventEmitter<KitchenTicket>();
   @Output() togglePriority = new EventEmitter<KitchenTicket>();
+  // Not `cancel`: that's a native DOM event (@angular-eslint/no-output-native).
+  @Output() cancelRequested = new EventEmitter<KitchenTicket>();
 
   get orderNumber(): string {
     return formatOrderNumber(this.ticket.order_number);
@@ -91,6 +95,17 @@ export class TicketCardComponent {
     return this.ticket.fulfilment_status === 'served';
   }
 
+  /**
+   * Cancel availability, mirroring the backend gate: free while 'new' (any
+   * kitchen user), manager-only once 'preparing'/'ready', never once 'served'
+   * (recall it first).
+   */
+  get canCancel(): boolean {
+    if (this.isServed) return false;
+    if (this.ticket.fulfilment_status === 'new') return true;
+    return this.isManager;
+  }
+
   get isServerAssisted(): boolean {
     return this.ticket.order_source === 'server_assisted';
   }
@@ -114,5 +129,9 @@ export class TicketCardComponent {
 
   onTogglePriority(): void {
     this.togglePriority.emit(this.ticket);
+  }
+
+  onCancel(): void {
+    this.cancelRequested.emit(this.ticket);
   }
 }

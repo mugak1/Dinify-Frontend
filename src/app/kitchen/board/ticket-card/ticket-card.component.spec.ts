@@ -90,4 +90,56 @@ describe('TicketCardComponent', () => {
     fixture.detectChanges();
     expect(component.canRecall).toBe(false);
   });
+
+  describe('cancel control (canCancel gate)', () => {
+    function canCancel(status: KitchenTicket['fulfilment_status'], isManager: boolean): boolean {
+      component.ticket = makeTicket({ fulfilment_status: status });
+      component.isManager = isManager;
+      return component.canCancel;
+    }
+
+    it("allows any kitchen user to void a 'new' ticket", () => {
+      expect(canCancel('new', false)).toBe(true);
+      expect(canCancel('new', true)).toBe(true);
+    });
+
+    it("gates 'preparing'/'ready' cancels to managers only", () => {
+      expect(canCancel('preparing', false)).toBe(false);
+      expect(canCancel('ready', false)).toBe(false);
+      expect(canCancel('preparing', true)).toBe(true);
+      expect(canCancel('ready', true)).toBe(true);
+    });
+
+    it("never allows cancelling a 'served' ticket (recall first)", () => {
+      expect(canCancel('served', false)).toBe(false);
+      expect(canCancel('served', true)).toBe(false);
+    });
+
+    function cancelButton(): HTMLButtonElement | null {
+      return (fixture.nativeElement as HTMLElement)
+        .querySelector('button[aria-label="Cancel order"]');
+    }
+
+    it('renders the cancel button when canCancel and emits cancelRequested on click', () => {
+      component.ticket = makeTicket({ fulfilment_status: 'new' });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      const spy = jasmine.createSpy('cancelRequested');
+      component.cancelRequested.subscribe(spy);
+
+      const btn = cancelButton();
+      expect(btn).toBeTruthy();
+      btn!.click();
+      expect(spy).toHaveBeenCalledWith(component.ticket);
+    });
+
+    it('hides the cancel button when canCancel is false', () => {
+      component.ticket = makeTicket({ fulfilment_status: 'preparing' });
+      component.isManager = false;
+      component.now = Date.now();
+      fixture.detectChanges();
+      expect(cancelButton()).toBeNull();
+    });
+  });
 });

@@ -1,0 +1,40 @@
+:host {
+  display: contents;
+}
+
+/* Scrim fades in; modal pops up slightly. Mirrors sold-out-panel.component.css. */
+.kcd-scrim {
+  animation: kcd-fade 0.18s ease;
+}
+
+.kcd-modal {
+  animation: kcd-pop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kcd-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kcd-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Honour reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+  .kcd-scrim,
+  .kcd-modal {
+    animation: none;
+  }
+}

@@ -17,6 +17,7 @@ import { KitchenOrderService } from '../services/kitchen-order.service';
 import { KitchenStockService } from '../services/kitchen-stock.service';
 import { TicketCardComponent } from './ticket-card/ticket-card.component';
 import { SoldOutPanelComponent } from './sold-out-panel/sold-out-panel.component';
+import { CancelDialogComponent } from './cancel-dialog/cancel-dialog.component';
 
 /** Cards per page in the snap grid (4 cols × 2 rows, tablet-landscape). */
 const PAGE_SIZE = 8;
@@ -26,7 +27,7 @@ const ENTER_MS = 700;
 @Component({
   selector: 'app-kitchen-board',
   standalone: true,
-  imports: [CommonModule, TicketCardComponent, SoldOutPanelComponent],
+  imports: [CommonModule, TicketCardComponent, SoldOutPanelComponent, CancelDialogComponent],
   templateUrl: './board.component.html',
   styleUrls: ['./board.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,6 +56,9 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   /** Sold-out ("86") slide-over open state — the board owns it. */
   readonly panelOpen = signal(false);
+
+  /** Ticket awaiting cancel confirmation — drives the cancel dialog. */
+  readonly cancelTarget = signal<KitchenTicket | null>(null);
 
   // ── Sound (gated behind a one-time tap; autoplay policy) ──────────────
   readonly soundArmed = signal(false);
@@ -138,6 +142,15 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
   onRecall(t: KitchenTicket): void { this.service.recall(t.id); }
   onTogglePriority(t: KitchenTicket): void { this.service.togglePriority(t.id); }
+
+  // ── Cancel/void (board owns the confirm dialog; service does the call) ─
+  onCardCancel(t: KitchenTicket): void { this.cancelTarget.set(t); }
+  onCancelConfirm(reason: string): void {
+    const t = this.cancelTarget();
+    if (t) this.service.cancelOrder(t.id, reason);
+    this.cancelTarget.set(null);
+  }
+  onCancelDismiss(): void { this.cancelTarget.set(null); }
 
   // ── Sold-out ("86") panel ─────────────────────────────────────────────
   /** Refresh the item list on every open so the panel reflects recent edits. */
