@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 @Component({
   selector: 'app-dn-card',
   standalone: true,
-  host: { class: 'block' },
+  host: { class: 'block', '[class.h-full]': 'fullHeight' },
   template: `
     <div [class]="containerClass">
       <ng-content select="[card-header]"></ng-content>
