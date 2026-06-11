@@ -114,6 +114,20 @@ export function ageMs(created_at: string, now: number): number {
   return Math.max(0, now - new Date(created_at).getTime());
 }
 
+/**
+ * Coarse relative time for a served stamp — "just now", "3m ago", "1h 5m ago".
+ * Read-only Completed cards show this in place of the live age (a served ticket
+ * isn't ageing toward overdue, so the to-the-second clock would just be noise).
+ */
+export function formatServedAgo(served_at: string, now: number): string {
+  const totalMin = Math.floor(Math.max(0, now - new Date(served_at).getTime()) / 60_000);
+  if (totalMin < 1) return 'just now';
+  if (totalMin < 60) return `${totalMin}m ago`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m ? `${h}h ${m}m ago` : `${h}h ago`;
+}
+
 /** Compact age display: "m:ss" under an hour, else "h:mm:ss". */
 export function formatAge(created_at: string, now: number): string {
   const totalSec = Math.floor(ageMs(created_at, now) / 1000);

@@ -49,10 +49,18 @@ function extractTickets(res: ApiResponse<KitchenTicket>): KitchenTicket[] {
   return [];
 }
 
+/** served_at as epoch ms; null/absent sorts as the oldest possible completion. */
+function servedAtMs(served_at: string | null): number {
+  return served_at ? new Date(served_at).getTime() : -Infinity;
+}
+
 @Injectable({ providedIn: 'root' })
 export class KitchenOrderService {
   /** Raw ticket store — the single source of truth. */
   private readonly _tickets = signal<KitchenTicket[]>([]);
+
+  /** Completed (served) store — mirrors _tickets for the Completed view. */
+  private readonly _completed = signal<KitchenTicket[]>([]);
 
   /**
    * Board-ordered tickets: priority first, then oldest first. Sorting here is
@@ -60,6 +68,17 @@ export class KitchenOrderService {
    * clock dependency — the board passes `now` to cards for age display.
    */
   readonly activeTickets = computed(() => sortTickets(this._tickets(), Date.now()));
+
+  /**
+   * Completed tickets, newest completion first (served_at DESCENDING). A missing
+   * served_at sinks to the bottom — the real feed always stamps it, but this keeps
+   * the sort total either way.
+   */
+  readonly completedTickets = computed(() =>
+    [...this._completed()].sort(
+      (a, b) => servedAtMs(b.served_at) - servedAtMs(a.served_at),
+    ),
+  );
 
   /** Always-visible link health, derived from poll outcomes (NOT navigator.onLine). */
   readonly connectionState = signal<ConnectionState>('connected');
@@ -105,6 +124,28 @@ export class KitchenOrderService {
     return this.api.get<KitchenTicket>(null, 'kitchen/orders/active/', params).pipe(
       map(extractTickets),
       tap(tickets => this._tickets.set(tickets)),
+    );
+  }
+
+  /**
+   * Fetch the Completed (served) set once and write it into the completed store.
+   * Mirrors loadActive — same restaurant scope + extractTickets — but hits the
+   * server's completed feed, which returns served tickets newest-first. The board
+   * calls this on enter (and on a refresh cadence while Completed is open).
+   */
+  loadCompleted(): Observable<KitchenTicket[]> {
+    if (USE_MOCK_DATA) {
+      // Mock: surface the served tickets from the design set as the completed feed.
+      const served = getMockTickets().filter(t => t.fulfilment_status === 'served');
+      return of(served).pipe(
+        delay(400),
+        tap(tickets => this._completed.set(tickets)),
+      );
+    }
+    const params = this.restaurantId ? { restaurant: this.restaurantId } : {};
+    return this.api.get<KitchenTicket>(null, 'kitchen/orders/completed/', params).pipe(
+      map(extractTickets),
+      tap(tickets => this._completed.set(tickets)),
     );
   }
 
@@ -171,16 +212,27 @@ export class KitchenOrderService {
 
   /**
    * Advance one step along new → preparing → ready → served. Illegal jumps are
-   * rejected (returns false, no state change). Stamps served_at on → served.
-   * Optimistic locally; the next poll reconciles, and a failed PATCH reverts.
+   * rejected (returns false, no state change). Optimistic locally; the next poll
+   * reconciles, and a failed PATCH reverts.
+   *
+   * SERVE = REMOVE: advancing to 'served' drops the ticket from the active store
+   * instantly (snapshot → remove → revert-on-error, mirroring cancelOrder) — the
+   * active feed already excludes served, so this just gets there first; it then
+   * surfaces on the Completed feed. All other transitions patch in place.
    */
   advanceStatus(id: string, next: FulfilmentStatus): boolean {
     const ticket = this._tickets().find(t => t.id === id);
     if (!ticket || !isLegalAdvance(ticket.fulfilment_status, next)) return false;
-    this.patchTicket(id, {
-      fulfilment_status: next,
-      served_at: next === 'served' ? new Date().toISOString() : ticket.served_at,
-    });
+    if (next === 'served') {
+      this._tickets.update(tickets => tickets.filter(t => t.id !== id));
+      if (!USE_MOCK_DATA) {
+        this.api
+          .postPatch(`kitchen/orders/${id}/fulfilment-status/`, { fulfilment_status: 'served' }, 'put')
+          .subscribe({ error: () => this._tickets.update(tickets => [...tickets, ticket]) });
+      }
+      return true;
+    }
+    this.patchTicket(id, { fulfilment_status: next });
     this.persistFulfilmentStatus(id, next, ticket);
     return true;
   }
@@ -230,6 +282,23 @@ export class KitchenOrderService {
       this.api
         .postPatch(`kitchen/orders/${id}/cancel/`, { cancellation_reason: reason }, 'put')
         .subscribe({ error: () => this._tickets.update(tickets => [...tickets, ticket]) });
+    }
+  }
+
+  /**
+   * Recall a completed ticket back onto the active board (served → ready).
+   * Optimistically drop it from the Completed store (snapshot → remove →
+   * revert-on-error); the same fulfilment-status PATCH the active recall uses
+   * does the work, and the running active poll brings the now-ready ticket back.
+   */
+  recallCompleted(id: string): void {
+    const ticket = this._completed().find(t => t.id === id);
+    if (!ticket) return;
+    this._completed.update(list => list.filter(t => t.id !== id));
+    if (!USE_MOCK_DATA) {
+      this.api
+        .postPatch(`kitchen/orders/${id}/fulfilment-status/`, { fulfilment_status: 'ready' }, 'put')
+        .subscribe({ error: () => this._completed.update(list => [...list, ticket]) });
     }
   }
 

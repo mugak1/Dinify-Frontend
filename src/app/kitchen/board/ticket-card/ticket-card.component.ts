@@ -17,6 +17,7 @@ import {
   classifyModifier,
   formatAge,
   formatOrderNumber,
+  formatServedAgo,
   isRecallEligible,
   nextStatus,
 } from '../../services/kitchen-logic';
@@ -56,6 +57,12 @@ export class TicketCardComponent {
   @Input({ required: true }) now = 0;
   /** Whether the current user may void a ticket past 'new' (owner/manager). */
   @Input() isManager = false;
+  /**
+   * Read-only Completed mode: neutral header (no urgency tint), a muted
+   * "served {relative}" in place of the live age, no cancel/priority/advance —
+   * just a single Recall action. Items render exactly as in the active card.
+   */
+  @Input() completed = false;
 
   @Output() advance = new EventEmitter<KitchenTicket>();
   @Output() recall = new EventEmitter<KitchenTicket>();
@@ -69,6 +76,12 @@ export class TicketCardComponent {
 
   get age(): string {
     return formatAge(this.ticket.created_at, this.now);
+  }
+
+  /** Completed-mode age line: "served 3m ago", or null when no served stamp. */
+  get servedRelative(): string | null {
+    if (!this.ticket.served_at) return null;
+    return `served ${formatServedAgo(this.ticket.served_at, this.now)}`;
   }
 
   get escalation(): EscalationLevel {
