@@ -1,0 +1,30 @@
+/* The host carries no box of its own — the fixed overlay positions itself
+   against the viewport. */
+:host {
+  display: contents;
+}
+
+/* Mount animations (slide the drawer in from the right, fade the scrim).
+   Mount-only, mirroring the board's kitchen-enter approach. */
+.sop-scrim {
+  animation: sop-fade 0.2s ease;
+}
+.sop-panel {
+  animation: sop-slide 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sop-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sop-slide {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sop-scrim,
+  .sop-panel {
+    animation: none;
+  }
+}
