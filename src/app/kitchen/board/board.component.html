@@ -115,9 +115,11 @@
           <app-kitchen-ticket-card
             [ticket]="t"
             [now]="now()"
+            [isManager]="service.isManager"
             (advance)="onAdvance($event)"
             (recall)="onRecall($event)"
-            (togglePriority)="onTogglePriority($event)"></app-kitchen-ticket-card>
+            (togglePriority)="onTogglePriority($event)"
+            (cancelRequested)="onCardCancel($event)"></app-kitchen-ticket-card>
         </div>
       </div>
     </section>
@@ -126,3 +128,10 @@
 
 <!-- Sold-out ("86") slide-over panel -->
 <app-sold-out-panel [open]="panelOpen()" (closed)="closePanel()"></app-sold-out-panel>
+
+<!-- Cancel/void confirmation modal -->
+<app-kitchen-cancel-dialog
+  [open]="!!cancelTarget()"
+  [order]="cancelTarget()"
+  (confirm)="onCancelConfirm($event)"
+  (closed)="onCancelDismiss()"></app-kitchen-cancel-dialog>

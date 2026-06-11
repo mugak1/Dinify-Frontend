@@ -150,6 +150,43 @@ describe('KitchenOrderService', () => {
     });
   });
 
+  describe('cancelOrder', () => {
+    it('removes the ticket optimistically and PUTs the structured reason', () => {
+      load();
+      expect(service.activeTickets().some(t => t.id === 'k-01')).toBe(true);
+      service.cancelOrder('k-01', 'kitchen_error');
+      expect(service.activeTickets().some(t => t.id === 'k-01')).toBe(false);
+      expect(apiStub.postPatch).toHaveBeenCalledWith(
+        'kitchen/orders/k-01/cancel/', { cancellation_reason: 'kitchen_error' }, 'put');
+    });
+
+    it('re-adds the ticket when the cancel call fails', () => {
+      load();
+      apiStub.postPatch.and.returnValue(throwError(() => new Error('cancel failed')));
+      service.cancelOrder('k-01', 'duplicate');
+      expect(service.activeTickets().some(t => t.id === 'k-01')).toBe(true);
+    });
+
+    it('is a no-op for an unknown id (no PATCH)', () => {
+      load();
+      service.cancelOrder('does-not-exist', 'other');
+      expect(apiStub.postPatch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isManager', () => {
+    it('is false when the active membership has no owner/manager role', () => {
+      expect(service.isManager).toBe(false); // default stub: ['kitchen']
+    });
+
+    it('is true when the roles include manager or owner', () => {
+      authStub.userValue.profile.restaurant_roles[0].roles = ['manager'];
+      expect(service.isManager).toBe(true);
+      authStub.userValue.profile.restaurant_roles[0].roles = ['owner'];
+      expect(service.isManager).toBe(true);
+    });
+  });
+
   describe('connection state (derived from poll outcomes)', () => {
     it('drives connected → reconnecting → offline on consecutive failures with backoff', fakeAsync(() => {
       apiStub.get.and.returnValue(throwError(() => new Error('net')));

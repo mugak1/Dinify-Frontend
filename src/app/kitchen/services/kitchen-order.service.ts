@@ -81,6 +81,13 @@ export class KitchenOrderService {
     return this.auth.userValue?.profile?.restaurant_roles?.[0]?.restaurant_id;
   }
 
+  /** Owner/manager at the active restaurant — the elevated-void gate (mirrors
+   *  the backend): they may cancel a ticket past 'new'. */
+  get isManager(): boolean {
+    const roles = this.auth.userValue?.profile?.restaurant_roles?.[0]?.roles ?? [];
+    return roles.includes('owner') || roles.includes('manager');
+  }
+
   /**
    * Fetch the active ticket set once and write it into the store. THE SEAM —
    * the poll loop calls this on a schedule; tests call it directly.
@@ -206,6 +213,23 @@ export class KitchenOrderService {
       this.api
         .postPatch(`kitchen/orders/${id}/priority/`, { priority: next }, 'put')
         .subscribe({ error: () => this.revertTicket(ticket) });
+    }
+  }
+
+  /**
+   * Void/cancel an order with a structured reason. Optimistic: drop the ticket
+   * immediately — the next active-set poll already omits cancelled orders and
+   * frees the table, so this just gets there first. Re-add the snapshot if the
+   * PUT fails (the sort is computed, so board order restores on its own).
+   */
+  cancelOrder(id: string, reason: string): void {
+    const ticket = this._tickets().find(t => t.id === id);
+    if (!ticket) return;
+    this._tickets.update(tickets => tickets.filter(t => t.id !== id));
+    if (!USE_MOCK_DATA) {
+      this.api
+        .postPatch(`kitchen/orders/${id}/cancel/`, { cancellation_reason: reason }, 'put')
+        .subscribe({ error: () => this._tickets.update(tickets => [...tickets, ticket]) });
     }
   }
 

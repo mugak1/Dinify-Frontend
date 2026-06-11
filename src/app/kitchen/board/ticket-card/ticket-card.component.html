@@ -55,15 +55,25 @@
           'text-red-600': escalation === 'overdue',
           'text-gray-400': isServed
         }">{{ age }}</span>
-      <button
-        type="button"
-        (click)="onTogglePriority()"
-        class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors"
-        [ngClass]="{ 'bg-red-100 text-red-700 border-red-300': ticket.priority }"
-        [attr.aria-pressed]="ticket.priority"
-        aria-label="Toggle priority">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
-      </button>
+      <div class="flex items-center gap-1">
+        <button
+          *ngIf="canCancel"
+          type="button"
+          (click)="onCancel()"
+          class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors"
+          aria-label="Cancel order">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+        </button>
+        <button
+          type="button"
+          (click)="onTogglePriority()"
+          class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors"
+          [ngClass]="{ 'bg-red-100 text-red-700 border-red-300': ticket.priority }"
+          [attr.aria-pressed]="ticket.priority"
+          aria-label="Toggle priority">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+        </button>
+      </div>
     </div>
   </header>
 
