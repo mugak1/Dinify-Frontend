@@ -51,6 +51,9 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   readonly currentPage = signal(0);
 
+  /** Narrow (phone / tablet-portrait) layout: single-column scroll list, no pager. */
+  readonly isNarrow = signal(false);
+
   /** IDs currently playing the entry animation. */
   readonly enteringIds = signal<Set<string>>(new Set());
 
@@ -78,6 +81,10 @@ export class BoardComponent implements OnInit, OnDestroy {
   /** IDs that have already fired the overdue cue; null until the first tick (boot silence). */
   private overdueFired: Set<string> | null = null;
   private readonly onVisibility = () => this.handleVisibility();
+
+  /** Narrow-screen media query + its change handler (mirrors onVisibility). */
+  private mql?: MediaQueryList;
+  private readonly onNarrowChange = (e: MediaQueryListEvent) => this.isNarrow.set(e.matches);
 
   constructor(
     public readonly service: KitchenOrderService,
@@ -123,6 +130,13 @@ export class BoardComponent implements OnInit, OnDestroy {
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this.onVisibility);
     }
+    // Narrow-screen fallback: below 768px the board swaps the landscape pager for
+    // a single-column scroll list. Seed from the initial match, then track changes.
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      this.mql = window.matchMedia('(max-width: 768px)');
+      this.isNarrow.set(this.mql.matches);
+      this.mql.addEventListener('change', this.onNarrowChange);
+    }
   }
 
   ngOnDestroy(): void {
@@ -131,6 +145,7 @@ export class BoardComponent implements OnInit, OnDestroy {
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.onVisibility);
     }
+    this.mql?.removeEventListener('change', this.onNarrowChange);
     void this.releaseWakeLock();
     void this.audioCtx?.close();
   }
