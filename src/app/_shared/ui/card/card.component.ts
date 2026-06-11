@@ -19,12 +19,15 @@ import { cn } from '../../utils/cn';
 export class CardComponent {
   @Input() elevated = false;
   @Input() fullHeight = false;
+  @Input() glossy = false;
 
   get containerClass(): string {
     return cn(
-      'bg-card text-card-foreground rounded-lg border',
-      'shadow-[var(--shadow-md)]',
-      'transition-all duration-200 hover:shadow-[var(--shadow-lg)] hover:-translate-y-1',
+      'text-card-foreground rounded-lg',
+      'transition-all duration-200 hover:-translate-y-1',
+      this.glossy
+        ? 'bg-gradient-to-b from-white via-[#FAFCFE] to-[#E7EDF3] border border-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,1),var(--shadow-lg)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),var(--shadow-lg)]'
+        : 'bg-card border shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)]',
       this.fullHeight && 'h-full'
     );
   }
