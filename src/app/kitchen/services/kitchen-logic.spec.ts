@@ -4,6 +4,7 @@ import {
   RECALL_WINDOW_MS,
   WARNING_MS,
   classifyEscalation,
+  classifyModifier,
   formatAge,
   formatOrderNumber,
   isLegalAdvance,
@@ -51,6 +52,38 @@ describe('classifyEscalation', () => {
 
   it('is always normal once served, regardless of age', () => {
     expect(classifyEscalation(iso(OVERDUE_MS * 2), iso(1000), NOW)).toBe('normal');
+  });
+});
+
+describe('classifyModifier', () => {
+  it('flags removals/holds/substitutions as omissions', () => {
+    expect(classifyModifier('no pickles')).toBe('omission');
+    expect(classifyModifier('Without onions')).toBe('omission');
+    expect(classifyModifier('hold the mayo')).toBe('omission');
+    expect(classifyModifier('no')).toBe('omission');
+  });
+
+  it('flags add-ons as additions', () => {
+    expect(classifyModifier('extra cheese')).toBe('addition');
+    expect(classifyModifier('add bacon')).toBe('addition');
+  });
+
+  it('flags doneness terms as prep (exact match, case-insensitive)', () => {
+    expect(classifyModifier('well done')).toBe('prep');
+    expect(classifyModifier('Medium Rare')).toBe('prep');
+    expect(classifyModifier('medium')).toBe('prep');
+  });
+
+  it("falls back to 'neutral' for unrecognised phrasing (the safe default)", () => {
+    expect(classifyModifier('on a separate plate')).toBe('neutral');
+    expect(classifyModifier('leave off onions')).toBe('neutral');
+  });
+
+  it('never classifies a string as both omission and addition', () => {
+    const omissions = ['no pickles', 'Without onions', 'hold the mayo', 'w/o ice', '86 olives', 'sub fries'];
+    const additions = ['extra cheese', 'add bacon', 'with ranch', 'double patty', 'side salad'];
+    omissions.forEach((s) => expect(classifyModifier(s)).toBe('omission'));
+    additions.forEach((s) => expect(classifyModifier(s)).toBe('addition'));
   });
 });
 

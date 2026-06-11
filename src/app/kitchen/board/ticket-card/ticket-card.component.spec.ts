@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { KitchenTicket } from '../../models/kitchen.models';
-import { OVERDUE_MS } from '../../services/kitchen-logic';
+import { OVERDUE_MS, WARNING_MS } from '../../services/kitchen-logic';
 import { TicketCardComponent } from './ticket-card.component';
 
 function makeTicket(partial: Partial<KitchenTicket> = {}): KitchenTicket {
@@ -78,6 +78,107 @@ describe('TicketCardComponent', () => {
     expect(component.escalation).toBe('overdue');
     const card = (fixture.nativeElement as HTMLElement).querySelector('article')!;
     expect(card.classList).toContain('kitchen-overdue');
+  });
+
+  describe('card redesign — typed modifiers, quantity badges, header band', () => {
+    function itemSpan(text: string): HTMLElement | undefined {
+      return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('span'))
+        .find((s) => (s.textContent ?? '').includes(text));
+    }
+    function qtySpan(text: string): HTMLElement | undefined {
+      return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('span'))
+        .find((s) => (s.textContent ?? '').trim() === text);
+    }
+
+    it('renders an omission modifier in red with a ban icon', () => {
+      component.ticket = makeTicket({
+        items: [{ item_name_snapshot: 'Burger', quantity: 1, modifiers: ['No pickles'], allergen_tags: [], extras: [] }],
+      });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      const span = itemSpan('No pickles');
+      expect(span).toBeTruthy();
+      expect(span!.className).toContain('text-red-600');
+      expect(span!.querySelector('svg')).toBeTruthy();
+    });
+
+    it('renders an addition modifier in blue with a plus icon', () => {
+      component.ticket = makeTicket({
+        items: [{ item_name_snapshot: 'Burger', quantity: 1, modifiers: ['Extra cheese'], allergen_tags: [], extras: [] }],
+      });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      const span = itemSpan('Extra cheese');
+      expect(span).toBeTruthy();
+      expect(span!.className).toContain('text-blue-600');
+      expect(span!.querySelector('svg')).toBeTruthy();
+    });
+
+    it('renders a doneness term as a purple prep chip', () => {
+      component.ticket = makeTicket({
+        items: [{ item_name_snapshot: 'Steak', quantity: 1, modifiers: ['Medium rare'], allergen_tags: [], extras: [] }],
+      });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      const span = itemSpan('Medium rare');
+      expect(span).toBeTruthy();
+      expect(span!.className).toContain('bg-purple-100');
+    });
+
+    it('renders a filled badge for an item quantity greater than 1', () => {
+      component.ticket = makeTicket({
+        items: [{ item_name_snapshot: 'Fries', quantity: 2, modifiers: [], allergen_tags: [], extras: [] }],
+      });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      const qty = qtySpan('2×');
+      expect(qty).toBeTruthy();
+      expect(qty!.className).toContain('bg-gray-900');
+    });
+
+    it('keeps an item quantity of 1 quiet (de-emphasised, no badge)', () => {
+      component.ticket = makeTicket({
+        items: [{ item_name_snapshot: 'Fries', quantity: 1, modifiers: [], allergen_tags: [], extras: [] }],
+      });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      const qty = qtySpan('1×');
+      expect(qty).toBeTruthy();
+      expect(qty!.className).toContain('text-gray-500');
+      expect(qty!.className).not.toContain('bg-gray-900');
+    });
+
+    it('tints the header amber on warning while the card body stays white', () => {
+      component.ticket = makeTicket({ created_at: new Date(Date.now() - WARNING_MS - 60_000).toISOString() });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      expect(component.escalation).toBe('warning');
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('header')!.className).toContain('bg-amber-50');
+      const article = el.querySelector('article')!;
+      expect(article.className).toContain('bg-white');
+      expect(article.className).not.toContain('bg-amber-50');
+    });
+
+    it('tints the header red on overdue, keeps the body white, and glows via kitchen-overdue', () => {
+      component.ticket = makeTicket({ created_at: new Date(Date.now() - OVERDUE_MS - 1000).toISOString() });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      expect(component.escalation).toBe('overdue');
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('header')!.className).toContain('bg-red-100');
+      const article = el.querySelector('article')!;
+      expect(article.className).toContain('bg-white');
+      expect(article.className).toContain('kitchen-overdue');
+      expect(article.className).not.toContain('bg-red-100');
+    });
   });
 
   it('shows a recall control for a ready ticket and not for a new one', () => {
