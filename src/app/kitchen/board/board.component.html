@@ -21,8 +21,8 @@
     <span class="capitalize">{{ service.connectionState() }}</span>
   </div>
 
-  <!-- Jump controls -->
-  <div class="flex items-center gap-1 ml-2">
+  <!-- Jump controls (landscape pager navigation; hidden on the narrow scroll list) -->
+  <div *ngIf="!isNarrow()" class="flex items-center gap-1 ml-2">
     <button type="button" (click)="jumpOldest()" class="kbtn">Oldest</button>
     <button
       type="button"
@@ -37,8 +37,8 @@
 
   <div class="flex-1"></div>
 
-  <!-- Pager position -->
-  <div class="flex items-center gap-1">
+  <!-- Pager position (landscape only; the scroll list has no pages) -->
+  <div *ngIf="!isNarrow()" class="flex items-center gap-1">
     <button type="button" (click)="prevPage()" [disabled]="currentPage() === 0" class="kbtn" aria-label="Previous page">‹</button>
     <span class="text-sm tabular-nums text-gray-300 px-1">{{ currentPage() + 1 }} / {{ pages().length }}</span>
     <button type="button" (click)="nextPage()" [disabled]="currentPage() >= pages().length - 1" class="kbtn" aria-label="Next page">›</button>
@@ -101,8 +101,9 @@
     <p class="text-sm">New tickets will appear here automatically.</p>
   </div>
 
-  <!-- Paginated snap grid (horizontal page snap, not infinite scroll) -->
+  <!-- Wide (tablet-landscape): paginated snap grid (horizontal page snap, not infinite scroll) -->
   <div
+    *ngIf="!isNarrow()"
     #pager
     (scroll)="onPagerScroll()"
     class="flex h-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth">
@@ -123,6 +124,26 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <!-- Narrow (phone / tablet-portrait): single-column vertical scroll, no pager. -->
+  <div
+    *ngIf="isNarrow()"
+    data-testid="kitchen-narrow-list"
+    class="h-full overflow-y-auto overflow-x-hidden p-3 space-y-3">
+    <div
+      *ngFor="let t of tickets()"
+      class="min-h-[260px]"
+      [ngClass]="{ 'kitchen-enter': isEntering(t.id) }">
+      <app-kitchen-ticket-card
+        [ticket]="t"
+        [now]="now()"
+        [isManager]="service.isManager"
+        (advance)="onAdvance($event)"
+        (recall)="onRecall($event)"
+        (togglePriority)="onTogglePriority($event)"
+        (cancelRequested)="onCardCancel($event)"></app-kitchen-ticket-card>
+    </div>
   </div>
 </div>
 

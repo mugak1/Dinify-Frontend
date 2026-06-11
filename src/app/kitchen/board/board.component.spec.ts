@@ -11,8 +11,29 @@ import { AuthenticationService } from '../../_services/authentication.service';
 import { getMockTickets } from '../mock/kitchen-mock-data';
 import { BoardComponent } from './board.component';
 
+/**
+ * Controllable `window.matchMedia` stub: lets a test seed the initial match and
+ * later fire a `change` event to flip the board between wide and narrow layouts.
+ */
+function installMatchMedia(matches: boolean) {
+  const listeners = new Set<(e: MediaQueryListEvent) => void>();
+  const mql = {
+    matches,
+    media: '(max-width: 768px)',
+    addEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) => listeners.add(cb),
+    removeEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) => listeners.delete(cb),
+    dispatch(next: boolean) {
+      this.matches = next;
+      listeners.forEach(cb => cb({ matches: next } as MediaQueryListEvent));
+    },
+  };
+  spyOn(window, 'matchMedia').and.returnValue(mql as unknown as MediaQueryList);
+  return mql;
+}
+
 describe('BoardComponent', () => {
   let fixture: ComponentFixture<BoardComponent>;
+  let component: BoardComponent;
 
   beforeEach(async () => {
     const apiStub = {
@@ -34,6 +55,7 @@ describe('BoardComponent', () => {
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(BoardComponent);
+    component = fixture.componentInstance;
   });
 
   it('creates and renders the chrome', () => {
@@ -54,4 +76,44 @@ describe('BoardComponent', () => {
     fixture.destroy();       // ngOnDestroy → stopPolling()
     discardPeriodicTasks();  // clear the 1s age ticker
   }));
+
+  it('flips isNarrow when the media query change event fires', () => {
+    const mql = installMatchMedia(false);
+    fixture.detectChanges(); // ngOnInit seeds isNarrow from matchMedia().matches
+    expect(component.isNarrow()).toBeFalse();
+
+    mql.dispatch(true);      // viewport crosses below 768px
+    fixture.detectChanges();
+    expect(component.isNarrow()).toBeTrue();
+
+    fixture.destroy();
+  });
+
+  it('renders the vertical scroll list (not the pager) in narrow mode', () => {
+    installMatchMedia(true);
+    fixture.detectChanges(); // ngOnInit → narrow; first poll populates tickets
+    fixture.detectChanges(); // render the cards
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(component.isNarrow()).toBeTrue();
+    expect(el.querySelector('[data-testid="kitchen-narrow-list"]')).toBeTruthy();
+    expect(el.querySelector('.snap-x')).toBeNull(); // no pager element
+    expect(el.querySelectorAll('app-kitchen-ticket-card').length).toBeGreaterThan(0);
+
+    fixture.destroy();
+  });
+
+  it('renders the pager (not the vertical list) in wide mode', () => {
+    installMatchMedia(false);
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(component.isNarrow()).toBeFalse();
+    expect(el.querySelector('.snap-x')).toBeTruthy(); // pager unchanged
+    expect(el.querySelector('[data-testid="kitchen-narrow-list"]')).toBeNull();
+    expect(el.querySelectorAll('app-kitchen-ticket-card').length).toBeGreaterThan(0);
+
+    fixture.destroy();
+  });
 });
