@@ -6,7 +6,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
   standalone: true,
   imports: [CardComponent],
   template: `
-    <app-dn-card>
+    <app-dn-card [glossy]="true">
       @switch (variant) {
         @case ('compact') {
           <div class="p-4">

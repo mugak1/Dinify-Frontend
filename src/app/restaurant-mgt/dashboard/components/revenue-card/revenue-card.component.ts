@@ -35,7 +35,7 @@ import { formatCurrency, formatChartTick } from '../../utils/format.utils';
     } @else if (error) {
       <app-card-error title="Revenue" [message]="error" (retry)="retry.emit()"></app-card-error>
     } @else if (revenueData) {
-      <app-dn-card>
+      <app-dn-card [glossy]="true">
         <div class="p-4 sm:p-6">
           <!-- Header -->
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">
