@@ -16,11 +16,11 @@
 @keyframes kitchen-overdue-pulse {
   0%,
   100% {
-    background-color: hsl(0 84% 60% / 0.10);
-    box-shadow: 0 0 0 0 hsl(0 84% 60% / 0.0);
+    background-color: #fef2f2;   /* red-50, opaque — card stays light */
+    box-shadow: 0 0 0 0 hsl(0 84% 60% / 0);
   }
   50% {
-    background-color: hsl(0 84% 60% / 0.22);
+    background-color: #fee2e2;   /* red-100, opaque */
     box-shadow: 0 0 18px 2px hsl(0 84% 60% / 0.35);
   }
 }
@@ -28,6 +28,6 @@
 @media (prefers-reduced-motion: reduce) {
   .kitchen-overdue {
     animation: none;
-    background-color: hsl(0 84% 60% / 0.18);
+    background-color: #fee2e2;   /* red-100, opaque */
   }
 }
