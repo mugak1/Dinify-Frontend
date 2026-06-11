@@ -1,8 +1,9 @@
 /*
- * Overdue cue: a pulsing tinted fill behind the card so it reads unmistakably
- * across a busy kitchen — and stays distinct from the red advance button, since
- * --destructive and --primary are the same red. A bare red border alone would
- * blur into that button colour; the red wash over the white card reads clearly.
+ * Overdue cue: a pulsing red GLOW (box-shadow only) around the card so it reads
+ * unmistakably across a busy kitchen — and stays distinct from the red advance
+ * button, since --destructive and --primary are the same red. The urgency TINT
+ * now lives on the header band (see the <header> ngClass in the template); the
+ * card body stays white, so we pulse only the glow here, never the background.
  */
 :host {
   display: block;
@@ -16,11 +17,9 @@
 @keyframes kitchen-overdue-pulse {
   0%,
   100% {
-    background-color: #fef2f2;   /* red-50, opaque — card stays light */
     box-shadow: 0 0 0 0 hsl(0 84% 60% / 0);
   }
   50% {
-    background-color: #fee2e2;   /* red-100, opaque */
     box-shadow: 0 0 18px 2px hsl(0 84% 60% / 0.35);
   }
 }
@@ -28,6 +27,5 @@
 @media (prefers-reduced-motion: reduce) {
   .kitchen-overdue {
     animation: none;
-    background-color: #fee2e2;   /* red-100, opaque */
   }
 }

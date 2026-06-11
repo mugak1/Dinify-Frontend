@@ -12,7 +12,9 @@ import {
   KitchenTicket,
 } from '../../models/kitchen.models';
 import {
+  ModifierKind,
   classifyEscalation,
+  classifyModifier,
   formatAge,
   formatOrderNumber,
   isRecallEligible,
@@ -117,6 +119,11 @@ export class TicketCardComponent {
   /** Resolve an allergen icon name to inline SVG (shared Lucide catalog). */
   iconSvg(name: string): string {
     return getTagIconSvg(name);
+  }
+
+  /** Classify a freeform modifier for typed display (red / blue / chip / plain). */
+  modType(m: string): ModifierKind {
+    return classifyModifier(m);
   }
 
   onAdvance(): void {

@@ -23,8 +23,14 @@
       'bg-gray-300': ticket.fulfilment_status === 'served'
     }"></div>
 
-  <!-- Header -->
-  <header class="shrink-0 flex items-start justify-between gap-2 px-3 pt-2 pb-2 border-b border-gray-200">
+  <!-- Header: urgency band. Tint lives here (body stays white); see ticket-card.component.css. -->
+  <header
+    class="shrink-0 flex items-start justify-between gap-2 px-3 pt-2 pb-2 border-b"
+    [ngClass]="{
+      'border-gray-200': escalation === 'normal',
+      'bg-amber-50 border-amber-200': escalation === 'warning',
+      'bg-red-100 border-red-200': escalation === 'overdue'
+    }">
     <div class="min-w-0">
       <div class="flex items-center gap-2">
         <span class="font-display text-2xl font-extrabold tabular-nums">{{ orderNumber }}</span>
@@ -81,13 +87,29 @@
   <div class="flex-1 overflow-y-auto px-3 py-2 space-y-2">
 <div *ngFor="let item of ticket.items" class="text-base">
     <div class="flex items-baseline gap-2">
-<span class="font-display text-lg font-bold tabular-nums shrink-0">{{ item.quantity }}×</span>
+      <span
+        class="font-display tabular-nums shrink-0"
+        [ngClass]="item.quantity > 1
+          ? 'inline-flex items-center justify-center min-w-[26px] h-[26px] bg-gray-900 text-white rounded-md font-bold text-base'
+          : 'text-lg font-bold text-gray-500'">{{ item.quantity }}×</span>
       <span class="font-semibold leading-tight">{{ item.item_name_snapshot }}</span>
       </div>
 
-      <ul *ngIf="item.modifiers.length" class="mt-0.5 ml-7 list-disc list-inside text-gray-600 text-[13px]">
-        <li *ngFor="let mod of item.modifiers">{{ mod }}</li>
-      </ul>
+      <!-- Modifiers: colour-coded by a frontend heuristic (classifyModifier). -->
+      <div *ngIf="item.modifiers.length" class="mt-0.5 ml-7 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+        <ng-container *ngFor="let mod of item.modifiers" [ngSwitch]="modType(mod)">
+          <span *ngSwitchCase="'omission'" class="inline-flex items-center gap-0.5 text-red-600 font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+            {{ mod }}
+          </span>
+          <span *ngSwitchCase="'addition'" class="inline-flex items-center gap-0.5 text-blue-600 font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            {{ mod }}
+          </span>
+          <span *ngSwitchCase="'prep'" class="inline-flex items-center rounded bg-purple-100 text-purple-800 px-1.5 py-0.5 text-[11px] font-medium">{{ mod }}</span>
+          <span *ngSwitchDefault class="text-gray-600">{{ mod }}</span>
+        </ng-container>
+      </div>
 
       <div *ngIf="item.allergen_tags.length" class="mt-1 ml-7 flex flex-wrap gap-1">
         <span
@@ -102,13 +124,30 @@
       <!-- Extras (add-ons), indented under their parent line. -->
       <div *ngIf="item.extras?.length" class="mt-1 ml-7 space-y-1">
         <div *ngFor="let extra of item.extras" class="text-[13px]">
-          <div class="flex items-baseline gap-1.5 text-gray-600">
-            <span class="font-semibold tabular-nums shrink-0">+ {{ extra.quantity }}×</span>
+          <!-- An extra IS an addition: tint the whole line blue. -->
+          <div class="flex items-baseline gap-1.5 text-blue-600">
+            <span
+              class="tabular-nums shrink-0 font-semibold"
+              [ngClass]="extra.quantity > 1
+                ? 'inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 bg-blue-600 text-white rounded font-bold text-[12px]'
+                : ''">+ {{ extra.quantity }}×</span>
             <span class="font-medium leading-tight">{{ extra.item_name_snapshot }}</span>
           </div>
-          <ul *ngIf="extra.modifiers.length" class="mt-0.5 ml-5 list-disc list-inside text-gray-500 text-[12px]">
-            <li *ngFor="let mod of extra.modifiers">{{ mod }}</li>
-          </ul>
+          <!-- Same classification as the parent line, at the extra's smaller scale. -->
+          <div *ngIf="extra.modifiers.length" class="mt-0.5 ml-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+            <ng-container *ngFor="let mod of extra.modifiers" [ngSwitch]="modType(mod)">
+              <span *ngSwitchCase="'omission'" class="inline-flex items-center gap-0.5 text-red-600 font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+                {{ mod }}
+              </span>
+              <span *ngSwitchCase="'addition'" class="inline-flex items-center gap-0.5 text-blue-600 font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                {{ mod }}
+              </span>
+              <span *ngSwitchCase="'prep'" class="inline-flex items-center rounded bg-purple-100 text-purple-800 px-1.5 py-0.5 text-[11px] font-medium">{{ mod }}</span>
+              <span *ngSwitchDefault class="text-gray-500">{{ mod }}</span>
+            </ng-container>
+          </div>
           <div *ngIf="extra.allergen_tags.length" class="mt-0.5 ml-5 flex flex-wrap gap-1">
             <span
               *ngFor="let tag of extra.allergen_tags"

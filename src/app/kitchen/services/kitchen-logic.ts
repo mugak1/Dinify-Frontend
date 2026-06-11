@@ -124,3 +124,62 @@ export function formatAge(created_at: string, now: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${ss}`;
   return `${m}:${ss}`;
 }
+
+// ── Modifier classification (frontend display heuristic) ────────────────
+/** Display kind for a freeform modifier string (frontend heuristic only). */
+export type ModifierKind = 'omission' | 'addition' | 'prep' | 'neutral';
+
+/** Doneness terms — an EXACT (case-insensitive) match flags a prep instruction. */
+const PREP_TERMS: readonly string[] = [
+  'blue',
+  'rare',
+  'medium rare',
+  'medium',
+  'medium well',
+  'well done',
+  'well-done',
+];
+
+/** Leading tokens that mark a modifier as removing/holding/substituting. */
+const OMISSION_PREFIXES: readonly string[] = [
+  'no ',
+  'no-',
+  'without',
+  'w/o',
+  'hold',
+  'skip',
+  'minus',
+  'less ',
+  'sub ',
+  'substitute',
+  '86 ',
+  'remove',
+];
+
+/** Leading tokens that mark a modifier as adding something. */
+const ADDITION_PREFIXES: readonly string[] = [
+  'extra',
+  'add ',
+  'with ',
+  'w/ ',
+  'double',
+  'more ',
+  'side ',
+  'plus ',
+];
+
+/**
+ * Classify a freeform modifier into a display kind. Modifiers are freeform at
+ * the source, so this is a pure heuristic, not a parser. PREP is checked first
+ * (exact doneness terms), then OMISSION, then ADDITION; anything unrecognised
+ * falls to 'neutral' — the safe default (plain text, no directional icon). The
+ * prefix sets are mutually exclusive on the leading token by design, so a string
+ * can never be both omission and addition.
+ */
+export function classifyModifier(raw: string): ModifierKind {
+  const s = raw.trim().toLowerCase();
+  if (PREP_TERMS.includes(s)) return 'prep';
+  if (s === 'no' || OMISSION_PREFIXES.some((p) => s.startsWith(p))) return 'omission';
+  if (ADDITION_PREFIXES.some((p) => s.startsWith(p))) return 'addition';
+  return 'neutral';
+}
