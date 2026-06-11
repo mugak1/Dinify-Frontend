@@ -8,6 +8,7 @@ import { of, throwError } from 'rxjs';
 
 import { ApiService } from '../../_services/api.service';
 import { AuthenticationService } from '../../_services/authentication.service';
+import { KitchenTicket } from '../models/kitchen.models';
 import { getMockTickets } from '../mock/kitchen-mock-data';
 import { KitchenOrderService } from './kitchen-order.service';
 
@@ -21,9 +22,36 @@ describe('KitchenOrderService', () => {
     return { status: 200, data: { records: getMockTickets() } };
   }
 
+  /** A served ticket completed `servedMinsAgo` minutes ago. */
+  function makeServed(id: string, servedMinsAgo: number): KitchenTicket {
+    return {
+      id,
+      order_number: 300,
+      table_label: 'Table X',
+      order_source: 'diner_self_service',
+      fulfilment_status: 'served',
+      priority: false,
+      created_at: new Date(Date.now() - 40 * 60_000).toISOString(),
+      served_at: new Date(Date.now() - servedMinsAgo * 60_000).toISOString(),
+      items: [],
+    };
+  }
+
+  /** Completed-feed envelope: deliberately out of order so the sort is exercised. */
+  function completedEnvelope() {
+    return { status: 200, data: { records: [
+      makeServed('c-1', 9), // oldest completion
+      makeServed('c-2', 2), // newest completion
+      makeServed('c-3', 5),
+    ] } };
+  }
+
   beforeEach(() => {
     apiStub = {
-      get: jasmine.createSpy('get').and.callFake(() => of(freshTickets())),
+      get: jasmine.createSpy('get').and.callFake((_: any, url: string) =>
+        url === 'kitchen/orders/completed/'
+          ? of(completedEnvelope())
+          : of(freshTickets())),
       postPatch: jasmine.createSpy('postPatch').and.returnValue(of({})),
     };
     authStub = {
@@ -87,16 +115,25 @@ describe('KitchenOrderService', () => {
       expect(apiStub.postPatch).not.toHaveBeenCalled();
     });
 
-    it('stamps served_at when advancing to served', () => {
+    it('removes the ticket from the active store when advanced to served', () => {
       load();
       // k-11 is 'ready' → served is the legal next step.
+      expect(service.activeTickets().some(t => t.id === 'k-11')).toBe(true);
       expect(service.advanceStatus('k-11', 'served')).toBe(true);
-      const t = service.activeTickets().find(x => x.id === 'k-11')!;
-      expect(t.fulfilment_status).toBe('served');
-      expect(t.served_at).not.toBeNull();
+      expect(service.activeTickets().some(t => t.id === 'k-11')).toBe(false);
+      expect(apiStub.postPatch).toHaveBeenCalledWith(
+        'kitchen/orders/k-11/fulfilment-status/', { fulfilment_status: 'served' }, 'put');
     });
 
-    it('reverts the optimistic change when the PATCH fails', () => {
+    it('re-adds the served ticket to the active store when the PATCH fails', () => {
+      load();
+      apiStub.postPatch.and.returnValue(throwError(() => new Error('patch failed')));
+      expect(service.advanceStatus('k-11', 'served')).toBe(true);
+      // Optimistic removal rolled back by the error handler.
+      expect(service.activeTickets().some(t => t.id === 'k-11')).toBe(true);
+    });
+
+    it('reverts an in-place advance (not to served) when the PATCH fails', () => {
       load();
       apiStub.postPatch.and.returnValue(throwError(() => new Error('patch failed')));
       expect(service.advanceStatus('k-01', 'preparing')).toBe(true);
@@ -170,6 +207,46 @@ describe('KitchenOrderService', () => {
     it('is a no-op for an unknown id (no PATCH)', () => {
       load();
       service.cancelOrder('does-not-exist', 'other');
+      expect(apiStub.postPatch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('loadCompleted', () => {
+    it('populates completedTickets newest-first by served_at, scoped to the restaurant', () => {
+      service.loadCompleted().subscribe();
+      expect(apiStub.get).toHaveBeenCalledWith(
+        null, 'kitchen/orders/completed/', { restaurant: 'r1' });
+      // c-2 (2 min) newest → c-3 (5 min) → c-1 (9 min) oldest.
+      expect(service.completedTickets().map(t => t.id)).toEqual(['c-2', 'c-3', 'c-1']);
+    });
+
+    it('leaves the active store untouched', () => {
+      load();
+      const activeBefore = service.activeTickets().length;
+      service.loadCompleted().subscribe();
+      expect(service.activeTickets().length).toBe(activeBefore);
+    });
+  });
+
+  describe('recallCompleted', () => {
+    beforeEach(() => service.loadCompleted().subscribe());
+
+    it('removes the ticket from completed and PATCHes served → ready', () => {
+      expect(service.completedTickets().some(t => t.id === 'c-2')).toBe(true);
+      service.recallCompleted('c-2');
+      expect(service.completedTickets().some(t => t.id === 'c-2')).toBe(false);
+      expect(apiStub.postPatch).toHaveBeenCalledWith(
+        'kitchen/orders/c-2/fulfilment-status/', { fulfilment_status: 'ready' }, 'put');
+    });
+
+    it('re-adds the ticket to completed when the recall PATCH fails', () => {
+      apiStub.postPatch.and.returnValue(throwError(() => new Error('recall failed')));
+      service.recallCompleted('c-2');
+      expect(service.completedTickets().some(t => t.id === 'c-2')).toBe(true);
+    });
+
+    it('is a no-op for an unknown id (no PATCH)', () => {
+      service.recallCompleted('does-not-exist');
       expect(apiStub.postPatch).not.toHaveBeenCalled();
     });
   });

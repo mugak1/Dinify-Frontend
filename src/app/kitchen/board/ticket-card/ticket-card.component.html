@@ -7,9 +7,9 @@
 <article
   class="relative h-full flex flex-col rounded-xl border-2 overflow-hidden bg-white text-gray-900 shadow-lg"
   [ngClass]="{
-    'border-gray-200': escalation === 'normal' && !isServed,
-    'border-amber-500': escalation === 'warning',
-    'border-red-500 ring-2 ring-red-500/60 kitchen-overdue': escalation === 'overdue',
+    'border-gray-200': (completed || escalation === 'normal') && !isServed,
+    'border-amber-500': !completed && escalation === 'warning',
+    'border-red-500 ring-2 ring-red-500/60 kitchen-overdue': !completed && escalation === 'overdue',
     'border-gray-200 opacity-70': isServed
   }">
 
@@ -27,9 +27,9 @@
   <header
     class="shrink-0 flex items-start justify-between gap-2 px-3 pt-2 pb-2 border-b"
     [ngClass]="{
-      'border-gray-200': escalation === 'normal',
-      'bg-amber-50 border-amber-200': escalation === 'warning',
-      'bg-red-100 border-red-200': escalation === 'overdue'
+      'border-gray-200': completed || escalation === 'normal',
+      'bg-amber-50 border-amber-200': !completed && escalation === 'warning',
+      'bg-red-100 border-red-200': !completed && escalation === 'overdue'
     }">
     <div class="min-w-0">
       <div class="flex items-center gap-2">
@@ -53,7 +53,12 @@
     </div>
 
     <div class="flex flex-col items-end gap-1 shrink-0">
+      <!-- Completed: muted "served {relative}" (omitted if no served stamp). Active: live age. -->
       <span
+        *ngIf="completed && servedRelative"
+        class="text-xs font-medium text-gray-400">{{ servedRelative }}</span>
+      <span
+        *ngIf="!completed"
         class="font-mono text-lg font-bold tabular-nums"
         [ngClass]="{
           'text-gray-700': escalation === 'normal' && !isServed,
@@ -61,7 +66,7 @@
           'text-red-600': escalation === 'overdue',
           'text-gray-400': isServed
         }">{{ age }}</span>
-      <div class="flex items-center gap-1">
+      <div *ngIf="!completed" class="flex items-center gap-1">
         <button
           *ngIf="canCancel"
           type="button"
@@ -164,25 +169,38 @@
 
   <!-- Actions -->
   <footer class="shrink-0 flex items-center gap-2 px-3 py-2 border-t border-gray-200">
-    <button
-      *ngIf="next"
-      type="button"
-      (click)="onAdvance()"
-      class="flex-1 h-12 rounded-lg bg-primary text-primary-foreground font-display text-base font-bold uppercase tracking-wide hover:bg-primary/90 active:scale-[0.98] transition">
-      {{ advanceLabel }}
-    </button>
+    <!-- Active mode: advance / recall / served label. -->
+    <ng-container *ngIf="!completed">
+      <button
+        *ngIf="next"
+        type="button"
+        (click)="onAdvance()"
+        class="flex-1 h-12 rounded-lg bg-primary text-primary-foreground font-display text-base font-bold uppercase tracking-wide hover:bg-primary/90 active:scale-[0.98] transition">
+        {{ advanceLabel }}
+      </button>
 
+      <button
+        *ngIf="canRecall"
+        type="button"
+        (click)="onRecall()"
+        class="h-12 px-3 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+        Recall
+      </button>
+
+      <span
+        *ngIf="isServed"
+        class="ml-auto text-xs font-semibold uppercase tracking-wide text-gray-400">Served</span>
+    </ng-container>
+
+    <!-- Completed mode: a single Recall action puts the ticket back on the active board. -->
     <button
-      *ngIf="canRecall"
+      *ngIf="completed"
       type="button"
       (click)="onRecall()"
-      class="h-12 px-3 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center gap-1">
+      class="flex-1 h-12 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center justify-center gap-1.5">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
       Recall
     </button>
-
-    <span
-      *ngIf="isServed"
-      class="ml-auto text-xs font-semibold uppercase tracking-wide text-gray-400">Served</span>
   </footer>
 </article>

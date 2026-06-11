@@ -36,10 +36,31 @@ describe('BoardComponent', () => {
   let fixture: ComponentFixture<BoardComponent>;
   let component: BoardComponent;
 
+  /** Two served tickets for the Completed feed — ids distinct from the active set. */
+  function completedRecords() {
+    const base = {
+      order_number: 500,
+      table_label: 'Table Z',
+      order_source: 'diner_self_service' as const,
+      fulfilment_status: 'served' as const,
+      priority: false,
+      created_at: new Date(Date.now() - 40 * 60_000).toISOString(),
+      items: [],
+    };
+    return [
+      { ...base, id: 'done-1', served_at: new Date(Date.now() - 2 * 60_000).toISOString() },
+      { ...base, id: 'done-2', served_at: new Date(Date.now() - 6 * 60_000).toISOString() },
+    ];
+  }
+
+  let apiStub: { get: jasmine.Spy; postPatch: jasmine.Spy };
+
   beforeEach(async () => {
-    const apiStub = {
-      get: jasmine.createSpy('get').and.callFake(() =>
-        of({ status: 200, data: { records: getMockTickets() } })),
+    apiStub = {
+      get: jasmine.createSpy('get').and.callFake((_: any, url: string) =>
+        url === 'kitchen/orders/completed/'
+          ? of({ status: 200, data: { records: completedRecords() } })
+          : of({ status: 200, data: { records: getMockTickets() } })),
       postPatch: jasmine.createSpy('postPatch').and.returnValue(of({})),
     };
     const authStub = {
@@ -116,6 +137,56 @@ describe('BoardComponent', () => {
     expect(el.querySelectorAll('app-kitchen-ticket-card').length).toBeGreaterThan(0);
 
     fixture.destroy();
+  });
+
+  describe('Active | Completed view toggle', () => {
+    it('switches to the completed feed and back to active', fakeAsync(() => {
+      installMatchMedia(false); // wide pager
+      fixture.detectChanges(); // ngOnInit → first active poll (sync stub)
+      fixture.detectChanges();
+
+      expect(component.viewMode()).toBe('active');
+      expect(component.tickets().some(t => t.id === 'k-01')).toBeTrue();
+
+      component.setView('completed');
+      fixture.detectChanges();
+
+      expect(component.viewMode()).toBe('completed');
+      expect(apiStub.get).toHaveBeenCalledWith(
+        null, 'kitchen/orders/completed/', { restaurant: 'r1' });
+      // Grid now sources completedTickets, newest-first; active ids gone.
+      expect(component.tickets().map(t => t.id)).toEqual(['done-1', 'done-2']);
+      expect(component.tickets().some(t => t.id === 'k-01')).toBeFalse();
+      const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('app-kitchen-ticket-card');
+      expect(cards.length).toBe(2);
+
+      component.setView('active');
+      fixture.detectChanges();
+
+      expect(component.viewMode()).toBe('active');
+      expect(component.tickets().some(t => t.id === 'k-01')).toBeTrue();
+
+      fixture.destroy();
+      discardPeriodicTasks(); // 1s ticker + completed-refresh interval
+    }));
+
+    it('hides the active-only jump controls in completed mode', fakeAsync(() => {
+      installMatchMedia(false);
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const hasOldest = () =>
+        Array.from(el.querySelectorAll('button')).some(b => (b.textContent ?? '').trim() === 'Oldest');
+      expect(hasOldest()).toBeTrue();
+
+      component.setView('completed');
+      fixture.detectChanges();
+      expect(hasOldest()).toBeFalse();
+
+      fixture.destroy();
+      discardPeriodicTasks();
+    }));
   });
 
   describe('connection escalation banner', () => {

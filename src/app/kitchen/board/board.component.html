@@ -21,8 +21,37 @@
     <span class="capitalize">{{ service.connectionState() }}</span>
   </div>
 
-  <!-- Jump controls (landscape pager navigation; hidden on the narrow scroll list) -->
-  <div *ngIf="!isNarrow()" class="flex items-center gap-1 ml-2">
+  <!-- Active | Completed segmented toggle -->
+  <div
+    data-testid="kitchen-view-toggle"
+    role="tablist"
+    aria-label="Board view"
+    class="inline-flex items-center gap-0.5 rounded-full border border-white/15 bg-white/5 p-0.5 ml-1">
+    <button
+      type="button"
+      role="tab"
+      data-testid="view-active"
+      [attr.aria-selected]="viewMode() === 'active'"
+      (click)="setView('active')"
+      class="px-3 h-8 rounded-full text-sm font-semibold transition-colors"
+      [ngClass]="viewMode() === 'active' ? 'bg-white text-gray-900' : 'text-gray-300 hover:text-white'">
+      Active
+    </button>
+    <button
+      type="button"
+      role="tab"
+      data-testid="view-completed"
+      [attr.aria-selected]="viewMode() === 'completed'"
+      (click)="setView('completed')"
+      class="px-3 h-8 rounded-full text-sm font-semibold transition-colors"
+      [ngClass]="viewMode() === 'completed' ? 'bg-white text-gray-900' : 'text-gray-300 hover:text-white'">
+      Completed
+    </button>
+  </div>
+
+  <!-- Jump controls (landscape pager navigation; active-only — Completed is newest-first,
+       nothing is overdue; hidden on the narrow scroll list). -->
+  <div *ngIf="!isNarrow() && viewMode() === 'active'" class="flex items-center gap-1 ml-2">
     <button type="button" (click)="jumpOldest()" class="kbtn">Oldest</button>
     <button
       type="button"
@@ -124,9 +153,29 @@
   <!-- Empty state -->
   <div *ngIf="tickets().length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-60"><path d="M3 11h18"/><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>
-    <p class="font-display text-lg font-semibold">No active orders</p>
-    <p class="text-sm">New tickets will appear here automatically.</p>
+    <p class="font-display text-lg font-semibold">{{ viewMode() === 'completed' ? 'No completed orders' : 'No active orders' }}</p>
+    <p class="text-sm">{{ viewMode() === 'completed' ? 'Served orders will appear here.' : 'New tickets will appear here automatically.' }}</p>
   </div>
+
+  <!-- One mode-aware card renderer, reused by the wide pager and the narrow list.
+       active    → full controls; completed → read-only with Recall only. -->
+  <ng-template #card let-t>
+    <app-kitchen-ticket-card
+      *ngIf="viewMode() === 'active'"
+      [ticket]="t"
+      [now]="now()"
+      [isManager]="service.isManager"
+      (advance)="onAdvance($event)"
+      (recall)="onRecall($event)"
+      (togglePriority)="onTogglePriority($event)"
+      (cancelRequested)="onCardCancel($event)"></app-kitchen-ticket-card>
+    <app-kitchen-ticket-card
+      *ngIf="viewMode() === 'completed'"
+      [ticket]="t"
+      [now]="now()"
+      [completed]="true"
+      (recall)="onRecallCompleted($event)"></app-kitchen-ticket-card>
+  </ng-template>
 
   <!-- Wide (tablet-landscape): paginated snap grid (horizontal page snap, not infinite scroll) -->
   <div
@@ -140,14 +189,7 @@
           *ngFor="let t of page"
           class="min-h-0"
           [ngClass]="{ 'kitchen-enter': isEntering(t.id) }">
-          <app-kitchen-ticket-card
-            [ticket]="t"
-            [now]="now()"
-            [isManager]="service.isManager"
-            (advance)="onAdvance($event)"
-            (recall)="onRecall($event)"
-            (togglePriority)="onTogglePriority($event)"
-            (cancelRequested)="onCardCancel($event)"></app-kitchen-ticket-card>
+          <ng-container *ngTemplateOutlet="card; context: { $implicit: t }"></ng-container>
         </div>
       </div>
     </section>
@@ -162,14 +204,7 @@
       *ngFor="let t of tickets()"
       class="min-h-[260px]"
       [ngClass]="{ 'kitchen-enter': isEntering(t.id) }">
-      <app-kitchen-ticket-card
-        [ticket]="t"
-        [now]="now()"
-        [isManager]="service.isManager"
-        (advance)="onAdvance($event)"
-        (recall)="onRecall($event)"
-        (togglePriority)="onTogglePriority($event)"
-        (cancelRequested)="onCardCancel($event)"></app-kitchen-ticket-card>
+      <ng-container *ngTemplateOutlet="card; context: { $implicit: t }"></ng-container>
     </div>
   </div>
 </div>

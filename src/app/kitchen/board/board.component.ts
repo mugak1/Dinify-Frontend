@@ -23,6 +23,8 @@ import { CancelDialogComponent } from './cancel-dialog/cancel-dialog.component';
 const PAGE_SIZE = 8;
 /** How long a freshly-arrived card plays its entry animation. */
 const ENTER_MS = 700;
+/** While viewing Completed, re-pull the completed feed on roughly the poll cadence. */
+const COMPLETED_REFRESH_MS = 3000;
 
 @Component({
   selector: 'app-kitchen-board',
@@ -38,8 +40,16 @@ export class BoardComponent implements OnInit, OnDestroy {
   /** Shared clock — one ticker drives every card's age (no per-card timers). */
   readonly now = signal(Date.now());
 
-  /** Sorted, board-ordered tickets straight from the service signal. */
-  readonly tickets = computed(() => this.service.activeTickets());
+  /** Active | Completed board view. Active is the default; Completed shows served. */
+  readonly viewMode = signal<'active' | 'completed'>('active');
+
+  /** Grid source: the served feed in Completed mode, the live board otherwise.
+   *  Both flow through the existing pager / narrow-list unchanged. */
+  readonly tickets = computed(() =>
+    this.viewMode() === 'completed'
+      ? this.service.completedTickets()
+      : this.service.activeTickets(),
+  );
 
   /** Tickets chunked into fixed-size pages for the snap grid. */
   readonly pages = computed<KitchenTicket[][]>(() => {
@@ -74,6 +84,8 @@ export class BoardComponent implements OnInit, OnDestroy {
   private wakeLockSentinel: WakeLockSentinel | null = null;
 
   private tickHandle?: ReturnType<typeof setInterval>;
+  /** Completed-feed refresh interval; runs only while the Completed view is open. */
+  private completedHandle?: ReturnType<typeof setInterval>;
   /** Previous ticket-ID set; null until the first load so we never chime on boot. */
   private prevIds: Set<string> | null = null;
   /** Previous fulfilment status per id; rebuilt each emission so the ready cue fires once. */
@@ -142,12 +154,46 @@ export class BoardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.service.stopPolling();
     if (this.tickHandle) clearInterval(this.tickHandle);
+    this.stopCompletedRefresh();
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.onVisibility);
     }
     this.mql?.removeEventListener('change', this.onNarrowChange);
     void this.releaseWakeLock();
     void this.audioCtx?.close();
+  }
+
+  // ── View toggle (Active | Completed) ──────────────────────────────────
+  /**
+   * Switch the board view. The active poll keeps running in BOTH modes (so the
+   * new-order chime still alerts while you're on Completed). Entering Completed
+   * loads the served feed once and starts a board-owned refresh on the poll
+   * cadence; leaving clears it. currentPage resets so the pager starts clean.
+   */
+  setView(mode: 'active' | 'completed'): void {
+    if (this.viewMode() === mode) return;
+    this.viewMode.set(mode);
+    this.currentPage.set(0);
+    if (mode === 'completed') {
+      this.service.loadCompleted().subscribe();
+      this.startCompletedRefresh();
+    } else {
+      this.stopCompletedRefresh();
+    }
+  }
+
+  private startCompletedRefresh(): void {
+    if (this.completedHandle) return;
+    this.completedHandle = setInterval(() => {
+      this.service.loadCompleted().subscribe();
+    }, COMPLETED_REFRESH_MS);
+  }
+
+  private stopCompletedRefresh(): void {
+    if (this.completedHandle) {
+      clearInterval(this.completedHandle);
+      this.completedHandle = undefined;
+    }
   }
 
   // ── Mutations (delegate to the service) ───────────────────────────────
@@ -157,6 +203,8 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
   onRecall(t: KitchenTicket): void { this.service.recall(t.id); }
   onTogglePriority(t: KitchenTicket): void { this.service.togglePriority(t.id); }
+  /** Completed-view recall: served → ready, back onto the active board. */
+  onRecallCompleted(t: KitchenTicket): void { this.service.recallCompleted(t.id); }
 
   // ── Cancel/void (board owns the confirm dialog; service does the call) ─
   onCardCancel(t: KitchenTicket): void { this.cancelTarget.set(t); }
@@ -329,8 +377,11 @@ export class BoardComponent implements OnInit, OnDestroy {
    * opened mid-service with already-overdue tickets doesn't blast.
    */
   private detectOverdue(now: number): void {
+    // Track the ACTIVE feed regardless of view mode — the Completed view is all
+    // served (never overdue), and keeping this on active means the overdue cue
+    // (and its fire-once bookkeeping) stays continuous across a view switch.
     const overdue = new Set(
-      this.tickets()
+      this.service.activeTickets()
         .filter(t => classifyEscalation(t.created_at, t.served_at, now) === 'overdue')
         .map(t => t.id),
     );

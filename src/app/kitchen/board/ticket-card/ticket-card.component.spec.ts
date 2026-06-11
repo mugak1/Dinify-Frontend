@@ -243,4 +243,54 @@ describe('TicketCardComponent', () => {
       expect(cancelButton()).toBeNull();
     });
   });
+
+  describe('completed (read-only) mode', () => {
+    function setup(partial: Partial<KitchenTicket> = {}): void {
+      component.ticket = makeTicket({
+        fulfilment_status: 'served',
+        served_at: new Date(Date.now() - 3 * 60_000).toISOString(),
+        ...partial,
+      });
+      component.now = Date.now();
+      component.completed = true;
+      fixture.detectChanges();
+    }
+
+    it('hides the advance, cancel and priority controls, showing only Recall', () => {
+      setup();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('button[aria-label="Cancel order"]')).toBeNull();
+      expect(el.querySelector('button[aria-label="Toggle priority"]')).toBeNull();
+
+      const footerButtons = el.querySelectorAll('footer button');
+      expect(footerButtons.length).toBe(1);
+      expect(footerButtons[0].textContent).toContain('Recall');
+    });
+
+    it('emits recall when the Recall button is clicked', () => {
+      setup();
+      const spy = jasmine.createSpy('recall');
+      component.recall.subscribe(spy);
+
+      const recallBtn = (fixture.nativeElement as HTMLElement)
+        .querySelector('footer button') as HTMLButtonElement;
+      recallBtn.click();
+      expect(spy).toHaveBeenCalledWith(component.ticket);
+    });
+
+    it('shows a muted "served {relative}" line in place of the live age', () => {
+      setup();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('served 3m ago');
+    });
+
+    it('keeps the header neutral even when the underlying age would be overdue', () => {
+      // served_at is null AND created long ago — without the completed guard this
+      // would tint the header red. Completed mode must stay neutral.
+      setup({ created_at: new Date(Date.now() - OVERDUE_MS - 1000).toISOString(), served_at: null });
+      const header = (fixture.nativeElement as HTMLElement).querySelector('header')!;
+      expect(header.className).not.toContain('bg-red-100');
+      expect(header.className).not.toContain('bg-amber-50');
+    });
+  });
 });
