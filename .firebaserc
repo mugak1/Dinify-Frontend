@@ -1,32 +1,26 @@
 {
   "_comment": [
-    "All hosting sites (dinify-prod, dinify-dev, dinify-stage, dinify-uat) live",
-    "under the 'dinify-dev' Firebase project. The project name is misleading — it",
-    "is not limited to development use. Do NOT rename projects or targets without",
-    "updating the deploy-prod.yml workflow and coordinating with the team.",
+    "The single 'dinify-prod' hosting site lives under the 'dinify-dev' Firebase",
+    "project. The project name is misleading — it is not limited to development",
+    "use. Do NOT rename the project or target without updating the deploy-prod.yml",
+    "workflow and coordinating with the team.",
     "",
     "The 'targets' block maps the deploy target name 'dinify-prod' to the Firebase",
-    "hosting site 'dinify-prod'. 'dinify-prod' is now the live, CI-deployed target:",
-    "it is referenced by the deploy-prod.yml GitHub Actions workflow, which deploys",
-    "on every merge to main. The 'dinify-dev', 'dinify-stage', and 'dinify-uat'",
-    "sites/targets are legacy and pending removal in a later cleanup PR (kept for",
-    "now until the prod deploy is verified live). The dinify-dev and dinify-stage",
-    "sites in firebase.json do not have explicit target mappings here — they are",
-    "deployed directly by site name (e.g. firebase deploy --only hosting:dinify-dev)."
+    "hosting site 'dinify-prod'. 'dinify-prod' is the live, CI-deployed target: it",
+    "is referenced by the deploy-prod.yml GitHub Actions workflow, which deploys on",
+    "every merge to main. The legacy 'dinify-dev', 'dinify-stage', and 'dinify-uat'",
+    "hosting sites have now been removed from this config; 'dinify-prod' is the sole",
+    "hosting target."
   ],
   "projects": {
     "default": "dinify-dev",
-    "prod": "dinify-dev",
-    "uat": "dinify-dev"
+    "prod": "dinify-dev"
   },
   "targets": {
     "dinify-dev": {
       "hosting": {
         "dinify-prod": [
           "dinify-prod"
-        ],
-        "dinify-uat": [
-          "dinify-uat"
         ]
       }
     }
