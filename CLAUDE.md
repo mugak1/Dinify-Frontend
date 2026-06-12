@@ -5,7 +5,7 @@ Dinify is a QR-code-based digital ordering and restaurant management platform
 built for Uganda and mobile-money-first markets. This repo contains three
 portals — Restaurant Management Portal, Diner App, and Platform Admin —
 plus a staff-facing Kitchen View board (route `/kitchen`).
-Deployed to Firebase Hosting at dinify-uat.web.app.
+Deployed to Firebase Hosting at dinify-prod.web.app.
 A parallel `AGENTS.md` at the repo root carries Codex/other-agent instructions
 that defer to this file — `CLAUDE.md` remains the authoritative project guide,
 so keep it current when conventions change.
@@ -226,9 +226,10 @@ any fail). It is a manual pre-PR gate — run it and paste the output into the P
 it is intentionally NOT wired as a hook.
 
 CI (`.github/workflows/ci.yml`) runs all four (`type-check`, `lint`,
-`test:ci`, `build:prod`) on every PR to `main`. The UAT deploy workflow
-(`deploy-uat.yml`) builds with `--configuration=uat` and pushes to the
-`dinify-uat` Firebase Hosting target on every merge to `main`. A third
+`test:ci`, `build:prod`) on every PR to `main`. The production deploy workflow
+(`deploy-prod.yml`) builds with `--configuration=uat` (intentionally still the
+uat build config for now — the prod backend API doesn't exist yet) and pushes to
+the `dinify-prod` Firebase Hosting target on every merge to `main`. A third
 workflow (`audit.yml`, "Dependency Audit") runs `npm audit --audit-level=high`
 weekly (Mondays 06:30 UTC) and on manual dispatch — it is NOT a PR check and
 never blocks a merge; it just fires a notification if a high/critical advisory

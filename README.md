@@ -181,11 +181,12 @@ All configured hosting targets belong to the **`dinify-dev`** Firebase project.
 
 | Site | Defined in | Notes |
 |------|-----------|-------|
-| `dinify-dev` | `firebase.json` | Development site |
-| `dinify-stage` | `firebase.json` | Staging site |
-| `dinify-uat` | `firebase.json` + `.firebaserc` target mapping | UAT site; also mapped as a deploy target in `.firebaserc` |
+| `dinify-prod` | `firebase.json` + `.firebaserc` target mapping | **Live site** — the CI-deployed target (see automated deployment below) |
+| `dinify-dev` | `firebase.json` | Development site (legacy — pending removal) |
+| `dinify-stage` | `firebase.json` | Staging site (legacy — pending removal) |
+| `dinify-uat` | `firebase.json` + `.firebaserc` target mapping | UAT site; also mapped as a deploy target in `.firebaserc` (legacy — pending removal) |
 
-> **Note:** There is no `dinify-prod` hosting site configured in `firebase.json` or `.firebaserc`. Production deployment configuration does not currently exist in this repository.
+> **Note:** `dinify-prod` is the live, CI-deployed Firebase hosting target. The `dinify-dev`, `dinify-stage`, and `dinify-uat` sites are legacy and pending removal in a later cleanup PR — they are kept for now until the prod deploy is verified live.
 
 ### Manual Deployment
 
@@ -199,9 +200,9 @@ firebase deploy --only hosting:dinify-dev
 firebase deploy --only hosting:dinify-stage
 ```
 
-### Automated UAT Deployment
+### Automated Production Deployment
 
-The `deploy-uat.yml` workflow automatically deploys to the `dinify-uat` Firebase hosting target on every push to `main` (or via manual `workflow_dispatch`). See [CI / Automated Workflows](#ci--automated-workflows) below.
+The `deploy-prod.yml` workflow automatically deploys to the `dinify-prod` Firebase hosting target on every push to `main` (or via manual `workflow_dispatch`). See [CI / Automated Workflows](#ci--automated-workflows) below.
 
 ---
 
@@ -227,7 +228,7 @@ Steps (on `ubuntu-latest`, Node 20):
 
 > **Note on test coverage:** The CI pipeline runs only 4 spec files. The repository contains ~40 spec files total, but most are not included in the CI test run. Test coverage should not be considered comprehensive.
 
-### 2. `deploy-uat.yml` — UAT Deployment
+### 2. `deploy-prod.yml` — Production Deployment
 
 **Trigger:** Push to `main`, or manual `workflow_dispatch`.
 
@@ -236,8 +237,8 @@ Steps (on `ubuntu-latest`, Node 20):
 1. `npm ci --legacy-peer-deps` — install dependencies
 2. `npm run type-check` — TypeScript type-checking
 3. `npm run lint` — ESLint
-4. `npx ng build --configuration=uat` — UAT build
-5. Deploy to Firebase Hosting (`dinify-uat` target on `dinify-dev` project) via `FirebaseExtended/action-hosting-deploy@v0`
+4. `npx ng build --configuration=uat` — build (intentionally still the `uat` configuration for now; see the comment in `deploy-prod.yml`)
+5. Deploy to Firebase Hosting (`dinify-prod` target on `dinify-dev` project) via `FirebaseExtended/action-hosting-deploy@v0`
 
 ---
 
