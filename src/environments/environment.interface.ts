@@ -3,4 +3,5 @@ export interface Environment {
     apiUrl: string;
     version: string;
     version2: string;
+    dinerBaseUrl: string;
 }
