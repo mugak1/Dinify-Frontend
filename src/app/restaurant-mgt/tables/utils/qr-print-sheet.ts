@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { RestaurantTable, DiningArea } from '../models/tables.models';
+import { environment } from 'src/environments/environment';
 
 /**
  * Opens a print-ready page with QR codes for all tables in an area,
@@ -13,7 +14,7 @@ export async function generateQRPrintSheet(
   areaTables: RestaurantTable[],
   area: DiningArea,
 ): Promise<void> {
-  const baseUrl = window.location.origin;
+  const baseUrl = environment.dinerBaseUrl || window.location.origin;
 
   const printable = areaTables
     .filter(t => t.hasQR)
@@ -146,7 +147,7 @@ export async function generateQRPrintSheet(
  * Returns the diner-facing URL for a table's QR code.
  */
 export function getTableQRUrl(table: RestaurantTable): string {
-  const baseUrl = window.location.origin;
+  const baseUrl = environment.dinerBaseUrl || window.location.origin;
   const qrMode = table.qrMode || 'order_pay';
   return `${baseUrl}/diner/h/${table.id}?mode=${qrMode}`;
 }
