@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting (UAT)
+name: Deploy to Firebase Hosting (Production)
 
 on:
   push:
@@ -29,7 +29,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Build for UAT
+      # Intentionally builds with --configuration=uat for now: the prod backend
+      # API doesn't exist yet, so a --configuration=production build would point
+      # the live site at a non-existent API. Switch to production config in a
+      # later PR once the prod backend is available.
+      - name: Build for Production
         run: npx ng build --configuration=uat
 
       - name: Deploy to Firebase Hosting
@@ -39,4 +43,4 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: dinify-dev
-          target: dinify-uat
+          target: dinify-prod
