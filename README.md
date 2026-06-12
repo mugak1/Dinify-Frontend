@@ -177,16 +177,13 @@ The application is deployed using Firebase Hosting. Configuration lives in `fire
 
 ### Firebase Projects and Hosting Sites
 
-All configured hosting targets belong to the **`dinify-dev`** Firebase project.
+The `dinify-prod` hosting target belongs to the **`dinify-dev`** Firebase project.
 
 | Site | Defined in | Notes |
 |------|-----------|-------|
 | `dinify-prod` | `firebase.json` + `.firebaserc` target mapping | **Live site** — the CI-deployed target (see automated deployment below) |
-| `dinify-dev` | `firebase.json` | Development site (legacy — pending removal) |
-| `dinify-stage` | `firebase.json` | Staging site (legacy — pending removal) |
-| `dinify-uat` | `firebase.json` + `.firebaserc` target mapping | UAT site; also mapped as a deploy target in `.firebaserc` (legacy — pending removal) |
 
-> **Note:** `dinify-prod` is the live, CI-deployed Firebase hosting target. The `dinify-dev`, `dinify-stage`, and `dinify-uat` sites are legacy and pending removal in a later cleanup PR — they are kept for now until the prod deploy is verified live.
+> **Note:** `dinify-prod` is the sole, live, CI-deployed Firebase hosting target. The legacy `dinify-dev`, `dinify-stage`, and `dinify-uat` sites have been removed from this repo's config; deleting the Firebase Hosting sites themselves is a separate manual console step.
 
 ### Manual Deployment
 
@@ -194,10 +191,8 @@ All configured hosting targets belong to the **`dinify-dev`** Firebase project.
 # Build for the target environment
 npm run build:uat
 
-# Deploy to a specific site
-firebase deploy --only hosting:dinify-uat
-firebase deploy --only hosting:dinify-dev
-firebase deploy --only hosting:dinify-stage
+# Deploy to the prod hosting site
+firebase deploy --only hosting:dinify-prod
 ```
 
 ### Automated Production Deployment
