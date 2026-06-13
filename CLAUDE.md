@@ -79,6 +79,18 @@ so keep it current when conventions change.
 - The session-designated branch is only the fallback for when the task text
   does not name a branch at all
 
+## Branch Base — CRITICAL (never branch off a stale `main`)
+- Before creating a feature branch, ALWAYS `git fetch origin main` first, then cut
+  the branch from `origin/main` (e.g. `git checkout -b <new-branch> origin/main`).
+  NEVER branch from the local `main` ref: in a freshly-cloned web container it can
+  be stale (behind the real remote), silently basing your work on outdated code —
+  this is how PR #395 was first cut from a 59-commit-old `main`.
+- A `SessionStart` hook (`.claude/hooks/session-start.sh`, registered in
+  `.claude/settings.json`) auto-runs `git fetch origin main` each web session, but
+  still branch explicitly from the fetched `origin/main`, not local `main`.
+- If you discover mid-task that the base was stale, `git rebase origin/main` and
+  re-run verification before pushing.
+
 ## Visual Reference
 - The Lovable React prototype (mugak1/Dinify-Restaurant-Portal) is the
   canonical visual reference for ALL UI work
