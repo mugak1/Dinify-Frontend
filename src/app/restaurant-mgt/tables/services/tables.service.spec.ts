@@ -114,3 +114,55 @@ describe('TablesService Service-View fail-loud guard', () => {
     expect(service.waitlist$.value.length).toBe(1);
   });
 });
+
+/**
+ * Bulk create fans out one POST per table and wraps each in catchError, so a
+ * single failed create never aborts the batch: forkJoin still emits once, with
+ * one { number, ok } per spec in input order.
+ */
+describe('TablesService.bulkCreateTables', () => {
+  let service: TablesService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    service = TestBed.inject(TablesService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  it('isolates per-table failures and reports ok flags in input order', () => {
+    let result: { number: number; ok: boolean }[] | undefined;
+    service
+      .bulkCreateTables([{ number: 3 }, { number: 4 }, { number: 5 }], 'r1')
+      .subscribe(r => (result = r));
+
+    const reqs = httpMock.match(
+      r => r.url.includes('restaurant-setup/tables/') && r.method === 'POST',
+    );
+    expect(reqs.length).toBe(3);
+
+    // Resolve out of order (3, 5 ok; 4 fails) to prove order-independence — the
+    // emitted result must still follow the input order, not the response order.
+    const byNumber = (n: number) =>
+      reqs.find(r => r.request.body.number === n)!;
+    byNumber(3).flush({ status: 200, message: 'ok', data: {} });
+    byNumber(5).flush({ status: 200, message: 'ok', data: {} });
+    byNumber(4).flush('boom', { status: 500, statusText: 'Server Error' });
+
+    expect(result).toEqual([
+      { number: 3, ok: true },
+      { number: 4, ok: false },
+      { number: 5, ok: true },
+    ]);
+  });
+
+  it('emits an empty array without firing any request for an empty batch', () => {
+    let result: { number: number; ok: boolean }[] | undefined;
+    service.bulkCreateTables([], 'r1').subscribe(r => (result = r));
+    expect(result).toEqual([]);
+  });
+});

@@ -15,12 +15,17 @@ import { MessageService } from '../../../../_services/message.service';
 import { TablesService } from '../../services/tables.service';
 import { NewAreaModalComponent } from '../new-area-modal/new-area-modal.component';
 import { NewTableModalComponent } from '../new-table-modal/new-table-modal.component';
+import {
+  BulkAddTablesModalComponent,
+  BulkTablesConfig,
+} from '../bulk-add-tables-modal/bulk-add-tables-modal.component';
 import { QrCodePreviewModalComponent } from '../qr-code-preview-modal/qr-code-preview-modal.component';
 import {
   DiningArea,
   RestaurantTable,
 } from '../../models/tables.models';
 import { generateQRPrintSheet, getTableQRUrl } from '../../utils/qr-print-sheet';
+import { computeBulkTableNumbers } from '../../utils/bulk-table-numbers';
 import QRCode from 'qrcode';
 
 @Component({
@@ -37,6 +42,7 @@ import QRCode from 'qrcode';
     TooltipDirective,
     NewAreaModalComponent,
     NewTableModalComponent,
+    BulkAddTablesModalComponent,
     QrCodePreviewModalComponent,
   ],
   templateUrl: './tables-setup-view.component.html',
@@ -66,6 +72,9 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   isTableModalOpen = false;
   editingTable: RestaurantTable | null = null;
   newTableAreaId: string | undefined;
+
+  // Bulk add tables modal
+  isBulkTableModalOpen = false;
 
   // Delete confirmations
   deleteTableTarget: RestaurantTable | null = null;
@@ -320,6 +329,72 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.isTableModalOpen = false;
     this.editingTable = null;
     this.newTableAreaId = undefined;
+  }
+
+  // ── Bulk Add Tables ───────────────────────────────────
+
+  /** Numbers used by loaded tables — feeds the modal's smart default + preview. */
+  get existingTableNumbers(): number[] {
+    return this.tables.map(t => t.number);
+  }
+
+  openBulkTables(): void {
+    this.isBulkTableModalOpen = true;
+  }
+
+  onBulkTablesModalClosed(): void {
+    this.isBulkTableModalOpen = false;
+  }
+
+  onBulkTablesSaved(config: BulkTablesConfig): void {
+    this.isBulkTableModalOpen = false;
+    // Recompute the split here against the live table list — the component owns
+    // the source of truth, not the modal (the list may have changed since open).
+    const { toCreate, skipped } = computeBulkTableNumbers(
+      config.start,
+      config.count,
+      this.tables.map(t => t.number),
+    );
+    if (toCreate.length === 0) {
+      this.toast.error('No new table numbers to create.');
+      return;
+    }
+
+    const specs: Partial<RestaurantTable>[] = toCreate.map(number => ({
+      number,
+      areaId: config.areaId,
+      minCapacity: config.minCapacity,
+      maxCapacity: config.maxCapacity,
+      shape: config.shape,
+      tags: [],
+      isActive: true,
+      hasQR: config.generateQR,
+      qrMode: config.generateQR ? config.qrMode : undefined,
+      qrRegeneratedAt: config.generateQR ? new Date() : undefined,
+    }));
+
+    this.tablesService.bulkCreateTables(specs, this.restaurantId).subscribe(results => {
+      const created = results.filter(r => r.ok).length;
+      const failed = results.filter(r => !r.ok);
+      // Each failed POST queues its own banner on the global MessageService via
+      // the interceptor; clear them so only this single aggregate toast shows.
+      if (failed.length) this.message.clear();
+      this.refresh();
+
+      const parts = [`Created ${created} table(s)`];
+      if (skipped.length) {
+        parts.push(`skipped ${skipped.length} already-existing: ${skipped.join(', ')}`);
+      }
+      if (failed.length) {
+        parts.push(`${failed.length} failed: ${failed.map(f => f.number).join(', ')}`);
+      }
+      const msg = parts.join('; ');
+      if (failed.length) {
+        this.toast.error(msg);
+      } else {
+        this.toast.success(msg);
+      }
+    });
   }
 
   requestDeleteTable(table: RestaurantTable): void {

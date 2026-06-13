@@ -1,0 +1,157 @@
+<app-dn-dialog [open]="open" (closed)="onClose()" maxWidth="md">
+  <h2 class="text-lg font-semibold mb-1">Add multiple tables</h2>
+  <p class="text-sm text-muted-foreground mb-4">
+    Create a contiguous range of tables in one go. Numbers that already exist are
+    skipped automatically.
+  </p>
+
+  <form (ngSubmit)="onSubmit()" class="space-y-4">
+    <!-- Starting number + Count -->
+    <div class="grid grid-cols-2 gap-4">
+      <div class="space-y-1.5">
+        <label for="bulk-start" class="text-sm font-medium">Starting number *</label>
+        <input
+          id="bulk-start"
+          type="number"
+          [(ngModel)]="start"
+          name="start"
+          [min]="1"
+          required
+          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+      <div class="space-y-1.5">
+        <label for="bulk-count" class="text-sm font-medium">How many *</label>
+        <input
+          id="bulk-count"
+          type="number"
+          [(ngModel)]="count"
+          name="count"
+          [min]="1"
+          [max]="maxCount"
+          required
+          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+    </div>
+
+    <!-- Capacity -->
+    <div class="grid grid-cols-2 gap-4">
+      <div class="space-y-1.5">
+        <label for="bulk-min-capacity" class="text-sm font-medium">Min Seats</label>
+        <input
+          id="bulk-min-capacity"
+          type="number"
+          [(ngModel)]="minCapacity"
+          name="minCapacity"
+          [min]="1"
+          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+      <div class="space-y-1.5">
+        <label for="bulk-max-capacity" class="text-sm font-medium">Max Seats</label>
+        <input
+          id="bulk-max-capacity"
+          type="number"
+          [(ngModel)]="maxCapacity"
+          name="maxCapacity"
+          [min]="1"
+          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+    </div>
+
+    <!-- Shape + Area -->
+    <div class="grid grid-cols-2 gap-4">
+      <div class="space-y-1.5">
+        <label for="bulk-shape" class="text-sm font-medium">Shape</label>
+        <select
+          id="bulk-shape"
+          [(ngModel)]="shape"
+          name="shape"
+          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          @for (opt of shapeOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="space-y-1.5">
+        <label for="bulk-area" class="text-sm font-medium">Default Area</label>
+        <select
+          id="bulk-area"
+          [(ngModel)]="areaId"
+          name="areaId"
+          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">No area</option>
+          @for (a of areas; track a.id) {
+            <option [value]="a.id">{{ a.name }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <!-- QR Code Section -->
+    <div class="space-y-3 pt-2 border-t">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          [(ngModel)]="generateQR"
+          name="generateQR"
+          class="h-4 w-4 rounded border-input"
+        />
+        <span class="text-sm">Generate QR codes on save</span>
+      </label>
+
+      @if (generateQR) {
+        <div class="space-y-2 ml-6">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="menu_only" class="h-4 w-4" />
+            <span class="text-sm">View menu only</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_pay" class="h-4 w-4" />
+            <span class="text-sm">Order &amp; pay</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_only" class="h-4 w-4" />
+            <span class="text-sm">Order only</span>
+          </label>
+        </div>
+      }
+    </div>
+
+    <!-- Live preview / validation -->
+    <div class="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+      @if (count < 1 || count > maxCount) {
+        <span class="text-destructive">Choose between 1 and {{ maxCount }} tables.</span>
+      } @else if (start < 1) {
+        <span class="text-destructive">Starting number must be at least 1.</span>
+      } @else if (preview.toCreate.length === 0) {
+        <span class="text-destructive">
+          Every number from {{ start }} to {{ start + count - 1 }} already exists — adjust the range.
+        </span>
+      } @else {
+        <p>
+          Creating <strong>{{ preview.toCreate.length }}</strong> table(s) in the range
+          #{{ start }}–#{{ start + count - 1 }}.
+        </p>
+        @if (preview.skipped.length) {
+          <p class="text-muted-foreground mt-0.5">
+            {{ preview.skipped.length }} already exist and will be skipped:
+            {{ preview.skipped.join(', ') }}
+          </p>
+        }
+      }
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-end gap-2 pt-4">
+      <button app-dn-button type="button" variant="outline" (click)="onClose()">Cancel</button>
+      <button app-dn-button type="submit" [disabled]="!canSubmit">
+        Create {{ preview.toCreate.length }} table(s)
+      </button>
+    </div>
+  </form>
+</app-dn-dialog>

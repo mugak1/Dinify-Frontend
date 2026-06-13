@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, forkJoin, of, throwError } from 'rxjs';
-import { delay, map, tap } from 'rxjs/operators';
+import { catchError, delay, map, tap } from 'rxjs/operators';
 import { ApiService } from '../../../_services/api.service';
 import {
   DiningArea,
@@ -552,6 +552,29 @@ export class TablesService {
     if (ids.length === 0) return of([]);
     return forkJoin(
       ids.map(id => this.updateTable({ id, ...changes })),
+    );
+  }
+
+  /**
+   * Create many tables in one batch by fanning out per-table createTable() calls
+   * (no backend bulk endpoint — this reuses the per-table POST). Each call is
+   * wrapped in catchError so a single failure never aborts the batch: forkJoin
+   * always completes once with one { number, ok } result per spec, in input
+   * order. Delegates to createTable(), so USE_MOCK_SETUP is honoured for free.
+   */
+  bulkCreateTables(
+    specs: Partial<RestaurantTable>[],
+    restaurantId: string,
+  ): Observable<{ number: number; ok: boolean }[]> {
+    // forkJoin([]) completes WITHOUT emitting — guard so subscribers always run.
+    if (specs.length === 0) return of([]);
+    return forkJoin(
+      specs.map(spec =>
+        this.createTable(spec, restaurantId).pipe(
+          map(() => ({ number: spec.number as number, ok: true })),
+          catchError(() => of({ number: spec.number as number, ok: false })),
+        ),
+      ),
     );
   }
 
