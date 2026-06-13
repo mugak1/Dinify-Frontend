@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs';
 import { BasketItem, MenuItem, MenuItemTagRef, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
+import { MessageService } from 'src/app/_services/message.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import {
   getCurrentPrice,
@@ -29,7 +30,11 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
 
   url = environment.apiUrl;
 
-  globalError: string | null = null;
+  // Set only when a COLD menu load (nothing rendered yet) fails outright —
+  // renders the connection-error state with a "Try again" button. A background
+  // revalidation failure behind a warm menu never sets this (see
+  // refreshMenuInBackground), so a live menu is never replaced by an error.
+  coldLoadFailed = false;
   isInRestApp = false;
   private storageSub?: Subscription;
   // Background revalidation bookkeeping: seq guards against a stale response
@@ -54,6 +59,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     private basketService: BasketService,
     private router: Router,
     public navState: MenuNavStateService,
+    private message: MessageService,
   ) {
     // Seed currentSection reactively whenever the menu loads (or reloads after
     // ngOnDestroy clears it). Self-healing: if currentSection ever falls back
@@ -199,10 +205,12 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   /** First load / hard refresh / different restaurant. Today's exact behaviour,
    *  plus stamping which restaurant the cached menu belongs to. */
   private coldLoadMenu(rid: any) {
+    this.coldLoadFailed = false;
     this.navState.setLoading(true);
     this.navState.setLoadedRestaurantId(rid);
     this.api.get<MenuItem>(null, 'orders/journey/show-menu/', { restaurant: rid }).subscribe({
       next: (x: any) => {
+        this.coldLoadFailed = false;
         this.menu_list = (x?.data as any) ?? [];
         this.navState.setMenuList(this.menu_list);
         this.navState.setItemSortMode(x?.item_sort_mode ?? 'manual');
@@ -223,9 +231,21 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
         });
       },
       error: () => {
+        // Cold load failed with nothing on screen — show a recoverable error
+        // state instead of a blank page. Clear the global banner so the diner
+        // sees one clean message (the connection-error panel), not two.
         this.navState.setLoading(false);
+        this.coldLoadFailed = true;
+        this.message.clear();
       }
     });
+  }
+
+  /** Re-runs the cold load after a "Try again" tap on the connection-error
+   *  state. Resets the flag so the skeleton shows during the re-fetch. */
+  retryColdLoad(): void {
+    this.coldLoadFailed = false;
+    this.coldLoadMenu(this.restaurant_id || this.restaurant?.id);
   }
 
   /** Silent revalidation behind a warm render. Never touches setLoading and
