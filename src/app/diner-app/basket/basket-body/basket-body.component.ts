@@ -10,6 +10,7 @@ import { MessageService } from 'src/app/_services/message.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { environment } from 'src/environments/environment';
 import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
+import { DinerConnectivityService } from '../../diner-connectivity.service';
 
 @Component({
     selector: 'app-basket-body',
@@ -22,6 +23,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   table?: TableScan|any;
   order_initiated?: OrderInitiated;
   showUnavailableSheet = false;
+
+  /** Inline placement-error state, shown with a Retry at the checkout footer. */
+  orderError = false;
+  orderErrorMessage = '';
+  /** True while a placement round-trip is in flight — disables the CTA. */
+  placingOrder = false;
 
   restaurant: any;
   url = environment.apiUrl;
@@ -50,7 +57,8 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     private api: ApiService,
     private dialog: ConfirmDialogService,
     private router: Router,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private connectivity: DinerConnectivityService
   ) {
     this.table = this.sessionStorage.getItem<TableScan>('Table');
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
@@ -194,6 +202,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Updates basketItems and totalAmount after adding/removing items
   updateCart() {
+    // A basket change starts a fresh order (new client_order_id), so drop any
+    // stale placement error and let the diner check out cleanly again.
+    this.orderError = false;
     this.computeUpsellItems();
   }
 
@@ -206,62 +217,102 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     el.scrollBy({ left: direction === 'left' ? -itemWidth : itemWidth, behavior: 'smooth' });
   }
 
-  // Initiates an order
+  // Opens the confirm dialog, then places the order on confirmation. When the
+  // diner is already offline we skip the doomed round-trip (and the doomed
+  // confirm dialog) and surface the inline error straight away — the ambient
+  // offline strip already explains why.
   initiateOrder() {
-    const _ref = this.dialog.openModal({
+    if (this.connectivity.isOffline()) {
+      this.failOrder("You're offline — reconnect to place your order.");
+      return;
+    }
+    this.dialog.openModal({
       title: 'Checkout',
       message: 'Are you sure you want to place this order?',
       submitButtonText: 'Order',
     }).subscribe((response: any) => {
       if (response?.action === 'yes') {
-      const orderPayload = {
-        // Idempotency key — reused across retries of an unchanged basket so a
-        // retried submit returns the existing order instead of duplicating it.
-        client_order_id: this.basketService.getOrCreateClientOrderId(),
-        restaurant: this.restaurant?.id,
-        table: this.table?.id,
-        items: this.basketItems.map((item) => ({
-          item: item.itemId,
-          quantity: item.quantity,
-          selected_modifiers: (item.selectedModifiers || []).reduce(
-            (acc, mod) => {
-              acc[mod.groupId] = mod.choices.map(c => c.id);
-              return acc;
-            },
-            {} as Record<string, string[]>
-          ),
-          extras: item.extras.map(extra => extra.id)
-        })),
-      };
-        // API call to initiate the order
-        this.api.postPatch('orders/initiate/', orderPayload, 'post',null,{},false,'v2').subscribe(
-          (response: any) => {
-            if (response.status === 200) {
-              this.order_initiated = response.data;
-              const od = this.order_initiated?.order_details;
-              const unavailableCount =
-                (od?.no_unavailable_items ?? 0) + (od?.no_unavailable_extras ?? 0);
-              if (unavailableCount === 0) {
-                this.submitOrder(); // everything available — commit straight away
-              } else {
-                // One or more items/extras sold out or were pulled since they were added.
-                // Close the confirm dialog and let the diner review what dropped and the new
-                // total, instead of dead-ending or silently trimming the order.
-                this.dialog.closeModal();
-                this.showUnavailableSheet = true;
-              }
-            } else {
-              this.messageService.addMessage({severity:'info', summary:'Info', message: response.message});
-            }
-          },
-          (_error) => {
-            // The ErrorInterceptor already toasts the real backend message; just
-            // close the confirm dialog so the diner can retry.
-            this.dialog.closeModal();
-          }
-        );
+        this.placeOrder();
       }
     });
+  }
+
+  // Re-attempts a failed placement without re-opening the confirm dialog.
+  // BasketService hands back the same client_order_id while the basket is
+  // unchanged, so the backend dedups rather than creating a second order.
+  retryOrder() {
+    if (this.connectivity.isOffline()) {
+      this.failOrder("You're offline — reconnect to place your order.");
+      return;
+    }
+    this.placeOrder();
+  }
+
+  // Shared placement body for both the dialog-"yes" path and Retry. Posts the
+  // current basket to orders/initiate/ and, when everything is still available,
+  // commits straight away; otherwise it hands off to the unavailable-items sheet.
+  private placeOrder() {
+    this.orderError = false;
+    this.placingOrder = true;
+    const orderPayload = {
+      // Idempotency key — reused across retries of an unchanged basket so a
+      // retried submit returns the existing order instead of duplicating it.
+      client_order_id: this.basketService.getOrCreateClientOrderId(),
+      restaurant: this.restaurant?.id,
+      table: this.table?.id,
+      items: this.basketItems.map((item) => ({
+        item: item.itemId,
+        quantity: item.quantity,
+        selected_modifiers: (item.selectedModifiers || []).reduce(
+          (acc, mod) => {
+            acc[mod.groupId] = mod.choices.map(c => c.id);
+            return acc;
+          },
+          {} as Record<string, string[]>
+        ),
+        extras: item.extras.map(extra => extra.id)
+      })),
+    };
+    // API call to initiate the order
+    this.api.postPatch('orders/initiate/', orderPayload, 'post',null,{},false,'v2').subscribe(
+      (response: any) => {
+        if (response.status === 200) {
+          this.order_initiated = response.data;
+          const od = this.order_initiated?.order_details;
+          const unavailableCount =
+            (od?.no_unavailable_items ?? 0) + (od?.no_unavailable_extras ?? 0);
+          if (unavailableCount === 0) {
+            this.submitOrder(); // everything available — commit straight away
+          } else {
+            // One or more items/extras sold out or were pulled since they were added.
+            // Close the confirm dialog and let the diner review what dropped and the new
+            // total, instead of dead-ending or silently trimming the order.
+            this.dialog.closeModal();
+            this.showUnavailableSheet = true;
+            this.placingOrder = false;
+          }
+        } else {
+          this.messageService.addMessage({severity:'info', summary:'Info', message: response.message});
+          this.placingOrder = false;
+        }
+      },
+      (_error) => {
+        // Genuine failure (lost signal, 5xx, etc). The ErrorInterceptor already
+        // queued the raw message on the global banner; failOrder() clears it and
+        // shows one clean, friendly message inline at the button instead.
+        this.dialog.closeModal();
+        this.failOrder();
+      }
+    );
+  }
+
+  // Surfaces a friendly inline placement error + Retry at the checkout footer,
+  // clearing the global banner first so the diner sees one message, not two.
+  private failOrder(message = "We couldn't place your order. Please try again."): void {
+    this.messageService.clear();
+    this.orderError = true;
+    this.orderErrorMessage = message;
+    this.placingOrder = false;
   }
   getOriginalSubtotal(item: BasketItem): number | null {
     const parentDiscounted = !!item.isDiscounted && item.originalBasePrice != null;
@@ -375,6 +426,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         // ── end TEMP shim ─────────────────────────────────────────────────────
+
+        // Genuine submit failure (non-400, or a 400 without an ongoing-order id):
+        // surface the inline error + Retry at the footer instead of the banner.
+        this.failOrder();
       }
     );
   }

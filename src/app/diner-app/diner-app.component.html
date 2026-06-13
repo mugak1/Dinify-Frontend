@@ -16,8 +16,14 @@
     <span class="font-display font-semibold truncate">{{ restaurant_name }}</span>
   </div>
 
+  <!-- Ambient offline status — pins under the brand strip, spans every diner page. -->
+  <app-offline-strip></app-offline-strip>
+
   <div class="flex-1">
-    <app-menu-nav-bar *ngIf="navState.isMenuActive()" [stickyTop]="'48px'"></app-menu-nav-bar>
+    <!-- When offline the strip (40px) sits under the 48px brand strip, so push the
+         sticky menu nav-bar down to 88px to clear it; otherwise it pins at 48px. -->
+    <app-menu-nav-bar *ngIf="navState.isMenuActive()"
+                      [stickyTop]="connectivity.isOffline() ? '88px' : '48px'"></app-menu-nav-bar>
 
     <div class="lg:flex lg:items-start">
       <!-- Main content column -->
