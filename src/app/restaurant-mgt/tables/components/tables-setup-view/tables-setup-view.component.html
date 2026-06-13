@@ -10,6 +10,13 @@
         New Area
       </button>
 
+      <!-- Add Multiple Tables Button -->
+      <button app-dn-button variant="outline" (click)="openBulkTables()">
+        <!-- Grid icon -->
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Add multiple tables
+      </button>
+
       <div class="h-6 w-px bg-border"></div>
 
       <!-- Search Input -->
@@ -349,6 +356,15 @@
   (closed)="onTableModalClosed()"
   (saved)="onTableSaved($event)"
 ></app-new-table-modal>
+
+<!-- Bulk Add Tables Modal -->
+<app-bulk-add-tables-modal
+  [open]="isBulkTableModalOpen"
+  [areas]="areas"
+  [existingNumbers]="existingTableNumbers"
+  (closed)="onBulkTablesModalClosed()"
+  (saved)="onBulkTablesSaved($event)"
+></app-bulk-add-tables-modal>
 
 <!-- Delete Table Confirmation -->
 <app-dn-dialog [open]="!!deleteTableTarget" (closed)="deleteTableTarget = null" maxWidth="sm">
