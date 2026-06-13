@@ -30,7 +30,7 @@ interface StatusSegment {
     @if (loading) {
       <app-card-skeleton variant="default"></app-card-skeleton>
     } @else if (ordersData) {
-      <app-dn-card [glossy]="true">
+      <app-dn-card>
         <div class="p-4 sm:p-6">
           <!-- Header -->
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">

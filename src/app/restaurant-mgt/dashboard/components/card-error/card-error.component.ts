@@ -6,7 +6,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
   standalone: true,
   imports: [CardComponent],
   template: `
-    <app-dn-card [glossy]="true">
+    <app-dn-card>
       <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-6">
         <!-- AlertCircle icon -->
         <div class="mb-4">
