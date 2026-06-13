@@ -27,7 +27,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
     } @else if (error) {
       <app-card-error title="Reviews" [message]="error" (retry)="retry.emit()"></app-card-error>
     } @else if (!reviewsData) {
-      <app-dn-card [glossy]="true">
+      <app-dn-card>
         <div class="p-4 sm:p-5 lg:p-6">
           <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Guest Reviews</h2>
           <hr class="border-border mb-4" />
@@ -35,7 +35,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card [glossy]="true">
+      <app-dn-card>
         <div class="p-4 sm:p-5 lg:p-6">
           <!-- Section 1: Header -->
           <div class="flex items-center justify-between mb-3 sm:mb-4">
