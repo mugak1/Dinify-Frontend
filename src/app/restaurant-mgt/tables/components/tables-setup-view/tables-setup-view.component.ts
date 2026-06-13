@@ -19,7 +19,6 @@ import { QrCodePreviewModalComponent } from '../qr-code-preview-modal/qr-code-pr
 import {
   DiningArea,
   RestaurantTable,
-  SeatedParty,
 } from '../../models/tables.models';
 import { generateQRPrintSheet, getTableQRUrl } from '../../utils/qr-print-sheet';
 import QRCode from 'qrcode';
@@ -46,7 +45,6 @@ import QRCode from 'qrcode';
 export class TablesSetupViewComponent implements OnInit, OnDestroy {
   areas: DiningArea[] = [];
   tables: RestaurantTable[] = [];
-  seatedParties: SeatedParty[] = [];
 
   // Filters
   search = '';
@@ -117,8 +115,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
           this.expandedAreas = areas.map(a => a.id);
         }
       });
-
-    this.seatedParties = this.tablesService.getSeatedParties();
 
     // Load initial data — areas first so getTables() can build its
     // tableId → areaId lookup from the current areas$ state.
@@ -221,12 +217,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ── Active orders check ───────────────────────────────
-
-  hasActiveOrder(tableId: string): boolean {
-    return this.seatedParties.some(p => p.tableId === tableId);
-  }
-
   // ── Area CRUD ─────────────────────────────────────────
 
   openNewArea(): void {
@@ -259,14 +249,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   }
 
   requestDeleteArea(area: DiningArea): void {
-    const areaTables = this.tables.filter(t => t.areaId === area.id);
-    const hasActive = areaTables.some(t => this.hasActiveOrder(t.id));
-    if (hasActive) {
-      this.toast.error(
-        'Some tables in this area have active orders. Please resolve them before deleting.',
-      );
-      return;
-    }
     this.deleteAreaTarget = area;
   }
 
@@ -341,12 +323,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   }
 
   requestDeleteTable(table: RestaurantTable): void {
-    if (this.hasActiveOrder(table.id)) {
-      this.toast.error(
-        'This table has an active order. Please resolve it before deleting.',
-      );
-      return;
-    }
     this.deleteTableTarget = table;
   }
 
