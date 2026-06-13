@@ -154,6 +154,9 @@ describe('AuthenticationService', () => {
     it('should clear persisted [dinify] nav state but preserve menu.sortMode', () => {
       localStorage.setItem('[dinify]menu.selectedSection:r1', '{"value":"sec-1"}');
       localStorage.setItem('[dinify]tables.activeView:r1', '{"value":"reservations"}');
+      // Sidebar expand/collapse is nav state too: it must be cleared so a fresh
+      // login falls back to the EXPANDED default (the reset half of the feature).
+      localStorage.setItem('[dinify]sidebar.expanded', '{"value":false}');
       localStorage.setItem('[dinify]menu.sortMode:r1', '{"value":"a-z"}');
       localStorage.setItem('[dinify]menu.sortMode:r2', '{"value":"price-low"}');
       localStorage.setItem('unrelated', 'keep-me');
@@ -162,6 +165,7 @@ describe('AuthenticationService', () => {
 
       expect(localStorage.getItem('[dinify]menu.selectedSection:r1')).toBeNull();
       expect(localStorage.getItem('[dinify]tables.activeView:r1')).toBeNull();
+      expect(localStorage.getItem('[dinify]sidebar.expanded')).toBeNull();
       expect(localStorage.getItem('[dinify]menu.sortMode:r1')).toBe('{"value":"a-z"}');
       expect(localStorage.getItem('[dinify]menu.sortMode:r2')).toBe('{"value":"price-low"}');
       expect(localStorage.getItem('unrelated')).toBe('keep-me');
