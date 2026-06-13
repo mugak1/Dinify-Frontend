@@ -29,7 +29,6 @@ export class QrCodePreviewModalComponent implements OnChanges {
   @Input() table: RestaurantTable | null = null;
   @Input() area?: DiningArea;
   @Output() closed = new EventEmitter<void>();
-  @Output() regenerated = new EventEmitter<void>();
 
   @ViewChild('qrContainer') qrContainer!: ElementRef<HTMLDivElement>;
 
@@ -173,16 +172,6 @@ export class QrCodePreviewModalComponent implements OnChanges {
 
   handleOpenLink(): void {
     window.open(this.qrUrl, '_blank');
-  }
-
-  handleRegenerate(): void {
-    this.regenerated.emit();
-    this.toast.success('QR code regenerated');
-    // Re-generate the SVG to reflect any URL changes
-    if (this.table) {
-      this.qrUrl = getTableQRUrl(this.table);
-      this.generateQRSvg();
-    }
   }
 
   onClose(): void {
