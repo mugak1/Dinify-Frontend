@@ -246,9 +246,17 @@
 <!-- Checkout Button (sticky footer) -->
 <div *ngIf="basketItems.length > 0"
      class="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg">
-  <button (click)="initiateOrder()"
-          class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl py-3.5 px-4 font-semibold text-base transition-colors">
+  <!-- Inline placement error + Retry (offline, or a send that genuinely failed) -->
+  <p *ngIf="orderError" class="mb-2 text-sm text-red-600 text-center" role="alert">
+    {{ orderErrorMessage }}
+  </p>
+  <button *ngIf="!orderError" (click)="initiateOrder()" [disabled]="placingOrder"
+          class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl py-3.5 px-4 font-semibold text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
     Checkout — UGX {{ totalAmount | number }}
+  </button>
+  <button *ngIf="orderError" (click)="retryOrder()" [disabled]="placingOrder"
+          class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl py-3.5 px-4 font-semibold text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+    Retry
   </button>
 </div>
 

@@ -21,6 +21,7 @@ import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { StorageModule } from './_services/storage/storage.module';
 import { NoTableComponent } from './diner-app/no-table/no-table.component';
 import { DinerConnectionErrorComponent } from './diner-app/connection-error/connection-error.component';
+import { OfflineStripComponent } from './diner-app/offline-strip/offline-strip.component';
 import { BasketBodyComponent } from './diner-app/basket/basket-body/basket-body.component';
 import { DinerFooterComponent } from './diner-app/diner-footer/diner-footer.component';
 import { MenuNavBarComponent } from './diner-app/menu/menu-nav-bar/menu-nav-bar.component';
@@ -46,6 +47,7 @@ import { ToastComponent } from './_shared/ui/toast/toast.component';
         StorageModule.forRoot({ prefix: 'dinify' }),
         NoTableComponent,
         DinerConnectionErrorComponent,
+        OfflineStripComponent,
         BasketBodyComponent,
         DinerFooterComponent,
         MenuNavBarComponent,
