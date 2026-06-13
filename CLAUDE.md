@@ -86,8 +86,9 @@ so keep it current when conventions change.
   be stale (behind the real remote), silently basing your work on outdated code —
   this is how PR #395 was first cut from a 59-commit-old `main`.
 - A `SessionStart` hook (`.claude/hooks/session-start.sh`, registered in
-  `.claude/settings.json`) auto-runs `git fetch origin main` each web session, but
-  still branch explicitly from the fetched `origin/main`, not local `main`.
+  `.claude/settings.json`) auto-runs `git fetch origin main` (and installs node deps)
+  each web session — but still branch explicitly from the fetched `origin/main`, not
+  local `main`.
 - If you discover mid-task that the base was stale, `git rebase origin/main` and
   re-run verification before pushing.
 
