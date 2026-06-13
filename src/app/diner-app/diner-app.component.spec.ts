@@ -57,11 +57,58 @@ describe('DinerAppComponent', () => {
       },
       { status: 404, statusText: 'Not Found' },
     );
+    fixture.detectChanges();
 
+    // A terminal 4xx stays the no-retry "ask staff" dead-end.
     expect(component.scanFailed).toBeTrue();
+    expect(component.scanRetryable).toBeFalse();
     expect(component.scanMessage).toContain('please ask a member of staff');
     expect(component.table).toBeFalsy();
     expect(clearSpy).toHaveBeenCalled();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-no-table')).toBeTruthy();
+    expect(el.querySelector('app-diner-connection-error')).toBeFalsy();
+  });
+
+  it('offers a Try again retry state on a connectivity failure', () => {
+    component.getTableDetails('any-table-id');
+    const req = httpMock.expectOne(r => r.url.includes('table-scan'));
+    // A status-0 network error — what a flaky connection produces. (In prod the
+    // ErrorInterceptor collapses this to the string 'no network'; here, with no
+    // interceptor in front, the raw status-0 HttpErrorResponse reaches the
+    // handler — isRetryableScanError must treat both the same.)
+    req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    fixture.detectChanges();
+
+    expect(component.scanFailed).toBeTrue();
+    expect(component.scanRetryable).toBeTrue();
+    expect(component.table).toBeFalsy();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-diner-connection-error')).toBeTruthy();
+    expect(el.querySelector('app-no-table')).toBeFalsy();
+  });
+
+  it('re-fetches the table when the retry state asks for it', () => {
+    component.getTableDetails('flaky-id');
+    httpMock
+      .expectOne(r => r.url.includes('table-scan'))
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    expect(component.scanRetryable).toBeTrue();
+
+    // The connection-error (retry) output is wired to getTableDetails(table_id);
+    // invoking it again must issue a fresh table-scan request.
+    component.getTableDetails('flaky-id');
+    const retryReq = httpMock.expectOne(r => r.url.includes('table-scan'));
+    expect(component.scanRetryable).toBeFalse(); // reset while the retry is in flight
+    retryReq.flush({
+      data: {
+        id: 'flaky-id',
+        restaurant: { id: 'r1', name: 'Test Restaurant', branding_configuration: {} },
+      },
+    });
+
+    expect(component.table?.id).toBe('flaky-id');
+    expect(component.scanFailed).toBeFalse();
   });
 
   it('falls back to a friendly message when the error carries no body', () => {

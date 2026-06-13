@@ -14,6 +14,7 @@ import { PaymentDetailsComponent } from './payment-details/payment-details.compo
 import { OrderCompleteComponent } from './order-complete/order-complete.component';
 import { NgxCurrencyDirective } from 'ngx-currency';
 import { ErrorPageComponent } from "./error-page/error-page.component";
+import { DinerConnectionErrorComponent } from './connection-error/connection-error.component';
 import { MenuNavBarComponent } from './menu/menu-nav-bar/menu-nav-bar.component';
 import { FeaturedCarouselComponent } from '../_shared/ui/featured-carousel/featured-carousel.component';
 import { DinerTagFilterSheetComponent } from './menu/diner-tag-filter-sheet/diner-tag-filter-sheet.component';
@@ -52,6 +53,7 @@ const routes: Routes = [
     NgxCurrencyDirective,
     FormsModule,
     ErrorPageComponent,
+    DinerConnectionErrorComponent,
     BasketBodyComponent,
     MenuNavBarComponent,
     FeaturedCarouselComponent,

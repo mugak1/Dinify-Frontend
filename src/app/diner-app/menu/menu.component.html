@@ -18,6 +18,14 @@
   </div>
 </div>
 
+<!-- Cold-load failure: nothing rendered, the fetch genuinely didn't come back.
+     Recoverable dead-end with a "Try again" that re-runs the cold load. -->
+<app-diner-connection-error
+  *ngIf="coldLoadFailed && !navState.isLoading()"
+  [restaurantName]="restaurant?.name"
+  (retry)="retryColdLoad()">
+</app-diner-connection-error>
+
 <!-- Search mode: flat, ranked results (no sections, no featured). Shown only while
      the query is non-blank; the browse view below handles the empty-query case. -->
 <div *ngIf="!navState.isLoading() && navState.searchQuery().trim()"

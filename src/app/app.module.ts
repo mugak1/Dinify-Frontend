@@ -20,6 +20,7 @@ import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { StorageModule } from './_services/storage/storage.module';
 import { NoTableComponent } from './diner-app/no-table/no-table.component';
+import { DinerConnectionErrorComponent } from './diner-app/connection-error/connection-error.component';
 import { BasketBodyComponent } from './diner-app/basket/basket-body/basket-body.component';
 import { DinerFooterComponent } from './diner-app/diner-footer/diner-footer.component';
 import { MenuNavBarComponent } from './diner-app/menu/menu-nav-bar/menu-nav-bar.component';
@@ -44,6 +45,7 @@ import { ToastComponent } from './_shared/ui/toast/toast.component';
         FormsModule,
         StorageModule.forRoot({ prefix: 'dinify' }),
         NoTableComponent,
+        DinerConnectionErrorComponent,
         BasketBodyComponent,
         DinerFooterComponent,
         MenuNavBarComponent,
