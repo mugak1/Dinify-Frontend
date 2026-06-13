@@ -92,11 +92,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   qrPreviewTable: RestaurantTable | null = null;
   isQrModalOpen = false;
 
-  // Regenerate confirmations
-  regenTableTarget: RestaurantTable | null = null;
-  regenAreaTarget: DiningArea | null = null;
-  isRegenAllOpen = false;
-
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -453,23 +448,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.toast.success(`QR codes generated for ${area.name}`);
   }
 
-  regenerateQRForArea(area: DiningArea): void {
-    const areaTables = this.tables.filter(
-      t => t.areaId === area.id && t.hasQR,
-    );
-    if (areaTables.length === 0) {
-      this.toast.error('No tables with QR codes in this area');
-      return;
-    }
-    this.tablesService.bulkUpdateTables(
-      areaTables.map(t => t.id),
-      { qrRegeneratedAt: new Date() },
-    ).subscribe(() => this.refresh());
-    this.toast.success(
-      `${areaTables.length} QR code(s) regenerated for ${area.name}`,
-    );
-  }
-
   // ── Bulk Actions ──────────────────────────────────────
 
   handleBulkAction(action: string): void {
@@ -547,16 +525,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.qrPreviewTable = null;
   }
 
-  onQrRegenerated(): void {
-    if (this.qrPreviewTable) {
-      this.tablesService.updateTable({
-        id: this.qrPreviewTable.id,
-        hasQR: true,
-        qrRegeneratedAt: new Date(),
-      }).subscribe(() => this.refresh());
-    }
-  }
-
   getQrPreviewArea(): DiningArea | undefined {
     if (!this.qrPreviewTable?.areaId) return undefined;
     return this.areas.find(a => a.id === this.qrPreviewTable!.areaId);
@@ -590,61 +558,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     } catch {
       this.toast.error('Failed to generate QR');
     }
-  }
-
-  // ── Regenerate Confirmations ──────────────────────────
-
-  requestRegenerateTable(table: RestaurantTable): void {
-    this.regenTableTarget = table;
-  }
-
-  confirmRegenerateTable(): void {
-    if (!this.regenTableTarget) return;
-    this.tablesService.updateTable({
-      id: this.regenTableTarget.id,
-      hasQR: true,
-      qrRegeneratedAt: new Date(),
-    }).subscribe(() => this.refresh());
-    this.toast.success(
-      `QR code regenerated for Table ${this.regenTableTarget.number}`,
-    );
-    this.regenTableTarget = null;
-  }
-
-  requestRegenerateArea(area: DiningArea): void {
-    this.regenAreaTarget = area;
-  }
-
-  confirmRegenerateArea(): void {
-    if (!this.regenAreaTarget) return;
-    const areaTables = this.tables.filter(
-      t => t.areaId === this.regenAreaTarget!.id && t.hasQR,
-    );
-    if (areaTables.length === 0) {
-      this.toast.error('No tables with QR codes in this area');
-      this.regenAreaTarget = null;
-      return;
-    }
-    this.tablesService.bulkUpdateTables(
-      areaTables.map(t => t.id),
-      { qrRegeneratedAt: new Date() },
-    ).subscribe(() => this.refresh());
-    this.toast.success(
-      `${areaTables.length} QR code(s) regenerated for ${this.regenAreaTarget.name}`,
-    );
-    this.regenAreaTarget = null;
-  }
-
-  confirmRegenerateAll(): void {
-    const activeTables = this.tables.filter(t => t.hasQR);
-    this.tablesService.bulkUpdateTables(
-      activeTables.map(t => t.id),
-      { qrRegeneratedAt: new Date() },
-    ).subscribe(() => this.refresh());
-    this.toast.success(
-      `${activeTables.length} QR code(s) regenerated`,
-    );
-    this.isRegenAllOpen = false;
   }
 
   // ── Print Sheet ───────────────────────────────────────
