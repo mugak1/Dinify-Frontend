@@ -22,7 +22,7 @@
 
       <!-- Date range pills (dashboard only) -->
       @if (dashboardService.isDashboardActive$ | async) {
-        <div class="bg-card rounded-lg p-1 flex gap-1 overflow-x-auto" role="tablist" aria-label="Date range selector">
+        <div class="bg-card border border-gray-200 rounded-lg p-1 flex gap-1 overflow-x-auto" role="tablist" aria-label="Date range selector">
           @for (range of ranges; track range.value) {
             <button
               (click)="onDateRangeChange(range.value)"
