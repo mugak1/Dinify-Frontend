@@ -23,6 +23,7 @@ import { TablesComponent } from './tables/tables.component';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { IdentityComponent } from './settings/identity/identity.component';
 import { AvailabilityComponent } from './settings/availability/availability.component';
+import { TaxReceiptsComponent } from './settings/tax-receipts/tax-receipts.component';
 import { ReportsComponent } from './reports/reports.component';
 import { ReportDetailComponent } from './report-detail/report-detail.component';
 import { ReviewsComponent } from './reviews/reviews.component';
@@ -67,11 +68,7 @@ const routes: Routes = [
     {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding'},
     {path:'availability',component:AvailabilityComponent,title:'Availability'},
     {path:'rest-users',component:RestUsersComponent,title:'Staff & roles'},
-    {path:'tax-receipts',component:SettingsPlaceholderComponent,title:'Tax & receipts',data:{
-      title:'Tax & receipts',
-      icon:'tax',
-      description:'Tax rates and what shows on customer receipts.',
-    }},
+    {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts'},
     {path:'billing',component:BillingComponent,title:'Billing'},
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing'},
     {path:'preset-tags',component:PresetTagsComponent,title:'Preset tags'},
@@ -162,6 +159,7 @@ const routes: Routes = [
     SettingsIconComponent,
     IdentityComponent,
     AvailabilityComponent,
+    TaxReceiptsComponent,
 ],
   exports:[
     RouterModule
