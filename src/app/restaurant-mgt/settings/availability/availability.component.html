@@ -1,0 +1,40 @@
+<app-settings-section-page
+  title="Availability"
+  description="Control when your restaurant accepts orders. Opening-hours scheduling is coming soon."
+  icon="availability"
+  [state]="loadState"
+  [dirty]="isDirty"
+  [saving]="saving"
+  errorMessage="We couldn't load your availability settings."
+  (save)="onSave()"
+  (discard)="onDiscard()"
+  (retry)="retry()"
+>
+  <section class="px-4 sm:px-6 py-5">
+    <h2 class="text-base font-semibold text-gray-900">Accepting orders</h2>
+    <p class="text-sm text-gray-500 mt-0.5">
+      Pause your restaurant when you can't take new orders.
+    </p>
+
+    <div
+      class="mt-4 flex items-start justify-between gap-4 rounded-lg border border-gray-200 p-4"
+    >
+      <div>
+        <p class="text-sm font-medium text-gray-900">Accepting orders</p>
+        <p class="text-xs text-gray-400 mt-0.5">
+          When off, your restaurant is paused and won't take new orders. You can
+          turn it back on anytime.
+        </p>
+      </div>
+      <app-dn-switch
+        [checked]="acceptingOrders"
+        (checkedChange)="onToggle($event)"
+      ></app-dn-switch>
+    </div>
+
+    <p class="text-xs text-gray-400 mt-4">
+      Scheduled opening hours are coming soon — for now, use this toggle to pause
+      and resume orders.
+    </p>
+  </section>
+</app-settings-section-page>
