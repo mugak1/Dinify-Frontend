@@ -286,6 +286,12 @@ export interface RestaurantDetail {
   owner: string
   subscription_validity:boolean;
   subscription_expiry_date:any;
+  // Tax & receipts (settings-fields backend PR). vat_rate is a DRF DecimalField,
+  // which serializes as a string (e.g. "18.00"); accept number too for safety.
+  vat_registered: boolean;
+  vat_rate: number | string;
+  tin: string | null;
+  receipt_footer: string | null;
 }
 export interface Restaurant {
   id: string
