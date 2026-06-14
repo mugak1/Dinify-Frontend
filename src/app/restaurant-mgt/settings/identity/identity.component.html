@@ -1,0 +1,251 @@
+<app-settings-section-page
+  title="Restaurant identity & branding"
+  description="Your public profile — what diners see on your menu."
+  icon="restaurant"
+  [state]="loadState"
+  [dirty]="isDirty"
+  [saving]="saving"
+  errorMessage="We couldn't load your restaurant details."
+  (save)="onSave()"
+  (discard)="onDiscard()"
+  (retry)="retry()"
+>
+  <form [formGroup]="form" novalidate>
+    <!-- ── Identity ─────────────────────────────────────────────────────── -->
+    <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
+      <h2 class="text-base font-semibold text-gray-900">Identity</h2>
+      <p class="text-sm text-gray-500 mt-0.5">How your restaurant is named and described.</p>
+
+      <div class="mt-4 space-y-4">
+        <!-- Name -->
+        <div>
+          <label for="r-name" class="block text-sm font-medium text-gray-700 mb-1">
+            Restaurant name <span class="text-primary">*</span>
+          </label>
+          <input
+            id="r-name"
+            type="text"
+            formControlName="name"
+            placeholder="e.g. The Lawns Kampala"
+            [ngClass]="fieldClass(nameInvalid)"
+          />
+          @if (nameInvalid) {
+            <p class="mt-1 text-xs text-red-600">Restaurant name is required.</p>
+          }
+        </div>
+
+        <!-- Tagline -->
+        <div>
+          <label for="r-tagline" class="block text-sm font-medium text-gray-700 mb-1">
+            Tagline
+          </label>
+          <input
+            id="r-tagline"
+            type="text"
+            formControlName="tagline"
+            maxlength="255"
+            placeholder="A short blurb diners see under your name"
+            [ngClass]="fieldClass()"
+          />
+          <div class="mt-1 flex items-center justify-between gap-2">
+            <p class="text-xs text-gray-400">Keep it to a single line.</p>
+            <span class="text-xs text-gray-400 tabular-nums">{{ taglineLength }}/255</span>
+          </div>
+        </div>
+
+        <!-- Cuisine -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Cuisine</span>
+          <p class="text-xs text-gray-400 mb-2">Pick the tags that best describe your food.</p>
+          <div class="flex flex-wrap gap-2">
+            @for (c of cuisineOptions; track c) {
+              <button
+                type="button"
+                (click)="toggleCuisine(c)"
+                [attr.aria-pressed]="isCuisineSelected(c)"
+                class="rounded-full border px-3 py-1.5 text-sm transition-colors"
+                [ngClass]="isCuisineSelected(c)
+                  ? 'border-primary bg-primary/10 text-primary font-medium'
+                  : 'border-gray-300 text-gray-600 desktop-hover:border-gray-400'"
+              >
+                {{ c }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Contact ──────────────────────────────────────────────────────── -->
+    <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
+      <h2 class="text-base font-semibold text-gray-900">Contact</h2>
+      <p class="text-sm text-gray-500 mt-0.5">How diners and Dinify can reach you.</p>
+
+      <div class="mt-4 space-y-4">
+        <!-- Phone -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Phone</span>
+          @if (currentPhone) {
+            <p class="text-xs text-gray-400 mb-1">
+              On file: +{{ currentPhone }} — enter a new number below to change it.
+            </p>
+          }
+          <intl-telephone-input
+            [preferredCountries]="preferredCountries"
+            [selectedCountryISO]="CountryISO.Uganda"
+            [numberFormat]="numberFormat"
+            [enableAutoCountrySelect]="true"
+            [enablePlaceholder]="true"
+            [cssClass]="'rounded'"
+            (onChange)="onPhone($event)"
+          ></intl-telephone-input>
+        </div>
+
+        <!-- Email -->
+        <div>
+          <label for="r-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input
+            id="r-email"
+            type="email"
+            formControlName="contact_email"
+            placeholder="hello@restaurant.ug"
+            [ngClass]="fieldClass(emailInvalid)"
+          />
+          @if (emailInvalid) {
+            <p class="mt-1 text-xs text-red-600">Enter a valid email address.</p>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Location ─────────────────────────────────────────────────────── -->
+    <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
+      <h2 class="text-base font-semibold text-gray-900">Location</h2>
+      <p class="text-sm text-gray-500 mt-0.5">Where to find you.</p>
+
+      <div class="mt-4 space-y-4">
+        <!-- Address -->
+        <div>
+          <label for="r-location" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+          <textarea
+            id="r-location"
+            rows="2"
+            formControlName="location"
+            placeholder="Street, building, area"
+            [ngClass]="fieldClass()"
+          ></textarea>
+        </div>
+
+        <!-- Landmark -->
+        <div>
+          <label for="r-landmark" class="block text-sm font-medium text-gray-700 mb-1">Landmark</label>
+          <input
+            id="r-landmark"
+            type="text"
+            formControlName="landmark"
+            placeholder="e.g. Opposite the Uganda Museum"
+            [ngClass]="fieldClass()"
+          />
+          <p class="mt-1 text-xs text-gray-400">
+            Kampala addresses are landmark-based — a “near X” helps diners find you.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Media & branding ─────────────────────────────────────────────── -->
+    <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
+      <h2 class="text-base font-semibold text-gray-900">Media &amp; branding</h2>
+      <p class="text-sm text-gray-500 mt-0.5">Your logo, cover photo, and brand colour.</p>
+
+      <div class="mt-4 space-y-5">
+        <!-- Logo -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Logo</span>
+          <div class="flex items-center gap-4">
+            <div class="h-16 w-16 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-50 flex items-center justify-center">
+              @if (logoUrl) {
+                <img [src]="logoUrl" alt="Logo preview" class="h-full w-full object-cover" />
+              } @else {
+                <svg class="h-6 w-6 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              }
+            </div>
+            <div>
+              <button type="button" app-dn-button variant="outline" size="sm" (click)="logoInput.click()">
+                {{ logoUrl ? 'Replace' : 'Upload' }}
+              </button>
+              <p class="mt-1 text-xs text-gray-400">Square image works best.</p>
+            </div>
+          </div>
+          <input #logoInput type="file" accept="image/*" class="hidden" (change)="onPickImage('logo', $event)" />
+        </div>
+
+        <!-- Cover photo -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Cover photo</span>
+          <div class="aspect-[16/9] w-full max-w-md overflow-hidden rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center">
+            @if (coverUrl) {
+              <img [src]="coverUrl" alt="Cover preview" class="h-full w-full object-cover" />
+            } @else {
+              <span class="text-sm text-gray-300">No cover photo</span>
+            }
+          </div>
+          <div class="mt-2 flex items-center gap-2">
+            <button type="button" app-dn-button variant="outline" size="sm" (click)="coverInput.click()">
+              {{ coverUrl ? 'Replace' : 'Upload' }}
+            </button>
+            @if (coverUrl) {
+              <button type="button" app-dn-button variant="ghost" size="sm" (click)="clearCover()">Remove</button>
+            }
+          </div>
+          <input #coverInput type="file" accept="image/*" class="hidden" (change)="onPickImage('cover', $event)" />
+        </div>
+
+        <!-- Brand colour -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Brand colour</span>
+          <p class="text-xs text-gray-400 mb-2">Used across your diner menu.</p>
+          <div class="flex items-center gap-3">
+            <span
+              class="h-9 w-9 cursor-pointer rounded-md border border-gray-200 ring-1 ring-inset ring-black/5"
+              [style.background]="brandColor"
+              [colorPicker]="brandColor"
+              (colorPickerChange)="onBrandColor($event)"
+              aria-label="Pick brand colour"
+            ></span>
+            <input
+              type="text"
+              formControlName="brand_color"
+              class="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono uppercase text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Social ───────────────────────────────────────────────────────── -->
+    <section formGroupName="socials" class="px-4 sm:px-6 py-5">
+      <h2 class="text-base font-semibold text-gray-900">Social</h2>
+      <p class="text-sm text-gray-500 mt-0.5">Links diners can tap from your menu.</p>
+
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="r-instagram" class="block text-sm font-medium text-gray-700 mb-1">Instagram</label>
+          <input id="r-instagram" type="text" formControlName="instagram" placeholder="username or link" [ngClass]="fieldClass()" />
+        </div>
+        <div>
+          <label for="r-facebook" class="block text-sm font-medium text-gray-700 mb-1">Facebook</label>
+          <input id="r-facebook" type="text" formControlName="facebook" placeholder="page name or link" [ngClass]="fieldClass()" />
+        </div>
+        <div>
+          <label for="r-x" class="block text-sm font-medium text-gray-700 mb-1">X</label>
+          <input id="r-x" type="text" formControlName="x" placeholder="handle or link" [ngClass]="fieldClass()" />
+        </div>
+        <div>
+          <label for="r-tiktok" class="block text-sm font-medium text-gray-700 mb-1">TikTok</label>
+          <input id="r-tiktok" type="text" formControlName="tiktok" placeholder="username or link" [ngClass]="fieldClass()" />
+        </div>
+      </div>
+    </section>
+  </form>
+</app-settings-section-page>

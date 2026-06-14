@@ -1,6 +1,5 @@
 import { NgModule } from '@angular/core';
 import {NgxCurrencyDirective} from 'ngx-currency'
-import { ColorPickerDirective } from 'ngx-color-picker';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './dashboard/dashboard.component';
@@ -22,8 +21,7 @@ import { DinifyCommonModule } from '../_common/dinify-common.module';
 import { CommonChartModule } from '../_common/common-chart/common-chart.module';
 import { TablesComponent } from './tables/tables.component';
 import { QRCodeComponent } from 'angularx-qrcode';
-import { RestProfileComponent } from './settings/rest-profile/rest-profile.component';
-import { BrandingComponent } from './settings/branding/branding.component';
+import { IdentityComponent } from './settings/identity/identity.component';
 import { ReportsComponent } from './reports/reports.component';
 import { ReportDetailComponent } from './report-detail/report-detail.component';
 import { ReviewsComponent } from './reviews/reviews.component';
@@ -65,11 +63,7 @@ const routes: Routes = [
   {path:'dashboard',component:DashboardComponent,title:'Dashboard'},
   {path:'settings',title:'Settings',children:[
     {path: "", component: SettingsHubComponent, pathMatch: "full"},
-    {path:'restaurant',component:SettingsPlaceholderComponent,title:'Restaurant identity & branding',data:{
-      title:'Restaurant identity & branding',
-      icon:'restaurant',
-      description:"Your restaurant's name, logo, and brand colours.",
-    }},
+    {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding'},
     {path:'availability',component:SettingsPlaceholderComponent,title:'Availability',data:{
       title:'Availability',
       icon:'availability',
@@ -108,8 +102,6 @@ const routes: Routes = [
   declarations: [
     DashboardComponent,
     MenuComponent,
-    RestProfileComponent,
-    BrandingComponent,
     ReportsComponent,
     ReportDetailComponent,
     RestUsersComponent,
@@ -127,7 +119,6 @@ const routes: Routes = [
     RouterModule.forChild(routes),
     DinifyCommonModule,
     QRCodeComponent,
-    ColorPickerDirective,
     NgxCurrencyDirective,
     DragDropModule,
     BaseChartDirective,
@@ -172,6 +163,7 @@ const routes: Routes = [
     SettingsPlaceholderComponent,
     SectionPageComponent,
     SettingsIconComponent,
+    IdentityComponent,
 ],
   exports:[
     RouterModule
