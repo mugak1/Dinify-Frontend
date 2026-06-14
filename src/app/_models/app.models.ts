@@ -264,6 +264,7 @@ export interface RestaurantDetail {
   expose_order_ratings: boolean
   allow_deliveries: boolean
   allow_pickups: boolean
+  accepting_orders: boolean
   preferred_subscription_method: string
   order_surcharge_percentage: number
   flat_fee: number

@@ -22,6 +22,7 @@ import { CommonChartModule } from '../_common/common-chart/common-chart.module';
 import { TablesComponent } from './tables/tables.component';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { IdentityComponent } from './settings/identity/identity.component';
+import { AvailabilityComponent } from './settings/availability/availability.component';
 import { ReportsComponent } from './reports/reports.component';
 import { ReportDetailComponent } from './report-detail/report-detail.component';
 import { ReviewsComponent } from './reviews/reviews.component';
@@ -64,11 +65,7 @@ const routes: Routes = [
   {path:'settings',title:'Settings',children:[
     {path: "", component: SettingsHubComponent, pathMatch: "full"},
     {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding'},
-    {path:'availability',component:SettingsPlaceholderComponent,title:'Availability',data:{
-      title:'Availability',
-      icon:'availability',
-      description:'Opening hours and when you accept orders.',
-    }},
+    {path:'availability',component:AvailabilityComponent,title:'Availability'},
     {path:'rest-users',component:RestUsersComponent,title:'Staff & roles'},
     {path:'tax-receipts',component:SettingsPlaceholderComponent,title:'Tax & receipts',data:{
       title:'Tax & receipts',
@@ -164,6 +161,7 @@ const routes: Routes = [
     SectionPageComponent,
     SettingsIconComponent,
     IdentityComponent,
+    AvailabilityComponent,
 ],
   exports:[
     RouterModule
