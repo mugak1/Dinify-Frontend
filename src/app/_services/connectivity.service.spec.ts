@@ -1,7 +1,7 @@
 import { fakeAsync, tick, TestBed } from '@angular/core/testing';
-import { DinerConnectivityService } from './diner-connectivity.service';
+import { ConnectivityService } from './connectivity.service';
 
-describe('DinerConnectivityService', () => {
+describe('ConnectivityService', () => {
   // Shadow navigator.onLine with an own accessor we control (the prototype
   // getter isn't reliably spy-able across browsers). Each test sets it before
   // the service is first injected so the constructor seed reads our value.
@@ -16,17 +16,17 @@ describe('DinerConnectivityService', () => {
 
   it('seeds offline=false when the browser starts online', () => {
     setOnline(true);
-    expect(TestBed.inject(DinerConnectivityService).isOffline()).toBeFalse();
+    expect(TestBed.inject(ConnectivityService).isOffline()).toBeFalse();
   });
 
   it('seeds offline=true when the browser starts offline', () => {
     setOnline(false);
-    expect(TestBed.inject(DinerConnectivityService).isOffline()).toBeTrue();
+    expect(TestBed.inject(ConnectivityService).isOffline()).toBeTrue();
   });
 
   it('flips to offline after a debounced offline event', fakeAsync(() => {
     setOnline(true);
-    const svc = TestBed.inject(DinerConnectivityService);
+    const svc = TestBed.inject(ConnectivityService);
     expect(svc.isOffline()).toBeFalse();
 
     setOnline(false);
@@ -39,7 +39,7 @@ describe('DinerConnectivityService', () => {
 
   it('clears offline after a debounced online event', fakeAsync(() => {
     setOnline(false);
-    const svc = TestBed.inject(DinerConnectivityService);
+    const svc = TestBed.inject(ConnectivityService);
     expect(svc.isOffline()).toBeTrue();
 
     setOnline(true);
@@ -50,7 +50,7 @@ describe('DinerConnectivityService', () => {
 
   it('collapses a flapping signal to its final state', fakeAsync(() => {
     setOnline(true);
-    const svc = TestBed.inject(DinerConnectivityService);
+    const svc = TestBed.inject(ConnectivityService);
 
     setOnline(false);
     window.dispatchEvent(new Event('offline'));

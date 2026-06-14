@@ -7,5 +7,6 @@ export { TabsComponent, TabListComponent, TabTriggerComponent, TabContentCompone
 export { SwitchComponent } from './switch/switch.component';
 export { ToastComponent } from './toast/toast.component';
 export { ToastService } from './toast/toast.service';
+export { OfflineBannerComponent } from './offline-banner/offline-banner.component';
 export { SafeArrayPipe } from './safe-array.pipe';
 export { AllergenDisclaimerComponent } from './allergen-disclaimer/allergen-disclaimer.component';

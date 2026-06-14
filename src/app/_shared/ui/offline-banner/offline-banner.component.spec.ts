@@ -1,10 +1,10 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { OfflineStripComponent } from './offline-strip.component';
-import { ConnectivityService } from '../../_services/connectivity.service';
+import { OfflineBannerComponent } from './offline-banner.component';
+import { ConnectivityService } from '../../../_services/connectivity.service';
 
-describe('OfflineStripComponent', () => {
-  let fixture: ComponentFixture<OfflineStripComponent>;
+describe('OfflineBannerComponent', () => {
+  let fixture: ComponentFixture<OfflineBannerComponent>;
   // A real writable signal stands in for the service so the template reacts to
   // flips exactly as it would in production.
   const offline = signal(false);
@@ -12,12 +12,12 @@ describe('OfflineStripComponent', () => {
   beforeEach(async () => {
     offline.set(false);
     await TestBed.configureTestingModule({
-      imports: [OfflineStripComponent],
+      imports: [OfflineBannerComponent],
       providers: [
         { provide: ConnectivityService, useValue: { isOffline: offline.asReadonly() } },
       ],
     }).compileComponents();
-    fixture = TestBed.createComponent(OfflineStripComponent);
+    fixture = TestBed.createComponent(OfflineBannerComponent);
     fixture.detectChanges();
   });
 
@@ -26,16 +26,16 @@ describe('OfflineStripComponent', () => {
     expect(fixture.nativeElement.textContent.trim()).toBe('');
   });
 
-  it('shows the calm offline strip with the reconnect copy when offline', () => {
+  it('shows the amber offline banner with the check-connection copy when offline', () => {
     offline.set(true);
     fixture.detectChanges();
 
-    const strip: HTMLElement | null = fixture.nativeElement.querySelector('[role="status"]');
-    expect(strip).not.toBeNull();
-    expect(strip!.textContent).toContain("You're offline");
-    expect(strip!.textContent).toContain('place your order once you reconnect');
-    // Calm, not alarm-red.
-    expect(strip!.className).toContain('bg-amber-50');
+    const banner: HTMLElement | null = fixture.nativeElement.querySelector('[role="status"]');
+    expect(banner).not.toBeNull();
+    expect(banner!.textContent).toContain("You're offline");
+    expect(banner!.textContent).toContain('check your connection');
+    // Calm amber status, not alarm-red.
+    expect(banner!.className).toContain('bg-amber-50');
   });
 
   it('hides again on reconnect', () => {

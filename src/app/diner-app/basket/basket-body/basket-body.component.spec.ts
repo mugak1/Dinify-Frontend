@@ -10,7 +10,7 @@ import { BasketService } from '../../../_services/basket.service';
 import { ApiService } from '../../../_services/api.service';
 import { ToastService } from '../../../_shared/ui/toast/toast.service';
 import { ConfirmDialogService } from '../../../_common/confirm-dialog.service';
-import { DinerConnectivityService } from '../../diner-connectivity.service';
+import { ConnectivityService } from '../../../_services/connectivity.service';
 import { BasketItem } from '../../../_models/app.models';
 import { BasketBodyComponent } from './basket-body.component';
 
@@ -81,7 +81,7 @@ describe('BasketBodyComponent', () => {
         { provide: ApiService, useValue: api },
         { provide: ConfirmDialogService, useValue: dialog },
         { provide: ToastService, useValue: toast },
-        { provide: DinerConnectivityService, useValue: connectivity },
+        { provide: ConnectivityService, useValue: connectivity },
       ],
       schemas: [NO_ERRORS_SCHEMA],
     }).compileComponents();

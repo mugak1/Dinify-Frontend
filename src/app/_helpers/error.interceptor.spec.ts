@@ -4,6 +4,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ErrorInterceptor } from './error.interceptor';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
+import { ConnectivityService } from '../_services/connectivity.service';
+import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 describe('ErrorInterceptor', () => {
@@ -11,6 +13,8 @@ describe('ErrorInterceptor', () => {
   let httpMock: HttpTestingController;
   let authService: jasmine.SpyObj<AuthenticationService>;
   let toast: jasmine.SpyObj<ToastService>;
+  let routerStub: { url: string };
+  let connectivityStub: { isOffline: () => boolean };
 
   const mockUser = {
     token: 'test-token',
@@ -25,12 +29,19 @@ describe('ErrorInterceptor', () => {
       userValue: null
     });
     const toastSpy = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning', 'info', 'clear', 'dismiss']);
+    // Mutable stubs: the interceptor reads router.url + connectivity.isOffline() at
+    // catch time, so tests set these before triggering the error. Default to a
+    // non-banner route that is online, so the offline toast fires unless overridden.
+    routerStub = { url: '/login' };
+    connectivityStub = { isOffline: () => false };
 
     TestBed.configureTestingModule({
     imports: [],
     providers: [
         { provide: ToastService, useValue: toastSpy },
         { provide: AuthenticationService, useValue: authSpy },
+        { provide: Router, useValue: routerStub },
+        { provide: ConnectivityService, useValue: connectivityStub },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),
         provideHttpClientTesting()
@@ -52,7 +63,8 @@ describe('ErrorInterceptor', () => {
   }
 
   describe('network errors (status 0)', () => {
-    it('shows the offline toast and throws for a non-diner request', (done) => {
+    it('shows the offline toast and throws for a non-diner request off the banner shells', (done) => {
+      routerStub.url = '/login';
       httpClient.get('/api/test').subscribe({
         error: (err) => {
           expect(err).toBe('no network');
@@ -77,6 +89,72 @@ describe('ErrorInterceptor', () => {
       });
 
       const req = httpMock.expectOne('/api/v1/orders/journey/show-menu/');
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
+    it('suppresses the toast on the restaurant shell while the browser reports offline', (done) => {
+      // OfflineBannerComponent already shows on /rest-app, so the toast would double up.
+      routerStub.url = '/rest-app/dashboard';
+      connectivityStub.isOffline = () => true;
+
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(toast.error).not.toHaveBeenCalled();
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
+    it('suppresses the toast on the admin shell while the browser reports offline', (done) => {
+      routerStub.url = '/mgt-app/dashboard';
+      connectivityStub.isOffline = () => true;
+
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(toast.error).not.toHaveBeenCalled();
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
+    it('still shows the toast on a banner shell for a status-0 failure while online (server down)', (done) => {
+      // navigator.onLine is true → no banner is showing, so the toast is the only signal.
+      routerStub.url = '/rest-app/dashboard';
+      connectivityStub.isOffline = () => false;
+
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(toast.error).toHaveBeenCalledWith("You're offline — check your connection.");
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
+    it('still shows the toast on the login screen while offline (no banner there)', (done) => {
+      routerStub.url = '/login';
+      connectivityStub.isOffline = () => true;
+
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(toast.error).toHaveBeenCalledWith("You're offline — check your connection.");
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
       req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
     });
   });
