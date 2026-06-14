@@ -17,7 +17,6 @@ import { TotalOrdersCardComponent } from './dashboard/components/total-orders-ca
 import { TablesCardComponent } from './dashboard/components/tables-card/tables-card.component';
 import { KdsAttentionCardComponent } from './dashboard/components/kds-attention-card/kds-attention-card.component';
 import { ReviewsCardComponent } from './dashboard/components/reviews-card/reviews-card.component';
-import { SettingsComponent } from './settings/settings.component';
 import { MenuComponent } from './menu/menu.component';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
 import { CommonChartModule } from '../_common/common-chart/common-chart.module';
@@ -56,18 +55,40 @@ import { CardComponent } from '../_shared/ui/card/card.component';
 import { BadgeComponent } from '../_shared/ui/badge/badge.component';
 import { SheetComponent } from '../_shared/ui/sheet/sheet.component';
 import { PresetTagsComponent } from './settings/preset-tags/preset-tags.component';
+import { SettingsHubComponent } from './settings/settings-hub/settings-hub.component';
+import { SettingsPlaceholderComponent } from './settings/settings-placeholder/settings-placeholder.component';
+import { SectionPageComponent } from './settings/components/section-page/section-page.component';
+import { SettingsIconComponent } from './settings/components/settings-icon/settings-icon.component';
 
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
   {path:'dashboard',component:DashboardComponent,title:'Dashboard'},
-  {path:'settings',component:SettingsComponent,title:'Settings',children:[
-    {path: "", redirectTo: "rest-users", pathMatch: "full"},
-    {path:'restaurant-profile',component:RestProfileComponent},
-    {path:'branding',component:BrandingComponent},
-    {path:'rest-users',component:RestUsersComponent,title:'Users'},
-    {path:'preset-tags',component:PresetTagsComponent,title:'Preset Tags'},
+  {path:'settings',title:'Settings',children:[
+    {path: "", component: SettingsHubComponent, pathMatch: "full"},
+    {path:'restaurant',component:SettingsPlaceholderComponent,title:'Restaurant identity & branding',data:{
+      title:'Restaurant identity & branding',
+      icon:'restaurant',
+      description:"Your restaurant's name, logo, and brand colours.",
+    }},
+    {path:'availability',component:SettingsPlaceholderComponent,title:'Availability',data:{
+      title:'Availability',
+      icon:'availability',
+      description:'Opening hours and when you accept orders.',
+    }},
+    {path:'rest-users',component:RestUsersComponent,title:'Staff & roles'},
+    {path:'tax-receipts',component:SettingsPlaceholderComponent,title:'Tax & receipts',data:{
+      title:'Tax & receipts',
+      icon:'tax',
+      description:'Tax rates and what shows on customer receipts.',
+    }},
     {path:'billing',component:BillingComponent,title:'Billing'},
-    {path:'billing/paid/:id',component:BillingComponent,title:'Billing'}
+    {path:'billing/paid/:id',component:BillingComponent,title:'Billing'},
+    {path:'preset-tags',component:PresetTagsComponent,title:'Preset tags'},
+    {path:'account',component:SettingsPlaceholderComponent,title:'Account & security',data:{
+      title:'Account & security',
+      icon:'account',
+      description:'Your login details and account security.',
+    }},
   ]},
   {path:'menu',component:MenuComponent,title:'Menu'},
   {path:'dining-tables',component:TablesComponent,title:'Tables'},
@@ -86,7 +107,6 @@ const routes: Routes = [
 @NgModule({
   declarations: [
     DashboardComponent,
-    SettingsComponent,
     MenuComponent,
     RestProfileComponent,
     BrandingComponent,
@@ -148,6 +168,10 @@ const routes: Routes = [
     SheetComponent,
     TablesComponent,
     PresetTagsComponent,
+    SettingsHubComponent,
+    SettingsPlaceholderComponent,
+    SectionPageComponent,
+    SettingsIconComponent,
 ],
   exports:[
     RouterModule
