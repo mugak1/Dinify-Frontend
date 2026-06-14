@@ -51,7 +51,7 @@ describe('ErrorInterceptor', () => {
   }
 
   describe('network errors (status 0)', () => {
-    it('should add "no network" message and throw', (done) => {
+    it('adds the "no network" banner and throws for a non-diner request', (done) => {
       httpClient.get('/api/test').subscribe({
         error: (err) => {
           expect(err).toBe('no network');
@@ -62,6 +62,21 @@ describe('ErrorInterceptor', () => {
       });
 
       const req = httpMock.expectOne('/api/test');
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
+    it('suppresses the banner for a diner request but still throws "no network"', (done) => {
+      // The diner owns its offline UX (amber strip + inline retry), so the global
+      // red banner must not also fire for its journey/order endpoints.
+      httpClient.get('/api/v1/orders/journey/show-menu/').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(messageService.messages.length).toBe(0);
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/v1/orders/journey/show-menu/');
       req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
     });
   });
