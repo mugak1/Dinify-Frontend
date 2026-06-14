@@ -20,7 +20,14 @@ export class ErrorInterceptor implements HttpInterceptor {
         return next.handle(request).pipe(
             catchError((err: HttpErrorResponse) => {
                 if (err.status === 0) {
-                    this.message.add('no network');
+                    // The diner app surfaces offline as an ambient amber strip + inline
+                    // order retry, so the global red 'no network' banner is redundant
+                    // there. Other portals (restaurant, admin, auth) still rely on it, so
+                    // only suppress it for diner requests. Still rethrow either way so the
+                    // diner's own handlers (scan retry, order failOrder) keep working.
+                    if (!this.isDinerRequest(request)) {
+                        this.message.add('no network');
+                    }
                     return throwError(() => 'no network');
                 }
 
@@ -62,6 +69,17 @@ export class ErrorInterceptor implements HttpInterceptor {
                 return throwError(() => error);
             })
         );
+    }
+
+    /**
+     * Diner journey/order endpoints that own their offline UX (the ambient
+     * offline strip + inline order retry). Used to suppress the global red
+     * 'no network' banner for the diner only — every other surface keeps it.
+     */
+    private isDinerRequest(request: HttpRequest<any>): boolean {
+        return request.url.includes('orders/journey/')   // show-menu, table-scan, order-details
+            || request.url.includes('orders/initiate/')
+            || request.url.includes('orders/submit/');
     }
 
     private handle401(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {

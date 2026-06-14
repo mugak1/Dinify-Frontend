@@ -106,7 +106,9 @@ export class MenuNavStateService {
    * the filter-badge row adds ~32px below the pill row.
    */
   navStackHeight: Signal<number> = computed(() => {
-    const PILL_ROW_PX = 52;
+    // Keep in lockstep with the pill/skeleton row height (h-10) in
+    // menu-nav-bar.component.html, so clicked sections land flush under the bar.
+    const PILL_ROW_PX = 40;
     const FILTER_ROW_PX = 32;
     return (
       this.stickyTopPx() +
