@@ -270,6 +270,13 @@ export interface RestaurantDetail {
   order_surcharge_min_amount: number
   order_surcharge_cap_amount: number
   branding_configuration: BrandingConfiguration
+  tagline: string | null
+  cuisine_types: string[]
+  contact_phone: string | null
+  contact_email: string | null
+  landmark: string | null
+  cover_photo: string | null
+  socials: Socials
   country: string
   first_time_menu_approval: boolean
   first_time_menu_approval_decision: string
@@ -292,8 +299,24 @@ export interface BrandingConfiguration {
   home: Home
 }
 
+// branding_configuration.home carries four keys (backend default + migration
+// 0041). The Identity section edits ONLY brand_color; the other three are
+// preserved verbatim on save so the diner header keeps rendering. Note:
+// home.tagline is a branding key and is NOT the top-level `tagline` column.
 export interface Home {
+  header_style: string
   brand_color: string
+  logo_display: string
+  tagline: string
+}
+
+// Public-facing social handles/links. Stored as a JSON object on the
+// restaurant; empty handles are sent as null (the null-clears convention).
+export interface Socials {
+  instagram?: string | null
+  facebook?: string | null
+  x?: string | null
+  tiktok?: string | null
 }
 export interface Item {
   id: string
