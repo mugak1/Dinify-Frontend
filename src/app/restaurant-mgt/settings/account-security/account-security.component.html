@@ -1,0 +1,239 @@
+<app-settings-section-page
+  title="Account & security"
+  description="Your login details and account security."
+  icon="account"
+  [state]="'ready'"
+  [dirty]="isDirty"
+  [saving]="savingProfile"
+  (save)="onSave()"
+  (discard)="onDiscard()"
+  (retry)="retry()"
+>
+  <!-- ── Profile (driven by the scaffold save bar) ──────────────────────── -->
+  <form [formGroup]="profileForm" novalidate>
+    <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
+      <h2 class="text-base font-semibold text-gray-900">Profile</h2>
+      <p class="text-sm text-gray-500 mt-0.5">Your name and login email.</p>
+
+      <div class="mt-4 space-y-4">
+        <!-- Name -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="as-first" class="block text-sm font-medium text-gray-700 mb-1">
+              First name <span class="text-primary">*</span>
+            </label>
+            <input
+              id="as-first"
+              type="text"
+              formControlName="first_name"
+              autocomplete="given-name"
+              placeholder="e.g. Amara"
+              [ngClass]="fieldClass(firstNameInvalid)"
+            />
+            @if (firstNameInvalid) {
+              <p class="mt-1 text-xs text-red-600">First name is required.</p>
+            }
+          </div>
+
+          <div>
+            <label for="as-last" class="block text-sm font-medium text-gray-700 mb-1">
+              Last name <span class="text-primary">*</span>
+            </label>
+            <input
+              id="as-last"
+              type="text"
+              formControlName="last_name"
+              autocomplete="family-name"
+              placeholder="e.g. Okello"
+              [ngClass]="fieldClass(lastNameInvalid)"
+            />
+            @if (lastNameInvalid) {
+              <p class="mt-1 text-xs text-red-600">Last name is required.</p>
+            }
+          </div>
+        </div>
+
+        <!-- Email -->
+        <div>
+          <label for="as-email" class="block text-sm font-medium text-gray-700 mb-1">
+            Email <span class="text-primary">*</span>
+          </label>
+          <input
+            id="as-email"
+            type="email"
+            formControlName="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            [ngClass]="fieldClass(emailInvalid)"
+          />
+          @if (emailInvalid) {
+            <p class="mt-1 text-xs text-red-600">Enter a valid email address.</p>
+          }
+        </div>
+
+        <!-- Phone (read-only) -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Phone</span>
+          <div class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+            @if (phoneOnFile) {
+              +{{ phoneOnFile }}
+            } @else {
+              <span class="text-gray-400">Not set</span>
+            }
+          </div>
+          <p class="mt-1 text-xs text-gray-400">
+            To change your phone number, contact support.
+          </p>
+        </div>
+      </div>
+    </section>
+  </form>
+
+  <!-- ── Change password (own button — NOT the save bar) ────────────────── -->
+  <form [formGroup]="passwordForm" (ngSubmit)="onUpdatePassword()" novalidate>
+    <section class="px-4 sm:px-6 py-5">
+      <h2 class="text-base font-semibold text-gray-900">Change password</h2>
+      <p class="text-sm text-gray-500 mt-0.5">
+        Use at least 6 characters, including a number and a symbol.
+      </p>
+
+      <div class="mt-4 space-y-4">
+        <!-- Current password -->
+        <div>
+          <label for="as-old" class="block text-sm font-medium text-gray-700 mb-1">
+            Current password <span class="text-primary">*</span>
+          </label>
+          <div class="relative">
+            <input
+              id="as-old"
+              [type]="showOld ? 'text' : 'password'"
+              formControlName="old_password"
+              autocomplete="current-password"
+              [ngClass]="fieldClass(oldPwInvalid, true)"
+            />
+            <button
+              type="button"
+              (click)="showOld = !showOld"
+              [attr.aria-label]="showOld ? 'Hide password' : 'Show password'"
+              [attr.aria-pressed]="showOld"
+              class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 desktop-hover:text-gray-600"
+            >
+              @if (showOld) {
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+                  <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+                  <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+                  <path d="m2 2 20 20" />
+                </svg>
+              } @else {
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              }
+            </button>
+          </div>
+          @if (oldPwInvalid) {
+            <p class="mt-1 text-xs text-red-600">Enter your current password.</p>
+          }
+        </div>
+
+        <!-- New password -->
+        <div>
+          <label for="as-new" class="block text-sm font-medium text-gray-700 mb-1">
+            New password <span class="text-primary">*</span>
+          </label>
+          <div class="relative">
+            <input
+              id="as-new"
+              [type]="showNew ? 'text' : 'password'"
+              formControlName="new_password"
+              autocomplete="new-password"
+              [ngClass]="fieldClass(newPwInvalid, true)"
+            />
+            <button
+              type="button"
+              (click)="showNew = !showNew"
+              [attr.aria-label]="showNew ? 'Hide password' : 'Show password'"
+              [attr.aria-pressed]="showNew"
+              class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 desktop-hover:text-gray-600"
+            >
+              @if (showNew) {
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+                  <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+                  <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+                  <path d="m2 2 20 20" />
+                </svg>
+              } @else {
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              }
+            </button>
+          </div>
+          @if (newPwInvalid) {
+            <p class="mt-1 text-xs text-red-600">
+              @if (newPwRequired) {
+                New password is required.
+              } @else {
+                Use at least 6 characters, including a number and a symbol.
+              }
+            </p>
+          }
+        </div>
+
+        <!-- Confirm new password -->
+        <div>
+          <label for="as-confirm" class="block text-sm font-medium text-gray-700 mb-1">
+            Confirm new password <span class="text-primary">*</span>
+          </label>
+          <div class="relative">
+            <input
+              id="as-confirm"
+              [type]="showConfirm ? 'text' : 'password'"
+              formControlName="confirmPassword"
+              autocomplete="new-password"
+              [ngClass]="fieldClass(mismatch, true)"
+            />
+            <button
+              type="button"
+              (click)="showConfirm = !showConfirm"
+              [attr.aria-label]="showConfirm ? 'Hide password' : 'Show password'"
+              [attr.aria-pressed]="showConfirm"
+              class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 desktop-hover:text-gray-600"
+            >
+              @if (showConfirm) {
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+                  <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+                  <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+                  <path d="m2 2 20 20" />
+                </svg>
+              } @else {
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              }
+            </button>
+          </div>
+          @if (mismatch) {
+            <p class="mt-1 text-xs text-red-600">Passwords don't match.</p>
+          }
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <button
+          type="submit"
+          app-dn-button
+          [disabled]="passwordForm.invalid || changingPassword"
+        >
+          {{ changingPassword ? 'Updating…' : 'Update password' }}
+        </button>
+      </div>
+    </section>
+  </form>
+</app-settings-section-page>

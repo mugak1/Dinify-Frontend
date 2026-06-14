@@ -59,6 +59,7 @@ import { SettingsHubComponent } from './settings/settings-hub/settings-hub.compo
 import { SettingsPlaceholderComponent } from './settings/settings-placeholder/settings-placeholder.component';
 import { SectionPageComponent } from './settings/components/section-page/section-page.component';
 import { SettingsIconComponent } from './settings/components/settings-icon/settings-icon.component';
+import { AccountSecurityComponent } from './settings/account-security/account-security.component';
 
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
@@ -72,11 +73,7 @@ const routes: Routes = [
     {path:'billing',component:BillingComponent,title:'Billing'},
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing'},
     {path:'preset-tags',component:PresetTagsComponent,title:'Preset tags'},
-    {path:'account',component:SettingsPlaceholderComponent,title:'Account & security',data:{
-      title:'Account & security',
-      icon:'account',
-      description:'Your login details and account security.',
-    }},
+    {path:'account',component:AccountSecurityComponent,title:'Account & security'},
   ]},
   {path:'menu',component:MenuComponent,title:'Menu'},
   {path:'dining-tables',component:TablesComponent,title:'Tables'},
@@ -160,6 +157,7 @@ const routes: Routes = [
     AvailabilityComponent,
     TaxReceiptsComponent,
     RestUsersComponent,
+    AccountSecurityComponent,
 ],
   exports:[
     RouterModule
