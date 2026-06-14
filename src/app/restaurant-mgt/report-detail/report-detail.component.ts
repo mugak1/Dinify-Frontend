@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ChartData, SalesReportListItem, SalesTrendListItem, TransactionListItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 
 @Component({
@@ -92,7 +92,7 @@ transactions={
 }
   transaction_list: TransactionListItem[]=[];
   chart_data: ChartData|undefined;
-  constructor(private auth:AuthenticationService, private api:ApiService,private route:ActivatedRoute,private messageService:MessageService) {
+  constructor(private auth:AuthenticationService, private api:ApiService,private route:ActivatedRoute,private toast:ToastService) {
     
    this.report_type= this.route.snapshot.params['type'];
    if(auth.currentRestaurantRole?.restaurant_id){
@@ -138,7 +138,7 @@ break;
         } */
       }
       if (x?.status == 400) {
-        this.messageService.addMessage({ severity: 'error', summary: 'Error', message: x?.message })
+        this.toast.error(x?.message)
       }
     })
   }
@@ -156,7 +156,7 @@ break;
         }
       }
       if (x?.status == 400) {
-        this.messageService.addMessage({ severity: 'error', summary: 'Error', message: x?.message })
+        this.toast.error(x?.message)
       }
     })
   }
@@ -167,7 +167,7 @@ break;
 this.list=x?.data as any;
       }
       if(x?.status==400){
-        this.messageService.addMessage({severity:'error',summary:'Error',message:x?.message})
+        this.toast.error(x?.message)
        }
   })
 }
@@ -195,7 +195,7 @@ getTransactionList(){
 this.transaction_list=x?.data as any;
     }
     if(x?.status==400){
-      this.messageService.addMessage({severity:'error',summary:'Error',message:x?.message})
+      this.toast.error(x?.message)
      }
     })
 }
@@ -206,7 +206,7 @@ getTransactionSummary(){
 //this.transaction_summary=x?.data as any;
     }
     if(x?.status==400){
-      this.messageService.addMessage({severity:'error',summary:'Error',message:x?.message})
+      this.toast.error(x?.message)
      }
     })
 }

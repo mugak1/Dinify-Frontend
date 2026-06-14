@@ -11,7 +11,6 @@ describe('TablesServiceViewComponent — floor plan save', () => {
   let component: TablesServiceViewComponent;
   let tablesService: any;
   let toast: any;
-  let message: any;
 
   beforeEach(() => {
     tablesService = jasmine.createSpyObj('TablesService', [
@@ -19,12 +18,11 @@ describe('TablesServiceViewComponent — floor plan save', () => {
     ]);
     tablesService.getTables.and.returnValue(of([]));
     tablesService.createTable.and.returnValue(of(null));
-    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
-    message = jasmine.createSpyObj('MessageService', ['clear']);
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'clear']);
     const auth = { currentRestaurantRole: { restaurant_id: 'r1' } } as any;
     const localStorage = { getItem: () => null, setItem: () => {} } as any;
     component = new TablesServiceViewComponent(
-      tablesService, toast, message, auth, localStorage,
+      tablesService, toast, auth, localStorage,
     );
   });
 
@@ -48,7 +46,7 @@ describe('TablesServiceViewComponent — floor plan save', () => {
 
     component.onTablesChange([table('t1')]);
 
-    expect(message.clear).toHaveBeenCalled();
+    expect(toast.clear).toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith('Save failed');
     expect(tablesService.getTables).toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();

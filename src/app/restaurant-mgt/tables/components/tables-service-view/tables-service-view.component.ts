@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Subject, combineLatest } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
-import { MessageService } from '../../../../_services/message.service';
 import { AuthenticationService } from '../../../../_services/authentication.service';
 import { LocalStorageService } from '../../../../_services/storage/local-storage.service';
 import { PersistedValue } from '../../../../_services/storage/persisted-state';
@@ -61,7 +60,6 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   constructor(
     private tablesService: TablesService,
     private toast: ToastService,
-    private message: MessageService,
     private auth: AuthenticationService,
     private localStorage: LocalStorageService,
   ) {
@@ -251,9 +249,9 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
       this.tablesService.updateFloorPlan(this.restaurantId, geometry).subscribe({
         next: () => this.toast.success('Layout saved'),
         error: (err) => {
-          // The interceptor already queued this on the global MessageService
-          // banner; clear it so the user sees one clean message.
-          this.message.clear();
+          // The interceptor already queued this as a toast; clear it so the
+          // user sees one clean message.
+          this.toast.clear();
           this.toast.error(
             this.extractError(err, 'Could not save the floor plan. Please try again.'),
           );

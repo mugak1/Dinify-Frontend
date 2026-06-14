@@ -8,7 +8,6 @@ import { of } from 'rxjs';
 import { SupportComponent } from './support.component';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
-import { MessageService } from 'src/app/_services/message.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SupportIssue } from 'src/app/_models/app.models';
 
@@ -43,7 +42,6 @@ describe('SupportComponent', () => {
   let fixture: ComponentFixture<SupportComponent>;
   let api: jasmine.SpyObj<ApiService>;
   let toast: jasmine.SpyObj<ToastService>;
-  let message: jasmine.SpyObj<MessageService>;
 
   const MOCK_ISSUES = [
     makeIssue({ id: 'id-1', reference: 'SUP-000001', status: 'open' }),
@@ -54,8 +52,7 @@ describe('SupportComponent', () => {
     api = jasmine.createSpyObj<ApiService>('ApiService', ['get', 'postPatch']);
     api.get.and.returnValue(of({ data: { records } } as any));
     api.postPatch.and.returnValue(of({} as any));
-    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error']);
-    message = jasmine.createSpyObj<MessageService>('MessageService', ['clear', 'add']);
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error', 'clear']);
 
     TestBed.configureTestingModule({
       declarations: [SupportComponent],
@@ -63,7 +60,6 @@ describe('SupportComponent', () => {
       providers: [
         { provide: ApiService, useValue: api },
         { provide: ToastService, useValue: toast },
-        { provide: MessageService, useValue: message },
         {
           provide: AuthenticationService,
           useValue: {

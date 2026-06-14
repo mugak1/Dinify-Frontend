@@ -1,10 +1,10 @@
 import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Message, RestaurantDetail, TransactionListItem } from 'src/app/_models/app.models';
+import { RestaurantDetail, TransactionListItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
     selector: 'app-billing',
@@ -24,7 +24,7 @@ BillingForm?:FormGroup;
 date_now=Date.now();
 transaction_list: TransactionListItem[]=[];
 
-constructor(private auth:AuthenticationService,private route:ActivatedRoute,private api:ApiService,private fb:FormBuilder,private message:MessageService) {
+constructor(private auth:AuthenticationService,private route:ActivatedRoute,private api:ApiService,private fb:FormBuilder,private toast:ToastService) {
   if(auth.currentRestaurantRole?.restaurant_id){
     this.rest=this.auth.currentRestaurant;
     this.rest_id = this.rest.id;
@@ -55,13 +55,7 @@ SaveDate(){
   this.api.postPatch('restaurant-setup/subscription-details/',this.BillingForm?.value,'put',null,{restaurant:this.rest_id}).subscribe((x:any)=>{
         
     if(x.status==200){
-      const mes:Message={
-        message:x.message,
-        severity:'info',
-        summary:''
-      }
-      this.message.addMessage(mes);
-      //this.message.add(mes);
+      this.toast.success(x.message);
       this.loadRestaurant(this.rest_id);
       this.closeModal();
       //this.router.navigate(['/diner','payment-details',res.transaction_id])
@@ -135,7 +129,7 @@ Save(){
     this.api.postPatch('finances/transactions/',d,'post').subscribe((x:any)=>{
         
       if(x.status==200){
-        this.message.add(x.message);
+        this.toast.success(x.message);
         this.closeModal();
       }
      //
@@ -150,7 +144,7 @@ this.sendOtp('msisdn','256'+this.PaymentForm?.get('msisdn')?.value,null);
         this.api.postPatch('finances/transactions/',d,'post').subscribe((x:any)=>{
         
           if(x.status==200){
-            this.message.add(x.message);
+            this.toast.success(x.message);
             this.closeModal();
             
            //window.location.href=res.redirect_url; 
@@ -164,12 +158,7 @@ this.sendOtp('msisdn','256'+this.PaymentForm?.get('msisdn')?.value,null);
         
       const res=x?.data;
       if(x.status==200){
-        const mes:Message={
-          message:x.message,
-          severity:'info',
-          summary:''
-        }
-        this.message.addMessage(mes);
+        this.toast.success(x.message);
         this.closeModal();
        window.location.href=res.redirect_url; 
       }

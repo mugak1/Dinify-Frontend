@@ -7,7 +7,7 @@ import {
   SearchCountryField
 } from "ngx-intl-telephone-input";
 import { ApiService } from 'src/app/_services/api.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
     selector: 'app-register',
@@ -23,7 +23,7 @@ export class RegisterComponent {
   data='';
   @ViewChild('phoneregister', { static: false }) public phoneComponent?: NgxIntlTelephoneInputComponent;
   RegisterForm!:FormGroup;
-  constructor(private api:ApiService,private fb:FormBuilder, private message:MessageService) {
+  constructor(private api:ApiService,private fb:FormBuilder, private toast:ToastService) {
       this.RegisterForm=this.initRegisterForm();
   }
 
@@ -83,7 +83,7 @@ get newpassword() {
   RegisterUser(){
     this.api.postPatch('users/auth/register/',this.RegisterForm.value,'post').subscribe((x:any)=>{
   
-      this.message.add(x.message);
+      this.toast.success(x.message);
       this.RegisterForm=this.initRegisterForm();
       this.data='';
       this.saved.emit(x);

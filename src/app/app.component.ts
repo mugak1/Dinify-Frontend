@@ -1,6 +1,5 @@
 import { Component, ViewChild, ViewContainerRef, AfterViewInit, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { MessageService } from './_services/message.service';
 import { ConfirmDialogService } from './_common/confirm-dialog.service';
 import { ConfirmDialogComponent } from './_common/confirm-dialog/confirm-dialog.component';
 import { AuthenticationService } from './_services/authentication.service';
@@ -17,7 +16,6 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   @ViewChild("modalcontent", { read: ViewContainerRef }) contentRef!: ViewContainerRef;
   private userSub?: Subscription;
   constructor(
-    public messageService: MessageService,
     private dialog: ConfirmDialogService,
     private auth: AuthenticationService,
     private inactivity: InactivityService,

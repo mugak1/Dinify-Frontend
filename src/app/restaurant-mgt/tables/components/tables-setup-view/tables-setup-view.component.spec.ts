@@ -13,7 +13,6 @@ describe('TablesSetupViewComponent — deletion block error handling', () => {
   let component: TablesSetupViewComponent;
   let tablesService: any;
   let toast: any;
-  let message: any;
 
   beforeEach(() => {
     tablesService = jasmine.createSpyObj('TablesService', [
@@ -22,10 +21,9 @@ describe('TablesSetupViewComponent — deletion block error handling', () => {
     // refresh() chains getAreas -> getTables on success; keep them inert.
     tablesService.getAreas.and.returnValue(of([]));
     tablesService.getTables.and.returnValue(of([]));
-    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
-    message = jasmine.createSpyObj('MessageService', ['clear']);
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'clear']);
     const auth = { currentRestaurantRole: { restaurant_id: 'r1' } } as any;
-    component = new TablesSetupViewComponent(tablesService, toast, auth, message);
+    component = new TablesSetupViewComponent(tablesService, toast, auth);
   });
 
   // ── area delete ───────────────────────────────────────────────────────
@@ -38,7 +36,7 @@ describe('TablesSetupViewComponent — deletion block error handling', () => {
 
     expect(toast.error).toHaveBeenCalledWith(blockMsg);
     expect(toast.success).not.toHaveBeenCalled();
-    expect(message.clear).toHaveBeenCalled(); // global banner suppressed
+    expect(toast.clear).toHaveBeenCalled(); // interceptor toast suppressed
   });
 
   it('reports area success only after the delete actually succeeds', () => {
@@ -73,7 +71,7 @@ describe('TablesSetupViewComponent — deletion block error handling', () => {
 
     expect(toast.error).toHaveBeenCalledWith(blockMsg);
     expect(toast.success).not.toHaveBeenCalled();
-    expect(message.clear).toHaveBeenCalled();
+    expect(toast.clear).toHaveBeenCalled();
   });
 
   it('reports table success only after the delete actually succeeds', () => {
@@ -108,7 +106,6 @@ describe('TablesSetupViewComponent — bulk add tables', () => {
   let component: TablesSetupViewComponent;
   let tablesService: any;
   let toast: any;
-  let message: any;
 
   const config = (over: Partial<BulkTablesConfig> = {}): BulkTablesConfig => ({
     start: 1,
@@ -129,10 +126,9 @@ describe('TablesSetupViewComponent — bulk add tables', () => {
     tablesService.getAreas.and.returnValue(of([]));
     tablesService.getTables.and.returnValue(of([]));
     tablesService.bulkCreateTables.and.returnValue(of([]));
-    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
-    message = jasmine.createSpyObj('MessageService', ['clear']);
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'clear']);
     const auth = { currentRestaurantRole: { restaurant_id: 'r1' } } as any;
-    component = new TablesSetupViewComponent(tablesService, toast, auth, message);
+    component = new TablesSetupViewComponent(tablesService, toast, auth);
   });
 
   it('creates only the non-existing numbers and reports created + skipped', () => {
@@ -176,7 +172,7 @@ describe('TablesSetupViewComponent — bulk add tables', () => {
 
     component.onBulkTablesSaved(config({ start: 3, count: 2 }));
 
-    expect(message.clear).toHaveBeenCalled();
+    expect(toast.clear).toHaveBeenCalled();
     const msg = toast.error.calls.mostRecent().args[0];
     expect(msg).toContain('Created 1');
     expect(msg).toContain('1 failed: 4');

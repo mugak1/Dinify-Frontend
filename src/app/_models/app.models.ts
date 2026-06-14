@@ -696,11 +696,6 @@ export interface Xaxis {
 export interface Title {
   text: string
 }
-export interface Message {
-  message: string;
-  severity: string;
-  summary?: string;
-}
 export interface DinifyDashboardData {
   stats: Stats
   trend: Trend

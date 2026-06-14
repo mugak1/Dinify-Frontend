@@ -6,7 +6,7 @@ import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { Utilities } from 'src/app/_helpers/utilities';
 import { RestaurantDetail, RestaurantList, User } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { environment } from 'src/environments/environment';
 
 
@@ -50,7 +50,7 @@ export class RestaurantsComponent implements OnDestroy {
   /**
    *
    */
-  constructor(private fb:FormBuilder,private api:ApiService,private route:ActivatedRoute, private dialog:ConfirmDialogService,private router:Router,private message:MessageService) {
+  constructor(private fb:FormBuilder,private api:ApiService,private route:ActivatedRoute, private dialog:ConfirmDialogService,private router:Router,private toast:ToastService) {
    router.events.subscribe((event: NavigationStart|any) => {
      if (event.navigationTrigger === 'popstate') {
       if(event.url==='/mgt-app/restaurants'){
@@ -353,8 +353,8 @@ if(patch){
           //  localStorage.setItem('user', JSON.stringify((response.data)));
           //  this.userSubject.next(response.data as any)
            if(send_message){
-            this.message.add(x?.message);
-           } 
+            this.toast.success(x?.message);
+           }
         });
       }
       public static searchArray(searchTerm: string, caseSensitive: boolean, ...values: any[]) {

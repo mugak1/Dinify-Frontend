@@ -4,7 +4,7 @@ import { SearchCountryField, CountryISO, PhoneNumberFormat, NgxIntlTelephoneInpu
 import { Profile } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
     selector: 'app-common-user-profile',
@@ -58,10 +58,7 @@ this.sendOtp('msisdn',this.RegisterForm.get('old_phone')?.value,null);
      // this.closeModal();
 this.auth.updateProfile(x.data.profile);
       this.save.emit(x)
-      this.message.add(x.message)
-      setTimeout(() => {      
-        this.message.clear(); 
-      }, 800);
+      this.toast.success(x.message)
       }) 
     
   }
@@ -74,7 +71,7 @@ onInputChange($event:any){
 /**
  *
  */
-constructor(private auth:AuthenticationService,private fb:FormBuilder, private api:ApiService, private message:MessageService) {
+constructor(private auth:AuthenticationService,private fb:FormBuilder, private api:ApiService, private toast:ToastService) {
   this.user= this.auth.userValue?.profile
   this.RegisterForm.patchValue(this.user as any);
   this.RegisterForm.get('old_number')?.setValue(this.user?.phone_number)
@@ -105,11 +102,7 @@ constructor(private auth:AuthenticationService,private fb:FormBuilder, private a
     this.RegisterForm.get('otp')?.setValue(this.data);
     this.api.postPatch('users/user-profile/',this.RegisterForm.value,'put').subscribe((x:any)=>{
       this.auth.updateProfile(x.data.profile);
-       this.message.add(x?.message);
-       
-      setTimeout(() => {      
-        this.message.clear(); 
-      }, 800);
+       this.toast.success(x?.message);
      
       this.save.emit(x)
 

@@ -8,7 +8,7 @@ import {
 import { provideRouter } from '@angular/router';
 import { WINDOW } from '../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../_services/storage/storage-key-prefix.token';
-import { MessageService } from '../_services/message.service';
+import { ToastService } from '../_shared/ui/toast/toast.service';
 import { DinerAppComponent } from './diner-app.component';
 
 describe('DinerAppComponent', () => {
@@ -44,9 +44,9 @@ describe('DinerAppComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('surfaces the server message and clears the banner on a failed scan', () => {
-    const message = TestBed.inject(MessageService);
-    const clearSpy = spyOn(message, 'clear').and.callThrough();
+  it('surfaces the server message and clears the toast on a failed scan', () => {
+    const toast = TestBed.inject(ToastService);
+    const clearSpy = spyOn(toast, 'clear').and.callThrough();
 
     component.getTableDetails('dead-table-id');
     const req = httpMock.expectOne(r => r.url.includes('table-scan'));

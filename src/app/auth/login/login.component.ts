@@ -5,7 +5,7 @@ import { first } from 'rxjs';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { SearchCountryField, CountryISO, PhoneNumberFormat } from 'ngx-intl-telephone-input';
 import { ApiResponse, LoginResponse, OTPResponse, RestaurantRole } from 'src/app/_models/app.models';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
     selector: 'app-login',
@@ -53,7 +53,7 @@ inactivityNotice = false;
       private route: ActivatedRoute,
       private router: Router,
       private authenticationService: AuthenticationService,
-      private message:MessageService
+      private toast:ToastService
   ) {
       // redirect to home if already logged in
       if (this.authenticationService.userValue&&!this.as_diner) {
@@ -189,14 +189,13 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
   if(this.attempt<3){
     this.attempt++;
     this.error='';
-    this.message.addMessage({message: 'The OTP provided is invalid. Please try again.', severity: 'error', summary: 'Error'});
+    this.toast.error('The OTP provided is invalid. Please try again.');
     this.data='';
     this.isSubmittingOtp=false;
   }else{
-    this.message.clear();
     this.attempt=0;
     this.error='';
-    this.message.addMessage({message: 'You have exceeded the maximum number of attempts. Please try again later.', severity: 'error', summary: 'Error'});
+    this.toast.error('You have exceeded the maximum number of attempts. Please try again later.');
   this.isSubmittingOtp=false;
     //this.error='The OTP provided is invalid'
     //this.message.add(this.error)
@@ -214,7 +213,7 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
               this.rateLimited = true;
             } else {
               this.error = error;
-              this.message.addMessage({severity:'error', summary:'Error', message: error});
+              this.toast.error(error);
             }
         }
     })
@@ -242,10 +241,7 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
       // Use in-memory login response profile.id (not persisted userValue)
       this.authenticationService.resendOtp('id',this.log_in.profile.id).subscribe({
         next: (x:any)=>{
-          this.message.addMessage({message: x.message, severity: 'info', summary: 'Info'});
-          setTimeout(() => {
-            this.message.clear();
-          }, 2000);
+          this.toast.success(x.message);
         },
         error: (error: any) => {
           if (error === 'rate_limited') {
@@ -263,7 +259,6 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
       this.error = '';
       this.isSubmittingOtp = false;
       this.submitted = false;
-      this.message.clear();
       this.loginForm.reset();
       this.require_otp = false;
       this.showLoginForm = true;

@@ -6,7 +6,7 @@ import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { BasketItem, OrderInitiated, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { environment } from 'src/environments/environment';
 import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
@@ -57,7 +57,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     private api: ApiService,
     private dialog: ConfirmDialogService,
     private router: Router,
-    private messageService: MessageService,
+    private toast: ToastService,
     private connectivity: DinerConnectivityService
   ) {
     this.table = this.sessionStorage.getItem<TableScan>('Table');
@@ -292,14 +292,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             this.placingOrder = false;
           }
         } else {
-          this.messageService.addMessage({severity:'info', summary:'Info', message: response.message});
+          this.toast.success(response.message);
           this.placingOrder = false;
         }
       },
       (_error) => {
         // Genuine failure (lost signal, 5xx, etc). The ErrorInterceptor already
-        // queued the raw message on the global banner; failOrder() clears it and
-        // shows one clean, friendly message inline at the button instead.
+        // queued the raw message as a toast; failOrder() clears it and shows one
+        // clean, friendly message inline at the button instead.
         this.dialog.closeModal();
         this.failOrder();
       }
@@ -307,9 +307,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // Surfaces a friendly inline placement error + Retry at the checkout footer,
-  // clearing the global banner first so the diner sees one message, not two.
+  // clearing the global toast first so the diner sees one message, not two.
   private failOrder(message = "We couldn't place your order. Please try again."): void {
-    this.messageService.clear();
+    this.toast.clear();
     this.orderError = true;
     this.orderErrorMessage = message;
     this.placingOrder = false;

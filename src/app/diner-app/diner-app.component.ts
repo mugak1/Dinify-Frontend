@@ -6,7 +6,7 @@ import { Restaurant, TableScan, BrandingConfiguration } from '../_models/app.mod
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
 import { BasketService } from '../_services/basket.service';
-import { MessageService } from '../_services/message.service';
+import { ToastService } from '../_shared/ui/toast/toast.service';
 import { DinerConnectivityService } from './diner-connectivity.service';
 import { getContrastTextColor } from '../_common/utils/color-utils';
 
@@ -44,7 +44,7 @@ export class DinerAppComponent {
     private api: ApiService,
     public navState: MenuNavStateService,
     public basketService: BasketService,
-    private message: MessageService,
+    private toast: ToastService,
     public connectivity: DinerConnectivityService,
   ) {
     if (this.route.children.length > 0) {
@@ -128,9 +128,9 @@ export class DinerAppComponent {
 
   /** Terminal dead-end: a real "table unavailable" message, no retry. */
   private showScanError(message: string): void {
-    // The global ErrorInterceptor already queued this on the MessageService
-    // banner; clear it so the diner sees one clean message (the no-table panel).
-    this.message.clear();
+    // The global ErrorInterceptor already queued this as a toast; clear it so
+    // the diner sees one clean message (the no-table panel).
+    this.toast.clear();
     this.table = undefined;
     this.scanMessage = message;
     this.scanFailed = true;
@@ -140,9 +140,9 @@ export class DinerAppComponent {
   /** Recoverable dead-end: connectivity blip → show the connection-error state
    *  with a "Try again" button (which re-runs getTableDetails). */
   private showScanRetry(): void {
-    // Mirror showScanError: clear the global banner so the diner sees one clean
-    // state — the connection-error panel — not a duplicate red banner.
-    this.message.clear();
+    // Mirror showScanError: clear the global toast so the diner sees one clean
+    // state — the connection-error panel — not a duplicate red toast.
+    this.toast.clear();
     this.table = undefined;
     this.scanFailed = true;
     this.scanRetryable = true;

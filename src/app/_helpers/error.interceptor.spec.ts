@@ -1,16 +1,16 @@
 import { TestBed } from '@angular/core/testing';
-import { HTTP_INTERCEPTORS, HttpClient, HttpErrorResponse, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ErrorInterceptor } from './error.interceptor';
 import { AuthenticationService } from '../_services/authentication.service';
-import { MessageService } from '../_services/message.service';
+import { ToastService } from '../_shared/ui/toast/toast.service';
 import { of, throwError } from 'rxjs';
 
 describe('ErrorInterceptor', () => {
   let httpClient: HttpClient;
   let httpMock: HttpTestingController;
   let authService: jasmine.SpyObj<AuthenticationService>;
-  let messageService: MessageService;
+  let toast: jasmine.SpyObj<ToastService>;
 
   const mockUser = {
     token: 'test-token',
@@ -24,11 +24,12 @@ describe('ErrorInterceptor', () => {
     const authSpy = jasmine.createSpyObj('AuthenticationService', ['logout', 'attemptTokenRefresh'], {
       userValue: null
     });
+    const toastSpy = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning', 'info', 'clear', 'dismiss']);
 
     TestBed.configureTestingModule({
     imports: [],
     providers: [
-        MessageService,
+        { provide: ToastService, useValue: toastSpy },
         { provide: AuthenticationService, useValue: authSpy },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),
@@ -39,7 +40,7 @@ describe('ErrorInterceptor', () => {
     httpClient = TestBed.inject(HttpClient);
     httpMock = TestBed.inject(HttpTestingController);
     authService = TestBed.inject(AuthenticationService) as jasmine.SpyObj<AuthenticationService>;
-    messageService = TestBed.inject(MessageService);
+    toast = TestBed.inject(ToastService) as jasmine.SpyObj<ToastService>;
   });
 
   afterEach(() => {
@@ -51,12 +52,11 @@ describe('ErrorInterceptor', () => {
   }
 
   describe('network errors (status 0)', () => {
-    it('adds the "no network" banner and throws for a non-diner request', (done) => {
+    it('shows the offline toast and throws for a non-diner request', (done) => {
       httpClient.get('/api/test').subscribe({
         error: (err) => {
           expect(err).toBe('no network');
-          expect(messageService.messages.length).toBe(1);
-          expect(messageService.messages[0].message).toBe('no network');
+          expect(toast.error).toHaveBeenCalledWith("You're offline — check your connection.");
           done();
         }
       });
@@ -65,13 +65,13 @@ describe('ErrorInterceptor', () => {
       req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
     });
 
-    it('suppresses the banner for a diner request but still throws "no network"', (done) => {
+    it('suppresses the toast for a diner request but still throws "no network"', (done) => {
       // The diner owns its offline UX (amber strip + inline retry), so the global
-      // red banner must not also fire for its journey/order endpoints.
+      // toast must not also fire for its journey/order endpoints.
       httpClient.get('/api/v1/orders/journey/show-menu/').subscribe({
         error: (err) => {
           expect(err).toBe('no network');
-          expect(messageService.messages.length).toBe(0);
+          expect(toast.error).not.toHaveBeenCalled();
           done();
         }
       });
@@ -103,7 +103,7 @@ describe('ErrorInterceptor', () => {
       setUser(null);
 
       httpClient.get('/api/test').subscribe({
-        error: (err) => {
+        error: () => {
           expect(authService.attemptTokenRefresh).not.toHaveBeenCalled();
           expect(authService.logout).not.toHaveBeenCalled();
           done();
@@ -185,12 +185,11 @@ describe('ErrorInterceptor', () => {
   });
 
   describe('429 rate limiting', () => {
-    it('should return rate_limited error and add message', (done) => {
+    it('should return rate_limited error and show a warning toast', (done) => {
       httpClient.get('/api/test').subscribe({
         error: (err) => {
           expect(err).toBe('rate_limited');
-          expect(messageService.messages.length).toBe(1);
-          expect(messageService.messages[0].message).toContain('Too many attempts');
+          expect(toast.warning).toHaveBeenCalledWith(jasmine.stringMatching(/Too many attempts/));
           expect(authService.logout).not.toHaveBeenCalled();
           done();
         }
@@ -204,7 +203,7 @@ describe('ErrorInterceptor', () => {
       httpClient.get('/api/test').subscribe({
         error: (err) => {
           expect(err).toBe('rate_limited');
-          expect(messageService.messages[0].message).toBe('Please wait 60 seconds');
+          expect(toast.warning).toHaveBeenCalledWith('Please wait 60 seconds');
           done();
         }
       });
@@ -215,11 +214,10 @@ describe('ErrorInterceptor', () => {
   });
 
   describe('other errors', () => {
-    it('should add error message to message service for 500 errors', (done) => {
+    it('should show an error toast for 500 errors', (done) => {
       httpClient.get('/api/test').subscribe({
-        error: (err) => {
-          expect(messageService.messages.length).toBe(1);
-          expect(messageService.messages[0].message).toBe('Server error');
+        error: () => {
+          expect(toast.error).toHaveBeenCalledWith('Server error');
           done();
         }
       });
@@ -232,6 +230,7 @@ describe('ErrorInterceptor', () => {
       httpClient.get('/api/test').subscribe({
         error: (err) => {
           expect(err).toBe('Bad Request');
+          expect(toast.error).toHaveBeenCalledWith('Bad Request');
           done();
         }
       });
@@ -241,18 +240,37 @@ describe('ErrorInterceptor', () => {
     });
   });
 
-  describe('message clearing', () => {
-    it('should clear messages before each request', () => {
-      messageService.add('old message');
-      expect(messageService.messages.length).toBe(1);
+  describe('toast behaviour', () => {
+    it('does not clear existing toasts on a new request', (done) => {
+      httpClient.get('/api/test').subscribe({
+        next: () => {
+          expect(toast.clear).not.toHaveBeenCalled();
+          done();
+        }
+      });
 
-      httpClient.get('/api/test').subscribe();
-      // Messages should be cleared when intercept is called
       const req = httpMock.expectOne('/api/test');
       req.flush({});
+    });
 
-      // After a successful request, old messages should be cleared
-      // (cleared at intercept entry, no new ones added on success)
+    it('forwards the structured body (not a string) and shows no toast for the orders/submit 400 ongoing-order shim', (done) => {
+      httpClient.post('/api/v1/orders/submit/', {}).subscribe({
+        error: (err) => {
+          // The basket soft-success path reads err.data.order_id, so the interceptor
+          // must rethrow the structured body untouched and must NOT toast it.
+          expect(err).toEqual(
+            jasmine.objectContaining({ data: jasmine.objectContaining({ order_id: 'existing-123' }) })
+          );
+          expect(toast.error).not.toHaveBeenCalled();
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/v1/orders/submit/');
+      req.flush(
+        { status: 400, message: 'Table already has an ongoing order', data: { order_id: 'existing-123' } },
+        { status: 400, statusText: 'Bad Request' }
+      );
     });
   });
 

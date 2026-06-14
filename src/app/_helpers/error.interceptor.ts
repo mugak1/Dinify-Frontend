@@ -3,7 +3,7 @@ import { HttpRequest, HttpHandler, HttpEvent, HttpInterceptor, HttpErrorResponse
 import { Observable, throwError, BehaviorSubject } from 'rxjs';
 import { catchError, filter, take, switchMap } from 'rxjs/operators';
 import { AuthenticationService } from '../_services/authentication.service';
-import { MessageService } from '../_services/message.service';
+import { ToastService } from '../_shared/ui/toast/toast.service';
 
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
@@ -12,28 +12,27 @@ export class ErrorInterceptor implements HttpInterceptor {
 
     constructor(
         private authenticationService: AuthenticationService,
-        private message: MessageService
+        private toast: ToastService
     ) {}
 
     intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-        this.message.clear();
         return next.handle(request).pipe(
             catchError((err: HttpErrorResponse) => {
                 if (err.status === 0) {
                     // The diner app surfaces offline as an ambient amber strip + inline
-                    // order retry, so the global red 'no network' banner is redundant
-                    // there. Other portals (restaurant, admin, auth) still rely on it, so
-                    // only suppress it for diner requests. Still rethrow either way so the
+                    // order retry, so the global 'no network' toast is redundant there.
+                    // Other portals (restaurant, admin, auth) still rely on it, so only
+                    // suppress it for diner requests. Still rethrow either way so the
                     // diner's own handlers (scan retry, order failOrder) keep working.
                     if (!this.isDinerRequest(request)) {
-                        this.message.add('no network');
+                        this.toast.error("You're offline — check your connection.");
                     }
                     return throwError(() => 'no network');
                 }
 
                 if (err.status === 429) {
                     const retryMsg = err.error?.message || 'Too many attempts. Please wait a few minutes before trying again.';
-                    this.message.add(retryMsg);
+                    this.toast.warning(retryMsg);
                     return throwError(() => 'rate_limited');
                 }
 
@@ -64,7 +63,7 @@ export class ErrorInterceptor implements HttpInterceptor {
 
                 const error = err.error?.message || err.statusText;
                 if (error) {
-                    this.message.add(error);
+                    this.toast.error(error);
                 }
                 return throwError(() => error);
             })
@@ -73,8 +72,8 @@ export class ErrorInterceptor implements HttpInterceptor {
 
     /**
      * Diner journey/order endpoints that own their offline UX (the ambient
-     * offline strip + inline order retry). Used to suppress the global red
-     * 'no network' banner for the diner only — every other surface keeps it.
+     * offline strip + inline order retry). Used to suppress the global
+     * 'no network' toast for the diner only — every other surface keeps it.
      */
     private isDinerRequest(request: HttpRequest<any>): boolean {
         return request.url.includes('orders/journey/')   // show-menu, table-scan, order-details

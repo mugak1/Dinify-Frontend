@@ -4,7 +4,7 @@ import { Subscription } from 'rxjs';
 import { BasketItem, MenuItem, MenuItemTagRef, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import {
   getCurrentPrice,
@@ -59,7 +59,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     private basketService: BasketService,
     private router: Router,
     public navState: MenuNavStateService,
-    private message: MessageService,
+    private toast: ToastService,
   ) {
     // Seed currentSection reactively whenever the menu loads (or reloads after
     // ngOnDestroy clears it). Self-healing: if currentSection ever falls back
@@ -232,11 +232,11 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
       },
       error: () => {
         // Cold load failed with nothing on screen — show a recoverable error
-        // state instead of a blank page. Clear the global banner so the diner
+        // state instead of a blank page. Clear the global toast so the diner
         // sees one clean message (the connection-error panel), not two.
         this.navState.setLoading(false);
         this.coldLoadFailed = true;
-        this.message.clear();
+        this.toast.clear();
       }
     });
   }

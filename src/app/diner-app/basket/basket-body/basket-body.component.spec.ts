@@ -8,7 +8,7 @@ import { WINDOW } from '../../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../../_services/storage/storage-key-prefix.token';
 import { BasketService } from '../../../_services/basket.service';
 import { ApiService } from '../../../_services/api.service';
-import { MessageService } from '../../../_services/message.service';
+import { ToastService } from '../../../_shared/ui/toast/toast.service';
 import { ConfirmDialogService } from '../../../_common/confirm-dialog.service';
 import { DinerConnectivityService } from '../../diner-connectivity.service';
 import { BasketItem } from '../../../_models/app.models';
@@ -23,7 +23,7 @@ describe('BasketBodyComponent', () => {
   // Collaborators for the order-placement flow.
   let api: jasmine.SpyObj<ApiService>;
   let dialog: jasmine.SpyObj<ConfirmDialogService>;
-  let message: jasmine.SpyObj<MessageService>;
+  let toast: jasmine.SpyObj<ToastService>;
   let basketService: {
     Basket: () => { items: BasketItem[]; totalAmount: number };
     getOrCreateClientOrderId: jasmine.Spy;
@@ -59,7 +59,7 @@ describe('BasketBodyComponent', () => {
     dialog = jasmine.createSpyObj<ConfirmDialogService>('ConfirmDialogService', ['openModal', 'closeModal']);
     dialog.openModal.and.returnValue(of({ action: 'yes' }) as any);
 
-    message = jasmine.createSpyObj<MessageService>('MessageService', ['clear', 'add', 'addMessage']);
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error', 'info', 'warning', 'clear', 'dismiss']);
 
     connectivity = { isOffline: () => false };
 
@@ -80,7 +80,7 @@ describe('BasketBodyComponent', () => {
         { provide: BasketService, useValue: basketService },
         { provide: ApiService, useValue: api },
         { provide: ConfirmDialogService, useValue: dialog },
-        { provide: MessageService, useValue: message },
+        { provide: ToastService, useValue: toast },
         { provide: DinerConnectivityService, useValue: connectivity },
       ],
       schemas: [NO_ERRORS_SCHEMA],
@@ -133,7 +133,7 @@ describe('BasketBodyComponent', () => {
     expect(dialog.openModal).toHaveBeenCalledTimes(1);
     expect(api.postPatch).toHaveBeenCalledTimes(1);
     expect(component.orderError).toBeTrue();
-    expect(message.clear).toHaveBeenCalled();
+    expect(toast.clear).toHaveBeenCalled();
     expect((api.postPatch.calls.argsFor(0)[1] as any).client_order_id).toBe(CLIENT_ID);
 
     component.retryOrder();
@@ -167,7 +167,7 @@ describe('BasketBodyComponent', () => {
     component.submitOrder();
 
     expect(component.orderError).toBeTrue();
-    expect(message.clear).toHaveBeenCalled();
+    expect(toast.clear).toHaveBeenCalled();
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
