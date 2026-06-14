@@ -1,20 +1,12 @@
-<div class="w-full bg-white rounded shadow">
-  <div class="px-4 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
-    <div>
-      <h2 class="text-lg font-semibold text-gray-900">Preset Tags</h2>
-      <p class="text-sm text-gray-500 mt-1">
-        Manage the tags that diners see on your menu items.
-      </p>
-    </div>
-    <button
-      type="button"
-      (click)="openAdd()"
-      class="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded px-3 py-2"
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-      Add tag
-    </button>
-  </div>
+<app-settings-section-page
+  title="Preset tags"
+  icon="preset-tags"
+  description="Manage the tags that diners see on your menu items."
+>
+  <button section-actions app-dn-button (click)="openAdd()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1.5" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+    Add tag
+  </button>
 
   <!-- Loading -->
   @if (loadState === 'loading') {
@@ -139,7 +131,7 @@
       }
     </ul>
   }
-</div>
+</app-settings-section-page>
 
 <app-preset-tag-form-dialog
   [open]="formOpen"

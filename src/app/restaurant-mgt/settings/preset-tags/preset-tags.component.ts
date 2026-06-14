@@ -15,7 +15,9 @@ import {
 import { RestaurantTag } from 'src/app/_models/app.models';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
+import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 
+import { SectionPageComponent } from '../components/section-page/section-page.component';
 import { PresetTagFormDialogComponent } from './components/preset-tag-form-dialog/preset-tag-form-dialog.component';
 import { PresetTagDeleteDialogComponent } from './components/preset-tag-delete-dialog/preset-tag-delete-dialog.component';
 
@@ -29,6 +31,8 @@ type LoadState = 'loading' | 'ready' | 'error';
     FormsModule,
     DragDropModule,
     TagPillComponent,
+    ButtonComponent,
+    SectionPageComponent,
     PresetTagFormDialogComponent,
     PresetTagDeleteDialogComponent,
   ],
