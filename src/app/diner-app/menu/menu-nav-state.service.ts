@@ -106,9 +106,11 @@ export class MenuNavStateService {
    * the filter-badge row adds ~32px below the pill row.
    */
   navStackHeight: Signal<number> = computed(() => {
-    // Keep in lockstep with the pill/skeleton row height (h-10) in
+    // Must equal the pill/skeleton row height (h-[36px], LITERAL px) in
     // menu-nav-bar.component.html, so clicked sections land flush under the bar.
-    const PILL_ROW_PX = 40;
+    // It's literal because html{font-size:14px} makes rem-based Tailwind heights
+    // (h-9/h-10/…) render smaller than their px name suggests.
+    const PILL_ROW_PX = 36;
     const FILTER_ROW_PX = 32;
     return (
       this.stickyTopPx() +
