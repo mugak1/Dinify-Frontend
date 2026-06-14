@@ -1,314 +1,153 @@
-<div>
-   
-     <app-dn-card>
-     <div class="flex flex-col gap-5 lg:gap-7.5 p-4">
-      <div class="card">
-       <div class="card-body lg:py-7.5">
-        <div class="flex flex-col items-stretch gap-5 lg:gap-7.5">
-         <div class="flex flex-wrap items-center gap-5 justify-between">
-          <div class="flex flex-col gap-1">
-           <div class="flex items-center gap-2.5">
-            <h2 class="text-2xl font-semibold text-foreground">
-             Billing Method: {{rest?.preferred_subscription_method==='per_order'?'Surcharge':''}}
-             {{rest?.preferred_subscription_method==='monthly'?'Subscription Fee':''}}
-             {{rest?.preferred_subscription_method==='yearly'?'Subscription Fee':''}} 
-            </h2>
-            <app-dn-badge *ngIf="!(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)&& (rest?.preferred_subscription_method==='yearly'||rest?.preferred_subscription_method==='monthly')" variant="destructive">
-                {{rest?.preferred_subscription_method|titlecase}}                 
-            </app-dn-badge>
-            <app-dn-badge *ngIf="(sub_details?.subscription_expiry_date===null&& sub_details?.subscription_validity===true)" variant="secondary">
-              Free Trial                 
-          </app-dn-badge>
-           </div>
-           
-
-           <p *ngIf="rest?.preferred_subscription_method==='yearly'||rest?.preferred_subscription_method==='monthly'" class="text-2sm text-muted-foreground">
-            <span class="font-semibold">Subscription Fee:</span> UGX {{rest?.flat_fee|number}}
-           </p>
-           <p *ngIf="rest?.preferred_subscription_method==='per_order'" class="text-2sm text-muted-foreground">
-            <span class="font-semibold">Percentage:</span> {{rest?.order_surcharge_percentage|number}}%
-            <span class="font-semibold ml-4">Cap:</span> UGX {{rest?.order_surcharge_cap_amount|number}}
-            <span class="font-semibold ml-4">Floor:</span> UGX {{rest?.order_surcharge_min_amount|number}}
-           </p>
-          <!--  <p *ngIf="rest?.preferred_subscription_method=='per_order'" class="text-2sm text-muted-foreground">
-            
-           </p>
-           <p *ngIf="rest?.preferred_subscription_method=='per_order'" class="text-2sm text-muted-foreground">
-            
-           </p> -->
-         
-          </div>
-          <div class="flex gap-2.5">
-           <!-- <a class="btn btn-sm btn-light" href="#">
-            Cancel Plan
-           </a> -->
-           <button app-dn-button (click)="PayNow()" *ngIf="rest?.preferred_subscription_method!=='per_order'" class="-mt-3.5">
-            Pay Bill
-           </button>
-          </div>
-         </div>
-         <div class="flex items-center flex-wrap gap-2 lg:gap-5">
-            <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed bg-green-200 border-border shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
-                <span class="hover:text-foreground  text-green-500 text-md leading-none font-medium h-12 flex my-auto mx-auto items-center">
-                 {{rest?.subscription_validity?'Active':'Disabled'}}
-                </span>
-                <!-- <span class="text-muted-foreground text-2sm">
-                 Total Bill
-                </span> -->
-               </div>
-         <!--  <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-border shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
-           <span class="text-foreground text-md leading-none font-medium">
-            UGX 0
-           </span>
-           <span class="text-muted-foreground text-2sm">
-            Bill Due
-           </span>
-          </div>
-          <div *ngIf="rest?.preferred_subscription_method=='yearly'||rest?.preferred_subscription_method=='monthly'" class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-border shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
-           <span class="text-foreground text-md leading-none font-medium">
-            UGX {{rest?.flat_fee|number}}
-           </span>
-           <span class="text-muted-foreground text-2sm">
-            Next Bill Amount
-           </span>
-          </div> -->
-          <div class="grid grid-cols-1 content-between gap-1.5 border border-dashed border-border shrink-0 rounded-md px-3.5 py-2 min-w-24 max-w-auto">
-          <span class="text-muted-foreground text-2sm">
-            Next Billing Date
-           </span>
-            <span class="text-foreground text-md leading-none font-medium">
-            {{(rest?.subscription_expiry_date|date:'medium')||'-----------'}}
-            <button app-dn-button variant="link" *ngIf="canChangeBillingDate" role="link" (click)="AddDate()" class="text-base">{{rest?.subscription_expiry_date?'Change':'Insert'}} Date</button>
-           </span>
-
-          </div>
-         </div>
-         <!-- <div class="flex flex-col gap-3.5">
-          <span class="text-2sm text-muted-foreground">
-           Usage (32 of 40 users)
-          </span>
-          <div class="progress progress-primary">
-           <div class="progress-bar" style="width: 80%">
-           </div>
-          </div>
-         </div> -->
-        </div>
-       </div>
+<app-settings-section-page
+  title="Billing"
+  description="Your subscription plan, payments, and invoices."
+  icon="billing"
+  [state]="loadState"
+  [dirty]="false"
+  (retry)="reload()"
+>
+  <!-- ── Current subscription ─────────────────────────────────────────── -->
+  <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
+    <div class="flex items-start justify-between gap-3 flex-wrap">
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900">Current subscription</h2>
+        <p class="text-sm text-gray-500 mt-0.5">
+          @if (currentCycle) {
+            You're on the {{ currentCycle | titlecase }} plan.
+          } @else {
+            No active subscription plan.
+          }
+        </p>
       </div>
-     <!--  <div class="card grow">
-       <div class="card-header">
-        <h3 class="card-title">
-         Payment Methods
-        </h3>
-        <button class="btn btn-light btn-sm">
-         <i class="ki-filled ki-plus-squared">
-         </i>
-         Add New
-        </button>
-       </div>
-       <div class="card-body lg:pb-7.5">
-        <div class="grid gap-5">
-         <div class="flex items-center justify-between border border-border rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
-          <div class="flex items-center gap-3.5">
-           <img alt="" class="w-10 shrink-0" src="/static/metronic/tailwind/dist/assets/media/brand-logos/visa.svg">
-           <div class="flex flex-col">
-            <a class="text-sm font-medium text-foreground hover:text-primary-active mb-px" href="#">
-             Jason Tatum
-            </a>
-            <span class="text-2sm text-muted-foreground">
-             Ending 3604  Expires on 12/2026
-            </span>
-           </div>
-          </div>
-          <div class="flex items-center gap-5">
-           <span class="badge badge-sm badge-success badge-outline">
-            Primary
-           </span>
-           <div class="flex gap-0.5">
-            <div class="btn btn-sm btn-icon btn-clear btn-light">
-             <i class="ki-filled ki-notepad-edit">
-             </i>
-            </div>
-            <div class="btn btn-sm btn-icon btn-clear btn-light">
-             <i class="ki-filled ki-trash">
-             </i>
-            </div>
-           </div>
-          </div>
-         </div>
-         <div class="flex items-center justify-between border border-border rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
-          <div class="flex items-center gap-3.5">
-           <img alt="" class="w-10 shrink-0" src="/static/metronic/tailwind/dist/assets/media/brand-logos/ideal.svg">
-           <div class="flex flex-col">
-            <a class="text-sm font-medium text-foreground hover:text-primary-active mb-px" href="#">
-             Jason Tatum
-            </a>
-            <span class="text-2sm text-muted-foreground">
-             iDeal with ABN Ambro
-            </span>
-           </div>
-          </div>
-          <div class="flex items-center gap-5">
-           <div class="flex gap-0.5">
-            <div class="btn btn-sm btn-icon btn-clear btn-light">
-             <i class="ki-filled ki-notepad-edit">
-             </i>
-            </div>
-            <div class="btn btn-sm btn-icon btn-clear btn-light">
-             <i class="ki-filled ki-trash">
-             </i>
-            </div>
-           </div>
-          </div>
-         </div>
-         <div class="flex items-center justify-between border border-border rounded-xl gap-2 px-4 py-4 bg-secondary-clarity">
-          <div class="flex items-center gap-3.5">
-           <img alt="" class="w-10 shrink-0" src="/static/metronic/tailwind/dist/assets/media/brand-logos/paypal.svg">
-           <div class="flex flex-col">
-            <a class="text-sm font-medium text-foreground hover:text-primary-active mb-px" href="#">
-             Jason Tatum
-            </a>
-            <span class="text-2sm text-muted-foreground">
-            
-            </span>
-           </div>
-          </div>
-          <div class="flex items-center gap-5">
-           <div class="flex gap-0.5">
-            <div class="btn btn-sm btn-icon btn-clear btn-light">
-             <i class="ki-filled ki-notepad-edit">
-             </i>
-            </div>
-            <div class="btn btn-sm btn-icon btn-clear btn-light">
-             <i class="ki-filled ki-trash">
-             </i>
-            </div>
-           </div>
-          </div>
-         </div>
-        </div>
-       </div>
+      <app-dn-badge [variant]="statusVariant">{{ statusLabel }}</app-dn-badge>
+    </div>
+
+    <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+      <div>
+        <dt class="text-gray-500">Subscription fee</dt>
+        <dd class="mt-0.5 font-medium text-gray-900">
+          {{ feeDisplay }}
+          @if (currentCycle) {
+            <span class="font-normal text-gray-400">/ {{ cadenceLabel }}</span>
+          }
+        </dd>
       </div>
-      <div class="card">
-       <div class="card-header">
-        <h3 class="card-title">
-         Billing Details
-        </h3>
-        <button class="btn btn-light btn-sm">
-         <i class="ki-filled ki-notepad-edit">
-         </i>
-         Edit Billing
-        </button>
-       </div>
-       <div class="card-body pt-4 pb-2">
-        <table class="table-auto">
-         <tbody>
-          <tr>
-           <td class="text-sm text-muted-foreground min-w-36 pb-5 pe-6">
-            Company Name
-           </td>
-           <td class="text-sm text-foreground pb-5">
-            KeenThemes
-           </td>
-          </tr>
-          <tr>
-           <td class="text-sm text-muted-foreground min-w-36 pb-5 pe-6">
-            Address
-           </td>
-           <td class="text-sm text-foreground pb-5">
-            Keizersgracht 136, 1015 CW Amsterdam, Netherlands
-           </td>
-          </tr>
-          <tr>
-           <td class="text-sm text-muted-foreground min-w-36 pb-5 pe-6">
-            Contact
-           </td>
-           <td class="text-sm text-foreground pb-5">
-            Jason Tatum
-           </td>
-          </tr>
-          <tr>
-           <td class="text-sm text-muted-foreground min-w-36 pb-5 pe-6">
-            VAT ID
-           </td>
-           <td class="text-sm text-foreground pb-5">
-            NL123456789B01
-           </td>
-          </tr>
-         </tbody>
-        </table>
-       </div>
-      </div> -->
-      <div class="card">
-       <div class="card-header">
-        <h3 class="card-title">
-         Billing History
-        </h3>
-       <!--  <button class="btn btn-light btn-sm">
-         <i class="ki-filled ki-exit-down">
-         </i>
-         Download All
-        </button> -->
-       </div>
-       <div class="card-table scrollable-x-auto">
-        <table class="w-full text-sm text-left rtl:text-right text-muted-foreground">
-            <thead class="text-xs text-muted-foreground uppercase bg-muted">
-                <tr>
-                   <!--  <th scope="col" class="p-4">
-                        <div class="flex items-center">
-                            <input id="checkbox-all-search" type="checkbox" class="w-4 h-4 text-primary bg-muted border-border rounded focus:ring-ring">
-                            <label for="checkbox-all-search" class="sr-only">checkbox</label>
-                        </div>
-                    </th> -->
-                    <th scope="col" class="px-6 py-3">
-                      Date
-                    </th>
-                     <th scope="col" class="px-6 py-3 w-1/4">
-                    Method
-                    </th>
-                    <th scope="col" class="px-6 py-3">
-                       Amount
-                    </th>
-                   <th scope="col" class="px-6 py-3">
-                     Status
-                    </th>
-                   
-                </tr>
-            </thead>
-            <tbody *ngIf="load_list&&transaction_list?.length===0">
-<tr>
-  <td colspan="4" class="px-6 py-3">
-No transactions available
-  </td>
-</tr>
-            </tbody>
-            <tbody *ngIf="load_list&&transaction_list.length>0">
-              <tr *ngFor="let t of transaction_list">
-                <td class="px-6 py-3">
-              {{t.time_created|date:'medium'}}
-                </td>
-                <td class="px-6 py-3">
-                  {{t.transaction_platform}}
-                    </td>
-                    <td class="px-6 py-3">
-                      {{t.amount_out|number}}
-                        </td>
-                        <td class="px-6 py-3">
-                      {{t.transaction_status}}
-                            </td>
+      <div>
+        <dt class="text-gray-500">Next billing date</dt>
+        <dd class="mt-0.5 flex flex-wrap items-center gap-2 font-medium text-gray-900">
+          <span>{{ (expiryDate | date: 'mediumDate') || '—' }}</span>
+          @if (canChangeBillingDate) {
+            <button app-dn-button variant="link" size="sm" (click)="AddDate()">
+              {{ expiryDate ? 'Change' : 'Set' }} date
+            </button>
+          }
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- ── Plans ────────────────────────────────────────────────────────── -->
+  <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
+    <h2 class="text-base font-semibold text-gray-900">Plans</h2>
+    <p class="text-sm text-gray-500 mt-0.5">Choose how you'd like to be billed.</p>
+
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      @for (plan of plans; track plan.cycle) {
+        <div
+          class="relative flex flex-col rounded-lg border p-4"
+          [ngClass]="isCurrentPlan(plan) ? 'border-primary ring-1 ring-primary bg-primary/5' : 'border-gray-200'"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-gray-900">{{ plan.name }}</h3>
+            @if (isCurrentPlan(plan)) {
+              <app-dn-badge variant="default">Current plan</app-dn-badge>
+            } @else if (plan.cycle === 'yearly' && savingsUGX > 0) {
+              <app-dn-badge variant="success">Save {{ savingsDisplay }}/yr</app-dn-badge>
+            }
+          </div>
+
+          <p class="mt-2">
+            <span class="text-2xl font-semibold text-gray-900">{{ planPrice(plan) }}</span>
+            <span class="text-sm text-gray-500">/ {{ plan.cadence }}</span>
+          </p>
+          <p class="mt-1 text-sm text-gray-500">{{ plan.blurb }}</p>
+
+          <div class="mt-4">
+            @if (isCurrentPlan(plan)) {
+              <button app-dn-button class="w-full" (click)="PayNow()">{{ payActionLabel }}</button>
+            } @else {
+              <button app-dn-button variant="outline" class="w-full" (click)="requestSwitch(plan)">
+                Switch to {{ plan.name }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="mt-5">
+      <p class="text-xs font-medium uppercase tracking-wide text-gray-400">All plans include</p>
+      <ul class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2">
+        @for (feature of planFeatures; track feature) {
+          <li class="flex items-center gap-2 text-sm text-gray-700">
+            <svg class="h-4 w-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            {{ feature }}
+          </li>
+        }
+      </ul>
+    </div>
+
+    @if (!currentCycle) {
+      <p class="mt-4 text-xs text-gray-400">To choose or change your billing cycle, contact support.</p>
+    }
+  </section>
+
+  <!-- ── Billing history ──────────────────────────────────────────────── -->
+  <section class="px-4 sm:px-6 py-5">
+    <h2 class="text-base font-semibold text-gray-900">Billing history</h2>
+    <p class="text-sm text-gray-500 mt-0.5">Your recent subscription payments.</p>
+
+    <div class="mt-4 overflow-x-auto">
+      @if (!load_list) {
+        <ul class="divide-y divide-gray-100">
+          @for (i of [0, 1, 2]; track i) {
+            <li class="flex animate-pulse items-center gap-3 py-3">
+              <div class="h-4 w-32 rounded bg-gray-200"></div>
+              <div class="ml-auto h-4 w-20 rounded bg-gray-200"></div>
+            </li>
+          }
+        </ul>
+      } @else if (transaction_list.length === 0) {
+        <p class="py-6 text-center text-sm text-gray-500">No payments yet.</p>
+      } @else {
+        <table class="w-full text-left text-sm">
+          <thead class="border-b border-gray-200 text-xs uppercase text-gray-400">
+            <tr>
+              <th class="py-2 pr-4 font-medium">Date</th>
+              <th class="py-2 pr-4 font-medium">Method</th>
+              <th class="py-2 pr-4 font-medium">Amount</th>
+              <th class="py-2 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            @for (t of transaction_list; track t.id) {
+              <tr>
+                <td class="py-2.5 pr-4 text-gray-700">{{ t.time_created | date: 'medium' }}</td>
+                <td class="py-2.5 pr-4 capitalize text-gray-700">{{ t.transaction_platform }}</td>
+                <td class="py-2.5 pr-4 font-medium text-gray-900">{{ ugx(t.amount_out) }}</td>
+                <td class="py-2.5 capitalize text-gray-700">{{ t.transaction_status }}</td>
               </tr>
-                          </tbody>
-            </table>
-      
-       </div>
-       <div class="card-footer justify-center">
-       <!--  <a class="btn btn-link" href="/metronic/tailwind/demo9/account/billing/history">
-         View all Payments
-        </a> -->
-       </div>
-      </div>
-     </div>
-    </app-dn-card>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </section>
+</app-settings-section-page>
+
+<!-- ── Payment + billing-date dialog (PRESERVED VERBATIM — the untouched seam) ── -->
     <app-dn-dialog [open]="showModal" maxWidth="lg" (closed)="closeModal()">
     <div class="relative">
       <!-- Modal content -->
@@ -630,4 +469,3 @@ No transactions available
     </div>
 </div>
 </app-dn-dialog>
-</div>
