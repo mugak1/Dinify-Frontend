@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../../_services/api.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
     selector: 'app-lock-screen',
@@ -26,7 +26,7 @@ export class LockScreenComponent implements OnInit {
   isResetFlow = false;
 
   constructor(private fb:FormBuilder,
-    private api:ApiService, private router:Router,private messageService:MessageService) {
+    private api:ApiService, private router:Router,private toast:ToastService) {
     this.LockScreenForm= this.fb.group({
       username: [""],
       old_password: [null],
@@ -77,7 +77,7 @@ Send() {
         next:(value:any)=>{
           this.unlocking = false;
         this.router.navigate(["/login"]);
-this.messageService.addMessage({severity:'info', summary:'info',message:value?.body?.message || 'Password changed successfully'});
+this.toast.success(value?.body?.message || 'Password changed successfully');
     }, error:(err:any)=>{
         this.unlocking = false;
         if (err === 'rate_limited') {

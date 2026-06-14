@@ -7,7 +7,6 @@ import {
 } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
-import { MessageService } from 'src/app/_services/message.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import {
   CATEGORY_OPTIONS,
@@ -50,7 +49,6 @@ export class SupportComponent implements OnInit {
     private auth: AuthenticationService,
     private route: ActivatedRoute,
     private toast: ToastService,
-    private message: MessageService,
   ) {}
 
   ngOnInit(): void {
@@ -136,9 +134,9 @@ export class SupportComponent implements OnInit {
     this.api.postPatch('support/issues/', payload, 'post', '', {}).subscribe({
       next: () => {
         this.submitting = false;
-        // The interceptor clears + may queue banners per request; clear so the
-        // success toast is the single message the user sees.
-        this.message.clear();
+        // The interceptor may queue a toast per request; clear so the success
+        // toast is the single message the user sees.
+        this.toast.clear();
         this.toast.success('Request submitted — Dinify will review it.');
         this.closeForm();
         this.loadIssues();

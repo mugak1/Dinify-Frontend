@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from 'src/app/_services/api.service';
-import { MessageService } from 'src/app/_services/message.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
     selector: 'app-forgot-password',
@@ -25,7 +25,7 @@ submitted: boolean = false;
   data = '';
   rateLimited = false;
 
-  constructor(private fb: FormBuilder, private api: ApiService, private router: Router, private messageService: MessageService) {
+  constructor(private fb: FormBuilder, private api: ApiService, private router: Router, private toast: ToastService) {
     this.ForgotPasswordForm = this.fb.group({
       selectedOption: ['', Validators.required],
       email: ['', [Validators.email]],
@@ -85,7 +85,7 @@ submitted: boolean = false;
           if (error === 'rate_limited') {
             this.rateLimited = true;
           } else {
-            this.messageService.addMessage({ severity: 'error', summary: 'Error', message: error });
+            this.toast.error(error);
           }
         }
     });
@@ -126,7 +126,7 @@ submitted: boolean = false;
           });
         } else {
           // Fallback: if backend doesn't return token/temp_password, just redirect to login
-          this.messageService.addMessage({ severity: 'info', summary: 'Success', message: response?.message || 'Password reset successful. Please login.' });
+          this.toast.success(response?.message || 'Password reset successful. Please login.');
           this.data = '';
           this.require_otp = false;
           setTimeout(() => {
@@ -140,7 +140,7 @@ submitted: boolean = false;
         if (error === 'rate_limited') {
           this.rateLimited = true;
         } else {
-          this.messageService.addMessage({ severity: 'error', summary: 'Error', message: error });
+          this.toast.error(error);
         }
         this.data = '';
         this.require_otp = false;

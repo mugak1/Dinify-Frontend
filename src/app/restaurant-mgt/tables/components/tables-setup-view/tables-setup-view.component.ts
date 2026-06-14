@@ -11,7 +11,6 @@ import { SwitchComponent } from '../../../../_shared/ui/switch/switch.component'
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
-import { MessageService } from '../../../../_services/message.service';
 import { TablesService } from '../../services/tables.service';
 import { NewAreaModalComponent } from '../new-area-modal/new-area-modal.component';
 import { NewTableModalComponent } from '../new-table-modal/new-table-modal.component';
@@ -98,7 +97,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     private tablesService: TablesService,
     private toast: ToastService,
     private auth: AuthenticationService,
-    private message: MessageService,
   ) {}
 
   private get restaurantId(): string {
@@ -264,9 +262,9 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
         this.toast.success('Area deleted');
       },
       error: (err) => {
-        // The interceptor already queued this on the global MessageService (a
-        // persistent app-level banner); clear it so only one clean toast shows.
-        this.message.clear();
+        // The interceptor already queued this as a toast; clear it so only one
+        // clean toast shows.
+        this.toast.clear();
         this.toast.error(
           this.extractError(err, 'Could not delete this area. Please try again.'),
         );
@@ -371,9 +369,9 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.tablesService.bulkCreateTables(specs, this.restaurantId).subscribe(results => {
       const created = results.filter(r => r.ok).length;
       const failed = results.filter(r => !r.ok);
-      // Each failed POST queues its own banner on the global MessageService via
-      // the interceptor; clear them so only this single aggregate toast shows.
-      if (failed.length) this.message.clear();
+      // Each failed POST queues its own toast via the interceptor; clear them so
+      // only this single aggregate toast shows.
+      if (failed.length) this.toast.clear();
       this.refresh();
 
       const parts = [`Created ${created} table(s)`];
@@ -404,9 +402,9 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
         this.toast.success('Table deleted');
       },
       error: (err) => {
-        // The interceptor already queued this on the global MessageService (a
-        // persistent app-level banner); clear it so only one clean toast shows.
-        this.message.clear();
+        // The interceptor already queued this as a toast; clear it so only one
+        // clean toast shows.
+        this.toast.clear();
         this.toast.error(
           this.extractError(err, 'Could not delete this table. Please try again.'),
         );

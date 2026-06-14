@@ -2,7 +2,6 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { SupportIssueAdmin, SupportIssueStatus } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
-import { MessageService } from 'src/app/_services/message.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import {
   CATEGORY_OPTIONS,
@@ -44,7 +43,6 @@ export class MgtSupportComponent implements OnInit {
     private fb: FormBuilder,
     private api: ApiService,
     private toast: ToastService,
-    private message: MessageService,
   ) {
     this.triageForm = this.fb.group({
       status: ['open'],
@@ -120,9 +118,9 @@ export class MgtSupportComponent implements OnInit {
     this.api.postPatch(ADMIN_ISSUES_URL, payload, 'put', '', {}).subscribe({
       next: () => {
         this.saving = false;
-        // The interceptor may queue a banner per request; clear it so the
+        // The interceptor may queue a toast per request; clear it so the
         // success toast is the single message the user sees.
-        this.message.clear();
+        this.toast.clear();
         this.toast.success('Issue updated.');
         this.loadIssues();
         this.closeDetail();

@@ -6,7 +6,6 @@ import { of } from 'rxjs';
 
 import { MgtSupportComponent } from './mgt-support.component';
 import { ApiService } from 'src/app/_services/api.service';
-import { MessageService } from 'src/app/_services/message.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SupportIssueAdmin } from 'src/app/_models/app.models';
 
@@ -45,7 +44,6 @@ describe('MgtSupportComponent', () => {
   let fixture: ComponentFixture<MgtSupportComponent>;
   let api: jasmine.SpyObj<ApiService>;
   let toast: jasmine.SpyObj<ToastService>;
-  let message: jasmine.SpyObj<MessageService>;
 
   const MOCK_ISSUES = [
     makeIssue({ id: 'id-1', reference: 'SUP-000001', restaurant_name: 'Kampala Grill', status: 'open' }),
@@ -56,8 +54,7 @@ describe('MgtSupportComponent', () => {
     api = jasmine.createSpyObj<ApiService>('ApiService', ['get', 'postPatch']);
     api.get.and.returnValue(of({ data: { records } } as any));
     api.postPatch.and.returnValue(of({} as any));
-    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error']);
-    message = jasmine.createSpyObj<MessageService>('MessageService', ['clear', 'add']);
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error', 'clear']);
 
     TestBed.configureTestingModule({
       declarations: [MgtSupportComponent],
@@ -65,7 +62,6 @@ describe('MgtSupportComponent', () => {
       providers: [
         { provide: ApiService, useValue: api },
         { provide: ToastService, useValue: toast },
-        { provide: MessageService, useValue: message },
       ],
       schemas: [NO_ERRORS_SCHEMA],
     });
@@ -139,7 +135,7 @@ describe('MgtSupportComponent', () => {
     expect((payload as any).resolution_summary).toBeNull();
     // Success refetches the list, clears the banner, toasts, and closes.
     expect(api.get).toHaveBeenCalledWith(null, 'support/admin/issues/', {});
-    expect(message.clear).toHaveBeenCalled();
+    expect(toast.clear).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith('Issue updated.');
     expect(component.selected).toBeNull();
   });
