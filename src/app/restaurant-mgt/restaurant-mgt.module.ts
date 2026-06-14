@@ -98,7 +98,6 @@ const routes: Routes = [
     MenuComponent,
     ReportsComponent,
     ReportDetailComponent,
-    RestUsersComponent,
     ReviewsComponent,
     ReviewsManagementComponent,
     SupportComponent,
@@ -160,6 +159,7 @@ const routes: Routes = [
     IdentityComponent,
     AvailabilityComponent,
     TaxReceiptsComponent,
+    RestUsersComponent,
 ],
   exports:[
     RouterModule

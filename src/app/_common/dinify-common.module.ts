@@ -7,7 +7,6 @@ import { AutoCompleteComponent } from './auto-complete/auto-complete.component';
 import { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
 import { MenuCommonComponent } from './menu-common/menu-common.component';
 import { ScrollSpyCommonDirective } from './scroll-spy-common.directive';
-import { CommonUsersComponent } from './common-users/common-users.component';
 import { NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
 import { CommonUserProfileComponent } from './common-user-profile/common-user-profile.component';
 import { OtpInputComponent } from './otp-input/otp-input.component';
@@ -23,7 +22,6 @@ import { SafePipe } from './common.pipe';
     AutoCompleteComponent,
     ConfirmDialogComponent,
     MenuCommonComponent,
-    CommonUsersComponent,
     CommonUserProfileComponent,
     OtpInputComponent,
     CommonNotificationsComponent,
@@ -35,7 +33,6 @@ import { SafePipe } from './common.pipe';
     AutoCompleteComponent,
     ConfirmDialogComponent,
     MenuCommonComponent,
-   CommonUsersComponent,
    CommonUserProfileComponent,
    OtpInputComponent,
    CommonNotificationsComponent ,
