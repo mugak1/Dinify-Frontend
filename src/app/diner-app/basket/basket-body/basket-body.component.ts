@@ -10,7 +10,7 @@ import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { environment } from 'src/environments/environment';
 import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
-import { DinerConnectivityService } from '../../diner-connectivity.service';
+import { ConnectivityService } from '../../../_services/connectivity.service';
 
 @Component({
     selector: 'app-basket-body',
@@ -58,7 +58,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     private dialog: ConfirmDialogService,
     private router: Router,
     private toast: ToastService,
-    private connectivity: DinerConnectivityService
+    private connectivity: ConnectivityService
   ) {
     this.table = this.sessionStorage.getItem<TableScan>('Table');
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;

@@ -1,6 +1,6 @@
 import { Location } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { DinerConnectivityService } from '../diner-connectivity.service';
+import { ConnectivityService } from '../../_services/connectivity.service';
 
 @Component({
     selector: 'app-basket',
@@ -9,7 +9,7 @@ import { DinerConnectivityService } from '../diner-connectivity.service';
     standalone: false
 })
 export class BasketComponent implements OnInit {
-  constructor(public loc: Location, public connectivity: DinerConnectivityService) {}
+  constructor(public loc: Location, public connectivity: ConnectivityService) {}
 
   ngOnInit(): void {
     // The basket page should always open scrolled to the top. The router does not

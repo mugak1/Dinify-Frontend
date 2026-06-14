@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
-import { DinerConnectivityService } from '../diner-connectivity.service';
+import { ConnectivityService } from '../../_services/connectivity.service';
 
 /**
  * Ambient "you're offline" status strip for the diner shell. Calm (amber, not
@@ -21,5 +21,5 @@ import { DinerConnectivityService } from '../diner-connectivity.service';
   host: { class: 'contents' },
 })
 export class OfflineStripComponent {
-  readonly connectivity = inject(DinerConnectivityService);
+  readonly connectivity = inject(ConnectivityService);
 }

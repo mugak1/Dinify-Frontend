@@ -7,7 +7,7 @@ import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
 import { BasketService } from '../_services/basket.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
-import { DinerConnectivityService } from './diner-connectivity.service';
+import { ConnectivityService } from '../_services/connectivity.service';
 import { getContrastTextColor } from '../_common/utils/color-utils';
 
 @Component({
@@ -45,7 +45,7 @@ export class DinerAppComponent {
     public navState: MenuNavStateService,
     public basketService: BasketService,
     private toast: ToastService,
-    public connectivity: DinerConnectivityService,
+    public connectivity: ConnectivityService,
   ) {
     if (this.route.children.length > 0) {
       this.route.children.at(0)?.params.subscribe(x => {

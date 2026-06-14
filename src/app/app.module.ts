@@ -26,6 +26,7 @@ import { BasketBodyComponent } from './diner-app/basket/basket-body/basket-body.
 import { DinerFooterComponent } from './diner-app/diner-footer/diner-footer.component';
 import { MenuNavBarComponent } from './diner-app/menu/menu-nav-bar/menu-nav-bar.component';
 import { ToastComponent } from './_shared/ui/toast/toast.component';
+import { OfflineBannerComponent } from './_shared/ui/offline-banner/offline-banner.component';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -51,7 +52,8 @@ import { ToastComponent } from './_shared/ui/toast/toast.component';
         BasketBodyComponent,
         DinerFooterComponent,
         MenuNavBarComponent,
-        ToastComponent], providers: [
+        ToastComponent,
+        OfflineBannerComponent], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),

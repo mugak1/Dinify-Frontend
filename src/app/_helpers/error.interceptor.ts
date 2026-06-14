@@ -2,8 +2,10 @@ import { Injectable } from '@angular/core';
 import { HttpRequest, HttpHandler, HttpEvent, HttpInterceptor, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, BehaviorSubject } from 'rxjs';
 import { catchError, filter, take, switchMap } from 'rxjs/operators';
+import { Router } from '@angular/router';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
+import { ConnectivityService } from '../_services/connectivity.service';
 
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
@@ -12,19 +14,25 @@ export class ErrorInterceptor implements HttpInterceptor {
 
     constructor(
         private authenticationService: AuthenticationService,
-        private toast: ToastService
+        private toast: ToastService,
+        private router: Router,
+        private connectivity: ConnectivityService
     ) {}
 
     intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
         return next.handle(request).pipe(
             catchError((err: HttpErrorResponse) => {
                 if (err.status === 0) {
-                    // The diner app surfaces offline as an ambient amber strip + inline
-                    // order retry, so the global 'no network' toast is redundant there.
-                    // Other portals (restaurant, admin, auth) still rely on it, so only
-                    // suppress it for diner requests. Still rethrow either way so the
-                    // diner's own handlers (scan retry, order failOrder) keep working.
-                    if (!this.isDinerRequest(request)) {
+                    // Offline UX is owned per-surface, so the global 'no network' toast is
+                    // suppressed where a persistent indicator already shows:
+                    //  - the diner app (ambient amber strip + inline order retry) — always, and
+                    //  - the restaurant/admin back-office shells, whose OfflineBannerComponent
+                    //    shows whenever the browser reports offline.
+                    // It still fires elsewhere (e.g. login/auth) and for a status-0 failure
+                    // while the browser reports ONLINE (server down/DNS), where no banner shows.
+                    // Rethrow either way so callers' own handlers (scan retry, failOrder) keep working.
+                    const onBannerShell = /^\/(rest-app|mgt-app)/.test(this.router.url);
+                    if (!this.isDinerRequest(request) && !(onBannerShell && this.connectivity.isOffline())) {
                         this.toast.error("You're offline — check your connection.");
                     }
                     return throwError(() => 'no network');
