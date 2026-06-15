@@ -52,9 +52,28 @@ so keep it current when conventions change.
   (`dinify-mgt/mgt-support`) is wired against `support/admin/issues/`.
   Status/category/impact badge styling + labels are shared from
   `src/app/_shared/support/`
+- Settings: ✅ rebuilt as a grouped hub shell (route `settings`,
+  `SettingsHubComponent`) with standalone, real-wired section pages —
+  Restaurant identity & branding (`settings/restaurant`, `IdentityComponent`),
+  Availability (`settings/availability`, `AvailabilityComponent` —
+  `accepting_orders` toggle), Staff & roles (`settings/rest-users`,
+  `RestUsersComponent` — finance role dropped), Tax & receipts
+  (`settings/tax-receipts`, `TaxReceiptsComponent`), Billing (`settings/billing`,
+  subscription-only — `BillingComponent` is the one section still in
+  `declarations`, i.e. non-standalone), Account & security (`settings/account`,
+  `AccountSecurityComponent`), and Preset tags (`settings/preset-tags`,
+  `PresetTagsComponent`). Shared section chrome lives in `settings/components/`
+  (`SectionPageComponent`, `SettingsIconComponent`); the old monolithic
+  `SettingsComponent` is gone
 - Other restaurant-mgt surfaces (payments, reviews + reviews-management,
-  reports + report-detail, notifications, settings sub-pages) are
-  scaffolded and routed — per-view data-wiring status varies
+  reports + report-detail, notifications) are scaffolded and routed —
+  per-view data-wiring status varies
+- Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
+  persistent `OfflineBannerComponent` in the back-office shells (restaurant +
+  Dinify admin) and an `OfflineStripComponent` in the diner app. The HTTP error
+  interceptor surfaces request failures as toasts via `ToastService` (the legacy
+  `MessageService` banner is retired) and suppresses its global 'no network' toast
+  where a banner already shows (see error-handling note below)
 - Legal pages: standalone components in `src/app/legal/` (privacy-policy,
   terms-and-conditions, cookie-policy), lazy-loaded as public routes
   `/privacy`, `/terms`, `/cookies` via `loadComponent` in `app-routing.module.ts`
@@ -100,8 +119,8 @@ so keep it current when conventions change.
 
 ## Component Pattern — CRITICAL
 The module uses a deliberate mixed pattern — follow it exactly:
-- Older components (DashboardComponent, MenuComponent, SettingsComponent,
-  ReportsComponent etc.) are NON-standalone — they go in `declarations`
+- Older components (DashboardComponent, MenuComponent, ReportsComponent,
+  ReviewsComponent etc.) are NON-standalone — they go in `declarations`
 - Newer components (SidebarComponent, TopNavComponent, TablesComponent,
   all shared UI components) are STANDALONE — they go in `imports`
 - When creating a new component, make it standalone and add it to `imports`
@@ -121,9 +140,10 @@ The module uses a deliberate mixed pattern — follow it exactly:
 ## Shared UI Component Library
 A shared component library lives in `src/app/_shared/ui/`:
 allergen-disclaimer, badge, button, card, dialog, featured-carousel,
-sheet, switch, tabs, toast — plus the `tooltip` directive (`[appTooltip]`,
-not a component), the `SafeArrayPipe`, and the `HighlightPipe`
-(search-term highlighting).
+offline-banner, sheet, switch, tabs, toast — plus the `tooltip` directive
+(`[appTooltip]`, not a component), the `SafeArrayPipe`, and the `HighlightPipe`
+(search-term highlighting). The `toast/` folder also exports the injectable
+`ToastService` (the app-wide toast queue), re-exported from the barrel.
 
 Re-exports live in `src/app/_shared/ui/index.ts` — but the barrel does NOT
 re-export `FeaturedCarouselComponent`, the tooltip directive, or
@@ -186,11 +206,16 @@ writing new tag or price/menu logic:
   `new → preparing → ready → served`. Advances must be legal (no jumps);
   `recall` steps back within a recall window; `priority` is an independent
   flag. Mutations are optimistic and revert on a failed PATCH
-- Error toasts vs. the global banner: the HTTP error interceptor already
-  queues failed-request messages on the global `MessageService` (a persistent
-  app-level banner). When a component surfaces its own toast for that same
-  error (e.g. a blocked delete in the Tables Setup View), call
-  `this.message.clear()` first so the user sees one clean message, not two
+- Error toasts & offline UX: the HTTP error interceptor surfaces failed-request
+  messages as toasts via the global `ToastService` (the old `MessageService`
+  persistent banner has been retired). When a component surfaces its own toast for
+  that same error (e.g. a blocked delete in the Tables Setup View), call
+  `this.toast.clear()` first so the user sees one clean message, not two. It also
+  toasts a 429 as a warning. Network-offline (status 0) is owned per-surface
+  instead of by a global toast: a `ConnectivityService` (`navigator.onLine`) drives
+  the back-office `OfflineBannerComponent` and the diner `OfflineStripComponent`,
+  and the interceptor suppresses its global 'no network' toast on those surfaces
+  (it still fires for login/auth and for a server-down-while-online status 0)
 
 ## Mock Data Pattern
 - DashboardService still uses a single `USE_MOCK_DATA = true` flag
@@ -201,6 +226,10 @@ writing new tag or price/menu logic:
 - KitchenOrderService uses a single `USE_MOCK_DATA = false` flag — the
   Kitchen View is real-wired; the in-memory mock dataset stays dormant behind
   the flag as a design-review aid (flip to `true` locally)
+- The Settings section services in `src/app/_services/` are all real-wired
+  (`USE_MOCK_DATA = false`): `restaurant-identity`, `restaurant-availability`,
+  and `restaurant-tax-receipts`. Staff & roles, Billing, and Account & security
+  call `ApiService` directly (no mock flag)
 - For any new module service, follow the same constant-flag pattern.
   Split flags by sub-domain when different views go live at different times
 - Dashboard real endpoint: `api/v1/reports/restaurant/dashboard/`
