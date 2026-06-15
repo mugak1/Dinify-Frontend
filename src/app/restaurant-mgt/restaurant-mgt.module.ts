@@ -56,7 +56,6 @@ import { BadgeComponent } from '../_shared/ui/badge/badge.component';
 import { SheetComponent } from '../_shared/ui/sheet/sheet.component';
 import { PresetTagsComponent } from './settings/preset-tags/preset-tags.component';
 import { SettingsHubComponent } from './settings/settings-hub/settings-hub.component';
-import { SettingsPlaceholderComponent } from './settings/settings-placeholder/settings-placeholder.component';
 import { SectionPageComponent } from './settings/components/section-page/section-page.component';
 import { SettingsIconComponent } from './settings/components/settings-icon/settings-icon.component';
 import { AccountSecurityComponent } from './settings/account-security/account-security.component';
@@ -150,7 +149,6 @@ const routes: Routes = [
     TablesComponent,
     PresetTagsComponent,
     SettingsHubComponent,
-    SettingsPlaceholderComponent,
     SectionPageComponent,
     SettingsIconComponent,
     IdentityComponent,

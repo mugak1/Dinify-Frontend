@@ -155,11 +155,8 @@ return this.fb.group({
   'phone_number': ['',Validators.required],
   phone:[''],
   'country': ['UG'],
-  preferred_subscription_method:['per_order'],
-  order_surcharge_percentage:[0.0],
+  preferred_subscription_method:['monthly'],
   flat_fee:[0],
-  order_surcharge_cap_amount:[0],
-  order_surcharge_min_amount:[0],
   otp:['']
 })
   }
