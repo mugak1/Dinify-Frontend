@@ -276,7 +276,9 @@ workflow (`audit.yml`, "Dependency Audit") runs `npm audit --audit-level=high`
 weekly (Mondays 06:30 UTC) and on manual dispatch — it is NOT a PR check and
 never blocks a merge; it just fires a notification if a high/critical advisory
 reappears. package.json keeps a small `overrides` block (`lodash-es`, gaxios's
-`uuid`) to hold the audit-zero baseline — don't strip it. All three workflows
+`uuid`, `@grpc/grpc-js`, `esbuild`) to hold the audit-zero baseline — don't
+strip it; the `esbuild` pin (0.28.1) can be dropped once `@angular/build` ships
+on esbuild ≥0.28.1. All three workflows
 install with `npm ci --legacy-peer-deps` — use the same flag locally, since a
 plain `npm ci`/`npm install` can trip over peer-dependency conflicts.
 
