@@ -444,71 +444,11 @@
                                     <label for="preferred_subscription_method" class="block mb-2 text-sm font-medium">Subscription Method</label>
                                     <select id="preferred_subscription_method" formControlName="preferred_subscription_method"
                                         class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-                                        <option [value]="'per_order'" class="p-2.5">Surcharge</option>
                                         <option [value]="'monthly'">Monthly Subscription Fee</option>
                                         <option [value]="'yearly'">Yearly Subscription Fee</option>
                                     </select>
                                 </div>
-                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value==='per_order'" class="col-span-1">
-                                    <label for="surcharge" class="block mb-2 text-sm font-medium text-gray-900">Surcharge Percentage <span class="text-d-red">*</span></label>
-                                    <div class="relative mt-2 rounded-md shadow-sm">
-                                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                          <span class="text-gray-500 sm:text-sm">%</span>
-                                        </div>
-                                        <input type="number" formControlName="order_surcharge_percentage" id="surcharge" min="0" step="0.1" max="100" class="block w-full rounded-md border-0 py-1.5 pl-7 pr-20 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6" placeholder="0.0">
-                                        <!-- <div class="absolute inset-y-0 right-0 flex items-center">
-                                          <label for="currency" class="sr-only">Currency</label>
-                                          <select id="currency" name="currency" class="h-full rounded-md border-0 bg-transparent py-0 pl-2 pr-7 text-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm">
-                                            <option>USD</option>
-                                            <option>CAD</option>
-                                            <option>EUR</option>
-                                          </select>
-                                        </div> -->
-                                      </div>
-                                    <!-- <div class="relative mt-2 rounded-md shadow-sm">
-                                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                          <span class="text-gray-500 sm:text-sm">%</span>
-                                        </div>
-                                        <input type="text" name="price" id="price" class="block w-full rounded-md border-0 py-1.5 pl-7 pr-20 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="0.00">
-                                        <div class="absolute inset-y-0 right-0 flex items-center">
-                                          <label for="currency" class="sr-only">Currency</label>
-                                          <div class="h-full rounded-md border-0 bg-transparent py-0 pl-2 pr-7 text-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm">
-                                            <option>UGX</option>
-                                           
-                                          </div>
-                                        </div>
-                                      </div> -->
-                                    <!-- <input type="number" formControlName="order_surcharge_percentage" id="surcharge" max="100" min="0"
-                                        class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
-                                        placeholder="Enter the percentage"> -->
-                                </div>
-                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value==='per_order'" class="col-span-1">
-                                    <label for="surcharge" class="block mb-2 text-sm font-medium text-gray-900">Surcharge Cap <span class="text-d-red">*</span></label>
-                                    <!-- <input type="number" formControlName="order_surcharge_cap_amount"
-                                        class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
-                                        placeholder="Enter the Cap"> -->
-                                        <div class="relative mt-2 rounded-md shadow-sm">
-                                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                              <span class="text-gray-500 sm:text-sm">UGX</span>
-                                            </div>
-                                            <input type="text" formControlName="order_surcharge_cap_amount" currencyMask [options]="{prefix: '', align:'left',precision:0, thousands: ',', decimal: '.',min:0}" id="surcharge_cap" class="block w-full rounded-md border-0 py-1.5 pl-14 pr-20 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6" placeholder="0.00">
-                                            
-                                          </div>
-                                </div>
-                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value==='per_order'" class="col-span-1">
-                                    <label for="surcharge" class="block mb-2 text-sm font-medium text-gray-900">Surcharge Floor <span class="text-d-red">*</span></label>
-                                    <!-- <input type="number" formControlName="order_surcharge_min_amount"
-                                        class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
-                                        placeholder="Enter the Floor"> -->
-                                        <div class="relative mt-2 rounded-md shadow-sm">
-                                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                              <span class="text-gray-500 sm:text-sm">UGX</span>
-                                            </div>
-                                            <input type="text" formControlName="order_surcharge_min_amount" currencyMask [options]="{prefix: '', align:'left',precision:0, thousands: ',', decimal: '.',min:0}" id="surcharge_floor" class="block w-full rounded-md border-0 py-1.5 pl-14 pr-20 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6" placeholder="">
-                                            
-                                          </div>
-                                </div>
-                                <div *ngIf="RestaurantForm.get('preferred_subscription_method')?.value!=='per_order'" class="col-span-1">
+                                <div class="col-span-1">
                                     <label for="flat_fee" class="block mb-2 text-sm font-medium text-gray-900">Subscription Fee <span
                                             class="text-d-red">*</span></label>
                                    <!--  <input type="number" formControlName="flat_fee" id="flat_fee" min="0"
@@ -652,23 +592,10 @@
                         <tr>
                             <td class="py-3 px-4 text-left font-medium text-gray-600">Subscription Method</td>
                             <td class="py-3 px-4 text-left">
-                                {{detail_full?.preferred_subscription_method==='per_order'?'Surcharge':''}}
                                 {{detail_full?.preferred_subscription_method==='monthly'?'Monthly Subscription Fee':''}}
                                 {{detail_full?.preferred_subscription_method==='yearly'?'Yearly Subscription Fee':''}}                                
                             </td>
                           </tr>
-                        <tr *ngIf="detail_full?.preferred_subscription_method==='per_order'">
-                          <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Percentage</td>
-                          <td class="py-3 px-4 text-left">{{detail_full?.order_surcharge_percentage}}%</td>
-                        </tr>
-                        <tr *ngIf="detail_full?.preferred_subscription_method==='per_order'" class="bg-gray-50">
-                          <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Cap</td>
-                          <td class="py-3 px-4 text-left">UGX {{detail_full?.order_surcharge_cap_amount|number}}</td>
-                        </tr>
-                        <tr *ngIf="detail_full?.preferred_subscription_method==='per_order'">
-                          <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Floor</td>
-                          <td class="py-3 px-4 text-left">UGX {{detail_full?.order_surcharge_min_amount|number}}</td>
-                        </tr>
                         <tr *ngIf="detail_full?.preferred_subscription_method==='yearly'||detail_full?.preferred_subscription_method==='monthly'" class="bg-gray-50">
                           <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Subscription Fee</td>
                           <td class="py-3 px-4 text-left">{{detail_full?.flat_fee|number}}</td>
