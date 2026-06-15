@@ -3,12 +3,14 @@ import { Observable, of } from 'rxjs';
 import { delay, map } from 'rxjs/operators';
 
 import { ApiService } from './api.service';
-import { RestaurantDetail } from '../_models/app.models';
+import { DayHours, OpeningHours, RestaurantDetail } from '../_models/app.models';
 
 /** JSON-PUT payload for the editable availability fields. */
 export interface AvailabilityFieldsPayload {
   id: string;
   accepting_orders: boolean;
+  /** Full weekly schedule, keyed by lowercase day name (whitelisted JSON). */
+  opening_hours: OpeningHours;
 }
 
 /**
@@ -18,9 +20,8 @@ export interface AvailabilityFieldsPayload {
  * uses, and saves through the Secretary PUT. `accepting_orders` is on the
  * restaurant model + the `edit_information` whitelist (settings-fields backend
  * PR), so the PUT updates only the field(s) present in the payload — sending just
- * `{ id, accepting_orders }` cannot clobber Identity's fields.
- *
- * Opening-hours scheduling is a later PR; this section ships only the toggle.
+ * these keys cannot clobber Identity's fields. `opening_hours` lives on the same
+ * model + whitelist and is sent as the full object on save.
  *
  * Follows the repo's constant-flag mock pattern. Flip USE_MOCK_DATA to true
  * locally to drive the UI off the dormant in-memory mock without a backend.
@@ -53,9 +54,19 @@ export class RestaurantAvailabilityService {
 
   // ── Mock (design-review aid; dormant behind USE_MOCK_DATA) ───────────────
   private mockDetail(id: string): RestaurantDetail {
+    const weekday: DayHours = { closed: false, open: '09:00', close: '17:00' };
     return {
       id,
       accepting_orders: true,
+      opening_hours: {
+        monday: { ...weekday },
+        tuesday: { ...weekday },
+        wednesday: { ...weekday },
+        thursday: { ...weekday },
+        friday: { closed: false, open: '09:00', close: '21:00' },
+        saturday: { closed: false, open: '10:00', close: '21:00' },
+        sunday: { closed: true, open: '10:00', close: '16:00' },
+      },
     } as RestaurantDetail;
   }
 }
