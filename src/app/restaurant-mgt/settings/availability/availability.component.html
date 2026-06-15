@@ -1,6 +1,6 @@
 <app-settings-section-page
   title="Availability"
-  description="Control when your restaurant accepts orders. Opening-hours scheduling is coming soon."
+  description="Control when your restaurant takes orders and your weekly opening hours."
   icon="availability"
   [state]="loadState"
   [dirty]="isDirty"
@@ -10,8 +10,9 @@
   (discard)="onDiscard()"
   (retry)="retry()"
 >
-  <section class="px-4 sm:px-6 py-5">
-    <h2 class="text-base font-semibold text-gray-900">Accepting orders</h2>
+  <!-- ── Ordering ───────────────────────────────────────────────────────── -->
+  <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
+    <h2 class="text-base font-semibold text-gray-900">Ordering</h2>
     <p class="text-sm text-gray-500 mt-0.5">
       Pause your restaurant when you can't take new orders.
     </p>
@@ -31,10 +32,18 @@
         (checkedChange)="onToggle($event)"
       ></app-dn-switch>
     </div>
+  </section>
 
-    <p class="text-xs text-gray-400 mt-4">
-      Scheduled opening hours are coming soon — for now, use this toggle to pause
-      and resume orders.
+  <!-- ── Opening hours ──────────────────────────────────────────────────── -->
+  <section class="px-4 sm:px-6 py-5">
+    <h2 class="text-base font-semibold text-gray-900">Opening hours</h2>
+    <p class="text-sm text-gray-500 mt-0.5">
+      Set your weekly schedule. Mark a day Closed to skip it — its hours are kept
+      for when you reopen.
     </p>
+
+    <div class="mt-4">
+      <app-opening-hours-editor [form]="hoursForm"></app-opening-hours-editor>
+    </div>
   </section>
 </app-settings-section-page>

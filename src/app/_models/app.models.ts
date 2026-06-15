@@ -292,7 +292,34 @@ export interface RestaurantDetail {
   vat_rate: number | string;
   tin: string | null;
   receipt_footer: string | null;
+  // Availability — opening hours (opening-hours backend PR). Object keyed by
+  // lowercase full day name; one same-day interval per day. Nullable: a
+  // restaurant that never configured hours returns null.
+  opening_hours: OpeningHours | null;
 }
+
+/**
+ * A single day's opening hours. Times are 24-hour "HH:MM" (no seconds) — the
+ * native <input type="time"> value maps straight to this. Closing a day flips
+ * `closed` but retains open/close so toggling back restores the hours.
+ */
+export interface DayHours {
+  closed: boolean;
+  open: string;
+  close: string;
+}
+
+export type OpeningHoursDay =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+/** Weekly opening hours, keyed by lowercase full day name. */
+export type OpeningHours = Record<OpeningHoursDay, DayHours>;
 export interface Restaurant {
   id: string
   name: string

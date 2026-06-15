@@ -1,0 +1,70 @@
+<div [formGroup]="form" class="space-y-2.5">
+  <!-- Copy Monday convenience -->
+  <div class="flex justify-end">
+    <button
+      type="button"
+      app-dn-button
+      variant="link"
+      size="sm"
+      (click)="copyMondayToAll()"
+    >
+      Copy Monday to all days
+    </button>
+  </div>
+
+  @for (day of days; track day.key) {
+    <div
+      [formGroupName]="day.key"
+      class="rounded-lg border p-3 sm:p-4 transition-colors"
+      [ngClass]="
+        isRowInvalid(day.key) ? 'border-red-300 bg-red-50/40' : 'border-gray-200'
+      "
+    >
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <!-- Day -->
+        <span class="w-20 sm:w-24 shrink-0 text-sm font-medium text-gray-900">
+          {{ day.label }}
+        </span>
+
+        <!-- Closed toggle -->
+        <span class="flex items-center gap-2 shrink-0">
+          <app-dn-switch
+            size="sm"
+            [checked]="isClosed(day.key)"
+            (checkedChange)="onClosedToggle(day.key, $event)"
+          ></app-dn-switch>
+          <span class="text-xs text-gray-500 select-none">Closed</span>
+        </span>
+
+        <!-- Times, or "Closed" when the day is off -->
+        @if (isClosed(day.key)) {
+          <span class="text-sm italic text-gray-400 sm:ml-auto">Closed</span>
+        } @else {
+          <span class="flex items-center gap-2 sm:ml-auto">
+            <input
+              type="time"
+              formControlName="open"
+              [class]="timeInputClass"
+              [attr.aria-label]="day.label + ' opening time'"
+              [attr.aria-invalid]="isRowInvalid(day.key)"
+            />
+            <span class="text-sm text-gray-400">to</span>
+            <input
+              type="time"
+              formControlName="close"
+              [class]="timeInputClass"
+              [attr.aria-label]="day.label + ' closing time'"
+              [attr.aria-invalid]="isRowInvalid(day.key)"
+            />
+          </span>
+        }
+      </div>
+
+      @if (isRowInvalid(day.key)) {
+        <p class="mt-2 text-xs text-red-600">
+          Closing time must be after opening time.
+        </p>
+      }
+    </div>
+  }
+</div>
