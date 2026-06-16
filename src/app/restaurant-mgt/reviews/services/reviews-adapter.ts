@@ -4,6 +4,7 @@ import {
   ReviewDimension,
   ReviewsTrendPoint,
   WeakestDimension,
+  ReviewListItem,
 } from '../models/reviews.models';
 
 // ---------------------------------------------------------------------------
@@ -101,5 +102,30 @@ export function adaptReviewsAnalytics(raw: any): ReviewsAnalytics {
       to: raw?.period?.to ?? '',
       category: raw?.period?.category ?? '',
     },
+  };
+}
+
+/**
+ * Adapt one `ReviewRestaurantReadSerializer` record from the `reviews/`
+ * endpoint into a Feed-list row. Null-safe: missing nullable fields stay null,
+ * the comment defaults to '', and an unknown/absent resolution_status reads as
+ * 'open' (the safe default for the needs-attention queue).
+ */
+export function adaptReviewListItem(raw: any): ReviewListItem {
+  return {
+    id: raw?.id,
+    overallRating: safeFloat(raw?.overall_rating),
+    comment: raw?.comment ?? '',
+    createdAt: raw?.created_at ?? '',
+    orderNumber: raw?.order_number ?? null,
+    tableLabel: raw?.table_label ?? null,
+    spend: raw?.spend ?? null,
+    isCritical: !!raw?.is_critical,
+    resolutionStatus: raw?.resolution_status === 'resolved' ? 'resolved' : 'open',
+    foodRating: safeFloatOrNull(raw?.food_rating),
+    speedRating: safeFloatOrNull(raw?.speed_rating),
+    serviceRating: safeFloatOrNull(raw?.service_rating),
+    valueRating: safeFloatOrNull(raw?.value_rating),
+    cleanlinessRating: safeFloatOrNull(raw?.cleanliness_rating),
   };
 }
