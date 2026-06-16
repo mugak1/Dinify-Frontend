@@ -13,6 +13,9 @@ import { adaptDashboardResponse, adaptReviewsResponse } from './dashboard-adapte
 /** Set to false to use real API endpoints instead of mock data */
 const USE_MOCK_DATA = true;
 
+/** Reviews card is real-wired (reviews/summary/); flip to true for design review */
+const USE_MOCK_REVIEWS = false;
+
 const DATE_RANGES = ['day', 'week', 'month', 'ytd'] as const;
 
 @Injectable({ providedIn: 'root' })
@@ -76,10 +79,10 @@ export class DashboardService {
   }
 
   getReviewsSummary(restaurantId: string): Observable<ApiResponse<ReviewsSummaryResponse>> {
-    if (USE_MOCK_DATA) {
+    if (USE_MOCK_REVIEWS) {
       return of({ data: getMockReviewsData() } as unknown as ApiResponse<ReviewsSummaryResponse>).pipe(delay(400));
     }
-    return this.api.get<ReviewsSummaryResponse>(null, 'reports/restaurant/dashboard-reviews/', {
+    return this.api.get<ReviewsSummaryResponse>(null, 'reviews/summary/', {
       restaurant: restaurantId,
     }).pipe(
       map((res: any) => ({

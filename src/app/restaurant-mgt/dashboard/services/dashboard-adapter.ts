@@ -200,11 +200,11 @@ function adaptDistribution(raw: any[], totalReviews: number): ReviewDistribution
 function adaptRecentReviews(raw: any[]): RecentReview[] {
   if (!Array.isArray(raw)) return [];
   return raw.map((r) => ({
-    review_id: r.order_id ?? '',
-    rating: r.rating ?? 0,
-    text: r.text ?? '',
+    review_id: r.id ?? '',
+    rating: r.overall_rating ?? 0,
+    text: r.comment ?? '',
     created_at: r.created_at ?? '',
-    resolved: false,
+    resolved: r.resolution_status === 'resolved',
   }));
 }
 
@@ -224,12 +224,14 @@ export function adaptDashboardResponse(raw: any): DashboardV2Response {
 }
 
 export function adaptReviewsResponse(raw: any): ReviewsSummaryResponse {
-  const totalReviews = raw?.total_reviews_30d ?? 0;
+  const totalReviews = raw?.total_reviews ?? 0;
   return {
-    avg_rating: safeFloat(raw?.avg_rating_30d),
+    avg_rating: safeFloat(raw?.average_rating),
     total_reviews: totalReviews,
     distribution: adaptDistribution(raw?.distribution, totalReviews),
     recent: adaptRecentReviews(raw?.recent_reviews),
-    low_rating_share: safeFloat(raw?.low_rating_share_30d),
+    // low_rating_share intentionally unset — the card's lowRatingPct getter
+    // derives the 1–2★ share from `distribution`. (critical_count /
+    // unresolved_critical_count from this endpoint feed the Overview later.)
   };
 }
