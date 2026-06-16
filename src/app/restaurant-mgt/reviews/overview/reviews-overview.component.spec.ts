@@ -33,4 +33,26 @@ describe('ReviewsOverviewComponent', () => {
   it('defaults to the 90-day timeframe', () => {
     expect(component.timeframeDays).toBe(90);
   });
+
+  it('buildTrendChart maps analytics.trend into chartData labels and averages', () => {
+    component.analytics = {
+      averageRating: 4.2,
+      totalReviews: 20,
+      distribution: [],
+      dimensions: [],
+      weakestDimension: null,
+      criticalCount: 0,
+      unresolvedCriticalCount: 0,
+      trend: [
+        { period: '2026-05-04', average: 4.0, count: 12 },
+        { period: '2026-05-11', average: 4.5, count: 8 },
+      ],
+      period: { from: '2026-05-01', to: '2026-05-31', category: '' },
+    };
+
+    component.buildTrendChart();
+
+    expect(component.chartData.labels).toEqual(['4 May', '11 May']);
+    expect(component.chartData.datasets[0].data).toEqual([4.0, 4.5]);
+  });
 });
