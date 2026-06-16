@@ -1,4 +1,4 @@
-import { adaptReviewsAnalytics } from './reviews-adapter';
+import { adaptReviewsAnalytics, adaptReviewListItem } from './reviews-adapter';
 
 // Sample payload mirrors the shape returned by the reviews/analytics/ endpoint:
 // string (or null) averages, {stars,count} distribution, a dimensions object,
@@ -28,6 +28,32 @@ function rawAnalytics() {
       { period: '2026-W20', average: '4.1', count: 6 },
       { period: '2026-W21', average: '4.3', count: 8 },
     ],
+  };
+}
+
+// Sample mirrors one ReviewRestaurantReadSerializer record from the reviews/
+// endpoint: string (or null) ratings, snake_case keys, nullable context fields.
+function rawReview() {
+  return {
+    id: 42,
+    overall_rating: '4', // backend may send ratings as strings
+    food_rating: '5',
+    speed_rating: '2',
+    service_rating: '3',
+    value_rating: null, // diner skipped this dimension
+    cleanliness_rating: '4',
+    comment: 'Great food but slow service.',
+    is_public: true,
+    resolution_status: 'open',
+    submission_channel: 'qr',
+    created_at: '2026-06-15T10:00:00Z',
+    updated_at: '2026-06-15T10:00:00Z',
+    is_critical: true,
+    order_id: 1001,
+    order_number: 1042,
+    table_label: 'Table 7',
+    served_at: '2026-06-15T09:30:00Z',
+    spend: '38000.00',
   };
 }
 
@@ -117,6 +143,84 @@ describe('reviews-adapter', () => {
       // dimensions still resolves to the five canonical rows, all empty
       expect(out.dimensions.length).toBe(5);
       expect(out.dimensions.every((d) => d.average === null && d.count === 0)).toBe(true);
+    });
+  });
+
+  describe('adaptReviewListItem', () => {
+    it('maps the serializer fields to the camelCase model', () => {
+      const out = adaptReviewListItem(rawReview());
+      expect(out.id).toBe(42);
+      expect(out.overallRating).toBe(4);
+      expect(typeof out.overallRating).toBe('number');
+      expect(out.comment).toBe('Great food but slow service.');
+      expect(out.createdAt).toBe('2026-06-15T10:00:00Z');
+      expect(out.orderNumber).toBe(1042);
+      expect(out.tableLabel).toBe('Table 7');
+      expect(out.spend).toBe('38000.00');
+      expect(out.isCritical).toBe(true);
+      expect(out.resolutionStatus).toBe('open');
+    });
+
+    it('parses per-dimension ratings to numbers and preserves null', () => {
+      const out = adaptReviewListItem(rawReview());
+      expect(out.foodRating).toBe(5);
+      expect(out.speedRating).toBe(2);
+      expect(out.serviceRating).toBe(3);
+      expect(out.cleanlinessRating).toBe(4);
+      // value_rating was null — must survive as null, not coerced to 0
+      expect(out.valueRating).toBeNull();
+    });
+
+    it('defaults a missing comment to an empty string', () => {
+      expect(adaptReviewListItem({ ...rawReview(), comment: null }).comment).toBe('');
+      expect(adaptReviewListItem({ ...rawReview(), comment: undefined }).comment).toBe('');
+    });
+
+    it('keeps the nullable order-context fields null when absent', () => {
+      const out = adaptReviewListItem({
+        ...rawReview(),
+        order_number: null,
+        table_label: null,
+        spend: null,
+      });
+      expect(out.orderNumber).toBeNull();
+      expect(out.tableLabel).toBeNull();
+      expect(out.spend).toBeNull();
+    });
+
+    it('coerces is_critical to a boolean', () => {
+      expect(adaptReviewListItem({ ...rawReview(), is_critical: false }).isCritical).toBe(false);
+      expect(adaptReviewListItem({ ...rawReview(), is_critical: undefined }).isCritical).toBe(false);
+    });
+
+    it('normalizes resolution_status — only "resolved" maps to resolved', () => {
+      expect(
+        adaptReviewListItem({ ...rawReview(), resolution_status: 'resolved' }).resolutionStatus,
+      ).toBe('resolved');
+      // an unknown or missing status falls back to the safe "open" default
+      expect(
+        adaptReviewListItem({ ...rawReview(), resolution_status: 'pending' }).resolutionStatus,
+      ).toBe('open');
+      expect(
+        adaptReviewListItem({ ...rawReview(), resolution_status: null }).resolutionStatus,
+      ).toBe('open');
+    });
+
+    it('handles a null/empty payload safely', () => {
+      const out = adaptReviewListItem(null);
+      expect(out.overallRating).toBe(0);
+      expect(out.comment).toBe('');
+      expect(out.createdAt).toBe('');
+      expect(out.orderNumber).toBeNull();
+      expect(out.tableLabel).toBeNull();
+      expect(out.spend).toBeNull();
+      expect(out.isCritical).toBe(false);
+      expect(out.resolutionStatus).toBe('open');
+      expect(out.foodRating).toBeNull();
+      expect(out.speedRating).toBeNull();
+      expect(out.serviceRating).toBeNull();
+      expect(out.valueRating).toBeNull();
+      expect(out.cleanlinessRating).toBeNull();
     });
   });
 });

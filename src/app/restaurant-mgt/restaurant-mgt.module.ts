@@ -29,6 +29,7 @@ import { ReportDetailComponent } from './report-detail/report-detail.component';
 import { ReviewsComponent } from './reviews/reviews.component';
 import { ReviewsManagementComponent } from './reviews/reviews-management.component';
 import { ReviewsOverviewComponent } from './reviews/overview/reviews-overview.component';
+import { ReviewsFeedComponent } from './reviews/feed/reviews-feed.component';
 import { PaymentsComponent } from './payments/payments.component';
 import { RestUsersComponent } from './settings/rest-users/rest-users.component';
 import { SupportComponent } from './support/support.component';
@@ -79,7 +80,7 @@ const routes: Routes = [
   {path:'dining-tables',component:TablesComponent,title:'Tables'},
   
   {path:'reviews',component:ReviewsOverviewComponent,title:'Reviews'},
-  {path:'reviews/feed',component:ReviewsComponent,title:'Reviews'},
+  {path:'reviews/feed',component:ReviewsFeedComponent,title:'Reviews'},
   {path:'reviews-management',component:ReviewsManagementComponent,title:'Reviews Management'},
   {path:'payments',component:PaymentsComponent,title:'Payments'},
   {path:'reports',component:ReportsComponent,title:'Reports'}, 
@@ -159,6 +160,7 @@ const routes: Routes = [
     RestUsersComponent,
     AccountSecurityComponent,
     ReviewsOverviewComponent,
+    ReviewsFeedComponent,
 ],
   exports:[
     RouterModule

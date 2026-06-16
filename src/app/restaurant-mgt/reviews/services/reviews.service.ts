@@ -3,8 +3,15 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiService } from '../../../_services/api.service';
 import { ApiResponse } from '../../../_models/app.models';
-import { ReviewsAnalytics } from '../models/reviews.models';
-import { adaptReviewsAnalytics } from './reviews-adapter';
+import { ReviewsAnalytics, ReviewListItem } from '../models/reviews.models';
+import { adaptReviewsAnalytics, adaptReviewListItem } from './reviews-adapter';
+
+/** Server-side filters for the reviews/ retrieval endpoint. */
+export interface ReviewFeedFilters {
+  critical?: boolean;
+  resolutionStatus?: 'open' | 'resolved';
+  rating?: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ReviewsService {
@@ -33,5 +40,25 @@ export class ReviewsService {
         data: res.data ? adaptReviewsAnalytics(res.data) : null,
       })),
     );
+  }
+
+  /**
+   * Fetch the reviews Feed for a restaurant. The `reviews/` endpoint is a
+   * paginated DinifyPaginator, so we lean on ApiService.loadAllPages to
+   * concatenate every page. Filters are built conditionally — never send an
+   * `undefined`, which ApiService would serialise as the string "undefined".
+   */
+  getReviews(
+    restaurantId: string,
+    filters?: ReviewFeedFilters,
+  ): Observable<ReviewListItem[]> {
+    const params: Record<string, string> = { restaurant: restaurantId };
+    if (filters?.critical) params['critical'] = 'true';
+    if (filters?.resolutionStatus) params['resolution_status'] = filters.resolutionStatus;
+    if (filters?.rating) params['rating'] = String(filters.rating);
+
+    return this.api
+      .loadAllPages<any>('reviews/', params)
+      .pipe(map((records) => records.map(adaptReviewListItem)));
   }
 }

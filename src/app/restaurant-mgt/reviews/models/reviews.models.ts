@@ -1,6 +1,6 @@
-// Frontend models for the Reviews Overview analytics surface.
-// Shapes here are the adapted (camelCase, parsed) forms produced by
-// reviews-adapter.ts from the raw `reviews/analytics/` response.
+// Frontend models for the Reviews surfaces — the Overview analytics and the
+// Feed list. Shapes here are the adapted (camelCase, parsed) forms produced by
+// reviews-adapter.ts from the raw `reviews/analytics/` and `reviews/` responses.
 
 /** A single review-dimension score (food, speed, service, value, cleanliness). */
 export interface ReviewDimension {
@@ -50,4 +50,29 @@ export interface ReviewsAnalytics {
   unresolvedCriticalCount: number;
   trend: ReviewsTrendPoint[];
   period: ReviewsPeriod;
+}
+
+/**
+ * A single review row for the Feed list — the adapted form of one
+ * `ReviewRestaurantReadSerializer` record from the `reviews/` endpoint.
+ * (Distinct from the legacy `ReviewListItem` in `_models/app.models.ts`, which
+ * backs the old ReviewsComponent and is imported from its own path.)
+ */
+export interface ReviewListItem {
+  id: number;
+  overallRating: number;
+  comment: string;
+  createdAt: string;
+  orderNumber: number | null;
+  tableLabel: string | null;
+  spend: string | null;
+  isCritical: boolean;
+  resolutionStatus: 'open' | 'resolved';
+  // Per-dimension scores (0–5), carried to render compact chips on each card.
+  // null when the diner skipped that dimension.
+  foodRating: number | null;
+  speedRating: number | null;
+  serviceRating: number | null;
+  valueRating: number | null;
+  cleanlinessRating: number | null;
 }
