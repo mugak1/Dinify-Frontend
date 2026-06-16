@@ -8,19 +8,21 @@ import { CardErrorComponent } from '../../dashboard/components/card-error/card-e
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ReviewsService } from '../services/reviews.service';
 import { ReviewsAnalytics } from '../models/reviews.models';
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartData, ChartOptions } from 'chart.js';
 
 type TimeframeDays = 30 | 90;
 
 /**
  * Reviews Overview — the analytics landing for /rest-app/reviews. Layout B
  * (action-first): summary line → needs-attention block → dimension hero →
- * demoted metrics strip. The trend chart lands in a follow-up PR (the adapter
- * already parses `trend`).
+ * demoted metrics strip → rating-trend line chart (fed by the adapter-parsed
+ * `trend`).
  */
 @Component({
   selector: 'app-reviews-overview',
   standalone: true,
-  imports: [CommonModule, RouterModule, CardComponent, CardErrorComponent],
+  imports: [CommonModule, RouterModule, CardComponent, CardErrorComponent, BaseChartDirective],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header + timeframe toggle (always visible) -->
@@ -200,6 +202,27 @@ type TimeframeDays = 30 | 90;
             <div class="text-[11px] sm:text-xs text-muted-foreground mt-0.5">Critical share</div>
           </div>
         </div>
+
+        <!-- 5. Rating trend (deepest health read) -->
+        <app-dn-card>
+          <div class="p-4 sm:p-6">
+            <h2 class="text-sm sm:text-base font-semibold text-foreground mb-1">Rating trend</h2>
+            @if (analytics.trend.length >= 2) {
+              <div class="h-48 sm:h-64 mt-3 sm:mt-4">
+                <canvas
+                  baseChart
+                  [type]="'line'"
+                  [data]="chartData"
+                  [options]="chartOptions"
+                  role="img"
+                  aria-label="Average rating over time"
+                ></canvas>
+              </div>
+            } @else {
+              <p class="text-sm text-muted-foreground mt-1">Not enough data yet to show a trend</p>
+            }
+          </div>
+        </app-dn-card>
       }
     </div>
   `,
@@ -212,6 +235,57 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
 
   readonly timeframeOptions: TimeframeDays[] = [30, 90];
   readonly skeletonRows = [1, 2, 3, 4, 5];
+
+  chartData: ChartData<'line'> = { labels: [], datasets: [] };
+
+  chartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 600 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        enabled: true,
+        backgroundColor: 'hsl(var(--popover))',
+        titleColor: 'hsl(var(--foreground))',
+        bodyColor: 'hsl(var(--muted-foreground))',
+        borderColor: 'hsl(var(--border))',
+        borderWidth: 1,
+        padding: 12,
+        cornerRadius: 8,
+        displayColors: false,
+        callbacks: {
+          title: (items) => (items.length ? items[0].label || '' : ''),
+          label: (item) => {
+            const point = this.analytics?.trend?.[item.dataIndex];
+            if (!point) return '';
+            const n = point.count;
+            return `${point.average.toFixed(1)}★ · ${n} ${n === 1 ? 'review' : 'reviews'}`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        display: true,
+        grid: { display: true, color: 'rgba(0, 0, 0, 0.06)', tickBorderDash: [3, 3] },
+        ticks: {
+          color: 'hsl(var(--muted-foreground))',
+          font: { size: 10 },
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 8,
+        },
+      },
+      y: {
+        min: 0,
+        max: 5,
+        grid: { display: true, color: 'rgba(0, 0, 0, 0.06)', tickBorderDash: [3, 3] },
+        ticks: { color: 'hsl(var(--muted-foreground))', font: { size: 10 }, stepSize: 1 },
+      },
+    },
+    interaction: { mode: 'index', intersect: false },
+  };
 
   private restaurantId = '';
   private timeframe$ = new BehaviorSubject<TimeframeDays>(90);
@@ -247,6 +321,7 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
         this.loading = false;
         if (res.data) {
           this.analytics = res.data;
+          this.buildTrendChart();
         } else {
           this.error = res.error?.message || 'Failed to load reviews analytics';
         }
@@ -266,6 +341,38 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
 
   retry(): void {
     this.timeframe$.next(this.timeframeDays);
+  }
+
+  /** Build the rating-trend line chart from the adapter-parsed analytics.trend. */
+  buildTrendChart(): void {
+    const trend = this.analytics?.trend ?? [];
+
+    // Subtle brand-red gradient fill, mirroring the dashboard revenue card.
+    const gradientBg = (ctx: any) => {
+      const { ctx: canvasCtx, chartArea } = ctx.chart;
+      if (!chartArea) return 'hsla(4, 90%, 52%, 0)';
+      const g = canvasCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+      g.addColorStop(0, 'hsla(4, 90%, 52%, 0.25)');
+      g.addColorStop(1, 'hsla(4, 90%, 52%, 0)');
+      return g;
+    };
+
+    this.chartData = {
+      labels: trend.map((p) => this.formatTrendLabel(p.period)),
+      datasets: [
+        {
+          data: trend.map((p) => p.average),
+          fill: true,
+          tension: 0.4,
+          borderColor: 'hsl(4, 90%, 52%)',
+          borderWidth: 2,
+          backgroundColor: gradientBg as any,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: 'hsl(4, 90%, 52%)',
+        },
+      ],
+    };
   }
 
   /** Critical reviews as a share of total, guarded against divide-by-zero. */
@@ -301,5 +408,13 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  /** Format an ISO period (week/day start) as a short "4 May" label, in UTC to avoid date drift. */
+  private formatTrendLabel(period: string): string {
+    if (!period) return '';
+    const d = new Date(period);
+    if (isNaN(d.getTime())) return period;
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
   }
 }
