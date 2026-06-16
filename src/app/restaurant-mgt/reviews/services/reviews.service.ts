@@ -61,4 +61,16 @@ export class ReviewsService {
       .loadAllPages<any>('reviews/', params)
       .pipe(map((records) => records.map(adaptReviewListItem)));
   }
+
+  /**
+   * Mark a review handled (`resolved`) or reopen it (`open`) via the resolution
+   * endpoint. The PATCH returns the standard `{ status, message, data }`
+   * envelope where `data` is the updated review in the same shape getReviews
+   * consumes, so we adapt it back into a fresh ReviewListItem.
+   */
+  resolveReview(reviewId: string, status: 'open' | 'resolved'): Observable<ReviewListItem> {
+    return this.api
+      .postPatch(`reviews/${reviewId}/resolution/`, { resolution_status: status }, 'patch')
+      .pipe(map((res: any) => adaptReviewListItem(res?.data ?? res)));
+  }
 }

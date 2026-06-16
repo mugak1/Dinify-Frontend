@@ -120,7 +120,7 @@ export class ApiService {
     );
   }
 
-  postPatch(url: string, data: any,method:'get'|'post'|'put', id?:any, params?:object, isFormData?: boolean,version?:string,_has_false?:boolean){
+  postPatch(url: string, data: any,method:'get'|'post'|'put'|'patch', id?:any, params?:object, isFormData?: boolean,version?:string,_has_false?:boolean){
     const queryParams = this.correctFormatForQueryUrl(params);
 
   let payload: any;
