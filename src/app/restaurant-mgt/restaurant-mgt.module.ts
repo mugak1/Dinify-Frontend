@@ -26,8 +26,6 @@ import { AvailabilityComponent } from './settings/availability/availability.comp
 import { TaxReceiptsComponent } from './settings/tax-receipts/tax-receipts.component';
 import { ReportsComponent } from './reports/reports.component';
 import { ReportDetailComponent } from './report-detail/report-detail.component';
-import { ReviewsComponent } from './reviews/reviews.component';
-import { ReviewsManagementComponent } from './reviews/reviews-management.component';
 import { ReviewsOverviewComponent } from './reviews/overview/reviews-overview.component';
 import { ReviewsFeedComponent } from './reviews/feed/reviews-feed.component';
 import { PaymentsComponent } from './payments/payments.component';
@@ -81,7 +79,6 @@ const routes: Routes = [
   
   {path:'reviews',component:ReviewsOverviewComponent,title:'Reviews'},
   {path:'reviews/feed',component:ReviewsFeedComponent,title:'Reviews'},
-  {path:'reviews-management',component:ReviewsManagementComponent,title:'Reviews Management'},
   {path:'payments',component:PaymentsComponent,title:'Payments'},
   {path:'reports',component:ReportsComponent,title:'Reports'}, 
   {path:'support',component:SupportComponent,title:'Support'},  
@@ -97,8 +94,6 @@ const routes: Routes = [
     MenuComponent,
     ReportsComponent,
     ReportDetailComponent,
-    ReviewsComponent,
-    ReviewsManagementComponent,
     SupportComponent,
     BillingComponent,
     RestNotificationsComponent,
