@@ -3,7 +3,30 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { ReviewsFeedComponent } from './reviews-feed.component';
+import { ReviewsService } from '../services/reviews.service';
+import { ReviewListItem } from '../models/reviews.models';
+
+function makeReview(overrides: Partial<ReviewListItem> = {}): ReviewListItem {
+  return {
+    id: 7,
+    overallRating: 2,
+    comment: 'Cold food',
+    createdAt: new Date().toISOString(),
+    orderNumber: 42,
+    tableLabel: 'Table 5',
+    spend: '30000',
+    isCritical: true,
+    resolutionStatus: 'open',
+    foodRating: 2,
+    speedRating: null,
+    serviceRating: null,
+    valueRating: null,
+    cleanlinessRating: null,
+    ...overrides,
+  };
+}
 
 describe('ReviewsFeedComponent', () => {
   let component: ReviewsFeedComponent;
@@ -64,5 +87,35 @@ describe('ReviewsFeedComponent', () => {
     expect(component.emptyTitle).toBe('No reviews match');
     component.view = 'attention';
     expect(component.emptyTitle).toBe('Nothing needs attention');
+  });
+
+  it('resolves an open review and flips it to resolved in place in the all view', () => {
+    const open = makeReview({ id: 7, resolutionStatus: 'open' });
+    const resolved = makeReview({ id: 7, resolutionStatus: 'resolved' });
+    const svc = TestBed.inject(ReviewsService);
+    const spy = spyOn(svc, 'resolveReview').and.returnValue(of(resolved));
+
+    component.view = 'all';
+    component.reviews = [open];
+
+    component.resolve(open);
+
+    expect(spy).toHaveBeenCalledWith('7', 'resolved');
+    expect(component.reviews.length).toBe(1);
+    expect(component.reviews[0].resolutionStatus).toBe('resolved');
+  });
+
+  it('drops a now-resolved review out of the needs-attention view', () => {
+    const open = makeReview({ id: 7, resolutionStatus: 'open', isCritical: true });
+    const resolved = makeReview({ id: 7, resolutionStatus: 'resolved', isCritical: true });
+    const svc = TestBed.inject(ReviewsService);
+    spyOn(svc, 'resolveReview').and.returnValue(of(resolved));
+
+    component.view = 'attention';
+    component.reviews = [open];
+
+    component.resolve(open);
+
+    expect(component.reviews.length).toBe(0);
   });
 });

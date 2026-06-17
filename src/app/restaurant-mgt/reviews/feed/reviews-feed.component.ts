@@ -271,10 +271,41 @@ type ResolutionFilter = 'open' | 'resolved' | null;
                   </div>
                 }
 
-                <!-- Order context -->
-                @if (orderContext(review).length > 0) {
-                  <p class="text-xs text-muted-foreground mt-3">{{ orderContext(review).join(' · ') }}</p>
-                }
+                <!-- Footer: order context (left) + resolve action (right) -->
+                <div class="flex items-center gap-3 mt-3">
+                  @if (orderContext(review).length > 0) {
+                    <p class="text-xs text-muted-foreground min-w-0 truncate">
+                      {{ orderContext(review).join(' · ') }}
+                    </p>
+                  }
+                  <button
+                    type="button"
+                    (click)="resolve(review)"
+                    [disabled]="isResolving(review)"
+                    class="ml-auto inline-flex items-center gap-1.5 shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    [ngClass]="
+                      review.resolutionStatus === 'resolved'
+                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        : 'text-success hover:bg-success/10'
+                    "
+                  >
+                    @if (review.resolutionStatus !== 'resolved') {
+                      <svg
+                        aria-hidden="true"
+                        class="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    }
+                    {{ resolveLabel(review) }}
+                  </button>
+                </div>
               </div>
             </app-dn-card>
           }
@@ -296,6 +327,9 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
   readonly stars = [1, 2, 3, 4, 5];
   readonly ratingOptions = [5, 4, 3, 2, 1];
   readonly skeletonRows = [1, 2, 3, 4];
+
+  /** Review ids with an in-flight resolve PATCH — disables their button. */
+  readonly pendingResolve = new Set<string>();
 
   private restaurantId = '';
   private filters$ = new BehaviorSubject<ReviewFeedFilters>({});
@@ -393,6 +427,65 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
       filters.rating = this.rating;
     }
     return filters;
+  }
+
+  // --- Resolve action ------------------------------------------------------
+
+  /**
+   * Toggle a review's resolution status (open ⇄ resolved) via the resolution
+   * endpoint. The id is tracked as pending so its button disables while the
+   * PATCH is in flight. On success the updated item is folded back into the
+   * feed; on error we just clear pending — the global HTTP interceptor already
+   * toasts request failures, so we don't add a second error surface.
+   */
+  resolve(review: ReviewListItem): void {
+    const id = String(review.id);
+    if (this.pendingResolve.has(id)) return;
+    const next = review.resolutionStatus === 'resolved' ? 'open' : 'resolved';
+    this.pendingResolve.add(id);
+    this.reviewsService
+      .resolveReview(id, next)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (updated) => {
+          this.pendingResolve.delete(id);
+          this.applyResolved(updated);
+        },
+        error: () => {
+          this.pendingResolve.delete(id);
+        },
+      });
+  }
+
+  /**
+   * Fold an updated review back into the feed: replace it in place so its badge
+   * and button flip immediately — unless the active filter would now exclude it
+   * (the needs-attention view, or an Open/Resolved status filter), in which case
+   * drop it so the queue reflects reality. Resolve only mutates
+   * `resolutionStatus`, which is exactly the dimension buildFilters keys on, so
+   * its `resolutionStatus` output is the single source of truth here.
+   */
+  private applyResolved(updated: ReviewListItem): void {
+    const wanted = this.buildFilters().resolutionStatus;
+    if (wanted && wanted !== updated.resolutionStatus) {
+      this.reviews = this.reviews.filter((r) => r.id !== updated.id);
+    } else {
+      this.reviews = this.reviews.map((r) => (r.id === updated.id ? updated : r));
+    }
+  }
+
+  /** Whether a review has an in-flight resolve PATCH. */
+  isResolving(review: ReviewListItem): boolean {
+    return this.pendingResolve.has(String(review.id));
+  }
+
+  /** Button label, reflecting current status and in-flight state. */
+  resolveLabel(review: ReviewListItem): string {
+    const resolving = this.isResolving(review);
+    if (review.resolutionStatus === 'resolved') {
+      return resolving ? 'Reopening…' : 'Reopen';
+    }
+    return resolving ? 'Resolving…' : 'Mark resolved';
   }
 
   // --- Display helpers (sentiment treatment mirrors the reviews-card) -------
