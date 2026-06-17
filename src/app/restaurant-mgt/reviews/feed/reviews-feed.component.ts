@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
 import { switchMap, tap, takeUntil, map, catchError } from 'rxjs/operators';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
@@ -24,11 +24,21 @@ type ResolutionFilter = 'open' | 'resolved' | null;
 @Component({
   selector: 'app-reviews-feed',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, CardErrorComponent, BadgeComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CardComponent, CardErrorComponent, BadgeComponent],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header -->
       <div>
+        <a
+          routerLink="/rest-app/reviews"
+          class="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-3"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          Back to reviews
+        </a>
         <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Reviews feed</h1>
         <p class="text-sm text-muted-foreground mt-1">
           Every guest review, with the ones that need attention up top.
