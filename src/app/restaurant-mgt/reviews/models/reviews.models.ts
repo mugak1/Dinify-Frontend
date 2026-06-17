@@ -55,8 +55,7 @@ export interface ReviewsAnalytics {
 /**
  * A single review row for the Feed list — the adapted form of one
  * `ReviewRestaurantReadSerializer` record from the `reviews/` endpoint.
- * (Distinct from the legacy `ReviewListItem` in `_models/app.models.ts`, which
- * backs the old ReviewsComponent and is imported from its own path.)
+ * (Distinct from the legacy `ReviewListItem` in `_models/app.models.ts`.)
  */
 export interface ReviewListItem {
   id: number;
