@@ -206,6 +206,22 @@ describe('reviews-adapter', () => {
       ).toBe('open');
     });
 
+    it('maps resolution_note when present, and null when absent/empty', () => {
+      expect(
+        adaptReviewListItem({ ...rawReview(), resolution_note: 'Comped the meal' }).resolutionNote,
+      ).toBe('Comped the meal');
+      // absent → null (rawReview omits the field)
+      expect(adaptReviewListItem(rawReview()).resolutionNote).toBeNull();
+      // explicit null → null
+      expect(
+        adaptReviewListItem({ ...rawReview(), resolution_note: null }).resolutionNote,
+      ).toBeNull();
+      // empty string → null, so the "Action taken" line only shows for a real note
+      expect(
+        adaptReviewListItem({ ...rawReview(), resolution_note: '' }).resolutionNote,
+      ).toBeNull();
+    });
+
     it('handles a null/empty payload safely', () => {
       const out = adaptReviewListItem(null);
       expect(out.overallRating).toBe(0);
@@ -216,6 +232,7 @@ describe('reviews-adapter', () => {
       expect(out.spend).toBeNull();
       expect(out.isCritical).toBe(false);
       expect(out.resolutionStatus).toBe('open');
+      expect(out.resolutionNote).toBeNull();
       expect(out.foodRating).toBeNull();
       expect(out.speedRating).toBeNull();
       expect(out.serviceRating).toBeNull();

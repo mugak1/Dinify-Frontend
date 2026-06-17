@@ -64,13 +64,25 @@ export class ReviewsService {
 
   /**
    * Mark a review handled (`resolved`) or reopen it (`open`) via the resolution
-   * endpoint. The PATCH returns the standard `{ status, message, data }`
+   * endpoint. An optional `note` records the corrective action; it is only sent
+   * when provided (omitting it leaves any existing note untouched on the
+   * backend). The PATCH returns the standard `{ status, message, data }`
    * envelope where `data` is the updated review in the same shape getReviews
    * consumes, so we adapt it back into a fresh ReviewListItem.
    */
-  resolveReview(reviewId: string, status: 'open' | 'resolved'): Observable<ReviewListItem> {
+  resolveReview(
+    reviewId: string,
+    status: 'open' | 'resolved',
+    note?: string,
+  ): Observable<ReviewListItem> {
     return this.api
-      .postPatch(`reviews/${reviewId}/resolution/`, { resolution_status: status }, 'patch')
+      .postPatch(
+        `reviews/${reviewId}/resolution/`,
+        note != null
+          ? { resolution_status: status, resolution_note: note }
+          : { resolution_status: status },
+        'patch',
+      )
       .pipe(map((res: any) => adaptReviewListItem(res?.data ?? res)));
   }
 }

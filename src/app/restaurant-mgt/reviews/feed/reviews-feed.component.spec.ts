@@ -19,6 +19,7 @@ function makeReview(overrides: Partial<ReviewListItem> = {}): ReviewListItem {
     spend: '30000',
     isCritical: true,
     resolutionStatus: 'open',
+    resolutionNote: null,
     foodRating: 2,
     speedRating: null,
     serviceRating: null,
@@ -89,20 +90,89 @@ describe('ReviewsFeedComponent', () => {
     expect(component.emptyTitle).toBe('Nothing needs attention');
   });
 
-  it('resolves an open review and flips it to resolved in place in the all view', () => {
+  it('reveals the note panel when marking an open review resolved — without resolving yet', () => {
     const open = makeReview({ id: 7, resolutionStatus: 'open' });
-    const resolved = makeReview({ id: 7, resolutionStatus: 'resolved' });
+    const svc = TestBed.inject(ReviewsService);
+    const spy = spyOn(svc, 'resolveReview');
+
+    component.view = 'all';
+    component.reviews = [open];
+
+    component.toggleResolve(open);
+
+    expect(component.isPanelOpen(open)).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('confirms an open review with a note, flips it in place, sends the note, and closes the panel', () => {
+    const open = makeReview({ id: 7, resolutionStatus: 'open' });
+    const resolved = makeReview({
+      id: 7,
+      resolutionStatus: 'resolved',
+      resolutionNote: 'Comped the meal',
+    });
     const svc = TestBed.inject(ReviewsService);
     const spy = spyOn(svc, 'resolveReview').and.returnValue(of(resolved));
 
     component.view = 'all';
     component.reviews = [open];
 
-    component.resolve(open);
+    component.startResolve(open);
+    component.noteDraft = '  Comped the meal  ';
+    component.confirmResolve(open);
 
-    expect(spy).toHaveBeenCalledWith('7', 'resolved');
+    // Note is trimmed before sending.
+    expect(spy).toHaveBeenCalledWith('7', 'resolved', 'Comped the meal');
     expect(component.reviews.length).toBe(1);
     expect(component.reviews[0].resolutionStatus).toBe('resolved');
+    expect(component.reviews[0].resolutionNote).toBe('Comped the meal');
+    expect(component.isPanelOpen(open)).toBe(false);
+    expect(component.noteDraft).toBe('');
+  });
+
+  it('confirms with a blank draft by sending no note', () => {
+    const open = makeReview({ id: 7, resolutionStatus: 'open' });
+    const resolved = makeReview({ id: 7, resolutionStatus: 'resolved' });
+    const svc = TestBed.inject(ReviewsService);
+    const spy = spyOn(svc, 'resolveReview').and.returnValue(of(resolved));
+
+    component.reviews = [open];
+    component.startResolve(open);
+    component.noteDraft = '   ';
+    component.confirmResolve(open);
+
+    expect(spy).toHaveBeenCalledWith('7', 'resolved', undefined);
+  });
+
+  it('cancels the note panel without resolving', () => {
+    const open = makeReview({ id: 7, resolutionStatus: 'open' });
+    const svc = TestBed.inject(ReviewsService);
+    const spy = spyOn(svc, 'resolveReview');
+
+    component.reviews = [open];
+    component.startResolve(open);
+    component.noteDraft = 'half-typed';
+    component.cancelResolve();
+
+    expect(component.isPanelOpen(open)).toBe(false);
+    expect(component.noteDraft).toBe('');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('reopens a resolved review in one click, with no note and no panel', () => {
+    const resolved = makeReview({ id: 7, resolutionStatus: 'resolved' });
+    const reopened = makeReview({ id: 7, resolutionStatus: 'open' });
+    const svc = TestBed.inject(ReviewsService);
+    const spy = spyOn(svc, 'resolveReview').and.returnValue(of(reopened));
+
+    component.view = 'all';
+    component.reviews = [resolved];
+
+    component.toggleResolve(resolved);
+
+    expect(spy).toHaveBeenCalledWith('7', 'open', undefined);
+    expect(component.isPanelOpen(resolved)).toBe(false);
+    expect(component.reviews[0].resolutionStatus).toBe('open');
   });
 
   it('drops a now-resolved review out of the needs-attention view', () => {
@@ -114,7 +184,8 @@ describe('ReviewsFeedComponent', () => {
     component.view = 'attention';
     component.reviews = [open];
 
-    component.resolve(open);
+    component.startResolve(open);
+    component.confirmResolve(open);
 
     expect(component.reviews.length).toBe(0);
   });

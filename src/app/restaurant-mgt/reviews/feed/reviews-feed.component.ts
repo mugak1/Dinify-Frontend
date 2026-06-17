@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
 import { switchMap, tap, takeUntil, map, catchError } from 'rxjs/operators';
@@ -23,7 +24,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
 @Component({
   selector: 'app-reviews-feed',
   standalone: true,
-  imports: [CommonModule, CardComponent, CardErrorComponent, BadgeComponent],
+  imports: [CommonModule, FormsModule, CardComponent, CardErrorComponent, BadgeComponent],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header -->
@@ -271,6 +272,13 @@ type ResolutionFilter = 'open' | 'resolved' | null;
                   </div>
                 }
 
+                <!-- Action taken: the resolution note on a resolved review -->
+                @if (review.resolutionStatus === 'resolved' && review.resolutionNote) {
+                  <p class="text-xs italic text-muted-foreground mt-3 break-words">
+                    Action taken: {{ review.resolutionNote }}
+                  </p>
+                }
+
                 <!-- Footer: order context (left) + resolve action (right) -->
                 <div class="flex items-center gap-3 mt-3">
                   @if (orderContext(review).length > 0) {
@@ -278,34 +286,79 @@ type ResolutionFilter = 'open' | 'resolved' | null;
                       {{ orderContext(review).join(' · ') }}
                     </p>
                   }
-                  <button
-                    type="button"
-                    (click)="resolve(review)"
-                    [disabled]="isResolving(review)"
-                    class="ml-auto inline-flex items-center gap-1.5 shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    [ngClass]="
-                      review.resolutionStatus === 'resolved'
-                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                        : 'text-success hover:bg-success/10'
-                    "
-                  >
-                    @if (review.resolutionStatus !== 'resolved') {
-                      <svg
-                        aria-hidden="true"
-                        class="w-3.5 h-3.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    }
-                    {{ resolveLabel(review) }}
-                  </button>
+                  @if (!isPanelOpen(review)) {
+                    <button
+                      type="button"
+                      (click)="toggleResolve(review)"
+                      [disabled]="isResolving(review)"
+                      class="ml-auto inline-flex items-center gap-1.5 shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      [ngClass]="
+                        review.resolutionStatus === 'resolved'
+                          ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                          : 'text-success hover:bg-success/10'
+                      "
+                    >
+                      @if (review.resolutionStatus !== 'resolved') {
+                        <svg
+                          aria-hidden="true"
+                          class="w-3.5 h-3.5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      }
+                      {{ resolveLabel(review) }}
+                    </button>
+                  }
                 </div>
+
+                <!-- Inline resolve-with-note panel (revealed when marking an open review resolved) -->
+                @if (isPanelOpen(review)) {
+                  <div class="mt-3 rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                    <textarea
+                      [(ngModel)]="noteDraft"
+                      rows="2"
+                      placeholder="What's being done, or what you did — optional"
+                      class="w-full resize-none rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    ></textarea>
+                    <div class="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        (click)="cancelResolve()"
+                        class="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        (click)="confirmResolve(review)"
+                        [disabled]="isResolving(review)"
+                        class="inline-flex items-center gap-1.5 rounded-md bg-success px-2.5 py-1 text-xs font-medium text-success-foreground transition-colors hover:bg-success/90 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        @if (!isResolving(review)) {
+                          <svg
+                            aria-hidden="true"
+                            class="w-3.5 h-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        }
+                        {{ isResolving(review) ? 'Resolving…' : 'Resolve' }}
+                      </button>
+                    </div>
+                  </div>
+                }
               </div>
             </app-dn-card>
           }
@@ -330,6 +383,15 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
 
   /** Review ids with an in-flight resolve PATCH — disables their button. */
   readonly pendingResolve = new Set<string>();
+
+  /**
+   * The id of the review whose inline resolve-with-note panel is open (one at a
+   * time), and the draft note being typed. Marking an OPEN review resolved
+   * reveals this panel rather than resolving immediately; reopening a resolved
+   * review stays one-click.
+   */
+  resolvingId: string | null = null;
+  noteDraft = '';
 
   private restaurantId = '';
   private filters$ = new BehaviorSubject<ReviewFeedFilters>({});
@@ -442,23 +504,75 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
   // --- Resolve action ------------------------------------------------------
 
   /**
-   * Toggle a review's resolution status (open ⇄ resolved) via the resolution
-   * endpoint. The id is tracked as pending so its button disables while the
-   * PATCH is in flight. On success the updated item is folded back into the
-   * feed; on error we just clear pending — the global HTTP interceptor already
-   * toasts request failures, so we don't add a second error surface.
+   * Footer button entry point. A resolved review reopens in one click; an open
+   * review reveals the inline note panel (resolving happens on confirm).
    */
-  resolve(review: ReviewListItem): void {
-    const id = String(review.id);
+  toggleResolve(review: ReviewListItem): void {
+    if (review.resolutionStatus === 'resolved') {
+      this.reopen(review);
+    } else {
+      this.startResolve(review);
+    }
+  }
+
+  /** Open the resolve-with-note panel for an open review (one at a time). */
+  startResolve(review: ReviewListItem): void {
+    this.resolvingId = String(review.id);
+    this.noteDraft = '';
+  }
+
+  /** Close the panel without resolving. */
+  cancelResolve(): void {
+    this.resolvingId = null;
+    this.noteDraft = '';
+  }
+
+  /** Whether a review's resolve-with-note panel is currently open. */
+  isPanelOpen(review: ReviewListItem): boolean {
+    return this.resolvingId === String(review.id);
+  }
+
+  /**
+   * Confirm the panel: mark the review resolved, attaching the trimmed note when
+   * one was typed (a blank draft sends no note). On success the panel closes and
+   * the updated item is folded back into the feed.
+   */
+  confirmResolve(review: ReviewListItem): void {
+    const note = this.noteDraft.trim() || undefined;
+    this.performResolve(String(review.id), 'resolved', note, () => {
+      this.resolvingId = null;
+      this.noteDraft = '';
+    });
+  }
+
+  /** Reopen a resolved review — one click, no note. */
+  reopen(review: ReviewListItem): void {
+    this.performResolve(String(review.id), 'open');
+  }
+
+  /**
+   * Shared resolve/reopen PATCH. The id is tracked as pending so its confirm/
+   * reopen button disables while in flight. On success `onSuccess` runs (e.g.
+   * closing the panel) and the updated item is folded back into the feed; on
+   * error we just clear pending — the global HTTP interceptor already toasts
+   * request failures, so we don't add a second error surface (the panel stays
+   * open so the draft survives a retry).
+   */
+  private performResolve(
+    id: string,
+    status: 'open' | 'resolved',
+    note?: string,
+    onSuccess?: () => void,
+  ): void {
     if (this.pendingResolve.has(id)) return;
-    const next = review.resolutionStatus === 'resolved' ? 'open' : 'resolved';
     this.pendingResolve.add(id);
     this.reviewsService
-      .resolveReview(id, next)
+      .resolveReview(id, status, note)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (updated) => {
           this.pendingResolve.delete(id);
+          onSuccess?.();
           this.applyResolved(updated);
         },
         error: () => {
@@ -489,13 +603,16 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
     return this.pendingResolve.has(String(review.id));
   }
 
-  /** Button label, reflecting current status and in-flight state. */
+  /**
+   * Footer button label. Reopen is one-click so it reflects its in-flight state;
+   * "Mark resolved" only opens the note panel, so the in-flight "Resolving…"
+   * label lives on the panel's confirm button instead.
+   */
   resolveLabel(review: ReviewListItem): string {
-    const resolving = this.isResolving(review);
     if (review.resolutionStatus === 'resolved') {
-      return resolving ? 'Reopening…' : 'Reopen';
+      return this.isResolving(review) ? 'Reopening…' : 'Reopen';
     }
-    return resolving ? 'Resolving…' : 'Mark resolved';
+    return 'Mark resolved';
   }
 
   // --- Display helpers (sentiment treatment mirrors the reviews-card) -------
