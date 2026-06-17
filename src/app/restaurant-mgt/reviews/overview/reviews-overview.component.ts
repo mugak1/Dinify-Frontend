@@ -28,19 +28,28 @@ type TimeframeDays = 30 | 90;
       <!-- Header + timeframe toggle (always visible) -->
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Reviews</h1>
-        <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60 self-start">
-          @for (days of timeframeOptions; track days) {
-            <button
-              type="button"
-              (click)="setTimeframe(days)"
-              class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-              [class.bg-primary/10]="timeframeDays === days"
-              [class.text-primary]="timeframeDays === days"
-              [class.text-muted-foreground]="timeframeDays !== days"
-            >
-              {{ days }} days
-            </button>
-          }
+        <!-- Persistent feed entry + timeframe toggle, grouped on the right -->
+        <div class="flex items-center gap-3 self-start">
+          <a
+            routerLink="/rest-app/reviews/feed"
+            class="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
+          >
+            View all reviews <span aria-hidden="true">→</span>
+          </a>
+          <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60">
+            @for (days of timeframeOptions; track days) {
+              <button
+                type="button"
+                (click)="setTimeframe(days)"
+                class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                [class.bg-primary/10]="timeframeDays === days"
+                [class.text-primary]="timeframeDays === days"
+                [class.text-muted-foreground]="timeframeDays !== days"
+              >
+                {{ days }} days
+              </button>
+            }
+          </div>
         </div>
       </div>
 
@@ -138,6 +147,7 @@ type TimeframeDays = 30 | 90;
                 </ul>
                 <a
                   routerLink="/rest-app/reviews/feed"
+                  [queryParams]="{ view: 'attention' }"
                   class="inline-flex items-center gap-1 mt-2 text-sm font-medium text-primary hover:text-primary/80"
                 >
                   View flagged reviews <span aria-hidden="true">→</span>

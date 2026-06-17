@@ -30,6 +30,14 @@ describe('ReviewsOverviewComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  it('always exposes a "View all reviews" link to the feed', () => {
+    const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector(
+      'a[href="/rest-app/reviews/feed"]',
+    );
+    expect(link).toBeTruthy();
+    expect(link?.textContent).toContain('View all reviews');
+  });
+
   it('defaults to the 90-day timeframe', () => {
     expect(component.timeframeDays).toBe(90);
   });

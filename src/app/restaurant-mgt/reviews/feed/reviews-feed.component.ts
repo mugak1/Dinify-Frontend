@@ -347,6 +347,16 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
       this.route.parent?.snapshot.params['id'] ||
       '';
 
+    // Deep-link from the Overview's "View flagged reviews →" entry:
+    // ?view=attention opens the feed straight on the Needs-attention
+    // (critical + open) queue. Seed filters$ BEFORE subscribing so the first
+    // load already carries those filters — no throwaway all-reviews fetch.
+    // Any other/absent value keeps the 'all' default.
+    if (this.route.snapshot.queryParamMap.get('view') === 'attention') {
+      this.view = 'attention';
+      this.filters$.next(this.buildFilters());
+    }
+
     this.filters$
       .pipe(
         takeUntil(this.destroy$),

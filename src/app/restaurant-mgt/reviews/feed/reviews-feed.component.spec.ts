@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { ReviewsFeedComponent } from './reviews-feed.component';
 import { ReviewsService } from '../services/reviews.service';
@@ -117,5 +117,34 @@ describe('ReviewsFeedComponent', () => {
     component.resolve(open);
 
     expect(component.reviews.length).toBe(0);
+  });
+});
+
+describe('ReviewsFeedComponent — ?view=attention deep-link', () => {
+  it('starts in the needs-attention view when the view query param is "attention"', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReviewsFeedComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            parent: null,
+            snapshot: { queryParamMap: convertToParamMap({ view: 'attention' }) },
+          },
+        },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ReviewsFeedComponent);
+    fixture.detectChanges(); // runs ngOnInit → reads the deep-link param
+
+    expect(fixture.componentInstance.view).toBe('attention');
+    expect(fixture.componentInstance.buildFilters()).toEqual({
+      critical: true,
+      resolutionStatus: 'open',
+    });
   });
 });
