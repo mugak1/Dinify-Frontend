@@ -67,6 +67,9 @@ export interface ReviewListItem {
   spend: string | null;
   isCritical: boolean;
   resolutionStatus: 'open' | 'resolved';
+  // Optional free-text note an owner attaches when resolving — the corrective
+  // action taken. null when none was recorded.
+  resolutionNote: string | null;
   // Per-dimension scores (0–5), carried to render compact chips on each card.
   // null when the diner skipped that dimension.
   foodRating: number | null;

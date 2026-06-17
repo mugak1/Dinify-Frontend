@@ -122,6 +122,8 @@ export function adaptReviewListItem(raw: any): ReviewListItem {
     spend: raw?.spend ?? null,
     isCritical: !!raw?.is_critical,
     resolutionStatus: raw?.resolution_status === 'resolved' ? 'resolved' : 'open',
+    // null when absent/empty so the "Action taken" line only shows for a real note.
+    resolutionNote: raw?.resolution_note || null,
     foodRating: safeFloatOrNull(raw?.food_rating),
     speedRating: safeFloatOrNull(raw?.speed_rating),
     serviceRating: safeFloatOrNull(raw?.service_rating),
