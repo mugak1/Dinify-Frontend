@@ -154,10 +154,26 @@ describe('BasketBodyComponent', () => {
 
     expect(router.navigate).toHaveBeenCalledWith(
       ['/diner', 'basket', 'order-complete'],
-      jasmine.objectContaining({ state: jasmine.objectContaining({ orderRef: 'existing-123' }) }),
+      jasmine.objectContaining({
+        state: jasmine.objectContaining({ orderRef: 'existing-123', orderId: 'existing-123' }),
+      }),
     );
     expect(basketService.clearBasket).toHaveBeenCalled();
     expect(component.orderError).toBeFalse();
+  });
+
+  it('forwards the real order id to order-complete on a successful submit', () => {
+    component.order_initiated = { order_details: { id: 'o1' } } as any;
+    component.table = { number: 3, id: 't1' };
+    api.postPatch.and.returnValue(of({}) as any);
+
+    component.submitOrder();
+
+    expect(router.navigate).toHaveBeenCalledWith(
+      ['/diner', 'basket', 'order-complete'],
+      jasmine.objectContaining({ state: jasmine.objectContaining({ orderId: 'o1' }) }),
+    );
+    expect(basketService.clearBasket).toHaveBeenCalled();
   });
 
   it('shows an inline error on a genuine (non-400) submit failure without navigating', () => {

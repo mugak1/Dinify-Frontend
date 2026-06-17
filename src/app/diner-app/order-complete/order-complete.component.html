@@ -1,4 +1,4 @@
-<div class="min-h-[100dvh] bg-background flex flex-col items-center justify-center px-5 py-10">
+<div class="min-h-[100dvh] bg-background flex flex-col items-center px-5 py-10" [class.justify-center]="!orderId()">
   <div class="w-full max-w-md bg-white rounded-none shadow-xl px-7 py-9 flex flex-col items-center text-center">
     <!-- Emerald success marker: sharp square tile with a white check -->
     <div class="w-16 h-16 rounded-none bg-emerald-600 flex items-center justify-center mb-6">
@@ -31,7 +31,73 @@
       </div>
     </div>
 
-    <!-- Full-width back-to-menu button (sharp corners) -->
+    <!-- Review capture: only when a real order id was forwarded -->
+    @if (orderId()) {
+      <div class="w-full border-t border-gray-200 pt-7 mb-7 text-left">
+        @if (submitted()) {
+          <!-- Thank-you replaces the form on a successful submit -->
+          <div class="flex flex-col items-center text-center py-2">
+            <h2 class="font-display text-xl font-bold text-gray-900 mb-1">Thanks for the feedback</h2>
+            <p class="font-sans text-sm text-gray-500">We've shared it with the restaurant.</p>
+          </div>
+        } @else {
+          <h2 class="font-display text-xl font-bold text-gray-900 mb-1">How was it?</h2>
+          <p class="font-sans text-sm text-gray-500 mb-4">Tap to rate your order.</p>
+
+          <!-- Required overall rating: large, tap-friendly stars -->
+          <div class="flex items-center gap-1.5" role="radiogroup" aria-label="Overall rating">
+            @for (i of stars; track i) {
+              <button type="button" (click)="overall.set(i)"
+                      [attr.aria-label]="i + (i === 1 ? ' star' : ' stars')"
+                      [attr.aria-pressed]="i <= overall()"
+                      class="p-1 -m-0.5 transition-transform active:scale-90">
+                <svg class="w-10 h-10" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                     [ngClass]="i <= overall() ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-none'">
+                  <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
+                </svg>
+              </button>
+            }
+          </div>
+
+          <!-- Optional dimensions + comment, revealed once an overall rating is set -->
+          @if (overall() > 0) {
+            <div class="mt-6 space-y-3">
+              @for (dim of dimensions; track dim.key) {
+                <div class="flex items-center justify-between">
+                  <span class="font-sans text-sm text-gray-700">{{ dim.label }}</span>
+                  <div class="flex items-center gap-0.5" role="radiogroup" [attr.aria-label]="dim.label + ' rating'">
+                    @for (i of stars; track i) {
+                      <button type="button" (click)="setDimension(dim.key, i)"
+                              [attr.aria-label]="dim.label + ' ' + i + (i === 1 ? ' star' : ' stars')"
+                              class="p-1 transition-transform active:scale-90">
+                        <svg class="w-6 h-6" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                             [ngClass]="i <= (dimensionRatings()[dim.key] ?? 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-none'">
+                          <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
+                        </svg>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+
+              <textarea [value]="comment()" (input)="onComment($event)" rows="3"
+                        placeholder="Anything else? (optional)"
+                        class="w-full mt-2 rounded-none border border-gray-200 bg-gray-50 px-3 py-2 font-sans text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 resize-none"></textarea>
+            </div>
+          }
+
+          <!-- Submit: enabled only once an overall rating is set -->
+          <button type="button" (click)="submitReview()" [disabled]="overall() === 0 || submitting()"
+                  class="w-full mt-6 inline-flex items-center justify-center rounded-none bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-3.5 px-4 font-sans font-semibold text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            {{ submitting() ? 'Sending…' : 'Submit review' }}
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Full-width back-to-menu button (sharp corners) — always available -->
     <button type="button" (click)="backToMenu()"
             class="w-full inline-flex items-center justify-center rounded-none bg-red-600 hover:bg-red-700 active:bg-red-800 text-white py-3.5 px-4 font-sans font-semibold text-base transition-colors">
       Back to menu
