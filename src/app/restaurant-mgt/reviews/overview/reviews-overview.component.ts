@@ -112,7 +112,7 @@ type TimeframeDays = 30 | 90;
         </p>
 
         <!-- 2. Needs-attention block (adaptive — hidden when nothing to flag) -->
-        @if (analytics.weakestDimension || analytics.unresolvedCriticalCount > 0) {
+        @if (analytics.unresolvedCriticalCount > 0) {
           <div class="rounded-xl bg-warning/10 border border-warning/20 p-4 sm:p-5">
             <div class="flex items-start gap-3">
               <svg
