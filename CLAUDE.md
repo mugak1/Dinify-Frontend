@@ -65,9 +65,21 @@ so keep it current when conventions change.
   `PresetTagsComponent`). Shared section chrome lives in `settings/components/`
   (`SectionPageComponent`, `SettingsIconComponent`); the old monolithic
   `SettingsComponent` is gone
-- Other restaurant-mgt surfaces (payments, reviews + reviews-management,
-  reports + report-detail, notifications) are scaffolded and routed —
-  per-view data-wiring status varies
+- Reviews: ✅ real-wired — a standalone Overview (route `reviews`,
+  `ReviewsOverviewComponent`: summary line, needs-attention block, dimension
+  breakdown, rating-trend chart) plus a Feed (route `reviews/feed`,
+  `ReviewsFeedComponent`: list with critical/resolution/rating filters, a
+  needs-attention queue, resolve/reopen with an optional resolution note, and
+  deep-linking to a flagged review). Both read/write the `reviews/` API through a
+  dedicated `ReviewsService` (no mock flag) with a `reviews-adapter` parsing
+  layer; diners leave a review on the diner-app order-complete screen (POST
+  `reviews/submit/`, gated on a real backend order id). The old monolithic
+  reviews-management surface has been removed
+- Payments: a real transactions listing only (route `payments`,
+  `reports/restaurant/transactions-listing/`); its dead Falcon wallet UI
+  (Disburse Funds, DinifyAccount balance) has been removed
+- Other restaurant-mgt surfaces (reports + report-detail, notifications) are
+  scaffolded and routed — per-view data-wiring status varies
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
   persistent `OfflineBannerComponent` in the back-office shells (restaurant +
   Dinify admin) and an `OfflineStripComponent` in the diner app. The HTTP error
@@ -79,7 +91,9 @@ so keep it current when conventions change.
   `/privacy`, `/terms`, `/cookies` via `loadComponent` in `app-routing.module.ts`
 - The legacy Falcon Orders page has been removed — there is no Orders route,
   component, or sidebar entry in the restaurant portal. Live order/fulfilment
-  flow lives in the Kitchen View (KDS board) at `/kitchen`
+  flow lives in the Kitchen View (KDS board) at `/kitchen`. The diner app's
+  parked OrdersComponent (another dead Falcon payment screen) has likewise been
+  removed
 
 ## Deployment Rules — CRITICAL
 - Pushing to main triggers automatic Firebase deployment via GitHub Actions
@@ -237,6 +251,11 @@ writing new tag or price/menu logic:
   in the backend already and remain to be wired for the Service View
 - Kitchen real endpoints: GET `kitchen/orders/active/` (polled), PATCH
   `kitchen/orders/{id}/fulfilment-status/` and `kitchen/orders/{id}/priority/`
+- Reviews real endpoints: GET `reviews/analytics/` (Overview) and `reviews/`
+  (paginated Feed via `ApiService.loadAllPages`), PATCH
+  `reviews/{id}/resolution/` (resolve/reopen + optional note), POST
+  `reviews/submit/` (diner capture). `ReviewsService` has no mock flag — it
+  calls `ApiService` directly through a `reviews-adapter` layer
 - Only flip a mock flag to `false` when design is finalised and the
   backend endpoint is confirmed
 
