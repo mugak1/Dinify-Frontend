@@ -268,6 +268,7 @@ export class BillingComponent implements OnInit {
           });
         }
       });
+    }
 } else if (this.PaymentForm?.get('payment_mode')?.value == 'card') {
   this.api.postPatch('finances/transactions/', this.PaymentForm.value, 'post').subscribe((x: any) => {
     if (x.status == 200) {
