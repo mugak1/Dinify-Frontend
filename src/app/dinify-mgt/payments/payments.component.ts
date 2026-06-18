@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component } from '@angular/core';
-import { Account, RestaurantDetail, TransactionListItem } from 'src/app/_models/app.models';
+import { RestaurantDetail, TransactionListItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 
 @Component({
@@ -12,7 +12,6 @@ import { ApiService } from 'src/app/_services/api.service';
 })
 export class PaymentsComponent {
     rest?:RestaurantDetail;
-    acc?:Account;
   list?:TransactionListItem[]=[];
   today=this.datePipe.transform(Date.now(),'yyyy-MM-dd') as any;
   /**
@@ -25,7 +24,6 @@ export class PaymentsComponent {
   getList(){
     this.api.get<any>(null,`reports/restaurant/`+'transactions-listing/',{from:this.today,to:this.today}).subscribe((x)=>{
       /* this.list=x?.data?.records as any[];  */    
-      this.acc= this.rest?.account
   this.list=x?.data as any;
   })
   }
