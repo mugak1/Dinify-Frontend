@@ -8,7 +8,6 @@ import { RouterModule, Routes } from '@angular/router';
 import { StorageModule } from '../_services/storage/storage.module';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
 import { MenuItemDetailComponent } from './menu-item-detail/menu-item-detail.component';
-import { OrdersComponent } from './orders/orders.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { PaymentDetailsComponent } from './payment-details/payment-details.component';
 import { OrderCompleteComponent } from './order-complete/order-complete.component';
@@ -26,7 +25,6 @@ const routes: Routes = [
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
   {path:'basket',component:BasketComponent,title:'Basket'},
   {path:'basket/order-complete',component:OrderCompleteComponent,title:'Order placed'},
-  {path:'orders',component:OrdersComponent},
   {path:'error',component:ErrorPageComponent},
   {path:'payment-details/:id', component:PaymentDetailsComponent},
   { path: 'h/:table/item/:itemId', component: MenuItemDetailComponent, title: 'Menu' },
@@ -38,7 +36,6 @@ const routes: Routes = [
     DinersMenuComponent,
     BasketComponent,
     MenuItemDetailComponent,
-    OrdersComponent,
     PaymentDetailsComponent,
     OrderCompleteComponent
   ],
