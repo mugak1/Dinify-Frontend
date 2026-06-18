@@ -220,7 +220,7 @@ export class BillingComponent implements OnInit {
     });
   }
 
-  // ── Payment flow (PRESERVED VERBATIM — the untouched seam) ───────────────────
+  // ── Payment flow — the provider seam (card redirect removed in 8a; reinstated with the provider in 8b) ──
   closeModal() {
     this.showModal = false;
     this.PaymentForm != null;
@@ -264,21 +264,18 @@ export class BillingComponent implements OnInit {
               this.toast.success(x.message);
               this.closeModal();
 
-              //window.location.href=res.redirect_url;
             }
           });
         }
       });
-    } else if (this.PaymentForm?.get('payment_mode')?.value == 'card') {
-      this.api.postPatch('finances/transactions/', this.PaymentForm.value, 'post').subscribe((x: any) => {
-        const res = x?.data;
-        if (x.status == 200) {
-          this.toast.success(x.message);
-          this.closeModal();
-          window.location.href = res.redirect_url;
-        }
-      });
+} else if (this.PaymentForm?.get('payment_mode')?.value == 'card') {
+  this.api.postPatch('finances/transactions/', this.PaymentForm.value, 'post').subscribe((x: any) => {
+    if (x.status == 200) {
+      this.toast.success(x.message);
+      this.closeModal();
     }
+  });
+}
   }
   sendOtp(identification: any, identifier: any, purpose: any) {
     this.api
