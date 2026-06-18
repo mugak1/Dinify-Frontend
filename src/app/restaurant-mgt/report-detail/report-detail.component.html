@@ -223,10 +223,8 @@
                 <th class="px-6 py-3">Channel</th>
                 <th class="px-6 py-3">Status</th>
                     <th class="px-6 py-3 text-center">Order No.</th>
-                    <th class="px-6 py-3">Opening Balance</th>
                     <th class="px-6 py-3">Amount In</th>
                     <th class="px-6 py-3">Amount Out</th>
-                    <th class="py-3 text-end">Closing Balance</th>
               
             </tr>
           </thead>
@@ -262,10 +260,8 @@
               <td class="px-6 py-4">{{t.transaction_platform|titlecase}}</td>
               <td class="px-6 py-4">{{t.transaction_status|titlecase}}</td>
               <td class="px-6 py-4 text-center">{{t.order_number}}</td>
-              <td class="px-6 py-4">{{(t.transaction_status==='success'?(++t.account_balances.before.card_actual_balance++t.account_balances.before.cash_actual_balance++t.account_balances.before.momo_actual_balance):'')|number}}</td>
               <td class="px-6 py-4">{{t.amount_in|number}}</td>
               <td class="px-6 py-4">{{t.amount_out|number}}</td>
-              <td class="px-6 py-4 text-end">{{(t.transaction_status==='success'?(++t.account_balances.after.card_actual_balance++t.account_balances.after.cash_actual_balance++t.account_balances.after.momo_actual_balance):'')|number}}</td>
             </tr>
           </tbody>
     </table>

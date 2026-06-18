@@ -576,30 +576,6 @@ export interface Account {
   account_currency: string
   account_type: string
   account_status: string
-  momo_actual_balance: number
-  momo_available_balance: number
-  momo_cumulative_in: number
-  momo_cumulative_out: number
-  momo_cumulative_in_charges: number
-  momo_cumulative_out_charges: number
-  momo_cumulative_refunds: number
-  momo_cumulative_disbursements: number
-  card_actual_balance: number
-  card_available_balance: number
-  card_cumulative_in: number
-  card_cumulative_out: number
-  card_cumulative_in_charges: number
-  card_cumulative_out_charges: number
-  card_cumulative_refunds: number
-  card_cumulative_disbursements: number
-  cash_actual_balance: number
-  cash_available_balance: number
-  cash_cumulative_in: number
-  cash_cumulative_out: number
-  cash_cumulative_in_charges: number
-  cash_cumulative_out_charges: number
-  cash_cumulative_refunds: number
-  cash_cumulative_disbursements: number
   created_by: any
   deleted_by: any
   restaurant: string
@@ -614,39 +590,6 @@ export interface TransactionListItem {
   amount_out: number
   transaction_status: string
   transaction_platform: string
-  account_balances: AccountBalances
-}
-
-export interface AccountBalances {
-  after: AccountTransaction
-  before: AccountTransaction
-}
-
-export interface AccountTransaction{
-  card_cumulative_in: string
-  cash_cumulative_in: string
-  momo_cumulative_in: string
-  card_actual_balance: string
-  card_cumulative_out: string
-  cash_actual_balance: string
-  cash_cumulative_out: string
-  momo_actual_balance: string
-  momo_cumulative_out: string
-  card_available_balance: string
-  cash_available_balance: string
-  momo_available_balance: string
-  card_cumulative_refunds: string
-  cash_cumulative_refunds: string
-  momo_cumulative_refunds: string
-  card_cumulative_in_charges: string
-  cash_cumulative_in_charges: string
-  momo_cumulative_in_charges: string
-  card_cumulative_out_charges: string
-  cash_cumulative_out_charges: string
-  momo_cumulative_out_charges: string
-  card_cumulative_disbursements: string
-  cash_cumulative_disbursements: string
-  momo_cumulative_disbursements: string
 }
 export interface SalesReportListItem {
   id: string
