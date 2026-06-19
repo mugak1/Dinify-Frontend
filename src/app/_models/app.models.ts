@@ -750,7 +750,6 @@ export interface DinifyEarnings {
   monthly: number
   month_growth: string
   subscriptions: number
-  surcharge: number
   outstanding: number
 }
 

@@ -64,7 +64,6 @@ export class DashboardComponent implements OnInit {
     notClosed: 2000
   };
   subscriptionRevenue: number = 3000000;
-  surchargeRevenue: number = 1500000;
   outstandingRevenue: number = 500000;
 
 data:any= {
