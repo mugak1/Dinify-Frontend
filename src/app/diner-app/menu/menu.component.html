@@ -1,5 +1,22 @@
 <div  class="flex flex-col">
 
+<!-- Optional cover-photo hero: the FIRST thing on the menu when the restaurant
+     has a cover_photo. Full-bleed image dissolving into the white menu via the
+     scrim, with a scroll parallax driven by the inherited --sy var (see the
+     appScrollProgress directive on the diner shell root). No cover ⇒ no hero. -->
+<div *ngIf="coverPhoto" class="hero relative h-[252px] overflow-hidden">
+  <img [src]="url + '/media/' + coverPhoto" [alt]="restaurantName"
+       class="hero-img absolute inset-0 w-full h-full object-cover" decoding="async" />
+  <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
+  <div class="absolute left-6 right-6 bottom-5 z-10">
+    <div class="text-white/80 font-display text-[11px] font-bold tracking-[0.18em] uppercase">
+      Dine-in · Table {{ tableNumber }}
+    </div>
+    <h1 class="font-display font-extrabold text-white text-4xl leading-none tracking-tight mt-1.5"
+        style="text-shadow:0 2px 12px rgba(0,0,0,.35)">{{ restaurantName }}</h1>
+  </div>
+</div>
+
 <app-menu-nav-bar *ngIf="isInRestApp"></app-menu-nav-bar>
 
 <!-- Skeleton cards -->

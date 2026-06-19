@@ -46,6 +46,13 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   @Input() restaurant_id: any = '';
   menu_list?: MenuItem[] | any = [];
 
+  // Hero fields, read from the shared table-scan payload (sessionStorage) since
+  // show-menu returns sections only. Populated by hydrateHeroFields() once the
+  // restaurant resolves; coverPhoto null ⇒ no hero (it's optional).
+  coverPhoto: string | null = null;
+  restaurantName = '';
+  tableNumber: number | null = null;
+
   get basketItems(): BasketItem[] {
     return this.basketService.Basket()?.items ?? [];
   }
@@ -78,6 +85,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     });
     this.restaurant = this.sessionStorage.getItem<Restaurant>('restaurant') as any;
     this.navState.setPresetTags(this.restaurant?.preset_tags || []);
+    this.hydrateHeroFields();
 
     // When coming directly from a QR scan, the table-scan API call in the
     // DinerAppComponent wrapper may not have resolved yet — so session storage
@@ -89,11 +97,25 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
         if (!r) return;
         this.restaurant = r;
         this.navState.setPresetTags(this.restaurant?.preset_tags || []);
+        this.hydrateHeroFields();
         this.storageSub?.unsubscribe();
         this.storageSub = undefined;
         this.tryLoadMenu();
       });
     }
+  }
+
+  /** Reads the hero's display data from the shared table-scan payload. Cover
+   *  photo and name come off the resolved `restaurant`; the table number lives
+   *  on the 'Table' payload (written alongside 'restaurant' in the same sync
+   *  block, so it's present whenever 'restaurant' is). Captured into plain
+   *  fields rather than getters so the template never re-parses sessionStorage
+   *  on a change-detection cycle. */
+  private hydrateHeroFields(): void {
+    this.coverPhoto = this.restaurant?.cover_photo ?? null;
+    this.restaurantName = this.restaurant?.name ?? '';
+    this.tableNumber =
+      (this.sessionStorage.getItem<TableScan>('Table') as TableScan | null)?.number ?? null;
   }
 
   /** Normalises the tags payload to MenuItemTagRef[]. Tolerates the legacy
