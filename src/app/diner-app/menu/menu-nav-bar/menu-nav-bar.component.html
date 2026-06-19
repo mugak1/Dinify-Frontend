@@ -60,7 +60,7 @@
                   (click)="!navState.searchQuery() ? scrollTo(s.name, i, $event) : false"
                   class="font-display flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
                   [ngClass]="{
-                    'bg-red-600 text-white shadow-sm': removeUnderscore(navState.currentSection()) === s.name,
+                    'bg-d-red text-white shadow-glow': removeUnderscore(navState.currentSection()) === s.name,
                     'bg-gray-100 text-gray-900 hover:bg-gray-200': removeUnderscore(navState.currentSection()) !== s.name
                   }">
             {{ s?.name }}

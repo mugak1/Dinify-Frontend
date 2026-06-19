@@ -90,7 +90,7 @@
 
           <!-- Submit: enabled only once an overall rating is set -->
           <button type="button" (click)="submitReview()" [disabled]="overall() === 0 || submitting()"
-                  class="w-full mt-6 inline-flex items-center justify-center rounded-none bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-3.5 px-4 font-sans font-semibold text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                  class="w-full mt-6 inline-flex items-center justify-center rounded-none bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-3.5 px-4 font-sans font-semibold text-base shadow-glow-green transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
             {{ submitting() ? 'Sending…' : 'Submit review' }}
           </button>
         }
@@ -99,7 +99,7 @@
 
     <!-- Full-width back-to-menu button (sharp corners) — always available -->
     <button type="button" (click)="backToMenu()"
-            class="w-full inline-flex items-center justify-center rounded-none bg-red-600 hover:bg-red-700 active:bg-red-800 text-white py-3.5 px-4 font-sans font-semibold text-base transition-colors">
+            class="w-full inline-flex items-center justify-center rounded-none bg-d-red text-white py-3.5 px-4 font-sans font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99]">
       Back to menu
     </button>
   </div>
