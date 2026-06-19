@@ -3,14 +3,18 @@
        offline strip below it when offline (mirrors the menu nav-bar offset) so
        the strip stays visible instead of being covered. -->
   <div [style.top]="connectivity.isOffline() ? '88px' : '48px'"
-       class="flex items-center w-full text-center py-1.5 border-b border-gray-200 bg-white sticky z-30">
+       class="flex items-center w-full py-1.5 border-b border-gray-200 bg-white sticky z-30">
     <!-- Back Button -->
-    <a (click)="loc.back()" class="absolute left-0 flex items-center px-3 py-1.5 rounded-md hover:bg-gray-100" aria-label="Go Back">
+    <a (click)="loc.back()" class="flex items-center px-3 py-1.5 rounded-md hover:bg-gray-100" aria-label="Go Back">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
       </svg>
     </a>
-    <span class="mx-auto text-lg font-bold">Your Basket</span>
+    <div class="flex flex-col">
+      <span class="text-lg font-bold leading-tight">Your Basket</span>
+      <span *ngIf="restaurantName || tableNumber !== null"
+            class="text-sm text-gray-500 leading-tight">{{ restaurantName }}<ng-container *ngIf="tableNumber !== null">&nbsp;· Table {{ tableNumber }}</ng-container></span>
+    </div>
   </div>
 
   <app-basket-body></app-basket-body>
