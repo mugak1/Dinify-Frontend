@@ -15,6 +15,7 @@ import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
 import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
 import { menuItemUrl } from '../menu-item-detail/menu-item-url';
+import { ConnectivityService } from 'src/app/_services/connectivity.service';
 
 @Component({
     selector: 'app-diners-menu',
@@ -60,6 +61,16 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     return this.basketService.Basket()?.totalAmount ?? 0;
   }
 
+  /** Sticky-top offset for the menu category nav-bar. In the diner shell it pins
+   *  directly under the 48px brand strip, or 88px when the offline strip (40px) is
+   *  showing. Embedded in the rest-app (no diner brand/offline strips) it keeps the
+   *  component's 49px default. Mirrors the offset the diner shell applied before the
+   *  nav-bar moved below the hero. */
+  get navStickyTop(): string {
+    if (this.isInRestApp) return '49px';
+    return this.connectivity.isOffline() ? '88px' : '48px';
+  }
+
   constructor(
     private sessionStorage: SessionStorageService,
     private api: ApiService,
@@ -67,6 +78,7 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     private router: Router,
     public navState: MenuNavStateService,
     private toast: ToastService,
+    private connectivity: ConnectivityService,
   ) {
     // Seed currentSection reactively whenever the menu loads (or reloads after
     // ngOnDestroy clears it). Self-healing: if currentSection ever falls back

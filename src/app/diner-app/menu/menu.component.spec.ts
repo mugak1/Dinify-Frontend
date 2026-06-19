@@ -9,13 +9,19 @@ import { provideRouter } from '@angular/router';
 import { WINDOW } from '../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../_services/storage/storage-key-prefix.token';
 import { DinersMenuComponent } from './menu.component';
+import { ConnectivityService } from '../../_services/connectivity.service';
 
 describe('DinersMenuComponent', () => {
   let component: DinersMenuComponent;
   let fixture: ComponentFixture<DinersMenuComponent>;
   let httpMock: HttpTestingController;
+  // Mutable offline flag backing a ConnectivityService stub so navStickyTop is
+  // deterministic regardless of the runner's real navigator.onLine.
+  let isOfflineValue = false;
+  const connectivityStub = { isOffline: () => isOfflineValue };
 
   beforeEach(async () => {
+    isOfflineValue = false;
     await TestBed.configureTestingModule({
       declarations: [DinersMenuComponent],
       providers: [
@@ -24,6 +30,7 @@ describe('DinersMenuComponent', () => {
         provideRouter([]),
         { provide: WINDOW, useValue: window },
         { provide: STORAGE_KEY_PREFIX, useValue: '' },
+        { provide: ConnectivityService, useValue: connectivityStub },
       ],
       schemas: [NO_ERRORS_SCHEMA],
     }).compileComponents();
@@ -90,5 +97,20 @@ describe('DinersMenuComponent', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('app-diner-connection-error'),
     ).toBeFalsy();
+  });
+
+  it('computes the nav-bar sticky offset for diner (online/offline) and rest-app', () => {
+    // Diner shell: pins under the 48px brand strip, or 88px when the offline strip
+    // is showing. navStickyTop is a pure getter — no ngOnInit/detectChanges needed.
+    component.isInRestApp = false;
+    isOfflineValue = false;
+    expect(component.navStickyTop).toBe('48px');
+    isOfflineValue = true;
+    expect(component.navStickyTop).toBe('88px');
+
+    // Embedded in the rest-app there is no diner brand/offline strip, so it keeps
+    // the component's 49px default regardless of connectivity.
+    component.isInRestApp = true;
+    expect(component.navStickyTop).toBe('49px');
   });
 });
