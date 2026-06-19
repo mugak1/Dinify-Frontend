@@ -2,13 +2,11 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../_services/api.service';
 import { SessionStorageService } from '../_services/storage/session-storage.service';
-import { Restaurant, TableScan, BrandingConfiguration } from '../_models/app.models';
+import { Restaurant, TableScan } from '../_models/app.models';
 import { environment } from 'src/environments/environment';
-import { MenuNavStateService } from './menu/menu-nav-state.service';
 import { BasketService } from '../_services/basket.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { ConnectivityService } from '../_services/connectivity.service';
-import { getContrastTextColor } from '../_common/utils/color-utils';
 
 @Component({
     selector: 'app-diner-app',
@@ -19,7 +17,6 @@ import { getContrastTextColor } from '../_common/utils/color-utils';
 export class DinerAppComponent {
   restaurant_name = '';
   restaurant_id = '';
-  branding_configs?: BrandingConfiguration;
   table?: TableScan;
   logo!: string;
   // Optional restaurant cover photo from the table-scan payload. Drives the
@@ -45,7 +42,6 @@ export class DinerAppComponent {
     private readonly sessionStorage: SessionStorageService,
     private route: ActivatedRoute,
     private api: ApiService,
-    public navState: MenuNavStateService,
     public basketService: BasketService,
     private toast: ToastService,
     public connectivity: ConnectivityService,
@@ -71,7 +67,6 @@ export class DinerAppComponent {
     if (restaurant) {
       this.restaurant_name = restaurant.name;
       this.restaurant_id = restaurant.id;
-      this.branding_configs = restaurant.branding_configuration;
       this.logo = restaurant.logo;
       this.coverPhoto = restaurant.cover_photo ?? null;
     }
@@ -98,7 +93,6 @@ export class DinerAppComponent {
         this.logo = scanned.restaurant.logo;
         this.restaurant_name = scanned.restaurant.name;
         this.restaurant_id = scanned.restaurant.id;
-        this.branding_configs = scanned.restaurant.branding_configuration;
         this.coverPhoto = scanned.restaurant.cover_photo ?? null;
       },
       error: err => {
@@ -162,13 +156,5 @@ export class DinerAppComponent {
     if (typeof err === 'string' && err.trim()) return err;
     const e = err as { error?: { message?: string } } | null;
     return e?.error?.message || fallback;
-  }
-
-  get brandStripBgColor(): string {
-    return this.branding_configs?.home?.brand_color || '#ffffff';
-  }
-
-  get brandStripTextColor(): string {
-    return getContrastTextColor(this.brandStripBgColor);
   }
 }

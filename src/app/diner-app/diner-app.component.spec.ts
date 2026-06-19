@@ -137,4 +137,21 @@ describe('DinerAppComponent', () => {
     expect(component.restaurant_name).toBe('Test Restaurant');
     expect(component.restaurant_id).toBe('r1');
   });
+
+  it('renders the table chip with the table number on a valid scan', () => {
+    component.getTableDetails('good-id');
+    const req = httpMock.expectOne(r => r.url.includes('table-scan'));
+    req.flush({
+      data: {
+        id: 'good-id',
+        number: 7,
+        restaurant: { id: 'r1', name: 'Test Restaurant', branding_configuration: {} },
+      },
+    });
+    fixture.detectChanges();
+
+    const chip = (fixture.nativeElement as HTMLElement).querySelector('.brand-strip__chip');
+    expect(chip).toBeTruthy();
+    expect(chip?.textContent).toContain('Table 7');
+  });
 });

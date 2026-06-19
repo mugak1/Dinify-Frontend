@@ -5,27 +5,38 @@
 </app-diner-connection-error>
 <app-no-table *ngIf="!table && !scanRetryable" [message]="scanMessage"></app-no-table>
 <div *ngIf="table" class="min-h-screen flex flex-col"
-     appScrollProgress [condenseAfter]="200" [class.has-hero]="!!coverPhoto">
+     appScrollProgress [condenseAfter]="200"
+     [class.has-hero]="!!coverPhoto"
+     [class.is-offline]="connectivity.isOffline()">
+  <!-- Background + ink are driven entirely by the .brand-strip CSS state machine
+       keyed off the shell-root classes (.has-hero / .is-condensed / .is-offline) —
+       see src/styles.css. Do NOT reintroduce inline [style.background-color] /
+       [style.color]: inline styles out-specify the state rules and would freeze
+       the strip in one look. -->
   <div #brandStrip
-       class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2"
-       [style.background-color]="brandStripBgColor"
-       [style.color]="brandStripTextColor">
+       class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2">
     <img *ngIf="logo"
          [src]="url + '/media/' + logo"
          [alt]="restaurant_name"
-         class="h-7 w-7 rounded-full object-cover flex-shrink-0">
-    <span class="font-display font-semibold truncate">{{ restaurant_name }}</span>
+         class="brand-strip__logo h-7 w-7 rounded-full object-cover flex-shrink-0">
+    <span class="brand-strip__name font-display font-semibold truncate min-w-0">{{ restaurant_name }}</span>
+    <span *ngIf="table?.number" class="brand-strip__chip">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 11h18"/><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M5 11v6"/><path d="M19 11v6"/>
+      </svg>
+      Table {{ table.number }}
+    </span>
   </div>
 
   <!-- Ambient offline status — pins under the brand strip, spans every diner page. -->
   <app-offline-strip></app-offline-strip>
 
   <div class="flex-1">
-    <!-- When offline the strip (40px) sits under the 48px brand strip, so push the
-         sticky menu nav-bar down to 88px to clear it; otherwise it pins at 48px. -->
-    <app-menu-nav-bar *ngIf="navState.isMenuActive()"
-                      [stickyTop]="connectivity.isOffline() ? '88px' : '48px'"></app-menu-nav-bar>
-
+    <!-- The menu category nav-bar now renders inside the menu component, BELOW the
+         hero (menu.component.html), so the hero sits directly beneath the brand
+         strip for the over-hero takeover. Its sticky offset (48px, or 88px while
+         the offline strip shows) is set there via navStickyTop. -->
     <div class="lg:flex lg:items-start">
       <!-- Main content column -->
       <div class="lg:flex-1 lg:min-w-0">
