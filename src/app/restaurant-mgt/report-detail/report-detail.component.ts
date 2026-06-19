@@ -73,18 +73,6 @@ transactions={
         "count": 0
     },
     {
-        "transaction_type": "order_refund",
-        "count": 0
-    },
-    {
-        "transaction_type": "order_charge",
-        "count": 0
-    },
-    {
-        "transaction_type": "disbursement",
-        "count": 0
-    },
-    {
         "transaction_type": "subscription",
         "count": 0
     }
