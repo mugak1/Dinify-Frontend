@@ -251,11 +251,11 @@
     {{ orderErrorMessage }}
   </p>
   <button *ngIf="!orderError" (click)="initiateOrder()" [disabled]="placingOrder"
-          class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl py-3.5 px-4 font-semibold text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+          class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">
     Checkout — UGX {{ totalAmount | number }}
   </button>
   <button *ngIf="orderError" (click)="retryOrder()" [disabled]="placingOrder"
-          class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl py-3.5 px-4 font-semibold text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+          class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">
     Retry
   </button>
 </div>
@@ -292,7 +292,7 @@
 
     <div class="mt-4 space-y-2">
       <button type="button" (click)="confirmPartialOrder()"
-              class="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl py-3 px-4 font-semibold text-base transition-colors">
+              class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99]">
         Place order — UGX {{ reviewedTotal | number }}
       </button>
       <button type="button" (click)="cancelPartialOrder()"

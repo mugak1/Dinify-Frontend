@@ -101,6 +101,11 @@ module.exports = {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
       },
+      boxShadow: {
+        'glow':       '0 6px 18px -4px rgba(255,44,50,0.42), 0 2px 6px -2px rgba(255,44,50,0.30)',
+        'glow-lg':    '0 10px 30px -6px rgba(255,44,50,0.55), 0 3px 10px -3px rgba(255,44,50,0.38)',
+        'glow-green': '0 6px 18px -4px rgba(34,197,94,0.38), 0 2px 6px -2px rgba(34,197,94,0.26)',
+      },
     },
   },
   plugins: [
