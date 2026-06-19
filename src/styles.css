@@ -186,3 +186,23 @@ app-restaurant-mgt app-animated-number {
       scrollbar-width: none;  /* Firefox */
   }
 }
+
+/* Diner menu cover-photo hero. Global (not component-scoped) on purpose: a later
+   PR styles the hero from an ancestor state class (`.has-hero.is-condensed
+   .hero-img`) that spans the shell + menu components, which emulated
+   encapsulation would scope away. The scrim's bottom stop is #ffffff (the diner
+   theme is white) so the photo dissolves into the menu instead of ending at a
+   hard edge. The parallax reads --sy, set on the shell root by appScrollProgress
+   and inherited down; reduced-motion drops the drift but keeps the scale. */
+.hero-scrim {
+  background: linear-gradient(180deg,
+    rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.06) 30%,
+    rgba(255,255,255,0) 55%, rgba(255,255,255,0.85) 88%, #ffffff 100%);
+}
+.hero-img {
+  transform: translateY(calc(var(--sy,0) * 0.18px)) scale(1.1);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-img { transform: scale(1.1); }
+}

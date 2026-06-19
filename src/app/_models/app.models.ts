@@ -324,6 +324,9 @@ export interface Restaurant {
   id: string
   name: string
   logo: string
+  // Optional cover photo. Present on the table-scan `restaurant` payload but
+  // omitted by older callers, hence optional. Surfaces the diner menu hero.
+  cover_photo?: string | null
   menu_approval_status:any
   branding_configuration: BrandingConfiguration
   preset_tags?: any[]

@@ -4,7 +4,8 @@
   (retry)="getTableDetails(table_id)">
 </app-diner-connection-error>
 <app-no-table *ngIf="!table && !scanRetryable" [message]="scanMessage"></app-no-table>
-<div *ngIf="table" class="min-h-screen flex flex-col">
+<div *ngIf="table" class="min-h-screen flex flex-col"
+     appScrollProgress [condenseAfter]="200" [class.has-hero]="!!coverPhoto">
   <div #brandStrip
        class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2"
        [style.background-color]="brandStripBgColor"
