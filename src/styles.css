@@ -246,6 +246,24 @@ app-restaurant-mgt app-animated-number {
   color: #171717;
   box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
 }
+/* SEAM REMOVAL: on the menu route the frosted <app-menu-nav-bar> docks flush under
+   the strip and owns the banner's single bottom shadow, so erase the strip's own
+   bottom shadow — no internal line between row 1 (strip) and row 2 (nav-bar); the
+   two frosted rows read as one continuous banner. Scoped to the menu route only:
+   the nav-bar exists in the DOM only there, so the shared strip keeps its shadow
+   on basket / item-detail / other diner pages. [appScrollProgress] anchors the
+   diner shell root, and .brand-strip is unique to it, so the selector can only
+   match the diner shell on the menu route. Two selectors so we out-specify BOTH
+   shadow-setting strip rules above: the default .brand-strip (0,1,0) via the first
+   (0,2,1), and .has-hero.is-condensed .brand-strip (0,3,0) via the second (0,3,1).
+   (Offline: the amber offline-strip interrupts the banner anyway, so removing the
+   strip shadow there is a visual no-op.) :has() is well-supported on current
+   mobile targets; if absent, the strip simply keeps its faint shadow — never a
+   broken layout. */
+[appScrollProgress]:has(app-menu-nav-bar) .brand-strip,
+[appScrollProgress].is-condensed:has(app-menu-nav-bar) .brand-strip {
+  box-shadow: none;
+}
 /* Restaurant name: shown when frosted (no-hero / condensed / offline). Hidden over
    the hero, where the Dinify wordmark leads instead — display:none rather than
    opacity:0 so an invisible name can't reserve width beside the wordmark. */

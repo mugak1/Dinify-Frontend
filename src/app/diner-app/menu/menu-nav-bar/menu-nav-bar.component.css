@@ -1,0 +1,15 @@
+/* Frosted banner row (diner app): the menu nav-bar docks flush under the brand
+   strip and reads as one continuous translucent block with it. Same frost recipe
+   as .brand-strip's frosted state (src/styles.css) — same tint token + blur/
+   saturate — so the seam between the two sticky rows disappears. The single soft
+   separating shadow for the whole banner lives on THIS bottom edge (where it meets
+   the scrolling cards); the strip's own bottom shadow is dropped at the seam in
+   styles.css. :host(.is-frosted) (0,2,0) out-specifies the host's default
+   bg-white / border-b utilities (0,1,0) — no !important. */
+:host(.is-frosted) {
+  background-color: var(--brand-strip-tint, rgba(255, 255, 255, 0.72));
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 0;
+  box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
+}
