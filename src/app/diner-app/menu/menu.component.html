@@ -22,7 +22,7 @@
 <!-- Skeleton cards -->
 <div *ngIf="navState.isLoading()" class="flex flex-col px-6 pt-4">
   <div *ngFor="let _ of [1,2,3,4,5]"
-       class="mb-3 rounded-none bg-white shadow-2xl">
+       class="mb-3 rounded-2xl bg-white shadow-2xl">
     <div class="flex gap-3 p-3">
       <div class="flex-1 min-w-0 flex flex-col gap-2">
         <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
@@ -30,7 +30,7 @@
         <div class="h-3 w-5/6 bg-gray-200 animate-pulse rounded"></div>
         <div class="h-4 w-24 bg-gray-200 animate-pulse rounded mt-auto"></div>
       </div>
-      <div class="w-[112px] h-[112px] bg-gray-200 animate-pulse rounded-none flex-shrink-0"></div>
+      <div class="w-[112px] h-[112px] bg-gray-200 animate-pulse rounded-xl flex-shrink-0"></div>
     </div>
   </div>
 </div>
@@ -109,7 +109,7 @@
 
 <!-- Shared item card template — used by both the Featured section and the regular section listings -->
 <ng-template #itemCard let-i>
-  <div class="mb-3 rounded-none bg-white shadow-2xl group transition-all duration-200 ease-out flex flex-col"
+  <div class="mb-3 rounded-2xl bg-white shadow-2xl group transition-all duration-200 ease-out flex flex-col"
        [class.opacity-60]="isOutOfStock(i)"
        [class.cursor-not-allowed]="isOutOfStock(i)"
        [ngClass]="{ 'cursor-pointer hover:shadow-[0_28px_55px_-12px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 desktop-hover:ring-2 desktop-hover:ring-inset desktop-hover:ring-red-600 motion-safe:active:scale-[0.98] active:shadow-sm': !isOutOfStock(i) }">
@@ -151,7 +151,7 @@
       </div>
 
       <!-- RIGHT: Image with badge overlays -->
-      <div class="w-[88px] h-[88px] md:w-[112px] md:h-[112px] rounded-none overflow-hidden flex-shrink-0 relative"
+      <div class="w-[88px] h-[88px] md:w-[112px] md:h-[112px] rounded-xl overflow-hidden flex-shrink-0 relative"
            [class.grayscale]="isOutOfStock(i)">
 
         <!-- Badge overlay (single-badge policy: Popular > New; Featured suppressed on cards) -->
