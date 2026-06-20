@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit, effect } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild, effect, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { BasketItem, MenuItem, MenuItemTagRef, Restaurant, TableScan } from 'src/app/_models/app.models';
@@ -23,11 +23,16 @@ import { ConnectivityService } from 'src/app/_services/connectivity.service';
     styleUrls: ['./menu.component.css'],
     standalone: false
 })
-export class DinersMenuComponent implements OnInit, OnDestroy {
+export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   // One-shot sessionStorage key for restoring the menu's scroll position when
   // returning from the item-detail page. Cleared on read so a fresh menu load
   // (no prior item-detail navigation) lands at the top.
   private static readonly SCROLL_RESTORE_KEY = 'diner.menu.scrollY';
+
+  /** Effective height (px) of the offline strip — the banner's sticky-top offset
+   *  while offline, so it docks just under that strip. Matches the strip's visible
+   *  40px (h-[42px] less the 2px safety tuck), mirroring the old 88 = 48 + 40. */
+  private static readonly OFFLINE_STRIP_PX = 40;
 
   url = environment.apiUrl;
 
@@ -42,6 +47,13 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
   // overwriting fresher data; refreshSub is torn down in ngOnDestroy.
   private refreshSeq = 0;
   private refreshSub?: Subscription;
+
+  /** The single sticky banner — diner shell only; absent in the rest-app embed. */
+  @ViewChild('menuBanner') private menuBanner?: ElementRef<HTMLElement>;
+  /** Live banner height (px), fed by a ResizeObserver; 0 until first measured.
+   *  Drives the scroll-margin var so clicked sections land flush under the banner. */
+  private readonly bannerHeightPx = signal(0);
+  private bannerResizeObserver?: ResizeObserver;
 
   @Input() restaurant?: Restaurant;
   @Input() restaurant_id: any = '';
@@ -61,14 +73,12 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     return this.basketService.Basket()?.totalAmount ?? 0;
   }
 
-  /** Sticky-top offset for the menu category nav-bar. In the diner shell it pins
-   *  directly under the 48px brand strip, or 88px when the offline strip (40px) is
-   *  showing. Embedded in the rest-app (no diner brand/offline strips) it keeps the
-   *  component's 49px default. Mirrors the offset the diner shell applied before the
-   *  nav-bar moved below the hero. */
-  get navStickyTop(): string {
-    if (this.isInRestApp) return '49px';
-    return this.connectivity.isOffline() ? '88px' : '48px';
+  /** Sticky-top offset for the single menu banner (diner shell). Flush to the
+   *  viewport top when online; 40px down — clearing the offline strip — when offline.
+   *  Identity-row (hero/condensed) visibility is CSS-driven; this only positions the
+   *  banner. The rest-app embed renders the bare nav-bar with its own 49px offset. */
+  get bannerTop(): string {
+    return this.connectivity.isOffline() ? `${DinersMenuComponent.OFFLINE_STRIP_PX}px` : '0px';
   }
 
   constructor(
@@ -95,6 +105,18 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
         this.navState.featuredItems().length > 0 ? 'Featured' : (firstSectionName ?? ''),
       );
     });
+
+    // Feed the shared scroll-margin var (--menu-nav-stack-height) from the banner's
+    // real height plus its sticky-top offset, so clicked sections land flush under
+    // it. Re-runs on a measured-height change (ResizeObserver) or an offline flip
+    // (which shifts the banner down 40px). Stays null until first measured and in the
+    // rest-app (no banner), where the service falls back to its constant formula.
+    effect(() => {
+      const h = this.bannerHeightPx();
+      const top = this.connectivity.isOffline() ? DinersMenuComponent.OFFLINE_STRIP_PX : 0;
+      this.navState.setMenuBannerStackHeight(h > 0 ? top + h : null);
+    });
+
     this.restaurant = this.sessionStorage.getItem<Restaurant>('restaurant') as any;
     this.navState.setPresetTags(this.restaurant?.preset_tags || []);
     this.hydrateHeroFields();
@@ -169,11 +191,26 @@ export class DinersMenuComponent implements OnInit, OnDestroy {
     }
   }
 
+  ngAfterViewInit(): void {
+    // Observe the banner's rendered height rather than reading offsetHeight every
+    // scroll frame: the observer fires only on real size changes (identity row
+    // showing on condense, filter row, search↔pills), never per frame. The banner
+    // exists only in the diner shell (!isInRestApp), so guard on its presence.
+    const el = this.menuBanner?.nativeElement;
+    if (!el) return;
+    this.bannerResizeObserver = new ResizeObserver(() => this.bannerHeightPx.set(el.offsetHeight));
+    this.bannerResizeObserver.observe(el);
+  }
+
   ngOnDestroy(): void {
     this.storageSub?.unsubscribe();
     // Tear down any mid-flight background revalidation — the next menu entry
     // revalidates again anyway.
     this.refreshSub?.unsubscribe();
+    this.bannerResizeObserver?.disconnect();
+    // Drop the banner-measured override so a later rest-app mount (or any non-banner
+    // consumer) falls back to the constant scroll-margin formula.
+    this.navState.setMenuBannerStackHeight(null);
     this.navState.setMenuActive(false);
     // Intentionally NOT clearing the menu list here. The item-detail page is a
     // sibling route that constructs after this component is destroyed, so it

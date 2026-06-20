@@ -7,6 +7,7 @@ import { environment } from 'src/environments/environment';
 import { BasketService } from '../_services/basket.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { ConnectivityService } from '../_services/connectivity.service';
+import { MenuNavStateService } from './menu/menu-nav-state.service';
 
 @Component({
     selector: 'app-diner-app',
@@ -45,6 +46,10 @@ export class DinerAppComponent {
     public basketService: BasketService,
     private toast: ToastService,
     public connectivity: ConnectivityService,
+    // Read on the menu route to hide the shell brand-strip (the menu renders its
+    // own single-banner header) and to re-pin the offline strip to the top there.
+    // providedIn:'root' singleton — the same instance the menu component drives.
+    public navState: MenuNavStateService,
   ) {
     if (this.route.children.length > 0) {
       this.route.children.at(0)?.params.subscribe(x => {

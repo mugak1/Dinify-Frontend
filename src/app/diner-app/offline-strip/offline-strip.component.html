@@ -1,12 +1,13 @@
-<!-- Calm ambient offline status. Shown only while offline; pins under the brand
-     strip (top:48px) and stays put while scrolling. Amber (a status), not red.
-     Height is LITERAL px (h-[42px]) on purpose: the app sets html{font-size:14px},
+<!-- Calm ambient offline status. Shown only while offline; sticky top is set by the
+     shell via [stickyTop] — '48px' under the brand strip on most routes, '0px' on the
+     menu route (strip hidden there). Stays put while scrolling. Amber (a status), not
+     red. Height is LITERAL px (h-[42px]) on purpose: the app sets html{font-size:14px},
      so rem-based Tailwind sizes (h-10 = 35px here) render shorter than the headers'
-     literal 88px sticky offset (48 brand + 40 strip) and reopen a transparent gap.
-     The visible 40px butts against the nav/basket headers; the extra ~2px tucks
-     under their opaque backgrounds as a safety overlap. -->
+     sticky offsets and reopen a transparent gap. The visible 40px butts against the
+     header below it; the extra ~2px tucks under its background as a safety overlap. -->
 <div *ngIf="connectivity.isOffline()"
-     class="sticky top-[48px] z-30 flex h-[42px] items-center justify-center gap-2 px-4
+     [style.top]="stickyTop"
+     class="sticky z-30 flex h-[42px] items-center justify-center gap-2 px-4
             border-b border-amber-200 bg-amber-50 text-amber-900 text-xs sm:text-sm text-center"
      role="status"
      aria-live="polite">
