@@ -15,15 +15,17 @@
        the strip in one look. -->
   <div #brandStrip
        class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2">
-    <img *ngIf="logo"
-         [src]="url + '/media/' + logo"
-         [alt]="restaurant_name"
-         class="brand-strip__logo h-7 w-7 rounded-full object-cover flex-shrink-0">
+    <!-- Over-hero: the Dinify wordmark (white variant) floats on the cover photo;
+         CSS-gated to the over-hero state and hidden in every frosted state, where
+         the restaurant name leads instead. The restaurant's own logo is no longer
+         rendered in the strip in any state. -->
+    <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify"
+         class="brand-strip__dinify h-7 w-auto flex-shrink-0">
     <span class="brand-strip__name font-display font-semibold truncate min-w-0">{{ restaurant_name }}</span>
-    <span *ngIf="table?.number" class="brand-strip__chip">
+    <span *ngIf="table?.number" class="brand-strip__chip bg-d-red text-white">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 11h18"/><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M5 11v6"/><path d="M19 11v6"/>
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
       </svg>
       Table {{ table.number }}
     </span>
