@@ -47,6 +47,7 @@ showLoginForm = true; // default state
 availableRestaurants: any[] = [];
 selectedRestaurant: any = null;
 inactivityNotice = false;
+capsLockOn = false;
 
   constructor(
       private formBuilder: FormBuilder,
