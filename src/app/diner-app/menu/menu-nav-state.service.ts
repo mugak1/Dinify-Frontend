@@ -98,6 +98,15 @@ export class MenuNavStateService {
   hasActiveFilters: Signal<boolean> = computed(() => this.activeFilterCount() > 0);
 
   /**
+   * Diner single-banner override for the scroll-margin stack height, in px
+   * (the banner's sticky-top offset + its measured height). Set by the menu
+   * component's ResizeObserver while the banner is mounted; null elsewhere
+   * (e.g. the rest-app embed, or before first measure), where navStackHeight
+   * falls back to its constant pill/filter formula.
+   */
+  menuBannerStackHeight: WritableSignal<number | null> = signal<number | null>(null);
+
+  /**
    * Total vertical space occupied by the sticky header + nav bar from the
    * viewport top, in pixels. Drives both the section scroll-margin-top
    * (so clicked pills land flush against the nav bar bottom) and — by
@@ -106,10 +115,15 @@ export class MenuNavStateService {
    * the filter-badge row adds ~32px below the pill row.
    */
   navStackHeight: Signal<number> = computed(() => {
-    // Must equal the pill/skeleton row height (h-[36px], LITERAL px) in
-    // menu-nav-bar.component.html, so clicked sections land flush under the bar.
-    // It's literal because html{font-size:14px} makes rem-based Tailwind heights
-    // (h-9/h-10/…) render smaller than their px name suggests.
+    // Diner single-banner: prefer the live measured stack (banner height + its
+    // sticky-top offset) so the scroll-margin tracks the identity row appearing on
+    // condense, the filter row, and search↔pills — all without per-frame reflow.
+    const measured = this.menuBannerStackHeight();
+    if (measured != null) return measured;
+    // Fallback (rest-app embed / pre-measure). Must equal the pill/skeleton row
+    // height (h-[36px], LITERAL px) in menu-nav-bar.component.html, so clicked
+    // sections land flush under the bar. It's literal because html{font-size:14px}
+    // makes rem-based Tailwind heights (h-9/h-10/…) render smaller than their px name.
     const PILL_ROW_PX = 36;
     const FILTER_ROW_PX = 32;
     return (
@@ -308,6 +322,12 @@ export class MenuNavStateService {
 
   setStickyTopPx(px: number): void {
     this.stickyTopPx.set(px);
+  }
+
+  /** Set (or clear, with null) the diner banner's measured scroll-margin stack
+   *  height. See `menuBannerStackHeight`. */
+  setMenuBannerStackHeight(px: number | null): void {
+    this.menuBannerStackHeight.set(px);
   }
 
   setPendingClickTarget(target: string): void {
