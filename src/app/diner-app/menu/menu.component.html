@@ -17,7 +17,7 @@
   </div>
 </div>
 
-<app-menu-nav-bar [stickyTop]="navStickyTop"></app-menu-nav-bar>
+<app-menu-nav-bar [stickyTop]="navStickyTop" [frosted]="!isInRestApp"></app-menu-nav-bar>
 
 <!-- Skeleton cards -->
 <div *ngIf="navState.isLoading()" class="flex flex-col px-6 pt-4">

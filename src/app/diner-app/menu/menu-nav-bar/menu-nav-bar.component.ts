@@ -9,13 +9,20 @@ import { MenuFilterOption, MenuNavStateService } from '../menu-nav-state.service
   standalone: true,
   imports: [CommonModule, FormsModule, TagPillComponent],
   templateUrl: './menu-nav-bar.component.html',
+  styleUrls: ['./menu-nav-bar.component.css'],
   host: {
     class: 'block sticky z-40 bg-white border-b border-gray-200',
+    '[class.is-frosted]': 'frosted',
     '[style.top]': 'stickyTop',
   },
 })
 export class MenuNavBarComponent implements OnInit {
   @Input() stickyTop: string = '49px';
+
+  /** Diner app: render as a translucent frosted banner docked under the brand
+   *  strip (one continuous material with it). Default false keeps the opaque
+   *  white + hairline look for any other (e.g. rest-app) mount. */
+  @Input() frosted = false;
 
   /** Chips shown in the active-filters row — dietary first, then allergens. */
   activeFilterChips: Signal<MenuFilterOption[]> = computed(() => {
