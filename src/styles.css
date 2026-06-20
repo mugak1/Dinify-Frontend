@@ -307,6 +307,11 @@ app-restaurant-mgt app-animated-number {
   /* No-op today (no viewport-fit=cover — the browser already holds content below the
      notch). Future-proofs the top element if edge-to-edge is ever enabled. */
   padding-top: env(safe-area-inset-top, 0px);
+  /* Breathing room between row 2 (the category pills / section names) and the
+     banner's bottom shadow. offsetHeight includes it, so the ResizeObserver in
+     menu.component.ts grows --menu-nav-stack-height to match and clicked sections
+     still land flush. */
+  padding-bottom: 6px;
 }
 /* Row 1 (identity: restaurant name + red table chip). Collapsed over the hero —
    there the hero itself carries the identity (Dinify wordmark + name), and a second
