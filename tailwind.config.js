@@ -17,6 +17,7 @@ module.exports = {
       fontFamily: {
         sans: ['"Plus Jakarta Sans Variable"', ...defaultTheme.fontFamily.sans],
         display: ['"Bricolage Grotesque Variable"', '"Plus Jakarta Sans Variable"', ...defaultTheme.fontFamily.sans],
+        gabarito: ['"Gabarito Variable"', '"Plus Jakarta Sans Variable"', ...defaultTheme.fontFamily.sans],
       },
       colors: {
         'd-red': '#FF2C32',
