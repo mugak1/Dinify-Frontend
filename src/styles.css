@@ -217,24 +217,24 @@ app-restaurant-mgt app-animated-number {
    default (neutral white frost); a future "brand-tinted frost" can set it on the
    root and only the frosted states pick it up. */
 .brand-strip {
-  /* NO-HERO default (and the resting look before any scroll): frosted. */
+  /* NO-HERO default (and the resting look before any scroll): frosted. A soft
+     box-shadow is the only separator — the PR3 hairline border-bottom was removed
+     for the airier, borderless top. */
   background-color: var(--brand-strip-tint, rgba(255, 255, 255, 0.72));
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   backdrop-filter: blur(16px) saturate(1.4);
   color: #171717;
-  border-bottom: 1px solid rgba(23, 23, 23, 0.08);
   box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
   transition: background-color 220ms ease, color 220ms ease,
-              box-shadow 220ms ease, border-color 220ms ease;
+              box-shadow 220ms ease;
 }
 /* OVER-HERO: a hero exists, not yet scrolled past it, and online → transparent so
-   the strip's logo floats over the photo. */
+   the Dinify wordmark floats over the photo. */
 .has-hero:not(.is-condensed):not(.is-offline) .brand-strip {
   background-color: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   color: #ffffff;
-  border-bottom-color: transparent;
   box-shadow: none;
 }
 /* CONDENSED: scrolled past the hero → frosted. Stated explicitly so it cleanly
@@ -244,24 +244,25 @@ app-restaurant-mgt app-animated-number {
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   backdrop-filter: blur(16px) saturate(1.4);
   color: #171717;
-  border-bottom: 1px solid rgba(23, 23, 23, 0.08);
   box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
 }
-/* Restaurant name: visible when frosted (no-hero + condensed), faded out over the
-   hero (redundant with the big hero title). */
-.brand-strip__name {
-  opacity: 1;
-  transition: opacity 220ms ease;
-}
+/* Restaurant name: shown when frosted (no-hero / condensed / offline). Hidden over
+   the hero, where the Dinify wordmark leads instead — display:none rather than
+   opacity:0 so an invisible name can't reserve width beside the wordmark. */
 .has-hero:not(.is-condensed):not(.is-offline) .brand-strip__name {
-  opacity: 0;
+  display: none;
 }
-/* Logo shows in every state; over the photo it gets a faint ring so a light logo
-   still reads on a bright patch of the cover. */
-.has-hero:not(.is-condensed):not(.is-offline) .brand-strip__logo {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6), 0 1px 4px rgba(0, 0, 0, 0.35);
+/* Dinify wordmark: shown only over the hero (white-on-photo); hidden in every
+   frosted state, where the restaurant name leads. */
+.brand-strip__dinify {
+  display: none;
 }
-/* Table chip: dark-on-light when frosted, light-translucent over the photo. */
+.has-hero:not(.is-condensed):not(.is-offline) .brand-strip__dinify {
+  display: block;
+}
+/* Table chip: a solid-red indicator in every state. Colours (bg-d-red + white
+   text/pin) come from utilities on the element in the template; this rule owns
+   layout only, so it no longer reacts to the hero state. */
 .brand-strip__chip {
   margin-left: auto;
   flex-shrink: 0;
@@ -274,13 +275,6 @@ app-restaurant-mgt app-animated-number {
   padding: 0.25rem 0.5rem;
   border-radius: 9999px;
   white-space: nowrap;
-  background-color: rgba(23, 23, 23, 0.06);
-  color: #171717;
-  transition: background-color 220ms ease, color 220ms ease;
-}
-.has-hero:not(.is-condensed):not(.is-offline) .brand-strip__chip {
-  background-color: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
 }
 /* Pull the hero up under the 48px sticky strip whenever a hero exists and we're
    online, so the strip floats over the photo. NOT gated on .is-condensed — that
@@ -291,9 +285,7 @@ app-restaurant-mgt app-animated-number {
   margin-top: -48px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .brand-strip,
-  .brand-strip__name,
-  .brand-strip__chip {
+  .brand-strip {
     transition: none;
   }
 }
