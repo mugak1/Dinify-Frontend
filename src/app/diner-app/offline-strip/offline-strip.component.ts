@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, Input } from '@angular/core';
 import { ConnectivityService } from '../../_services/connectivity.service';
 
 /**
@@ -22,4 +22,10 @@ import { ConnectivityService } from '../../_services/connectivity.service';
 })
 export class OfflineStripComponent {
   readonly connectivity = inject(ConnectivityService);
+
+  /** Sticky-top offset for the inner strip. The shell passes '0px' on the menu
+   *  route (the brand strip is hidden there, so this strip sits at the very top
+   *  and the single banner docks directly beneath it) and '48px' elsewhere, where
+   *  it pins under the 48px brand strip. */
+  @Input() stickyTop = '48px';
 }

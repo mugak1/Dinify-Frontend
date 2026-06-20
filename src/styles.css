@@ -246,24 +246,10 @@ app-restaurant-mgt app-animated-number {
   color: #171717;
   box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
 }
-/* SEAM REMOVAL: on the menu route the frosted <app-menu-nav-bar> docks flush under
-   the strip and owns the banner's single bottom shadow, so erase the strip's own
-   bottom shadow — no internal line between row 1 (strip) and row 2 (nav-bar); the
-   two frosted rows read as one continuous banner. Scoped to the menu route only:
-   the nav-bar exists in the DOM only there, so the shared strip keeps its shadow
-   on basket / item-detail / other diner pages. [appScrollProgress] anchors the
-   diner shell root, and .brand-strip is unique to it, so the selector can only
-   match the diner shell on the menu route. Two selectors so we out-specify BOTH
-   shadow-setting strip rules above: the default .brand-strip (0,1,0) via the first
-   (0,2,1), and .has-hero.is-condensed .brand-strip (0,3,0) via the second (0,3,1).
-   (Offline: the amber offline-strip interrupts the banner anyway, so removing the
-   strip shadow there is a visual no-op.) :has() is well-supported on current
-   mobile targets; if absent, the strip simply keeps its faint shadow — never a
-   broken layout. */
-[appScrollProgress]:has(app-menu-nav-bar) .brand-strip,
-[appScrollProgress].is-condensed:has(app-menu-nav-bar) .brand-strip {
-  box-shadow: none;
-}
+/* (The old SEAM-REMOVAL hack that erased the strip's bottom shadow under
+   <app-menu-nav-bar> via :has() is gone. The menu route no longer renders the strip
+   at all — it renders ONE .menu-banner with a single backdrop-filter (see the diner
+   single-banner section below) — so there is no strip↔nav-bar seam left to hide.) */
 /* Restaurant name: shown when frosted (no-hero / condensed / offline). Hidden over
    the hero, where the Dinify wordmark leads instead — display:none rather than
    opacity:0 so an invisible name can't reserve width beside the wordmark. */
@@ -294,13 +280,55 @@ app-restaurant-mgt app-animated-number {
   border-radius: 9999px;
   white-space: nowrap;
 }
-/* Pull the hero up under the 48px sticky strip whenever a hero exists and we're
-   online, so the strip floats over the photo. NOT gated on .is-condensed — that
-   would toggle the margin mid-scroll and jump the layout 48px. When offline the
-   amber offline strip sits in the gap, so skip the pull and let the strip stay
-   frosted above the photo. */
-.has-hero:not(.is-offline) .hero {
-  margin-top: -48px;
+/* Hero sits at the very TOP of the menu route now: the shell brand-strip is hidden
+   there (the single .menu-banner renders below the hero instead), so there is no
+   strip to tuck the hero under — no negative margin. Online the hero starts at the
+   viewport top; offline it starts just below the top offline strip in normal flow.
+   The over-hero Dinify wordmark + table chip live INSIDE the hero now (non-sticky,
+   scrolling away) — see menu.component.html. */
+.has-hero .hero {
+  margin-top: 0;
+}
+
+/* ── Diner single-banner header ─────────────────────────────────────────────
+   ONE sticky element with ONE backdrop-filter for the diner menu route: row 1
+   (identity) + row 2 (the transparent nav-bar) read as a single frosted material,
+   so the two-backdrop-filter SEAM the old strip + nav-bar produced is gone. Global
+   (not component-scoped) because row-1 visibility keys off the shell-root state
+   classes (.has-hero / .is-condensed) that emulated encapsulation would scope away.
+   The sticky `top` is inline ([style.top] = bannerTop: 0 online, 40px offline). */
+.menu-banner {
+  position: sticky;
+  z-index: 40;
+  background-color: var(--brand-strip-tint, rgba(255, 255, 255, 0.72));
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
+  /* No-op today (no viewport-fit=cover — the browser already holds content below the
+     notch). Future-proofs the top element if edge-to-edge is ever enabled. */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+/* Row 1 (identity: restaurant name + red table chip). Collapsed over the hero —
+   there the hero itself carries the identity (Dinify wordmark + name), and a second
+   copy here would duplicate it AND leave an empty frosted band at rest. Reveals when
+   scrolled past the hero (.is-condensed), or immediately when there is no hero. Uses
+   max-height (not display) so the sticky banner GROWS smoothly instead of snapping
+   open and jolting the cards below by 48px as it docks. */
+.menu-banner__identity {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 220ms ease, opacity 220ms ease;
+}
+[appScrollProgress]:not(.has-hero) .menu-banner__identity,
+[appScrollProgress].is-condensed .menu-banner__identity {
+  max-height: 48px; /* == the row's h-[48px] in menu.component.html */
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-banner__identity {
+    transition: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .brand-strip {

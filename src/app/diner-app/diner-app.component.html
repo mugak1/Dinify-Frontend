@@ -13,7 +13,14 @@
        see src/styles.css. Do NOT reintroduce inline [style.background-color] /
        [style.color]: inline styles out-specify the state rules and would freeze
        the strip in one look. -->
+  <!-- Hidden on the MENU route only: there the menu component renders ONE sticky
+       frosted banner (single backdrop-filter, no seam) that owns the restaurant
+       name + table chip, so a second frosted strip here would double up. The strip
+       stays for basket / item-detail / every other diner page. Route binding (not a
+       CSS :has() hack) keeps this robust on older Android. *ngIf, not [hidden] — the
+       strip's `flex` utility out-specifies the [hidden] UA display:none. -->
   <div #brandStrip
+       *ngIf="!navState.isMenuActive()"
        class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2">
     <!-- Over-hero: the Dinify wordmark (white variant) floats on the cover photo;
          CSS-gated to the over-hero state and hidden in every frosted state, where
@@ -31,14 +38,16 @@
     </span>
   </div>
 
-  <!-- Ambient offline status — pins under the brand strip, spans every diner page. -->
-  <app-offline-strip></app-offline-strip>
+  <!-- Ambient offline status — spans every diner page. Pins under the 48px brand
+       strip on most routes, but at the very top (0) on the menu route where the
+       strip is hidden, so the single banner can dock directly beneath it. -->
+  <app-offline-strip [stickyTop]="navState.isMenuActive() ? '0px' : '48px'"></app-offline-strip>
 
   <div class="flex-1">
-    <!-- The menu category nav-bar now renders inside the menu component, BELOW the
-         hero (menu.component.html), so the hero sits directly beneath the brand
-         strip for the over-hero takeover. Its sticky offset (48px, or 88px while
-         the offline strip shows) is set there via navStickyTop. -->
+    <!-- The menu single-banner header renders inside the menu component, BELOW the
+         hero (menu.component.html), so the hero sits at the very top for the
+         over-hero takeover. The banner's sticky offset (0, or 40px below the
+         offline strip) is set there via bannerTop. -->
     <div class="lg:flex lg:items-start">
       <!-- Main content column -->
       <div class="lg:flex-1 lg:min-w-0">

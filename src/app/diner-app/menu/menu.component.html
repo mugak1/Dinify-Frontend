@@ -8,6 +8,24 @@
   <img [src]="url + '/media/' + coverPhoto" [alt]="restaurantName"
        class="hero-img absolute inset-0 w-full h-full object-cover" decoding="async" />
   <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
+  <!-- Over-hero chrome: Dinify wordmark + table chip at the hero's TOP. NON-sticky —
+       it scrolls away with the photo while the sticky banner below takes over. This
+       replaces the over-hero content of the now route-hidden shell brand-strip and
+       reuses the same white-on-photo wordmark asset. The env() pad is a no-op today
+       (no viewport-fit=cover) and only future-proofs against a notch if edge-to-edge
+       is ever enabled — it is NOT what keeps the chrome below the notch today. -->
+  <div class="absolute top-0 inset-x-0 z-10 h-[48px] px-4 flex items-center gap-2"
+       style="padding-top:env(safe-area-inset-top,0px)">
+    <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify"
+         class="h-7 w-auto flex-shrink-0">
+    <span *ngIf="tableNumber" class="brand-strip__chip bg-d-red text-white">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+      </svg>
+      Table {{ tableNumber }}
+    </span>
+  </div>
   <div class="absolute left-6 right-6 bottom-5 z-10">
     <div class="text-white/80 font-display text-[11px] font-bold tracking-[0.18em] uppercase">
       Dine-in · Table {{ tableNumber }}
@@ -17,7 +35,29 @@
   </div>
 </div>
 
-<app-menu-nav-bar [stickyTop]="navStickyTop" [frosted]="!isInRestApp"></app-menu-nav-bar>
+<!-- ONE sticky frosted banner (single backdrop-filter) for the diner shell. Row 1 =
+     identity (restaurant name + red table chip), collapsed over the hero and shown
+     when condensed or when there's no hero — visibility lives in src/styles.css,
+     keyed off the shell-root .has-hero / .is-condensed classes. Row 2 = the nav-bar,
+     made transparent + non-sticky so the banner's single blur reads through it with
+     no seam. Sticky top: 0 online, 40px (below the offline strip) when offline. -->
+<div *ngIf="!isInRestApp" #menuBanner class="menu-banner" [style.top]="bannerTop">
+  <div class="menu-banner__identity h-[48px] px-4 flex items-center gap-2">
+    <span class="menu-banner__name font-display font-semibold text-gray-900 truncate min-w-0">{{ restaurantName }}</span>
+    <span *ngIf="tableNumber" class="brand-strip__chip bg-d-red text-white">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+      </svg>
+      Table {{ tableNumber }}
+    </span>
+  </div>
+  <app-menu-nav-bar [frosted]="true"></app-menu-nav-bar>
+</div>
+
+<!-- Rest-app embed (staff ordering): no diner shell or hero — keep the original
+     opaque, independently-sticky nav-bar (its own 49px offset + hairline). -->
+<app-menu-nav-bar *ngIf="isInRestApp" [stickyTop]="'49px'" [frosted]="false"></app-menu-nav-bar>
 
 <!-- Skeleton cards -->
 <div *ngIf="navState.isLoading()" class="flex flex-col px-6 pt-4">

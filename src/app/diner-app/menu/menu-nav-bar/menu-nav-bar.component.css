@@ -1,15 +1,16 @@
-/* Frosted banner row (diner app): the menu nav-bar docks flush under the brand
-   strip and reads as one continuous translucent block with it. Same frost recipe
-   as .brand-strip's frosted state (src/styles.css) — same tint token + blur/
-   saturate — so the seam between the two sticky rows disappears. The single soft
-   separating shadow for the whole banner lives on THIS bottom edge (where it meets
-   the scrolling cards); the strip's own bottom shadow is dropped at the seam in
-   styles.css. :host(.is-frosted) (0,2,0) out-specifies the host's default
-   bg-white / border-b utilities (0,1,0) — no !important. */
+/* Diner app: the nav-bar is row 2 INSIDE the single .menu-banner (src/styles.css),
+   which owns the one backdrop-filter and the one sticky context for the whole
+   banner. So when frosted the host goes fully transparent AND non-sticky — no own
+   background, blur, border, shadow, or sticky position — letting the banner's single
+   blur read continuously through it (two adjacent backdrop-filters always seam; one
+   doesn't). :host(.is-frosted) (0,2,0) out-specifies the host's default
+   sticky / bg-white / border-b utilities (0,1,0) — no !important. The non-frosted
+   (rest-app) mount keeps the opaque, independently-sticky look from those utilities. */
 :host(.is-frosted) {
-  background-color: var(--brand-strip-tint, rgba(255, 255, 255, 0.72));
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  backdrop-filter: blur(16px) saturate(1.4);
+  position: static;
+  background-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border-bottom: 0;
-  box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
+  box-shadow: none;
 }
