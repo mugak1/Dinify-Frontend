@@ -1,0 +1,116 @@
+<!-- Negative margins cancel the host <main> padding so the shell spans edge to
+     edge; the date bar then sticks flush under the portal top-nav (which sits
+     outside the scroll container, so top-0 needs no offset). -->
+<div class="flex flex-col min-h-full -mx-3 -mt-3 sm:-mx-4 sm:-mt-4 md:-mx-6 md:-mt-6">
+  <!-- Persistent, sticky date-range bar — never unmounts as reports switch. -->
+  <div
+    class="sticky top-0 z-20 min-h-[64px] flex items-center px-3 sm:px-4 md:px-6 py-2 bg-card border-b border-border"
+  >
+    <app-report-date-range
+      [value]="(range$ | async)!"
+      (valueChange)="onRange($event)"
+    ></app-report-date-range>
+  </div>
+
+  <div class="flex flex-col lg:flex-row flex-1 min-h-0">
+    <!-- Left rail (>=lg) -->
+    <nav
+      class="hidden lg:flex lg:flex-col lg:w-[240px] lg:shrink-0 border-r border-border p-3 gap-1"
+      aria-label="Reports"
+    >
+      @for (r of reportNav; track r.key) {
+        <a
+          [routerLink]="r.path"
+          routerLinkActive="bg-accent text-foreground font-medium"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
+        >
+          <svg
+            aria-hidden="true"
+            class="w-5 h-5 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <ng-container [ngSwitch]="r.icon">
+              <ng-container *ngSwitchCase="'sales'">
+                <svg:polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                <svg:polyline points="16 7 22 7 22 13" />
+              </ng-container>
+              <ng-container *ngSwitchCase="'menu'">
+                <svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                <svg:path d="M7 2v20" />
+                <svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+              </ng-container>
+              <ng-container *ngSwitchCase="'card'">
+                <svg:rect width="20" height="14" x="2" y="5" rx="2" />
+                <svg:line x1="2" x2="22" y1="10" y2="10" />
+              </ng-container>
+              <ng-container *ngSwitchCase="'users'">
+                <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <svg:circle cx="9" cy="7" r="4" />
+                <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </ng-container>
+            </ng-container>
+          </svg>
+          <span class="truncate">{{ r.label }}</span>
+        </a>
+      }
+    </nav>
+
+    <!-- Horizontal pill selector (<lg) -->
+    <div class="lg:hidden border-b border-border overflow-x-auto">
+      <div class="flex gap-1 p-2 min-w-max">
+        @for (r of reportNav; track r.key) {
+          <a
+            [routerLink]="r.path"
+            routerLinkActive="bg-accent text-foreground font-medium"
+            class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent whitespace-nowrap transition-colors"
+          >
+            <svg
+              aria-hidden="true"
+              class="w-4 h-4 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <ng-container [ngSwitch]="r.icon">
+                <ng-container *ngSwitchCase="'sales'">
+                  <svg:polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                  <svg:polyline points="16 7 22 7 22 13" />
+                </ng-container>
+                <ng-container *ngSwitchCase="'menu'">
+                  <svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                  <svg:path d="M7 2v20" />
+                  <svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+                </ng-container>
+                <ng-container *ngSwitchCase="'card'">
+                  <svg:rect width="20" height="14" x="2" y="5" rx="2" />
+                  <svg:line x1="2" x2="22" y1="10" y2="10" />
+                </ng-container>
+                <ng-container *ngSwitchCase="'users'">
+                  <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <svg:circle cx="9" cy="7" r="4" />
+                  <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </ng-container>
+              </ng-container>
+            </svg>
+            {{ r.label }}
+          </a>
+        }
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <section class="flex-1 min-w-0 p-3 sm:p-4 md:p-6">
+      <router-outlet></router-outlet>
+    </section>
+  </div>
+</div>

@@ -55,3 +55,15 @@ fi
 echo "FAILED: ${failures[*]}"
 echo "Fix the above before opening a PR."
 exit 1
+
+# ── Manual checklist: Reports surface (PR1 — shell + Sales, mock-first) ───────
+# The four checks above are the automated gate. After they pass, manually verify
+# the Reports hub on the dev server (npm start) at /rest-app/reports:
+#   [ ] /rest-app/reports redirects to /rest-app/reports/sales
+#   [ ] The date range persists as you switch Sales ↔ Menu ↔ Transactions ↔ Diners
+#   [ ] The date range survives a full page reload (localStorage), scoped per restaurant
+#   [ ] Default (this-month) shows the daily aggregate + the 50/page listing + totals footer
+#   [ ] A custom range > 31 days: aggregate switches to monthly, listing shows the guard
+#   [ ] Menu / Transactions / Diners show the "still building this report" state
+#   [ ] Sales empty range shows the empty state; a failed load shows error + Try again
+#   [ ] >=lg shows the 240px left rail; below lg the list is a horizontal pill selector

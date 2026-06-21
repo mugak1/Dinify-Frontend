@@ -1,0 +1,62 @@
+<header class="mb-4 sm:mb-6">
+  <h1 class="text-2xl font-semibold text-gray-900">Sales</h1>
+  <p class="text-sm text-gray-500 mt-1">Your sales for the selected period.</p>
+</header>
+
+<!-- Lead summary (time-bucketed aggregate; always loads) -->
+<app-dn-card class="block mb-6">
+  <div class="p-4 sm:p-5">
+    <h2 class="text-base font-semibold text-gray-900 mb-3">Summary</h2>
+    @if (aggReady) {
+      <app-report-table
+        [columns]="aggregateColumns"
+        [rows]="aggRows"
+        [totals]="aggTotals"
+        emptyLabel="No sales in this period."
+      ></app-report-table>
+    } @else {
+      <app-report-state [mode]="aggState" (retry)="retry()"></app-report-state>
+    }
+  </div>
+</app-dn-card>
+
+<!-- Per-order listing drill-down (≤31-day ranges) -->
+<app-dn-card class="block">
+  <div class="p-4 sm:p-5">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <h2 class="text-base font-semibold text-gray-900">Orders</h2>
+      @if (listingReady && listingTotals) {
+        <span class="text-sm text-gray-500">{{ listingTotals.orders | number }} orders</span>
+      }
+    </div>
+
+    @if (listingReady) {
+      <app-report-table
+        [columns]="listingColumns"
+        [rows]="pagedListingRows"
+        [totals]="listingTableTotals"
+        emptyLabel="No orders in this period."
+      ></app-report-table>
+
+      @if (pageCount > 1) {
+        <div class="flex items-center justify-end gap-3 mt-3">
+          <button app-dn-button variant="outline" size="sm" [disabled]="page === 0" (click)="prevPage()">
+            Previous
+          </button>
+          <span class="text-sm text-gray-500">Page {{ page + 1 }} of {{ pageCount }}</span>
+          <button
+            app-dn-button
+            variant="outline"
+            size="sm"
+            [disabled]="page >= pageCount - 1"
+            (click)="nextPage()"
+          >
+            Next
+          </button>
+        </div>
+      }
+    } @else {
+      <app-report-state [mode]="listingState" (retry)="retry()"></app-report-state>
+    }
+  </div>
+</app-dn-card>
