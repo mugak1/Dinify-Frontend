@@ -85,14 +85,16 @@ export class RestaurantMgtComponent {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe(() => {
         this.has_tables = this.router.url.includes('tables');
-        this.isMenuRoute = /\/menu(\/|\?|$)/.test(this.router.url);
+        this.isMenuRoute =
+          /\/menu(\/|\?|$)/.test(this.router.url) && !this.router.url.includes('/reports/');
         if (window.innerWidth < 1024) {   // < Tailwind `lg`; mobile drawer only
           this.sidebarOpen = false;
         }
         this.cdr.detectChanges();
       });
 
-    this.isMenuRoute = /\/menu(\/|\?|$)/.test(this.router.url);
+    this.isMenuRoute =
+      /\/menu(\/|\?|$)/.test(this.router.url) && !this.router.url.includes('/reports/');
   }
 
   @HostListener('document:keydown.escape')

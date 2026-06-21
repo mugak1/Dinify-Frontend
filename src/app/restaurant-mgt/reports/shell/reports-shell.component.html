@@ -12,7 +12,7 @@
     ></app-report-date-range>
   </div>
 
-  <div class="flex flex-col lg:flex-row flex-1 min-h-0">
+  <div class="flex flex-col lg:flex-row flex-1 min-h-0 pt-3">
     <!-- Left rail (>=lg) -->
     <nav
       class="hidden lg:flex lg:flex-col lg:w-[240px] lg:shrink-0 border-r border-border p-3 gap-1"
@@ -21,8 +21,8 @@
       @for (r of reportNav; track r.key) {
         <a
           [routerLink]="r.path"
-          routerLinkActive="bg-accent text-foreground font-medium"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
+          routerLinkActive="bg-accent text-accent-foreground font-medium"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <svg
             aria-hidden="true"
@@ -67,8 +67,8 @@
         @for (r of reportNav; track r.key) {
           <a
             [routerLink]="r.path"
-            routerLinkActive="bg-accent text-foreground font-medium"
-            class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent whitespace-nowrap transition-colors"
+            routerLinkActive="bg-accent text-accent-foreground font-medium"
+            class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground whitespace-nowrap transition-colors"
           >
             <svg
               aria-hidden="true"

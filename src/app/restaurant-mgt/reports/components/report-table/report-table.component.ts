@@ -28,13 +28,13 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
   imports: [CommonModule, BadgeComponent],
   template: `
     <div class="overflow-x-auto">
-      <table class="w-full text-sm font-sans border-collapse">
+      <table class="w-full text-sm font-sans border-collapse border border-border">
         <thead>
-          <tr class="border-b border-border text-muted-foreground">
+          <tr class="bg-muted text-muted-foreground">
             @for (col of columns; track col.key) {
               <th
                 [ngClass]="alignClass(col)"
-                class="px-3 py-2 font-semibold whitespace-nowrap select-none cursor-pointer"
+                class="border border-border px-3 py-2 font-semibold whitespace-nowrap select-none cursor-pointer"
                 (click)="onSort(col)"
                 scope="col"
               >
@@ -58,9 +58,9 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
             </tr>
           } @else {
             @for (row of sortedRows; track $index) {
-              <tr class="border-b border-border hover:bg-accent">
+              <tr [ngClass]="'even:bg-muted/40 hover:bg-muted'">
                 @for (col of columns; track col.key) {
-                  <td [ngClass]="alignClass(col)" class="px-3 py-2 whitespace-nowrap">
+                  <td [ngClass]="alignClass(col)" class="border border-border px-3 py-2 whitespace-nowrap">
                     @if (col.format === 'status') {
                       <app-dn-badge [variant]="statusVariant(row[col.key])">{{
                         statusLabel(row[col.key])
@@ -79,7 +79,7 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
           <tfoot>
             <tr class="border-t-2 border-border font-semibold">
               @for (col of columns; track col.key; let i = $index) {
-                <td [ngClass]="alignClass(col)" class="px-3 py-2 whitespace-nowrap">
+                <td [ngClass]="alignClass(col)" class="border border-border px-3 py-2 whitespace-nowrap">
                   @if (totalCell(col) !== null) {
                     {{ totalCell(col) }}
                   } @else if (i === 0) {
