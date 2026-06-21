@@ -85,3 +85,16 @@ exit 1
 #       "pick 31 days or fewer" tooltip; an empty listing disables it with the
 #       "nothing to export" tooltip
 #   [ ] Menu's bar is enabled whenever it has rows (no 31-day guard)
+
+# ── Manual checklist: Reports layout & table polish (Issues 2–5) ──────────────
+# After the automated gate passes, on the dev server (npm start) at
+# /rest-app/reports/*:
+#   [ ] /rest-app/reports/menu uses the padded layout like the other three (no
+#       crop/shift); the food menu /rest-app/menu is still full-bleed
+#   [ ] Active rail/pill item is white text on red (readable), desktop + mobile;
+#       inactive items go white on red on hover
+#   [ ] First rail item has clear breathing room below the sticky date bar
+#   [ ] All four reports' tables show visible gridlines + subtle zebra banding +
+#       a soft (non-red) row hover
+#   [ ] Global-border check: --border is now a visible light-mode hairline — spot
+#       -check dashboard cards, menu, settings, support look intentional
