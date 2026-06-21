@@ -1,6 +1,17 @@
-<header class="mb-4 sm:mb-6">
-  <h1 class="text-2xl font-semibold text-gray-900">Menu performance</h1>
-  <p class="text-sm text-gray-500 mt-1">How your menu sold over the selected period.</p>
+<header class="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-gray-900">Menu performance</h1>
+    <p class="text-sm text-gray-500 mt-1">How your menu sold over the selected period.</p>
+  </div>
+  <app-report-export-bar
+    [columns]="columns"
+    [rows]="rows"
+    [totals]="totals"
+    reportTitle="Menu performance"
+    [range]="range"
+    [disabled]="!ready"
+    [disabledReason]="'Nothing to export for this range.'"
+  ></app-report-export-bar>
 </header>
 
 <app-dn-card class="block">

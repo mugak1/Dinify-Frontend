@@ -43,6 +43,7 @@
     "ngx-intl-telephone-input": "^1.0.1",
     "rxjs": "^7.8.2",
     "tslib": "^2.3.0",
+    "write-excel-file": "^4.1.1",
     "zone.js": "~0.15.1"
   },
   "devDependencies": {

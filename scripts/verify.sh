@@ -67,3 +67,21 @@ exit 1
 #   [ ] Menu / Transactions / Diners show the "still building this report" state
 #   [ ] Sales empty range shows the empty state; a failed load shows error + Try again
 #   [ ] >=lg shows the 240px left rail; below lg the list is a horizontal pill selector
+
+# ── Manual checklist: Reports export bar (CSV / XLSX / Print, mock-first) ─────
+# The export bar lives in each report's header (title left / bar right). On the
+# dev server (npm start) at /rest-app/reports/*, after the automated gate passes:
+#   [ ] Each report (Sales/Menu/Transactions/Diners) shows Export XLSX · Export
+#       CSV · Print in the header
+#   [ ] Export CSV downloads dinify-<report>-<from>_<to>.csv of the PRIMARY table's
+#       FULL rows (Sales/Txn/Diners → the per-order listing; Menu → the aggregate),
+#       with raw numbers, "(UGX)" in money headers, and a final totals row
+#   [ ] Export XLSX downloads the matching .xlsx — numeric cells are real numbers
+#       (SUM works), money columns carry "(UGX)" in the header, totals row present
+#   [ ] Print opens a clean printable sheet (restaurant · report · range · timestamp
+#       + the full table with on-screen formatting + totals) and auto-prints
+#   [ ] Exported/printed columns, rows and totals match what is on screen
+#   [ ] Sales/Transactions/Diners: a range > 31 days disables the bar with the
+#       "pick 31 days or fewer" tooltip; an empty listing disables it with the
+#       "nothing to export" tooltip
+#   [ ] Menu's bar is enabled whenever it has rows (no 31-day guard)
