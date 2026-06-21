@@ -24,8 +24,9 @@ import { QRCodeComponent } from 'angularx-qrcode';
 import { IdentityComponent } from './settings/identity/identity.component';
 import { AvailabilityComponent } from './settings/availability/availability.component';
 import { TaxReceiptsComponent } from './settings/tax-receipts/tax-receipts.component';
-import { ReportsComponent } from './reports/reports.component';
-import { ReportDetailComponent } from './report-detail/report-detail.component';
+import { ReportsShellComponent } from './reports/shell/reports-shell.component';
+import { SalesReportComponent } from './reports/sales/sales-report.component';
+import { ReportPlaceholderComponent } from './reports/placeholder/report-placeholder.component';
 import { ReviewsOverviewComponent } from './reviews/overview/reviews-overview.component';
 import { ReviewsFeedComponent } from './reviews/feed/reviews-feed.component';
 import { PaymentsComponent } from './payments/payments.component';
@@ -80,9 +81,14 @@ const routes: Routes = [
   {path:'reviews',component:ReviewsOverviewComponent,title:'Reviews'},
   {path:'reviews/feed',component:ReviewsFeedComponent,title:'Reviews'},
   {path:'payments',component:PaymentsComponent,title:'Payments'},
-  {path:'reports',component:ReportsComponent,title:'Reports'}, 
-  {path:'support',component:SupportComponent,title:'Support'},  
-  {path:'reports/:type',component:ReportDetailComponent,title:'ReportDetail'},
+  {path:'reports',component:ReportsShellComponent,title:'Reports',children:[
+    {path: "", redirectTo: "sales", pathMatch: "full"},
+    {path:'sales',component:SalesReportComponent,title:'Sales'},
+    {path:'menu',component:ReportPlaceholderComponent,title:'Menu performance'},
+    {path:'transactions',component:ReportPlaceholderComponent,title:'Transactions'},
+    {path:'diners',component:ReportPlaceholderComponent,title:'Diners'},
+  ]}, 
+  {path:'support',component:SupportComponent,title:'Support'},
   {path:'notifications',component:RestNotificationsComponent,title:'Notifications'},
   { path: 'rest-app-ordering', loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule) }, // Load DinerApp for ordering
   { path: '**', redirectTo: '' }
@@ -92,8 +98,6 @@ const routes: Routes = [
   declarations: [
     DashboardComponent,
     MenuComponent,
-    ReportsComponent,
-    ReportDetailComponent,
     SupportComponent,
     BillingComponent,
     RestNotificationsComponent,
@@ -156,6 +160,9 @@ const routes: Routes = [
     AccountSecurityComponent,
     ReviewsOverviewComponent,
     ReviewsFeedComponent,
+    ReportsShellComponent,
+    SalesReportComponent,
+    ReportPlaceholderComponent,
 ],
   exports:[
     RouterModule
