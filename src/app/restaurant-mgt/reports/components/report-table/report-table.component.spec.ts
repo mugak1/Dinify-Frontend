@@ -77,4 +77,18 @@ describe('ReportTableComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Nothing here');
     expect(fixture.nativeElement.querySelector('tbody tr td').getAttribute('colspan')).toBe('4');
   });
+
+  it('maps the transaction-status tokens to badge variants', () => {
+    // New transaction tokens
+    expect(component.statusVariant('success')).toBe('success');
+    expect(component.statusVariant('initiated')).toBe('secondary');
+    // Existing sales tokens still hold
+    expect(component.statusVariant('paid')).toBe('success');
+    expect(component.statusVariant('pending')).toBe('warning');
+    expect(component.statusVariant('failed')).toBe('destructive');
+    expect(component.statusVariant('refunded')).toBe('secondary');
+    // Labels capitalize the lowercase tokens
+    expect(component.statusLabel('success')).toBe('Success');
+    expect(component.statusLabel('initiated')).toBe('Initiated');
+  });
 });

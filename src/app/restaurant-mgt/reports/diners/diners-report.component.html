@@ -1,0 +1,88 @@
+<header class="mb-4 sm:mb-6">
+  <h1 class="text-2xl font-semibold text-gray-900">Diners</h1>
+  <p class="text-sm text-gray-500 mt-1">Who ordered from you over the selected period.</p>
+</header>
+
+<!-- Bespoke overview (mixed-type metrics, NOT a table; always loads) -->
+<app-dn-card class="block mb-6">
+  <div class="p-4 sm:p-5">
+    <h2 class="text-base font-semibold text-gray-900 mb-3">Overview</h2>
+
+    @if (summaryReady && summary) {
+      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div>
+          <dt class="text-xs text-gray-500">Identified diners</dt>
+          <dd class="text-lg font-semibold text-gray-900">{{ summary.identifiedDiners | number }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500">Repeat diners</dt>
+          <dd class="text-lg font-semibold text-gray-900">{{ summary.repeatDiners | number }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500">Guest orders</dt>
+          <dd class="text-lg font-semibold text-gray-900">{{ summary.guestOrders | number }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500">Avg spend / identified diner</dt>
+          <dd class="text-lg font-semibold text-gray-900">{{ formatUGX(summary.avgSpendPerDiner) }}</dd>
+        </div>
+      </dl>
+
+      @if (summary.mostActive) {
+        <p class="text-sm text-gray-500 mt-4">
+          Most active:
+          <span class="font-medium text-gray-900">{{ summary.mostActive.name }}</span>
+          ({{ formatUGX(summary.mostActive.totalSpend) }})
+        </p>
+      }
+    } @else {
+      <app-report-state
+        [mode]="summaryState"
+        title="No diners yet"
+        message="No orders were attributed to diners in the dates you selected."
+        (retry)="retry()"
+      ></app-report-state>
+    }
+  </div>
+</app-dn-card>
+
+<!-- Identified-diner listing drill-down (≤31-day ranges) -->
+<app-dn-card class="block">
+  <div class="p-4 sm:p-5">
+    <h2 class="text-base font-semibold text-gray-900 mb-3">Identified diners</h2>
+
+    @if (listingReady) {
+      <app-report-table
+        [columns]="listingColumns"
+        [rows]="pagedListingRows"
+        [totals]="listingTableTotals"
+        emptyLabel="No identified diners in this period."
+      ></app-report-table>
+
+      @if (pageCount > 1) {
+        <div class="flex items-center justify-end gap-3 mt-3">
+          <button app-dn-button variant="outline" size="sm" [disabled]="page === 0" (click)="prevPage()">
+            Previous
+          </button>
+          <span class="text-sm text-gray-500">Page {{ page + 1 }} of {{ pageCount }}</span>
+          <button
+            app-dn-button
+            variant="outline"
+            size="sm"
+            [disabled]="page >= pageCount - 1"
+            (click)="nextPage()"
+          >
+            Next
+          </button>
+        </div>
+      }
+    } @else {
+      <app-report-state
+        [mode]="listingState"
+        title="No identified diners yet"
+        message="No identified diners for these dates — most orders are placed as guests."
+        (retry)="retry()"
+      ></app-report-state>
+    }
+  </div>
+</app-dn-card>

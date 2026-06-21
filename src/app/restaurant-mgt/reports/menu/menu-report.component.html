@@ -1,0 +1,35 @@
+<header class="mb-4 sm:mb-6">
+  <h1 class="text-2xl font-semibold text-gray-900">Menu performance</h1>
+  <p class="text-sm text-gray-500 mt-1">How your menu sold over the selected period.</p>
+</header>
+
+<app-dn-card class="block">
+  <div class="p-4 sm:p-5">
+    <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+      <h2 class="text-base font-semibold text-gray-900">Performance</h2>
+      <app-dn-tabs [value]="(grouping$ | async) ?? 'sections'" (valueChange)="onGrouping($event)">
+        <app-dn-tab-list>
+          @for (g of groupings; track g.value) {
+            <app-dn-tab-trigger [value]="g.value">{{ g.label }}</app-dn-tab-trigger>
+          }
+        </app-dn-tab-list>
+      </app-dn-tabs>
+    </div>
+
+    @if (ready) {
+      <app-report-table
+        [columns]="columns"
+        [rows]="rows"
+        [totals]="totals"
+        emptyLabel="No menu activity in this period."
+      ></app-report-table>
+    } @else {
+      <app-report-state
+        [mode]="state"
+        title="No menu activity yet"
+        message="No items were ordered in the dates you selected."
+        (retry)="retry()"
+      ></app-report-state>
+    }
+  </div>
+</app-dn-card>

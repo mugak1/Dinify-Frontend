@@ -1,0 +1,87 @@
+<header class="mb-4 sm:mb-6">
+  <h1 class="text-2xl font-semibold text-gray-900">Transactions</h1>
+  <p class="text-sm text-gray-500 mt-1">Payment activity for the selected period.</p>
+</header>
+
+<!-- Lead breakdowns (always loads, uncapped) -->
+<app-dn-card class="block mb-6">
+  <div class="p-4 sm:p-5">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <h2 class="text-base font-semibold text-gray-900">Summary</h2>
+      @if (summaryReady && summary) {
+        <span class="text-sm text-gray-500">{{ summary.totalCount | number }} transactions</span>
+      }
+    </div>
+
+    @if (summaryReady && summary) {
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-sm font-medium text-gray-500 mb-2">By status</h3>
+          <app-report-table
+            [columns]="byStatusColumns"
+            [rows]="summary.byStatus"
+            [totals]="byStatusTotals"
+            emptyLabel="No transactions in this period."
+          ></app-report-table>
+        </div>
+        <div>
+          <h3 class="text-sm font-medium text-gray-500 mb-2">By type</h3>
+          <app-report-table
+            [columns]="byTypeColumns"
+            [rows]="summary.byType"
+            [totals]="byTypeTotals"
+            emptyLabel="No transactions in this period."
+          ></app-report-table>
+        </div>
+      </div>
+    } @else {
+      <app-report-state
+        [mode]="summaryState"
+        title="No transactions yet"
+        message="Payments will appear here as orders are paid."
+        (retry)="retry()"
+      ></app-report-state>
+    }
+  </div>
+</app-dn-card>
+
+<!-- Per-transaction listing drill-down (≤31-day ranges) -->
+<app-dn-card class="block">
+  <div class="p-4 sm:p-5">
+    <h2 class="text-base font-semibold text-gray-900 mb-3">Transactions</h2>
+
+    @if (listingReady) {
+      <app-report-table
+        [columns]="listingColumns"
+        [rows]="pagedListingRows"
+        [totals]="listingTableTotals"
+        emptyLabel="No transactions in this period."
+      ></app-report-table>
+
+      @if (pageCount > 1) {
+        <div class="flex items-center justify-end gap-3 mt-3">
+          <button app-dn-button variant="outline" size="sm" [disabled]="page === 0" (click)="prevPage()">
+            Previous
+          </button>
+          <span class="text-sm text-gray-500">Page {{ page + 1 }} of {{ pageCount }}</span>
+          <button
+            app-dn-button
+            variant="outline"
+            size="sm"
+            [disabled]="page >= pageCount - 1"
+            (click)="nextPage()"
+          >
+            Next
+          </button>
+        </div>
+      }
+    } @else {
+      <app-report-state
+        [mode]="listingState"
+        title="No transactions yet"
+        message="Payments will appear here as orders are paid."
+        (retry)="retry()"
+      ></app-report-state>
+    }
+  </div>
+</app-dn-card>

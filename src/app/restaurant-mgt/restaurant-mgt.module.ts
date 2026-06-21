@@ -26,7 +26,9 @@ import { AvailabilityComponent } from './settings/availability/availability.comp
 import { TaxReceiptsComponent } from './settings/tax-receipts/tax-receipts.component';
 import { ReportsShellComponent } from './reports/shell/reports-shell.component';
 import { SalesReportComponent } from './reports/sales/sales-report.component';
-import { ReportPlaceholderComponent } from './reports/placeholder/report-placeholder.component';
+import { MenuReportComponent } from './reports/menu/menu-report.component';
+import { TransactionsReportComponent } from './reports/transactions/transactions-report.component';
+import { DinersReportComponent } from './reports/diners/diners-report.component';
 import { ReviewsOverviewComponent } from './reviews/overview/reviews-overview.component';
 import { ReviewsFeedComponent } from './reviews/feed/reviews-feed.component';
 import { PaymentsComponent } from './payments/payments.component';
@@ -84,9 +86,9 @@ const routes: Routes = [
   {path:'reports',component:ReportsShellComponent,title:'Reports',children:[
     {path: "", redirectTo: "sales", pathMatch: "full"},
     {path:'sales',component:SalesReportComponent,title:'Sales'},
-    {path:'menu',component:ReportPlaceholderComponent,title:'Menu performance'},
-    {path:'transactions',component:ReportPlaceholderComponent,title:'Transactions'},
-    {path:'diners',component:ReportPlaceholderComponent,title:'Diners'},
+    {path:'menu',component:MenuReportComponent,title:'Menu performance'},
+    {path:'transactions',component:TransactionsReportComponent,title:'Transactions'},
+    {path:'diners',component:DinersReportComponent,title:'Diners'},
   ]}, 
   {path:'support',component:SupportComponent,title:'Support'},
   {path:'notifications',component:RestNotificationsComponent,title:'Notifications'},
@@ -162,7 +164,9 @@ const routes: Routes = [
     ReviewsFeedComponent,
     ReportsShellComponent,
     SalesReportComponent,
-    ReportPlaceholderComponent,
+    MenuReportComponent,
+    TransactionsReportComponent,
+    DinersReportComponent,
 ],
   exports:[
     RouterModule

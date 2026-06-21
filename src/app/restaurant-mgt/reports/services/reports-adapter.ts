@@ -5,10 +5,19 @@
 // so flipping the mock flag in ReportsService is a one-line change.
 
 import {
+  DinersListingRow,
+  DinersSummary,
+  MenuRow,
   PaymentMode,
   PaymentStatus,
   SalesAggregateRow,
   SalesListingRow,
+  TransactionStatus,
+  TransactionType,
+  TransactionsByStatusRow,
+  TransactionsByTypeRow,
+  TransactionsListingRow,
+  TransactionsSummary,
 } from '../models/reports.models';
 
 function num(v: unknown): number {
@@ -42,5 +51,70 @@ export function adaptSalesListing(raw: any): SalesListingRow[] {
     payment_mode: (r?.payment_mode ?? 'Cash') as PaymentMode,
     payment_status: (r?.payment_status ?? 'paid') as PaymentStatus,
     time_created: String(r?.time_created ?? r?.created_at ?? ''),
+  }));
+}
+
+export function adaptMenuSummary(raw: any): MenuRow[] {
+  return toArray(raw).map((r) => ({
+    name: String(r?.name ?? r?.label ?? ''),
+    order_count: num(r?.order_count ?? r?.orders),
+    quantity_sold: num(r?.quantity_sold ?? r?.qty ?? r?.quantity),
+    revenue: num(r?.revenue ?? r?.net_revenue),
+  }));
+}
+
+export function adaptTransactionsSummary(raw: any): TransactionsSummary {
+  const byStatus: TransactionsByStatusRow[] = toArray(raw?.by_status ?? raw?.byStatus).map((r) => ({
+    status: String(r?.status ?? '').toLowerCase() as TransactionStatus,
+    count: num(r?.count),
+    amount: num(r?.amount ?? r?.total),
+  }));
+  const byType: TransactionsByTypeRow[] = toArray(raw?.by_type ?? raw?.byType).map((r) => ({
+    type: String(r?.type ?? '').toLowerCase() as TransactionType,
+    count: num(r?.count),
+    amount: num(r?.amount ?? r?.total),
+  }));
+  const totalCount =
+    num(raw?.total_count ?? raw?.totalCount) || byStatus.reduce((a, r) => a + r.count, 0);
+  return { byStatus, byType, totalCount };
+}
+
+export function adaptTransactionsListing(raw: any): TransactionsListingRow[] {
+  return toArray(raw).map((r) => ({
+    order_number: String(r?.order_number ?? r?.order_no ?? ''),
+    // Lowercase so backend "Payment"/"Success" feed the type map + status pill tokens.
+    transaction_type: String(r?.transaction_type ?? r?.type ?? 'payment').toLowerCase() as TransactionType,
+    transaction_status: String(
+      r?.transaction_status ?? r?.status ?? 'pending',
+    ).toLowerCase() as TransactionStatus,
+    amount: num(r?.amount),
+    payment_mode: (r?.payment_mode ?? 'Cash') as PaymentMode,
+    transaction_platform: String(r?.transaction_platform ?? r?.platform ?? ''),
+    time_created: String(r?.time_created ?? r?.created_at ?? ''),
+  }));
+}
+
+export function adaptDinersSummary(raw: any): DinersSummary {
+  const ma = raw?.most_active ?? raw?.mostActive ?? null;
+  return {
+    identifiedDiners: num(raw?.identified_diners ?? raw?.identifiedDiners),
+    repeatDiners: num(raw?.repeat_diners ?? raw?.repeatDiners),
+    guestOrders: num(raw?.guest_orders ?? raw?.guestOrders),
+    avgSpendPerDiner: num(raw?.avg_spend_per_diner ?? raw?.avgSpendPerDiner),
+    mostActive: ma
+      ? { name: String(ma?.name ?? ''), totalSpend: num(ma?.total_spend ?? ma?.totalSpend) }
+      : undefined,
+  };
+}
+
+export function adaptDinersListing(raw: any): DinersListingRow[] {
+  return toArray(raw).map((r) => ({
+    customer_id: String(r?.customer_id ?? r?.id ?? ''),
+    name: String(r?.name ?? r?.customer_name ?? ''),
+    phone_number: String(r?.phone_number ?? r?.phone ?? ''),
+    no_orders: num(r?.no_orders ?? r?.order_count),
+    total_spend: num(r?.total_spend ?? r?.total),
+    average_spend: num(r?.average_spend ?? r?.avg_spend),
+    last_order_date: String(r?.last_order_date ?? r?.last_order ?? ''),
   }));
 }
