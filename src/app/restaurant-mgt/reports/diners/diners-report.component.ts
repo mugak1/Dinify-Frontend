@@ -13,9 +13,10 @@ import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ReportTableComponent } from '../components/report-table/report-table.component';
 import { ReportStateComponent, ReportStateMode } from '../components/report-state/report-state.component';
+import { ReportExportBarComponent } from '../components/report-export-bar/report-export-bar.component';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
-import { DinersListingRow, DinersSummary, ReportColumn } from '../models/reports.models';
+import { DinersListingRow, DinersSummary, ReportColumn, ReportDateRange } from '../models/reports.models';
 import { sumColumns } from '../data/reports-mock-data';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 
@@ -36,7 +37,14 @@ const PAGE_SIZE = 50;
 @Component({
   selector: 'app-diners-report',
   standalone: true,
-  imports: [CommonModule, ReportTableComponent, ReportStateComponent, ButtonComponent, CardComponent],
+  imports: [
+    CommonModule,
+    ReportTableComponent,
+    ReportStateComponent,
+    ReportExportBarComponent,
+    ButtonComponent,
+    CardComponent,
+  ],
   templateUrl: './diners-report.component.html',
 })
 export class DinersReportComponent implements OnInit, OnDestroy {
@@ -55,6 +63,9 @@ export class DinersReportComponent implements OnInit, OnDestroy {
   listingReady = false;
   listingState: ReportStateMode = 'loading';
   listingGuarded = false;
+
+  /** Current range — passed to the export bar for filenames + the print header. */
+  range: ReportDateRange | null = null;
 
   page = 0;
 
@@ -84,6 +95,7 @@ export class DinersReportComponent implements OnInit, OnDestroy {
           this.page = 0;
         }),
         switchMap(([range]) => {
+          this.range = range;
           const days = differenceInCalendarDays(parseISO(range.to), parseISO(range.from));
           this.listingGuarded = days > LISTING_GUARD_DAYS;
 
