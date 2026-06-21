@@ -15,12 +15,20 @@ import {
   startOfMonth,
 } from 'date-fns';
 import {
+  DinersListingRow,
+  DinersSummary,
+  MenuGrouping,
+  MenuRow,
   PaymentMode,
   PaymentStatus,
   ReportGranularity,
   SalesAggregateRow,
   SalesListingRow,
   SalesListingTotals,
+  TransactionStatus,
+  TransactionType,
+  TransactionsListingRow,
+  TransactionsSummary,
 } from '../models/reports.models';
 
 // ── Seeded PRNG (mulberry32) ─────────────────────────────
@@ -197,4 +205,211 @@ export function sumListing(rows: SalesListingRow[]): SalesListingTotals {
     }),
     { orders: 0, gross: 0, discount: 0, revenue: 0 },
   );
+}
+
+/**
+ * Sums only the named numeric columns into the Record<string,number> shape the
+ * report-table `[totals]` input expects. Columns not listed are never
+ * aggregated — which is how per-row means (e.g. average_spend) are deliberately
+ * kept out of a totals footer.
+ */
+export function sumColumns<T extends Record<string, any>>(
+  rows: T[],
+  keys: (keyof T & string)[],
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const k of keys) out[k] = 0;
+  for (const r of rows) for (const k of keys) out[k] += Number(r[k]) || 0;
+  return out;
+}
+
+// ── Menu performance (salt 3) ───────────────────────────
+const MENU_SECTIONS = ['Mains', 'Grills', 'Sides', 'Drinks', 'Desserts', 'Breakfast', 'Combos'];
+const MENU_GROUPS = ['Chicken', 'Beef', 'Vegetarian', 'Beverages', 'Street Food', 'Platters'];
+const MENU_ITEMS = [
+  'Pilau',
+  'Chicken Luwombo',
+  'Beef Stew',
+  'Rolex',
+  'Matoke',
+  'Chapati',
+  'Katogo',
+  'Nyama Choma',
+  'Goat Pilau',
+  'Fresh Juice',
+  'Soda',
+  'Mandazi',
+  'Fish Fillet',
+  'Posho & Beans',
+  'Chips Masala',
+];
+
+/**
+ * Menu performance, aggregated by section/group/item. Always a small set. The
+ * real backend currently caps this at >31-day ranges (a backend PR relaxes it);
+ * the mock renders at every range.
+ */
+export function getMockMenuSummary(grouping: MenuGrouping, from: string, to: string): MenuRow[] {
+  const start = parseISO(from);
+  const end = parseISO(to);
+  if (differenceInCalendarDays(end, start) < 0) return [];
+
+  const rand = seededRandom(hashRange(from, to, 3));
+  const weeks = Math.max(1, Math.round((differenceInCalendarDays(end, start) + 1) / 7));
+  const names =
+    grouping === 'sections' ? MENU_SECTIONS : grouping === 'groups' ? MENU_GROUPS : MENU_ITEMS;
+
+  return names
+    .map((name) => {
+      const orderCount = randInt(rand, 8, 60) * weeks;
+      const quantitySold = orderCount + randInt(rand, 0, orderCount); // ≥ order_count
+      const avgLine = randInt(rand, 6000, 24000); // UGX per line
+      return {
+        name,
+        order_count: orderCount,
+        quantity_sold: quantitySold,
+        revenue: quantitySold * avgLine,
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
+// ── Transactions (salts 4 & 5) ──────────────────────────
+const TXN_STATUSES: TransactionStatus[] = ['success', 'failed', 'pending', 'initiated'];
+const TXN_TYPES: TransactionType[] = ['payment', 'refund', 'charge', 'subscription'];
+const TXN_PLATFORMS = ['Flutterwave', 'Pesapal', 'Direct'];
+
+/**
+ * Status + type breakdowns. Deliberately SPARSE — a short or quiet window can
+ * legitimately return zero transactions, so the empty state is easy to reach.
+ */
+export function getMockTransactionsSummary(from: string, to: string): TransactionsSummary {
+  const start = parseISO(from);
+  const end = parseISO(to);
+  if (differenceInCalendarDays(end, start) < 0) return { byStatus: [], byType: [], totalCount: 0 };
+
+  const rand = seededRandom(hashRange(from, to, 4));
+  const days = differenceInCalendarDays(end, start) + 1;
+  const total = randInt(rand, 0, Math.min(40, days * 2));
+  if (total === 0) return { byStatus: [], byType: [], totalCount: 0 };
+
+  const byStatus = TXN_STATUSES.map((status) => {
+    const count = randInt(rand, 0, Math.ceil(total / 2));
+    return { status, count, amount: count * randInt(rand, 15000, 45000) };
+  }).filter((r) => r.count > 0);
+
+  const byType = TXN_TYPES.map((type) => {
+    const count = randInt(rand, 0, Math.ceil(total / 2));
+    return { type, count, amount: count * randInt(rand, 15000, 45000) };
+  }).filter((r) => r.count > 0);
+
+  return { byStatus, byType, totalCount: total };
+}
+
+/** Per-transaction listing. SPARSE — a quiet day yields no rows. Caller invokes only within ≤31 days. */
+export function getMockTransactionsListing(from: string, to: string): TransactionsListingRow[] {
+  const start = parseISO(from);
+  const end = parseISO(to);
+  if (differenceInCalendarDays(end, start) < 0) return [];
+
+  const rand = seededRandom(hashRange(from, to, 5));
+  const rows: TransactionsListingRow[] = [];
+  let counter = 1;
+
+  for (const d of eachDayOfInterval({ start, end })) {
+    const perDay = randInt(rand, 0, 3);
+    for (let i = 0; i < perDay; i++) {
+      const dt = new Date(d);
+      dt.setHours(randInt(rand, 9, 21), randInt(rand, 0, 59), 0, 0);
+      rows.push({
+        order_number: `ORD-${String(counter++).padStart(4, '0')}`,
+        transaction_type: TXN_TYPES[randInt(rand, 0, TXN_TYPES.length - 1)],
+        transaction_status: TXN_STATUSES[randInt(rand, 0, TXN_STATUSES.length - 1)],
+        amount: randInt(rand, 12000, 90000),
+        payment_mode: pickPaymentMode(rand),
+        transaction_platform: TXN_PLATFORMS[randInt(rand, 0, TXN_PLATFORMS.length - 1)],
+        time_created: dt.toISOString(),
+      });
+    }
+  }
+  return rows;
+}
+
+// ── Diners (salts 6 & 7) ────────────────────────────────
+const DINER_NAMES = [
+  'Aisha N.',
+  'Brian K.',
+  'Catherine M.',
+  'David O.',
+  'Esther A.',
+  'Farouk S.',
+  'Grace T.',
+  'Henry W.',
+];
+
+/**
+ * Diner overview. THIN by nature — few identified diners against a large guest
+ * count, so the listing empty state is easy to reach while the overview still
+ * shows guest activity.
+ */
+export function getMockDinersSummary(from: string, to: string): DinersSummary {
+  const start = parseISO(from);
+  const end = parseISO(to);
+  if (differenceInCalendarDays(end, start) < 0) {
+    return { identifiedDiners: 0, repeatDiners: 0, guestOrders: 0, avgSpendPerDiner: 0 };
+  }
+
+  const rand = seededRandom(hashRange(from, to, 6));
+  const identified = randInt(rand, 0, 8);
+  if (identified === 0) {
+    // Quiet window: no identified diners, but guests may still have ordered.
+    return {
+      identifiedDiners: 0,
+      repeatDiners: 0,
+      guestOrders: randInt(rand, 0, 30),
+      avgSpendPerDiner: 0,
+    };
+  }
+
+  const avgSpend = randInt(rand, 25000, 80000);
+  return {
+    identifiedDiners: identified,
+    repeatDiners: randInt(rand, 0, identified),
+    guestOrders: randInt(rand, 20, 120),
+    avgSpendPerDiner: avgSpend,
+    mostActive: {
+      name: DINER_NAMES[randInt(rand, 0, DINER_NAMES.length - 1)],
+      totalSpend: avgSpend * randInt(rand, 3, 9),
+    },
+  };
+}
+
+/** Identified-diner listing. THIN — often a handful of rows or none. Caller invokes only within ≤31 days. */
+export function getMockDinersListing(from: string, to: string): DinersListingRow[] {
+  const start = parseISO(from);
+  const end = parseISO(to);
+  if (differenceInCalendarDays(end, start) < 0) return [];
+
+  const rand = seededRandom(hashRange(from, to, 7));
+  const span = Math.max(0, differenceInCalendarDays(end, start));
+  const count = randInt(rand, 0, 8);
+  const rows: DinersListingRow[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const orders = randInt(rand, 1, 18);
+    const totalSpend = orders * randInt(rand, 18000, 60000);
+    const last = new Date(end);
+    last.setDate(last.getDate() - randInt(rand, 0, span));
+    last.setHours(randInt(rand, 9, 21), randInt(rand, 0, 59), 0, 0);
+    rows.push({
+      customer_id: `CUST-${String(i + 1).padStart(4, '0')}`,
+      name: DINER_NAMES[i % DINER_NAMES.length],
+      phone_number: `+2567${randInt(rand, 10, 99)}${String(randInt(rand, 0, 999999)).padStart(6, '0')}`,
+      no_orders: orders,
+      total_spend: totalSpend,
+      average_spend: Math.round(totalSpend / orders),
+      last_order_date: last.toISOString(),
+    });
+  }
+  return rows;
 }

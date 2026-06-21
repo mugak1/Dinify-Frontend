@@ -159,12 +159,14 @@ export class ReportTableComponent implements OnChanges {
   statusVariant(value: string): BadgeVariant {
     switch (value) {
       case 'paid':
+      case 'success':
         return 'success';
       case 'pending':
         return 'warning';
       case 'failed':
         return 'destructive';
       case 'refunded':
+      case 'initiated':
         return 'secondary';
       default:
         return 'outline';

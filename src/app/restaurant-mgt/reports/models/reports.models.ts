@@ -85,6 +85,89 @@ export interface ReportColumn {
   total?: boolean;
 }
 
+// ── Menu performance ──────────────────────────────────────
+/** Aggregation level for the menu-performance report. */
+export type MenuGrouping = 'sections' | 'groups' | 'items';
+
+export interface MenuRow {
+  /** Section, group or item display name, depending on the active grouping. */
+  name: string;
+  order_count: number;
+  quantity_sold: number;
+  /** UGX. */
+  revenue: number;
+}
+
+// ── Transactions ──────────────────────────────────────────
+/**
+ * Lowercase status tokens. The backend emits Success/Failed/Pending/Initiated;
+ * the adapter lowercases them so they feed the report-table status pill directly.
+ */
+export type TransactionStatus = 'success' | 'failed' | 'pending' | 'initiated';
+
+/**
+ * Internal transaction-type tokens. Mapped to neutral, non-custodial labels for
+ * display (Payment/Refund/Charge/Subscription) — Dinify never disburses, so there
+ * is deliberately no 'disbursement' member.
+ */
+export type TransactionType = 'payment' | 'refund' | 'charge' | 'subscription';
+
+export interface TransactionsByStatusRow {
+  status: TransactionStatus;
+  count: number;
+  /** UGX. */
+  amount: number;
+}
+
+export interface TransactionsByTypeRow {
+  type: TransactionType;
+  count: number;
+  /** UGX. */
+  amount: number;
+}
+
+export interface TransactionsSummary {
+  byStatus: TransactionsByStatusRow[];
+  byType: TransactionsByTypeRow[];
+  totalCount: number;
+}
+
+export interface TransactionsListingRow {
+  order_number: string;
+  transaction_type: TransactionType;
+  transaction_status: TransactionStatus;
+  /** UGX. */
+  amount: number;
+  payment_mode: PaymentMode;
+  transaction_platform: string;
+  /** ISO 8601 datetime. */
+  time_created: string;
+}
+
+// ── Diners ────────────────────────────────────────────────
+export interface DinersSummary {
+  identifiedDiners: number;
+  repeatDiners: number;
+  /** Orders placed by un-identified guests — a standalone count, not rows. */
+  guestOrders: number;
+  /** UGX, mean spend across identified diners. */
+  avgSpendPerDiner: number;
+  mostActive?: { name: string; totalSpend: number };
+}
+
+export interface DinersListingRow {
+  customer_id: string;
+  name: string;
+  phone_number: string;
+  no_orders: number;
+  /** UGX. */
+  total_spend: number;
+  /** UGX, per-diner mean — NEVER summed in a totals footer. */
+  average_spend: number;
+  /** ISO 8601 datetime. */
+  last_order_date: string;
+}
+
 export const REPORT_PRESETS: ReportPreset[] = [
   'today',
   'yesterday',
