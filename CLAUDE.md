@@ -58,8 +58,12 @@ so keep it current when conventions change.
   Availability (`settings/availability`, `AvailabilityComponent` —
   `accepting_orders` toggle), Team / Members (`settings/team/members`,
   `RestUsersComponent` rehomed under a `TeamShellComponent` master–detail hub at
-  route `settings/team` — sub-nav gated on `nav.length > 1` so PR F reveals it
-  with a two-append change; the role picker is aligned to the four backend roles
+  route `settings/team` — sub-nav gated on `nav.length > 1`, now revealed by the
+  owner-only **Roles & access** grid (`settings/team/roles`, `RolesAccessComponent`)
+  appended alongside Members (it inherits the team-parent RBAC guard, so it is
+  owner-only by composition — no child guard); a role×module grid that reads/PUTs
+  `RolePermissionsService` (the owner row is locked from the response's `editable`
+  flag, never the role name); the role picker is aligned to the four backend roles
   (Owner/Manager/Chef/Staff; Staff emits `restaurant_staff`, finance + waiter
   retired) and a brand-new employee's one-time temp password is surfaced on a
   persistent, non-dismissable `StaffCredentialDialogComponent`), Tax & receipts
@@ -175,7 +179,8 @@ The module uses a deliberate mixed pattern — follow it exactly:
 A shared component library lives in `src/app/_shared/ui/`:
 allergen-disclaimer, avatar (`app-dn-avatar`, initials-in-a-circle), badge,
 button, card, dialog, featured-carousel,
-offline-banner, sheet, switch, tabs, toast — plus the `tooltip` directive
+offline-banner, sheet, switch (`app-dn-switch`; supports a `disabled` input for
+locked toggles, e.g. the Roles & access owner row), tabs, toast — plus the `tooltip` directive
 (`[appTooltip]`, not a component), the `SafeArrayPipe`, and the `HighlightPipe`
 (search-term highlighting). The `toast/` folder also exports the injectable
 `ToastService` (the app-wide toast queue), re-exported from the barrel.
@@ -263,8 +268,10 @@ writing new tag or price/menu logic:
   the flag as a design-review aid (flip to `true` locally)
 - The Settings section services in `src/app/_services/` are all real-wired
   (`USE_MOCK_DATA = false`): `restaurant-identity`, `restaurant-availability`,
-  and `restaurant-tax-receipts`. Staff & roles, Billing, and Account & security
-  call `ApiService` directly (no mock flag)
+  `restaurant-tax-receipts`, and `role-permissions` (the owner-only Roles & access
+  grid — GET parses via the defensive `parseGrid`, PUT sends `{restaurant, role,
+  modules}`; dormant mock behind the flag, mirroring `restaurant-identity`). Staff
+  & roles, Billing, and Account & security call `ApiService` directly (no mock flag)
 - ReportsService uses a single `USE_MOCK_DATA = true` flag (mock-first),
   mirroring DashboardService — all four reports render mock data while a dormant
   `reports-adapter` parsing layer + scaffolded real endpoints wait behind the

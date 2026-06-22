@@ -31,5 +31,6 @@ interface TeamNavItem {
 export class TeamShellComponent {
   readonly nav: TeamNavItem[] = [
     { key: 'members', label: 'Members', path: 'members', icon: 'users' },
+    { key: 'roles', label: 'Roles & access', path: 'roles', icon: 'shield' },
   ];
 }
