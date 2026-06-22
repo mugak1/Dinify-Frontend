@@ -1,6 +1,5 @@
 import { Component, Output, EventEmitter, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AuthenticationService } from '../../../_services/authentication.service';
@@ -17,7 +16,7 @@ interface DateRangeOption {
 @Component({
   selector: 'app-top-nav',
   standalone: true,
-  imports: [CommonModule, RouterModule, SwitchComponent],
+  imports: [CommonModule, SwitchComponent],
   templateUrl: './top-nav.component.html',
 })
 export class TopNavComponent implements OnInit, OnDestroy {
