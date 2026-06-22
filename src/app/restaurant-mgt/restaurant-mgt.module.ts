@@ -34,6 +34,7 @@ import { ReviewsOverviewComponent } from './reviews/overview/reviews-overview.co
 import { ReviewsFeedComponent } from './reviews/feed/reviews-feed.component';
 import { TeamShellComponent } from './settings/team/team-shell.component';
 import { RestUsersComponent } from './settings/team/members/rest-users.component';
+import { RolesAccessComponent } from './settings/team/roles/roles-access.component';
 import { SupportComponent } from './support/support.component';
 import { BillingComponent } from './settings/billing/billing.component';
 import { RestNotificationsComponent } from './rest-notifications/rest-notifications.component';
@@ -80,6 +81,7 @@ const routes: Routes = [
     {path:'team',component:TeamShellComponent,title:'Team',canActivate:[permissionGuard],data:{module:'team'},children:[
       {path:'',redirectTo:'members',pathMatch:'full'},
       {path:'members',component:RestUsersComponent,title:'Members'},
+      {path:'roles',component:RolesAccessComponent,title:'Roles & access'},
     ]},
     {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts',canActivate:[permissionGuard],data:{module:'settings'}},
     {path:'billing',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
@@ -169,6 +171,7 @@ const routes: Routes = [
     TaxReceiptsComponent,
     RestUsersComponent,
     TeamShellComponent,
+    RolesAccessComponent,
     AccountSecurityComponent,
     AccountComponent,
     ReviewsOverviewComponent,

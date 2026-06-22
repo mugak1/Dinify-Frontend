@@ -12,6 +12,7 @@ export type SwitchSize = 'sm' | 'md';
       type="button"
       role="switch"
       [attr.aria-checked]="checked"
+      [disabled]="disabled"
       [class]="trackClass"
       (click)="toggle()"
     >
@@ -22,12 +23,18 @@ export type SwitchSize = 'sm' | 'md';
 export class SwitchComponent {
   @Input() checked = false;
   @Input() size: SwitchSize = 'md';
+  /** Renders the track non-interactive (used e.g. for the locked owner row in the roles grid). */
+  @Input() disabled = false;
   @Output() checkedChange = new EventEmitter<boolean>();
 
   get trackClass(): string {
-    const base = 'inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+    // `border-2 border-transparent` is load-bearing (keeps the track height in
+    // lockstep with the thumb) — preserve it. Cursor/opacity are state-aware so
+    // a disabled track reads as locked.
+    const base = 'inline-flex shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
     const sizeClass = this.size === 'sm' ? 'h-5 w-9' : 'h-6 w-11';
-    return cn(base, sizeClass, this.checked ? 'bg-primary' : 'bg-input');
+    const stateClass = this.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer';
+    return cn(base, sizeClass, stateClass, this.checked ? 'bg-primary' : 'bg-input');
   }
 
   get thumbClass(): string {
@@ -40,6 +47,7 @@ export class SwitchComponent {
   }
 
   toggle(): void {
+    if (this.disabled) return;
     this.checked = !this.checked;
     this.checkedChange.emit(this.checked);
   }
