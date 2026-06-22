@@ -31,7 +31,6 @@ import { TransactionsReportComponent } from './reports/transactions/transactions
 import { DinersReportComponent } from './reports/diners/diners-report.component';
 import { ReviewsOverviewComponent } from './reviews/overview/reviews-overview.component';
 import { ReviewsFeedComponent } from './reviews/feed/reviews-feed.component';
-import { PaymentsComponent } from './payments/payments.component';
 import { RestUsersComponent } from './settings/rest-users/rest-users.component';
 import { SupportComponent } from './support/support.component';
 import { BillingComponent } from './settings/billing/billing.component';
@@ -82,7 +81,6 @@ const routes: Routes = [
   
   {path:'reviews',component:ReviewsOverviewComponent,title:'Reviews'},
   {path:'reviews/feed',component:ReviewsFeedComponent,title:'Reviews'},
-  {path:'payments',component:PaymentsComponent,title:'Payments'},
   {path:'reports',component:ReportsShellComponent,title:'Reports',children:[
     {path: "", redirectTo: "sales", pathMatch: "full"},
     {path:'sales',component:SalesReportComponent,title:'Sales'},
@@ -102,8 +100,7 @@ const routes: Routes = [
     MenuComponent,
     SupportComponent,
     BillingComponent,
-    RestNotificationsComponent,
-    PaymentsComponent
+    RestNotificationsComponent
   ],
   imports: [
     CommonModule,
