@@ -2,8 +2,6 @@ import { Component, Output, EventEmitter, Input, OnInit, OnDestroy } from '@angu
 import { CommonModule } from '@angular/common';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { AuthenticationService } from '../../../_services/authentication.service';
-import { environment } from 'src/environments/environment';
 import { DashboardService } from '../../dashboard/services/dashboard.service';
 import { SwitchComponent } from '../../../_shared/ui/switch/switch.component';
 import { DateRange } from '../../dashboard/models/dashboard.models';
@@ -24,8 +22,6 @@ export class TopNavComponent implements OnInit, OnDestroy {
   @Output() logoutClick = new EventEmitter<void>();
   @Input() compact = false;
 
-  baseUrl = environment.apiUrl;
-
   ranges: DateRangeOption[] = [
     { value: 'day', label: 'Day' },
     { value: 'week', label: 'Week' },
@@ -40,7 +36,6 @@ export class TopNavComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor(
-    public auth: AuthenticationService,
     public dashboardService: DashboardService,
   ) {}
 
