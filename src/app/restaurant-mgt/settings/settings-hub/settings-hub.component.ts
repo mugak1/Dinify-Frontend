@@ -48,10 +48,10 @@ export class SettingsHubComponent {
           route: '/rest-app/settings/availability',
         },
         {
-          label: 'Staff & roles',
+          label: 'Team',
           description: 'Invite team members and manage their access.',
           icon: 'staff',
-          route: '/rest-app/settings/rest-users',
+          route: '/rest-app/settings/team',
         },
         {
           label: 'Tax & receipts',

@@ -31,7 +31,8 @@ import { TransactionsReportComponent } from './reports/transactions/transactions
 import { DinersReportComponent } from './reports/diners/diners-report.component';
 import { ReviewsOverviewComponent } from './reviews/overview/reviews-overview.component';
 import { ReviewsFeedComponent } from './reviews/feed/reviews-feed.component';
-import { RestUsersComponent } from './settings/rest-users/rest-users.component';
+import { TeamShellComponent } from './settings/team/team-shell.component';
+import { RestUsersComponent } from './settings/team/members/rest-users.component';
 import { SupportComponent } from './support/support.component';
 import { BillingComponent } from './settings/billing/billing.component';
 import { RestNotificationsComponent } from './rest-notifications/rest-notifications.component';
@@ -70,7 +71,10 @@ const routes: Routes = [
     {path: "", component: SettingsHubComponent, pathMatch: "full"},
     {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding'},
     {path:'availability',component:AvailabilityComponent,title:'Availability'},
-    {path:'rest-users',component:RestUsersComponent,title:'Staff & roles'},
+    {path:'team',component:TeamShellComponent,title:'Team',children:[
+      {path:'',redirectTo:'members',pathMatch:'full'},
+      {path:'members',component:RestUsersComponent,title:'Members'},
+    ]},
     {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts'},
     {path:'billing',component:BillingComponent,title:'Billing'},
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing'},
@@ -158,6 +162,7 @@ const routes: Routes = [
     AvailabilityComponent,
     TaxReceiptsComponent,
     RestUsersComponent,
+    TeamShellComponent,
     AccountSecurityComponent,
     AccountComponent,
     ReviewsOverviewComponent,

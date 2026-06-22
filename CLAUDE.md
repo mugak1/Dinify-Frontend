@@ -56,8 +56,13 @@ so keep it current when conventions change.
   `SettingsHubComponent`) with standalone, real-wired section pages —
   Restaurant identity & branding (`settings/restaurant`, `IdentityComponent`),
   Availability (`settings/availability`, `AvailabilityComponent` —
-  `accepting_orders` toggle), Staff & roles (`settings/rest-users`,
-  `RestUsersComponent` — finance role dropped), Tax & receipts
+  `accepting_orders` toggle), Team / Members (`settings/team/members`,
+  `RestUsersComponent` rehomed under a `TeamShellComponent` master–detail hub at
+  route `settings/team` — sub-nav gated on `nav.length > 1` so PR F reveals it
+  with a two-append change; the role picker is aligned to the four backend roles
+  (Owner/Manager/Chef/Staff; Staff emits `restaurant_staff`, finance + waiter
+  retired) and a brand-new employee's one-time temp password is surfaced on a
+  persistent, non-dismissable `StaffCredentialDialogComponent`), Tax & receipts
   (`settings/tax-receipts`, `TaxReceiptsComponent`), Billing (`settings/billing`,
   subscription-only — `BillingComponent` is the one section still in
   `declarations`, i.e. non-standalone), Account & security (`settings/account`,

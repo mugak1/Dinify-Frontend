@@ -1,0 +1,81 @@
+<!-- Team shell: sub-nav (gated on nav.length > 1) + outlet. No date bar and no
+     edge-to-edge negative margins (unlike the Reports shell), so the single-
+     child Members page renders inside the host <main> padding exactly as the
+     other settings sections do. -->
+<div class="flex flex-col lg:flex-row min-h-full">
+  @if (nav.length > 1) {
+    <!-- Left rail (>=lg) -->
+    <nav
+      class="hidden lg:flex lg:flex-col lg:w-[240px] lg:shrink-0 border-r border-border p-3 gap-1"
+      aria-label="Team"
+    >
+      @for (n of nav; track n.key) {
+        <a
+          [routerLink]="n.path"
+          routerLinkActive="bg-accent text-accent-foreground font-medium"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <svg
+            aria-hidden="true"
+            class="w-5 h-5 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <ng-container [ngSwitch]="n.icon">
+              <ng-container *ngSwitchCase="'users'">
+                <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <svg:circle cx="9" cy="7" r="4" />
+                <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </ng-container>
+            </ng-container>
+          </svg>
+          <span class="truncate">{{ n.label }}</span>
+        </a>
+      }
+    </nav>
+
+    <!-- Horizontal pill selector (<lg) -->
+    <div class="lg:hidden border-b border-border overflow-x-auto">
+      <div class="flex gap-1 p-2 min-w-max">
+        @for (n of nav; track n.key) {
+          <a
+            [routerLink]="n.path"
+            routerLinkActive="bg-accent text-accent-foreground font-medium"
+            class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground whitespace-nowrap transition-colors"
+          >
+            <svg
+              aria-hidden="true"
+              class="w-4 h-4 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <ng-container [ngSwitch]="n.icon">
+                <ng-container *ngSwitchCase="'users'">
+                  <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <svg:circle cx="9" cy="7" r="4" />
+                  <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </ng-container>
+              </ng-container>
+            </svg>
+            {{ n.label }}
+          </a>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Detail — each child owns its SectionPageComponent header. -->
+  <section class="flex-1 min-w-0">
+    <router-outlet></router-outlet>
+  </section>
+</div>

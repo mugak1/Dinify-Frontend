@@ -14,7 +14,7 @@ const maxWidthClasses: Record<DialogMaxWidth, string> = {
   template: `
     @if (open) {
       <div class="fixed inset-0 z-50 flex items-center justify-center">
-        <div class="fixed inset-0 bg-black/50" (click)="close()"></div>
+        <div class="fixed inset-0 bg-black/50" (click)="onBackdrop()"></div>
         <div [class]="'relative z-50 bg-card rounded-lg shadow-lg p-6 w-full mx-4 ' + maxWidthClass">
           <ng-content></ng-content>
         </div>
@@ -25,6 +25,13 @@ const maxWidthClasses: Record<DialogMaxWidth, string> = {
 export class DialogComponent {
   @Input() open = false;
   @Input() maxWidth: DialogMaxWidth = 'md';
+  /**
+   * When true, backdrop clicks and the Escape key do NOT close the dialog —
+   * the only way out is an explicit in-content action. Default false preserves
+   * every existing consumer. Used by the create-employee credential dialog,
+   * whose one-time password must not be dismissed by accident.
+   */
+  @Input() disableClose = false;
   @Output() closed = new EventEmitter<void>();
 
   get maxWidthClass(): string {
@@ -33,9 +40,14 @@ export class DialogComponent {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
-    if (this.open) {
+    if (this.open && !this.disableClose) {
       this.close();
     }
+  }
+
+  onBackdrop(): void {
+    if (this.disableClose) return;
+    this.close();
   }
 
   close(): void {

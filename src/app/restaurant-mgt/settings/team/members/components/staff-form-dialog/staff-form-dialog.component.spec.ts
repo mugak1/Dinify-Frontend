@@ -52,14 +52,13 @@ describe('StaffFormDialogComponent', () => {
     c.ngOnChanges({ open: { currentValue: true } as any });
   }
 
-  it('offers only the four assignable roles when adding (no finance)', () => {
+  it('offers only the assignable roles when adding (no owner/waiter/finance)', () => {
     const c = build();
     open(c, null);
     expect(c.addRoleOptions.map((o) => o.value)).toEqual([
-      'owner',
       'manager',
       'kitchen',
-      'waiter',
+      'restaurant_staff',
     ]);
   });
 
@@ -68,14 +67,23 @@ describe('StaffFormDialogComponent', () => {
     open(c, makeUser({ roles: ['finance'] }));
     const opts = c.editRoleOptions;
     expect(opts[0]).toEqual({ value: 'finance', label: 'Finance (legacy)' });
-    expect(opts.length).toBe(5);
+    expect(opts.length).toBe(4);
     expect(c.EditForm.get('roles')?.value).toBe('finance');
+  });
+
+  it('shows the current owner as plain "Owner" (not legacy) when editing', () => {
+    const c = build();
+    open(c, makeUser({ roles: ['owner'] }));
+    const opts = c.editRoleOptions;
+    expect(opts[0]).toEqual({ value: 'owner', label: 'Owner' });
+    expect(opts.length).toBe(4);
+    expect(opts.some((o) => o.label.includes('legacy'))).toBeFalse();
   });
 
   it('does not add a legacy option when editing a standard role', () => {
     const c = build();
     open(c, makeUser({ roles: ['manager'] }));
-    expect(c.editRoleOptions.length).toBe(4);
+    expect(c.editRoleOptions.length).toBe(3);
     expect(c.editRoleOptions.some((o) => o.label.includes('legacy'))).toBeFalse();
   });
 
@@ -111,26 +119,34 @@ describe('StaffFormDialogComponent', () => {
     expect(c.user_id).toBeNull();
   });
 
-  it('assigns an existing user with the employees POST payload', () => {
+  it('assigns an existing user with the employees POST payload and emits saved (not created)', () => {
     const c = build();
     let saved = false;
+    let created = false;
     c.saved.subscribe(() => (saved = true));
+    c.created.subscribe(() => (created = true));
     api.get.and.returnValue(of({ status: 200, data: { id: 'existing-user' } } as any));
     open(c, null);
     c.RegisterForm.get('phone_number')?.setValue('256700111222');
     c.submit(); // lookup → existing
-    c.RegisterForm.get('roles')?.setValue('waiter');
+    c.RegisterForm.get('roles')?.setValue('restaurant_staff');
     c.submit(); // assign
     expect(api.postPatch).toHaveBeenCalledWith(
       'restaurant-setup/employees/',
-      { user: 'existing-user', restaurant: 'rest-1', roles: ['waiter'] },
+      { user: 'existing-user', restaurant: 'rest-1', roles: ['restaurant_staff'] },
       'post',
     );
     expect(saved).toBeTrue();
+    expect(created).toBeFalse(); // assign-existing must NOT open the credential dialog
   });
 
-  it('creates a brand-new employee with create-employee + role array', () => {
+  it('creates a brand-new employee, emits created with the temp password (not saved)', () => {
     const c = build();
+    api.postPatch.and.returnValue(of({ data: { temp_password: 'TMP-123' } } as any));
+    let createdResp: any = null;
+    let saved = false;
+    c.created.subscribe((r) => (createdResp = r));
+    c.saved.subscribe(() => (saved = true));
     api.get.and.returnValue(of({ status: 400 } as any));
     open(c, null);
     c.RegisterForm.get('phone_number')?.setValue('256700111222');
@@ -150,17 +166,19 @@ describe('StaffFormDialogComponent', () => {
         restaurant: 'rest-1',
       }),
     );
+    expect(createdResp?.data?.temp_password).toBe('TMP-123');
+    expect(saved).toBeFalse(); // create emits `created`, never `saved`
   });
 
   it('saves an edit with the employees PUT payload', () => {
     const c = build();
     open(c, makeUser({ id: 'emp-9', roles: ['manager'], active: true }));
-    c.EditForm.get('roles')?.setValue('owner');
+    c.EditForm.get('roles')?.setValue('kitchen');
     c.EditForm.get('active')?.setValue('false');
     c.saveEdit();
     expect(api.postPatch).toHaveBeenCalledWith(
       'restaurant-setup/employees/',
-      { id: 'emp-9', roles: ['owner'], active: 'false' },
+      { id: 'emp-9', roles: ['kitchen'], active: 'false' },
       'put',
     );
   });

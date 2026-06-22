@@ -64,6 +64,10 @@ describe('LoginComponent', () => {
       expect(landingFor(membership(['waiter']))).toBe('/rest-app');
     });
 
+    it('routes the restaurant_staff role to /rest-app', () => {
+      expect(landingFor(membership(['restaurant_staff']))).toBe('/rest-app');
+    });
+
     it('routes an empty role list to /rest-app', () => {
       expect(landingFor(membership([]))).toBe('/rest-app');
     });
