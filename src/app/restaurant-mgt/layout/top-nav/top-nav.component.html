@@ -46,7 +46,7 @@
     </div>
 
     <!-- Row 2: Right side controls -->
-    <div class="flex items-center justify-between md:justify-end gap-3 md:gap-4 flex-shrink-0"
+    <div class="flex items-center justify-end gap-3 md:gap-4 flex-shrink-0"
          [class]="(dashboardService.isDashboardActive$ | async) ? 'border-t md:border-t-0 md:border-l border-border pt-3 md:pt-0 md:pl-4' : ''">
 
       <!-- Dashboard-specific: time, refresh status, auto-refresh toggle -->
@@ -83,22 +83,6 @@
           ></app-dn-switch>
         </div>
       }
-
-      <!-- Always-visible: restaurant info -->
-      <div class="flex items-center gap-3">
-        <!-- Restaurant name + logo -->
-        <div *ngIf="auth.currentRestaurantRole?.restaurant_id" class="hidden sm:flex items-center gap-2 mr-2">
-          <img
-            *ngIf="auth.currentRestaurant?.logo"
-            class="w-8 h-8 rounded-full border border-border object-cover"
-            [src]="baseUrl + auth.currentRestaurant.logo"
-            [alt]="auth.currentRestaurant.name"
-          >
-          <span class="text-sm font-medium text-foreground truncate max-w-[160px]">
-            {{ auth.currentRestaurantRole.restaurant }}
-          </span>
-        </div>
-      </div>
     </div>
   </div>
 </header>
