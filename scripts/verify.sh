@@ -98,3 +98,20 @@ exit 1
 #       a soft (non-red) row hover
 #   [ ] Global-border check: --border is now a visible light-mode hairline — spot
 #       -check dashboard cards, menu, settings, support look intentional
+
+# ── Manual checklist: Reports date-range popover (Issue 1) ────────────────────
+# The sticky date bar now hosts ONE trigger button instead of the pill row. After
+# the automated gate passes, on the dev server (npm start) at /rest-app/reports/*:
+#   [ ] Trigger reads "<preset> · <span>" (e.g. "This month · 1–30 Jun 2026");
+#       a hand-picked range reads "Custom · 28 May – 3 Jun 2026"
+#   [ ] Desktop (>=1024px): the trigger opens an anchored popover that is NOT
+#       clipped by the overflow-hidden shell — presets list (left) + two-month
+#       calendar (right) + summary + Cancel/Apply; it repositions on scroll
+#   [ ] Calendar: first click sets the start, the next on/after sets the end, a
+#       click before the start restarts; dates after today are disabled/greyed
+#   [ ] Nothing changes the report until Apply — preset/calendar picks only stage;
+#       Cancel, backdrop click and Esc all discard and leave the report untouched
+#   [ ] Mobile (<1024px): the same picker opens as a bottom sheet (wrapping presets
+#       + single-month calendar); Apply commits, Cancel/Esc/backdrop discard
+#   [ ] The committed range still persists across Sales ↔ Menu ↔ Transactions ↔
+#       Diners and survives a full reload (interface unchanged)

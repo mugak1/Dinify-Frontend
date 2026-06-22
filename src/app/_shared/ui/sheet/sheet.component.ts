@@ -8,7 +8,7 @@ import { cn } from '../../utils/cn';
     @if (open) {
       <div class="fixed inset-0 z-50">
         <div class="fixed inset-0 bg-black/50 transition-opacity" (click)="close()"></div>
-        <div [class]="panelClass" [style.width]="width">
+        <div [class]="panelClass" [style.width]="side === 'bottom' ? null : width">
           <ng-content></ng-content>
         </div>
       </div>
@@ -17,7 +17,7 @@ import { cn } from '../../utils/cn';
 })
 export class SheetComponent {
   @Input() open = false;
-  @Input() side: 'left' | 'right' = 'right';
+  @Input() side: 'left' | 'right' | 'bottom' = 'right';
   @Input() width = '400px';
   @Output() closed = new EventEmitter<void>();
 
@@ -29,6 +29,14 @@ export class SheetComponent {
   }
 
   get panelClass(): string {
+    if (this.side === 'bottom') {
+      // Bottom sheet: full-width, anchored to the bottom edge, rounded top,
+      // capped height so tall content scrolls instead of covering the screen.
+      return cn(
+        'fixed bottom-0 left-0 w-full max-h-[85vh] bg-card shadow-lg z-50',
+        'transition-transform overflow-y-auto rounded-t-2xl'
+      );
+    }
     return cn(
       'fixed top-0 h-full bg-card shadow-lg z-50 transition-transform overflow-y-auto',
       this.side === 'right' ? 'right-0' : 'left-0'
