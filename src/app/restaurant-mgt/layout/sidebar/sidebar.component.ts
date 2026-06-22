@@ -4,6 +4,8 @@ import { RouterModule } from '@angular/router';
 import { TooltipDirective } from '../../../_shared/ui/tooltip/tooltip.directive';
 import { AvatarComponent } from '../../../_shared/ui';
 import { AuthenticationService } from '../../../_services/authentication.service';
+import { ModuleKey } from '../../../_models/app.models';
+import { NO_MODULE_ROUTE } from '../../../_helpers/module-access';
 
 @Component({
   selector: 'app-sidebar',
@@ -16,17 +18,35 @@ export class SidebarComponent {
   @Input() isOpen = false;
   @Output() sidebarToggle = new EventEmitter<void>();
 
-  navItems: { label: string; route: string; icon: string }[] = [
-    { label: 'Dashboard', route: '/rest-app/dashboard',     icon: 'dashboard' },
-    { label: 'Menu',      route: '/rest-app/menu',          icon: 'menu' },
-    { label: 'Tables',    route: '/rest-app/dining-tables', icon: 'tables' },
-    { label: 'Reviews',   route: '/rest-app/reviews',       icon: 'reviews' },
-    { label: 'Reports',   route: '/rest-app/reports',       icon: 'reports' },
+  // `module` keys the item to an RBAC module; an undefined module (Support) is
+  // always shown. Items the current membership can't access are filtered out by
+  // visibleNavItems — UX hygiene mirroring the route guards.
+  navItems: { label: string; route: string; icon: string; module?: ModuleKey }[] = [
+    { label: 'Dashboard', route: '/rest-app/dashboard',     icon: 'dashboard', module: 'dashboard' },
+    { label: 'Menu',      route: '/rest-app/menu',          icon: 'menu',      module: 'menu' },
+    { label: 'Tables',    route: '/rest-app/dining-tables', icon: 'tables',    module: 'tables' },
+    { label: 'Reviews',   route: '/rest-app/reviews',       icon: 'reviews',   module: 'reviews' },
+    { label: 'Reports',   route: '/rest-app/reports',       icon: 'reports',   module: 'reports' },
     { label: 'Support',   route: '/rest-app/support',       icon: 'support' },
-    { label: 'Settings',  route: '/rest-app/settings',      icon: 'settings' },
+    { label: 'Settings',  route: '/rest-app/settings',      icon: 'settings',  module: 'settings' },
   ];
 
   constructor(public auth: AuthenticationService) {}
+
+  /** Nav items the current membership may access (always keeps module-less items). */
+  get visibleNavItems() {
+    return this.navItems.filter(i => !i.module || this.auth.canAccess(i.module));
+  }
+
+  /**
+   * A user whose permissions grant no module at all. Derived from the SAME
+   * predicate as the post-login landing (firstAccessibleRoute === the account
+   * fallback), so the "No modules assigned" note and the /account landing
+   * cannot diverge.
+   */
+  get noModuleUser(): boolean {
+    return this.auth.firstAccessibleRoute() === NO_MODULE_ROUTE;
+  }
 
   get chipName(): string {
     const p = this.auth.userValue?.profile;

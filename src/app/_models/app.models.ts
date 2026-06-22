@@ -43,10 +43,27 @@ export interface Profile {
   phone_number:any;
   restaurant_roles: RestaurantRole[]
 }
+/**
+ * The modules whose access is gated by the RBAC permissions map. The stable
+ * 9-key contract = the 7 grid modules (dashboard, menu, tables, reviews,
+ * reports, settings, kitchen) plus the two settings sub-modules (billing, team)
+ * that are gated independently of the settings hub.
+ */
+export type ModuleKey =
+  | 'dashboard' | 'menu' | 'tables' | 'reviews' | 'reports'
+  | 'settings' | 'kitchen' | 'billing' | 'team';
+
+/** Resolved per-module access flags, sent by the backend on each membership. */
+export type PermissionsMap = Partial<Record<ModuleKey, boolean>>;
+
 export interface RestaurantRole {
   restaurant_id: string
   restaurant: string
   roles: string[]
+  // Resolved access map for this membership (backend-provided). Optional: a
+  // rest_role snapshot taken before the backend shipped this field will not
+  // carry it — see module-access.ts canAccess() for the migration cushion.
+  permissions?: PermissionsMap
 }
 export interface ConfirmaDialogData {
   title?: string; //confirmation dialog title

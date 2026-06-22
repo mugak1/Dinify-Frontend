@@ -4,6 +4,7 @@ import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { RouterModule, Routes } from '@angular/router';
+import { permissionGuard } from '../_helpers/permission.guard';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TrendIndicatorComponent } from './dashboard/components/trend-indicator/trend-indicator.component';
 import { AnimatedNumberComponent } from './dashboard/components/animated-number/animated-number.component';
@@ -64,36 +65,41 @@ import { SettingsIconComponent } from './settings/components/settings-icon/setti
 import { AccountSecurityComponent } from './settings/account-security/account-security.component';
 import { AccountComponent } from './account/account.component';
 
+// Per-route RBAC module gates (UX hygiene; the backend is the real boundary).
+// R7 — the `settings` PARENT is intentionally NOT guarded: it has no component
+// and a team/billing-only user must reach those children, so each LEAF is gated
+// instead. R3 — `reports` is guarded on the PARENT only (children inherit).
+// R2 — `reviews/feed` is a SIBLING route, so it carries its own guard.
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
-  {path:'dashboard',component:DashboardComponent,title:'Dashboard'},
+  {path:'dashboard',component:DashboardComponent,title:'Dashboard',canActivate:[permissionGuard],data:{module:'dashboard'}},
   {path:'settings',title:'Settings',children:[
-    {path: "", component: SettingsHubComponent, pathMatch: "full"},
-    {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding'},
-    {path:'availability',component:AvailabilityComponent,title:'Availability'},
-    {path:'team',component:TeamShellComponent,title:'Team',children:[
+    {path: "", component: SettingsHubComponent, pathMatch: "full",canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'availability',component:AvailabilityComponent,title:'Availability',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'team',component:TeamShellComponent,title:'Team',canActivate:[permissionGuard],data:{module:'team'},children:[
       {path:'',redirectTo:'members',pathMatch:'full'},
       {path:'members',component:RestUsersComponent,title:'Members'},
     ]},
-    {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts'},
-    {path:'billing',component:BillingComponent,title:'Billing'},
-    {path:'billing/paid/:id',component:BillingComponent,title:'Billing'},
-    {path:'preset-tags',component:PresetTagsComponent,title:'Preset tags'},
-    {path:'account',component:AccountSecurityComponent,title:'Account & security'},
+    {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'billing',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
+    {path:'billing/paid/:id',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
+    {path:'preset-tags',component:PresetTagsComponent,title:'Preset tags',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'account',component:AccountSecurityComponent,title:'Account & security',canActivate:[permissionGuard],data:{module:'settings'}},
   ]},
-  {path:'menu',component:MenuComponent,title:'Menu'},
-  {path:'dining-tables',component:TablesComponent,title:'Tables'},
+  {path:'menu',component:MenuComponent,title:'Menu',canActivate:[permissionGuard],data:{module:'menu'}},
+  {path:'dining-tables',component:TablesComponent,title:'Tables',canActivate:[permissionGuard],data:{module:'tables'}},
   {path:'account',component:AccountComponent,title:'My account'},
-  
-  {path:'reviews',component:ReviewsOverviewComponent,title:'Reviews'},
-  {path:'reviews/feed',component:ReviewsFeedComponent,title:'Reviews'},
-  {path:'reports',component:ReportsShellComponent,title:'Reports',children:[
+
+  {path:'reviews',component:ReviewsOverviewComponent,title:'Reviews',canActivate:[permissionGuard],data:{module:'reviews'}},
+  {path:'reviews/feed',component:ReviewsFeedComponent,title:'Reviews',canActivate:[permissionGuard],data:{module:'reviews'}},
+  {path:'reports',component:ReportsShellComponent,title:'Reports',canActivate:[permissionGuard],data:{module:'reports'},children:[
     {path: "", redirectTo: "sales", pathMatch: "full"},
     {path:'sales',component:SalesReportComponent,title:'Sales'},
     {path:'menu',component:MenuReportComponent,title:'Menu performance'},
     {path:'transactions',component:TransactionsReportComponent,title:'Transactions'},
     {path:'diners',component:DinersReportComponent,title:'Diners'},
-  ]}, 
+  ]},
   {path:'support',component:SupportComponent,title:'Support'},
   {path:'notifications',component:RestNotificationsComponent,title:'Notifications'},
   { path: 'rest-app-ordering', loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule) }, // Load DinerApp for ordering

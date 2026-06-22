@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, of, map, catchError } from 'rxjs';
-import { ApiResponse, LoginResponse, OTPResponse, RestaurantDetail, RestaurantRole} from '../_models/app.models';
+import { ApiResponse, LoginResponse, ModuleKey, OTPResponse, PermissionsMap, RestaurantDetail, RestaurantRole} from '../_models/app.models';
 import { HttpBackend, HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
+import { canAccess as canAccessModule, firstAccessibleRoute as firstAccessibleModuleRoute } from '../_helpers/module-access';
 
 /**
  * Persisted state keys that survive operator logout. Everything else under
@@ -49,6 +50,26 @@ export class AuthenticationService {
   }
   public get currentRestaurant(){
     return JSON.parse(localStorage.getItem('current_resta') as any) as unknown as RestaurantDetail
+  }
+
+  // ── RBAC read-through wrappers ──────────────────────────────────────────
+  // Thin delegates over the selected membership's permissions map so the
+  // permission guard, sidebar nav, and post-login landing all read one object.
+  // The actual logic lives in the pure module-access helpers.
+
+  /** The selected membership's resolved permissions map, if present. */
+  permissionsMap(): PermissionsMap | undefined {
+    return this.currentRestaurantRole?.permissions;
+  }
+
+  /** Whether the current membership may access a module (UX hygiene only). */
+  canAccess(key: ModuleKey): boolean {
+    return canAccessModule(this.permissionsMap(), key);
+  }
+
+  /** The route the current membership should land on / be redirected to. */
+  firstAccessibleRoute(): string {
+    return firstAccessibleModuleRoute(this.permissionsMap(), this.currentRestaurantRole?.roles);
   }
 
   login(username: string, password: string,source?:any) {

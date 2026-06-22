@@ -9,11 +9,11 @@
     <div class="flex items-center h-16 px-4 border-b border-sidebar-border"
          [ngClass]="{ 'justify-center': !isOpen }">
       <!-- Expanded: full logo (emblem + wordmark) -->
-      <a *ngIf="isOpen" href="/rest-app/dashboard" class="flex items-center overflow-hidden">
+      <a *ngIf="isOpen" [href]="auth.firstAccessibleRoute()" class="flex items-center overflow-hidden">
         <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify" class="h-8 w-auto max-w-[140px]" />
       </a>
       <!-- Collapsed: emblem only -->
-      <a *ngIf="!isOpen" href="/rest-app/dashboard" class="flex items-center justify-center w-full">
+      <a *ngIf="!isOpen" [href]="auth.firstAccessibleRoute()" class="flex items-center justify-center w-full">
         <img src="assets/images/dinify-emblem.svg" alt="Dinify" class="h-8 w-8" />
       </a>
     </div>
@@ -21,7 +21,7 @@
     <!-- Nav items -->
     <nav aria-label="Primary" class="flex-1 py-5 space-y-2 overflow-y-auto no-scrollbar"
          [ngClass]="isOpen ? 'px-4' : 'px-2'">
-      <a *ngFor="let item of navItems"
+      <a *ngFor="let item of visibleNavItems"
          [routerLink]="item.route" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
          #rla="routerLinkActive" ariaCurrentWhenActive="page"
          class="relative flex items-center rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -40,6 +40,13 @@
         </svg>
         <span class="text-sm truncate" [class.sr-only]="!isOpen">{{ item.label }}</span>
       </a>
+
+      <!-- No-modules note: a membership whose permissions grant no module (same
+           predicate as the /account landing) sees only Support above + this. -->
+      <p *ngIf="noModuleUser && isOpen"
+         class="px-3 py-2 text-xs leading-snug text-sidebar-foreground/70">
+        No modules assigned — contact your owner.
+      </p>
     </nav>
 
     <!-- Account chip: pinned to the bottom (nav is flex-1), links to the account page -->

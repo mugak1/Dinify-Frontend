@@ -7,7 +7,7 @@
     </p>
   </header>
 
-  @for (group of groups; track group.title) {
+  @for (group of visibleGroups; track group.title) {
     <section class="mb-8 last:mb-0">
       <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
         {{ group.title }}
