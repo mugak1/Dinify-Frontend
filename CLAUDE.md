@@ -75,11 +75,23 @@ so keep it current when conventions change.
   layer; diners leave a review on the diner-app order-complete screen (POST
   `reviews/submit/`, gated on a real backend order id). The old monolithic
   reviews-management surface has been removed
-- Payments: a real transactions listing only (route `payments`,
-  `reports/restaurant/transactions-listing/`); its dead Falcon wallet UI
-  (Disburse Funds, DinifyAccount balance) has been removed
-- Other restaurant-mgt surfaces (reports + report-detail, notifications) are
-  scaffolded and routed — per-view data-wiring status varies
+- Reports: ✅ a master–detail shell (route `reports`, `ReportsShellComponent`)
+  with a persistent, per-restaurant-persisted date-range bar sitting above the
+  `<router-outlet>` and four standalone child reports — Sales (`reports/sales`,
+  the default), Menu performance (`reports/menu`), Transactions
+  (`reports/transactions`), and Diners (`reports/diners`). Each report carries a
+  shared CSV / XLSX / Print export bar (XLSX via the dynamically-imported
+  `write-excel-file` dep; Print via a generated print sheet). Still mock-first:
+  `ReportsService.USE_MOCK_DATA = true`, mirroring DashboardService, with a
+  dormant `reports-adapter` parsing layer (mirrors `reviews-adapter`) over
+  scaffolded real endpoints. The old monolithic `report-detail` surface is gone
+- Payments: removed — the standalone restaurant Payments module (its real
+  transactions listing plus the dead Falcon wallet UI: Disburse Funds,
+  DinifyAccount balance) has been deleted. There is no `payments` route or
+  sidebar entry; the `reports/restaurant/transactions-listing/` data now backs
+  the Reports module's Transactions report instead
+- Notifications: scaffolded and routed (route `notifications`,
+  `RestNotificationsComponent`) — per-view data-wiring status varies
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
   persistent `OfflineBannerComponent` in the back-office shells (restaurant +
   Dinify admin) and an `OfflineStripComponent` in the diner app. The HTTP error
@@ -133,8 +145,11 @@ so keep it current when conventions change.
 
 ## Component Pattern — CRITICAL
 The module uses a deliberate mixed pattern — follow it exactly:
-- Older components (DashboardComponent, MenuComponent, ReportsComponent,
-  ReviewsComponent etc.) are NON-standalone — they go in `declarations`
+- Older components (DashboardComponent, MenuComponent, SupportComponent,
+  BillingComponent, RestNotificationsComponent) are NON-standalone — they go in
+  `declarations` (that is the current full `RestaurantMgtModule.declarations`
+  set; the old ReportsComponent/ReviewsComponent have been replaced by
+  standalone components)
 - Newer components (SidebarComponent, TopNavComponent, TablesComponent,
   all shared UI components) are STANDALONE — they go in `imports`
 - When creating a new component, make it standalone and add it to `imports`
@@ -244,6 +259,10 @@ writing new tag or price/menu logic:
   (`USE_MOCK_DATA = false`): `restaurant-identity`, `restaurant-availability`,
   and `restaurant-tax-receipts`. Staff & roles, Billing, and Account & security
   call `ApiService` directly (no mock flag)
+- ReportsService uses a single `USE_MOCK_DATA = true` flag (mock-first),
+  mirroring DashboardService — all four reports render mock data while a dormant
+  `reports-adapter` parsing layer + scaffolded real endpoints wait behind the
+  flag
 - For any new module service, follow the same constant-flag pattern.
   Split flags by sub-domain when different views go live at different times
 - Dashboard real endpoint: `api/v1/reports/restaurant/dashboard/`
@@ -256,6 +275,11 @@ writing new tag or price/menu logic:
   `reviews/{id}/resolution/` (resolve/reopen + optional note), POST
   `reviews/submit/` (diner capture). `ReviewsService` has no mock flag — it
   calls `ApiService` directly through a `reviews-adapter` layer
+- Reports real endpoints (scaffolded, dormant behind `USE_MOCK_DATA = true`):
+  GET `reports/restaurant/sales-aggregate/`, `…/menu-summary/`,
+  `…/transactions-summary/`, `…/diners-summary/`; paginated (via
+  `ApiService.loadAllPages`) `…/sales-listing/`, `…/transactions-listing/`,
+  `…/diners-listing/`
 - Only flip a mock flag to `false` when design is finalised and the
   backend endpoint is confirmed
 
