@@ -6,12 +6,18 @@ import {
   SettingsIconComponent,
   SettingsIconName,
 } from '../components/settings-icon/settings-icon.component';
+import { AuthenticationService } from '../../../_services/authentication.service';
+import { ModuleKey } from '../../../_models/app.models';
 
 interface HubItem {
   label: string;
   description: string;
   icon: SettingsIconName;
   route: string;
+  // Optional RBAC gate. Module-less items are always shown; the route guard is
+  // the real enforcement, so this is presentation-only (hides cards a user
+  // can't open). Currently only Team and Billing are gated.
+  module?: ModuleKey;
 }
 
 interface HubGroup {
@@ -52,6 +58,7 @@ export class SettingsHubComponent {
           description: 'Invite team members and manage their access.',
           icon: 'staff',
           route: '/rest-app/settings/team',
+          module: 'team',
         },
         {
           label: 'Tax & receipts',
@@ -64,6 +71,7 @@ export class SettingsHubComponent {
           description: 'Your subscription, payment method, and invoices.',
           icon: 'billing',
           route: '/rest-app/settings/billing',
+          module: 'billing',
         },
         {
           label: 'Preset tags',
@@ -85,4 +93,13 @@ export class SettingsHubComponent {
       ],
     },
   ];
+
+  constructor(private auth: AuthenticationService) {}
+
+  /** Groups with gated items the current membership can't access removed (and any group left empty dropped). */
+  get visibleGroups(): HubGroup[] {
+    return this.groups
+      .map(g => ({ ...g, items: g.items.filter(i => !i.module || this.auth.canAccess(i.module)) }))
+      .filter(g => g.items.length > 0);
+  }
 }
