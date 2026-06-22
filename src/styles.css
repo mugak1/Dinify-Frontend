@@ -1,6 +1,9 @@
 @import '@fontsource-variable/bricolage-grotesque/wght.css';
 @import '@fontsource-variable/plus-jakarta-sans/wght.css';
 @import '@fontsource-variable/gabarito/wght.css';
+/* CDK Overlay positioning/backdrop styles — required for the anchored popover in
+   the reports date-range control (the first Overlay usage in the app). */
+@import '@angular/cdk/overlay-prebuilt.css';
 
 @tailwind base;
 @tailwind components;
