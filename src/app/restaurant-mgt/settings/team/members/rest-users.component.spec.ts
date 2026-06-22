@@ -117,6 +117,38 @@ describe('RestUsersComponent', () => {
     expect(toast.success).toHaveBeenCalledWith('Staff member added');
   });
 
+  it('opens the credential dialog with the temp password on create', () => {
+    configure([makeUser()], { restaurant_id: 'rest-1' });
+    component.onCreated({ data: { temp_password: 'TMP-9', name: 'New Hire' } } as any);
+    expect(component.credentialOpen).toBeTrue();
+    expect(component.credentialTempPassword).toBe('TMP-9');
+    expect(component.credentialName).toBe('New Hire');
+    expect(component.formOpen).toBeFalse();
+  });
+
+  it('reads the temp password defensively from the top level too', () => {
+    configure([makeUser()], { restaurant_id: 'rest-1' });
+    component.onCreated({ temp_password: 'TOP-LVL' } as any);
+    expect(component.credentialOpen).toBeTrue();
+    expect(component.credentialTempPassword).toBe('TOP-LVL');
+  });
+
+  it('falls back to the generic toast (no credential dialog) when create returns no temp password', () => {
+    configure([makeUser()], { restaurant_id: 'rest-1' });
+    component.onCreated({ data: {} } as any);
+    expect(component.credentialOpen).toBeFalse();
+    expect(toast.success).toHaveBeenCalledWith('Staff member added');
+  });
+
+  it('clears the credential dialog state on close', () => {
+    configure([makeUser()], { restaurant_id: 'rest-1' });
+    component.onCreated({ temp_password: 'TMP-9' } as any);
+    component.onCredentialClosed();
+    expect(component.credentialOpen).toBeFalse();
+    expect(component.credentialTempPassword).toBe('');
+    expect(component.credentialName).toBe('');
+  });
+
   it('soft-deletes with the exact legacy call signature', () => {
     configure([makeUser()], { restaurant_id: 'rest-1' });
     component.openDelete(makeUser({ id: 'del-1' }));

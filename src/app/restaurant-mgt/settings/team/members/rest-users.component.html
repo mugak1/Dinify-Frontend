@@ -102,7 +102,15 @@
   [restaurant]="restaurant"
   (closed)="onFormClosed()"
   (saved)="onSaved()"
+  (created)="onCreated($event)"
 ></app-staff-form-dialog>
+
+<app-staff-credential-dialog
+  [open]="credentialOpen"
+  [name]="credentialName"
+  [tempPassword]="credentialTempPassword"
+  (closed)="onCredentialClosed()"
+></app-staff-credential-dialog>
 
 <app-staff-detail-dialog
   [open]="detailOpen"

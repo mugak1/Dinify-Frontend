@@ -536,6 +536,23 @@ export interface EmployeeListUser {
   active: boolean
   user?: User
 }
+/**
+ * Response from `restaurant-setup/create-employee/`. `temp_password` is the
+ * one-time password the owner must hand the new member; it may arrive at the
+ * top level or under `data` depending on the endpoint envelope, so it is read
+ * defensively (`resp?.data?.temp_password || resp?.temp_password`), mirroring
+ * the forgot-password flow. Index signatures keep the shape forgiving.
+ */
+export interface CreateEmployeeResponse {
+  temp_password?: string
+  data?: {
+    temp_password?: string
+    name?: string
+    user?: { name?: string; email?: string;[key: string]: any }
+    [key: string]: any
+  }
+  [key: string]: any
+}
 export interface ReviewListItem {
   id: string
   rating: number

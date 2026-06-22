@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 
-import { EmployeeListUser } from 'src/app/_models/app.models';
+import { CreateEmployeeResponse, EmployeeListUser } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -11,21 +11,29 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import {
   SectionPageComponent,
   SectionPageState,
-} from '../components/section-page/section-page.component';
+} from '../../components/section-page/section-page.component';
 import { StaffFormDialogComponent } from './components/staff-form-dialog/staff-form-dialog.component';
 import { StaffRemoveDialogComponent } from './components/staff-remove-dialog/staff-remove-dialog.component';
 import { StaffDetailDialogComponent } from './components/staff-detail-dialog/staff-detail-dialog.component';
+import { StaffCredentialDialogComponent } from './components/staff-credential-dialog/staff-credential-dialog.component';
 import { roleLabel } from './staff-roles';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 /**
- * Staff & roles settings section. Standalone section parent mirroring the
- * preset-tags CRUD-with-dialogs model (no save bar): the section-page shell
- * wraps a staff list with View / Edit / Remove row actions and an "Add staff"
- * action. The add/assign/edit/remove + phone-lookup logic lives in the child
- * dialogs / preserved API calls — this PR re-skins and relocates that flow off
- * the legacy `_common/common-users` component and drops the finance role.
+ * Team → Members settings section (canonical route `settings/team/members`).
+ * PR E relocated this from `settings/rest-users/` into the new Settings → Team
+ * hub, but the class stays `RestUsersComponent` and the selector stays
+ * `app-rest-users` to avoid churning every consumer — the folder/route is the
+ * canonical "Members" surface; the rest-users name is purely historical.
+ *
+ * Standalone section parent mirroring the preset-tags CRUD-with-dialogs model
+ * (no save bar): the section-page shell wraps a staff list with View / Edit /
+ * Remove row actions and an "Add staff" action. The add/assign/edit/remove +
+ * phone-lookup logic lives in the child dialogs / preserved API calls. Creating
+ * a brand-new employee surfaces the one-time temp password on a persistent
+ * `app-staff-credential-dialog` — it cannot be re-displayed once dismissed, so
+ * delete + re-create is the only recovery (regenerate is deferred).
  */
 @Component({
   selector: 'app-rest-users',
@@ -37,6 +45,7 @@ type LoadState = 'loading' | 'ready' | 'error';
     StaffFormDialogComponent,
     StaffRemoveDialogComponent,
     StaffDetailDialogComponent,
+    StaffCredentialDialogComponent,
   ],
   templateUrl: './rest-users.component.html',
 })
@@ -49,6 +58,12 @@ export class RestUsersComponent implements OnInit {
 
   formOpen = false;
   editingStaff: EmployeeListUser | null = null;
+
+  // One-time temp-password surface for a brand-new employee. Persistent +
+  // non-dismissable (the password cannot be re-displayed once gone).
+  credentialOpen = false;
+  credentialName = '';
+  credentialTempPassword = '';
 
   detailOpen = false;
   detailStaff: EmployeeListUser | null = null;
@@ -141,6 +156,33 @@ export class RestUsersComponent implements OnInit {
     this.onFormClosed();
     this.getUsers(this.restaurant);
     this.toast.success(wasEditing ? 'Staff member updated' : 'Staff member added');
+  }
+
+  /**
+   * Brand-new employee created. If the backend issued a one-time temp password,
+   * surface it on the persistent credential dialog (read defensively, mirroring
+   * forgot-password). Otherwise (e.g. an email-only register with no temp
+   * password) fall back to the generic confirmation toast — never an empty
+   * credential dialog, and never for a mis-routed assign-existing (that path
+   * emits `saved`, not `created`).
+   */
+  onCreated(resp: CreateEmployeeResponse): void {
+    this.onFormClosed();
+    this.getUsers(this.restaurant);
+    const temp = resp?.data?.temp_password || resp?.temp_password;
+    if (temp) {
+      this.credentialTempPassword = temp;
+      this.credentialName = resp?.data?.name ?? resp?.data?.user?.name ?? '';
+      this.credentialOpen = true;
+    } else {
+      this.toast.success('Staff member added');
+    }
+  }
+
+  onCredentialClosed(): void {
+    this.credentialOpen = false;
+    this.credentialName = '';
+    this.credentialTempPassword = '';
   }
 
   // ── View ──────────────────────────────────────────────────────────────

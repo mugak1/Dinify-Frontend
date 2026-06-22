@@ -10,13 +10,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { CountryISO, NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
 
-import { EmployeeListUser } from 'src/app/_models/app.models';
+import { CreateEmployeeResponse, EmployeeListUser } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import {
   ASSIGNABLE_ROLES,
   isAssignableRole,
+  isDisplayableRole,
   legacyRoleLabel,
   roleLabel,
 } from '../../staff-roles';
@@ -30,12 +31,15 @@ interface RoleOption {
  * Add / assign / edit a staff member. Re-skin of the legacy
  * `CommonUsersComponent` add/edit modals — the two-step phone-lookup flow,
  * UG/KE dial codes, and the create/assign/edit API calls are preserved
- * verbatim; only the presentation and the role options changed (finance dropped).
+ * verbatim; only the presentation and the role options changed (aligned to the
+ * four backend roles; finance + waiter retired).
  *
  * "Smart" dialog: it owns the lookup + create/assign/edit calls (the two-step
  * flow is dialog-internal state, so keeping the API here avoids round-tripping
- * the intermediate lookup result through the parent). On success it emits
- * `saved` and the parent reloads + toasts + closes; errors are surfaced here.
+ * the intermediate lookup result through the parent). Branch split: a
+ * brand-new employee emits `created` (carrying the API response so the parent
+ * can surface the one-time temp password); assign-existing and edit emit
+ * `saved`. The parent reloads + toasts + closes; errors are surfaced here.
  */
 @Component({
   selector: 'app-staff-form-dialog',
@@ -55,6 +59,8 @@ export class StaffFormDialogComponent implements OnChanges {
 
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
+  /** Brand-new-employee branch only — carries the create response (temp_password). */
+  @Output() created = new EventEmitter<CreateEmployeeResponse>();
 
   // Two-step add state (preserved from the legacy common-users flow):
   // enter phone → lookUp() → `checked` reveals the rest of the form, with
@@ -103,23 +109,25 @@ export class StaffFormDialogComponent implements OnChanges {
       : 'Add the new team member’s details.';
   }
 
-  /** Add-mode picker: only the four assignable roles (finance dropped). */
+  /** Add-mode picker: only the assignable roles (owner / finance / waiter excluded). */
   get addRoleOptions(): RoleOption[] {
     return ASSIGNABLE_ROLES.map((r) => ({ value: r, label: roleLabel(r) }));
   }
 
   /**
-   * Edit-mode picker: the four assignable roles, plus the member's current role
-   * as a "(legacy)" option when it is no longer assignable (e.g. finance), so
-   * editing never blanks or silently changes it.
+   * Edit-mode picker: the assignable roles, plus the member's current role
+   * prepended when it isn't assignable — as plain "Owner" for an owner (still a
+   * valid, displayable role) or as a "(legacy)" option for a retired role (e.g.
+   * finance/waiter) — so editing never blanks or silently changes it.
    */
   get editRoleOptions(): RoleOption[] {
     const opts = this.addRoleOptions;
     const current = this.editing?.roles?.[0];
-    if (current && !isAssignableRole(current)) {
-      return [{ value: current, label: legacyRoleLabel(current) }, ...opts];
-    }
-    return opts;
+    if (!current || isAssignableRole(current)) return opts;
+    const label = isDisplayableRole(current)
+      ? roleLabel(current)
+      : legacyRoleLabel(current);
+    return [{ value: current, label }, ...opts];
   }
 
   onInputChange($event: any): void {
@@ -165,7 +173,10 @@ export class StaffFormDialogComponent implements OnChanges {
           val,
           'post',
         )
-        .subscribe({ next: () => this.onApiSuccess(), error: () => this.onApiError() });
+        .subscribe({
+          next: (resp) => this.onCreated(resp as CreateEmployeeResponse),
+          error: () => this.onApiError(),
+        });
     }
   }
 
@@ -225,6 +236,16 @@ export class StaffFormDialogComponent implements OnChanges {
   private onApiSuccess(): void {
     this.saving = false;
     this.saved.emit();
+  }
+
+  /**
+   * Brand-new-employee success: emit `created` with the response so the parent
+   * can surface the one-time temp password. Kept distinct from `saved` (assign
+   * / edit) so only a real create can open the credential dialog.
+   */
+  private onCreated(resp: CreateEmployeeResponse): void {
+    this.saving = false;
+    this.created.emit(resp);
   }
 
   private onApiError(): void {
