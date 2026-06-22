@@ -113,8 +113,14 @@
             (keydown)="capsLockOn = $event.getModifierState('CapsLock')"
             (keyup)="capsLockOn = $event.getModifierState('CapsLock')"
             (blur)="capsLockOn = false"
-            class="flex-1 h-[52px] bg-transparent border-0 outline-none text-gray-900 text-[15.5px] pl-2 pr-4
+            class="flex-1 h-[52px] bg-transparent border-0 outline-none text-gray-900 text-[15.5px] pl-2 pr-1.5
                    placeholder:text-[#B8AFA6]" />
+          <button type="button" (click)="toggleFieldTextType()"
+                  [attr.aria-label]="fieldTextType ? 'Hide password' : 'Show password'"
+                  class="flex items-center justify-center w-12 h-[52px] text-gray-400 desktop-hover:text-gray-900 transition-colors">
+            <svg *ngIf="fieldTextType" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A9.3 9.3 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.4 4.1"/><path d="M6.2 6.7A17 17 0 0 0 2 12s3.6 7 10 7a9.4 9.4 0 0 0 3-.5"/></svg>
+            <svg *ngIf="!fieldTextType" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
         </div>
         <div *ngIf="capsLockOn" role="status" class="flex items-center gap-1.5 text-warning text-[13px]">
           <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
