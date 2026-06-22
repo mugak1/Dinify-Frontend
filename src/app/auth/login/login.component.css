@@ -8,6 +8,15 @@ input::placeholder,textarea::placeholder {
     opacity: 1
 }
 
+/* Hide Safari/WebKit's native caps-lock indicator inside the password field —
+   the form already surfaces its own "Caps Lock is on" notice, so the extra
+   glyph is redundant. */
+input::-webkit-caps-lock-indicator {
+    display: none !important;
+    visibility: hidden !important;
+    content: none !important;
+}
+
 [role=button],button {
     cursor: pointer
 }

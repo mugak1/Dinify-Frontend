@@ -113,7 +113,7 @@
             (keydown)="capsLockOn = $event.getModifierState('CapsLock')"
             (keyup)="capsLockOn = $event.getModifierState('CapsLock')"
             (blur)="capsLockOn = false"
-            class="flex-1 h-[52px] bg-transparent border-0 outline-none text-gray-900 text-[15.5px] pr-1.5
+            class="flex-1 h-[52px] bg-transparent border-0 outline-none text-gray-900 text-[15.5px] pl-2 pr-1.5
                    placeholder:text-[#B8AFA6]" />
           <button type="button" (click)="toggleFieldTextType()"
                   [attr.aria-label]="fieldTextType ? 'Hide password' : 'Show password'"
