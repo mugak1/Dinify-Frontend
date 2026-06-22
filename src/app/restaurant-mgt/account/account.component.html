@@ -1,0 +1,27 @@
+<div class="mx-auto w-full max-w-2xl">
+  <!-- Page header -->
+  <div class="flex items-center gap-4 mb-6">
+    <app-dn-avatar size="lg" [name]="name"></app-dn-avatar>
+    <div class="min-w-0">
+      <h1 class="text-lg font-semibold text-gray-900 truncate">User account</h1>
+      <p class="text-sm text-gray-500 truncate">Your profile details</p>
+    </div>
+  </div>
+
+  <!-- Details card -->
+  <app-dn-card>
+    <div class="divide-y divide-gray-100">
+      @for (field of fields; track field.label) {
+        <div class="px-4 sm:px-6 py-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ field.label }}</p>
+          <p class="text-sm text-gray-900 mt-1 break-words">{{ field.value || '—' }}</p>
+        </div>
+      }
+    </div>
+  </app-dn-card>
+
+  <!-- Sign out -->
+  <div class="mt-6">
+    <button app-dn-button variant="secondary" (click)="signOut()">Sign out</button>
+  </div>
+</div>

@@ -61,6 +61,7 @@ import { SettingsHubComponent } from './settings/settings-hub/settings-hub.compo
 import { SectionPageComponent } from './settings/components/section-page/section-page.component';
 import { SettingsIconComponent } from './settings/components/settings-icon/settings-icon.component';
 import { AccountSecurityComponent } from './settings/account-security/account-security.component';
+import { AccountComponent } from './account/account.component';
 
 const routes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
@@ -78,6 +79,7 @@ const routes: Routes = [
   ]},
   {path:'menu',component:MenuComponent,title:'Menu'},
   {path:'dining-tables',component:TablesComponent,title:'Tables'},
+  {path:'account',component:AccountComponent,title:'My account'},
   
   {path:'reviews',component:ReviewsOverviewComponent,title:'Reviews'},
   {path:'reviews/feed',component:ReviewsFeedComponent,title:'Reviews'},
@@ -157,6 +159,7 @@ const routes: Routes = [
     TaxReceiptsComponent,
     RestUsersComponent,
     AccountSecurityComponent,
+    AccountComponent,
     ReviewsOverviewComponent,
     ReviewsFeedComponent,
     ReportsShellComponent,

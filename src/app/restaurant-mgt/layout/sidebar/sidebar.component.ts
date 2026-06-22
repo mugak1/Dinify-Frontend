@@ -2,11 +2,13 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TooltipDirective } from '../../../_shared/ui/tooltip/tooltip.directive';
+import { AvatarComponent } from '../../../_shared/ui';
+import { AuthenticationService } from '../../../_services/authentication.service';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule, TooltipDirective],
+  imports: [CommonModule, RouterModule, TooltipDirective, AvatarComponent],
   templateUrl: './sidebar.component.html',
   styles: [`:host { display: contents; }`]
 })
@@ -23,4 +25,16 @@ export class SidebarComponent {
     { label: 'Support',   route: '/rest-app/support',       icon: 'support' },
     { label: 'Settings',  route: '/rest-app/settings',      icon: 'settings' },
   ];
+
+  constructor(public auth: AuthenticationService) {}
+
+  get chipName(): string {
+    const p = this.auth.userValue?.profile;
+    if (!p) return '';
+    return `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
+  }
+
+  get chipRole(): string {
+    return this.auth.currentRestaurantRole?.roles?.[0] ?? '';
+  }
 }

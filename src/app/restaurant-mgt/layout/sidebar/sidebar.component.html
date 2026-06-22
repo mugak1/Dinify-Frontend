@@ -41,6 +41,19 @@
         <span class="text-sm truncate" [class.sr-only]="!isOpen">{{ item.label }}</span>
       </a>
     </nav>
+
+    <!-- Account chip: pinned to the bottom (nav is flex-1), links to the account page -->
+    <a [routerLink]="'/rest-app/account'"
+       routerLinkActive="bg-sidebar-accent text-sidebar-primary" ariaCurrentWhenActive="page"
+       class="relative flex items-center h-[64px] border-t border-sidebar-border transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+       [ngClass]="isOpen ? 'gap-3 px-4' : 'justify-center px-2'"
+       [appTooltip]="!isOpen ? (chipName || 'Account') : ''">
+      <app-dn-avatar size="sm" [name]="chipName"></app-dn-avatar>
+      <div class="flex flex-col min-w-0" [class.sr-only]="!isOpen">
+        <span class="text-sm font-medium truncate">{{ chipName || 'Account' }}</span>
+        <span *ngIf="chipRole" class="text-xs uppercase tracking-wide text-sidebar-foreground/60 truncate">{{ chipRole }}</span>
+      </div>
+    </a>
   </aside>
 
   <!-- Toggle button: OUTSIDE aside, INSIDE wrapper -->

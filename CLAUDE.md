@@ -168,7 +168,8 @@ The module uses a deliberate mixed pattern — follow it exactly:
 
 ## Shared UI Component Library
 A shared component library lives in `src/app/_shared/ui/`:
-allergen-disclaimer, badge, button, card, dialog, featured-carousel,
+allergen-disclaimer, avatar (`app-dn-avatar`, initials-in-a-circle), badge,
+button, card, dialog, featured-carousel,
 offline-banner, sheet, switch, tabs, toast — plus the `tooltip` directive
 (`[appTooltip]`, not a component), the `SafeArrayPipe`, and the `HighlightPipe`
 (search-term highlighting). The `toast/` folder also exports the injectable
