@@ -17,10 +17,10 @@
         Add multiple tables
       </button>
 
-      <div class="h-6 w-px bg-border"></div>
+      <div class="hidden sm:block h-6 w-px bg-border"></div>
 
       <!-- Search Input -->
-      <div class="relative flex-1 min-w-[200px] max-w-[300px]">
+      <div class="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-[300px]">
         <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input
           type="text"
@@ -33,7 +33,7 @@
       <!-- Area Filter -->
       <select
         [(ngModel)]="areaFilter"
-        class="w-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        class="w-full sm:w-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
       >
         <option value="all">All areas</option>
         @for (area of areas; track area.id) {
@@ -44,7 +44,7 @@
       <!-- Status Filter -->
       <select
         [(ngModel)]="statusFilter"
-        class="w-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        class="w-full sm:w-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
       >
         <option value="all">All statuses</option>
         <option value="available">Available</option>
@@ -55,7 +55,7 @@
       <!-- QR Filter -->
       <select
         [(ngModel)]="qrFilter"
-        class="w-[130px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        class="w-full sm:w-[130px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
       >
         <option value="all">All</option>
         <option value="has_qr">Has QR</option>
@@ -64,35 +64,43 @@
 
       <!-- Bulk Actions -->
       @if (selectedTableIds.length > 0) {
-        <div class="h-6 w-px bg-border"></div>
-        <div class="relative">
+        <div class="hidden sm:block h-6 w-px bg-border"></div>
+        <div>
           <button
             app-dn-button
             variant="outline"
+            cdkOverlayOrigin
+            #bulkTrigger="cdkOverlayOrigin"
             (click)="showBulkMenu = !showBulkMenu"
           >
             Bulk actions ({{ selectedTableIds.length }})
             <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          @if (showBulkMenu) {
-            <div
-              class="absolute right-0 top-full mt-1 w-48 bg-card rounded-md shadow-lg border border-border z-10"
-              (mouseleave)="showBulkMenu = false"
-            >
+          <ng-template
+            cdkConnectedOverlay
+            [cdkConnectedOverlayOrigin]="bulkTrigger"
+            [cdkConnectedOverlayOpen]="showBulkMenu"
+            [cdkConnectedOverlayPositions]="bulkMenuPositions"
+            [cdkConnectedOverlayHasBackdrop]="true"
+            cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+            (backdropClick)="showBulkMenu = false"
+            (detach)="showBulkMenu = false"
+          >
+            <div class="w-48 bg-card rounded-md shadow-lg border border-border overflow-hidden">
               <button
-                class="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                class="w-full text-left px-3 py-2 text-sm min-h-[44px] desktop-hover:bg-accent active:bg-accent transition-colors"
                 (click)="handleBulkAction('enable')"
               >Enable tables</button>
               <button
-                class="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                class="w-full text-left px-3 py-2 text-sm min-h-[44px] desktop-hover:bg-accent active:bg-accent transition-colors"
                 (click)="handleBulkAction('disable')"
               >Disable tables</button>
               <button
-                class="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                class="w-full text-left px-3 py-2 text-sm min-h-[44px] desktop-hover:bg-accent active:bg-accent transition-colors"
                 (click)="handleBulkAction('generate-qr')"
               >Generate QR codes</button>
             </div>
-          }
+          </ng-template>
         </div>
       }
     </div>
@@ -110,7 +118,7 @@
         <div class="flex items-center gap-3">
           <!-- Collapse toggle -->
           <button
-            class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+            class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
             (click)="toggleAreaExpanded(area.id)"
           >
             @if (expanded) {
@@ -138,7 +146,7 @@
             size="sm"
           ></app-dn-switch>
           <button
-            class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+            class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
             [appTooltip]="'Edit area'"
             (click)="openEditArea(area)"
           >
@@ -146,7 +154,7 @@
             <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
           </button>
           <button
-            class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+            class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
             [appTooltip]="'Delete area'"
             (click)="requestDeleteArea(area)"
           >
@@ -197,7 +205,7 @@
               </thead>
               <tbody>
                 @for (table of areaTables; track table.id) {
-                  <tr class="border-b hover:bg-muted/30 transition-colors" [class.opacity-50]="!table.isActive">
+                  <tr class="border-b desktop-hover:bg-muted/30 active:bg-muted/40 transition-colors" [class.opacity-50]="!table.isActive">
                     <td class="p-3">
                       <input
                         type="checkbox"
@@ -237,7 +245,7 @@
                           <div class="flex gap-0.5">
                             <!-- View QR -->
                             <button
-                              class="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                              class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
                               [appTooltip]="'View QR'"
                               (click)="openQrPreview(table)"
                             >
@@ -245,7 +253,7 @@
                             </button>
                             <!-- Download QR -->
                             <button
-                              class="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                              class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
                               [appTooltip]="'Download'"
                               (click)="handleDownloadQR(table)"
                             >
@@ -253,7 +261,7 @@
                             </button>
                             <!-- Copy Link -->
                             <button
-                              class="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                              class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
                               [appTooltip]="'Copy link'"
                               (click)="handleCopyLink(table)"
                             >
@@ -267,14 +275,14 @@
                     </td>
                     <td class="p-3 text-right">
                       <button
-                        class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                        class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
                         [appTooltip]="'Edit table'"
                         (click)="openEditTable(table)"
                       >
                         <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                       </button>
                       <button
-                        class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                        class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
                         [appTooltip]="'Delete table'"
                         (click)="requestDeleteTable(table)"
                       >

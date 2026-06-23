@@ -3,7 +3,7 @@
 
   <form (ngSubmit)="onSubmit()" class="space-y-4">
     <!-- Number + Display Name -->
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label for="table-number" class="text-sm font-medium">Table Number *</label>
         <input
@@ -30,7 +30,7 @@
     </div>
 
     <!-- Capacity -->
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label for="min-capacity" class="text-sm font-medium">Min Seats</label>
         <input
@@ -57,7 +57,7 @@
     </div>
 
     <!-- Shape + Area -->
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label for="shape" class="text-sm font-medium">Shape</label>
         <select
