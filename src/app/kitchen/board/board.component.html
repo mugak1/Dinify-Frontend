@@ -34,7 +34,7 @@
       [attr.aria-selected]="viewMode() === 'active'"
       (click)="setView('active')"
       class="px-3 h-8 rounded-full text-sm font-semibold transition-colors"
-      [ngClass]="viewMode() === 'active' ? 'bg-white text-gray-900' : 'text-gray-300 hover:text-white'">
+      [ngClass]="viewMode() === 'active' ? 'bg-white text-gray-900' : 'text-gray-300 desktop-hover:text-white active:text-white'">
       Active
     </button>
     <button
@@ -44,7 +44,7 @@
       [attr.aria-selected]="viewMode() === 'completed'"
       (click)="setView('completed')"
       class="px-3 h-8 rounded-full text-sm font-semibold transition-colors"
-      [ngClass]="viewMode() === 'completed' ? 'bg-white text-gray-900' : 'text-gray-300 hover:text-white'">
+      [ngClass]="viewMode() === 'completed' ? 'bg-white text-gray-900' : 'text-gray-300 desktop-hover:text-white active:text-white'">
       Completed
     </button>
   </div>
