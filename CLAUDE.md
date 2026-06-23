@@ -74,6 +74,16 @@ so keep it current when conventions change.
   `PresetTagsComponent`). Shared section chrome lives in `settings/components/`
   (`SectionPageComponent`, `SettingsIconComponent`); the old monolithic
   `SettingsComponent` is gone
+- My account page: ✅ a standalone, read-only personal profile page (route
+  `account` → `AccountComponent`, title "My account") showing the signed-in
+  user's Name / Email / Phone / Role / Restaurant plus a Sign-out button. It is
+  DISTINCT from `settings/account` (`AccountSecurityComponent`, the
+  security/password section). It is NOT module-guarded (any signed-in member
+  reaches it), is opened from the account chip pinned to the bottom of the
+  `SidebarComponent`, and is the `/rest-app/account` landing fallback for a
+  member with no accessible modules (the "No modules assigned" case). The
+  shared `app-dn-avatar` (initials-in-a-circle) renders the user glyph here and
+  in the sidebar chip
 - Reviews: ✅ real-wired — a standalone Overview (route `reviews`,
   `ReviewsOverviewComponent`: summary line, needs-attention block, dimension
   breakdown, rating-trend chart) plus a Feed (route `reviews/feed`,
@@ -269,8 +279,10 @@ writing new tag or price/menu logic:
 - The Settings section services in `src/app/_services/` are all real-wired
   (`USE_MOCK_DATA = false`): `restaurant-identity`, `restaurant-availability`,
   `restaurant-tax-receipts`, and `role-permissions` (the owner-only Roles & access
-  grid — GET parses via the defensive `parseGrid`, PUT sends `{restaurant, role,
-  modules}`; dormant mock behind the flag, mirroring `restaurant-identity`). Staff
+  grid — GET/PUT `restaurant-setup/role-permissions/` (note the `restaurant-setup/`
+  prefix — the un-prefixed path 404s, fixed in f753877); GET parses via the
+  defensive `parseGrid`, PUT sends `{restaurant, role, modules}`; dormant mock
+  behind the flag, mirroring `restaurant-identity`). Staff
   & roles, Billing, and Account & security call `ApiService` directly (no mock flag)
 - ReportsService uses a single `USE_MOCK_DATA = true` flag (mock-first),
   mirroring DashboardService — all four reports render mock data while a dormant
