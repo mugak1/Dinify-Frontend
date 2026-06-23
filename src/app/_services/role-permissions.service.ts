@@ -61,7 +61,7 @@ export function parseGrid(raw: any): RoleGridRow[] {
 export class RolePermissionsService {
   /** Real-wired (D's endpoint exists). Flip to true to drive the grid off the mock below. */
   private readonly USE_MOCK_DATA = false;
-  private readonly gridUrl = 'role-permissions/';
+  private readonly gridUrl = 'restaurant-setup/role-permissions/';
 
   constructor(private api: ApiService) {}
 
