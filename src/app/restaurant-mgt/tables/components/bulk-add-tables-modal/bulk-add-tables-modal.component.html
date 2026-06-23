@@ -7,7 +7,7 @@
 
   <form (ngSubmit)="onSubmit()" class="space-y-4">
     <!-- Starting number + Count -->
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label for="bulk-start" class="text-sm font-medium">Starting number *</label>
         <input
@@ -36,7 +36,7 @@
     </div>
 
     <!-- Capacity -->
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label for="bulk-min-capacity" class="text-sm font-medium">Min Seats</label>
         <input
@@ -62,7 +62,7 @@
     </div>
 
     <!-- Shape + Area -->
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label for="bulk-shape" class="text-sm font-medium">Shape</label>
         <select

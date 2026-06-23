@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { OverlayModule, ConnectedPosition } from '@angular/cdk/overlay';
 import { Subject, combineLatest } from 'rxjs';
 import { switchMap, takeUntil } from 'rxjs/operators';
 import { AuthenticationService } from '../../../../_services/authentication.service';
@@ -33,6 +34,7 @@ import QRCode from 'qrcode';
   imports: [
     CommonModule,
     FormsModule,
+    OverlayModule,
     CardComponent,
     ButtonComponent,
     BadgeComponent,
@@ -86,6 +88,12 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   // Bulk actions dropdown
   showBulkMenu = false;
+
+  /** Right-aligned dropdown: below the trigger, flipping above if it won't fit. */
+  readonly bulkMenuPositions: ConnectedPosition[] = [
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 4 },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -4 },
+  ];
 
   // QR preview
   qrPreviewTable: RestaurantTable | null = null;
