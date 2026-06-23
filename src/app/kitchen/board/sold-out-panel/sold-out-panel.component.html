@@ -24,7 +24,7 @@
         type="button"
         (click)="onClose()"
         aria-label="Close sold-out panel"
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100">
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors desktop-hover:bg-gray-100 active:bg-gray-100">
         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
     </header>
@@ -77,7 +77,7 @@
                 (click)="toggle(item)"
                 [attr.aria-pressed]="!item.in_stock"
                 class="sop-row flex min-h-[60px] w-full items-center gap-3 px-5 py-3 text-left transition-colors"
-                [ngClass]="item.in_stock ? 'hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100'">
+                [ngClass]="item.in_stock ? 'desktop-hover:bg-gray-50 active:bg-gray-50' : 'bg-red-50 desktop-hover:bg-red-100 active:bg-red-100'">
                 <span
                   class="h-2.5 w-2.5 shrink-0 rounded-full"
                   [ngClass]="item.in_stock ? 'bg-green-500' : 'bg-red-500'"></span>
