@@ -25,10 +25,9 @@ export interface IdentityFieldsPayload {
   cover_photo?: null;
 }
 
-/** Multipart-PUT payload — carries only the staged image File(s). */
+/** Multipart-PUT payload — carries only the staged cover image File. */
 export interface IdentityImagesPayload {
   id: string;
-  logo?: File;
   cover_photo?: File;
 }
 
@@ -43,7 +42,7 @@ export interface IdentityImagesPayload {
  *  - `saveFields`   — a JSON PUT carrying every text/JSON field. The JSON path
  *                     preserves `null` end-to-end, so emptied optional fields
  *                     clear correctly (the null-clears convention).
- *  - `uploadImages` — a multipart PUT carrying only staged logo/cover File(s),
+ *  - `uploadImages` — a multipart PUT carrying only the staged cover File,
  *                     sent ONLY when an image actually changed. Clearing an
  *                     image rides the JSON PUT as `cover_photo: null`, never the
  *                     multipart path (toFormData drops null).
