@@ -181,7 +181,7 @@
               </svg>
             </button>
           </div>
-          <span *ngIf="shouldShowSubtotal(item)" class="font-semibold text-sm text-red-600">
+          <span *ngIf="shouldShowSubtotal(item)" class="font-semibold text-sm text-d-red">
             UGX {{ getSubtotal(item) | number }}
           </span>
         </div>
@@ -200,7 +200,7 @@
       <!-- Total -->
       <div class="flex justify-between items-center py-3 border-t border-gray-300">
         <span class="text-lg font-bold text-gray-900">Total</span>
-        <span class="text-lg font-bold text-red-600">UGX {{ totalAmount | number }}</span>
+        <span class="text-lg font-bold text-d-red">UGX {{ totalAmount | number }}</span>
       </div>
     </div>
 
@@ -267,7 +267,7 @@
 
     <div class="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
       <span class="font-bold text-gray-900">Updated total</span>
-      <span class="font-bold text-red-600">UGX {{ reviewedTotal | number }}</span>
+      <span class="font-bold text-d-red">UGX {{ reviewedTotal | number }}</span>
     </div>
 
     <div class="mt-4 space-y-2">

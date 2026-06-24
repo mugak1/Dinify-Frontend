@@ -252,7 +252,7 @@
                              [effective]="getDisplayPrice(i)"
                              [original]="basePrice(i)"></app-price-display>
           <ng-template #normalPriceCard>
-            <span [class]="isOutOfStock(i) ? 'text-gray-400 font-bold text-base' : 'text-red-600 font-bold text-base'">
+            <span [class]="isOutOfStock(i) ? 'text-gray-400 font-bold text-base' : 'text-d-red font-bold text-base'">
               UGX {{ i.primary_price | number }}
             </span>
           </ng-template>

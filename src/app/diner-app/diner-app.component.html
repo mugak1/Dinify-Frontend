@@ -22,11 +22,12 @@
   <div #brandStrip
        *ngIf="!navState.isMenuActive()"
        class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2">
-    <!-- Over-hero: the Dinify wordmark (white variant) floats on the cover photo;
-         CSS-gated to the over-hero state and hidden in every frosted state, where
-         the restaurant name leads instead. The restaurant's own logo is no longer
-         rendered in the strip in any state. -->
-    <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify"
+    <!-- Dinify wordmark, shown only in the over-hero state (CSS-gated) and hidden in every
+         frosted state where the restaurant name leads. DARK-ink asset on purpose: this shell
+         strip is hidden on the menu route (where the real hero + its own white wordmark live),
+         so when it shows here — basket / item-detail — it sits over the white page, where dark
+         reads. The restaurant's own logo is no longer rendered in the strip in any state. -->
+    <img src="assets/images/dinify-logo-full.svg" alt="Dinify"
          class="brand-strip__dinify h-7 w-auto flex-shrink-0">
     <span class="brand-strip__name font-display font-semibold truncate min-w-0">{{ restaurant_name }}</span>
     <span *ngIf="table?.number" class="brand-strip__chip bg-d-red text-white">
