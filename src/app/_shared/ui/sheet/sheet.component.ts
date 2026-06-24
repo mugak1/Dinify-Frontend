@@ -37,8 +37,10 @@ export class SheetComponent {
         'transition-transform overflow-y-auto rounded-t-2xl'
       );
     }
+    // max-w-[100vw] clamps the inline `width` (e.g. support's 460px) so the
+    // side sheet never overflows phones narrower than that width.
     return cn(
-      'fixed top-0 h-full bg-card shadow-lg z-50 transition-transform overflow-y-auto',
+      'fixed top-0 h-full bg-card shadow-lg z-50 transition-transform overflow-y-auto max-w-[100vw]',
       this.side === 'right' ? 'right-0' : 'left-0'
     );
   }

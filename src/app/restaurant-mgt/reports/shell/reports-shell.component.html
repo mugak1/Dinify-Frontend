@@ -1,10 +1,14 @@
 <!-- Negative margins cancel the host <main> padding so the shell spans edge to
-     edge; the date bar then sticks flush under the portal top-nav (which sits
-     outside the scroll container, so top-0 needs no offset). -->
+     edge. <main> is the scroll container and keeps top padding (p-3 sm:p-4
+     md:p-6); a plain sticky top-0 would pin the bar BELOW that padding, and
+     since scroll-container padding doesn't clip overflow, rows scroll up
+     through the gap above the bar. The negative sticky top offset matches
+     <main>'s padding so the bar sticks flush to the scroll viewport's top edge
+     and covers scrolled rows. -->
 <div class="flex flex-col min-h-full -mx-3 -mt-3 sm:-mx-4 sm:-mt-4 md:-mx-6 md:-mt-6">
   <!-- Persistent, sticky date-range bar — never unmounts as reports switch. -->
   <div
-    class="sticky top-0 z-20 min-h-[64px] flex items-center px-3 sm:px-4 md:px-6 py-2 bg-card border-b border-border"
+    class="sticky -top-3 sm:-top-4 md:-top-6 z-20 min-h-[64px] flex items-center px-3 sm:px-4 md:px-6 py-2 bg-card border-b border-border"
   >
     <app-report-date-range
       [value]="(range$ | async)!"

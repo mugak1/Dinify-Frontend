@@ -1,5 +1,5 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, Inject } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TooltipDirective } from '../../../_shared/ui/tooltip/tooltip.directive';
 import { AvatarComponent } from '../../../_shared/ui';
@@ -14,7 +14,7 @@ import { NO_MODULE_ROUTE } from '../../../_helpers/module-access';
   templateUrl: './sidebar.component.html',
   styles: [`:host { display: contents; }`]
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnChanges, OnDestroy {
   @Input() isOpen = false;
   @Output() sidebarToggle = new EventEmitter<void>();
 
@@ -31,7 +31,26 @@ export class SidebarComponent {
     { label: 'Settings',  route: '/rest-app/settings',      icon: 'settings',  module: 'settings' },
   ];
 
-  constructor(public auth: AuthenticationService) {}
+  constructor(
+    public auth: AuthenticationService,
+    @Inject(DOCUMENT) private document: Document,
+  ) {}
+
+  /**
+   * Lock background scroll while the mobile drawer is open. This only flips a
+   * body class; a `<lg`-scoped CSS rule (styles.css) owns the actual lock, so
+   * desktop — where `isOpen` just means the rail is expanded — is never locked
+   * and no JS viewport check is needed.
+   */
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['isOpen']) {
+      this.document.body.classList.toggle('dn-drawer-open', this.isOpen);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.document.body.classList.remove('dn-drawer-open');
+  }
 
   /** Nav items the current membership may access (always keeps module-less items). */
   get visibleNavItems() {

@@ -1,6 +1,8 @@
-<!-- Wrapper div: relative for toggle button positioning -->
-<div class="group relative flex-none fixed lg:relative inset-y-0 left-0 z-50"
-     [ngClass]="{ 'hidden lg:block': !isOpen }">
+<!-- Wrapper: fixed overlay drawer <lg (slides in via translate-x), in-flow
+     lg:relative rail >=lg. This fixed/relative position also anchors the
+     absolute toggle button. -->
+<div class="group flex-none fixed lg:relative inset-y-0 left-0 z-50 transition-transform duration-300 lg:translate-x-0"
+     [ngClass]="{ '-translate-x-full': !isOpen }">
 
   <aside class="bg-sidebar text-sidebar-foreground flex flex-col h-full transition-all duration-300 border-r border-sidebar-border"
          [style.width.px]="isOpen ? 220 : 64">
