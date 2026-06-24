@@ -38,7 +38,7 @@ export class SidebarComponent implements OnChanges, OnDestroy {
 
   /**
    * Lock background scroll while the mobile drawer is open. This only flips a
-   * body class; a `<lg`-scoped CSS rule (styles.css) owns the actual lock, so
+   * body class; a `<xl`-scoped CSS rule (styles.css) owns the actual lock, so
    * desktop — where `isOpen` just means the rail is expanded — is never locked
    * and no JS viewport check is needed.
    */
