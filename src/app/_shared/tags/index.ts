@@ -8,6 +8,7 @@ export {
   TAG_ICONS,
   TAG_CATEGORIES,
   getTagColourClasses,
+  getTagIconDiscClasses,
   getTagColourSwatch,
   getTagIconSvg,
   getTagIcon,
