@@ -347,6 +347,8 @@ export interface Restaurant {
   menu_approval_status:any
   branding_configuration: BrandingConfiguration
   preset_tags?: any[]
+  // Public-facing social handles/links; present on the table-scan payload.
+  socials?: Socials
 }
 
 export interface BrandingConfiguration {

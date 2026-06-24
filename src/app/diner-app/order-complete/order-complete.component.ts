@@ -1,6 +1,17 @@
 import { Component, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from 'src/app/_services/api.service';
+import { Socials } from 'src/app/_models/app.models';
+
+/** Fixed render order + URL base per network. A stored handle is "username or
+ *  full link"; bare usernames are prefixed with the base (TikTok's base carries
+ *  the leading @). */
+const SOCIAL_NETWORKS: { key: keyof Socials; label: string; base: string }[] = [
+  { key: 'instagram', label: 'Instagram', base: 'https://instagram.com/' },
+  { key: 'facebook', label: 'Facebook', base: 'https://facebook.com/' },
+  { key: 'x', label: 'X', base: 'https://x.com/' },
+  { key: 'tiktok', label: 'TikTok', base: 'https://www.tiktok.com/@' },
+];
 
 @Component({
     selector: 'app-order-complete',
@@ -25,6 +36,11 @@ export class OrderCompleteComponent {
 
   /** Table id forwarded from checkout, used to route back to the diner's menu. */
   private readonly tableId: string | null;
+
+  /** Restaurant social links forwarded from checkout via navigation state, then
+   *  normalised into ready-to-render {key,label,href} entries. Empty when the
+   *  restaurant has no socials (or none were forwarded) — the row stays hidden. */
+  readonly socialLinks = signal<{ key: string; label: string; href: string }[]>([]);
 
   // ── Review capture state ───────────────────────────────────────────────────
   readonly stars = [1, 2, 3, 4, 5];
@@ -69,6 +85,29 @@ export class OrderCompleteComponent {
 
     const oid = state['orderId'];
     this.orderId.set(typeof oid === 'string' && oid.trim().length > 0 ? oid : null);
+
+    this.socialLinks.set(this.buildSocialLinks(state['socials']));
+  }
+
+  /** Normalise the forwarded `socials` object into ordered, ready-to-render
+   *  links. Each stored handle is a username OR a full URL; bare usernames are
+   *  prefixed with the network base. Empty/unset handles are skipped, so a
+   *  restaurant with no socials yields [] and the row never renders. */
+  private buildSocialLinks(raw: unknown): { key: string; label: string; href: string }[] {
+    if (typeof raw !== 'object' || raw === null) return [];
+    const socials = raw as Socials;
+    const links: { key: string; label: string; href: string }[] = [];
+    for (const net of SOCIAL_NETWORKS) {
+      const value = socials[net.key];
+      if (typeof value !== 'string') continue;
+      const handle = value.trim();
+      if (!handle) continue;
+      const href = /^https?:\/\//i.test(handle)
+        ? handle
+        : net.base + handle.replace(/^@/, '');
+      links.push({ key: net.key, label: net.label, href });
+    }
+    return links;
   }
 
   /** Returns the diner to the menu. With a forwarded table id we route through
