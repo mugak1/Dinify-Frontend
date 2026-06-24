@@ -18,6 +18,7 @@ import {
   getCurrentPriceFromDetails,
   discountIsLive as discountIsLiveFn,
   serverEffectivePrice,
+  serverSavings,
 } from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from '../menu/menu-nav-state.service';
@@ -202,8 +203,17 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
   }
 
   priceSaved(item: MenuItem): number {
-    if (!item) return 0;
-    return Math.max(0, (Number(item.primary_price) || 0) - serverEffectivePrice(item));
+    return serverSavings(item);
+  }
+
+  /** primary_price coerced to a number — DRF serialises the DecimalField as a string. */
+  basePrice(item: MenuItem): number {
+    return Number(item.primary_price) || 0;
+  }
+
+  /** An extra's base (pre-discount) price as a number (DecimalField-as-string). */
+  extraBasePrice(extra: MenuItemExtraRef): number {
+    return Number(extra.primary_price) || 0;
   }
 
   /** Effective (discount-aware) price of an extra, recomputed client-side

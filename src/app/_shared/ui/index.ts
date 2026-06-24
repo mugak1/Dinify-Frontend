@@ -11,3 +11,6 @@ export { ToastService } from './toast/toast.service';
 export { OfflineBannerComponent } from './offline-banner/offline-banner.component';
 export { SafeArrayPipe } from './safe-array.pipe';
 export { AllergenDisclaimerComponent } from './allergen-disclaimer/allergen-disclaimer.component';
+export { PriceDisplayComponent, PriceDisplaySize } from './price-display/price-display.component';
+export { DiscountBadgeComponent, DiscountBadgeVariant, DiscountBadgeSize } from './discount-badge/discount-badge.component';
+export { SavingsIndicatorComponent, SavingsIndicatorVariant } from './savings-indicator/savings-indicator.component';
