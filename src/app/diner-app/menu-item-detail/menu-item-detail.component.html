@@ -73,8 +73,20 @@
                  [class.grayscale]="isOutOfStock(it)"
                  (load)="heroImageLoaded.set(true)"
                  (error)="heroImageLoaded.set(true)" />
+            <!-- Scrim: subtle dark at top (back-chip legibility) + bottom (seam
+                 depth), transparent through the middle. Sits below the back chip
+                 (z-10) so the chip stays legible and on top. -->
+            <div class="hero-scrim absolute inset-0 z-[1] pointer-events-none" aria-hidden="true"></div>
             <ng-container [ngTemplateOutlet]="backChip"></ng-container>
           </div>
+
+          <!-- Content sheet: pulls up over the bottom of the hero with rounded
+               top corners on mobile so the content reads as a card rising over
+               the photo; resets to flat flow at lg: so the desktop two-column
+               layout is unchanged. bg-white matches the page bg for a clean seam.
+               Explicit px (14px root feeds layout). -->
+          <div class="relative z-[2] -mt-[22px] pt-[22px] rounded-t-[26px] bg-white
+                      lg:mt-0 lg:pt-0 lg:rounded-none">
 
           <!-- Badge row -->
           <div *ngIf="isOutOfStock(it) || it.is_featured || it.is_popular || it.is_new"
@@ -165,6 +177,8 @@
                             size="md"></app-tag-pill>
             </div>
           </div>
+          </div>
+          <!-- /content sheet -->
 
         </div>
         <!-- /LEFT -->
