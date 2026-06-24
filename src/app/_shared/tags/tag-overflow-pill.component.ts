@@ -13,7 +13,7 @@ import { Component, Input } from '@angular/core';
   standalone: true,
   template: `
     <span
-      class="inline-flex items-center rounded-full font-medium max-w-full px-2 py-0.5 text-xs border border-gray-300 text-gray-600 bg-white"
+      class="inline-flex items-center justify-center rounded-full font-semibold max-w-full px-[10px] py-[3px] text-[12px] bg-gray-50 text-gray-500 ring-1 ring-inset ring-gray-200"
       [attr.aria-label]="ariaLabel"
     >+{{ count }}</span>
   `,

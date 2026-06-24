@@ -24,24 +24,36 @@ export type TagColour =
 export interface TagColourSwatch {
   name: TagColour;
   label: string;
-  /** Tailwind class pair applied to the pill background and text. */
-  classes: string;
-  /** Tailwind class for the colour swatch dot in the picker. */
+  /**
+   * Pill body treatment: a soft tinted background, a readable dark-shade text
+   * colour, and a subtle inset ring — all drawn from the same colour family.
+   * Static Tailwind scale steps only (no `color-mix()`), so older Android
+   * WebViews in our markets render them. Consumed by `getTagColourClasses`
+   * → `<app-tag-pill>`.
+   */
+  pill: string;
+  /**
+   * Icon-disc treatment: a solid fill in the tag's colour with a white glyph.
+   * Consumed by `getTagIconDiscClasses` → the `<app-tag-pill>` icon circle.
+   * Amber/yellow use a deeper step so the white glyph keeps ≥3:1 contrast.
+   */
+  iconDisc: string;
+  /** Solid dot shown in the colour swatch picker (Preset Tags form). */
   swatchClass: string;
 }
 
 export const TAG_COLOUR_PALETTE: readonly TagColourSwatch[] = [
-  { name: 'gray',    label: 'Gray',    classes: 'bg-gray-100 text-gray-700',       swatchClass: 'bg-gray-400' },
-  { name: 'red',     label: 'Red',     classes: 'bg-red-100 text-red-700',         swatchClass: 'bg-red-500' },
-  { name: 'orange',  label: 'Orange',  classes: 'bg-orange-100 text-orange-700',   swatchClass: 'bg-orange-500' },
-  { name: 'amber',   label: 'Amber',   classes: 'bg-amber-100 text-amber-700',     swatchClass: 'bg-amber-500' },
-  { name: 'yellow',  label: 'Yellow',  classes: 'bg-yellow-100 text-yellow-700',   swatchClass: 'bg-yellow-500' },
-  { name: 'green',   label: 'Green',   classes: 'bg-green-100 text-green-700',     swatchClass: 'bg-green-500' },
-  { name: 'emerald', label: 'Emerald', classes: 'bg-emerald-100 text-emerald-700', swatchClass: 'bg-emerald-500' },
-  { name: 'cyan',    label: 'Cyan',    classes: 'bg-cyan-100 text-cyan-700',       swatchClass: 'bg-cyan-500' },
-  { name: 'blue',    label: 'Blue',    classes: 'bg-blue-100 text-blue-700',       swatchClass: 'bg-blue-500' },
-  { name: 'purple',  label: 'Purple',  classes: 'bg-purple-100 text-purple-700',   swatchClass: 'bg-purple-500' },
-  { name: 'rose',    label: 'Rose',    classes: 'bg-rose-100 text-rose-700',       swatchClass: 'bg-rose-500' },
+  { name: 'gray',    label: 'Gray',    pill: 'bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-200',          iconDisc: 'bg-gray-500 text-white',    swatchClass: 'bg-gray-400' },
+  { name: 'red',     label: 'Red',     pill: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',             iconDisc: 'bg-red-600 text-white',     swatchClass: 'bg-red-500' },
+  { name: 'orange',  label: 'Orange',  pill: 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200',    iconDisc: 'bg-orange-600 text-white',  swatchClass: 'bg-orange-500' },
+  { name: 'amber',   label: 'Amber',   pill: 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200',       iconDisc: 'bg-amber-700 text-white',   swatchClass: 'bg-amber-500' },
+  { name: 'yellow',  label: 'Yellow',  pill: 'bg-yellow-50 text-yellow-800 ring-1 ring-inset ring-yellow-200',    iconDisc: 'bg-yellow-700 text-white',  swatchClass: 'bg-yellow-500' },
+  { name: 'green',   label: 'Green',   pill: 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-200',        iconDisc: 'bg-green-600 text-white',   swatchClass: 'bg-green-500' },
+  { name: 'emerald', label: 'Emerald', pill: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200', iconDisc: 'bg-emerald-600 text-white', swatchClass: 'bg-emerald-500' },
+  { name: 'cyan',    label: 'Cyan',    pill: 'bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-200',          iconDisc: 'bg-cyan-600 text-white',    swatchClass: 'bg-cyan-500' },
+  { name: 'blue',    label: 'Blue',    pill: 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200',          iconDisc: 'bg-blue-600 text-white',    swatchClass: 'bg-blue-500' },
+  { name: 'purple',  label: 'Purple',  pill: 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-200',    iconDisc: 'bg-purple-600 text-white',  swatchClass: 'bg-purple-500' },
+  { name: 'rose',    label: 'Rose',    pill: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200',          iconDisc: 'bg-rose-600 text-white',    swatchClass: 'bg-rose-500' },
 ];
 
 const PALETTE_BY_NAME: Record<TagColour, TagColourSwatch> =
@@ -50,9 +62,16 @@ const PALETTE_BY_NAME: Record<TagColour, TagColourSwatch> =
     return acc;
   }, {} as Record<TagColour, TagColourSwatch>);
 
+/** Pill-body classes (soft bg + readable text + inset ring) for a colour. */
 export function getTagColourClasses(colour: TagColour | string | null | undefined): string {
-  if (!colour) return PALETTE_BY_NAME.gray.classes;
-  return PALETTE_BY_NAME[colour as TagColour]?.classes ?? PALETTE_BY_NAME.gray.classes;
+  if (!colour) return PALETTE_BY_NAME.gray.pill;
+  return PALETTE_BY_NAME[colour as TagColour]?.pill ?? PALETTE_BY_NAME.gray.pill;
+}
+
+/** Icon-disc classes (solid fill + white glyph) for a colour. */
+export function getTagIconDiscClasses(colour: TagColour | string | null | undefined): string {
+  if (!colour) return PALETTE_BY_NAME.gray.iconDisc;
+  return PALETTE_BY_NAME[colour as TagColour]?.iconDisc ?? PALETTE_BY_NAME.gray.iconDisc;
 }
 
 export function getTagColourSwatch(colour: TagColour | string | null | undefined): TagColourSwatch {
