@@ -116,6 +116,36 @@ describe('IdentityComponent', () => {
     expect(toast.success).toHaveBeenCalled();
   });
 
+  it('uploads a staged cover image without a redundant no-op field save', () => {
+    // Stage a new cover image only — no form field edited, so the form is pristine.
+    const file = new File(['x'], 'cover.jpg', { type: 'image/jpeg' });
+    (component as unknown as { coverFile?: File }).coverFile = file;
+    expect(component.form.dirty).toBeFalse();
+
+    component.onSave();
+
+    // The JSON field save would 400 "No changes detected" and abort the chain, so it
+    // is skipped; the image rides the multipart upload directly.
+    expect(svc.saveFields).not.toHaveBeenCalled();
+    expect(svc.uploadImages).toHaveBeenCalledTimes(1);
+    const arg = svc.uploadImages.calls.mostRecent().args[0];
+    expect(arg.id).toBe('r1');
+    expect(arg.cover_photo).toBe(file);
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('clears the cover through the JSON field save even with a pristine form', () => {
+    component.clearCover(); // sets coverCleared; does NOT touch the form
+    expect(component.form.dirty).toBeFalse();
+
+    component.onSave();
+
+    // coverCleared keeps saveFields() in play so cover_photo: null reaches the backend.
+    expect(svc.saveFields).toHaveBeenCalledTimes(1);
+    expect(svc.saveFields.calls.mostRecent().args[0].cover_photo).toBeNull();
+    expect(svc.uploadImages).not.toHaveBeenCalled();
+  });
+
   it('blocks save and toasts when required fields are invalid', () => {
     component.form.get('name')?.setValue('');
     component.onSave();
