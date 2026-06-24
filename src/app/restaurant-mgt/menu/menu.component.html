@@ -27,7 +27,7 @@
 <div class="flex flex-col flex-1 overflow-hidden bg-neutral-50">
 
   <!-- Sections tab content -->
-  <div *ngIf="activeTab === 'sections'" class="flex flex-col md:flex-row flex-1 overflow-hidden">
+  <div *ngIf="activeTab === 'sections'" class="flex flex-col lg:flex-row flex-1 overflow-hidden">
 
     <!-- Section Rail (left sidebar, hidden on mobile) -->
     <app-section-rail
@@ -43,8 +43,8 @@
       <!-- Toolbar -->
       <div class="border-b border-neutral-200 p-3 md:p-4 flex items-center justify-between gap-2 bg-neutral-50">
 
-        <!-- Mobile section selector (visible below md) -->
-        <div class="md:hidden flex-1">
+        <!-- Mobile section selector (visible below lg) -->
+        <div class="lg:hidden flex-1">
           <select (change)="onMobileSectionChange($any($event).target.value)"
                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm">
             <option *ngFor="let s of sections$ | async"
@@ -57,7 +57,7 @@
 
         <!-- Desktop section name (hidden on mobile) -->
         <h2 *ngIf="selectedSection$ | async as section"
-            class="hidden md:block text-2xl font-semibold text-foreground">
+            class="hidden lg:block text-2xl font-semibold text-foreground">
           {{ section.name }}
         </h2>
 

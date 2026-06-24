@@ -51,8 +51,9 @@
     <!-- Content -->
     <div class="flex-1 min-w-0">
 
-      <!-- Row 1: Name + badges + action buttons -->
-      <div class="flex items-start justify-between gap-2 mb-2">
+      <!-- Row 1: Name + badges + action buttons. Wraps on narrow (phone) cards
+           so the action cluster drops below the name instead of overflowing. -->
+      <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
 
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
@@ -103,8 +104,10 @@
              class="text-sm text-muted-foreground line-clamp-2 mt-1">{{ item.description }}</p>
         </div>
 
-        <!-- Right-side inline actions -->
-        <div class="flex flex-wrap items-center justify-end gap-2 md:gap-3 flex-shrink-0" (click)="$event.stopPropagation()">
+        <!-- Right-side inline actions. w-full <sm makes the cluster take its own
+             full-width, right-aligned row when Row 1 wraps; sm:w-auto keeps it
+             inline at tablet/desktop. -->
+        <div class="flex flex-wrap items-center justify-end w-full sm:w-auto gap-2 md:gap-3 flex-shrink-0" (click)="$event.stopPropagation()">
 
           <!-- Group A: Badge toggles (featured / popular / new) -->
           <div class="flex items-center gap-1 rounded-xl bg-muted/30 p-1">

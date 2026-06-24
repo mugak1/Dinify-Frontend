@@ -11,7 +11,7 @@ describe('SidebarComponent', () => {
       canAccess: (k: ModuleKey) => canAccess(map, k),
       firstAccessibleRoute: () => firstAccessibleRoute(map, roles),
     } as unknown as AuthenticationService;
-    return new SidebarComponent(auth);
+    return new SidebarComponent(auth, document);
   };
 
   const ALL_FALSE: PermissionsMap = {
