@@ -184,7 +184,7 @@
     (scroll)="onPagerScroll()"
     class="flex h-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth">
     <section *ngFor="let page of pages()" class="snap-start shrink-0 w-full h-full p-3">
-      <div class="grid grid-cols-4 grid-rows-2 gap-3 h-full">
+      <div class="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 grid-rows-2 gap-3 h-full">
         <div
           *ngFor="let t of page"
           class="min-h-0"

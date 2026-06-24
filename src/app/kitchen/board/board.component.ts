@@ -19,8 +19,6 @@ import { TicketCardComponent } from './ticket-card/ticket-card.component';
 import { SoldOutPanelComponent } from './sold-out-panel/sold-out-panel.component';
 import { CancelDialogComponent } from './cancel-dialog/cancel-dialog.component';
 
-/** Cards per page in the snap grid (4 cols × 2 rows, tablet-landscape). */
-const PAGE_SIZE = 8;
 /** How long a freshly-arrived card plays its entry animation. */
 const ENTER_MS = 700;
 /** While viewing Completed, re-pull the completed feed on roughly the poll cadence. */
@@ -51,11 +49,17 @@ export class BoardComponent implements OnInit, OnDestroy {
       : this.service.activeTickets(),
   );
 
-  /** Tickets chunked into fixed-size pages for the snap grid. */
+  /** Landscape columns; mirrors the template's grid-cols-3 / xl:4 / 2xl:5 breakpoints. */
+  readonly cols = signal(3);
+  /** Page capacity = visible columns × 2 rows. Drives pages() chunking. */
+  readonly pageSize = computed(() => this.cols() * 2);
+
+  /** Tickets chunked into reactive-size pages for the snap grid. */
   readonly pages = computed<KitchenTicket[][]>(() => {
     const all = this.tickets();
+    const size = this.pageSize();
     const out: KitchenTicket[][] = [];
-    for (let i = 0; i < all.length; i += PAGE_SIZE) out.push(all.slice(i, i + PAGE_SIZE));
+    for (let i = 0; i < all.length; i += size) out.push(all.slice(i, i + size));
     return out.length ? out : [[]];
   });
 
@@ -97,6 +101,10 @@ export class BoardComponent implements OnInit, OnDestroy {
   /** Narrow-screen media query + its change handler (mirrors onVisibility). */
   private mql?: MediaQueryList;
   private readonly onNarrowChange = (e: MediaQueryListEvent) => this.isNarrow.set(e.matches);
+
+  /** Landscape column breakpoints (widest-first) + their shared change handler. */
+  private colMqls: { mql: MediaQueryList; cols: number }[] = [];
+  private readonly onColsChange = () => this.recomputeCols();
 
   constructor(
     public readonly service: KitchenOrderService,
@@ -148,6 +156,15 @@ export class BoardComponent implements OnInit, OnDestroy {
       this.mql = window.matchMedia('(max-width: 768px)');
       this.isNarrow.set(this.mql.matches);
       this.mql.addEventListener('change', this.onNarrowChange);
+
+      // Landscape columns scale with width (widest-first): ≥1536px → 5, 1280–1535 → 4,
+      // else 3 — mirroring grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 in the template.
+      this.colMqls = [
+        { mql: window.matchMedia('(min-width: 1536px)'), cols: 5 },
+        { mql: window.matchMedia('(min-width: 1280px)'), cols: 4 },
+      ];
+      for (const c of this.colMqls) c.mql.addEventListener('change', this.onColsChange);
+      this.recomputeCols();
     }
   }
 
@@ -159,6 +176,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       document.removeEventListener('visibilitychange', this.onVisibility);
     }
     this.mql?.removeEventListener('change', this.onNarrowChange);
+    for (const c of this.colMqls) c.mql.removeEventListener('change', this.onColsChange);
     void this.releaseWakeLock();
     void this.audioCtx?.close();
   }
@@ -281,7 +299,14 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   private jumpToTicket(index: number): void {
     if (index < 0) return;
-    this.goToPage(Math.floor(index / PAGE_SIZE));
+    this.goToPage(Math.floor(index / this.pageSize()));
+  }
+
+  /** Pick the landscape column count from the matching breakpoint (widest-first). */
+  private recomputeCols(): void {
+    const hit = this.colMqls.find(c => c.mql.matches);
+    this.cols.set(hit ? hit.cols : 3);
+    this.clampCurrentPage(); // capacity may have shrunk — keep currentPage valid
   }
 
   private clampCurrentPage(): void {

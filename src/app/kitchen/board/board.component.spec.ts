@@ -139,6 +139,41 @@ describe('BoardComponent', () => {
     fixture.destroy();
   });
 
+  describe('responsive landscape grid (cols ↔ pageSize coupling)', () => {
+    it('locks page capacity to cols × 2', () => {
+      component.cols.set(3);
+      expect(component.pageSize()).toBe(6);
+      component.cols.set(4);
+      expect(component.pageSize()).toBe(8);
+      component.cols.set(5);
+      expect(component.pageSize()).toBe(10);
+
+      fixture.destroy();
+    });
+
+    it('chunks tickets into pages of pageSize — no empty trailing page, no hidden tickets', () => {
+      installMatchMedia(false); // wide pager
+      fixture.detectChanges();  // ngOnInit → first poll populates tickets
+      fixture.detectChanges();
+
+      component.cols.set(4);    // pageSize → 8, independent of the test viewport
+      const size = component.pageSize();
+      const pages = component.pages();
+      const total = component.tickets().length;
+      expect(total).toBeGreaterThan(0); // sanity: mock populated
+
+      // Page count is driven by pageSize (cols × 2), not a hard-coded 8.
+      expect(pages.length).toBe(Math.ceil(total / size));
+      pages.forEach((page, i) => {
+        expect(page.length).toBeLessThanOrEqual(size);            // never overflows capacity
+        if (i < pages.length - 1) expect(page.length).toBe(size); // only the last page may be short
+      });
+      expect(pages.reduce((n, p) => n + p.length, 0)).toBe(total); // no hidden tickets
+
+      fixture.destroy();
+    });
+  });
+
   describe('Active | Completed view toggle', () => {
     it('switches to the completed feed and back to active', fakeAsync(() => {
       installMatchMedia(false); // wide pager
