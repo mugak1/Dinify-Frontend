@@ -115,6 +115,21 @@ export class ItemDiscountsTabComponent implements OnChanges {
     return 'Discount amount must be less than the item price (UGX ' + this.formatUGX(this.primaryPrice) + ')';
   }
 
+  /** Hard error: both dates set AND end strictly before start. Lexical < on
+   *  'YYYY-MM-DD' equals chronological <. end === start is a valid one-day window. */
+  get hasDateError(): boolean {
+    return !!this.startDate && !!this.endDate && this.endDate < this.startDate;
+  }
+
+  /** Advisory only (never blocks save): end date already before today (device-local).
+   *  Suppressed when hasDateError wins or endDate is empty. end === today is NOT past. */
+  get isWindowPast(): boolean {
+    if (!this.endDate || this.hasDateError) return false;
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return this.endDate < today;
+  }
+
   formatUGX(amount: number): string {
     return amount.toLocaleString('en-UG');
   }
