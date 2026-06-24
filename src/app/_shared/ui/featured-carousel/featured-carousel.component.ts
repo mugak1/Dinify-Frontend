@@ -1,8 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { environment } from 'src/environments/environment';
-import { getCurrentPrice, getDiscountPercent } from 'src/app/_shared/utils/price-utils';
-import { MenuItem } from 'src/app/_models/app.models';
+import { discountIsLive as discountIsLiveFn, serverEffectivePrice } from 'src/app/_shared/utils/price-utils';
 import { PriceDisplayComponent } from '../price-display/price-display.component';
 import { DiscountBadgeComponent } from '../discount-badge/discount-badge.component';
 
@@ -25,17 +24,20 @@ export class FeaturedCarouselComponent {
     return item?.in_stock === false;
   }
 
+  /** Server-truth live-now verdict (is_discount_active) — the same gate the menu
+   *  cards + item-detail use, so the carousel can't disagree for the same item. */
   hasDiscount(item: any): boolean {
-    return !!item?.running_discount;
+    return discountIsLiveFn(item);
   }
 
-  /** Numeric discount percentage for the badge (device-clock source unchanged). */
+  /** Discount percentage for the badge — the server-emitted field the cards pass. */
   discountPercent(item: any): number {
-    return getDiscountPercent(item?.discount_details, Number(item?.primary_price) || 0);
+    return Number(item?.discount_percentage) || 0;
   }
 
+  /** Server's effective base price (current_price) — matches the menu cards. */
   getDisplayPrice(item: any): number {
-    return getCurrentPrice(item as MenuItem);
+    return serverEffectivePrice(item);
   }
 
   /** primary_price coerced to a number for the struck original. */
