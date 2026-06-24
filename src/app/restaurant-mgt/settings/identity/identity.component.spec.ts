@@ -74,8 +74,6 @@ describe('IdentityComponent', () => {
     expect(component.loadState).toBe('ready');
     expect(component.form.get('name')?.value).toBe('The Lawns');
     expect(component.form.get('cuisine_types')?.value).toEqual(['Grill / BBQ', 'Café']);
-    // brand_color comes from branding_configuration.home, not a top-level field.
-    expect(component.form.get('brand_color')?.value).toBe('#2E7D32');
     expect(component.isDirty).toBeFalse();
   });
 
@@ -96,10 +94,9 @@ describe('IdentityComponent', () => {
   });
 
   it('builds a save payload that null-clears emptied fields and preserves branding siblings', () => {
-    // Empty the tagline and change the brand colour.
+    // Empty the tagline.
     component.form.get('tagline')?.setValue('');
     component.form.get('tagline')?.markAsDirty();
-    component.onBrandColor('#FF2C32');
 
     component.onSave();
 
@@ -107,10 +104,10 @@ describe('IdentityComponent', () => {
     const payload = svc.saveFields.calls.mostRecent().args[0];
     expect(payload.id).toBe('r1');
     expect(payload.tagline).toBeNull(); // emptied optional → null
-    // Only brand_color changes; the other three home keys are preserved verbatim.
+    // All four home keys are preserved verbatim (brand_color is no longer edited).
     expect(payload.branding_configuration.home).toEqual({
       header_style: 'standard',
-      brand_color: '#FF2C32',
+      brand_color: '#2E7D32',
       logo_display: 'logo_and_name',
       tagline: 'branding-blurb',
     });

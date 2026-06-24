@@ -8,7 +8,6 @@ import {
 } from '@angular/forms';
 import { of, switchMap } from 'rxjs';
 
-import { ColorPickerDirective } from 'ngx-color-picker';
 import {
   CountryISO,
   NgxIntlTelephoneInputModule,
@@ -16,6 +15,7 @@ import {
 } from 'ngx-intl-telephone-input';
 import imageCompression from 'browser-image-compression';
 
+import { environment } from 'src/environments/environment';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
@@ -39,7 +39,7 @@ const DEFAULT_BRAND_COLOR = '#171717';
 /**
  * Restaurant identity & branding — the first real Settings section. Edits the
  * restaurant's public-facing identity (name, tagline, cuisine, contact,
- * location, media, brand colour, socials) inside the shared section-page
+ * location, cover photo, socials) inside the shared section-page
  * scaffold. Owner-only: the restaurant is resolved from the authenticated
  * membership, never a route param.
  */
@@ -51,7 +51,6 @@ const DEFAULT_BRAND_COLOR = '#171717';
     ReactiveFormsModule,
     SectionPageComponent,
     ButtonComponent,
-    ColorPickerDirective,
     NgxIntlTelephoneInputModule,
   ],
   templateUrl: './identity.component.html',
@@ -77,21 +76,18 @@ export class IdentityComponent implements OnInit, OnDestroy {
   // control if the owner types a new one.
   currentPhone: string | null = null;
 
-  // Image display URLs (server URL or a local object-URL preview).
-  logoUrl: string | null = null;
+  // Image display URL (server URL or a local object-URL preview).
   coverUrl: string | null = null;
 
-  // Staged File(s) awaiting the multipart upload; undefined = unchanged.
-  private logoFile?: File;
+  // Staged File awaiting the multipart upload; undefined = unchanged.
   private coverFile?: File;
-  private logoObjectUrl: string | null = null;
   private coverObjectUrl: string | null = null;
   /** Owner removed the existing cover (and staged no replacement). */
   coverCleared = false;
 
   private restaurantId = '';
   private loadedDetail?: RestaurantDetail;
-  /** Full branding object as loaded — preserved verbatim except brand_color. */
+  /** Full branding object as loaded — preserved verbatim on save. */
   private loadedBranding: BrandingConfiguration = {
     home: {
       header_style: '',
@@ -120,7 +116,6 @@ export class IdentityComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.revoke(this.logoObjectUrl);
     this.revoke(this.coverObjectUrl);
   }
 
@@ -141,23 +136,16 @@ export class IdentityComponent implements OnInit, OnDestroy {
         x: [''],
         tiktok: [''],
       }),
-      brand_color: [DEFAULT_BRAND_COLOR],
     });
   }
 
   /** Drives the scaffold's sticky save bar. */
   get isDirty(): boolean {
-    return (
-      this.form.dirty || !!this.logoFile || !!this.coverFile || this.coverCleared
-    );
+    return this.form.dirty || !!this.coverFile || this.coverCleared;
   }
 
   get taglineLength(): number {
     return (this.form.get('tagline')?.value ?? '').length;
-  }
-
-  get brandColor(): string {
-    return this.form.get('brand_color')?.value || DEFAULT_BRAND_COLOR;
   }
 
   get nameInvalid(): boolean {
@@ -179,12 +167,6 @@ export class IdentityComponent implements OnInit, OnDestroy {
         ? 'border-red-400 focus:border-red-400 focus:ring-red-400'
         : 'border-gray-300 focus:border-primary focus:ring-primary')
     );
-  }
-
-  onBrandColor(color: string): void {
-    const ctrl = this.form.get('brand_color');
-    ctrl?.setValue(color);
-    ctrl?.markAsDirty();
   }
 
   // ── Load / populate ────────────────────────────────────────────────────────
@@ -238,12 +220,12 @@ export class IdentityComponent implements OnInit, OnDestroy {
         x: detail.socials?.x ?? '',
         tiktok: detail.socials?.tiktok ?? '',
       },
-      brand_color: this.loadedBranding.home.brand_color || DEFAULT_BRAND_COLOR,
     });
 
     this.currentPhone = detail.contact_phone ?? null;
-    this.logoUrl = detail.logo || null;
-    this.coverUrl = detail.cover_photo || null;
+    this.coverUrl = detail.cover_photo
+      ? environment.apiUrl + '/media/' + detail.cover_photo
+      : null;
     this.form.markAsPristine();
   }
 
@@ -277,7 +259,7 @@ export class IdentityComponent implements OnInit, OnDestroy {
 
   // ── Images ─────────────────────────────────────────────────────────────────
 
-  async onPickImage(kind: 'logo' | 'cover', event: Event): Promise<void> {
+  async onPickImage(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = ''; // allow re-selecting the same file later
@@ -286,18 +268,11 @@ export class IdentityComponent implements OnInit, OnDestroy {
     const compressed = await this.compress(file);
     const url = URL.createObjectURL(compressed);
 
-    if (kind === 'logo') {
-      this.revoke(this.logoObjectUrl);
-      this.logoObjectUrl = url;
-      this.logoFile = compressed;
-      this.logoUrl = url;
-    } else {
-      this.revoke(this.coverObjectUrl);
-      this.coverObjectUrl = url;
-      this.coverFile = compressed;
-      this.coverUrl = url;
-      this.coverCleared = false;
-    }
+    this.revoke(this.coverObjectUrl);
+    this.coverObjectUrl = url;
+    this.coverFile = compressed;
+    this.coverUrl = url;
+    this.coverCleared = false;
   }
 
   clearCover(): void {
@@ -337,7 +312,7 @@ export class IdentityComponent implements OnInit, OnDestroy {
 
     this.saving = true;
     const payload = this.buildFieldsPayload();
-    const hasImages = !!this.logoFile || !!this.coverFile;
+    const hasImages = !!this.coverFile;
 
     this.svc
       .saveFields(payload)
@@ -346,7 +321,6 @@ export class IdentityComponent implements OnInit, OnDestroy {
           hasImages
             ? this.svc.uploadImages({
                 id: this.restaurantId,
-                ...(this.logoFile ? { logo: this.logoFile } : {}),
                 ...(this.coverFile ? { cover_photo: this.coverFile } : {}),
               })
             : of(null),
@@ -405,9 +379,9 @@ export class IdentityComponent implements OnInit, OnDestroy {
         x: this.nullIfEmpty(v.socials?.x),
         tiktok: this.nullIfEmpty(v.socials?.tiktok),
       },
-      // Preserve every branding key; mutate only brand_color.
+      // Preserve every branding key verbatim.
       branding_configuration: {
-        home: { ...this.loadedBranding.home, brand_color: this.brandColor },
+        home: { ...this.loadedBranding.home },
       },
     };
     // Clearing the cover rides the JSON PUT as null (multipart drops null).
@@ -425,11 +399,8 @@ export class IdentityComponent implements OnInit, OnDestroy {
   }
 
   private clearStaged(): void {
-    this.revoke(this.logoObjectUrl);
     this.revoke(this.coverObjectUrl);
-    this.logoObjectUrl = null;
     this.coverObjectUrl = null;
-    this.logoFile = undefined;
     this.coverFile = undefined;
     this.coverCleared = false;
   }
