@@ -78,6 +78,13 @@
                  (z-10) so the chip stays legible and on top. -->
             <div class="hero-scrim absolute inset-0 z-[1] pointer-events-none" aria-hidden="true"></div>
             <ng-container [ngTemplateOutlet]="backChip"></ng-container>
+            <!-- Frosted "% off" badge — top-right, above the scrim (z-[1]) on the same tier as
+                 the back chip. Discount-gated, so the diner sees the deal right on the photo. -->
+            <app-discount-badge *ngIf="discountIsLive(it)"
+                                class="absolute top-[12px] right-[12px] z-10"
+                                variant="frosted"
+                                size="md"
+                                [percent]="it.discount_percentage"></app-discount-badge>
           </div>
 
           <!-- Content sheet: pulls up over the bottom of the hero with rounded
@@ -117,35 +124,16 @@
               {{ it.calories }} kcal
             </p>
 
+            <!-- Price row: brand-red effective + struck original (when discounted) via the
+                 shared price-display, with a slim green "Save UGX X" pill beside it. Replaces
+                 the old full-width emerald "You save" banner per the approved mock. -->
             <div class="flex items-baseline gap-2 flex-wrap mt-2">
-              <ng-container *ngIf="discountIsLive(it); else detailNormalPrice">
-                <span class="text-gray-400 line-through text-base">
-                  UGX {{ it.primary_price | number }}
-                </span>
-                <span class="text-2xl font-bold text-red-600">
-                  UGX {{ getDisplayPrice(it) | number }}
-                </span>
-              </ng-container>
-              <ng-template #detailNormalPrice>
-                <span class="text-2xl font-bold text-red-600">
-                  UGX {{ it.primary_price | number }}
-                </span>
-              </ng-template>
-            </div>
-
-            <div *ngIf="discountIsLive(it)"
-                 class="mt-3 bg-emerald-700 text-white rounded-xl p-3.5 flex items-center gap-3">
-              <div class="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
-                  <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
-                </svg>
-              </div>
-              <div class="flex-1 min-w-0 flex flex-col gap-0.5">
-                <span class="text-[11px] uppercase tracking-widest font-medium text-white/85">You save</span>
-                <span class="text-[20px] font-bold leading-tight tabular-nums">UGX {{ priceSaved(it) | number }}</span>
-              </div>
+              <app-price-display size="lg"
+                                 [effective]="discountIsLive(it) ? getDisplayPrice(it) : basePrice(it)"
+                                 [original]="discountIsLive(it) ? basePrice(it) : 0"></app-price-display>
+              <app-savings-indicator *ngIf="discountIsLive(it)"
+                                     variant="pill"
+                                     [amount]="priceSaved(it)"></app-savings-indicator>
             </div>
 
             <p *ngIf="it.description" class="text-gray-600 mt-3">
@@ -315,8 +303,9 @@
                   </div>
                   <span class="text-sm">
                     <ng-container *ngIf="extraIsDiscounted(o); else extraNormalPrice">
-                      <span class="text-gray-400 line-through mr-1">UGX {{ o.primary_price | number }}</span>
-                      <span class="text-red-600 font-medium">+UGX {{ extraEffectivePrice(o) | number }}</span>
+                      <app-price-display size="sm" prefix="+"
+                                         [effective]="extraEffectivePrice(o)"
+                                         [original]="extraBasePrice(o)"></app-price-display>
                     </ng-container>
                     <ng-template #extraNormalPrice>
                       <span class="text-gray-500">+UGX {{ o.primary_price | number }}</span>

@@ -95,3 +95,12 @@ export function serverEffectivePrice(item: MenuItem | null | undefined): number 
   }
   return Number(item?.primary_price ?? 0) || 0;
 }
+
+// Savings implied by the SERVER's effective price (primary_price − serverEffectivePrice),
+// floored at 0. The server-truth counterpart to the device-clock calculateSavings above —
+// shared by the diner surfaces that render a save amount off serverEffectivePrice (item-detail
+// now; the menu card in PR2), replacing a hand-written duplicate of this subtraction.
+export function serverSavings(item: MenuItem | null | undefined): number {
+  const primary = Number(item?.primary_price) || 0;
+  return Math.max(0, primary - serverEffectivePrice(item));
+}

@@ -20,6 +20,9 @@ import { DinerTagFilterSheetComponent } from './menu/diner-tag-filter-sheet/dine
 import { TagPillComponent } from '../_shared/tags/tag-pill.component';
 import { TagOverflowPillComponent } from '../_shared/tags/tag-overflow-pill.component';
 import { HighlightPipe } from 'src/app/_shared/ui/highlight.pipe';
+import { PriceDisplayComponent } from '../_shared/ui/price-display/price-display.component';
+import { DiscountBadgeComponent } from '../_shared/ui/discount-badge/discount-badge.component';
+import { SavingsIndicatorComponent } from '../_shared/ui/savings-indicator/savings-indicator.component';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
@@ -57,7 +60,10 @@ const routes: Routes = [
     DinerTagFilterSheetComponent,
     TagPillComponent,
     TagOverflowPillComponent,
-    HighlightPipe
+    HighlightPipe,
+    PriceDisplayComponent,
+    DiscountBadgeComponent,
+    SavingsIndicatorComponent
 ],
   exports:[
     RouterModule,
