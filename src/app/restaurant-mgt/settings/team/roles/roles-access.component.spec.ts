@@ -50,8 +50,10 @@ describe('RolesAccessComponent', () => {
       { role: 'manager', editable: false, modules: { dashboard: true } },
     ]);
 
+    // Scope to the desktop table (switches live in <td>); the <md card list
+    // mirrors the same controls and is asserted separately below.
     const buttons = fixture.debugElement
-      .queryAll(By.css('app-dn-switch button'))
+      .queryAll(By.css('table app-dn-switch button'))
       .map((d) => (d.nativeElement as HTMLButtonElement).disabled);
 
     const cols = component.columns.length; // 7
@@ -61,6 +63,24 @@ describe('RolesAccessComponent', () => {
     expect(buttons.length).toBe(cols * 2);
     expect(ownerDisabled.every((d) => d === false)).toBeTrue();   // editable owner → interactive
     expect(managerDisabled.every((d) => d === true)).toBeTrue();  // non-editable manager → locked
+  });
+
+  it('mirrors the lock state in the narrow-screen card list (mobile keeps editability)', () => {
+    setup([
+      { role: 'owner', editable: true, modules: { dashboard: true } },
+      { role: 'manager', editable: false, modules: { dashboard: true } },
+    ]);
+
+    // The <md card list renders its switches inside <li>; the table uses <td>.
+    const cardDisabled = fixture.debugElement
+      .queryAll(By.css('li app-dn-switch button'))
+      .map((d) => (d.nativeElement as HTMLButtonElement).disabled);
+
+    const cols = component.columns.length; // 7
+    // Same controls as the table — not dropped on mobile.
+    expect(cardDisabled.length).toBe(cols * 2);
+    expect(cardDisabled.slice(0, cols).every((d) => d === false)).toBeTrue();    // editable owner → interactive
+    expect(cardDisabled.slice(cols, cols * 2).every((d) => d === true)).toBeTrue(); // locked manager → disabled
   });
 
   it('persists a manager toggle via saveRole with the role\'s full module map + success toast', () => {

@@ -22,9 +22,12 @@
       <span>Changes apply when affected users next sign in.</span>
     </p>
 
-    <!-- Grid: 4 roles × 7 modules. Horizontally scrollable on narrow screens.
-         Explicit px row heights (root font-size is 14px, so rem heights drift). -->
-    <div class="overflow-x-auto">
+    <!-- Grid: 4 roles × 7 modules. Two presentations of one data source — the
+         table shows at md+ (horizontal-scroll safety retained), and a
+         card-per-role list (below) replaces it under md so nothing needs
+         horizontal scrolling. Explicit px row heights (root font-size is 14px,
+         so rem heights drift). -->
+    <div class="hidden overflow-x-auto md:block">
       <table class="w-full border-collapse text-sm">
         <thead>
           <tr class="h-[44px] border-b border-gray-200">
@@ -54,6 +57,28 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Narrow screens (<md): one card per role; each module permission is a
+         labeled switch row. Same rows/columns/onToggle as the table above, so
+         edits write through to the identical state (owner row stays locked). -->
+    <div class="space-y-3 md:hidden">
+      <div *ngFor="let row of rows" class="rounded-lg border border-gray-200 bg-card">
+        <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <span class="text-sm font-semibold text-gray-900">{{ roleLabel(row.role) }}</span>
+          <span *ngIf="!row.editable" class="text-xs font-normal text-gray-400">Locked</span>
+        </div>
+        <ul class="divide-y divide-gray-100">
+          <li *ngFor="let col of columns" class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-700">{{ col.label }}</span>
+            <app-dn-switch
+              [checked]="isOn(row, col.key)"
+              [disabled]="!row.editable"
+              (checkedChange)="onToggle(row, col.key, $event)"
+            ></app-dn-switch>
+          </li>
+        </ul>
+      </div>
     </div>
   </div>
 </app-settings-section-page>
