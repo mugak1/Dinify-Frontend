@@ -106,7 +106,7 @@
             </p>
 
             <div class="flex items-baseline gap-2 flex-wrap mt-2">
-              <ng-container *ngIf="it.running_discount; else detailNormalPrice">
+              <ng-container *ngIf="discountIsLive(it); else detailNormalPrice">
                 <span class="text-gray-400 line-through text-base">
                   UGX {{ it.primary_price | number }}
                 </span>
@@ -121,7 +121,7 @@
               </ng-template>
             </div>
 
-            <div *ngIf="it.running_discount"
+            <div *ngIf="discountIsLive(it)"
                  class="mt-3 bg-emerald-700 text-white rounded-xl p-3.5 flex items-center gap-3">
               <div class="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
