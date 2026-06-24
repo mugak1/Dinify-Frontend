@@ -11,13 +11,15 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
 import { environment } from 'src/environments/environment';
 import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
 import { ConnectivityService } from '../../../_services/connectivity.service';
+import { PriceDisplayComponent } from '../../../_shared/ui/price-display/price-display.component';
+import { SavingsIndicatorComponent } from '../../../_shared/ui/savings-indicator/savings-indicator.component';
 
 @Component({
     selector: 'app-basket-body',
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],
     standalone: true,
-    imports: [CommonModule]
+    imports: [CommonModule, PriceDisplayComponent, SavingsIndicatorComponent]
 })
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   table?: TableScan|any;
@@ -442,6 +444,29 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** True when a stored basket extra carries a discount (original > charged). */
   isExtraDiscounted(ex: any): boolean {
     return !!ex && ex.originalCost != null && Number(ex.originalCost) > Number(ex.cost ?? 0);
+  }
+
+  // Numeric coercers feeding the shared price-display. BasketItem.basePrice is already a
+  // number, but extras and upsell prices can arrive as Decimal strings — formatUGX needs
+  // numbers, so coerce at the call site (the snapshot values themselves are unchanged).
+  extraEffective(ex: any): number {
+    return Number(ex?.cost) || 0;
+  }
+
+  extraOriginal(ex: any): number {
+    return Number(ex?.originalCost) || 0;
+  }
+
+  upsellHasDiscount(item: any): boolean {
+    return !!item?.item_running_discount && item?.item_discounted_price != null;
+  }
+
+  upsellEffective(item: any): number {
+    return Number(item?.item_discounted_price) || 0;
+  }
+
+  upsellOriginal(item: any): number {
+    return Number(item?.item_price) || 0;
   }
 
   private hasDiscountedExtra(item: BasketItem): boolean {

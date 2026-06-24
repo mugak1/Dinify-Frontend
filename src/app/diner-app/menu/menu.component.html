@@ -173,12 +173,13 @@
         <!-- Calories meta line, directly under the name -->
         <span *ngIf="i.calories" class="block text-xs font-bold text-gray-500 mt-1">{{ i.calories }} kcal</span>
 
-        <!-- Discount badge inline (only when not sold out) -->
-        <span *ngIf="discountIsLive(i) && !isOutOfStock(i)"
-              class="inline-flex items-center self-start bg-red-500 text-white text-xs font-medium px-2 py-0.5 rounded-full mt-2">
-          {{ calculateDiscount(i) }}% off
-          <span class="ml-1 text-red-100">· Save UGX {{ priceSaved(i) | number }}</span>
-        </span>
+        <!-- Discount badge inline (only when not sold out) — kept in place, swapped onto
+             the shared green solid badge with the inline Save suffix. -->
+        <app-discount-badge *ngIf="discountIsLive(i) && !isOutOfStock(i)"
+                            class="self-start mt-2"
+                            variant="solid" size="md"
+                            [percent]="calculateDiscount(i)"
+                            [save]="priceSaved(i)"></app-discount-badge>
 
         <!-- "Contains" cue for description-only search matches -->
         <span *ngIf="navState.searchQuery().trim() && descMatchOnly(i)"
@@ -246,10 +247,10 @@
 
         <!-- Price -->
         <div class="flex-shrink-0">
-          <ng-container *ngIf="discountIsLive(i) && !isOutOfStock(i); else normalPriceCard">
-            <span class="text-red-600 font-bold text-base">UGX {{ getDisplayPrice(i) | number }}</span>
-            <span class="line-through text-gray-400 text-sm ml-2">UGX {{ i.primary_price | number }}</span>
-          </ng-container>
+          <app-price-display *ngIf="discountIsLive(i) && !isOutOfStock(i); else normalPriceCard"
+                             size="md"
+                             [effective]="getDisplayPrice(i)"
+                             [original]="basePrice(i)"></app-price-display>
           <ng-template #normalPriceCard>
             <span [class]="isOutOfStock(i) ? 'text-gray-400 font-bold text-base' : 'text-red-600 font-bold text-base'">
               UGX {{ i.primary_price | number }}

@@ -24,10 +24,9 @@
 
         <!-- Badge overlays (no FEATURED — redundant inside Featured section) -->
         <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
-          <span *ngIf="hasDiscount(i) && !isOutOfStock(i)"
-                class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-            {{ getDiscountBadge(i) }}
-          </span>
+          <app-discount-badge *ngIf="hasDiscount(i) && !isOutOfStock(i)"
+                              variant="solid" size="sm"
+                              [percent]="discountPercent(i)"></app-discount-badge>
           <span *ngIf="i?.is_popular && !isOutOfStock(i)"
                 class="bg-orange-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
@@ -75,10 +74,10 @@
         </span>
 
         <div class="mt-auto pt-1">
-          <ng-container *ngIf="hasDiscount(i) && !isOutOfStock(i); else normalPrice">
-            <span class="text-red-600 font-bold text-sm">UGX {{ getDisplayPrice(i) | number }}</span>
-            <span class="line-through text-gray-400 text-xs ml-1">UGX {{ i.primary_price | number }}</span>
-          </ng-container>
+          <app-price-display *ngIf="hasDiscount(i) && !isOutOfStock(i); else normalPrice"
+                             size="sm"
+                             [effective]="getDisplayPrice(i)"
+                             [original]="basePrice(i)"></app-price-display>
           <ng-template #normalPrice>
             <span [class]="isOutOfStock(i) ? 'text-gray-400 font-bold text-sm' : 'text-red-600 font-bold text-sm'">
               UGX {{ i.primary_price | number }}

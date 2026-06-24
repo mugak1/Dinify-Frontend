@@ -67,15 +67,26 @@ export function calculateSavings(
   return Math.max(0, p - getCurrentPriceFromDetails(p, discountDetails));
 }
 
+// Numeric discount percentage (rounded, positive magnitude), 0 when there is no live
+// reduction. The numeric counterpart to getDiscountBadgeText below — used where a
+// component wants the number (e.g. the diner discount badge) rather than a "-X%" string.
+export function getDiscountPercent(
+  discountDetails: ItemDiscountDetails | null | undefined,
+  primaryPrice: number,
+): number {
+  const p = Number(primaryPrice) || 0;
+  if (p <= 0) return 0;
+  const savings = calculateSavings(p, discountDetails);
+  if (savings <= 0) return 0;
+  return Math.round((savings / p) * 100);
+}
+
 export function getDiscountBadgeText(
   discountDetails: ItemDiscountDetails | null | undefined,
   primaryPrice: number,
 ): string {
-  const p = Number(primaryPrice) || 0;
-  if (p <= 0) return '';
-  const savings = calculateSavings(p, discountDetails);
-  if (savings <= 0) return '';
-  return `-${Math.round((savings / p) * 100)}%`;
+  const pct = getDiscountPercent(discountDetails, primaryPrice);
+  return pct > 0 ? `-${pct}%` : '';
 }
 
 // Server's authoritative live-now verdict for the diner menu payload. Missing
