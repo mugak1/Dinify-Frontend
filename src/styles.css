@@ -307,6 +307,32 @@ app-restaurant-mgt app-animated-number {
   margin-top: 0;
 }
 
+/* ── Brand strip: force a solid opaque bar on non-menu diner routes ──────────
+   ROOT-CAUSE FIX for the diner header scroll bleed-through. The shell .brand-strip
+   renders ONLY on non-menu diner routes (basket, item-detail, order-complete) — the
+   menu route hides it via *ngIf and renders .menu-banner instead. None of those pages
+   paint a hero photo behind the strip, yet its background resolves to a frosted
+   72%-opaque tint (resting / condensed) or fully transparent (over-hero, when
+   restaurant.cover_photo exists), so content scrolling up under the pinned bar bleeds
+   through it. Pin the strip opaque, with dark ink + the restaurant name + the subtle
+   separator shadow, in EVERY state — matching its intended scroll-0 look. The menu is
+   unaffected (strip absent there) and its .menu-banner over-hero treatment is untouched.
+   .has-hero keeps firing (the .hero margin + .menu-banner__identity reveal still need
+   it); only the strip's own paint is overridden here. */
+.brand-strip,
+.has-hero:not(.is-condensed):not(.is-offline) .brand-strip,
+.has-hero.is-condensed .brand-strip {
+  background-color: hsl(var(--background)); /* existing white surface token (= scroll-0 white) */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: #171717;                           /* keep dark ink even in the former over-hero state */
+  box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
+}
+/* The Dinify wordmark / restaurant-name swap existed only for the transparent
+   over-hero strip; on the now-solid strip always show the restaurant name. */
+.has-hero:not(.is-condensed):not(.is-offline) .brand-strip__name { display: block; }
+.has-hero:not(.is-condensed):not(.is-offline) .brand-strip__dinify { display: none; }
+
 /* ── Diner single-banner header ─────────────────────────────────────────────
    ONE sticky element with ONE backdrop-filter for the diner menu route: row 1
    (identity) + row 2 (the transparent nav-bar) read as a single frosted material,
