@@ -48,7 +48,7 @@ export class PriceDisplayComponent {
 
   get effectiveClass(): string {
     return cn(
-      'font-bold text-red-600',
+      'font-bold text-d-red',
       this.size === 'sm' && 'text-sm',
       this.size === 'md' && 'text-base',
       this.size === 'lg' && 'text-2xl',
