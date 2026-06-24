@@ -87,6 +87,14 @@
       </div>
     </div>
 
+    <!-- Date-window validation: inverted (hard error, blocks save) vs past (advisory only) -->
+    <p *ngIf="hasDateError" class="mt-1 text-xs text-destructive">
+      End date must be on or after the start date.
+    </p>
+    <p *ngIf="isWindowPast" class="mt-1 text-xs text-warning">
+      End date is in the past — this discount won't run until you extend it.
+    </p>
+
     <!-- Day-of-week checkboxes -->
     <div>
       <label class="block text-sm font-medium text-foreground mb-2">Recurring Days</label>

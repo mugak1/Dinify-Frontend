@@ -149,6 +149,48 @@ describe('ItemFormDialogComponent — canonical discount_details', () => {
     expect(payload.consider_discount_object).toBe(false);
   });
 
+  it('blocks save and switches to the discounts tab when the window is inverted', () => {
+    let payload: any = null;
+    component.saved.subscribe(p => (payload = p));
+
+    fillBasicForm(10000);
+    component.itemHasDiscount = true;
+    component.itemDiscountDetails = {
+      discount_type: 'percentage',
+      discount_amount: 20, // valid amount → the ONLY reason to block is the inverted window
+      start_date: '2026-06-24',
+      end_date: '2026-06-19',
+      recurring_days: [],
+    };
+
+    component.onSubmit();
+
+    expect(payload).toBeNull();
+    expect(component.activeTab).toBe('discounts');
+  });
+
+  it('saves an equal start/end window (one-day discount, inclusive boundary)', () => {
+    let payload: any = null;
+    component.saved.subscribe(p => (payload = p));
+
+    fillBasicForm(10000);
+    component.itemHasDiscount = true;
+    component.itemDiscountDetails = {
+      discount_type: 'percentage',
+      discount_amount: 20,
+      start_date: '2026-06-24',
+      end_date: '2026-06-24',
+      recurring_days: [],
+    };
+
+    component.onSubmit();
+
+    expect(payload).toBeTruthy();
+    const dd = JSON.parse(payload.discount_details);
+    expect(dd.start_date).toBe('2026-06-24');
+    expect(dd.end_date).toBe('2026-06-24');
+  });
+
   it('loads canonical percentage shape into the form on edit', () => {
     const dd: DiscountDetails = {
       discount_type: 'percentage',

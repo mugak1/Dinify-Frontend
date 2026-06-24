@@ -296,6 +296,13 @@ export class ItemFormDialogComponent implements OnChanges {
     if (!this.itemHasDiscount) return false;
     if (!this.itemDiscountDetails) return true;
 
+    // Hard-block an inverted window (end strictly before start). end === start
+    // is a valid one-day discount, and empty dates skip the check. The
+    // past-window case is only an advisory warning in the tab — never block it.
+    const start = this.itemDiscountDetails.start_date || '';
+    const end = this.itemDiscountDetails.end_date || '';
+    if (start && end && end < start) return true;
+
     const amount = this.itemDiscountDetails.discount_amount ?? 0;
 
     if (amount <= 0) return true;
