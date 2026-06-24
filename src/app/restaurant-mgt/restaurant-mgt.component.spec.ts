@@ -119,4 +119,15 @@ describe('RestaurantMgtComponent — sidebar state persistence', () => {
     // … and the clamp must not persist (so the desktop preference survives).
     expect(setCalls.length).toBe(0);
   });
+
+  it('starts collapsed on a large tablet in portrait (1024 — iPad Pro, below the xl rail boundary)', () => {
+    // The overlay→rail boundary is Tailwind `xl` (1280), so a 1024-wide viewport
+    // (iPad Pro 12.9" portrait) sits in the mobile-drawer regime: it seeds CLOSED
+    // and must not overwrite the stored desktop preference. This locks in the
+    // lg→xl boundary move — it would fail under the former `< 1024` clamp, where
+    // 1024 counted as desktop and the drawer seeded OPEN.
+    const { component, setCalls } = createComponent({ stored: true, innerWidth: 1024 });
+    expect(component.sidebarOpen).toBe(false);
+    expect(setCalls.length).toBe(0);
+  });
 });

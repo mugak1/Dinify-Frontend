@@ -1,7 +1,7 @@
-<!-- Wrapper: fixed overlay drawer <lg (slides in via translate-x), in-flow
-     lg:relative rail >=lg. This fixed/relative position also anchors the
+<!-- Wrapper: fixed overlay drawer <xl (slides in via translate-x), in-flow
+     xl:relative rail >=xl. This fixed/relative position also anchors the
      absolute toggle button. -->
-<div class="group flex-none fixed lg:relative inset-y-0 left-0 z-50 transition-transform duration-300 lg:translate-x-0"
+<div class="group flex-none fixed xl:relative inset-y-0 left-0 z-50 transition-transform duration-300 xl:translate-x-0"
      [ngClass]="{ '-translate-x-full': !isOpen }">
 
   <aside class="bg-sidebar text-sidebar-foreground flex flex-col h-full transition-all duration-300 border-r border-sidebar-border"
@@ -68,7 +68,7 @@
   <!-- Toggle button: OUTSIDE aside, INSIDE wrapper -->
   <button (click)="sidebarToggle.emit()"
           aria-label="Toggle sidebar" [attr.aria-expanded]="isOpen"
-          class="absolute top-5 -right-3 z-10 bg-sidebar ring-1 ring-sidebar-border focus-visible:ring-2 focus-visible:ring-sidebar-ring rounded-full w-6 h-6 hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground shadow-sm hidden lg:flex items-center justify-center opacity-50 hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+          class="absolute top-5 -right-3 z-10 bg-sidebar ring-1 ring-sidebar-border focus-visible:ring-2 focus-visible:ring-sidebar-ring rounded-full w-6 h-6 hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground shadow-sm hidden xl:flex items-center justify-center opacity-50 hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
     <svg aria-hidden="true" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path [attr.d]="isOpen ? 'm11 17-5-5 5-5' : 'm6 17 5-5-5-5'"/>
       <path [attr.d]="isOpen ? 'm18 17-5-5 5-5' : 'm13 17 5-5-5-5'"/>

@@ -60,12 +60,12 @@ export class RestaurantMgtComponent {
   ) {
     // Hydrate the persisted sidebar state. An absent key → EXPANDED default; a
     // stored boolean is restored as-is so a refresh preserves the last toggle.
-    // On mobile (< Tailwind `lg`) always start with the drawer closed, matching
+    // On mobile (< Tailwind `xl`) always start with the drawer closed, matching
     // existing behavior — written to the backing field directly so this clamp
     // never overwrites the persisted desktop preference.
     const stored = this.localStorage.getItem<boolean>(SIDEBAR_STATE_KEY);
     const seed = typeof stored === 'boolean' ? stored : true;
-    this._sidebarOpen = window.innerWidth < 1024 ? false : seed;
+    this._sidebarOpen = window.innerWidth < 1280 ? false : seed;
 
     const depth = this.route.pathFromRoot.length;
     this.isChildComponent = depth === 4;
@@ -87,7 +87,7 @@ export class RestaurantMgtComponent {
         this.has_tables = this.router.url.includes('tables');
         this.isMenuRoute =
           /\/menu(\/|\?|$)/.test(this.router.url) && !this.router.url.includes('/reports/');
-        if (window.innerWidth < 1024) {   // < Tailwind `lg`; mobile drawer only
+        if (window.innerWidth < 1280) {   // < Tailwind `xl`; mobile drawer only
           this.sidebarOpen = false;
         }
         this.cdr.detectChanges();
@@ -99,7 +99,7 @@ export class RestaurantMgtComponent {
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
-    if (this.sidebarOpen && window.innerWidth < 1024) {
+    if (this.sidebarOpen && window.innerWidth < 1280) {
       this.sidebarOpen = false;
     }
   }

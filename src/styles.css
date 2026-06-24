@@ -133,12 +133,12 @@ app-restaurant-mgt app-animated-number {
   font-family: "Gabarito Variable", "Plus Jakarta Sans Variable", system-ui, sans-serif;
 }
 
-/* Lock background scroll while the mobile nav drawer is open (<lg). The sidebar
-   toggles `body.dn-drawer-open` from its open state; scoping the lock to <lg
+/* Lock background scroll while the mobile nav drawer is open (<xl). The sidebar
+   toggles `body.dn-drawer-open` from its open state; scoping the lock to <xl
    here means desktop — where that same state just expands the rail — is never
    affected, with no JS viewport check. The descendant `main` rule outranks
    Tailwind's `.overflow-y-auto`, so the real scroll container is locked too. */
-@media (max-width: 1023.98px) {
+@media (max-width: 1279.98px) {
   body.dn-drawer-open {
     overflow: hidden;
   }
