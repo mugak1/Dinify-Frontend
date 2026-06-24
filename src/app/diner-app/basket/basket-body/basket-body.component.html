@@ -73,13 +73,9 @@
             {{ item.item_name }}
           </h4>
           <div class="mt-1">
-            <ng-container *ngIf="item.item_running_discount && item.item_discounted_price !== null && item.item_discounted_price !== undefined; else upsellNormalPrice">
-              <span class="text-red-600 font-bold text-sm">UGX {{ item.item_discounted_price | number }}</span>
-              <span class="line-through text-gray-400 text-xs ml-1">UGX {{ item.item_price | number }}</span>
-            </ng-container>
-            <ng-template #upsellNormalPrice>
-              <span class="text-red-600 font-bold text-sm">UGX {{ item.item_price | number }}</span>
-            </ng-template>
+            <app-price-display size="sm"
+                               [effective]="upsellHasDiscount(item) ? upsellEffective(item) : upsellOriginal(item)"
+                               [original]="upsellHasDiscount(item) ? upsellOriginal(item) : 0"></app-price-display>
           </div>
           <button (click)="addUpsellItem(item)"
                   class="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
@@ -127,17 +123,9 @@
             </svg>
           </div>
           <div class="text-right flex-shrink-0 ml-2">
-            <span *ngIf="!item.isDiscounted" class="font-semibold text-sm text-red-600">
-              UGX {{ item.basePrice | number }}
-            </span>
-            <ng-container *ngIf="item.isDiscounted">
-              <span class="font-semibold text-sm text-red-600">
-                UGX {{ item.basePrice | number }}
-              </span>
-              <div class="line-through text-xs text-gray-400">
-                UGX {{ item.originalBasePrice | number }}
-              </div>
-            </ng-container>
+            <app-price-display size="sm"
+                               [effective]="item.basePrice"
+                               [original]="item.isDiscounted ? (item.originalBasePrice ?? 0) : 0"></app-price-display>
           </div>
         </div>
 
@@ -161,8 +149,9 @@
             <span>+ {{ extra.name }}</span>
             <span class="text-gray-600">
               <ng-container *ngIf="isExtraDiscounted(extra); else extraCostNormal">
-                <span class="text-gray-400 line-through mr-1">UGX {{ extra.originalCost | number }}</span>
-                <span class="text-red-600">+UGX {{ extra.cost | number }}</span>
+                <app-price-display size="sm" prefix="+"
+                                   [effective]="extraEffective(extra)"
+                                   [original]="extraOriginal(extra)"></app-price-display>
               </ng-container>
               <ng-template #extraCostNormal>
                 <span *ngIf="extra.cost > 0">+UGX {{ extra.cost | number }}</span>
@@ -201,21 +190,12 @@
 
     <!-- Order Totals -->
     <div class="mt-4 space-y-2">
-      <!-- Savings banner -->
-      <div *ngIf="getTotalSavings() > 0"
-           class="bg-emerald-700 text-white rounded-xl p-4 flex items-center gap-3.5 mb-3">
-        <div class="flex-shrink-0 w-11 h-11 rounded-full bg-white/20 flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
-            <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
-          </svg>
-        </div>
-        <div class="flex-1 min-w-0 flex flex-col gap-0.5">
-          <span class="text-[11px] uppercase tracking-widest font-medium text-white/85">Total savings</span>
-          <span class="text-[22px] font-bold leading-tight tabular-nums">UGX {{ getTotalSavings() | number }}</span>
-        </div>
-      </div>
+      <!-- Savings banner — shared green aggregate indicator (drops the bespoke emerald-700). -->
+      <app-savings-indicator *ngIf="getTotalSavings() > 0"
+                             class="block mb-3"
+                             variant="banner"
+                             label="Total savings"
+                             [amount]="getTotalSavings()"></app-savings-indicator>
 
       <!-- Total -->
       <div class="flex justify-between items-center py-3 border-t border-gray-300">

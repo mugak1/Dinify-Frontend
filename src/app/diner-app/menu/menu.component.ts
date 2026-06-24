@@ -9,6 +9,7 @@ import { SessionStorageService } from 'src/app/_services/storage/session-storage
 import {
   discountIsLive as discountIsLiveFn,
   serverEffectivePrice,
+  serverSavings,
 } from 'src/app/_shared/utils/price-utils';
 import { matchedDescriptionOnly } from 'src/app/_shared/utils/menu-search';
 import { environment } from 'src/environments/environment';
@@ -457,10 +458,15 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     return item ? (Number(item.discount_percentage) || 0) : 0;
   }
 
-  /** Savings against the server's effective base price. */
+  /** Savings against the server's effective base price (shared helper — completes the
+   *  dedup with item-detail from PR1). */
   priceSaved(item: any): number {
-    if (!item) return 0;
-    return Math.max(0, (Number(item.primary_price) || 0) - serverEffectivePrice(item));
+    return serverSavings(item);
+  }
+
+  /** primary_price coerced to a number for the struck original on the card. */
+  basePrice(item: any): number {
+    return Number(item?.primary_price) || 0;
   }
 
   isOutOfStock(item: any): boolean {

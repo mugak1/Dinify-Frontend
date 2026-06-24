@@ -1,13 +1,15 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { environment } from 'src/environments/environment';
-import { getCurrentPrice, getDiscountBadgeText } from 'src/app/_shared/utils/price-utils';
+import { getCurrentPrice, getDiscountPercent } from 'src/app/_shared/utils/price-utils';
 import { MenuItem } from 'src/app/_models/app.models';
+import { PriceDisplayComponent } from '../price-display/price-display.component';
+import { DiscountBadgeComponent } from '../discount-badge/discount-badge.component';
 
 @Component({
   selector: 'app-featured-carousel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PriceDisplayComponent, DiscountBadgeComponent],
   templateUrl: './featured-carousel.component.html',
 })
 export class FeaturedCarouselComponent {
@@ -27,13 +29,18 @@ export class FeaturedCarouselComponent {
     return !!item?.running_discount;
   }
 
-  getDiscountBadge(item: any): string {
-    if (!item?.running_discount) return '';
-    return getDiscountBadgeText(item?.discount_details, Number(item?.primary_price) || 0);
+  /** Numeric discount percentage for the badge (device-clock source unchanged). */
+  discountPercent(item: any): number {
+    return getDiscountPercent(item?.discount_details, Number(item?.primary_price) || 0);
   }
 
   getDisplayPrice(item: any): number {
     return getCurrentPrice(item as MenuItem);
+  }
+
+  /** primary_price coerced to a number for the struck original. */
+  basePrice(item: any): number {
+    return Number(item?.primary_price) || 0;
   }
 
   onCardTap(item: any): void {
