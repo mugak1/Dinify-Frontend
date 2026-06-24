@@ -224,7 +224,7 @@ export class IdentityComponent implements OnInit, OnDestroy {
 
     this.currentPhone = detail.contact_phone ?? null;
     this.coverUrl = detail.cover_photo
-      ? environment.apiUrl + '/media/' + detail.cover_photo
+      ? (/^https?:\/\//.test(detail.cover_photo) ? detail.cover_photo : environment.apiUrl + detail.cover_photo)
       : null;
     this.form.markAsPristine();
   }
