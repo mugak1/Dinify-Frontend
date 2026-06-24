@@ -311,11 +311,19 @@ export class IdentityComponent implements OnInit, OnDestroy {
     }
 
     this.saving = true;
-    const payload = this.buildFieldsPayload();
     const hasImages = !!this.coverFile;
 
-    this.svc
-      .saveFields(payload)
+    // A newly-staged image rides only the multipart uploadImages(); the JSON
+    // saveFields() carries field edits and the cover *clear* (cover_photo: null).
+    // When only an image is staged there is nothing for saveFields() to do — and
+    // calling it would 400 "No changes detected", aborting the chain before the
+    // upload runs. So only call saveFields() when the JSON request has real work.
+    const fields$ =
+      this.form.dirty || this.coverCleared
+        ? this.svc.saveFields(this.buildFieldsPayload())
+        : of(null);
+
+    fields$
       .pipe(
         switchMap(() =>
           hasImages
