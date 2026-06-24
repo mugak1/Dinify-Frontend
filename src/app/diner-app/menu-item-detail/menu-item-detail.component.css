@@ -1,0 +1,14 @@
+/* Hero scrim: legibility for the floating back chip and a touch of depth at the
+   sheet seam — not a heavy wash. Subtle dark at the very top and bottom,
+   transparent through the middle. Static rgba only (no color-mix, no
+   backdrop-filter) so older Android WebViews in our markets render it. */
+.hero-scrim {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.38) 0%,
+    rgba(0, 0, 0, 0.12) 16%,
+    rgba(0, 0, 0, 0) 40%,
+    rgba(0, 0, 0, 0) 72%,
+    rgba(0, 0, 0, 0.22) 100%
+  );
+}
