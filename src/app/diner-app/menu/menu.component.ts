@@ -7,8 +7,8 @@ import { BasketService } from 'src/app/_services/basket.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import {
-  getCurrentPrice,
-  calculateSavings,
+  discountIsLive as discountIsLiveFn,
+  serverEffectivePrice,
 } from 'src/app/_shared/utils/price-utils';
 import { matchedDescriptionOnly } from 'src/app/_shared/utils/menu-search';
 import { environment } from 'src/environments/environment';
@@ -452,17 +452,15 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     return name.replace(/\s+/g, '-').toLowerCase();
   }
 
+  /** Server-gated discount magnitude (the server emits 0 when inactive). */
   calculateDiscount(item: any): number {
-    if (!item) return 0;
-    const savings = calculateSavings(Number(item.primary_price) || 0, item.discount_details);
-    const price = Number(item.primary_price) || 0;
-    if (savings <= 0 || price <= 0) return 0;
-    return Math.round((savings / price) * 100);
+    return item ? (Number(item.discount_percentage) || 0) : 0;
   }
 
+  /** Savings against the server's effective base price. */
   priceSaved(item: any): number {
     if (!item) return 0;
-    return calculateSavings(Number(item.primary_price) || 0, item.discount_details);
+    return Math.max(0, (Number(item.primary_price) || 0) - serverEffectivePrice(item));
   }
 
   isOutOfStock(item: any): boolean {
@@ -475,9 +473,14 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     return matchedDescriptionOnly(i, this.navState.searchQuery());
   }
 
-  /** Final price to display when an item is discounted (post-canonical-shape). */
+  /** The server's live-now discount verdict for this item (template gate). */
+  discountIsLive(item: any): boolean {
+    return discountIsLiveFn(item);
+  }
+
+  /** The server's effective base price (discounted when live, else primary). */
   getDisplayPrice(item: any): number {
-    return getCurrentPrice(item as MenuItem);
+    return serverEffectivePrice(item);
   }
 
   /** trackBy for the section and item loops so the silent background swap

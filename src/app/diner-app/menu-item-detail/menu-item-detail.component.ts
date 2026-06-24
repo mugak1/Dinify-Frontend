@@ -15,9 +15,9 @@ import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { parseModifierGroups, selectionConstraintPhrase } from 'src/app/_common/utils/modifier-utils';
 import {
-  getCurrentPrice,
   getCurrentPriceFromDetails,
-  calculateSavings,
+  discountIsLive as discountIsLiveFn,
+  serverEffectivePrice,
 } from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from '../menu/menu-nav-state.service';
@@ -192,13 +192,18 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
       });
   }
 
+  /** The server's live-now discount verdict for the main item (template gate). */
+  discountIsLive(item: MenuItem): boolean {
+    return discountIsLiveFn(item);
+  }
+
   getDisplayPrice(item: MenuItem): number {
-    return getCurrentPrice(item);
+    return serverEffectivePrice(item);
   }
 
   priceSaved(item: MenuItem): number {
     if (!item) return 0;
-    return calculateSavings(Number(item.primary_price) || 0, item.discount_details);
+    return Math.max(0, (Number(item.primary_price) || 0) - serverEffectivePrice(item));
   }
 
   /** Effective (discount-aware) price of an extra, recomputed client-side
@@ -387,8 +392,8 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
   get computedItemTotal(): number {
     const item = this.item();
     if (!item) return 0;
-    const basePrice = item.running_discount
-      ? getCurrentPrice(item)
+    const basePrice = discountIsLiveFn(item)
+      ? serverEffectivePrice(item)
       : Number(item.primary_price) || 0;
     let modifiersCost = 0;
     const selected = this.selectedModifiers();
@@ -459,9 +464,9 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
       };
     });
 
-    const isDiscounted = item.running_discount;
+    const isDiscounted = discountIsLiveFn(item);
     const originalBasePrice = Number(item.primary_price) || 0;
-    const basePrice = isDiscounted ? getCurrentPrice(item) : originalBasePrice;
+    const basePrice = isDiscounted ? serverEffectivePrice(item) : originalBasePrice;
 
     const modifiersCost = selectedModifiersList.reduce(
       (acc, mod) => acc + mod.choices.reduce((s, c) => s + c.additionalCost, 0),

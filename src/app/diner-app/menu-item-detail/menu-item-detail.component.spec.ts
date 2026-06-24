@@ -100,4 +100,22 @@ describe('MenuItemDetailComponent', () => {
       expect(component.extraIsDiscounted(o)).toBe(false);
     });
   });
+
+  describe('main-item discount pricing (server truth)', () => {
+    // The detail price block + "You save" block are *ngIf-gated on
+    // discountIsLive(it); figures come from the server's current_price.
+    it('gates off and falls back to primary when the server says inactive', () => {
+      const it = { primary_price: '10000', current_price: '10000', is_discount_active: false } as any;
+      expect(component.discountIsLive(it)).toBe(false);
+      expect(component.getDisplayPrice(it)).toBe(10000);
+      expect(component.priceSaved(it)).toBe(0);
+    });
+
+    it('shows the discounted price and savings when the server says active', () => {
+      const it = { primary_price: '10000', current_price: '8000', is_discount_active: true } as any;
+      expect(component.discountIsLive(it)).toBe(true);
+      expect(component.getDisplayPrice(it)).toBe(8000);
+      expect(component.priceSaved(it)).toBe(2000);
+    });
+  });
 });

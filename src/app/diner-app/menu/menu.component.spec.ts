@@ -109,4 +109,32 @@ describe('DinersMenuComponent', () => {
     isOfflineValue = true;
     expect(component.bannerTop).toBe('40px');
   });
+
+  describe('discount rendering gates (server truth)', () => {
+    // The card's badge + strikethrough are *ngIf-gated on discountIsLive(i),
+    // so a false verdict guarantees neither renders; figures come from the
+    // server fields (discount_percentage / current_price), not the device clock.
+    const activeItem = {
+      primary_price: '10000', current_price: '8000',
+      is_discount_active: true, discount_percentage: 20, in_stock: true,
+    };
+    const inactiveItem = {
+      primary_price: '10000', current_price: '10000',
+      is_discount_active: false, discount_percentage: 0, in_stock: true,
+    };
+
+    it('treats a server-inactive discount as none (gate false, zero figures, base = primary)', () => {
+      expect(component.discountIsLive(inactiveItem)).toBeFalse();
+      expect(component.calculateDiscount(inactiveItem)).toBe(0);
+      expect(component.priceSaved(inactiveItem)).toBe(0);
+      expect(component.getDisplayPrice(inactiveItem)).toBe(10000);
+    });
+
+    it('renders the discount from server fields when active', () => {
+      expect(component.discountIsLive(activeItem)).toBeTrue();
+      expect(component.calculateDiscount(activeItem)).toBe(20);
+      expect(component.priceSaved(activeItem)).toBe(2000);
+      expect(component.getDisplayPrice(activeItem)).toBe(8000);
+    });
+  });
 });

@@ -77,3 +77,21 @@ export function getDiscountBadgeText(
   if (savings <= 0) return '';
   return `-${Math.round((savings / p) * 100)}%`;
 }
+
+// Server's authoritative live-now verdict for the diner menu payload. Missing
+// flag → inactive (safe failure: never show/charge a discount we're unsure
+// about). Distinct from the device-clock isDiscountActive above.
+export function discountIsLive(item: MenuItem | null | undefined): boolean {
+  return !!item?.is_discount_active;
+}
+
+// Server's effective BASE price (string Decimal); falls back to primary_price
+// if absent/malformed (guards against NaN). NOT the device-clock getCurrentPrice.
+export function serverEffectivePrice(item: MenuItem | null | undefined): number {
+  const cp = item?.current_price;
+  if (cp != null && cp !== '') {
+    const n = Number(cp);
+    if (!Number.isNaN(n)) return n;
+  }
+  return Number(item?.primary_price ?? 0) || 0;
+}

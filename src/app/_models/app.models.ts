@@ -187,6 +187,8 @@ export interface MenuItem {
   allergens: string[];
   discount_details: DiscountDetails | null;
   discount_percentage: number;
+  is_discount_active?: boolean;
+  current_price?: string;   // DRF Decimal-as-string, matches primary_price
 }
 
 export interface ModifierChoice {

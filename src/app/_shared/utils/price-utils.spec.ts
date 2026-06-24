@@ -5,6 +5,8 @@ import {
   getCurrentPriceFromDetails,
   calculateSavings,
   getDiscountBadgeText,
+  discountIsLive,
+  serverEffectivePrice,
 } from './price-utils';
 import { DiscountDetails, MenuItem } from 'src/app/_models/app.models';
 
@@ -36,7 +38,11 @@ function fixed(amount: number): DiscountDetails {
   };
 }
 
-function makeItem(primary: number, dd: DiscountDetails | null = null): MenuItem {
+function makeItem(
+  primary: number,
+  dd: DiscountDetails | null = null,
+  server: { is_discount_active?: boolean; current_price?: string } = {},
+): MenuItem {
   return {
     id: 'x',
     name: 'x',
@@ -63,6 +69,7 @@ function makeItem(primary: number, dd: DiscountDetails | null = null): MenuItem 
     discount_details: dd,
     discount_percentage: 0,
     calories: null,
+    ...server,
   };
 }
 
@@ -171,6 +178,36 @@ describe('price-utils', () => {
 
     it('returns empty string when primary is zero', () => {
       expect(getDiscountBadgeText(pct(20), 0)).toBe('');
+    });
+  });
+
+  describe('discountIsLive (server verdict)', () => {
+    it('returns the is_discount_active flag', () => {
+      expect(discountIsLive(makeItem(10000, null, { is_discount_active: true }))).toBe(true);
+      expect(discountIsLive(makeItem(10000, null, { is_discount_active: false }))).toBe(false);
+    });
+
+    it('treats a missing flag or nullish item as inactive', () => {
+      expect(discountIsLive(makeItem(10000, null))).toBe(false);
+      expect(discountIsLive(null)).toBe(false);
+      expect(discountIsLive(undefined)).toBe(false);
+    });
+  });
+
+  describe('serverEffectivePrice (server base price)', () => {
+    it('returns current_price when present', () => {
+      expect(serverEffectivePrice(makeItem(10000, null, { current_price: '8000.00' }))).toBe(8000);
+    });
+
+    it('falls back to primary_price when current_price is missing/empty/non-numeric', () => {
+      expect(serverEffectivePrice(makeItem(10000, null))).toBe(10000);
+      expect(serverEffectivePrice(makeItem(10000, null, { current_price: '' }))).toBe(10000);
+      expect(serverEffectivePrice(makeItem(10000, null, { current_price: 'abc' }))).toBe(10000);
+    });
+
+    it('returns 0 for a nullish item', () => {
+      expect(serverEffectivePrice(null)).toBe(0);
+      expect(serverEffectivePrice(undefined)).toBe(0);
     });
   });
 });
