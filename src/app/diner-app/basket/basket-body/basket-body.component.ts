@@ -390,6 +390,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             tableId: this.table?.id ?? null,
             // Forward the real backend order id so the diner can leave a review.
             orderId: this.order_initiated?.order_details?.id ?? null,
+            socials: this.restaurant?.socials ?? null,
           },
         });
 
@@ -423,6 +424,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
               orderRef: ongoingOrderId,
               // Forward the order id too so a review can be left on this path.
               orderId: ongoingOrderId,
+              socials: this.restaurant?.socials ?? null,
             },
           });
           this.basketService.clearBasket();
