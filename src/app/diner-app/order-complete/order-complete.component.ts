@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { DollarSign, type LucideIconData, Trash2, User, Utensils, Zap } from 'lucide-angular';
 import { ApiService } from 'src/app/_services/api.service';
@@ -37,7 +37,7 @@ const VERDICTS: Record<number, Verdict> = {
     styleUrl: './order-complete.component.css',
     standalone: false
 })
-export class OrderCompleteComponent {
+export class OrderCompleteComponent implements OnInit {
   /** Table number forwarded from checkout via router navigation state. Null when
    *  the diner has no table context, in which case the Table cell is omitted. */
   readonly tableNumber = signal<number | null>(null);
@@ -136,6 +136,13 @@ export class OrderCompleteComponent {
     this.orderId.set(typeof oid === 'string' && oid.trim().length > 0 ? oid : null);
 
     this.socialLinks.set(this.buildSocialLinks(state['socials']));
+  }
+
+  ngOnInit(): void {
+    // Always open the confirmation screen at the top — the router doesn't reset
+    // scroll on navigation, so without this it inherits the basket's scroll
+    // position. Mirrors BasketComponent / MenuItemDetailComponent.
+    window.scrollTo({ top: 0, left: 0 });
   }
 
   /** Normalise the forwarded `socials` object into ordered, ready-to-render
