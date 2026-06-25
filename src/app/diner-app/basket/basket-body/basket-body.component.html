@@ -27,7 +27,7 @@
          class="grid grid-flow-col auto-cols-[78%] gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2">
       <div *ngFor="let item of upsellItems; let i = index"
            class="snap-start flex h-[136px] rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-        <div class="w-[108px] flex-shrink-0 bg-gray-100 overflow-hidden relative">
+        <div class="w-[108px] flex-shrink-0 bg-white overflow-hidden relative">
           <div *ngIf="item.item_image
                      && !imageLoaded[item.item_id || item.menu_item]
                      && !imageErrored[item.item_id || item.menu_item]"
