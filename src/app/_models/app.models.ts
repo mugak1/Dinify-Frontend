@@ -432,6 +432,9 @@ export interface OrderDetails {
   restaurant: string
   table: string
   table_number: number
+  // Sequential, human-facing order number (R1). Same value the KDS renders;
+  // optional because older payloads / soft-success paths may omit it.
+  order_number?: number
   total_cost: number
   discounted_cost: number
   savings: number

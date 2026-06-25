@@ -392,6 +392,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             tableId: this.table?.id ?? null,
             // Forward the real backend order id so the diner can leave a review.
             orderId: this.order_initiated?.order_details?.id ?? null,
+            // Human-facing order number (R1) — shown on the confirmation card and
+            // matches the KDS. Null when the payload omits it.
+            orderNumber: this.order_initiated?.order_details?.order_number ?? null,
             socials: this.restaurant?.socials ?? null,
           },
         });

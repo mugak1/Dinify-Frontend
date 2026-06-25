@@ -1,134 +1,186 @@
-<div class="min-h-[100dvh] bg-background flex flex-col items-center px-5 py-10" [class.justify-center]="!orderId()">
-  <div class="w-full max-w-md bg-white rounded-none shadow-xl px-7 py-9 flex flex-col items-center text-center">
-    <!-- Emerald success marker: sharp square tile with a white check -->
-    <div class="w-16 h-16 rounded-none bg-emerald-600 flex items-center justify-center mb-6">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-white" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
-           stroke-linejoin="round" aria-hidden="true">
-        <path d="M20 6 9 17l-5-5" />
-      </svg>
-    </div>
+<!-- Renders inside the shared diner shell (the brand strip with the Dinify logo +
+     Table pill sits above this via the shell). This screen is just the body:
+     success header → order card → rating → comment+chips → footer, with a
+     thank-you state on a successful submit. -->
+@if (!submitted()) {
+  <div class="min-h-[100dvh] bg-background flex flex-col">
+    <div class="flex-1">
+      <div class="w-full max-w-md mx-auto px-6 pt-3 pb-6">
 
-    <!-- Headline in the display font (Bricolage) -->
-    <h1 class="font-display text-3xl font-bold text-gray-900 mb-2">Order placed</h1>
-
-    <!-- Payment-neutral subtext -->
-    <p class="font-sans text-sm text-gray-500 leading-relaxed mb-6">
-      Your order has been sent to the kitchen. Someone will bring it to your table shortly.
-    </p>
-
-    <!-- Order reference + optional table row -->
-    <div class="w-full space-y-3 mb-7">
-      <div *ngIf="orderRef()" class="rounded-none border border-gray-200 bg-gray-50 px-4 py-3 text-left">
-        <span class="block font-sans text-[11px] uppercase tracking-widest text-gray-400 mb-1">Order reference</span>
-        <span class="block font-sans text-lg font-semibold text-gray-900 tabular-nums">{{ orderRef() }}</span>
-      </div>
-
-      <div *ngIf="tableNumber() !== null"
-           class="rounded-none border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
-        <span class="font-sans text-[11px] uppercase tracking-widest text-gray-400">Table</span>
-        <span class="font-sans text-base font-semibold text-gray-900 tabular-nums">{{ tableNumber() }}</span>
-      </div>
-    </div>
-
-    <!-- Review capture: only when a real order id was forwarded -->
-    @if (orderId()) {
-      <div class="w-full border-t border-gray-200 pt-7 mb-7 text-left">
-        @if (submitted()) {
-          <!-- Thank-you replaces the form on a successful submit -->
-          <div class="flex flex-col items-center text-center py-2">
-            <h2 class="font-display text-xl font-bold text-gray-900 mb-1">Thanks for the feedback</h2>
-            <p class="font-sans text-sm text-gray-500">We've shared it with the restaurant.</p>
+        <!-- Success confirmation header (§3.4): celebratory check badge + copy -->
+        <div class="flex flex-col items-center text-center pt-3.5 pb-1.5">
+          <div class="check-badge">
+            <span class="ring"></span>
+            <span class="ring2"></span>
+            <span class="check-disc">
+              <svg class="tick" width="30" height="30" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                   stroke-linejoin="round" stroke-dasharray="30" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </span>
           </div>
-        } @else {
-          <h2 class="font-display text-xl font-bold text-gray-900 mb-1">How was it?</h2>
-          <p class="font-sans text-sm text-gray-500 mb-4">Tap to rate your order.</p>
+          <h1 class="font-display text-[32px] font-bold tracking-[-0.02em] text-foreground leading-[1.05] mb-2">Order placed</h1>
+          <p class="font-sans text-[14.5px] leading-relaxed text-muted-foreground max-w-[30ch]">
+            Sent to the kitchen. We'll bring it over shortly.
+          </p>
+        </div>
 
-          <!-- Required overall rating: large, tap-friendly stars -->
-          <div class="flex items-center gap-1.5" role="radiogroup" aria-label="Overall rating">
-            @for (i of stars; track i) {
-              <button type="button" (click)="overall.set(i)"
-                      [attr.aria-label]="i + (i === 1 ? ' star' : ' stars')"
-                      [attr.aria-pressed]="i <= overall()"
-                      class="p-1 -m-0.5 transition-transform active:scale-90">
-                <svg class="w-10 h-10" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                     [ngClass]="i <= overall() ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-none'">
-                  <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
-                </svg>
-              </button>
+        <!-- Order meta card (§3.5, overridden): two cells — Table + Order # — no ETA -->
+        @if (tableNumber() !== null || orderNumberLabel()) {
+          <div class="mt-[22px] flex items-stretch overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            @if (tableNumber() !== null) {
+              <div class="flex-1 px-4 py-[15px] flex flex-col gap-[3px] text-left">
+                <span class="font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Table</span>
+                <span class="font-gabarito text-[19px] font-extrabold tracking-[-0.01em] text-foreground tabular-nums">{{ tableNumber() }}</span>
+              </div>
+            }
+            @if (orderNumberLabel()) {
+              <div class="flex-1 px-4 py-[15px] flex flex-col gap-[3px] text-left"
+                   [ngClass]="{ 'border-l border-gray-200': tableNumber() !== null }">
+                <span class="font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Order</span>
+                <span class="font-gabarito text-[19px] font-extrabold tracking-[-0.01em] text-foreground tabular-nums">{{ orderNumberLabel() }}</span>
+              </div>
             }
           </div>
+        }
 
-          <!-- Optional dimensions + comment, revealed once an overall rating is set -->
-          @if (overall() > 0) {
-            <div class="mt-6 space-y-3">
+        <!-- Review capture: only when a real order id was forwarded -->
+        @if (orderId()) {
+          <div class="mt-[30px] text-left">
+            <div class="text-center mb-[18px]">
+              <h2 class="font-display text-[22px] font-bold tracking-[-0.01em] text-foreground mb-1">How was it?</h2>
+              <p class="font-sans text-[13.5px] text-muted-foreground">Your feedback helps the kitchen and your servers.</p>
+            </div>
+
+            <!-- Overall rating + live verdict (§3.3) -->
+            <div class="flex flex-col items-center gap-2.5 pt-1 pb-1.5">
+              <app-star-rating [value]="overall()" (valueChange)="overall.set($event)"
+                               [size]="40" ariaLabelPrefix="Overall"></app-star-rating>
+              <div class="min-h-[26px] flex items-center justify-center gap-2 transition-colors"
+                   [ngClass]="verdict().colorClass">
+                @if (overall() === 0) {
+                  <span class="font-sans text-sm font-semibold">{{ verdict().text }}</span>
+                } @else {
+                  <span class="text-[18px]" aria-hidden="true">{{ verdict().emoji }}</span>
+                  <span class="font-gabarito font-extrabold text-[17px] tracking-[-0.01em]">{{ verdict().text }}</span>
+                }
+              </div>
+            </div>
+
+            <!-- Category ratings list (§3.6): icon tile + label + 20px stars -->
+            <div class="h-px bg-gray-200 mt-6 mb-1.5"></div>
+            <div class="flex flex-col divide-y divide-gray-100">
               @for (dim of dimensions; track dim.key) {
-                <div class="flex items-center justify-between">
-                  <span class="font-sans text-sm text-gray-700">{{ dim.label }}</span>
-                  <div class="flex items-center gap-0.5" role="radiogroup" [attr.aria-label]="dim.label + ' rating'">
-                    @for (i of stars; track i) {
-                      <button type="button" (click)="setDimension(dim.key, i)"
-                              [attr.aria-label]="dim.label + ' ' + i + (i === 1 ? ' star' : ' stars')"
-                              class="p-1 transition-transform active:scale-90">
-                        <svg class="w-6 h-6" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
-                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                             [ngClass]="i <= (dimensionRatings()[dim.key] ?? 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-none'">
-                          <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
-                        </svg>
-                      </button>
-                    }
-                  </div>
+                <div class="flex items-center justify-between py-[13px] px-1 rounded-xl desktop-hover:bg-gray-50 transition-colors">
+                  <span class="flex items-center gap-[11px] font-sans font-semibold text-[15px] text-gray-800">
+                    <span class="w-[30px] h-[30px] rounded-[9px] grid place-items-center bg-gray-100 text-gray-600 flex-none">
+                      <lucide-icon [img]="dim.icon" [size]="17" [strokeWidth]="1.9"></lucide-icon>
+                    </span>
+                    {{ dim.label }}
+                  </span>
+                  <app-star-rating [value]="dimensionRatings()[dim.key]"
+                                   (valueChange)="setDimension(dim.key, $event)"
+                                   [size]="20" [ariaLabelPrefix]="dim.label"></app-star-rating>
                 </div>
               }
-
-              <textarea [value]="comment()" (input)="onComment($event)" rows="3"
-                        placeholder="Anything else? (optional)"
-                        class="w-full mt-2 rounded-none border border-gray-200 bg-gray-50 px-3 py-2 font-sans text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 resize-none"></textarea>
             </div>
-          }
 
-          <!-- Submit: enabled only once an overall rating is set -->
-          <button type="button" (click)="submitReview()" [disabled]="overall() === 0 || submitting()"
-                  class="w-full mt-6 inline-flex items-center justify-center rounded-none bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-3.5 px-4 font-sans font-semibold text-base shadow-glow-green transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-            {{ submitting() ? 'Sending…' : 'Submit review' }}
-          </button>
+            <!-- Comment field + quick chips (§3.7) -->
+            <div class="mt-[22px]">
+              <label for="review-note" class="block font-sans text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground mb-2.5">Add a note (optional)</label>
+              <div class="note-field relative rounded-[14px] bg-gray-50">
+                <textarea id="review-note" [value]="comment()" (input)="onComment($event)" [attr.maxlength]="commentMax"
+                          placeholder="Tell us what stood out — or what we could do better."
+                          class="w-full bg-transparent border-none outline-none resize-none font-sans text-[15px] leading-relaxed text-foreground placeholder:text-gray-500 px-[15px] pt-3.5 pb-3 min-h-[92px]"></textarea>
+                <span class="absolute right-3 bottom-2 font-sans text-[11px] text-gray-400 tabular-nums">{{ comment().length }}/{{ commentMax }}</span>
+              </div>
+              <div class="flex flex-wrap gap-[7px] mt-2.5">
+                @for (chip of tagChips; track chip.key) {
+                  <button type="button" (click)="toggleTag(chip.key)" [attr.aria-pressed]="isTagSelected(chip.key)"
+                          class="font-sans font-semibold text-[12.5px] px-3 py-[7px] rounded-full border transition-colors"
+                          [ngClass]="isTagSelected(chip.key)
+                            ? 'bg-d-red-soft border-d-red/30 text-d-red-hover'
+                            : 'bg-white border-gray-300 text-gray-700 desktop-hover:border-gray-400'">
+                    {{ chip.label }}
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Follow us: restaurant socials forwarded via nav-state; hidden when none set -->
+        @if (socialLinks().length) {
+          <div class="w-full mt-7 pt-7 border-t border-gray-200 flex flex-col items-center">
+            <span class="font-sans text-[11px] uppercase tracking-widest text-gray-400 mb-3">Follow us</span>
+            <div class="flex items-center justify-center gap-1">
+              @for (s of socialLinks(); track s.key) {
+                <a [href]="s.href" target="_blank" rel="noopener noreferrer" [attr.aria-label]="s.label"
+                   class="inline-flex items-center justify-center w-11 h-11 text-gray-500 desktop-hover:text-gray-900 active:text-gray-900 transition-colors">
+                  @switch (s.key) {
+                    @case ('instagram') {
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg>
+                    }
+                    @case ('facebook') {
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></svg>
+                    }
+                    @case ('x') {
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z"/></svg>
+                    }
+                    @case ('tiktok') {
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+                    }
+                  }
+                </a>
+              }
+            </div>
+          </div>
         }
       </div>
-    }
+    </div>
 
-    <!-- Follow us: restaurant socials forwarded via nav-state; hidden when none set -->
-    @if (socialLinks().length) {
-      <div class="w-full border-t border-gray-200 pt-7 mb-7 flex flex-col items-center">
-        <span class="font-sans text-[11px] uppercase tracking-widest text-gray-400 mb-3">Follow us</span>
-        <div class="flex items-center justify-center gap-1">
-          @for (s of socialLinks(); track s.key) {
-            <a [href]="s.href" target="_blank" rel="noopener noreferrer" [attr.aria-label]="s.label"
-               class="inline-flex items-center justify-center w-11 h-11 text-gray-500 desktop-hover:text-gray-900 active:text-gray-900 transition-colors">
-              @switch (s.key) {
-                @case ('instagram') {
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg>
-                }
-                @case ('facebook') {
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></svg>
-                }
-                @case ('x') {
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z"/></svg>
-                }
-                @case ('tiktok') {
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
-                }
-              }
-            </a>
-          }
-        </div>
+    <!-- Footer actions (§3.8): sticky bar; submit only with a real order id -->
+    <div class="footer-bar sticky bottom-0 bg-white px-6 pt-3.5">
+      <div class="w-full max-w-md mx-auto">
+        @if (orderId()) {
+          <button type="button" (click)="submitReview()" [disabled]="overall() === 0 || submitting()"
+                  class="w-full h-[56px] rounded-2xl flex items-center justify-center gap-2.5 font-sans font-bold text-[16.5px] text-white transition-transform motion-safe:active:scale-[0.985] disabled:cursor-not-allowed"
+                  [ngClass]="overall() === 0 || submitting()
+                    ? 'bg-gray-300'
+                    : 'bg-d-red desktop-hover:bg-d-red-hover shadow-[0_12px_24px_-10px_rgba(255,44,50,0.6)]'">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m5 12 4.5 4.5L19 7" />
+            </svg>
+            {{ overall() === 0 ? 'Rate to submit' : (submitting() ? 'Sending…' : 'Submit review') }}
+          </button>
+        }
+        <button type="button" (click)="backToMenu()"
+                class="w-full mt-2.5 py-2 font-sans font-semibold text-sm text-muted-foreground desktop-hover:text-foreground transition-colors">
+          Back to menu
+        </button>
       </div>
-    }
-
-    <!-- Full-width back-to-menu button (sharp corners) — always available -->
-    <button type="button" (click)="backToMenu()"
-            class="w-full inline-flex items-center justify-center rounded-none bg-d-red text-white py-3.5 px-4 font-sans font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99]">
-      Back to menu
-    </button>
+    </div>
   </div>
-</div>
+} @else {
+  <!-- Thank-you state (§3.9): centered, reuses the check badge + a star recap -->
+  <div class="thanks min-h-[100dvh] bg-background flex flex-col items-center justify-center text-center px-10">
+    <div class="check-badge">
+      <span class="ring"></span>
+      <span class="ring2"></span>
+      <span class="check-disc">
+        <svg class="tick" width="30" height="30" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="3" stroke-linecap="round"
+             stroke-linejoin="round" stroke-dasharray="30" aria-hidden="true">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </span>
+    </div>
+    <h1 class="font-display text-[28px] font-bold tracking-[-0.02em] text-foreground mt-[18px] mb-1.5">Thank you!</h1>
+    <p class="font-sans text-[14.5px] leading-relaxed text-muted-foreground max-w-[26ch] mb-2">
+      Your {{ overall() }}-star review is on its way to the team.
+    </p>
+    <app-star-rating [value]="overall()" [size]="22" [interactive]="false"></app-star-rating>
+  </div>
+}

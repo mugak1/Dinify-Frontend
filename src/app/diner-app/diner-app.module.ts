@@ -23,6 +23,8 @@ import { HighlightPipe } from 'src/app/_shared/ui/highlight.pipe';
 import { PriceDisplayComponent } from '../_shared/ui/price-display/price-display.component';
 import { DiscountBadgeComponent } from '../_shared/ui/discount-badge/discount-badge.component';
 import { SavingsIndicatorComponent } from '../_shared/ui/savings-indicator/savings-indicator.component';
+import { StarRatingComponent } from './order-complete/star-rating.component';
+import { LucideAngularModule } from 'lucide-angular';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
@@ -63,7 +65,12 @@ const routes: Routes = [
     HighlightPipe,
     PriceDisplayComponent,
     DiscountBadgeComponent,
-    SavingsIndicatorComponent
+    SavingsIndicatorComponent,
+    StarRatingComponent,
+    // Category icons on the order-complete review screen (utensils/zap/user/
+    // dollar-sign/trash-2) bind via [img]. Deliberate, owner-approved exception to
+    // the "no new lucide-angular" rule (otherwise confined to dinify-mgt).
+    LucideAngularModule
 ],
   exports:[
     RouterModule,

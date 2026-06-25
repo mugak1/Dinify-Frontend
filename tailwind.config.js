@@ -21,6 +21,12 @@ module.exports = {
       },
       colors: {
         'd-red': '#FF2C32',
+        // Brand-red companions from the Order Review handoff (§2). Kept as
+        // explicit brand tokens alongside d-red (the codebase's existing one-off
+        // brand hex) rather than inline hexes: hover/pressed red for the submit
+        // button, and the soft tint behind a selected review chip.
+        'd-red-hover': '#E61C22',
+        'd-red-soft': '#FFE8E8',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

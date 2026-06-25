@@ -63,6 +63,41 @@ describe('OrderCompleteComponent', () => {
     expect(component.submitting()).toBeFalse();
   });
 
+  it('sends selected quick chips as stable keys (never the labels)', () => {
+    component.orderId.set('order-1');
+    component.overall.set(5);
+    component.toggleTag('great_flavour');
+    component.toggleTag('spotless');
+    api.postPatch.and.returnValue(of({}) as any);
+
+    component.submitReview();
+
+    expect(api.postPatch).toHaveBeenCalledWith(
+      'reviews/submit/',
+      { order: 'order-1', overall_rating: 5, tags: ['great_flavour', 'spotless'] },
+      'post',
+    );
+  });
+
+  it('omits tags entirely when no chip is selected', () => {
+    component.orderId.set('order-1');
+    component.overall.set(4);
+    api.postPatch.and.returnValue(of({}) as any);
+
+    component.submitReview();
+
+    expect(api.postPatch).toHaveBeenCalledWith(
+      'reviews/submit/',
+      { order: 'order-1', overall_rating: 4 },
+      'post',
+    );
+  });
+
+  it('formats the order number identically to the kitchen (3-digit, leading #)', () => {
+    component.orderNumber.set(7);
+    expect(component.orderNumberLabel()).toBe('#007');
+  });
+
   it('re-enables submit and keeps the form on error (the global toast owns the message)', () => {
     component.orderId.set('order-1');
     component.overall.set(3);
