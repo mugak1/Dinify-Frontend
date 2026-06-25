@@ -164,7 +164,9 @@ export class StarRatingComponent {
 
   /** Click n: clear when it equals the current value, else set n (handoff §3.2). */
   pick(n: number): void {
-    this.valueChange.emit(n === this.value() ? 0 : n);
+    const next = n === this.value() ? 0 : n;
+    this.hover.set(0); // clear sticky hover so the committed value shows (touch)
+    this.valueChange.emit(next);
   }
 
   label(n: number): string {

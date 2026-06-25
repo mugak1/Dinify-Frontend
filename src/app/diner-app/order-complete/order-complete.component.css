@@ -22,12 +22,6 @@
     transparent 70%
   );
 }
-.check-badge .ring2 {
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  border: 1.5px solid color-mix(in srgb, #16a34a 22%, white);
-}
 .check-disc {
   position: relative;
   width: 60px;
