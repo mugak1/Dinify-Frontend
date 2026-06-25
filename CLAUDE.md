@@ -26,6 +26,12 @@ so keep it current when conventions change.
   (exception: the Popular Items card now pulls real menu data)
 - Diner App menu redesign: ✅ Complete (sticky brand strip, scroll-aware nav
   pills, quick-add affordance, allergen-safety disclaimer banner)
+- Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
+  menu card, featured carousel, basket) now renders through the shared
+  presentational trio (`app-price-display` / `app-discount-badge` /
+  `app-savings-indicator`, see Shared UI Component Library) fed from the canonical
+  server-truth `discount_details`, replacing the per-surface hand-rolled
+  strikethrough / badge markup
 - Dashboard responsiveness: ✅ Complete
 - Phase 3 (Tables module): 🔄 MVP ships Setup View only (route `dining-tables`)
   - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`);
@@ -188,12 +194,24 @@ The module uses a deliberate mixed pattern — follow it exactly:
 ## Shared UI Component Library
 A shared component library lives in `src/app/_shared/ui/`:
 allergen-disclaimer, avatar (`app-dn-avatar`, initials-in-a-circle), badge,
-button, card, dialog, featured-carousel,
-offline-banner, sheet, switch (`app-dn-switch`; supports a `disabled` input for
+button, card, dialog, discount-badge, featured-carousel,
+offline-banner, price-display, savings-indicator, sheet, switch (`app-dn-switch`;
+supports a `disabled` input for
 locked toggles, e.g. the Roles & access owner row), tabs, toast — plus the `tooltip` directive
 (`[appTooltip]`, not a component), the `SafeArrayPipe`, and the `HighlightPipe`
 (search-term highlighting). The `toast/` folder also exports the injectable
 `ToastService` (the app-wide toast queue), re-exported from the barrel.
+
+The diner price surfaces share a presentational trio (all in `_shared/ui/`,
+re-exported from the barrel): `app-price-display` (bold brand-red effective price
+beside a struck grey original; sizes sm→lg, optional `+` prefix for add-ons),
+`app-discount-badge` ("X% off" green pill — `frosted` hero / `solid` overlay
+variants, optional `· Save UGX Y` suffix), and `app-savings-indicator`
+("Save UGX X" pill / "Total savings" banner). All three are pure (numbers in,
+formatted via the shared `formatUGX`; no item objects, discount-gate or fetch
+logic) and back item-detail, the menu card, the featured carousel and the basket
+from the canonical server-truth `discount_details`. Reuse them before
+hand-rolling any price / discount / savings markup.
 
 Re-exports live in `src/app/_shared/ui/index.ts` — but the barrel does NOT
 re-export `FeaturedCarouselComponent`, the tooltip directive, or
