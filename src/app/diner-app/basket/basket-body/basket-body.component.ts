@@ -88,7 +88,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get showArrows(): boolean {
-    return this.upsellItems.length > 2;
+    return this.upsellItems.length > 1;
   }
 
   checkScroll(): void {
