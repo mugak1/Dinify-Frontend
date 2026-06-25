@@ -12,16 +12,6 @@
   place-items: center;
   margin-bottom: 20px;
 }
-.check-badge .ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 50% 42%,
-    color-mix(in srgb, #16a34a 16%, white) 0%,
-    transparent 70%
-  );
-}
 .check-disc {
   position: relative;
   width: 60px;
