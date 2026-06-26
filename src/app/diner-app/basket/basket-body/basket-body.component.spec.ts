@@ -123,6 +123,14 @@ describe('BasketBodyComponent', () => {
     expect(component.getTotalSavings()).toBe(0);
   });
 
+  it('derives the honest pre-discount subtotal as total + savings', () => {
+    basket.items = [lineItem({ isDiscounted: true, basePrice: 800, originalBasePrice: 1000 })];
+    basket.totalAmount = 800;
+    // savings = (1000 − 800) × 1 = 200 ⇒ subtotal = 800 + 200 = 1000 (subtotal − savings == total)
+    expect(component.getTotalSavings()).toBe(200);
+    expect(component.cartSubtotal).toBe(1000);
+  });
+
   // ── inline placement error + retry ───────────────────────────────────────
   it('shows an inline error on a genuine placement failure, and Retry re-attempts idempotently without re-opening the dialog', () => {
     basket.items = [lineItem()];

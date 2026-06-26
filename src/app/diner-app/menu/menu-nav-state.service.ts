@@ -70,6 +70,12 @@ export class MenuNavStateService {
 
   isMenuActive: WritableSignal<boolean> = signal(false);
 
+  /** True only while the basket PAGE route (BasketComponent) is active. Hides the shared
+   *  shell brand-strip there — the basket page renders its own one-bar header — exactly
+   *  like isMenuActive does for the menu route. Set by BasketComponent's lifecycle; the
+   *  always-mounted desktop sidebar (basket-body) does NOT set it. */
+  isBasketPageActive: WritableSignal<boolean> = signal(false);
+
   /**
    * When a pill is clicked, we optimistically set currentSection and record
    * the click target here. During the smooth-scroll animation, window:scroll
@@ -317,6 +323,10 @@ export class MenuNavStateService {
 
   setMenuActive(value: boolean): void {
     this.isMenuActive.set(value);
+  }
+
+  setBasketPageActive(value: boolean): void {
+    this.isBasketPageActive.set(value);
   }
 
   setCurrentSection(name: string): void {

@@ -24,7 +24,7 @@
        CSS :has() hack) keeps this robust on older Android. *ngIf, not [hidden] — the
        strip's `flex` utility out-specifies the [hidden] UA display:none. -->
   <div #brandStrip
-       *ngIf="!navState.isMenuActive()"
+       *ngIf="!navState.isMenuActive() && !navState.isBasketPageActive()"
        class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2">
     <!-- Dinify wordmark, shown only in the over-hero state (CSS-gated) and hidden in every
          frosted state where the restaurant name leads. DARK-ink asset on purpose: this shell
@@ -46,7 +46,7 @@
   <!-- Ambient offline status — spans every diner page. Pins under the 48px brand
        strip on most routes, but at the very top (0) on the menu route where the
        strip is hidden, so the single banner can dock directly beneath it. -->
-  <app-offline-strip [stickyTop]="navState.isMenuActive() ? '0px' : '48px'"></app-offline-strip>
+  <app-offline-strip [stickyTop]="navState.isMenuActive() || navState.isBasketPageActive() ? '0px' : '48px'"></app-offline-strip>
 
   <div class="flex-1">
     <!-- The menu single-banner header renders inside the menu component, BELOW the
@@ -66,7 +66,7 @@
                     lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto
                     lg:bg-white lg:rounded-none lg:shadow-sm
                     lg:border lg:border-gray-200">
-        <app-basket-body></app-basket-body>
+        <app-basket-body [sidebar]="true"></app-basket-body>
       </aside>
     </div>
   </div>

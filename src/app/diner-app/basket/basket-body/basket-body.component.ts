@@ -1,5 +1,5 @@
 import { CommonModule, Location } from '@angular/common';
-import { AfterViewInit, Component, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ViewChild, ElementRef, OnDestroy, OnInit, Input } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
@@ -12,17 +12,20 @@ import { environment } from 'src/environments/environment';
 import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
 import { ConnectivityService } from '../../../_services/connectivity.service';
 import { PriceDisplayComponent } from '../../../_shared/ui/price-display/price-display.component';
-import { SavingsIndicatorComponent } from '../../../_shared/ui/savings-indicator/savings-indicator.component';
 
 @Component({
     selector: 'app-basket-body',
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],
     standalone: true,
-    imports: [CommonModule, PriceDisplayComponent, SavingsIndicatorComponent]
+    imports: [CommonModule, PriceDisplayComponent]
 })
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   table?: TableScan|any;
+  /** True only at the desktop-sidebar call site (diner-app.component.html). Gates the
+   *  centered "Table N" label — on the basket PAGE that's replaced by the header chip,
+   *  but in the always-mounted sidebar it's the only table indicator. */
+  @Input() sidebar = false;
   order_initiated?: OrderInitiated;
   showUnavailableSheet = false;
 
@@ -50,6 +53,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get totalAmount(): number {
     return this.basketService.Basket()?.totalAmount ?? 0;
+  }
+
+  /** Pre-discount subtotal for the honest summary: the current total plus the savings
+   *  already taken off (so subtotal − savings == total exactly). Named to avoid clashing
+   *  with the per-line getSubtotal(item). */
+  get cartSubtotal(): number {
+    return this.totalAmount + this.getTotalSavings();
   }
 
   constructor(
