@@ -117,17 +117,17 @@
 
         <!-- Name + price row -->
         <div class="flex justify-between items-start">
-          <div class="flex items-center gap-2">
-            <h3 class="font-semibold text-base text-gray-900">{{ item.itemName }}</h3>
+          <div class="flex items-center gap-2 min-w-0">
+            <h3 class="font-display font-bold text-[18.5px] text-gray-900 truncate">{{ item.itemName }}</h3>
             <!-- Edit hint -->
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 class="text-gray-400">
+                 class="text-gray-400 flex-shrink-0">
               <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
             </svg>
           </div>
           <div class="text-right flex-shrink-0 ml-2">
-            <app-price-display size="sm"
+            <app-price-display size="md"
                                [effective]="item.basePrice"
                                [original]="item.isDiscounted ? (item.originalBasePrice ?? 0) : 0"></app-price-display>
           </div>
@@ -203,8 +203,8 @@
 
       <!-- Total -->
       <div class="flex justify-between items-center py-3 border-t border-gray-300">
-        <span class="text-lg font-bold text-gray-900">Total</span>
-        <span class="text-lg font-bold text-d-red">UGX {{ totalAmount | number }}</span>
+        <span class="font-display font-bold text-xl text-gray-900">Total</span>
+        <span class="font-display font-extrabold text-2xl text-d-red">UGX {{ totalAmount | number }}</span>
       </div>
     </div>
 
