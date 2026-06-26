@@ -116,6 +116,11 @@ export function adaptReviewListItem(raw: any): ReviewListItem {
     id: raw?.id,
     overallRating: safeFloat(raw?.overall_rating),
     comment: raw?.comment ?? '',
+    // Quick-feedback chip keys. Defensive: coerce absent/null/non-array to [] and
+    // drop non-string/blank entries so the feed never renders a blank badge.
+    tags: Array.isArray(raw?.tags)
+      ? raw.tags.filter((t: unknown): t is string => typeof t === 'string' && t.trim() !== '')
+      : [],
     createdAt: raw?.created_at ?? '',
     orderNumber: raw?.order_number ?? null,
     tableLabel: raw?.table_label ?? null,

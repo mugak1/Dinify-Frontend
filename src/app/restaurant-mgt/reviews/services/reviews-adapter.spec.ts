@@ -54,6 +54,7 @@ function rawReview() {
     table_label: 'Table 7',
     served_at: '2026-06-15T09:30:00Z',
     spend: '38000.00',
+    tags: ['great_flavour', 'spotless'],
   };
 }
 
@@ -161,6 +162,22 @@ describe('reviews-adapter', () => {
       expect(out.resolutionStatus).toBe('open');
     });
 
+    it('maps the quick-feedback tag keys through as a string array', () => {
+      expect(adaptReviewListItem(rawReview()).tags).toEqual(['great_flavour', 'spotless']);
+    });
+
+    it('coerces absent/null/non-array tags to an empty array', () => {
+      expect(adaptReviewListItem({ ...rawReview(), tags: undefined }).tags).toEqual([]);
+      expect(adaptReviewListItem({ ...rawReview(), tags: null }).tags).toEqual([]);
+      expect(adaptReviewListItem({ ...rawReview(), tags: 'nope' }).tags).toEqual([]);
+    });
+
+    it('drops non-string and blank tag entries so no blank badge renders', () => {
+      expect(
+        adaptReviewListItem({ ...rawReview(), tags: ['', '  ', 42, null, 'spotless'] }).tags,
+      ).toEqual(['spotless']);
+    });
+
     it('parses per-dimension ratings to numbers and preserves null', () => {
       const out = adaptReviewListItem(rawReview());
       expect(out.foodRating).toBe(5);
@@ -226,6 +243,7 @@ describe('reviews-adapter', () => {
       const out = adaptReviewListItem(null);
       expect(out.overallRating).toBe(0);
       expect(out.comment).toBe('');
+      expect(out.tags).toEqual([]);
       expect(out.createdAt).toBe('');
       expect(out.orderNumber).toBeNull();
       expect(out.tableLabel).toBeNull();
