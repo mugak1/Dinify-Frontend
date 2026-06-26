@@ -340,18 +340,16 @@ app-restaurant-mgt app-animated-number {
 .has-hero:not(.is-condensed):not(.is-offline) .brand-strip__dinify { display: none; }
 
 /* ── Diner single-banner header ─────────────────────────────────────────────
-   ONE sticky element with ONE backdrop-filter for the diner menu route: row 1
-   (identity) + row 2 (the transparent nav-bar) read as a single frosted material,
-   so the two-backdrop-filter SEAM the old strip + nav-bar produced is gone. Global
-   (not component-scoped) because row-1 visibility keys off the shell-root state
-   classes (.has-hero / .is-condensed) that emulated encapsulation would scope away.
+   ONE sticky element for the diner menu route: row 1 (identity) + row 2 (the
+   transparent nav-bar) read as a single SOLID-WHITE material — no backdrop blur, so
+   content scrolls cleanly under it rather than showing through a frosted tint. Global
+   (not component-scoped) because row-1 visibility keys off the shell-root state classes
+   (.has-hero / .is-condensed) that emulated encapsulation would scope away.
    The sticky `top` is inline ([style.top] = bannerTop: 0 online, 40px offline). */
 .menu-banner {
   position: sticky;
   z-index: 40;
-  background-color: var(--brand-strip-tint, rgba(255, 255, 255, 0.72));
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  backdrop-filter: blur(16px) saturate(1.4);
+  background-color: #ffffff;
   box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
   /* Vertical breathing room so the search + filter row never sits cramped against
      the hero above or the menu below (~14px each). The env() inset future-proofs the
