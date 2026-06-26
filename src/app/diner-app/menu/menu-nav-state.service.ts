@@ -117,17 +117,20 @@ export class MenuNavStateService {
   navStackHeight: Signal<number> = computed(() => {
     // Diner single-banner: prefer the live measured stack (banner height + its
     // sticky-top offset) so the scroll-margin tracks the identity row appearing on
-    // condense, the filter row, and search↔pills — all without per-frame reflow.
+    // condense, the persistent search row, the pills, and the filter row — all
+    // without per-frame reflow.
     const measured = this.menuBannerStackHeight();
     if (measured != null) return measured;
-    // Fallback (rest-app embed / pre-measure). Must equal the pill/skeleton row
-    // height (h-[36px], LITERAL px) in menu-nav-bar.component.html, so clicked
-    // sections land flush under the bar. It's literal because html{font-size:14px}
-    // makes rem-based Tailwind heights (h-9/h-10/…) render smaller than their px name.
+    // Fallback (rest-app embed / pre-measure). Must equal the nav bar's own height
+    // so clicked sections land flush under it: the persistent search row + its gap,
+    // the pill/skeleton row, and the filter-badge row when active. Literal px
+    // because html{font-size:14px} shrinks rem-based Tailwind heights below their px name.
+    const SEARCH_ROW_PX = 44;
     const PILL_ROW_PX = 36;
     const FILTER_ROW_PX = 32;
     return (
       this.stickyTopPx() +
+      SEARCH_ROW_PX +
       PILL_ROW_PX +
       (this.hasActiveFilters() ? FILTER_ROW_PX : 0)
     );

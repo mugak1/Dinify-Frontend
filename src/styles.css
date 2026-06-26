@@ -208,14 +208,20 @@ app-restaurant-mgt app-animated-number {
    brand-strip takeover rules below drive the strip and pull the hero from ancestor
    state classes (`.has-hero` / `.is-condensed` / `.is-offline`) on the shell root
    that span the shell + menu components, which emulated encapsulation would scope
-   away. The scrim's bottom stop is #ffffff (the diner
-   theme is white) so the photo dissolves into the menu instead of ending at a
-   hard edge. The parallax reads --sy, set on the shell root by appScrollProgress
-   and inherited down; reduced-motion drops the drift but keeps the scale. */
+   away. The scrim is a DARK-ONLY legibility gradient: dark at the top for the
+   wordmark/chip, clear through the middle so the food reads, dark again at the
+   bottom for the venue name — NO white stops, so the photo no longer melts into
+   the page (a crisp hero edge meets the frosted banner below). The parallax reads
+   --sy, set on the shell root by appScrollProgress and inherited down;
+   reduced-motion drops the drift but keeps the scale. */
 .hero-scrim {
   background: linear-gradient(180deg,
-    rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.06) 30%,
-    rgba(255,255,255,0) 55%, rgba(255,255,255,0.85) 88%, #ffffff 100%);
+    rgba(0,0,0,0.55) 0%,
+    rgba(0,0,0,0.18) 20%,
+    rgba(0,0,0,0)   42%,
+    rgba(0,0,0,0)   58%,
+    rgba(0,0,0,0.12) 74%,
+    rgba(0,0,0,0.62) 100%);
 }
 .hero-img {
   transform: translateY(calc(var(--sy,0) * 0.18px)) scale(1.1);
@@ -347,14 +353,13 @@ app-restaurant-mgt app-animated-number {
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   backdrop-filter: blur(16px) saturate(1.4);
   box-shadow: 0 1px 3px rgba(23, 23, 23, 0.06);
-  /* No-op today (no viewport-fit=cover — the browser already holds content below the
-     notch). Future-proofs the top element if edge-to-edge is ever enabled. */
-  padding-top: env(safe-area-inset-top, 0px);
-  /* Breathing room between row 2 (the category pills / section names) and the
-     banner's bottom shadow. offsetHeight includes it, so the ResizeObserver in
-     menu.component.ts grows --menu-nav-stack-height to match and clicked sections
-     still land flush. */
-  padding-bottom: 6px;
+  /* Vertical breathing room so the search + filter row never sits cramped against
+     the hero above or the menu below (~14px each). The env() inset future-proofs the
+     top element against a notch if edge-to-edge is ever enabled (no-op today).
+     offsetHeight includes this padding, so the ResizeObserver in menu.component.ts
+     grows --menu-nav-stack-height to match and clicked sections still land flush. */
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  padding-bottom: 14px;
 }
 /* Row 1 (identity: restaurant name + red table chip). Collapsed over the hero —
    there the hero itself carries the identity (Dinify wordmark + name), and a second
