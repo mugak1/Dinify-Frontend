@@ -1,5 +1,6 @@
-<!-- Table Information -->
-<div *ngIf="table" class="flex items-center w-full text-center pt-4">
+<!-- Table Information — sidebar only: on the basket PAGE the header chip carries the
+     table, but the always-mounted desktop sidebar has no such header, so it shows this. -->
+<div *ngIf="table && sidebar" class="flex items-center w-full text-center pt-4">
   <span class="mx-auto font-medium text-lg">Table {{ table?.number }}</span>
 </div>
 
@@ -94,11 +95,14 @@
     </div>
   </div>
 
-  <!-- Basket Items -->
+  <!-- Basket Items — ONE card; rows divided by gray-200 hairlines. The in-row gray-100
+       divider below stays lighter, so "new item" reads stronger than "same-item subsection". -->
   <div *ngIf="basketItems.length > 0" class="flex flex-col px-4 mt-4">
-    <div *ngFor="let item of basketItems; let idx = index"
+    <div class="border border-gray-200 rounded-2xl bg-white overflow-hidden">
+    <div *ngFor="let item of basketItems; let idx = index; let last = last"
          (click)="editItem(idx)"
-         class="flex gap-4 p-4 mb-3 border border-gray-200 rounded-2xl bg-white shadow-sm cursor-pointer active:bg-gray-50 transition-colors">
+         class="flex gap-4 p-4 cursor-pointer active:bg-gray-50 transition-colors border-gray-200"
+         [class.border-b]="!last">
 
       <!-- Thumbnail -->
       <div class="w-16 h-16 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
@@ -127,7 +131,7 @@
             </svg>
           </div>
           <div class="text-right flex-shrink-0 ml-2">
-            <app-price-display size="sm"
+            <app-price-display size="sm" tone="neutral"
                                [effective]="item.basePrice"
                                [original]="item.isDiscounted ? (item.originalBasePrice ?? 0) : 0"></app-price-display>
           </div>
@@ -153,7 +157,7 @@
             <span>+ {{ extra.name }}</span>
             <span class="text-gray-600">
               <ng-container *ngIf="isExtraDiscounted(extra); else extraCostNormal">
-                <app-price-display size="sm" prefix="+"
+                <app-price-display size="sm" prefix="+" tone="neutral"
                                    [effective]="extraEffective(extra)"
                                    [original]="extraOriginal(extra)"></app-price-display>
               </ng-container>
@@ -185,26 +189,33 @@
               </svg>
             </button>
           </div>
-          <span *ngIf="shouldShowSubtotal(item)" class="font-semibold text-sm text-d-red">
+          <span *ngIf="shouldShowSubtotal(item)" class="font-semibold text-sm text-gray-900">
             UGX {{ getSubtotal(item) | number }}
           </span>
         </div>
       </div>
     </div>
+    </div><!-- /one card -->
 
-    <!-- Order Totals -->
-    <div class="mt-4 space-y-2">
-      <!-- Savings banner — shared green aggregate indicator (drops the bespoke emerald-700). -->
-      <app-savings-indicator *ngIf="getTotalSavings() > 0"
-                             class="block mb-3"
-                             variant="banner"
-                             label="Total savings"
-                             [amount]="getTotalSavings()"></app-savings-indicator>
-
-      <!-- Total -->
-      <div class="flex justify-between items-center py-3 border-t border-gray-300">
-        <span class="text-lg font-bold text-gray-900">Total</span>
-        <span class="text-lg font-bold text-d-red">UGX {{ totalAmount | number }}</span>
+    <!-- Order summary — honest breakdown: subtotal → deal savings → total to pay. All
+         client-side: cartSubtotal = totalAmount + getTotalSavings(); savings from
+         getTotalSavings(). No VAT line — diner prices are not tax-inclusive. -->
+    <div class="mt-4">
+      <div class="flex items-center justify-between text-sm text-gray-600 py-1">
+        <span>Subtotal</span>
+        <span>UGX {{ cartSubtotal | number }}</span>
+      </div>
+      <div *ngIf="getTotalSavings() > 0"
+           class="flex items-center justify-between text-sm font-medium text-green-600 py-1">
+        <span>Deal savings</span>
+        <span>− UGX {{ getTotalSavings() | number }}</span>
+      </div>
+      <div class="flex items-end justify-between pt-3 mt-1 border-t border-gray-300">
+        <div class="flex flex-col leading-tight">
+          <span class="text-base font-bold text-gray-900">Total to pay</span>
+          <span class="text-xs text-gray-500">UGX</span>
+        </div>
+        <span class="text-2xl font-extrabold text-d-red leading-none">{{ totalAmount | number }}</span>
       </div>
     </div>
 

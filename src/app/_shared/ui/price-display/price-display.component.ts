@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn';
 import { formatUGX } from '../../utils/price-utils';
 
 export type PriceDisplaySize = 'sm' | 'md' | 'lg' | 'menu-card';
+export type PriceDisplayTone = 'accent' | 'neutral';
 
 /**
  * Presentational strikethrough-price pair: a bold brand-red effective price with the
@@ -30,6 +31,10 @@ export class PriceDisplayComponent {
   @Input() original = 0;
   @Input() effective = 0;
   @Input() size: PriceDisplaySize = 'md';
+  /** Colour of the effective price: 'accent' (default) = brand red; 'neutral' = near-black,
+   *  for surfaces that shouldn't shout (e.g. the basket item rows). The struck original
+   *  stays grey regardless of tone. */
+  @Input() tone: PriceDisplayTone = 'accent';
   /** Optional leading glyph, e.g. '+' for add-on / extra prices ("+UGX 500"). */
   @Input() prefix = '';
 
@@ -48,10 +53,15 @@ export class PriceDisplayComponent {
   }
 
   get effectiveClass(): string {
+    // tone controls ONLY the colour; size still owns the type scale. Default 'accent' keeps
+    // the brand red everywhere it renders today (menu card, item-detail, and the basket
+    // unit price unless a caller opts into 'neutral').
+    const colour = this.tone === 'neutral' ? 'text-gray-900' : 'text-d-red';
     // menu-card: the diner dish-card "now price" — display face, heavier, larger.
-    if (this.size === 'menu-card') return cn('font-display font-extrabold text-[18.5px] text-d-red');
+    if (this.size === 'menu-card') return cn('font-display font-extrabold text-[18.5px]', colour);
     return cn(
-      'font-bold text-d-red',
+      'font-bold',
+      colour,
       this.size === 'sm' && 'text-sm',
       this.size === 'md' && 'text-base',
       this.size === 'lg' && 'text-2xl',

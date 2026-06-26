@@ -47,4 +47,12 @@ describe('PriceDisplayComponent', () => {
     const struck = root.querySelector('.line-through') as HTMLElement;
     expect(struck.className).toContain('text-[13.5px]');
   });
+
+  it('tone="neutral" renders a neutral (gray-900) effective price; the default stays red', () => {
+    const neutral = render({ effective: 800, size: 'sm', tone: 'neutral' });
+    expect((neutral.firstElementChild as HTMLElement).className).toContain('text-gray-900');
+    expect((neutral.firstElementChild as HTMLElement).className).not.toContain('text-d-red');
+    const accent = render({ effective: 800, size: 'sm', tone: 'accent' });
+    expect((accent.firstElementChild as HTMLElement).className).toContain('text-d-red');
+  });
 });
