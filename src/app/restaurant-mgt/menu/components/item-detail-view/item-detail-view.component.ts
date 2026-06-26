@@ -20,16 +20,29 @@ import {
   isDiscountActive,
   getDiscountBadgeText,
   calculateSavings,
+  getDiscountPercent,
 } from 'src/app/_shared/utils/price-utils';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
-import { SafeArrayPipe } from 'src/app/_shared/ui/safe-array.pipe';
 import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
+import { PriceDisplayComponent } from 'src/app/_shared/ui/price-display/price-display.component';
+import { SavingsIndicatorComponent } from 'src/app/_shared/ui/savings-indicator/savings-indicator.component';
+import { DiscountBadgeComponent } from 'src/app/_shared/ui/discount-badge/discount-badge.component';
+import { ModifierGroupsSelectorComponent } from 'src/app/_shared/ui/modifier-groups-selector/modifier-groups-selector.component';
+import { ExtrasSelectorComponent } from 'src/app/_shared/ui/extras-selector/extras-selector.component';
 import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-item-detail-view',
   standalone: true,
-  imports: [CommonModule, SafeArrayPipe, TagPillComponent],
+  imports: [
+    CommonModule,
+    TagPillComponent,
+    PriceDisplayComponent,
+    SavingsIndicatorComponent,
+    DiscountBadgeComponent,
+    ModifierGroupsSelectorComponent,
+    ExtrasSelectorComponent,
+  ],
   templateUrl: './item-detail-view.component.html',
   host: {
     class: 'flex flex-col h-full min-h-0',
@@ -53,6 +66,9 @@ export class ItemDetailViewComponent implements OnInit, OnChanges, OnDestroy {
   quantity = 1;
   selectedModifiers: Record<string, string[]> = {};
   selectedExtras: string[] = [];
+  /** Inline per-group errors for the shared modifier selector (populated on a blocked add,
+   *  mirroring the diner item-detail's inline validation instead of the old toast). */
+  modifierErrors: Record<string, string> = {};
   allItems: any[] = [];
   imageBaseUrl = environment.apiUrl;
 
@@ -136,6 +152,38 @@ export class ItemDetailViewComponent implements OnInit, OnChanges, OnDestroy {
 
   get savings(): number {
     return calculateSavings(this.primaryPrice, this.item?.discount_details) * this.quantity;
+  }
+
+  /** Per-unit savings for the price-row pill — mirrors the diner item-detail, which shows the
+   *  per-unit save beside the price (not the quantity-scaled total). */
+  get unitSavings(): number {
+    return calculateSavings(this.primaryPrice, this.item?.discount_details);
+  }
+
+  /** Discount percentage for the hero "% off" frosted badge. */
+  get discountPercentValue(): number {
+    return getDiscountPercent(this.item?.discount_details, this.primaryPrice);
+  }
+
+  /** Extras normalised for app-extras-selector (id/name + already-resolved prices). */
+  get cardExtras(): Array<{
+    id: string;
+    name: string;
+    effectivePrice: number;
+    originalPrice: number;
+    isDiscounted: boolean;
+  }> {
+    return this.extraItems.map((e) => {
+      const effective = getCurrentPrice(e);
+      const original = parseFloat(e.primary_price) || 0;
+      return {
+        id: e.id,
+        name: e.name,
+        effectivePrice: effective,
+        originalPrice: original,
+        isDiscounted: effective < original,
+      };
+    });
   }
 
   get extraItems(): any[] {
@@ -260,20 +308,20 @@ export class ItemDetailViewComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   handleAddToCart(): void {
-    // Validate required modifier groups
-    const missingGroups = this.modifierGroups.filter(
-      (group) =>
-        group.required &&
-        (!this.selectedModifiers[group.id] ||
-          this.selectedModifiers[group.id].length < (group.minSelections || 1))
-    );
-    if (missingGroups.length > 0) {
-      const names = missingGroups
-        .map((g) => g.name || 'Untitled Group')
-        .join(', ');
-      this.toastService.error(`Please select: ${names}`);
-      return;
+    // Validate required modifier groups — surface inline per-group errors (mirrors the diner
+    // item-detail) instead of a toast, so the preview reads the same as the live menu.
+    const errors: Record<string, string> = {};
+    for (const group of this.modifierGroups) {
+      const count = (this.selectedModifiers[group.id] || []).length;
+      if (group.minSelections > 0 && count < group.minSelections) {
+        errors[group.id] =
+          group.minSelections <= 1
+            ? 'Please select an option'
+            : `Please select at least ${group.minSelections} options`;
+      }
     }
+    this.modifierErrors = errors;
+    if (Object.keys(errors).length > 0) return;
 
     // Transform selectedModifiers Record → SelectedModifier[]
     const transformedModifiers: SelectedModifier[] = [];
@@ -352,5 +400,6 @@ export class ItemDetailViewComponent implements OnInit, OnChanges, OnDestroy {
     this.quantity = 1;
     this.selectedModifiers = {};
     this.selectedExtras = [];
+    this.modifierErrors = {};
   }
 }

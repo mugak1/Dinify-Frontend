@@ -1,0 +1,80 @@
+<!-- Shared modifier-groups selector — the diner item-detail's canonical markup (red controls,
+     inline validation), now rendered by both the diner route and the preview drawer. Each group
+     keeps its `mod-group-<id>` id so the diner's scroll-to-first-unmet keeps working. -->
+<div class="space-y-4">
+  <div *ngFor="let group of groups"
+       [id]="'mod-group-' + group.id"
+       class="border border-gray-200 rounded-xl p-4 space-y-3">
+
+    <div class="flex items-center gap-2 flex-wrap">
+      <h4 class="font-semibold text-base">{{ group.name }}</h4>
+      <span *ngIf="group.required"
+            class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
+        Required
+      </span>
+      <span *ngIf="!group.required"
+            class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
+        Optional
+      </span>
+    </div>
+
+    <p *ngIf="constraintLabel(group) as label" class="text-xs text-gray-500">{{ label }}</p>
+
+    <p *ngIf="errors[group.id] as err" class="text-red-500 text-sm">{{ err }}</p>
+
+    <!-- Single-select (radio) -->
+    <div *ngIf="group.selectionType === 'single'" class="space-y-2">
+      <label *ngFor="let choice of group.choices"
+             class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
+             (click)="singleSelect.emit({ groupId: group.id, choiceId: choice.id })">
+        <div class="flex items-center gap-3">
+          <div class="h-[20px] w-[20px] rounded-full border-2 flex items-center justify-center flex-shrink-0"
+               [ngClass]="{
+                 'border-red-600 bg-red-600': isSelected(group.id, choice.id),
+                 'border-gray-300': !isSelected(group.id, choice.id)
+               }">
+            <svg *ngIf="isSelected(group.id, choice.id)" xmlns="http://www.w3.org/2000/svg"
+                 class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+          </div>
+          <span class="text-sm" [class.font-semibold]="isSelected(group.id, choice.id)">{{ choice.name }}</span>
+        </div>
+        <span *ngIf="choice.additionalCost > 0" class="text-sm text-gray-500">
+          +UGX {{ choice.additionalCost | number }}
+        </span>
+      </label>
+    </div>
+
+    <!-- Multi-select (checkbox) -->
+    <div *ngIf="group.selectionType !== 'single'" class="space-y-2">
+      <label *ngFor="let choice of group.choices"
+             class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
+             [class.opacity-50]="!isSelected(group.id, choice.id) && selectedCount(group.id) >= group.maxSelections"
+             [class.cursor-not-allowed]="!isSelected(group.id, choice.id) && selectedCount(group.id) >= group.maxSelections"
+             (click)="multiToggle.emit({ groupId: group.id, choiceId: choice.id, checked: !isSelected(group.id, choice.id), maxSelections: group.maxSelections })">
+        <div class="flex items-center gap-3">
+          <div class="h-[20px] w-[20px] rounded border-2 flex items-center justify-center flex-shrink-0"
+               [ngClass]="{
+                 'border-red-600 bg-red-600': isSelected(group.id, choice.id),
+                 'border-gray-300': !isSelected(group.id, choice.id)
+               }">
+            <svg *ngIf="isSelected(group.id, choice.id)" xmlns="http://www.w3.org/2000/svg"
+                 class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+          </div>
+          <span class="text-sm" [class.font-semibold]="isSelected(group.id, choice.id)">{{ choice.name }}</span>
+        </div>
+        <span *ngIf="choice.additionalCost > 0" class="text-sm text-gray-500">
+          +UGX {{ choice.additionalCost | number }}
+        </span>
+      </label>
+      <div *ngIf="group.maxSelections > 1" class="text-xs text-gray-500 pt-1">
+        {{ selectedCount(group.id) }} of {{ group.maxSelections }} selected
+      </div>
+    </div>
+  </div>
+</div>

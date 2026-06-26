@@ -310,6 +310,54 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
       : 'Please add at least ' + this.extrasMin + ' extras';
   }
 
+  // ── Adapters for the shared modifier/extras selectors. The selectors are presentational;
+  //    this component keeps ALL selection state + validation and feeds them derived inputs. ──
+
+  /** Per-group inline error text — populated only after a blocked submit, mirroring the old
+   *  inline `groupUnmet && formSubmitted` gate the selector now renders. */
+  get modifierErrors(): Record<string, string> {
+    if (!this.formSubmitted()) return {};
+    const out: Record<string, string> = {};
+    for (const g of this.modifierGroups()) {
+      if (this.groupUnmet(g)) out[g.id] = this.groupErrorText(g);
+    }
+    return out;
+  }
+
+  /** Extras inline error — gated the same way as the modifier errors. */
+  get extrasError(): string {
+    return this.formSubmitted() && this.extrasUnmet() ? this.extrasErrorText() : '';
+  }
+
+  /** Item extras normalised for app-extras-selector (id/name + already-resolved prices). */
+  get cardExtras(): Array<{
+    id: string;
+    name: string;
+    effectivePrice: number;
+    originalPrice: number;
+    isDiscounted: boolean;
+  }> {
+    return (this.item()?.extras || []).map((e) => ({
+      id: e.id,
+      name: e.name,
+      effectivePrice: this.extraEffectivePrice(e),
+      originalPrice: this.extraBasePrice(e),
+      isDiscounted: this.extraIsDiscounted(e),
+    }));
+  }
+
+  /** Selected extra ids for app-extras-selector (selectedExtras holds refs). */
+  get selectedExtraIds(): string[] {
+    return this.selectedExtras().map((e) => e.id);
+  }
+
+  /** Maps an extras-selector toggle (which emits an id) back to the item's own ref, so
+   *  setExtra's id-based toggle + at-max guard run exactly as before. */
+  toggleExtraById(extraId: string): void {
+    const extra = (this.item()?.extras || []).find((e) => e.id === extraId);
+    if (extra) this.setExtra(extra);
+  }
+
   isModifierChoiceSelected(groupId: string, choiceId: string): boolean {
     return (this.selectedModifiers()[groupId] || []).includes(choiceId);
   }

@@ -178,145 +178,27 @@
           <!-- Modifier Groups -->
           <div class="px-6 pt-4 pb-4 space-y-4" *ngIf="modifierGroups().length > 0">
             <form (ngSubmit)="submitForm()" class="space-y-4">
-              <div *ngFor="let group of modifierGroups()"
-                   [id]="'mod-group-' + group.id"
-                   class="border border-gray-200 rounded-xl p-4 space-y-3">
-
-                <div class="flex items-center gap-2 flex-wrap">
-                  <h4 class="font-semibold text-base">{{ group.name }}</h4>
-                  <span *ngIf="group.required"
-                        class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
-                    Required
-                  </span>
-                  <span *ngIf="!group.required"
-                        class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
-                    Optional
-                  </span>
-                </div>
-
-                <p *ngIf="groupConstraintLabel(group) as label" class="text-xs text-gray-500">{{ label }}</p>
-
-                <p *ngIf="groupUnmet(group) && formSubmitted()" class="text-red-500 text-sm">
-                  {{ groupErrorText(group) }}
-                </p>
-
-                <!-- Single-select -->
-                <div *ngIf="group.selectionType === 'single'" class="space-y-2">
-                  <label *ngFor="let choice of group.choices"
-                         class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
-                         (click)="handleModifierSingleSelect(group.id, choice.id)">
-                    <div class="flex items-center gap-3">
-                      <div class="h-[20px] w-[20px] rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                           [ngClass]="{
-                             'border-red-600 bg-red-600': isModifierChoiceSelected(group.id, choice.id),
-                             'border-gray-300': !isModifierChoiceSelected(group.id, choice.id)
-                           }">
-                        <svg *ngIf="isModifierChoiceSelected(group.id, choice.id)" xmlns="http://www.w3.org/2000/svg"
-                             class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M20 6 9 17l-5-5"/>
-                        </svg>
-                      </div>
-                      <span class="text-sm"
-                            [class.font-semibold]="isModifierChoiceSelected(group.id, choice.id)">{{ choice.name }}</span>
-                    </div>
-                    <span *ngIf="choice.additionalCost > 0" class="text-sm text-gray-500">
-                      +UGX {{ choice.additionalCost | number }}
-                    </span>
-                  </label>
-                </div>
-
-                <!-- Multi-select -->
-                <div *ngIf="group.selectionType !== 'single'" class="space-y-2">
-                  <label *ngFor="let choice of group.choices"
-                         class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
-                         [class.opacity-50]="!isModifierChoiceSelected(group.id, choice.id) && getModifierSelectedCount(group.id) >= group.maxSelections"
-                         [class.cursor-not-allowed]="!isModifierChoiceSelected(group.id, choice.id) && getModifierSelectedCount(group.id) >= group.maxSelections"
-                         (click)="handleModifierMultiSelect(group.id, choice.id, !isModifierChoiceSelected(group.id, choice.id), group.maxSelections)">
-                    <div class="flex items-center gap-3">
-                      <div class="h-[20px] w-[20px] rounded border-2 flex items-center justify-center flex-shrink-0"
-                           [ngClass]="{
-                             'border-red-600 bg-red-600': isModifierChoiceSelected(group.id, choice.id),
-                             'border-gray-300': !isModifierChoiceSelected(group.id, choice.id)
-                           }">
-                        <svg *ngIf="isModifierChoiceSelected(group.id, choice.id)" xmlns="http://www.w3.org/2000/svg"
-                             class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M20 6 9 17l-5-5"/>
-                        </svg>
-                      </div>
-                      <span class="text-sm"
-                            [class.font-semibold]="isModifierChoiceSelected(group.id, choice.id)">{{ choice.name }}</span>
-                    </div>
-                    <span *ngIf="choice.additionalCost > 0" class="text-sm text-gray-500">
-                      +UGX {{ choice.additionalCost | number }}
-                    </span>
-                  </label>
-                  <div *ngIf="group.maxSelections > 1" class="text-xs text-gray-500 pt-1">
-                    {{ getModifierSelectedCount(group.id) }} of {{ group.maxSelections }} selected
-                  </div>
-                </div>
-              </div>
+              <app-modifier-groups-selector
+                [groups]="modifierGroups()"
+                [selected]="selectedModifiers()"
+                [errors]="modifierErrors"
+                (singleSelect)="handleModifierSingleSelect($event.groupId, $event.choiceId)"
+                (multiToggle)="handleModifierMultiSelect($event.groupId, $event.choiceId, $event.checked, $event.maxSelections)">
+              </app-modifier-groups-selector>
             </form>
           </div>
 
           <!-- Extras -->
           <div class="px-6 pt-4 pb-4" *ngIf="it.extras?.length">
-            <div id="extras-section" class="border border-gray-200 rounded-xl p-4 space-y-3">
-              <div class="flex items-center gap-2 flex-wrap">
-                <h4 class="font-semibold text-base">Add Extras</h4>
-                <span *ngIf="extrasRequired()"
-                      class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
-                  Required
-                </span>
-                <span *ngIf="!extrasRequired()"
-                      class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
-                  Optional
-                </span>
-              </div>
-
-              <p *ngIf="extrasConstraintLabel() as label" class="text-xs text-gray-500">{{ label }}</p>
-
-              <p *ngIf="extrasUnmet() && formSubmitted()" class="text-red-500 text-sm">
-                {{ extrasErrorText() }}
-              </p>
-
-              <div class="space-y-1">
-                <label *ngFor="let o of it.extras"
-                       class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
-                       [class.opacity-50]="!isExtraSelected(o) && isExtrasAtMax()"
-                       [class.cursor-not-allowed]="!isExtraSelected(o) && isExtrasAtMax()"
-                       (click)="setExtra(o)">
-                  <div class="flex items-center gap-3">
-                    <div class="h-[20px] w-[20px] rounded border-2 flex items-center justify-center flex-shrink-0"
-                         [ngClass]="{
-                           'border-red-600 bg-red-600': isExtraSelected(o),
-                           'border-gray-300': !isExtraSelected(o)
-                         }">
-                      <svg *ngIf="isExtraSelected(o)" xmlns="http://www.w3.org/2000/svg"
-                           class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
-                           stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 6 9 17l-5-5"/>
-                      </svg>
-                    </div>
-                    <span class="text-sm" [class.font-semibold]="isExtraSelected(o)">{{ o?.name }}</span>
-                  </div>
-                  <span class="text-sm">
-                    <ng-container *ngIf="extraIsDiscounted(o); else extraNormalPrice">
-                      <app-price-display size="sm" prefix="+"
-                                         [effective]="extraEffectivePrice(o)"
-                                         [original]="extraBasePrice(o)"></app-price-display>
-                    </ng-container>
-                    <ng-template #extraNormalPrice>
-                      <span class="text-gray-500">+UGX {{ o.primary_price | number }}</span>
-                    </ng-template>
-                  </span>
-                </label>
-              </div>
-              <div *ngIf="extrasMax > 1" class="text-xs text-gray-500 pt-1">
-                {{ selectedExtras().length }} of {{ extrasMax }} selected
-              </div>
-            </div>
+            <app-extras-selector
+              anchorId="extras-section"
+              [extras]="cardExtras"
+              [selectedIds]="selectedExtraIds"
+              [maxSelections]="extrasMax"
+              [required]="extrasRequired()"
+              [constraintLabel]="extrasConstraintLabel()"
+              [error]="extrasError"
+              (toggled)="toggleExtraById($event)"></app-extras-selector>
           </div>
 
         </div>

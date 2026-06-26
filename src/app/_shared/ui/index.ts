@@ -14,3 +14,10 @@ export { AllergenDisclaimerComponent } from './allergen-disclaimer/allergen-disc
 export { PriceDisplayComponent, PriceDisplaySize } from './price-display/price-display.component';
 export { DiscountBadgeComponent, DiscountBadgeVariant, DiscountBadgeSize } from './discount-badge/discount-badge.component';
 export { SavingsIndicatorComponent, SavingsIndicatorVariant } from './savings-indicator/savings-indicator.component';
+export { MenuDishCardComponent } from './menu-dish-card/menu-dish-card.component';
+export {
+  ModifierGroupsSelectorComponent,
+  ModifierSingleSelectEvent,
+  ModifierMultiToggleEvent,
+} from './modifier-groups-selector/modifier-groups-selector.component';
+export { ExtrasSelectorComponent, ExtraOption } from './extras-selector/extras-selector.component';
