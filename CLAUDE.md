@@ -98,7 +98,9 @@ so keep it current when conventions change.
   deep-linking to a flagged review). Both read/write the `reviews/` API through a
   dedicated `ReviewsService` (no mock flag) with a `reviews-adapter` parsing
   layer; diners leave a review on the diner-app order-complete screen (POST
-  `reviews/submit/`, gated on a real backend order id). The old monolithic
+  `reviews/submit/`, gated on a real backend order id), optionally attaching
+  one-tap quick-feedback chips (canonical key→label set in `_shared/reviews/`)
+  that surface read-only on the operator Feed. The old monolithic
   reviews-management surface has been removed
 - Reports: ✅ a master–detail shell (route `reports`, `ReportsShellComponent`)
   with a persistent, per-restaurant-persisted date-range bar sitting above the
@@ -219,7 +221,7 @@ re-export `FeaturedCarouselComponent`, the tooltip directive, or
 existing components before creating new ones. They are all standalone and
 go in the module `imports` array.
 
-Two more reuse-first libraries sit alongside `ui/` — check them before
+Four more reuse-first libraries sit alongside `ui/` — check them before
 writing new tag or price/menu logic:
 - `src/app/_shared/tags/` (barrel `index.ts`) — the dietary-tag system:
   `TagColour`/`TagIcon`/`TagCategory`, `TAG_COLOUR_PALETTE`, `TAG_ICONS`,
@@ -235,6 +237,14 @@ writing new tag or price/menu logic:
   `CATEGORY_OPTIONS`/`IMPACT_OPTIONS`. Shared by the restaurant Support page and
   the Dinify-admin triage screen — reuse before hand-rolling status badges or
   category labels
+- `src/app/_shared/reviews/` (per-file imports, no barrel) — the diner
+  quick-feedback chip taxonomy: `ReviewTagChip`, the canonical `REVIEW_TAG_CHIPS`
+  set, and the `reviewTagLabel` key→label helper (unknown keys are humanized so
+  a never-before-seen key still renders a clean badge). Chips are persisted as
+  stable keys; the diner order-complete screen renders the tappable chip set and
+  the operator Reviews feed renders the stored keys back as read-only labels.
+  Distinct from the dietary-tag system in `_shared/tags/` — do not conflate the
+  two taxonomies
 
 ## Angular Rules
 - Always set `outputHashing: "all"` across ALL build configurations
