@@ -23,6 +23,9 @@ import { HighlightPipe } from 'src/app/_shared/ui/highlight.pipe';
 import { PriceDisplayComponent } from '../_shared/ui/price-display/price-display.component';
 import { DiscountBadgeComponent } from '../_shared/ui/discount-badge/discount-badge.component';
 import { SavingsIndicatorComponent } from '../_shared/ui/savings-indicator/savings-indicator.component';
+import { MenuDishCardComponent } from '../_shared/ui/menu-dish-card/menu-dish-card.component';
+import { ModifierGroupsSelectorComponent } from '../_shared/ui/modifier-groups-selector/modifier-groups-selector.component';
+import { ExtrasSelectorComponent } from '../_shared/ui/extras-selector/extras-selector.component';
 import { StarRatingComponent } from './order-complete/star-rating.component';
 import { LucideAngularModule } from 'lucide-angular';
 const routes: Routes = [
@@ -66,6 +69,9 @@ const routes: Routes = [
     PriceDisplayComponent,
     DiscountBadgeComponent,
     SavingsIndicatorComponent,
+    MenuDishCardComponent,
+    ModifierGroupsSelectorComponent,
+    ExtrasSelectorComponent,
     StarRatingComponent,
     // Category icons on the order-complete review screen (utensils/zap/user/
     // dollar-sign/trash-2) bind via [img]. Deliberate, owner-approved exception to

@@ -41,12 +41,10 @@ import { TagFilterSheetComponent } from '../tag-filter-sheet/tag-filter-sheet.co
 import { UpsellCarouselComponent } from '../upsell-carousel/upsell-carousel.component';
 import { ScrollSpyCommonDirective } from 'src/app/_common/scroll-spy-common.directive';
 import { FeaturedCarouselComponent } from 'src/app/_shared/ui/featured-carousel/featured-carousel.component';
-import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
-import { TagOverflowPillComponent } from 'src/app/_shared/tags/tag-overflow-pill.component';
 import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
 import { MenuItemTagRef } from 'src/app/_models/app.models';
 import { searchMenuItems, matchedDescriptionOnly } from 'src/app/_shared/utils/menu-search';
-import { HighlightPipe } from 'src/app/_shared/ui/highlight.pipe';
+import { MenuDishCardComponent } from 'src/app/_shared/ui/menu-dish-card/menu-dish-card.component';
 
 type DrawerView = 'list' | 'detail' | 'cart';
 
@@ -64,9 +62,7 @@ type DrawerView = 'list' | 'detail' | 'cart';
     ScrollSpyCommonDirective,
     SafeArrayPipe,
     FeaturedCarouselComponent,
-    TagPillComponent,
-    TagOverflowPillComponent,
-    HighlightPipe,
+    MenuDishCardComponent,
   ],
   templateUrl: './preview-menu-drawer.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -287,8 +283,16 @@ export class PreviewMenuDrawerComponent implements OnChanges {
     return getDiscountBadgeText(item.discount_details, parseFloat(item.primary_price) || 0);
   }
 
-  getItemPrice(item: any): string {
-    return formatUGX(getCurrentPrice(item));
+  /** Effective ("now") price as a NUMBER for the shared dish card — the card formats it via
+   *  app-price-display. (Replaces the old getItemPrice, which returned a formatted string for
+   *  the now-removed hand-rolled card markup.) */
+  cardEffectivePrice(item: any): number {
+    return getCurrentPrice(item);
+  }
+
+  /** primary_price coerced to a NUMBER — the struck original on the shared dish card. */
+  cardOriginalPrice(item: any): number {
+    return parseFloat(item?.primary_price) || 0;
   }
 
   getOriginalPrice(item: any): string {

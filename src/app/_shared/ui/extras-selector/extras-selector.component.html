@@ -1,0 +1,57 @@
+<!-- Shared extras selector — the diner item-detail's canonical "Add Extras" markup (red
+     checkboxes, discounted-extra strikethrough pricing), now rendered by both the diner route
+     and the preview drawer. `anchorId` carries the diner's `extras-section` scroll target. -->
+<div [id]="anchorId" class="border border-gray-200 rounded-xl p-4 space-y-3">
+  <div class="flex items-center gap-2 flex-wrap">
+    <h4 class="font-semibold text-base">Add Extras</h4>
+    <span *ngIf="required"
+          class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
+      Required
+    </span>
+    <span *ngIf="!required"
+          class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
+      Optional
+    </span>
+  </div>
+
+  <p *ngIf="constraintLabel" class="text-xs text-gray-500">{{ constraintLabel }}</p>
+
+  <p *ngIf="error" class="text-red-500 text-sm">{{ error }}</p>
+
+  <div class="space-y-1">
+    <label *ngFor="let extra of extras"
+           class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
+           [class.opacity-50]="!isSelected(extra.id) && atMax"
+           [class.cursor-not-allowed]="!isSelected(extra.id) && atMax"
+           (click)="toggled.emit(extra.id)">
+      <div class="flex items-center gap-3">
+        <div class="h-[20px] w-[20px] rounded border-2 flex items-center justify-center flex-shrink-0"
+             [ngClass]="{
+               'border-red-600 bg-red-600': isSelected(extra.id),
+               'border-gray-300': !isSelected(extra.id)
+             }">
+          <svg *ngIf="isSelected(extra.id)" xmlns="http://www.w3.org/2000/svg"
+               class="h-[12px] w-[12px] text-white" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+        </div>
+        <span class="text-sm" [class.font-semibold]="isSelected(extra.id)">{{ extra.name }}</span>
+      </div>
+      <span class="text-sm">
+        <ng-container *ngIf="extra.isDiscounted; else extraNormalPrice">
+          <app-price-display size="sm" prefix="+"
+                             [effective]="extra.effectivePrice"
+                             [original]="extra.originalPrice"></app-price-display>
+        </ng-container>
+        <ng-template #extraNormalPrice>
+          <span class="text-gray-500">+UGX {{ extra.effectivePrice | number }}</span>
+        </ng-template>
+      </span>
+    </label>
+  </div>
+
+  <div *ngIf="maxSelections > 1" class="text-xs text-gray-500 pt-1">
+    {{ selectedIds.length }} of {{ maxSelections }} selected
+  </div>
+</div>
