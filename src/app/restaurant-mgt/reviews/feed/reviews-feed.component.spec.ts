@@ -13,6 +13,7 @@ function makeReview(overrides: Partial<ReviewListItem> = {}): ReviewListItem {
     id: 7,
     overallRating: 2,
     comment: 'Cold food',
+    tags: [],
     createdAt: new Date().toISOString(),
     orderNumber: 42,
     tableLabel: 'Table 5',
@@ -188,6 +189,45 @@ describe('ReviewsFeedComponent', () => {
     component.confirmResolve(open);
 
     expect(component.reviews.length).toBe(0);
+  });
+
+  // --- Tapped quick-feedback chips (read-only badges) -----------------------
+
+  /** Trimmed text of every app-dn-badge currently rendered. */
+  function badgeTexts(): (string | undefined)[] {
+    return Array.from(
+      fixture.nativeElement.querySelectorAll('app-dn-badge') as NodeListOf<Element>,
+    ).map((el) => el.textContent?.trim());
+  }
+
+  it('renders a badge per tapped tag with mapped labels', () => {
+    component.loading = false;
+    component.error = null;
+    component.reviews = [makeReview({ tags: ['great_flavour', 'friendly_staff'] })];
+    fixture.detectChanges();
+
+    const texts = badgeTexts();
+    expect(texts).toContain('Great flavour');
+    expect(texts).toContain('Friendly staff');
+  });
+
+  it('renders no tag labels when the review has no tags', () => {
+    component.loading = false;
+    component.error = null;
+    component.reviews = [makeReview({ tags: [] })];
+    fixture.detectChanges();
+
+    // The Critical/Open status badges still render; none of the tag labels do.
+    expect(badgeTexts()).not.toContain('Great flavour');
+  });
+
+  it('humanizes an unknown tag key into a clean label', () => {
+    component.loading = false;
+    component.error = null;
+    component.reviews = [makeReview({ tags: ['mystery_thing'] })];
+    fixture.detectChanges();
+
+    expect(badgeTexts()).toContain('Mystery thing');
   });
 });
 

@@ -61,6 +61,10 @@ export interface ReviewListItem {
   id: number;
   overallRating: number;
   comment: string;
+  // Stable quick-feedback chip keys the diner tapped (e.g. 'great_flavour').
+  // Empty when none were tapped — most reviews. Rendered as read-only badges
+  // via the shared `reviewTagLabel` map.
+  tags: string[];
   createdAt: string;
   orderNumber: number | null;
   tableLabel: string | null;

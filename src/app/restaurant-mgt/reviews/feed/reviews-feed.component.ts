@@ -11,6 +11,7 @@ import { AuthenticationService } from '../../../_services/authentication.service
 import { ReviewsService, ReviewFeedFilters } from '../services/reviews.service';
 import { ReviewListItem } from '../models/reviews.models';
 import { formatUGX } from '../../../_shared/utils/price-utils';
+import { reviewTagLabel } from '../../../_shared/reviews/review-tags';
 
 type FeedView = 'all' | 'attention';
 type ResolutionFilter = 'open' | 'resolved' | null;
@@ -269,6 +270,15 @@ type ResolutionFilter = 'open' | 'resolved' | null;
                   <p class="text-sm italic text-muted-foreground">No comment left.</p>
                 }
 
+                <!-- Quick-feedback chips the diner tapped (read-only) -->
+                @if (review.tags.length) {
+                  <div class="flex flex-wrap gap-1.5 mt-3">
+                    @for (tag of review.tags; track tag) {
+                      <app-dn-badge variant="outline">{{ tagLabel(tag) }}</app-dn-badge>
+                    }
+                  </div>
+                }
+
                 <!-- Per-dimension chips (only the dimensions the diner rated) -->
                 @if (dimensionChips(review).length > 0) {
                   <div class="flex flex-wrap gap-1.5 mt-3">
@@ -390,6 +400,10 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
   readonly stars = [1, 2, 3, 4, 5];
   readonly ratingOptions = [5, 4, 3, 2, 1];
   readonly skeletonRows = [1, 2, 3, 4];
+
+  /** Maps a stored quick-feedback tag key to its display label (humanizes
+   *  unknown keys). Bound from the shared single-source-of-truth map. */
+  readonly tagLabel = reviewTagLabel;
 
   /** Review ids with an in-flight resolve PATCH — disables their button. */
   readonly pendingResolve = new Set<string>();

@@ -4,6 +4,7 @@ import { DollarSign, type LucideIconData, Trash2, User, Utensils, Zap } from 'lu
 import { ApiService } from 'src/app/_services/api.service';
 import { Socials } from 'src/app/_models/app.models';
 import { formatOrderNumber } from 'src/app/kitchen/services/kitchen-logic';
+import { REVIEW_TAG_CHIPS, ReviewTagChip } from 'src/app/_shared/reviews/review-tags';
 
 /** Fixed render order + URL base per network. A stored handle is "username or
  *  full link"; bare usernames are prefixed with the base (TikTok's base carries
@@ -80,14 +81,10 @@ export class OrderCompleteComponent implements OnInit {
   ];
 
   /** Quick chips (handoff §3.7). `label` is shown; only the stable `key` is ever
-   *  sent to the backend — labels live solely on the frontend. */
-  readonly tagChips: { label: string; key: string }[] = [
-    { label: 'Great flavour', key: 'great_flavour' },
-    { label: 'Quick service', key: 'quick_service' },
-    { label: 'Friendly staff', key: 'friendly_staff' },
-    { label: 'Good value', key: 'good_value' },
-    { label: 'Spotless', key: 'spotless' },
-  ];
+   *  sent to the backend — labels live solely on the frontend. Sourced from the
+   *  shared single-source-of-truth map so the operator Reviews feed relabels in
+   *  lockstep with this screen. */
+  readonly tagChips: ReadonlyArray<ReviewTagChip> = REVIEW_TAG_CHIPS;
 
   /** Max comment length (handoff §3.7). */
   readonly commentMax = 240;
