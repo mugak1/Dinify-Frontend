@@ -36,4 +36,15 @@ describe('PriceDisplayComponent', () => {
     expect(host.textContent).toContain('+UGX 400');
     expect(host.textContent).toContain('+UGX 500');
   });
+
+  it('renders the menu-card face: display extrabold 18.5px red effective + 13.5px struck original', () => {
+    const root = render({ effective: 800, original: 1000, size: 'menu-card' });
+    const effective = root.firstElementChild as HTMLElement;
+    expect(effective.className).toContain('font-display');
+    expect(effective.className).toContain('font-extrabold');
+    expect(effective.className).toContain('text-[18.5px]');
+    expect(effective.className).toContain('text-d-red');
+    const struck = root.querySelector('.line-through') as HTMLElement;
+    expect(struck.className).toContain('text-[13.5px]');
+  });
 });
