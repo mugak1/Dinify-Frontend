@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { cn } from '../../utils/cn';
 import { formatUGX } from '../../utils/price-utils';
 
-export type PriceDisplaySize = 'sm' | 'md' | 'lg';
+export type PriceDisplaySize = 'sm' | 'md' | 'lg' | 'menu-card';
 
 /**
  * Presentational strikethrough-price pair: a bold brand-red effective price with the
@@ -43,10 +43,13 @@ export class PriceDisplayComponent {
   }
 
   get rootClass(): string {
+    if (this.size === 'menu-card') return cn('inline-flex items-baseline gap-[8px]');
     return cn('inline-flex items-baseline', this.size === 'sm' ? 'gap-1' : 'gap-2');
   }
 
   get effectiveClass(): string {
+    // menu-card: the diner dish-card "now price" — display face, heavier, larger.
+    if (this.size === 'menu-card') return cn('font-display font-extrabold text-[18.5px] text-d-red');
     return cn(
       'font-bold text-d-red',
       this.size === 'sm' && 'text-sm',
@@ -61,6 +64,7 @@ export class PriceDisplayComponent {
       this.size === 'sm' && 'text-xs',
       this.size === 'md' && 'text-sm',
       this.size === 'lg' && 'text-base',
+      this.size === 'menu-card' && 'text-[13.5px]',
     );
   }
 }
