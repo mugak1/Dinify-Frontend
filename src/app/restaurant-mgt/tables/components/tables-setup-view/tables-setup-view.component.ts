@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OverlayModule, ConnectedPosition } from '@angular/cdk/overlay';
-import { Subject, combineLatest } from 'rxjs';
+import { Subject, combineLatest, forkJoin } from 'rxjs';
 import { switchMap, takeUntil } from 'rxjs/operators';
 import { AuthenticationService } from '../../../../_services/authentication.service';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
@@ -52,6 +52,10 @@ import QRCode from 'qrcode';
 export class TablesSetupViewComponent implements OnInit, OnDestroy {
   areas: DiningArea[] = [];
   tables: RestaurantTable[] = [];
+
+  // Initial-load state (drives the loading skeleton / retryable error region)
+  loading = false;
+  loadError: string | null = null;
 
   // Filters
   search = '';
@@ -132,9 +136,27 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   }
 
   private refresh(): void {
+    this.loading = true;
+    this.loadError = null;
     this.tablesService.getAreas(this.restaurantId).pipe(
       switchMap(() => this.tablesService.getTables(this.restaurantId)),
-    ).subscribe();
+    ).subscribe({
+      next: () => {
+        this.loading = false;
+      },
+      error: (err) => {
+        this.loading = false;
+        this.loadError = this.extractError(
+          err,
+          'Could not load tables. Please try again.',
+        );
+      },
+    });
+  }
+
+  /** Re-attempt the load after a failure (template Retry button). */
+  reload(): void {
+    this.refresh();
   }
 
   ngOnDestroy(): void {
@@ -241,13 +263,31 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   onAreaSaved(data: Omit<DiningArea, 'id'>): void {
     if (this.editingArea) {
-      this.tablesService.updateArea({ ...data, id: this.editingArea.id })
-        .subscribe(() => this.refresh());
-      this.toast.success('Area updated');
+      this.tablesService.updateArea({ ...data, id: this.editingArea.id }).subscribe({
+        next: () => {
+          this.refresh();
+          this.toast.success('Area updated');
+        },
+        error: (err) => {
+          this.toast.clear();
+          this.toast.error(
+            this.extractError(err, 'Could not update the area. Please try again.'),
+          );
+        },
+      });
     } else {
-      this.tablesService.createArea(data, this.restaurantId)
-        .subscribe(() => this.refresh());
-      this.toast.success('Area created');
+      this.tablesService.createArea(data, this.restaurantId).subscribe({
+        next: () => {
+          this.refresh();
+          this.toast.success('Area created');
+        },
+        error: (err) => {
+          this.toast.clear();
+          this.toast.error(
+            this.extractError(err, 'Could not create the area. Please try again.'),
+          );
+        },
+      });
     }
     this.isAreaModalOpen = false;
     this.editingArea = null;
@@ -283,14 +323,27 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   handleAreaActiveToggle(area: DiningArea): void {
     const newActive = !area.isActive;
-    this.tablesService.updateArea({ id: area.id, isActive: newActive })
-      .subscribe(() => this.refresh());
-    // Also toggle all tables in this area
+    // Toggle the area together with all its tables. The success toast must wait
+    // for every call, so fan them into one forkJoin (always ≥1 element, so it
+    // never completes empty); a single failure surfaces one clean error.
     const areaTables = this.tables.filter(t => t.areaId === area.id);
-    for (const t of areaTables) {
-      this.tablesService.updateTable({ id: t.id, isActive: newActive }).subscribe();
-    }
-    this.toast.success(`${area.name} ${newActive ? 'opened' : 'closed'}`);
+    forkJoin([
+      this.tablesService.updateArea({ id: area.id, isActive: newActive }),
+      ...areaTables.map(t =>
+        this.tablesService.updateTable({ id: t.id, isActive: newActive }),
+      ),
+    ]).subscribe({
+      next: () => {
+        this.refresh();
+        this.toast.success(`${area.name} ${newActive ? 'opened' : 'closed'}`);
+      },
+      error: (err) => {
+        this.toast.clear();
+        this.toast.error(
+          this.extractError(err, `Could not update ${area.name}. Please try again.`),
+        );
+      },
+    });
   }
 
   // ── Table CRUD ────────────────────────────────────────
@@ -309,17 +362,35 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   onTableSaved(data: Partial<RestaurantTable>): void {
     if (this.editingTable) {
-      this.tablesService.updateTable({ ...data, id: this.editingTable.id })
-        .subscribe(() => this.refresh());
-      this.toast.success('Table updated');
+      this.tablesService.updateTable({ ...data, id: this.editingTable.id }).subscribe({
+        next: () => {
+          this.refresh();
+          this.toast.success('Table updated');
+        },
+        error: (err) => {
+          this.toast.clear();
+          this.toast.error(
+            this.extractError(err, 'Could not update the table. Please try again.'),
+          );
+        },
+      });
     } else {
       // If opened from an area's "Add table" button, pre-set the areaId
       if (this.newTableAreaId && !data.areaId) {
         data.areaId = this.newTableAreaId;
       }
-      this.tablesService.createTable(data, this.restaurantId)
-        .subscribe(() => this.refresh());
-      this.toast.success('Table created');
+      this.tablesService.createTable(data, this.restaurantId).subscribe({
+        next: () => {
+          this.refresh();
+          this.toast.success('Table created');
+        },
+        error: (err) => {
+          this.toast.clear();
+          this.toast.error(
+            this.extractError(err, 'Could not create the table. Please try again.'),
+          );
+        },
+      });
     }
     this.isTableModalOpen = false;
     this.editingTable = null;
@@ -434,13 +505,24 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   }
 
   handleTableActiveToggle(table: RestaurantTable): void {
-    this.tablesService.updateTable({
-      id: table.id,
-      isActive: !table.isActive,
-    }).subscribe(() => this.refresh());
-    this.toast.success(
-      `Table ${table.number} ${!table.isActive ? 'enabled' : 'disabled'}`,
-    );
+    const enabling = !table.isActive;
+    this.tablesService.updateTable({ id: table.id, isActive: enabling }).subscribe({
+      next: () => {
+        this.refresh();
+        this.toast.success(
+          `Table ${table.number} ${enabling ? 'enabled' : 'disabled'}`,
+        );
+      },
+      error: (err) => {
+        this.toast.clear();
+        this.toast.error(
+          this.extractError(
+            err,
+            `Could not update Table ${table.number}. Please try again.`,
+          ),
+        );
+      },
+    });
   }
 
   // ── QR Actions ────────────────────────────────────────
@@ -450,38 +532,69 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     this.tablesService.bulkUpdateTables(
       areaTables.map(t => t.id),
       { hasQR: true, qrRegeneratedAt: new Date() },
-    ).subscribe(() => this.refresh());
-    this.toast.success(`QR codes generated for ${area.name}`);
+    ).subscribe({
+      next: () => {
+        this.refresh();
+        this.toast.success(`QR codes generated for ${area.name}`);
+      },
+      error: (err) => {
+        this.toast.clear();
+        this.toast.error(
+          this.extractError(
+            err,
+            `Could not generate QR codes for ${area.name}. Please try again.`,
+          ),
+        );
+      },
+    });
   }
 
   // ── Bulk Actions ──────────────────────────────────────
 
   handleBulkAction(action: string): void {
+    // Capture the selection up front — it's cleared synchronously below, so the
+    // deferred success toast must read a captured count, not the live array.
+    const ids = this.selectedTableIds;
+    const count = ids.length;
+    const onError = (err: unknown) => {
+      this.toast.clear();
+      this.toast.error(
+        this.extractError(
+          err,
+          'Could not update the selected tables. Please try again.',
+        ),
+      );
+    };
     switch (action) {
       case 'enable':
-        this.tablesService.bulkUpdateTables(this.selectedTableIds, {
-          isActive: true,
-        }).subscribe(() => this.refresh());
-        this.toast.success(
-          `${this.selectedTableIds.length} table(s) enabled`,
-        );
+        this.tablesService.bulkUpdateTables(ids, { isActive: true }).subscribe({
+          next: () => {
+            this.refresh();
+            this.toast.success(`${count} table(s) enabled`);
+          },
+          error: onError,
+        });
         break;
       case 'disable':
-        this.tablesService.bulkUpdateTables(this.selectedTableIds, {
-          isActive: false,
-        }).subscribe(() => this.refresh());
-        this.toast.success(
-          `${this.selectedTableIds.length} table(s) disabled`,
-        );
+        this.tablesService.bulkUpdateTables(ids, { isActive: false }).subscribe({
+          next: () => {
+            this.refresh();
+            this.toast.success(`${count} table(s) disabled`);
+          },
+          error: onError,
+        });
         break;
       case 'generate-qr':
-        this.tablesService.bulkUpdateTables(this.selectedTableIds, {
+        this.tablesService.bulkUpdateTables(ids, {
           hasQR: true,
           qrRegeneratedAt: new Date(),
-        }).subscribe(() => this.refresh());
-        this.toast.success(
-          `QR codes generated for ${this.selectedTableIds.length} table(s)`,
-        );
+        }).subscribe({
+          next: () => {
+            this.refresh();
+            this.toast.success(`QR codes generated for ${count} table(s)`);
+          },
+          error: onError,
+        });
         break;
     }
     this.selectedTableIds = [];
@@ -508,14 +621,27 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   confirmMoveTables(): void {
     if (!this.moveTargetAreaId || this.moveSelectedTableIds.length === 0) return;
+    const count = this.moveSelectedTableIds.length;
+    const areaName =
+      this.areas.find(a => a.id === this.moveTargetAreaId)?.name ?? 'area';
     this.tablesService.moveTableToArea(
       this.moveSelectedTableIds,
       this.moveTargetAreaId,
-    ).subscribe(() => this.refresh());
-    const area = this.areas.find(a => a.id === this.moveTargetAreaId);
-    this.toast.success(
-      `${this.moveSelectedTableIds.length} table(s) moved to ${area?.name ?? 'area'}`,
-    );
+    ).subscribe({
+      next: () => {
+        this.refresh();
+        this.toast.success(`${count} table(s) moved to ${areaName}`);
+      },
+      error: (err) => {
+        this.toast.clear();
+        this.toast.error(
+          this.extractError(
+            err,
+            'Could not move the selected tables. Please try again.',
+          ),
+        );
+      },
+    });
     this.isMoveDialogOpen = false;
   }
 
