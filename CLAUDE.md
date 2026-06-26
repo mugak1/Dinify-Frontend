@@ -52,7 +52,11 @@ so keep it current when conventions change.
   against real endpoints. Kitchen-only staff land here automatically on login:
   `LoginComponent.landingPathForMembership` routes a membership whose roles
   include `'kitchen'` but neither `'owner'` nor `'manager'` to `/kitchen`, and
-  everyone else to `/rest-app` (an explicit `returnUrl` deep link still wins)
+  everyone else to their first accessible module (Dashboard first). The post-login
+  redirect ALWAYS lands on this computed module — it no longer honors a `returnUrl`
+  deep link, and neither the `AuthGuard` nor the inactivity logout captures one, so
+  re-authenticating (manual sign-out OR the 15-min idle timeout) never resumes the
+  last-visited module
 - Support: ✅ real-wired — the restaurant Support page (`support/`) reads/writes
   the `support/issues/` API; the Dinify-admin triage screen
   (`dinify-mgt/mgt-support`) is wired against `support/admin/issues/`.

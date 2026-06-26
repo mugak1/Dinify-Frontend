@@ -49,7 +49,9 @@ describe('AuthGuard', () => {
     setUser(null);
     const result = guard.canActivate(makeRoute(), makeState('/rest-app'));
     expect(result).toBeFalse();
-    expect(router.navigate).toHaveBeenCalledWith(['/login'], { queryParams: { returnUrl: '/rest-app' } });
+    // No returnUrl is captured: the post-login redirect always lands the user on
+    // their first accessible module.
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
   });
 
   it('should allow access when authenticated and no role restriction', () => {
