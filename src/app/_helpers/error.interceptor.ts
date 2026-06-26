@@ -49,8 +49,16 @@ export class ErrorInterceptor implements HttpInterceptor {
                 }
 
                 if (err.status === 403 && this.authenticationService.userValue) {
-                    // 403 is a permissions error, not an expired token — log out immediately
-                    this.authenticationService.logout();
+                    // 403 = authenticated but NOT authorized for this resource (module/tenant
+                    // denial) — distinct from 401 (dead/expired/missing session, which owns
+                    // logout via handle401). Do NOT log out: surface the denial and rethrow
+                    // so any inline handler (e.g. the roles-access optimistic revert) still
+                    // runs. Module-denial 403s became real once the Roles & Access grid began
+                    // enforcing server-side; every backend session-bad scenario returns 401,
+                    // so dropping logout-on-403 cannot trap a genuinely dead session.
+                    const denial = err.error?.message || "You don't have permission to do that.";
+                    this.toast.error(denial);
+                    return throwError(() => denial);
                 }
 
                 // ── TEMP/TODO(orders-module): ongoing-order dev shim ───────────────

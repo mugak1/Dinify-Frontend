@@ -231,23 +231,43 @@ describe('ErrorInterceptor', () => {
     });
   });
 
-  describe('403 handling', () => {
-    it('should logout immediately on 403 when user is logged in', (done) => {
+  describe('403 handling (module/tenant denial — graceful, no logout)', () => {
+    it('does NOT log out on 403 when logged in; surfaces the backend message and rethrows', (done) => {
+      // 403 = authorized-failure (lacks the module/resource), not a dead session.
+      // The user must stay signed in; only 401 (via handle401) may log out.
       setUser(mockUser);
 
       httpClient.get('/api/test').subscribe({
-        error: () => {
-          expect(authService.logout).toHaveBeenCalled();
+        error: (err) => {
+          expect(authService.logout).not.toHaveBeenCalled();
           expect(authService.attemptTokenRefresh).not.toHaveBeenCalled();
+          expect(toast.error).toHaveBeenCalledWith('You cannot access this');
+          expect(err).toBe('You cannot access this');
           done();
         }
       });
 
       const req = httpMock.expectOne('/api/test');
-      req.flush({ message: 'Forbidden' }, { status: 403, statusText: 'Forbidden' });
+      req.flush({ message: 'You cannot access this' }, { status: 403, statusText: 'Forbidden' });
     });
 
-    it('should not logout on 403 when user is not logged in', (done) => {
+    it('falls back to a friendly message when the 403 carries no backend detail', (done) => {
+      setUser(mockUser);
+
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(authService.logout).not.toHaveBeenCalled();
+          expect(toast.error).toHaveBeenCalledWith("You don't have permission to do that.");
+          expect(err).toBe("You don't have permission to do that.");
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.flush({}, { status: 403, statusText: 'Forbidden' });
+    });
+
+    it('does not log out on 403 when user is not logged in', (done) => {
       setUser(null);
 
       httpClient.get('/api/test').subscribe({
@@ -292,10 +312,12 @@ describe('ErrorInterceptor', () => {
   });
 
   describe('other errors', () => {
-    it('should show an error toast for 500 errors', (done) => {
+    it('should show an error toast for 500 errors and never log out (change is 403-scoped)', (done) => {
+      setUser(mockUser);
       httpClient.get('/api/test').subscribe({
         error: () => {
           expect(toast.error).toHaveBeenCalledWith('Server error');
+          expect(authService.logout).not.toHaveBeenCalled();
           done();
         }
       });
