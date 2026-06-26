@@ -116,11 +116,9 @@ this.startCountdown();
                   if (this.log_in.profile.restaurant_roles.length === 1) {
                     const membership = this.log_in.profile.restaurant_roles[0];
                     this.authenticationService.setCurrentRestaurantRole(membership);
-                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || this.landingPathForMembership(membership);
-                    this.router.navigateByUrl(returnUrl);
+                    this.router.navigateByUrl(this.landingPathForMembership(membership));
                   } else if (this.log_in.profile.roles.includes('dinify_admin')) {
-                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/mgt-app';
-                    this.router.navigateByUrl(returnUrl);
+                    this.router.navigateByUrl('/mgt-app');
                   } else if (this.log_in.profile.restaurant_roles.length > 1) {
                     this.showLoginForm = false;
                     this.showRestaurantSelector = true;
@@ -167,13 +165,11 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
   // One restaurant → auto set and redirect
   const membership = this.log_in.profile.restaurant_roles[0];
   this.authenticationService.setCurrentRestaurantRole(membership);
-  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || this.landingPathForMembership(membership);
-  this.router.navigateByUrl(returnUrl);
+  this.router.navigateByUrl(this.landingPathForMembership(membership));
 
 } else if (this.log_in.profile.roles.includes('dinify_admin')) {
   // Admin → go to management
-  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/mgt-app';
-  this.router.navigateByUrl(returnUrl);
+  this.router.navigateByUrl('/mgt-app');
 
 } else if (this.log_in.profile.restaurant_roles.length > 1) {
   // Multiple restaurants → switch popup
@@ -276,7 +272,8 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
    *  - an absent map (pre-permissions snapshot) falls back on roles: kitchen-only
    *    staff to the Kitchen board, everyone else to the dashboard.
    * This is for a user who HAS a membership; the zero-membership /welcome branch
-   * lives at the call sites. An explicit returnUrl deep link still wins there.
+   * lives at the call sites. The post-login redirect always uses this landing
+   * route — it no longer honors a returnUrl deep link.
    */
   private landingPathForMembership(membership: RestaurantRole): string {
     return firstAccessibleRoute(membership?.permissions, membership?.roles);
@@ -285,8 +282,7 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
     setRestaurant(restaurant: RestaurantRole) {
   this.authenticationService.setCurrentRestaurantRole(restaurant);
 
-  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || this.landingPathForMembership(restaurant);
-  this.router.navigateByUrl(returnUrl);
+  this.router.navigateByUrl(this.landingPathForMembership(restaurant));
 
   this.showRestaurantSelector = false; // close selector after selection
 }

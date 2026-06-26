@@ -197,25 +197,16 @@ describe('AuthenticationService', () => {
       redirectSpy = spyOn<any>(service, 'hardRedirect');
     });
 
-    it('should hard-redirect to /login with reason=inactivity and returnUrl when on a protected route', () => {
-      (router as any).url = '/restaurant/dashboard';
+    it('hard-redirects to /login?reason=inactivity, clears the user, and never sets a returnUrl', () => {
       service.logoutDueToInactivity();
       expect(redirectSpy).toHaveBeenCalledTimes(1);
       const url = redirectSpy.calls.mostRecent().args[0] as string;
       expect(url.startsWith('/login?')).toBeTrue();
       const params = new URLSearchParams(url.split('?')[1]);
       expect(params.get('reason')).toBe('inactivity');
-      expect(params.get('returnUrl')).toBe('/restaurant/dashboard');
-      expect(service.userValue).toBeNull();
-    });
-
-    it('should omit returnUrl when triggered from an unauthenticated route', () => {
-      (router as any).url = '/login';
-      service.logoutDueToInactivity();
-      const url = redirectSpy.calls.mostRecent().args[0] as string;
-      const params = new URLSearchParams(url.split('?')[1]);
-      expect(params.get('reason')).toBe('inactivity');
+      // The last route is no longer preserved — login always lands on the first module.
       expect(params.get('returnUrl')).toBeNull();
+      expect(service.userValue).toBeNull();
     });
   });
 

@@ -9,7 +9,7 @@ export class AuthGuard {
         private authenticationService: AuthenticationService
     ) { }
 
-    canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
+    canActivate(route: ActivatedRouteSnapshot, _state: RouterStateSnapshot) {
         const user = this.authenticationService.userValue;
         if (user) {
             // check if route is restricted by role
@@ -45,8 +45,10 @@ export class AuthGuard {
             return true;
         }
 
-        // not logged in so redirect to login page with the return url
-        this.router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
+        // not logged in so redirect to login page. The post-login redirect always
+        // lands on the user's first accessible module, so we deliberately do NOT
+        // capture a returnUrl here.
+        this.router.navigate(['/login']);
         return false;
     }
 }

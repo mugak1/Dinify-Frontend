@@ -228,30 +228,15 @@ this.userSubject.next(u as any)
 
   /**
    * Logout triggered by client-side inactivity timer (15 min idle).
-   * Distinct from logout() so the login page can show a different message,
-   * and so the current authenticated route is preserved as returnUrl.
-   * Skips returnUrl capture for unauthenticated routes to avoid bouncing
-   * the user back to /login or mid-flow auth screens (e.g. lock-otp-exp).
+   * Distinct from logout() so the login page can show a different message
+   * (the `reason=inactivity` banner). Like logout(), it does NOT preserve the
+   * current route: the post-login redirect always lands the user on their first
+   * accessible module, so there is no returnUrl to capture.
    */
   logoutDueToInactivity() {
-    const currentUrl = this.router.url || '';
-    const path = currentUrl.split('?')[0];
-    const skipReturnUrl =
-      !path ||
-      path === '/' ||
-      path.startsWith('/login') ||
-      path.startsWith('/register') ||
-      path.startsWith('/forgot-password') ||
-      path.startsWith('/lock-otp-exp');
-
     this.resetStorage();
     this.userSubject.next(null);
-
-    const params = new URLSearchParams({ reason: 'inactivity' });
-    if (!skipReturnUrl) {
-      params.set('returnUrl', currentUrl);
-    }
-    this.hardRedirect(`/login?${params.toString()}`);
+    this.hardRedirect('/login?reason=inactivity');
   }
 
   // Indirection over `window.location.href = url` so unit tests can spy on

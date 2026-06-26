@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import { cn } from '../../utils/cn';
 
 export type AvatarSize = 'sm' | 'md' | 'lg';
+export type AvatarVariant = 'default' | 'brand';
 
 // Explicit-px sizes (the app sets html{font-size:14px}, so rem-based heights drift —
 // mirror the SectionPageComponent h-[64px] convention for layout-critical sizing).
@@ -24,6 +25,8 @@ export class AvatarComponent {
   /** Full name; initials are derived from the first and last word. Blank renders an empty circle. */
   @Input() name = '';
   @Input() size: AvatarSize = 'md';
+  /** Circle palette: 'default' = neutral grey; 'brand' = brand red with white initials. */
+  @Input() variant: AvatarVariant = 'default';
 
   get initials(): string {
     const parts = this.name.trim().split(/\s+/).filter(Boolean);
@@ -34,8 +37,12 @@ export class AvatarComponent {
   }
 
   get hostClass(): string {
+    const palette = this.variant === 'brand'
+      ? 'bg-primary text-primary-foreground'
+      : 'bg-secondary text-secondary-foreground';
     return cn(
-      'inline-flex items-center justify-center rounded-full bg-secondary text-secondary-foreground font-medium shrink-0 select-none leading-none',
+      'inline-flex items-center justify-center rounded-full font-medium shrink-0 select-none leading-none',
+      palette,
       sizeClasses[this.size]
     );
   }
