@@ -131,7 +131,7 @@
             </svg>
           </div>
           <div class="text-right flex-shrink-0 ml-2">
-            <app-price-display size="sm" tone="neutral"
+            <app-price-display size="sm"
                                [effective]="item.basePrice"
                                [original]="item.isDiscounted ? (item.originalBasePrice ?? 0) : 0"></app-price-display>
           </div>
@@ -157,7 +157,7 @@
             <span>+ {{ extra.name }}</span>
             <span class="text-gray-600">
               <ng-container *ngIf="isExtraDiscounted(extra); else extraCostNormal">
-                <app-price-display size="sm" prefix="+" tone="neutral"
+                <app-price-display size="sm" prefix="+"
                                    [effective]="extraEffective(extra)"
                                    [original]="extraOriginal(extra)"></app-price-display>
               </ng-container>
@@ -189,7 +189,7 @@
               </svg>
             </button>
           </div>
-          <span *ngIf="shouldShowSubtotal(item)" class="font-semibold text-sm text-gray-900">
+          <span *ngIf="shouldShowSubtotal(item)" class="font-semibold text-sm text-d-red">
             UGX {{ getSubtotal(item) | number }}
           </span>
         </div>
