@@ -1,10 +1,10 @@
-<div  class="flex flex-col">
+<div class="flex flex-col bg-stone-50">
 
 <!-- Optional cover-photo hero: the FIRST thing on the menu when the restaurant
      has a cover_photo. Full-bleed image dissolving into the white menu via the
      scrim, with a scroll parallax driven by the inherited --sy var (see the
      appScrollProgress directive on the diner shell root). No cover ⇒ no hero. -->
-<div *ngIf="coverPhoto" class="hero relative h-[252px] overflow-hidden">
+<div *ngIf="coverPhoto" class="hero relative h-[280px] overflow-hidden">
   <img [src]="url + '/media/' + coverPhoto" [alt]="restaurantName"
        class="hero-img absolute inset-0 w-full h-full object-cover" decoding="async" />
   <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
@@ -32,6 +32,35 @@
     </div>
     <h1 class="font-display font-extrabold text-white text-4xl leading-none tracking-tight mt-1.5"
         style="text-shadow:0 2px 12px rgba(0,0,0,.35)">{{ restaurantName }}</h1>
+  </div>
+</div>
+
+<!-- Cover-less white header: when the restaurant has NO cover photo we still frame
+     the menu with a header block (previously nothing rendered here). Mirrors the
+     photo hero's chrome — dark-on-light wordmark top-left, red table chip top-right,
+     eyebrow + venue name bottom-left — inverted for a light surface. The hairline
+     border-b plus the off-white page canvas (bg-stone-50 on the menu root) make it
+     read as a FRAME instead of dissolving into the page. Compact (no photo to fill);
+     it scrolls away like the hero and the sticky banner below takes over on condense. -->
+<div *ngIf="!coverPhoto" class="relative h-[180px] bg-white border-b border-gray-200 overflow-hidden">
+  <!-- TOP: dark-on-light Dinify wordmark + red table chip (env() pad mirrors the hero) -->
+  <div class="absolute top-0 inset-x-0 z-10 h-[48px] px-4 flex items-center gap-2"
+       style="padding-top:env(safe-area-inset-top,0px)">
+    <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-7 w-auto flex-shrink-0">
+    <span *ngIf="tableNumber" class="brand-strip__chip bg-d-red text-white">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+      </svg>
+      Table {{ tableNumber }}
+    </span>
+  </div>
+  <!-- BOTTOM: eyebrow + venue name — dark on white, muted-grey eyebrow, no text-shadow -->
+  <div class="absolute left-6 right-6 bottom-5 z-10">
+    <div class="text-gray-500 font-display text-[11px] font-bold tracking-[0.18em] uppercase">
+      Dine-in · Table {{ tableNumber }}
+    </div>
+    <h1 class="font-display font-extrabold text-gray-900 text-4xl leading-none tracking-tight mt-1.5">{{ restaurantName }}</h1>
   </div>
 </div>
 

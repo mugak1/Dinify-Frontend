@@ -20,9 +20,6 @@ export class DinerAppComponent {
   restaurant_id = '';
   table?: TableScan;
   logo!: string;
-  // Optional restaurant cover photo from the table-scan payload. Drives the
-  // diner menu hero (and the shell's inert `has-hero` flag); null ⇒ no hero.
-  coverPhoto: string | null = null;
   url = environment.apiUrl;
   table_id!: string;
 
@@ -73,7 +70,6 @@ export class DinerAppComponent {
       this.restaurant_name = restaurant.name;
       this.restaurant_id = restaurant.id;
       this.logo = restaurant.logo;
-      this.coverPhoto = restaurant.cover_photo ?? null;
     }
   }
 
@@ -98,7 +94,6 @@ export class DinerAppComponent {
         this.logo = scanned.restaurant.logo;
         this.restaurant_name = scanned.restaurant.name;
         this.restaurant_id = scanned.restaurant.id;
-        this.coverPhoto = scanned.restaurant.cover_photo ?? null;
       },
       error: err => {
         // Two distinct failures land here:

@@ -4,9 +4,13 @@
   (retry)="getTableDetails(table_id)">
 </app-diner-connection-error>
 <app-no-table *ngIf="!table && !scanRetryable" [message]="scanMessage"></app-no-table>
-<div *ngIf="table" class="min-h-screen flex flex-col"
+<!-- has-hero is now a STATIC class: the menu route always renders a header block
+     (the photo hero when there's a cover_photo, else the white cover-less header),
+     so the sticky banner's identity row stays collapsed at scroll-0 and reveals
+     only on condense in BOTH cases (see .menu-banner__identity in src/styles.css).
+     On non-menu routes the class is inert — the brand-strip pins opaque regardless. -->
+<div *ngIf="table" class="min-h-screen flex flex-col has-hero"
      appScrollProgress [condenseAfter]="200"
-     [class.has-hero]="!!coverPhoto"
      [class.is-offline]="connectivity.isOffline()">
   <!-- Background + ink are driven entirely by the .brand-strip CSS state machine
        keyed off the shell-root classes (.has-hero / .is-condensed / .is-offline) —
