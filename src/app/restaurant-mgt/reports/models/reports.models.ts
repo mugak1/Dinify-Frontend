@@ -48,6 +48,22 @@ export interface SalesAggregateRow {
   discount: number;
 }
 
+/**
+ * Live `sales-hourly` contract: exactly 24 zero-filled rows, one per hour-of-day
+ * (0–23), aggregated across the requested window. Raw — the UI owns the display
+ * window and any "peak" labelling. Note the backend key is `count` (NOT `orders`).
+ */
+export interface SalesHourlyRow {
+  /** Hour of day, 0–23. */
+  hour: number;
+  /** Orders in that hour-of-day across the range. */
+  count: number;
+  /** UGX, net of discount (gross − discount). */
+  revenue: number;
+  /** UGX. */
+  discount: number;
+}
+
 export type PaymentMode = 'MTN MoMo' | 'Airtel MoMo' | 'Cash';
 export type PaymentStatus = 'paid' | 'pending' | 'failed' | 'refunded';
 

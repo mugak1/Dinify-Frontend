@@ -71,6 +71,21 @@ describe('ReportsService', () => {
     expect(rows[0].order_number).toMatch(/^ORD-\d{4}$/);
   }));
 
+  it('returns 24 mock sales hourly rows after the simulated latency', fakeAsync(() => {
+    let rows: any = null;
+    service.getSalesHourly('r1', '2026-06-15', '2026-06-15').subscribe((res) => {
+      rows = res.data;
+    });
+
+    expect(rows).toBeNull(); // delayed
+    tick(600);
+
+    expect(Array.isArray(rows)).toBeTrue();
+    expect(rows.length).toBe(24); // one row per hour-of-day, zero-filled
+    expect(rows[0].hour).toBe(0);
+    expect(rows[23].hour).toBe(23);
+  }));
+
   it('produces a stable dataset for the same range (seeded PRNG)', fakeAsync(() => {
     let a: any = null;
     let b: any = null;
@@ -116,6 +131,15 @@ describe('ReportsService', () => {
     it('Sales listing → sales-listing', () => {
       service.getSalesListing('r1', FROM, TO).subscribe();
       expect(api.loadAllPages).toHaveBeenCalledWith('reports/restaurant/sales-listing/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+      });
+    });
+
+    it('Sales hourly → sales-hourly (no category/result)', () => {
+      service.getSalesHourly('r1', FROM, TO).subscribe();
+      expect(api.get).toHaveBeenCalledWith(null, 'reports/restaurant/sales-hourly/', {
         restaurant: 'r1',
         from: FROM,
         to: TO,

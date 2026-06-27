@@ -23,6 +23,7 @@ import {
   PaymentStatus,
   ReportGranularity,
   SalesAggregateRow,
+  SalesHourlyRow,
   SalesListingRow,
   SalesListingTotals,
   TransactionStatus,
@@ -101,6 +102,43 @@ export function getMockSalesAggregate(
   return eachDayOfInterval({ start, end }).map((d) => {
     const orders = Math.round(randInt(rand, 60, 160) * weekdayMultiplier(d));
     return buildAggregateRow(format(d, 'yyyy-MM-dd'), orders, rand);
+  });
+}
+
+/**
+ * Hour-of-day shape (24 weights) — near-zero overnight, a breakfast bump (~08:00),
+ * a lunch peak (~13:00) and a dinner peak (~19:00–21:00). The day-level generators
+ * carry only a weekday rhythm with no intra-day curve; this gives the hourly series
+ * its believable within-day shape. Scaled by range length, so low-traffic hours
+ * round to ~0 — reproducing the contract's zero-filled rows.
+ */
+const HOUR_OF_DAY_SHAPE = [
+  0.02, 0.01, 0.01, 0.01, 0.02, 0.04, // 00–05 overnight
+  0.12, 0.35, 0.6, 0.45, 0.35, 0.7, //   06–11 breakfast → late morning
+  1.35, 1.6, 1.05, 0.55, 0.45, 0.7, //   12–17 lunch peak (13:00) → afternoon lull
+  1.25, 1.7, 1.8, 1.4, 0.55, 0.18, //    18–23 dinner peak (20:00)
+];
+
+/**
+ * Deterministic hour-of-day sales for the live `sales-hourly` contract: ALWAYS
+ * exactly 24 rows (hour 0–23), aggregated across the window. Seeded per range
+ * (salt 8) so the same window stays stable across refreshes. Counts scale with the
+ * inclusive range length and carry the lunch/dinner curve above; revenue is net of
+ * discount, mirroring `buildAggregateRow`. Raw — the UI owns the display window.
+ */
+export function getMockSalesHourly(from: string, to: string): SalesHourlyRow[] {
+  const start = parseISO(from);
+  const end = parseISO(to);
+  const days = Math.max(1, differenceInCalendarDays(end, start) + 1); // inclusive; ≥1 even if inverted
+
+  const rand = seededRandom(hashRange(from, to, 8));
+
+  return HOUR_OF_DAY_SHAPE.map((weight, hour) => {
+    const count = Math.round(weight * days * (0.85 + rand() * 0.3)); // ±15% jitter, scaled by span
+    const avgTicket = randInt(rand, 18000, 35000); // UGX
+    const gross = count * avgTicket;
+    const discount = Math.round(gross * (0.04 + rand() * 0.08)); // 4–12%
+    return { hour, count, revenue: gross - discount, discount };
   });
 }
 

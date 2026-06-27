@@ -21,6 +21,7 @@ import {
   ReportDateRange,
   ReportGranularity,
   SalesAggregateRow,
+  SalesHourlyRow,
   SalesListingRow,
   TransactionsListingRow,
   TransactionsSummary,
@@ -32,6 +33,7 @@ import {
   getMockDinersSummary,
   getMockMenuSummary,
   getMockSalesAggregate,
+  getMockSalesHourly,
   getMockSalesListing,
   getMockTransactionsListing,
   getMockTransactionsSummary,
@@ -133,6 +135,34 @@ export class ReportsService {
       .pipe(
         map((records) => ({ data: adaptSalesListing(records) } as unknown as ApiResponse<SalesListingRow[]>)),
       );
+  }
+
+  /**
+   * Hour-of-day sales for a single-day (or short) window — feeds the sales-hourly
+   * board. Always 24 rows (zero-filled). No category/result params: the endpoint
+   * returns the raw hour-of-day shape and the UI owns the display window + labels.
+   * Dormant until the flip — mirrors the sibling mock/real branching.
+   */
+  getSalesHourly(
+    restaurantId: string,
+    from: string,
+    to: string,
+  ): Observable<ApiResponse<SalesHourlyRow[]>> {
+    if (ReportsService.USE_MOCK_DATA) {
+      return of({
+        data: getMockSalesHourly(from, to),
+      } as unknown as ApiResponse<SalesHourlyRow[]>).pipe(delay(600));
+    }
+    // No adapter: the sales-hourly keys (hour/count/revenue/discount) already match
+    // SalesHourlyRow, so a parse layer would be dead identity code (unlike the
+    // transactions `order_*` vocab the adapter has to strip).
+    return this.api
+      .get<SalesHourlyRow[]>(null, 'reports/restaurant/sales-hourly/', {
+        restaurant: restaurantId,
+        from,
+        to,
+      })
+      .pipe(map((res: any) => ({ ...res, data: res.data ?? null })));
   }
 
   /** Menu performance, aggregated by section/group/item. Always a small set. */
