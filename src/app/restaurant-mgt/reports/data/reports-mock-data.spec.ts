@@ -1,4 +1,4 @@
-import { getMockSalesHourly } from './reports-mock-data';
+import { getMockSalesHourly, mockSalesRefunds } from './reports-mock-data';
 
 describe('reports mock data — getMockSalesHourly', () => {
   const FROM = '2026-06-01';
@@ -45,5 +45,18 @@ describe('reports mock data — getMockSalesHourly', () => {
     const peakHour = rows.reduce((best, r) => (r.count > best.count ? r : best)).hour;
     expect(peakHour).toBeGreaterThanOrEqual(12);
     expect(peakHour).toBeLessThanOrEqual(21);
+  });
+});
+
+describe('reports mock data — mockSalesRefunds', () => {
+  it('returns a non-negative UGX figure, deterministic per range', () => {
+    const a = mockSalesRefunds('2026-06-01', '2026-06-30');
+    const b = mockSalesRefunds('2026-06-01', '2026-06-30');
+    expect(a).toBe(b);
+    expect(a).toBeGreaterThanOrEqual(0);
+  });
+
+  it('returns 0 for an inverted range', () => {
+    expect(mockSalesRefunds('2026-06-30', '2026-06-01')).toBe(0);
   });
 });

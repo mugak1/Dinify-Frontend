@@ -1,38 +1,56 @@
-// Sales report. Composes the generic report-table twice:
-//   1. a lead AGGREGATE summary (granularity auto-derived from the range), and
-//   2. a per-order LISTING drill-down (client-paginated 50/page, with a totals
-//      footer), suppressed behind a guard when the range exceeds 31 days.
-// State + data come from ReportsService (mock-first). No charts, no KPI tiles.
+// Sales report — the mock-first analytics surface (PR B of the Reports redesign).
+//
+// Orchestrator only: it owns the data flow and hands each card a finished view
+// model. The shared timeframe drives everything through the PR-A engine —
+// resolveTimeframe(range) picks the bucket (hour/day/month) and comparisonRange
+// gives the equal-length prior window for the ghost line + delta chips. Per the
+// engine: today → hourly, week/month → daily, year → monthly. All card maths live
+// in the pure sales-view helpers; the cards themselves are presentational.
 
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subject, combineLatest, of } from 'rxjs';
+import { Observable, Subject, combineLatest, of } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
-import { ReportTableComponent } from '../components/report-table/report-table.component';
-import { ReportStateComponent, ReportStateMode } from '../components/report-state/report-state.component';
-import { ReportExportBarComponent } from '../components/report-export-bar/report-export-bar.component';
-import { ButtonComponent } from '../../../_shared/ui/button/button.component';
-import { CardComponent } from '../../../_shared/ui/card/card.component';
+import { comparisonRange, resolveTimeframe, ReportBucketUnit } from '../utils/reports-timeframe';
 import {
   ReportColumn,
   ReportDateRange,
   ReportGranularity,
+  ReportPreset,
   SalesAggregateRow,
+  SalesHourlyRow,
   SalesListingRow,
-  SalesListingTotals,
 } from '../models/reports.models';
-import { sumAggregate, sumListing } from '../data/reports-mock-data';
+import { mockSalesRefunds } from '../data/reports-mock-data';
+import {
+  EMPTY_TOTALS,
+  HourBar,
+  SalesBreakdownRow,
+  SalesPoint,
+  SalesTotals,
+  WeekdayRevenue,
+  aggregateByWeekday,
+  bestPoint,
+  breakdownTotals,
+  computeTotals,
+  hourDisplayWindow,
+  normalizeSeries,
+  salesBucketView,
+  toBreakdownRows,
+  weekdayEligible,
+} from './sales-view';
+import { ReportStateComponent, ReportStateMode } from '../components/report-state/report-state.component';
+import { SalesHeroComponent } from './sales-hero.component';
+import { RevenueTrendCardComponent } from './revenue-trend-card.component';
+import { SalesKpiRailComponent } from './sales-kpi-rail.component';
+import { RevenueWeekdayCardComponent } from './revenue-weekday-card.component';
+import { OrdersByHourCardComponent } from './orders-by-hour-card.component';
+import { SalesBreakdownCardComponent } from './sales-breakdown-card.component';
 
-const SALES_AGGREGATE_COLUMNS: ReportColumn[] = [
-  { key: 'period', label: 'Period', format: 'text', align: 'left' },
-  { key: 'orders', label: 'Orders', format: 'number', align: 'right', total: true },
-  { key: 'revenue', label: 'Revenue', format: 'ugx', align: 'right', total: true },
-  { key: 'discount', label: 'Discounts', format: 'ugx', align: 'right', total: true },
-];
-
+/** Per-order export columns (granular drill-down for ≤31-day ranges). */
 const SALES_LISTING_COLUMNS: ReportColumn[] = [
   { key: 'order_number', label: 'Order', format: 'text' },
   { key: 'time_created', label: 'Time', format: 'datetime' },
@@ -44,44 +62,69 @@ const SALES_LISTING_COLUMNS: ReportColumn[] = [
   { key: 'payment_status', label: 'Status', format: 'status' },
 ];
 
-/** Daily aggregate + per-order listing are available up to this many days; beyond it the listing is guarded. */
-const LISTING_GUARD_DAYS = 31;
-const PAGE_SIZE = 50;
+const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
+  today: 'vs yesterday',
+  yesterday: 'vs prior day',
+  'this-week': 'vs last week',
+  'last-week': 'vs prior week',
+  'this-month': 'vs last month',
+  'last-month': 'vs prior month',
+  'this-year': 'vs last year',
+};
 
 @Component({
   selector: 'app-sales-report',
   standalone: true,
   imports: [
     CommonModule,
-    ReportTableComponent,
     ReportStateComponent,
-    ReportExportBarComponent,
-    ButtonComponent,
-    CardComponent,
+    SalesHeroComponent,
+    RevenueTrendCardComponent,
+    SalesKpiRailComponent,
+    RevenueWeekdayCardComponent,
+    OrdersByHourCardComponent,
+    SalesBreakdownCardComponent,
   ],
   templateUrl: './sales-report.component.html',
 })
 export class SalesReportComponent implements OnInit, OnDestroy {
-  readonly aggregateColumns = SALES_AGGREGATE_COLUMNS;
-  readonly listingColumns = SALES_LISTING_COLUMNS;
-  readonly pageSize = PAGE_SIZE;
-
-  aggRows: SalesAggregateRow[] = [];
-  aggTotals: Record<string, number> | null = null;
-  aggReady = false;
-  aggState: ReportStateMode = 'loading';
-
-  listingRows: SalesListingRow[] = [];
-  listingTableTotals: Record<string, number> | null = null;
-  listingTotals: SalesListingTotals | null = null;
-  listingReady = false;
-  listingState: ReportStateMode = 'loading';
-  listingGuarded = false;
-
-  /** Current range — passed to the export bar for filenames + the print header. */
+  ready = false;
+  stateMode: ReportStateMode = 'loading';
   range: ReportDateRange | null = null;
+  comparisonLabel = '';
 
-  page = 0;
+  // Hero + KPI (range-aggregate).
+  current: SalesTotals = EMPTY_TOTALS;
+  previous: SalesTotals | null = null;
+  refunds = 0;
+  prevRefunds = 0;
+
+  // Trend (bucket-driven) + KPI series.
+  trendPoints: SalesPoint[] = [];
+  trendComparisonPoints: SalesPoint[] = [];
+  kpiPoints: SalesPoint[] = [];
+
+  // Weekday cycle.
+  showWeekday = false;
+  weekdayDays: WeekdayRevenue[] = [];
+  weekdayBest: number | null = null;
+
+  // Hour-of-day cycle.
+  hourBars: HourBar[] = [];
+  hourPeak: number | null = null;
+
+  // Breakdown table.
+  breakdownTitle = 'Breakdown';
+  breakdownPeriodLabel = 'Period';
+  breakdownRows: SalesBreakdownRow[] = [];
+  breakdownTotalsRec: Record<string, number> | null = null;
+  breakdownBestKey?: string;
+
+  // Export (granular, never rolled up).
+  exportColumns: ReportColumn[] = [];
+  exportRows: unknown[] = [];
+  exportDisabled = false;
+  exportDisabledReason = '';
 
   private destroy$ = new Subject<void>();
 
@@ -93,8 +136,8 @@ export class SalesReportComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
     if (!restaurantId) {
-      this.aggState = 'error';
-      this.listingState = 'error';
+      this.ready = false;
+      this.stateMode = 'error';
       return;
     }
 
@@ -102,36 +145,51 @@ export class SalesReportComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {
-          this.aggReady = false;
-          this.listingReady = false;
-          this.aggState = 'loading';
-          this.listingState = 'loading';
-          this.page = 0;
+          this.ready = false;
+          this.stateMode = 'loading';
         }),
         switchMap(([range]) => {
-          this.range = range;
-          const days = differenceInCalendarDays(parseISO(range.to), parseISO(range.from));
-          const granularity: ReportGranularity = days <= LISTING_GUARD_DAYS ? 'daily' : 'monthly';
-          this.listingGuarded = days > LISTING_GUARD_DAYS;
+          const tf = resolveTimeframe(range);
+          const cmp = comparisonRange(range);
+          const er = tf.effectiveRange;
+          const inclusiveDays = differenceInCalendarDays(parseISO(range.to), parseISO(range.from)) + 1;
 
-          const agg$ = this.reports
-            .getSalesAggregate(restaurantId, range.from, range.to, granularity)
-            .pipe(catchError((err) => of({ data: null, error: err } as any)));
+          const main$ = this.fetchSeries(restaurantId, er.from, er.to, tf.bucketUnit).pipe(
+            catchError((error) => of({ data: null, error } as any)),
+          );
+          const cmp$ = this.fetchSeries(restaurantId, cmp.from, cmp.to, tf.bucketUnit).pipe(
+            catchError(() => of({ data: null } as any)),
+          );
+          // The hour-of-day card needs the 24-hour shape for ANY range; reuse main when it IS hourly.
+          const hourly$ =
+            tf.bucketUnit === 'hour'
+              ? main$
+              : this.reports
+                  .getSalesHourly(restaurantId, range.from, range.to)
+                  .pipe(catchError(() => of({ data: null } as any)));
+          // Granular per-order export only within the listing window (≤31 days).
+          const listing$ =
+            inclusiveDays <= 31
+              ? this.reports
+                  .getSalesListing(restaurantId, range.from, range.to)
+                  .pipe(catchError(() => of({ data: null } as any)))
+              : of({ data: null } as any);
 
-          // Skip the (potentially huge) listing fetch entirely when guarded.
-          const listing$ = this.listingGuarded
-            ? of({ data: null } as any)
-            : this.reports
-                .getSalesListing(restaurantId, range.from, range.to)
-                .pipe(catchError((err) => of({ data: null, error: err } as any)));
-
-          return combineLatest([agg$, listing$]).pipe(map(([agg, listing]) => ({ agg, listing })));
+          return combineLatest([main$, cmp$, hourly$, listing$]).pipe(
+            map(([main, comparison, hourly, listing]) => ({
+              range,
+              tf,
+              cmp,
+              inclusiveDays,
+              main,
+              comparison,
+              hourly,
+              listing,
+            })),
+          );
         }),
       )
-      .subscribe(({ agg, listing }) => {
-        this.applyAggregate(agg);
-        this.applyListing(listing);
-      });
+      .subscribe((payload) => this.apply(payload));
   }
 
   ngOnDestroy(): void {
@@ -143,75 +201,113 @@ export class SalesReportComponent implements OnInit, OnDestroy {
     this.reports.refresh$.next();
   }
 
-  private applyAggregate(res: any): void {
-    const rows: SalesAggregateRow[] | null = res?.data ?? null;
-    if (!rows) {
-      this.aggReady = false;
-      this.aggState = 'error';
+  private fetchSeries(
+    restaurantId: string,
+    from: string,
+    to: string,
+    bucketUnit: ReportBucketUnit,
+  ): Observable<any> {
+    if (bucketUnit === 'hour') {
+      return this.reports.getSalesHourly(restaurantId, from, to);
+    }
+    const granularity: ReportGranularity = bucketUnit === 'day' ? 'daily' : 'monthly';
+    return this.reports.getSalesAggregate(restaurantId, from, to, granularity);
+  }
+
+  private apply(p: {
+    range: ReportDateRange;
+    tf: ReturnType<typeof resolveTimeframe>;
+    cmp: ReportDateRange;
+    inclusiveDays: number;
+    main: any;
+    comparison: any;
+    hourly: any;
+    listing: any;
+  }): void {
+    this.range = p.range;
+    const bucketUnit = p.tf.bucketUnit;
+
+    if (!p.main || p.main.data == null) {
+      this.ready = false;
+      this.stateMode = 'error';
       return;
     }
-    this.aggRows = rows;
-    if (rows.length) {
-      this.aggTotals = sumAggregate(rows);
-      this.aggReady = true;
+
+    const mainRows = p.main.data as SalesAggregateRow[] | SalesHourlyRow[];
+    const mainPoints = normalizeSeries(mainRows, bucketUnit);
+    const current = computeTotals(mainPoints);
+    if (mainPoints.length === 0 || current.orders === 0) {
+      this.ready = false;
+      this.stateMode = 'empty';
+      return;
+    }
+
+    const view = salesBucketView(bucketUnit);
+    const cmpRows = (p.comparison?.data ?? []) as SalesAggregateRow[] | SalesHourlyRow[];
+    const cmpPoints = normalizeSeries(cmpRows, bucketUnit);
+
+    // Hero + KPI rail.
+    this.current = current;
+    this.previous = cmpPoints.length ? computeTotals(cmpPoints) : null;
+    this.refunds = mockSalesRefunds(p.range.from, p.range.to);
+    this.prevRefunds = mockSalesRefunds(p.cmp.from, p.cmp.to);
+    this.comparisonLabel = COMPARISON_LABELS[p.range.preset] ?? 'vs prior period';
+
+    // Trend + KPI series.
+    this.trendPoints = mainPoints;
+    this.trendComparisonPoints = cmpPoints;
+    this.kpiPoints = mainPoints;
+
+    // Weekday cycle — only over a daily bucket of ≈2+ weeks.
+    this.showWeekday = weekdayEligible(bucketUnit, p.inclusiveDays);
+    if (this.showWeekday) {
+      const wk = aggregateByWeekday(mainRows as SalesAggregateRow[]);
+      this.weekdayDays = wk.days;
+      this.weekdayBest = wk.bestWeekday;
     } else {
-      this.aggTotals = null;
-      this.aggReady = false;
-      this.aggState = 'empty';
+      this.weekdayDays = [];
+      this.weekdayBest = null;
     }
-  }
 
-  private applyListing(res: any): void {
-    if (this.listingGuarded) {
-      this.listingReady = false;
-      this.listingRows = [];
-      this.listingTotals = null;
-      this.listingTableTotals = null;
-      this.listingState = 'listing-guard';
-      return;
-    }
-    const rows: SalesListingRow[] | null = res?.data ?? null;
-    if (!rows) {
-      this.listingReady = false;
-      this.listingState = 'error';
-      return;
-    }
-    this.listingRows = rows;
-    if (rows.length) {
-      const t = sumListing(rows);
-      const items = rows.reduce((acc, r) => acc + r.item_count, 0);
-      this.listingTotals = t;
-      // Totals are over the WHOLE range, never the current page.
-      this.listingTableTotals = {
-        item_count: items,
-        gross: t.gross,
-        discount: t.discount,
-        revenue: t.revenue,
-      };
-      this.listingReady = true;
+    // Hour-of-day cycle — always on.
+    const hourlyRows = (p.hourly?.data ?? []) as SalesHourlyRow[];
+    const hw = hourDisplayWindow(hourlyRows);
+    this.hourBars = hw.bars;
+    this.hourPeak = hw.peakHour;
+
+    // Breakdown table (rolled up to the bucket).
+    this.breakdownTitle = view.tableTitle;
+    this.breakdownPeriodLabel = this.periodLabel(bucketUnit);
+    this.breakdownRows = toBreakdownRows(mainPoints);
+    this.breakdownTotalsRec = breakdownTotals(mainPoints);
+    this.breakdownBestKey = bestPoint(mainPoints)?.key;
+
+    // Export — granular per-order when available, else the bucket rows.
+    const listingRows = (p.listing?.data ?? null) as SalesListingRow[] | null;
+    if (listingRows && listingRows.length) {
+      this.exportColumns = SALES_LISTING_COLUMNS;
+      this.exportRows = listingRows;
     } else {
-      this.listingTotals = null;
-      this.listingTableTotals = null;
-      this.listingReady = false;
-      this.listingState = 'empty';
+      this.exportColumns = this.bucketExportColumns();
+      this.exportRows = this.breakdownRows;
     }
+    this.exportDisabled = false;
+    this.exportDisabledReason = '';
+
+    this.ready = true;
   }
 
-  // ── Client-side pagination of the listing ──
-  get pageCount(): number {
-    return Math.max(1, Math.ceil(this.listingRows.length / this.pageSize));
+  private periodLabel(bucketUnit: ReportBucketUnit): string {
+    return bucketUnit === 'hour' ? 'Hour' : bucketUnit === 'day' ? 'Day' : 'Month';
   }
 
-  get pagedListingRows(): SalesListingRow[] {
-    const start = this.page * this.pageSize;
-    return this.listingRows.slice(start, start + this.pageSize);
-  }
-
-  prevPage(): void {
-    if (this.page > 0) this.page--;
-  }
-
-  nextPage(): void {
-    if (this.page < this.pageCount - 1) this.page++;
+  private bucketExportColumns(): ReportColumn[] {
+    return [
+      { key: 'label', label: this.breakdownPeriodLabel, format: 'text', align: 'left' },
+      { key: 'orders', label: 'Orders', format: 'number', align: 'right', total: true },
+      { key: 'gross', label: 'Gross', format: 'ugx', align: 'right', total: true },
+      { key: 'discount', label: 'Discounts', format: 'ugx', align: 'right', total: true },
+      { key: 'net', label: 'Net', format: 'ugx', align: 'right', total: true },
+    ];
   }
 }
