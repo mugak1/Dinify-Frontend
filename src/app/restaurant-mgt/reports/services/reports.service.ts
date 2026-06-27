@@ -46,11 +46,26 @@ import {
   adaptTransactionsSummary,
 } from './reports-adapter';
 
-/** Set to false to use real API endpoints instead of mock data. */
-const USE_MOCK_DATA = true;
-
 @Injectable({ providedIn: 'root' })
 export class ReportsService {
+  /**
+   * Mock gate for the four reports. While `true`, every real-HTTP branch below
+   * is dead code and the entire `reports-adapter` layer is unreachable — the
+   * reports render frontend-shaped mock data.
+   *
+   * FLIP-TIME GATE — the report contracts are PINNED by reports.service.spec.ts
+   * (slug + params) and reports-adapter.spec.ts (response shape) against the
+   * backend-derived contract, but they are UNVERIFIED against a LIVE API (no
+   * real restaurant with orders exists yet). Before setting this to `false`:
+   *   1. Run the contract specs (npm run test:ci) and confirm green.
+   *   2. Re-verify ALL FOUR reports (Sales, Menu, Transactions, Diners)
+   *      end-to-end against the live backend — slug, params AND response shape.
+   *   3. See CLAUDE.md › Mock Data Pattern › ReportsService flip-time gate.
+   * A `static` (not module `const`) so the contract specs can exercise the real
+   * branch by flipping it.
+   */
+  static USE_MOCK_DATA = true;
+
   /** Emit to force a data reload. */
   refresh$ = new Subject<void>();
 
@@ -76,17 +91,22 @@ export class ReportsService {
     to: string,
     granularity: ReportGranularity,
   ): Observable<ApiResponse<SalesAggregateRow[]>> {
-    if (USE_MOCK_DATA) {
+    if (ReportsService.USE_MOCK_DATA) {
       return of({
         data: getMockSalesAggregate(from, to, granularity),
       } as unknown as ApiResponse<SalesAggregateRow[]>).pipe(delay(600));
     }
     return this.api
-      .get<SalesAggregateRow[]>(null, 'reports/restaurant/sales-aggregate/', {
+      .get<SalesAggregateRow[]>(null, 'reports/restaurant/sales-trends/', {
         restaurant: restaurantId,
         from,
         to,
-        granularity,
+        // Backend trends param is `category` (daily|monthly|quarterly|annual);
+        // the FE only derives daily|monthly, both valid. `result=table` (the
+        // backend default) yields the array shape the adapter expects — sent
+        // explicitly to pin the contract.
+        category: granularity,
+        result: 'table',
       })
       .pipe(
         map((res: any) => ({ ...res, data: res.data ? adaptSalesAggregate(res.data) : null })),
@@ -99,7 +119,7 @@ export class ReportsService {
     from: string,
     to: string,
   ): Observable<ApiResponse<SalesListingRow[]>> {
-    if (USE_MOCK_DATA) {
+    if (ReportsService.USE_MOCK_DATA) {
       return of({
         data: getMockSalesListing(from, to),
       } as unknown as ApiResponse<SalesListingRow[]>).pipe(delay(600));
@@ -122,7 +142,7 @@ export class ReportsService {
     to: string,
     grouping: MenuGrouping,
   ): Observable<ApiResponse<MenuRow[]>> {
-    if (USE_MOCK_DATA) {
+    if (ReportsService.USE_MOCK_DATA) {
       return of({
         data: getMockMenuSummary(grouping, from, to),
       } as unknown as ApiResponse<MenuRow[]>).pipe(delay(600));
@@ -143,7 +163,7 @@ export class ReportsService {
     from: string,
     to: string,
   ): Observable<ApiResponse<TransactionsSummary>> {
-    if (USE_MOCK_DATA) {
+    if (ReportsService.USE_MOCK_DATA) {
       return of({
         data: getMockTransactionsSummary(from, to),
       } as unknown as ApiResponse<TransactionsSummary>).pipe(delay(600));
@@ -163,7 +183,7 @@ export class ReportsService {
     from: string,
     to: string,
   ): Observable<ApiResponse<TransactionsListingRow[]>> {
-    if (USE_MOCK_DATA) {
+    if (ReportsService.USE_MOCK_DATA) {
       return of({
         data: getMockTransactionsListing(from, to),
       } as unknown as ApiResponse<TransactionsListingRow[]>).pipe(delay(600));
@@ -190,7 +210,7 @@ export class ReportsService {
     from: string,
     to: string,
   ): Observable<ApiResponse<DinersSummary>> {
-    if (USE_MOCK_DATA) {
+    if (ReportsService.USE_MOCK_DATA) {
       return of({
         data: getMockDinersSummary(from, to),
       } as unknown as ApiResponse<DinersSummary>).pipe(delay(600));
@@ -210,7 +230,7 @@ export class ReportsService {
     from: string,
     to: string,
   ): Observable<ApiResponse<DinersListingRow[]>> {
-    if (USE_MOCK_DATA) {
+    if (ReportsService.USE_MOCK_DATA) {
       return of({
         data: getMockDinersListing(from, to),
       } as unknown as ApiResponse<DinersListingRow[]>).pipe(delay(600));
