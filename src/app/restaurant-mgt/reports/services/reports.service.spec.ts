@@ -174,6 +174,16 @@ describe('ReportsService', () => {
       });
     });
 
+    it('Transactions listing with a status filter → ?status=', () => {
+      service.getTransactionsListing('r1', FROM, TO, { status: 'success' }).subscribe();
+      expect(api.loadAllPages).toHaveBeenCalledWith('reports/restaurant/transactions-listing/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+        status: 'success',
+      });
+    });
+
     it('Diners summary → diners-summary', () => {
       service.getDinersSummary('r1', FROM, TO).subscribe();
       expect(api.get).toHaveBeenCalledWith(null, 'reports/restaurant/diners-summary/', {

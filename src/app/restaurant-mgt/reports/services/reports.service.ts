@@ -207,22 +207,31 @@ export class ReportsService {
       .pipe(map((res: any) => ({ ...res, data: res.data ? adaptTransactionsSummary(res.data) : null })));
   }
 
-  /** Per-transaction listing. Server-paginated in production — loadAllPages concatenates to one set. */
+  /**
+   * Per-transaction listing. Server-paginated in production — loadAllPages concatenates to one set.
+   * Optional `filters` map onto the real transactions-listing query params: status chips →
+   * `?status=` (the one verified reuse-of-real-contract); Refunded → `?type=` (a Gate-2 nuance,
+   * since refund is a TYPE not a status). The mock branch filters the in-memory rows the same way.
+   */
   getTransactionsListing(
     restaurantId: string,
     from: string,
     to: string,
+    filters?: { status?: string; type?: string },
   ): Observable<ApiResponse<TransactionsListingRow[]>> {
     if (ReportsService.USE_MOCK_DATA) {
-      return of({
-        data: getMockTransactionsListing(from, to),
-      } as unknown as ApiResponse<TransactionsListingRow[]>).pipe(delay(600));
+      let rows = getMockTransactionsListing(from, to);
+      if (filters?.status) rows = rows.filter((r) => r.transaction_status === filters.status);
+      if (filters?.type) rows = rows.filter((r) => r.transaction_type === filters.type);
+      return of({ data: rows } as unknown as ApiResponse<TransactionsListingRow[]>).pipe(delay(600));
     }
     return this.api
       .loadAllPages<TransactionsListingRow>('reports/restaurant/transactions-listing/', {
         restaurant: restaurantId,
         from,
         to,
+        ...(filters?.status ? { status: filters.status } : {}),
+        ...(filters?.type ? { type: filters.type } : {}),
       })
       .pipe(
         map(
