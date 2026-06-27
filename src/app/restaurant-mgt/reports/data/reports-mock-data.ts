@@ -432,7 +432,9 @@ export function getMockDinersSummary(from: string, to: string): DinersSummary {
   return {
     identifiedDiners: identified,
     repeatDiners: randInt(rand, 0, identified),
-    guestOrders: randInt(rand, 20, 120),
+    // Anonymous QR diners are the vast majority — scale guest ORDERS so they reliably
+    // dominate the identified-vs-anonymous split (mock fidelity; the distinction is real).
+    guestOrders: randInt(rand, 90, 280),
     avgSpendPerDiner: avgSpend,
     mostActive: {
       name: DINER_NAMES[randInt(rand, 0, DINER_NAMES.length - 1)],
