@@ -91,4 +91,56 @@ describe('ReportTableComponent', () => {
     expect(component.statusLabel('success')).toBe('Success');
     expect(component.statusLabel('initiated')).toBe('Initiated');
   });
+
+  it('filters rows by an in-table search and subtotals the matches', () => {
+    component.searchable = true;
+    render(
+      [
+        { name: 'Pilau', count: 10, amount: 1000, status: 'paid' },
+        { name: 'Rolex', count: 5, amount: 500, status: 'paid' },
+      ],
+      { count: 15, amount: 1500 },
+    );
+    // No query → all rows, provided totals untouched.
+    expect(component.visibleRows.length).toBe(2);
+    expect(component.displayTotals).toEqual({ count: 15, amount: 1500 });
+
+    component.onSearch({ target: { value: 'pilau' } } as unknown as Event);
+    fixture.detectChanges();
+    expect(component.visibleRows.map((r) => r.name)).toEqual(['Pilau']);
+    // Footer recomputes as a subtotal over the matches.
+    expect(component.displayTotals).toEqual({ count: 10, amount: 1000 });
+    expect(fixture.nativeElement.querySelector('tfoot').textContent).toContain('Matches');
+
+    component.onSearch({ target: { value: 'zzz' } } as unknown as Event);
+    fixture.detectChanges();
+    expect(component.visibleRows.length).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('No rows match');
+  });
+
+  it('highlights the row matching highlightRowKey/Value', () => {
+    component.highlightRowKey = 'name';
+    component.highlightRowValue = 'Rolex';
+    render([
+      { name: 'Pilau', count: 1, amount: 1, status: 'paid' },
+      { name: 'Rolex', count: 1, amount: 1, status: 'paid' },
+    ]);
+    const bodyRows = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(bodyRows[0].className).not.toContain('bg-success/10');
+    expect(bodyRows[1].className).toContain('bg-success/10');
+    expect(component.isHighlighted({ name: 'Rolex' })).toBeTrue();
+    expect(component.isHighlighted({ name: 'Pilau' })).toBeFalse();
+  });
+
+  it('pins the header + totals footer when stickyTotals is set', () => {
+    component.stickyTotals = true;
+    render([{ name: 'a', count: 2, amount: 100, status: 'paid' }], { count: 2, amount: 100 });
+    const th = fixture.nativeElement.querySelector('thead th');
+    expect(th.className).toContain('sticky');
+    expect(th.className).toContain('top-0');
+    const footRow = fixture.nativeElement.querySelector('tfoot tr');
+    expect(footRow.className).toContain('sticky');
+    expect(footRow.className).toContain('bottom-0');
+    expect(fixture.nativeElement.querySelector('table').parentElement.className).toContain('max-h-');
+  });
 });

@@ -142,6 +142,25 @@ export function getMockSalesHourly(from: string, to: string): SalesHourlyRow[] {
   });
 }
 
+/**
+ * Deterministic mock refunds for a window (salt 9). Refunds aren't tracked until
+ * payment integration lands — this is a PLACEHOLDER (a handful of small refunds,
+ * scaled by range length) so the Sales hero ledger reconciles. The hero attaches
+ * an "on-platform refunds only" caption; swap this for a real source at flip.
+ */
+export function mockSalesRefunds(from: string, to: string): number {
+  const start = parseISO(from);
+  const end = parseISO(to);
+  if (differenceInCalendarDays(end, start) < 0) return 0;
+
+  const rand = seededRandom(hashRange(from, to, 9));
+  const days = differenceInCalendarDays(end, start) + 1;
+  const refundCount = Math.round((days / 7) * (0.5 + rand() * 1.5)); // ~0.5–2 per week
+  let total = 0;
+  for (let i = 0; i < refundCount; i++) total += randInt(rand, 20000, 60000); // UGX each
+  return total;
+}
+
 const PAYMENT_MODE_WEIGHTS: { mode: PaymentMode; weight: number }[] = [
   { mode: 'MTN MoMo', weight: 0.55 },
   { mode: 'Airtel MoMo', weight: 0.3 },

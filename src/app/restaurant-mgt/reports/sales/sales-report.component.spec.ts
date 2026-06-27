@@ -6,6 +6,7 @@ import { ReportsService } from '../services/reports.service';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
+import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 
 describe('SalesReportComponent', () => {
   let component: SalesReportComponent;
@@ -16,10 +17,11 @@ describe('SalesReportComponent', () => {
     await TestBed.configureTestingModule({
       imports: [SalesReportComponent],
       providers: [
+        provideCharts(withDefaultRegisterables()),
         { provide: ApiService, useValue: jasmine.createSpyObj('ApiService', ['get', 'loadAllPages']) },
         {
           provide: AuthenticationService,
-          useValue: { currentRestaurantRole: { restaurant_id: 'r1' } },
+          useValue: { currentRestaurantRole: { restaurant_id: 'r1' }, currentRestaurant: { name: 'Test' } },
         },
         { provide: LocalStorageService, useValue: { getItem: () => null, setItem: () => {} } },
       ],
@@ -30,69 +32,62 @@ describe('SalesReportComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('loads the aggregate and the paginated listing for the default this-month range', fakeAsync(() => {
+  it('renders the full card set for the default this-month (daily) range', fakeAsync(() => {
     component.ngOnInit();
     tick(600);
 
-    expect(component.aggReady).toBeTrue();
-    expect(component.aggTotals).not.toBeNull();
-
-    expect(component.listingReady).toBeTrue();
-    expect(component.listingGuarded).toBeFalse();
-    expect(component.listingRows.length).toBeGreaterThan(50);
-    expect(component.pagedListingRows.length).toBe(50);
-    expect(component.pageCount).toBeGreaterThan(1);
+    expect(component.ready).toBeTrue();
+    expect(component.current.orders).toBeGreaterThan(0);
+    expect(component.breakdownTitle).toBe('Daily breakdown');
+    expect(component.breakdownRows.length).toBe(component.trendPoints.length);
+    expect(component.hourBars.length).toBe(12); // 11:00–22:00 window
+    expect(component.showWeekday).toBeTrue(); // ~30 days of daily data
+    expect(component.previous).not.toBeNull(); // comparison window resolved
   }));
 
-  it('advances and retreats listing pages', fakeAsync(() => {
+  it('uses the hourly bucket for a single-day range and hides the weekday cycle', fakeAsync(() => {
+    reports.dateRange$.next({ preset: 'today', from: '2026-06-15', to: '2026-06-15' });
     component.ngOnInit();
     tick(600);
 
-    expect(component.page).toBe(0);
-    component.nextPage();
-    expect(component.page).toBe(1);
-    expect(component.pagedListingRows[0]).toBe(component.listingRows[50]);
-    component.prevPage();
-    expect(component.page).toBe(0);
-    component.prevPage(); // cannot go below zero
-    expect(component.page).toBe(0);
+    expect(component.ready).toBeTrue();
+    expect(component.breakdownTitle).toBe('Hourly breakdown');
+    expect(component.trendPoints.length).toBe(24); // one point per hour-of-day
+    expect(component.showWeekday).toBeFalse();
   }));
 
-  it('guards the listing and skips the fetch when the range exceeds 31 days', fakeAsync(() => {
-    reports.dateRange$.next({ preset: 'custom', from: '2026-01-01', to: '2026-06-30' }); // 180 days
-    const listingSpy = spyOn(reports, 'getSalesListing').and.callThrough();
-
+  it('uses the monthly bucket for a year range and hides the weekday cycle', fakeAsync(() => {
+    reports.dateRange$.next({ preset: 'this-year', from: '2026-01-01', to: '2026-12-31' });
     component.ngOnInit();
     tick(600);
 
-    expect(component.aggReady).toBeTrue(); // monthly aggregate still loads
-    expect(component.listingGuarded).toBeTrue();
-    expect(component.listingState).toBe('listing-guard');
-    expect(listingSpy).not.toHaveBeenCalled();
+    expect(component.ready).toBeTrue();
+    expect(component.breakdownTitle).toBe('Monthly breakdown');
+    expect(component.showWeekday).toBeFalse();
   }));
 
   it('shows the empty state when no data is returned', fakeAsync(() => {
     spyOn(reports, 'getSalesAggregate').and.returnValue(of({ data: [] } as any));
+    spyOn(reports, 'getSalesHourly').and.returnValue(of({ data: [] } as any));
     spyOn(reports, 'getSalesListing').and.returnValue(of({ data: [] } as any));
 
     component.ngOnInit();
     tick(600);
 
-    expect(component.aggReady).toBeFalse();
-    expect(component.aggState).toBe('empty');
-    expect(component.listingReady).toBeFalse();
-    expect(component.listingState).toBe('empty');
+    expect(component.ready).toBeFalse();
+    expect(component.stateMode).toBe('empty');
   }));
 
   it('shows the error state and retry re-triggers a fetch', fakeAsync(() => {
     spyOn(reports, 'getSalesAggregate').and.returnValue(throwError(() => new Error('boom')));
-    spyOn(reports, 'getSalesListing').and.returnValue(throwError(() => new Error('boom')));
+    spyOn(reports, 'getSalesHourly').and.returnValue(of({ data: [] } as any));
+    spyOn(reports, 'getSalesListing').and.returnValue(of({ data: [] } as any));
 
     component.ngOnInit();
     tick(600);
 
-    expect(component.aggState).toBe('error');
-    expect(component.listingState).toBe('error');
+    expect(component.ready).toBeFalse();
+    expect(component.stateMode).toBe('error');
 
     const refreshSpy = spyOn(reports.refresh$, 'next');
     component.retry();

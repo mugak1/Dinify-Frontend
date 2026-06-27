@@ -2,6 +2,12 @@
 // it sorts, formats (text / number / UGX / datetime / status pill), right-aligns
 // numerics and renders a column-totals footer. ZERO report-specific logic lives
 // here — Sales-specific behaviour (pagination, captions) composes around it.
+//
+// Opt-in extras (all default off, so existing callers are unchanged):
+//   • searchable      — an in-table "find a row" filter; the totals footer becomes
+//                       a subtotal over the matches while a query is active.
+//   • highlightRow*   — emphasise the row whose [key] === [value] (e.g. best bucket).
+//   • stickyTotals    — pin the header + totals footer while the body scrolls.
 
 import { Component, Input, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -27,7 +33,20 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
   standalone: true,
   imports: [CommonModule, BadgeComponent],
   template: `
-    <div class="overflow-x-auto">
+    @if (searchable) {
+      <div class="mb-2">
+        <input
+          type="search"
+          [value]="query"
+          (input)="onSearch($event)"
+          [placeholder]="searchPlaceholder"
+          [attr.aria-label]="searchPlaceholder"
+          class="w-full sm:w-64 border border-border rounded-md px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+    }
+
+    <div [ngClass]="stickyTotals ? 'overflow-auto max-h-[28rem]' : 'overflow-x-auto'">
       <table class="w-full text-sm font-sans border-collapse border border-border">
         <thead>
           <tr class="bg-muted text-muted-foreground">
@@ -35,6 +54,10 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
               <th
                 [ngClass]="alignClass(col)"
                 class="border border-border px-3 py-2 font-semibold whitespace-nowrap select-none cursor-pointer"
+                [class.sticky]="stickyTotals"
+                [class.top-0]="stickyTotals"
+                [class.z-10]="stickyTotals"
+                [class.bg-muted]="stickyTotals"
                 (click)="onSort(col)"
                 scope="col"
               >
@@ -50,15 +73,19 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
         </thead>
 
         <tbody>
-          @if (sortedRows.length === 0) {
+          @if (visibleRows.length === 0) {
             <tr>
               <td [attr.colspan]="columns.length" class="px-3 py-8 text-center text-muted-foreground">
-                {{ emptyLabel }}
+                {{ query ? 'No rows match “' + query + '”.' : emptyLabel }}
               </td>
             </tr>
           } @else {
-            @for (row of sortedRows; track $index) {
-              <tr [ngClass]="'even:bg-muted/40 hover:bg-muted'">
+            @for (row of visibleRows; track $index) {
+              <tr
+                [ngClass]="
+                  isHighlighted(row) ? 'bg-success/10 font-medium' : 'even:bg-muted/40 hover:bg-muted'
+                "
+              >
                 @for (col of columns; track col.key) {
                   <td [ngClass]="alignClass(col)" class="border border-border px-3 py-2 whitespace-nowrap">
                     @if (col.format === 'status') {
@@ -75,15 +102,22 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
           }
         </tbody>
 
-        @if (totals && sortedRows.length > 0) {
+        @if (displayTotals && visibleRows.length > 0) {
           <tfoot>
-            <tr class="border-t-2 border-border font-semibold">
+            <tr
+              class="border-t-2 border-border font-semibold"
+              [class.sticky]="stickyTotals"
+              [class.bottom-0]="stickyTotals"
+            >
               @for (col of columns; track col.key; let i = $index) {
-                <td [ngClass]="alignClass(col)" class="border border-border px-3 py-2 whitespace-nowrap">
+                <td
+                  [ngClass]="alignClass(col)"
+                  class="border border-border px-3 py-2 whitespace-nowrap bg-card"
+                >
                   @if (totalCell(col) !== null) {
                     {{ totalCell(col) }}
                   } @else if (i === 0) {
-                    Total
+                    {{ query ? 'Matches' : 'Total' }}
                   }
                 </td>
               }
@@ -100,12 +134,25 @@ export class ReportTableComponent implements OnChanges {
   @Input() totals: Record<string, number> | null = null;
   @Input() emptyLabel = 'No rows for this period.';
 
+  /** Opt-in in-table search. */
+  @Input() searchable = false;
+  @Input() searchPlaceholder = 'Find a row…';
+  /** Opt-in row emphasis: highlight the row where `row[highlightRowKey] === highlightRowValue`. */
+  @Input() highlightRowKey?: string;
+  @Input() highlightRowValue?: string | number;
+  /** Opt-in: pin the header + totals footer while the body scrolls. */
+  @Input() stickyTotals = false;
+
   sortedRows: any[] = [];
+  visibleRows: any[] = [];
+  displayTotals: Record<string, number> | null = null;
+  query = '';
   sortKey: string | null = null;
   sortDir: SortDir = 'asc';
 
   ngOnChanges(): void {
     this.applySort();
+    this.applyFilter();
   }
 
   onSort(col: ReportColumn): void {
@@ -116,6 +163,12 @@ export class ReportTableComponent implements OnChanges {
       this.sortDir = 'asc';
     }
     this.applySort();
+    this.applyFilter();
+  }
+
+  onSearch(event: Event): void {
+    this.query = (event.target as HTMLInputElement).value;
+    this.applyFilter();
   }
 
   private applySort(): void {
@@ -128,6 +181,39 @@ export class ReportTableComponent implements OnChanges {
     const fmt = this.columns.find((c) => c.key === key)?.format;
     const dir = this.sortDir === 'asc' ? 1 : -1;
     this.sortedRows = [...rows].sort((a, b) => compareValues(a[key], b[key], fmt, dir));
+  }
+
+  /** Derives the visible rows + the footer totals from the active search query. */
+  private applyFilter(): void {
+    const q = this.searchable ? this.query.trim().toLowerCase() : '';
+    if (!q) {
+      this.visibleRows = this.sortedRows;
+      this.displayTotals = this.totals;
+      return;
+    }
+    this.visibleRows = this.sortedRows.filter((row) => this.rowMatches(row, q));
+    this.displayTotals = this.subtotal(this.visibleRows);
+  }
+
+  private rowMatches(row: any, q: string): boolean {
+    return this.columns.some((col) => {
+      const text =
+        col.format === 'status' ? this.statusLabel(row[col.key]) : this.formatCell(row[col.key], col.format);
+      return text.toLowerCase().includes(q);
+    });
+  }
+
+  /** Sums the `total:true` columns over the given rows (the "matches" subtotal). */
+  private subtotal(rows: any[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const col of this.columns) {
+      if (col.total) out[col.key] = rows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0);
+    }
+    return out;
+  }
+
+  isHighlighted(row: any): boolean {
+    return this.highlightRowKey != null && row[this.highlightRowKey] === this.highlightRowValue;
   }
 
   alignClass(col: ReportColumn): string {
@@ -150,8 +236,8 @@ export class ReportTableComponent implements OnChanges {
   }
 
   totalCell(col: ReportColumn): string | null {
-    if (this.totals && col.total && this.totals[col.key] != null) {
-      return this.formatCell(this.totals[col.key], col.format);
+    if (this.displayTotals && col.total && this.displayTotals[col.key] != null) {
+      return this.formatCell(this.displayTotals[col.key], col.format);
     }
     return null;
   }
