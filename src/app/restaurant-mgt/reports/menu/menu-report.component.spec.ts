@@ -6,6 +6,13 @@ import { ReportsService } from '../services/reports.service';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
+import { MenuService } from '../../menu/services/menu.service';
+
+const MENU_ITEMS = [
+  { available: true, in_stock: true },
+  { available: true, in_stock: false }, // active but sold out
+  { available: false, in_stock: true }, // hidden — not counted
+];
 
 describe('MenuReportComponent', () => {
   let component: MenuReportComponent;
@@ -19,9 +26,10 @@ describe('MenuReportComponent', () => {
         { provide: ApiService, useValue: jasmine.createSpyObj('ApiService', ['get', 'loadAllPages']) },
         {
           provide: AuthenticationService,
-          useValue: { currentRestaurantRole: { restaurant_id: 'r1' } },
+          useValue: { currentRestaurantRole: { restaurant_id: 'r1' }, currentRestaurant: { name: 'Test' } },
         },
         { provide: LocalStorageService, useValue: { getItem: () => null, setItem: () => {} } },
+        { provide: MenuService, useValue: { loadAllItems: () => {}, allItems$: of(MENU_ITEMS as any) } },
       ],
     }).compileComponents();
 
@@ -30,36 +38,53 @@ describe('MenuReportComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('loads the menu aggregate for the default this-month range', fakeAsync(() => {
+  it('loads aggregates + the point-in-time active-items count for the default range', fakeAsync(() => {
     component.ngOnInit();
     tick(600);
 
     expect(component.ready).toBeTrue();
-    expect(component.totals).not.toBeNull();
-    expect(component.rows.length).toBeGreaterThan(0);
+    expect(component.items.length).toBeGreaterThan(0);
+    expect(component.current.units).toBeGreaterThan(0);
+    expect(component.previous).not.toBeNull(); // comparison window resolved
+    // Active items come from the live menu, NOT the range summary.
+    expect(component.activeCount).toBe(2);
+    expect(component.outOfStockCount).toBe(1);
   }));
 
-  it('re-fetches with the new grouping when the toggle changes', fakeAsync(() => {
+  it('re-fetches the category grouping when the toggle changes', fakeAsync(() => {
     const spy = spyOn(reports, 'getMenuSummary').and.callThrough();
 
     component.ngOnInit();
     tick(600);
+    // The category fetch (last source) carries the selected grouping.
     expect(spy.calls.mostRecent().args[3]).toBe('sections');
 
-    component.onGrouping('items');
+    component.onGrouping('groups');
     tick(600);
-    expect(spy.calls.mostRecent().args[3]).toBe('items');
+    expect(spy.calls.mostRecent().args[3]).toBe('groups');
+    expect(component.grouping).toBe('groups');
     expect(component.ready).toBeTrue();
   }));
 
-  it('renders at a range longer than 31 days (no listing guard)', fakeAsync(() => {
-    reports.dateRange$.next({ preset: 'custom', from: '2026-01-01', to: '2026-06-30' }); // 180 days
+  it('Full menu switches the grouping to items', fakeAsync(() => {
+    component.ngOnInit();
+    tick(600);
+
+    component.showFullMenu();
+    tick(600);
+
+    expect(component.grouping).toBe('items');
+    expect(component.ready).toBeTrue();
+  }));
+
+  it('renders at a range longer than 31 days (no listing guard for menu)', fakeAsync(() => {
+    reports.dateRange$.next({ preset: 'custom', from: '2026-01-01', to: '2026-06-30' });
 
     component.ngOnInit();
     tick(600);
 
     expect(component.ready).toBeTrue();
-    expect(component.rows.length).toBeGreaterThan(0);
+    expect(component.items.length).toBeGreaterThan(0);
   }));
 
   it('shows the empty state when no rows are returned', fakeAsync(() => {
