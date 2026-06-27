@@ -319,7 +319,11 @@ writing new tag or price/menu logic:
 - ReportsService uses a single `USE_MOCK_DATA = true` flag (mock-first),
   mirroring DashboardService — all four reports render mock data while a dormant
   `reports-adapter` parsing layer + scaffolded real endpoints wait behind the
-  flag
+  flag. The flag is a `static` on `ReportsService` (not a module `const`) so the
+  contract specs can flip it to exercise the real branch. The slug+param and
+  response-shape contracts are now PINNED by `reports.service.spec.ts` +
+  `reports-adapter.spec.ts` against the backend-derived contract — but they are
+  UNVERIFIED against a LIVE API (see the flip-time gate below)
 - For any new module service, follow the same constant-flag pattern.
   Split flags by sub-domain when different views go live at different times
 - Dashboard real endpoint: `api/v1/reports/restaurant/dashboard/`
@@ -333,12 +337,36 @@ writing new tag or price/menu logic:
   `reviews/submit/` (diner capture). `ReviewsService` has no mock flag — it
   calls `ApiService` directly through a `reviews-adapter` layer
 - Reports real endpoints (scaffolded, dormant behind `USE_MOCK_DATA = true`):
-  GET `reports/restaurant/sales-aggregate/`, `…/menu-summary/`,
-  `…/transactions-summary/`, `…/diners-summary/`; paginated (via
+  GET `reports/restaurant/sales-trends/` (params `category`=daily|monthly|
+  quarterly|annual + `result`=table — the FE's "aggregate" is the backend's
+  trends table; there is NO `sales-aggregate` slug), `…/menu-summary/` (param
+  `grouping`), `…/transactions-summary/`, `…/diners-summary/`; paginated (via
   `ApiService.loadAllPages`) `…/sales-listing/`, `…/transactions-listing/`,
-  `…/diners-listing/`
+  `…/diners-listing/`. Backend wraps menu-summary in `data:{grouping,rows}` and
+  emits sales-trends order counts as `count`, diners-summary as
+  `average_spend_per_identified_diner`/`most_active_diner` — the adapter reads
+  these exact keys (pinned by `reports-adapter.spec.ts`). Backend
+  `transaction_type` is the `order_*` vocab (`order_payment`/`order_refund`/
+  `order_charge`/`subscription`); the adapter's `txnType` strips the `order_`
+  prefix to the FE `payment`/`refund`/`charge`/`subscription` tokens (else a
+  refund mislabels as 'Payment')
+- KNOWN GAP (follow-up, not a flip blocker): backend `payment_mode` vocab is
+  `cash`/`momo`/`card`, but the FE `PaymentMode` union is
+  `MTN MoMo`/`Airtel MoMo`/`Cash`. The adapter passes the raw token through and
+  the "Method" column renders it as plain text, so it degrades gracefully — but
+  the values don't match. A proper fix needs a product call (backend can't
+  distinguish MTN vs Airtel — it stores only `momo`) plus a model + mock-data
+  rework; deferred to its own change
 - Only flip a mock flag to `false` when design is finalised and the
   backend endpoint is confirmed
+- ReportsService flip-time gate — the four report contracts are pinned by the
+  specs above but UNVERIFIED against a live API (no real restaurant with orders
+  exists yet). Before flipping `ReportsService.USE_MOCK_DATA` to `false`: (1) run
+  the contract specs (`npm run test:ci`) and confirm green; (2) re-verify ALL
+  FOUR reports (Sales, Menu, Transactions, Diners) end-to-end against the live
+  backend — slug, params AND response shape — since the mock returns
+  frontend-shaped data and masks any drift until flip; (3) resolve the
+  `payment_mode` vocab gap above
 
 ## Known Issues & Deferred Work
 - `ngx-intl-telephone-input` used across ~8 files (auth, dinify-mgt,

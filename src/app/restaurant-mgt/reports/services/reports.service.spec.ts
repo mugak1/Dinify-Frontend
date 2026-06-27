@@ -1,4 +1,5 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { of } from 'rxjs';
 
 import { ReportsService } from './reports.service';
 import { ApiService } from '../../../_services/api.service';
@@ -80,4 +81,91 @@ describe('ReportsService', () => {
 
     expect(a).toEqual(b);
   }));
+
+  // Slug + param contract pins for the real-data path. We flip the mock gate so
+  // the `else` branch runs, then assert the exact slug + params each report puts
+  // on the wire match the backend contract (restaurant_reports.py dispatch).
+  // Drift on EITHER side fails here loudly instead of silently 400-ing at flip.
+  describe('real API contract (USE_MOCK_DATA = false)', () => {
+    let api: jasmine.SpyObj<ApiService>;
+    const FROM = '2026-06-01';
+    const TO = '2026-06-30';
+
+    beforeEach(() => {
+      ReportsService.USE_MOCK_DATA = false;
+      api = TestBed.inject(ApiService) as jasmine.SpyObj<ApiService>;
+      api.get.and.returnValue(of({ data: [] }) as any);
+      api.loadAllPages.and.returnValue(of([]) as any);
+    });
+
+    afterEach(() => {
+      ReportsService.USE_MOCK_DATA = true;
+    });
+
+    it('Sales aggregate → sales-trends with category + result [REGRESSION: H1]', () => {
+      service.getSalesAggregate('r1', FROM, TO, 'daily').subscribe();
+      expect(api.get).toHaveBeenCalledWith(null, 'reports/restaurant/sales-trends/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+        category: 'daily',
+        result: 'table',
+      });
+    });
+
+    it('Sales listing → sales-listing', () => {
+      service.getSalesListing('r1', FROM, TO).subscribe();
+      expect(api.loadAllPages).toHaveBeenCalledWith('reports/restaurant/sales-listing/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+      });
+    });
+
+    it('Menu summary → menu-summary with grouping', () => {
+      service.getMenuSummary('r1', FROM, TO, 'sections').subscribe();
+      expect(api.get).toHaveBeenCalledWith(null, 'reports/restaurant/menu-summary/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+        grouping: 'sections',
+      });
+    });
+
+    it('Transactions summary → transactions-summary', () => {
+      service.getTransactionsSummary('r1', FROM, TO).subscribe();
+      expect(api.get).toHaveBeenCalledWith(null, 'reports/restaurant/transactions-summary/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+      });
+    });
+
+    it('Transactions listing → transactions-listing', () => {
+      service.getTransactionsListing('r1', FROM, TO).subscribe();
+      expect(api.loadAllPages).toHaveBeenCalledWith('reports/restaurant/transactions-listing/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+      });
+    });
+
+    it('Diners summary → diners-summary', () => {
+      service.getDinersSummary('r1', FROM, TO).subscribe();
+      expect(api.get).toHaveBeenCalledWith(null, 'reports/restaurant/diners-summary/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+      });
+    });
+
+    it('Diners listing → diners-listing', () => {
+      service.getDinersListing('r1', FROM, TO).subscribe();
+      expect(api.loadAllPages).toHaveBeenCalledWith('reports/restaurant/diners-listing/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+      });
+    });
+  });
 });
