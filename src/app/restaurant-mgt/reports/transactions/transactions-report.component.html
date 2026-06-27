@@ -1,102 +1,100 @@
 <header class="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
   <div>
     <h1 class="text-2xl font-semibold text-gray-900">Transactions</h1>
-    <p class="text-sm text-gray-500 mt-1">Payment activity for the selected period.</p>
+    <p class="text-sm text-gray-500 mt-1">Payments and refunds over the selected period.</p>
   </div>
   <app-report-export-bar
-    [columns]="listingColumns"
+    [columns]="exportColumns"
     [rows]="listingRows"
-    [totals]="listingTableTotals"
+    [totals]="listingTotals"
     reportTitle="Transactions"
     [range]="range"
     [disabled]="!listingReady"
-    [disabledReason]="
-      listingGuarded
-        ? 'Export and print cover the individual orders — pick 31 days or fewer.'
-        : 'Nothing to export for this range.'
-    "
+    disabledReason="Nothing to export for this range."
   ></app-report-export-bar>
 </header>
 
-<!-- Lead breakdowns (always loads, uncapped) -->
-<app-dn-card class="block mb-6">
-  <div class="p-4 sm:p-5">
-    <div class="flex items-center justify-between gap-3 mb-3">
-      <h2 class="text-base font-semibold text-gray-900">Summary</h2>
-      @if (summaryReady && summary) {
-        <span class="text-sm text-gray-500">{{ summary.totalCount | number }} transactions</span>
-      }
-    </div>
-
-    @if (summaryReady && summary) {
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <h3 class="text-sm font-medium text-gray-500 mb-2">By status</h3>
-          <app-report-table
-            [columns]="byStatusColumns"
-            [rows]="summary.byStatus"
-            [totals]="byStatusTotals"
-            emptyLabel="No transactions in this period."
-          ></app-report-table>
+@if (summaryReady) {
+  <!-- Chip rail: 4 range-aggregate chips with deltas -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4 sm:mb-6">
+    <app-dn-card class="block">
+      <div class="p-4">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm text-gray-500">Transactions</p>
+          <app-report-delta-chip
+            [current]="metrics.count"
+            [previous]="prevMetrics?.count ?? 0"
+            [label]="comparisonLabel"
+          ></app-report-delta-chip>
         </div>
-        <div>
-          <h3 class="text-sm font-medium text-gray-500 mb-2">By type</h3>
-          <app-report-table
-            [columns]="byTypeColumns"
-            [rows]="summary.byType"
-            [totals]="byTypeTotals"
-            emptyLabel="No transactions in this period."
-          ></app-report-table>
-        </div>
+        <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ metrics.count | number }}</p>
       </div>
-    } @else {
-      <app-report-state
-        [mode]="summaryState"
-        title="No transactions yet"
-        message="Payments will appear here as orders are paid."
-        (retry)="retry()"
-      ></app-report-state>
-    }
-  </div>
-</app-dn-card>
+    </app-dn-card>
 
-<!-- Per-transaction listing drill-down (≤31-day ranges) -->
-<app-dn-card class="block">
-  <div class="p-4 sm:p-5">
-    <h2 class="text-base font-semibold text-gray-900 mb-3">Transactions</h2>
-
-    @if (listingReady) {
-      <app-report-table
-        [columns]="listingColumns"
-        [rows]="pagedListingRows"
-        [totals]="listingTableTotals"
-        emptyLabel="No transactions in this period."
-      ></app-report-table>
-
-      @if (pageCount > 1) {
-        <div class="flex items-center justify-end gap-3 mt-3">
-          <button app-dn-button variant="outline" size="sm" [disabled]="page === 0" (click)="prevPage()">
-            Previous
-          </button>
-          <span class="text-sm text-gray-500">Page {{ page + 1 }} of {{ pageCount }}</span>
-          <button
-            app-dn-button
-            variant="outline"
-            size="sm"
-            [disabled]="page >= pageCount - 1"
-            (click)="nextPage()"
-          >
-            Next
-          </button>
+    <app-dn-card class="block">
+      <div class="p-4">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm text-gray-500">Gross collected</p>
+          <app-report-delta-chip
+            [current]="metrics.gross"
+            [previous]="prevMetrics?.gross ?? 0"
+            [label]="comparisonLabel"
+          ></app-report-delta-chip>
         </div>
-      }
-    } @else {
-      <app-report-state
-        [mode]="listingState"
-        title="No transactions yet"
-        message="Payments will appear here as orders are paid."
-        (retry)="retry()"
-      ></app-report-state>
-    }
+        <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ fmt(metrics.gross) }}</p>
+      </div>
+    </app-dn-card>
+
+    <app-dn-card class="block">
+      <div class="p-4">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm text-gray-500">Avg ticket</p>
+          <app-report-delta-chip
+            [current]="metrics.avgTicket"
+            [previous]="prevMetrics?.avgTicket ?? 0"
+            [label]="comparisonLabel"
+          ></app-report-delta-chip>
+        </div>
+        <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ fmt(metrics.avgTicket) }}</p>
+      </div>
+    </app-dn-card>
+
+    <app-dn-card class="block">
+      <div class="p-4">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm text-gray-500">Refunds</p>
+          <app-report-delta-chip
+            [current]="metrics.refunds"
+            [previous]="prevMetrics?.refunds ?? 0"
+            [invert]="true"
+            [label]="comparisonLabel"
+          ></app-report-delta-chip>
+        </div>
+        <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ fmt(metrics.refunds) }}</p>
+        <p class="text-xs text-gray-400 mt-1">On-platform refunds only</p>
+      </div>
+    </app-dn-card>
   </div>
-</app-dn-card>
+
+  <!-- Status breakdown + recent transactions -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
+    <app-transactions-status-breakdown [breakdown]="breakdown"></app-transactions-status-breakdown>
+    <app-transactions-listing
+      [rows]="listingRows"
+      [totals]="listingTotals"
+      [ready]="listingReady"
+      [state]="listingState"
+      [selectedChip]="selectedChip"
+      [capped]="listingCapped"
+      (filterChange)="onFilter($event)"
+      (retry)="retry()"
+    ></app-transactions-listing>
+  </div>
+} @else {
+  <app-report-state
+    [mode]="summaryState"
+    title="No transactions yet"
+    message="No payments were recorded in the dates you selected."
+    (retry)="retry()"
+  ></app-report-state>
+}
