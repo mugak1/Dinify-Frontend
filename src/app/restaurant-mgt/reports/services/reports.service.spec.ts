@@ -128,6 +128,19 @@ describe('ReportsService', () => {
       });
     });
 
+    it('Sales aggregate → sends category=annual for a year-wide bucket [B2]', () => {
+      // A multi-year range must reach the wire as category=annual (the backend caps
+      // monthly at 731 days), NOT collapse to monthly. ReportGranularity must carry it.
+      service.getSalesAggregate('r1', FROM, TO, 'annual').subscribe();
+      expect(api.get).toHaveBeenCalledWith(null, 'reports/restaurant/sales-trends/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+        category: 'annual',
+        result: 'table',
+      });
+    });
+
     it('Sales listing → sales-listing', () => {
       service.getSalesListing('r1', FROM, TO).subscribe();
       expect(api.loadAllPages).toHaveBeenCalledWith('reports/restaurant/sales-listing/', {

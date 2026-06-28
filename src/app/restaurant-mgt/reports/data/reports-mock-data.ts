@@ -8,11 +8,17 @@ import {
   differenceInCalendarDays,
   eachDayOfInterval,
   eachMonthOfInterval,
+  eachQuarterOfInterval,
+  eachYearOfInterval,
   endOfMonth,
+  endOfQuarter,
+  endOfYear,
   format,
   getDay,
   parseISO,
   startOfMonth,
+  startOfQuarter,
+  startOfYear,
 } from 'date-fns';
 import {
   DinersListingRow,
@@ -90,6 +96,25 @@ export function getMockSalesAggregate(
   if (differenceInCalendarDays(end, start) < 0) return [];
 
   const rand = seededRandom(hashRange(from, to, 1));
+
+  if (granularity === 'annual') {
+    return eachYearOfInterval({ start, end }).map((y) => {
+      const dailyAvg = randInt(rand, 70, 150);
+      const daysInYear = differenceInCalendarDays(endOfYear(y), startOfYear(y)) + 1;
+      // Period is the bare year ('yyyy') — parseISO-safe and sorts chronologically as text.
+      return buildAggregateRow(format(y, 'yyyy'), dailyAvg * daysInYear, rand);
+    });
+  }
+
+  if (granularity === 'quarterly') {
+    return eachQuarterOfInterval({ start, end }).map((q) => {
+      const dailyAvg = randInt(rand, 70, 150);
+      const daysInQuarter = differenceInCalendarDays(endOfQuarter(q), startOfQuarter(q)) + 1;
+      // Anchored to the quarter's first month (yyyy-MM). The engine never auto-selects
+      // quarterly, so this branch exists only to keep the mock total with the category set.
+      return buildAggregateRow(format(startOfQuarter(q), 'yyyy-MM'), dailyAvg * daysInQuarter, rand);
+    });
+  }
 
   if (granularity === 'monthly') {
     return eachMonthOfInterval({ start, end }).map((m) => {

@@ -36,7 +36,13 @@ export interface ReportDateRange {
   to: string;
 }
 
-export type ReportGranularity = 'daily' | 'monthly';
+/**
+ * Granularity the Sales tab requests as the sales-trends `category`. Mirrors the
+ * backend's accepted category set and the timeframe engine's `SalesTrendsCategory`
+ * (reports-timeframe.ts) — the engine picks which one a given range needs (year-wide
+ * ranges resolve to `annual`; `quarterly` is accepted but never auto-selected).
+ */
+export type ReportGranularity = 'daily' | 'monthly' | 'quarterly' | 'annual';
 
 export interface SalesAggregateRow {
   /** ISO label: yyyy-MM-dd (daily) or yyyy-MM (monthly) — sorts chronologically as text. */

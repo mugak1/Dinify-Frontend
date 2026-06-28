@@ -1,4 +1,4 @@
-import { getMockSalesHourly, mockSalesRefunds } from './reports-mock-data';
+import { getMockSalesAggregate, getMockSalesHourly, mockSalesRefunds } from './reports-mock-data';
 
 describe('reports mock data — getMockSalesHourly', () => {
   const FROM = '2026-06-01';
@@ -58,5 +58,22 @@ describe('reports mock data — mockSalesRefunds', () => {
 
   it('returns 0 for an inverted range', () => {
     expect(mockSalesRefunds('2026-06-30', '2026-06-01')).toBe(0);
+  });
+});
+
+describe('reports mock data — getMockSalesAggregate (annual bucket)', () => {
+  it('returns one row per calendar year, keyed by bare year ("yyyy")', () => {
+    const rows = getMockSalesAggregate('2023-01-01', '2026-12-31', 'annual');
+    expect(rows.map((r) => r.period)).toEqual(['2023', '2024', '2025', '2026']);
+  });
+
+  it('emits positive orders/revenue and is deterministic per range', () => {
+    const rows = getMockSalesAggregate('2023-01-01', '2026-12-31', 'annual');
+    for (const r of rows) {
+      expect(r.orders).toBeGreaterThan(0);
+      expect(r.revenue).toBeGreaterThan(0);
+      expect(r.discount).toBeGreaterThanOrEqual(0);
+    }
+    expect(getMockSalesAggregate('2023-01-01', '2026-12-31', 'annual')).toEqual(rows);
   });
 });

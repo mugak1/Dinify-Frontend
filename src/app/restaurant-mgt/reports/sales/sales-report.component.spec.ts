@@ -56,7 +56,8 @@ describe('SalesReportComponent', () => {
     expect(component.showWeekday).toBeFalse();
   }));
 
-  it('uses the monthly bucket for a year range and hides the weekday cycle', fakeAsync(() => {
+  it('uses the monthly bucket for a single calendar year and hides the weekday cycle', fakeAsync(() => {
+    // ~364 days ≤ the 731-day monthly cap → a single year stays a MONTHLY bucket.
     reports.dateRange$.next({ preset: 'this-year', from: '2026-01-01', to: '2026-12-31' });
     component.ngOnInit();
     tick(600);
@@ -64,6 +65,22 @@ describe('SalesReportComponent', () => {
     expect(component.ready).toBeTrue();
     expect(component.breakdownTitle).toBe('Monthly breakdown');
     expect(component.showWeekday).toBeFalse();
+  }));
+
+  it('uses the annual bucket for a multi-year range and requests category=annual [B2]', fakeAsync(() => {
+    // ~1460 days (>731-day monthly cap, ≤1850-day annual cap) → the engine resolves
+    // 'annual'; the component must consume tf.category and NOT collapse it to monthly
+    // (which the backend would 400). callThrough so the mock still feeds the cards.
+    const aggSpy = spyOn(reports, 'getSalesAggregate').and.callThrough();
+    reports.dateRange$.next({ preset: 'custom', from: '2023-01-01', to: '2026-12-31' });
+    component.ngOnInit();
+    tick(600);
+
+    expect(component.ready).toBeTrue();
+    expect(component.breakdownTitle).toBe('Yearly breakdown');
+    expect(component.showWeekday).toBeFalse();
+    expect(aggSpy).toHaveBeenCalledWith('r1', jasmine.any(String), jasmine.any(String), 'annual');
+    expect(aggSpy).not.toHaveBeenCalledWith('r1', jasmine.any(String), jasmine.any(String), 'monthly');
   }));
 
   it('shows the empty state when no data is returned', fakeAsync(() => {
