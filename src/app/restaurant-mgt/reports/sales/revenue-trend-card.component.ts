@@ -6,7 +6,7 @@ import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { SalesPoint, bestPoint } from './sales-view';
 
-const BRAND = 'hsl(4, 90%, 52%)';
+const BRAND = 'hsl(142, 76%, 36%)'; // dashboard revenue-chart green
 const BEST = 'hsl(142, 71%, 45%)';
 
 /**
@@ -76,10 +76,10 @@ export class RevenueTrendCardComponent implements OnChanges {
 
     const gradient = (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
       const area = ctx.chart.chartArea;
-      if (!area) return 'hsla(4, 90%, 52%, 0)';
+      if (!area) return 'hsla(142, 76%, 36%, 0)';
       const g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-      g.addColorStop(0, 'hsla(4, 90%, 52%, 0.25)');
-      g.addColorStop(1, 'hsla(4, 90%, 52%, 0)');
+      g.addColorStop(0, 'hsla(142, 76%, 36%, 0.25)');
+      g.addColorStop(1, 'hsla(142, 76%, 36%, 0)');
       return g;
     };
 

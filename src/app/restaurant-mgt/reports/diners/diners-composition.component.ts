@@ -27,12 +27,12 @@ import { OrderSplit, RepeatBreakdown } from './diners-view';
 
         @if (split.total > 0) {
           <div class="flex h-4 rounded-full overflow-hidden bg-muted">
-            <div class="bg-primary h-full" [style.width.%]="split.identifiedPct"></div>
+            <div class="bg-success h-full" [style.width.%]="split.identifiedPct"></div>
             <div class="bg-gray-400 h-full" [style.width.%]="split.guestPct"></div>
           </div>
           <div class="flex items-center justify-between gap-3 mt-2 text-sm flex-wrap">
             <span class="inline-flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-success"></span>
               <span class="text-gray-700">Identified</span>
               <span class="font-semibold text-gray-900 tabular-nums">{{ split.identified | number }} orders</span>
               <span class="text-gray-400 tabular-nums">{{ split.identifiedPct | number: '1.0-0' }}%</span>
