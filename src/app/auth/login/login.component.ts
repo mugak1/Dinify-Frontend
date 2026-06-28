@@ -233,6 +233,20 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
     toggleFieldTextType() {
       this.fieldTextType = !this.fieldTextType
   }
+  /**
+   * Caps-Lock indicator. Guarded so it only mutates state on a real toggle —
+   * avoids the per-keystroke change-detection churn that collided with Android
+   * IME composition and capped manual password entry at one character. Soft
+   * keyboards may not implement getModifierState; fall back to the current value.
+   */
+  onPasswordKeyup(event: KeyboardEvent): void {
+    const on = typeof event.getModifierState === 'function'
+      ? event.getModifierState('CapsLock')
+      : this.capsLockOn;
+    if (on !== this.capsLockOn) {
+      this.capsLockOn = on;
+    }
+  }
     resendOTP(): void {
       this.countdown = 30; // Reset the countdown
       this.startCountdown();

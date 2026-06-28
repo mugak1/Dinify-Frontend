@@ -88,4 +88,38 @@ describe('LoginComponent', () => {
       expect(landingFor(membership(['restaurant_staff'], ALL_FALSE))).toBe('/rest-app/account');
     });
   });
+
+  // ── Caps-Lock indicator. Pins the non-interference contract: the handler only
+  // mutates state on a real toggle (so ordinary keystrokes trigger no template
+  // churn — the regression that capped manual password entry at one character on
+  // Android IME), and tolerates soft keyboards that omit getModifierState. ──
+  describe('onPasswordKeyup', () => {
+    const keyEvent = (capsLock: boolean): KeyboardEvent =>
+      ({ getModifierState: (key: string) => key === 'CapsLock' && capsLock } as unknown as KeyboardEvent);
+
+    it('turns the indicator on when Caps Lock is active', () => {
+      component.capsLockOn = false;
+      component.onPasswordKeyup(keyEvent(true));
+      expect(component.capsLockOn).toBe(true);
+    });
+
+    it('is a no-op when the state has not changed', () => {
+      component.capsLockOn = true;
+      component.onPasswordKeyup(keyEvent(true));
+      expect(component.capsLockOn).toBe(true);
+    });
+
+    it('turns the indicator off when Caps Lock is released', () => {
+      component.capsLockOn = true;
+      component.onPasswordKeyup(keyEvent(false));
+      expect(component.capsLockOn).toBe(false);
+    });
+
+    it('does not throw and leaves state untouched when getModifierState is absent', () => {
+      component.capsLockOn = false;
+      const event = {} as unknown as KeyboardEvent;
+      expect(() => component.onPasswordKeyup(event)).not.toThrow();
+      expect(component.capsLockOn).toBe(false);
+    });
+  });
 });
