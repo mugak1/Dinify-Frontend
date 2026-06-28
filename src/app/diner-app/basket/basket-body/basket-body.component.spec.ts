@@ -204,6 +204,25 @@ describe('BasketBodyComponent', () => {
     expect(basketService.clearBasket).toHaveBeenCalled();
   });
 
+  it('resets transient placement state on a successful submit (persistent sidebar instance)', () => {
+    // The desktop sidebar basket-body is never destroyed, so a stuck placingOrder
+    // would keep the checkout button disabled after the table frees up.
+    component.order_initiated = { order_details: { id: 'o1' } } as any;
+    component.placingOrder = true;
+    api.postPatch.and.returnValue(of({}) as any);
+
+    component.submitOrder();
+
+    // Navigation state was captured synchronously, so the order id still forwards…
+    expect(router.navigate).toHaveBeenCalledWith(
+      ['/diner', 'basket', 'order-complete'],
+      jasmine.objectContaining({ state: jasmine.objectContaining({ orderId: 'o1' }) }),
+    );
+    // …but the transient state is cleared for the next order.
+    expect(component.placingOrder).toBeFalse();
+    expect(component.order_initiated).toBeUndefined();
+  });
+
   it('shows an inline error on a genuine (non-400) submit failure without navigating', () => {
     component.order_initiated = { order_details: { id: 'o1' } } as any;
     api.postPatch.and.returnValue(throwError(() => 'no network') as any);
