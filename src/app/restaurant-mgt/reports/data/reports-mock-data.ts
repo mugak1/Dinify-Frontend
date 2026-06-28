@@ -7,18 +7,10 @@
 import {
   differenceInCalendarDays,
   eachDayOfInterval,
-  eachMonthOfInterval,
-  eachQuarterOfInterval,
-  eachYearOfInterval,
-  endOfMonth,
-  endOfQuarter,
-  endOfYear,
   format,
   getDay,
   parseISO,
-  startOfMonth,
   startOfQuarter,
-  startOfYear,
 } from 'date-fns';
 import {
   DinersListingRow,
@@ -37,6 +29,7 @@ import {
   TransactionsListingRow,
   TransactionsSummary,
 } from '../models/reports.models';
+import { dailyRevenue } from '../../../_shared/mock/daily-revenue';
 
 // ── Seeded PRNG (mulberry32) ─────────────────────────────
 function seededRandom(seed: number): () => number {
@@ -79,55 +72,46 @@ function weekdayMultiplier(date: Date): number {
   }
 }
 
-function buildAggregateRow(period: string, orders: number, rand: () => number): SalesAggregateRow {
-  const avgTicket = randInt(rand, 18000, 35000); // UGX
-  const gross = orders * avgTicket;
-  const discount = Math.round(gross * (0.04 + rand() * 0.08)); // 4–12%
-  return { period, orders, revenue: gross - discount, discount };
-}
-
 export function getMockSalesAggregate(
+  restaurantId: string,
   from: string,
   to: string,
   granularity: ReportGranularity,
 ): SalesAggregateRow[] {
-  const start = parseISO(from);
-  const end = parseISO(to);
-  if (differenceInCalendarDays(end, start) < 0) return [];
+  const rows = dailyRevenue(restaurantId, from, to);
+  if (rows.length === 0) return [];
 
-  const rand = seededRandom(hashRange(from, to, 1));
-
-  if (granularity === 'annual') {
-    return eachYearOfInterval({ start, end }).map((y) => {
-      const dailyAvg = randInt(rand, 70, 150);
-      const daysInYear = differenceInCalendarDays(endOfYear(y), startOfYear(y)) + 1;
-      // Period is the bare year ('yyyy') — parseISO-safe and sorts chronologically as text.
-      return buildAggregateRow(format(y, 'yyyy'), dailyAvg * daysInYear, rand);
-    });
+  // Daily granularity IS the basis — one SalesAggregateRow per day (revenue net of discount).
+  if (granularity === 'daily') {
+    return rows.map((r) => ({
+      period: r.date,
+      orders: r.orders,
+      revenue: r.gross - r.discount,
+      discount: r.discount,
+    }));
   }
 
-  if (granularity === 'quarterly') {
-    return eachQuarterOfInterval({ start, end }).map((q) => {
-      const dailyAvg = randInt(rand, 70, 150);
-      const daysInQuarter = differenceInCalendarDays(endOfQuarter(q), startOfQuarter(q)) + 1;
-      // Anchored to the quarter's first month (yyyy-MM). The engine never auto-selects
-      // quarterly, so this branch exists only to keep the mock total with the category set.
-      return buildAggregateRow(format(startOfQuarter(q), 'yyyy-MM'), dailyAvg * daysInQuarter, rand);
-    });
-  }
+  // Coarser granularities GROUP-AND-SUM the same daily rows (never independent
+  // generation) — so Σ(daily) === the bucket, by construction. Grouping the actual
+  // in-range rows also handles partial buckets correctly. eachDayOfInterval is
+  // ascending, so the buckets come out chronological.
+  const bucketKey = (date: string): string => {
+    const d = parseISO(date);
+    if (granularity === 'annual') return format(d, 'yyyy');
+    if (granularity === 'quarterly') return format(startOfQuarter(d), 'yyyy-MM');
+    return format(d, 'yyyy-MM'); // monthly
+  };
 
-  if (granularity === 'monthly') {
-    return eachMonthOfInterval({ start, end }).map((m) => {
-      const dailyAvg = randInt(rand, 70, 150);
-      const daysInMonth = differenceInCalendarDays(endOfMonth(m), startOfMonth(m)) + 1;
-      return buildAggregateRow(format(m, 'yyyy-MM'), dailyAvg * daysInMonth, rand);
-    });
+  const buckets = new Map<string, SalesAggregateRow>();
+  for (const r of rows) {
+    const period = bucketKey(r.date);
+    const acc = buckets.get(period) ?? { period, orders: 0, revenue: 0, discount: 0 };
+    acc.orders += r.orders;
+    acc.revenue += r.gross - r.discount;
+    acc.discount += r.discount;
+    buckets.set(period, acc);
   }
-
-  return eachDayOfInterval({ start, end }).map((d) => {
-    const orders = Math.round(randInt(rand, 60, 160) * weekdayMultiplier(d));
-    return buildAggregateRow(format(d, 'yyyy-MM-dd'), orders, rand);
-  });
+  return [...buckets.values()];
 }
 
 /**
@@ -145,45 +129,38 @@ const HOUR_OF_DAY_SHAPE = [
 ];
 
 /**
- * Deterministic hour-of-day sales for the live `sales-hourly` contract: ALWAYS
- * exactly 24 rows (hour 0–23), aggregated across the window. Seeded per range
- * (salt 8) so the same window stays stable across refreshes. Counts scale with the
- * inclusive range length and carry the lunch/dinner curve above; revenue is net of
- * discount, mirroring `buildAggregateRow`. Raw — the UI owns the display window.
+ * Hour-of-day sales for the live `sales-hourly` contract: ALWAYS exactly 24 rows
+ * (hour 0–23). DERIVED from the shared daily basis — the window's basis totals
+ * (orders / net revenue / discount) are distributed across the HOUR_OF_DAY_SHAPE
+ * weights, so the 24 rows SUM to the daily totals rather than being generated
+ * independently. Revenue is net of discount. Raw — the UI owns the display window.
  */
-export function getMockSalesHourly(from: string, to: string): SalesHourlyRow[] {
-  const start = parseISO(from);
-  const end = parseISO(to);
-  const days = Math.max(1, differenceInCalendarDays(end, start) + 1); // inclusive; ≥1 even if inverted
-
-  const rand = seededRandom(hashRange(from, to, 8));
+export function getMockSalesHourly(restaurantId: string, from: string, to: string): SalesHourlyRow[] {
+  const rows = dailyRevenue(restaurantId, from, to);
+  const totalOrders = rows.reduce((a, r) => a + r.orders, 0);
+  const totalRevenue = rows.reduce((a, r) => a + (r.gross - r.discount), 0);
+  const totalDiscount = rows.reduce((a, r) => a + r.discount, 0);
+  const weightSum = HOUR_OF_DAY_SHAPE.reduce((a, w) => a + w, 0);
 
   return HOUR_OF_DAY_SHAPE.map((weight, hour) => {
-    const count = Math.round(weight * days * (0.85 + rand() * 0.3)); // ±15% jitter, scaled by span
-    const avgTicket = randInt(rand, 18000, 35000); // UGX
-    const gross = count * avgTicket;
-    const discount = Math.round(gross * (0.04 + rand() * 0.08)); // 4–12%
-    return { hour, count, revenue: gross - discount, discount };
+    const f = weight / weightSum;
+    return {
+      hour,
+      count: Math.round(totalOrders * f),
+      revenue: Math.round(totalRevenue * f),
+      discount: Math.round(totalDiscount * f),
+    };
   });
 }
 
 /**
- * Deterministic mock refunds for a window (salt 9). Refunds aren't tracked until
- * payment integration lands — this is a PLACEHOLDER (a handful of small refunds,
- * scaled by range length) so the Sales hero ledger reconciles. The hero attaches
- * an "on-platform refunds only" caption; swap this for a real source at flip.
+ * Mock refunds for a window — DERIVED from the shared daily basis (Σ of each day's
+ * refunds) rather than invented separately, so the Sales hero ledger reconciles
+ * with the exact same rows every other series uses. Refunds aren't tracked until
+ * payment integration; the hero keeps its "on-platform refunds only" caption.
  */
-export function mockSalesRefunds(from: string, to: string): number {
-  const start = parseISO(from);
-  const end = parseISO(to);
-  if (differenceInCalendarDays(end, start) < 0) return 0;
-
-  const rand = seededRandom(hashRange(from, to, 9));
-  const days = differenceInCalendarDays(end, start) + 1;
-  const refundCount = Math.round((days / 7) * (0.5 + rand() * 1.5)); // ~0.5–2 per week
-  let total = 0;
-  for (let i = 0; i < refundCount; i++) total += randInt(rand, 20000, 60000); // UGX each
-  return total;
+export function mockSalesRefunds(restaurantId: string, from: string, to: string): number {
+  return dailyRevenue(restaurantId, from, to).reduce((sum, r) => sum + r.refunds, 0);
 }
 
 const PAYMENT_MODE_WEIGHTS: { mode: PaymentMode; weight: number }[] = [

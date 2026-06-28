@@ -258,8 +258,11 @@ export class SalesReportComponent implements OnInit, OnDestroy {
     // Hero + KPI rail.
     this.current = current;
     this.previous = cmpPoints.length ? computeTotals(cmpPoints) : null;
-    this.refunds = mockSalesRefunds(p.range.from, p.range.to);
-    this.prevRefunds = mockSalesRefunds(p.cmp.from, p.cmp.to);
+    // Refunds derive from the shared per-(restaurant,day) basis, so they reconcile
+    // with the aggregate. ngOnInit already bailed if there's no restaurant id.
+    const refundRestaurantId = this.auth.currentRestaurantRole?.restaurant_id ?? '';
+    this.refunds = mockSalesRefunds(refundRestaurantId, p.range.from, p.range.to);
+    this.prevRefunds = mockSalesRefunds(refundRestaurantId, p.cmp.from, p.cmp.to);
     this.comparisonLabel = COMPARISON_LABELS[p.range.preset] ?? 'vs prior period';
 
     // Trend + KPI series.
