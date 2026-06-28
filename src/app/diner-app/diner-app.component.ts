@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -54,6 +54,7 @@ export class DinerAppComponent implements OnInit, OnDestroy {
     private readonly sessionStorage: SessionStorageService,
     private route: ActivatedRoute,
     private router: Router,
+    private ngZone: NgZone,
     private api: ApiService,
     public basketService: BasketService,
     private toast: ToastService,
@@ -263,8 +264,17 @@ export class DinerAppComponent implements OnInit, OnDestroy {
         next: x => {
           const scanned = x?.data as unknown as TableScan | undefined;
           if (scanned) {
-            this.navState.setTableOngoingOrder(!!scanned.current_order?.ongoing);
-            if (this.table) this.table.current_order = scanned.current_order;
+            // Apply the update INSIDE the Angular zone so it triggers a
+            // change-detection pass that reaches every signal consumer. The
+            // menu is constantly animating (scroll-spy / scroll-progress run
+            // their own ticks) so it reflects the flag almost immediately, but
+            // the static basket checkout gate has nothing else to tick it — so
+            // without this the served order's banner would clear while the
+            // "Checkout unavailable" button stayed stuck until a manual refresh.
+            this.ngZone.run(() => {
+              this.navState.setTableOngoingOrder(!!scanned.current_order?.ongoing);
+              if (this.table) this.table.current_order = scanned.current_order;
+            });
           }
           this.scheduleNextPoll();
         },
