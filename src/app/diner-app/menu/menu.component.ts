@@ -66,6 +66,10 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   coverPhoto: string | null = null;
   restaurantName = '';
   tableNumber: number | null = null;
+  // True when the scanned table already has an order that hasn't cleared the
+  // kitchen (table-scan `current_order.ongoing`). Drives the heads-up banner so
+  // the diner knows a previous order is still in progress before they shop.
+  tableHasOngoingOrder = false;
 
   get basketItems(): BasketItem[] {
     return this.basketService.Basket()?.items ?? [];
@@ -149,8 +153,9 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   private hydrateHeroFields(): void {
     this.coverPhoto = this.restaurant?.cover_photo ?? null;
     this.restaurantName = this.restaurant?.name ?? '';
-    this.tableNumber =
-      (this.sessionStorage.getItem<TableScan>('Table') as TableScan | null)?.number ?? null;
+    const table = this.sessionStorage.getItem<TableScan>('Table') as TableScan | null;
+    this.tableNumber = table?.number ?? null;
+    this.tableHasOngoingOrder = !!table?.current_order?.ongoing;
   }
 
   /** Normalises the tags payload to MenuItemTagRef[]. Tolerates the legacy
