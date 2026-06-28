@@ -440,6 +440,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.basketService.clearBasket(); // Clear the basket
         this.sessionStorage.clear();
+        // Reset transient placement state. The desktop basket sidebar is never
+        // destroyed (it lives in the shell beside the router-outlet), so without
+        // this `placingOrder` stays true on that instance and keeps the checkout
+        // button disabled after the table later frees — until a manual refresh.
+        // (The navigation `state` above was built synchronously, so clearing
+        // `order_initiated` here is safe.)
+        this.placingOrder = false;
+        this.order_initiated = undefined;
       },
       (_error) => {
         // submit/ only runs after a successful initiate/, which already passed
