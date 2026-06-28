@@ -2,9 +2,9 @@
 //
 // Orchestrator only: it owns the data flow and hands each card a finished view
 // model. The shared timeframe drives everything through the PR-A engine —
-// resolveTimeframe(range) picks the bucket (hour/day/month) and comparisonRange
+// resolveTimeframe(range) picks the bucket (hour/day/month/year) and comparisonRange
 // gives the equal-length prior window for the ghost line + delta chips. Per the
-// engine: today → hourly, week/month → daily, year → monthly. All card maths live
+// engine: today → hourly, week/month → daily, year → monthly, multi-year → annual. All card maths live
 // in the pure sales-view helpers; the cards themselves are presentational.
 
 import { Component, OnDestroy, OnInit } from '@angular/core';
@@ -14,11 +14,15 @@ import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/oper
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
-import { comparisonRange, resolveTimeframe, ReportBucketUnit } from '../utils/reports-timeframe';
+import {
+  comparisonRange,
+  resolveTimeframe,
+  ReportBucketUnit,
+  SalesTrendsCategory,
+} from '../utils/reports-timeframe';
 import {
   ReportColumn,
   ReportDateRange,
-  ReportGranularity,
   ReportPreset,
   SalesAggregateRow,
   SalesHourlyRow,
@@ -154,10 +158,10 @@ export class SalesReportComponent implements OnInit, OnDestroy {
           const er = tf.effectiveRange;
           const inclusiveDays = differenceInCalendarDays(parseISO(range.to), parseISO(range.from)) + 1;
 
-          const main$ = this.fetchSeries(restaurantId, er.from, er.to, tf.bucketUnit).pipe(
+          const main$ = this.fetchSeries(restaurantId, er.from, er.to, tf.category).pipe(
             catchError((error) => of({ data: null, error } as any)),
           );
-          const cmp$ = this.fetchSeries(restaurantId, cmp.from, cmp.to, tf.bucketUnit).pipe(
+          const cmp$ = this.fetchSeries(restaurantId, cmp.from, cmp.to, tf.category).pipe(
             catchError(() => of({ data: null } as any)),
           );
           // The hour-of-day card needs the 24-hour shape for ANY range; reuse main when it IS hourly.
@@ -201,17 +205,20 @@ export class SalesReportComponent implements OnInit, OnDestroy {
     this.reports.refresh$.next();
   }
 
+  // Consume the timeframe engine's category verbatim (single source of truth): it
+  // already picked the right bucket+category for the range and clamped any over-cap
+  // span, so a request the backend would 400 is never issued here. A `null` category
+  // is the hour bucket, which routes to the sales-hourly endpoint.
   private fetchSeries(
     restaurantId: string,
     from: string,
     to: string,
-    bucketUnit: ReportBucketUnit,
+    category: SalesTrendsCategory | null,
   ): Observable<any> {
-    if (bucketUnit === 'hour') {
+    if (category === null) {
       return this.reports.getSalesHourly(restaurantId, from, to);
     }
-    const granularity: ReportGranularity = bucketUnit === 'day' ? 'daily' : 'monthly';
-    return this.reports.getSalesAggregate(restaurantId, from, to, granularity);
+    return this.reports.getSalesAggregate(restaurantId, from, to, category);
   }
 
   private apply(p: {
@@ -298,7 +305,10 @@ export class SalesReportComponent implements OnInit, OnDestroy {
   }
 
   private periodLabel(bucketUnit: ReportBucketUnit): string {
-    return bucketUnit === 'hour' ? 'Hour' : bucketUnit === 'day' ? 'Day' : 'Month';
+    if (bucketUnit === 'hour') return 'Hour';
+    if (bucketUnit === 'day') return 'Day';
+    if (bucketUnit === 'year') return 'Year';
+    return 'Month';
   }
 
   private bucketExportColumns(): ReportColumn[] {

@@ -11,7 +11,7 @@ import { ReportBucketUnit } from '../utils/reports-timeframe';
 import { SalesAggregateRow, SalesHourlyRow } from '../models/reports.models';
 
 /** Which service feeds a bucket + how the breakdown table is titled. */
-export type SalesSource = 'hourly' | 'daily' | 'monthly';
+export type SalesSource = 'hourly' | 'daily' | 'monthly' | 'annual';
 
 export interface SalesBucketView {
   source: SalesSource;
@@ -80,15 +80,16 @@ export const WEEKDAY_MIN_DAYS = 14;
 export const HOUR_WINDOW_START = 11; // 11 AM
 export const HOUR_WINDOW_END = 22; // 10 PM (inclusive)
 
-/** Maps a resolved bucket to its data source + breakdown title (month & year → monthly). */
+/** Maps a resolved bucket to its data source + breakdown title (year → annual). */
 export function salesBucketView(bucketUnit: ReportBucketUnit): SalesBucketView {
   switch (bucketUnit) {
     case 'hour':
       return { source: 'hourly', tableTitle: 'Hourly breakdown' };
     case 'day':
       return { source: 'daily', tableTitle: 'Daily breakdown' };
-    case 'month':
     case 'year':
+      return { source: 'annual', tableTitle: 'Yearly breakdown' };
+    case 'month':
     default:
       return { source: 'monthly', tableTitle: 'Monthly breakdown' };
   }
@@ -104,6 +105,7 @@ export function formatHourLabel(hour: number): string {
 
 function formatPeriodLabel(period: string, source: SalesSource): string {
   const d = parseISO(period);
+  if (source === 'annual') return format(d, 'yyyy');
   return source === 'monthly' ? format(d, 'MMM yyyy') : format(d, 'd MMM');
 }
 

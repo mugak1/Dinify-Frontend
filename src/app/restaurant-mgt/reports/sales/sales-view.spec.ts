@@ -17,11 +17,11 @@ import {
 
 describe('sales-view (pure)', () => {
   describe('salesBucketView', () => {
-    it('maps each bucket to its source + breakdown title (month & year → monthly)', () => {
+    it('maps each bucket to its source + breakdown title (year → annual)', () => {
       expect(salesBucketView('hour')).toEqual({ source: 'hourly', tableTitle: 'Hourly breakdown' });
       expect(salesBucketView('day')).toEqual({ source: 'daily', tableTitle: 'Daily breakdown' });
       expect(salesBucketView('month')).toEqual({ source: 'monthly', tableTitle: 'Monthly breakdown' });
-      expect(salesBucketView('year')).toEqual({ source: 'monthly', tableTitle: 'Monthly breakdown' });
+      expect(salesBucketView('year')).toEqual({ source: 'annual', tableTitle: 'Yearly breakdown' });
     });
   });
 
@@ -52,6 +52,13 @@ describe('sales-view (pure)', () => {
     it('labels monthly aggregate rows as "MMM yyyy"', () => {
       const rows: SalesAggregateRow[] = [{ period: '2026-06', orders: 300, revenue: 50000, discount: 5000 }];
       expect(normalizeSeries(rows, 'month')[0].label).toBe('Jun 2026');
+    });
+
+    it('labels annual (year-bucket) aggregate rows as "yyyy"', () => {
+      const rows: SalesAggregateRow[] = [{ period: '2024', orders: 30000, revenue: 5_000_000, discount: 500_000 }];
+      const [p] = normalizeSeries(rows, 'year');
+      expect(p.label).toBe('2024');
+      expect(p.key).toBe('2024');
     });
   });
 
