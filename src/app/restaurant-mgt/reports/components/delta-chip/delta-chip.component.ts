@@ -13,29 +13,31 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    @if (hasBaseline) {
-      <span
-        class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium border tabular-nums whitespace-nowrap"
-        [class]="
-          positive
-            ? 'bg-success/10 text-success border-success/20'
-            : 'bg-destructive/10 text-destructive border-destructive/20'
-        "
-        [attr.aria-label]="ariaLabel"
-      >
-        <span aria-hidden="true">{{ up ? '▲' : '▼' }}</span>
-        {{ magnitude }}%
-        @if (label) {
-          <span class="text-muted-foreground font-normal hidden md:inline">{{ label }}</span>
-        }
-      </span>
-    } @else {
-      <span
-        class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-muted text-muted-foreground border border-border whitespace-nowrap"
-        aria-label="No prior period to compare"
-      >
-        New
-      </span>
+    @if (compareEnabled) {
+      @if (hasBaseline) {
+        <span
+          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium border tabular-nums whitespace-nowrap"
+          [class]="
+            positive
+              ? 'bg-success/10 text-success border-success/20'
+              : 'bg-destructive/10 text-destructive border-destructive/20'
+          "
+          [attr.aria-label]="ariaLabel"
+        >
+          <span aria-hidden="true">{{ up ? '▲' : '▼' }}</span>
+          {{ magnitude }}%
+          @if (label) {
+            <span class="text-muted-foreground font-normal hidden md:inline">{{ label }}</span>
+          }
+        </span>
+      } @else {
+        <span
+          class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-muted text-muted-foreground border border-border whitespace-nowrap"
+          aria-label="No prior period to compare"
+        >
+          New
+        </span>
+      }
     }
   `,
 })
@@ -46,6 +48,8 @@ export class ReportDeltaChipComponent {
   @Input() invert = false;
   /** Optional trailing caption, e.g. 'vs last week'. */
   @Input() label = '';
+  /** When false, the chip renders nothing — the shell's "Compare" toggle is off. */
+  @Input() compareEnabled = true;
 
   get hasBaseline(): boolean {
     return isFinite(this.previous) && this.previous !== 0;

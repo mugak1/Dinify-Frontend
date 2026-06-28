@@ -5,6 +5,7 @@ import {
   HOURLY_MAX_DAYS,
   SALES_TRENDS_CAP_DAYS,
   comparisonRange,
+  comparisonRangeLabel,
   resolveTimeframe,
 } from './reports-timeframe';
 
@@ -165,6 +166,20 @@ describe('reports timeframe engine', () => {
         // …sitting immediately before the source range.
         expect(differenceInCalendarDays(parseISO(range.from), parseISO(comp.to))).toBe(1);
       }
+    });
+  });
+
+  describe('comparisonRangeLabel — toggle label for the comparison period', () => {
+    it('labels each preset by the period it compares against', () => {
+      expect(comparisonRangeLabel(presetToRange('today', NOW))).toBe('yesterday');
+      expect(comparisonRangeLabel(presetToRange('yesterday', NOW))).toBe('the previous day');
+      expect(comparisonRangeLabel(presetToRange('this-week', NOW))).toBe('last week');
+      expect(comparisonRangeLabel(presetToRange('last-week', NOW))).toBe('the previous week');
+      // month/year compare against the FULL prior calendar month/year → its name.
+      expect(comparisonRangeLabel(presetToRange('this-month', NOW))).toBe('May');
+      expect(comparisonRangeLabel(presetToRange('last-month', NOW))).toBe('April');
+      expect(comparisonRangeLabel(presetToRange('this-year', NOW))).toBe('2025');
+      expect(comparisonRangeLabel(rangeOfSpan(13))).toBe('the previous period');
     });
   });
 

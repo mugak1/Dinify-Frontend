@@ -81,6 +81,8 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
 export class TransactionsReportComponent implements OnInit, OnDestroy {
   readonly exportColumns = LISTING_COLUMNS;
   readonly fmt = formatUGX;
+  /** Shared "compare to previous period" toggle — gates the delta chips. */
+  readonly compareEnabled$ = this.reports.compareEnabled$;
 
   // Summary (range-aggregate).
   summaryReady = false;

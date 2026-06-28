@@ -1,3 +1,5 @@
+@let compareOn = (compareEnabled$ | async) ?? true;
+
 <header class="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
   <div>
     <h1 class="text-2xl font-semibold text-gray-900">Diners</h1>
@@ -25,6 +27,7 @@
             [current]="summary.identifiedDiners"
             [previous]="prevSummary?.identifiedDiners ?? 0"
             [label]="comparisonLabel"
+            [compareEnabled]="compareOn"
           ></app-report-delta-chip>
         </div>
         <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ summary.identifiedDiners | number }}</p>
@@ -40,6 +43,7 @@
             [current]="summary.repeatDiners"
             [previous]="prevSummary?.repeatDiners ?? 0"
             [label]="comparisonLabel"
+            [compareEnabled]="compareOn"
           ></app-report-delta-chip>
         </div>
         <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ summary.repeatDiners | number }}</p>
@@ -55,6 +59,7 @@
             [current]="summary.guestOrders"
             [previous]="prevSummary?.guestOrders ?? 0"
             [label]="comparisonLabel"
+            [compareEnabled]="compareOn"
           ></app-report-delta-chip>
         </div>
         <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ summary.guestOrders | number }}</p>
@@ -70,6 +75,7 @@
             [current]="summary.avgSpendPerDiner"
             [previous]="prevSummary?.avgSpendPerDiner ?? 0"
             [label]="comparisonLabel"
+            [compareEnabled]="compareOn"
           ></app-report-delta-chip>
         </div>
         <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ fmt(summary.avgSpendPerDiner) }}</p>

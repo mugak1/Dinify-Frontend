@@ -60,6 +60,8 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
 export class MenuReportComponent implements OnInit, OnDestroy {
   readonly exportColumns = ITEM_COLUMNS;
   readonly fmt = formatUGX;
+  /** Shared "compare to previous period" toggle — gates the delta chips. */
+  readonly compareEnabled$ = this.reports.compareEnabled$;
 
   ready = false;
   state: ReportStateMode = 'loading';

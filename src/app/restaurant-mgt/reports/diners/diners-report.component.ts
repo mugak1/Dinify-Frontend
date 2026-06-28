@@ -72,6 +72,8 @@ export class DinersReportComponent implements OnInit, OnDestroy {
   readonly exportColumns = EXPORT_COLUMNS;
   readonly fmt = formatUGX;
   readonly rate = repeatRate;
+  /** Shared "compare to previous period" toggle — gates the delta chips. */
+  readonly compareEnabled$ = this.reports.compareEnabled$;
 
   // Summary (range-aggregate, full range).
   summaryReady = false;

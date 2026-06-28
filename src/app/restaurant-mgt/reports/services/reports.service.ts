@@ -74,6 +74,14 @@ export class ReportsService {
   /** Shared, persisted preset date range (survives report switches AND sessions). */
   dateRange$!: PersistedBehaviorSubject<ReportDateRange>;
 
+  /**
+   * Shared, persisted "compare to previous period" toggle. Default `true` preserves
+   * the original always-on behaviour; when `false` every surface hides its comparison
+   * UI (the Sales ghost line + all delta chips). Keyed per-restaurant, exactly like
+   * `dateRange$`, so it survives report switches AND sessions.
+   */
+  compareEnabled$!: PersistedBehaviorSubject<boolean>;
+
   constructor(
     private api: ApiService,
     private localStorage: LocalStorageService,
@@ -83,6 +91,11 @@ export class ReportsService {
       storage: this.localStorage,
       getKey: () => `reports.dateRange:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
       validate: isValidReportDateRange,
+    });
+    this.compareEnabled$ = new PersistedBehaviorSubject<boolean>(true, {
+      storage: this.localStorage,
+      getKey: () => `reports.compareEnabled:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
+      validate: (v): v is boolean => typeof v === 'boolean',
     });
   }
 

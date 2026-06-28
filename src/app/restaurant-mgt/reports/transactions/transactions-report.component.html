@@ -1,3 +1,5 @@
+@let compareOn = (compareEnabled$ | async) ?? true;
+
 <header class="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
   <div>
     <h1 class="text-2xl font-semibold text-gray-900">Transactions</h1>
@@ -25,6 +27,7 @@
             [current]="metrics.count"
             [previous]="prevMetrics?.count ?? 0"
             [label]="comparisonLabel"
+            [compareEnabled]="compareOn"
           ></app-report-delta-chip>
         </div>
         <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ metrics.count | number }}</p>
@@ -39,6 +42,7 @@
             [current]="metrics.gross"
             [previous]="prevMetrics?.gross ?? 0"
             [label]="comparisonLabel"
+            [compareEnabled]="compareOn"
           ></app-report-delta-chip>
         </div>
         <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ fmt(metrics.gross) }}</p>
@@ -53,6 +57,7 @@
             [current]="metrics.avgTicket"
             [previous]="prevMetrics?.avgTicket ?? 0"
             [label]="comparisonLabel"
+            [compareEnabled]="compareOn"
           ></app-report-delta-chip>
         </div>
         <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ fmt(metrics.avgTicket) }}</p>
@@ -68,6 +73,7 @@
             [previous]="prevMetrics?.refunds ?? 0"
             [invert]="true"
             [label]="comparisonLabel"
+            [compareEnabled]="compareOn"
           ></app-report-delta-chip>
         </div>
         <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ fmt(metrics.refunds) }}</p>

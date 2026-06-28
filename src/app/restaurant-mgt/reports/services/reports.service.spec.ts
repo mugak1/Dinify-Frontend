@@ -44,6 +44,19 @@ describe('ReportsService', () => {
     expect(value).toEqual(range);
   });
 
+  it('seeds the compare toggle on (preserving the always-on default)', () => {
+    expect(service.compareEnabled$.value).toBeTrue();
+  });
+
+  it('persists the compare toggle, keyed by restaurant, when it changes', () => {
+    service.compareEnabled$.next(false);
+
+    expect(setItem).toHaveBeenCalled();
+    const [key, value] = setItem.calls.mostRecent().args;
+    expect(key).toBe('reports.compareEnabled:r1');
+    expect(value).toBeFalse();
+  });
+
   it('returns mock sales aggregate rows after the simulated latency', fakeAsync(() => {
     let rows: any = null;
     service.getSalesAggregate('r1', '2026-06-01', '2026-06-07', 'daily').subscribe((res) => {

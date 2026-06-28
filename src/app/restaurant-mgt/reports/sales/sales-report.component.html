@@ -1,3 +1,5 @@
+@let compareOn = (compareEnabled$ | async) ?? true;
+
 <header class="mb-4 sm:mb-6">
   <h1 class="text-2xl font-semibold text-gray-900">Sales</h1>
   <p class="text-sm text-gray-500 mt-1">Your sales for the selected period.</p>
@@ -13,18 +15,20 @@
       [refunds]="refunds"
       [previousRefunds]="prevRefunds"
       [comparisonLabel]="comparisonLabel"
+      [compareEnabled]="compareOn"
     ></app-sales-hero>
     <app-revenue-trend-card
       class="block lg:col-span-2"
       [points]="trendPoints"
       [comparisonPoints]="trendComparisonPoints"
       [comparisonLabel]="comparisonLabel"
+      [compareEnabled]="compareOn"
     ></app-revenue-trend-card>
   </div>
 
   <!-- KPI rail -->
   <div class="mb-4 sm:mb-6">
-    <app-sales-kpi-rail [points]="kpiPoints" [current]="current" [previous]="previous"></app-sales-kpi-rail>
+    <app-sales-kpi-rail [points]="kpiPoints" [current]="current" [previous]="previous" [compareEnabled]="compareOn"></app-sales-kpi-rail>
   </div>
 
   <!-- Cycles: weekday (when meaningful) + hour-of-day -->
