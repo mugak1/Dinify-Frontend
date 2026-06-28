@@ -13,6 +13,7 @@ import { ConfirmDialogService } from '../../../_common/confirm-dialog.service';
 import { ConnectivityService } from '../../../_services/connectivity.service';
 import { BasketItem } from '../../../_models/app.models';
 import { BasketBodyComponent } from './basket-body.component';
+import { MenuNavStateService } from '../../menu/menu-nav-state.service';
 
 describe('BasketBodyComponent', () => {
   let component: BasketBodyComponent;
@@ -153,7 +154,8 @@ describe('BasketBodyComponent', () => {
   });
 
   // ── ongoing-order block (table already has an un-served order) ────────────
-  it('blocks checkout on an initiate 400 ongoing-order: latches blocked state, no navigation', () => {
+  it('blocks checkout on an initiate 400 ongoing-order: sets the shared flag, no navigation', () => {
+    const navState = TestBed.inject(MenuNavStateService);
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(
       throwError(() => ({
@@ -168,16 +170,17 @@ describe('BasketBodyComponent', () => {
     // The reject is on initiate/, before any submit — so we never navigate.
     expect(api.postPatch).toHaveBeenCalledTimes(1);
     expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
-    expect(component.ongoingOrderBlocked).toBeTrue();
+    expect(navState.tableOngoingOrder()).toBeTrue();
     expect(component.tableHasOngoingOrder).toBeTrue();
     expect(component.placingOrder).toBeFalse();
     expect(component.orderError).toBeFalse();
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
-  it('refuses to initiate when the scanned table already carries an ongoing order', () => {
+  it('refuses to initiate when the table already has an ongoing order', () => {
+    const navState = TestBed.inject(MenuNavStateService);
     basket.items = [lineItem()];
-    component.table = { current_order: { ongoing: true, order_id: 'x' } } as any;
+    navState.setTableOngoingOrder(true);
 
     expect(component.tableHasOngoingOrder).toBeTrue();
 

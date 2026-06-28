@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ApiService } from 'src/app/_services/api.service';
 import { OrderCompleteComponent } from './order-complete.component';
@@ -96,6 +96,26 @@ describe('OrderCompleteComponent', () => {
   it('formats the order number identically to the kitchen (3-digit, leading #)', () => {
     component.orderNumber.set(7);
     expect(component.orderNumberLabel()).toBe('#007');
+  });
+
+  it('shows a working back-to-menu action on the thank-you screen', () => {
+    const router = TestBed.inject(Router);
+    const navSpy = spyOn(router, 'navigate').and.stub();
+    component.orderId.set('order-1');
+    component.overall.set(5);
+    api.postPatch.and.returnValue(of({}) as any);
+
+    component.submitReview();
+    expect(component.submitted()).toBeTrue();
+    fixture.detectChanges();
+
+    const back = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ).find(b => (b.textContent ?? '').trim().toLowerCase() === 'back to menu');
+    expect(back).toBeTruthy();
+
+    back!.click();
+    expect(navSpy).toHaveBeenCalled();
   });
 
   it('re-enables submit and keeps the form on error (the global toast owns the message)', () => {

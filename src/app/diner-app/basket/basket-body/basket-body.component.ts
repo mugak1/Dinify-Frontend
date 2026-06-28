@@ -13,6 +13,7 @@ import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
 import { ConnectivityService } from '../../../_services/connectivity.service';
 import { PriceDisplayComponent } from '../../../_shared/ui/price-display/price-display.component';
 import { OngoingOrderBannerComponent } from '../../ongoing-order-banner/ongoing-order-banner.component';
+import { MenuNavStateService } from '../../menu/menu-nav-state.service';
 
 @Component({
     selector: 'app-basket-body',
@@ -35,10 +36,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   orderErrorMessage = '';
   /** True while a placement round-trip is in flight — disables the CTA. */
   placingOrder = false;
-  /** Set when the backend rejects an order because the table already has an
-   *  ongoing one (initiate 400). Latches the blocked state even if the table
-   *  was empty at scan time (e.g. the diner just placed their first order). */
-  ongoingOrderBlocked = false;
 
   restaurant: any;
   url = environment.apiUrl;
@@ -67,12 +64,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.totalAmount + this.getTotalSavings();
   }
 
-  /** True when the table already has an order still working through the kitchen —
-   *  either from the table-scan payload (someone ordered before this diner shopped)
-   *  or latched after an initiate 400. Blocks checkout: the backend rejects a
-   *  second order until the first is served. */
+  /** True when the table already has an order still working through the kitchen.
+   *  Reads the shared live signal (kept fresh by the shell's poll, and set to
+   *  true on an initiate 400), so checkout re-enables automatically once the
+   *  kitchen serves the order — no refresh needed. */
   get tableHasOngoingOrder(): boolean {
-    return !!this.table?.current_order?.ongoing || this.ongoingOrderBlocked;
+    return this.navState.tableOngoingOrder();
   }
 
   constructor(
@@ -83,7 +80,8 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     private dialog: ConfirmDialogService,
     private router: Router,
     private toast: ToastService,
-    private connectivity: ConnectivityService
+    private connectivity: ConnectivityService,
+    private navState: MenuNavStateService
   ) {
     this.table = this.sessionStorage.getItem<TableScan>('Table');
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
@@ -330,10 +328,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // The table already has an order working through the kitchen. The backend
         // rejects the new one with HTTP 400 { message, data:{ order_id } }; the
         // ErrorInterceptor forwards this one case as the structured body (every
-        // other error is a string). Latch the blocked state so the checkout CTA
-        // is replaced by the explanatory ongoing-order banner + a disabled button.
+        // other error is a string). Push the just-learned truth into the shared
+        // live signal so the checkout CTA is replaced by the explanatory
+        // ongoing-order banner + disabled button (the shell's poll then keeps it
+        // accurate and clears it once the kitchen serves the order).
         if (error?.status === 400 && typeof error?.data?.order_id === 'string') {
-          this.ongoingOrderBlocked = true;
+          this.navState.setTableOngoingOrder(true);
           this.toast.clear();
           this.placingOrder = false;
           return;
