@@ -12,13 +12,14 @@ import { environment } from 'src/environments/environment';
 import { menuItemUrl } from '../../menu-item-detail/menu-item-url';
 import { ConnectivityService } from '../../../_services/connectivity.service';
 import { PriceDisplayComponent } from '../../../_shared/ui/price-display/price-display.component';
+import { OngoingOrderBannerComponent } from '../../ongoing-order-banner/ongoing-order-banner.component';
 
 @Component({
     selector: 'app-basket-body',
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],
     standalone: true,
-    imports: [CommonModule, PriceDisplayComponent]
+    imports: [CommonModule, PriceDisplayComponent, OngoingOrderBannerComponent]
 })
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   table?: TableScan|any;
@@ -34,6 +35,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   orderErrorMessage = '';
   /** True while a placement round-trip is in flight — disables the CTA. */
   placingOrder = false;
+  /** Set when the backend rejects an order because the table already has an
+   *  ongoing one (initiate 400). Latches the blocked state even if the table
+   *  was empty at scan time (e.g. the diner just placed their first order). */
+  ongoingOrderBlocked = false;
 
   restaurant: any;
   url = environment.apiUrl;
@@ -60,6 +65,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *  with the per-line getSubtotal(item). */
   get cartSubtotal(): number {
     return this.totalAmount + this.getTotalSavings();
+  }
+
+  /** True when the table already has an order still working through the kitchen —
+   *  either from the table-scan payload (someone ordered before this diner shopped)
+   *  or latched after an initiate 400. Blocks checkout: the backend rejects a
+   *  second order until the first is served. */
+  get tableHasOngoingOrder(): boolean {
+    return !!this.table?.current_order?.ongoing || this.ongoingOrderBlocked;
   }
 
   constructor(
@@ -234,6 +247,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   // confirm dialog) and surface the inline error straight away — the ambient
   // offline strip already explains why.
   initiateOrder() {
+    // Hard stop: the table already has an order in the kitchen. The CTA is
+    // disabled in this state, so this is just defense in depth.
+    if (this.tableHasOngoingOrder) return;
     if (this.connectivity.isOffline()) {
       this.failOrder("You're offline — reconnect to place your order.");
       return;
@@ -308,11 +324,24 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.placingOrder = false;
         }
       },
-      (_error) => {
+      (error) => {
+        this.dialog.closeModal();
+
+        // The table already has an order working through the kitchen. The backend
+        // rejects the new one with HTTP 400 { message, data:{ order_id } }; the
+        // ErrorInterceptor forwards this one case as the structured body (every
+        // other error is a string). Latch the blocked state so the checkout CTA
+        // is replaced by the explanatory ongoing-order banner + a disabled button.
+        if (error?.status === 400 && typeof error?.data?.order_id === 'string') {
+          this.ongoingOrderBlocked = true;
+          this.toast.clear();
+          this.placingOrder = false;
+          return;
+        }
+
         // Genuine failure (lost signal, 5xx, etc). The ErrorInterceptor already
         // queued the raw message as a toast; failOrder() clears it and shows one
         // clean, friendly message inline at the button instead.
-        this.dialog.closeModal();
         this.failOrder();
       }
     );
@@ -412,44 +441,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.basketService.clearBasket(); // Clear the basket
         this.sessionStorage.clear();
       },
-      (error) => {
+      (_error) => {
+        // submit/ only runs after a successful initiate/, which already passed
+        // the table-gate — so it can't carry the ongoing-order 400 (that's
+        // handled in placeOrder()). Any failure here is genuine: surface the
+        // inline error + Retry at the footer.
         this.dialog.closeModal();
-
-        // ── TEMP/TODO(orders-module): ongoing-order dev shim ──────────────────
-        // When orders/submit/ fails with HTTP 400 because the table already has
-        // an ongoing order, the backend returns that order's id at data.order_id.
-        // The ErrorInterceptor forwards this one case as the structured body (it
-        // strips every other error down to a string), so detect it here and treat
-        // it as a soft success: run the SAME post-submit path as the success
-        // branch above (forward the table, clear the basket, replaceUrl), using
-        // the returned order_id as the reference. There is no UI yet to view or
-        // close orders; remove this block (and its twin in error.interceptor.ts)
-        // when the orders module lands.
-        const ongoingOrderId = error?.data?.order_id;
-        if (
-          error?.status === 400 &&
-          typeof ongoingOrderId === 'string' &&
-          ongoingOrderId.trim().length > 0
-        ) {
-          this.router.navigate(['/diner', 'basket', 'order-complete'], {
-            replaceUrl: true,
-            state: {
-              tableNumber: this.table?.number ?? null,
-              tableId: this.table?.id ?? null,
-              orderRef: ongoingOrderId,
-              // Forward the order id too so a review can be left on this path.
-              orderId: ongoingOrderId,
-              socials: this.restaurant?.socials ?? null,
-            },
-          });
-          this.basketService.clearBasket();
-          this.sessionStorage.clear();
-          return;
-        }
-        // ── end TEMP shim ─────────────────────────────────────────────────────
-
-        // Genuine submit failure (non-400, or a 400 without an ongoing-order id):
-        // surface the inline error + Retry at the footer instead of the banner.
         this.failOrder();
       }
     );

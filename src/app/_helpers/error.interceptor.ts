@@ -61,21 +61,17 @@ export class ErrorInterceptor implements HttpInterceptor {
                     return throwError(() => denial);
                 }
 
-                // ── TEMP/TODO(orders-module): ongoing-order dev shim ───────────────
-                // orders/submit/ returns HTTP 400 { status, message, data:{ order_id } }
-                // when the table already has an ongoing order. There is no UI yet to
-                // view/close orders, so the basket treats this single case as a soft
-                // success and routes the diner to order-complete (see
-                // basket-body.component.ts submitOrder()). Forward the structured body
-                // untouched — and do NOT toast it, since it is handled as success — so
-                // the component can read order_id. Scoped to orders/submit so every
-                // other error keeps the string + toast behaviour below. Delete this
-                // block (and its twin in basket-body.component.ts) when the orders
-                // module lands.
-                if (request.url.includes('orders/submit') && err.status === 400 && err.error?.data?.order_id) {
+                // Ongoing-order block: orders/initiate/ returns HTTP 400
+                // { status, message, data:{ order_id } } when the table already has an
+                // order that hasn't cleared the kitchen. Forward the structured body
+                // untouched — and do NOT toast it — so the basket can read order_id,
+                // latch its blocked state and render the explanatory banner inline
+                // (see basket-body.component.ts placeOrder()). Scoped to
+                // orders/initiate so every other error keeps the string + toast
+                // behaviour below.
+                if (request.url.includes('orders/initiate') && err.status === 400 && err.error?.data?.order_id) {
                     return throwError(() => err.error);
                 }
-                // ── end TEMP shim ──────────────────────────────────────────────────
 
                 const error = err.error?.message || err.statusText;
                 if (error) {

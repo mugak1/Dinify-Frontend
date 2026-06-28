@@ -353,11 +353,11 @@ describe('ErrorInterceptor', () => {
       req.flush({});
     });
 
-    it('forwards the structured body (not a string) and shows no toast for the orders/submit 400 ongoing-order shim', (done) => {
-      httpClient.post('/api/v1/orders/submit/', {}).subscribe({
+    it('forwards the structured body (not a string) and shows no toast for the orders/initiate 400 ongoing-order block', (done) => {
+      httpClient.post('/api/v2/orders/initiate/', {}).subscribe({
         error: (err) => {
-          // The basket soft-success path reads err.data.order_id, so the interceptor
-          // must rethrow the structured body untouched and must NOT toast it.
+          // The basket reads err.data.order_id to latch its blocked state, so the
+          // interceptor must rethrow the structured body untouched and must NOT toast it.
           expect(err).toEqual(
             jasmine.objectContaining({ data: jasmine.objectContaining({ order_id: 'existing-123' }) })
           );
@@ -366,9 +366,9 @@ describe('ErrorInterceptor', () => {
         }
       });
 
-      const req = httpMock.expectOne('/api/v1/orders/submit/');
+      const req = httpMock.expectOne('/api/v2/orders/initiate/');
       req.flush(
-        { status: 400, message: 'Table already has an ongoing order', data: { order_id: 'existing-123' } },
+        { status: 400, message: 'The table has an ongoing order', data: { order_id: 'existing-123' } },
         { status: 400, statusText: 'Bad Request' }
       );
     });

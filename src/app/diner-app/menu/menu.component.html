@@ -84,6 +84,13 @@
   <app-menu-nav-bar [frosted]="true"></app-menu-nav-bar>
 </div>
 
+<!-- Heads-up: the scanned table already has an order still working through the
+     kitchen, so a new order can't be placed yet (the basket checkout is blocked
+     too). Sits at the top of the menu content; scrolls away as the diner browses. -->
+<div *ngIf="tableHasOngoingOrder" class="px-4 pt-3">
+  <app-ongoing-order-banner></app-ongoing-order-banner>
+</div>
+
 <!-- Rest-app embed (staff ordering): no diner shell or hero — keep the original
      opaque, independently-sticky nav-bar (its own 49px offset + hairline). -->
 <app-menu-nav-bar *ngIf="isInRestApp" [stickyTop]="'49px'" [frosted]="false"></app-menu-nav-bar>

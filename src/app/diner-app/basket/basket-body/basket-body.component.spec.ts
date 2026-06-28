@@ -152,22 +152,39 @@ describe('BasketBodyComponent', () => {
     expect((api.postPatch.calls.argsFor(1)[1] as any).client_order_id).toBe(CLIENT_ID);
   });
 
-  it('keeps the 400 ongoing-order shim: soft-success navigates to order-complete and shows no inline error', () => {
-    component.order_initiated = { order_details: { id: 'o1' } } as any;
+  // ── ongoing-order block (table already has an un-served order) ────────────
+  it('blocks checkout on an initiate 400 ongoing-order: latches blocked state, no navigation', () => {
+    basket.items = [lineItem()];
     api.postPatch.and.returnValue(
-      throwError(() => ({ status: 400, data: { order_id: 'existing-123' } })) as any,
+      throwError(() => ({
+        status: 400,
+        message: 'The table has an ongoing order',
+        data: { order_id: 'existing-123' },
+      })) as any,
     );
 
-    component.submitOrder();
+    component.initiateOrder();
 
-    expect(router.navigate).toHaveBeenCalledWith(
-      ['/diner', 'basket', 'order-complete'],
-      jasmine.objectContaining({
-        state: jasmine.objectContaining({ orderRef: 'existing-123', orderId: 'existing-123' }),
-      }),
-    );
-    expect(basketService.clearBasket).toHaveBeenCalled();
+    // The reject is on initiate/, before any submit — so we never navigate.
+    expect(api.postPatch).toHaveBeenCalledTimes(1);
+    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
+    expect(component.ongoingOrderBlocked).toBeTrue();
+    expect(component.tableHasOngoingOrder).toBeTrue();
+    expect(component.placingOrder).toBeFalse();
     expect(component.orderError).toBeFalse();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('refuses to initiate when the scanned table already carries an ongoing order', () => {
+    basket.items = [lineItem()];
+    component.table = { current_order: { ongoing: true, order_id: 'x' } } as any;
+
+    expect(component.tableHasOngoingOrder).toBeTrue();
+
+    component.initiateOrder();
+
+    expect(dialog.openModal).not.toHaveBeenCalled();
+    expect(api.postPatch).not.toHaveBeenCalled();
   });
 
   it('forwards the real order id to order-complete on a successful submit', () => {
