@@ -1,3 +1,5 @@
+@let compareOn = (compareEnabled$ | async) ?? true;
+
 <header class="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
   <div>
     <h1 class="text-2xl font-semibold text-gray-900">Menu performance</h1>
@@ -23,6 +25,7 @@
       [current]="current.units"
       [previous]="previous?.units ?? 0"
       [comparisonLabel]="comparisonLabel"
+      [compareEnabled]="compareOn"
     ></app-menu-stat-card>
     <app-menu-stat-card
       label="Menu revenue"
@@ -30,6 +33,7 @@
       [current]="current.revenue"
       [previous]="previous?.revenue ?? 0"
       [comparisonLabel]="comparisonLabel"
+      [compareEnabled]="compareOn"
     ></app-menu-stat-card>
     <app-menu-stat-card
       label="Avg item price"
@@ -37,6 +41,7 @@
       [current]="current.avgPrice"
       [previous]="previous?.avgPrice ?? 0"
       [comparisonLabel]="comparisonLabel"
+      [compareEnabled]="compareOn"
     ></app-menu-stat-card>
     <app-menu-stat-card
       label="Active items"

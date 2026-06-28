@@ -25,6 +25,7 @@ import { EMPTY_TOTALS, SalesTotals } from './sales-view';
             [current]="net"
             [previous]="prevNet"
             [label]="comparisonLabel"
+            [compareEnabled]="compareEnabled"
           ></app-report-delta-chip>
         </div>
 
@@ -33,7 +34,7 @@ import { EMPTY_TOTALS, SalesTotals } from './sales-view';
             <dt class="text-sm text-gray-600">Gross sales</dt>
             <dd class="flex items-center gap-2">
               <span class="text-sm font-medium text-gray-900 tabular-nums">{{ fmt(current.gross) }}</span>
-              <app-report-delta-chip [current]="current.gross" [previous]="prevGross"></app-report-delta-chip>
+              <app-report-delta-chip [current]="current.gross" [previous]="prevGross" [compareEnabled]="compareEnabled"></app-report-delta-chip>
             </dd>
           </div>
 
@@ -45,6 +46,7 @@ import { EMPTY_TOTALS, SalesTotals } from './sales-view';
                 [current]="current.discounts"
                 [previous]="prevDiscounts"
                 [invert]="true"
+                [compareEnabled]="compareEnabled"
               ></app-report-delta-chip>
             </dd>
           </div>
@@ -60,6 +62,7 @@ import { EMPTY_TOTALS, SalesTotals } from './sales-view';
                 [current]="refunds"
                 [previous]="previousRefunds"
                 [invert]="true"
+                [compareEnabled]="compareEnabled"
               ></app-report-delta-chip>
             </dd>
           </div>
@@ -79,6 +82,8 @@ export class SalesHeroComponent {
   @Input() refunds = 0;
   @Input() previousRefunds = 0;
   @Input() comparisonLabel = '';
+  /** Forwarded to every delta chip — false hides them (shell "Compare" toggle off). */
+  @Input() compareEnabled = true;
 
   readonly fmt = formatUGX;
 

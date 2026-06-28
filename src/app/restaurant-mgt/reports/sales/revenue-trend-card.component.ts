@@ -27,7 +27,7 @@ const BEST = 'hsl(142, 71%, 45%)';
           <h2 class="text-base font-semibold text-gray-900">Revenue trend</h2>
           <div class="flex items-center gap-3 text-xs text-gray-500">
             <span class="inline-flex items-center gap-1"><span class="w-3 h-0.5 rounded" [style.background]="brand"></span>This period</span>
-            @if (comparisonPoints.length) {
+            @if (compareEnabled && comparisonPoints.length) {
               <span class="inline-flex items-center gap-1"><span class="w-3 border-t border-dashed border-gray-400"></span>{{ comparisonLabel }}</span>
             }
           </div>
@@ -55,6 +55,8 @@ export class RevenueTrendCardComponent implements OnChanges {
   @Input() points: SalesPoint[] = [];
   @Input() comparisonPoints: SalesPoint[] = [];
   @Input() comparisonLabel = 'Previous period';
+  /** When false, the dashed comparison "ghost" line + its legend are hidden. */
+  @Input() compareEnabled = true;
 
   readonly brand = BRAND;
   data: ChartData<'line'> = { labels: [], datasets: [] };
@@ -63,7 +65,8 @@ export class RevenueTrendCardComponent implements OnChanges {
   ngOnChanges(): void {
     const labels = this.points.map((p) => p.label);
     const main = this.points.map((p) => p.revenue);
-    const ghost = this.comparisonPoints.map((p) => p.revenue);
+    // Compare off → empty ghost series so the dashed comparison line draws nothing.
+    const ghost = (this.compareEnabled ? this.comparisonPoints : []).map((p) => p.revenue);
     const avg = main.length ? main.reduce((a, b) => a + b, 0) / main.length : 0;
 
     const best = bestPoint(this.points);

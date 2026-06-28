@@ -25,6 +25,7 @@ import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.co
               [previous]="previous"
               [invert]="invert"
               [label]="comparisonLabel"
+              [compareEnabled]="compareEnabled"
             ></app-report-delta-chip>
           }
         </div>
@@ -47,6 +48,8 @@ export class MenuStatCardComponent {
   @Input() previous = 0;
   @Input() invert = false;
   @Input() comparisonLabel = '';
+  /** Forwarded to the delta chip — false hides it (shell "Compare" toggle off). */
+  @Input() compareEnabled = true;
   @Input() subtext = '';
   @Input() caption = '';
 }

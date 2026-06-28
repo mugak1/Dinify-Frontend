@@ -48,4 +48,13 @@ describe('ReportDeltaChipComponent', () => {
     expect(component.positive).toBeTrue(); // but it is the good outcome → green
     expect(fixture.nativeElement.querySelector('span').className).toContain('text-success');
   });
+
+  it('renders nothing when compare is disabled', () => {
+    component.current = 120;
+    component.previous = 100; // a real baseline that would otherwise show a delta
+    component.compareEnabled = false;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('span')).toBeNull();
+    expect(fixture.nativeElement.textContent.trim()).toBe('');
+  });
 });

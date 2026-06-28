@@ -155,3 +155,34 @@ export function comparisonRange(range: ReportDateRange): ReportDateRange {
     }
   }
 }
+
+/**
+ * Human label for the period `comparisonRange` compares against — drives the shell's
+ * "Compare to {label}" toggle. Preset-aware so the label reads naturally:
+ *   today                 → "yesterday"
+ *   this-week / last-week → "last week" / "the previous week"
+ *   this-month/last-month → the prior calendar month's name (e.g. "May")
+ *   this-year             → the prior calendar year (e.g. "2025")
+ *   custom (and fallback) → "the previous period"
+ * Consumes `comparisonRange` (single source of truth) for the month/year cases.
+ */
+export function comparisonRangeLabel(range: ReportDateRange): string {
+  switch (range.preset) {
+    case 'today':
+      return 'yesterday';
+    case 'yesterday':
+      return 'the previous day';
+    case 'this-week':
+      return 'last week';
+    case 'last-week':
+      return 'the previous week';
+    case 'this-month':
+    case 'last-month':
+      return format(parseISO(comparisonRange(range).from), 'MMMM');
+    case 'this-year':
+      return format(parseISO(comparisonRange(range).from), 'yyyy');
+    case 'custom':
+    default:
+      return 'the previous period';
+  }
+}

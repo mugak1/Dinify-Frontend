@@ -92,6 +92,8 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
   templateUrl: './sales-report.component.html',
 })
 export class SalesReportComponent implements OnInit, OnDestroy {
+  /** Shared "compare to previous period" toggle — gates the ghost line + delta chips. */
+  readonly compareEnabled$ = this.reports.compareEnabled$;
   ready = false;
   stateMode: ReportStateMode = 'loading';
   range: ReportDateRange | null = null;

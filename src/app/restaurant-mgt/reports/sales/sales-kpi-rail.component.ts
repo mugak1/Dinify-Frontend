@@ -36,6 +36,7 @@ interface KpiTile {
                 [current]="t.current"
                 [previous]="t.previous"
                 [invert]="t.invert"
+                [compareEnabled]="compareEnabled"
               ></app-report-delta-chip>
             </div>
             <p class="text-xl sm:text-2xl font-semibold text-gray-900 tabular-nums mt-1">{{ t.value }}</p>
@@ -56,6 +57,8 @@ export class SalesKpiRailComponent implements OnChanges {
   @Input() points: SalesPoint[] = [];
   @Input() current: SalesTotals = EMPTY_TOTALS;
   @Input() previous: SalesTotals | null = null;
+  /** Forwarded to every tile's delta chip — false hides them (shell "Compare" toggle off). */
+  @Input() compareEnabled = true;
 
   tiles: KpiTile[] = [];
 

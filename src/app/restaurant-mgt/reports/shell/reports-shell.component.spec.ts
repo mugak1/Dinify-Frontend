@@ -33,9 +33,9 @@ describe('ReportsShellComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders all four reports in both the rail and the mobile pills', () => {
+  it('renders all four reports as a single horizontal tab strip', () => {
     const links = fixture.nativeElement.querySelectorAll('a');
-    expect(links.length).toBe(component.reportNav.length * 2); // rail + pills
+    expect(links.length).toBe(component.reportNav.length); // one strip, no left rail
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Sales');
     expect(text).toContain('Menu performance');
@@ -53,5 +53,11 @@ describe('ReportsShellComponent', () => {
     const range: ReportDateRange = { preset: 'today', from: '2026-06-21', to: '2026-06-21' };
     component.onRange(range);
     expect(reports.dateRange$.next).toHaveBeenCalledWith(range);
+  });
+
+  it('pushes compare-toggle changes onto the shared subject', () => {
+    spyOn(reports.compareEnabled$, 'next');
+    component.onCompareToggle(false);
+    expect(reports.compareEnabled$.next).toHaveBeenCalledWith(false);
   });
 });
