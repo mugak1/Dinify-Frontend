@@ -40,6 +40,16 @@ export class MenuNavStateService {
   showSearch: WritableSignal<boolean> = signal(false);
   isLoading: WritableSignal<boolean> = signal(true);
 
+  /** Live "this table has an order still working through the kitchen" flag.
+   *  Owned by the diner shell (DinerAppComponent), which seeds it from the
+   *  table-scan and keeps it fresh by polling. The menu heads-up banner and the
+   *  basket checkout gate read this so they update without a manual refresh. */
+  private readonly _tableOngoingOrder: WritableSignal<boolean> = signal(false);
+  readonly tableOngoingOrder: Signal<boolean> = this._tableOngoingOrder.asReadonly();
+  setTableOngoingOrder(value: boolean): void {
+    this._tableOngoingOrder.set(value);
+  }
+
   /** Item sort mode applied to section items + the featured rail. Hydrated from
    *  the show-menu response (`item_sort_mode`) at each fetch site; `'manual'` =
    *  `listing_position` order. providedIn:'root' means it survives the warm

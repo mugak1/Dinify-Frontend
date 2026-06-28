@@ -178,5 +178,9 @@
       Your {{ overall() }}-star review is on its way to the team.
     </p>
     <app-star-rating [value]="overall()" [size]="22" [interactive]="false"></app-star-rating>
+    <button type="button" (click)="backToMenu()"
+            class="mt-8 inline-flex items-center justify-center h-[52px] px-8 rounded-2xl bg-d-red desktop-hover:bg-d-red-hover text-white font-sans font-bold text-[15.5px] shadow-[0_12px_24px_-10px_rgba(255,44,50,0.6)] transition-transform motion-safe:active:scale-[0.985]">
+      Back to menu
+    </button>
   </div>
 }

@@ -10,6 +10,7 @@ import { WINDOW } from '../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../_services/storage/storage-key-prefix.token';
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { DinerAppComponent } from './diner-app.component';
+import { MenuNavStateService } from './menu/menu-nav-state.service';
 
 describe('DinerAppComponent', () => {
   let component: DinerAppComponent;
@@ -136,6 +137,36 @@ describe('DinerAppComponent', () => {
     // The typed scan path still populates the restaurant fields off the response.
     expect(component.restaurant_name).toBe('Test Restaurant');
     expect(component.restaurant_id).toBe('r1');
+  });
+
+  it('publishes the ongoing-order flag to the shared signal on a valid scan', () => {
+    const navState = TestBed.inject(MenuNavStateService);
+    component.getTableDetails('good-id');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush({
+      data: {
+        id: 'good-id',
+        current_order: { ongoing: true, order_id: 'o1' },
+        restaurant: { id: 'r1', name: 'Test Restaurant', branding_configuration: {} },
+      },
+    });
+
+    expect(navState.tableOngoingOrder()).toBeTrue();
+  });
+
+  it('clears the shared ongoing-order flag when a scan shows no ongoing order', () => {
+    const navState = TestBed.inject(MenuNavStateService);
+    navState.setTableOngoingOrder(true);
+
+    component.getTableDetails('good-id');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush({
+      data: {
+        id: 'good-id',
+        current_order: { ongoing: false, order_id: null },
+        restaurant: { id: 'r1', name: 'Test Restaurant', branding_configuration: {} },
+      },
+    });
+
+    expect(navState.tableOngoingOrder()).toBeFalse();
   });
 
   it('renders the table chip with the table number on a valid scan', () => {
