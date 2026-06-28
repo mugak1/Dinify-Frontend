@@ -53,7 +53,7 @@ const TOP_N = 6;
                     <span class="text-sm font-semibold text-gray-900 tabular-nums shrink-0">{{ metricLabel(item) }}</span>
                   </div>
                   <div class="mt-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div class="h-full bg-primary/70 rounded-full transition-all" [style.width.%]="barWidth(item)"></div>
+                    <div class="h-full bg-success/70 rounded-full transition-all" [style.width.%]="barWidth(item)"></div>
                   </div>
                 </div>
                 <span class="w-12 shrink-0 text-right text-xs text-gray-500 tabular-nums">{{ item.pct | number: '1.0-1' }}%</span>

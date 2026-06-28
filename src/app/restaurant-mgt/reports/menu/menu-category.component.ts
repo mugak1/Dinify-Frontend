@@ -73,7 +73,7 @@ const GROUPINGS: { value: MenuGrouping; label: string }[] = [
               <div class="flex items-center gap-3">
                 <span class="w-24 sm:w-28 shrink-0 text-sm text-gray-700 truncate">{{ b.name }}</span>
                 <div class="flex-1 min-w-0 h-3.5 bg-muted rounded-full overflow-hidden">
-                  <div class="h-full bg-primary/70 rounded-full transition-all" [style.width.%]="b.pct"></div>
+                  <div class="h-full bg-success/70 rounded-full transition-all" [style.width.%]="b.pct"></div>
                 </div>
                 <span class="w-28 shrink-0 text-right text-sm tabular-nums text-gray-700">{{ fmt(b.revenue) }}</span>
               </div>
