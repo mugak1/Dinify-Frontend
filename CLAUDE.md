@@ -45,6 +45,18 @@ so keep it current when conventions change.
 - Menu polish pass: ✅ Complete — canonical `discount_details` shape, native
   `preset_tags` arrays, paginated menusections/menuitems, allergens rewired
   onto the `tags` field as the dietary-tag source of truth
+- Menu modifiers & extras: ✅ Complete — menu items carry modifier groups
+  (`MenuItem.options: ItemModifiers` = `{hasModifiers, groups: ModifierGroup[]}`)
+  and linked add-on extras (`has_extras` + `extras: MenuItemExtraRef[]`).
+  Operators edit them in the item form via two standalone tabs
+  (`ItemModifiersTabComponent`, `ItemExtrasTabComponent` inside the standalone
+  `ItemFormDialogComponent`); diners customise an item on the diner-app
+  `menu-item-detail` screen before it hits the basket, and the restaurant-portal
+  preview drawer (`PreviewMenuDrawerComponent`) mirrors the live diner UI. Both
+  the diner browse card and the preview drawer now render through one shared
+  `MenuDishCardComponent` (the single source of truth for the dish card).
+  Real-wired through the existing menu endpoints (`restaurant-setup/menuitems/`);
+  no dedicated mock flag (see Key Domain Concepts for the payload shape)
 - Kitchen View (KDS board): ✅ Complete — Phase 1 (mock board UI) and Phase 3
   (live order data) both done. Separate top-level lazy module at
   `src/app/kitchen/` (route `/kitchen`, AuthGuard-protected).
@@ -200,7 +212,8 @@ The module uses a deliberate mixed pattern — follow it exactly:
 ## Shared UI Component Library
 A shared component library lives in `src/app/_shared/ui/`:
 allergen-disclaimer, avatar (`app-dn-avatar`, initials-in-a-circle), badge,
-button, card, dialog, discount-badge, featured-carousel,
+button, card, dialog, discount-badge, extras-selector, featured-carousel,
+menu-dish-card, modifier-groups-selector,
 offline-banner, price-display, savings-indicator, sheet, switch (`app-dn-switch`;
 supports a `disabled` input for
 locked toggles, e.g. the Roles & access owner row), tabs, toast — plus the `tooltip` directive
@@ -218,6 +231,17 @@ formatted via the shared `formatUGX`; no item objects, discount-gate or fetch
 logic) and back item-detail, the menu card, the featured carousel and the basket
 from the canonical server-truth `discount_details`. Reuse them before
 hand-rolling any price / discount / savings markup.
+
+The menu / item-customisation surfaces share three more presentational
+components (all in `_shared/ui/`, re-exported from the barrel):
+`app-menu-dish-card` (the single source of truth for BOTH the diner browse card
+and the restaurant-portal preview drawer — takes pre-resolved
+name/price/discount/tags and emits one `(cardClick)`), `app-modifier-groups-selector`
+(the single/multi modifier-choice UI) and `app-extras-selector` (the "Add Extras"
+checkbox list). Like the price trio they are pure — the host owns all selection
+state, validation and inline-error text and feeds `selected`/`errors` in. Reuse
+them on both the diner item-detail and the preview drawer so the two surfaces
+never drift.
 
 Re-exports live in `src/app/_shared/ui/index.ts` — but the barrel does NOT
 re-export `FeaturedCarouselComponent`, the tooltip directive, or
@@ -276,7 +300,27 @@ writing new tag or price/menu logic:
   - `in_stock`: controls whether the item can be ordered. False = "Sold out" badge
 - These require separate UI controls and separate API calls
 - Dietary tags live on `MenuItem.tags` (allergens were rewired onto this
-  field). There is no separate `allergens` array on the model
+  field) — `tags` is the UI source of truth for the dietary/allergen pills. The
+  serializer shape still carries a legacy `allergens: string[]` field (mapped
+  through by `menu.service`), but it does NOT drive any dietary-tag UI — always
+  build tag pills off `tags`, never `allergens`
+- Menu items carry modifier groups + add-on extras (the diner customises an item
+  with these before it hits the basket):
+  - `MenuItem.options` is an `ItemModifiers` OBJECT
+    (`{hasModifiers, groups: ModifierGroup[]}`) on the model — it is
+    JSON-stringified ONLY in the save payload, never on the model. Normalise the
+    raw payload with `parseModifierGroups()` (in `_common/utils/modifier-utils.ts`:
+    drops unavailable choices, coerces `single`→max 1, derives `required` from
+    `minSelections > 0`) before rendering the selectors
+  - Extras are themselves MenuItems flagged `is_extra = true`; an item links its
+    applicable extras via `extras_applicable` (sent JSON-stringified) bounded by
+    `extras_min_selections` / `extras_max_selections`, and reads them back as the
+    hydrated `MenuItem.extras: MenuItemExtraRef[]`
+  - The shared selectors (`app-modifier-groups-selector` / `app-extras-selector`)
+    are pure — the host owns selection state + validation; `selectionConstraintPhrase()`
+    (same utils file) gives both surfaces identical "Select N" / "Select up to N"
+    wording. Validation is client-side on BOTH the operator item form and the
+    diner item-detail; the server validates shape but does not block
 - `discount_details` has a single canonical shape — do NOT introduce
   `raw_*` mirrors of its fields
 - `preset_tags` is sent to the backend as a native array, never a
