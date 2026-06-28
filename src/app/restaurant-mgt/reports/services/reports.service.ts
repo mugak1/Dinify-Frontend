@@ -108,7 +108,7 @@ export class ReportsService {
   ): Observable<ApiResponse<SalesAggregateRow[]>> {
     if (ReportsService.USE_MOCK_DATA) {
       return of({
-        data: getMockSalesAggregate(from, to, granularity),
+        data: getMockSalesAggregate(restaurantId, from, to, granularity),
       } as unknown as ApiResponse<SalesAggregateRow[]>).pipe(delay(600));
     }
     return this.api
@@ -163,7 +163,7 @@ export class ReportsService {
   ): Observable<ApiResponse<SalesHourlyRow[]>> {
     if (ReportsService.USE_MOCK_DATA) {
       return of({
-        data: getMockSalesHourly(from, to),
+        data: getMockSalesHourly(restaurantId, from, to),
       } as unknown as ApiResponse<SalesHourlyRow[]>).pipe(delay(600));
     }
     // No adapter: the sales-hourly keys (hour/count/revenue/discount) already match
