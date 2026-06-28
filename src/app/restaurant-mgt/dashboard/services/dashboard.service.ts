@@ -61,9 +61,9 @@ export class DashboardService {
     period: string,
   ): Observable<ApiResponse<DashboardV2Response>> {
     if (USE_MOCK_DATA) {
-      return of({ data: getMockDashboardData(period as DateRange) } as unknown as ApiResponse<DashboardV2Response>).pipe(
-        delay(600),
-      );
+      return of({
+        data: getMockDashboardData(restaurantId, dateFrom, dateTo, period as DateRange),
+      } as unknown as ApiResponse<DashboardV2Response>).pipe(delay(600));
     }
     return this.api.get<DashboardV2Response>(null, 'reports/restaurant/dashboard-v2/', {
       restaurant: restaurantId,

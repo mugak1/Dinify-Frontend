@@ -171,13 +171,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         break;
       case 'week': {
         const d = new Date(today);
-        d.setDate(d.getDate() - 7);
+        d.setDate(d.getDate() - 6); // inclusive of today → exactly 7 days (last 7)
         from = this.formatDate(d);
         break;
       }
       case 'month': {
         const d = new Date(today);
-        d.setDate(d.getDate() - 30);
+        d.setDate(d.getDate() - 29); // inclusive of today → exactly 30 days (last 30)
         from = this.formatDate(d);
         break;
       }
