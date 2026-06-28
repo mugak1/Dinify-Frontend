@@ -12,6 +12,9 @@ import {
   ReviewsSummaryResponse,
   TablesData,
 } from '../models/dashboard.models';
+import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
+import { DailyRevenueRow, dailyRevenue } from '../../../_shared/mock/daily-revenue';
+import { distributeByHour } from '../../../_shared/mock/hour-of-day';
 
 // ── Seeded PRNG (mulberry32) ─────────────────────────────
 // Keeps data stable across auto-refresh cycles within the same dateRange.
@@ -90,21 +93,6 @@ function getPatternMultiplier(dateRange: DateRange, index: number, total: number
   }
 }
 
-function getBaseRevenue(dateRange: DateRange): number {
-  switch (dateRange) {
-    case 'day':
-      return 200_000;
-    case 'week':
-      return 3_500_000;
-    case 'month':
-      return 3_500_000;
-    case 'ytd':
-      return 90_000_000;
-    default:
-      return 200_000;
-  }
-}
-
 function getScaleFactor(dateRange: DateRange): number {
   switch (dateRange) {
     case 'day':
@@ -120,38 +108,93 @@ function getScaleFactor(dateRange: DateRange): number {
   }
 }
 
-// ── 1. Revenue ───────────────────────────────────────────
-export function getMockRevenueData(dateRange: DateRange): RevenueData {
-  const rand = seededRandom(SEED_MAP[dateRange]);
-  const dates = generateDates(dateRange);
-  const base = getBaseRevenue(dateRange);
+// ── 1. Revenue (derived from the shared per-(restaurant,day) basis) ──
+// Every series + total aggregates the SAME daily rows the Reports mock uses, so an
+// identical {from,to} reconciles across both surfaces (mirroring live data). Windows
+// stay rolling — the component decides day/week/month/ytd; this only shapes the rows.
+function sumTotals(rows: DailyRevenueRow[]): RevenueTotals {
+  return rows.reduce(
+    (t, r) => ({
+      gross: t.gross + r.gross,
+      net: t.net + r.net,
+      discounts: t.discounts + r.discount,
+      refunds: t.refunds + r.refunds,
+    }),
+    { gross: 0, net: 0, discounts: 0, refunds: 0 },
+  );
+}
 
-  const series: RevenueSeriesPoint[] = dates.map((at, i) => {
-    const pattern = getPatternMultiplier(dateRange, i, dates.length);
-    const variance = 0.8 + rand() * 0.4;
-    const gross = Math.round(base * pattern * variance);
-    const net = Math.round(gross * 0.9);
-    const orders = Math.max(1, Math.round(gross / 25_000));
-    const aov = Math.round(net / orders);
-    return { at, gross, net, orders, aov };
-  });
+/** ISO datetime for a local-midnight day key (+ optional hour) — the legacy series `at` format. */
+function dayAtIso(date: string, hour = 0): string {
+  const d = parseISO(date);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
+}
 
-  const totalGross = series.reduce((sum, p) => sum + p.gross, 0);
-  const discounts = Math.round(totalGross * 0.08);
-  const refunds = Math.round(totalGross * 0.02);
-  const totalNet = totalGross - discounts - refunds;
+function aov(net: number, orders: number): number {
+  return orders > 0 ? Math.round(net / orders) : 0;
+}
 
-  const totals: RevenueTotals = { gross: totalGross, net: totalNet, discounts, refunds };
+function buildRevenueSeries(rows: DailyRevenueRow[], period: DateRange): RevenueSeriesPoint[] {
+  // day → spread the single day's totals across 24 hours; the points sum to the day total.
+  if (period === 'day') {
+    const day = rows[0];
+    if (!day) return [];
+    const oH = distributeByHour(day.orders);
+    const gH = distributeByHour(day.gross);
+    const nH = distributeByHour(day.net);
+    return oH.map((orders, h) => ({
+      at: dayAtIso(day.date, h),
+      gross: gH[h],
+      net: nH[h],
+      orders,
+      aov: aov(nH[h], orders),
+    }));
+  }
 
-  const prevFactor = 0.85 + rand() * 0.05;
-  const previous_totals: RevenueTotals = {
-    gross: Math.round(totalGross * prevFactor),
-    net: Math.round(totalNet * prevFactor),
-    discounts: Math.round(discounts * prevFactor),
-    refunds: Math.round(refunds * prevFactor),
+  // ytd → one point per calendar month (grouped-and-summed daily rows).
+  if (period === 'ytd') {
+    const months = new Map<string, RevenueSeriesPoint>();
+    for (const r of rows) {
+      const key = format(parseISO(r.date), 'yyyy-MM');
+      const p = months.get(key) ?? { at: dayAtIso(`${key}-01`), gross: 0, net: 0, orders: 0, aov: 0 };
+      p.gross += r.gross;
+      p.net += r.net;
+      p.orders += r.orders;
+      months.set(key, p);
+    }
+    return [...months.values()].map((p) => ({ ...p, aov: aov(p.net, p.orders) }));
+  }
+
+  // week / month → one point per daily row.
+  return rows.map((r) => ({
+    at: dayAtIso(r.date),
+    gross: r.gross,
+    net: r.net,
+    orders: r.orders,
+    aov: aov(r.net, r.orders),
+  }));
+}
+
+export function getMockRevenueData(
+  restaurantId: string,
+  from: string,
+  to: string,
+  period: DateRange,
+): RevenueData {
+  const rows = dailyRevenue(restaurantId, from, to);
+
+  // Real period-over-period: the equal-length window immediately preceding [from, to].
+  const len = Math.max(1, differenceInCalendarDays(parseISO(to), parseISO(from)) + 1);
+  const prevTo = subDays(parseISO(from), 1);
+  const prevFrom = subDays(prevTo, len - 1);
+  const prevRows = dailyRevenue(restaurantId, format(prevFrom, 'yyyy-MM-dd'), format(prevTo, 'yyyy-MM-dd'));
+
+  return {
+    series: buildRevenueSeries(rows, period),
+    totals: sumTotals(rows),
+    previous_totals: sumTotals(prevRows),
   };
-
-  return { series, totals, previous_totals };
 }
 
 // ── 2. Payment Methods ───────────────────────────────────
@@ -272,9 +315,14 @@ export function getMockReviewsData(): ReviewsSummaryResponse {
 }
 
 // ── 8. Composite ─────────────────────────────────────────
-export function getMockDashboardData(dateRange: DateRange): DashboardV2Response {
+export function getMockDashboardData(
+  restaurantId: string,
+  from: string,
+  to: string,
+  dateRange: DateRange,
+): DashboardV2Response {
   return {
-    revenue: getMockRevenueData(dateRange),
+    revenue: getMockRevenueData(restaurantId, from, to, dateRange),
     payments: getMockPaymentMethods(dateRange),
     orders: getMockOrdersData(dateRange),
     popular_items: getMockPopularItems(),
