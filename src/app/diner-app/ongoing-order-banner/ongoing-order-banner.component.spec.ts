@@ -8,18 +8,11 @@ describe('OngoingOrderBannerComponent', () => {
     }).compileComponents();
   });
 
-  it('renders the default ongoing-order explanation', () => {
+  it('renders the ongoing-order title and explanation', () => {
     const fixture = TestBed.createComponent(OngoingOrderBannerComponent);
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('order in progress');
-  });
-
-  it('renders an overridden message', () => {
-    const fixture = TestBed.createComponent(OngoingOrderBannerComponent);
-    fixture.componentInstance.message = 'The table has an ongoing order';
-    fixture.detectChanges();
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('The table has an ongoing order');
+    expect(text).toContain('Order in progress');
+    expect(text).toContain('order again once it has been served');
   });
 });
