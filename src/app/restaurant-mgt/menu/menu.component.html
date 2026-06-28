@@ -1,6 +1,6 @@
 <!-- Approval bar -->
 <div *ngIf="isThirdChild && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit' || auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')"
-     class="flex items-center gap-2 px-4 py-2 border-b border-neutral-200 bg-neutral-50">
+     class="flex items-center gap-2 px-5 md:px-6 py-2 border-b border-neutral-200 bg-neutral-50">
   <button *ngIf="(auth.currentRestaurantRole?.roles?.includes('owner') || auth.userValue?.profile?.roles?.includes('dinify_admin')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit')"
           (click)="approveMenu('approve')"
           class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
@@ -14,7 +14,7 @@
 </div>
 
 <!-- Tab navigation -->
-<div class="border-b border-neutral-200 bg-neutral-50 px-4 md:px-6 pt-3 pb-3">
+<div class="border-b border-neutral-200 bg-neutral-50 px-5 md:px-6 pt-3 pb-3">
   <app-dn-tabs [value]="activeTab" (valueChange)="activeTab = $any($event)">
     <app-dn-tab-list>
       <app-dn-tab-trigger value="sections">Menu</app-dn-tab-trigger>
@@ -41,7 +41,7 @@
     <div class="flex-1 flex flex-col overflow-hidden min-w-0">
 
       <!-- Toolbar -->
-      <div class="border-b border-neutral-200 p-3 md:p-4 flex items-center justify-between gap-2 bg-neutral-50">
+      <div class="border-b border-neutral-200 px-5 md:px-6 py-4 flex items-center justify-between gap-2 bg-neutral-50">
 
         <!-- Mobile section selector (visible below lg) -->
         <div class="lg:hidden flex-1">

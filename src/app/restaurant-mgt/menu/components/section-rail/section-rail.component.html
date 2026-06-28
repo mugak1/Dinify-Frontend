@@ -1,14 +1,14 @@
 <aside class="hidden lg:flex flex-col w-80 min-w-[320px] border-r border-neutral-200 bg-neutral-50 h-full">
 
   <!-- Header -->
-  <div class="p-5 flex flex-col gap-3">
-    <h2 class="text-2xl font-semibold text-foreground">Sections</h2>
+  <div class="px-5 md:px-6 pt-4 pb-3 flex flex-col gap-3">
+    <h2 class="text-base font-semibold uppercase tracking-wide text-gray-400">Sections</h2>
     <div class="flex gap-2">
-      <button app-dn-button variant="default" size="lg" (click)="newSection.emit()">
+      <button app-dn-button variant="default" size="default" (click)="newSection.emit()">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
         Section
       </button>
-      <button app-dn-button variant="outline" size="lg" (click)="newItem.emit()">
+      <button app-dn-button variant="outline" size="default" (click)="newItem.emit()">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
         Item
       </button>
@@ -16,7 +16,7 @@
   </div>
 
   <!-- Reorder toggle -->
-  <div class="px-4 pb-2 flex justify-end">
+  <div class="px-5 md:px-6 pb-2 flex justify-end">
     <button app-dn-button variant="ghost" size="sm"
             [class.bg-accent]="reorderMode"
             (click)="toggleReorderMode()">
@@ -27,7 +27,7 @@
   </div>
 
   <!-- Section list -->
-  <div class="flex-1 overflow-y-auto px-5 pb-4">
+  <div class="flex-1 overflow-y-auto px-5 md:px-6 pb-4">
     <div cdkDropList
          [cdkDropListDisabled]="!reorderMode"
          (cdkDropListDropped)="onDrop($event)"
