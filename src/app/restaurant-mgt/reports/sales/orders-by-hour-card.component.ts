@@ -29,7 +29,7 @@ import { HourBar, formatHourLabel, peakLabel } from './sales-view';
             <div class="flex-1 min-w-0 h-full flex flex-col justify-end items-center gap-1" [title]="b.label + ' · ' + b.orders + ' orders'">
               <div
                 class="w-full rounded-t transition-all"
-                [class]="b.isPeak ? 'bg-primary' : 'bg-primary/30'"
+                [class]="b.isPeak ? 'bg-success' : 'bg-gray-300'"
                 [style.height.%]="b.pct"
               ></div>
             </div>

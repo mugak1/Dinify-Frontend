@@ -29,7 +29,7 @@ import { WeekdayRevenue } from './sales-view';
               <div class="flex-1 min-w-0 h-3.5 bg-muted rounded-full overflow-hidden">
                 <div
                   class="h-full rounded-full transition-all"
-                  [class]="d.weekday === bestWeekday ? 'bg-success' : 'bg-primary/70'"
+                  [class]="d.weekday === bestWeekday ? 'bg-success' : 'bg-gray-300'"
                   [style.width.%]="width(d.revenue)"
                 ></div>
               </div>

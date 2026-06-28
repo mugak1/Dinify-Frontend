@@ -75,7 +75,7 @@ export class SalesKpiRailComponent implements OnChanges {
         current: this.current.orders,
         previous: this.previous?.orders ?? 0,
         invert: false,
-        color: 'hsl(var(--primary))',
+        color: 'hsl(142, 76%, 36%)',
       },
       {
         label: 'Avg order value',
@@ -84,7 +84,7 @@ export class SalesKpiRailComponent implements OnChanges {
         current: this.current.aov,
         previous: this.previous?.aov ?? 0,
         invert: false,
-        color: 'hsl(4, 90%, 52%)',
+        color: 'hsl(142, 76%, 36%)',
       },
       {
         label: 'Discounts',

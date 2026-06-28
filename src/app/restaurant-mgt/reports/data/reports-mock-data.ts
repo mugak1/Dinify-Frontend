@@ -30,6 +30,7 @@ import {
   TransactionsSummary,
 } from '../models/reports.models';
 import { dailyRevenue } from '../../../_shared/mock/daily-revenue';
+import { HOUR_OF_DAY_SHAPE } from '../../../_shared/mock/hour-of-day';
 
 // ── Seeded PRNG (mulberry32) ─────────────────────────────
 function seededRandom(seed: number): () => number {
@@ -113,20 +114,6 @@ export function getMockSalesAggregate(
   }
   return [...buckets.values()];
 }
-
-/**
- * Hour-of-day shape (24 weights) — near-zero overnight, a breakfast bump (~08:00),
- * a lunch peak (~13:00) and a dinner peak (~19:00–21:00). The day-level generators
- * carry only a weekday rhythm with no intra-day curve; this gives the hourly series
- * its believable within-day shape. Scaled by range length, so low-traffic hours
- * round to ~0 — reproducing the contract's zero-filled rows.
- */
-const HOUR_OF_DAY_SHAPE = [
-  0.02, 0.01, 0.01, 0.01, 0.02, 0.04, // 00–05 overnight
-  0.12, 0.35, 0.6, 0.45, 0.35, 0.7, //   06–11 breakfast → late morning
-  1.35, 1.6, 1.05, 0.55, 0.45, 0.7, //   12–17 lunch peak (13:00) → afternoon lull
-  1.25, 1.7, 1.8, 1.4, 0.55, 0.18, //    18–23 dinner peak (20:00)
-];
 
 /**
  * Hour-of-day sales for the live `sales-hourly` contract: ALWAYS exactly 24 rows
