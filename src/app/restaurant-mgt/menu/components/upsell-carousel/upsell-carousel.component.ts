@@ -10,21 +10,19 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription, combineLatest } from 'rxjs';
-import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { UpsellService } from '../../services/upsell.service';
 import { MenuService } from '../../services/menu.service';
-import { TagService, PresetTag } from '../../services/tag.service';
 import { CartItem } from '../../models/cart.model';
 import { UpsellConfig } from 'src/app/_models/app.models';
-import { getCurrentPrice, formatUGX, isDiscountActive } from 'src/app/_shared/utils/price-utils';
+import { getCurrentPrice, isDiscountActive } from 'src/app/_shared/utils/price-utils';
 import { parseModifierGroups } from 'src/app/_common/utils/modifier-utils';
-import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
+import { PriceDisplayComponent } from 'src/app/_shared/ui/price-display/price-display.component';
 import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-upsell-carousel',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, TagPillComponent],
+  imports: [CommonModule, PriceDisplayComponent],
   templateUrl: './upsell-carousel.component.html',
 })
 export class UpsellCarouselComponent implements OnInit, OnDestroy {
@@ -37,7 +35,6 @@ export class UpsellCarouselComponent implements OnInit, OnDestroy {
 
   config: UpsellConfig | null = null;
   allItems: any[] = [];
-  presetTags: PresetTag[] = [];
   filteredItems: any[] = [];
   canScrollLeft = false;
   canScrollRight = false;
@@ -48,19 +45,16 @@ export class UpsellCarouselComponent implements OnInit, OnDestroy {
 
   constructor(
     private upsellService: UpsellService,
-    private menuService: MenuService,
-    private tagService: TagService
+    private menuService: MenuService
   ) {}
 
   ngOnInit(): void {
     this.sub = combineLatest([
       this.upsellService.config$,
       this.menuService.allItems$,
-      this.tagService.presetTags$,
-    ]).subscribe(([config, allItems, presetTags]) => {
+    ]).subscribe(([config, allItems]) => {
       this.config = config;
       this.allItems = allItems;
-      this.presetTags = presetTags;
       this.computeFilteredItems();
     });
   }
@@ -98,7 +92,7 @@ export class UpsellCarouselComponent implements OnInit, OnDestroy {
   }
 
   get showArrows(): boolean {
-    return this.filteredItems.length > 3;
+    return this.filteredItems.length > 1;
   }
 
   get visible(): boolean {
@@ -139,38 +133,18 @@ export class UpsellCarouselComponent implements OnInit, OnDestroy {
     return this.addedItems.has(itemId);
   }
 
-  getPrice(item: any): string {
-    return formatUGX(getCurrentPrice(item));
+  // Price inputs for the shared app-price-display (matches the diner upsell card):
+  // effective is the current/discounted price; original is the pre-discount base
+  // (only passed when a discount is active, so no strikethrough otherwise).
+  effectivePrice(item: any): number {
+    return getCurrentPrice(item);
+  }
+
+  basePrice(item: any): number {
+    return Number(item?.primary_price) || 0;
   }
 
   hasDiscount(item: any): boolean {
     return isDiscountActive(item.discount_details);
-  }
-
-  getItemTags(item: any): { id: string; name: string; icon: string | null; colour: string }[] {
-    const tags = Array.isArray(item?.tags) ? item.tags : [];
-    return tags.slice(0, 2).map((t: any) => {
-      if (t && typeof t === 'object' && t.name) {
-        return {
-          id: t.id ?? t.name,
-          name: t.name,
-          icon: t.icon ?? null,
-          colour: t.colour ?? 'gray',
-        };
-      }
-      // Legacy string tag — fall back to preset_tags lookup for colour/icon.
-      const preset = this.presetTags.find(p => p.name === t);
-      return {
-        id: typeof t === 'string' ? t : '',
-        name: typeof t === 'string' ? t : '',
-        icon: preset?.icon ?? null,
-        colour: preset?.color ?? 'gray',
-      };
-    });
-  }
-
-  getRemainingTagCount(item: any): number {
-    const tags = Array.isArray(item?.tags) ? item.tags : [];
-    return Math.max(0, tags.length - 2);
   }
 }

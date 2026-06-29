@@ -1,108 +1,90 @@
 @if (visible) {
-  <div class="border-t pt-4 mt-4">
-    <!-- Header with title and navigation arrows -->
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="font-semibold text-lg">{{ config?.title || 'You might also like' }}</h3>
-
-      @if (showArrows) {
-        <div class="flex items-center gap-1">
-          <button
-            (click)="scroll('left')"
-            [disabled]="!canScrollLeft"
-            [class]="'p-1.5 rounded-full border transition-colors ' +
-              (canScrollLeft
-                ? 'border-border hover:bg-muted cursor-pointer'
-                : 'border-muted text-muted-foreground/40 cursor-not-allowed')"
-            aria-label="Scroll left">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m15 18-6-6 6-6"/>
-            </svg>
-          </button>
-          <button
-            (click)="scroll('right')"
-            [disabled]="!canScrollRight"
-            [class]="'p-1.5 rounded-full border transition-colors ' +
-              (canScrollRight
-                ? 'border-border hover:bg-muted cursor-pointer'
-                : 'border-muted text-muted-foreground/40 cursor-not-allowed')"
-            aria-label="Scroll right">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m9 18 6-6-6-6"/>
-            </svg>
-          </button>
-        </div>
-      }
+  <div class="mt-4">
+    <!-- Heading (title only; arrows moved below, matching the diner basket) -->
+    <div class="mb-3">
+      <h3 class="font-bold text-base text-gray-900">{{ config?.title || 'You might also like' }}</h3>
     </div>
 
-    <!-- Cards carousel -->
+    <!-- Horizontal cards: image left, details right (matches the diner basket upsells) -->
     <div
       #scrollContainer
-      class="grid grid-flow-col auto-cols-[calc(33.333%-8px)] gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
+      class="grid grid-flow-col auto-cols-[280px] gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
       style="scrollbar-width: none; -ms-overflow-style: none;"
       (scroll)="checkScroll()">
 
       @for (item of filteredItems; track item.id) {
-        <div class="border rounded-lg overflow-hidden bg-card snap-start">
-          <!-- Image -->
-          <div class="h-20 bg-muted relative">
+        <div class="snap-start flex h-[136px] rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+          <!-- Image (left) -->
+          <div class="w-[108px] flex-shrink-0 bg-white overflow-hidden relative">
             @if (item.image) {
               <img [src]="imageBaseUrl + item.image" [alt]="item.name"
-                   class="w-full h-full object-cover" loading="lazy"/>
+                   class="w-full h-full object-contain" loading="lazy"/>
             } @else {
-              <div class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+              <div class="w-full h-full flex items-center justify-center text-gray-300 text-xs">
                 No image
-              </div>
-            }
-            @if (hasDiscount(item)) {
-              <div class="absolute top-1 left-1 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">
-                SALE
               </div>
             }
           </div>
 
-          <div class="p-2 space-y-1">
-            <p class="font-medium text-xs line-clamp-2 leading-tight h-8">{{ item.name }}</p>
-
-            <!-- Tags -->
-            @if (getItemTags(item).length > 0) {
-              <div class="flex flex-wrap gap-1">
-                @for (tag of getItemTags(item); track tag.id) {
-                  <app-tag-pill
-                    [name]="tag.name"
-                    [icon]="tag.icon"
-                    [colour]="tag.colour"
-                    size="sm"
-                  ></app-tag-pill>
-                }
-                @if (getRemainingTagCount(item) > 0) {
-                  <span class="text-[9px] text-muted-foreground self-center">
-                    +{{ getRemainingTagCount(item) }}
-                  </span>
-                }
+          <!-- Details (right) -->
+          <div class="flex-1 min-w-0 px-3 flex flex-col justify-center gap-1.5">
+            <h4 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{{ item.name }}</h4>
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <app-price-display size="sm"
+                                   [effective]="effectivePrice(item)"
+                                   [original]="hasDiscount(item) ? basePrice(item) : 0"></app-price-display>
               </div>
-            }
-
-            <p class="font-bold text-primary text-xs">{{ getPrice(item) }}</p>
-
-            <button app-dn-button
-                    size="sm"
-                    [class]="'w-full h-6 text-xs transition-all ' + (isAdded(item.id) ? 'bg-green-500 hover:bg-green-500' : '')"
-                    (click)="handleAddClick(item)">
-              @if (isAdded(item.id)) {
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
-                  <path d="M20 6 9 17l-5-5"/>
-                </svg>
-                Added
-              } @else {
-                ADD
-              }
-            </button>
+              <button
+                (click)="handleAddClick(item)"
+                [class]="'flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-sm font-semibold transition-opacity ' +
+                  (isAdded(item.id) ? 'bg-green-500' : 'bg-d-red hover:opacity-90 active:opacity-80')">
+                @if (isAdded(item.id)) {
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6 9 17l-5-5"/>
+                  </svg>
+                  Added
+                } @else {
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"/><path d="M12 5v14"/>
+                  </svg>
+                  Add
+                }
+              </button>
+            </div>
           </div>
         </div>
       }
     </div>
+
+    <!-- Carousel nav: below the carousel, right-aligned (matches the diner basket) -->
+    @if (showArrows) {
+      <div class="flex items-center justify-end gap-2 mt-2">
+        <button type="button" (click)="scroll('left')" [disabled]="!canScrollLeft"
+                [class]="'inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors ' +
+                  (canScrollLeft
+                    ? 'border-gray-300 text-gray-500 hover:bg-gray-100 active:bg-gray-200 cursor-pointer'
+                    : 'border-gray-200 text-gray-300 cursor-not-allowed')"
+                aria-label="Scroll left">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+        </button>
+        <button type="button" (click)="scroll('right')" [disabled]="!canScrollRight"
+                [class]="'inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors ' +
+                  (canScrollRight
+                    ? 'border-gray-300 text-gray-500 hover:bg-gray-100 active:bg-gray-200 cursor-pointer'
+                    : 'border-gray-200 text-gray-300 cursor-not-allowed')"
+                aria-label="Scroll right">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
+        </button>
+      </div>
+    }
   </div>
 }
