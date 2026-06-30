@@ -1,10 +1,23 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReportSparklineComponent } from './stat-sparkline.component';
 
-// Pure (no TestBed): the sparkline only builds a chart.js dataset from its inputs;
-// rendering the canvas is exercised by the cards that mount it.
+// Mounted via TestBed (not `new`) so inject(ElementRef) has an injection context:
+// the sparkline resolves any var()-based borderColor against its host element before
+// handing it to chart.js. Literal colours pass straight through unchanged.
 describe('ReportSparklineComponent', () => {
+  let fixture: ComponentFixture<ReportSparklineComponent>;
+  let c: ReportSparklineComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReportSparklineComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(ReportSparklineComponent);
+    c = fixture.componentInstance;
+  });
+
   it('builds a single dataset from the values, with the given colour', () => {
-    const c = new ReportSparklineComponent();
     c.values = [1, 4, 2, 8];
     c.color = 'hsl(142, 71%, 45%)';
     c.ngOnChanges();
@@ -16,7 +29,6 @@ describe('ReportSparklineComponent', () => {
   });
 
   it('hides points, axes, legend and tooltip', () => {
-    const c = new ReportSparklineComponent();
     expect(c.options.plugins?.legend?.display).toBeFalse();
     expect(c.options.plugins?.tooltip?.enabled).toBeFalse();
     expect((c.options.scales?.['x'] as { display?: boolean }).display).toBeFalse();

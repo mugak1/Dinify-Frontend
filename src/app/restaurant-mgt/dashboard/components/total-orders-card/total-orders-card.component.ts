@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, Input, OnChanges, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions } from 'chart.js';
@@ -6,6 +6,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
 import { AnimatedNumberComponent } from '../animated-number/animated-number.component';
 import { OrdersData, DateRange } from '../../models/dashboard.models';
+import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
 
 interface StatusSegment {
   key: string;
@@ -124,6 +125,8 @@ export class TotalOrdersCardComponent implements OnChanges {
   chartOptions: ChartOptions<'line'> = {};
   segments: StatusSegment[] = [];
 
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   get timeframeLabel(): string {
     switch (this.dateRange) {
       case 'day': return 'Today';
@@ -185,14 +188,17 @@ export class TotalOrdersCardComponent implements OnChanges {
           data: values,
           fill: false,
           tension: 0.4,
-          borderColor: 'hsl(var(--primary))',
+          borderColor: 'hsl(0 0% 9%)',
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 4,
-          pointHoverBackgroundColor: 'hsl(var(--primary))',
+          pointHoverBackgroundColor: 'hsl(0 0% 9%)',
         },
       ],
     };
+
+    const tt = chartTooltipTheme(this.host.nativeElement);
+    const muted = chartMutedColor(this.host.nativeElement);
 
     this.chartOptions = {
       responsive: true,
@@ -202,10 +208,10 @@ export class TotalOrdersCardComponent implements OnChanges {
         legend: { display: false },
         tooltip: {
           enabled: true,
-          backgroundColor: 'hsl(var(--popover))',
-          titleColor: 'hsl(var(--foreground))',
-          bodyColor: 'hsl(var(--muted-foreground))',
-          borderColor: 'hsl(var(--border))',
+          backgroundColor: tt.backgroundColor,
+          titleColor: tt.titleColor,
+          bodyColor: tt.bodyColor,
+          borderColor: tt.borderColor,
           borderWidth: 1,
           padding: 8,
           cornerRadius: 6,
@@ -221,7 +227,7 @@ export class TotalOrdersCardComponent implements OnChanges {
             tickBorderDash: [3, 3],
           },
           ticks: {
-            color: 'hsl(var(--muted-foreground))',
+            color: muted,
             font: { size: 10 },
             maxRotation: 0,
             autoSkip: true,
@@ -236,7 +242,7 @@ export class TotalOrdersCardComponent implements OnChanges {
             tickBorderDash: [3, 3],
           },
           ticks: {
-            color: 'hsl(var(--muted-foreground))',
+            color: muted,
             font: { size: 10 },
             precision: 0 as any,
           },
