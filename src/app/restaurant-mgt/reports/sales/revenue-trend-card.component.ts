@@ -1,10 +1,11 @@
-import { Component, Input, OnChanges } from '@angular/core';
+import { Component, ElementRef, Input, OnChanges, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions, TooltipItem } from 'chart.js';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { SalesPoint, bestPoint } from './sales-view';
+import { chartMutedColor, chartTooltipTheme, resolveHsl } from 'src/app/_common/utils/chart-theme-utils';
 
 const BRAND = 'hsl(142, 76%, 36%)'; // dashboard revenue-chart green
 const BEST = 'hsl(142, 71%, 45%)';
@@ -51,7 +52,7 @@ const BEST = 'hsl(142, 71%, 45%)';
     </app-dn-card>
   `,
 })
-export class RevenueTrendCardComponent implements OnChanges {
+export class RevenueTrendCardComponent implements OnChanges, OnInit {
   @Input() points: SalesPoint[] = [];
   @Input() comparisonPoints: SalesPoint[] = [];
   @Input() comparisonLabel = 'Previous period';
@@ -60,7 +61,13 @@ export class RevenueTrendCardComponent implements OnChanges {
 
   readonly brand = BRAND;
   data: ChartData<'line'> = { labels: [], datasets: [] };
-  options: ChartOptions<'line'> = this.buildOptions();
+  options!: ChartOptions<'line'>;
+
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  ngOnInit(): void {
+    this.options = this.buildOptions();
+  }
 
   ngOnChanges(): void {
     const labels = this.points.map((p) => p.label);
@@ -89,7 +96,7 @@ export class RevenueTrendCardComponent implements OnChanges {
         {
           label: 'Average',
           data: labels.map(() => avg),
-          borderColor: 'hsl(var(--muted-foreground))',
+          borderColor: resolveHsl(this.host.nativeElement, '--muted-foreground', 'hsl(0 0% 38%)'),
           borderWidth: 1,
           borderDash: [3, 3],
           pointRadius: 0,
@@ -99,7 +106,7 @@ export class RevenueTrendCardComponent implements OnChanges {
         {
           label: this.comparisonLabel,
           data: ghost,
-          borderColor: 'hsl(var(--muted-foreground))',
+          borderColor: resolveHsl(this.host.nativeElement, '--muted-foreground', 'hsl(0 0% 38%)'),
           borderWidth: 1.5,
           borderDash: [6, 4],
           pointRadius: 0,
@@ -123,6 +130,8 @@ export class RevenueTrendCardComponent implements OnChanges {
   }
 
   private buildOptions(): ChartOptions<'line'> {
+    const tt = chartTooltipTheme(this.host.nativeElement);
+    const muted = chartMutedColor(this.host.nativeElement);
     return {
       responsive: true,
       maintainAspectRatio: false,
@@ -131,10 +140,10 @@ export class RevenueTrendCardComponent implements OnChanges {
         legend: { display: false },
         tooltip: {
           enabled: true,
-          backgroundColor: 'hsl(var(--popover))',
-          titleColor: 'hsl(var(--foreground))',
-          bodyColor: 'hsl(var(--muted-foreground))',
-          borderColor: 'hsl(var(--border))',
+          backgroundColor: tt.backgroundColor,
+          titleColor: tt.titleColor,
+          bodyColor: tt.bodyColor,
+          borderColor: tt.borderColor,
           borderWidth: 1,
           padding: 12,
           cornerRadius: 8,
@@ -147,12 +156,12 @@ export class RevenueTrendCardComponent implements OnChanges {
       scales: {
         x: {
           grid: { display: true, color: 'rgba(0, 0, 0, 0.06)', tickBorderDash: [3, 3] },
-          ticks: { color: 'hsl(var(--muted-foreground))', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+          ticks: { color: muted, font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
         },
         y: {
           beginAtZero: true,
           grid: { display: true, color: 'rgba(0, 0, 0, 0.06)', tickBorderDash: [3, 3] },
-          ticks: { color: 'hsl(var(--muted-foreground))', font: { size: 10 }, maxTicksLimit: 6 },
+          ticks: { color: muted, font: { size: 10 }, maxTicksLimit: 6 },
         },
       },
       interaction: { mode: 'index', intersect: false },

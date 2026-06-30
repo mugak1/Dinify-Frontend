@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
@@ -10,6 +10,7 @@ import { ReviewsService } from '../services/reviews.service';
 import { ReviewsAnalytics } from '../models/reviews.models';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions } from 'chart.js';
+import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
 
 type TimeframeDays = 30 | 90;
 
@@ -248,58 +249,12 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
 
   chartData: ChartData<'line'> = { labels: [], datasets: [] };
 
-  chartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: { duration: 600 },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        enabled: true,
-        backgroundColor: 'hsl(var(--popover))',
-        titleColor: 'hsl(var(--foreground))',
-        bodyColor: 'hsl(var(--muted-foreground))',
-        borderColor: 'hsl(var(--border))',
-        borderWidth: 1,
-        padding: 12,
-        cornerRadius: 8,
-        displayColors: false,
-        callbacks: {
-          title: (items) => (items.length ? items[0].label || '' : ''),
-          label: (item) => {
-            const point = this.analytics?.trend?.[item.dataIndex];
-            if (!point) return '';
-            const n = point.count;
-            return `${point.average.toFixed(1)}★ · ${n} ${n === 1 ? 'review' : 'reviews'}`;
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        display: true,
-        grid: { display: true, color: 'rgba(0, 0, 0, 0.06)', tickBorderDash: [3, 3] },
-        ticks: {
-          color: 'hsl(var(--muted-foreground))',
-          font: { size: 10 },
-          maxRotation: 0,
-          autoSkip: true,
-          maxTicksLimit: 8,
-        },
-      },
-      y: {
-        min: 0,
-        max: 5,
-        grid: { display: true, color: 'rgba(0, 0, 0, 0.06)', tickBorderDash: [3, 3] },
-        ticks: { color: 'hsl(var(--muted-foreground))', font: { size: 10 }, stepSize: 1 },
-      },
-    },
-    interaction: { mode: 'index', intersect: false },
-  };
+  chartOptions!: ChartOptions<'line'>;
 
   private restaurantId = '';
   private timeframe$ = new BehaviorSubject<TimeframeDays>(90);
   private destroy$ = new Subject<void>();
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   constructor(
     private reviewsService: ReviewsService,
@@ -308,6 +263,8 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.chartOptions = this.buildChartOptions();
+
     this.restaurantId =
       this.auth.currentRestaurantRole?.restaurant_id ||
       this.route.parent?.snapshot.params['id'] ||
@@ -351,6 +308,60 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
 
   retry(): void {
     this.timeframe$.next(this.timeframeDays);
+  }
+
+  /** Canvas-safe tooltip/axis colors resolved from the themed host element. */
+  private buildChartOptions(): ChartOptions<'line'> {
+    const tt = chartTooltipTheme(this.host.nativeElement);
+    const muted = chartMutedColor(this.host.nativeElement);
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          backgroundColor: tt.backgroundColor,
+          titleColor: tt.titleColor,
+          bodyColor: tt.bodyColor,
+          borderColor: tt.borderColor,
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: false,
+          callbacks: {
+            title: (items) => (items.length ? items[0].label || '' : ''),
+            label: (item) => {
+              const point = this.analytics?.trend?.[item.dataIndex];
+              if (!point) return '';
+              const n = point.count;
+              return `${point.average.toFixed(1)}★ · ${n} ${n === 1 ? 'review' : 'reviews'}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          display: true,
+          grid: { display: true, color: 'rgba(0, 0, 0, 0.06)', tickBorderDash: [3, 3] },
+          ticks: {
+            color: muted,
+            font: { size: 10 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 8,
+          },
+        },
+        y: {
+          min: 0,
+          max: 5,
+          grid: { display: true, color: 'rgba(0, 0, 0, 0.06)', tickBorderDash: [3, 3] },
+          ticks: { color: muted, font: { size: 10 }, stepSize: 1 },
+        },
+      },
+      interaction: { mode: 'index', intersect: false },
+    };
   }
 
   /** Build the rating-trend line chart from the adapter-parsed analytics.trend. */

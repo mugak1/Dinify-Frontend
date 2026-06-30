@@ -1,7 +1,8 @@
-import { Component, Input, OnChanges } from '@angular/core';
+import { Component, ElementRef, Input, OnChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions } from 'chart.js';
+import { resolveColorString } from 'src/app/_common/utils/chart-theme-utils';
 
 /**
  * Tiny inline trend line for a KPI tile — axis-less, legend-less, tooltip-less.
@@ -31,6 +32,8 @@ export class ReportSparklineComponent implements OnChanges {
   @Input() color = 'hsl(var(--primary))';
   @Input() ariaLabel = 'Trend sparkline';
 
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   data: ChartData<'line'> = { labels: [], datasets: [] };
   readonly options: ChartOptions<'line'> = {
     responsive: true,
@@ -47,7 +50,7 @@ export class ReportSparklineComponent implements OnChanges {
       datasets: [
         {
           data: this.values,
-          borderColor: this.color,
+          borderColor: resolveColorString(this.host.nativeElement, this.color),
           borderWidth: 1.5,
           tension: 0.4,
           fill: false,

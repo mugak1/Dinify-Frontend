@@ -1,10 +1,12 @@
 import {
   Component,
+  ElementRef,
   Input,
   Output,
   EventEmitter,
   OnChanges,
   SimpleChanges,
+  inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -16,6 +18,7 @@ import { CardErrorComponent } from '../card-error/card-error.component';
 import { AnimatedNumberComponent } from '../animated-number/animated-number.component';
 import { RevenueData, DateRange } from '../../models/dashboard.models';
 import { formatCurrency, formatChartTick } from '../../utils/format.utils';
+import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
 
 @Component({
   selector: 'app-revenue-card',
@@ -128,6 +131,8 @@ export class RevenueCardComponent implements OnChanges {
   chartOptions: ChartOptions<'line'> = {};
   pills: { label: string; formatted: string; colorClass: string }[] = [];
 
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   readonly currencyFormatter = (v: number) => formatCurrency(v);
 
   get percentageChange(): number {
@@ -206,6 +211,9 @@ export class RevenueCardComponent implements OnChanges {
     // Store series reference for tooltip access
     const seriesRef = series;
 
+    const tt = chartTooltipTheme(this.host.nativeElement);
+    const muted = chartMutedColor(this.host.nativeElement);
+
     this.chartOptions = {
       responsive: true,
       maintainAspectRatio: false,
@@ -214,10 +222,10 @@ export class RevenueCardComponent implements OnChanges {
         legend: { display: false },
         tooltip: {
           enabled: true,
-          backgroundColor: 'hsl(var(--popover))',
-          titleColor: 'hsl(var(--foreground))',
-          bodyColor: 'hsl(var(--muted-foreground))',
-          borderColor: 'hsl(var(--border))',
+          backgroundColor: tt.backgroundColor,
+          titleColor: tt.titleColor,
+          bodyColor: tt.bodyColor,
+          borderColor: tt.borderColor,
           borderWidth: 1,
           padding: 12,
           cornerRadius: 8,
@@ -250,7 +258,7 @@ export class RevenueCardComponent implements OnChanges {
             tickBorderDash: [3, 3],
           },
           ticks: {
-            color: 'hsl(var(--muted-foreground))',
+            color: muted,
             font: { size: 10 },
             maxRotation: 0,
             autoSkip: true,
@@ -265,7 +273,7 @@ export class RevenueCardComponent implements OnChanges {
             tickBorderDash: [3, 3],
           },
           ticks: {
-            color: 'hsl(var(--muted-foreground))',
+            color: muted,
             font: { size: 10 },
             callback: (value: any) => formatChartTick(Number(value)),
           },
