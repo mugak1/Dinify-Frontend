@@ -22,8 +22,11 @@ so keep it current when conventions change.
 ## Current Implementation Status
 - Phase 0 (Foundation): ✅ Complete
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
-- Phase 2 (Dashboard): ✅ Complete — USE_MOCK_DATA still true in DashboardService
-  (exception: the Popular Items card now pulls real menu data)
+- Phase 2 (Dashboard): ✅ Complete — `USE_MOCK_DATA` still true in DashboardService
+  for the core metrics, but TWO cards are real-wired exceptions: the Popular Items
+  card overlays real menu-item identities onto the (still-mock) metrics, and the
+  Reviews card pulls live data via `reviews/summary/` behind its own
+  `USE_MOCK_REVIEWS = false` flag
 - Diner App menu redesign: ✅ Complete (sticky brand strip, scroll-aware nav
   pills, quick-add affordance, allergen-safety disclaimer banner)
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
@@ -344,7 +347,10 @@ writing new tag or price/menu logic:
   (it still fires for login/auth and for a server-down-while-online status 0)
 
 ## Mock Data Pattern
-- DashboardService still uses a single `USE_MOCK_DATA = true` flag
+- DashboardService now splits its mock flag in two (like TablesService):
+  - `USE_MOCK_DATA = true` — core dashboard metrics are still mock
+  - `USE_MOCK_REVIEWS = false` — the Reviews card is real-wired to `reviews/summary/`
+    (its in-memory mock stays dormant behind the flag as a design-review aid)
 - TablesService now splits the flag in two:
   - `USE_MOCK_SETUP = false` — Setup View (areas, tables) is real-wired
   - `USE_MOCK_SERVICE = true` — Service View (reservations, waitlist,
@@ -368,9 +374,15 @@ writing new tag or price/menu logic:
   response-shape contracts are now PINNED by `reports.service.spec.ts` +
   `reports-adapter.spec.ts` against the backend-derived contract — but they are
   UNVERIFIED against a LIVE API (see the flip-time gate below)
+- Dashboard and Reports mock data derive revenue from a SHARED per-(restaurant,day)
+  basis in `src/app/_shared/mock/` (`daily-revenue.ts`, `hour-of-day.ts`, both
+  spec-pinned) so the two surfaces stay numerically consistent — reuse it rather than
+  re-deriving mock revenue in a new surface
 - For any new module service, follow the same constant-flag pattern.
   Split flags by sub-domain when different views go live at different times
-- Dashboard real endpoint: `api/v1/reports/restaurant/dashboard/`
+- Dashboard real endpoints: `reports/restaurant/dashboard-v2/` (core metrics, gated by
+  `USE_MOCK_DATA`) and `reviews/summary/` (Reviews card, already live behind
+  `USE_MOCK_REVIEWS = false`) — both parsed through `dashboard-adapter`
 - Tables real endpoints: reservations, waitlist, table-actions — all exist
   in the backend already and remain to be wired for the Service View
 - Kitchen real endpoints: GET `kitchen/orders/active/` (polled), PATCH
