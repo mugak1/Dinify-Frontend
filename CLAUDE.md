@@ -130,7 +130,15 @@ so keep it current when conventions change.
   `write-excel-file` dep; Print via a generated print sheet). Still mock-first:
   `ReportsService.USE_MOCK_DATA = true`, mirroring DashboardService, with a
   dormant `reports-adapter` parsing layer (mirrors `reviews-adapter`) over
-  scaffolded real endpoints. The old monolithic `report-detail` surface is gone
+  scaffolded real endpoints. The old monolithic `report-detail` surface is gone.
+  Reports is NOT chart-free: the Sales report renders a revenue-trend LINE chart
+  (`revenue-trend-card`) and a KPI rail of inline sparklines (`stat-sparkline` /
+  `ReportSparklineComponent`, via `sales-kpi-rail`) on the SAME shared house
+  ng2-charts / chart.js stack Dashboard uses (`provideCharts(withDefaultRegisterables())`
+  registered in `RestaurantMgtModule`). The other report visualisations — Sales'
+  orders-by-hour & revenue-weekday, Menu top-items, Transactions status-breakdown,
+  Diners composition — are hand-rolled CSS `[style.width.%]` / `[style.height.%]`
+  bars, NOT ng2-charts
 - Payments: removed — the standalone restaurant Payments module (its real
   transactions listing plus the dead Falcon wallet UI: Disburse Funds,
   DinifyAccount balance) has been deleted. There is no `payments` route or
