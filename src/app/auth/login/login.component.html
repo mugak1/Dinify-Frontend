@@ -86,6 +86,7 @@
           [selectedCountryISO]="CountryISO.Uganda"
           [enableAutoCountrySelect]="true"
           [enablePlaceholder]="true"
+          [customPlaceholder]="'+256'"
           (onChange)="onInputChange($event)">
         </intl-telephone-input>
       </div>
@@ -109,7 +110,6 @@
             formControlName="password"
             name="password"
             autocomplete="current-password"
-            placeholder="Enter your password"
             (keyup)="onPasswordKeyup($event)"
             (blur)="capsLockOn = false"
             class="flex-1 h-[52px] bg-transparent border-0 outline-none text-gray-900 text-[15.5px] pl-2 pr-1.5
