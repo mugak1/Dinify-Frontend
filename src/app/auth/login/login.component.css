@@ -20,3 +20,49 @@ input::-webkit-caps-lock-indicator {
 [role=button],button {
     cursor: pointer
 }
+
+/* Phone field → single clean box matching the password control.
+   ngx-intl-telephone-input renders .input-container (a flex wrapper holding the
+   flag .dropdown + the <input>) with a fixed 35px height and a grey 1px border,
+   and interpolates [cssClass] onto the inner <input>. Left alone, a 52px input
+   overflows the 35px container and the grey library border draws a second box.
+   Re-parent the visible box onto .input-container and flatten the inner input so
+   the two stop fighting. :host keeps these rules scoped to the login component so
+   they cannot leak to the register page, which renders its own intl-telephone-input.
+   The selector is qualified with the intl-telephone-input host element so it
+   out-specifies the library's own emulated-encapsulation .input-container rule
+   (which ties a plain :host ::ng-deep .input-container and wins on source order). */
+:host ::ng-deep intl-telephone-input .input-container {
+    height: 52px;
+    padding: 0 6px 0 8px;          /* left inset for the flag column */
+    border: 1.5px solid #e5e7eb;   /* border-gray-200 */
+    border-radius: 11px;           /* rounded-[11px] */
+    background: #fff;
+}
+
+:host ::ng-deep .input-container .phoneInput {
+    height: 100%;
+    margin-left: 0;                /* kill the library's margin-left: 10px */
+    padding: 0 2px;
+    border: 0;                     /* the container owns the border, not the input */
+    background: transparent;       /* kill any residual grey fill */
+    border-radius: 0;
+    outline: 0;
+}
+
+/* Release the flag column's fixed 35px heights so it centers in the 52px row. */
+:host ::ng-deep .input-container .dropdown,
+:host ::ng-deep .input-container .flag-container {
+    height: auto;
+    min-height: 0;
+}
+
+/* Preserve the required-error affordance with parity to the password field: both
+   keep their grey box border and redden the inner <input> on submit-invalid. EDIT 1
+   keeps the border-d-red ternary on the phone input, but the flatten rule above
+   zeros its border; restore a red border when that error class is present. Inert at
+   rest (the resting class is border-gray-200). Mirrors the password inner input,
+   which reddens via the global .ng-submitted input.ng-invalid rule in styles.css. */
+:host ::ng-deep intl-telephone-input .input-container .phoneInput.border-d-red {
+    border: 1.5px solid #FF2C32;   /* d-red */
+}

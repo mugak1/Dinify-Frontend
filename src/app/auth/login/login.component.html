@@ -81,11 +81,12 @@
           Phone number <span class="text-d-red">*</span>
         </label>
         <intl-telephone-input
-          [cssClass]="'phoneInput py-2.5 px-3 w-full border rounded-[11px] bg-[#F2EDE7] focus-within:bg-white transition-all '+(submitted && loginForm.get('username')?.errors?.['required'] ? 'border-d-red' : 'border-transparent')"
+          [cssClass]="'phoneInput h-[52px] px-3 w-full border-[1.5px] rounded-[11px] bg-white transition-all '+(submitted && loginForm.get('username')?.errors?.['required'] ? 'border-d-red' : 'border-gray-200')"
           [preferredCountries]="preferredCountries"
           [selectedCountryISO]="CountryISO.Uganda"
           [enableAutoCountrySelect]="true"
           [enablePlaceholder]="true"
+          [customPlaceholder]="'+256'"
           (onChange)="onInputChange($event)">
         </intl-telephone-input>
       </div>
@@ -96,9 +97,9 @@
           Password <span class="text-d-red">*</span>
         </label>
         <!-- control: fills white + reddens border + glows ring + lifts on focus -->
-        <div class="group/ctrl relative flex items-center bg-[#F2EDE7] border-[1.5px] border-transparent rounded-[11px]
-                    transition-all duration-200 desktop-hover:bg-[#EFE9E2]
-                    focus-within:bg-white focus-within:border-d-red focus-within:ring-4 focus-within:ring-d-red/[0.13]
+        <div class="group/ctrl relative flex items-center bg-white border-[1.5px] border-gray-200 rounded-[11px]
+                    transition-all duration-200
+                    focus-within:border-d-red focus-within:ring-4 focus-within:ring-d-red/[0.13]
                     focus-within:-translate-y-px focus-within:shadow-[0_6px_18px_-8px_rgba(255,44,50,0.4)]">
           <span class="flex items-center justify-center w-[46px] h-[52px] text-[#B8AFA6] transition-colors group-focus-within/ctrl:text-d-red">
             <svg class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
@@ -109,7 +110,6 @@
             formControlName="password"
             name="password"
             autocomplete="current-password"
-            placeholder="Enter your password"
             (keyup)="onPasswordKeyup($event)"
             (blur)="capsLockOn = false"
             class="flex-1 h-[52px] bg-transparent border-0 outline-none text-gray-900 text-[15.5px] pl-2 pr-1.5
