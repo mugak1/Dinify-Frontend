@@ -12,11 +12,11 @@
          [ngClass]="{ 'justify-center': !isOpen }">
       <!-- Expanded: full logo (emblem + wordmark) -->
       <a *ngIf="isOpen" [href]="auth.firstAccessibleRoute()" class="flex items-center overflow-hidden">
-        <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify" class="h-8 w-auto max-w-[140px]" />
+        <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify" class="h-[24px] w-auto max-w-[140px]" />
       </a>
       <!-- Collapsed: emblem only -->
       <a *ngIf="!isOpen" [href]="auth.firstAccessibleRoute()" class="flex items-center justify-center w-full">
-        <img src="assets/images/dinify-emblem.svg" alt="Dinify" class="h-8 w-8" />
+        <img src="assets/images/dinify-emblem.svg" alt="Dinify" class="h-[24px] w-[24px]" />
       </a>
     </div>
 
@@ -24,13 +24,13 @@
     <nav aria-label="Primary" class="flex-1 py-5 space-y-2 overflow-y-auto no-scrollbar"
          [ngClass]="isOpen ? 'px-4' : 'px-2'">
       <a *ngFor="let item of visibleNavItems"
-         [routerLink]="item.route" routerLinkActive="bg-sidebar-accent text-sidebar-primary font-medium"
+         [routerLink]="item.route" routerLinkActive="bg-sidebar-accent text-d-red font-medium"
          #rla="routerLinkActive" ariaCurrentWhenActive="page"
          class="relative flex items-center rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
          [ngClass]="isOpen ? 'gap-3 px-3 py-2' : 'justify-center mx-auto h-[40px] w-[40px]'"
          [appTooltip]="!isOpen ? item.label : ''">
         <span *ngIf="rla.isActive && isOpen" aria-hidden="true"
-              class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r bg-sidebar-primary"></span>
+              class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r bg-d-red"></span>
         <svg aria-hidden="true" class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [ngSwitch]="item.icon">
           <ng-container *ngSwitchCase="'dashboard'"><svg:rect width="7" height="9" x="3" y="3" rx="1"/><svg:rect width="7" height="5" x="14" y="3" rx="1"/><svg:rect width="7" height="9" x="14" y="12" rx="1"/><svg:rect width="7" height="5" x="3" y="16" rx="1"/></ng-container>
           <ng-container *ngSwitchCase="'menu'"><svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><svg:path d="M7 2v20"/><svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></ng-container>
@@ -40,7 +40,7 @@
           <ng-container *ngSwitchCase="'support'"><svg:circle cx="12" cy="12" r="10"/><svg:path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><svg:path d="M12 17h.01"/></ng-container>
           <ng-container *ngSwitchCase="'settings'"><svg:path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><svg:circle cx="12" cy="12" r="3"/></ng-container>
         </svg>
-        <span class="text-sm truncate" [class.sr-only]="!isOpen">{{ item.label }}</span>
+        <span class="text-sm truncate" [class.sr-only]="!isOpen" [class.text-white]="rla.isActive">{{ item.label }}</span>
       </a>
 
       <!-- No-modules note: a membership whose permissions grant no module (same
@@ -65,13 +65,21 @@
     </a>
   </aside>
 
-  <!-- Toggle button: OUTSIDE aside, INSIDE wrapper -->
+  <!-- Toggle button: OUTSIDE aside, INSIDE wrapper.
+       rounded-full is a DELIBERATE exception to the project's rounded-none default —
+       keep the toggle circular; do not square it in a future cleanup pass. The
+       near-white fill + 1px neutral border make it pop off the black rail while
+       staying delineated from the white canvas at the seam (flat, no drop shadow).
+       Position (absolute top-5 -right-3) is unchanged. -->
   <button (click)="sidebarToggle.emit()"
-          aria-label="Toggle sidebar" [attr.aria-expanded]="isOpen"
-          class="absolute top-5 -right-3 z-10 bg-sidebar ring-1 ring-sidebar-border focus-visible:ring-2 focus-visible:ring-sidebar-ring rounded-full w-6 h-6 hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground shadow-sm hidden xl:flex items-center justify-center opacity-50 hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
-    <svg aria-hidden="true" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path [attr.d]="isOpen ? 'm11 17-5-5 5-5' : 'm6 17 5-5-5-5'"/>
-      <path [attr.d]="isOpen ? 'm18 17-5-5 5-5' : 'm13 17 5-5-5-5'"/>
+          [attr.aria-label]="isOpen ? 'Collapse sidebar' : 'Expand sidebar'"
+          [attr.aria-expanded]="isOpen"
+          [attr.title]="isOpen ? 'Collapse sidebar' : 'Expand sidebar'"
+          class="absolute top-5 -right-3 z-10 hidden xl:flex items-center justify-center w-[32px] h-[32px] rounded-full bg-white border border-neutral-300 text-neutral-900 desktop-hover:border-d-red desktop-hover:text-d-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-d-red transition-colors">
+    <svg aria-hidden="true" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="18" x="3" y="3" rx="2"/>
+      <path d="M9 3v18"/>
+      <path [attr.d]="isOpen ? 'm16 15-3-3 3-3' : 'm14 9 3 3-3 3'"/>
     </svg>
   </button>
 
