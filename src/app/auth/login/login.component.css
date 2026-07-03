@@ -38,6 +38,7 @@ input::-webkit-caps-lock-indicator {
     border: 1.5px solid #e5e7eb;   /* border-gray-200 */
     border-radius: 11px;           /* rounded-[11px] */
     background: #fff;
+    transition: all .2s;           /* animate the focus red like the password */
 }
 
 :host ::ng-deep .input-container .phoneInput {
@@ -57,12 +58,38 @@ input::-webkit-caps-lock-indicator {
     min-height: 0;
 }
 
-/* Preserve the required-error affordance with parity to the password field: both
-   keep their grey box border and redden the inner <input> on submit-invalid. EDIT 1
-   keeps the border-d-red ternary on the phone input, but the flatten rule above
-   zeros its border; restore a red border when that error class is present. Inert at
-   rest (the resting class is border-gray-200). Mirrors the password inner input,
-   which reddens via the global .ng-submitted input.ng-invalid rule in styles.css. */
-:host ::ng-deep intl-telephone-input .input-container .phoneInput.border-d-red {
-    border: 1.5px solid #FF2C32;   /* d-red */
+/* Red state lives on the OUTER box of BOTH fields (focus + submit-invalid); the
+   inner <input> is never red. d-red = #FF2C32.
+
+   Phone — focus: match the password's red border + ring + lift (its
+   focus-within: border-d-red / ring-4 / ring-d-red/[0.13] / shadow / -translate-y-px).
+   :focus-within fires when the inner .phoneInput is focused. */
+:host ::ng-deep intl-telephone-input .input-container:focus-within {
+    border-color: #FF2C32;
+    box-shadow: 0 0 0 4px rgba(255, 44, 50, .13), 0 6px 18px -8px rgba(255, 44, 50, .4);
+    transform: translateY(-1px);
+}
+
+/* Phone — submit-invalid: redden the OUTER box, not the inner input. The [cssClass]
+   ternary adds `border-d-red` to the library <input> on (submitted && required);
+   reach the container from that child with :has(). The inner input keeps border:0
+   (flatten rule above), so no vertical lines flank the number. */
+:host ::ng-deep intl-telephone-input .input-container:has(.phoneInput.border-d-red) {
+    border-color: #FF2C32;
+}
+
+/* Password — kill the inner red. The global `.ng-submitted input.ng-invalid` rule in
+   styles.css reddens #password's own border on submit; override it (scoped to login's
+   #password) so only the outer wrapper shows red. NOT ::ng-deep: the register page
+   reuses id="password" and must keep its own global error border. */
+:host #password.ng-invalid {
+    border: 0 !important;
+}
+
+/* Password — submit-invalid: redden the OUTER wrapper, matching the phone. .ng-submitted
+   (the form), .group/ctrl and #password are all login's own nodes, so a plain scoped
+   selector (no ::ng-deep) confines it to login. The .ng-submitted gate keeps the box
+   grey until a submit attempt (the required field is .ng-invalid from load). */
+.ng-submitted .group\/ctrl:has(#password.ng-invalid) {
+    border-color: #FF2C32;
 }
