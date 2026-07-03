@@ -77,9 +77,8 @@
           [attr.title]="isOpen ? 'Collapse sidebar' : 'Expand sidebar'"
           class="absolute top-5 -right-3 z-10 hidden xl:flex items-center justify-center w-[32px] h-[32px] rounded-full bg-white border border-neutral-300 text-neutral-900 desktop-hover:border-d-red desktop-hover:text-d-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-d-red transition-colors">
     <svg aria-hidden="true" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
-      <rect width="18" height="18" x="3" y="3" rx="2"/>
-      <path d="M9 3v18"/>
-      <path [attr.d]="isOpen ? 'm16 15-3-3 3-3' : 'm14 9 3 3-3 3'"/>
+      <path [attr.d]="isOpen ? 'm11 17-5-5 5-5' : 'm6 17 5-5-5-5'"/>
+      <path [attr.d]="isOpen ? 'm18 17-5-5 5-5' : 'm13 17 5-5-5-5'"/>
     </svg>
   </button>
 
