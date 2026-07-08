@@ -1,0 +1,42 @@
+<!--
+  Shell mirrors the login password field BY CONSTRUCTION (same tokens/values):
+  1.5px border, 11px radius, 52px height, focus-within d-red border + ring-4
+  red/0.13 + lift + shadow. The <input> is the ONLY element spanning the full
+  interior (absolute inset-0, transparent bg) so browser autofill fills the box
+  edge-to-edge; the flag + '+256' sit ABOVE it as a transparent, non-interactive
+  overlay. The host toggles `.field-invalid` to redden the box (see the .css).
+-->
+<div
+  class="dpi-shell relative flex items-center h-[52px] bg-white border-[1.5px] border-gray-200 rounded-[11px]
+         transition-all duration-200
+         focus-within:border-d-red focus-within:ring-4 focus-within:ring-d-red/[0.13]
+         focus-within:-translate-y-px focus-within:shadow-[0_6px_18px_-8px_rgba(255,44,50,0.4)]"
+>
+  <!-- Flag + dial code: transparent overlay, above the input, click-through. -->
+  <span
+    class="relative z-10 flex items-center gap-1.5 w-[84px] h-full pl-[14px] pr-2
+           bg-transparent pointer-events-none select-none"
+  >
+    <img
+      [src]="country.flagAsset"
+      alt=""
+      aria-hidden="true"
+      class="w-5 h-auto rounded-[2px] shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"
+    />
+    <span class="text-[15.5px] leading-none text-gray-500">+{{ country.dialCode }}</span>
+  </span>
+
+  <!-- The real field: fills the whole shell interior for edge-to-edge autofill. -->
+  <input
+    [id]="inputId"
+    type="tel"
+    inputmode="numeric"
+    autocomplete="tel"
+    [disabled]="disabled"
+    [value]="value"
+    (input)="onInput($any($event.target).value)"
+    (blur)="onBlur()"
+    class="absolute inset-0 w-full h-full bg-transparent border-0 outline-none rounded-[9.5px]
+           text-gray-900 text-[15.5px] pl-[84px] pr-[14px] placeholder:text-[#B8AFA6]"
+  />
+</div>
