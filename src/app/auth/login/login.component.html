@@ -80,8 +80,13 @@
         <label class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
           Phone number <span class="text-d-red">*</span>
         </label>
+        <!-- Phone shell: all sizing/border/bg live in login.component.css on the library's
+             .input-container / .phoneInput (so the inner <input> spans the full interior for
+             edge-to-edge autofill). The host `.field-invalid` class reddens the outer box on a
+             failed submit (replaces the old [cssClass] border ternary + the :has() rule). -->
         <intl-telephone-input
-          [cssClass]="'phoneInput h-[52px] px-3 w-full border-[1.5px] rounded-[11px] bg-white transition-all '+(submitted && loginForm.get('username')?.errors?.['required'] ? 'border-d-red' : 'border-gray-200')"
+          [cssClass]="''"
+          [class.field-invalid]="submitted && loginForm.get('username')?.errors?.['required']"
           [preferredCountries]="preferredCountries"
           [selectedCountryISO]="CountryISO.Uganda"
           [enableAutoCountrySelect]="true"
@@ -96,12 +101,17 @@
         <label for="password" class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
           Password <span class="text-d-red">*</span>
         </label>
-        <!-- control: fills white + reddens border + glows ring + lifts on focus -->
-        <div class="group/ctrl relative flex items-center bg-white border-[1.5px] border-gray-200 rounded-[11px]
+        <!-- control: the <input> is the ONLY element spanning the full interior (so the
+             browser's autofill colour fills border-to-border); the lock + eye are painted
+             above it with transparent backgrounds. Wrapper owns border/radius/bg + focus ring;
+             it gains an explicit h-[52px] because the input now leaves the flow (absolute). -->
+        <div class="group/ctrl relative flex items-center justify-between h-[52px] bg-white border-[1.5px] rounded-[11px]
                     transition-all duration-200
                     focus-within:border-d-red focus-within:ring-4 focus-within:ring-d-red/[0.13]
-                    focus-within:-translate-y-px focus-within:shadow-[0_6px_18px_-8px_rgba(255,44,50,0.4)]">
-          <span class="flex items-center justify-center w-[46px] h-[52px] text-[#B8AFA6] transition-colors group-focus-within/ctrl:text-d-red">
+                    focus-within:-translate-y-px focus-within:shadow-[0_6px_18px_-8px_rgba(255,44,50,0.4)]"
+             [class.border-gray-200]="!(submitted && f['password']?.invalid)"
+             [class.border-d-red]="submitted && f['password']?.invalid">
+          <span class="relative z-10 flex items-center justify-center w-[46px] h-full bg-transparent pointer-events-none text-[#B8AFA6] transition-colors group-focus-within/ctrl:text-d-red">
             <svg class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
           </span>
           <input
@@ -112,11 +122,11 @@
             autocomplete="current-password"
             (keyup)="onPasswordKeyup($event)"
             (blur)="capsLockOn = false"
-            class="flex-1 h-[52px] bg-transparent border-0 outline-none text-gray-900 text-[15.5px] pl-2 pr-1.5
+            class="absolute inset-0 w-full h-full bg-transparent border-0 outline-none rounded-[9.5px] text-gray-900 text-[15.5px] pl-[53px] pr-[53px]
                    placeholder:text-[#B8AFA6]" />
           <button type="button" (click)="toggleFieldTextType()"
                   [attr.aria-label]="fieldTextType ? 'Hide password' : 'Show password'"
-                  class="flex items-center justify-center w-12 h-[52px] text-gray-400 desktop-hover:text-gray-900 transition-colors">
+                  class="relative z-10 flex items-center justify-center w-[46px] h-full bg-transparent text-gray-400 desktop-hover:text-gray-900 transition-colors">
             <svg *ngIf="fieldTextType" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A9.3 9.3 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.4 4.1"/><path d="M6.2 6.7A17 17 0 0 0 2 12s3.6 7 10 7a9.4 9.4 0 0 0 3-.5"/></svg>
             <svg *ngIf="!fieldTextType" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
