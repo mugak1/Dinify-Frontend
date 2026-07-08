@@ -1,3 +1,11 @@
+/* Full-width by default: consumers host this in plain block containers (the
+   login field is a flex-col that already stretched it; register / restaurants /
+   profile / identity / staff-form use plain <div>s). display:block makes the
+   shell span its container everywhere and is harmless to the flex-col login. */
+:host {
+  display: block;
+}
+
 /* Host-context error hook: the consumer toggles `.field-invalid` on the host
    (login binds it to `submitted && username required`), reddening the shell —
    the same mechanism the login password field uses. Kept here (not a Tailwind

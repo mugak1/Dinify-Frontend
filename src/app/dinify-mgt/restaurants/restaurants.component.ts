@@ -1,7 +1,6 @@
 import { Component, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
-import { SearchCountryField, CountryISO, PhoneNumberFormat } from 'ngx-intl-telephone-input';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { Utilities } from 'src/app/_helpers/utilities';
 import { RestaurantDetail, RestaurantList, User } from 'src/app/_models/app.models';
@@ -37,15 +36,6 @@ export class RestaurantsComponent implements OnDestroy {
   detailUser?:User;
   fileError: string = '';
 
-  separateDialCode = false;
-  SearchCountryField = SearchCountryField;
- // TooltipLabel = TooltipLabel;
-  CountryISO = CountryISO;
-  number_format = PhoneNumberFormat.National
-  preferredCountries: CountryISO[] = [
-    CountryISO.Uganda,
-    CountryISO.Kenya
-  ];
   selectedStatus:any='';
   /**
    *
@@ -153,7 +143,6 @@ return this.fb.group({
   'last_name': ['',[Validators.required,Validators.minLength(2)]],  
   email:['',[Validators.email,Validators.required,Validators.minLength(5)]],
   'phone_number': ['',Validators.required],
-  phone:[''],
   'country': ['UG'],
   preferred_subscription_method:['monthly'],
   flat_fee:[0],
@@ -301,10 +290,9 @@ if(patch){
    
     }
     onInputChange($event:any){
-      this.RestaurantForm.get('phone')?.setValue($event);
       this.RestaurantForm.get('phone_number')?.setValue(String($event.phoneNumber).replace('+','').replace(/\s/g, ""));
       this.RestaurantForm.get('country')?.setValue(String($event.iso2Code).toUpperCase())
-      if($event.isNumberValid){
+      if($event.isValid){
       this.api.get<any>(null,'users/user-lookup/?contact='+this.RestaurantForm.get('phone_number')?.value).subscribe((x)=>{
         if(x.status==400){ /* no user found - no action needed */ }
         else if(x.status==200){

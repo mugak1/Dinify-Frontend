@@ -63,14 +63,10 @@
         <!-- Phone (drives the two-step lookup) -->
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1">Phone <span class="text-d-red">*</span></label>
-          <intl-telephone-input
-            [cssClass]="'rounded w-full ' + (submitted && !checked && !RegisterForm.get('phone_number')?.value ? 'border border-d-red' : '')"
-            [preferredCountries]="preferredCountries"
-            [selectedCountryISO]="CountryISO.Uganda"
-            [enableAutoCountrySelect]="true"
-            [enablePlaceholder]="true"
-            (onChange)="onInputChange($event)"
-          ></intl-telephone-input>
+          <app-dinify-phone-input
+            [class.field-invalid]="submitted && !checked && !RegisterForm.get('phone_number')?.value"
+            (valueChange)="onInputChange($event)"
+          ></app-dinify-phone-input>
           @if (submitted && !checked && !RegisterForm.get('phone_number')?.value) {
             <p class="text-xs text-red-600 mt-1">Enter a phone number to continue.</p>
           }

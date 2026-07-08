@@ -1,11 +1,6 @@
 import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, UntypedFormGroup, Validators } from '@angular/forms';
-import {
-  CountryISO,
-  NgxIntlTelephoneInputComponent,
-  PhoneNumberFormat,
-  SearchCountryField
-} from "ngx-intl-telephone-input";
+import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import { ApiService } from 'src/app/_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
@@ -21,26 +16,16 @@ export class RegisterComponent {
   is_submitted=false;
   require_otp=false;
   data='';
-  @ViewChild('phoneregister', { static: false }) public phoneComponent?: NgxIntlTelephoneInputComponent;
+  @ViewChild('phoneregister', { static: false }) public phoneComponent?: DinifyPhoneInputComponent;
   RegisterForm!:FormGroup;
   constructor(private api:ApiService,private fb:FormBuilder, private toast:ToastService) {
       this.RegisterForm=this.initRegisterForm();
   }
 
-  separateDialCode = false;
-  SearchCountryField = SearchCountryField;
- // TooltipLabel = TooltipLabel;
-  CountryISO = CountryISO;
-  number_format = PhoneNumberFormat.National
-  preferredCountries: CountryISO[] = [
-    CountryISO.Uganda,
-    CountryISO.Kenya
-  ];
   initRegisterForm(){
     return this.fb.group({
       first_name: ["",Validators.required],
       last_name: ["",Validators.required],
-      phone:[''],
       phone_number: ["",Validators.required],
       password: ['',[Validators.required,Validators.minLength(6),Validators.pattern('^(?=.*[!@#$&*()<>?{}|,`~.%])(.*[0-9].*)+$')]],
       confirm_password: ["",Validators.required],  
@@ -91,7 +76,6 @@ get newpassword() {
   }
 
  onInputChange($event:any){
-this.RegisterForm.get('phone')?.setValue($event);
 this.RegisterForm.get('phone_number')?.setValue(String($event.phoneNumber).replace('+','').replace(/\s/g, ""));
 this.RegisterForm.get('country')?.setValue(String($event.iso2Code).toUpperCase())
  }

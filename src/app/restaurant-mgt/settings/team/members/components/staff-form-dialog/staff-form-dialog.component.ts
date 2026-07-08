@@ -8,7 +8,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { CountryISO, NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
+import { NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
+import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 
 import { CreateEmployeeResponse, EmployeeListUser } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
@@ -49,6 +50,7 @@ interface RoleOption {
     ReactiveFormsModule,
     NgxIntlTelephoneInputModule,
     DialogComponent,
+    DinifyPhoneInputComponent,
   ],
   templateUrl: './staff-form-dialog.component.html',
 })
@@ -72,10 +74,6 @@ export class StaffFormDialogComponent implements OnChanges {
 
   RegisterForm: FormGroup = this.buildRegisterForm();
   EditForm: FormGroup = this.buildEditForm(null);
-
-  // Phone / dial-code config — UG + KE preferred, Uganda default (preserved).
-  CountryISO = CountryISO;
-  preferredCountries: CountryISO[] = [CountryISO.Uganda, CountryISO.Kenya];
 
   readonly roleLabel = roleLabel;
 
@@ -131,7 +129,6 @@ export class StaffFormDialogComponent implements OnChanges {
   }
 
   onInputChange($event: any): void {
-    this.RegisterForm.get('phone')?.setValue($event);
     this.RegisterForm.get('phone_number')?.setValue(
       String($event.phoneNumber).replace('+', '').replace(/\s/g, ''),
     );
@@ -267,7 +264,6 @@ export class StaffFormDialogComponent implements OnChanges {
     return this.fb.group({
       first_name: [''],
       last_name: [''],
-      phone: [''],
       phone_number: [''],
       password: [''],
       country: ['UG'],

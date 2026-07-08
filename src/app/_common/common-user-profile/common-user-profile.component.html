@@ -81,7 +81,7 @@
   </div>
   <div *ngIf="action==='form'">
     
-    <form *ngIf="RegisterForm" [formGroup]="RegisterForm" (ngSubmit)="(phoneComponent?.isInputValid||phoneComponent?.isInputValid===null)?(require_otp?SubmitWithOTP():SaveEdit()):is_submitted=true" class="space-y-2 md:space-y-4 relative bg-white rounded-lg shadow">
+    <form *ngIf="RegisterForm" [formGroup]="RegisterForm" (ngSubmit)="phoneComponent?.isValid?(require_otp?SubmitWithOTP():SaveEdit()):is_submitted=true" class="space-y-2 md:space-y-4 relative bg-white rounded-lg shadow">
       <div class="flex items-center">
       <svg class="mb-8 mx-auto" height="50" viewBox="0 0 495.95 121.55">
         <path d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58" />
@@ -140,8 +140,7 @@
           <span class="my-auto text-d-red">{{change_number?'Cancel':'Change Phone Number'}}</span>
         </a></label>
         <label *ngIf="change_number" for="email" class="block mb-1 text-sm font-medium text-gray-900 mt-3">Insert new phone number below</label>
-      <intl-telephone-input *ngIf="change_number" [customPlaceholder]="'insert new phone number'" #phone_edit name="phone" [class]="(is_submitted && (!phoneComponent?.isInputValid)?'border border-d-red':'')" [cssClass]="'rounded '+(is_submitted && RegisterForm.get('phone')?.errors?.['required']?'border border-d-red':'')" [preferredCountries]="preferredCountries" [selectedCountryISO]="CountryISO.Uganda" [enableAutoCountrySelect]="true" [enablePlaceholder]="true" (onChange)="onInputChange($event)">
-      </intl-telephone-input>  
+      <app-dinify-phone-input *ngIf="change_number" #phone_edit [class.field-invalid]="is_submitted && !phoneComponent?.isValid" (valueChange)="onInputChange($event)"></app-dinify-phone-input>
       </div>
       <h3 *ngIf="require_otp" class="flex flex-row p-2">
                      
