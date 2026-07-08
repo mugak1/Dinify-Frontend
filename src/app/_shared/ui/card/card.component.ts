@@ -23,7 +23,7 @@ export class CardComponent {
     return cn(
       'text-card-foreground rounded-lg',
       'bg-card border border-gray-200',
-      'transition-all duration-200 hover:-translate-y-1',
+      'transition-all duration-200',
       this.fullHeight && 'h-full'
     );
   }
