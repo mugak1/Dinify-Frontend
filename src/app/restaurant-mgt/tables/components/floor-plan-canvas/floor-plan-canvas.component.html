@@ -100,7 +100,7 @@
       @let resTime = getReservationTime(table);
 
       <div
-        class="absolute flex items-center justify-center transition-all duration-200 border-2 hover:shadow-lg hover:scale-105"
+        class="absolute flex items-center justify-center transition-all duration-200 border-2 hover:shadow-lg"
         [class]="getShapeClass(table.shape) + ' ' + colors.bg + ' ' + colors.border"
         [class.ring-2]="isSelected(table.id)"
         [class.ring-primary]="isSelected(table.id)"
