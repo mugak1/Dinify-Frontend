@@ -2,8 +2,6 @@ import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
-import { NgxIntlTelephoneInputModule } from "ngx-intl-telephone-input";
-
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { DinifyMgtComponent } from './dinify-mgt/dinify-mgt.component';
@@ -44,7 +42,6 @@ import { DinifyPhoneInputComponent } from './shared/dinify-phone-input/dinify-ph
         AppRoutingModule,
         InputModule,
         ReactiveFormsModule,
-        NgxIntlTelephoneInputModule,
         DinifyCommonModule,
         FormsModule,
         StorageModule.forRoot({ prefix: 'dinify' }),

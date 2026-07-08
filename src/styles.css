@@ -156,13 +156,6 @@ app-restaurant-mgt app-animated-number {
 .error-msg{
   display: none;
 }
-.phoneInput{
-  width: 100%;
-  outline: 0;
-}
-.phoneInput:active,.phoneInput:focus-visible,.phoneInput:focus, .phoneInput:target{
-  border: 0;
-}
 
 @supports (-webkit-touch-callout: none) {
   .h-screen {
