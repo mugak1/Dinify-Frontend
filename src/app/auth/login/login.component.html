@@ -80,20 +80,14 @@
         <label class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
           Phone number <span class="text-d-red">*</span>
         </label>
-        <!-- Phone shell: all sizing/border/bg live in login.component.css on the library's
-             .input-container / .phoneInput (so the inner <input> spans the full interior for
-             edge-to-edge autofill). The host `.field-invalid` class reddens the outer box on a
-             failed submit (replaces the old [cssClass] border ternary + the :has() rule). -->
-        <intl-telephone-input
-          [cssClass]="''"
+        <!-- Uganda-only phone input: static +256 + a local flag, no dropdown. Shell styling
+             lives inside the component and matches the password field by construction (incl.
+             edge-to-edge autofill). The host `.field-invalid` class reddens the box on a failed
+             submit. It emits a clean phone string; login reads only that and sets `username`. -->
+        <app-dinify-phone-input
           [class.field-invalid]="submitted && loginForm.get('username')?.errors?.['required']"
-          [preferredCountries]="preferredCountries"
-          [selectedCountryISO]="CountryISO.Uganda"
-          [enableAutoCountrySelect]="true"
-          [enablePlaceholder]="true"
-          [customPlaceholder]="'+256'"
-          (onChange)="onInputChange($event)">
-        </intl-telephone-input>
+          (valueChange)="onInputChange($event)">
+        </app-dinify-phone-input>
       </div>
 
       <!-- Password field -->

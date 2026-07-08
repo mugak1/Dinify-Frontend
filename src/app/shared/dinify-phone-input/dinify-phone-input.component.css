@@ -1,0 +1,8 @@
+/* Host-context error hook: the consumer toggles `.field-invalid` on the host
+   (login binds it to `submitted && username required`), reddening the shell —
+   the same mechanism the login password field uses. Kept here (not a Tailwind
+   utility) because a :host() context selector can't be expressed inline.
+   #FF2C32 is the `d-red` token value. */
+:host(.field-invalid) .dpi-shell {
+  border-color: #FF2C32;
+}

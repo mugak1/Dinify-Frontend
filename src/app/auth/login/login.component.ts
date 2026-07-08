@@ -3,7 +3,6 @@ import { FormGroup, FormBuilder, Validators, NgModel } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { first } from 'rxjs';
 import { AuthenticationService } from '../../_services/authentication.service';
-import { SearchCountryField, CountryISO, PhoneNumberFormat } from 'ngx-intl-telephone-input';
 import { ApiResponse, LoginResponse, OTPResponse, RestaurantRole } from 'src/app/_models/app.models';
 import { firstAccessibleRoute } from 'src/app/_helpers/module-access';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -28,15 +27,6 @@ export class LoginComponent implements OnInit, OnDestroy {
   @Input() as_diner:boolean=false;
   @Output() LoginResp= new EventEmitter<any>();
 
-  separateDialCode = false;
-  SearchCountryField = SearchCountryField;
- // TooltipLabel = TooltipLabel;
-  CountryISO = CountryISO;
-  number_format = PhoneNumberFormat.National
-  preferredCountries: CountryISO[] = [
-    CountryISO.Uganda,
-    CountryISO.Kenya
-  ];
   log_in!: LoginResponse;
   fieldTextType: boolean=false;
 
