@@ -8,7 +8,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
 import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 
 import { CreateEmployeeResponse, EmployeeListUser } from 'src/app/_models/app.models';
@@ -48,7 +47,6 @@ interface RoleOption {
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    NgxIntlTelephoneInputModule,
     DialogComponent,
     DinifyPhoneInputComponent,
   ],

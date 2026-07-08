@@ -433,8 +433,13 @@ writing new tag or price/menu logic:
   `payment_mode` vocab gap above
 
 ## Known Issues & Deferred Work
-- `ngx-intl-telephone-input` used across ~8 files (auth, dinify-mgt,
-  _common) — do not add new usages
+- `ngx-intl-telephone-input` was REMOVED (PRs 2a–2c) and replaced by the
+  in-repo standalone `<app-dinify-phone-input>`
+  (`src/app/shared/dinify-phone-input` — Uganda-only static `+256` + local
+  flag). Its orphaned peer `awesome-phonenumber` was dropped with it. Do not
+  reintroduce either: the stale Angular `^14` peer and the remote
+  `raw.githubusercontent` flag-sprite hotlink (a CSP/licence exposure) were the
+  whole reason for the swap
 - localStorage to httpOnly cookie migration requires backend coordination
 - Login 500 regression still outstanding — parked pending Apache log access
 - Tables Service View is parked AND hidden from the UI (MVP ships Setup View

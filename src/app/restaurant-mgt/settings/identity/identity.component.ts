@@ -8,7 +8,6 @@ import {
 } from '@angular/forms';
 import { of, switchMap } from 'rxjs';
 
-import { NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
 import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import imageCompression from 'browser-image-compression';
 
@@ -48,7 +47,6 @@ const DEFAULT_BRAND_COLOR = '#171717';
     ReactiveFormsModule,
     SectionPageComponent,
     ButtonComponent,
-    NgxIntlTelephoneInputModule,
     DinifyPhoneInputComponent,
   ],
   templateUrl: './identity.component.html',

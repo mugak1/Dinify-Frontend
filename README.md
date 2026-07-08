@@ -361,14 +361,12 @@ const routes: Routes = [
 - **Angular CDK**: ^20.2.14
 - **ngx-currency**: ^19.0.0 (currency input formatting)
 - **angularx-qrcode**: ^20.0.0 (QR code generation)
-- **ngx-intl-telephone-input**: ^1.0.1 (phone number input)
 - **ngx-color-picker**: ^20.0.0 (color selection)
 - **@ryware/ngx-drag-and-drop-lists**: ^3.0.0 (drag-and-drop)
 
 ### Utilities
 - **date-fns**: ^4.1.0 (date/time handling)
 - **lz-string**: ^1.5.0 (string compression)
-- **awesome-phonenumber**: ^3.3.0 (phone validation)
 - **Firebase Tools**: ^14.1.0 (hosting and deployment, dev dependency)
 
 ### Testing
