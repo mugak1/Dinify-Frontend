@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 
 import { NgxIntlTelephoneInputModule } from "ngx-intl-telephone-input";
 import {NgxCurrencyDirective} from 'ngx-currency'
+import { DinifyPhoneInputComponent } from '../shared/dinify-phone-input/dinify-phone-input.component';
 import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { RestaurantsComponent } from './restaurants/restaurants.component';
@@ -50,6 +51,7 @@ const routes: Routes = [
     NgApexchartsModule,
     DinifyCommonModule,
     NgxIntlTelephoneInputModule,
+    DinifyPhoneInputComponent,
     NgxCurrencyDirective,
     SidebarComponent,
     TopNavComponent,

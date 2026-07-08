@@ -90,15 +90,7 @@
               On file: +{{ currentPhone }} — enter a new number below to change it.
             </p>
           }
-          <intl-telephone-input
-            [preferredCountries]="preferredCountries"
-            [selectedCountryISO]="CountryISO.Uganda"
-            [numberFormat]="numberFormat"
-            [enableAutoCountrySelect]="true"
-            [enablePlaceholder]="true"
-            [cssClass]="'rounded'"
-            (onChange)="onPhone($event)"
-          ></intl-telephone-input>
+          <app-dinify-phone-input (valueChange)="onPhone($event)"></app-dinify-phone-input>
         </div>
 
         <!-- Email -->

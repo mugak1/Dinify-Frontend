@@ -8,6 +8,7 @@ import { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.componen
 import { MenuCommonComponent } from './menu-common/menu-common.component';
 import { ScrollSpyCommonDirective } from './scroll-spy-common.directive';
 import { NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
+import { DinifyPhoneInputComponent } from '../shared/dinify-phone-input/dinify-phone-input.component';
 import { CommonUserProfileComponent } from './common-user-profile/common-user-profile.component';
 import { OtpInputComponent } from './otp-input/otp-input.component';
 import { CommonNotificationsComponent } from './common-notifications/common-notifications.component';
@@ -43,6 +44,7 @@ import { SafePipe } from './common.pipe';
     CommonModule,
     ReactiveFormsModule,
     NgxIntlTelephoneInputModule,
+    DinifyPhoneInputComponent,
     FormsModule,
     ScrollSpyCommonDirective,
   ]

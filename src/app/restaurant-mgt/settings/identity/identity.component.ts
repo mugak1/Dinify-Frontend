@@ -8,11 +8,8 @@ import {
 } from '@angular/forms';
 import { of, switchMap } from 'rxjs';
 
-import {
-  CountryISO,
-  NgxIntlTelephoneInputModule,
-  PhoneNumberFormat,
-} from 'ngx-intl-telephone-input';
+import { NgxIntlTelephoneInputModule } from 'ngx-intl-telephone-input';
+import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import imageCompression from 'browser-image-compression';
 
 import { environment } from 'src/environments/environment';
@@ -52,6 +49,7 @@ const DEFAULT_BRAND_COLOR = '#171717';
     SectionPageComponent,
     ButtonComponent,
     NgxIntlTelephoneInputModule,
+    DinifyPhoneInputComponent,
   ],
   templateUrl: './identity.component.html',
 })
@@ -63,17 +61,8 @@ export class IdentityComponent implements OnInit, OnDestroy {
 
   readonly cuisineOptions = CUISINE_OPTIONS;
 
-  // Phone widget config (mirrors common-users; UG/KE preferred dial codes).
-  readonly CountryISO = CountryISO;
-  readonly numberFormat = PhoneNumberFormat.International;
-  readonly preferredCountries: CountryISO[] = [
-    CountryISO.Uganda,
-    CountryISO.Kenya,
-  ];
-
-  // The intl-telephone-input widget cannot be prefilled (no value input), so we
-  // surface the number already on file as helper text and only overwrite the
-  // control if the owner types a new one.
+  // The phone input isn't prefilled, so we surface the number already on file as
+  // helper text and only overwrite the control if the owner types a new one.
   currentPhone: string | null = null;
 
   // Image display URL (server URL or a local object-URL preview).

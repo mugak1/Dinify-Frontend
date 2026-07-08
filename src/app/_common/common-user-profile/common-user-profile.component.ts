@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
-import { SearchCountryField, CountryISO, PhoneNumberFormat, NgxIntlTelephoneInputComponent } from 'ngx-intl-telephone-input';
+import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import { Profile } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
@@ -18,7 +18,7 @@ user?:Profile;
 @Input() action:string='view';
 is_submitted=false;
 @Output() save= new EventEmitter<any>();
-@ViewChild('phone_edit', { static: false }) public phoneComponent?: NgxIntlTelephoneInputComponent;
+@ViewChild('phone_edit', { static: false }) public phoneComponent?: DinifyPhoneInputComponent;
 change_number=false;
 require_otp=false;
 data='';
@@ -26,7 +26,6 @@ RegisterForm:FormGroup=this.fb.group({
   id:[''],
   first_name: [""],
   last_name: [""],
-  phone:[''],
   phone_number: [""],
   old_number:[''],
   password: [''],
@@ -34,15 +33,6 @@ RegisterForm:FormGroup=this.fb.group({
   email:[''],
   otp:['']
 });
-separateDialCode = false;
-SearchCountryField = SearchCountryField;
-// TooltipLabel = TooltipLabel;
-CountryISO = CountryISO;
-number_format = PhoneNumberFormat.National
-preferredCountries: CountryISO[] = [
-  CountryISO.Uganda,
-  CountryISO.Kenya
-];
 closeModal(){
   this.showModal=false;
 }
@@ -64,7 +54,6 @@ this.auth.updateProfile(x.data.profile);
   }
 }
 onInputChange($event:any){
-  this.RegisterForm.get('phone')?.setValue($event);
   this.RegisterForm.get('phone_number')?.setValue(String($event.phoneNumber).replace('+','').replace(/\s/g, ""));
   this.RegisterForm.get('country')?.setValue(String($event.iso2Code).toUpperCase())
   }
