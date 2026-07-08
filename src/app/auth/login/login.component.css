@@ -9,87 +9,92 @@ input::placeholder,textarea::placeholder {
 }
 
 /* Hide Safari/WebKit's native caps-lock indicator inside the password field —
-   the form already surfaces its own "Caps Lock is on" notice, so the extra
-   glyph is redundant. */
+   the form already surfaces its own "Caps Lock is on" notice, so the extra glyph
+   is redundant. An author rule out-ranks the UA style, so no !important is needed. */
 input::-webkit-caps-lock-indicator {
-    display: none !important;
-    visibility: hidden !important;
-    content: none !important;
+    display: none;
+    visibility: hidden;
+    content: none;
 }
 
 [role=button],button {
     cursor: pointer
 }
 
-/* Phone field → single clean box matching the password control.
-   ngx-intl-telephone-input renders .input-container (a flex wrapper holding the
-   flag .dropdown + the <input>) with a fixed 35px height and a grey 1px border,
-   and interpolates [cssClass] onto the inner <input>. Left alone, a 52px input
-   overflows the 35px container and the grey library border draws a second box.
-   Re-parent the visible box onto .input-container and flatten the inner input so
-   the two stop fighting. :host keeps these rules scoped to the login component so
-   they cannot leak to the register page, which renders its own intl-telephone-input.
-   The selector is qualified with the intl-telephone-input host element so it
-   out-specifies the library's own emulated-encapsulation .input-container rule
-   (which ties a plain :host ::ng-deep .input-container and wins on source order). */
+/* ── Phone shell ─────────────────────────────────────────────────────────────
+   ngx-intl-telephone-input renders .input-container (a flex row holding the flag
+   .dropdown + the .phoneInput). We make the inner <input> the ONLY element that
+   spans the shell's full interior, so the browser's autofill colour fills the box
+   border-to-border; the flag column is painted ABOVE it with a transparent
+   background. :host keeps every rule scoped to login (the register page renders its
+   own intl-telephone-input, left untouched). Qualifying with the intl-telephone-input
+   host out-specifies the library's own emulated-encapsulation .input-container rule. */
+
+/* The shell box owns border/radius/bg + focus. position:relative makes it the
+   containing block for the absolute input; padding:0 lets the input reach the border
+   (the old 8px/6px insets move onto the flag column and the input's own padding). */
 :host ::ng-deep intl-telephone-input .input-container {
+    position: relative;
     height: 52px;
-    padding: 0 6px 0 8px;          /* left inset for the flag column */
+    padding: 0;
     border: 1.5px solid #e5e7eb;   /* border-gray-200 */
     border-radius: 11px;           /* rounded-[11px] */
     background: #fff;
     transition: all .2s;           /* animate the focus red like the password */
 }
 
-:host ::ng-deep .input-container .phoneInput {
+/* The <input> spans the whole interior (edge-to-edge autofill). Left padding clears
+   the 46px flag column + 7px gap (= 53px); right padding is the 7px edge gap.
+   border-radius 9.5px (= 11px shell − 1.5px border) so the fill doesn't square the
+   corners. background:transparent so the field reads white until the browser fills it. */
+:host ::ng-deep intl-telephone-input .input-container .phoneInput {
+    position: absolute;
+    inset: 0;
+    width: 100%;
     height: 100%;
-    margin-left: 0;                /* kill the library's margin-left: 10px */
-    padding: 0 2px;
-    border: 0;                     /* the container owns the border, not the input */
-    background: transparent;       /* kill any residual grey fill */
-    border-radius: 0;
+    margin: 0;
+    padding: 0 7px 0 53px;
+    border: 0;
+    border-radius: 9.5px;
+    background: transparent;
     outline: 0;
 }
 
-/* Release the flag column's fixed 35px heights so it centers in the 52px row. */
-:host ::ng-deep .input-container .dropdown,
-:host ::ng-deep .input-container .flag-container {
+/* Flag column: normalised to a 46px literal width (matches the password lock/eye),
+   lifted above the input and transparent so the autofill colour shows through. The
+   z-index sits on .dropdown (not just .flag-container) so the caret and the
+   click-to-toggle hit-area — both inside .dropdown__actions — plus the popover panel
+   all stay above the absolute input. The old container left inset (8px) lives here. */
+:host ::ng-deep intl-telephone-input .input-container .dropdown {
+    position: relative;
+    z-index: 1;
+    width: 46px;
+    box-sizing: border-box;
+    padding-left: 8px;
+    background: transparent;
+    height: auto;                  /* release the library's fixed 35px so it centres */
+    min-height: 0;
+}
+:host ::ng-deep intl-telephone-input .input-container .dropdown__actions {
+    width: 100%;                   /* let space-between seat flag left / caret right */
+}
+:host ::ng-deep intl-telephone-input .input-container .flag-container {
+    min-width: 0;                  /* was 40px — flag(20)+caret(10) now fit inside 46px */
     height: auto;
     min-height: 0;
 }
 
-/* Red state lives on the OUTER box of BOTH fields (focus + submit-invalid); the
-   inner <input> is never red. d-red = #FF2C32.
-
-   Phone — focus: match the password's red border + ring + lift (its
-   focus-within: border-d-red / ring-4 / ring-d-red/[0.13] / shadow / -translate-y-px).
-   :focus-within fires when the inner .phoneInput is focused. */
+/* Phone — focus: match the password's red border + ring + lift. :focus-within fires
+   when the inner .phoneInput is focused. */
 :host ::ng-deep intl-telephone-input .input-container:focus-within {
     border-color: #FF2C32;
     box-shadow: 0 0 0 4px rgba(255, 44, 50, .13), 0 6px 18px -8px rgba(255, 44, 50, .4);
     transform: translateY(-1px);
 }
 
-/* Phone — submit-invalid: redden the OUTER box, not the inner input. The [cssClass]
-   ternary adds `border-d-red` to the library <input> on (submitted && required);
-   reach the container from that child with :has(). The inner input keeps border:0
-   (flatten rule above), so no vertical lines flank the number. */
-:host ::ng-deep intl-telephone-input .input-container:has(.phoneInput.border-d-red) {
-    border-color: #FF2C32;
-}
-
-/* Password — kill the inner red. The global `.ng-submitted input.ng-invalid` rule in
-   styles.css reddens #password's own border on submit; override it (scoped to login's
-   #password) so only the outer wrapper shows red. NOT ::ng-deep: the register page
-   reuses id="password" and must keep its own global error border. */
-:host #password.ng-invalid {
-    border: 0 !important;
-}
-
-/* Password — submit-invalid: redden the OUTER wrapper, matching the phone. .ng-submitted
-   (the form), .group/ctrl and #password are all login's own nodes, so a plain scoped
-   selector (no ::ng-deep) confines it to login. The .ng-submitted gate keeps the box
-   grey until a submit attempt (the required field is .ng-invalid from load). */
-.ng-submitted .group\/ctrl:has(#password.ng-invalid) {
+/* Phone — submit-invalid: redden the OUTER box via the host `.field-invalid` class
+   (set from the template on submitted && username required). Replaces the old
+   :has(.phoneInput.border-d-red) selector — the inner input is never red. */
+:host ::ng-deep intl-telephone-input.field-invalid .input-container {
     border-color: #FF2C32;
 }
