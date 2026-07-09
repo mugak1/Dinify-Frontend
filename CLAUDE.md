@@ -439,7 +439,14 @@ writing new tag or price/menu logic:
   flag). Its orphaned peer `awesome-phonenumber` was dropped with it. Do not
   reintroduce either: the stale Angular `^14` peer and the remote
   `raw.githubusercontent` flag-sprite hotlink (a CSP/licence exposure) were the
-  whole reason for the swap
+  whole reason for the swap. Consumer contract (settled after the swap): the
+  component DISPLAYS the national number only (the static `+256` overlay is the
+  sole country code shown, so an autofilled/pasted `+256`/`256`/trunk-`0` value
+  never double-prefixes) but always EMITS the canonical `dialCode + national`
+  MSISDN (plus-/space-free, e.g. `256755116061`) via BOTH `(valueChange).phoneNumber`
+  and its `ControlValueAccessor` (`formControlName`) value. Consume the emitted
+  value directly as the login/lookup key; never prepend `+256` or a trunk `0`
+  yourself
 - localStorage to httpOnly cookie migration requires backend coordination
 - Login 500 regression still outstanding — parked pending Apache log access
 - Tables Service View is parked AND hidden from the UI (MVP ships Setup View
