@@ -31,12 +31,6 @@ type TimeframeDays = 30 | 90;
         <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Reviews</h1>
         <!-- Persistent feed entry + timeframe toggle, grouped on the right -->
         <div class="flex items-center gap-3 self-start">
-          <a
-            routerLink="/rest-app/reviews/feed"
-            class="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
-          >
-            View all reviews <span aria-hidden="true">→</span>
-          </a>
           <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60">
             @for (days of timeframeOptions; track days) {
               <button
@@ -51,6 +45,26 @@ type TimeframeDays = 30 | 90;
               </button>
             }
           </div>
+          <!-- Primary-action slot: solid brand-red CTA to the full reviews feed -->
+          <a
+            routerLink="/rest-app/reviews/feed"
+            class="inline-flex items-center gap-2 h-[42px] px-5 rounded-md bg-d-red text-white text-[15px] font-semibold whitespace-nowrap shadow-[0_1px_2px_rgba(255,44,50,0.28),0_8px_20px_-8px_rgba(255,44,50,0.5)] transition-[background-color,box-shadow,transform] duration-200 desktop-hover:bg-d-red-hover desktop-hover:-translate-y-px motion-safe:active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-d-red focus-visible:ring-offset-2"
+          >
+            View all reviews
+            <svg
+              aria-hidden="true"
+              class="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </a>
         </div>
       </div>
 
