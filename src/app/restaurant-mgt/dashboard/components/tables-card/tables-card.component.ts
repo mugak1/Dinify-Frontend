@@ -22,9 +22,9 @@ import { formatCompact } from '../../utils/format.utils';
   ],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="compact"></app-card-skeleton>
+      <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>
     } @else if (!tablesData) {
-      <app-dn-card [fullHeight]="true">
+      <app-dn-card [fullHeight]="true" [square]="true">
         <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
           <h2 class="text-sm sm:text-base font-bold text-foreground mb-1">Tables</h2>
           <hr class="border-border mb-3" />
@@ -34,7 +34,7 @@ import { formatCompact } from '../../utils/format.utils';
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card [fullHeight]="true">
+      <app-dn-card [fullHeight]="true" [square]="true">
         <div class="p-4 sm:p-5 lg:p-6 overflow-hidden flex flex-col h-full">
           <!-- Header -->
           <div class="flex items-start justify-between mb-4 sm:mb-5">
@@ -48,7 +48,7 @@ import { formatCompact } from '../../utils/format.utils';
           <div class="grid grid-cols-2 gap-2 sm:gap-3 flex-1">
             <!-- Tile 1: Current Occupancy -->
             <div
-              class="p-3 sm:p-4 rounded-lg border overflow-hidden flex flex-col"
+              class="p-3 sm:p-4 rounded-none border overflow-hidden flex flex-col"
               [class]="occupancyBgClass"
             >
               <div class="flex items-center gap-1.5 mb-1">
@@ -84,7 +84,7 @@ import { formatCompact } from '../../utils/format.utils';
             </div>
 
             <!-- Tile 2: Median Occupancy Time -->
-            <div class="p-3 sm:p-4 bg-gradient-to-br from-muted to-muted/50 rounded-lg border overflow-hidden flex flex-col">
+            <div class="p-3 sm:p-4 bg-gradient-to-br from-muted to-muted/50 rounded-none border overflow-hidden flex flex-col">
               <div class="flex items-center gap-1.5 mb-1">
                 <!-- Timer icon -->
                 <svg aria-hidden="true" class="w-3.5 h-3.5 text-chart-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -108,7 +108,7 @@ import { formatCompact } from '../../utils/format.utils';
             </div>
 
             <!-- Tile 3: Table Turns (Today) -->
-            <div class="p-3 sm:p-4 bg-gradient-to-br from-muted to-muted/50 rounded-lg border overflow-hidden flex flex-col">
+            <div class="p-3 sm:p-4 bg-gradient-to-br from-muted to-muted/50 rounded-none border overflow-hidden flex flex-col">
               <div class="flex items-center gap-1.5 mb-1">
                 <!-- RotateCw icon -->
                 <svg aria-hidden="true" class="w-3.5 h-3.5 text-chart-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -134,7 +134,7 @@ import { formatCompact } from '../../utils/format.utils';
             </div>
 
             <!-- Tile 4: Avg Order Value -->
-            <div class="p-3 sm:p-4 bg-gradient-to-br from-muted to-muted/50 rounded-lg border overflow-hidden flex flex-col">
+            <div class="p-3 sm:p-4 bg-gradient-to-br from-muted to-muted/50 rounded-none border overflow-hidden flex flex-col">
               <div class="flex items-center gap-1.5 mb-1">
                 <span class="text-[11px] sm:text-xs font-medium text-muted-foreground truncate">
                   Avg order value

@@ -6,7 +6,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
   standalone: true,
   imports: [CardComponent],
   template: `
-    <app-dn-card>
+    <app-dn-card [square]="square">
       @switch (variant) {
         @case ('compact') {
           <div class="p-4">
@@ -80,4 +80,5 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
 })
 export class CardSkeletonComponent {
   @Input() variant: 'default' | 'compact' | 'wide' = 'default';
+  @Input() square = false;
 }

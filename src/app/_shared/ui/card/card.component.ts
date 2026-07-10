@@ -18,10 +18,12 @@ import { cn } from '../../utils/cn';
 })
 export class CardComponent {
   @Input() fullHeight = false;
+  @Input() square = false;
 
   get containerClass(): string {
     return cn(
-      'text-card-foreground rounded-lg',
+      'text-card-foreground',
+      this.square ? 'rounded-none' : 'rounded-lg',
       'bg-card border border-gray-200',
       'transition-all duration-200',
       this.fullHeight && 'h-full'
