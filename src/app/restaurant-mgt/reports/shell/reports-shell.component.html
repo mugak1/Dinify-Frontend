@@ -28,19 +28,36 @@
     </div>
   </div>
 
-  <!-- Horizontal tab strip (all breakpoints), under the header. Scrolls if it
-       overflows. Routed tabs stay routerLink anchors. -->
-  <nav class="border-b border-border overflow-x-auto" aria-label="Reports">
-    <div class="flex gap-1 p-2 min-w-max">
+  <!-- Segmented rail (all breakpoints), under the header. A single sunken pill track
+       holds four equal segments; one absolutely-positioned red "glider" slides between
+       them to mark the active report. Tabs stay routerLink anchors (a11y + middle-click). -->
+  <nav class="border-b border-border px-3 sm:px-4 md:px-6 py-2" aria-label="Reports">
+    <div
+      #trackEl
+      class="relative flex w-full items-center rounded-[13px] border border-[#ECEAE6] bg-[#F3F1ED] p-[5px]"
+    >
+      <!-- Sliding active-tab card. Geometry + transition are bound; colour/shadow are
+           static. aria-hidden: active state is exposed via aria-current on the anchor. -->
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute top-[5px] bottom-[5px] z-0 rounded-[10px] bg-d-red shadow-[0_8px_18px_-6px_rgba(255,44,50,0.5)]"
+        [style.left.px]="gliderLeft()"
+        [style.width.px]="gliderWidth()"
+        [style.transition]="ready() ? gliderTransition : 'none'"
+        [style.opacity]="ready() ? 1 : 0"
+      ></span>
+
       @for (r of reportNav; track r.key) {
         <a
+          #tabEl
           [routerLink]="r.path"
-          routerLinkActive="bg-accent text-accent-foreground font-medium"
-          class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground whitespace-nowrap transition-colors"
+          [attr.aria-current]="isActive(r) ? 'page' : null"
+          class="group relative z-10 flex flex-1 min-w-0 items-center justify-center gap-2 h-[38px] rounded-[10px] text-[13.5px] font-semibold no-underline select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-d-red/40"
         >
           <svg
             aria-hidden="true"
-            class="w-4 h-4 shrink-0"
+            class="w-4 h-4 shrink-0 transition-colors"
+            [ngClass]="isActive(r) ? 'text-white' : 'text-[#94918B] group-hover:text-[#141414]'"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -70,7 +87,10 @@
               </ng-container>
             </ng-container>
           </svg>
-          <span class="truncate">{{ r.label }}</span>
+          <span
+            class="truncate min-w-0 transition-colors"
+            [ngClass]="isActive(r) ? 'text-white' : 'text-[#5E5C59] group-hover:text-[#141414]'"
+          >{{ r.label }}</span>
         </a>
       }
     </div>
