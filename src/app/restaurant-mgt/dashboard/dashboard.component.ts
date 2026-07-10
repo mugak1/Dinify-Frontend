@@ -55,10 +55,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.recomputePopularItems();
       });
 
-    // Dashboard data: reacts to dateRange, autoRefresh toggle, and manual refresh
+    // Dashboard data: reacts to dateRange and manual refresh; always polls in
+    // the background (every 30s) so the surface stays live without a page reload.
     combineLatest([
       this.dashboardService.dateRange$,
-      this.dashboardService.autoRefresh$,
       this.dashboardService.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
@@ -67,10 +67,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.loading = true;
           this.error = null;
         }),
-        switchMap(([range, auto]) => {
-          const tick$ = auto ? timer(0, 30_000) : of(0);
-          return tick$.pipe(map(() => range));
-        }),
+        switchMap(([range]) => timer(0, 30_000).pipe(map(() => range))),
         switchMap((range) => {
           const { from, to } = this.computeDateRange(range);
           return this.dashboardService
@@ -89,21 +86,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.dashboardService.lastFetchTimestamp$.next(Date.now());
       });
 
-    // Reviews data: reacts to autoRefresh toggle and manual refresh
-    combineLatest([
-      this.dashboardService.autoRefresh$,
-      this.dashboardService.refresh$.pipe(startWith(undefined)),
-    ])
+    // Reviews data: reacts to manual refresh; always polls in the background.
+    this.dashboardService.refresh$
       .pipe(
+        startWith(undefined),
         takeUntil(this.destroy$),
         tap(() => {
           this.reviewsLoading = true;
           this.reviewsError = null;
         }),
-        switchMap(([auto]) => {
-          const tick$ = auto ? timer(0, 30_000) : of(0);
-          return tick$;
-        }),
+        switchMap(() => timer(0, 30_000)),
         switchMap(() =>
           this.dashboardService
             .getReviewsSummary(restaurantId)

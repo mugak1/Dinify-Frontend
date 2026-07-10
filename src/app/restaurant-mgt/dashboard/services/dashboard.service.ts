@@ -26,9 +26,6 @@ export class DashboardService {
   /** Shared state: current date range (TopNav ↔ Dashboard) */
   dateRange$!: PersistedBehaviorSubject<DateRange>;
 
-  /** Shared state: auto-refresh toggle */
-  autoRefresh$!: PersistedBehaviorSubject<boolean>;
-
   /** Whether the dashboard route is currently active (controls TopNav pills visibility) */
   isDashboardActive$ = new BehaviorSubject<boolean>(false);
 
@@ -45,12 +42,6 @@ export class DashboardService {
       getKey: () => `dashboard.dateRange:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
       validate: (v): v is DateRange =>
         typeof v === 'string' && (DATE_RANGES as readonly string[]).includes(v),
-    });
-
-    this.autoRefresh$ = new PersistedBehaviorSubject<boolean>(true, {
-      storage: this.localStorage,
-      getKey: () => `dashboard.autoRefresh:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
-      validate: (v): v is boolean => typeof v === 'boolean',
     });
   }
 
