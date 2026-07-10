@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { RestaurantDetail, TransactionListItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
@@ -53,7 +53,6 @@ export class BillingComponent implements OnInit {
   require_otp = false;
   data = '';
   sub_details?: { subscription_validity: boolean; subscription_expiry_date: any };
-  BillingForm?: FormGroup;
   date_now = Date.now();
   transaction_list: TransactionListItem[] = [];
   load_list = false;
@@ -154,29 +153,6 @@ export class BillingComponent implements OnInit {
     this.toast.info(`To switch to the ${plan.name} plan, please contact support.`);
   }
 
-  // ── Billing date (admin only) — PRESERVED ───────────────────────────────────
-  AddDate() {
-    this.BillingForm = this.fb.group({
-      restaurant: [this.rest_id],
-      subscription_validity: [true],
-      subscription_expiry_date: [null, [Validators.required]],
-    });
-    this.showModal = true;
-  }
-  SaveDate() {
-    this.api
-      .postPatch('restaurant-setup/subscription-details/', this.BillingForm?.value, 'put', null, {
-        restaurant: this.rest_id,
-      })
-      .subscribe((x: any) => {
-        if (x.status == 200) {
-          this.toast.success(x.message);
-          this.loadRestaurant(this.rest_id);
-          this.loadingBillingSub();
-          this.closeModal();
-        }
-      });
-  }
   subtractMonths(date: Date, monthsToSubtract: number): Date {
     const dateCopy = new Date(date);
     dateCopy.setMonth(dateCopy.getMonth() - monthsToSubtract);
@@ -199,13 +175,6 @@ export class BillingComponent implements OnInit {
           this.transaction_list = x?.data as any;
           this.load_list = true;
         }
-      });
-  }
-  loadRestaurant(id: string) {
-    this.api
-      .get<any>(null, 'restaurant-setup/' + (id ? 'details/' : 'restaurants/'), id ? { id: id, record: 'restaurants' } : {})
-      .subscribe((x) => {
-        this.rest = x?.data as any;
       });
   }
   loadingBillingSub() {
