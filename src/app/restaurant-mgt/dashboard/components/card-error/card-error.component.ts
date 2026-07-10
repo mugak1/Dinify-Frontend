@@ -6,7 +6,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
   standalone: true,
   imports: [CardComponent],
   template: `
-    <app-dn-card>
+    <app-dn-card [square]="square">
       <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-6">
         <!-- AlertCircle icon -->
         <div class="mb-4">
@@ -40,5 +40,6 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
 export class CardErrorComponent {
   @Input() title = 'Error loading data';
   @Input() message = 'Something went wrong while loading this data.';
+  @Input() square = false;
   @Output() retry = new EventEmitter<void>();
 }

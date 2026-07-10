@@ -23,11 +23,11 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
   ],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="wide"></app-card-skeleton>
+      <app-card-skeleton variant="wide" [square]="true"></app-card-skeleton>
     } @else if (error) {
-      <app-card-error title="Reviews" [message]="error" (retry)="retry.emit()"></app-card-error>
+      <app-card-error title="Reviews" [message]="error" [square]="true" (retry)="retry.emit()"></app-card-error>
     } @else if (!reviewsData) {
-      <app-dn-card>
+      <app-dn-card [square]="true">
         <div class="p-4 sm:p-5 lg:p-6">
           <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Guest Reviews</h2>
           <hr class="border-border mb-4" />
@@ -35,7 +35,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card>
+      <app-dn-card [square]="true">
         <div class="p-4 sm:p-5 lg:p-6">
           <!-- Section 1: Header -->
           <div class="flex items-center justify-between mb-3 sm:mb-4">
@@ -115,7 +115,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
             <div class="border-t border-border pt-3 sm:pt-4 space-y-2">
               @for (review of recentReviews; track review.review_id) {
                 <div
-                  class="p-2 sm:p-3 rounded-xl border"
+                  class="p-2 sm:p-3 rounded-none border"
                   [class.bg-success/5]="getSentiment(review.rating) === 'positive'"
                   [class.border-success/20]="getSentiment(review.rating) === 'positive'"
                   [class.bg-destructive/5]="getSentiment(review.rating) === 'negative'"
@@ -155,7 +155,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
 
           <!-- Section 4: Warning Banner -->
           @if (lowRatingPct > 5) {
-            <div class="mt-3 sm:mt-4 p-2 sm:p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-center">
+            <div class="mt-3 sm:mt-4 p-2 sm:p-3 rounded-none bg-destructive/10 border border-destructive/20 text-center">
               <span class="text-destructive font-bold text-sm sm:text-base">{{ lowRatingPct.toFixed(1) }}%</span>
               <span class="text-xs sm:text-sm text-muted-foreground ml-1">
                 of reviews are 1-2 stars this month

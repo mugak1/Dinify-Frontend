@@ -37,9 +37,9 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
   ],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="wide"></app-card-skeleton>
+      <app-card-skeleton variant="wide" [square]="true"></app-card-skeleton>
     } @else if (!kdsData) {
-      <app-dn-card>
+      <app-dn-card [square]="true">
         <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
           <h2 class="text-sm sm:text-base font-bold text-foreground mb-1">Kitchen Load (KDS)</h2>
           <hr class="border-border mb-3" />
@@ -49,7 +49,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card>
+      <app-dn-card [square]="true">
         <div class="p-6 transition-all">
           <!-- Header -->
           <div class="flex items-start justify-between gap-2 mb-4 sm:mb-6">
@@ -114,7 +114,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
           </div>
 
           <!-- Oldest ticket callout -->
-          <div class="flex items-center justify-center gap-2 mb-6 py-3 bg-muted/50 rounded-lg">
+          <div class="flex items-center justify-center gap-2 mb-6 py-3 bg-muted/50 rounded-none">
             <!-- Clock icon -->
             <svg
               aria-hidden="true"
