@@ -21,7 +21,16 @@ describe('SidebarComponent', () => {
 
   it('shows every module item when the map is absent (fail-open)', () => {
     const labels = makeSidebar(undefined).visibleNavItems.map(i => i.label);
-    expect(labels).toEqual(['Dashboard', 'Menu', 'Tables', 'Reviews', 'Reports', 'Support', 'Settings']);
+    expect(labels).toEqual(['Dashboard', 'Menu', 'Tables', 'Kitchen', 'Reviews', 'Reports', 'Support', 'Settings']);
+  });
+
+  it('gates the Kitchen entry on the kitchen module (shown for owner/manager/kitchen, hidden for staff)', () => {
+    // kitchen:true (owner/manager/kitchen role template) → Kitchen visible.
+    const withKitchen = makeSidebar({ ...ALL_FALSE, dashboard: true, tables: true, kitchen: true }).visibleNavItems.map(i => i.label);
+    expect(withKitchen).toContain('Kitchen');
+    // kitchen:false (restaurant_staff template) → Kitchen hidden.
+    const withoutKitchen = makeSidebar({ ...ALL_FALSE, dashboard: true, tables: true, menu: true }).visibleNavItems.map(i => i.label);
+    expect(withoutKitchen).not.toContain('Kitchen');
   });
 
   it('filters nav to the granted modules but always keeps the module-less Support item', () => {

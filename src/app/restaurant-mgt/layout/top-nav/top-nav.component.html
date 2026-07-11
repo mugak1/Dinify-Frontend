@@ -33,9 +33,17 @@
         </div>
       }
 
-      <!-- Spacer for ng-content when not on dashboard -->
-      <div class="flex-1 flex items-center">
+      <!-- Right side: projected content + the current restaurant name. The name
+           is surfaced here so a multi-venue operator always sees which venue they
+           are editing, and it fills the otherwise-empty band on non-dashboard
+           pages. Right-aligned so it never collides with the date pills. -->
+      <div class="flex-1 flex items-center justify-end gap-3 min-w-0">
         <ng-content></ng-content>
+        <span
+          *ngIf="restaurantName as name"
+          class="min-w-0 truncate text-sm font-medium text-foreground max-w-[45vw] sm:max-w-[240px]"
+          [title]="name"
+        >{{ name }}</span>
       </div>
     </div>
   </div>
