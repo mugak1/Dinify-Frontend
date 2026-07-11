@@ -258,4 +258,68 @@ describe('ItemFormDialogComponent — canonical discount_details', () => {
     expect(component.itemHasDiscount).toBe(false);
     expect(component.itemDiscountDetails).toBeNull();
   });
+
+  // ── Details validation (the previously-dead attemptedSave flag) ──────────────
+  it('lights up Details validation and blocks an invalid submit (Enter path)', () => {
+    let emitted = false;
+    component.saved.subscribe(() => (emitted = true));
+
+    // Form starts invalid (name/section empty, price 0). Simulate an Enter-submit
+    // from another tab with the Save button visually disabled.
+    component.activeTab = 'discounts';
+    component.onSubmit();
+
+    expect(component.attemptedSave).toBe(true);
+    expect(component.hasDetailsErrors).toBe(true);
+    expect(component.activeTab).toBe('details');
+    expect(emitted).toBe(false);
+  });
+
+  // ── Data-loss guard (isDirty / requestClose / confirmDiscard) ────────────────
+  describe('unsaved-changes guard', () => {
+    function open(item?: MenuItem): void {
+      component.item = item;
+      component.open = true;
+      component.ngOnChanges({
+        open: { currentValue: true, previousValue: false, firstChange: true, isFirstChange: () => true },
+      } as any);
+    }
+
+    it('is pristine immediately after opening', () => {
+      open(makeMenuItem({}));
+      expect(component.isDirty).toBe(false);
+    });
+
+    it('becomes dirty after a form-field edit', () => {
+      open(makeMenuItem({}));
+      component.form.patchValue({ name: 'Changed name' });
+      expect(component.isDirty).toBe(true);
+    });
+
+    it('detects edits made in a tab held outside the form (modifiers)', () => {
+      open(makeMenuItem({}));
+      component.onModifiersChange({ hasModifiers: true, groups: [] });
+      expect(component.isDirty).toBe(true);
+    });
+
+    it('closes straight away when pristine, but prompts + defers the close when dirty', () => {
+      let closed = 0;
+      component.closed.subscribe(() => closed++);
+
+      open(makeMenuItem({}));
+      component.requestClose();                    // pristine → close now
+      expect(component.showDiscardConfirm).toBe(false);
+      expect(closed).toBe(1);
+
+      open(makeMenuItem({}));
+      component.form.patchValue({ name: 'Edited' });
+      component.requestClose();                    // dirty → prompt, don't close
+      expect(component.showDiscardConfirm).toBe(true);
+      expect(closed).toBe(1);
+
+      component.confirmDiscard();                   // user confirms discard
+      expect(component.showDiscardConfirm).toBe(false);
+      expect(closed).toBe(2);
+    });
+  });
 });

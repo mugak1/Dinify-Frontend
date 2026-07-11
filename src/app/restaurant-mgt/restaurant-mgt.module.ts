@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { RouterModule, Routes } from '@angular/router';
 import { permissionGuard } from '../_helpers/permission.guard';
+import { unsavedChangesGuard } from '../_helpers/unsaved-changes.guard';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TrendIndicatorComponent } from './dashboard/components/trend-indicator/trend-indicator.component';
 import { AnimatedNumberComponent } from './dashboard/components/animated-number/animated-number.component';
@@ -76,18 +77,18 @@ const routes: Routes = [
   {path:'dashboard',component:DashboardComponent,title:'Dashboard',canActivate:[permissionGuard],data:{module:'dashboard'}},
   {path:'settings',title:'Settings',children:[
     {path: "", component: SettingsHubComponent, pathMatch: "full",canActivate:[permissionGuard],data:{module:'settings'}},
-    {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding',canActivate:[permissionGuard],data:{module:'settings'}},
-    {path:'availability',component:AvailabilityComponent,title:'Availability',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
+    {path:'availability',component:AvailabilityComponent,title:'Availability',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
     {path:'team',component:TeamShellComponent,title:'Team',canActivate:[permissionGuard],data:{module:'team'},children:[
       {path:'',redirectTo:'members',pathMatch:'full'},
       {path:'members',component:RestUsersComponent,title:'Members'},
       {path:'roles',component:RolesAccessComponent,title:'Roles & access'},
     ]},
-    {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
     {path:'billing',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
     {path:'preset-tags',component:PresetTagsComponent,title:'Preset tags',canActivate:[permissionGuard],data:{module:'settings'}},
-    {path:'account',component:AccountSecurityComponent,title:'Account & security',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'account',component:AccountSecurityComponent,title:'Account & security',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
   ]},
   {path:'menu',component:MenuComponent,title:'Menu',canActivate:[permissionGuard],data:{module:'menu'}},
   {path:'dining-tables',component:TablesComponent,title:'Tables',canActivate:[permissionGuard],data:{module:'tables'}},

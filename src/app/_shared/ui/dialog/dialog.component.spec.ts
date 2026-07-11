@@ -40,6 +40,34 @@ describe('DialogComponent', () => {
     expect(c.open).toBeTrue();
   });
 
+  it('emits closeAttempt (not closed) on backdrop/Escape while disableClose is true', () => {
+    const c = build();
+    c.disableClose = true;
+    c.open = true;
+    let closed = 0;
+    let attempts = 0;
+    c.closed.subscribe(() => closed++);
+    c.closeAttempt.subscribe(() => attempts++);
+
+    c.onBackdrop();
+    c.onEscape();
+
+    expect(attempts).toBe(2);
+    expect(closed).toBe(0);
+    expect(c.open).toBeTrue();
+  });
+
+  it('does not emit closeAttempt on a normal (allowed) close', () => {
+    const c = build();
+    c.open = true;
+    let attempts = 0;
+    c.closeAttempt.subscribe(() => attempts++);
+
+    c.onBackdrop();
+
+    expect(attempts).toBe(0);
+  });
+
   // ── Rendered a11y wiring (attribute assertions) ───────────────────────────
   describe('rendered a11y', () => {
     let fixture: ComponentFixture<DialogComponent>;

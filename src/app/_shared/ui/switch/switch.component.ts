@@ -12,6 +12,7 @@ export type SwitchSize = 'sm' | 'md';
       type="button"
       role="switch"
       [attr.aria-checked]="checked"
+      [attr.aria-label]="ariaLabel || null"
       [disabled]="disabled"
       [class]="trackClass"
       (click)="toggle()"
@@ -25,6 +26,10 @@ export class SwitchComponent {
   @Input() size: SwitchSize = 'md';
   /** Renders the track non-interactive (used e.g. for the locked owner row in the roles grid). */
   @Input() disabled = false;
+  /** Accessible name for the toggle. The switch renders no visible label of its
+   *  own, so a standalone switch (e.g. the item card's availability toggle) must
+   *  pass one or it announces as an unnamed "switch" to assistive tech. */
+  @Input() ariaLabel?: string;
   @Output() checkedChange = new EventEmitter<boolean>();
 
   get trackClass(): string {
