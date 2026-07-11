@@ -181,6 +181,46 @@ describe('TicketCardComponent', () => {
     });
   });
 
+  describe('escalation label (colour-independent urgency)', () => {
+    function badge(): HTMLElement | undefined {
+      return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('span'))
+        .find((s) => ['Due soon', 'Overdue'].includes((s.textContent ?? '').trim()));
+    }
+
+    it('names the warning tier "Due soon" (not colour alone)', () => {
+      component.ticket = makeTicket({ created_at: new Date(Date.now() - WARNING_MS - 60_000).toISOString() });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      expect(component.escalation).toBe('warning');
+      const chip = badge();
+      expect(chip).toBeTruthy();
+      expect(chip!.textContent!.trim()).toBe('Due soon');
+      expect(chip!.className).toContain('bg-amber-100');
+    });
+
+    it('names the overdue tier "Overdue" (not colour/pulse alone)', () => {
+      component.ticket = makeTicket({ created_at: new Date(Date.now() - OVERDUE_MS - 1000).toISOString() });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      expect(component.escalation).toBe('overdue');
+      const chip = badge();
+      expect(chip).toBeTruthy();
+      expect(chip!.textContent!.trim()).toBe('Overdue');
+      expect(chip!.className).toContain('bg-red-600');
+    });
+
+    it('shows no escalation chip while on time', () => {
+      component.ticket = makeTicket({ created_at: new Date().toISOString() });
+      component.now = Date.now();
+      fixture.detectChanges();
+
+      expect(component.escalation).toBe('normal');
+      expect(badge()).toBeFalsy();
+    });
+  });
+
   it('shows a recall control for a ready ticket and not for a new one', () => {
     component.ticket = makeTicket({ fulfilment_status: 'ready' });
     component.now = Date.now();

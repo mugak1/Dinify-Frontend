@@ -1,20 +1,28 @@
 import { Component } from '@angular/core';
 import { ToastService, Toast } from './toast.service';
 
+// Colours route through the semantic tokens (not raw green/red/amber literals) so
+// toasts track the design system and any future re-theme.
 const borderColors: Record<Toast['type'], string> = {
-  success: 'border-l-green-500',
-  error: 'border-l-red-500',
-  warning: 'border-l-amber-500',
+  success: 'border-l-success',
+  error: 'border-l-destructive',
+  warning: 'border-l-warning',
   info: 'border-l-primary',
 };
 
 // Icon tint mirrors the left border so each type reads at a glance.
 const iconColors: Record<Toast['type'], string> = {
-  success: 'text-green-500',
-  error: 'text-red-500',
-  warning: 'text-amber-500',
+  success: 'text-success',
+  error: 'text-destructive',
+  warning: 'text-warning',
   info: 'text-primary',
 };
+
+// Errors and warnings interrupt (assertive alert); success/info wait their turn
+// (polite status) so they don't talk over whatever the user is doing.
+function isUrgent(type: Toast['type']): boolean {
+  return type === 'error' || type === 'warning';
+}
 
 @Component({
   selector: 'app-dn-toast',
@@ -23,8 +31,8 @@ const iconColors: Record<Toast['type'], string> = {
     <div class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
       @for (toast of toastService.toasts; track toast.id) {
         <div
-          role="status"
-          aria-live="polite"
+          [attr.role]="urgent(toast.type) ? 'alert' : 'status'"
+          [attr.aria-live]="urgent(toast.type) ? 'assertive' : 'polite'"
           class="bg-card text-card-foreground shadow-[var(--shadow-md)] rounded-lg px-4 py-3 border-l-4 min-w-[280px] max-w-sm flex items-start gap-3"
           [class]="borderColor(toast.type)"
         >
@@ -87,5 +95,9 @@ export class ToastComponent {
 
   iconColor(type: Toast['type']): string {
     return iconColors[type];
+  }
+
+  urgent(type: Toast['type']): boolean {
+    return isUrgent(type);
   }
 }
