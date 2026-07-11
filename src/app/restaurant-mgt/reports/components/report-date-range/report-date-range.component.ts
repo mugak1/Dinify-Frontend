@@ -59,7 +59,7 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
          desktop popover is the same DateRangePanelComponent, created imperatively
          into a CDK Overlay as a ComponentPortal (see openOverlay). -->
     @if (!isDesktop) {
-      <app-dn-sheet side="bottom" [open]="isOpen" (closed)="onCancel()">
+      <app-dn-sheet side="bottom" [open]="isOpen" (closed)="onCancel()" ariaLabel="Select date range">
         <app-date-range-panel
           variant="sheet"
           [initial]="value"
