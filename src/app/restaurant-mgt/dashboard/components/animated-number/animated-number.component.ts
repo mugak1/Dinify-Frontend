@@ -15,7 +15,7 @@ import {
   template: `
     <span
       #wrapper
-      class="inline-block transition-opacity transition-transform duration-400"
+      class="inline-block transition-[opacity,transform] duration-300"
       [class.opacity-0]="!visible"
       [class.scale-90]="!visible"
     >
@@ -30,6 +30,8 @@ export class AnimatedNumberComponent implements AfterViewInit, OnChanges, OnDest
   @Input() suffix = '';
   @Input() decimals = 0;
   @Input() formatFn?: (v: number) => string;
+  /** How long to wait for the IntersectionObserver before revealing anyway. */
+  @Input() revealFallbackMs = 1000;
 
   @ViewChild('wrapper', { static: true }) wrapperRef!: ElementRef<HTMLSpanElement>;
 
@@ -41,18 +43,32 @@ export class AnimatedNumberComponent implements AfterViewInit, OnChanges, OnDest
   private rafId: number | null = null;
   private startTime: number | null = null;
   private observer?: IntersectionObserver;
+  private fallbackId: ReturnType<typeof setTimeout> | null = null;
 
   ngAfterViewInit(): void {
-    this.observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !this.hasAnimated) {
-          this.visible = true;
-          this.startAnimation(this.value);
-        }
-      },
-      { rootMargin: '-50px' },
-    );
+    // The observer only ENHANCES (it starts the count-up when the number scrolls
+    // into view); it must never gate whether the value renders at all. The old
+    // `rootMargin: '-50px'` inset meant an element within 50px of any viewport
+    // edge never counted as intersecting — on a phone the collapsed sidebar puts
+    // the dashboard revenue figure ~30px from the left edge, so it sat at an
+    // invisible "0" forever. No inset, plus a timer fallback: whichever fires
+    // first reveals and animates.
+    this.observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) this.reveal();
+    });
     this.observer.observe(this.wrapperRef.nativeElement);
+    this.fallbackId = setTimeout(() => this.reveal(), this.revealFallbackMs);
+  }
+
+  private reveal(): void {
+    if (this.visible) return;
+    this.visible = true;
+    if (this.fallbackId !== null) {
+      clearTimeout(this.fallbackId);
+      this.fallbackId = null;
+    }
+    this.observer?.disconnect();
+    this.startAnimation(this.value);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -68,6 +84,7 @@ export class AnimatedNumberComponent implements AfterViewInit, OnChanges, OnDest
 
   ngOnDestroy(): void {
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    if (this.fallbackId !== null) clearTimeout(this.fallbackId);
     this.observer?.disconnect();
   }
 
