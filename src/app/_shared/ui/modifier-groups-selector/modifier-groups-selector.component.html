@@ -1,34 +1,42 @@
 <!-- Shared modifier-groups selector — the diner item-detail's canonical markup (red controls,
      inline validation), now rendered by both the diner route and the preview drawer. Each group
-     keeps its `mod-group-<id>` id so the diner's scroll-to-first-unmet keeps working. -->
+     keeps its `mod-group-<id>` id so the diner's scroll-to-first-unmet keeps working.
+     Each choice is a REAL native radio/checkbox (visually hidden via sr-only but focusable), so
+     the whole flow is keyboard- and screen-reader-operable; the visual control mirrors the
+     input's checked state and shows a focus ring via `peer-focus-visible`. -->
 <div class="space-y-4">
   <div *ngFor="let group of groups"
        [id]="'mod-group-' + group.id"
+       [attr.role]="group.selectionType === 'single' ? 'radiogroup' : 'group'"
+       [attr.aria-labelledby]="'mod-group-label-' + group.id"
        class="border border-gray-200 rounded-xl p-4 space-y-3">
 
-    <div class="flex items-center gap-2 flex-wrap">
+    <div class="flex items-center gap-2 flex-wrap" [id]="'mod-group-label-' + group.id">
       <h4 class="font-semibold text-base">{{ group.name }}</h4>
       <span *ngIf="group.required"
             class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
         Required
       </span>
       <span *ngIf="!group.required"
-            class="bg-red-600 text-white text-xs font-medium px-2 py-0.5 rounded">
+            class="bg-gray-100 text-gray-500 text-xs font-medium px-2 py-0.5 rounded">
         Optional
       </span>
     </div>
 
     <p *ngIf="constraintLabel(group) as label" class="text-xs text-gray-500">{{ label }}</p>
 
-    <p *ngIf="errors[group.id] as err" class="text-red-500 text-sm">{{ err }}</p>
+    <p *ngIf="errors[group.id] as err" class="text-red-500 text-sm" role="alert">{{ err }}</p>
 
     <!-- Single-select (radio) -->
     <div *ngIf="group.selectionType === 'single'" class="space-y-2">
       <label *ngFor="let choice of group.choices"
-             class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
-             (click)="singleSelect.emit({ groupId: group.id, choiceId: choice.id })">
+             class="flex items-center justify-between py-3 px-1 min-h-[44px] cursor-pointer border-b border-gray-100 last:border-0">
         <div class="flex items-center gap-3">
-          <div class="h-[20px] w-[20px] rounded-full border-2 flex items-center justify-center flex-shrink-0"
+          <input type="radio" class="peer sr-only"
+                 [attr.name]="'mod-' + group.id"
+                 [checked]="isSelected(group.id, choice.id)"
+                 (change)="singleSelect.emit({ groupId: group.id, choiceId: choice.id })" />
+          <div class="h-[20px] w-[20px] rounded-full border-2 flex items-center justify-center flex-shrink-0 peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-red-500"
                [ngClass]="{
                  'border-red-600 bg-red-600': isSelected(group.id, choice.id),
                  'border-gray-300': !isSelected(group.id, choice.id)
@@ -50,12 +58,15 @@
     <!-- Multi-select (checkbox) -->
     <div *ngIf="group.selectionType !== 'single'" class="space-y-2">
       <label *ngFor="let choice of group.choices"
-             class="flex items-center justify-between py-3 px-1 cursor-pointer border-b border-gray-100 last:border-0"
+             class="flex items-center justify-between py-3 px-1 min-h-[44px] cursor-pointer border-b border-gray-100 last:border-0"
              [class.opacity-50]="!isSelected(group.id, choice.id) && selectedCount(group.id) >= group.maxSelections"
-             [class.cursor-not-allowed]="!isSelected(group.id, choice.id) && selectedCount(group.id) >= group.maxSelections"
-             (click)="multiToggle.emit({ groupId: group.id, choiceId: choice.id, checked: !isSelected(group.id, choice.id), maxSelections: group.maxSelections })">
+             [class.cursor-not-allowed]="!isSelected(group.id, choice.id) && selectedCount(group.id) >= group.maxSelections">
         <div class="flex items-center gap-3">
-          <div class="h-[20px] w-[20px] rounded border-2 flex items-center justify-center flex-shrink-0"
+          <input #cb type="checkbox" class="peer sr-only"
+                 [checked]="isSelected(group.id, choice.id)"
+                 [disabled]="!isSelected(group.id, choice.id) && selectedCount(group.id) >= group.maxSelections"
+                 (change)="multiToggle.emit({ groupId: group.id, choiceId: choice.id, checked: cb.checked, maxSelections: group.maxSelections })" />
+          <div class="h-[20px] w-[20px] rounded border-2 flex items-center justify-center flex-shrink-0 peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-red-500"
                [ngClass]="{
                  'border-red-600 bg-red-600': isSelected(group.id, choice.id),
                  'border-gray-300': !isSelected(group.id, choice.id)
