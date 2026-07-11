@@ -4,22 +4,28 @@ import { BehaviorSubject } from 'rxjs';
 import { TopNavComponent } from './top-nav.component';
 import { DashboardService } from '../../dashboard/services/dashboard.service';
 import { DateRange } from '../../dashboard/models/dashboard.models';
+import { AuthenticationService } from '../../../_services/authentication.service';
 
 describe('TopNavComponent', () => {
   let fixture: ComponentFixture<TopNavComponent>;
   let component: TopNavComponent;
   let dateRange$: BehaviorSubject<DateRange>;
   let isDashboardActive$: BehaviorSubject<boolean>;
+  // Getter-backed stub: mirrors the real service's `currentRestaurant` /
+  // `currentRestaurantRole` accessors so `restaurantName`'s fallback resolves.
+  let auth: { currentRestaurant: { name: string } | null; currentRestaurantRole: { restaurant: string } | null };
 
   beforeEach(async () => {
     dateRange$ = new BehaviorSubject<DateRange>('day');
     isDashboardActive$ = new BehaviorSubject<boolean>(true);
+    auth = { currentRestaurant: null, currentRestaurantRole: { restaurant: 'Test Bistro' } };
 
     await TestBed.configureTestingModule({
       imports: [TopNavComponent],
       providers: [
         provideRouter([]),
         { provide: DashboardService, useValue: { dateRange$, isDashboardActive$ } },
+        { provide: AuthenticationService, useValue: auth },
       ],
     }).compileComponents();
 
@@ -49,5 +55,15 @@ describe('TopNavComponent', () => {
     isDashboardActive$.next(false);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-dn-segmented')).toBeNull();
+  });
+
+  it('surfaces the current restaurant name in the chrome', () => {
+    expect(component.restaurantName).toBe('Test Bistro');
+    expect((fixture.nativeElement.textContent as string)).toContain('Test Bistro');
+  });
+
+  it('prefers the freshly-fetched detail name over the membership label', () => {
+    auth.currentRestaurant = { name: 'Renamed Bistro' };
+    expect(component.restaurantName).toBe('Renamed Bistro');
   });
 });
