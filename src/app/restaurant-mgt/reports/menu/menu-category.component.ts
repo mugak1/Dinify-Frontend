@@ -1,11 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
-import {
-  TabsComponent,
-  TabListComponent,
-  TabTriggerComponent,
-} from '../../../_shared/ui/tabs/tabs.component';
+import { DnSegmentedComponent } from '../../../_shared/ui/segmented/segmented.component';
 import { ReportTableComponent } from '../components/report-table/report-table.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { MenuGrouping, MenuRow, ReportColumn } from '../models/reports.models';
@@ -37,9 +33,7 @@ const GROUPINGS: { value: MenuGrouping; label: string }[] = [
   imports: [
     CommonModule,
     CardComponent,
-    TabsComponent,
-    TabListComponent,
-    TabTriggerComponent,
+    DnSegmentedComponent,
     ReportTableComponent,
   ],
   template: `
@@ -49,13 +43,12 @@ const GROUPINGS: { value: MenuGrouping; label: string }[] = [
           <h2 class="text-base font-semibold text-gray-900">
             {{ grouping === 'items' ? 'Full menu' : 'Sales by category' }}
           </h2>
-          <app-dn-tabs [value]="grouping" (valueChange)="onGrouping($event)">
-            <app-dn-tab-list>
-              @for (g of groupings; track g.value) {
-                <app-dn-tab-trigger [value]="g.value">{{ g.label }}</app-dn-tab-trigger>
-              }
-            </app-dn-tab-list>
-          </app-dn-tabs>
+          <app-dn-segmented
+            [items]="groupings"
+            [value]="grouping"
+            (valueChange)="onGrouping($event)"
+            ariaLabel="Menu grouping"
+          ></app-dn-segmented>
         </div>
 
         @if (grouping === 'items') {
