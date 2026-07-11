@@ -41,10 +41,11 @@ export type DnSegLayout = 'hug' | 'responsive' | 'fill';
 
 /**
  * The single soft-segmented "pick-one-from-a-group" control (supersedes the old dn-tabs and
- * the bespoke Reports rail). A sunken pill track holds N segments and one absolutely-positioned
- * WHITE glider that slides to the active segment; the active segment's text/icon go
- * `text-foreground`, inactive `text-muted-foreground hover:text-foreground` (icons inherit via
- * `currentColor`). Pure semantic tokens — no hex colours.
+ * the bespoke Reports rail). A white pill track (`bg-card` + hairline border) holds N segments and
+ * one absolutely-positioned RED glider (`bg-primary`) that slides to the active segment; the active
+ * segment's text/icon go `text-primary-foreground` (white on the red pill), inactive
+ * `text-muted-foreground hover:text-foreground` (icons inherit via `currentColor`). Pure semantic
+ * tokens — no hex colours.
  *
  * Two modes, chosen by `[mode]`:
  *  • `value` (default) — click-select `<button role="tab">`s; emits `(valueChange)`; sets the
@@ -152,7 +153,7 @@ export class DnSegmentedComponent implements OnChanges, AfterViewInit {
     'left 0.3s cubic-bezier(0.22, 1, 0.36, 1), width 0.3s cubic-bezier(0.22, 1, 0.36, 1)';
 
   readonly gliderClass =
-    'pointer-events-none absolute top-[5px] bottom-[5px] z-0 rounded-[10px] bg-background shadow-[var(--shadow-sm)]';
+    'pointer-events-none absolute top-[5px] bottom-[5px] z-0 rounded-[10px] bg-primary shadow-[var(--shadow-sm)]';
 
   readonly labelClass = 'truncate min-w-0 transition-colors';
 
@@ -230,7 +231,7 @@ export class DnSegmentedComponent implements OnChanges, AfterViewInit {
         : this.layout === 'fill'
           ? 'flex w-full'
           : 'inline-flex';
-    return cn('relative items-center rounded-[13px] p-[5px] bg-muted', width);
+    return cn('relative items-center rounded-[13px] p-[5px] bg-card border border-border', width);
   }
 
   segClass(it: DnSegItem): string {
@@ -245,7 +246,7 @@ export class DnSegmentedComponent implements OnChanges, AfterViewInit {
       'text-[13.5px] font-semibold no-underline select-none transition-colors',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       flex,
-      this.isActive(it) ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+      this.isActive(it) ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
       it.disabled && 'opacity-50 pointer-events-none',
       // Error ink wins over the active/inactive colour (value mode, e.g. the item-form tabs).
       it.hasError && 'text-destructive',
