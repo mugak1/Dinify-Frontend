@@ -45,12 +45,13 @@
           </span>
         </div>
 
-        <img *ngIf="i.image"
+        <img *ngIf="i.image && !imageErrored(i)"
              [src]="imageBaseUrl + i.image"
              [alt]="i.name"
              class="w-full h-full object-cover transition-transform duration-300"
              [ngClass]="{ 'group-hover:scale-105': !isOutOfStock(i) }"
-             decoding="async" />
+             decoding="async"
+             (error)="onImageError(i.id)" />
 
         <!-- Quick-add affordance: decorative-only "+" indicating tappability.
              Clicks bubble to the parent card's onCardTap handler. -->

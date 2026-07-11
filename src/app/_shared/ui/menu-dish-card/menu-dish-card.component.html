@@ -6,7 +6,7 @@
      pointer, and a concise aria-label (name + price) keeps the long description out of the
      accessible name. Out of stock → inert (no tabindex, aria-disabled). (cardClick) is
      unchanged, so both consumers (diner menu + preview drawer) keep working. -->
-<div class="mb-3 rounded-[20px] bg-white shadow-2xl group transition-all duration-200 ease-out flex flex-col"
+<div class="mb-3 rounded-[20px] bg-white shadow-[var(--shadow-md)] group transition-all duration-200 ease-out flex flex-col"
      role="button"
      [attr.tabindex]="outOfStock ? null : 0"
      [attr.aria-disabled]="outOfStock ? true : null"
@@ -87,8 +87,18 @@
       <!-- The photo lives in its OWN overflow-hidden box (keeps the rounded corners and clips
            the badge overlays); the add button is a SIBLING below, so its overhang and ring
            are never clipped. -->
-      <div class="relative w-[104px] h-[104px] rounded-[16px] overflow-hidden"
+      <div class="relative w-[104px] h-[104px] rounded-[16px] overflow-hidden bg-gray-100"
            [class.grayscale]="outOfStock">
+
+        <!-- Neutral placeholder for a photo-less dish OR a broken image URL — replaces the
+             former transparent "blank hole" (a plate glyph on the gray fill). -->
+        <div *ngIf="!imageUrl || imageFailed"
+             class="absolute inset-0 flex items-center justify-center text-gray-300" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 11h18"/><path d="M12 11a5 5 0 0 0-5 5v1h10v-1a5 5 0 0 0-5-5z"/><path d="M12 11V6"/><path d="M8 6h8"/>
+          </svg>
+        </div>
 
         <!-- Badge overlay (single-badge policy: Popular > New; Featured suppressed on cards) -->
         <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
@@ -112,12 +122,13 @@
 
         <!-- Eager native <img>: images are preloaded before the menu reveals, so this paints
              from cache immediately. -->
-        <img *ngIf="imageUrl"
+        <img *ngIf="imageUrl && !imageFailed"
              [src]="imageUrl"
              [alt]="name"
              class="w-full h-full object-cover transition-transform duration-300"
              [ngClass]="{ 'group-hover:scale-105': !outOfStock }"
-             decoding="async" />
+             decoding="async"
+             (error)="onImageError()" />
       </div>
 
       <!-- Quick-add affordance: decorative-only "+", overhanging the photo's bottom-right

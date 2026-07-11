@@ -152,6 +152,14 @@ export class DinerAppComponent implements OnInit, OnDestroy {
           this.showScanError(this.DEFAULT_UNAVAILABLE);
           return;
         }
+        // A re-scan onto a DIFFERENT table would otherwise carry the previous
+        // table's basket over (same-tab sessionStorage, single 'diner.basket'
+        // key) and let a diner check out the wrong table's order. Clear it on a
+        // genuine table change; a same-table re-scan / refresh keeps the basket.
+        const previousTable = this.sessionStorage.getItem<TableScan>('Table');
+        if (previousTable?.id && previousTable.id !== scanned.id) {
+          this.basketService.clearBasket();
+        }
         this.table = scanned;
         this.sessionStorage.setItem('Table', scanned);
         this.sessionStorage.setItem('restaurant', scanned.restaurant);

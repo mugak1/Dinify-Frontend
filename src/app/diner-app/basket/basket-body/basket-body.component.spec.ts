@@ -153,6 +153,27 @@ describe('BasketBodyComponent', () => {
     expect((api.postPatch.calls.argsFor(1)[1] as any).client_order_id).toBe(CLIENT_ID);
   });
 
+  it('surfaces the backend failure message inline on a genuine placement error', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(throwError(() => 'Sorry, Jollof Rice just sold out') as any);
+
+    component.initiateOrder();
+
+    expect(component.orderError).toBeTrue();
+    expect(component.orderErrorMessage).toBe('Sorry, Jollof Rice just sold out');
+  });
+
+  it("falls back to the generic line for the 'no network' sentinel (never shows the raw token)", () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(throwError(() => 'no network') as any);
+
+    component.initiateOrder();
+
+    expect(component.orderError).toBeTrue();
+    expect(component.orderErrorMessage).not.toContain('no network');
+    expect(component.orderErrorMessage.toLowerCase()).toContain('place your order');
+  });
+
   it('holds placingOrder true while an order is in flight (drives the checkout spinner)', () => {
     // A never-resolving request keeps the placement pending; the checkout CTA is
     // bound [loading]="placingOrder", so this is exactly the spinner-visible,

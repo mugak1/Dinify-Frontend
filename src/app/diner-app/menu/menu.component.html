@@ -4,9 +4,10 @@
      has a cover_photo. Full-bleed image dissolving into the white menu via the
      scrim, with a scroll parallax driven by the inherited --sy var (see the
      appScrollProgress directive on the diner shell root). No cover ⇒ no hero. -->
-<div *ngIf="coverPhoto" class="hero relative h-[280px] overflow-hidden">
+<div *ngIf="coverPhoto && !coverFailed" class="hero relative h-[280px] overflow-hidden">
   <img [src]="url + '/media/' + coverPhoto" [alt]="restaurantName"
-       class="hero-img absolute inset-0 w-full h-full object-cover" decoding="async" />
+       class="hero-img absolute inset-0 w-full h-full object-cover" decoding="async"
+       (error)="coverFailed = true" />
   <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
   <!-- Over-hero chrome: Dinify wordmark + table chip at the hero's TOP. NON-sticky —
        it scrolls away with the photo while the sticky banner below takes over. This
@@ -98,7 +99,7 @@
 <!-- Skeleton cards -->
 <div *ngIf="navState.isLoading()" class="flex flex-col px-6 pt-4">
   <div *ngFor="let _ of [1,2,3,4,5]"
-       class="mb-3 rounded-2xl bg-white shadow-2xl">
+       class="mb-3 rounded-2xl bg-white shadow-[var(--shadow-md)]">
     <div class="flex gap-3 p-3">
       <div class="flex-1 min-w-0 flex flex-col gap-2">
         <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
@@ -134,7 +135,7 @@
   </div>
 </div>
 
-<div *ngIf="!navState.isLoading() && !navState.searchQuery().trim() && navState.filteredMenuList()" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" (sectionChange)="onSectionChange($event)">
+<div *ngIf="!navState.isLoading() && !navState.searchQuery().trim() && navState.filteredMenuList()" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" [stickyOffset]="navState.navStackHeight()" (sectionChange)="onSectionChange($event)">
 
     <!-- Featured Section: horizontal-scrolling carousel of items with is_featured.
          Items also continue to render in their natural category sections below

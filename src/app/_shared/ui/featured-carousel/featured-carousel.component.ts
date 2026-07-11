@@ -20,6 +20,12 @@ export class FeaturedCarouselComponent {
 
   imageBaseUrl = environment.apiUrl;
 
+  /** Ids whose photo URL 404'd — falls the tile back to its neutral gray fill
+   *  instead of a torn broken-image glyph. */
+  private erroredImages = new Set<string>();
+  onImageError(id: string): void { this.erroredImages.add(id); }
+  imageErrored(item: any): boolean { return !!item?.id && this.erroredImages.has(item.id); }
+
   isOutOfStock(item: any): boolean {
     return item?.in_stock === false;
   }

@@ -113,11 +113,12 @@
 
       <!-- Thumbnail -->
       <div class="w-16 h-16 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
-        <img *ngIf="item.image"
+        <img *ngIf="item.image && !rowImageErrored[idx]"
              [src]="url + item.image"
              [alt]="item.itemName"
-             class="w-full h-full object-cover" />
-        <div *ngIf="!item.image"
+             class="w-full h-full object-cover"
+             (error)="onRowImageError(idx)" />
+        <div *ngIf="!item.image || rowImageErrored[idx]"
              class="w-full h-full flex items-center justify-center text-gray-400 text-xs">
           No img
         </div>
