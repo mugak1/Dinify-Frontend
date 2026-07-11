@@ -1,14 +1,28 @@
 import { Component, Input, Output, EventEmitter, HostListener } from '@angular/core';
+import { A11yModule } from '@angular/cdk/a11y';
 import { cn } from '../../utils/cn';
 
 @Component({
   selector: 'app-dn-sheet',
   standalone: true,
+  imports: [A11yModule],
+  // Same focus-trap/return + container-focus pattern as app-dn-dialog: the
+  // wrapper traps and auto-captures, cdkFocusInitial on the panel makes the sheet
+  // container the initial focus target. The panel already caps height/scrolls.
   template: `
     @if (open) {
-      <div class="fixed inset-0 z-50">
+      <div class="fixed inset-0 z-50" cdkTrapFocus cdkTrapFocusAutoCapture>
         <div class="fixed inset-0 bg-black/50 transition-opacity" (click)="close()"></div>
-        <div [class]="panelClass" [style.width]="side === 'bottom' ? null : width">
+        <div
+          role="dialog"
+          aria-modal="true"
+          tabindex="-1"
+          cdkFocusInitial
+          [attr.aria-labelledby]="ariaLabelledby || null"
+          [attr.aria-label]="ariaLabel || null"
+          [class]="panelClass"
+          [style.width]="side === 'bottom' ? null : width"
+        >
           <ng-content></ng-content>
         </div>
       </div>
@@ -19,6 +33,9 @@ export class SheetComponent {
   @Input() open = false;
   @Input() side: 'left' | 'right' | 'bottom' = 'right';
   @Input() width = '400px';
+  /** Accessible name — see DialogComponent. Opt-in; wired to consumers in the follow-up pass. */
+  @Input() ariaLabelledby?: string;
+  @Input() ariaLabel?: string;
   @Output() closed = new EventEmitter<void>();
 
   @HostListener('document:keydown.escape')
