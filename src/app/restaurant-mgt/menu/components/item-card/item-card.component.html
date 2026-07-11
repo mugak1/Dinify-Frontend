@@ -96,6 +96,14 @@
               Sold out
             </span>
 
+            <!-- Hidden badge — muted (NOT red) so it reads as a distinct axis from
+                 Sold out; the two can co-occur (an item can be both hidden and
+                 out of stock). Was previously only signalled by an unexplained dim. -->
+            <span *ngIf="!item.available"
+                  class="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded-full inline-flex items-center">
+              Hidden
+            </span>
+
             <!-- Discount badge -->
             <app-dn-badge *ngIf="hasDiscount" variant="success">{{ discountBadgeText }}</app-dn-badge>
           </div>
@@ -216,9 +224,12 @@
               </div>
             </div>
 
-            <!-- Availability switch -->
+            <!-- Availability switch (toggles `available` = shown/hidden on the menu).
+                 Carries an explicit name + tooltip — it renders no visible label. -->
             <app-dn-switch
               [checked]="item.available"
+              [ariaLabel]="item.available ? 'Item is visible on the menu' : 'Item is hidden from the menu'"
+              [appTooltip]="item.available ? 'Visible on menu' : 'Hidden from menu'"
               (checkedChange)="toggleAvailability.emit({ id: item.id, available: $event })">
             </app-dn-switch>
           </div>

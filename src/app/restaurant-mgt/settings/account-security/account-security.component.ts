@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
   AbstractControl,
   FormBuilder,
@@ -61,7 +62,7 @@ function passwordsMatch(group: AbstractControl): ValidationErrors | null {
   ],
   templateUrl: './account-security.component.html',
 })
-export class AccountSecurityComponent implements OnInit {
+export class AccountSecurityComponent implements OnInit, HasUnsavedChanges {
   profileForm: FormGroup;
   passwordForm: FormGroup;
 

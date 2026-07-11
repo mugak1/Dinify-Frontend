@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
   FormBuilder,
   FormGroup,
@@ -51,7 +52,7 @@ const DEFAULT_BRAND_COLOR = '#171717';
   ],
   templateUrl: './identity.component.html',
 })
-export class IdentityComponent implements OnInit, OnDestroy {
+export class IdentityComponent implements OnInit, OnDestroy, HasUnsavedChanges {
   loadState: SectionPageState = 'loading';
   saving = false;
 

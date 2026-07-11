@@ -87,6 +87,14 @@ export class DialogComponent {
   @Input() ariaLabelledby?: string;
   @Input() ariaLabel?: string;
   @Output() closed = new EventEmitter<void>();
+  /**
+   * Fires when the user tries to dismiss the dialog (Escape or backdrop) while
+   * `disableClose` is true — i.e. the primitive blocked the auto-close. Lets a
+   * consumer intercept the attempt (e.g. prompt "discard unsaved changes?")
+   * instead of the dismissal being a silent no-op. Consumers that don't bind it
+   * keep the existing behaviour (the dialog simply stays open).
+   */
+  @Output() closeAttempt = new EventEmitter<void>();
 
   // Fires with the panel ref when the dialog opens (and undefined when the @if
   // destroys it on close). Names the panel from its first heading unless an
@@ -103,13 +111,13 @@ export class DialogComponent {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
-    if (this.open && !this.disableClose) {
-      this.close();
-    }
+    if (!this.open) return;
+    if (this.disableClose) { this.closeAttempt.emit(); return; }
+    this.close();
   }
 
   onBackdrop(): void {
-    if (this.disableClose) return;
+    if (this.disableClose) { this.closeAttempt.emit(); return; }
     this.close();
   }
 

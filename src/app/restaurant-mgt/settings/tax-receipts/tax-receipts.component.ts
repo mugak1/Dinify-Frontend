@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
   FormBuilder,
   FormGroup,
@@ -48,7 +49,7 @@ const DEFAULT_VAT_RATE = 18;
   ],
   templateUrl: './tax-receipts.component.html',
 })
-export class TaxReceiptsComponent implements OnInit {
+export class TaxReceiptsComponent implements OnInit, HasUnsavedChanges {
   loadState: SectionPageState = 'loading';
   saving = false;
 

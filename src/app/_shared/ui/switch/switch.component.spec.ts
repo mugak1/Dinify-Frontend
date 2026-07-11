@@ -47,4 +47,12 @@ describe('SwitchComponent', () => {
     expect(component.trackClass).toContain('border-2');
     expect(component.trackClass).toContain('border-transparent');
   });
+
+  it('exposes an accessible name via the ariaLabel input (none by default)', () => {
+    expect(button().hasAttribute('aria-label')).toBeFalse();
+
+    component.ariaLabel = 'Item is visible on the menu';
+    fixture.detectChanges();
+    expect(button().getAttribute('aria-label')).toBe('Item is visible on the menu');
+  });
 });
