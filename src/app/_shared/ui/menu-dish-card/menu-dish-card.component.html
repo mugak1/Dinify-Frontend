@@ -6,7 +6,7 @@
      pointer, and a concise aria-label (name + price) keeps the long description out of the
      accessible name. Out of stock → inert (no tabindex, aria-disabled). (cardClick) is
      unchanged, so both consumers (diner menu + preview drawer) keep working. -->
-<div class="mb-3 rounded-[20px] bg-white shadow-[var(--shadow-md)] group transition-all duration-200 ease-out flex flex-col"
+<div class="mb-3 rounded-card bg-white shadow-[var(--shadow-md)] group transition-all duration-200 ease-out flex flex-col"
      role="button"
      [attr.tabindex]="outOfStock ? null : 0"
      [attr.aria-disabled]="outOfStock ? true : null"

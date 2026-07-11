@@ -10,7 +10,7 @@
     <p class="text-gray-500">Your basket is empty</p>
     <p class="text-gray-400 text-sm mt-1">Why not treat yourself?</p>
     <button type="button" (click)="loc.back()"
-            class="mt-4 lg:hidden inline-flex items-center justify-center px-4 py-2 rounded-none border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+            class="mt-4 lg:hidden inline-flex items-center justify-center px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
       Browse Menu
     </button>
   </div>
@@ -63,8 +63,8 @@
                                  [effective]="upsellHasDiscount(item) ? upsellEffective(item) : upsellOriginal(item)"
                                  [original]="upsellHasDiscount(item) ? upsellOriginal(item) : 0"></app-price-display>
             </div>
-            <button (click)="addUpsellItem(item)"
-                    class="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-d-red text-white text-sm font-semibold hover:opacity-90 active:opacity-80 transition-opacity">
+            <button app-dn-button size="sm" (click)="addUpsellItem(item)"
+                    class="flex-shrink-0 text-sm gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 12h14"/><path d="M12 5v14"/>
@@ -308,8 +308,7 @@
     </div>
 
     <div class="mt-4 space-y-2">
-      <button type="button" (click)="confirmPartialOrder()"
-              class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99]">
+      <button type="button" app-dn-button variant="cta" (click)="confirmPartialOrder()" class="w-full">
         Place order — UGX {{ reviewedTotal | number }}
       </button>
       <button type="button" (click)="cancelPartialOrder()"

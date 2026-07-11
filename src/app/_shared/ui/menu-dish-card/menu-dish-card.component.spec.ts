@@ -117,4 +117,19 @@ describe('MenuDishCardComponent', () => {
     expect(root.className).toContain('shadow-[var(--shadow-md)]');
     expect(root.className).not.toContain('shadow-2xl');
   });
+
+  it('renders the dish name on the dish-title token (locks the diner display role)', () => {
+    render({ name: 'X' });
+    const name = host.querySelector('h3') as HTMLElement;
+    expect(name.className).toContain('text-dish-title');
+    expect(name.className).toContain('font-display');
+    expect(name.className).not.toContain('text-[18.5px]');
+  });
+
+  it('frames the card on the rounded-card token (not an arbitrary radius)', () => {
+    render({ name: 'X' });
+    const root = host.querySelector('[role="button"]') as HTMLElement;
+    expect(root.className).toContain('rounded-card');
+    expect(root.className).not.toContain('rounded-[20px]');
+  });
 });
