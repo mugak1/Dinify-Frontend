@@ -87,4 +87,30 @@ describe('DateRangePanelComponent', () => {
     expect(cancelSpy).toHaveBeenCalledTimes(1);
     expect(applySpy).not.toHaveBeenCalled();
   });
+
+  // The panel is its OWN focus-trapped dialog only in the desktop CDK-overlay
+  // ('popover') path. In the mobile 'sheet' path it renders inside app-dn-sheet,
+  // which already provides role=dialog + the trap — so the panel must drop them
+  // to avoid a nested dialog / dueling focus traps.
+  describe('variant gating', () => {
+    function root(variant: 'popover' | 'sheet'): HTMLElement {
+      fixture.componentRef.setInput('variant', variant);
+      fixture.detectChanges();
+      return fixture.nativeElement.querySelector('.bg-popover');
+    }
+
+    it('is its own labelled dialog in the popover (overlay) variant', () => {
+      const r = root('popover');
+      expect(r.getAttribute('role')).toBe('dialog');
+      expect(r.getAttribute('aria-modal')).toBe('true');
+      expect(r.getAttribute('aria-label')).toBe('Select date range');
+    });
+
+    it('drops role/aria-modal/aria-label in the sheet variant (the sheet owns the dialog)', () => {
+      const r = root('sheet');
+      expect(r.getAttribute('role')).toBeNull();
+      expect(r.hasAttribute('aria-modal')).toBeFalse();
+      expect(r.hasAttribute('aria-label')).toBeFalse();
+    });
+  });
 });

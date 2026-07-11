@@ -1,6 +1,7 @@
-import { Component, Input, Output, EventEmitter, HostListener } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, Output, ViewChild } from '@angular/core';
 import { A11yModule } from '@angular/cdk/a11y';
 import { cn } from '../../utils/cn';
+import { autoNameOverlayPanel } from '../dialog/dialog.component';
 
 @Component({
   selector: 'app-dn-sheet',
@@ -14,11 +15,11 @@ import { cn } from '../../utils/cn';
       <div class="fixed inset-0 z-50" cdkTrapFocus cdkTrapFocusAutoCapture>
         <div class="fixed inset-0 bg-black/50 transition-opacity" (click)="close()"></div>
         <div
+          #panel
           role="dialog"
           aria-modal="true"
           tabindex="-1"
           cdkFocusInitial
-          [attr.aria-labelledby]="ariaLabelledby || null"
           [attr.aria-label]="ariaLabel || null"
           [class]="panelClass"
           [style.width]="side === 'bottom' ? null : width"
@@ -37,6 +38,13 @@ export class SheetComponent {
   @Input() ariaLabelledby?: string;
   @Input() ariaLabel?: string;
   @Output() closed = new EventEmitter<void>();
+
+  // Names the panel from its first heading when the sheet opens (see DialogComponent).
+  @ViewChild('panel') set panel(ref: ElementRef<HTMLElement> | undefined) {
+    if (ref) {
+      autoNameOverlayPanel(ref.nativeElement, this.ariaLabelledby, this.ariaLabel);
+    }
+  }
 
   @HostListener('document:keydown.escape')
   onEscape(): void {

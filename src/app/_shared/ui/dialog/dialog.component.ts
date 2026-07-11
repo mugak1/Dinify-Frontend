@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, HostListener } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, Output, ViewChild } from '@angular/core';
 import { A11yModule } from '@angular/cdk/a11y';
 
 export type DialogMaxWidth = 'sm' | 'md' | 'lg';
@@ -8,6 +8,36 @@ const maxWidthClasses: Record<DialogMaxWidth, string> = {
   md: 'max-w-lg',
   lg: 'max-w-xl',
 };
+
+// Global counter for auto-stamped heading ids, shared across every dialog/sheet
+// instance so concurrently-open overlays never collide.
+let overlayTitleUid = 0;
+
+/**
+ * Give the modal panel an accessible name. Explicit `ariaLabelledby` / `ariaLabel`
+ * inputs win; otherwise the panel's first projected heading becomes the name
+ * (its id is stamped if absent). Runs imperatively from a ViewChild setter so it
+ * never fights a template binding. Shared by DialogComponent and SheetComponent.
+ * Benign failure: a heading-less, label-less overlay simply stays unnamed.
+ */
+export function autoNameOverlayPanel(
+  panel: HTMLElement,
+  ariaLabelledby?: string,
+  ariaLabel?: string,
+): void {
+  if (ariaLabelledby) {
+    panel.setAttribute('aria-labelledby', ariaLabelledby);
+    return;
+  }
+  if (ariaLabel) return; // aria-label is applied via its own template binding
+  const heading = panel.querySelector('h1, h2, h3, h4, h5, h6');
+  if (heading) {
+    if (!heading.id) {
+      heading.id = `dn-overlay-title-${++overlayTitleUid}`;
+    }
+    panel.setAttribute('aria-labelledby', heading.id);
+  }
+}
 
 @Component({
   selector: 'app-dn-dialog',
@@ -25,11 +55,11 @@ const maxWidthClasses: Record<DialogMaxWidth, string> = {
       <div class="fixed inset-0 z-50 flex items-center justify-center" cdkTrapFocus cdkTrapFocusAutoCapture>
         <div class="fixed inset-0 bg-black/50" (click)="onBackdrop()"></div>
         <div
+          #panel
           role="dialog"
           aria-modal="true"
           tabindex="-1"
           cdkFocusInitial
-          [attr.aria-labelledby]="ariaLabelledby || null"
           [attr.aria-label]="ariaLabel || null"
           [class]="'relative z-50 bg-card rounded-lg shadow-lg p-6 w-full mx-4 max-h-[85vh] overflow-y-auto ' + maxWidthClass"
         >
@@ -57,6 +87,15 @@ export class DialogComponent {
   @Input() ariaLabelledby?: string;
   @Input() ariaLabel?: string;
   @Output() closed = new EventEmitter<void>();
+
+  // Fires with the panel ref when the dialog opens (and undefined when the @if
+  // destroys it on close). Names the panel from its first heading unless an
+  // explicit label input is set.
+  @ViewChild('panel') set panel(ref: ElementRef<HTMLElement> | undefined) {
+    if (ref) {
+      autoNameOverlayPanel(ref.nativeElement, this.ariaLabelledby, this.ariaLabel);
+    }
+  }
 
   get maxWidthClass(): string {
     return maxWidthClasses[this.maxWidth] ?? 'max-w-lg';

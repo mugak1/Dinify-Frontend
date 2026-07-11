@@ -26,11 +26,11 @@ import { PRESET_LABELS, formatRangeSummary } from './range-label';
     <div
       class="bg-popover text-popover-foreground"
       [ngClass]="variant === 'popover' ? 'rounded-lg border border-border shadow-lg p-4' : 'flex flex-col p-4'"
-      cdkTrapFocus
-      cdkTrapFocusAutoCapture
-      role="dialog"
-      aria-modal="true"
-      aria-label="Select date range"
+      [cdkTrapFocus]="variant === 'popover'"
+      [cdkTrapFocusAutoCapture]="variant === 'popover'"
+      [attr.role]="variant === 'popover' ? 'dialog' : null"
+      [attr.aria-modal]="variant === 'popover' ? 'true' : null"
+      [attr.aria-label]="variant === 'popover' ? 'Select date range' : null"
     >
       <div [ngClass]="variant === 'popover' ? 'flex gap-4' : 'flex flex-col gap-3'">
         <!-- Presets: a left-aligned vertical list in the popover (plain buttons so
