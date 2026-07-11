@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
+import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import {
   TAG_COLOUR_PALETTE,
@@ -31,6 +32,7 @@ const MAX_NAME = 50;
     CommonModule,
     FormsModule,
     DialogComponent,
+    ButtonComponent,
     TagPillComponent,
   ],
   templateUrl: './preset-tag-form-dialog.component.html',
