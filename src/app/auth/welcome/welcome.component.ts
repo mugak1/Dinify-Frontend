@@ -5,65 +5,22 @@ import { Router } from '@angular/router';
 @Component({
     selector: 'app-welcome',
     template: `
-    <div class="welcome-container">
-      <div class="welcome-card">
-        <img src="assets/images/dinify-logo.png" alt="Dinify" class="logo" />
+    <app-auth-shell
+      eyebrow="Almost there"
+      heading="Welcome to Dinify"
+      subtitle="Your account is being set up — please contact your administrator to assign your role, then sign back in.">
+      <div class="w-full">
         <!-- DINIFY_WELCOME_V1 -->
-        <h2>Welcome to Dinify</h2>
-        <p>Your account is being set up.</p>
-        <p class="sub">Please contact your administrator to assign your role.</p>
-        <button (click)="logout()" class="logout-btn">Sign Out</button>
+        <div class="flex items-center justify-center w-14 h-14 mx-auto mb-6 rounded-full bg-d-red/10 text-d-red">
+          <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+        </div>
+        <button (click)="logout()" type="button"
+                class="w-full h-[54px] rounded-[11px] bg-d-red text-white font-gabarito font-bold text-base shadow-glow desktop-hover:bg-[#E61C22] active:scale-[0.985] transition-all duration-150">
+          Sign out
+        </button>
       </div>
-    </div>
+    </app-auth-shell>
   `,
-    styles: [`
-    .welcome-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      background: #f5f5f5;
-    }
-    .welcome-card {
-      text-align: center;
-      background: white;
-      padding: 3rem 2rem;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-      max-width: 420px;
-      width: 100%;
-    }
-    .logo {
-      width: 160px;
-      margin-bottom: 1.5rem;
-    }
-    h2 {
-      margin: 0 0 0.5rem;
-      color: #333;
-    }
-    p {
-      color: #666;
-      margin: 0.25rem 0;
-    }
-    .sub {
-      font-size: 0.875rem;
-      color: #999;
-      margin-top: 0.5rem;
-    }
-    .logout-btn {
-      margin-top: 1.5rem;
-      padding: 0.6rem 2rem;
-      background: #e74c3c;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-    .logout-btn:hover {
-      background: #c0392b;
-    }
-  `],
     standalone: false
 })
 export class WelcomeComponent {

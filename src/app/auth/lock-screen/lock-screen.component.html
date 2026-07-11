@@ -1,244 +1,115 @@
-<div class="row w-100">
-    <div class="col-lg-4 flex flex-col mx-auto">
-      <svg class="mb-8 mt-6 mx-auto" height="50" viewBox="0 0 495.95 121.55">
-        <path d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58" />
-        <path d="M267.38,2.83A11.77,11.77,0,0,0,252,2.89a9.54,9.54,0,0,0-3.07,7.25A9.64,9.64,0,0,0,252,17.49a11.65,11.65,0,0,0,15.38,0,9.74,9.74,0,0,0,3-7.35,9.61,9.61,0,0,0-3-7.31M251,97h17.25V30.65H251Z" />
-        <path d="M335.19,36.19c-4.27-4.65-10.14-7-17.62-7q-13.14,0-20.63,10.5v-9H279.69V97h17.25V62.14q0-16.55,15-16.54,6.61,0,9.53,3.38t2.89,10.13V97h17.25V55.38q0-12.18-6.39-19.19" />
-        <path d="M368.72,2.83a11.77,11.77,0,0,0-15.38.06,9.59,9.59,0,0,0-3.08,7.25,9.68,9.68,0,0,0,3.08,7.35,11.65,11.65,0,0,0,15.38,0,9.71,9.71,0,0,0,3-7.35,9.58,9.58,0,0,0-3-7.31M352.32,97h17.25V30.65H352.32Z" />
-        <path d="M410.65,17.74A30.49,30.49,0,0,1,419,19.06l2.29.6,3.13-14a37.46,37.46,0,0,0-15.68-3q-11.34,0-19.19,6.82t-7.84,20.09V97h17.25V51.93l-14.94-5h37V30.65H398.94v-.26q0-12.64,11.71-12.65" />
-        <polygon points="477.48 30.65 460.96 69.49 444.55 30.65 426.21 30.65 451.79 88.19 436.92 121.55 455.27 121.55 495.94 30.65 477.48 30.65" />
-        <path class="fill-d-red" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34" />
-    </svg>
-    <div class="font-semibold text-3xl mx-auto">
-      <p>Update your Temporary Password</p>
-    </div>
-    <div class="flex flex-row text-sm font-medium text-gray-300 mx-auto text-center">
-      <small class="text-gray-500 inline-flex">Please check your inbox for the temporary password.</small>
-    </div>
-      <!-- <div class="text-center mt-5 mb-3">
-        <img class="mb-3" src="assets/images/RLogo.jpg" width="72">
-         <h1 class="h3 mb-0 font-weight-normal"><b>REDAH</b> Informatics</h1>    
-       </div> -->
-      <div class="auth-form-transparent flex flex-col text-left p-5">
-          
-      
-      <div class="relative inline-flex items-center justify-center w-10 h-10 mx-auto overflow-hidden bg-d-red rounded-full">
-        <span class="text-white font-bold uppercase">{{ProfileLetter}}</span>
-    </div>
-      <p class="m-0 pt-3 mx-auto">{{user}}</p>
-      <div *ngIf="rateLimited" class="p-3 bg-yellow-50 border border-yellow-200 rounded-md mb-3">
-        <p class="text-sm text-yellow-800">Too many attempts. Please wait a few minutes before trying again.</p>
-      </div>
-      <p *ngIf="message" class="text-center m-0"><span style="color: #ff0000;">{{message}}</span></p>
-        <form *ngIf="LockScreenForm" class="pt-3 form-signin" [formGroup]="LockScreenForm" novalidate (ngSubmit)="LockScreenForm.valid ? Send() : unlocking=true">
-            <!-- <div class="form-label-group text-left">
-                <input type="password" class="form-control" [ngClass]="{'is-valid': LockScreenForm.controls['currentpassword'].valid && isSubmitted, 'is-invalid' : LockScreenForm.controls['currentpassword'].invalid && isSubmitted}" placeholder="Current Password" formControlName="currentpassword">
-                <label for="inputCurrent">Current Password</label>
-                 <div class="invalid-feedback"  *ngIf="LockScreenForm.controls['currentpassword'].invalid && isSubmitted">
-                Current Password is required
-              </div>
-              </div> -->
-              <div class="mb-4">
-                <label for="newPassword" class="block text-sm font-medium text-gray-600 mb-2">
-                  New Password
-                </label>
-                <div class="relative">
-                  <input 
-                  [type]="fieldTextType ? 'text' : 'password'"
-                    id="newPassword"
-                    formControlName="new_password"
-                    name="new_password"
-                    [ngClass]="{'is-invalid' : newpassword?.invalid && unlocking,'border-green-500' : newpassword?.valid}"
-                    class="w-full px-4 py-2 border rounded-lg text-gray-700 focus:outline-none"
-                    placeholder="Enter New Password"
-                  />
-                  <button
-                    type="button"
-                    class="absolute inset-y-0 right-3 flex items-center"
-                    (click)="toggleFieldTextType()"
-                  >
-                   
-                    <svg *ngIf="fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="style=linear"> <g id="eye-close"> <path id="vector" d="M15.6487 5.39489C14.4859 4.95254 13.2582 4.72021 12 4.72021C8.46997 4.72021 5.17997 6.54885 2.88997 9.71381C1.98997 10.9534 1.98997 13.037 2.88997 14.2766C3.34474 14.9051 3.83895 15.481 4.36664 16.0002M19.3248 7.69653C19.9692 8.28964 20.5676 8.96425 21.11 9.71381C22.01 10.9534 22.01 13.037 21.11 14.2766C18.82 17.4416 15.53 19.2702 12 19.2702C10.6143 19.2702 9.26561 18.9884 7.99988 18.4547" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_2" d="M15 12C15 13.6592 13.6592 15 12 15M14.0996 9.85541C13.5589 9.32599 12.8181 9 12 9C10.3408 9 9 10.3408 9 12C9 12.7293 9.25906 13.3971 9.69035 13.9166" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_3" d="M2 21.0002L22 2.7002" stroke="#000000" stroke-width="1.5" stroke-linecap="round"></path> </g> </g> </g></svg>
-                    <svg *ngIf="!fieldTextType" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="style=linear"> <g id="eye-open"> <path id="vector" d="M15 12C15 13.6592 13.6592 15 12 15C10.3408 15 9 13.6592 9 12C9 10.3408 10.3408 9 12 9C13.6592 9 15 10.3408 15 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_2" d="M12 19.27C15.53 19.27 18.82 17.4413 21.11 14.2764C22.01 13.0368 22.01 10.9532 21.11 9.71356C18.82 6.54861 15.53 4.71997 12 4.71997C8.46997 4.71997 5.17997 6.54861 2.88997 9.71356C1.98997 10.9532 1.98997 13.0368 2.88997 14.2764C5.17997 17.4413 8.46997 19.27 12 19.27Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g> </g></svg>
-                  </button>
-                </div>
-                <div class="text-d-red text-xs mt-2" *ngIf="newpassword?.errors?.['pattern'] && unlocking">
-                  Current Password is invalid
-               </div>
-             
-           <div class="text-d-red text-xs mt-2"  *ngIf="newpassword?.errors?.['required'] && unlocking" >
-              Your new Password is required
-             </div>
-             <div class="form-text text-muted" *ngIf="newpassword?.errors&& unlocking">
-              <ul class="flex flex-col" style=" list-style-type: none;">
-                <li class="inline-flex">
-                  <span *ngIf="newpassword?.errors?.['minlength']" class="icon-close text-danger">
-                    <svg width="15px" height="15px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="icomoon-ignore"> </g> <path d="M6.576 6.576c-5.205 5.205-5.205 13.643 0 18.849s13.643 5.205 18.849-0c5.206-5.206 5.206-13.643 0-18.849s-13.643-5.205-18.849 0zM24.67 24.67c-4.781 4.781-12.56 4.781-17.341 0s-4.781-12.56 0-17.341c4.781-4.781 12.56-4.781 17.341 0s4.78 12.56-0 17.341z" fill="red"> </path> <path d="M10.722 9.969l-0.754 0.754 5.278 5.278-5.253 5.253 0.754 0.754 5.253-5.253 5.253 5.253 0.754-0.754-5.253-5.253 5.278-5.278-0.754-0.754-5.278 5.278z" fill="red"> </path> </g></svg>
-                  </span>
-                  <span *ngIf="!newpassword?.errors?.['minlength']" class="icon-check text-success">
-                    <svg fill="#000000" height="15px" width="15px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 492.308 492.308" xml:space="preserve"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <polygon points="379.077,145.933 199.519,325.49 113.221,239.192 99.298,253.115 199.519,353.337 393,159.856 " fill="green"></polygon> </g> </g> <g> <g> <path d="M246.154,0C110.423,0,0,110.423,0,246.154s110.423,246.154,246.154,246.154s246.154-110.423,246.154-246.154 S381.885,0,246.154,0z M246.154,472.615c-124.875,0-226.462-101.587-226.462-226.462S121.279,19.692,246.154,19.692 s226.462,101.587,226.462,226.462S371.029,472.615,246.154,472.615z" fill="green"></path> </g> </g> </g></svg>
-                  </span>
-                  &nbsp;Must be atleast 6 character</li>
-                <li *ngIf="newpassword?.errors?.['pattern']" class="inline-flex">
-                  <span *ngIf="!checkMatch(newpassword?.value,'(?=.*[!@#$&*()<>?{}|,`~.%])')" class="icon-close text-danger">
-                    <svg width="15px" height="15px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="icomoon-ignore"> </g> <path d="M6.576 6.576c-5.205 5.205-5.205 13.643 0 18.849s13.643 5.205 18.849-0c5.206-5.206 5.206-13.643 0-18.849s-13.643-5.205-18.849 0zM24.67 24.67c-4.781 4.781-12.56 4.781-17.341 0s-4.781-12.56 0-17.341c4.781-4.781 12.56-4.781 17.341 0s4.78 12.56-0 17.341z" fill="red"> </path> <path d="M10.722 9.969l-0.754 0.754 5.278 5.278-5.253 5.253 0.754 0.754 5.253-5.253 5.253 5.253 0.754-0.754-5.253-5.253 5.278-5.278-0.754-0.754-5.278 5.278z" fill="red"> </path> </g></svg>
-                  </span>
-                  <span *ngIf="checkMatch(newpassword?.value,'(?=.*[!@#$&*()<>?{}|,`~.%])')" class="icon-check text-success">
-                    <svg fill="#000000" height="15px" width="15px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 492.308 492.308" xml:space="preserve"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <polygon points="379.077,145.933 199.519,325.49 113.221,239.192 99.298,253.115 199.519,353.337 393,159.856 " fill="green"></polygon> </g> </g> <g> <g> <path d="M246.154,0C110.423,0,0,110.423,0,246.154s110.423,246.154,246.154,246.154s246.154-110.423,246.154-246.154 S381.885,0,246.154,0z M246.154,472.615c-124.875,0-226.462-101.587-226.462-226.462S121.279,19.692,246.154,19.692 s226.462,101.587,226.462,226.462S371.029,472.615,246.154,472.615z" fill="green"></path> </g> </g> </g></svg>
-                  </span>
-                  &nbsp;Atleast one special character</li>
-                <li *ngIf="newpassword?.errors?.['pattern']" class="inline-flex">
-                  <span *ngIf="!checkMatch(newpassword?.value,'(.*[0-9].*)')" class="icon-close text-danger">
-                    <svg width="15px" height="15px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="icomoon-ignore"> </g> <path d="M6.576 6.576c-5.205 5.205-5.205 13.643 0 18.849s13.643 5.205 18.849-0c5.206-5.206 5.206-13.643 0-18.849s-13.643-5.205-18.849 0zM24.67 24.67c-4.781 4.781-12.56 4.781-17.341 0s-4.781-12.56 0-17.341c4.781-4.781 12.56-4.781 17.341 0s4.78 12.56-0 17.341z" fill="red"> </path> <path d="M10.722 9.969l-0.754 0.754 5.278 5.278-5.253 5.253 0.754 0.754 5.253-5.253 5.253 5.253 0.754-0.754-5.253-5.253 5.278-5.278-0.754-0.754-5.278 5.278z" fill="red"> </path> </g></svg>
-                  </span>
-                  <span *ngIf="checkMatch(newpassword?.value,'(.*[0-9].*)')" class="icon-check text-success">
-                    <svg fill="#000000" height="15px" width="15px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 492.308 492.308" xml:space="preserve"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <polygon points="379.077,145.933 199.519,325.49 113.221,239.192 99.298,253.115 199.519,353.337 393,159.856 " fill="green"></polygon> </g> </g> <g> <g> <path d="M246.154,0C110.423,0,0,110.423,0,246.154s110.423,246.154,246.154,246.154s246.154-110.423,246.154-246.154 S381.885,0,246.154,0z M246.154,472.615c-124.875,0-226.462-101.587-226.462-226.462S121.279,19.692,246.154,19.692 s226.462,101.587,226.462,226.462S371.029,472.615,246.154,472.615z" fill="green"></path> </g> </g> </g></svg>
-                  </span>
-                  &nbsp;Atleast one digit</li>
-              </ul>               
-          
-         </div>
+<app-auth-shell
+  eyebrow="Password change"
+  heading="Set a new password"
+  subtitle="Enter the temporary password you were sent, then choose a new one.">
 
-              </div>
-        
-              <div *ngIf="false" class="form-group text-left">
-                <label for="inputNew">New Password</label>
-                 
-                  <div class="input-group">
-                    <!-- Change input type to be dynamic -->
-                    <input [type]="fieldTextType ? 'text' : 'password'" class="form-control" [ngClass]="{'is-invalid' : newpassword?.invalid && unlocking,'is-valid' : newpassword?.valid}" placeholder="New Password" formControlName="new_password">
-                    <div class="input-group-append">
-                      <span class="input-group-text py-0 px-2">
-                        <i
-                          class="fa"
-                          [ngClass]="{
-                            'fa-eye-slash': !fieldTextType,
-                            'fa-eye': fieldTextType
-                          }"
-                          (click)="toggleFieldTextType()"
-                        ></i>
-                      </span>
-                    </div>
-                 
-                  <div class="invalid-feedback" *ngIf="newpassword?.errors?.['pattern'] && unlocking">
-                       Current Password is invalid
-                    </div>
-                  
-                
-                <div class="invalid-feedback"  *ngIf="newpassword?.errors?.['required'] && unlocking" >
-                   Your new Password is required
-                  </div>
-               
-                </div>
-                <div class="form-text text-muted" *ngIf="newpassword?.errors?.['pattern']">
-                  <ul style=" list-style-type: none;">
-                    <li><i *ngIf="newpassword?.errors?.['minlength']" class="icon-close text-danger"></i><i *ngIf="!newpassword?.errors?.['minlength']" class="icon-check text-success"></i>&nbsp;Must be atleast 6 character</li>
-                    <li><i *ngIf="!checkMatch(newpassword?.value,'(?=.*[!@#$&*()<>?{}|,`~.%])')" class="icon-close text-danger"></i><i *ngIf="checkMatch(newpassword?.value,'(?=.*[!@#$&*()<>?{}|,`~.%])')" class="icon-check text-success"></i>&nbsp;Atleast one special character</li>
-                    <li><i *ngIf="!checkMatch(newpassword?.value,'(.*[0-9].*)')" class="icon-close text-danger"></i><i *ngIf="checkMatch(newpassword?.value,'(.*[0-9].*)')" class="icon-check text-success"></i>&nbsp;Atleast one digit</li>
-                  </ul>               
-             
-             </div>
-            
-                 </div>
-                <div *ngIf="false" class="form-group text-left">
-                  <label for="name">Confirm Password</label>
-                 <!--  <div class="input-group"> -->
-                  <div class="input-group">
-                    <!-- Change input type to be dynamic -->
-                     <input [type]="fieldTextTypeConfirm ? 'text' : 'password'" class="form-control" placeholder="Confirm Password" formControlName="confirmPassword" [ngClass]="{'is-valid': LockScreenForm.get('confirmPassword')?.valid && unlocking, 'is-invalid' : LockScreenForm.get('confirmPassword')?.invalid && unlocking&&newpassword?.valid}">
-                     
-                    <div class="input-group-append">
-                      <span class="input-group-text py-0 px-2">
-                        <i
-                          class="fa"
-                          [ngClass]="{
-                            'fa-eye-slash': !fieldTextTypeConfirm,
-                            'fa-eye': fieldTextTypeConfirm
-                          }"
-                          (click)="toggleFieldTextTypeConfirm()"
-                        ></i>
-                      </span>
-                    </div>
-                 
-                
-                   
-              <!--  </div> -->
-                  
-                  <div *ngIf="unlocking && LockScreenForm.get('confirmPassword')?.errors&&newpassword?.valid" class="invalid-feedback">
-                    <div *ngIf="LockScreenForm.get('confirmPassword')?.errors?.['required']">
-                      Confirm Password is required
-                    </div>
-              ​
-                    <div *ngIf="LockScreenForm.get('confirmPassword')?.errors?.['confirmPasswordValidator']">
-                      Passwords do not match.
-                    </div>
-                  </div>
-                </div>
-                 </div>
-                 <div class="mb-4">
-                  <label for="comfirmPassword" class="block text-sm font-medium text-gray-600 mb-2">
-                    Confirm Password
-                  </label>
-                  <div class="relative">
-                    <input 
-                    [type]="fieldTextTypeConfirm ? 'text' : 'password'"
-                      id="confirmPassword"
-                      formControlName="confirmPassword"
-                      name="confirmPassword"
-                      [ngClass]="{'border-green-500': (LockScreenForm.get('confirmPassword')?.valid&&!LockScreenForm.hasError('passwordMismatch')) && unlocking, 'is-invalid border-d-red' : (LockScreenForm.get('confirmPassword')?.invalid||LockScreenForm.hasError('passwordMismatch')) && unlocking&& newpassword?.valid}"
-                      class="w-full px-4 py-2 border rounded-lg text-gray-700 focus:outline-none"
-
-                      placeholder="Confirm your new password"
-                    />
-                    <button
-                      type="button"
-                      class="absolute inset-y-0 right-3 flex items-center"
-                      (click)="toggleFieldTextTypeConfirm()"
-                    >
-                     
-                      <svg *ngIf="fieldTextTypeConfirm" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="style=linear"> <g id="eye-close"> <path id="vector" d="M15.6487 5.39489C14.4859 4.95254 13.2582 4.72021 12 4.72021C8.46997 4.72021 5.17997 6.54885 2.88997 9.71381C1.98997 10.9534 1.98997 13.037 2.88997 14.2766C3.34474 14.9051 3.83895 15.481 4.36664 16.0002M19.3248 7.69653C19.9692 8.28964 20.5676 8.96425 21.11 9.71381C22.01 10.9534 22.01 13.037 21.11 14.2766C18.82 17.4416 15.53 19.2702 12 19.2702C10.6143 19.2702 9.26561 18.9884 7.99988 18.4547" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_2" d="M15 12C15 13.6592 13.6592 15 12 15M14.0996 9.85541C13.5589 9.32599 12.8181 9 12 9C10.3408 9 9 10.3408 9 12C9 12.7293 9.25906 13.3971 9.69035 13.9166" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_3" d="M2 21.0002L22 2.7002" stroke="#000000" stroke-width="1.5" stroke-linecap="round"></path> </g> </g> </g></svg>
-                      <svg *ngIf="!fieldTextTypeConfirm" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="style=linear"> <g id="eye-open"> <path id="vector" d="M15 12C15 13.6592 13.6592 15 12 15C10.3408 15 9 13.6592 9 12C9 10.3408 10.3408 9 12 9C13.6592 9 15 10.3408 15 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> <path id="vector_2" d="M12 19.27C15.53 19.27 18.82 17.4413 21.11 14.2764C22.01 13.0368 22.01 10.9532 21.11 9.71356C18.82 6.54861 15.53 4.71997 12 4.71997C8.46997 4.71997 5.17997 6.54861 2.88997 9.71356C1.98997 10.9532 1.98997 13.0368 2.88997 14.2764C5.17997 17.4413 8.46997 19.27 12 19.27Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g> </g></svg>
-                    </button>
-                  </div>
-                  <div *ngIf="unlocking && (LockScreenForm.get('confirmPassword')?.errors||LockScreenForm.hasError('passwordMismatch'))&&newpassword?.valid" class="mt-2">
-                    <div *ngIf="LockScreenForm.get('confirmPassword')?.errors?.['required']" class="text-d-red text-xs">
-                      Confirm Password is required
-                    </div>              ​
-                    <div *ngIf="LockScreenForm.hasError('passwordMismatch')" class="text-d-red text-xs">
-                      Passwords do not match.
-                    </div>
-                  </div>
-          
-  
-                </div>
-           <!--  <div class="form-group">
-                <input type="password" formControlName="currentpassword" class="form-control text-center" id="examplePassword1" placeholder="Current Password" data-kwimpalastatus="alive" data-kwimpalaid="1579260987866-2">
-              </div>
-          <div class="form-group">
-            <input type="password" formControlName="newpassword" class="form-control text-center" id="examplePassword1" placeholder="New Password" data-kwimpalastatus="alive" data-kwimpalaid="1579260987866-2">
-          </div> 
-          <div class="checkbox mb-3">
-            <label>
-              <input type="checkbox" value="remember-me" (click)="toggleFieldTextType()"> Show Passwords
-            </label>
-          </div>-->
-<!--           <div class="mt-0 text-sm inline-flex text-center">
-            Forgot your temporary password? <a (click)="ResetPassword()" class="items-center text-d-red ml-3 cursor-pointer"> Resend it here</a>
-          </div> -->
-          <div class="mt-4">
-            <button [disabled]="unlocking" type="submit" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none text-white text-sm shadow-sm hover:opacity-75 disabled:opacity-50">
-              <svg *ngIf="unlocking" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-              </svg>
-              &nbsp;{{unlocking?'Submitting...':'Submit'}}</button>
-          </div>
-          <div class="mt-3 text-center">
-            <button class="text-sm font-medium text-blue-600" [routerLink]="['/login']">Sign in using a different account</button>
-          </div>
-          <!-- <p class="mt-5 mb-3 text-muted text-center">© REDAH INFORMATICS 2018-2019</p> -->
-        </form>
-      </div>
-    </div>
+  <!-- Notices -->
+  <div *ngIf="rateLimited" role="status"
+       class="mb-[18px] flex items-start gap-2.5 p-3 bg-warning/10 border border-warning/30 rounded-[11px] text-left">
+    <svg class="h-4 w-4 mt-0.5 shrink-0 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    <p class="text-sm text-yellow-800">Too many attempts. Please wait a few minutes before trying again.</p>
   </div>
-  
+  <div *ngIf="message && !rateLimited" role="alert"
+       class="mb-[18px] flex items-start gap-2.5 p-3 bg-destructive/10 border border-destructive/30 rounded-[11px] text-left">
+    <svg class="h-4 w-4 mt-0.5 shrink-0 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+    <p class="text-sm text-destructive">{{ message }}</p>
+  </div>
+
+  <form *ngIf="LockScreenForm" [formGroup]="LockScreenForm" novalidate
+        (ngSubmit)="LockScreenForm.valid ? Send() : unlocking=true"
+        class="w-full space-y-[18px] text-left">
+
+    <!-- New password -->
+    <div class="group/field flex flex-col gap-2">
+      <label for="newPassword" class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
+        New password <span class="text-d-red">*</span>
+      </label>
+      <div class="relative flex items-center h-[52px] bg-white border-[1.5px] rounded-[11px] transition-all duration-200
+                  focus-within:border-d-red focus-within:ring-4 focus-within:ring-d-red/[0.13] focus-within:-translate-y-px focus-within:shadow-[0_6px_18px_-8px_rgba(255,44,50,0.4)]"
+           [class.border-gray-200]="!(newpassword?.invalid && unlocking)"
+           [class.border-d-red]="newpassword?.invalid && unlocking">
+        <input [type]="fieldTextType ? 'text' : 'password'" id="newPassword" formControlName="new_password" name="new_password" autocomplete="new-password"
+               class="flex-1 h-full bg-transparent border-0 outline-none rounded-[11px] text-gray-900 text-[15.5px] pl-4 pr-[46px] placeholder:text-[#B8AFA6]"
+               placeholder="Enter a new password" />
+        <button type="button" (click)="toggleFieldTextType()" [attr.aria-label]="fieldTextType ? 'Hide password' : 'Show password'"
+                class="absolute right-0 flex items-center justify-center w-[46px] h-full text-gray-400 desktop-hover:text-gray-900 transition-colors">
+          <svg *ngIf="fieldTextType" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A9.3 9.3 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.4 4.1"/><path d="M6.2 6.7A17 17 0 0 0 2 12s3.6 7 10 7a9.4 9.4 0 0 0 3-.5"/></svg>
+          <svg *ngIf="!fieldTextType" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <!-- Live requirements checklist (mirrors the new_password validator). -->
+      <ul *ngIf="newpassword?.value" class="mt-1 space-y-1">
+        <li class="flex items-center gap-1.5 text-[12.5px]" [class.text-green-600]="pwChecks.length" [class.text-gray-400]="!pwChecks.length">
+          <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <ng-container *ngIf="pwChecks.length"><path d="M20 6 9 17l-5-5"/></ng-container>
+            <ng-container *ngIf="!pwChecks.length"><circle cx="12" cy="12" r="9"/></ng-container>
+          </svg>
+          At least 6 characters
+        </li>
+        <li class="flex items-center gap-1.5 text-[12.5px]" [class.text-green-600]="pwChecks.digit" [class.text-gray-400]="!pwChecks.digit">
+          <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <ng-container *ngIf="pwChecks.digit"><path d="M20 6 9 17l-5-5"/></ng-container>
+            <ng-container *ngIf="!pwChecks.digit"><circle cx="12" cy="12" r="9"/></ng-container>
+          </svg>
+          At least one number
+        </li>
+        <li class="flex items-center gap-1.5 text-[12.5px]" [class.text-green-600]="pwChecks.special" [class.text-gray-400]="!pwChecks.special">
+          <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <ng-container *ngIf="pwChecks.special"><path d="M20 6 9 17l-5-5"/></ng-container>
+            <ng-container *ngIf="!pwChecks.special"><circle cx="12" cy="12" r="9"/></ng-container>
+          </svg>
+          At least one special character
+        </li>
+      </ul>
+      <p *ngIf="newpassword?.errors?.['required'] && unlocking" class="flex items-center gap-1.5 text-[#C2151B] text-[12.5px]">
+        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+        Your new password is required.
+      </p>
+    </div>
+
+    <!-- Confirm password -->
+    <div class="group/field flex flex-col gap-2">
+      <label for="confirmPassword" class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
+        Confirm password <span class="text-d-red">*</span>
+      </label>
+      <div class="relative flex items-center h-[52px] bg-white border-[1.5px] rounded-[11px] transition-all duration-200
+                  focus-within:border-d-red focus-within:ring-4 focus-within:ring-d-red/[0.13] focus-within:-translate-y-px focus-within:shadow-[0_6px_18px_-8px_rgba(255,44,50,0.4)]"
+           [class.border-gray-200]="!((LockScreenForm.get('confirmPassword')?.invalid || LockScreenForm.hasError('passwordMismatch')) && unlocking && newpassword?.valid)"
+           [class.border-d-red]="(LockScreenForm.get('confirmPassword')?.invalid || LockScreenForm.hasError('passwordMismatch')) && unlocking && newpassword?.valid">
+        <input [type]="fieldTextTypeConfirm ? 'text' : 'password'" id="confirmPassword" formControlName="confirmPassword" name="confirmPassword" autocomplete="new-password"
+               class="flex-1 h-full bg-transparent border-0 outline-none rounded-[11px] text-gray-900 text-[15.5px] pl-4 pr-[46px] placeholder:text-[#B8AFA6]"
+               placeholder="Re-enter your new password" />
+        <button type="button" (click)="toggleFieldTextTypeConfirm()" [attr.aria-label]="fieldTextTypeConfirm ? 'Hide password' : 'Show password'"
+                class="absolute right-0 flex items-center justify-center w-[46px] h-full text-gray-400 desktop-hover:text-gray-900 transition-colors">
+          <svg *ngIf="fieldTextTypeConfirm" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A9.3 9.3 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.4 4.1"/><path d="M6.2 6.7A17 17 0 0 0 2 12s3.6 7 10 7a9.4 9.4 0 0 0 3-.5"/></svg>
+          <svg *ngIf="!fieldTextTypeConfirm" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <p *ngIf="unlocking && newpassword?.valid && LockScreenForm.get('confirmPassword')?.errors?.['required']" class="flex items-center gap-1.5 text-[#C2151B] text-[12.5px]">
+        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+        Please confirm your new password.
+      </p>
+      <p *ngIf="unlocking && newpassword?.valid && LockScreenForm.hasError('passwordMismatch') && !LockScreenForm.get('confirmPassword')?.errors?.['required']" class="flex items-center gap-1.5 text-[#C2151B] text-[12.5px]">
+        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+        Passwords do not match.
+      </p>
+    </div>
+
+    <!-- Primary CTA -->
+    <button [disabled]="unlocking" type="submit"
+            class="relative flex items-center justify-center gap-2.5 w-full h-[54px] mt-1 rounded-[11px] bg-d-red text-white font-gabarito font-bold text-base shadow-glow disabled:opacity-60 desktop-hover:bg-[#E61C22] active:scale-[0.985] transition-all duration-150">
+      <svg *ngIf="unlocking" class="animate-spin h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+      </svg>
+      <span>{{ unlocking ? 'Updating…' : 'Update password' }}</span>
+    </button>
+
+    <div class="text-center pt-1">
+      <a [routerLink]="['/login']" class="text-[13px] font-semibold text-gray-600 desktop-hover:text-[#C2151B] transition-colors cursor-pointer">
+        Sign in with a different account
+      </a>
+    </div>
+  </form>
+</app-auth-shell>

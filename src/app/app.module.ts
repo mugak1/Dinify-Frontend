@@ -27,6 +27,7 @@ import { ToastComponent } from './_shared/ui/toast/toast.component';
 import { OfflineBannerComponent } from './_shared/ui/offline-banner/offline-banner.component';
 import { ScrollProgressDirective } from './diner-app/_shared/scroll-progress.directive';
 import { DinifyPhoneInputComponent } from './shared/dinify-phone-input/dinify-phone-input.component';
+import { AuthShellComponent } from './auth/auth-shell/auth-shell.component';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -54,7 +55,8 @@ import { DinifyPhoneInputComponent } from './shared/dinify-phone-input/dinify-ph
         ToastComponent,
         OfflineBannerComponent,
         ScrollProgressDirective,
-        DinifyPhoneInputComponent], providers: [
+        DinifyPhoneInputComponent,
+        AuthShellComponent], providers: [
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         provideHttpClient(withInterceptorsFromDi()),
