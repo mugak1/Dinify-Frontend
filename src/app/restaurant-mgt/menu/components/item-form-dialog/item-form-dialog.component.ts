@@ -5,12 +5,7 @@ import { Observable } from 'rxjs';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
-import {
-  TabsComponent,
-  TabListComponent,
-  TabTriggerComponent,
-  TabContentComponent,
-} from 'src/app/_shared/ui/tabs/tabs.component';
+import { DnSegmentedComponent, DnSegItem } from 'src/app/_shared/ui/segmented/segmented.component';
 import { ItemModifiersTabComponent } from '../item-modifiers-tab/item-modifiers-tab.component';
 import { ItemDiscountsTabComponent } from '../item-discounts-tab/item-discounts-tab.component';
 import { ItemExtrasTabComponent } from '../item-extras-tab/item-extras-tab.component';
@@ -31,10 +26,7 @@ import imageCompression from 'browser-image-compression';
     DialogComponent,
     ButtonComponent,
     SwitchComponent,
-    TabsComponent,
-    TabListComponent,
-    TabTriggerComponent,
-    TabContentComponent,
+    DnSegmentedComponent,
     ItemModifiersTabComponent,
     ItemDiscountsTabComponent,
     ItemExtrasTabComponent,
@@ -315,6 +307,27 @@ export class ItemFormDialogComponent implements OnChanges {
     if (price > 0 && amount >= price) return true;
 
     return false;
+  }
+
+  /** Tab descriptors for the shared segmented control. A stable array whose per-tab
+   *  hasError flags are refreshed in place each read, so the reference never churns
+   *  (no ExpressionChanged, no needless glider re-measure) while the asterisks stay live. */
+  private readonly _segTabs: DnSegItem[] = [
+    { value: 'details', label: 'Details' },
+    { value: 'modifiers', label: 'Modifiers' },
+    { value: 'extras', label: 'Extras' },
+    { value: 'discounts', label: 'Discounts' },
+  ];
+
+  get segTabs(): DnSegItem[] {
+    const errors = [
+      this.hasDetailsErrors,
+      this.hasModifiersErrors,
+      this.hasExtrasErrors,
+      this.hasDiscountsErrors,
+    ];
+    this._segTabs.forEach((t, i) => (t.hasError = errors[i]));
+    return this._segTabs;
   }
 
   onSubmit(): void {
