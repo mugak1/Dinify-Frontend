@@ -304,6 +304,22 @@ writing new tag or price/menu logic:
   numbers) render in Gabarito, applied BY SELECTOR, not via `font-display`. In
   restaurant-portal UI let that selector own heading fonts rather than reaching
   for `font-display`/`font-*` overrides
+- Colour tokens (reworked in the visual-hierarchy PR 1): `--primary` IS the brand
+  red #FF2C32 — the same value as the `d-red` literal, so the two channels can no
+  longer drift — with `--primary-hover` (= `d-red-hover` #E61C22) exposed as
+  `bg-primary-hover` etc. `--destructive` is a deliberately DISTINCT darker red:
+  destructive/danger UI must use it (never `bg-primary`/`bg-d-red`), and
+  `--secondary` (94%) is now a lighter tier than `--muted` (88%) — don't collapse
+  them back. Contrast rule: white on brand red is only ~3.7:1, so brand red may
+  only sit behind LARGE/BOLD CTA text; small white-on-red text must pair with
+  `--destructive` or `--primary-hover` (both ≥4.5:1 with white)
+- Semantic type + radius tokens exist in `tailwind.config.js` — `text-page-title`,
+  `text-section-title`, `text-card-title`, `text-body`, `text-caption`,
+  `text-micro` (11px hard floor), and `rounded-card` (20px, the diner dish-card
+  corner). They are px-fixed because the 14px root shrinks rem sizes ~12.5%
+  (the origin of the old half-pixel `text-[18.5px]`-style hacks). Do NOT add new
+  arbitrary `text-[..px]` / `rounded-[..px]` values — pick a token, or extend the
+  scale deliberately
 
 ## Key Domain Concepts
 - `MenuItem` has two independent boolean fields — NEVER conflate them:
