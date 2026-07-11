@@ -2,11 +2,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { WINDOW } from '../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../_services/storage/storage-key-prefix.token';
 import { MenuItemDetailComponent } from './menu-item-detail.component';
-import { DiscountDetails, MenuItemExtraRef } from '../../_models/app.models';
+import { DiscountDetails, MenuItem, MenuItemExtraRef } from '../../_models/app.models';
+import { BasketService } from '../../_services/basket.service';
+import { ToastService } from '../../_shared/ui/toast/toast.service';
 
 const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
 
@@ -72,6 +74,25 @@ describe('MenuItemDetailComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('announces the add / edit result via a global toast', () => {
+    const toast = TestBed.inject(ToastService);
+    const successSpy = spyOn(toast, 'success');
+    const basket = TestBed.inject(BasketService);
+    spyOn(basket, 'addItem');
+    spyOn(basket, 'updateItem');
+    spyOn(TestBed.inject(Router), 'navigate');
+    spyOn(component, 'isFormValid').and.returnValue(true);
+    component.item.set({ id: 'i1', name: 'Burger', primary_price: '5000', in_stock: true } as unknown as MenuItem);
+
+    component.editingIndex.set(null);
+    component.addToBasket();
+    expect(successSpy).toHaveBeenCalledWith('Added to basket');
+
+    component.editingIndex.set(3);
+    component.addToBasket();
+    expect(successSpy).toHaveBeenCalledWith('Changes saved');
   });
 
   describe('extra discount pricing', () => {
