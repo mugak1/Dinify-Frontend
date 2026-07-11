@@ -28,73 +28,56 @@
     </div>
   </div>
 
-  <!-- Segmented rail (all breakpoints), under the header. A single sunken pill track
-       holds four segments (content-width on desktop, equal-width on mobile); one
-       absolutely-positioned red "glider" slides between them to mark the active report.
-       Tabs stay routerLink anchors (a11y + middle-click). -->
+  <!-- Segmented rail (all breakpoints), under the header. The shared `app-dn-segmented`
+       control renders the sunken pill track, the white sliding glider, and the routerLink
+       anchors (a11y + middle-click); this shell owns only the URL→active derivation, fed in
+       as [value]. The <nav> supplies the navigation landmark + border/padding. -->
   <nav class="border-b border-border px-3 sm:px-4 md:px-6 py-2" aria-label="Reports">
-    <div
-      #trackEl
-      class="relative flex w-full sm:w-fit items-center rounded-[13px] border border-[#ECEAE6] bg-[#F3F1ED] p-[5px]"
+    <app-dn-segmented
+      mode="router"
+      layout="responsive"
+      [items]="reportNav"
+      [value]="activeKey()"
+      [relativeTo]="route"
     >
-      <!-- Sliding active-tab card. Geometry + transition are bound; colour/shadow are
-           static. aria-hidden: active state is exposed via aria-current on the anchor. -->
-      <span
-        aria-hidden="true"
-        class="pointer-events-none absolute top-[5px] bottom-[5px] z-0 rounded-[10px] bg-d-red shadow-[0_8px_18px_-6px_rgba(255,44,50,0.5)]"
-        [style.left.px]="gliderLeft()"
-        [style.width.px]="gliderWidth()"
-        [style.transition]="ready() ? gliderTransition : 'none'"
-        [style.opacity]="ready() ? 1 : 0"
-      ></span>
-
-      @for (r of reportNav; track r.key) {
-        <a
-          #tabEl
-          [routerLink]="r.path"
-          [attr.aria-current]="isActive(r) ? 'page' : null"
-          class="group relative z-10 flex flex-1 sm:flex-none min-w-0 items-center justify-center gap-2 h-[38px] px-3 sm:px-4 rounded-[10px] text-[13.5px] font-semibold no-underline select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-d-red/40"
+      <!-- Leading icon per segment. Colour is inherited via currentColor from the segment's
+           text colour (active text-foreground / inactive text-muted-foreground), so the SVG
+           carries sizing only. -->
+      <ng-template #icon let-item>
+        <svg
+          aria-hidden="true"
+          class="w-4 h-4 shrink-0 transition-colors"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
-          <svg
-            aria-hidden="true"
-            class="w-4 h-4 shrink-0 transition-colors"
-            [ngClass]="isActive(r) ? 'text-white' : 'text-[#94918B] group-hover:text-[#141414]'"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <ng-container [ngSwitch]="r.icon">
-              <ng-container *ngSwitchCase="'sales'">
-                <svg:polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                <svg:polyline points="16 7 22 7 22 13" />
-              </ng-container>
-              <ng-container *ngSwitchCase="'menu'">
-                <svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
-                <svg:path d="M7 2v20" />
-                <svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
-              </ng-container>
-              <ng-container *ngSwitchCase="'card'">
-                <svg:rect width="20" height="14" x="2" y="5" rx="2" />
-                <svg:line x1="2" x2="22" y1="10" y2="10" />
-              </ng-container>
-              <ng-container *ngSwitchCase="'users'">
-                <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <svg:circle cx="9" cy="7" r="4" />
-                <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </ng-container>
+          <ng-container [ngSwitch]="item.icon">
+            <ng-container *ngSwitchCase="'sales'">
+              <svg:polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <svg:polyline points="16 7 22 7 22 13" />
             </ng-container>
-          </svg>
-          <span
-            class="truncate min-w-0 transition-colors"
-            [ngClass]="isActive(r) ? 'text-white' : 'text-[#5E5C59] group-hover:text-[#141414]'"
-          >{{ r.label }}</span>
-        </a>
-      }
-    </div>
+            <ng-container *ngSwitchCase="'menu'">
+              <svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+              <svg:path d="M7 2v20" />
+              <svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+            </ng-container>
+            <ng-container *ngSwitchCase="'card'">
+              <svg:rect width="20" height="14" x="2" y="5" rx="2" />
+              <svg:line x1="2" x2="22" y1="10" y2="10" />
+            </ng-container>
+            <ng-container *ngSwitchCase="'users'">
+              <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <svg:circle cx="9" cy="7" r="4" />
+              <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </ng-container>
+          </ng-container>
+        </svg>
+      </ng-template>
+    </app-dn-segmented>
   </nav>
 
   <!-- Full-width report content. -->
