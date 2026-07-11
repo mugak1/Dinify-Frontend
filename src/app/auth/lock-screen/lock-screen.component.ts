@@ -62,6 +62,17 @@ get ProfileLetter() {
 get newpassword() {
     return this.LockScreenForm.get("new_password")
 }
+/** Live password-requirement checks for the rebuilt checklist (mirrors the
+ *  new_password validator: 6+ chars, a digit, a special character). Kept in the
+ *  component so the regex literals stay out of the template. */
+get pwChecks(): { length: boolean; digit: boolean; special: boolean } {
+    const v: string = this.newpassword?.value || '';
+    return {
+        length: v.length >= 6,
+        digit: /[0-9]/.test(v),
+        special: /[!@#$%^&*]/.test(v),
+    };
+}
 toggleFieldTextType() {
     this.fieldTextType = !this.fieldTextType
 }
