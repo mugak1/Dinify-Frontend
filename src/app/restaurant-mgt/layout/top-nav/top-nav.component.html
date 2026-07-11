@@ -22,20 +22,14 @@
 
       <!-- Date range pills (dashboard only) -->
       @if (dashboardService.isDashboardActive$ | async) {
-        <div class="bg-card border border-gray-200 rounded-lg p-1 flex gap-1 overflow-x-auto" role="tablist" aria-label="Date range selector">
-          @for (range of ranges; track range.value) {
-            <button
-              (click)="onDateRangeChange(range.value)"
-              class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 active:scale-95"
-              [class]="(dashboardService.dateRange$ | async) === range.value
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-foreground hover:text-foreground'"
-              role="tab"
-              [attr.aria-selected]="(dashboardService.dateRange$ | async) === range.value"
-            >
-              {{ range.label }}
-            </button>
-          }
+        <div class="overflow-x-auto">
+          <app-dn-segmented
+            [items]="ranges"
+            [value]="(dashboardService.dateRange$ | async)!"
+            (valueChange)="onDateRangeChange($any($event))"
+            ariaLabel="Date range selector"
+            layout="hug"
+          ></app-dn-segmented>
         </div>
       }
 

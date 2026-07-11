@@ -50,13 +50,16 @@ describe('ReportsShellComponent', () => {
     expect(current.textContent).toContain('Sales');
   });
 
-  it('renders the shared segmented control with a white glider (red fill removed)', () => {
+  it('renders the shared segmented control with the red brand glider on a white track', () => {
     expect(fixture.nativeElement.querySelector('app-dn-segmented')).not.toBeNull();
-    // The active indicator is now the white glider, not the old bg-d-red fill.
-    expect(fixture.nativeElement.querySelector('.bg-d-red')).toBeNull();
     const glider = fixture.nativeElement.querySelector('span[aria-hidden="true"]') as HTMLElement;
     expect(glider).not.toBeNull();
-    expect(glider.className).toContain('bg-background');
+    // Active indicator is the red (bg-primary) pill, not a neutral white glider.
+    expect(glider.className).toContain('bg-primary');
+    expect(glider.className).not.toContain('bg-background');
+    // Track is white (bg-card) with a hairline border.
+    const track = glider.parentElement as HTMLElement;
+    expect(track.className).toContain('bg-card');
   });
 
   it('mounts the persistent date-range control above the outlet', () => {

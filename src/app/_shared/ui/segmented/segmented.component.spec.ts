@@ -89,6 +89,17 @@ describe('DnSegmentedComponent', () => {
 
   afterEach(() => fixture?.destroy());
 
+  it('styles the active pill red (bg-primary, white ink) on a white bg-card track', () => {
+    fixture.detectChanges();
+    const c = child();
+    expect(c.gliderClass).toContain('bg-primary');
+    expect(c.trackClass()).toContain('bg-card');
+    expect(c.trackClass()).toContain('border');
+    // Active ink is white on the red pill; inactive is muted grey.
+    expect(c.segClass(VALUE_ITEMS[0])).toContain('text-primary-foreground'); // 'a' is active (value='a')
+    expect(c.segClass(VALUE_ITEMS[1])).toContain('text-muted-foreground');
+  });
+
   it('value mode: renders a role="tab" button per item, active one aria-selected', () => {
     fixture.detectChanges();
     const b = buttons();

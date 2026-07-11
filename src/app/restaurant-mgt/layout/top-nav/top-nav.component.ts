@@ -2,6 +2,7 @@ import { Component, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DashboardService } from '../../dashboard/services/dashboard.service';
 import { DateRange } from '../../dashboard/models/dashboard.models';
+import { DnSegmentedComponent } from '../../../_shared/ui/segmented/segmented.component';
 
 interface DateRangeOption {
   value: DateRange;
@@ -11,7 +12,7 @@ interface DateRangeOption {
 @Component({
   selector: 'app-top-nav',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, DnSegmentedComponent],
   templateUrl: './top-nav.component.html',
 })
 export class TopNavComponent {
