@@ -19,7 +19,7 @@ import { SalesBreakdownRow } from './sales-view';
   imports: [CommonModule, CardComponent, ReportTableComponent, ReportExportBarComponent],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
           <h2 class="text-card-title text-foreground">{{ title }}</h2>
           <div class="flex items-center gap-4">

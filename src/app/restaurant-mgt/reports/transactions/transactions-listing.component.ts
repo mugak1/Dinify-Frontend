@@ -32,7 +32,7 @@ const PAGE_SIZE = 50;
   imports: [CommonModule, CardComponent, ButtonComponent, ReportTableComponent, ReportStateComponent],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <h2 class="text-card-title text-foreground">Recent transactions</h2>
           <div class="flex gap-1 flex-wrap">

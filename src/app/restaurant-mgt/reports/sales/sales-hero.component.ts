@@ -17,7 +17,7 @@ import { EMPTY_TOTALS, SalesTotals } from './sales-view';
   imports: [CommonModule, CardComponent, ReportDeltaChipComponent],
   template: `
     <app-dn-card class="block">
-      <div class="p-5 sm:p-6">
+      <div class="p-4 sm:p-6">
         <p class="text-sm text-gray-500">Net revenue</p>
         <div class="flex flex-wrap items-end gap-x-3 gap-y-1 mt-1">
           <span class="text-3xl sm:text-4xl font-semibold text-gray-900 tabular-nums">{{ fmt(net) }}</span>

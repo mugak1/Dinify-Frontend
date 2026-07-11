@@ -37,7 +37,7 @@ const METHOD_COLORS: Record<string, string> = {
       <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>
     } @else if (!paymentMethods || total === 0) {
       <app-dn-card [fullHeight]="true" [square]="true">
-        <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
+        <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <div class="mb-1">
             <h2 class="text-card-title text-foreground">Payment Methods (UGX)</h2>
             <p class="text-[10px] sm:text-xs text-muted-foreground">Share of payments in selected period</p>
@@ -50,7 +50,7 @@ const METHOD_COLORS: Record<string, string> = {
       </app-dn-card>
     } @else {
       <app-dn-card [fullHeight]="true" [square]="true">
-        <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
+        <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <!-- Header -->
           <div class="mb-1">
             <h2 class="text-card-title text-foreground">Payment Methods (UGX)</h2>

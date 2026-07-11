@@ -20,7 +20,7 @@ const TOP_N = 6;
   imports: [CommonModule, CardComponent, DnSegmentedComponent],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
           <h2 class="text-card-title text-foreground">Top selling items</h2>
           <app-dn-segmented

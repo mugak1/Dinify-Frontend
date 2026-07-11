@@ -8,7 +8,7 @@ import { ButtonComponent } from '../../../../_shared/ui/button/button.component'
   imports: [CardComponent, ButtonComponent],
   template: `
     <app-dn-card [square]="square">
-      <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-6">
+      <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-4 sm:p-6">
         <!-- AlertCircle icon -->
         <div class="mb-4">
           <svg aria-hidden="true" class="w-12 h-12 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

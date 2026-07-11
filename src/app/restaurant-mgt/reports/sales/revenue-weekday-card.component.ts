@@ -16,7 +16,7 @@ import { WeekdayRevenue } from './sales-view';
   imports: [CommonModule, CardComponent],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <h2 class="text-card-title text-foreground mb-3">Revenue by weekday</h2>
         <div class="space-y-2">
           @for (d of days; track d.weekday) {

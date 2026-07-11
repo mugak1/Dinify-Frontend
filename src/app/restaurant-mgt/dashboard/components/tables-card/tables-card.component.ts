@@ -25,7 +25,7 @@ import { formatCompact } from '../../utils/format.utils';
       <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>
     } @else if (!tablesData) {
       <app-dn-card [fullHeight]="true" [square]="true">
-        <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
+        <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <h2 class="text-card-title text-foreground mb-1">Tables</h2>
           <hr class="border-border mb-3" />
           <div class="flex-1 flex items-center justify-center">
@@ -35,7 +35,7 @@ import { formatCompact } from '../../utils/format.utils';
       </app-dn-card>
     } @else {
       <app-dn-card [fullHeight]="true" [square]="true">
-        <div class="p-4 sm:p-5 lg:p-6 overflow-hidden flex flex-col h-full">
+        <div class="p-4 sm:p-6 overflow-hidden flex flex-col h-full">
           <!-- Header -->
           <div class="flex items-start justify-between mb-4 sm:mb-5">
             <h2 class="text-card-title text-foreground">Tables</h2>

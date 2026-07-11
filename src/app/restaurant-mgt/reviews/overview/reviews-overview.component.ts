@@ -94,7 +94,7 @@ type TimeframeDays = 30 | 90;
       } @else if (!analytics || analytics.totalReviews === 0) {
         <!-- Friendly empty state -->
         <app-dn-card>
-          <div class="flex flex-col items-center justify-center text-center min-h-[240px] p-6">
+          <div class="flex flex-col items-center justify-center text-center min-h-[240px] p-4 sm:p-6">
             <svg
               aria-hidden="true"
               class="w-10 h-10 text-muted-foreground/40 mb-3"

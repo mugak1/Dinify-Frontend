@@ -40,7 +40,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
       <app-card-skeleton variant="wide" [square]="true"></app-card-skeleton>
     } @else if (!kdsData) {
       <app-dn-card [square]="true">
-        <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
+        <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <h2 class="text-card-title text-foreground mb-1">Kitchen Load (KDS)</h2>
           <hr class="border-border mb-3" />
           <div class="flex-1 flex items-center justify-center">
@@ -50,7 +50,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
       </app-dn-card>
     } @else {
       <app-dn-card [square]="true">
-        <div class="p-6 transition-all">
+        <div class="p-4 sm:p-6 transition-all">
           <!-- Header -->
           <div class="flex items-start justify-between gap-2 mb-4 sm:mb-6">
             <div class="flex-1 min-w-0">

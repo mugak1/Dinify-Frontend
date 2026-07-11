@@ -24,7 +24,7 @@ const BEST = 'hsl(142, 71%, 45%)';
   imports: [CommonModule, CardComponent, BaseChartDirective],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center justify-between gap-3 mb-1">
           <h2 class="text-card-title text-foreground">Revenue trend</h2>
           <div class="flex flex-col items-end gap-1">

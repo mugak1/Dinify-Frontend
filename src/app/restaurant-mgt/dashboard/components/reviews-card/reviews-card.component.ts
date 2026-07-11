@@ -28,7 +28,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
       <app-card-error title="Reviews" [message]="error" [square]="true" (retry)="retry.emit()"></app-card-error>
     } @else if (!reviewsData) {
       <app-dn-card [square]="true">
-        <div class="p-4 sm:p-5 lg:p-6">
+        <div class="p-4 sm:p-6">
           <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Guest Reviews</h2>
           <hr class="border-border mb-4" />
           <p class="text-sm text-muted-foreground text-center py-8">No review data available</p>
@@ -36,7 +36,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
       </app-dn-card>
     } @else {
       <app-dn-card [square]="true">
-        <div class="p-4 sm:p-5 lg:p-6">
+        <div class="p-4 sm:p-6">
           <!-- Section 1: Header -->
           <div class="flex items-center justify-between mb-3 sm:mb-4">
             <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
