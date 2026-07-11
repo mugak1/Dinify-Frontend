@@ -106,6 +106,11 @@ module.exports = {
         'caption': ['12px', { lineHeight: '16px' }],
         // 11px is the hard floor — nothing renders smaller than this.
         'micro': ['11px', { lineHeight: '14px' }],
+        // The diner dish-name/price display size (replaces the half-pixel
+        // text-[18.5px] twins). SIZE-ONLY on purpose — unlike the roles above it
+        // bakes NO font-weight, because the same size carries bold(700) dish
+        // names and extrabold(800) prices; pair it with font-display + a weight.
+        'dish-title': ['19px', { lineHeight: '21px', letterSpacing: '-0.01em' }],
       },
       backgroundImage: {
         'fade': 'linear-gradient(to right, white, rgba(0, 0, 0, 0))',

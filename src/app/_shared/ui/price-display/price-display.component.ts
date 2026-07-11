@@ -58,7 +58,7 @@ export class PriceDisplayComponent {
     // unit price unless a caller opts into 'neutral').
     const colour = this.tone === 'neutral' ? 'text-gray-900' : 'text-d-red';
     // menu-card: the diner dish-card "now price" — display face, heavier, larger.
-    if (this.size === 'menu-card') return cn('font-display font-extrabold text-[18.5px]', colour);
+    if (this.size === 'menu-card') return cn('font-display font-extrabold text-dish-title', colour);
     return cn(
       'font-bold',
       colour,
@@ -74,7 +74,7 @@ export class PriceDisplayComponent {
       this.size === 'sm' && 'text-xs',
       this.size === 'md' && 'text-sm',
       this.size === 'lg' && 'text-base',
-      this.size === 'menu-card' && 'text-[13.5px]',
+      this.size === 'menu-card' && 'text-body',
     );
   }
 }

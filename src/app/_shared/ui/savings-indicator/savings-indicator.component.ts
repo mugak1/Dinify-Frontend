@@ -39,7 +39,7 @@ export type SavingsIndicatorVariant = 'pill' | 'banner';
         </svg>
       </div>
       <div class="flex-1 min-w-0 flex flex-col gap-0.5">
-        <span class="text-[11px] uppercase tracking-widest font-medium text-white/85">{{ resolvedLabel }}</span>
+        <span class="text-micro uppercase tracking-widest font-medium text-white/85">{{ resolvedLabel }}</span>
         <span class="text-[22px] font-bold leading-tight tabular-nums">{{ formattedAmount }}</span>
       </div>
     </div>

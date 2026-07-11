@@ -29,7 +29,7 @@
 
       <!-- Item name + sold-out pill -->
       <div class="flex items-center gap-2 flex-wrap">
-        <h3 class="font-display font-bold text-[18.5px] leading-[1.12] tracking-[-0.01em] text-gray-900"><ng-container *ngFor="let seg of (name | highlight: searchQuery)"><mark *ngIf="seg.match" class="bg-amber-200 text-gray-900 rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></h3>
+        <h3 class="font-display font-bold text-dish-title text-gray-900"><ng-container *ngFor="let seg of (name | highlight: searchQuery)"><mark *ngIf="seg.match" class="bg-amber-200 text-gray-900 rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></h3>
         <span *ngIf="outOfStock"
               class="inline-flex items-center rounded-full bg-gray-200 text-gray-600 text-xs font-medium px-2 py-0.5">
           Sold out
@@ -38,7 +38,7 @@
 
       <!-- META: calories + dietary/allergen tags on one line -->
       <div class="flex items-center gap-[6px] flex-wrap mt-[7px]">
-        <span *ngIf="calories" class="text-[12.5px] font-bold text-gray-500">{{ calories }} kcal</span>
+        <span *ngIf="calories" class="text-caption font-bold text-gray-500">{{ calories }} kcal</span>
         <div *ngIf="visibleTags.length > 0 || hiddenTagCount > 0"
              class="flex flex-wrap gap-1">
           <app-tag-pill *ngFor="let tag of visibleTags"
@@ -65,7 +65,7 @@
       </span>
 
       <!-- Description (clamped to 2; min-h reserves 2 lines so the price baseline stays put) -->
-      <p class="text-[13.5px] leading-[1.45] text-gray-500 line-clamp-2 min-h-[40px] mt-[9px]"><ng-container *ngFor="let seg of (description | highlight: searchQuery)"><mark *ngIf="seg.match" class="bg-amber-200 text-gray-900 rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></p>
+      <p class="text-body text-gray-500 line-clamp-2 min-h-[40px] mt-[9px]"><ng-container *ngFor="let seg of (description | highlight: searchQuery)"><mark *ngIf="seg.match" class="bg-amber-200 text-gray-900 rounded-[2px]">{{ seg.text }}</mark><ng-container *ngIf="!seg.match">{{ seg.text }}</ng-container></ng-container></p>
 
       <!-- PRICE — anchored to the bottom of the text column -->
       <div class="mt-auto pt-[12px]">
@@ -74,7 +74,7 @@
                            [effective]="effectivePrice"
                            [original]="originalPrice"></app-price-display>
         <ng-template #normalPriceCard>
-          <span [class]="outOfStock ? 'font-display font-extrabold text-[18.5px] text-gray-400' : 'font-display font-extrabold text-[18.5px] text-d-red'">
+          <span [class]="outOfStock ? 'font-display font-extrabold text-dish-title text-gray-400' : 'font-display font-extrabold text-dish-title text-d-red'">
             UGX {{ effectivePrice | number }}
           </span>
         </ng-template>
@@ -103,7 +103,7 @@
         <!-- Badge overlay (single-badge policy: Popular > New; Featured suppressed on cards) -->
         <div class="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
           <span *ngIf="isPopular && !outOfStock"
-                class="bg-orange-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+                class="bg-orange-500 text-white text-micro font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
@@ -111,7 +111,7 @@
             Popular
           </span>
           <span *ngIf="isNew && !isPopular && !outOfStock"
-                class="bg-green-500 text-white text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+                class="bg-green-500 text-white text-micro font-semibold uppercase px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>

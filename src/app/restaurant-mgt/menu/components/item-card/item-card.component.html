@@ -57,7 +57,7 @@
 
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
-            <h3 class="font-display font-bold text-[18.5px] truncate" [title]="item.name">{{ item.name }}</h3>
+            <h3 class="font-display font-bold text-dish-title truncate" [title]="item.name">{{ item.name }}</h3>
 
             <!-- Featured badge pill -->
             <span *ngIf="item.is_featured"
@@ -109,7 +109,7 @@
           </div>
 
           <p *ngIf="item.description"
-             class="text-[13.5px] leading-[1.45] text-muted-foreground line-clamp-2 mt-1">{{ item.description }}</p>
+             class="text-body text-muted-foreground line-clamp-2 mt-1">{{ item.description }}</p>
         </div>
 
         <!-- Right-side inline actions. w-full <sm makes the cluster take its own

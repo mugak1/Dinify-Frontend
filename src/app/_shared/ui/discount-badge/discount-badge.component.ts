@@ -58,7 +58,7 @@ export class DiscountBadgeComponent {
         : 'bg-green-600 text-white';
     const sizing =
       this.size === 'sm'
-        ? 'gap-1 px-1.5 py-0.5 text-[10px]'
+        ? 'gap-1 px-1.5 py-0.5 text-micro'
         : this.size === 'lg'
           ? 'gap-2 px-3 py-1.5 text-sm'
           : 'gap-1.5 px-2.5 py-1 text-xs';
