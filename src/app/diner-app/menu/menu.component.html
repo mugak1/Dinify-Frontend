@@ -28,7 +28,7 @@
     </span>
   </div>
   <div class="absolute left-6 right-6 bottom-5 z-10">
-    <div class="text-white/80 font-display text-[11px] font-bold tracking-[0.18em] uppercase">
+    <div class="text-white/80 font-display text-micro font-bold tracking-[0.18em] uppercase">
       Dine-in · Table {{ tableNumber }}
     </div>
     <h1 class="font-display font-extrabold text-white text-4xl leading-none tracking-tight mt-1.5"
@@ -58,7 +58,7 @@
   </div>
   <!-- BOTTOM: eyebrow + venue name — dark on white, muted-grey eyebrow, no text-shadow -->
   <div class="absolute left-6 right-6 bottom-5 z-10">
-    <div class="text-gray-500 font-display text-[11px] font-bold tracking-[0.18em] uppercase">
+    <div class="text-gray-500 font-display text-micro font-bold tracking-[0.18em] uppercase">
       Dine-in · Table {{ tableNumber }}
     </div>
     <h1 class="font-display font-extrabold text-gray-900 text-4xl leading-none tracking-tight mt-1.5">{{ restaurantName }}</h1>
@@ -99,7 +99,7 @@
 <!-- Skeleton cards -->
 <div *ngIf="navState.isLoading()" class="flex flex-col px-6 pt-4">
   <div *ngFor="let _ of [1,2,3,4,5]"
-       class="mb-3 rounded-2xl bg-white shadow-[var(--shadow-md)]">
+       class="mb-3 rounded-card bg-white shadow-[var(--shadow-md)]">
     <div class="flex gap-3 p-3">
       <div class="flex-1 min-w-0 flex flex-col gap-2">
         <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
@@ -178,7 +178,7 @@
       <button *ngIf="navState.hasActiveFilters()"
               type="button"
               (click)="navState.clearAllFilters()"
-              class="-mt-6 text-sm font-semibold text-red-600 hover:text-red-700 px-4 py-2">
+              class="-mt-6 text-sm font-semibold text-d-red hover:text-d-red-hover px-4 py-2">
         Clear filters
       </button>
   </div>
@@ -213,9 +213,10 @@
   <!-- Floating Basket Bar -->
   <div *ngIf="basketItems.length > 0"
        class="fixed bottom-0 left-0 right-0 z-30 p-3 bg-white border-t border-gray-200 shadow-lg lg:hidden">
-    <button [routerLink]="['/diner/basket']"
+    <button app-dn-button variant="cta"
+            [routerLink]="['/diner/basket']"
             [attr.aria-label]="'View basket, ' + QuantitySum + ' items, UGX ' + (totalAmount | number)"
-            class="w-full flex items-center justify-between bg-d-red text-white rounded-xl px-5 py-3.5 shadow-glow desktop-hover:shadow-glow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-600 transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99]">
+            class="w-full justify-between">
       <div class="flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
