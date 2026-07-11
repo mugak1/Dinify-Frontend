@@ -54,4 +54,29 @@ describe('MenuDishCardComponent', () => {
     expect(host.textContent).toContain('UGX 8,000'); // effective
     expect(host.textContent).toContain('UGX 10,000'); // struck original
   });
+
+  it('exposes the in-stock card as a focusable button named by dish + price', () => {
+    render({ name: 'Soda', effectivePrice: 5000, outOfStock: false });
+    const btn = host.querySelector('[role="button"]') as HTMLElement;
+    expect(btn.getAttribute('tabindex')).toBe('0');
+    expect(btn.hasAttribute('aria-disabled')).toBeFalse();
+    expect(btn.getAttribute('aria-label')).toBe('Soda, UGX 5,000');
+  });
+
+  it('makes an out-of-stock card inert (no tabindex, aria-disabled)', () => {
+    render({ name: 'Soup', outOfStock: true });
+    const btn = host.querySelector('[role="button"]') as HTMLElement;
+    expect(btn.hasAttribute('tabindex')).toBeFalse();
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('opens (emits cardClick) on Enter and Space', () => {
+    const spy = jasmine.createSpy('cardClick');
+    component.cardClick.subscribe(spy);
+    render({ name: 'Soda', outOfStock: false });
+    const btn = host.querySelector('[role="button"]') as HTMLElement;
+    btn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    btn.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
 });

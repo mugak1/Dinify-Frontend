@@ -2,16 +2,27 @@
      the diner menu and the portal preview drawer so the two can never drift again.
      `mb-3` lives on the root (mirrors the diner card) — hosts that stack cards should NOT
      add their own vertical gap on top of it. -->
+<!-- The whole card is one button: role/tabindex/keyboard make it operable without a
+     pointer, and a concise aria-label (name + price) keeps the long description out of the
+     accessible name. Out of stock → inert (no tabindex, aria-disabled). (cardClick) is
+     unchanged, so both consumers (diner menu + preview drawer) keep working. -->
 <div class="mb-3 rounded-[20px] bg-white shadow-2xl group transition-all duration-200 ease-out flex flex-col"
+     role="button"
+     [attr.tabindex]="outOfStock ? null : 0"
+     [attr.aria-disabled]="outOfStock ? true : null"
+     [attr.aria-label]="name + ', UGX ' + (effectivePrice | number)"
+     (click)="onCardClick()"
+     (keydown.enter)="onCardClick()"
+     (keydown.space)="onCardClick(); $event.preventDefault()"
      [class.opacity-60]="outOfStock"
      [class.cursor-not-allowed]="outOfStock"
-     [ngClass]="{ 'cursor-pointer hover:shadow-[0_28px_55px_-12px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 desktop-hover:ring-2 desktop-hover:ring-inset desktop-hover:ring-red-600 motion-safe:active:scale-[0.98] active:shadow-sm': !outOfStock }">
+     [ngClass]="{ 'cursor-pointer hover:shadow-[0_28px_55px_-12px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-600 desktop-hover:ring-2 desktop-hover:ring-inset desktop-hover:ring-red-600 motion-safe:active:scale-[0.98] active:shadow-sm': !outOfStock }">
 
   <!-- Single flex ROW: text column (name -> meta -> discount -> description -> price) on the
        left, the 104px photo with its overhanging add button on the right. The price is
        mt-auto-anchored to the text column's bottom; the description reserves 2 lines (min-h)
        so 1- and 2-line dishes keep the price on the same baseline. -->
-  <div class="flex gap-[14px] p-[14px] flex-1" (click)="onCardClick()">
+  <div class="flex gap-[14px] p-[14px] flex-1">
 
     <!-- TEXT COLUMN -->
     <div class="flex-1 min-w-0 flex flex-col">

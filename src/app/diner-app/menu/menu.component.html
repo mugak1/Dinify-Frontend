@@ -213,7 +213,8 @@
   <div *ngIf="basketItems.length > 0"
        class="fixed bottom-0 left-0 right-0 z-30 p-3 bg-white border-t border-gray-200 shadow-lg lg:hidden">
     <button [routerLink]="['/diner/basket']"
-            class="w-full flex items-center justify-between bg-d-red text-white rounded-xl px-5 py-3.5 shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99]">
+            [attr.aria-label]="'View basket, ' + QuantitySum + ' items, UGX ' + (totalAmount | number)"
+            class="w-full flex items-center justify-between bg-d-red text-white rounded-xl px-5 py-3.5 shadow-glow desktop-hover:shadow-glow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-600 transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99]">
       <div class="flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

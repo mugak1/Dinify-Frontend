@@ -22,6 +22,7 @@ import {
 } from 'src/app/_shared/utils/price-utils';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from '../menu/menu-nav-state.service';
+import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
   selector: 'app-menu-item-detail',
@@ -59,6 +60,7 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
     private basketService: BasketService,
     private sessionStorage: SessionStorageService,
     private api: ApiService,
+    private toast: ToastService,
   ) {
     // Read params in the constructor so they're set before the resolution
     // effect's first run (effects run after the first change detection).
@@ -551,6 +553,10 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
     };
 
     const idx = this.editingIndex();
+    // Announce the result before navigating: the toast host is global (survives this
+    // navigation) and is aria-live, so screen-reader diners get confirmation an
+    // on-page region couldn't provide once the route changes.
+    this.toast.success(idx !== null ? 'Changes saved' : 'Added to basket');
     if (idx !== null) {
       this.basketService.updateItem(idx, basketItem);
       this.router.navigate(['/diner', 'basket']);

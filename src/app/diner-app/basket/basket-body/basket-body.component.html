@@ -128,14 +128,19 @@
 
         <!-- Name + price row -->
         <div class="flex justify-between items-start">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1">
             <h3 class="font-semibold text-base text-gray-900">{{ item.itemName }}</h3>
-            <!-- Edit hint -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 class="text-gray-400">
-              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
-            </svg>
+            <!-- Real, keyboard-focusable Edit control (the whole row is also click-to-edit for
+                 mouse, but that row div can't be a button — it contains the stepper buttons). -->
+            <button type="button" (click)="editItem(idx); $event.stopPropagation()"
+                    [attr.aria-label]="'Edit ' + item.itemName"
+                    class="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -m-2 text-gray-400 hover:text-gray-600 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true">
+                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+              </svg>
+            </button>
           </div>
           <div class="text-right flex-shrink-0 ml-2">
             <app-price-display size="sm"
@@ -179,19 +184,19 @@
         <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
           <div class="flex items-center gap-2" (click)="$event.stopPropagation()">
             <!-- Minus -->
-            <button (click)="decrementItem(idx)"
-                    class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
+            <button (click)="decrementItem(idx)" aria-label="Decrease quantity"
+                    class="inline-flex items-center justify-center w-11 h-11 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M5 12h14"/>
               </svg>
             </button>
             <span class="w-6 text-center font-semibold text-sm tabular-nums">{{ item.quantity }}</span>
             <!-- Plus -->
-            <button (click)="incrementItem(idx)"
-                    class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
+            <button (click)="incrementItem(idx)" aria-label="Increase quantity"
+                    class="inline-flex items-center justify-center w-11 h-11 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M5 12h14"/><path d="M12 5v14"/>
               </svg>
             </button>
