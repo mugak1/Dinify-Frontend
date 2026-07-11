@@ -1,4 +1,5 @@
 import { Component, Input, Output, EventEmitter, HostListener } from '@angular/core';
+import { A11yModule } from '@angular/cdk/a11y';
 
 export type DialogMaxWidth = 'sm' | 'md' | 'lg';
 
@@ -11,11 +12,27 @@ const maxWidthClasses: Record<DialogMaxWidth, string> = {
 @Component({
   selector: 'app-dn-dialog',
   standalone: true,
+  imports: [A11yModule],
+  // cdkTrapFocus + cdkTrapFocusAutoCapture (on the wrapper) trap Tab within the
+  // modal, auto-focus on open, and restore focus to the trigger when the @if
+  // destroys it on close. cdkFocusInitial sits on the PANEL (a descendant of the
+  // trap, found via querySelector), so auto-capture focuses the dialog container
+  // itself — announced via role/aria, and never a destructive footer button.
+  // max-h-[85vh] + overflow-y-auto keep tall forms' footers reachable instead of
+  // clipping off short viewports.
   template: `
     @if (open) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="fixed inset-0 z-50 flex items-center justify-center" cdkTrapFocus cdkTrapFocusAutoCapture>
         <div class="fixed inset-0 bg-black/50" (click)="onBackdrop()"></div>
-        <div [class]="'relative z-50 bg-card rounded-lg shadow-lg p-6 w-full mx-4 ' + maxWidthClass">
+        <div
+          role="dialog"
+          aria-modal="true"
+          tabindex="-1"
+          cdkFocusInitial
+          [attr.aria-labelledby]="ariaLabelledby || null"
+          [attr.aria-label]="ariaLabel || null"
+          [class]="'relative z-50 bg-card rounded-lg shadow-lg p-6 w-full mx-4 max-h-[85vh] overflow-y-auto ' + maxWidthClass"
+        >
           <ng-content></ng-content>
         </div>
       </div>
@@ -32,6 +49,13 @@ export class DialogComponent {
    * whose one-time password must not be dismissed by accident.
    */
   @Input() disableClose = false;
+  /**
+   * Accessible name for the dialog. Prefer `ariaLabelledby` pointing at the id of
+   * the dialog's heading; use `ariaLabel` for a literal string when there is no
+   * heading element. Both are opt-in — consumers are wired in the follow-up pass.
+   */
+  @Input() ariaLabelledby?: string;
+  @Input() ariaLabel?: string;
   @Output() closed = new EventEmitter<void>();
 
   get maxWidthClass(): string {
