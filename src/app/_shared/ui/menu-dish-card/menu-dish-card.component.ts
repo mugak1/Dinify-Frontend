@@ -41,8 +41,20 @@ export class MenuDishCardComponent {
   @Input() name = '';
   @Input() description: string | null = null;
   @Input() calories: number | null = null;
-  /** Already-resolved full image URL, or null for the no-photo placeholder. */
-  @Input() imageUrl: string | null = null;
+  /** Already-resolved full image URL, or null for the no-photo placeholder.
+   *  Reusing one card instance across items (the preview drawer) resets the
+   *  broken-image flag when the URL changes. */
+  @Input()
+  set imageUrl(v: string | null) {
+    if (v !== this._imageUrl) this.imageFailed = false;
+    this._imageUrl = v;
+  }
+  get imageUrl(): string | null { return this._imageUrl; }
+  private _imageUrl: string | null = null;
+
+  /** A photo URL that 404'd — falls back to the neutral placeholder like a no-photo dish. */
+  imageFailed = false;
+  onImageError(): void { this.imageFailed = true; }
 
   /** Effective ("now") price in UGX. In the non-discount case this equals the base price,
    *  so the plain price span renders it directly. */

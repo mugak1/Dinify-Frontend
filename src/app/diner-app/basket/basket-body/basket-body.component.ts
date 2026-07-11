@@ -168,6 +168,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.imageLoaded[itemId] = true;
   }
 
+  /** Broken-thumbnail tracking for the basket line rows (keyed by row index) —
+   *  a 404'd photo falls back to the "No img" placeholder instead of a torn glyph. */
+  rowImageErrored: Record<number, boolean> = {};
+  onRowImageError(idx: number): void {
+    this.rowImageErrored[idx] = true;
+  }
+
   // Adds an upsell item to the basket (simple items — no modifiers/extras)
   addUpsellItem(upsellItem: any): void {
     const original = parseFloat(upsellItem.item_price) || 0;
@@ -341,11 +348,20 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         }
 
         // Genuine failure (lost signal, 5xx, etc). The ErrorInterceptor already
-        // queued the raw message as a toast; failOrder() clears it and shows one
-        // clean, friendly message inline at the button instead.
-        this.failOrder();
+        // queued the raw message as a toast; surface that SAME backend message
+        // inline at the button (orders/initiate returns diner-friendly text),
+        // falling back to the generic line for the network / non-string error
+        // tokens the interceptor throws. Clears the duplicate toast either way.
+        this.failOrder(this.placementErrorMessage(error));
       }
     );
+  }
+
+  /** The backend's own message when it sent a usable one, else undefined so
+   *  failOrder() shows its generic fallback. Guards the non-message tokens the
+   *  interceptor throws (the 'no network' sentinel, non-strings). */
+  private placementErrorMessage(error: unknown): string | undefined {
+    return typeof error === 'string' && error && error !== 'no network' ? error : undefined;
   }
 
   // Surfaces a friendly inline placement error + Retry at the checkout footer,
@@ -450,13 +466,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.placingOrder = false;
         this.order_initiated = undefined;
       },
-      (_error) => {
+      (error) => {
         // submit/ only runs after a successful initiate/, which already passed
         // the table-gate — so it can't carry the ongoing-order 400 (that's
         // handled in placeOrder()). Any failure here is genuine: surface the
-        // inline error + Retry at the footer.
+        // backend message inline + Retry at the footer.
         this.dialog.closeModal();
-        this.failOrder();
+        this.failOrder(this.placementErrorMessage(error));
       }
     );
   }

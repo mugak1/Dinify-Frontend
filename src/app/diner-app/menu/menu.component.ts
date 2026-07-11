@@ -64,6 +64,9 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   // show-menu returns sections only. Populated by hydrateHeroFields() once the
   // restaurant resolves; coverPhoto null ⇒ no hero (it's optional).
   coverPhoto: string | null = null;
+  /** A cover URL that 404'd — drops the hero so a broken image never shows a
+   *  torn glyph; the menu falls back to its cover-less header. */
+  coverFailed = false;
   restaurantName = '';
   tableNumber: number | null = null;
 

@@ -165,6 +165,10 @@
                             size="md"></app-tag-pill>
             </div>
           </div>
+
+          <!-- Allergen-safety caveat: dietary tags are not a guarantee. Mounts the
+               previously-dead AllergenDisclaimerComponent next to the tags. -->
+          <app-allergen-disclaimer *ngIf="getVisibleTags(it.tags).length > 0" class="block mt-3"></app-allergen-disclaimer>
           </div>
           <!-- /content sheet -->
 

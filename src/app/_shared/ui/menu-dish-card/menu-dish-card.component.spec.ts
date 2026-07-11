@@ -79,4 +79,42 @@ describe('MenuDishCardComponent', () => {
     btn.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
     expect(spy).toHaveBeenCalledTimes(2);
   });
+
+  it('renders the photo when an imageUrl is set', () => {
+    render({ name: 'Rice', imageUrl: 'http://example.test/rice.jpg' });
+    expect(host.querySelector('img')).toBeTruthy();
+  });
+
+  it('shows the neutral placeholder (no img) for a photo-less dish — not a blank hole', () => {
+    render({ name: 'Water', imageUrl: null });
+    expect(host.querySelector('img')).toBeNull();
+    // the photo box carries a gray fill + a placeholder glyph instead of transparency
+    expect(host.querySelector('.bg-gray-100')).toBeTruthy();
+  });
+
+  it('falls back to the placeholder when the photo URL errors', () => {
+    render({ name: 'Rice', imageUrl: 'http://example.test/broken.jpg' });
+    const img = host.querySelector('img') as HTMLImageElement;
+    expect(img).toBeTruthy();
+    img.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+    expect(component.imageFailed).toBeTrue();
+    expect(host.querySelector('img')).toBeNull();
+  });
+
+  it('resets the broken-image flag when the imageUrl input changes (reused instance)', () => {
+    render({ name: 'Rice', imageUrl: 'http://example.test/broken.jpg' });
+    (host.querySelector('img') as HTMLImageElement).dispatchEvent(new Event('error'));
+    expect(component.imageFailed).toBeTrue();
+    render({ name: 'Rice', imageUrl: 'http://example.test/good.jpg' });
+    expect(component.imageFailed).toBeFalse();
+    expect(host.querySelector('img')).toBeTruthy();
+  });
+
+  it('rests on the toned --shadow-md token (not shadow-2xl)', () => {
+    render({ name: 'X' });
+    const root = host.querySelector('[role="button"]') as HTMLElement;
+    expect(root.className).toContain('shadow-[var(--shadow-md)]');
+    expect(root.className).not.toContain('shadow-2xl');
+  });
 });

@@ -6,6 +6,14 @@ import { AfterViewInit, Directive, Input, EventEmitter, Output, ElementRef, Host
 })
 export class ScrollSpyCommonDirective implements AfterViewInit {
     @Input() public spiedTags: any[] = [];
+    /**
+     * Pixels of sticky chrome covering the top of the scroll viewport (e.g. the
+     * diner menu's ~150px sticky banner). A section becomes "active" once its top
+     * reaches the BOTTOM of that chrome — i.e. once it's actually visible — rather
+     * than when it reaches viewport y=0 behind the banner. Default 0 = legacy
+     * behaviour for consumers with no sticky overlay.
+     */
+    @Input() public stickyOffset = 0;
     @Output() public sectionChange = new EventEmitter<string>();
     private currentSection?: string;
 
@@ -82,7 +90,7 @@ export class ScrollSpyCommonDirective implements AfterViewInit {
             // below the threshold at the top of the page).
             currentSection = spiedSections[0].id;
             for (const element of spiedSections) {
-                if ((element.offsetTop - parentOffset) <= scrollTop) {
+                if ((element.offsetTop - parentOffset) <= (scrollTop + this.stickyOffset)) {
                     currentSection = element.id;
                 }
             }

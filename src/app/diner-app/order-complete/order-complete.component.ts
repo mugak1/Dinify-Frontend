@@ -1,6 +1,5 @@
 import { Component, computed, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { DollarSign, type LucideIconData, Trash2, User, Utensils, Zap } from 'lucide-angular';
 import { ApiService } from 'src/app/_services/api.service';
 import { Socials } from 'src/app/_models/app.models';
 import { formatOrderNumber } from 'src/app/kitchen/services/kitchen-logic';
@@ -70,14 +69,14 @@ export class OrderCompleteComponent implements OnInit {
 
   // ── Review capture state ───────────────────────────────────────────────────
   /** Per-dimension rows (handoff §3.6). Keys are the exact backend field names so
-   *  a rated dimension drops straight into the submit payload; `icon` is the
-   *  Lucide glyph bound via [img]. */
-  readonly dimensions: { key: string; label: string; icon: LucideIconData }[] = [
-    { key: 'food_rating', label: 'Food', icon: Utensils },
-    { key: 'speed_rating', label: 'Speed', icon: Zap },
-    { key: 'service_rating', label: 'Service', icon: User },
-    { key: 'value_rating', label: 'Value', icon: DollarSign },
-    { key: 'cleanliness_rating', label: 'Cleanliness', icon: Trash2 },
+   *  a rated dimension drops straight into the submit payload; the template
+   *  renders an inline SVG per key (see the socials-block @switch pattern). */
+  readonly dimensions: { key: string; label: string }[] = [
+    { key: 'food_rating', label: 'Food' },
+    { key: 'speed_rating', label: 'Speed' },
+    { key: 'service_rating', label: 'Service' },
+    { key: 'value_rating', label: 'Value' },
+    { key: 'cleanliness_rating', label: 'Cleanliness' },
   ];
 
   /** Quick chips (handoff §3.7). `label` is shown; only the stable `key` is ever
