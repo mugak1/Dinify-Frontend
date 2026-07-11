@@ -1,10 +1,11 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
+import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 
 @Component({
   selector: 'app-card-error',
   standalone: true,
-  imports: [CardComponent],
+  imports: [CardComponent, ButtonComponent],
   template: `
     <app-dn-card [square]="square">
       <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-6">
@@ -21,8 +22,11 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
         <p class="text-sm text-muted-foreground mb-4 max-w-md">{{ message }}</p>
 
         <button
+          app-dn-button
+          variant="outline"
+          size="sm"
+          class="gap-2"
           (click)="retry.emit()"
-          class="inline-flex items-center gap-2 border border-border rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors"
         >
           <!-- RefreshCw icon -->
           <svg aria-hidden="true" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
 import { switchMap, tap, takeUntil, catchError } from 'rxjs/operators';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 import { CardErrorComponent } from '../../dashboard/components/card-error/card-error.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ReviewsService } from '../services/reviews.service';
@@ -23,14 +24,13 @@ type TimeframeDays = 30 | 90;
 @Component({
   selector: 'app-reviews-overview',
   standalone: true,
-  imports: [CommonModule, RouterModule, CardComponent, CardErrorComponent, BaseChartDirective],
+  imports: [CommonModule, RouterModule, PageHeaderComponent, CardComponent, CardErrorComponent, BaseChartDirective],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header + timeframe toggle (always visible) -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Reviews</h1>
+      <app-page-header title="Reviews">
         <!-- Persistent feed entry + timeframe toggle, grouped on the right -->
-        <div class="flex items-center gap-3 self-start">
+        <div actions class="flex items-center gap-3 self-start">
           <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60">
             @for (days of timeframeOptions; track days) {
               <button
@@ -66,7 +66,7 @@ type TimeframeDays = 30 | 90;
             </svg>
           </a>
         </div>
-      </div>
+      </app-page-header>
 
       @if (loading) {
         <!-- Skeleton (shaped to the layout: summary, 5 dimension rows, strip) -->

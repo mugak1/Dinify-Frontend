@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
 import { switchMap, tap, takeUntil, map, catchError } from 'rxjs/operators';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 import { CardErrorComponent } from '../../dashboard/components/card-error/card-error.component';
 import { BadgeComponent } from '../../../_shared/ui/badge/badge.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
@@ -25,7 +26,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
 @Component({
   selector: 'app-reviews-feed',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, CardComponent, CardErrorComponent, BadgeComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent, CardComponent, CardErrorComponent, BadgeComponent],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header -->
@@ -40,10 +41,10 @@ type ResolutionFilter = 'open' | 'resolved' | null;
           </svg>
           Back to reviews
         </a>
-        <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Reviews feed</h1>
-        <p class="text-sm text-muted-foreground mt-1">
-          Every guest review, with the ones that need attention up top.
-        </p>
+        <app-page-header
+          title="Reviews feed"
+          description="Every guest review, with the ones that need attention up top."
+        ></app-page-header>
       </div>
 
       <!-- Filter bar (always visible so the user can re-query) -->

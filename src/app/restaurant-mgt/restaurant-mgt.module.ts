@@ -60,6 +60,7 @@ import { ButtonComponent } from '../_shared/ui/button/button.component';
 import { CardComponent } from '../_shared/ui/card/card.component';
 import { BadgeComponent } from '../_shared/ui/badge/badge.component';
 import { SheetComponent } from '../_shared/ui/sheet/sheet.component';
+import { PageHeaderComponent } from '../_shared/ui/page-header/page-header.component';
 import { PresetTagsComponent } from './settings/preset-tags/preset-tags.component';
 import { SettingsHubComponent } from './settings/settings-hub/settings-hub.component';
 import { SectionPageComponent } from './settings/components/section-page/section-page.component';
@@ -159,6 +160,7 @@ const routes: Routes = [
     CardComponent,
     BadgeComponent,
     SheetComponent,
+    PageHeaderComponent,
     TablesComponent,
     PresetTagsComponent,
     SettingsHubComponent,

@@ -1,3 +1,7 @@
+<!-- Page landmark: the Menu layout is full-bleed with a bespoke tab strip and no
+     visible title bar, so the page heading is a screen-reader-only landmark. -->
+<h1 class="sr-only">Menu</h1>
+
 <!-- Approval bar -->
 <div *ngIf="isThirdChild && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit' || auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')"
      class="flex items-center gap-2 px-5 md:px-6 py-2 border-b border-neutral-200 bg-neutral-50">

@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
 import { TablesComponent } from './tables.component';
+import { PageHeaderComponent } from '../../_shared/ui/page-header/page-header.component';
 
 /**
  * MVP scope: only the Setup View ships. The Service View component, its
@@ -64,7 +65,7 @@ describe('TablesComponent — rendered template', () => {
       ],
     })
       .overrideComponent(TablesComponent, {
-        set: { imports: [CommonModule, StubSetupViewComponent] },
+        set: { imports: [CommonModule, StubSetupViewComponent, PageHeaderComponent] },
       })
       .compileComponents();
 

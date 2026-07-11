@@ -53,6 +53,7 @@ import { SalesKpiRailComponent } from './sales-kpi-rail.component';
 import { RevenueWeekdayCardComponent } from './revenue-weekday-card.component';
 import { OrdersByHourCardComponent } from './orders-by-hour-card.component';
 import { SalesBreakdownCardComponent } from './sales-breakdown-card.component';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 
 /** Per-order export columns (granular drill-down for ≤31-day ranges). */
 const SALES_LISTING_COLUMNS: ReportColumn[] = [
@@ -81,6 +82,7 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
   standalone: true,
   imports: [
     CommonModule,
+    PageHeaderComponent,
     ReportStateComponent,
     SalesHeroComponent,
     RevenueTrendCardComponent,
