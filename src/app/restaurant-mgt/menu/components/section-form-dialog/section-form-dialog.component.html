@@ -2,7 +2,7 @@
 
   <!-- Delete mode -->
   <ng-container *ngIf="deleteMode; else formMode">
-    <h2 class="text-xl font-semibold text-foreground mb-4">Delete Section</h2>
+    <h2 class="text-section-title text-foreground mb-4">Delete Section</h2>
     <p class="text-foreground">
       Are you sure you want to delete <strong>{{ section?.name }}</strong>?
     </p>
@@ -30,7 +30,7 @@
 
   <!-- Form mode -->
   <ng-template #formMode>
-    <h2 class="text-xl font-semibold text-foreground mb-4">
+    <h2 class="text-section-title text-foreground mb-4">
       {{ section ? 'Edit' : 'New' }} Section
     </h2>
 

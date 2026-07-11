@@ -21,7 +21,7 @@ import { SalesBreakdownRow } from './sales-view';
     <app-dn-card class="block">
       <div class="p-4 sm:p-5">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
-          <h2 class="text-base font-semibold text-gray-900">{{ title }}</h2>
+          <h2 class="text-card-title text-foreground">{{ title }}</h2>
           <div class="flex items-center gap-4">
             <button type="button" class="text-xs text-primary hover:underline" (click)="toggleNetFocus()">
               {{ netFocus ? 'Show all columns' : 'Net only' }}

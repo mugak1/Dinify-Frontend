@@ -26,7 +26,7 @@ const BEST = 'hsl(142, 71%, 45%)';
     <app-dn-card class="block">
       <div class="p-4 sm:p-5">
         <div class="flex items-center justify-between gap-3 mb-1">
-          <h2 class="text-base font-semibold text-gray-900">Revenue trend</h2>
+          <h2 class="text-card-title text-foreground">Revenue trend</h2>
           <div class="flex flex-col items-end gap-1">
             @if (points.length) {
               <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-500">

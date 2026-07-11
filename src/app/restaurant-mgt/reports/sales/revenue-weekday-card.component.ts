@@ -17,7 +17,7 @@ import { WeekdayRevenue } from './sales-view';
   template: `
     <app-dn-card class="block">
       <div class="p-4 sm:p-5">
-        <h2 class="text-base font-semibold text-gray-900 mb-3">Revenue by weekday</h2>
+        <h2 class="text-card-title text-foreground mb-3">Revenue by weekday</h2>
         <div class="space-y-2">
           @for (d of days; track d.weekday) {
             <div class="flex items-center gap-3">

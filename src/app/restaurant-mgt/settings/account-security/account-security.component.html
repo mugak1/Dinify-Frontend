@@ -12,7 +12,7 @@
   <!-- ── Profile (driven by the scaffold save bar) ──────────────────────── -->
   <form [formGroup]="profileForm" novalidate>
     <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
-      <h2 class="text-base font-semibold text-gray-900">Profile</h2>
+      <h2 class="text-section-title text-foreground">Profile</h2>
       <p class="text-sm text-gray-500 mt-0.5">Your name and login email.</p>
 
       <div class="mt-4 space-y-4">
@@ -92,7 +92,7 @@
   <!-- ── Change password (own button — NOT the save bar) ────────────────── -->
   <form [formGroup]="passwordForm" (ngSubmit)="onUpdatePassword()" novalidate>
     <section class="px-4 sm:px-6 py-5">
-      <h2 class="text-base font-semibold text-gray-900">Change password</h2>
+      <h2 class="text-section-title text-foreground">Change password</h2>
       <p class="text-sm text-gray-500 mt-0.5">
         Use at least 6 characters, including a number and a symbol.
       </p>

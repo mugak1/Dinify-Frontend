@@ -18,7 +18,7 @@ import { DisplayTone, StatusBreakdown } from './transactions-view';
   template: `
     <app-dn-card class="block">
       <div class="p-4 sm:p-5">
-        <h2 class="text-base font-semibold text-gray-900 mb-3">Status breakdown</h2>
+        <h2 class="text-card-title text-foreground mb-3">Status breakdown</h2>
         <div class="space-y-2.5">
           @for (b of breakdown.buckets; track b.key) {
             <div class="flex items-center gap-3">

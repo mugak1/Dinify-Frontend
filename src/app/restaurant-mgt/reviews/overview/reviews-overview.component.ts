@@ -175,7 +175,7 @@ type TimeframeDays = 30 | 90;
         <!-- 3. Dimension-breakdown hero (centerpiece) -->
         <app-dn-card>
           <div class="p-4 sm:p-6">
-            <h2 class="text-base sm:text-lg font-bold text-foreground mb-1">How diners rate you</h2>
+            <h2 class="text-card-title text-foreground mb-1">How diners rate you</h2>
             <p class="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
               Average score per dimension, out of 5.
             </p>
@@ -231,7 +231,7 @@ type TimeframeDays = 30 | 90;
         <!-- 5. Rating trend (deepest health read) -->
         <app-dn-card>
           <div class="p-4 sm:p-6">
-            <h2 class="text-sm sm:text-base font-semibold text-foreground mb-1">Rating trend</h2>
+            <h2 class="text-card-title text-foreground mb-1">Rating trend</h2>
             @if (analytics.trend.length >= 2) {
               <div class="h-48 sm:h-64 mt-3 sm:mt-4">
                 <canvas

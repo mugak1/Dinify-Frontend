@@ -40,7 +40,7 @@ const GROUPINGS: { value: MenuGrouping; label: string }[] = [
     <app-dn-card class="block">
       <div class="p-4 sm:p-5">
         <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <h2 class="text-base font-semibold text-gray-900">
+          <h2 class="text-card-title text-foreground">
             {{ grouping === 'items' ? 'Full menu' : 'Sales by category' }}
           </h2>
           <app-dn-segmented

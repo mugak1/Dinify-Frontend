@@ -1,5 +1,5 @@
 <app-dn-dialog [open]="open" [disableClose]="isDirty" (closed)="onClose()" (closeAttempt)="requestClose()" maxWidth="lg">
-  <h2 class="text-xl font-semibold text-foreground mb-4">
+  <h2 class="text-section-title text-foreground mb-4">
     {{ item ? 'Edit' : 'New' }} Item
   </h2>
 
@@ -277,7 +277,7 @@
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50"></div>
       <div class="relative z-10 w-full max-w-sm rounded-lg bg-card p-6 shadow-lg text-center">
-        <h3 class="text-base font-semibold text-foreground mb-1">Discard unsaved changes?</h3>
+        <h3 class="text-section-title text-foreground mb-1">Discard unsaved changes?</h3>
         <p class="text-sm text-muted-foreground mb-5">Your edits to this item haven't been saved. If you leave now they'll be lost.</p>
         <div class="flex justify-center gap-3">
           <button type="button" app-dn-button variant="outline" (click)="showDiscardConfirm = false">Keep editing</button>

@@ -37,7 +37,7 @@ interface StatusSegment {
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">
             <div class="min-w-0">
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
-                <h2 class="text-base sm:text-lg font-bold text-foreground">Total Orders ({{ timeframeLabel }})</h2>
+                <h2 class="text-card-title text-foreground">Total Orders ({{ timeframeLabel }})</h2>
               </div>
               <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                 <app-animated-number
@@ -99,7 +99,7 @@ interface StatusSegment {
 
           <!-- Orders vs Time chart -->
           <div>
-            <h3 class="text-sm sm:text-base font-bold text-foreground mb-2">Orders vs Time</h3>
+            <h3 class="text-card-title text-foreground mb-2">Orders vs Time</h3>
             <div class="h-32 sm:h-40">
               <canvas
                 aria-label="Orders over time chart"

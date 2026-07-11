@@ -44,7 +44,7 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
-                <h2 class="text-base sm:text-lg font-bold text-foreground">Revenue (UGX)</h2>
+                <h2 class="text-card-title text-foreground">Revenue (UGX)</h2>
                 <a
                   routerLink="/rest-app/reports"
                   class="text-xs sm:text-sm text-primary hover:underline flex items-center gap-1 sm:hidden whitespace-nowrap"
