@@ -3,7 +3,7 @@
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h2 class="text-2xl font-semibold text-foreground">Upsells</h2>
+      <h2 class="text-2xl font-bold text-foreground">Upsells</h2>
       <p class="text-sm text-muted-foreground mt-1">
         Suggest additional items to customers at checkout to increase order value.
       </p>
@@ -22,10 +22,10 @@
 
   <!-- Enable Toggle Card -->
   <app-dn-card>
-    <div card-content class="p-6">
+    <div card-content class="p-4 sm:p-6">
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-base font-medium text-foreground">Enable Upsells</h3>
+          <h3 class="text-card-title text-foreground">Enable Upsells</h3>
           <p class="text-sm text-muted-foreground mt-0.5">
             Show upsell suggestions to customers during checkout
           </p>
@@ -40,8 +40,8 @@
 
   <!-- Section Title Card -->
   <app-dn-card>
-    <div card-content class="p-6 space-y-3">
-      <h3 class="text-base font-medium text-foreground">Section Title</h3>
+    <div card-content class="p-4 sm:p-6 space-y-3">
+      <h3 class="text-card-title text-foreground">Section Title</h3>
       <p class="text-sm text-muted-foreground">
         This title is displayed above the upsell carousel at checkout
       </p>
@@ -57,10 +57,10 @@
 
   <!-- Upsell Items Card -->
   <app-dn-card>
-    <div card-content class="p-6 space-y-4">
+    <div card-content class="p-4 sm:p-6 space-y-4">
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-base font-medium text-foreground">Upsell Items</h3>
+          <h3 class="text-card-title text-foreground">Upsell Items</h3>
           <p class="text-sm text-muted-foreground mt-0.5">
             {{ config?.items?.length || 0 }} item{{ config?.items?.length === 1 ? '' : 's' }} selected
           </p>
@@ -157,8 +157,8 @@
 
   <!-- Display Settings Card -->
   <app-dn-card>
-    <div card-content class="p-6 space-y-4">
-      <h3 class="text-base font-medium text-foreground">Display Settings</h3>
+    <div card-content class="p-4 sm:p-6 space-y-4">
+      <h3 class="text-card-title text-foreground">Display Settings</h3>
 
       <!-- Max items to show -->
       <div class="space-y-1.5">

@@ -16,9 +16,9 @@ import { HourBar, formatHourLabel, peakLabel } from './sales-view';
   imports: [CommonModule, CardComponent],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center justify-between gap-3 mb-3">
-          <h2 class="text-base font-semibold text-gray-900">When orders land</h2>
+          <h2 class="text-card-title text-foreground">When orders land</h2>
           @if (peakHour !== null) {
             <span class="text-xs text-gray-500">{{ caption }}</span>
           }

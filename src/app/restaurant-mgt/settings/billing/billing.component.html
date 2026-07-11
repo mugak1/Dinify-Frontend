@@ -10,7 +10,7 @@
   <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div class="min-w-0">
-        <h2 class="text-base font-semibold text-gray-900">Current subscription</h2>
+        <h2 class="text-section-title text-foreground">Current subscription</h2>
         <p class="text-sm text-gray-500 mt-0.5">
           @if (currentCycle) {
             You're on the {{ currentCycle | titlecase }} plan.
@@ -43,7 +43,7 @@
 
   <!-- ── Plans ────────────────────────────────────────────────────────── -->
   <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
-    <h2 class="text-base font-semibold text-gray-900">Plans</h2>
+    <h2 class="text-section-title text-foreground">Plans</h2>
     <p class="text-sm text-gray-500 mt-0.5">Choose how you'd like to be billed.</p>
 
     <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -53,7 +53,7 @@
           [ngClass]="isCurrentPlan(plan) ? 'border-primary ring-1 ring-primary bg-primary/5' : 'border-gray-200'"
         >
           <div class="flex items-center justify-between gap-2">
-            <h3 class="text-sm font-semibold text-gray-900">{{ plan.name }}</h3>
+            <h3 class="text-card-title text-foreground">{{ plan.name }}</h3>
             @if (isCurrentPlan(plan)) {
               <app-dn-badge variant="default">Current plan</app-dn-badge>
             } @else if (plan.cycle === 'yearly' && savingsUGX > 0) {
@@ -101,7 +101,7 @@
 
   <!-- ── Billing history ──────────────────────────────────────────────── -->
   <section class="px-4 sm:px-6 py-5">
-    <h2 class="text-base font-semibold text-gray-900">Billing history</h2>
+    <h2 class="text-section-title text-foreground">Billing history</h2>
     <p class="text-sm text-gray-500 mt-0.5">Your recent subscription payments.</p>
 
     <div class="mt-4 overflow-x-auto">

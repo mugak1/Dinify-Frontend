@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
+import { DnSegmentedComponent, DnSegItem } from '../../../_shared/ui/segmented/segmented.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { MenuRow } from '../models/reports.models';
 import { MenuMetric, RankedItem, rankItems } from './menu-view';
@@ -16,30 +17,18 @@ const TOP_N = 6;
 @Component({
   selector: 'app-menu-top-items',
   standalone: true,
-  imports: [CommonModule, CardComponent],
+  imports: [CommonModule, CardComponent, DnSegmentedComponent],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
-          <h2 class="text-base font-semibold text-gray-900">Top selling items</h2>
-          <div class="flex gap-1">
-            <button
-              type="button"
-              class="px-2 py-1 rounded text-xs font-medium transition-colors"
-              [class]="by === 'revenue' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
-              (click)="setBy('revenue')"
-            >
-              By revenue
-            </button>
-            <button
-              type="button"
-              class="px-2 py-1 rounded text-xs font-medium transition-colors"
-              [class]="by === 'units' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
-              (click)="setBy('units')"
-            >
-              By units
-            </button>
-          </div>
+          <h2 class="text-card-title text-foreground">Top selling items</h2>
+          <app-dn-segmented
+            [items]="metricItems"
+            [value]="by"
+            (valueChange)="setBy($event)"
+            ariaLabel="Rank top items by"
+          ></app-dn-segmented>
         </div>
 
         @if (displayItems.length) {
@@ -86,12 +75,19 @@ export class MenuTopItemsComponent implements OnChanges {
   displayItems: RankedItem[] = [];
   private maxValue = 0;
 
+  readonly metricItems: DnSegItem[] = [
+    { value: 'revenue', label: 'By revenue' },
+    { value: 'units', label: 'By units' },
+  ];
+
   ngOnChanges(): void {
     this.recompute();
   }
 
-  setBy(by: MenuMetric): void {
-    this.by = by;
+  // Widened to string so the segmented control's (valueChange) binds directly
+  // under strictTemplates; values come from metricItems so the cast is safe.
+  setBy(by: string): void {
+    this.by = by as MenuMetric;
     this.recompute();
   }
 

@@ -16,13 +16,13 @@
         @for (item of group.items; track item.route) {
           <a
             [routerLink]="item.route"
-            class="group flex items-start gap-4 p-6 rounded-lg border border-gray-200 bg-card transition-all duration-200 desktop-hover:border-gray-300 desktop-hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            class="group flex items-start gap-4 p-4 sm:p-6 rounded-lg border border-gray-200 bg-card transition-all duration-200 desktop-hover:border-gray-300 desktop-hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span class="shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-lg bg-primary/10 text-primary">
               <app-settings-icon [name]="item.icon" class="w-7 h-7"></app-settings-icon>
             </span>
             <span class="min-w-0">
-              <h3 class="text-xl font-semibold text-gray-900">{{ item.label }}</h3>
+              <h3 class="text-xl font-semibold text-foreground">{{ item.label }}</h3>
               <span class="block text-base text-gray-500 mt-1">{{ item.description }}</span>
             </span>
           </a>

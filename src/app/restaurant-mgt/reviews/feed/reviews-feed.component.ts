@@ -166,7 +166,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
         <div class="space-y-3 sm:space-y-4">
           @for (i of skeletonRows; track i) {
             <app-dn-card>
-              <div class="p-4 sm:p-5 space-y-3">
+              <div class="p-4 sm:p-6 space-y-3">
                 <div class="flex items-center justify-between">
                   <div class="h-4 w-28 bg-muted rounded animate-pulse"></div>
                   <div class="h-5 w-16 bg-muted rounded-full animate-pulse"></div>
@@ -183,7 +183,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
       } @else if (reviews.length === 0) {
         <!-- Friendly empty state (varies by filter) -->
         <app-dn-card>
-          <div class="flex flex-col items-center justify-center text-center min-h-[240px] p-6">
+          <div class="flex flex-col items-center justify-center text-center min-h-[240px] p-4 sm:p-6">
             <svg
               aria-hidden="true"
               class="w-10 h-10 text-muted-foreground/40 mb-3"
@@ -207,7 +207,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
         <div class="space-y-3 sm:space-y-4">
           @for (review of reviews; track review.id) {
             <app-dn-card>
-              <div class="p-4 sm:p-5">
+              <div class="p-4 sm:p-6">
                 <!-- Stars + status/critical badges -->
                 <div class="flex items-start justify-between gap-3 mb-2">
                   <div class="flex items-center gap-2 min-w-0">

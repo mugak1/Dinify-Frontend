@@ -54,14 +54,14 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
   template: `
     <app-dn-card>
       @if (mode === 'loading') {
-        <div class="p-6 space-y-3" aria-busy="true" aria-live="polite">
+        <div class="p-4 sm:p-6 space-y-3" aria-busy="true" aria-live="polite">
           <div class="h-4 w-1/3 bg-muted rounded animate-pulse"></div>
           @for (row of skeletonRows; track row) {
             <div class="h-10 bg-muted rounded animate-pulse"></div>
           }
         </div>
       } @else {
-        <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-6">
+        <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-4 sm:p-6">
           <div class="mb-4" [ngClass]="mode === 'error' ? 'text-destructive' : 'text-muted-foreground'">
             <svg
               aria-hidden="true"

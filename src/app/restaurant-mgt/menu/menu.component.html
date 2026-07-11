@@ -61,7 +61,7 @@
 
         <!-- Desktop section name (hidden on mobile) -->
         <h2 *ngIf="selectedSection$ | async as section"
-            class="hidden lg:block text-2xl font-semibold text-foreground">
+            class="hidden lg:block text-2xl font-bold text-foreground">
           {{ section.name }}
         </h2>
 
@@ -124,7 +124,7 @@
 
 <!-- Section delete confirmation dialog -->
 <app-dn-dialog [open]="sectionDeleteOpen" maxWidth="sm" (closed)="closeSectionDelete()">
-  <h2 class="text-lg font-semibold text-foreground mb-2">Delete Section</h2>
+  <h2 class="text-section-title text-foreground mb-2">Delete Section</h2>
   <p class="text-sm text-muted-foreground mb-1">
     Are you sure you want to delete
     <span class="font-medium text-foreground">{{ editingSection?.name }}</span>?
@@ -144,7 +144,7 @@
 
 <!-- Item delete confirmation dialog -->
 <app-dn-dialog [open]="itemDeleteOpen" maxWidth="sm" (closed)="closeItemDelete()">
-  <h2 class="text-lg font-semibold text-foreground mb-2">Delete Item</h2>
+  <h2 class="text-section-title text-foreground mb-2">Delete Item</h2>
   <p class="text-sm text-muted-foreground mb-1">
     Are you sure you want to delete
     <span class="font-medium text-foreground">{{ deletingItem?.name }}</span>?
