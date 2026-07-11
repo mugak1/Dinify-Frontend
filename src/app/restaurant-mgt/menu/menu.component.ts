@@ -9,6 +9,7 @@ import { TagService } from './services/tag.service';
 import { CartService } from './services/cart.service';
 import { UpsellService } from './services/upsell.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
+import { DnSegItem } from 'src/app/_shared/ui/segmented/segmented.component';
 
 @Component({
     selector: 'app-menu',
@@ -43,6 +44,10 @@ export class MenuComponent {
 
   // Tabs
   activeTab: 'sections' | 'upsells' = 'sections';
+  readonly menuTabs: DnSegItem[] = [
+    { value: 'sections', label: 'Menu' },
+    { value: 'upsells', label: 'Upsells' },
+  ];
 
   // Sort
   sortMode: SortMode = 'manual';

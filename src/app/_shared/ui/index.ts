@@ -4,7 +4,6 @@ export { BadgeComponent, BadgeVariant } from './badge/badge.component';
 export { AvatarComponent, AvatarSize } from './avatar/avatar.component';
 export { DialogComponent } from './dialog/dialog.component';
 export { SheetComponent } from './sheet/sheet.component';
-export { TabsComponent, TabListComponent, TabTriggerComponent, TabContentComponent } from './tabs/tabs.component';
 export { DnSegmentedComponent, DnSegItem, DnSegMode, DnSegLayout } from './segmented/segmented.component';
 export { SwitchComponent } from './switch/switch.component';
 export { ToastComponent } from './toast/toast.component';
