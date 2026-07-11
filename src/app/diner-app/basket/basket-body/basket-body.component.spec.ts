@@ -3,7 +3,7 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { WINDOW } from '../../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../../_services/storage/storage-key-prefix.token';
 import { BasketService } from '../../../_services/basket.service';
@@ -151,6 +151,19 @@ describe('BasketBodyComponent', () => {
     expect(api.postPatch).toHaveBeenCalledTimes(2);
     expect(dialog.openModal).toHaveBeenCalledTimes(1);
     expect((api.postPatch.calls.argsFor(1)[1] as any).client_order_id).toBe(CLIENT_ID);
+  });
+
+  it('holds placingOrder true while an order is in flight (drives the checkout spinner)', () => {
+    // A never-resolving request keeps the placement pending; the checkout CTA is
+    // bound [loading]="placingOrder", so this is exactly the spinner-visible,
+    // non-retappable window.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(NEVER as any);
+
+    component.initiateOrder();
+
+    expect(component.placingOrder).toBeTrue();
+    expect(component.orderError).toBeFalse();
   });
 
   // ── ongoing-order block (table already has an un-served order) ────────────

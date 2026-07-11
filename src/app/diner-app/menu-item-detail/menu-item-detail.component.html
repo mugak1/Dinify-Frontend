@@ -230,10 +230,11 @@
         </button>
       </div>
 
-      <button [disabled]="isOutOfStock(it)"
+      <button app-dn-button variant="cta"
+              [disabled]="isOutOfStock(it)"
               (click)="addToBasket()"
               type="button"
-              class="w-full lg:max-w-2xl lg:mx-auto flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99] disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none">
+              class="w-full lg:max-w-2xl lg:mx-auto disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:opacity-100">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>

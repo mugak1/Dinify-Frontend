@@ -44,16 +44,8 @@
 
         <!-- Actions -->
         <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-          <button
-            type="button"
-            class="px-3 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-            (click)="onCancel()"
-            [disabled]="saving"
-          >Cancel</button>
-          <button
-            type="submit"
-            class="px-3 py-2 text-sm rounded bg-d-red text-white hover:bg-red-800 disabled:opacity-50"
-            [disabled]="saving"
+          <button app-dn-button variant="outline" type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
+          <button app-dn-button type="submit" [loading]="saving" [disabled]="saving"
           >{{ saving ? 'Saving…' : 'Save changes' }}</button>
         </div>
       </form>
@@ -133,16 +125,8 @@
 
         <!-- Actions -->
         <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-          <button
-            type="button"
-            class="px-3 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-            (click)="onCancel()"
-            [disabled]="saving"
-          >Cancel</button>
-          <button
-            type="submit"
-            class="px-3 py-2 text-sm rounded bg-d-red text-white hover:bg-red-800 disabled:opacity-50"
-            [disabled]="saving"
+          <button app-dn-button variant="outline" type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
+          <button app-dn-button type="submit" [loading]="saving" [disabled]="saving"
           >{{ saving ? 'Saving…' : (checked ? 'Save' : 'Next') }}</button>
         </div>
       </form>

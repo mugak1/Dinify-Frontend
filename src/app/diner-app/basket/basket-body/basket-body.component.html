@@ -252,8 +252,7 @@
        Retry) until it is served. The reason is shown by the ongoing-order card
        at the top of the basket, so the footer is just the disabled button. -->
   <ng-container *ngIf="tableHasOngoingOrder; else placementCta">
-    <button type="button" disabled
-            class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base opacity-60 cursor-not-allowed">
+    <button app-dn-button variant="cta" type="button" [disabled]="true" class="w-full">
       Checkout unavailable
     </button>
   </ng-container>
@@ -263,12 +262,10 @@
     <p *ngIf="orderError" class="mb-2 text-sm text-red-600 text-center" role="alert">
       {{ orderErrorMessage }}
     </p>
-    <button *ngIf="!orderError" (click)="initiateOrder()" [disabled]="placingOrder"
-            class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">
+    <button *ngIf="!orderError" app-dn-button variant="cta" (click)="initiateOrder()" [loading]="placingOrder" class="w-full">
       Checkout — UGX {{ totalAmount | number }}
     </button>
-    <button *ngIf="orderError" (click)="retryOrder()" [disabled]="placingOrder"
-            class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">
+    <button *ngIf="orderError" app-dn-button variant="cta" (click)="retryOrder()" [loading]="placingOrder" class="w-full">
       Retry
     </button>
   </ng-template>

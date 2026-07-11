@@ -14,13 +14,14 @@ import { ConnectivityService } from '../../../_services/connectivity.service';
 import { PriceDisplayComponent } from '../../../_shared/ui/price-display/price-display.component';
 import { OngoingOrderBannerComponent } from '../../ongoing-order-banner/ongoing-order-banner.component';
 import { MenuNavStateService } from '../../menu/menu-nav-state.service';
+import { ButtonComponent } from '../../../_shared/ui/button/button.component';
 
 @Component({
     selector: 'app-basket-body',
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],
     standalone: true,
-    imports: [CommonModule, PriceDisplayComponent, OngoingOrderBannerComponent]
+    imports: [CommonModule, PriceDisplayComponent, OngoingOrderBannerComponent, ButtonComponent]
 })
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   table?: TableScan|any;
