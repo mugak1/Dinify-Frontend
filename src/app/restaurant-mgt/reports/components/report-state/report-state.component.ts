@@ -6,6 +6,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
+import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 
 export type ReportStateMode =
   | 'select-date'
@@ -49,7 +50,7 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
 @Component({
   selector: 'app-report-state',
   standalone: true,
-  imports: [CommonModule, CardComponent],
+  imports: [CommonModule, CardComponent, ButtonComponent],
   template: `
     <app-dn-card>
       @if (mode === 'loading') {
@@ -110,8 +111,11 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
           @if (mode === 'error') {
             <button
               type="button"
+              app-dn-button
+              variant="outline"
+              size="sm"
+              class="gap-2"
               (click)="retry.emit()"
-              class="inline-flex items-center gap-2 border border-border rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors"
             >
               <svg
                 aria-hidden="true"
