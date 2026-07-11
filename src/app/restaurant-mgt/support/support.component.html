@@ -1,13 +1,10 @@
 <div class="space-y-4 sm:space-y-6">
   <!-- Header -->
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Support</h1>
-      <p class="text-sm text-muted-foreground">
-        Report an issue to the Dinify team and track its progress.
-      </p>
-    </div>
-    <button app-dn-button (click)="openForm()">
+  <app-page-header
+    title="Support"
+    description="Report an issue to the Dinify team and track its progress."
+  >
+    <button actions app-dn-button (click)="openForm()">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round"
         stroke-linejoin="round" class="h-4 w-4 mr-2">
@@ -16,7 +13,7 @@
       </svg>
       Report an issue
     </button>
-  </div>
+  </app-page-header>
 
   <!-- Direct-contact fallback -->
   <app-dn-card>

@@ -1,12 +1,11 @@
 <div class="space-y-4 sm:space-y-6 max-w-3xl">
   <!-- Header -->
-  <div class="space-y-1">
-    <div class="flex items-center gap-3">
-      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Notifications</h1>
-      <app-dn-badge *ngIf="unreadCount > 0" variant="destructive">{{ unreadCount }} unread</app-dn-badge>
-    </div>
-    <p class="text-sm text-muted-foreground">Updates from Dinify and your restaurant.</p>
-  </div>
+  <app-page-header
+    title="Notifications"
+    description="Updates from Dinify and your restaurant."
+  >
+    <app-dn-badge actions *ngIf="unreadCount > 0" variant="destructive">{{ unreadCount }} unread</app-dn-badge>
+  </app-page-header>
 
   <!-- Loading -->
   <div *ngIf="state === 'loading'" class="space-y-3">

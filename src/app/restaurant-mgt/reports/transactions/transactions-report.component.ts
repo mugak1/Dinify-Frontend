@@ -43,6 +43,7 @@ import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.co
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { TransactionsStatusBreakdownComponent } from './transactions-status-breakdown.component';
 import { TransactionsListingComponent } from './transactions-listing.component';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 
 /** Display columns for the listing + export (Txn / Time / Type / Method / Amount / Status). */
 const LISTING_COLUMNS: ReportColumn[] = [
@@ -69,6 +70,7 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
   standalone: true,
   imports: [
     CommonModule,
+    PageHeaderComponent,
     CardComponent,
     ReportStateComponent,
     ReportExportBarComponent,
