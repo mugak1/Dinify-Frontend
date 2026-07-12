@@ -19,7 +19,7 @@
             </span>
           </div>
           <h1 class="font-display text-[32px] font-bold tracking-[-0.02em] text-foreground leading-[1.05] mb-2">Order placed</h1>
-          <p class="font-sans text-[14.5px] leading-relaxed text-muted-foreground max-w-[30ch]">
+          <p class="font-sans text-base leading-relaxed text-muted-foreground max-w-[30ch]">
             Sent to the kitchen. We'll bring it over shortly.
           </p>
         </div>
@@ -29,15 +29,15 @@
           <div class="mt-[22px] flex items-stretch overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             @if (tableNumber() !== null) {
               <div class="flex-1 px-4 py-[15px] flex flex-col gap-[3px] text-left">
-                <span class="font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Table</span>
-                <span class="font-gabarito text-[19px] font-extrabold tracking-[-0.01em] text-foreground tabular-nums">{{ tableNumber() }}</span>
+                <span class="font-sans text-micro font-bold uppercase tracking-[0.1em] text-muted-foreground">Table</span>
+                <span class="font-display text-dish-title font-extrabold text-foreground tabular-nums">{{ tableNumber() }}</span>
               </div>
             }
             @if (orderNumberLabel()) {
               <div class="flex-1 px-4 py-[15px] flex flex-col gap-[3px] text-left"
                    [ngClass]="{ 'border-l border-gray-200': tableNumber() !== null }">
-                <span class="font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Order</span>
-                <span class="font-gabarito text-[19px] font-extrabold tracking-[-0.01em] text-foreground tabular-nums">{{ orderNumberLabel() }}</span>
+                <span class="font-sans text-micro font-bold uppercase tracking-[0.1em] text-muted-foreground">Order</span>
+                <span class="font-display text-dish-title font-extrabold text-foreground tabular-nums">{{ orderNumberLabel() }}</span>
               </div>
             }
           </div>
@@ -48,7 +48,7 @@
           <div class="mt-[30px] text-left">
             <div class="text-center mb-[18px]">
               <h2 class="font-display text-[22px] font-bold tracking-[-0.01em] text-foreground mb-1">How was it?</h2>
-              <p class="font-sans text-[13.5px] text-muted-foreground">Your feedback helps the kitchen and your servers.</p>
+              <p class="font-sans text-body text-muted-foreground">Your feedback helps the kitchen and your servers.</p>
             </div>
 
             <!-- Overall rating + live verdict (§3.3) -->
@@ -61,7 +61,7 @@
                   <span class="font-sans text-sm font-semibold">{{ verdict().text }}</span>
                 } @else {
                   <span class="text-[18px]" aria-hidden="true">{{ verdict().emoji }}</span>
-                  <span class="font-gabarito font-extrabold text-[17px] tracking-[-0.01em]">{{ verdict().text }}</span>
+                  <span class="font-display font-extrabold text-[17px] tracking-[-0.01em]">{{ verdict().text }}</span>
                 }
               </div>
             </div>
@@ -71,9 +71,25 @@
             <div class="flex flex-col divide-y divide-gray-100">
               @for (dim of dimensions; track dim.key) {
                 <div class="flex items-center justify-between py-[13px] px-1 rounded-xl desktop-hover:bg-gray-50 transition-colors">
-                  <span class="flex items-center gap-[11px] font-sans font-semibold text-[15px] text-gray-800">
+                  <span class="flex items-center gap-[11px] font-sans text-card-title text-gray-800">
                     <span class="w-[30px] h-[30px] rounded-[9px] grid place-items-center bg-gray-100 text-gray-600 flex-none">
-                      <lucide-icon [img]="dim.icon" [size]="17" [strokeWidth]="1.9"></lucide-icon>
+                      @switch (dim.key) {
+                        @case ('food_rating') {
+                          <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+                        }
+                        @case ('speed_rating') {
+                          <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        }
+                        @case ('service_rating') {
+                          <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        }
+                        @case ('value_rating') {
+                          <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        }
+                        @case ('cleanliness_rating') {
+                          <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                        }
+                      }
                     </span>
                     {{ dim.label }}
                   </span>
@@ -91,12 +107,12 @@
                 <textarea id="review-note" [value]="comment()" (input)="onComment($event)" [attr.maxlength]="commentMax"
                           placeholder="Tell us what stood out — or what we could do better."
                           class="w-full bg-transparent border-none outline-none resize-none font-sans text-[15px] leading-relaxed text-foreground placeholder:text-gray-500 px-[15px] pt-3.5 pb-3 min-h-[92px]"></textarea>
-                <span class="absolute right-3 bottom-2 font-sans text-[11px] text-gray-400 tabular-nums">{{ comment().length }}/{{ commentMax }}</span>
+                <span class="absolute right-3 bottom-2 font-sans text-micro text-gray-400 tabular-nums">{{ comment().length }}/{{ commentMax }}</span>
               </div>
               <div class="flex flex-wrap gap-[7px] mt-2.5">
                 @for (chip of tagChips; track chip.key) {
                   <button type="button" (click)="toggleTag(chip.key)" [attr.aria-pressed]="isTagSelected(chip.key)"
-                          class="font-sans font-semibold text-[12.5px] px-3 py-[7px] rounded-full border transition-colors"
+                          class="font-sans font-semibold text-caption px-3 py-[7px] rounded-full border transition-colors"
                           [ngClass]="isTagSelected(chip.key)
                             ? 'bg-d-red-soft border-d-red/30 text-d-red-hover'
                             : 'bg-white border-gray-300 text-gray-700 desktop-hover:border-gray-400'">
@@ -111,7 +127,7 @@
         <!-- Follow us: restaurant socials forwarded via nav-state; hidden when none set -->
         @if (socialLinks().length) {
           <div class="w-full mt-7 pt-7 border-t border-gray-200 flex flex-col items-center">
-            <span class="font-sans text-[11px] uppercase tracking-widest text-gray-400 mb-3">Follow us</span>
+            <span class="font-sans text-micro uppercase tracking-widest text-gray-400 mb-3">Follow us</span>
             <div class="flex items-center justify-center gap-1">
               @for (s of socialLinks(); track s.key) {
                 <a [href]="s.href" target="_blank" rel="noopener noreferrer" [attr.aria-label]="s.label"
@@ -142,11 +158,9 @@
     <div class="footer-bar sticky bottom-0 bg-white px-6 pt-3.5">
       <div class="w-full max-w-md mx-auto">
         @if (orderId()) {
-          <button type="button" (click)="submitReview()" [disabled]="overall() === 0 || submitting()"
-                  class="w-full h-[56px] rounded-2xl flex items-center justify-center gap-2.5 font-sans font-bold text-[16.5px] text-white transition-transform motion-safe:active:scale-[0.985] disabled:cursor-not-allowed"
-                  [ngClass]="overall() === 0 || submitting()
-                    ? 'bg-gray-300'
-                    : 'bg-d-red desktop-hover:bg-d-red-hover shadow-[0_12px_24px_-10px_rgba(255,44,50,0.6)]'">
+          <button type="button" app-dn-button variant="cta" (click)="submitReview()"
+                  [disabled]="overall() === 0" [loading]="submitting()"
+                  class="w-full">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m5 12 4.5 4.5L19 7" />
@@ -174,12 +188,11 @@
       </span>
     </div>
     <h1 class="font-display text-[28px] font-bold tracking-[-0.02em] text-foreground mt-[18px] mb-1.5">Thank you!</h1>
-    <p class="font-sans text-[14.5px] leading-relaxed text-muted-foreground max-w-[26ch] mb-2">
+    <p class="font-sans text-base leading-relaxed text-muted-foreground max-w-[26ch] mb-2">
       Your {{ overall() }}-star review is on its way to the team.
     </p>
     <app-star-rating [value]="overall()" [size]="22" [interactive]="false"></app-star-rating>
-    <button type="button" (click)="backToMenu()"
-            class="mt-8 inline-flex items-center justify-center h-[52px] px-8 rounded-2xl bg-d-red desktop-hover:bg-d-red-hover text-white font-sans font-bold text-[15.5px] shadow-[0_12px_24px_-10px_rgba(255,44,50,0.6)] transition-transform motion-safe:active:scale-[0.985]">
+    <button type="button" app-dn-button variant="cta" (click)="backToMenu()" class="mt-8 px-8">
       Back to menu
     </button>
   </div>

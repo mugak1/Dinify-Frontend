@@ -15,6 +15,10 @@ export class ConfirmDialogComponent implements AfterViewInit, OnDestroy {
 result!:string;
 reason='';
 has_reason?:boolean;
+// True from the moment the user confirms until a consumer calls closeModal().
+// Locks both footer buttons (and shows a spinner) so the confirm action cannot be
+// re-tapped while the async work it triggered (e.g. placing an order) is in flight.
+pending=false;
 private modalSubscription!: Subscription;
 
 
@@ -37,6 +41,8 @@ private modalSubscription!: Subscription;
     this.confirmService.resultSub.next({action:'no',reason:this.reason});
   }
   toggleModal() {
+    if (this.pending) { return; }
+    this.pending = true;
     this.result='yes';
     this.confirmService.resultSub.next({action:'yes',reason:this.reason});
 /* this.data?.callback?.next(this.result);
@@ -60,14 +66,17 @@ Reject(){
 }
 openModal() {
   this.showModal = true;
+  this.pending = false;
   setTimeout(() => {
     document.getElementById('confirm-modal-content')?.focus();
   }, 100);
 }
 
 handleKeyDown(event: KeyboardEvent) {
+  // Scope the Tab-cycle to the actual modal root. The previous '#modal-container'
+  // selector matched no element (there is none), so the trap was a silent no-op.
   const focusableElements = document.querySelectorAll(
-    '#modal-container button, #modal-container textarea, #modal-container input'
+    '#confirm-modal-content button:not([disabled]), #confirm-modal-content textarea, #confirm-modal-content input'
   );
 
   const firstElement = focusableElements[0] as HTMLElement;

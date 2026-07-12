@@ -43,6 +43,25 @@ describe('ReportsShellComponent', () => {
     expect(text).toContain('Diners');
   });
 
+  it('marks the URL-derived active report with aria-current="page"', () => {
+    // Default route resolves to the 'sales' fallback → the Sales anchor is current.
+    const current = fixture.nativeElement.querySelector('a[aria-current="page"]') as HTMLElement;
+    expect(current).not.toBeNull();
+    expect(current.textContent).toContain('Sales');
+  });
+
+  it('renders the shared segmented control with the red brand glider on a white track', () => {
+    expect(fixture.nativeElement.querySelector('app-dn-segmented')).not.toBeNull();
+    const glider = fixture.nativeElement.querySelector('span[aria-hidden="true"]') as HTMLElement;
+    expect(glider).not.toBeNull();
+    // Active indicator is the red (bg-primary) pill, not a neutral white glider.
+    expect(glider.className).toContain('bg-primary');
+    expect(glider.className).not.toContain('bg-background');
+    // Track is white (bg-card) with a hairline border.
+    const track = glider.parentElement as HTMLElement;
+    expect(track.className).toContain('bg-card');
+  });
+
   it('mounts the persistent date-range control above the outlet', () => {
     expect(fixture.nativeElement.querySelector('app-report-date-range')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();

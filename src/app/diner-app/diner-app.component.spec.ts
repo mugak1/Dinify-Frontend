@@ -11,6 +11,7 @@ import { STORAGE_KEY_PREFIX } from '../_services/storage/storage-key-prefix.toke
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { DinerAppComponent } from './diner-app.component';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
+import { SessionStorageService } from '../_services/storage/session-storage.service';
 
 describe('DinerAppComponent', () => {
   let component: DinerAppComponent;
@@ -39,7 +40,12 @@ describe('DinerAppComponent', () => {
 
   afterEach(() => {
     httpMock.verify();
+    window.sessionStorage.clear(); // avoid cross-test carryover of the scanned Table
   });
+
+  function validScan(id: string, number = 5) {
+    return { data: { id, number, restaurant: { id: 'r1', name: 'R', branding_configuration: {} } } };
+  }
 
   it('should create', () => {
     expect(component).toBeTruthy();
@@ -184,5 +190,26 @@ describe('DinerAppComponent', () => {
     const chip = (fixture.nativeElement as HTMLElement).querySelector('.brand-strip__chip');
     expect(chip).toBeTruthy();
     expect(chip?.textContent).toContain('Table 7');
+  });
+
+  // ── basket safety on table change ────────────────────────────────────────
+  it('clears the basket when a re-scan lands on a DIFFERENT table', () => {
+    const clearSpy = spyOn(component.basketService, 'clearBasket').and.callThrough();
+    TestBed.inject(SessionStorageService).setItem('Table', { id: 'table-A', number: 5 });
+
+    component.getTableDetails('table-B');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush(validScan('table-B', 8));
+
+    expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it('keeps the basket on a same-table re-scan / refresh', () => {
+    const clearSpy = spyOn(component.basketService, 'clearBasket').and.callThrough();
+    TestBed.inject(SessionStorageService).setItem('Table', { id: 'table-A', number: 5 });
+
+    component.getTableDetails('table-A');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush(validScan('table-A', 5));
+
+    expect(clearSpy).not.toHaveBeenCalled();
   });
 });

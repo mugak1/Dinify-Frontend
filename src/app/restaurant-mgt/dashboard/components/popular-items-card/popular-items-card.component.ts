@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
+import { DnSegmentedComponent, DnSegItem } from '../../../../_shared/ui/segmented/segmented.component';
 import { PopularItemData } from '../../models/dashboard.models';
 import { formatCurrency } from '../../utils/format.utils';
 
@@ -10,40 +11,30 @@ import { formatCurrency } from '../../utils/format.utils';
   selector: 'app-popular-items-card',
   standalone: true,
   host: { class: 'block h-full' },
-  imports: [CommonModule, RouterModule, CardComponent, CardSkeletonComponent],
+  imports: [CommonModule, RouterModule, CardComponent, CardSkeletonComponent, DnSegmentedComponent],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="compact"></app-card-skeleton>
+      <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>
     } @else if (!items || items.length === 0) {
-      <app-dn-card [fullHeight]="true">
-        <div class="p-4 sm:p-5 md:p-6">
-          <h2 class="text-sm sm:text-base font-bold text-foreground mb-3">Popular Items</h2>
+      <app-dn-card [fullHeight]="true" [square]="true">
+        <div class="p-4 sm:p-6">
+          <h2 class="text-card-title text-foreground mb-3">Popular Items</h2>
           <hr class="border-border mb-4" />
           <p class="text-sm text-muted-foreground text-center py-8">No item data available</p>
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card [fullHeight]="true">
-        <div class="p-4 sm:p-5 md:p-6 overflow-hidden">
+      <app-dn-card [fullHeight]="true" [square]="true">
+        <div class="p-4 sm:p-6 overflow-hidden">
           <!-- Header -->
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 sm:mb-4">
-            <h2 class="text-sm sm:text-base font-bold text-foreground">Popular Items</h2>
-            <div class="flex gap-1">
-              <button
-                (click)="sortBy = 'income'"
-                class="px-2 py-1 rounded text-xs font-medium transition-colors"
-                [class]="sortBy === 'income' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
-              >
-                By Revenue
-              </button>
-              <button
-                (click)="sortBy = 'quantity'"
-                class="px-2 py-1 rounded text-xs font-medium transition-colors"
-                [class]="sortBy === 'quantity' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
-              >
-                By Quantity
-              </button>
-            </div>
+            <h2 class="text-card-title text-foreground">Popular Items</h2>
+            <app-dn-segmented
+              [items]="sortItems"
+              [value]="sortBy"
+              (valueChange)="onSort($event)"
+              ariaLabel="Sort popular items"
+            ></app-dn-segmented>
           </div>
 
           <hr class="border-border mb-3 sm:mb-4" />
@@ -119,6 +110,15 @@ export class PopularItemsCardComponent {
   @Input() loading = false;
 
   sortBy: 'income' | 'quantity' = 'income';
+
+  readonly sortItems: DnSegItem[] = [
+    { value: 'income', label: 'By Revenue' },
+    { value: 'quantity', label: 'By Quantity' },
+  ];
+
+  onSort(value: string): void {
+    this.sortBy = value as 'income' | 'quantity';
+  }
 
   get displayItems(): PopularItemData[] {
     if (!this.items) return [];

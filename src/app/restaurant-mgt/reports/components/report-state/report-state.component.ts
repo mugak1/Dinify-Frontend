@@ -6,6 +6,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
+import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 
 export type ReportStateMode =
   | 'select-date'
@@ -49,18 +50,18 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
 @Component({
   selector: 'app-report-state',
   standalone: true,
-  imports: [CommonModule, CardComponent],
+  imports: [CommonModule, CardComponent, ButtonComponent],
   template: `
     <app-dn-card>
       @if (mode === 'loading') {
-        <div class="p-6 space-y-3" aria-busy="true" aria-live="polite">
+        <div class="p-4 sm:p-6 space-y-3" aria-busy="true" aria-live="polite">
           <div class="h-4 w-1/3 bg-muted rounded animate-pulse"></div>
           @for (row of skeletonRows; track row) {
             <div class="h-10 bg-muted rounded animate-pulse"></div>
           }
         </div>
       } @else {
-        <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-6">
+        <div class="flex flex-col items-center justify-center min-h-[200px] text-center p-4 sm:p-6">
           <div class="mb-4" [ngClass]="mode === 'error' ? 'text-destructive' : 'text-muted-foreground'">
             <svg
               aria-hidden="true"
@@ -110,8 +111,11 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
           @if (mode === 'error') {
             <button
               type="button"
+              app-dn-button
+              variant="outline"
+              size="sm"
+              class="gap-2"
               (click)="retry.emit()"
-              class="inline-flex items-center gap-2 border border-border rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors"
             >
               <svg
                 aria-hidden="true"

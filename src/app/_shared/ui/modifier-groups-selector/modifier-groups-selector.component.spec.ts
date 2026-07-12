@@ -65,4 +65,43 @@ describe('ModifierGroupsSelectorComponent', () => {
     (host.querySelector('label') as HTMLElement).click();
     expect(spy).toHaveBeenCalledWith({ groupId: 'g1', choiceId: 'c1', checked: true, maxSelections: 2 });
   });
+
+  it('renders real, keyboard-focusable radio inputs whose checked state mirrors the selection', () => {
+    component.groups = [group()];
+    component.selected = { g1: ['c2'] };
+    fixture.detectChanges();
+    const radios = Array.from(host.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+    expect(radios.length).toBe(2);
+    expect(radios[0].name).toBe('mod-g1'); // shared name → arrow-key navigable group
+    expect(radios[0].checked).toBeFalse(); // c1
+    expect(radios[1].checked).toBeTrue(); // c2
+  });
+
+  it('renders native checkboxes for a multi group and disables over-cap choices', () => {
+    component.groups = [group({ selectionType: 'multiple', minSelections: 0, maxSelections: 1 })];
+    component.selected = { g1: ['c1'] };
+    fixture.detectChanges();
+    const boxes = Array.from(host.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    expect(boxes.length).toBe(2);
+    expect(boxes[0].checked).toBeTrue(); // c1 selected
+    expect(boxes[1].disabled).toBeTrue(); // c2 blocked at the cap
+  });
+
+  it('exposes each group as a labelled radiogroup / group', () => {
+    component.groups = [group()];
+    fixture.detectChanges();
+    const g = host.querySelector('#mod-group-g1')!;
+    expect(g.getAttribute('role')).toBe('radiogroup');
+    expect(g.getAttribute('aria-labelledby')).toBe('mod-group-label-g1');
+    expect(host.querySelector('#mod-group-label-g1')).toBeTruthy();
+  });
+
+  it('styles the Optional badge as muted, not alarm red', () => {
+    component.groups = [group({ required: false })];
+    fixture.detectChanges();
+    const badge = Array.from(host.querySelectorAll('span')).find((s) => s.textContent?.trim() === 'Optional')!;
+    expect(badge).toBeTruthy();
+    expect(badge.className).not.toContain('bg-red-600');
+    expect(badge.className).toContain('bg-gray-100');
+  });
 });

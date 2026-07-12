@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 
 import { EmployeeListUser } from 'src/app/_models/app.models';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
+import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 
 /**
  * Confirm removal of a staff member. Re-skin of the legacy
@@ -21,7 +22,7 @@ import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 @Component({
   selector: 'app-staff-remove-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogComponent],
+  imports: [CommonModule, FormsModule, DialogComponent, ButtonComponent],
   templateUrl: './staff-remove-dialog.component.html',
 })
 export class StaffRemoveDialogComponent implements OnChanges {

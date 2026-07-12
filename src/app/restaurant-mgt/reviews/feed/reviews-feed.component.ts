@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
 import { switchMap, tap, takeUntil, map, catchError } from 'rxjs/operators';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 import { CardErrorComponent } from '../../dashboard/components/card-error/card-error.component';
 import { BadgeComponent } from '../../../_shared/ui/badge/badge.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
@@ -25,7 +26,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
 @Component({
   selector: 'app-reviews-feed',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, CardComponent, CardErrorComponent, BadgeComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent, CardComponent, CardErrorComponent, BadgeComponent],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header -->
@@ -40,10 +41,10 @@ type ResolutionFilter = 'open' | 'resolved' | null;
           </svg>
           Back to reviews
         </a>
-        <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Reviews feed</h1>
-        <p class="text-sm text-muted-foreground mt-1">
-          Every guest review, with the ones that need attention up top.
-        </p>
+        <app-page-header
+          title="Reviews feed"
+          description="Every guest review, with the ones that need attention up top."
+        ></app-page-header>
       </div>
 
       <!-- Filter bar (always visible so the user can re-query) -->
@@ -165,7 +166,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
         <div class="space-y-3 sm:space-y-4">
           @for (i of skeletonRows; track i) {
             <app-dn-card>
-              <div class="p-4 sm:p-5 space-y-3">
+              <div class="p-4 sm:p-6 space-y-3">
                 <div class="flex items-center justify-between">
                   <div class="h-4 w-28 bg-muted rounded animate-pulse"></div>
                   <div class="h-5 w-16 bg-muted rounded-full animate-pulse"></div>
@@ -182,7 +183,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
       } @else if (reviews.length === 0) {
         <!-- Friendly empty state (varies by filter) -->
         <app-dn-card>
-          <div class="flex flex-col items-center justify-center text-center min-h-[240px] p-6">
+          <div class="flex flex-col items-center justify-center text-center min-h-[240px] p-4 sm:p-6">
             <svg
               aria-hidden="true"
               class="w-10 h-10 text-muted-foreground/40 mb-3"
@@ -206,7 +207,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
         <div class="space-y-3 sm:space-y-4">
           @for (review of reviews; track review.id) {
             <app-dn-card>
-              <div class="p-4 sm:p-5">
+              <div class="p-4 sm:p-6">
                 <!-- Stars + status/critical badges -->
                 <div class="flex items-start justify-between gap-3 mb-2">
                   <div class="flex items-center gap-2 min-w-0">

@@ -26,6 +26,7 @@ import { ReportExportBarComponent } from '../components/report-export-bar/report
 import { MenuStatCardComponent } from './menu-stat-card.component';
 import { MenuTopItemsComponent } from './menu-top-items.component';
 import { MenuCategoryComponent } from './menu-category.component';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 
 const ITEM_COLUMNS: ReportColumn[] = [
   { key: 'name', label: 'Item', format: 'text', align: 'left' },
@@ -49,6 +50,7 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
   standalone: true,
   imports: [
     CommonModule,
+    PageHeaderComponent,
     ReportStateComponent,
     ReportExportBarComponent,
     MenuStatCardComponent,

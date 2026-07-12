@@ -5,12 +5,7 @@ import { Observable } from 'rxjs';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
-import {
-  TabsComponent,
-  TabListComponent,
-  TabTriggerComponent,
-  TabContentComponent,
-} from 'src/app/_shared/ui/tabs/tabs.component';
+import { DnSegmentedComponent, DnSegItem } from 'src/app/_shared/ui/segmented/segmented.component';
 import { ItemModifiersTabComponent } from '../item-modifiers-tab/item-modifiers-tab.component';
 import { ItemDiscountsTabComponent } from '../item-discounts-tab/item-discounts-tab.component';
 import { ItemExtrasTabComponent } from '../item-extras-tab/item-extras-tab.component';
@@ -31,10 +26,7 @@ import imageCompression from 'browser-image-compression';
     DialogComponent,
     ButtonComponent,
     SwitchComponent,
-    TabsComponent,
-    TabListComponent,
-    TabTriggerComponent,
-    TabContentComponent,
+    DnSegmentedComponent,
     ItemModifiersTabComponent,
     ItemDiscountsTabComponent,
     ItemExtrasTabComponent,
@@ -72,6 +64,12 @@ export class ItemFormDialogComponent implements OnChanges {
   clearImageRequested = false;
   restaurantId = '';
   selectedTagIds: string[] = [];
+  // Data-loss guard: a snapshot of the full editor state captured when the dialog
+  // opens; `isDirty` compares the live state to it. `showDiscardConfirm` drives the
+  // inline "Discard unsaved changes?" prompt. (form.dirty alone can't see the
+  // modifiers/discount/extras/tags tabs — they live outside the FormGroup.)
+  private pristineSnapshot = '';
+  showDiscardConfirm = false;
 
   constructor(
     private fb: FormBuilder,
@@ -91,6 +89,7 @@ export class ItemFormDialogComponent implements OnChanges {
       this.imagePreview = '';
       this.activeTab = 'details';
       this.attemptedSave = false;
+      this.showDiscardConfirm = false;
       this.clearImageRequested = false;
       this.itemModifiers = { hasModifiers: false, groups: [] };
       this.itemHasDiscount = false;
@@ -172,6 +171,12 @@ export class ItemFormDialogComponent implements OnChanges {
           this.form.get('section')?.setValue(this.sectionId);
         }
       }
+
+      // Capture the pristine baseline AFTER hydration. The child tabs hydrate
+      // from their inputs WITHOUT emitting (they emit only on user action), so
+      // this snapshot reflects the loaded item and isDirty stays false until a
+      // genuine edit.
+      this.pristineSnapshot = this.serializeState();
     }
   }
 
@@ -317,9 +322,44 @@ export class ItemFormDialogComponent implements OnChanges {
     return false;
   }
 
+  /** Tab descriptors for the shared segmented control. A stable array whose per-tab
+   *  hasError flags are refreshed in place each read, so the reference never churns
+   *  (no ExpressionChanged, no needless glider re-measure) while the asterisks stay live. */
+  private readonly _segTabs: DnSegItem[] = [
+    { value: 'details', label: 'Details' },
+    { value: 'modifiers', label: 'Modifiers' },
+    { value: 'extras', label: 'Extras' },
+    { value: 'discounts', label: 'Discounts' },
+  ];
+
+  get segTabs(): DnSegItem[] {
+    const errors = [
+      this.hasDetailsErrors,
+      this.hasModifiersErrors,
+      this.hasExtrasErrors,
+      this.hasDiscountsErrors,
+    ];
+    this._segTabs.forEach((t, i) => (t.hasError = errors[i]));
+    return this._segTabs;
+  }
+
   onSubmit(): void {
+    // Light up the required-field affordances (section/price red borders + error
+    // text, the Details-tab error dot via hasDetailsErrors) the moment a save is
+    // attempted. The Save button is already [disabled] on form.invalid, but Enter
+    // can still reach onSubmit — so guard each tab and route to the first with a
+    // problem (Details first) instead of emitting an invalid payload.
+    this.attemptedSave = true;
+    if (this.form.invalid) {
+      this.activeTab = 'details';
+      return;
+    }
     if (this.hasModifiersErrors) {
       this.activeTab = 'modifiers';
+      return;
+    }
+    if (this.hasExtrasErrors) {
+      this.activeTab = 'extras';
       return;
     }
     if (this.hasDiscountsErrors) {
@@ -402,6 +442,52 @@ export class ItemFormDialogComponent implements OnChanges {
 
   onClose(): void {
     this.closed.emit();
+  }
+
+  /**
+   * Serialised editor state — the form values (image reduced to a stable token)
+   * plus the tab state held outside the FormGroup. Compared against the open-time
+   * snapshot so unsaved edits in ANY of the four tabs are detected.
+   */
+  private serializeState(): string {
+    const raw = this.form.getRawValue();
+    const image = typeof raw.image === 'string' ? raw.image : (raw.image ? 'FILE' : null);
+    return JSON.stringify({
+      ...raw,
+      image,
+      clearImageRequested: this.clearImageRequested,
+      itemModifiers: this.itemModifiers,
+      itemHasDiscount: this.itemHasDiscount,
+      itemDiscountDetails: this.itemDiscountDetails,
+      itemIsExtra: this.itemIsExtra,
+      itemHasExtras: this.itemHasExtras,
+      itemExtrasApplicable: this.itemExtrasApplicable,
+      itemExtrasMin: this.itemExtrasMin,
+      itemExtrasMax: this.itemExtrasMax,
+      selectedTagIds: this.selectedTagIds,
+    });
+  }
+
+  /** Whether the editor holds unsaved changes since it opened. */
+  get isDirty(): boolean {
+    return this.serializeState() !== this.pristineSnapshot;
+  }
+
+  /**
+   * Close intent from Cancel / backdrop / Escape. Prompts before discarding
+   * unsaved edits; closes straight away when the editor is pristine.
+   */
+  requestClose(): void {
+    if (this.isDirty) {
+      this.showDiscardConfirm = true;
+    } else {
+      this.onClose();
+    }
+  }
+
+  confirmDiscard(): void {
+    this.showDiscardConfirm = false;
+    this.onClose();
   }
 
   private buildForm(): void {

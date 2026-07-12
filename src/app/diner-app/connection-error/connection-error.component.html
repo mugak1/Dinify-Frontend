@@ -23,7 +23,7 @@
             <line x1="12" y1="20" x2="12.01" y2="20"></line>
         </svg>
 
-        <h1 class="text-2xl font-semibold text-gray-900 mb-4">
+        <h1 class="font-display text-2xl font-semibold text-gray-900 mb-4">
             {{ headline }}
         </h1>
 
@@ -33,8 +33,9 @@
 
         <button
             type="button"
+            app-dn-button variant="cta"
             (click)="retry.emit()"
-            class="mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-d-red px-6 py-3 text-base font-semibold text-white shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-d-red focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]">
+            class="mt-8">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                  aria-hidden="true" focusable="false">

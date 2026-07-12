@@ -17,15 +17,25 @@
     --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
-    --primary: 4 90% 52%;
+    /* --primary IS the brand red #FF2C32 — the same value as the d-red literal in
+       tailwind.config.js, so token- and literal-styled surfaces can no longer drift. */
+    --primary: 358 100% 59%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 88%;
+    /* Pressed/hover red = the existing d-red-hover literal (#E61C22). */
+    --primary-hover: 358 78% 51%;
+    /* --secondary is deliberately lighter than --muted (94% vs 88%) so secondary
+       surfaces and muted fills are two distinguishable tiers, not one. */
+    --secondary: 0 0% 94%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 88%;
     --muted-foreground: 0 0% 38%;
-    --accent: 4 90% 52%;
+    --accent: 358 100% 59%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 4 90% 52%;
+    /* Destructive is a DISTINCT darker red — never the brand red — so delete/danger
+       reads differently from a primary action. White text on it ≈ 6.5:1 (WCAG AA);
+       white on brand red is only 3.7:1, so small white-on-red text must use this
+       or --primary-hover, and brand red stays reserved for large/bold CTA text. */
+    --destructive: 0 72% 42%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
@@ -33,24 +43,24 @@
     --warning-foreground: 0 0% 9%;
     --border: 0 0% 90%;
     --input: 0 0% 85%;
-    --ring: 4 90% 52%;
+    --ring: 358 100% 59%;
     --radius: 0.5rem;
     --shadow-sm: 0 2px 6px 0 hsl(0 0% 0% / 0.1), 0 1px 3px -1px hsl(0 0% 0% / 0.08);
     --shadow-md: 0 8px 24px -4px hsl(0 0% 0% / 0.15), 0 4px 12px -2px hsl(0 0% 0% / 0.1);
     --shadow-lg: 0 20px 40px -8px hsl(0 0% 0% / 0.22), 0 10px 20px -4px hsl(0 0% 0% / 0.14);
-    --chart-1: 4 90% 52%;
+    --chart-1: 358 100% 59%;
     --chart-2: 142 71% 45%;
     --chart-3: 38 92% 50%;
     --chart-4: 0 0% 30%;
     --chart-5: 0 0% 60%;
     --sidebar-background: 0 0% 9%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 4 90% 52%;
+    --sidebar-primary: 358 100% 59%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 4 90% 52%;
+    --sidebar-ring: 358 100% 59%;
   }
 
   .dark {
@@ -60,15 +70,16 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 12%;
     --popover-foreground: 0 0% 98%;
-    --primary: 4 90% 52%;
+    --primary: 358 100% 59%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 15%;
+    --primary-hover: 358 78% 51%;
+    --secondary: 0 0% 20%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 72%;
-    --accent: 4 90% 52%;
+    --accent: 358 100% 59%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 4 90% 52%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
@@ -76,23 +87,23 @@
     --warning-foreground: 0 0% 9%;
     --border: 0 0% 18%;
     --input: 0 0% 18%;
-    --ring: 4 90% 52%;
+    --ring: 358 100% 59%;
     --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.4), 0 1px 2px -1px hsl(0 0% 0% / 0.3);
     --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.35), 0 2px 6px -2px hsl(0 0% 0% / 0.2);
     --shadow-lg: 0 12px 24px -4px hsl(0 0% 0% / 0.5), 0 6px 12px -4px hsl(0 0% 0% / 0.3);
-    --chart-1: 4 90% 52%;
+    --chart-1: 358 100% 59%;
     --chart-2: 142 71% 45%;
     --chart-3: 38 92% 50%;
     --chart-4: 0 0% 70%;
     --chart-5: 0 0% 50%;
     --sidebar-background: 0 0% 9%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 4 90% 52%;
+    --sidebar-primary: 358 100% 59%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 4 90% 52%;
+    --sidebar-ring: 358 100% 59%;
   }
 
   img {

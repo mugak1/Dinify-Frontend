@@ -1,20 +1,20 @@
-<app-dn-dialog [open]="open" (closed)="onClose()" maxWidth="lg">
-  <h2 class="text-xl font-semibold text-foreground mb-4">
+<app-dn-dialog [open]="open" [disableClose]="isDirty" (closed)="onClose()" (closeAttempt)="requestClose()" maxWidth="lg">
+  <h2 class="text-section-title text-foreground mb-4">
     {{ item ? 'Edit' : 'New' }} Item
   </h2>
 
   <form [formGroup]="form" (ngSubmit)="onSubmit()">
 
-    <app-dn-tabs [(value)]="activeTab">
-      <app-dn-tab-list>
-        <app-dn-tab-trigger value="details" [hasError]="hasDetailsErrors">Details</app-dn-tab-trigger>
-        <app-dn-tab-trigger value="modifiers" [hasError]="hasModifiersErrors">Modifiers</app-dn-tab-trigger>
-        <app-dn-tab-trigger value="extras" [hasError]="hasExtrasErrors">Extras</app-dn-tab-trigger>
-        <app-dn-tab-trigger value="discounts" [hasError]="hasDiscountsErrors">Discounts</app-dn-tab-trigger>
-      </app-dn-tab-list>
+    <app-dn-segmented
+      [items]="segTabs"
+      [(value)]="activeTab"
+      [manualActivation]="true"
+      ariaLabel="Item form sections"
+    ></app-dn-segmented>
 
+    <div class="mt-3">
       <!-- Details tab -->
-      <app-dn-tab-content value="details">
+      @if (activeTab === 'details') {
         <div class="space-y-4 max-h-[60vh] overflow-y-auto px-3 pt-2">
 
           <!-- Image upload -->
@@ -211,20 +211,20 @@
           </div>
 
         </div>
-      </app-dn-tab-content>
+      }
 
       <!-- Modifiers tab -->
-      <app-dn-tab-content value="modifiers">
+      @if (activeTab === 'modifiers') {
         <div class="max-h-[60vh] overflow-y-auto px-3">
           <app-item-modifiers-tab
             [modifiers]="itemModifiers"
             (modifiersChange)="onModifiersChange($event)">
           </app-item-modifiers-tab>
         </div>
-      </app-dn-tab-content>
+      }
 
       <!-- Extras tab -->
-      <app-dn-tab-content value="extras">
+      @if (activeTab === 'extras') {
         <div class="max-h-[60vh] overflow-y-auto px-3">
           <app-item-extras-tab
             [isExtra]="itemIsExtra"
@@ -237,10 +237,10 @@
             (extrasChange)="onExtrasChange($event)">
           </app-item-extras-tab>
         </div>
-      </app-dn-tab-content>
+      }
 
       <!-- Discounts tab -->
-      <app-dn-tab-content value="discounts">
+      @if (activeTab === 'discounts') {
         <div class="max-h-[60vh] overflow-y-auto px-3">
           <app-item-discounts-tab
             [hasDiscount]="itemHasDiscount"
@@ -249,12 +249,12 @@
             (discountChange)="onDiscountChange($event)">
           </app-item-discounts-tab>
         </div>
-      </app-dn-tab-content>
-    </app-dn-tabs>
+      }
+    </div>
 
     <!-- Actions (always visible) -->
     <div class="flex justify-end gap-3 pt-5">
-      <button type="button" app-dn-button variant="outline" [disabled]="isSaving" (click)="onClose()">Cancel</button>
+      <button type="button" app-dn-button variant="outline" [disabled]="isSaving" (click)="requestClose()">Cancel</button>
       <button type="submit" app-dn-button variant="default"
               [disabled]="form.invalid || hasModifiersErrors || hasDiscountsErrors || hasExtrasErrors || isCompressing || isSaving">
         <ng-container *ngIf="!isSaving">{{ item ? 'Update' : 'Create' }}</ng-container>
@@ -268,5 +268,23 @@
       </button>
     </div>
   </form>
+
+  <!-- Data-loss guard: overlays the editor when a close is attempted with unsaved
+       edits (backdrop/Escape are blocked via [disableClose]="isDirty"; Cancel and
+       the blocked-close both route here through requestClose()). Fixed + centred so
+       it stays visible however far the tall form is scrolled. -->
+  @if (showDiscardConfirm) {
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50"></div>
+      <div class="relative z-10 w-full max-w-sm rounded-lg bg-card p-6 shadow-lg text-center">
+        <h3 class="text-section-title text-foreground mb-1">Discard unsaved changes?</h3>
+        <p class="text-sm text-muted-foreground mb-5">Your edits to this item haven't been saved. If you leave now they'll be lost.</p>
+        <div class="flex justify-center gap-3">
+          <button type="button" app-dn-button variant="outline" (click)="showDiscardConfirm = false">Keep editing</button>
+          <button type="button" app-dn-button variant="destructive" (click)="confirmDiscard()">Discard</button>
+        </div>
+      </div>
+    </div>
+  }
 
 </app-dn-dialog>

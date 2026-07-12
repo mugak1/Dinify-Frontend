@@ -1,10 +1,9 @@
-import { Component, Output, EventEmitter, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 import { DashboardService } from '../../dashboard/services/dashboard.service';
-import { SwitchComponent } from '../../../_shared/ui/switch/switch.component';
 import { DateRange } from '../../dashboard/models/dashboard.models';
+import { DnSegmentedComponent } from '../../../_shared/ui/segmented/segmented.component';
+import { AuthenticationService } from '../../../_services/authentication.service';
 
 interface DateRangeOption {
   value: DateRange;
@@ -14,10 +13,10 @@ interface DateRangeOption {
 @Component({
   selector: 'app-top-nav',
   standalone: true,
-  imports: [CommonModule, SwitchComponent],
+  imports: [CommonModule, DnSegmentedComponent],
   templateUrl: './top-nav.component.html',
 })
-export class TopNavComponent implements OnInit, OnDestroy {
+export class TopNavComponent {
   @Output() menuClick = new EventEmitter<void>();
   @Output() logoutClick = new EventEmitter<void>();
   @Input() compact = false;
@@ -29,58 +28,24 @@ export class TopNavComponent implements OnInit, OnDestroy {
     { value: 'ytd', label: 'YTD' },
   ];
 
-  currentTime = '';
-  secondsAgo = 0;
-  private lastUpdate = Date.now();
-  private timerInterval?: ReturnType<typeof setInterval>;
-  private destroy$ = new Subject<void>();
-
   constructor(
     public dashboardService: DashboardService,
+    private auth: AuthenticationService,
   ) {}
 
-  ngOnInit(): void {
-    this.updateTime();
-    this.timerInterval = setInterval(() => {
-      this.secondsAgo = Math.floor((Date.now() - this.lastUpdate) / 1000);
-      this.updateTime();
-    }, 1000);
-
-    // Sync timer with dashboard data fetches
-    this.dashboardService.lastFetchTimestamp$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        this.resetUpdateTimer();
-      });
-  }
-
-  ngOnDestroy(): void {
-    if (this.timerInterval) clearInterval(this.timerInterval);
-    this.destroy$.next();
-    this.destroy$.complete();
+  /**
+   * The current restaurant's name, surfaced in the chrome so a multi-venue
+   * operator always sees which venue they're editing (the shell fetches the
+   * detail but rendered the name nowhere). Prefer the freshly-fetched detail
+   * (`current_resta`, reflects an in-session rename); fall back to the
+   * membership label (`rest_role.restaurant`), which is present immediately on
+   * first paint before the detail request resolves.
+   */
+  get restaurantName(): string {
+    return this.auth.currentRestaurant?.name || this.auth.currentRestaurantRole?.restaurant || '';
   }
 
   onDateRangeChange(range: DateRange): void {
     this.dashboardService.dateRange$.next(range);
-    this.resetUpdateTimer();
-  }
-
-  onAutoRefreshChange(value: boolean): void {
-    this.dashboardService.autoRefresh$.next(value);
-    if (value) this.resetUpdateTimer();
-  }
-
-  resetUpdateTimer(): void {
-    this.lastUpdate = Date.now();
-    this.secondsAgo = 0;
-  }
-
-  private updateTime(): void {
-    this.currentTime = new Date().toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    });
   }
 }

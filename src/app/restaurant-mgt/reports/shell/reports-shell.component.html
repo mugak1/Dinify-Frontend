@@ -28,52 +28,56 @@
     </div>
   </div>
 
-  <!-- Horizontal tab strip (all breakpoints), under the header. Scrolls if it
-       overflows. Routed tabs stay routerLink anchors. -->
-  <nav class="border-b border-border overflow-x-auto" aria-label="Reports">
-    <div class="flex gap-1 p-2 min-w-max">
-      @for (r of reportNav; track r.key) {
-        <a
-          [routerLink]="r.path"
-          routerLinkActive="bg-accent text-accent-foreground font-medium"
-          class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground whitespace-nowrap transition-colors"
+  <!-- Segmented rail (all breakpoints), under the header. The shared `app-dn-segmented`
+       control renders the sunken pill track, the white sliding glider, and the routerLink
+       anchors (a11y + middle-click); this shell owns only the URL→active derivation, fed in
+       as [value]. The <nav> supplies the navigation landmark + border/padding. -->
+  <nav class="border-b border-border px-3 sm:px-4 md:px-6 py-2" aria-label="Reports">
+    <app-dn-segmented
+      mode="router"
+      layout="responsive"
+      [items]="reportNav"
+      [value]="activeKey()"
+      [relativeTo]="route"
+    >
+      <!-- Leading icon per segment. Colour is inherited via currentColor from the segment's
+           text colour (active text-foreground / inactive text-muted-foreground), so the SVG
+           carries sizing only. -->
+      <ng-template #icon let-item>
+        <svg
+          aria-hidden="true"
+          class="w-4 h-4 shrink-0 transition-colors"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
-          <svg
-            aria-hidden="true"
-            class="w-4 h-4 shrink-0"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <ng-container [ngSwitch]="r.icon">
-              <ng-container *ngSwitchCase="'sales'">
-                <svg:polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                <svg:polyline points="16 7 22 7 22 13" />
-              </ng-container>
-              <ng-container *ngSwitchCase="'menu'">
-                <svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
-                <svg:path d="M7 2v20" />
-                <svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
-              </ng-container>
-              <ng-container *ngSwitchCase="'card'">
-                <svg:rect width="20" height="14" x="2" y="5" rx="2" />
-                <svg:line x1="2" x2="22" y1="10" y2="10" />
-              </ng-container>
-              <ng-container *ngSwitchCase="'users'">
-                <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <svg:circle cx="9" cy="7" r="4" />
-                <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </ng-container>
+          <ng-container [ngSwitch]="item.icon">
+            <ng-container *ngSwitchCase="'sales'">
+              <svg:polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <svg:polyline points="16 7 22 7 22 13" />
             </ng-container>
-          </svg>
-          <span class="truncate">{{ r.label }}</span>
-        </a>
-      }
-    </div>
+            <ng-container *ngSwitchCase="'menu'">
+              <svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+              <svg:path d="M7 2v20" />
+              <svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+            </ng-container>
+            <ng-container *ngSwitchCase="'card'">
+              <svg:rect width="20" height="14" x="2" y="5" rx="2" />
+              <svg:line x1="2" x2="22" y1="10" y2="10" />
+            </ng-container>
+            <ng-container *ngSwitchCase="'users'">
+              <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <svg:circle cx="9" cy="7" r="4" />
+              <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </ng-container>
+          </ng-container>
+        </svg>
+      </ng-template>
+    </app-dn-segmented>
   </nav>
 
   <!-- Full-width report content. -->

@@ -1,13 +1,10 @@
 <div class="space-y-4 sm:space-y-6">
   <!-- Header -->
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Support</h1>
-      <p class="text-sm text-muted-foreground">
-        Report an issue to the Dinify team and track its progress.
-      </p>
-    </div>
-    <button app-dn-button (click)="openForm()">
+  <app-page-header
+    title="Support"
+    description="Report an issue to the Dinify team and track its progress."
+  >
+    <button actions app-dn-button (click)="openForm()">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round"
         stroke-linejoin="round" class="h-4 w-4 mr-2">
@@ -16,12 +13,12 @@
       </svg>
       Report an issue
     </button>
-  </div>
+  </app-page-header>
 
   <!-- Direct-contact fallback -->
   <app-dn-card>
-    <div class="p-4 sm:p-5">
-      <h2 class="text-sm font-semibold text-foreground">Need urgent help during service?</h2>
+    <div class="p-4 sm:p-6">
+      <h2 class="text-card-title text-foreground">Need urgent help during service?</h2>
       <p class="text-sm text-muted-foreground mt-1">Reach us directly:</p>
       <div class="mt-3 flex flex-wrap gap-2">
         <a [href]="'https://wa.me/' + contacts.whatsapp" target="_blank" rel="noopener"
@@ -58,8 +55,8 @@
 
   <!-- Reported issues -->
   <app-dn-card>
-    <div class="p-4 sm:p-5">
-      <h2 class="text-base font-semibold text-foreground mb-3">Reported issues</h2>
+    <div class="p-4 sm:p-6">
+      <h2 class="text-card-title text-foreground mb-3">Reported issues</h2>
 
       <p *ngIf="loading" class="text-sm text-muted-foreground py-6 text-center">Loading…</p>
 
@@ -104,7 +101,7 @@
 
 <!-- Report-an-issue form -->
 <app-dn-dialog [open]="showForm" (closed)="closeForm()" maxWidth="lg">
-  <h2 class="text-lg font-semibold text-foreground mb-1">Report an issue</h2>
+  <h2 class="text-section-title text-foreground mb-1">Report an issue</h2>
   <p class="text-sm text-muted-foreground mb-4">
     Tell us what's going wrong and the Dinify team will take a look.
   </p>
@@ -183,7 +180,7 @@
     <div class="flex items-start justify-between gap-3 p-5 border-b">
       <div>
         <p class="font-mono text-xs font-medium text-muted-foreground">{{ issue.reference }}</p>
-        <h2 class="text-lg font-semibold text-foreground mt-1">{{ issue.title }}</h2>
+        <h2 class="text-section-title text-foreground mt-1">{{ issue.title }}</h2>
       </div>
       <button type="button" (click)="closeDetail()" aria-label="Close"
         class="text-muted-foreground hover:text-foreground transition-colors">

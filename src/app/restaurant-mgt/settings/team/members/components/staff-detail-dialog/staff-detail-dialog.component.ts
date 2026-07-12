@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 
 import { EmployeeListUser } from 'src/app/_models/app.models';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
+import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { roleLabel } from '../../staff-roles';
 
 /**
@@ -13,7 +14,7 @@ import { roleLabel } from '../../staff-roles';
 @Component({
   selector: 'app-staff-detail-dialog',
   standalone: true,
-  imports: [CommonModule, DialogComponent],
+  imports: [CommonModule, DialogComponent, ButtonComponent],
   templateUrl: './staff-detail-dialog.component.html',
 })
 export class StaffDetailDialogComponent {

@@ -5,7 +5,7 @@
         <span class="text-amber-500 mt-0.5" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
         </span>
-        <h3 class="text-base font-semibold text-gray-900">Remove {{ staff.name }}?</h3>
+        <h3 class="text-section-title text-foreground">Remove {{ staff.name }}?</h3>
       </div>
 
       <p class="text-sm text-gray-700">
@@ -28,17 +28,8 @@
       </div>
 
       <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-        <button
-          type="button"
-          class="px-3 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-          (click)="onCancel()"
-          [disabled]="removing"
-        >Cancel</button>
-        <button
-          type="button"
-          class="px-3 py-2 text-sm rounded bg-d-red text-white hover:bg-red-800 disabled:opacity-50"
-          (click)="onConfirm()"
-          [disabled]="removing"
+        <button app-dn-button variant="outline" type="button" (click)="onCancel()" [disabled]="removing">Cancel</button>
+        <button app-dn-button variant="destructive" type="button" (click)="onConfirm()" [loading]="removing" [disabled]="removing"
         >{{ removing ? 'Removing…' : 'Remove' }}</button>
       </div>
     </div>

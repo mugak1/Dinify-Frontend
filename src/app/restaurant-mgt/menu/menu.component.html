@@ -1,3 +1,7 @@
+<!-- Page landmark: the Menu layout is full-bleed with a bespoke tab strip and no
+     visible title bar, so the page heading is a screen-reader-only landmark. -->
+<h1 class="sr-only">Menu</h1>
+
 <!-- Approval bar -->
 <div *ngIf="isThirdChild && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit' || auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')"
      class="flex items-center gap-2 px-5 md:px-6 py-2 border-b border-neutral-200 bg-neutral-50">
@@ -15,12 +19,12 @@
 
 <!-- Tab navigation -->
 <div class="border-b border-neutral-200 bg-neutral-50 px-5 md:px-6 pt-3 pb-3">
-  <app-dn-tabs [value]="activeTab" (valueChange)="activeTab = $any($event)">
-    <app-dn-tab-list>
-      <app-dn-tab-trigger value="sections">Menu</app-dn-tab-trigger>
-      <app-dn-tab-trigger value="upsells">Upsells</app-dn-tab-trigger>
-    </app-dn-tab-list>
-  </app-dn-tabs>
+  <app-dn-segmented
+    [items]="menuTabs"
+    [value]="activeTab"
+    (valueChange)="activeTab = $any($event)"
+    ariaLabel="Menu view"
+  ></app-dn-segmented>
 </div>
 
 <!-- Main layout -->
@@ -57,7 +61,7 @@
 
         <!-- Desktop section name (hidden on mobile) -->
         <h2 *ngIf="selectedSection$ | async as section"
-            class="hidden lg:block text-2xl font-semibold text-foreground">
+            class="hidden lg:block text-2xl font-bold text-foreground">
           {{ section.name }}
         </h2>
 
@@ -120,7 +124,7 @@
 
 <!-- Section delete confirmation dialog -->
 <app-dn-dialog [open]="sectionDeleteOpen" maxWidth="sm" (closed)="closeSectionDelete()">
-  <h2 class="text-lg font-semibold text-foreground mb-2">Delete Section</h2>
+  <h2 class="text-section-title text-foreground mb-2">Delete Section</h2>
   <p class="text-sm text-muted-foreground mb-1">
     Are you sure you want to delete
     <span class="font-medium text-foreground">{{ editingSection?.name }}</span>?
@@ -140,7 +144,7 @@
 
 <!-- Item delete confirmation dialog -->
 <app-dn-dialog [open]="itemDeleteOpen" maxWidth="sm" (closed)="closeItemDelete()">
-  <h2 class="text-lg font-semibold text-foreground mb-2">Delete Item</h2>
+  <h2 class="text-section-title text-foreground mb-2">Delete Item</h2>
   <p class="text-sm text-muted-foreground mb-1">
     Are you sure you want to delete
     <span class="font-medium text-foreground">{{ deletingItem?.name }}</span>?

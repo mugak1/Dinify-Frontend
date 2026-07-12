@@ -4,11 +4,12 @@ import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
 import { PersistedValue } from '../../_services/storage/persisted-state';
 import { TablesSetupViewComponent } from './components/tables-setup-view/tables-setup-view.component';
+import { PageHeaderComponent } from '../../_shared/ui/page-header/page-header.component';
 
 @Component({
   selector: 'app-tables',
   standalone: true,
-  imports: [CommonModule, TablesSetupViewComponent],
+  imports: [CommonModule, TablesSetupViewComponent, PageHeaderComponent],
   templateUrl: './tables.component.html',
   styleUrls: ['./tables.component.css'],
 })

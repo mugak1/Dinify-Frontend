@@ -35,6 +35,7 @@ module.exports = {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          hover: 'hsl(var(--primary-hover))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -90,6 +91,26 @@ module.exports = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        // The diner dish-card corner (replaces the arbitrary rounded-[20px]).
+        card: '20px',
+      },
+      fontSize: {
+        // Semantic type scale, px-fixed: the 14px html root renders rem-based
+        // text-* utilities ~12.5% under their nominal size, which is what bred
+        // the one-off text-[..px] (and half-pixel) values across the app. New
+        // text picks one of these roles — no new arbitrary text-[..px].
+        'page-title': ['26px', { lineHeight: '32px', fontWeight: '700' }],
+        'section-title': ['18px', { lineHeight: '26px', fontWeight: '600' }],
+        'card-title': ['15px', { lineHeight: '22px', fontWeight: '600' }],
+        'body': ['13px', { lineHeight: '20px' }],
+        'caption': ['12px', { lineHeight: '16px' }],
+        // 11px is the hard floor — nothing renders smaller than this.
+        'micro': ['11px', { lineHeight: '14px' }],
+        // The diner dish-name/price display size (replaces the half-pixel
+        // text-[18.5px] twins). SIZE-ONLY on purpose — unlike the roles above it
+        // bakes NO font-weight, because the same size carries bold(700) dish
+        // names and extrabold(800) prices; pair it with font-display + a weight.
+        'dish-title': ['19px', { lineHeight: '21px', letterSpacing: '-0.01em' }],
       },
       backgroundImage: {
         'fade': 'linear-gradient(to right, white, rgba(0, 0, 0, 0))',

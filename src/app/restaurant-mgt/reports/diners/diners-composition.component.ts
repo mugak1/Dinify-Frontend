@@ -17,9 +17,9 @@ import { OrderSplit, RepeatBreakdown } from './diners-view';
   imports: [CommonModule, CardComponent],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
-          <h2 class="text-base font-semibold text-gray-900">Identified vs anonymous orders</h2>
+          <h2 class="text-card-title text-foreground">Identified vs anonymous orders</h2>
           @if (capped) {
             <span class="text-xs text-gray-400">most recent 31 days</span>
           }

@@ -29,15 +29,15 @@ interface StatusSegment {
   ],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="default"></app-card-skeleton>
+      <app-card-skeleton variant="default" [square]="true"></app-card-skeleton>
     } @else if (ordersData) {
-      <app-dn-card>
+      <app-dn-card [square]="true">
         <div class="p-4 sm:p-6">
           <!-- Header -->
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">
             <div class="min-w-0">
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
-                <h2 class="text-base sm:text-lg font-bold text-foreground">Total Orders ({{ timeframeLabel }})</h2>
+                <h2 class="text-card-title text-foreground">Total Orders ({{ timeframeLabel }})</h2>
               </div>
               <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                 <app-animated-number
@@ -72,7 +72,7 @@ interface StatusSegment {
 
           <!-- Stacked status bar -->
           <div class="mb-4">
-            <div class="flex gap-1 h-8 rounded-lg overflow-hidden">
+            <div class="flex gap-1 h-8 rounded-none overflow-hidden">
               @for (seg of segments; track seg.key) {
                 <div
                   class="transition-all"
@@ -87,7 +87,7 @@ interface StatusSegment {
           <!-- Status breakdown grid -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
             @for (seg of segments; track seg.key) {
-              <div class="text-center p-1.5 sm:p-2 bg-muted rounded-lg">
+              <div class="text-center p-1.5 sm:p-2 bg-muted rounded-none">
                 <div class="text-base sm:text-lg font-bold" [class]="seg.colorClass">{{ seg.count }}</div>
                 <div class="text-[10px] sm:text-xs text-foreground">{{ seg.label }}</div>
                 <div class="text-[10px] sm:text-xs text-foreground">{{ seg.percentage }}%</div>
@@ -99,7 +99,7 @@ interface StatusSegment {
 
           <!-- Orders vs Time chart -->
           <div>
-            <h3 class="text-sm sm:text-base font-bold text-foreground mb-2">Orders vs Time</h3>
+            <h3 class="text-card-title text-foreground mb-2">Orders vs Time</h3>
             <div class="h-32 sm:h-40">
               <canvas
                 aria-label="Orders over time chart"

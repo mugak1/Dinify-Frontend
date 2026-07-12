@@ -8,6 +8,7 @@ import {
 } from '../components/settings-icon/settings-icon.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ModuleKey } from '../../../_models/app.models';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 
 interface HubItem {
   label: string;
@@ -33,7 +34,7 @@ interface HubGroup {
 @Component({
   selector: 'app-settings-hub',
   standalone: true,
-  imports: [CommonModule, RouterModule, SettingsIconComponent],
+  imports: [CommonModule, RouterModule, SettingsIconComponent, PageHeaderComponent],
   templateUrl: './settings-hub.component.html',
 })
 export class SettingsHubComponent {

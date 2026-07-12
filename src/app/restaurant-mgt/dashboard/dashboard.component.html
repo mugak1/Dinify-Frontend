@@ -1,5 +1,8 @@
 <div class="space-y-4 sm:space-y-6">
-  <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+  <app-page-header
+    title="Dashboard"
+    [description]="'Last updated at ' + ((dashboardService.lastFetchTimestamp$ | async) | date:'HH:mm')"
+  ></app-page-header>
 
   <!-- Row 1: Revenue (large) + Payment Methods (compact) -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">

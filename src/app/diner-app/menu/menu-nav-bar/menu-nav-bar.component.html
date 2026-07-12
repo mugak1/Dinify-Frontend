@@ -44,7 +44,7 @@
         <line x1="18" x2="22" y1="16" y2="16" stroke="currentColor" stroke-width="2"/>
       </svg>
       <span *ngIf="navState.hasActiveFilters()"
-            class="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+            class="absolute -top-0.5 -right-0.5 bg-d-red text-white text-micro font-bold w-4 h-4 rounded-full flex items-center justify-center">
         {{ navState.activeFilterCount() }}
       </span>
     </button>
@@ -59,14 +59,14 @@
         <button *ngIf="navState.featuredItems().length > 0"
                 data-section-id="Featured"
                 (click)="!navState.searchQuery() ? scrollTo('Featured', -1, $event) : false"
-                class="font-display flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1"
+                class="font-display flex-shrink-0 px-4 py-1.5 min-h-[44px] rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1"
                 [ngClass]="{
-                  'bg-amber-400 text-gray-900 shadow-sm': navState.currentSection() === 'Featured',
+                  'bg-d-red text-white shadow-glow': navState.currentSection() === 'Featured',
                   'bg-gray-100 text-gray-900 hover:bg-gray-200': navState.currentSection() !== 'Featured'
                 }">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-               [attr.fill]="navState.currentSection() === 'Featured' ? '#b45309' : '#fbbf24'"
-               [attr.stroke]="navState.currentSection() === 'Featured' ? '#b45309' : '#fbbf24'"
+               [attr.fill]="navState.currentSection() === 'Featured' ? '#ffffff' : '#fbbf24'"
+               [attr.stroke]="navState.currentSection() === 'Featured' ? '#ffffff' : '#fbbf24'"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
           </svg>
@@ -76,7 +76,7 @@
         <button *ngFor="let s of navState.filteredMenuList(); let i = index"
                 [attr.data-section-id]="addUnderscore(s.name)"
                 (click)="!navState.searchQuery() ? scrollTo(s.name, i, $event) : false"
-                class="font-display flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
+                class="font-display flex-shrink-0 px-4 py-1.5 min-h-[44px] inline-flex items-center justify-center rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
                 [ngClass]="{
                   'bg-d-red text-white shadow-glow': removeUnderscore(navState.currentSection()) === s.name,
                   'bg-gray-100 text-gray-900 hover:bg-gray-200': removeUnderscore(navState.currentSection()) !== s.name

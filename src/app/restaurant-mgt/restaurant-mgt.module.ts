@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { RouterModule, Routes } from '@angular/router';
 import { permissionGuard } from '../_helpers/permission.guard';
+import { unsavedChangesGuard } from '../_helpers/unsaved-changes.guard';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TrendIndicatorComponent } from './dashboard/components/trend-indicator/trend-indicator.component';
 import { AnimatedNumberComponent } from './dashboard/components/animated-number/animated-number.component';
@@ -50,7 +51,7 @@ import { MenuSearchComponent } from './menu/components/menu-search/menu-search.c
 import { StorageModule } from '../_services/storage/storage.module';
 import { UpsellsTabComponent } from './menu/components/upsells-tab/upsells-tab.component';
 import { ItemDetailViewComponent } from './menu/components/item-detail-view/item-detail-view.component';
-import { TabsComponent, TabListComponent, TabTriggerComponent, TabContentComponent } from '../_shared/ui/tabs/tabs.component';
+import { DnSegmentedComponent } from '../_shared/ui/segmented/segmented.component';
 import { TagFilterSheetComponent } from './menu/components/tag-filter-sheet/tag-filter-sheet.component';
 import { UpsellCarouselComponent } from './menu/components/upsell-carousel/upsell-carousel.component';
 import { PreviewMenuDrawerComponent } from './menu/components/preview-menu-drawer/preview-menu-drawer.component';
@@ -59,6 +60,7 @@ import { ButtonComponent } from '../_shared/ui/button/button.component';
 import { CardComponent } from '../_shared/ui/card/card.component';
 import { BadgeComponent } from '../_shared/ui/badge/badge.component';
 import { SheetComponent } from '../_shared/ui/sheet/sheet.component';
+import { PageHeaderComponent } from '../_shared/ui/page-header/page-header.component';
 import { PresetTagsComponent } from './settings/preset-tags/preset-tags.component';
 import { SettingsHubComponent } from './settings/settings-hub/settings-hub.component';
 import { SectionPageComponent } from './settings/components/section-page/section-page.component';
@@ -76,18 +78,18 @@ const routes: Routes = [
   {path:'dashboard',component:DashboardComponent,title:'Dashboard',canActivate:[permissionGuard],data:{module:'dashboard'}},
   {path:'settings',title:'Settings',children:[
     {path: "", component: SettingsHubComponent, pathMatch: "full",canActivate:[permissionGuard],data:{module:'settings'}},
-    {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding',canActivate:[permissionGuard],data:{module:'settings'}},
-    {path:'availability',component:AvailabilityComponent,title:'Availability',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
+    {path:'availability',component:AvailabilityComponent,title:'Availability',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
     {path:'team',component:TeamShellComponent,title:'Team',canActivate:[permissionGuard],data:{module:'team'},children:[
       {path:'',redirectTo:'members',pathMatch:'full'},
       {path:'members',component:RestUsersComponent,title:'Members'},
       {path:'roles',component:RolesAccessComponent,title:'Roles & access'},
     ]},
-    {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
     {path:'billing',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
     {path:'preset-tags',component:PresetTagsComponent,title:'Preset tags',canActivate:[permissionGuard],data:{module:'settings'}},
-    {path:'account',component:AccountSecurityComponent,title:'Account & security',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'account',component:AccountSecurityComponent,title:'Account & security',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
   ]},
   {path:'menu',component:MenuComponent,title:'Menu',canActivate:[permissionGuard],data:{module:'menu'}},
   {path:'dining-tables',component:TablesComponent,title:'Tables',canActivate:[permissionGuard],data:{module:'tables'}},
@@ -149,10 +151,7 @@ const routes: Routes = [
     StorageModule.forRoot({ prefix: 'dinify-restaurant-mgt' }),
     UpsellsTabComponent,
     ItemDetailViewComponent,
-    TabsComponent,
-    TabListComponent,
-    TabTriggerComponent,
-    TabContentComponent,
+    DnSegmentedComponent,
     TagFilterSheetComponent,
     UpsellCarouselComponent,
     PreviewMenuDrawerComponent,
@@ -161,6 +160,7 @@ const routes: Routes = [
     CardComponent,
     BadgeComponent,
     SheetComponent,
+    PageHeaderComponent,
     TablesComponent,
     PresetTagsComponent,
     SettingsHubComponent,

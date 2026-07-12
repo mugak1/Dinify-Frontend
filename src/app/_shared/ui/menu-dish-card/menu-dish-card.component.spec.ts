@@ -54,4 +54,82 @@ describe('MenuDishCardComponent', () => {
     expect(host.textContent).toContain('UGX 8,000'); // effective
     expect(host.textContent).toContain('UGX 10,000'); // struck original
   });
+
+  it('exposes the in-stock card as a focusable button named by dish + price', () => {
+    render({ name: 'Soda', effectivePrice: 5000, outOfStock: false });
+    const btn = host.querySelector('[role="button"]') as HTMLElement;
+    expect(btn.getAttribute('tabindex')).toBe('0');
+    expect(btn.hasAttribute('aria-disabled')).toBeFalse();
+    expect(btn.getAttribute('aria-label')).toBe('Soda, UGX 5,000');
+  });
+
+  it('makes an out-of-stock card inert (no tabindex, aria-disabled)', () => {
+    render({ name: 'Soup', outOfStock: true });
+    const btn = host.querySelector('[role="button"]') as HTMLElement;
+    expect(btn.hasAttribute('tabindex')).toBeFalse();
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('opens (emits cardClick) on Enter and Space', () => {
+    const spy = jasmine.createSpy('cardClick');
+    component.cardClick.subscribe(spy);
+    render({ name: 'Soda', outOfStock: false });
+    const btn = host.querySelector('[role="button"]') as HTMLElement;
+    btn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    btn.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders the photo when an imageUrl is set', () => {
+    render({ name: 'Rice', imageUrl: 'http://example.test/rice.jpg' });
+    expect(host.querySelector('img')).toBeTruthy();
+  });
+
+  it('shows the neutral placeholder (no img) for a photo-less dish — not a blank hole', () => {
+    render({ name: 'Water', imageUrl: null });
+    expect(host.querySelector('img')).toBeNull();
+    // the photo box carries a gray fill + a placeholder glyph instead of transparency
+    expect(host.querySelector('.bg-gray-100')).toBeTruthy();
+  });
+
+  it('falls back to the placeholder when the photo URL errors', () => {
+    render({ name: 'Rice', imageUrl: 'http://example.test/broken.jpg' });
+    const img = host.querySelector('img') as HTMLImageElement;
+    expect(img).toBeTruthy();
+    img.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+    expect(component.imageFailed).toBeTrue();
+    expect(host.querySelector('img')).toBeNull();
+  });
+
+  it('resets the broken-image flag when the imageUrl input changes (reused instance)', () => {
+    render({ name: 'Rice', imageUrl: 'http://example.test/broken.jpg' });
+    (host.querySelector('img') as HTMLImageElement).dispatchEvent(new Event('error'));
+    expect(component.imageFailed).toBeTrue();
+    render({ name: 'Rice', imageUrl: 'http://example.test/good.jpg' });
+    expect(component.imageFailed).toBeFalse();
+    expect(host.querySelector('img')).toBeTruthy();
+  });
+
+  it('rests on the toned --shadow-md token (not shadow-2xl)', () => {
+    render({ name: 'X' });
+    const root = host.querySelector('[role="button"]') as HTMLElement;
+    expect(root.className).toContain('shadow-[var(--shadow-md)]');
+    expect(root.className).not.toContain('shadow-2xl');
+  });
+
+  it('renders the dish name on the dish-title token (locks the diner display role)', () => {
+    render({ name: 'X' });
+    const name = host.querySelector('h3') as HTMLElement;
+    expect(name.className).toContain('text-dish-title');
+    expect(name.className).toContain('font-display');
+    expect(name.className).not.toContain('text-[18.5px]');
+  });
+
+  it('frames the card on the rounded-card token (not an arbitrary radius)', () => {
+    render({ name: 'X' });
+    const root = host.querySelector('[role="button"]') as HTMLElement;
+    expect(root.className).toContain('rounded-card');
+    expect(root.className).not.toContain('rounded-[20px]');
+  });
 });

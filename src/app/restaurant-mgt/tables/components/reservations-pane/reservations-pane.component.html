@@ -209,7 +209,7 @@
 
 <!-- Edit Reservation Dialog -->
 <app-dn-dialog [open]="!!editingRes" (closed)="editingRes = null" maxWidth="md">
-  <h2 class="text-lg font-semibold mb-4">Edit Reservation</h2>
+  <h2 class="text-section-title mb-4">Edit Reservation</h2>
   <div class="space-y-4">
     <div class="grid grid-cols-2 gap-4">
       <div class="space-y-1.5">
@@ -264,7 +264,7 @@
 
 <!-- Cancel Reservation Confirmation -->
 <app-dn-dialog [open]="!!cancelResId" (closed)="cancelResId = null" maxWidth="sm">
-  <h2 class="text-lg font-semibold mb-2">Cancel reservation?</h2>
+  <h2 class="text-section-title mb-2">Cancel reservation?</h2>
   @if (cancelRes) {
     <p class="text-sm text-muted-foreground mb-4">
       Cancel reservation for {{ cancelRes.guest.name }} on {{ formatTime(cancelRes.dateTime) }}?
@@ -278,7 +278,7 @@
 
 <!-- Mark No-Show Confirmation -->
 <app-dn-dialog [open]="!!noShowResId" (closed)="noShowResId = null" maxWidth="sm">
-  <h2 class="text-lg font-semibold mb-2">Mark as no-show?</h2>
+  <h2 class="text-section-title mb-2">Mark as no-show?</h2>
   @if (noShowRes) {
     <p class="text-sm text-muted-foreground mb-4">
       Mark {{ noShowRes.guest.name }} as no-show?
@@ -295,7 +295,7 @@
 
 <!-- Seat from Waitlist Dialog -->
 <app-dn-dialog [open]="!!seatWaitlistEntry" (closed)="seatWaitlistEntry = null" maxWidth="sm">
-  <h2 class="text-lg font-semibold mb-1">Seat guest</h2>
+  <h2 class="text-section-title mb-1">Seat guest</h2>
   @if (seatWaitlistEntry) {
     <p class="text-sm text-muted-foreground mb-4">
       Seat {{ seatWaitlistEntry.guest.name }} (party of {{ seatWaitlistEntry.partySize }}) at:

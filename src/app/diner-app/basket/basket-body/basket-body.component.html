@@ -10,7 +10,7 @@
     <p class="text-gray-500">Your basket is empty</p>
     <p class="text-gray-400 text-sm mt-1">Why not treat yourself?</p>
     <button type="button" (click)="loc.back()"
-            class="mt-4 lg:hidden inline-flex items-center justify-center px-4 py-2 rounded-none border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+            class="mt-4 lg:hidden inline-flex items-center justify-center px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
       Browse Menu
     </button>
   </div>
@@ -25,7 +25,7 @@
   <!-- Upsell Carousel -->
   <div *ngIf="basketItems.length > 0 && upsellItems.length > 0" class="mt-4 px-4">
     <div class="mb-3">
-      <h3 class="font-bold text-base text-gray-900">
+      <h3 class="font-display font-bold text-base text-gray-900">
         {{ upsellConfig?.title || 'You might also like' }}
       </h3>
     </div>
@@ -54,7 +54,7 @@
           </div>
         </div>
         <div class="flex-1 min-w-0 px-3 flex flex-col justify-center gap-1.5">
-          <h4 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
+          <h4 class="font-display text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
             {{ item.item_name }}
           </h4>
           <div class="flex items-center justify-between gap-2">
@@ -63,8 +63,8 @@
                                  [effective]="upsellHasDiscount(item) ? upsellEffective(item) : upsellOriginal(item)"
                                  [original]="upsellHasDiscount(item) ? upsellOriginal(item) : 0"></app-price-display>
             </div>
-            <button (click)="addUpsellItem(item)"
-                    class="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-d-red text-white text-sm font-semibold hover:opacity-90 active:opacity-80 transition-opacity">
+            <button app-dn-button size="sm" (click)="addUpsellItem(item)"
+                    class="flex-shrink-0 text-sm gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 12h14"/><path d="M12 5v14"/>
@@ -113,11 +113,12 @@
 
       <!-- Thumbnail -->
       <div class="w-16 h-16 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
-        <img *ngIf="item.image"
+        <img *ngIf="item.image && !rowImageErrored[idx]"
              [src]="url + item.image"
              [alt]="item.itemName"
-             class="w-full h-full object-cover" />
-        <div *ngIf="!item.image"
+             class="w-full h-full object-cover"
+             (error)="onRowImageError(idx)" />
+        <div *ngIf="!item.image || rowImageErrored[idx]"
              class="w-full h-full flex items-center justify-center text-gray-400 text-xs">
           No img
         </div>
@@ -128,14 +129,19 @@
 
         <!-- Name + price row -->
         <div class="flex justify-between items-start">
-          <div class="flex items-center gap-2">
-            <h3 class="font-semibold text-base text-gray-900">{{ item.itemName }}</h3>
-            <!-- Edit hint -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 class="text-gray-400">
-              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
-            </svg>
+          <div class="flex items-center gap-1">
+            <h3 class="font-display font-semibold text-base text-gray-900">{{ item.itemName }}</h3>
+            <!-- Real, keyboard-focusable Edit control (the whole row is also click-to-edit for
+                 mouse, but that row div can't be a button — it contains the stepper buttons). -->
+            <button type="button" (click)="editItem(idx); $event.stopPropagation()"
+                    [attr.aria-label]="'Edit ' + item.itemName"
+                    class="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -m-2 text-gray-400 hover:text-gray-600 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true">
+                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+              </svg>
+            </button>
           </div>
           <div class="text-right flex-shrink-0 ml-2">
             <app-price-display size="sm"
@@ -179,19 +185,19 @@
         <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
           <div class="flex items-center gap-2" (click)="$event.stopPropagation()">
             <!-- Minus -->
-            <button (click)="decrementItem(idx)"
-                    class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
+            <button (click)="decrementItem(idx)" aria-label="Decrease quantity"
+                    class="inline-flex items-center justify-center w-11 h-11 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M5 12h14"/>
               </svg>
             </button>
             <span class="w-6 text-center font-semibold text-sm tabular-nums">{{ item.quantity }}</span>
             <!-- Plus -->
-            <button (click)="incrementItem(idx)"
-                    class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors">
+            <button (click)="incrementItem(idx)" aria-label="Increase quantity"
+                    class="inline-flex items-center justify-center w-11 h-11 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M5 12h14"/><path d="M12 5v14"/>
               </svg>
             </button>
@@ -252,8 +258,7 @@
        Retry) until it is served. The reason is shown by the ongoing-order card
        at the top of the basket, so the footer is just the disabled button. -->
   <ng-container *ngIf="tableHasOngoingOrder; else placementCta">
-    <button type="button" disabled
-            class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base opacity-60 cursor-not-allowed">
+    <button app-dn-button variant="cta" type="button" [disabled]="true" class="w-full">
       Checkout unavailable
     </button>
   </ng-container>
@@ -263,12 +268,10 @@
     <p *ngIf="orderError" class="mb-2 text-sm text-red-600 text-center" role="alert">
       {{ orderErrorMessage }}
     </p>
-    <button *ngIf="!orderError" (click)="initiateOrder()" [disabled]="placingOrder"
-            class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">
+    <button *ngIf="!orderError" app-dn-button variant="cta" (click)="initiateOrder()" [loading]="placingOrder" class="w-full">
       Checkout — UGX {{ totalAmount | number }}
     </button>
-    <button *ngIf="orderError" (click)="retryOrder()" [disabled]="placingOrder"
-            class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3.5 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">
+    <button *ngIf="orderError" app-dn-button variant="cta" (click)="retryOrder()" [loading]="placingOrder" class="w-full">
       Retry
     </button>
   </ng-template>
@@ -280,7 +283,7 @@
      (click)="cancelPartialOrder()">
   <div class="w-full max-w-md bg-white rounded-xl shadow-xl p-5 max-h-[80vh] overflow-y-auto"
        (click)="$event.stopPropagation()">
-    <h3 class="text-lg font-bold text-gray-900">Some items are no longer available</h3>
+    <h3 class="font-display text-lg font-bold text-gray-900">Some items are no longer available</h3>
     <p class="text-sm text-gray-500 mt-1">
       These sold out or were removed since you added them. Place your order without them, or go back.
     </p>
@@ -305,8 +308,7 @@
     </div>
 
     <div class="mt-4 space-y-2">
-      <button type="button" (click)="confirmPartialOrder()"
-              class="w-full inline-flex items-center justify-center gap-2 bg-d-red text-white rounded-xl py-3 px-4 font-semibold text-base shadow-glow desktop-hover:shadow-glow-lg transition-[box-shadow,transform] duration-200 motion-safe:active:scale-[0.99]">
+      <button type="button" app-dn-button variant="cta" (click)="confirmPartialOrder()" class="w-full">
         Place order — UGX {{ reviewedTotal | number }}
       </button>
       <button type="button" (click)="cancelPartialOrder()"

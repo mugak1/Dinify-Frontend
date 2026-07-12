@@ -34,6 +34,7 @@ import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.co
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { DinersCompositionComponent } from './diners-composition.component';
 import { DinersLeaderboardComponent } from './diners-leaderboard.component';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 
 const EXPORT_COLUMNS: ReportColumn[] = [
   { key: 'name', label: 'Diner', format: 'text', align: 'left' },
@@ -59,6 +60,7 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
   standalone: true,
   imports: [
     CommonModule,
+    PageHeaderComponent,
     CardComponent,
     ReportStateComponent,
     ReportExportBarComponent,

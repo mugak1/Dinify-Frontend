@@ -6,7 +6,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
   standalone: true,
   imports: [CardComponent],
   template: `
-    <app-dn-card>
+    <app-dn-card [square]="square">
       @switch (variant) {
         @case ('compact') {
           <div class="p-4">
@@ -29,7 +29,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
           </div>
         }
         @case ('wide') {
-          <div class="p-6">
+          <div class="p-4 sm:p-6">
             <!-- Header -->
             <div class="flex items-start justify-between mb-4">
               <div class="flex-1">
@@ -52,7 +52,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
           </div>
         }
         @default {
-          <div class="p-6">
+          <div class="p-4 sm:p-6">
             <!-- Header -->
             <div class="flex items-start justify-between mb-4">
               <div class="flex-1">
@@ -80,4 +80,5 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
 })
 export class CardSkeletonComponent {
   @Input() variant: 'default' | 'compact' | 'wide' = 'default';
+  @Input() square = false;
 }

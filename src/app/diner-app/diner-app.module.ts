@@ -28,7 +28,8 @@ import { ModifierGroupsSelectorComponent } from '../_shared/ui/modifier-groups-s
 import { ExtrasSelectorComponent } from '../_shared/ui/extras-selector/extras-selector.component';
 import { StarRatingComponent } from './order-complete/star-rating.component';
 import { OngoingOrderBannerComponent } from './ongoing-order-banner/ongoing-order-banner.component';
-import { LucideAngularModule } from 'lucide-angular';
+import { ButtonComponent } from '../_shared/ui/button/button.component';
+import { AllergenDisclaimerComponent } from '../_shared/ui/allergen-disclaimer/allergen-disclaimer.component';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
@@ -75,10 +76,8 @@ const routes: Routes = [
     ExtrasSelectorComponent,
     StarRatingComponent,
     OngoingOrderBannerComponent,
-    // Category icons on the order-complete review screen (utensils/zap/user/
-    // dollar-sign/trash-2) bind via [img]. Deliberate, owner-approved exception to
-    // the "no new lucide-angular" rule (otherwise confined to dinify-mgt).
-    LucideAngularModule
+    ButtonComponent,
+    AllergenDisclaimerComponent
 ],
   exports:[
     RouterModule,

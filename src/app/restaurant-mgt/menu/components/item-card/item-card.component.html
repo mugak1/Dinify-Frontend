@@ -57,7 +57,7 @@
 
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
-            <h3 class="font-display font-bold text-[18.5px] truncate" [title]="item.name">{{ item.name }}</h3>
+            <h3 class="font-display font-bold text-dish-title truncate" [title]="item.name">{{ item.name }}</h3>
 
             <!-- Featured badge pill -->
             <span *ngIf="item.is_featured"
@@ -96,12 +96,20 @@
               Sold out
             </span>
 
+            <!-- Hidden badge — muted (NOT red) so it reads as a distinct axis from
+                 Sold out; the two can co-occur (an item can be both hidden and
+                 out of stock). Was previously only signalled by an unexplained dim. -->
+            <span *ngIf="!item.available"
+                  class="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded-full inline-flex items-center">
+              Hidden
+            </span>
+
             <!-- Discount badge -->
             <app-dn-badge *ngIf="hasDiscount" variant="success">{{ discountBadgeText }}</app-dn-badge>
           </div>
 
           <p *ngIf="item.description"
-             class="text-[13.5px] leading-[1.45] text-muted-foreground line-clamp-2 mt-1">{{ item.description }}</p>
+             class="text-body text-muted-foreground line-clamp-2 mt-1">{{ item.description }}</p>
         </div>
 
         <!-- Right-side inline actions. w-full <sm makes the cluster take its own
@@ -216,9 +224,12 @@
               </div>
             </div>
 
-            <!-- Availability switch -->
+            <!-- Availability switch (toggles `available` = shown/hidden on the menu).
+                 Carries an explicit name + tooltip — it renders no visible label. -->
             <app-dn-switch
               [checked]="item.available"
+              [ariaLabel]="item.available ? 'Item is visible on the menu' : 'Item is hidden from the menu'"
+              [appTooltip]="item.available ? 'Visible on menu' : 'Hidden from menu'"
               (checkedChange)="toggleAvailability.emit({ id: item.id, available: $event })">
             </app-dn-switch>
           </div>

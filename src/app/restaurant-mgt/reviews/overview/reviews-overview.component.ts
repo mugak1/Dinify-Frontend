@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
 import { switchMap, tap, takeUntil, catchError } from 'rxjs/operators';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
+import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 import { CardErrorComponent } from '../../dashboard/components/card-error/card-error.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ReviewsService } from '../services/reviews.service';
@@ -23,20 +24,13 @@ type TimeframeDays = 30 | 90;
 @Component({
   selector: 'app-reviews-overview',
   standalone: true,
-  imports: [CommonModule, RouterModule, CardComponent, CardErrorComponent, BaseChartDirective],
+  imports: [CommonModule, RouterModule, PageHeaderComponent, CardComponent, CardErrorComponent, BaseChartDirective],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header + timeframe toggle (always visible) -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Reviews</h1>
+      <app-page-header title="Reviews">
         <!-- Persistent feed entry + timeframe toggle, grouped on the right -->
-        <div class="flex items-center gap-3 self-start">
-          <a
-            routerLink="/rest-app/reviews/feed"
-            class="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
-          >
-            View all reviews <span aria-hidden="true">→</span>
-          </a>
+        <div actions class="flex items-center gap-3 self-start">
           <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60">
             @for (days of timeframeOptions; track days) {
               <button
@@ -51,8 +45,28 @@ type TimeframeDays = 30 | 90;
               </button>
             }
           </div>
+          <!-- Primary-action slot: solid brand-red CTA to the full reviews feed -->
+          <a
+            routerLink="/rest-app/reviews/feed"
+            class="inline-flex items-center gap-2 h-[42px] px-5 rounded-md bg-d-red text-white text-[15px] font-semibold whitespace-nowrap shadow-[0_1px_2px_rgba(255,44,50,0.28),0_8px_20px_-8px_rgba(255,44,50,0.5)] transition-[background-color,box-shadow,transform] duration-200 desktop-hover:bg-d-red-hover desktop-hover:-translate-y-px motion-safe:active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-d-red focus-visible:ring-offset-2"
+          >
+            View all reviews
+            <svg
+              aria-hidden="true"
+              class="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </a>
         </div>
-      </div>
+      </app-page-header>
 
       @if (loading) {
         <!-- Skeleton (shaped to the layout: summary, 5 dimension rows, strip) -->
@@ -80,7 +94,7 @@ type TimeframeDays = 30 | 90;
       } @else if (!analytics || analytics.totalReviews === 0) {
         <!-- Friendly empty state -->
         <app-dn-card>
-          <div class="flex flex-col items-center justify-center text-center min-h-[240px] p-6">
+          <div class="flex flex-col items-center justify-center text-center min-h-[240px] p-4 sm:p-6">
             <svg
               aria-hidden="true"
               class="w-10 h-10 text-muted-foreground/40 mb-3"
@@ -161,7 +175,7 @@ type TimeframeDays = 30 | 90;
         <!-- 3. Dimension-breakdown hero (centerpiece) -->
         <app-dn-card>
           <div class="p-4 sm:p-6">
-            <h2 class="text-base sm:text-lg font-bold text-foreground mb-1">How diners rate you</h2>
+            <h2 class="text-card-title text-foreground mb-1">How diners rate you</h2>
             <p class="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
               Average score per dimension, out of 5.
             </p>
@@ -217,7 +231,7 @@ type TimeframeDays = 30 | 90;
         <!-- 5. Rating trend (deepest health read) -->
         <app-dn-card>
           <div class="p-4 sm:p-6">
-            <h2 class="text-sm sm:text-base font-semibold text-foreground mb-1">Rating trend</h2>
+            <h2 class="text-card-title text-foreground mb-1">Rating trend</h2>
             @if (analytics.trend.length >= 2) {
               <div class="h-48 sm:h-64 mt-3 sm:mt-4">
                 <canvas

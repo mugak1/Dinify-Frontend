@@ -14,8 +14,9 @@ const BEST = 'hsl(142, 71%, 45%)';
  * Revenue trend (bucket-driven, line). The x-axis IS the bucket — it redraws
  * hourly / daily / monthly as the timeframe changes. Shaped CLIENT-SIDE from the
  * normalized series (no result=graph call). Overlays: a dashed GHOST of the
- * comparison window (aligned by bucket index), a dashed AVERAGE reference line,
- * and a marker on the best bucket.
+ * comparison window (aligned by bucket index) and a marker on the best bucket.
+ * The daily average is surfaced as a "Daily avg" stat chip in the card header
+ * (it is no longer drawn as a chart line).
  */
 @Component({
   selector: 'app-revenue-trend-card',
@@ -23,14 +24,23 @@ const BEST = 'hsl(142, 71%, 45%)';
   imports: [CommonModule, CardComponent, BaseChartDirective],
   template: `
     <app-dn-card class="block">
-      <div class="p-4 sm:p-5">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center justify-between gap-3 mb-1">
-          <h2 class="text-base font-semibold text-gray-900">Revenue trend</h2>
-          <div class="flex items-center gap-3 text-xs text-gray-500">
-            <span class="inline-flex items-center gap-1"><span class="w-3 h-0.5 rounded" [style.background]="brand"></span>This period</span>
-            @if (compareEnabled && comparisonPoints.length) {
-              <span class="inline-flex items-center gap-1"><span class="w-3 border-t border-dashed border-gray-400"></span>{{ comparisonLabel }}</span>
+          <h2 class="text-card-title text-foreground">Revenue trend</h2>
+          <div class="flex flex-col items-end gap-1">
+            @if (points.length) {
+              <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-500">
+                <span class="w-3 border-t border-dotted border-gray-400"></span>
+                Daily avg
+                <span class="text-gray-900 font-semibold">{{ dailyAvgLabel }}</span>
+              </span>
             }
+            <div class="flex items-center gap-3 text-xs text-gray-500">
+              <span class="inline-flex items-center gap-1"><span class="w-3 h-0.5 rounded" [style.background]="brand"></span>This period</span>
+              @if (compareEnabled && comparisonPoints.length) {
+                <span class="inline-flex items-center gap-1"><span class="w-3 border-t border-dashed border-gray-400"></span>{{ comparisonLabel }}</span>
+              }
+            </div>
           </div>
         </div>
 
@@ -60,6 +70,8 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
   @Input() compareEnabled = true;
 
   readonly brand = BRAND;
+  /** Daily average, formatted as millions for the header chip (e.g. "UGX 2.93M"). */
+  dailyAvgLabel = 'UGX 0.00M';
   data: ChartData<'line'> = { labels: [], datasets: [] };
   options!: ChartOptions<'line'>;
 
@@ -75,6 +87,7 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
     // Compare off → empty ghost series so the dashed comparison line draws nothing.
     const ghost = (this.compareEnabled ? this.comparisonPoints : []).map((p) => p.revenue);
     const avg = main.length ? main.reduce((a, b) => a + b, 0) / main.length : 0;
+    this.dailyAvgLabel = 'UGX ' + (avg / 1e6).toFixed(2) + 'M';
 
     const best = bestPoint(this.points);
     const bestIdx = best ? this.points.findIndex((p) => p.key === best.key) : -1;
@@ -93,16 +106,6 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
     this.data = {
       labels,
       datasets: [
-        {
-          label: 'Average',
-          data: labels.map(() => avg),
-          borderColor: resolveHsl(this.host.nativeElement, '--muted-foreground', 'hsl(0 0% 38%)'),
-          borderWidth: 1,
-          borderDash: [3, 3],
-          pointRadius: 0,
-          fill: false,
-          tension: 0,
-        },
         {
           label: this.comparisonLabel,
           data: ghost,

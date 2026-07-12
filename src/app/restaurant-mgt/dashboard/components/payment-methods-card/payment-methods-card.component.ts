@@ -34,12 +34,12 @@ const METHOD_COLORS: Record<string, string> = {
   imports: [CommonModule, CardComponent, CardSkeletonComponent, AnimatedNumberComponent],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="compact"></app-card-skeleton>
+      <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>
     } @else if (!paymentMethods || total === 0) {
-      <app-dn-card [fullHeight]="true">
-        <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
+      <app-dn-card [fullHeight]="true" [square]="true">
+        <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <div class="mb-1">
-            <h2 class="text-sm sm:text-base font-bold text-foreground">Payment Methods (UGX)</h2>
+            <h2 class="text-card-title text-foreground">Payment Methods (UGX)</h2>
             <p class="text-[10px] sm:text-xs text-muted-foreground">Share of payments in selected period</p>
           </div>
           <hr class="border-border mb-3 sm:mb-4" />
@@ -49,11 +49,11 @@ const METHOD_COLORS: Record<string, string> = {
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card [fullHeight]="true">
-        <div class="p-4 sm:p-5 h-full flex flex-col overflow-hidden">
+      <app-dn-card [fullHeight]="true" [square]="true">
+        <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <!-- Header -->
           <div class="mb-1">
-            <h2 class="text-sm sm:text-base font-bold text-foreground">Payment Methods (UGX)</h2>
+            <h2 class="text-card-title text-foreground">Payment Methods (UGX)</h2>
             <p class="text-[10px] sm:text-xs text-muted-foreground">Share of payments in selected period</p>
             <p class="text-[10px] sm:text-xs text-muted-foreground/80 mt-0.5">
               Total settled: <span class="font-medium text-foreground">{{ totalCompact }} UGX</span>

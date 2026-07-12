@@ -14,6 +14,7 @@ import { CreateEmployeeResponse, EmployeeListUser } from 'src/app/_models/app.mo
 import { ApiService } from 'src/app/_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
+import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import {
   ASSIGNABLE_ROLES,
   isAssignableRole,
@@ -48,6 +49,7 @@ interface RoleOption {
     CommonModule,
     ReactiveFormsModule,
     DialogComponent,
+    ButtonComponent,
     DinifyPhoneInputComponent,
   ],
   templateUrl: './staff-form-dialog.component.html',

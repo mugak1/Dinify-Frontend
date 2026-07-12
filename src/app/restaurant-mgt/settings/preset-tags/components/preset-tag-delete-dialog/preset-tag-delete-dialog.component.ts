@@ -1,13 +1,14 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
+import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import { RestaurantTag } from 'src/app/_models/app.models';
 
 @Component({
   selector: 'app-preset-tag-delete-dialog',
   standalone: true,
-  imports: [CommonModule, DialogComponent, TagPillComponent],
+  imports: [CommonModule, DialogComponent, TagPillComponent, ButtonComponent],
   templateUrl: './preset-tag-delete-dialog.component.html',
 })
 export class PresetTagDeleteDialogComponent {

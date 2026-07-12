@@ -19,7 +19,7 @@
           <app-settings-icon [name]="icon" class="shrink-0 mt-0.5 w-6 h-6 text-primary"></app-settings-icon>
         }
         <div class="min-w-0">
-          <h1 class="text-lg font-semibold text-gray-900 truncate">{{ title }}</h1>
+          <h1 class="text-2xl font-bold text-foreground truncate">{{ title }}</h1>
           @if (description) {
             <p class="text-sm text-gray-500 mt-1">{{ description }}</p>
           }
@@ -74,7 +74,7 @@
               <app-settings-icon [name]="icon" class="w-6 h-6"></app-settings-icon>
             </span>
           }
-          <h2 class="text-base font-semibold text-gray-900">{{ emptyTitle }}</h2>
+          <h2 class="text-base font-semibold text-foreground">{{ emptyTitle }}</h2>
           @if (emptyMessage) {
             <p class="text-sm text-gray-500 mt-1 max-w-sm mx-auto">{{ emptyMessage }}</p>
           }

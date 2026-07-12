@@ -8,9 +8,9 @@
           </span>
         }
         <h3
-          class="text-base font-semibold"
+          class="text-section-title"
           [class.text-red-700]="isAllergenInUse"
-          [class.text-gray-900]="!isAllergenInUse"
+          [class.text-foreground]="!isAllergenInUse"
         >{{ title }}</h3>
       </div>
 
@@ -39,16 +39,8 @@
       }
 
       <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-        <button
-          type="button"
-          class="px-3 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-          (click)="onCancel()"
-        >Cancel</button>
-        <button
-          type="button"
-          [class]="'px-3 py-2 text-sm rounded text-white ' + (isAllergenInUse ? 'bg-red-700 hover:bg-red-800' : 'bg-d-red hover:bg-red-800')"
-          (click)="onConfirm()"
-        >Delete tag</button>
+        <button app-dn-button variant="outline" type="button" (click)="onCancel()">Cancel</button>
+        <button app-dn-button variant="destructive" type="button" (click)="onConfirm()">Delete tag</button>
       </div>
     </div>
   }

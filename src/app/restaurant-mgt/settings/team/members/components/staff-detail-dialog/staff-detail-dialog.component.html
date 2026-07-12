@@ -2,7 +2,7 @@
   @if (staff) {
     <div class="space-y-4">
       <div class="flex items-start justify-between gap-3">
-        <h3 class="text-base font-semibold text-gray-900">Staff details</h3>
+        <h3 class="text-section-title text-foreground">Staff details</h3>
         <button
           type="button"
           class="text-gray-400 hover:text-gray-700 p-1 -mr-1 -mt-1 rounded"
@@ -50,11 +50,7 @@
       </dl>
 
       <div class="flex items-center justify-end pt-2 border-t border-gray-100">
-        <button
-          type="button"
-          class="px-3 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-          (click)="onClose()"
-        >Close</button>
+        <button type="button" app-dn-button variant="outline" (click)="onClose()">Close</button>
       </div>
     </div>
   }

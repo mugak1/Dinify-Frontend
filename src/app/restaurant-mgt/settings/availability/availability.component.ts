@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
   AbstractControl,
   FormBuilder,
@@ -66,7 +67,7 @@ function closeAfterOpen(group: AbstractControl): ValidationErrors | null {
   ],
   templateUrl: './availability.component.html',
 })
-export class AvailabilityComponent implements OnInit {
+export class AvailabilityComponent implements OnInit, HasUnsavedChanges {
   loadState: SectionPageState = 'loading';
   saving = false;
 

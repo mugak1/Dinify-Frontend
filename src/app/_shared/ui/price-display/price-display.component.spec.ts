@@ -42,10 +42,10 @@ describe('PriceDisplayComponent', () => {
     const effective = root.firstElementChild as HTMLElement;
     expect(effective.className).toContain('font-display');
     expect(effective.className).toContain('font-extrabold');
-    expect(effective.className).toContain('text-[18.5px]');
+    expect(effective.className).toContain('text-dish-title');
     expect(effective.className).toContain('text-d-red');
     const struck = root.querySelector('.line-through') as HTMLElement;
-    expect(struck.className).toContain('text-[13.5px]');
+    expect(struck.className).toContain('text-body');
   });
 
   it('tone="neutral" renders a neutral (gray-900) effective price; the default stays red', () => {

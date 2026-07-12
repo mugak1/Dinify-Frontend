@@ -34,17 +34,17 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
   ],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="default"></app-card-skeleton>
+      <app-card-skeleton variant="default" [square]="true"></app-card-skeleton>
     } @else if (error) {
-      <app-card-error title="Revenue" [message]="error" (retry)="retry.emit()"></app-card-error>
+      <app-card-error title="Revenue" [message]="error" [square]="true" (retry)="retry.emit()"></app-card-error>
     } @else if (revenueData) {
-      <app-dn-card>
+      <app-dn-card [square]="true">
         <div class="p-4 sm:p-6">
           <!-- Header -->
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
-                <h2 class="text-base sm:text-lg font-bold text-foreground">Revenue (UGX)</h2>
+                <h2 class="text-card-title text-foreground">Revenue (UGX)</h2>
                 <a
                   routerLink="/rest-app/reports"
                   class="text-xs sm:text-sm text-primary hover:underline flex items-center gap-1 sm:hidden whitespace-nowrap"
@@ -184,10 +184,10 @@ export class RevenueCardComponent implements OnChanges {
     const gradientBg = (ctx: any) => {
       const chart = ctx.chart;
       const { ctx: canvasCtx, chartArea } = chart;
-      if (!chartArea) return 'rgba(34,197,94,0)';
+      if (!chartArea) return 'rgba(0,0,0,0)';
       const gradient = canvasCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-      gradient.addColorStop(0, 'hsla(142, 76%, 36%, 0.3)');
-      gradient.addColorStop(1, 'hsla(142, 76%, 36%, 0)');
+      gradient.addColorStop(0, 'hsla(0, 0%, 9%, 0.3)');
+      gradient.addColorStop(1, 'hsla(0, 0%, 9%, 0)');
       return gradient;
     };
 
@@ -198,12 +198,12 @@ export class RevenueCardComponent implements OnChanges {
           data: netValues,
           fill: true,
           tension: 0.4,
-          borderColor: 'hsl(142, 76%, 36%)',
+          borderColor: 'hsl(0 0% 9%)',
           borderWidth: 2,
           backgroundColor: gradientBg as any,
           pointRadius: 0,
           pointHoverRadius: 5,
-          pointHoverBackgroundColor: 'hsl(142, 76%, 36%)',
+          pointHoverBackgroundColor: 'hsl(0 0% 9%)',
         },
       ],
     };

@@ -8,7 +8,7 @@
       <!-- Header -->
       <div class="p-4 border-b">
         <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold">{{ tableIds.length }} Tables Selected</h2>
+          <h2 class="text-section-title">{{ tableIds.length }} Tables Selected</h2>
           <button
             class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
             (click)="onClose()"
@@ -50,7 +50,7 @@
       <div class="p-4 border-b">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-lg font-semibold">{{ tableName }}</h2>
+            <h2 class="text-section-title">{{ tableName }}</h2>
             @if (area) {
               <span class="text-xs text-muted-foreground">{{ area.name }}</span>
             }
@@ -250,7 +250,7 @@
 
 <!-- Merge confirmation -->
 <app-dn-dialog [open]="showMergeConfirm" (closed)="showMergeConfirm = false" maxWidth="sm">
-  <h2 class="text-lg font-semibold mb-2">Merge tables?</h2>
+  <h2 class="text-section-title mb-2">Merge tables?</h2>
   <p class="text-sm text-muted-foreground mb-2">
     Tables {{ mergeTableNumbers }} will be merged. Table {{ primaryTableNumber }} will be the primary table.
   </p>
@@ -266,7 +266,7 @@
 <!-- Full Order Modal -->
 <app-dn-dialog [open]="showOrderModal" (closed)="showOrderModal = false" maxWidth="md">
   @if (table && party) {
-    <h2 class="text-lg font-semibold mb-1">{{ tableName }} — Full Order</h2>
+    <h2 class="text-section-title mb-1">{{ tableName }} — Full Order</h2>
     <p class="text-xs text-muted-foreground mb-4">
       @if (seatedTime !== null) { Seated {{ seatedTime }} min ago &middot; }
       Party of {{ party.partySize }}
@@ -293,7 +293,7 @@
 
 <!-- Off-System Payment Dialog -->
 <app-dn-dialog [open]="showOffSystemDialog" (closed)="showOffSystemDialog = false" maxWidth="sm">
-  <h2 class="text-lg font-semibold mb-4">Off-System Payment</h2>
+  <h2 class="text-section-title mb-4">Off-System Payment</h2>
   <div class="space-y-4">
     <div class="space-y-1.5">
       <label class="text-sm font-medium">Payment Method</label>
@@ -317,7 +317,7 @@
 
 <!-- Add to Waitlist Dialog -->
 <app-dn-dialog [open]="showWaitlistDialog" (closed)="showWaitlistDialog = false" maxWidth="sm">
-  <h2 class="text-lg font-semibold mb-4">Add to Waitlist</h2>
+  <h2 class="text-section-title mb-4">Add to Waitlist</h2>
   <div class="space-y-4">
     <div class="space-y-1.5">
       <label class="text-sm font-medium">Guest Name *</label>
@@ -350,7 +350,7 @@
 
 <!-- Change Server Dialog -->
 <app-dn-dialog [open]="showServerDialog" (closed)="showServerDialog = false" maxWidth="sm">
-  <h2 class="text-lg font-semibold mb-4">Change Server</h2>
+  <h2 class="text-section-title mb-4">Change Server</h2>
   <div class="space-y-2">
     @for (srv of servers; track srv.id) {
       <button
@@ -375,7 +375,7 @@
 
 <!-- Add Note Dialog -->
 <app-dn-dialog [open]="showNoteDialog" (closed)="showNoteDialog = false" maxWidth="sm">
-  <h2 class="text-lg font-semibold mb-4">Add Note</h2>
+  <h2 class="text-section-title mb-4">Add Note</h2>
   <textarea
     [(ngModel)]="noteText"
     rows="4"
