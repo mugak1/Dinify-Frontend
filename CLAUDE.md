@@ -71,7 +71,10 @@ so keep it current when conventions change.
   redirect ALWAYS lands on this computed module — it no longer honors a `returnUrl`
   deep link, and neither the `AuthGuard` nor the inactivity logout captures one, so
   re-authenticating (manual sign-out OR the 15-min idle timeout) never resumes the
-  last-visited module
+  last-visited module. The restaurant portal sidebar now ALSO surfaces a
+  **Kitchen** entry (route `/kitchen`, gated on the `kitchen` module —
+  owner/manager/kitchen see it, `restaurant_staff` does not), so back-office
+  staff reach the board from portal nav, not only via the login auto-redirect
 - Support: ✅ real-wired — the restaurant Support page (`support/`) reads/writes
   the `support/issues/` API; the Dinify-admin triage screen
   (`dinify-mgt/mgt-support`) is wired against `support/admin/issues/`.
@@ -98,7 +101,11 @@ so keep it current when conventions change.
   `AccountSecurityComponent`), and Preset tags (`settings/preset-tags`,
   `PresetTagsComponent`). Shared section chrome lives in `settings/components/`
   (`SectionPageComponent`, `SettingsIconComponent`); the old monolithic
-  `SettingsComponent` is gone
+  `SettingsComponent` is gone. The form-owning section pages (Restaurant identity,
+  Availability, Tax & receipts, Account & security) implement `HasUnsavedChanges`
+  and are protected by the shared route-level `unsavedChangesGuard`
+  (`_helpers/unsaved-changes.guard.ts`, a `CanDeactivate` guard that prompts before
+  navigating away with unsaved edits)
 - My account page: ✅ a standalone, read-only personal profile page (route
   `account` → `AccountComponent`, title "My account") showing the signed-in
   user's Name / Email / Phone / Role / Restaurant plus a Sign-out button. It is
@@ -223,14 +230,26 @@ The module uses a deliberate mixed pattern — follow it exactly:
 ## Shared UI Component Library
 A shared component library lives in `src/app/_shared/ui/`:
 allergen-disclaimer, avatar (`app-dn-avatar`, initials-in-a-circle), badge,
-button, card, dialog, discount-badge, extras-selector, featured-carousel,
-menu-dish-card, modifier-groups-selector,
-offline-banner, price-display, savings-indicator, sheet, switch (`app-dn-switch`;
-supports a `disabled` input for
-locked toggles, e.g. the Roles & access owner row), tabs, toast — plus the `tooltip` directive
-(`[appTooltip]`, not a component), the `SafeArrayPipe`, and the `HighlightPipe`
-(search-term highlighting). The `toast/` folder also exports the injectable
-`ToastService` (the app-wide toast queue), re-exported from the barrel.
+button (`app-dn-button`), card, dialog, discount-badge, extras-selector,
+featured-carousel, menu-dish-card, modifier-groups-selector, offline-banner,
+page-header (`app-page-header`), price-display, savings-indicator,
+segmented (`app-dn-segmented`), sheet, switch (`app-dn-switch`; supports a
+`disabled` input for locked toggles, e.g. the Roles & access owner row), toast —
+plus the `tooltip` directive (`[appTooltip]`, not a component), the
+`SafeArrayPipe`, and the `HighlightPipe` (search-term highlighting). The
+`toast/` folder also exports the injectable `ToastService` (the app-wide toast
+queue), re-exported from the barrel.
+
+`app-dn-segmented` is the single shared segmented / tab control — it REPLACED
+the deleted `dn-tabs` component (do not reintroduce a `tabs` component). It runs
+in two modes: `mode="value"` (the default — emits the picked value; used for
+in-page toggles like the dashboard card sort switches and the item-form tabs)
+and `mode="router"` (each segment is a `routerLink`, for route-driven rails like
+the Reports shell). `app-page-header` is the shared portal page-title block (its
+Gabarito heading comes from the `app-restaurant-mgt h1` selector, plus an
+optional subtitle and a right-aligned actions slot) — reuse it for portal page
+titles instead of hand-rolling an `<h1>`. All portal buttons/CTAs are unified on
+`app-dn-button` (selector `app-dn-button, button[app-dn-button]`).
 
 The diner price surfaces share a presentational trio (all in `_shared/ui/`,
 re-exported from the barrel): `app-price-display` (bold brand-red effective price
