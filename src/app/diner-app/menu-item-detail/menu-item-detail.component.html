@@ -211,43 +211,49 @@
     </div>
 
     <!-- Footer: quantity + Add button -->
-    <div class="flex-shrink-0 sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3 space-y-3">
-      <div class="flex items-center justify-center gap-4">
-        <button type="button"
-                [disabled]="quantity() <= 1"
-                (click)="decrementQuantity()"
-                aria-label="Decrease quantity"
-                class="inline-flex items-center justify-center h-11 w-11 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
+    <div class="flex-shrink-0 sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3">
+      <!-- Centring wrapper: caps the stepper + CTA at the same max-width as the
+           single-column content (max-w-2xl) and centres both on the content axis, so the
+           CTA's edges line up with the hero image's edges at lg:+. Below the cap the
+           mx-auto is a no-op and both children stay full-width (mobile unchanged). -->
+      <div class="mx-auto flex w-full max-w-2xl flex-col gap-3">
+        <div class="flex items-center justify-center gap-4">
+          <button type="button"
+                  [disabled]="quantity() <= 1"
+                  (click)="decrementQuantity()"
+                  aria-label="Decrease quantity"
+                  class="inline-flex items-center justify-center h-11 w-11 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14"/>
+            </svg>
+          </button>
+          <span class="w-10 text-center font-bold text-lg tabular-nums" aria-live="polite" aria-label="Quantity: {{ quantity() }}">{{ quantity() }}</span>
+          <button type="button"
+                  (click)="incrementQuantity()"
+                  aria-label="Increase quantity"
+                  class="inline-flex items-center justify-center h-11 w-11 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14"/><path d="M12 5v14"/>
+            </svg>
+          </button>
+        </div>
+
+        <button app-dn-button variant="cta"
+                [disabled]="isOutOfStock(it)"
+                (click)="addToBasket()"
+                type="button"
+                class="w-full disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:opacity-100">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14"/>
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
+            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
           </svg>
-        </button>
-        <span class="w-10 text-center font-bold text-lg tabular-nums" aria-live="polite" aria-label="Quantity: {{ quantity() }}">{{ quantity() }}</span>
-        <button type="button"
-                (click)="incrementQuantity()"
-                aria-label="Increase quantity"
-                class="inline-flex items-center justify-center h-11 w-11 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14"/><path d="M12 5v14"/>
-          </svg>
+          <ng-container *ngIf="isOutOfStock(it); else addCta">Sold out</ng-container>
+          <ng-template #addCta>{{ isEditMode() ? 'Save changes' : 'Add' }} — UGX {{ computedItemTotal | number }}</ng-template>
         </button>
       </div>
-
-      <button app-dn-button variant="cta"
-              [disabled]="isOutOfStock(it)"
-              (click)="addToBasket()"
-              type="button"
-              class="w-full lg:max-w-2xl lg:mx-auto disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:opacity-100">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
-          <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
-        </svg>
-        <ng-container *ngIf="isOutOfStock(it); else addCta">Sold out</ng-container>
-        <ng-template #addCta>{{ isEditMode() ? 'Save changes' : 'Add' }} — UGX {{ computedItemTotal | number }}</ng-template>
-      </button>
     </div>
 
   }
