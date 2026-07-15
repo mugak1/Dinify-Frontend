@@ -36,6 +36,8 @@ describe('SoldOutPanelComponent', () => {
       userValue: {
         profile: { restaurant_roles: [{ restaurant_id: 'r1', restaurant: 'R', roles: ['kitchen'] }] },
       },
+      // Login-selected membership: the kitchen stock service scopes to this (rest_role).
+      currentRestaurantRole: { restaurant_id: 'r1', restaurant: 'R', roles: ['kitchen'] },
     };
 
     await TestBed.configureTestingModule({

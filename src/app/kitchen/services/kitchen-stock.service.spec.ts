@@ -18,7 +18,7 @@ function items(): KitchenMenuItem[] {
 describe('KitchenStockService', () => {
   let service: KitchenStockService;
   let apiStub: { get: jasmine.Spy; postPatch: jasmine.Spy };
-  let authStub: { userValue: any };
+  let authStub: { userValue: any; currentRestaurantRole: any };
 
   /** Menu-items envelope wrapping a fresh set. */
   function freshItems() {
@@ -34,6 +34,9 @@ describe('KitchenStockService', () => {
       userValue: {
         profile: { restaurant_roles: [{ restaurant_id: 'r1', restaurant: 'R', roles: ['kitchen'] }] },
       },
+      // The login-selected membership (rest_role) — the item list scopes to THIS,
+      // not restaurant_roles[0]. Default: the single-membership case (selection == [0]).
+      currentRestaurantRole: { restaurant_id: 'r1', restaurant: 'R', roles: ['kitchen'] },
     };
     TestBed.configureTestingModule({
       providers: [
@@ -109,6 +112,42 @@ describe('KitchenStockService', () => {
       service.loadItems();
       service.toggleStock('nope', false);
       expect(apiStub.postPatch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── TENANT-P3-05 regression ────────────────────────────────────────────
+  // The item list must scope to the login-SELECTED membership (currentRestaurantRole,
+  // backed by rest_role), NOT restaurant_roles[0] — mirrors KitchenOrderService, so a
+  // multi-restaurant user's sold-out panel tracks the restaurant they chose at login.
+  describe('restaurant scope honours the login-selected membership', () => {
+    /** Two memberships; the user selected the SECOND (r2) at login. */
+    function selectSecondMembership(): void {
+      authStub.userValue.profile.restaurant_roles = [
+        { restaurant_id: 'r1', restaurant: 'First', roles: ['kitchen'] },
+        { restaurant_id: 'r2', restaurant: 'Second', roles: ['kitchen'] },
+      ];
+      authStub.currentRestaurantRole =
+        { restaurant_id: 'r2', restaurant: 'Second', roles: ['kitchen'] };
+    }
+
+    it('scopes loadItems to the selected (second) restaurant, not restaurant_roles[0]', () => {
+      selectSecondMembership();
+      service.loadItems();
+      expect(apiStub.get).toHaveBeenCalledWith(
+        null, 'kitchen/menu-items/', { restaurant: 'r2' });
+    });
+
+    it('scopes a single-membership user to their only restaurant (unchanged)', () => {
+      // Default stub: one membership (r1), which is also the selection.
+      service.loadItems();
+      expect(apiStub.get).toHaveBeenCalledWith(
+        null, 'kitchen/menu-items/', { restaurant: 'r1' });
+    });
+
+    it('omits the restaurant param when no membership is selected (defensive path)', () => {
+      authStub.currentRestaurantRole = null; // rest_role absent → JSON.parse(null)
+      service.loadItems();
+      expect(apiStub.get).toHaveBeenCalledWith(null, 'kitchen/menu-items/', {});
     });
   });
 });

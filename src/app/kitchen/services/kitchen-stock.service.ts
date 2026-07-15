@@ -47,10 +47,11 @@ export class KitchenStockService {
     private readonly auth: AuthenticationService,
   ) {}
 
-  /** The tablet's restaurant — the item list is scoped to it. First membership
-   *  for now if a user belongs to several. */
+  /** The tablet's restaurant — the item list is scoped to it. Reads the
+   *  login-selected membership (rest_role), matching KitchenOrderService, so a
+   *  multi-restaurant user's sold-out panel tracks the restaurant they chose. */
   private get restaurantId(): string | undefined {
-    return this.auth.userValue?.profile?.restaurant_roles?.[0]?.restaurant_id;
+    return this.auth.currentRestaurantRole?.restaurant_id;
   }
 
   /**
