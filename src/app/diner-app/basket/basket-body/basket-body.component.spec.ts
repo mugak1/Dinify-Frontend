@@ -279,4 +279,123 @@ describe('BasketBodyComponent', () => {
     expect(component.orderError).toBeTrue();
     expect(component.orderErrorMessage.toLowerCase()).toContain('offline');
   });
+
+  // ── unavailable-item reconciliation at checkout ───────────────────────────
+  // The backend is the availability/publication authority: orders/initiate/
+  // returns the lines it dropped (sold out, pulled, or now unpublished) and zeros
+  // them server-side. The diner reviews the trimmed order and either confirms the
+  // reduced total or backs out — the local basket is never silently mutated, and
+  // a rejected line is never re-POSTed. This is the defensive path the tenant-
+  // isolation contract leans on, so pin it.
+  const initiateWith = (overrides: Record<string, unknown>) => ({
+    status: 200,
+    data: {
+      order_details: {
+        id: 'o1',
+        no_unavailable_items: 0,
+        no_unavailable_extras: 0,
+        actual_cost: 5000,
+        ...overrides,
+      },
+      unavailable_items: [] as unknown[],
+      unavailable_extras: [] as unknown[],
+    },
+  });
+
+  it('submits straight away when every line is still available (published-item flow unchanged)', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValues(
+      of(initiateWith({ no_unavailable_items: 0 })) as any, // initiate → all available
+      of({}) as any, // submit
+    );
+
+    component.initiateOrder();
+
+    expect(component.showUnavailableSheet).toBeFalse();
+    expect(api.postPatch).toHaveBeenCalledTimes(2);
+    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
+    expect(api.postPatch.calls.argsFor(1)[0]).toContain('orders/submit');
+    // The initiate payload carries the basket items unchanged.
+    expect((api.postPatch.calls.argsFor(0)[1] as any).items.length).toBe(1);
+    expect((api.postPatch.calls.argsFor(0)[1] as any).items[0].item).toBe('i1');
+  });
+
+  it('shows the review sheet without trimming the basket or submitting when a line dropped', () => {
+    basket.items = [lineItem(), lineItem({ itemId: 'i2', itemName: 'Fries' })];
+    api.postPatch.and.returnValue(
+      of({
+        status: 200,
+        data: {
+          order_details: { id: 'o1', no_unavailable_items: 1, no_unavailable_extras: 0, actual_cost: 5000 },
+          unavailable_items: [{ id: 'i2', name: 'Fries' }],
+          unavailable_extras: [],
+        },
+      }) as any,
+    );
+
+    component.initiateOrder();
+
+    expect(component.showUnavailableSheet).toBeTrue();
+    expect(dialog.closeModal).toHaveBeenCalled();
+    expect(component.placingOrder).toBeFalse();
+    // Only initiate ran — never submit — and the local basket is left intact.
+    expect(api.postPatch).toHaveBeenCalledTimes(1);
+    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
+    expect(basket.items.length).toBe(2);
+    expect(component.unavailableItems).toEqual([{ id: 'i2', name: 'Fries' }]);
+    expect(component.reviewedTotal).toBe(5000);
+  });
+
+  it('confirmPartialOrder submits the already-initiated order id — never re-POSTs the rejected payload', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(
+      of({
+        status: 200,
+        data: {
+          order_details: { id: 'o1', no_unavailable_items: 1, no_unavailable_extras: 0, actual_cost: 5000 },
+          unavailable_items: [{ id: 'i2', name: 'Fries' }],
+          unavailable_extras: [],
+        },
+      }) as any,
+    );
+
+    component.initiateOrder();
+    expect(component.showUnavailableSheet).toBeTrue();
+
+    api.postPatch.calls.reset();
+    api.postPatch.and.returnValue(of({}) as any);
+
+    component.confirmPartialOrder();
+
+    expect(component.showUnavailableSheet).toBeFalse();
+    // Exactly one follow-up call, to submit/ with the initiated order id — NOT
+    // another initiate/ with the rejected item payload.
+    expect(api.postPatch).toHaveBeenCalledTimes(1);
+    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/submit');
+    expect(api.postPatch.calls.argsFor(0)[0]).not.toContain('orders/initiate');
+    expect(api.postPatch.calls.argsFor(0)[1]).toEqual({ order: 'o1' });
+  });
+
+  it('cancelPartialOrder closes the sheet and submits nothing', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(
+      of({
+        status: 200,
+        data: {
+          order_details: { id: 'o1', no_unavailable_items: 1, no_unavailable_extras: 0, actual_cost: 5000 },
+          unavailable_items: [{ id: 'i2', name: 'Fries' }],
+          unavailable_extras: [],
+        },
+      }) as any,
+    );
+
+    component.initiateOrder();
+    expect(component.showUnavailableSheet).toBeTrue();
+
+    api.postPatch.calls.reset();
+    component.cancelPartialOrder();
+
+    expect(component.showUnavailableSheet).toBeFalse();
+    expect(api.postPatch).not.toHaveBeenCalled();
+  });
 });
