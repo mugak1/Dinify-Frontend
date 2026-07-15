@@ -1,12 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
 import { WINDOW } from '../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../_services/storage/storage-key-prefix.token';
 import { MenuItemDetailComponent } from './menu-item-detail.component';
 import { DiscountDetails, MenuItem, MenuItemExtraRef } from '../../_models/app.models';
+import { parseModifierGroups } from '../../_common/utils/modifier-utils';
 import { BasketService } from '../../_services/basket.service';
 import { ToastService } from '../../_shared/ui/toast/toast.service';
 
@@ -138,5 +139,79 @@ describe('MenuItemDetailComponent', () => {
       expect(component.getDisplayPrice(it)).toBe(8000);
       expect(component.priceSaved(it)).toBe(2000);
     });
+  });
+
+  // ── tenant isolation: item customisation + public fetch contract ───────────
+  // The item-detail screen is the diner's customise-before-basket surface, and a
+  // second public caller of show-menu. These pin that (a) modifiers/extras still
+  // parse and toggle after the menu-flow contract change, and (b) this public
+  // fetch, like the menu list, never sends the ignore-approval preview flag.
+  describe('modifiers & extras remain functional', () => {
+    const itemWithOptions = () =>
+      ({
+        id: 'i1',
+        name: 'Pizza',
+        primary_price: '20000',
+        in_stock: true,
+        options: {
+          hasModifiers: true,
+          groups: [
+            {
+              id: 'g1',
+              name: 'Size',
+              selectionType: 'single',
+              minSelections: 1,
+              maxSelections: 1,
+              choices: [
+                { id: 'c1', name: 'Small', additionalCost: 0, available: true },
+                { id: 'c2', name: 'Large', additionalCost: 5000, available: true },
+                { id: 'c3', name: 'Sold out', additionalCost: 0, available: false },
+              ],
+            },
+          ],
+        },
+        extras: [{ id: 'e1', name: 'Cheese', primary_price: '1000', discount_details: null }],
+      }) as unknown as MenuItem;
+
+    it('parses grouped modifiers (drops unavailable choices, single-select capped) and toggles a choice', () => {
+      const item = itemWithOptions();
+      component.item.set(item);
+      component.modifierGroups.set(parseModifierGroups(item.options));
+
+      const groups = component.modifierGroups();
+      expect(groups.length).toBe(1);
+      expect(groups[0].choices.length).toBe(2); // the unavailable choice is filtered out
+      expect(groups[0].selectionType).toBe('single');
+      expect(groups[0].maxSelections).toBe(1);
+      expect(groups[0].required).toBeTrue(); // minSelections > 0
+
+      component.handleModifierSingleSelect('g1', 'c1');
+      expect(component.isModifierChoiceSelected('g1', 'c1')).toBeTrue();
+      expect(component.getModifierSelectedCount('g1')).toBe(1);
+    });
+
+    it('toggles an extra on and off by id', () => {
+      component.item.set(itemWithOptions());
+
+      component.toggleExtraById('e1');
+      expect(component.selectedExtras().some((e) => e.id === 'e1')).toBeTrue();
+
+      component.toggleExtraById('e1');
+      expect(component.selectedExtras().some((e) => e.id === 'e1')).toBeFalse();
+    });
+  });
+
+  it('fetches the public menu without the ignore-approval preview flag', () => {
+    const httpMock = TestBed.inject(HttpTestingController);
+
+    // fetchMenu is the cold-load leg; beforeEach never triggers it (no route
+    // params / no stored restaurant), so this is the only in-flight request.
+    (component as unknown as { fetchMenu(id: string): void }).fetchMenu('r1');
+
+    const req = httpMock.expectOne((r) => r.url.includes('show-menu'));
+    expect(req.request.url).toContain('restaurant=r1');
+    expect(req.request.url).not.toContain('ignore-approval');
+    req.flush({ data: [], item_sort_mode: 'manual' });
+    httpMock.verify();
   });
 });

@@ -110,6 +110,41 @@ describe('DinersMenuComponent', () => {
     expect(component.bannerTop).toBe('40px');
   });
 
+  // ── public menu request contract (tenant isolation: no preview bypass) ─────
+  // The diner surface is anonymous/public, so its show-menu request must carry
+  // ONLY the restaurant identity — never the `ignore-approval` preview flag that
+  // would ask the public endpoint for unapproved data. These pin that contract so
+  // a future edit can't reintroduce the bypass on the diner path.
+  describe('public menu request omits the ignore-approval preview flag', () => {
+    it('sends only the restaurant identity on a cold load, then renders', () => {
+      component.restaurant = approvedRestaurant();
+      fixture.detectChanges(); // ngOnInit → tryLoadMenu → coldLoadMenu
+
+      const req = httpMock.expectOne(r => r.url.includes('show-menu'));
+      expect(req.request.url).toContain('restaurant=r1');
+      expect(req.request.url).not.toContain('ignore-approval');
+
+      // A standard menu load still renders (the flag's absence doesn't break loading).
+      req.flush({ data: [{ name: 'Mains', items: [] }], item_sort_mode: 'manual' });
+      expect(component.menu_list.length).toBe(1);
+      expect(component.navState.menuList()?.length).toBe(1);
+    });
+
+    it('sends no preview flag on the warm-entry background revalidation either', () => {
+      // Warm entry revalidates silently via refreshMenuInBackground — guard that
+      // second call site too.
+      component.navState.setMenuList([{ name: 'Mains', items: [] }]);
+      component.navState.setLoadedRestaurantId('r1');
+      component.restaurant = approvedRestaurant();
+      fixture.detectChanges(); // ngOnInit → loadMenu → warm → refreshMenuInBackground
+
+      const req = httpMock.expectOne(r => r.url.includes('show-menu'));
+      expect(req.request.url).toContain('restaurant=r1');
+      expect(req.request.url).not.toContain('ignore-approval');
+      req.flush({ data: [{ name: 'Mains', items: [] }], item_sort_mode: 'manual' });
+    });
+  });
+
   describe('discount rendering gates (server truth)', () => {
     // The card's badge + strikethrough are *ngIf-gated on discountIsLive(i),
     // so a false verdict guarantees neither renders; figures come from the

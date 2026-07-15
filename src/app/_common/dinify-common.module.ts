@@ -5,7 +5,6 @@ import { DatePickerComponent } from './date-picker/date-picker.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { AutoCompleteComponent } from './auto-complete/auto-complete.component';
 import { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
-import { MenuCommonComponent } from './menu-common/menu-common.component';
 import { ScrollSpyCommonDirective } from './scroll-spy-common.directive';
 import { DinifyPhoneInputComponent } from '../shared/dinify-phone-input/dinify-phone-input.component';
 import { CommonUserProfileComponent } from './common-user-profile/common-user-profile.component';
@@ -21,7 +20,6 @@ import { SafePipe } from './common.pipe';
     DatePickerComponent,
     AutoCompleteComponent,
     ConfirmDialogComponent,
-    MenuCommonComponent,
     CommonUserProfileComponent,
     OtpInputComponent,
     CommonNotificationsComponent,
@@ -32,7 +30,6 @@ import { SafePipe } from './common.pipe';
     DatePickerComponent,
     AutoCompleteComponent,
     ConfirmDialogComponent,
-    MenuCommonComponent,
    CommonUserProfileComponent,
    OtpInputComponent,
    CommonNotificationsComponent ,
