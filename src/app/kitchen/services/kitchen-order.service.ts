@@ -94,16 +94,18 @@ export class KitchenOrderService {
     private readonly auth: AuthenticationService,
   ) {}
 
-  /** The tablet's restaurant — the active-orders query is scoped to it. First
-   *  membership for now if a user belongs to several. */
+  /** The tablet's restaurant — the active-orders query is scoped to it. Reads the
+   *  login-selected membership (rest_role), the single source of truth for the
+   *  active restaurant, so a multi-restaurant user gets the board they chose. */
   private get restaurantId(): string | undefined {
-    return this.auth.userValue?.profile?.restaurant_roles?.[0]?.restaurant_id;
+    return this.auth.currentRestaurantRole?.restaurant_id;
   }
 
   /** Owner/manager at the active restaurant — the elevated-void gate (mirrors
-   *  the backend): they may cancel a ticket past 'new'. */
+   *  the backend): they may cancel a ticket past 'new'. Evaluated against the
+   *  login-selected membership's roles, matching restaurantId's scope. */
   get isManager(): boolean {
-    const roles = this.auth.userValue?.profile?.restaurant_roles?.[0]?.roles ?? [];
+    const roles = this.auth.currentRestaurantRole?.roles ?? [];
     return roles.includes('owner') || roles.includes('manager');
   }
 

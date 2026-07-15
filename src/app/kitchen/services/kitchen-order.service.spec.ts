@@ -15,7 +15,7 @@ import { KitchenOrderService } from './kitchen-order.service';
 describe('KitchenOrderService', () => {
   let service: KitchenOrderService;
   let apiStub: { get: jasmine.Spy; postPatch: jasmine.Spy };
-  let authStub: { userValue: any };
+  let authStub: { userValue: any; currentRestaurantRole: any };
 
   /** Active-orders envelope wrapping a fresh mock set (stable ids k-01…k-20). */
   function freshTickets() {
@@ -58,6 +58,9 @@ describe('KitchenOrderService', () => {
       userValue: {
         profile: { restaurant_roles: [{ restaurant_id: 'r1', restaurant: 'R', roles: ['kitchen'] }] },
       },
+      // The login-selected membership (rest_role) — the service scopes to THIS,
+      // not restaurant_roles[0]. Default: the single-membership case (selection == [0]).
+      currentRestaurantRole: { restaurant_id: 'r1', restaurant: 'R', roles: ['kitchen'] },
     };
     TestBed.configureTestingModule({
       providers: [
@@ -257,10 +260,63 @@ describe('KitchenOrderService', () => {
     });
 
     it('is true when the roles include manager or owner', () => {
-      authStub.userValue.profile.restaurant_roles[0].roles = ['manager'];
+      authStub.currentRestaurantRole.roles = ['manager'];
       expect(service.isManager).toBe(true);
+      authStub.currentRestaurantRole.roles = ['owner'];
+      expect(service.isManager).toBe(true);
+    });
+  });
+
+  // ── TENANT-P3-05 regression ────────────────────────────────────────────
+  // The service must scope to the login-SELECTED membership (currentRestaurantRole,
+  // backed by rest_role), NOT restaurant_roles[0]. A user at ≥2 restaurants who
+  // picks their second at login must get THAT restaurant's board and void-gate.
+  describe('restaurant scope honours the login-selected membership', () => {
+    /** Two memberships; the user selected the SECOND (r2) at login. */
+    function selectSecondMembership(selectedRoles: string[] = ['kitchen']): void {
+      authStub.userValue.profile.restaurant_roles = [
+        { restaurant_id: 'r1', restaurant: 'First', roles: ['kitchen'] },
+        { restaurant_id: 'r2', restaurant: 'Second', roles: selectedRoles },
+      ];
+      authStub.currentRestaurantRole =
+        { restaurant_id: 'r2', restaurant: 'Second', roles: selectedRoles };
+    }
+
+    it('scopes loadActive to the selected (second) restaurant, not restaurant_roles[0]', () => {
+      selectSecondMembership();
+      load();
+      expect(apiStub.get).toHaveBeenCalledWith(
+        null, 'kitchen/orders/active/', { restaurant: 'r2' });
+    });
+
+    it('scopes loadCompleted to the selected (second) restaurant, not restaurant_roles[0]', () => {
+      selectSecondMembership();
+      service.loadCompleted().subscribe();
+      expect(apiStub.get).toHaveBeenCalledWith(
+        null, 'kitchen/orders/completed/', { restaurant: 'r2' });
+    });
+
+    it('evaluates the void-gate against the selected membership roles, not restaurant_roles[0]', () => {
+      // Selected (r2) is a manager; the FIRST membership is only kitchen.
+      selectSecondMembership(['manager']);
+      expect(service.isManager).toBe(true);
+      // Inverse: first membership is owner, but the selected (r2) is only kitchen.
       authStub.userValue.profile.restaurant_roles[0].roles = ['owner'];
-      expect(service.isManager).toBe(true);
+      authStub.currentRestaurantRole.roles = ['kitchen'];
+      expect(service.isManager).toBe(false);
+    });
+
+    it('scopes a single-membership user to their only restaurant (unchanged)', () => {
+      // Default stub: one membership (r1), which is also the selection.
+      load();
+      expect(apiStub.get).toHaveBeenCalledWith(
+        null, 'kitchen/orders/active/', { restaurant: 'r1' });
+    });
+
+    it('omits the restaurant param when no membership is selected (defensive path)', () => {
+      authStub.currentRestaurantRole = null; // rest_role absent → JSON.parse(null)
+      load();
+      expect(apiStub.get).toHaveBeenCalledWith(null, 'kitchen/orders/active/', {});
     });
   });
 
