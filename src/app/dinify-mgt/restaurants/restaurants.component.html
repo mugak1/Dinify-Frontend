@@ -1,614 +1,686 @@
 <div class="min-h-full shadow-md sm:rounded-lg">
-    <div *ngIf="false" class="relative z-[-10]  flex items-center justify-between flex-column md:flex-row flex-wrap space-y-4 md:space-y-0 py-4 bg-white border">
-        <div class="ml-3">
-            <button (click)="toggleModal()" class="inline-flex items-center text-d-red border-d-red border focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-3 py-1.5" type="button">
-                <span class="sr-only">Action button</span>
-                New Restaurant
-                <!-- <svg class="w-2.5 h-2.5 ms-2.5"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
-                </svg> -->
-            </button>
-      
-        </div>
-        <label for="table-search" class="sr-only">Search</label>
-
-      
-      <div class="relative -z-[1] flex items-center space-x-2 border border-gray-300 mr-2 rounded-lg bg-gray-50 focus-within:ring-2 focus-within:ring-blue-500">
-        <!-- Search Icon -->
-        <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-            <svg class="w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
-            </svg>
-        </div>
-    
-        <!-- Search Input -->
-        <input type="text" (keyup)="Search(search)" [(ngModel)]="search" [ngModelOptions]="{standalone: true}"
-            class="w-full pt-2 ps-10 pr-3 pb-2 text-sm text-gray-900 bg-gray-50 focus:outline-none"
-            placeholder="Search for restaurant">
-    
-        <!-- Status Filter Dropdown -->
-        <select [(ngModel)]="selectedStatus" (change)="fetchRestaurantsByStatus(selectedStatus)" [ngModelOptions]="{standalone: true}"
-            class="text-sm border-l border-gray-300 bg-gray-50 focus:outline-none px-3 py-2 rounded-r-lg">
-            <option value="">Open</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="rejected">Rejected</option>
-            <option value="blocked">Blocked</option>
-        </select>
+  @if (false) {
+    <div class="relative z-[-10]  flex items-center justify-between flex-column md:flex-row flex-wrap space-y-4 md:space-y-0 py-4 bg-white border">
+      <div class="ml-3">
+        <button (click)="toggleModal()" class="inline-flex items-center text-d-red border-d-red border focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-3 py-1.5" type="button">
+          <span class="sr-only">Action button</span>
+          New Restaurant
+          <!-- <svg class="w-2.5 h-2.5 ms-2.5"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
+        </svg> -->
+      </button>
     </div>
-    
- 
-      
-    </div>
-    <div  class="relative z-10 flex items-center justify-between flex-column md:flex-row flex-wrap space-y-4 md:space-y-0 py-4 bg-white border">
-  
-      <!-- Button Wrapper -->
-      <div class="ml-3 relative z-50">
-          <button (click)="toggleModal()"
-              type="button" 
-              class="inline-flex items-center text-d-red border-d-red border focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-3 py-1.5">
-              <span class="sr-only">Action button</span> 
-              New Restaurant
-          </button>
+    <label for="table-search" class="sr-only">Search</label>
+    <div class="relative -z-[1] flex items-center space-x-2 border border-gray-300 mr-2 rounded-lg bg-gray-50 focus-within:ring-2 focus-within:ring-blue-500">
+      <!-- Search Icon -->
+      <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+        <svg class="w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+        </svg>
       </div>
-    
-      <!-- Search Bar -->
-      <label for="table-search" class="sr-only">Search</label>
-      <div 
-          class="relative flex items-center space-x-2 border border-gray-300 mr-2 rounded-lg bg-gray-50 focus-within:ring-2 focus-within:ring-blue-500 z-40">
-          
-          <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" class="w-4 h-4 text-gray-500">
-                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"></path>
-              </svg>
-          </div>
-          
-          <input type="text" placeholder="Search for restaurant" (keyup)="Search(search)" [(ngModel)]="search" [ngModelOptions]="{standalone: true}"
-              class="w-full pt-2 ps-10 pr-3 pb-2 text-sm text-gray-900 bg-gray-50 focus:outline-none ng-untouched ng-pristine ng-valid">
-    
-          <select [(ngModel)]="selectedStatus" (change)="fetchRestaurantsByStatus(selectedStatus)" [ngModelOptions]="{standalone: true}"
-              class="text-sm border-l border-gray-300 bg-gray-50 focus:outline-none px-3 py-2 rounded-r-lg ng-pristine ng-valid ng-touched">
-              <option value="">Open</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="rejected">Rejected</option>
-              <option value="blocked">Blocked</option>
-          </select>
-      </div>
+      <!-- Search Input -->
+      <input type="text" (keyup)="Search(search)" [(ngModel)]="search" [ngModelOptions]="{standalone: true}"
+        class="w-full pt-2 ps-10 pr-3 pb-2 text-sm text-gray-900 bg-gray-50 focus:outline-none"
+        placeholder="Search for restaurant">
+      <!-- Status Filter Dropdown -->
+      <select [(ngModel)]="selectedStatus" (change)="fetchRestaurantsByStatus(selectedStatus)" [ngModelOptions]="{standalone: true}"
+        class="text-sm border-l border-gray-300 bg-gray-50 focus:outline-none px-3 py-2 rounded-r-lg">
+        <option value="">Open</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+        <option value="rejected">Rejected</option>
+        <option value="blocked">Blocked</option>
+      </select>
     </div>
-    <div class="flex h-[calc(100dvh-155px)]">
+  </div>
+}
+<div  class="relative z-10 flex items-center justify-between flex-column md:flex-row flex-wrap space-y-4 md:space-y-0 py-4 bg-white border">
 
-    <div class="flex-grow overflow-auto">
+  <!-- Button Wrapper -->
+  <div class="ml-3 relative z-50">
+    <button (click)="toggleModal()"
+      type="button"
+      class="inline-flex items-center text-d-red border-d-red border focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-3 py-1.5">
+      <span class="sr-only">Action button</span>
+      New Restaurant
+    </button>
+  </div>
+
+  <!-- Search Bar -->
+  <label for="table-search" class="sr-only">Search</label>
+  <div
+    class="relative flex items-center space-x-2 border border-gray-300 mr-2 rounded-lg bg-gray-50 focus-within:ring-2 focus-within:ring-blue-500 z-40">
+
+    <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" class="w-4 h-4 text-gray-500">
+        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"></path>
+      </svg>
+    </div>
+
+    <input type="text" placeholder="Search for restaurant" (keyup)="Search(search)" [(ngModel)]="search" [ngModelOptions]="{standalone: true}"
+      class="w-full pt-2 ps-10 pr-3 pb-2 text-sm text-gray-900 bg-gray-50 focus:outline-none ng-untouched ng-pristine ng-valid">
+
+    <select [(ngModel)]="selectedStatus" (change)="fetchRestaurantsByStatus(selectedStatus)" [ngModelOptions]="{standalone: true}"
+      class="text-sm border-l border-gray-300 bg-gray-50 focus:outline-none px-3 py-2 rounded-r-lg ng-pristine ng-valid ng-touched">
+      <option value="">Open</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+      <option value="rejected">Rejected</option>
+      <option value="blocked">Blocked</option>
+    </select>
+  </div>
+</div>
+<div class="flex h-[calc(100dvh-155px)]">
+
+  <div class="flex-grow overflow-auto">
     <table class="w-full text-sm text-left rtl:text-right text-gray-500">
-        <thead class="sticky top-0 text-xs text-gray-700 uppercase bg-gray-50 -z-10">
-            <tr>
-               <!--  <th scope="col" class="p-4">
-                    <div class="flex items-center">
-                        <input id="checkbox-all-search" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                        <label for="checkbox-all-search" class="sr-only">checkbox</label>
-                    </div>
-                </th> -->
-                <th scope="col" class="px-6 py-3 w-1/4">
-                   <span class="ml-16">Name</span> 
-                </th>
-                <th scope="col" class="px-6 py-3 w-1/4">
-                    Address
-                </th>
-                <th scope="col" class="px-6 py-3 w-1/4">
-                    Contact
-                </th>
-                <th scope="col" class="px-6 py-3 w-1/8">
-                 Status
-                </th>
-                <th scope="col" class="px-6 py-3 w-1/8">
-                    Action
-                </th>
-            </tr>
-        </thead>
-        <tbody class="divide-y -z-[11]">
-            <tr *ngFor="let l of list" (click)="ViewRest(l);$event.stopPropagation();" class="bg-white border-b hover:bg-gray-50 hover:border-dashed hover:border-gray-500 hover:border-2">
-              <!--   <td class="w-4 p-4">
-                    <div class="flex items-center">
-                        <input id="checkbox-table-search-1" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2">
-                        <label for="checkbox-table-search-1" class="sr-only">checkbox</label>
-                    </div>
-                </td> -->
-                <td scope="row" class="flex items-center px-6 py-4 text-gray-900 whitespace-nowrap">
-                    <img *ngIf="l.logo" class="w-10 h-10 rounded-full border" [src]="baseUrl+l.logo" alt="{{l.name}}">
-                    <div class="ps-3" [routerLink]="[]">
-                      <span class="hover:text-d-red hover:underline cursor-pointer text-base font-semibold ell">{{l.name}}</span>
-                        <!--<div class="font-normal text-gray-500">neil.sims@flowbite.com</div> -->
-                    </div>  
-                </td>
-                <td class="px-6 py-4 ell">
-                   {{l.location}}
-                   </td>
-                   <td  class="px-6 py-4 ell">
-                    {{l.owner.first_name}} {{l.owner.last_name}}
-                   </td>
-                <td class="px-6 py-4">
-                    <div class="flex items-center">
-                        <div class="h-2.5 w-2.5 rounded-full me-2" [ngClass]="{'bg-green-500':l?.status==='active','bg-orange-500':l?.status==='pending','bg-gray-500':(l?.status==='inactive'),'bg-black':(l?.status==='rejected'),'bg-d-red':(l?.status==='blocked')}"></div> <span class="capitalize">{{l?.status}}</span> 
-                      
-                          
-                        <!-- <div class="h-2.5 w-2.5 rounded-full bg-red-500 me-2"></div> Offline -->
-                    </div>
-                </td>
-                <td class="px-6 py-4 space-x-2 flex flex-row">
-                    <!-- Modal toggle -->
-                    <a (click)="toggleModal(l,true,'detail');$event.stopPropagation()" title="View Details" type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline my-auto cursor-pointer">
-                        <span class="sr-only">View Details</span>
-                        <svg width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <title></title> <g id="Complete"> <g id="info-circle"> <g> <circle cx="12" cy="12" data-name="--Circle" fill="none" id="_--Circle" r="10" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></circle> <line fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" x1="12" x2="12" y1="12" y2="16"></line> <line fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" x1="12" x2="12" y1="8" y2="8"></line> </g> </g> </g> </g></svg>
-                    </a>
-                    <a *ngIf="l.status==='pending'" (click)="toggleModal(l);$event.stopPropagation()" title="Quick Edit" type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline my-auto cursor-pointer">
-                        <span class="sr-only">Quick Edit</span>
-                        <svg fill="#000000" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <g stroke-linecap="round" stroke-linejoin="round"></g>
-                            <g>
-                                <path
-                                    d="M4.07,14.927a.976.976,0,0,0-.167.25c-.011.023-.023.043-.032.067a.362.362,0,0,0-.019.04l-1.8,5.4A1,1,0,0,0,3,22a1.014,1.014,0,0,0,.316-.051l5.4-1.8c.013,0,.023-.013.036-.017s.041-.021.062-.031a.967.967,0,0,0,.259-.172c.01-.009.024-.012.033-.022l12.6-12.6a1,1,0,0,0,0-1.414l-3.6-3.6a1,1,0,0,0-1.414,0l-12.6,12.6C4.083,14.9,4.08,14.917,4.07,14.927ZM17.4,4.414,19.586,6.6,8.4,17.786,7.307,16.693,6.214,15.6ZM5.237,17.451l.656.656.656.656-1.968.656Z">
-                                </path>
-                            </g>
-                        </svg>
-                    </a>
-             <!--        <a *ngIf="l.status!=='pending'" (click)="toggleModal(l,true)" [routerLink]="['rest-app',l.id]" title="View Restaurant" type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline my-auto">
-                        <span class="sr-only">View Restaurant</span>
-                        <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                           
-                            <g stroke-linecap="round" stroke-linejoin="round"></g>
-                            <g>
-                                <path d="M16 7L21 12M21 12L16 17M21 12H3" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                            </g>
-                        </svg>
-                    </a> -->
-                    <div class="dropdown relative my-auto -z-8">
-                        <button (click)="$event.stopPropagation()" class="rounded-md bg-white p-2 focus:outline-none">
-                            
-                          <svg class="h-5 w-5 text-gray-800" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                          </svg>
-                        </button>                
-                        <div class="hidden dropdown-content absolute z-0 right-0 mt-2777 p-2 w-48 bg-white border rounded-md shadow-xl">
-                           <!--  <a *ngIf="l?.status=='pending'" [routerLink]="[]"  (click)="toggleModal(l,true)" class="flex px-4 py-2 text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
-                                <div class="h-2.5 w-2.5 rounded-full me-2 bg-gray-500 my-auto"></div>View Details
-                              </a> -->
-                              <a [routerLink]="[]" *ngIf="l.status==='active'|| l.status==='inactive'||l.status==='rejected'" (click)="toggleModal(l);$event.stopPropagation()"  class="flex p-2 text-sm rounded capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
-                                <svg fill="#000000" class="h-6 w-6 mr-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <g stroke-linecap="round" stroke-linejoin="round"></g>
-                                    <g>
-                                        <path
-                                            d="M4.07,14.927a.976.976,0,0,0-.167.25c-.011.023-.023.043-.032.067a.362.362,0,0,0-.019.04l-1.8,5.4A1,1,0,0,0,3,22a1.014,1.014,0,0,0,.316-.051l5.4-1.8c.013,0,.023-.013.036-.017s.041-.021.062-.031a.967.967,0,0,0,.259-.172c.01-.009.024-.012.033-.022l12.6-12.6a1,1,0,0,0,0-1.414l-3.6-3.6a1,1,0,0,0-1.414,0l-12.6,12.6C4.083,14.9,4.08,14.917,4.07,14.927ZM17.4,4.414,19.586,6.6,8.4,17.786,7.307,16.693,6.214,15.6ZM5.237,17.451l.656.656.656.656-1.968.656Z">
-                                        </path>
-                                    </g>
-                                </svg>  Edit
-                              </a>
-                            <a *ngIf="l?.status==='pending'" [routerLink]="[]" (click)="changeApprovalStatus('Approve','active',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
-                            <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> Approve
-                          </a>
+      <thead class="sticky top-0 text-xs text-gray-700 uppercase bg-gray-50 -z-10">
+        <tr>
+          <!--  <th scope="col" class="p-4">
+          <div class="flex items-center">
+            <input id="checkbox-all-search" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+            <label for="checkbox-all-search" class="sr-only">checkbox</label>
+          </div>
+        </th> -->
+        <th scope="col" class="px-6 py-3 w-1/4">
+          <span class="ml-16">Name</span>
+        </th>
+        <th scope="col" class="px-6 py-3 w-1/4">
+          Address
+        </th>
+        <th scope="col" class="px-6 py-3 w-1/4">
+          Contact
+        </th>
+        <th scope="col" class="px-6 py-3 w-1/8">
+          Status
+        </th>
+        <th scope="col" class="px-6 py-3 w-1/8">
+          Action
+        </th>
+      </tr>
+    </thead>
+    <tbody class="divide-y -z-[11]">
+      @for (l of list; track l) {
+        <tr (click)="ViewRest(l);$event.stopPropagation();" class="bg-white border-b hover:bg-gray-50 hover:border-dashed hover:border-gray-500 hover:border-2">
+          <!--   <td class="w-4 p-4">
+          <div class="flex items-center">
+            <input id="checkbox-table-search-1" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2">
+            <label for="checkbox-table-search-1" class="sr-only">checkbox</label>
+          </div>
+        </td> -->
+        <td scope="row" class="flex items-center px-6 py-4 text-gray-900 whitespace-nowrap">
+          @if (l.logo) {
+            <img class="w-10 h-10 rounded-full border" [src]="baseUrl+l.logo" alt="{{l.name}}">
+          }
+          <div class="ps-3" [routerLink]="[]">
+            <span class="hover:text-d-red hover:underline cursor-pointer text-base font-semibold ell">{{l.name}}</span>
+            <!--<div class="font-normal text-gray-500">neil.sims@flowbite.com</div> -->
+          </div>
+        </td>
+        <td class="px-6 py-4 ell">
+          {{l.location}}
+        </td>
+        <td  class="px-6 py-4 ell">
+          {{l.owner.first_name}} {{l.owner.last_name}}
+        </td>
+        <td class="px-6 py-4">
+          <div class="flex items-center">
+            <div class="h-2.5 w-2.5 rounded-full me-2" [ngClass]="{'bg-green-500':l?.status==='active','bg-orange-500':l?.status==='pending','bg-gray-500':(l?.status==='inactive'),'bg-black':(l?.status==='rejected'),'bg-d-red':(l?.status==='blocked')}"></div> <span class="capitalize">{{l?.status}}</span>
+            <!-- <div class="h-2.5 w-2.5 rounded-full bg-red-500 me-2"></div> Offline -->
+          </div>
+        </td>
+        <td class="px-6 py-4 space-x-2 flex flex-row">
+          <!-- Modal toggle -->
+          <a (click)="toggleModal(l,true,'detail');$event.stopPropagation()" title="View Details" type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline my-auto cursor-pointer">
+            <span class="sr-only">View Details</span>
+            <svg width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <title></title> <g id="Complete"> <g id="info-circle"> <g> <circle cx="12" cy="12" data-name="--Circle" fill="none" id="_--Circle" r="10" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></circle> <line fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" x1="12" x2="12" y1="12" y2="16"></line> <line fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" x1="12" x2="12" y1="8" y2="8"></line> </g> </g> </g> </g></svg>
+          </a>
+          @if (l.status==='pending') {
+            <a (click)="toggleModal(l);$event.stopPropagation()" title="Quick Edit" type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline my-auto cursor-pointer">
+              <span class="sr-only">Quick Edit</span>
+              <svg fill="#000000" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <g stroke-linecap="round" stroke-linejoin="round"></g>
+                <g>
+                  <path
+                    d="M4.07,14.927a.976.976,0,0,0-.167.25c-.011.023-.023.043-.032.067a.362.362,0,0,0-.019.04l-1.8,5.4A1,1,0,0,0,3,22a1.014,1.014,0,0,0,.316-.051l5.4-1.8c.013,0,.023-.013.036-.017s.041-.021.062-.031a.967.967,0,0,0,.259-.172c.01-.009.024-.012.033-.022l12.6-12.6a1,1,0,0,0,0-1.414l-3.6-3.6a1,1,0,0,0-1.414,0l-12.6,12.6C4.083,14.9,4.08,14.917,4.07,14.927ZM17.4,4.414,19.586,6.6,8.4,17.786,7.307,16.693,6.214,15.6ZM5.237,17.451l.656.656.656.656-1.968.656Z">
+                  </path>
+                </g>
+              </svg>
+            </a>
+          }
+          <!--        <a *ngIf="l.status!=='pending'" (click)="toggleModal(l,true)" [routerLink]="['rest-app',l.id]" title="View Restaurant" type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline my-auto">
+          <span class="sr-only">View Restaurant</span>
+          <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g stroke-linecap="round" stroke-linejoin="round"></g>
+            <g>
+              <path d="M16 7L21 12M21 12L16 17M21 12H3" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </g>
+          </svg>
+        </a> -->
+        <div class="dropdown relative my-auto -z-8">
+          <button (click)="$event.stopPropagation()" class="rounded-md bg-white p-2 focus:outline-none">
+            <svg class="h-5 w-5 text-gray-800" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div class="hidden dropdown-content absolute z-0 right-0 mt-2777 p-2 w-48 bg-white border rounded-md shadow-xl">
+            <!--  <a *ngIf="l?.status=='pending'" [routerLink]="[]"  (click)="toggleModal(l,true)" class="flex px-4 py-2 text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+            <div class="h-2.5 w-2.5 rounded-full me-2 bg-gray-500 my-auto"></div>View Details
+          </a> -->
+          @if (l.status==='active'|| l.status==='inactive'||l.status==='rejected') {
+            <a [routerLink]="[]" (click)="toggleModal(l);$event.stopPropagation()"  class="flex p-2 text-sm rounded capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+              <svg fill="#000000" class="h-6 w-6 mr-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <g stroke-linecap="round" stroke-linejoin="round"></g>
+                <g>
+                  <path
+                    d="M4.07,14.927a.976.976,0,0,0-.167.25c-.011.023-.023.043-.032.067a.362.362,0,0,0-.019.04l-1.8,5.4A1,1,0,0,0,3,22a1.014,1.014,0,0,0,.316-.051l5.4-1.8c.013,0,.023-.013.036-.017s.041-.021.062-.031a.967.967,0,0,0,.259-.172c.01-.009.024-.012.033-.022l12.6-12.6a1,1,0,0,0,0-1.414l-3.6-3.6a1,1,0,0,0-1.414,0l-12.6,12.6C4.083,14.9,4.08,14.917,4.07,14.927ZM17.4,4.414,19.586,6.6,8.4,17.786,7.307,16.693,6.214,15.6ZM5.237,17.451l.656.656.656.656-1.968.656Z">
+                  </path>
+                </g>
+              </svg>  Edit
+            </a>
+          }
+          @if (l?.status==='pending') {
+            <a [routerLink]="[]" (click)="changeApprovalStatus('Approve','active',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+              <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> Approve
+            </a>
+          }
+          @if (l?.status==='inactive'||l?.status==='blocked') {
+            <a [routerLink]="[]" (click)="changeApprovalStatus('Activate','active',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+              <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> {{l?.status==='blocked'?'Unblock':'Activate'}}
+            </a>
+          }
+          @if (l?.status==='rejected') {
+            <a [routerLink]="[]" (click)="changeApprovalStatus('Submit','pending',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+              <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> Submit
+            </a>
+          }
+          @if (l?.status==='pending') {
+            <a [routerLink]="[]"  (click)="changeApprovalStatus('Reject','rejected',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+              <div class="h-2.5 w-2.5 rounded-full me-2 bg-black my-auto"></div>Reject
+            </a>
+          }
+          @if (l?.status==='active') {
+            <a [routerLink]="[]"  (click)="changeApprovalStatus('Deactivate','inactive',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
+              <div class="h-2.5 w-2.5 rounded-full me-2 bg-gray-500 my-auto"></div>Deactivate
+            </a>
+          }
+        </div>
+      </div>
+    </td>
+  </tr>
+}
 
-                          <a *ngIf="l?.status==='inactive'||l?.status==='blocked'" [routerLink]="[]" (click)="changeApprovalStatus('Activate','active',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
-                            <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> {{l?.status==='blocked'?'Unblock':'Activate'}}
-                          </a>
-                          <a *ngIf="l?.status==='rejected'" [routerLink]="[]" (click)="changeApprovalStatus('Submit','pending',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
-                            <div class="h-2.5 w-2.5 rounded-full me-2 bg-green-500 my-auto"></div> Submit
-                          </a>
-                          <a *ngIf="l?.status==='pending'" [routerLink]="[]"  (click)="changeApprovalStatus('Reject','rejected',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
-                            <div class="h-2.5 w-2.5 rounded-full me-2 bg-black my-auto"></div>Reject
-                          </a>
-                          <a *ngIf="l?.status==='active'" [routerLink]="[]"  (click)="changeApprovalStatus('Deactivate','inactive',l);$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white">
-                            <div class="h-2.5 w-2.5 rounded-full me-2 bg-gray-500 my-auto"></div>Deactivate
-                          </a>
-                        </div>
-                      </div>
-                </td>
-            </tr>
+<!--  <tr class="bg-white hover:bg-gray-50">
+<td class="w-4 p-4">
+  <div class="flex items-center">
+    <input id="checkbox-table-search-3" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2">
+    <label for="checkbox-table-search-3" class="sr-only">checkbox</label>
+  </div>
+</td>
+<th scope="row" class="flex items-center px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+  <img class="w-10 h-10 rounded-full" src="/docs/images/people/profile-picture-4.jpg" alt="Jese image">
+  <div class="ps-3">
+    <div class="text-base font-semibold">Leslie Livingston</div>
+    <div class="font-normal text-gray-500">leslie@flowbite.com</div>
+  </div>
+</th>
+<td class="px-6 py-4">
+  SEO Specialist
+</td>
+<td class="px-6 py-4">
+  <div class="flex items-center">
+    <div class="h-2.5 w-2.5 rounded-full bg-red-500 me-2"></div> Offline
+  </div>
+</td>
+<td class="px-6 py-4">
 
-            <!--  <tr class="bg-white hover:bg-gray-50">
-               <td class="w-4 p-4">
-                    <div class="flex items-center">
-                        <input id="checkbox-table-search-3" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2">
-                        <label for="checkbox-table-search-3" class="sr-only">checkbox</label>
-                    </div>
-                </td>
-                <th scope="row" class="flex items-center px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                    <img class="w-10 h-10 rounded-full" src="/docs/images/people/profile-picture-4.jpg" alt="Jese image">
-                    <div class="ps-3">
-                        <div class="text-base font-semibold">Leslie Livingston</div>
-                        <div class="font-normal text-gray-500">leslie@flowbite.com</div>
-                    </div>
-                </th>
-                <td class="px-6 py-4">
-                    SEO Specialist
-                </td>
-                <td class="px-6 py-4">
-                    <div class="flex items-center">
-                        <div class="h-2.5 w-2.5 rounded-full bg-red-500 me-2"></div> Offline
-                    </div>
-                </td>
-                <td class="px-6 py-4">
-                    
-                    <a type="button" (click)="toggleModal()" data-modal-show="editUserModal" class="font-medium text-blue-600 hover:underline">Edit user</a>
-                </td>
-            </tr> -->
-        </tbody>
-    </table>
-    </div>
-    </div>
-    <div *ngIf="showModal" class="opacity-25 fixed inset-0 z-40 bg-black"></div>
-    <!-- Edit user modal -->
-    <div
-    *ngIf="showModal"
+  <a type="button" (click)="toggleModal()" data-modal-show="editUserModal" class="font-medium text-blue-600 hover:underline">Edit user</a>
+</td>
+</tr> -->
+</tbody>
+</table>
+</div>
+</div>
+@if (showModal) {
+  <div class="opacity-25 fixed inset-0 z-40 bg-black"></div>
+}
+<!-- Edit user modal -->
+@if (showModal) {
+  <div
     tabindex="-1"
     [ngClass]="{'p-4': !restModal}"
     class="fixed top-0 left-0 right-0 z-50 flex items-center justify-center w-full overflow-hidden md:inset-0 h-dvh"
     role="dialog"
     aria-modal="true"
-  >
+    >
     <div
       [ngClass]="{'w-screen': restModal, 'max-w-2xl md:max-w-3xl': !restModal}"
       class="relative mx-auto my-auto max-h-[100vh] w-full overflow-hidden"
       role="document"
-    >
+      >
       <!-- Modal Content -->
-      <div *ngIf="restModal" class="relative bg-white rounded-lg shadow">
-        <!-- Modal Header -->
-        <div class="flex items-start justify-between px-4 py-2 border-b rounded-t">
-          <h3 class="flex flex-row items-center p-2">
-            <img
-              *ngIf="rest?.logo"
-              class="w-10 h-10 rounded-full border"
-              [src]="baseUrl + rest?.logo"
-              alt="{{rest?.name}}"
-            />
-            <span class="font-semibold text-black text-xl ml-4">
-              {{rest?.name}}
-            </span>
-          </h3>
-          <button
-            type="button"
-            (click)="closeModal()"
-            class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center"
-          >
-            <svg
-              class="w-3 h-3"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 14 14"
-            >
-              <path
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M1 1l6 6m0 0l6 6M7 7l6-6M7 7L1 13"
-              />
-            </svg>
-            <span class="sr-only">Close modal</span>
-          </button>
+      @if (restModal) {
+        <div class="relative bg-white rounded-lg shadow">
+          <!-- Modal Header -->
+          <div class="flex items-start justify-between px-4 py-2 border-b rounded-t">
+            <h3 class="flex flex-row items-center p-2">
+              @if (rest?.logo) {
+                <img
+                  class="w-10 h-10 rounded-full border"
+                  [src]="baseUrl + rest?.logo"
+                  alt="{{rest?.name}}"
+                  />
+              }
+              <span class="font-semibold text-black text-xl ml-4">
+                {{rest?.name}}
+              </span>
+            </h3>
+            <button
+              type="button"
+              (click)="closeModal()"
+              class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center"
+              >
+              <svg
+                class="w-3 h-3"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 14 14"
+                >
+                <path
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M1 1l6 6m0 0l6 6M7 7l6-6M7 7L1 13"
+                  />
+              </svg>
+              <span class="sr-only">Close modal</span>
+            </button>
+          </div>
+          <!-- Modal Body -->
+          <div class="overflow-y-hidden max-h-[100vh] rest-mgt">
+            <router-outlet></router-outlet>
+          </div>
         </div>
-        <!-- Modal Body -->
-        <div class="overflow-y-hidden max-h-[100vh] rest-mgt">
-          <router-outlet></router-outlet>
-        </div>
-    </div>
-            <form *ngIf="RestaurantForm" [formGroup]="RestaurantForm" (ngSubmit)="RestaurantForm.valid?Save():is_submitted=true" class="relative bg-white rounded-lg shadow">
-                <!-- Modal header -->
-                <div class="flex items-start justify-between p-4 border-b rounded-t">
-                    <h3 class="text-xl font-semibold text-gray-900 ">
-                        {{RestaurantForm.get('id')?.value?'Edit':'New'}} Restaurant
-                    </h3>
-                   <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
-                    <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                    </svg>
-                    <span class="sr-only">Close modal</span>
-                </button>
-                </div>
-                <!-- Modal body -->
-                <div *ngIf="!require_otp" class="p-6 space-y-6 max-h-[70vh] overflow-auto">
-                    <div class="space-y-2 md:space-y-4">
-                        <div>
-                            <label for="name" class="block mb-1 text-sm font-medium text-gray-900">Name <span class="text-d-red">*</span></label>
-                            <input type="text" formControlName="name" id="name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the restaurant name">
-                            <div *ngIf="is_submitted && RestaurantForm.get('name')?.errors" class="text-d-red text-xs">
-                                <div *ngIf="RestaurantForm.get('name')?.errors?.['required']">Name is required</div>
-                                <div *ngIf="RestaurantForm.get('name')?.errors?.['minlength']">Name must be at least 5 characters long </div>
-                                
-                            </div>
-                        </div>
-                        <div>
-                            <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Address <span class="text-d-red">*</span></label>
-                            <textarea type="text" formControlName="location" id="location" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the address of the restaurant"></textarea>
-                            <div *ngIf="is_submitted && RestaurantForm.get('location')?.errors" class="text-d-red text-xs">
-                                <div *ngIf="RestaurantForm.get('location')?.errors?.['required']">Address is required</div>
-                                <div *ngIf="RestaurantForm.get('location')?.errors?.['minlength']">Address must be at least 5 characters long </div>
-                            </div>
-                        </div>
-                        <div>
-                            <label for="photo" class="block mb-1 text-sm font-medium text-gray-900">Logo <span *ngIf="!RestaurantForm.get('id')?.value" class="text-d-red">*</span></label>
-                            <div  (click)="photoUpload.click()" class="flex file-upload text-sm text-gray-300">
-
-                                
-                             
-                                 <button type="button" class="bg-d-red rounded-full p-2"
-                                  >
-                                <svg width="20px" height="20px" viewBox="-8 0 32 32" fill="#ffffff" stroke="#ffffff">                                 
-                                    <g>
-                                        <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
-                                            <g id="Icon-Set" sketch:type="MSLayerGroup" transform="translate(-212.000000, -151.000000)" fill="#ffffff">
-                                                <path
-                                                    d="M226,155 L226,175 C226,178.313 223.313,181 220,181 C216.687,181 214,178.313 214,175 L214,157 C214,154.791 215.791,153 218,153 C220.209,153 222,154.791 222,157 L222,175 C222,176.104 221.104,177 220,177 C218.896,177 218,176.104 218,175 L218,159 L216,159 L216,175 C216,177.209 217.791,179 220,179 C222.209,179 224,177.209 224,175 L224,157 C224,153.687 221.313,151 218,151 C214.687,151 212,153.687 212,157 L212,176 C212.493,179.945 215.921,183 220,183 C224.079,183 227.507,179.945 228,176 L228,155 L226,155"
-                                                    id="attachment" sketch:type="MSShapeGroup"> </path>
-                                            </g>
-                                        </g>
-                                    </g>
-                                </svg>
-                                 </button>
-                                 <span class="my-auto ml-3 hover:underline hover:text-d-red">{{RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)==='string')?'Change Logo':(fileName || "No file uploaded yet.")}}   </span>                             
-                                
-                             </div>
-                             <div class="imagePreview" *ngIf="imageURL && imageURL !== ''">
-                                <img [src]="imageURL" class="rounded-full border mx-auto" style="height: 200px; max-width: unset;" height="200px" width="200px" [alt]="RestaurantForm.get('logo')?.value?.name">
-                              </div>
-                             <!-- <img *ngIf="RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)=='string')" [src]="'https://api-dev.dinifyapp.com'+RestaurantForm.get('logo')?.value"  width="300"> -->
-                             <app-common-image [imgclass]="'rounded-full mx-auto border h-80 w-80'" *ngIf="RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)==='string')" [src]="RestaurantForm.get('logo')?.value" [width]="'300'" [height]="'300'" [alt]="RestaurantForm.get('name')?.value"></app-common-image>
-                            <input type="file" #photoUpload (change)="InputLogo($event)" accept="image/*" class="bg-gray-50 border hidden border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 w-full p-2.5" placeholder="Enter the restaurant logo">
-                            <p *ngIf="fileError" class="text-xs text-d-red mt-2">{{ fileError }}</p>
-                            <div *ngIf="is_submitted && RestaurantForm.get('logo')?.errors" class="text-d-red text-xs">
-                                <div *ngIf="RestaurantForm.get('logo')?.errors?.['required']">The Logo is required</div>
-                            </div>
-                        </div>
-                        <div *ngIf="!RestaurantForm.get('id')?.value">
-                          <label for = "phone" class="block mb-1 text-sm font-medium text-gray-900">Phone <span class="text-d-red">*</span></label>
-                        <app-dinify-phone-input [class.field-invalid]="is_submitted && RestaurantForm.get('phone_number')?.errors?.['required']" (valueChange)="onInputChange($event)"></app-dinify-phone-input>
-                        <div *ngIf="is_submitted && RestaurantForm.get('phone_number')?.errors" class="text-d-red text-xs">
-                          <div *ngIf="RestaurantForm.get('phone_number')?.errors?.['required']">Telephone is required</div>
-                      </div>
-                        </div>
-                        
-                          <div *ngIf="detailUser">
-                            <label class="block mb-1 text-sm font-medium text-gray-900">First name of Primary Contact<span class="text-d-red">*</span></label>
-                            <input type="text" [value]="detailUser.first_name" disabled [disabled]="true"  class="hover:cursor-not-allowed bg-gray-50 disabled:focus:outline-0 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5">
-                        </div>
-                        <div *ngIf="detailUser">
-                          <label class="block mb-1 text-sm font-medium text-gray-900">Last name of Primary Contact<span class="text-d-red">*</span></label>
-                          <input type="text" [value]="detailUser.last_name" disabled [disabled]="true" class="hover:cursor-not-allowed bg-gray-50 disabled:focus:outline-0 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the primary contact">
-                        </div>
-                        <div *ngIf="detailUser">
-                          <label class="block mb-1 text-sm font-medium text-gray-900">Email<span class="text-d-red">*</span></label>
-                          <input type="text" [value]="detailUser.email" disabled [disabled]="true" class="hover:cursor-not-allowed bg-gray-50 disabled:focus:outline-0 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the telephone number of the primary contact">
-                      </div>
-                    <!--     <table *ngIf="detailUser" class="w-full text-sm leading-5">                         
-                          <tbody>
-                            <tr class="bg-gray-50">
-                              <th class="py-3 px-4 text-left font-bold text-gray-600 w-1/2">First name of Primary Contact</th>
-                              <td class="py-3 px-4 text-left">{{detailUser.first_name}}</td>
-                            </tr>
-                            <tr>
-                              <td class="py-3 px-4 text-left font-bold text-gray-600">Last name of Primary Contact</td>
-                              <td class="py-3 px-4 text-left">{{detailUser.first_name}} {{detailUser.last_name}}</td>
-                            </tr>
-                            <tr class="bg-gray-50">
-                              <td class="py-3 px-4 text-left font-bold text-gray-600">Email</td>
-                              <td class="py-3 px-4 text-left">{{detailUser.email}}</td>
-                            </tr>
-                            </tbody>
-                            </table> -->
-                 
-                        <div *ngIf="!RestaurantForm.get('id')?.value&& !detailUser">
-                            <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name of Primary Contact<span class="text-d-red">*</span></label>
-                            <input type="text" formControlName="first_name" id="first_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the primary contact">
-                            <div *ngIf="is_submitted && RestaurantForm.get('first_name')?.errors" class="text-d-red text-xs">
-                                <div *ngIf="RestaurantForm.get('first_name')?.errors?.['required']">First name is required</div>
-                                <div *ngIf="RestaurantForm.get('first_name')?.errors?.['minlength']">Firstname must be at least 2 characters long </div>
-                            </div>
-                        </div>
-                        <div *ngIf="!RestaurantForm.get('id')?.value && !detailUser">
-                            <label for="last_name" class="block mb-1 text-sm font-medium text-gray-900">Last name of Primary Contact<span class="text-d-red">*</span></label>
-                            <input type="text" formControlName="last_name" id="last_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the primary contact">
-                            <div *ngIf="is_submitted && RestaurantForm.get('last_name')?.errors" class="text-d-red text-xs">
-                                <div *ngIf="RestaurantForm.get('last_name')?.errors?.['required']">Last name is required</div>
-                                <div *ngIf="RestaurantForm.get('last_name')?.errors?.['minlength']">Last name must be at least 2 characters long </div>
-                            </div>
-                        </div>
-
-                        <div *ngIf="!RestaurantForm.get('id')?.value &&!detailUser">
-                            <label for="email" class="block mb-1 text-sm font-medium text-gray-900">Email<span class="text-d-red">*</span></label>
-                            <input type="text" formControlName="email" id="email" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the email of the primary contact">
-                            <div *ngIf="is_submitted && RestaurantForm.get('email')?.errors" class="text-d-red text-xs">
-                                <div *ngIf="RestaurantForm.get('email')?.errors?.['required']">Email is required</div><br>
-                                <div *ngIf="RestaurantForm.get('email')?.errors?.['email']">Email is not valid email</div>
-                                <div *ngIf="RestaurantForm.get('email')?.errors?.['minlength']">Email must be at least 5 characters long </div>
-                            </div>
-                        </div>
-                   
-                    <!--     <div *ngIf="RestaurantForm.get('id')?.value">
-                            <div class="grid grid-cols-2 gap-2">
-                           
-                                <div class="col-span-2 sm:col-span-1">
-                            <label for="status" class="block mb-2 text-sm font-medium">Approval Status</label>
-            <select formControlName="status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-            <option [value]="'active'" class="p-2.5">Active</option>
-            <option [value]="'pending'" class="p-2.5">Pending</option>
-            <option [value]="'inactive'" class="p-2.5">Inactive</option>
-            </select>
-                        </div>
-                   
-                        </div>
-                        </div> -->
-                        <div>
-                            <div class="grid grid-cols-1 gap-4">
-                            
-                                <div class="col-span-1">
-                                    <label for="preferred_subscription_method" class="block mb-2 text-sm font-medium">Subscription Method</label>
-                                    <select id="preferred_subscription_method" formControlName="preferred_subscription_method"
-                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-                                        <option [value]="'monthly'">Monthly Subscription Fee</option>
-                                        <option [value]="'yearly'">Yearly Subscription Fee</option>
-                                    </select>
-                                </div>
-                                <div class="col-span-1">
-                                    <label for="flat_fee" class="block mb-2 text-sm font-medium text-gray-900">Subscription Fee <span
-                                            class="text-d-red">*</span></label>
-                                   <!--  <input type="number" formControlName="flat_fee" id="flat_fee" min="0"
-                                        class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
-                                        placeholder="Enter the restaurant name"> -->
-                                        <div class="relative mt-2 rounded-md shadow-sm">
-                                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                              <span class="text-gray-500 sm:text-sm">UGX</span>
-                                            </div>
-                                            <input  type="text" formControlName="flat_fee" currencyMask [options]="{prefix: '', align:'left',precision:0, thousands: ',', decimal: '.',min:0}" id="flat_fee" min="0" class="block w-full rounded-md border-0 py-1.5 pl-14 pr-20 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6" placeholder="">
-                                            
-                                          </div>
-                                </div>
-                            </div>
-                        </div>
+      }
+      @if (RestaurantForm) {
+        <form [formGroup]="RestaurantForm" (ngSubmit)="RestaurantForm.valid?Save():is_submitted=true" class="relative bg-white rounded-lg shadow">
+          <!-- Modal header -->
+          <div class="flex items-start justify-between p-4 border-b rounded-t">
+            <h3 class="text-xl font-semibold text-gray-900 ">
+              {{RestaurantForm.get('id')?.value?'Edit':'New'}} Restaurant
+            </h3>
+            <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
+              <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+              </svg>
+              <span class="sr-only">Close modal</span>
+            </button>
+          </div>
+          <!-- Modal body -->
+          @if (!require_otp) {
+            <div class="p-6 space-y-6 max-h-[70vh] overflow-auto">
+              <div class="space-y-2 md:space-y-4">
+                <div>
+                  <label for="name" class="block mb-1 text-sm font-medium text-gray-900">Name <span class="text-d-red">*</span></label>
+                  <input type="text" formControlName="name" id="name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the restaurant name">
+                  @if (is_submitted && RestaurantForm.get('name')?.errors) {
+                    <div class="text-d-red text-xs">
+                      @if (RestaurantForm.get('name')?.errors?.['required']) {
+                        <div>Name is required</div>
+                      }
+                      @if (RestaurantForm.get('name')?.errors?.['minlength']) {
+                        <div>Name must be at least 5 characters long </div>
+                      }
                     </div>
-                    <!-- <div class="grid grid-cols-6 gap-6">
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="first-name" class="block mb-2 text-sm font-medium text-gray-900 ">First Name</label>
-                            <input type="text" name="first-name" id="first-name" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="Bonnie" required="">
-                        </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="last-name" class="block mb-2 text-sm font-medium text-gray-900 ">Last Name</label>
-                            <input type="text" name="last-name" id="last-name" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="Green" required="">
-                        </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="email" class="block mb-2 text-sm font-medium text-gray-900 ">Email</label>
-                            <input type="email" name="email" id="email" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="example@company.com" required="">
-                        </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="phone-number" class="block mb-2 text-sm font-medium text-gray-900 ">Phone Number</label>
-                            <input type="number" name="phone-number" id="phone-number" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="e.g. +(12)3456 789" required="">
-                        </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="department" class="block mb-2 text-sm font-medium text-gray-900 ">Department</label>
-                            <input type="text" name="department" id="department" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="Development" required="">
-                        </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="company" class="block mb-2 text-sm font-medium text-gray-900 ">Company</label>
-                            <input type="number" name="company" id="company" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="123456" required="">
-                        </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="current-password" class="block mb-2 text-sm font-medium text-gray-900 ">Current Password</label>
-                            <input type="password" name="current-password" id="current-password" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="••••••••" required="">
-                        </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <label for="new-password" class="block mb-2 text-sm font-medium text-gray-900 ">New Password</label>
-                            <input type="password" name="new-password" id="new-password" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="••••••••" required="">
-                        </div>
-                    </div> -->
-                </div>
-                <div *ngIf="require_otp" style="width: 32rem;" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lgrounded-2xl">
-                    <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
-                      <div class="flex flex-col items-center justify-center text-center space-y-2">
-                        <div class="font-semibold text-3xl">
-                          <p>One Time Password(OTP)</p>
-                        </div>
-                        <div class="flex flex-row text-sm font-medium text-gray-400">
-                          <p>We have sent the OTP to your phone </p>
-                        </div>
-                      </div>
-                
-                      <div>
-                        
-                        
-                          <div class="flex flex-col space-y-16">
-                            <div>
-                                <app-otp-input #inputPTO="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
-                            <!--   <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                              </div>
-                              <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                              </div>
-                              <div class="w-16 h-16">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                              </div>
-                              <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                              </div> -->
-                            </div>
-                
-                            <div class="flex flex-col space-y-5">
-                              <div>
-                                <button [disabled]="inputPTO.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':inputPTO.invalid}" type="submit" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
-                                  Verify OTP
-                                </button>
-                              </div>
-              
-                              <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
-                                <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',RestaurantForm.get('phone_number')?.value,null,true)" class="flex flex-row items-center text-blue-600" [routerLink]="[]" >Resend</a>
-                              </div>
-                            </div>
-                          </div>
-                      
-                      </div>
-                    </div>
-                </div>
-                <!-- Modal footer -->
-                <div *ngIf="!require_otp" class="flex items-center p-6 space-x-3 rtl:space-x-reverse border-t border-gray-200 rounded-b">
-                    <button type="submit" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm w-40 px-5 py-2.5 text-center ml-auto">{{ RestaurantForm.get('id')?.value?'Save':'Submit'}}</button>
-                </div>
-            </form>
-            <div *ngIf="details" class="relative bg-white rounded-lg shadow">
-                <div class="flex items-start justify-between p-4 border-b rounded-t">
-                    <h3 class="flex flex-row">
-                      <img *ngIf="details.logo" class="w-10 h-10 rounded-full border" [src]="baseUrl+details.logo" alt="{{details.name}}"> <span class="font-semibold text-black text-xl my-auto ml-4">{{details.name}}</span>
-                    </h3>
-                   <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
-                    <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                    </svg>
-                    <span class="sr-only">Close modal</span>
-                </button>
+                  }
                 </div>
                 <div>
-                    <table class="w-full text-sm leading-5">
-                      <thead class="bg-gray-100">
-                        <tr>
-                          <th class="py-3 px-4 text-left font-medium text-gray-600 w-1/3">Name</th>
-                          <td class="py-3 px-4 text-left font-medium text-gray-600">{{details.name}}</td>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <th class="py-3 px-4 text-left font-medium text-gray-600">Address</th>
-                          <td class="py-3 px-4 text-left">{{details.location}}</td>
-                        </tr>
-                        <tr class="bg-gray-50">
-                          <td class="py-3 px-4 text-left font-medium text-gray-600">Contact Name</td>
-                          <td class="py-3 px-4 text-left">{{details.owner.first_name}} {{details.owner.last_name}}</td>
-                        </tr>
-                        <tr>
-                          <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Email</td>
-                          <td class="py-3 px-4 text-left">{{details.owner.email}}</td>
-                        </tr>
-                        <tr class="bg-gray-50">
-                          <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Telephone</td>
-                          <td class="py-3 px-4 text-left">{{details.owner.phone}}</td>
-                        </tr>
-                        <tr>
-                            <td class="py-3 px-4 text-left font-medium text-gray-600">Subscription Method</td>
-                            <td class="py-3 px-4 text-left">
-                                {{detail_full?.preferred_subscription_method==='monthly'?'Monthly Subscription Fee':''}}
-                                {{detail_full?.preferred_subscription_method==='yearly'?'Yearly Subscription Fee':''}}                                
-                            </td>
-                          </tr>
-                        <tr *ngIf="detail_full?.preferred_subscription_method==='yearly'||detail_full?.preferred_subscription_method==='monthly'" class="bg-gray-50">
-                          <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Subscription Fee</td>
-                          <td class="py-3 px-4 text-left">{{detail_full?.flat_fee|number}}</td>
-                        </tr>
-                        <!-- <tr>
-                          <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Sugars</td>
-                          <td class="py-3 px-4 text-left">4g</td>
-                        </tr>
-                        <tr class="bg-gray-50">
-                          <td class="py-3 px-4 text-left font-medium text-gray-600">Protein</td>
-                          <td class="py-3 px-4 text-left">22g</td>
-                        </tr> -->
-                      </tbody>
-                    </table>
+                  <label for="location" class="block mb-1 text-sm font-medium text-gray-900">Address <span class="text-d-red">*</span></label>
+                  <textarea type="text" formControlName="location" id="location" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the address of the restaurant"></textarea>
+                  @if (is_submitted && RestaurantForm.get('location')?.errors) {
+                    <div class="text-d-red text-xs">
+                      @if (RestaurantForm.get('location')?.errors?.['required']) {
+                        <div>Address is required</div>
+                      }
+                      @if (RestaurantForm.get('location')?.errors?.['minlength']) {
+                        <div>Address must be at least 5 characters long </div>
+                      }
+                    </div>
+                  }
+                </div>
+                <div>
+                  <label for="photo" class="block mb-1 text-sm font-medium text-gray-900">Logo @if (!RestaurantForm.get('id')?.value) {
+                    <span class="text-d-red">*</span>
+                  }</label>
+                  <div  (click)="photoUpload.click()" class="flex file-upload text-sm text-gray-300">
+                    <button type="button" class="bg-d-red rounded-full p-2"
+                      >
+                      <svg width="20px" height="20px" viewBox="-8 0 32 32" fill="#ffffff" stroke="#ffffff">
+                        <g>
+                          <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+                            <g id="Icon-Set" sketch:type="MSLayerGroup" transform="translate(-212.000000, -151.000000)" fill="#ffffff">
+                              <path
+                                d="M226,155 L226,175 C226,178.313 223.313,181 220,181 C216.687,181 214,178.313 214,175 L214,157 C214,154.791 215.791,153 218,153 C220.209,153 222,154.791 222,157 L222,175 C222,176.104 221.104,177 220,177 C218.896,177 218,176.104 218,175 L218,159 L216,159 L216,175 C216,177.209 217.791,179 220,179 C222.209,179 224,177.209 224,175 L224,157 C224,153.687 221.313,151 218,151 C214.687,151 212,153.687 212,157 L212,176 C212.493,179.945 215.921,183 220,183 C224.079,183 227.507,179.945 228,176 L228,155 L226,155"
+                              id="attachment" sketch:type="MSShapeGroup"> </path>
+                            </g>
+                          </g>
+                        </g>
+                      </svg>
+                    </button>
+                    <span class="my-auto ml-3 hover:underline hover:text-d-red">{{RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)==='string')?'Change Logo':(fileName || "No file uploaded yet.")}}   </span>
                   </div>
+                  @if (imageURL && imageURL !== '') {
+                    <div class="imagePreview">
+                      <img [src]="imageURL" class="rounded-full border mx-auto" style="height: 200px; max-width: unset;" height="200px" width="200px" [alt]="RestaurantForm.get('logo')?.value?.name">
+                    </div>
+                  }
+                  <!-- <img *ngIf="RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)=='string')" [src]="'https://api-dev.dinifyapp.com'+RestaurantForm.get('logo')?.value"  width="300"> -->
+                  @if (RestaurantForm.get('id')?.value&&(typOf(RestaurantForm.get('logo')?.value)==='string')) {
+                    <app-common-image [imgclass]="'rounded-full mx-auto border h-80 w-80'" [src]="RestaurantForm.get('logo')?.value" [width]="'300'" [height]="'300'" [alt]="RestaurantForm.get('name')?.value"></app-common-image>
+                  }
+                  <input type="file" #photoUpload (change)="InputLogo($event)" accept="image/*" class="bg-gray-50 border hidden border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 w-full p-2.5" placeholder="Enter the restaurant logo">
+                  @if (fileError) {
+                    <p class="text-xs text-d-red mt-2">{{ fileError }}</p>
+                  }
+                  @if (is_submitted && RestaurantForm.get('logo')?.errors) {
+                    <div class="text-d-red text-xs">
+                      @if (RestaurantForm.get('logo')?.errors?.['required']) {
+                        <div>The Logo is required</div>
+                      }
+                    </div>
+                  }
+                </div>
+                @if (!RestaurantForm.get('id')?.value) {
+                  <div>
+                    <label for = "phone" class="block mb-1 text-sm font-medium text-gray-900">Phone <span class="text-d-red">*</span></label>
+                    <app-dinify-phone-input [class.field-invalid]="is_submitted && RestaurantForm.get('phone_number')?.errors?.['required']" (valueChange)="onInputChange($event)"></app-dinify-phone-input>
+                    @if (is_submitted && RestaurantForm.get('phone_number')?.errors) {
+                      <div class="text-d-red text-xs">
+                        @if (RestaurantForm.get('phone_number')?.errors?.['required']) {
+                          <div>Telephone is required</div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+                @if (detailUser) {
+                  <div>
+                    <label class="block mb-1 text-sm font-medium text-gray-900">First name of Primary Contact<span class="text-d-red">*</span></label>
+                    <input type="text" [value]="detailUser.first_name" disabled [disabled]="true"  class="hover:cursor-not-allowed bg-gray-50 disabled:focus:outline-0 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5">
+                  </div>
+                }
+                @if (detailUser) {
+                  <div>
+                    <label class="block mb-1 text-sm font-medium text-gray-900">Last name of Primary Contact<span class="text-d-red">*</span></label>
+                    <input type="text" [value]="detailUser.last_name" disabled [disabled]="true" class="hover:cursor-not-allowed bg-gray-50 disabled:focus:outline-0 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the primary contact">
+                  </div>
+                }
+                @if (detailUser) {
+                  <div>
+                    <label class="block mb-1 text-sm font-medium text-gray-900">Email<span class="text-d-red">*</span></label>
+                    <input type="text" [value]="detailUser.email" disabled [disabled]="true" class="hover:cursor-not-allowed bg-gray-50 disabled:focus:outline-0 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the telephone number of the primary contact">
+                  </div>
+                }
+                <!--     <table *ngIf="detailUser" class="w-full text-sm leading-5">
+                <tbody>
+                  <tr class="bg-gray-50">
+                    <th class="py-3 px-4 text-left font-bold text-gray-600 w-1/2">First name of Primary Contact</th>
+                    <td class="py-3 px-4 text-left">{{detailUser.first_name}}</td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 px-4 text-left font-bold text-gray-600">Last name of Primary Contact</td>
+                    <td class="py-3 px-4 text-left">{{detailUser.first_name}} {{detailUser.last_name}}</td>
+                  </tr>
+                  <tr class="bg-gray-50">
+                    <td class="py-3 px-4 text-left font-bold text-gray-600">Email</td>
+                    <td class="py-3 px-4 text-left">{{detailUser.email}}</td>
+                  </tr>
+                </tbody>
+              </table> -->
+              @if (!RestaurantForm.get('id')?.value&& !detailUser) {
+                <div>
+                  <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name of Primary Contact<span class="text-d-red">*</span></label>
+                  <input type="text" formControlName="first_name" id="first_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the primary contact">
+                  @if (is_submitted && RestaurantForm.get('first_name')?.errors) {
+                    <div class="text-d-red text-xs">
+                      @if (RestaurantForm.get('first_name')?.errors?.['required']) {
+                        <div>First name is required</div>
+                      }
+                      @if (RestaurantForm.get('first_name')?.errors?.['minlength']) {
+                        <div>Firstname must be at least 2 characters long </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+              @if (!RestaurantForm.get('id')?.value && !detailUser) {
+                <div>
+                  <label for="last_name" class="block mb-1 text-sm font-medium text-gray-900">Last name of Primary Contact<span class="text-d-red">*</span></label>
+                  <input type="text" formControlName="last_name" id="last_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the name of the primary contact">
+                  @if (is_submitted && RestaurantForm.get('last_name')?.errors) {
+                    <div class="text-d-red text-xs">
+                      @if (RestaurantForm.get('last_name')?.errors?.['required']) {
+                        <div>Last name is required</div>
+                      }
+                      @if (RestaurantForm.get('last_name')?.errors?.['minlength']) {
+                        <div>Last name must be at least 2 characters long </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+              @if (!RestaurantForm.get('id')?.value &&!detailUser) {
+                <div>
+                  <label for="email" class="block mb-1 text-sm font-medium text-gray-900">Email<span class="text-d-red">*</span></label>
+                  <input type="text" formControlName="email" id="email" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter the email of the primary contact">
+                  @if (is_submitted && RestaurantForm.get('email')?.errors) {
+                    <div class="text-d-red text-xs">
+                      @if (RestaurantForm.get('email')?.errors?.['required']) {
+                        <div>Email is required</div>
+                        }<br>
+                        @if (RestaurantForm.get('email')?.errors?.['email']) {
+                          <div>Email is not valid email</div>
+                        }
+                        @if (RestaurantForm.get('email')?.errors?.['minlength']) {
+                          <div>Email must be at least 5 characters long </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+                <!--     <div *ngIf="RestaurantForm.get('id')?.value">
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="col-span-2 sm:col-span-1">
+                    <label for="status" class="block mb-2 text-sm font-medium">Approval Status</label>
+                    <select formControlName="status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                      <option [value]="'active'" class="p-2.5">Active</option>
+                      <option [value]="'pending'" class="p-2.5">Pending</option>
+                      <option [value]="'inactive'" class="p-2.5">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+              </div> -->
+              <div>
+                <div class="grid grid-cols-1 gap-4">
+                  <div class="col-span-1">
+                    <label for="preferred_subscription_method" class="block mb-2 text-sm font-medium">Subscription Method</label>
+                    <select id="preferred_subscription_method" formControlName="preferred_subscription_method"
+                      class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                      <option [value]="'monthly'">Monthly Subscription Fee</option>
+                      <option [value]="'yearly'">Yearly Subscription Fee</option>
+                    </select>
+                  </div>
+                  <div class="col-span-1">
+                    <label for="flat_fee" class="block mb-2 text-sm font-medium text-gray-900">Subscription Fee <span
+                    class="text-d-red">*</span></label>
+                    <!--  <input type="number" formControlName="flat_fee" id="flat_fee" min="0"
+                    class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 "
+                    placeholder="Enter the restaurant name"> -->
+                    <div class="relative mt-2 rounded-md shadow-sm">
+                      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                        <span class="text-gray-500 sm:text-sm">UGX</span>
+                      </div>
+                      <input  type="text" formControlName="flat_fee" currencyMask [options]="{prefix: '', align:'left',precision:0, thousands: ',', decimal: '.',min:0}" id="flat_fee" min="0" class="block w-full rounded-md border-0 py-1.5 pl-14 pr-20 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6" placeholder="">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- <div class="grid grid-cols-6 gap-6">
+            <div class="col-span-6 sm:col-span-3">
+              <label for="first-name" class="block mb-2 text-sm font-medium text-gray-900 ">First Name</label>
+              <input type="text" name="first-name" id="first-name" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="Bonnie" required="">
+            </div>
+            <div class="col-span-6 sm:col-span-3">
+              <label for="last-name" class="block mb-2 text-sm font-medium text-gray-900 ">Last Name</label>
+              <input type="text" name="last-name" id="last-name" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="Green" required="">
+            </div>
+            <div class="col-span-6 sm:col-span-3">
+              <label for="email" class="block mb-2 text-sm font-medium text-gray-900 ">Email</label>
+              <input type="email" name="email" id="email" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="example@company.com" required="">
+            </div>
+            <div class="col-span-6 sm:col-span-3">
+              <label for="phone-number" class="block mb-2 text-sm font-medium text-gray-900 ">Phone Number</label>
+              <input type="number" name="phone-number" id="phone-number" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="e.g. +(12)3456 789" required="">
+            </div>
+            <div class="col-span-6 sm:col-span-3">
+              <label for="department" class="block mb-2 text-sm font-medium text-gray-900 ">Department</label>
+              <input type="text" name="department" id="department" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="Development" required="">
+            </div>
+            <div class="col-span-6 sm:col-span-3">
+              <label for="company" class="block mb-2 text-sm font-medium text-gray-900 ">Company</label>
+              <input type="number" name="company" id="company" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="123456" required="">
+            </div>
+            <div class="col-span-6 sm:col-span-3">
+              <label for="current-password" class="block mb-2 text-sm font-medium text-gray-900 ">Current Password</label>
+              <input type="password" name="current-password" id="current-password" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="••••••••" required="">
+            </div>
+            <div class="col-span-6 sm:col-span-3">
+              <label for="new-password" class="block mb-2 text-sm font-medium text-gray-900 ">New Password</label>
+              <input type="password" name="new-password" id="new-password" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 " placeholder="••••••••" required="">
+            </div>
+          </div> -->
         </div>
+      }
+      @if (require_otp) {
+        <div style="width: 32rem;" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-[28rem] lg:!max-w-lgrounded-2xl">
+          <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
+            <div class="flex flex-col items-center justify-center text-center space-y-2">
+              <div class="font-semibold text-3xl">
+                <p>One Time Password(OTP)</p>
+              </div>
+              <div class="flex flex-row text-sm font-medium text-gray-400">
+                <p>We have sent the OTP to your phone </p>
+              </div>
+            </div>
+            <div>
+              <div class="flex flex-col space-y-16">
+                <div>
+                  <app-otp-input #inputPTO="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
+                  <!--   <div class="w-16 h-16 ">
+                  <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                </div>
+                <div class="w-16 h-16 ">
+                  <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                </div>
+                <div class="w-16 h-16">
+                  <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                </div>
+                <div class="w-16 h-16 ">
+                  <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                </div> -->
+              </div>
+              <div class="flex flex-col space-y-5">
+                <div>
+                  <button [disabled]="inputPTO.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':inputPTO.invalid}" type="submit" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
+                    Verify OTP
+                  </button>
+                </div>
+                <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
+                  <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',RestaurantForm.get('phone_number')?.value,null,true)" class="flex flex-row items-center text-blue-600" [routerLink]="[]" >Resend</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+    <!-- Modal footer -->
+    @if (!require_otp) {
+      <div class="flex items-center p-6 space-x-3 rtl:space-x-reverse border-t border-gray-200 rounded-b">
+        <button type="submit" class="text-white bg-d-red hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm w-40 px-5 py-2.5 text-center ml-auto">{{ RestaurantForm.get('id')?.value?'Save':'Submit'}}</button>
+      </div>
+    }
+  </form>
+}
+@if (details) {
+  <div class="relative bg-white rounded-lg shadow">
+    <div class="flex items-start justify-between p-4 border-b rounded-t">
+      <h3 class="flex flex-row">
+        @if (details.logo) {
+          <img class="w-10 h-10 rounded-full border" [src]="baseUrl+details.logo" alt="{{details.name}}">
+          } <span class="font-semibold text-black text-xl my-auto ml-4">{{details.name}}</span>
+        </h3>
+        <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
+          <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+          </svg>
+          <span class="sr-only">Close modal</span>
+        </button>
+      </div>
+      <div>
+        <table class="w-full text-sm leading-5">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="py-3 px-4 text-left font-medium text-gray-600 w-1/3">Name</th>
+              <td class="py-3 px-4 text-left font-medium text-gray-600">{{details.name}}</td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th class="py-3 px-4 text-left font-medium text-gray-600">Address</th>
+              <td class="py-3 px-4 text-left">{{details.location}}</td>
+            </tr>
+            <tr class="bg-gray-50">
+              <td class="py-3 px-4 text-left font-medium text-gray-600">Contact Name</td>
+              <td class="py-3 px-4 text-left">{{details.owner.first_name}} {{details.owner.last_name}}</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Email</td>
+              <td class="py-3 px-4 text-left">{{details.owner.email}}</td>
+            </tr>
+            <tr class="bg-gray-50">
+              <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Telephone</td>
+              <td class="py-3 px-4 text-left">{{details.owner.phone}}</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 text-left font-medium text-gray-600">Subscription Method</td>
+              <td class="py-3 px-4 text-left">
+                {{detail_full?.preferred_subscription_method==='monthly'?'Monthly Subscription Fee':''}}
+                {{detail_full?.preferred_subscription_method==='yearly'?'Yearly Subscription Fee':''}}
+              </td>
+            </tr>
+            @if (detail_full?.preferred_subscription_method==='yearly'||detail_full?.preferred_subscription_method==='monthly') {
+              <tr class="bg-gray-50">
+                <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Subscription Fee</td>
+                <td class="py-3 px-4 text-left">{{detail_full?.flat_fee|number}}</td>
+              </tr>
+            }
+            <!-- <tr>
+            <td class="py-3 px-4 text-left font-medium text-gray-600 pl-8">Sugars</td>
+            <td class="py-3 px-4 text-left">4g</td>
+          </tr>
+          <tr class="bg-gray-50">
+            <td class="py-3 px-4 text-left font-medium text-gray-600">Protein</td>
+            <td class="py-3 px-4 text-left">22g</td>
+          </tr> -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+</div>
+</div>
+}
 </div>
