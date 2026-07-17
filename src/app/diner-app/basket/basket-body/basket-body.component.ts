@@ -6,6 +6,7 @@ import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { BasketItem, OrderInitiated, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
+import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { environment } from 'src/environments/environment';
@@ -76,6 +77,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private sessionStorage: SessionStorageService,
     private basketService: BasketService,
+    private dinerSession: DinerSessionService,
     public loc: Location,
     private api: ApiService,
     private dialog: ConfirmDialogService,
@@ -292,8 +294,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       // Idempotency key — reused across retries of an unchanged basket so a
       // retried submit returns the existing order instead of duplicating it.
       client_order_id: this.basketService.getOrCreateClientOrderId(),
-      restaurant: this.restaurant?.id,
-      table: this.table?.id,
+      // No raw restaurant/table UUIDs: the backend derives both from the diner
+      // table session (X-Diner-Session), so a foreign body id can't override the
+      // scope of the order. The session is the sole authority.
       items: this.basketItems.map((item) => ({
         item: item.itemId,
         quantity: item.quantity,
@@ -345,6 +348,21 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.toast.clear();
           this.placingOrder = false;
           return;
+        }
+
+        // Diner table-session failures are about the QR/session, not the order:
+        //  - a denied/invalid credential (QR regenerated) → invalidate it and let
+        //    the shell prompt a fresh scan (no dead-end at the checkout button);
+        //  - a plain TTL lapse → drop the stale token so the shell poll re-mints
+        //    from the retained credential, and surface a friendly retry inline.
+        if (this.dinerSession.isCredentialDenied(error)) {
+          this.dinerSession.invalidateCredential();
+          this.toast.clear();
+          this.placingOrder = false;
+          return;
+        }
+        if (this.dinerSession.isSessionExpired(error)) {
+          this.dinerSession.expireSession();
         }
 
         // Genuine failure (lost signal, 5xx, etc). The ErrorInterceptor already
@@ -456,7 +474,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         });
 
         this.basketService.clearBasket(); // Clear the basket
-        this.sessionStorage.clear();
+        // Reset the diner's order/menu context, but KEEP the table-session
+        // capability alive across the wipe — the order-complete review submission
+        // and the back-to-menu re-scan both still authorise off X-Diner-Session.
+        this.dinerSession.retainSessionThrough(() => this.sessionStorage.clear());
         // Reset transient placement state. The desktop basket sidebar is never
         // destroyed (it lives in the shell beside the router-outlet), so without
         // this `placingOrder` stays true on that instance and keeps the checkout
@@ -467,11 +488,22 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.order_initiated = undefined;
       },
       (error) => {
-        // submit/ only runs after a successful initiate/, which already passed
-        // the table-gate — so it can't carry the ongoing-order 400 (that's
-        // handled in placeOrder()). Any failure here is genuine: surface the
-        // backend message inline + Retry at the footer.
         this.dialog.closeModal();
+        // A table-session failure can still surface here if the session lapsed
+        // between initiate and submit — route it the same way as placeOrder().
+        if (this.dinerSession.isCredentialDenied(error)) {
+          this.dinerSession.invalidateCredential();
+          this.toast.clear();
+          this.placingOrder = false;
+          return;
+        }
+        if (this.dinerSession.isSessionExpired(error)) {
+          this.dinerSession.expireSession();
+        }
+        // submit/ otherwise only runs after a successful initiate/, which already
+        // passed the table-gate — so it can't carry the ongoing-order 400 (that's
+        // handled in placeOrder()). Any remaining failure is genuine: surface the
+        // backend message inline + Retry at the footer.
         this.failOrder(this.placementErrorMessage(error));
       }
     );

@@ -90,7 +90,8 @@ export class ErrorInterceptor implements HttpInterceptor {
     private isDinerRequest(request: HttpRequest<any>): boolean {
         return request.url.includes('orders/journey/')   // show-menu, table-scan, order-details
             || request.url.includes('orders/initiate/')
-            || request.url.includes('orders/submit/');
+            || request.url.includes('orders/submit/')
+            || request.url.includes('reviews/submit/');  // diner order-complete review
     }
 
     private handle401(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {

@@ -30,8 +30,7 @@ export async function generateQRPrintSheet(
   const tableCards = (
     await Promise.all(
       printable.map(async table => {
-        const qrMode = table.qrMode || 'order_pay';
-        const qrUrl = `${baseUrl}/diner/h/${table.id}?mode=${qrMode}`;
+        const qrUrl = buildDinerQRUrl(baseUrl, table);
         const qrImageUrl = await QRCode.toDataURL(qrUrl, {
           width: 400,
           margin: 2,
@@ -144,10 +143,22 @@ export async function generateQRPrintSheet(
 }
 
 /**
+ * Builds the diner-facing QR URL for a table. The QR encodes the opaque, signed
+ * credential (backend PR 7A) as `?c=` — the diner app reads it, then exchanges it
+ * at the protected scan endpoint for a short-lived table session. The `:table`
+ * path segment is retained only so the existing `/diner/h/:table` route matches;
+ * it is a display hint, NOT authority (the backend derives the table from the
+ * credential, which encodes it).
+ */
+function buildDinerQRUrl(baseUrl: string, table: RestaurantTable): string {
+  const credential = encodeURIComponent(table.qrCredential ?? '');
+  return `${baseUrl}/diner/h/${table.id}?c=${credential}`;
+}
+
+/**
  * Returns the diner-facing URL for a table's QR code.
  */
 export function getTableQRUrl(table: RestaurantTable): string {
   const baseUrl = environment.dinerBaseUrl || window.location.origin;
-  const qrMode = table.qrMode || 'order_pay';
-  return `${baseUrl}/diner/h/${table.id}?mode=${qrMode}`;
+  return buildDinerQRUrl(baseUrl, table);
 }

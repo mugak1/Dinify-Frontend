@@ -38,6 +38,9 @@ export interface RestaurantTable {
   hasQR: boolean;
   qrMode?: QRMode;
   qrRegeneratedAt?: Date;
+  /** Opaque, signed QR credential (backend PR 7A) — what the printed QR encodes
+   *  so a diner can exchange it for a table session. Not the table UUID. */
+  qrCredential?: string;
   serverId?: string;
   // Position on floor plan (percentage based)
   x: number;
@@ -178,6 +181,7 @@ export function mapApiTable(raw: any, areaId?: string): RestaurantTable {
     isActive: raw.is_active ?? true,
     hasQR: raw.has_qr ?? false,
     qrMode: raw.qr_mode ?? 'order_pay',
+    qrCredential: raw.qr_credential ?? undefined,
     qrRegeneratedAt: raw.qr_regenerated_at ? new Date(raw.qr_regenerated_at) : undefined,
     // Deferred: `serverId` is intentionally not mapped from `raw.server_id`
     // yet. Server assignment is a Service-View concern and that view is frozen
