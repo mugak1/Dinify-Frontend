@@ -25,7 +25,7 @@ export class BulkStockBarComponent {
   constructor(private elRef: ElementRef) {}
 
   @HostListener('document:click', ['$event.target'])
-  onDocumentClick(target: HTMLElement): void {
+  onDocumentClick(target: EventTarget | null): void {
     if (!this.elRef.nativeElement.contains(target)) {
       this.addBadgeOpen = false;
       this.removeBadgeOpen = false;

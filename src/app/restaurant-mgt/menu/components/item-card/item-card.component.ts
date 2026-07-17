@@ -38,7 +38,7 @@ export class ItemCardComponent {
   constructor(private elRef: ElementRef) {}
 
   @HostListener('document:click', ['$event.target'])
-  onDocumentClick(target: HTMLElement): void {
+  onDocumentClick(target: EventTarget | null): void {
     if (this.showStockMenu && !this.elRef.nativeElement.contains(target)) {
       this.showStockMenu = false;
     }
