@@ -211,6 +211,25 @@ describe('BasketBodyComponent', () => {
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
+  it('omits raw restaurant/table identifiers from the initiate body (the session governs scope)', () => {
+    basket.items = [lineItem()];
+    // Even if the component holds table/restaurant context, none of it is sent as
+    // authority — the backend derives scope from X-Diner-Session, closing the
+    // cross-table body-id override vector.
+    component.table = { id: 'some-table', number: 9 } as any;
+    component.restaurant = { id: 'some-restaurant' } as any;
+    api.postPatch.and.returnValue(of(initiateWith({})) as any);
+
+    component.initiateOrder();
+
+    const body = api.postPatch.calls.argsFor(0)[1] as any;
+    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
+    expect(body.client_order_id).toBe(CLIENT_ID);
+    expect(body.items.length).toBe(1);
+    expect('table' in body).toBeFalse();
+    expect('restaurant' in body).toBeFalse();
+  });
+
   it('refuses to initiate when the table already has an ongoing order', () => {
     const navState = TestBed.inject(MenuNavStateService);
     basket.items = [lineItem()];

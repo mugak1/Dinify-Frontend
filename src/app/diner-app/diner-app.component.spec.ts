@@ -12,11 +12,13 @@ import { ToastService } from '../_shared/ui/toast/toast.service';
 import { DinerAppComponent } from './diner-app.component';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
 import { SessionStorageService } from '../_services/storage/session-storage.service';
+import { DinerSessionService } from '../_services/diner-session.service';
 
 describe('DinerAppComponent', () => {
   let component: DinerAppComponent;
   let fixture: ComponentFixture<DinerAppComponent>;
   let httpMock: HttpTestingController;
+  let dinerSession: DinerSessionService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -35,6 +37,11 @@ describe('DinerAppComponent', () => {
     fixture = TestBed.createComponent(DinerAppComponent);
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
+    // Cutover: a scan only fires with a QR credential in hand. The scan-behaviour
+    // specs below drive getTableDetails() directly, so seed one here; the
+    // dedicated cutover spec clears it to prove a raw UUID starts nothing.
+    dinerSession = TestBed.inject(DinerSessionService);
+    dinerSession.setCredential('qr-credential-token');
     fixture.detectChanges();
   });
 
@@ -211,5 +218,49 @@ describe('DinerAppComponent', () => {
     httpMock.expectOne(r => r.url.includes('table-scan')).flush(validScan('table-A', 5));
 
     expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  // ── cutover: the QR credential (not a raw table UUID) is what starts a session ──
+  it('does NOT start a session from a raw table id when no QR credential is present', () => {
+    dinerSession.clear(); // simulate an old raw-UUID sticker: no credential in hand
+
+    component.getTableDetails('raw-table-uuid');
+
+    // No table-scan exchange is issued, and no session is minted.
+    httpMock.expectNone(r => r.url.includes('table-scan'));
+    expect(dinerSession.hasSession()).toBeFalse();
+    // The diner is asked to (re)scan rather than silently trusting the UUID.
+    expect(component.scanFailed).toBeTrue();
+    expect(component.scanRetryable).toBeFalse();
+  });
+
+  it('captures the minted table session from a valid scan', () => {
+    component.getTableDetails('good-id');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush({
+      data: {
+        id: 'good-id',
+        session_token: 'sess-abc',
+        restaurant: { id: 'r1', name: 'R', branding_configuration: {} },
+      },
+    });
+
+    expect(dinerSession.token).toBe('sess-abc');
+    expect(dinerSession.hasSession()).toBeTrue();
+  });
+
+  it('invalidates the credential and prompts a rescan when the scan is denied (regenerated QR)', () => {
+    component.getTableDetails('good-id');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush(
+      { message: 'Not found.' },
+      { status: 404, statusText: 'Not Found' },
+    );
+    fixture.detectChanges(); // let the needsRescan effect paint the panel
+
+    expect(dinerSession.needsRescan()).toBeTrue();
+    expect(dinerSession.hasCredential()).toBeFalse();
+    expect(component.scanFailed).toBeTrue();
+    expect(component.scanRetryable).toBeFalse();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-no-table')).toBeTruthy();
   });
 });

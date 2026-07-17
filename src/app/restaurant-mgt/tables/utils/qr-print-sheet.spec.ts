@@ -60,8 +60,10 @@ describe('generateQRPrintSheet (local QR generation)', () => {
 
   it('encodes each table URL with the bundled lib and writes a sheet with no external call', async () => {
     const tables = [
-      makeTable({ id: 'abc', number: 2, qrMode: 'order_pay' }),
-      makeTable({ id: 'def', number: 1, qrMode: 'menu_only' }),
+      makeTable({ id: 'abc', number: 2, qrCredential: 'CRED-abc' }),
+      // A real django-signing credential carries ':' separators (and a leading
+      // '.' when compressed) — assert those are percent-encoded into the URL.
+      makeTable({ id: 'def', number: 1, qrCredential: '.eyJ0Ijoi:sig-def' }),
       makeTable({ id: 'no-qr', number: 3, hasQR: false }), // excluded
     ];
 
@@ -70,12 +72,17 @@ describe('generateQRPrintSheet (local QR generation)', () => {
     // Window is opened synchronously (popup-safe), exactly once.
     expect(openSpy).toHaveBeenCalledOnceWith('', '_blank');
 
-    // One QR per QR-enabled table, each encoding the diner entry URL.
+    // One QR per QR-enabled table, each encoding the diner entry URL with the
+    // opaque credential in `?c=` (not the raw table UUID as authority).
     const origin = window.location.origin;
     expect(toDataURLSpy).toHaveBeenCalledTimes(2);
     const encoded = toDataURLSpy.calls.allArgs().map(args => args[0]);
-    expect(encoded).toContain(`${origin}/diner/h/abc?mode=order_pay`);
-    expect(encoded).toContain(`${origin}/diner/h/def?mode=menu_only`);
+    expect(encoded).toContain(`${origin}/diner/h/abc?c=CRED-abc`);
+    expect(encoded).toContain(
+      `${origin}/diner/h/def?c=${encodeURIComponent('.eyJ0Ijoi:sig-def')}`,
+    );
+    // The old raw ?mode= scheme is gone.
+    expect(encoded.every(u => !u.includes('?mode='))).toBeTrue();
 
     // The sheet embeds the locally-generated data URLs and never calls out.
     const html = fakeDoc.write.calls.mostRecent().args[0] as string;

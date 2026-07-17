@@ -260,6 +260,9 @@ export interface TableScan {
   available: boolean
   current_order: CurrentOrder
   restaurant: Restaurant
+  /** Short-lived diner table-session token minted by the protected table-scan
+   *  endpoint (backend PR 7A). Captured by DinerSessionService, never rendered. */
+  session_token?: string
 }
 
 export interface CurrentOrder {

@@ -1,9 +1,11 @@
-import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild, effect } from '@angular/core';
+import { Location } from '@angular/common';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { ApiService } from '../_services/api.service';
 import { SessionStorageService } from '../_services/storage/session-storage.service';
+import { DinerSessionService } from '../_services/diner-session.service';
 import { Restaurant, TableScan } from '../_models/app.models';
 import { environment } from 'src/environments/environment';
 import { BasketService } from '../_services/basket.service';
@@ -35,6 +37,10 @@ export class DinerAppComponent implements OnInit, OnDestroy {
   scanRetryable = false;
   private readonly DEFAULT_UNAVAILABLE =
     "This table isn't available right now — please ask a member of staff.";
+  // Shown when the QR credential is missing (an old raw-UUID sticker) or has been
+  // invalidated (the QR was regenerated) — only a fresh physical scan recovers.
+  private readonly RESCAN_MESSAGE =
+    'Please scan the QR code on your table to start ordering.';
 
   /** Live-status polling: re-fetch the table-scan so the ongoing-order banner /
    *  checkout gate clear automatically once the kitchen serves the order. */
@@ -46,14 +52,20 @@ export class DinerAppComponent implements OnInit, OnDestroy {
   /** Id of an in-flight nav-scan, so a NavigationEnd that lands mid-scan doesn't
    *  fire a duplicate fetch for the same table. */
   private scanInFlightId: string | null = null;
+  /** The last QR credential we captured off the URL, so repeated NavigationEnds
+   *  (the address-bar strip leaves the router's own url unchanged) don't
+   *  re-process the same `?c=` — only a genuinely new QR is re-read. */
+  private lastCapturedCredential: string | null = null;
   private readonly onVisibility = () => this.handleVisibility();
 
   @ViewChild('brandStrip') brandStrip?: ElementRef<HTMLElement>;
 
   constructor(
     private readonly sessionStorage: SessionStorageService,
+    private readonly dinerSession: DinerSessionService,
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private ngZone: NgZone,
     private api: ApiService,
     public basketService: BasketService,
@@ -63,7 +75,17 @@ export class DinerAppComponent implements OnInit, OnDestroy {
     // own single-banner header) and to re-pin the offline strip to the top there.
     // providedIn:'root' singleton — the same instance the menu component drives.
     public navState: MenuNavStateService,
-  ) {}
+  ) {
+    // When the diner capability is invalidated from ANYWHERE (a poll/scan 404, or
+    // a capability failure on an order/review call), surface the rescan panel and
+    // halt polling — a fresh physical QR scan is the only recovery.
+    effect(() => {
+      if (this.dinerSession.needsRescan()) {
+        this.stopPolling();
+        this.showScanError(this.RESCAN_MESSAGE);
+      }
+    });
+  }
 
   ngOnInit(): void {
     // Resolve the active table on first paint AND on every in-app navigation —
@@ -104,8 +126,21 @@ export class DinerAppComponent implements OnInit, OnDestroy {
    *  the table changed or the cached context was lost (post-order back-to-menu),
    *  but skips redundant scans during normal browsing. */
   private syncActiveTable(): void {
+    // Read the opaque QR credential off the landing URL (?c=...) FIRST — it, not
+    // the raw :table UUID, is what authorises a scan (backend PR 7A / cutover).
+    this.captureCredentialFromUrl();
+
     const tableId = this.activeTableParam();
     if (tableId) {
+      if (!this.dinerSession.hasCredential()) {
+        // Cutover: a raw table UUID in the URL is no longer a credential. With no
+        // QR credential we never open a session — prompt for a fresh scan instead
+        // of silently trusting the UUID.
+        this.table_id = tableId;
+        this.stopPolling();
+        this.showScanError(this.RESCAN_MESSAGE);
+        return;
+      }
       const contextMissing = !this.sessionStorage.getItem<Restaurant>('restaurant') || !this.table;
       const changed = tableId !== this.table_id;
       this.table_id = tableId;
@@ -119,6 +154,20 @@ export class DinerAppComponent implements OnInit, OnDestroy {
       this.hydrateFromSession();
       if (this.table_id) this.startPolling();
     }
+  }
+
+  /** Read the opaque QR credential from the landing URL's `?c=` param, store it,
+   *  then strip it from the address bar so the bearer isn't left in a shareable
+   *  URL after the initial scan — it now lives (per-tab) in sessionStorage. */
+  private captureCredentialFromUrl(): void {
+    const tree = this.router.parseUrl(this.router.url);
+    const credential = tree.queryParams['c'];
+    if (!credential || credential === this.lastCapturedCredential) return;
+    this.lastCapturedCredential = credential;
+    this.dinerSession.setCredential(credential);
+    delete tree.queryParams['c'];
+    delete tree.queryParams['mode']; // legacy QR hint, unread by the app
+    this.location.replaceState(this.router.serializeUrl(tree));
   }
 
   private hydrateFromSession(): void {
@@ -136,10 +185,18 @@ export class DinerAppComponent implements OnInit, OnDestroy {
   }
 
   getTableDetails(id: any): void {
+    if (!this.dinerSession.hasCredential()) {
+      // Cutover: never open a session without a QR credential (a raw table UUID
+      // is no longer authority). Ask for a fresh scan.
+      this.showScanError(this.RESCAN_MESSAGE);
+      return;
+    }
     this.scanFailed = false;
     this.scanRetryable = false;
-    this.scanInFlightId = String(id);
-    this.api.get<TableScan>(null, 'orders/journey/table-scan/?table=' + id).subscribe({
+    this.scanInFlightId = id != null ? String(id) : 'session';
+    // The QR credential rides the X-Diner-Credential header (DinerSessionInterceptor)
+    // and the backend derives the table from it — no raw table UUID in the URL.
+    this.api.get<TableScan>(null, 'orders/journey/table-scan/').subscribe({
       next: x => {
         this.scanInFlightId = null;
         // The journey table-scan endpoint returns the TableScan directly in
@@ -152,6 +209,9 @@ export class DinerAppComponent implements OnInit, OnDestroy {
           this.showScanError(this.DEFAULT_UNAVAILABLE);
           return;
         }
+        // Capture the freshly-minted table session before anything else — every
+        // later diner request authorises off it, not the table UUID.
+        this.dinerSession.captureScan(x);
         // A re-scan onto a DIFFERENT table would otherwise carry the previous
         // table's basket over (same-tab sessionStorage, single 'diner.basket'
         // key) and let a diner check out the wrong table's order. Clear it on a
@@ -170,14 +230,17 @@ export class DinerAppComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.scanInFlightId = null;
-        // Two distinct failures land here:
+        // Three distinct failures land here:
         //  - retryable connectivity/transient blip (the diner just lost signal)
         //    → offer a "Try again" so they aren't stranded on a blank page;
-        //  - terminal 4xx (table removed/disabled, bad QR) carrying a
-        //    diner-friendly message → keep the calm "ask staff" dead-end.
-        // Backend 400/404 each carry a diner-friendly message.
+        //  - a denied/invalid CREDENTIAL (the QR was regenerated / table
+        //    withdrawn — backend 404) → invalidate it and ask for a fresh scan;
+        //  - any other terminal 4xx/5xx carrying a diner-friendly message → keep
+        //    the credential and show the calm "ask staff" dead-end.
         if (this.isRetryableScanError(err)) {
           this.showScanRetry();
+        } else if (this.dinerSession.isCredentialDenied(err)) {
+          this.dinerSession.invalidateCredential(); // effect renders the rescan panel
         } else {
           this.showScanError(this.extractScanError(err, this.DEFAULT_UNAVAILABLE));
         }
@@ -262,16 +325,18 @@ export class DinerAppComponent implements OnInit, OnDestroy {
   private pollOnce(): void {
     if (!this.pollActive) return;
     const hidden = typeof document !== 'undefined' && document.hidden;
-    if (!this.table_id || this.connectivity.isOffline() || hidden) {
+    if (!this.table_id || !this.dinerSession.hasCredential() || this.connectivity.isOffline() || hidden) {
       this.scheduleNextPoll();
       return;
     }
     this.pollSub = this.api
-      .get<TableScan>(null, 'orders/journey/table-scan/?table=' + this.table_id)
+      .get<TableScan>(null, 'orders/journey/table-scan/')
       .subscribe({
         next: x => {
           const scanned = x?.data as unknown as TableScan | undefined;
           if (scanned) {
+            // Re-mint keeps the 6h table session fresh while the diner is active.
+            this.dinerSession.captureScan(x);
             // Apply the update INSIDE the Angular zone so it triggers a
             // change-detection pass that reaches every signal consumer. The
             // menu is constantly animating (scroll-spy / scroll-progress run
@@ -286,8 +351,17 @@ export class DinerAppComponent implements OnInit, OnDestroy {
           }
           this.scheduleNextPoll();
         },
-        // Transient failure — keep the last known state and try again next tick.
-        error: () => this.scheduleNextPoll(),
+        error: err => {
+          // A poll that comes back credential-denied means the QR was regenerated
+          // (or the table withdrawn) — stop and ask for a fresh scan rather than
+          // hammering a dead credential every 8s (avoids an infinite retry loop).
+          if (this.dinerSession.isCredentialDenied(err)) {
+            this.ngZone.run(() => this.dinerSession.invalidateCredential());
+            return;
+          }
+          // Transient failure — keep the last known state and try again next tick.
+          this.scheduleNextPoll();
+        },
       });
   }
 
