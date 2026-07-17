@@ -35,6 +35,13 @@ so keep it current when conventions change.
   `app-savings-indicator`, see Shared UI Component Library) fed from the canonical
   server-truth `discount_details`, replacing the per-surface hand-rolled
   strikethrough / badge markup
+- Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
+  runs on a signed table-session capability (backend PR 7A) instead of a raw
+  table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
+  the QR credential and the minted session token, and a `DinerSessionInterceptor`
+  (`_helpers/diner-session.interceptor.ts`) attaches them to diner requests; a
+  denied credential drives a rescan panel on the diner shell. See Key Domain
+  Concepts for the two-token model and its invariants
 - Dashboard responsiveness: ✅ Complete
 - Phase 3 (Tables module): 🔄 MVP ships Setup View only (route `dining-tables`)
   - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`);
@@ -64,7 +71,12 @@ so keep it current when conventions change.
   (live order data) both done. Separate top-level lazy module at
   `src/app/kitchen/` (route `/kitchen`, AuthGuard-protected).
   `KitchenOrderService.USE_MOCK_DATA = false`; HTTP polling + optimistic PATCH
-  against real endpoints. Kitchen-only staff land here automatically on login:
+  against real endpoints. The kitchen services (`KitchenOrderService`,
+  `KitchenStockService`) scope to the **login-selected** membership
+  (`AuthenticationService.currentRestaurantRole`, backed by `rest_role`), NOT
+  `restaurant_roles[0]` — a user with ≥2 memberships gets the board (and the
+  void-gate) for the restaurant they actually picked at login. Kitchen-only
+  staff land here automatically on login:
   `LoginComponent.landingPathForMembership` routes a membership whose roles
   include `'kitchen'` but neither `'owner'` nor `'manager'` to `/kitchen`, and
   everyone else to their first accessible module (Dashboard first). The post-login
@@ -309,6 +321,11 @@ writing new tag or price/menu logic:
 - Never use lucide-angular in new code — use inline SVGs instead. (The
   legacy Platform Admin module `dinify-mgt` still imports it; do not
   extend that usage.)
+- Templates use Angular's built-in control flow (`@if` / `@for` / `@switch`) —
+  the Angular 21 upgrade ran the control-flow migration across the app's
+  templates (a handful of legacy `*ngIf`/`*ngFor` holdouts remain). Prefer the
+  built-in blocks in any new or edited template; do not reach back for the
+  structural directives
 
 ## Styling Rules
 - `overflow-hidden` on layout containers is intentional — matches the
@@ -388,6 +405,27 @@ writing new tag or price/menu logic:
   the back-office `OfflineBannerComponent` and the diner `OfflineStripComponent`,
   and the interceptor suppresses its global 'no network' toast on those surfaces
   (it still fires for login/auth and for a server-down-while-online status 0)
+- Diner table-session capability (opaque QR, backend PR 7A) — the anonymous diner
+  journey is gated by two opaque, signed tokens owned by `DinerSessionService`
+  (`_services/diner-session.service.ts`):
+  - the **QR credential** — long-lived, read once from the scanned URL
+    (`?c=<credential>`); it is the ONLY thing that starts a session (a raw table
+    UUID no longer does)
+  - the **table session** — short-lived (6h backend TTL), minted at the protected
+    `orders/journey/table-scan/` exchange
+  `DinerSessionInterceptor` (`_helpers/diner-session.interceptor.ts`) is the ONLY
+  place the capability is transmitted: `X-Diner-Credential` on the scan,
+  `X-Diner-Session` on every later diner call (`orders/journey/`,
+  `orders/initiate/`, `orders/submit/`, `reviews/submit/`). It is a channel
+  COMPLETELY SEPARATE from staff auth — it attaches nothing when a staff user is
+  signed in, so diner capability state never bleeds into a JWT request (and vice
+  versa). Both tokens live in sessionStorage + in-memory signals and are NEVER
+  logged, URL-embedded, or placed in a body/analytics payload. Recovery: a
+  session TTL lapse (400 with the fixed expiry message) re-mints silently from the
+  retained credential; a denied credential (404 `Not found.`) sets `needsRescan`
+  and the diner shell shows a rescan panel. Persist the tokens across a checkout
+  `sessionStorage.clear()` with `DinerSessionService.retainSessionThrough()` so
+  the follow-up review submission / back-to-menu re-scan keeps its session
 
 ## Mock Data Pattern
 - DashboardService now splits its mock flag in two (like TablesService):
