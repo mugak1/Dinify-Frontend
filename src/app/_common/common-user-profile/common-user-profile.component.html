@@ -1,246 +1,272 @@
-<a *ngIf="action==='view'" (click)="showModal=true;$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white whitespace-nowrap">
+@if (action==='view') {
+  <a (click)="showModal=true;$event.stopPropagation()" class="flex p-2 rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white whitespace-nowrap">
     <svg height="24px" width="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="User / User_02"> <path id="Vector" d="M20 21C20 18.2386 16.4183 16 12 16C7.58172 16 4 18.2386 4 21M12 13C9.23858 13 7 10.7614 7 8C7 5.23858 9.23858 3 12 3C14.7614 3 17 5.23858 17 8C17 10.7614 14.7614 13 12 13Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
     <span class="my-auto">View Profile</span>
   </a>
-  <a *ngIf="action==='edit'" class="flex rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white whitespace-nowrap">
+}
+@if (action==='edit') {
+  <a class="flex rounded text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white whitespace-nowrap">
     <svg height="24px" width="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Edit / Edit_Pencil_02"> <path id="Vector" d="M4 16.0001V20.0001L8 20.0001L18.8686 9.13146L18.8695 9.13061C19.265 8.73516 19.4628 8.53736 19.5369 8.3092C19.6021 8.10835 19.6022 7.89201 19.5369 7.69117C19.4627 7.46284 19.2646 7.26474 18.8686 6.86872L17.1288 5.12892C16.7345 4.7346 16.5369 4.53704 16.3091 4.46301C16.1082 4.39775 15.8919 4.39775 15.691 4.46301C15.463 4.53709 15.2652 4.73488 14.8704 5.12976L14.8686 5.13146L4 16.0001Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
     <span class="my-auto">Edit Profile</span>
   </a>
-  <div *ngIf="showModal" class="fixed inset-0 bg-black bg-opacity-60 transition-opacity"></div>
-  
-  <div *ngIf="showModal" class="fixed inset-0 z-50 w-screen overflow-y-auto">
+}
+@if (showModal) {
+  <div class="fixed inset-0 bg-black bg-opacity-60 transition-opacity"></div>
+}
+
+@if (showModal) {
+  <div class="fixed inset-0 z-50 w-screen overflow-y-auto">
     <div class="h-screen flex justify-center items-center p-4 text-center mt-5 sm:mt-8 sm:items-center sm:p-0">
       <!--
-        Modal panel, show/hide based on modal state.
-
-        Entering: "ease-out duration-300"
-          From: "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-          To: "opacity-100 translate-y-0 sm:scale-100"
-        Leaving: "ease-in duration-200"
-          From: "opacity-100 translate-y-0 sm:scale-100"
-          To: "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+      Modal panel, show/hide based on modal state.
+      Entering: "ease-out duration-300"
+      From: "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+      To: "opacity-100 translate-y-0 sm:scale-100"
+      Leaving: "ease-in duration-200"
+      From: "opacity-100 translate-y-0 sm:scale-100"
+      To: "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
       -->
       <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-5 sm:w-full sm:max-w-lg">
         <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
           <div class="sm:flex sm:items-start">
             <!-- <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-              <svg class="h-6 w-6 text-d-red" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            <svg class="h-6 w-6 text-d-red" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div> -->
+          <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+            <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">User Profile</h3>
+            <button  type="button" (click)="closeModal()" class="fixed text-gray-400  hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center top-0 right-0">
+              <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
               </svg>
-            </div> -->
-            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-              <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">User Profile</h3>
-              <button  type="button" (click)="closeModal()" class="fixed text-gray-400  hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center top-0 right-0">
-                <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                </svg>
-                <span class="sr-only">Close modal</span>
+              <span class="sr-only">Close modal</span>
             </button>
-              <div class="mt-2">
-                <table class="w-full text-sm leading-5">
-                   
-                    <tbody>
-                      <tr>
-                        <th class="py-3 px-4 text-left font-medium text-gray-600 w-1/3">First Name</th>
-                        <td class="py-3 px-4 text-left font-medium text-gray-600">{{user?.first_name}}</td>
-                      </tr>
-                      
-                        <tr>
-                            <th class="py-3 px-4 text-left font-medium text-gray-600 w-1/3">Last Name</th>
-                            <td class="py-3 px-4 text-left font-medium text-gray-600">{{user?.last_name}}</td>
-                          </tr>
-                     
-                      <tr>
-                        <th class="py-3 px-4 text-left font-medium text-gray-600 w-1/3">Other Name</th>
-                        <td class="py-3 px-4 text-left font-medium text-gray-600">{{user?.other_names}}</td>
-                      </tr>
-                   
-                      <tr>
-                        <th class="py-3 px-4 text-left font-medium text-gray-600">Email</th>
-                        <td class="py-3 px-4 text-left">{{user?.email}}</td>
-                      </tr>
-                      <tr>
-                        <th class="py-3 px-4 text-left font-medium text-gray-600">Phone number</th>
-                        <td class="py-3 px-4 text-left"></td>
-                      </tr>
-                      </tbody>
-                      </table>
-              </div>
+            <div class="mt-2">
+              <table class="w-full text-sm leading-5">
+                <tbody>
+                  <tr>
+                    <th class="py-3 px-4 text-left font-medium text-gray-600 w-1/3">First Name</th>
+                    <td class="py-3 px-4 text-left font-medium text-gray-600">{{user?.first_name}}</td>
+                  </tr>
+                  <tr>
+                    <th class="py-3 px-4 text-left font-medium text-gray-600 w-1/3">Last Name</th>
+                    <td class="py-3 px-4 text-left font-medium text-gray-600">{{user?.last_name}}</td>
+                  </tr>
+                  <tr>
+                    <th class="py-3 px-4 text-left font-medium text-gray-600 w-1/3">Other Name</th>
+                    <td class="py-3 px-4 text-left font-medium text-gray-600">{{user?.other_names}}</td>
+                  </tr>
+                  <tr>
+                    <th class="py-3 px-4 text-left font-medium text-gray-600">Email</th>
+                    <td class="py-3 px-4 text-left">{{user?.email}}</td>
+                  </tr>
+                  <tr>
+                    <th class="py-3 px-4 text-left font-medium text-gray-600">Phone number</th>
+                    <td class="py-3 px-4 text-left"></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            
           </div>
-         
         </div>
-        
-        <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-          <button type="button" class="inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-800 sm:ml-3 sm:w-auto">Edit Profile</button>
-         <!--  <button type="button" (click)="has_reason?Reject():Cancel()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-100 sm:mt-0 sm:w-auto">{{data?.cancelButtonText? data?.cancelButtonText:(has_reason?'Reject':'Cancel')}}</button> -->
-        </div>
+      </div>
+      <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+        <button type="button" class="inline-flex w-full justify-center rounded-md bg-d-red px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-800 sm:ml-3 sm:w-auto">Edit Profile</button>
+        <!--  <button type="button" (click)="has_reason?Reject():Cancel()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-100 sm:mt-0 sm:w-auto">{{data?.cancelButtonText? data?.cancelButtonText:(has_reason?'Reject':'Cancel')}}</button> -->
       </div>
     </div>
   </div>
-  <div *ngIf="action==='form'">
-    
-    <form *ngIf="RegisterForm" [formGroup]="RegisterForm" (ngSubmit)="phoneComponent?.isValid?(require_otp?SubmitWithOTP():SaveEdit()):is_submitted=true" class="space-y-2 md:space-y-4 relative bg-white rounded-lg shadow">
-      <div class="flex items-center">
-      <svg class="mb-8 mx-auto" height="50" viewBox="0 0 495.95 121.55">
-        <path d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58" />
-        <path d="M267.38,2.83A11.77,11.77,0,0,0,252,2.89a9.54,9.54,0,0,0-3.07,7.25A9.64,9.64,0,0,0,252,17.49a11.65,11.65,0,0,0,15.38,0,9.74,9.74,0,0,0,3-7.35,9.61,9.61,0,0,0-3-7.31M251,97h17.25V30.65H251Z" />
-        <path d="M335.19,36.19c-4.27-4.65-10.14-7-17.62-7q-13.14,0-20.63,10.5v-9H279.69V97h17.25V62.14q0-16.55,15-16.54,6.61,0,9.53,3.38t2.89,10.13V97h17.25V55.38q0-12.18-6.39-19.19" />
-        <path d="M368.72,2.83a11.77,11.77,0,0,0-15.38.06,9.59,9.59,0,0,0-3.08,7.25,9.68,9.68,0,0,0,3.08,7.35,11.65,11.65,0,0,0,15.38,0,9.71,9.71,0,0,0,3-7.35,9.58,9.58,0,0,0-3-7.31M352.32,97h17.25V30.65H352.32Z" />
-        <path d="M410.65,17.74A30.49,30.49,0,0,1,419,19.06l2.29.6,3.13-14a37.46,37.46,0,0,0-15.68-3q-11.34,0-19.19,6.82t-7.84,20.09V97h17.25V51.93l-14.94-5h37V30.65H398.94v-.26q0-12.64,11.71-12.65" />
-        <polygon points="477.48 30.65 460.96 69.49 444.55 30.65 426.21 30.65 451.79 88.19 436.92 121.55 455.27 121.55 495.94 30.65 477.48 30.65" />
-        <path class="fill-d-red" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34" />
-    </svg></div>
-      <div class="flex justify-between p-4 border-b rounded-t">
-       
-        <div class="flex flex-col items-center justify-center mx-auto text-center space-y-2">
-          <div class="font-semibold text-3xl">
-            <p>Edit Profile</p>
-          </div>
-          <div class="flex flex-row text-sm font-medium text-gray-400">
-            <p>Update your profile details</p>
-          </div>
-        </div>
-     <!--     <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
-          <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-          </svg>
-          <span class="sr-only">Close modal</span>
-      </button> -->
-      </div>
-      <!-- Modal body -->
-      <div class="p-6 space-y-6">
-          <div class="space-y-2 md:space-y-4">
-      <div *ngIf="!require_otp" >
-          <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name <span class="text-d-red">*</span></label>
-          <input type="text" formControlName="first_name" id="first_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your first name">
-          <div *ngIf="is_submitted && RegisterForm.get('first_name')?.errors" class="text-d-red text-xs">
-              <div *ngIf="RegisterForm.get('first_name')?.errors?.['required']">First name is required</div>
-          </div>
-      </div>
-      <div *ngIf="!require_otp" >
-          <label for="last_name" class="block mb-1 text-sm font-medium text-gray-900">Last name <span class="text-d-red">*</span></label>
-          <input type="text" id="last_name" formControlName="last_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your last name">
-          <div *ngIf="is_submitted && RegisterForm.get('last_name')?.errors" class="text-d-red text-xs">
-              <div *ngIf="RegisterForm.get('last_name')?.errors?.['required']">Last name is required</div>
-          </div>
-      </div>
-    <!-- -->   <div *ngIf="!require_otp" >
-          <label for="email" class="block mb-1 text-sm font-medium text-gray-900">Your email</label>
-          <input type="email" formControlName="email" id="email" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="name@company.com">
-          <div *ngIf="is_submitted && RegisterForm.get('email')?.errors" class="text-d-red text-xs">
-              <div *ngIf="RegisterForm.get('email')?.errors?.['required']">Email is required</div>
-          </div>
-      </div>
-      <div *ngIf="!require_otp" [ngClass]="{'p-2 bg-gray-200':change_number}">
-        <label for="phone" class="block mb-1 text-sm font-medium text-gray-900">Phone: +{{RegisterForm.get('old_number')?.value}} 
-          <a (click)="CancelChange()" [ngClass]="{'float-end':change_number}" class="flex rounded text-sm capitalize text-gray-700 whitespace-nowrap">
-          <svg *ngIf="!change_number" height="24px" width="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Edit / Edit_Pencil_02"> <path id="Vector" d="M4 16.0001V20.0001L8 20.0001L18.8686 9.13146L18.8695 9.13061C19.265 8.73516 19.4628 8.53736 19.5369 8.3092C19.6021 8.10835 19.6022 7.89201 19.5369 7.69117C19.4627 7.46284 19.2646 7.26474 18.8686 6.86872L17.1288 5.12892C16.7345 4.7346 16.5369 4.53704 16.3091 4.46301C16.1082 4.39775 15.8919 4.39775 15.691 4.46301C15.463 4.53709 15.2652 4.73488 14.8704 5.12976L14.8686 5.13146L4 16.0001Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
-          <span class="my-auto text-d-red">{{change_number?'Cancel':'Change Phone Number'}}</span>
-        </a></label>
-        <label *ngIf="change_number" for="email" class="block mb-1 text-sm font-medium text-gray-900 mt-3">Insert new phone number below</label>
-      <app-dinify-phone-input *ngIf="change_number" #phone_edit [class.field-invalid]="is_submitted && !phoneComponent?.isValid" (valueChange)="onInputChange($event)"></app-dinify-phone-input>
-      </div>
-      <h3 *ngIf="require_otp" class="flex flex-row p-2">
-                     
-        <svg width="55" height="55" viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_25_361)">
-<path d="M37.8125 20.625C37.8125 23.36 36.726 25.9831 34.792 27.917C32.8581 29.851 30.235 30.9375 27.5 30.9375C24.765 30.9375 22.1419 29.851 20.208 27.917C18.274 25.9831 17.1875 23.36 17.1875 20.625C17.1875 17.89 18.274 15.2669 20.208 13.333C22.1419 11.399 24.765 10.3125 27.5 10.3125C30.235 10.3125 32.8581 11.399 34.792 13.333C36.726 15.2669 37.8125 17.89 37.8125 20.625Z" fill="#3C3C43"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M0 27.5C0 20.2065 2.89731 13.2118 8.05456 8.05456C13.2118 2.89731 20.2065 0 27.5 0C34.7935 0 41.7882 2.89731 46.9454 8.05456C52.1027 13.2118 55 20.2065 55 27.5C55 34.7935 52.1027 41.7882 46.9454 46.9454C41.7882 52.1027 34.7935 55 27.5 55C20.2065 55 13.2118 52.1027 8.05456 46.9454C2.89731 41.7882 0 34.7935 0 27.5ZM27.5 3.4375C22.9686 3.43774 18.5294 4.7175 14.6933 7.12947C10.8571 9.54144 7.78003 12.9876 5.81613 17.0713C3.85222 21.155 3.08133 25.7102 3.59218 30.2127C4.10304 34.7152 5.87487 38.982 8.70375 42.5219C11.1444 38.5894 16.5172 34.375 27.5 34.375C38.4828 34.375 43.8522 38.5859 46.2963 42.5219C49.1251 38.982 50.897 34.7152 51.4078 30.2127C51.9187 25.7102 51.1478 21.155 49.1839 17.0713C47.22 12.9876 44.1429 9.54144 40.3067 7.12947C36.4706 4.7175 32.0314 3.43774 27.5 3.4375Z" fill="#3C3C43"/>
-</g>
-<defs>
-<clipPath id="clip0_25_361">
-<rect width="55" height="55" fill="white"/>
-</clipPath>
-</defs>
-</svg>
-<div class="ml-4 flex flex-col">
-<span class="font-semibold text-black text-xl my-auto">{{RegisterForm.get('first_name')?.value}} {{RegisterForm.get('last_name')?.value}}</span>
-<span *ngIf="RegisterForm.get('email')?.value" class="text-gray-600 text-sm">{{RegisterForm.get('email')?.value}}</span>
-<span *ngIf="RegisterForm.get('phone_number')?.value" class="text-gray-600">+{{RegisterForm.get('phone_number')?.value}}</span>
-
-
 </div>
-        </h3>
-      <div *ngIf="require_otp" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-screen rounded-2xl">
-        <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
-          <div class="flex flex-col items-center justify-center text-center space-y-2">
-            <div class="font-semibold text-3xl">
-              <p>One Time Password(OTP)</p>
+}
+@if (action==='form') {
+  <div>
+    @if (RegisterForm) {
+      <form [formGroup]="RegisterForm" (ngSubmit)="phoneComponent?.isValid?(require_otp?SubmitWithOTP():SaveEdit()):is_submitted=true" class="space-y-2 md:space-y-4 relative bg-white rounded-lg shadow">
+        <div class="flex items-center">
+          <svg class="mb-8 mx-auto" height="50" viewBox="0 0 495.95 121.55">
+            <path d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58" />
+            <path d="M267.38,2.83A11.77,11.77,0,0,0,252,2.89a9.54,9.54,0,0,0-3.07,7.25A9.64,9.64,0,0,0,252,17.49a11.65,11.65,0,0,0,15.38,0,9.74,9.74,0,0,0,3-7.35,9.61,9.61,0,0,0-3-7.31M251,97h17.25V30.65H251Z" />
+            <path d="M335.19,36.19c-4.27-4.65-10.14-7-17.62-7q-13.14,0-20.63,10.5v-9H279.69V97h17.25V62.14q0-16.55,15-16.54,6.61,0,9.53,3.38t2.89,10.13V97h17.25V55.38q0-12.18-6.39-19.19" />
+            <path d="M368.72,2.83a11.77,11.77,0,0,0-15.38.06,9.59,9.59,0,0,0-3.08,7.25,9.68,9.68,0,0,0,3.08,7.35,11.65,11.65,0,0,0,15.38,0,9.71,9.71,0,0,0,3-7.35,9.58,9.58,0,0,0-3-7.31M352.32,97h17.25V30.65H352.32Z" />
+            <path d="M410.65,17.74A30.49,30.49,0,0,1,419,19.06l2.29.6,3.13-14a37.46,37.46,0,0,0-15.68-3q-11.34,0-19.19,6.82t-7.84,20.09V97h17.25V51.93l-14.94-5h37V30.65H398.94v-.26q0-12.64,11.71-12.65" />
+            <polygon points="477.48 30.65 460.96 69.49 444.55 30.65 426.21 30.65 451.79 88.19 436.92 121.55 455.27 121.55 495.94 30.65 477.48 30.65" />
+            <path class="fill-d-red" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34" />
+          </svg></div>
+          <div class="flex justify-between p-4 border-b rounded-t">
+            <div class="flex flex-col items-center justify-center mx-auto text-center space-y-2">
+              <div class="font-semibold text-3xl">
+                <p>Edit Profile</p>
+              </div>
+              <div class="flex flex-row text-sm font-medium text-gray-400">
+                <p>Update your profile details</p>
+              </div>
             </div>
-            <div class="flex flex-row text-sm font-medium text-gray-400">
-              <p>We have sent the OTP to your phone </p>
-            </div>
-          </div>
-    
-          <div>
-            
-            
-              <div class="flex flex-col space-y-16">
-                <div>
-                    <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
-                <!--   <div class="w-16 h-16 ">
-                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+            <!--     <button type="button" (click)="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
+            <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+            </svg>
+            <span class="sr-only">Close modal</span>
+          </button> -->
+        </div>
+        <!-- Modal body -->
+        <div class="p-6 space-y-6">
+          <div class="space-y-2 md:space-y-4">
+            @if (!require_otp) {
+              <div >
+                <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name <span class="text-d-red">*</span></label>
+                <input type="text" formControlName="first_name" id="first_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your first name">
+                @if (is_submitted && RegisterForm.get('first_name')?.errors) {
+                  <div class="text-d-red text-xs">
+                    @if (RegisterForm.get('first_name')?.errors?.['required']) {
+                      <div>First name is required</div>
+                    }
                   </div>
-                  <div class="w-16 h-16 ">
-                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                }
+              </div>
+            }
+            @if (!require_otp) {
+              <div >
+                <label for="last_name" class="block mb-1 text-sm font-medium text-gray-900">Last name <span class="text-d-red">*</span></label>
+                <input type="text" id="last_name" formControlName="last_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your last name">
+                @if (is_submitted && RegisterForm.get('last_name')?.errors) {
+                  <div class="text-d-red text-xs">
+                    @if (RegisterForm.get('last_name')?.errors?.['required']) {
+                      <div>Last name is required</div>
+                    }
                   </div>
-                  <div class="w-16 h-16">
-                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                  </div>
-                  <div class="w-16 h-16 ">
-                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                  </div> -->
+                }
+              </div>
+            }
+            <!-- -->   @if (!require_otp) {
+            <div >
+              <label for="email" class="block mb-1 text-sm font-medium text-gray-900">Your email</label>
+              <input type="email" formControlName="email" id="email" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="name@company.com">
+              @if (is_submitted && RegisterForm.get('email')?.errors) {
+                <div class="text-d-red text-xs">
+                  @if (RegisterForm.get('email')?.errors?.['required']) {
+                    <div>Email is required</div>
+                  }
                 </div>
-    
-                <div class="flex flex-col space-y-5">
-                  <div>
-                    <button type="submit"  [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
-                      Verify OTP & Complete Update
-                    </button>
+              }
+            </div>
+          }
+          @if (!require_otp) {
+            <div [ngClass]="{'p-2 bg-gray-200':change_number}">
+              <label for="phone" class="block mb-1 text-sm font-medium text-gray-900">Phone: +{{RegisterForm.get('old_number')?.value}}
+                <a (click)="CancelChange()" [ngClass]="{'float-end':change_number}" class="flex rounded text-sm capitalize text-gray-700 whitespace-nowrap">
+                  @if (!change_number) {
+                    <svg height="24px" width="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Edit / Edit_Pencil_02"> <path id="Vector" d="M4 16.0001V20.0001L8 20.0001L18.8686 9.13146L18.8695 9.13061C19.265 8.73516 19.4628 8.53736 19.5369 8.3092C19.6021 8.10835 19.6022 7.89201 19.5369 7.69117C19.4627 7.46284 19.2646 7.26474 18.8686 6.86872L17.1288 5.12892C16.7345 4.7346 16.5369 4.53704 16.3091 4.46301C16.1082 4.39775 15.8919 4.39775 15.691 4.46301C15.463 4.53709 15.2652 4.73488 14.8704 5.12976L14.8686 5.13146L4 16.0001Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>
+                  }
+                  <span class="my-auto text-d-red">{{change_number?'Cancel':'Change Phone Number'}}</span>
+                </a></label>
+                @if (change_number) {
+                  <label for="email" class="block mb-1 text-sm font-medium text-gray-900 mt-3">Insert new phone number below</label>
+                }
+                @if (change_number) {
+                  <app-dinify-phone-input #phone_edit [class.field-invalid]="is_submitted && !phoneComponent?.isValid" (valueChange)="onInputChange($event)"></app-dinify-phone-input>
+                }
+              </div>
+            }
+            @if (require_otp) {
+              <h3 class="flex flex-row p-2">
+                <svg width="55" height="55" viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clip-path="url(#clip0_25_361)">
+                    <path d="M37.8125 20.625C37.8125 23.36 36.726 25.9831 34.792 27.917C32.8581 29.851 30.235 30.9375 27.5 30.9375C24.765 30.9375 22.1419 29.851 20.208 27.917C18.274 25.9831 17.1875 23.36 17.1875 20.625C17.1875 17.89 18.274 15.2669 20.208 13.333C22.1419 11.399 24.765 10.3125 27.5 10.3125C30.235 10.3125 32.8581 11.399 34.792 13.333C36.726 15.2669 37.8125 17.89 37.8125 20.625Z" fill="#3C3C43"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0 27.5C0 20.2065 2.89731 13.2118 8.05456 8.05456C13.2118 2.89731 20.2065 0 27.5 0C34.7935 0 41.7882 2.89731 46.9454 8.05456C52.1027 13.2118 55 20.2065 55 27.5C55 34.7935 52.1027 41.7882 46.9454 46.9454C41.7882 52.1027 34.7935 55 27.5 55C20.2065 55 13.2118 52.1027 8.05456 46.9454C2.89731 41.7882 0 34.7935 0 27.5ZM27.5 3.4375C22.9686 3.43774 18.5294 4.7175 14.6933 7.12947C10.8571 9.54144 7.78003 12.9876 5.81613 17.0713C3.85222 21.155 3.08133 25.7102 3.59218 30.2127C4.10304 34.7152 5.87487 38.982 8.70375 42.5219C11.1444 38.5894 16.5172 34.375 27.5 34.375C38.4828 34.375 43.8522 38.5859 46.2963 42.5219C49.1251 38.982 50.897 34.7152 51.4078 30.2127C51.9187 25.7102 51.1478 21.155 49.1839 17.0713C47.22 12.9876 44.1429 9.54144 40.3067 7.12947C36.4706 4.7175 32.0314 3.43774 27.5 3.4375Z" fill="#3C3C43"/>
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_25_361">
+                      <rect width="55" height="55" fill="white"/>
+                    </clipPath>
+                  </defs>
+                </svg>
+                <div class="ml-4 flex flex-col">
+                  <span class="font-semibold text-black text-xl my-auto">{{RegisterForm.get('first_name')?.value}} {{RegisterForm.get('last_name')?.value}}</span>
+                  @if (RegisterForm.get('email')?.value) {
+                    <span class="text-gray-600 text-sm">{{RegisterForm.get('email')?.value}}</span>
+                  }
+                  @if (RegisterForm.get('phone_number')?.value) {
+                    <span class="text-gray-600">+{{RegisterForm.get('phone_number')?.value}}</span>
+                  }
+                </div>
+              </h3>
+            }
+            @if (require_otp) {
+              <div class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-screen rounded-2xl">
+                <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
+                  <div class="flex flex-col items-center justify-center text-center space-y-2">
+                    <div class="font-semibold text-3xl">
+                      <p>One Time Password(OTP)</p>
+                    </div>
+                    <div class="flex flex-row text-sm font-medium text-gray-400">
+                      <p>We have sent the OTP to your phone </p>
+                    </div>
                   </div>
-  
-                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
-                    <p>Didn't recieve code?</p> <a class="flex flex-row items-center text-d-red">Resend</a>
+                  <div>
+                    <div class="flex flex-col space-y-16">
+                      <div>
+                        <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
+                        <!--   <div class="w-16 h-16 ">
+                        <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                      </div>
+                      <div class="w-16 h-16 ">
+                        <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                      </div>
+                      <div class="w-16 h-16">
+                        <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                      </div>
+                      <div class="w-16 h-16 ">
+                        <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                      </div> -->
+                    </div>
+                    <div class="flex flex-col space-y-5">
+                      <div>
+                        <button type="submit"  [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
+                          Verify OTP & Complete Update
+                        </button>
+                      </div>
+                      <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
+                        <p>Didn't recieve code?</p> <a class="flex flex-row items-center text-d-red">Resend</a>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-          
-          </div>
-        </div>
-    </div>
-     <!--  <div *ngIf="!user_id&&checked">
+            </div>
+          }
+          <!--  <div *ngIf="!user_id&&checked">
           <label for="password" class="block mb-1 text-sm font-medium text-gray-900">Password</label>
           <input type="password" formControlName="password" id="password" placeholder="••••••••"  class="bg-gray-50 border placeholder:text-xs border-gray-300 text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " required="">
-      </div>
-      <div *ngIf="!user_id&&checked">
+        </div>
+        <div *ngIf="!user_id&&checked">
           <label for="confirm-password" class="block mb-1 text-sm font-medium text-gray-900">Confirm password</label>
           <input type="password" formControlName="confirm-password" id="confirm-password" placeholder="••••••••" class="bg-gray-50 placeholder:text-xs border border-gray-300 text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " required="">
-      </div> -->
-     <!-- <div>
-          <label for="preferred_subscription_method" class="block mb-2 text-sm font-medium">Roles</label>
-          <select id="preferred_subscription_method" formControlName="role"
-              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-             
-              <option *ngFor="let c of roles" [value]="c">{{c|titlecase}}</option>
-          </select>
+        </div> -->
+        <!-- <div>
+        <label for="preferred_subscription_method" class="block mb-2 text-sm font-medium">Roles</label>
+        <select id="preferred_subscription_method" formControlName="role"
+          class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+          <option *ngFor="let c of roles" [value]="c">{{c|titlecase}}</option>
+        </select>
       </div>
-        <div class="flex items-start">
-          <div class="flex items-center h-5">
-            <input id="terms" formControlName="ok" aria-describedby="terms" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-primary-300">
-          </div>
-         <div class="ml-3 text-sm">
-            <label for="terms" class="font-light text-gray-500">I accept the <a class="font-medium text-d-red hover:underline" href="#">Terms and Conditions</a></label>
-          </div> 
+      <div class="flex items-start">
+        <div class="flex items-center h-5">
+          <input id="terms" formControlName="ok" aria-describedby="terms" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-primary-300">
+        </div>
+        <div class="ml-3 text-sm">
+          <label for="terms" class="font-light text-gray-500">I accept the <a class="font-medium text-d-red hover:underline" href="#">Terms and Conditions</a></label>
+        </div>
       </div>-->
-       <!-- <p class="text-sm font-light text-gray-500">
-          Already have an account? <a [routerLink]="['/login']" class="font-medium text-d-red hover:underline">Login here</a>
-      </p> -->
-      </div> 
-      <button *ngIf="!require_otp"  type="submit" class="w-full text-white bg-d-red hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded text-sm px-5 py-2.5 text-center mt-2">{{'Save'}}</button>
-    
-      </div>
-
-  </form>
+      <!-- <p class="text-sm font-light text-gray-500">
+      Already have an account? <a [routerLink]="['/login']" class="font-medium text-d-red hover:underline">Login here</a>
+    </p> -->
   </div>
+  @if (!require_otp) {
+    <button  type="submit" class="w-full text-white bg-d-red hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded text-sm px-5 py-2.5 text-center mt-2">{{'Save'}}</button>
+  }
+</div>
+</form>
+}
+</div>
+}

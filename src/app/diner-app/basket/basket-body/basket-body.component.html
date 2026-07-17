@@ -1,320 +1,369 @@
 <!-- Table Information — sidebar only: on the basket PAGE the header chip carries the
-     table, but the always-mounted desktop sidebar has no such header, so it shows this. -->
-<div *ngIf="table && sidebar" class="flex items-center w-full text-center pt-4">
-  <span class="mx-auto font-medium text-lg">Table {{ table?.number }}</span>
-</div>
+table, but the always-mounted desktop sidebar has no such header, so it shows this. -->
+@if (table && sidebar) {
+  <div class="flex items-center w-full text-center pt-4">
+    <span class="mx-auto font-medium text-lg">Table {{ table?.number }}</span>
+  </div>
+}
 
 <div class="flex-1 overflow-y-auto pb-4">
   <!-- Empty state -->
-  <div *ngIf="basketItems.length === 0" class="text-center py-6 px-4">
-    <p class="text-gray-500">Your basket is empty</p>
-    <p class="text-gray-400 text-sm mt-1">Why not treat yourself?</p>
-    <button type="button" (click)="loc.back()"
-            class="mt-4 lg:hidden inline-flex items-center justify-center px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-      Browse Menu
-    </button>
-  </div>
+  @if (basketItems.length === 0) {
+    <div class="text-center py-6 px-4">
+      <p class="text-gray-500">Your basket is empty</p>
+      <p class="text-gray-400 text-sm mt-1">Why not treat yourself?</p>
+      <button type="button" (click)="loc.back()"
+        class="mt-4 lg:hidden inline-flex items-center justify-center px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+        Browse Menu
+      </button>
+    </div>
+  }
 
   <!-- Heads-up: the table already has an order working through the kitchen, so a
-       new order can't be placed yet (checkout is blocked in the footer). Sits at
-       the top of the basket, distinct from the amber allergy notice below. -->
-  <div *ngIf="basketItems.length > 0 && tableHasOngoingOrder" class="mt-4 px-4">
-    <app-ongoing-order-banner></app-ongoing-order-banner>
-  </div>
+  new order can't be placed yet (checkout is blocked in the footer). Sits at
+  the top of the basket, distinct from the amber allergy notice below. -->
+  @if (basketItems.length > 0 && tableHasOngoingOrder) {
+    <div class="mt-4 px-4">
+      <app-ongoing-order-banner></app-ongoing-order-banner>
+    </div>
+  }
 
   <!-- Upsell Carousel -->
-  <div *ngIf="basketItems.length > 0 && upsellItems.length > 0" class="mt-4 px-4">
-    <div class="mb-3">
-      <h3 class="font-display font-bold text-base text-gray-900">
-        {{ upsellConfig?.title || 'You might also like' }}
-      </h3>
-    </div>
-    <!-- Horizontal cards: one full card + a peek of the next (image left, details right) -->
-    <div #upsellCarousel
-         (scroll)="checkScroll()"
-         class="grid grid-flow-col auto-cols-[78%] gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2">
-      <div *ngFor="let item of upsellItems; let i = index"
-           class="snap-start flex h-[136px] rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-        <div class="w-[108px] flex-shrink-0 bg-white overflow-hidden relative">
-          <div *ngIf="item.item_image
-                     && !imageLoaded[item.item_id || item.menu_item]
-                     && !imageErrored[item.item_id || item.menu_item]"
-               class="absolute inset-0 bg-gray-200 animate-pulse"></div>
-          <img *ngIf="item.item_image && !imageErrored[item.item_id || item.menu_item]"
-               [src]="url + item.item_image"
-               [alt]="item.item_name"
-               class="w-full h-full object-contain transition-opacity duration-200"
-               [class.opacity-0]="!imageLoaded[item.item_id || item.menu_item]"
-               [attr.fetchpriority]="i < 2 ? 'high' : null"
-               (load)="onUpsellImageLoad(item.item_id || item.menu_item)"
-               (error)="onUpsellImageError(item.item_id || item.menu_item)" />
-          <div *ngIf="!item.item_image || imageErrored[item.item_id || item.menu_item]"
-               class="w-full h-full flex items-center justify-center text-gray-300 text-xs">
-            No image
-          </div>
-        </div>
-        <div class="flex-1 min-w-0 px-3 flex flex-col justify-center gap-1.5">
-          <h4 class="font-display text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
-            {{ item.item_name }}
-          </h4>
-          <div class="flex items-center justify-between gap-2">
-            <div class="min-w-0">
-              <app-price-display size="sm"
-                                 [effective]="upsellHasDiscount(item) ? upsellEffective(item) : upsellOriginal(item)"
-                                 [original]="upsellHasDiscount(item) ? upsellOriginal(item) : 0"></app-price-display>
-            </div>
-            <button app-dn-button size="sm" (click)="addUpsellItem(item)"
-                    class="flex-shrink-0 text-sm gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14"/><path d="M12 5v14"/>
-              </svg>
-              Add
-            </button>
-          </div>
-        </div>
+  @if (basketItems.length > 0 && upsellItems.length > 0) {
+    <div class="mt-4 px-4">
+      <div class="mb-3">
+        <h3 class="font-display font-bold text-base text-gray-900">
+          {{ upsellConfig?.title || 'You might also like' }}
+        </h3>
       </div>
-    </div>
-    <!-- Carousel nav: below the carousel, right-aligned (Nando style) -->
-    <div *ngIf="showArrows" class="flex items-center justify-end gap-2 mt-2">
-      <button type="button" (click)="scrollUpsells('left')" [disabled]="!canScrollLeft"
+      <!-- Horizontal cards: one full card + a peek of the next (image left, details right) -->
+      <div #upsellCarousel
+        (scroll)="checkScroll()"
+        class="grid grid-flow-col auto-cols-[78%] gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2">
+        @for (item of upsellItems; track item; let i = $index) {
+          <div
+            class="snap-start flex h-[136px] rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+            <div class="w-[108px] flex-shrink-0 bg-white overflow-hidden relative">
+              @if (item.item_image
+                && !imageLoaded[item.item_id || item.menu_item]
+                && !imageErrored[item.item_id || item.menu_item]) {
+                <div
+                class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+              }
+              @if (item.item_image && !imageErrored[item.item_id || item.menu_item]) {
+                <img
+                  [src]="url + item.item_image"
+                  [alt]="item.item_name"
+                  class="w-full h-full object-contain transition-opacity duration-200"
+                  [class.opacity-0]="!imageLoaded[item.item_id || item.menu_item]"
+                  [attr.fetchpriority]="i < 2 ? 'high' : null"
+                  (load)="onUpsellImageLoad(item.item_id || item.menu_item)"
+                  (error)="onUpsellImageError(item.item_id || item.menu_item)" />
+              }
+              @if (!item.item_image || imageErrored[item.item_id || item.menu_item]) {
+                <div
+                  class="w-full h-full flex items-center justify-center text-gray-300 text-xs">
+                  No image
+                </div>
+              }
+            </div>
+            <div class="flex-1 min-w-0 px-3 flex flex-col justify-center gap-1.5">
+              <h4 class="font-display text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
+                {{ item.item_name }}
+              </h4>
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <app-price-display size="sm"
+                    [effective]="upsellHasDiscount(item) ? upsellEffective(item) : upsellOriginal(item)"
+                  [original]="upsellHasDiscount(item) ? upsellOriginal(item) : 0"></app-price-display>
+                </div>
+                <button app-dn-button size="sm" (click)="addUpsellItem(item)"
+                  class="flex-shrink-0 text-sm gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"/><path d="M12 5v14"/>
+                  </svg>
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+      <!-- Carousel nav: below the carousel, right-aligned (Nando style) -->
+      @if (showArrows) {
+        <div class="flex items-center justify-end gap-2 mt-2">
+          <button type="button" (click)="scrollUpsells('left')" [disabled]="!canScrollLeft"
               [class]="'inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors ' +
                 (canScrollLeft
                   ? 'border-gray-300 text-gray-500 hover:bg-gray-100 active:bg-gray-200 cursor-pointer'
                   : 'border-gray-200 text-gray-300 cursor-not-allowed')"
-              aria-label="Previous upsells">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m15 18-6-6 6-6"/>
-        </svg>
-      </button>
-      <button type="button" (click)="scrollUpsells('right')" [disabled]="!canScrollRight"
+            aria-label="Previous upsells">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
+          </button>
+          <button type="button" (click)="scrollUpsells('right')" [disabled]="!canScrollRight"
               [class]="'inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors ' +
                 (canScrollRight
                   ? 'border-gray-300 text-gray-500 hover:bg-gray-100 active:bg-gray-200 cursor-pointer'
                   : 'border-gray-200 text-gray-300 cursor-not-allowed')"
-              aria-label="Next upsells">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m9 18 6-6-6-6"/>
-        </svg>
-      </button>
+            aria-label="Next upsells">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </button>
+        </div>
+      }
     </div>
-  </div>
+  }
 
   <!-- Basket Items — ONE card; rows divided by gray-200 hairlines. The in-row gray-100
-       divider below stays lighter, so "new item" reads stronger than "same-item subsection". -->
-  <div *ngIf="basketItems.length > 0" class="flex flex-col px-4 mt-4">
-    <div class="border border-gray-200 rounded-2xl bg-white overflow-hidden">
-    <div *ngFor="let item of basketItems; let idx = index; let last = last"
-         (click)="editItem(idx)"
-         class="flex gap-4 p-4 cursor-pointer active:bg-gray-50 transition-colors border-gray-200"
-         [class.border-b]="!last">
-
-      <!-- Thumbnail -->
-      <div class="w-16 h-16 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
-        <img *ngIf="item.image && !rowImageErrored[idx]"
-             [src]="url + item.image"
-             [alt]="item.itemName"
-             class="w-full h-full object-cover"
-             (error)="onRowImageError(idx)" />
-        <div *ngIf="!item.image || rowImageErrored[idx]"
-             class="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-          No img
-        </div>
-      </div>
-
-      <!-- Item details -->
-      <div class="flex-1 min-w-0">
-
-        <!-- Name + price row -->
-        <div class="flex justify-between items-start">
-          <div class="flex items-center gap-1">
-            <h3 class="font-display font-semibold text-base text-gray-900">{{ item.itemName }}</h3>
-            <!-- Real, keyboard-focusable Edit control (the whole row is also click-to-edit for
-                 mouse, but that row div can't be a button — it contains the stepper buttons). -->
-            <button type="button" (click)="editItem(idx); $event.stopPropagation()"
+  divider below stays lighter, so "new item" reads stronger than "same-item subsection". -->
+  @if (basketItems.length > 0) {
+    <div class="flex flex-col px-4 mt-4">
+      <div class="border border-gray-200 rounded-2xl bg-white overflow-hidden">
+        @for (item of basketItems; track item; let idx = $index; let last = $last) {
+          <div
+            (click)="editItem(idx)"
+            class="flex gap-4 p-4 cursor-pointer active:bg-gray-50 transition-colors border-gray-200"
+            [class.border-b]="!last">
+            <!-- Thumbnail -->
+            <div class="w-16 h-16 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
+              @if (item.image && !rowImageErrored[idx]) {
+                <img
+                  [src]="url + item.image"
+                  [alt]="item.itemName"
+                  class="w-full h-full object-cover"
+                  (error)="onRowImageError(idx)" />
+              }
+              @if (!item.image || rowImageErrored[idx]) {
+                <div
+                  class="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                  No img
+                </div>
+              }
+            </div>
+            <!-- Item details -->
+            <div class="flex-1 min-w-0">
+              <!-- Name + price row -->
+              <div class="flex justify-between items-start">
+                <div class="flex items-center gap-1">
+                  <h3 class="font-display font-semibold text-base text-gray-900">{{ item.itemName }}</h3>
+                  <!-- Real, keyboard-focusable Edit control (the whole row is also click-to-edit for
+                  mouse, but that row div can't be a button — it contains the stepper buttons). -->
+                  <button type="button" (click)="editItem(idx); $event.stopPropagation()"
                     [attr.aria-label]="'Edit ' + item.itemName"
                     class="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -m-2 text-gray-400 hover:text-gray-600 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                   aria-hidden="true">
-                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
-              </svg>
-            </button>
-          </div>
-          <div class="text-right flex-shrink-0 ml-2">
-            <app-price-display size="sm"
-                               [effective]="item.basePrice"
-                               [original]="item.isDiscounted ? (item.originalBasePrice ?? 0) : 0"></app-price-display>
-          </div>
-        </div>
-
-        <!-- Selected modifiers -->
-        <div *ngIf="(item.selectedModifiers?.length ?? 0) > 0" class="mt-2 space-y-1">
-          <div *ngFor="let mod of item.selectedModifiers" class="space-y-0.5">
-            <div *ngFor="let choice of mod.choices"
-                 class="flex justify-between text-sm text-gray-500">
-              <span>{{ mod.groupName }}: {{ choice.name }}</span>
-              <span *ngIf="choice.additionalCost > 0" class="text-gray-600">
-                +UGX {{ choice.additionalCost | number }}
-              </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                      aria-hidden="true">
+                      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="text-right flex-shrink-0 ml-2">
+                  <app-price-display size="sm"
+                    [effective]="item.basePrice"
+                  [original]="item.isDiscounted ? (item.originalBasePrice ?? 0) : 0"></app-price-display>
+                </div>
+              </div>
+              <!-- Selected modifiers -->
+              @if ((item.selectedModifiers?.length ?? 0) > 0) {
+                <div class="mt-2 space-y-1">
+                  @for (mod of item.selectedModifiers; track mod) {
+                    <div class="space-y-0.5">
+                      @for (choice of mod.choices; track choice) {
+                        <div
+                          class="flex justify-between text-sm text-gray-500">
+                          <span>{{ mod.groupName }}: {{ choice.name }}</span>
+                          @if (choice.additionalCost > 0) {
+                            <span class="text-gray-600">
+                              +UGX {{ choice.additionalCost | number }}
+                            </span>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+              <!-- Selected extras -->
+              @if ((item.extras?.length ?? 0) > 0) {
+                <div class="mt-2 space-y-1">
+                  @for (extra of item.extras; track extra) {
+                    <div
+                      class="flex justify-between text-sm text-gray-500">
+                      <span>+ {{ extra.name }}</span>
+                      <span class="text-gray-600">
+                        @if (isExtraDiscounted(extra)) {
+                          <app-price-display size="sm" prefix="+"
+                            [effective]="extraEffective(extra)"
+                          [original]="extraOriginal(extra)"></app-price-display>
+                        } @else {
+                          @if (extra.cost > 0) {
+                            <span>+UGX {{ extra.cost | number }}</span>
+                          }
+                        }
+                      </span>
+                    </div>
+                  }
+                </div>
+              }
+              <!-- Quantity controls + line total -->
+              <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                <div class="flex items-center gap-2" (click)="$event.stopPropagation()">
+                  <!-- Minus -->
+                  <button (click)="decrementItem(idx)" aria-label="Decrease quantity"
+                    class="inline-flex items-center justify-center w-11 h-11 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M5 12h14"/>
+                    </svg>
+                  </button>
+                  <span class="w-6 text-center font-semibold text-sm tabular-nums">{{ item.quantity }}</span>
+                  <!-- Plus -->
+                  <button (click)="incrementItem(idx)" aria-label="Increase quantity"
+                    class="inline-flex items-center justify-center w-11 h-11 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M5 12h14"/><path d="M12 5v14"/>
+                    </svg>
+                  </button>
+                </div>
+                @if (shouldShowSubtotal(item)) {
+                  <span class="font-semibold text-sm text-d-red">
+                    UGX {{ getSubtotal(item) | number }}
+                  </span>
+                }
+              </div>
             </div>
           </div>
+        }
+      </div><!-- /one card -->
+      <!-- Order summary — honest breakdown: subtotal → deal savings → total to pay. All
+      client-side: cartSubtotal = totalAmount + getTotalSavings(); savings from
+      getTotalSavings(). No VAT line — diner prices are not tax-inclusive. -->
+      <div class="mt-4">
+        <div class="flex items-center justify-between text-sm text-gray-600 py-1">
+          <span>Subtotal</span>
+          <span>UGX {{ cartSubtotal | number }}</span>
         </div>
-
-        <!-- Selected extras -->
-        <div *ngIf="(item.extras?.length ?? 0) > 0" class="mt-2 space-y-1">
-          <div *ngFor="let extra of item.extras"
-               class="flex justify-between text-sm text-gray-500">
-            <span>+ {{ extra.name }}</span>
-            <span class="text-gray-600">
-              <ng-container *ngIf="isExtraDiscounted(extra); else extraCostNormal">
-                <app-price-display size="sm" prefix="+"
-                                   [effective]="extraEffective(extra)"
-                                   [original]="extraOriginal(extra)"></app-price-display>
-              </ng-container>
-              <ng-template #extraCostNormal>
-                <span *ngIf="extra.cost > 0">+UGX {{ extra.cost | number }}</span>
-              </ng-template>
-            </span>
+        @if (getTotalSavings() > 0) {
+          <div
+            class="flex items-center justify-between text-sm font-medium text-green-600 py-1">
+            <span>Deal savings</span>
+            <span>− UGX {{ getTotalSavings() | number }}</span>
           </div>
-        </div>
-
-        <!-- Quantity controls + line total -->
-        <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-          <div class="flex items-center gap-2" (click)="$event.stopPropagation()">
-            <!-- Minus -->
-            <button (click)="decrementItem(idx)" aria-label="Decrease quantity"
-                    class="inline-flex items-center justify-center w-11 h-11 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M5 12h14"/>
-              </svg>
-            </button>
-            <span class="w-6 text-center font-semibold text-sm tabular-nums">{{ item.quantity }}</span>
-            <!-- Plus -->
-            <button (click)="incrementItem(idx)" aria-label="Increase quantity"
-                    class="inline-flex items-center justify-center w-11 h-11 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M5 12h14"/><path d="M12 5v14"/>
-              </svg>
-            </button>
+        }
+        <div class="flex items-end justify-between pt-3 mt-1 border-t border-gray-300">
+          <div class="flex flex-col leading-tight">
+            <span class="text-base font-bold text-gray-900">Total to pay</span>
+            <span class="text-xs text-gray-500">UGX</span>
           </div>
-          <span *ngIf="shouldShowSubtotal(item)" class="font-semibold text-sm text-d-red">
-            UGX {{ getSubtotal(item) | number }}
-          </span>
+          <span class="text-2xl font-extrabold text-d-red leading-none">{{ totalAmount | number }}</span>
         </div>
       </div>
-    </div>
-    </div><!-- /one card -->
-
-    <!-- Order summary — honest breakdown: subtotal → deal savings → total to pay. All
-         client-side: cartSubtotal = totalAmount + getTotalSavings(); savings from
-         getTotalSavings(). No VAT line — diner prices are not tax-inclusive. -->
-    <div class="mt-4">
-      <div class="flex items-center justify-between text-sm text-gray-600 py-1">
-        <span>Subtotal</span>
-        <span>UGX {{ cartSubtotal | number }}</span>
-      </div>
-      <div *ngIf="getTotalSavings() > 0"
-           class="flex items-center justify-between text-sm font-medium text-green-600 py-1">
-        <span>Deal savings</span>
-        <span>− UGX {{ getTotalSavings() | number }}</span>
-      </div>
-      <div class="flex items-end justify-between pt-3 mt-1 border-t border-gray-300">
-        <div class="flex flex-col leading-tight">
-          <span class="text-base font-bold text-gray-900">Total to pay</span>
-          <span class="text-xs text-gray-500">UGX</span>
-        </div>
-        <span class="text-2xl font-extrabold text-d-red leading-none">{{ totalAmount | number }}</span>
+      <!-- Allergy & special-request notice -->
+      <div class="mt-3 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-amber-900">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="flex-shrink-0 mt-px text-amber-600" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 16v-4"/>
+          <path d="M12 8h.01"/>
+        </svg>
+        <p class="text-xs leading-relaxed">
+          We're unable to take custom dietary or special-prep requests. Each item
+          shows its allergens — please check before ordering, and use the menu's
+          allergen filter to hide anything you need to avoid.
+        </p>
       </div>
     </div>
-
-    <!-- Allergy & special-request notice -->
-    <div class="mt-3 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-amber-900">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-           class="flex-shrink-0 mt-px text-amber-600" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M12 16v-4"/>
-        <path d="M12 8h.01"/>
-      </svg>
-      <p class="text-xs leading-relaxed">
-        We're unable to take custom dietary or special-prep requests. Each item
-        shows its allergens — please check before ordering, and use the menu's
-        allergen filter to hide anything you need to avoid.
-      </p>
-    </div>
-  </div>
+  }
 
 </div>
 
 <!-- Checkout Button (sticky footer) -->
-<div *ngIf="basketItems.length > 0"
-     class="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg">
-  <!-- Table already has an order in the kitchen: block checkout (no Checkout/
-       Retry) until it is served. The reason is shown by the ongoing-order card
-       at the top of the basket, so the footer is just the disabled button. -->
-  <ng-container *ngIf="tableHasOngoingOrder; else placementCta">
-    <button app-dn-button variant="cta" type="button" [disabled]="true" class="w-full">
-      Checkout unavailable
-    </button>
-  </ng-container>
-
-  <ng-template #placementCta>
-    <!-- Inline placement error + Retry (offline, or a send that genuinely failed) -->
-    <p *ngIf="orderError" class="mb-2 text-sm text-red-600 text-center" role="alert">
-      {{ orderErrorMessage }}
-    </p>
-    <button *ngIf="!orderError" app-dn-button variant="cta" (click)="initiateOrder()" [loading]="placingOrder" class="w-full">
-      Checkout — UGX {{ totalAmount | number }}
-    </button>
-    <button *ngIf="orderError" app-dn-button variant="cta" (click)="retryOrder()" [loading]="placingOrder" class="w-full">
-      Retry
-    </button>
-  </ng-template>
-</div>
+@if (basketItems.length > 0) {
+  <div
+    class="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+    <!-- Table already has an order in the kitchen: block checkout (no Checkout/
+    Retry) until it is served. The reason is shown by the ongoing-order card
+    at the top of the basket, so the footer is just the disabled button. -->
+    @if (tableHasOngoingOrder) {
+      <button app-dn-button variant="cta" type="button" [disabled]="true" class="w-full">
+        Checkout unavailable
+      </button>
+    } @else {
+      <!-- Inline placement error + Retry (offline, or a send that genuinely failed) -->
+      @if (orderError) {
+        <p class="mb-2 text-sm text-red-600 text-center" role="alert">
+          {{ orderErrorMessage }}
+        </p>
+      }
+      @if (!orderError) {
+        <button app-dn-button variant="cta" (click)="initiateOrder()" [loading]="placingOrder" class="w-full">
+          Checkout — UGX {{ totalAmount | number }}
+        </button>
+      }
+      @if (orderError) {
+        <button app-dn-button variant="cta" (click)="retryOrder()" [loading]="placingOrder" class="w-full">
+          Retry
+        </button>
+      }
+    }
+  </div>
+}
 
 <!-- Unavailable-items review (shown when some items/extras dropped at checkout) -->
-<div *ngIf="showUnavailableSheet"
-     class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4"
-     (click)="cancelPartialOrder()">
-  <div class="w-full max-w-md bg-white rounded-xl shadow-xl p-5 max-h-[80vh] overflow-y-auto"
-       (click)="$event.stopPropagation()">
-    <h3 class="font-display text-lg font-bold text-gray-900">Some items are no longer available</h3>
-    <p class="text-sm text-gray-500 mt-1">
-      These sold out or were removed since you added them. Place your order without them, or go back.
-    </p>
-
-    <ul *ngIf="unavailableItems.length > 0" class="mt-4 space-y-2">
-      <li *ngFor="let u of unavailableItems" class="flex items-center justify-between gap-2 text-sm">
-        <span class="text-gray-900">{{ u.item_name }}<span *ngIf="u.quantity > 1" class="text-gray-500"> × {{ u.quantity }}</span></span>
-        <span class="text-xs text-gray-400 flex-shrink-0">Unavailable</span>
-      </li>
-    </ul>
-
-    <div *ngIf="unavailableExtras.length > 0" class="mt-3">
-      <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Removed extras</p>
-      <ul class="space-y-1">
-        <li *ngFor="let e of unavailableExtras" class="text-sm text-gray-900">{{ e.item_name }}</li>
-      </ul>
-    </div>
-
-    <div class="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
-      <span class="font-bold text-gray-900">Updated total</span>
-      <span class="font-bold text-d-red">UGX {{ reviewedTotal | number }}</span>
-    </div>
-
-    <div class="mt-4 space-y-2">
-      <button type="button" app-dn-button variant="cta" (click)="confirmPartialOrder()" class="w-full">
-        Place order — UGX {{ reviewedTotal | number }}
-      </button>
-      <button type="button" (click)="cancelPartialOrder()"
-              class="w-full inline-flex items-center justify-center rounded-xl border border-gray-300 py-3 px-4 font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-        Back to basket
-      </button>
+@if (showUnavailableSheet) {
+  <div
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4"
+    (click)="cancelPartialOrder()">
+    <div class="w-full max-w-md bg-white rounded-xl shadow-xl p-5 max-h-[80vh] overflow-y-auto"
+      (click)="$event.stopPropagation()">
+      <h3 class="font-display text-lg font-bold text-gray-900">Some items are no longer available</h3>
+      <p class="text-sm text-gray-500 mt-1">
+        These sold out or were removed since you added them. Place your order without them, or go back.
+      </p>
+      @if (unavailableItems.length > 0) {
+        <ul class="mt-4 space-y-2">
+          @for (u of unavailableItems; track u) {
+            <li class="flex items-center justify-between gap-2 text-sm">
+              <span class="text-gray-900">{{ u.item_name }}@if (u.quantity > 1) {
+                <span class="text-gray-500"> × {{ u.quantity }}</span>
+              }</span>
+              <span class="text-xs text-gray-400 flex-shrink-0">Unavailable</span>
+            </li>
+          }
+        </ul>
+      }
+      @if (unavailableExtras.length > 0) {
+        <div class="mt-3">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Removed extras</p>
+          <ul class="space-y-1">
+            @for (e of unavailableExtras; track e) {
+              <li class="text-sm text-gray-900">{{ e.item_name }}</li>
+            }
+          </ul>
+        </div>
+      }
+      <div class="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
+        <span class="font-bold text-gray-900">Updated total</span>
+        <span class="font-bold text-d-red">UGX {{ reviewedTotal | number }}</span>
+      </div>
+      <div class="mt-4 space-y-2">
+        <button type="button" app-dn-button variant="cta" (click)="confirmPartialOrder()" class="w-full">
+          Place order — UGX {{ reviewedTotal | number }}
+        </button>
+        <button type="button" (click)="cancelPartialOrder()"
+          class="w-full inline-flex items-center justify-center rounded-xl border border-gray-300 py-3 px-4 font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+          Back to basket
+        </button>
+      </div>
     </div>
   </div>
-</div>
+}

@@ -21,76 +21,90 @@
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Image</label>
             <div class="relative h-44 bg-muted rounded-lg overflow-hidden">
-              <img *ngIf="imagePreview"
-                   [src]="imagePreview"
-                   alt="Item image"
-                   class="w-full h-full object-cover" />
-              <button *ngIf="imagePreview"
-                      type="button"
-                      (click)="onRemoveImage()"
-                      class="absolute top-2 right-2 inline-flex items-center justify-center w-7 h-7 rounded-full bg-background/90 hover:bg-background text-foreground shadow-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring"
-                      aria-label="Remove image">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-              <div *ngIf="!imagePreview"
-                   class="w-full h-full flex items-center justify-center text-muted-foreground">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
-                  <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
-                </svg>
-              </div>
+              @if (imagePreview) {
+                <img
+                  [src]="imagePreview"
+                  alt="Item image"
+                  class="w-full h-full object-cover" />
+              }
+              @if (imagePreview) {
+                <button
+                  type="button"
+                  (click)="onRemoveImage()"
+                  class="absolute top-2 right-2 inline-flex items-center justify-center w-7 h-7 rounded-full bg-background/90 hover:bg-background text-foreground shadow-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+                  aria-label="Remove image">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              }
+              @if (!imagePreview) {
+                <div
+                  class="w-full h-full flex items-center justify-center text-muted-foreground">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+                    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+                  </svg>
+                </div>
+              }
             </div>
             <input #fileInput
-                   type="file"
-                   accept="image/jpeg,image/png,image/gif"
-                   (change)="onFileSelected($event)"
-                   class="mt-2 block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
-            <div *ngIf="isCompressing" class="mt-2 flex items-center text-xs text-muted-foreground">
-              <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-              </svg>
-              Compressing image…
-            </div>
+              type="file"
+              accept="image/jpeg,image/png,image/gif"
+              (change)="onFileSelected($event)"
+              class="mt-2 block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+            @if (isCompressing) {
+              <div class="mt-2 flex items-center text-xs text-muted-foreground">
+                <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+                </svg>
+                Compressing image…
+              </div>
+            }
           </div>
 
           <!-- Name -->
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Name *</label>
             <input formControlName="name"
-                   autocapitalize="off"
-                   autocorrect="off"
-                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                   [class.border-destructive]="attemptedSave && form.get('name')?.invalid"
-                   placeholder="Item name" />
-            <p *ngIf="form.get('name')?.touched && form.get('name')?.invalid" class="text-xs text-destructive mt-1">
-              {{ form.get('name')?.errors?.['required'] ? 'Name is required' : 'Name must be at least 2 characters' }}
-            </p>
+              autocapitalize="off"
+              autocorrect="off"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              [class.border-destructive]="attemptedSave && form.get('name')?.invalid"
+              placeholder="Item name" />
+            @if (form.get('name')?.touched && form.get('name')?.invalid) {
+              <p class="text-xs text-destructive mt-1">
+                {{ form.get('name')?.errors?.['required'] ? 'Name is required' : 'Name must be at least 2 characters' }}
+              </p>
+            }
           </div>
 
           <!-- Section dropdown -->
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Section *</label>
             <select formControlName="section"
-                    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                    [class.border-destructive]="attemptedSave && form.get('section')?.invalid">
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              [class.border-destructive]="attemptedSave && form.get('section')?.invalid">
               <option value="" disabled>Select a section</option>
-              <option *ngFor="let s of sections$ | async" [value]="s.id">{{ s.name }}</option>
+              @for (s of sections$ | async; track s) {
+                <option [value]="s.id">{{ s.name }}</option>
+              }
             </select>
-            <p *ngIf="attemptedSave && form.get('section')?.invalid" class="text-xs text-destructive mt-1">Section is required</p>
+            @if (attemptedSave && form.get('section')?.invalid) {
+              <p class="text-xs text-destructive mt-1">Section is required</p>
+            }
           </div>
 
           <!-- Description -->
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Description</label>
             <textarea formControlName="description"
-                      rows="3"
-                      class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                      placeholder="Optional description">
+              rows="3"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              placeholder="Optional description">
             </textarea>
           </div>
 
@@ -98,22 +112,24 @@
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Price (UGX) *</label>
             <input type="number"
-                   formControlName="primary_price"
-                   min="1"
-                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                   [class.border-destructive]="attemptedSave && form.get('primary_price')?.invalid"
-                   placeholder="0" />
-            <p *ngIf="attemptedSave && form.get('primary_price')?.invalid" class="text-xs text-destructive mt-1">Price must be greater than 0</p>
+              formControlName="primary_price"
+              min="1"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              [class.border-destructive]="attemptedSave && form.get('primary_price')?.invalid"
+              placeholder="0" />
+            @if (attemptedSave && form.get('primary_price')?.invalid) {
+              <p class="text-xs text-destructive mt-1">Price must be greater than 0</p>
+            }
           </div>
 
           <!-- Calories (optional) -->
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Calories (kcal)</label>
             <input type="number"
-                   formControlName="calories"
-                   min="0"
-                   class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                   placeholder="Optional — e.g. 450" />
+              formControlName="calories"
+              min="0"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              placeholder="Optional — e.g. 450" />
             <p class="text-xs text-muted-foreground mt-1">Leave blank if unknown</p>
           </div>
 
@@ -144,7 +160,7 @@
             <div class="space-y-2 mt-3">
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" formControlName="is_featured"
-                       class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                  class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">Featured</span>
                   <span class="block text-xs text-muted-foreground">Showcase this item prominently</span>
@@ -153,7 +169,7 @@
 
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" formControlName="is_popular"
-                       class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                  class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">Popular</span>
                   <span class="block text-xs text-muted-foreground">Mark as a bestseller or customer favourite</span>
@@ -162,7 +178,7 @@
 
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" formControlName="is_new"
-                       class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                  class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">New</span>
                   <span class="block text-xs text-muted-foreground">Highlight as a recent addition</span>
@@ -171,7 +187,7 @@
 
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" formControlName="age_restricted"
-                       class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                  class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">Contains alcohol / age-restricted (18+)</span>
                   <span class="block text-xs text-muted-foreground">Shows an alcohol/age disclaimer on the customer item page</span>
@@ -188,9 +204,9 @@
             <div class="space-y-2 mt-3">
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="radio" name="in_stock"
-                       [checked]="form.get('in_stock')?.value === true"
-                       (change)="form.get('in_stock')?.setValue(true)"
-                       class="mt-0.5 accent-primary" />
+                  [checked]="form.get('in_stock')?.value === true"
+                  (change)="form.get('in_stock')?.setValue(true)"
+                  class="mt-0.5 accent-primary" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">In stock</span>
                   <span class="block text-xs text-muted-foreground">Item can be ordered</span>
@@ -199,9 +215,9 @@
 
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="radio" name="in_stock"
-                       [checked]="form.get('in_stock')?.value === false"
-                       (change)="form.get('in_stock')?.setValue(false)"
-                       class="mt-0.5 accent-primary" />
+                  [checked]="form.get('in_stock')?.value === false"
+                  (change)="form.get('in_stock')?.setValue(false)"
+                  class="mt-0.5 accent-primary" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">Out of stock</span>
                   <span class="block text-xs text-muted-foreground">Item visible but cannot be ordered</span>
@@ -256,23 +272,27 @@
     <div class="flex justify-end gap-3 pt-5">
       <button type="button" app-dn-button variant="outline" [disabled]="isSaving" (click)="requestClose()">Cancel</button>
       <button type="submit" app-dn-button variant="default"
-              [disabled]="form.invalid || hasModifiersErrors || hasDiscountsErrors || hasExtrasErrors || isCompressing || isSaving">
-        <ng-container *ngIf="!isSaving">{{ item ? 'Update' : 'Create' }}</ng-container>
-        <span *ngIf="isSaving" class="inline-flex items-center">
-          <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-          </svg>
-          {{ item ? 'Updating…' : 'Creating…' }}
-        </span>
+        [disabled]="form.invalid || hasModifiersErrors || hasDiscountsErrors || hasExtrasErrors || isCompressing || isSaving">
+        @if (!isSaving) {
+          {{ item ? 'Update' : 'Create' }}
+        }
+        @if (isSaving) {
+          <span class="inline-flex items-center">
+            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+            </svg>
+            {{ item ? 'Updating…' : 'Creating…' }}
+          </span>
+        }
       </button>
     </div>
   </form>
 
   <!-- Data-loss guard: overlays the editor when a close is attempted with unsaved
-       edits (backdrop/Escape are blocked via [disableClose]="isDirty"; Cancel and
-       the blocked-close both route here through requestClose()). Fixed + centred so
-       it stays visible however far the tall form is scrolled. -->
+  edits (backdrop/Escape are blocked via [disableClose]="isDirty"; Cancel and
+  the blocked-close both route here through requestClose()). Fixed + centred so
+  it stays visible however far the tall form is scrolled. -->
   @if (showDiscardConfirm) {
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50"></div>

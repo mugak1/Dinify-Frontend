@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
@@ -14,14 +14,13 @@ import { environment } from 'src/environments/environment';
   selector: 'app-section-form-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     FormsModule,
     DialogComponent,
     ButtonComponent,
     SwitchComponent,
-    ScheduleBuilderComponent,
-  ],
+    ScheduleBuilderComponent
+],
   templateUrl: './section-form-dialog.component.html',
 })
 export class SectionFormDialogComponent implements OnChanges {

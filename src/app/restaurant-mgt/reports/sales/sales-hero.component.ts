@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.component';
@@ -14,7 +14,7 @@ import { EMPTY_TOTALS, SalesTotals } from './sales-view';
 @Component({
   selector: 'app-sales-hero',
   standalone: true,
-  imports: [CommonModule, CardComponent, ReportDeltaChipComponent],
+  imports: [CardComponent, ReportDeltaChipComponent],
   template: `
     <app-dn-card class="block">
       <div class="p-4 sm:p-6">

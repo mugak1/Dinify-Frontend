@@ -1,103 +1,105 @@
-<div
-  *ngIf="open"
-  class="fixed inset-0 z-50"
-  role="dialog"
-  aria-modal="true"
-  aria-label="Sold-out items">
-  <!-- Scrim: tap to close -->
-  <div class="absolute inset-0 bg-black/60 sop-scrim" (click)="onClose()"></div>
-
-  <!-- Drawer: a light, legible surface like the white tickets -->
-  <aside
-    class="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-white text-gray-900 shadow-2xl sop-panel">
-    <!-- Header -->
-    <header class="flex shrink-0 items-center gap-3 border-b border-gray-200 px-5 py-4">
-      <div class="min-w-0 flex-1">
-        <h2 class="font-display text-xl font-bold tracking-tight">Sold-out items</h2>
-        <p
-          class="mt-0.5 text-sm"
-          [ngClass]="stock.soldOutCount() > 0 ? 'font-semibold text-red-600' : 'text-gray-500'">
-          {{ stock.soldOutCount() }} sold out
-        </p>
+@if (open) {
+  <div
+    class="fixed inset-0 z-50"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Sold-out items">
+    <!-- Scrim: tap to close -->
+    <div class="absolute inset-0 bg-black/60 sop-scrim" (click)="onClose()"></div>
+    <!-- Drawer: a light, legible surface like the white tickets -->
+    <aside
+      class="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-white text-gray-900 shadow-2xl sop-panel">
+      <!-- Header -->
+      <header class="flex shrink-0 items-center gap-3 border-b border-gray-200 px-5 py-4">
+        <div class="min-w-0 flex-1">
+          <h2 class="font-display text-xl font-bold tracking-tight">Sold-out items</h2>
+          <p
+            class="mt-0.5 text-sm"
+            [ngClass]="stock.soldOutCount() > 0 ? 'font-semibold text-red-600' : 'text-gray-500'">
+            {{ stock.soldOutCount() }} sold out
+          </p>
+        </div>
+        <button
+          type="button"
+          (click)="onClose()"
+          aria-label="Close sold-out panel"
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors desktop-hover:bg-gray-100 active:bg-gray-100">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </header>
+      <!-- Search -->
+      <div class="shrink-0 border-b border-gray-100 px-5 py-3">
+        <input
+          type="search"
+          [value]="query()"
+          (input)="onSearch($event)"
+          placeholder="Search items…"
+          aria-label="Search items"
+          class="h-11 w-full rounded-lg border border-gray-300 px-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200" />
       </div>
-      <button
-        type="button"
-        (click)="onClose()"
-        aria-label="Close sold-out panel"
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors desktop-hover:bg-gray-100 active:bg-gray-100">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      </button>
-    </header>
-
-    <!-- Search -->
-    <div class="shrink-0 border-b border-gray-100 px-5 py-3">
-      <input
-        type="search"
-        [value]="query()"
-        (input)="onSearch($event)"
-        placeholder="Search items…"
-        aria-label="Search items"
-        class="h-11 w-full rounded-lg border border-gray-300 px-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200" />
-    </div>
-
-    <!-- Body -->
-    <div class="min-h-0 flex-1 overflow-y-auto">
-      <!-- Loading -->
-      <div
-        *ngIf="stock.loading()"
-        class="flex flex-col items-center justify-center gap-3 py-16 text-gray-400">
-        <svg class="h-7 w-7 animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        <p class="text-sm">Loading items…</p>
-      </div>
-
-      <!-- Empty -->
-      <div
-        *ngIf="!stock.loading() && groups().length === 0"
-        class="flex flex-col items-center justify-center gap-2 px-6 py-16 text-center text-gray-400">
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-60"><path d="M3 11h18"/><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>
-        <p class="font-display text-base font-semibold text-gray-500">
-          {{ stock.items().length === 0 ? 'No menu items' : 'No matches' }}
-        </p>
-        <p class="text-sm">
-          {{ stock.items().length === 0 ? 'Items on your menu will appear here.' : 'Try a different search.' }}
-        </p>
-      </div>
-
-      <!-- Grouped list -->
-      <ng-container *ngIf="!stock.loading()">
-        <section *ngFor="let group of groups()">
-          <h3
-            class="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 backdrop-blur">
-            {{ group.section }}
-          </h3>
-          <ul class="divide-y divide-gray-100">
-            <li *ngFor="let item of group.items">
-              <button
-                type="button"
-                (click)="toggle(item)"
-                [attr.aria-pressed]="!item.in_stock"
-                class="sop-row flex min-h-[60px] w-full items-center gap-3 px-5 py-3 text-left transition-colors"
-                [ngClass]="item.in_stock ? 'desktop-hover:bg-gray-50 active:bg-gray-50' : 'bg-red-50 desktop-hover:bg-red-100 active:bg-red-100'">
-                <span
-                  class="h-2.5 w-2.5 shrink-0 rounded-full"
-                  [ngClass]="item.in_stock ? 'bg-green-500' : 'bg-red-500'"></span>
-                <span
-                  class="min-w-0 flex-1 truncate text-base font-medium"
-                  [ngClass]="item.in_stock ? 'text-gray-900' : 'text-red-700 line-through'">
-                  {{ item.name }}
-                </span>
-                <span
-                  class="inline-flex h-8 shrink-0 items-center rounded-full border px-3 text-sm font-semibold"
+      <!-- Body -->
+      <div class="min-h-0 flex-1 overflow-y-auto">
+        <!-- Loading -->
+        @if (stock.loading()) {
+          <div
+            class="flex flex-col items-center justify-center gap-3 py-16 text-gray-400">
+            <svg class="h-7 w-7 animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <p class="text-sm">Loading items…</p>
+          </div>
+        }
+        <!-- Empty -->
+        @if (!stock.loading() && groups().length === 0) {
+          <div
+            class="flex flex-col items-center justify-center gap-2 px-6 py-16 text-center text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-60"><path d="M3 11h18"/><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>
+            <p class="font-display text-base font-semibold text-gray-500">
+              {{ stock.items().length === 0 ? 'No menu items' : 'No matches' }}
+            </p>
+            <p class="text-sm">
+              {{ stock.items().length === 0 ? 'Items on your menu will appear here.' : 'Try a different search.' }}
+            </p>
+          </div>
+        }
+        <!-- Grouped list -->
+        @if (!stock.loading()) {
+          @for (group of groups(); track group) {
+            <section>
+              <h3
+                class="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 backdrop-blur">
+                {{ group.section }}
+              </h3>
+              <ul class="divide-y divide-gray-100">
+                @for (item of group.items; track item) {
+                  <li>
+                    <button
+                      type="button"
+                      (click)="toggle(item)"
+                      [attr.aria-pressed]="!item.in_stock"
+                      class="sop-row flex min-h-[60px] w-full items-center gap-3 px-5 py-3 text-left transition-colors"
+                      [ngClass]="item.in_stock ? 'desktop-hover:bg-gray-50 active:bg-gray-50' : 'bg-red-50 desktop-hover:bg-red-100 active:bg-red-100'">
+                      <span
+                        class="h-2.5 w-2.5 shrink-0 rounded-full"
+                      [ngClass]="item.in_stock ? 'bg-green-500' : 'bg-red-500'"></span>
+                      <span
+                        class="min-w-0 flex-1 truncate text-base font-medium"
+                        [ngClass]="item.in_stock ? 'text-gray-900' : 'text-red-700 line-through'">
+                        {{ item.name }}
+                      </span>
+                      <span
+                        class="inline-flex h-8 shrink-0 items-center rounded-full border px-3 text-sm font-semibold"
                   [ngClass]="item.in_stock
                     ? 'border-green-200 bg-green-50 text-green-700'
                     : 'border-transparent bg-red-600 text-white'">
-                  {{ item.in_stock ? 'In stock' : 'Sold out' }}
-                </span>
-              </button>
-            </li>
-          </ul>
-        </section>
-      </ng-container>
-    </div>
-  </aside>
-</div>
+                        {{ item.in_stock ? 'In stock' : 'Sold out' }}
+                      </span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+        }
+      </div>
+    </aside>
+  </div>
+}

@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.component';
 
@@ -13,7 +13,7 @@ import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.co
 @Component({
   selector: 'app-menu-stat-card',
   standalone: true,
-  imports: [CommonModule, CardComponent, ReportDeltaChipComponent],
+  imports: [CardComponent, ReportDeltaChipComponent],
   template: `
     <app-dn-card class="block">
       <div class="p-4">

@@ -6,7 +6,7 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import {
   CdkDragDrop,
@@ -26,13 +26,12 @@ import {
   selector: 'app-item-modifiers-tab',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     DragDropModule,
     SwitchComponent,
     ButtonComponent,
-    SafeArrayPipe,
-  ],
+    SafeArrayPipe
+],
   templateUrl: './item-modifiers-tab.component.html',
 })
 export class ItemModifiersTabComponent implements OnChanges {

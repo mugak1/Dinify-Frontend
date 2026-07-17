@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
@@ -13,13 +13,12 @@ import { formatCompact } from '../../utils/format.utils';
   standalone: true,
   host: { class: 'block h-full' },
   imports: [
-    CommonModule,
     RouterModule,
     CardComponent,
     CardSkeletonComponent,
     AnimatedNumberComponent,
-    TrendIndicatorComponent,
-  ],
+    TrendIndicatorComponent
+],
   template: `
     @if (loading) {
       <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>

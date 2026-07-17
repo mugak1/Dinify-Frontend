@@ -8,7 +8,7 @@ import {
   Output,
   ViewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subscription, combineLatest } from 'rxjs';
 import { UpsellService } from '../../services/upsell.service';
 import { MenuService } from '../../services/menu.service';
@@ -22,7 +22,7 @@ import { environment } from 'src/environments/environment';
 @Component({
   selector: 'app-upsell-carousel',
   standalone: true,
-  imports: [CommonModule, PriceDisplayComponent],
+  imports: [PriceDisplayComponent],
   templateUrl: './upsell-carousel.component.html',
 })
 export class UpsellCarouselComponent implements OnInit, OnDestroy {

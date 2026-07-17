@@ -21,56 +21,60 @@
   </div>
 
   <!-- Extras list -->
-  <ng-container *ngIf="enabled">
-
+  @if (enabled) {
     <!-- Min / Max selection limits -->
     <div class="flex items-center gap-2">
       <div>
         <label class="block text-xs font-medium text-muted-foreground mb-1">Min extras</label>
         <input type="number" [(ngModel)]="minSelections" (ngModelChange)="emitChange()" min="0"
-               class="w-20 border border-input bg-background text-foreground rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          class="w-20 border border-input bg-background text-foreground rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
       </div>
       <div>
         <label class="block text-xs font-medium text-muted-foreground mb-1">Max extras</label>
         <input type="number" [(ngModel)]="maxSelections" (ngModelChange)="emitChange()" min="0"
-               class="w-20 border border-input bg-background text-foreground rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          class="w-20 border border-input bg-background text-foreground rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
         <span class="block text-[11px] text-muted-foreground mt-1">0 = unlimited</span>
       </div>
     </div>
-    <div *ngIf="maxSelections && minSelections > maxSelections" class="text-xs text-destructive">
-      Minimum extras cannot exceed maximum extras.
-    </div>
-
-    <!-- Empty state -->
-    <p *ngIf="filteredExtras.length === 0"
-       class="text-sm text-muted-foreground py-4 text-center">
-      No items are marked as extras yet.
-    </p>
-
-    <!-- Checkbox list -->
-    <div *ngIf="filteredExtras.length > 0" class="space-y-1">
-      <label class="block text-xs font-medium text-muted-foreground mb-1">
-        Select extras available for this item
-      </label>
-
-      <div *ngFor="let extra of filteredExtras"
-           class="flex items-center gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
-           (click)="toggleExtra(extra.id)">
-        <input type="checkbox"
-               [checked]="isSelected(extra.id)"
-               class="h-5 w-5 rounded border-input text-primary focus:ring-ring"
-               (click)="$event.stopPropagation()"
-               (change)="toggleExtra(extra.id)" />
-        <span class="flex-1 text-sm text-foreground">{{ extra.name }}</span>
-        <span class="text-xs text-muted-foreground">UGX {{ formatUGX(toNumber(extra.primary_price)) }}</span>
+    @if (maxSelections && minSelections > maxSelections) {
+      <div class="text-xs text-destructive">
+        Minimum extras cannot exceed maximum extras.
       </div>
-    </div>
-
+    }
+    <!-- Empty state -->
+    @if (filteredExtras.length === 0) {
+      <p
+        class="text-sm text-muted-foreground py-4 text-center">
+        No items are marked as extras yet.
+      </p>
+    }
+    <!-- Checkbox list -->
+    @if (filteredExtras.length > 0) {
+      <div class="space-y-1">
+        <label class="block text-xs font-medium text-muted-foreground mb-1">
+          Select extras available for this item
+        </label>
+        @for (extra of filteredExtras; track extra) {
+          <div
+            class="flex items-center gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+            (click)="toggleExtra(extra.id)">
+            <input type="checkbox"
+              [checked]="isSelected(extra.id)"
+              class="h-5 w-5 rounded border-input text-primary focus:ring-ring"
+              (click)="$event.stopPropagation()"
+              (change)="toggleExtra(extra.id)" />
+            <span class="flex-1 text-sm text-foreground">{{ extra.name }}</span>
+            <span class="text-xs text-muted-foreground">UGX {{ formatUGX(toNumber(extra.primary_price)) }}</span>
+          </div>
+        }
+      </div>
+    }
     <!-- Selection count -->
-    <p *ngIf="selectedIds.size > 0"
-       class="text-xs text-muted-foreground">
-      {{ selectedIds.size }} extra{{ selectedIds.size !== 1 ? 's' : '' }} selected
-    </p>
-
-  </ng-container>
+    @if (selectedIds.size > 0) {
+      <p
+        class="text-xs text-muted-foreground">
+        {{ selectedIds.size }} extra{{ selectedIds.size !== 1 ? 's' : '' }} selected
+      </p>
+    }
+  }
 </div>

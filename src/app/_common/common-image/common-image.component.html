@@ -1,28 +1,33 @@
-<img
-  *ngIf="!container"
-  #imageElement
-  [class]="imgclass"
-  [style]="'height:{{height}}'"
-  [src]="(url + src)"
-  width="{{width}}"
-  height="{{height}}"
-  [alt]="alt"
-  decoding="async"
-  [attr.loading]="'lazy'">
-
-<div
-  *ngIf="container"
-  #imageElementContainer
-  [class]="imgclass"
-  class="img-container"
-  [style.height.px]="height"
-  [style.width.px]="width">
-  <div *ngIf="!loaded" class="img-placeholder"></div>
+@if (!container) {
   <img
-    *ngIf="loaded"
-    class="img"
+    #imageElement
+    [class]="imgclass"
+    [style]="'height:{{height}}'"
     [src]="(url + src)"
+    width="{{width}}"
+    height="{{height}}"
     [alt]="alt"
     decoding="async"
     [attr.loading]="'lazy'">
-</div>
+}
+
+@if (container) {
+  <div
+    #imageElementContainer
+    [class]="imgclass"
+    class="img-container"
+    [style.height.px]="height"
+    [style.width.px]="width">
+    @if (!loaded) {
+      <div class="img-placeholder"></div>
+    }
+    @if (loaded) {
+      <img
+        class="img"
+        [src]="(url + src)"
+        [alt]="alt"
+        decoding="async"
+        [attr.loading]="'lazy'">
+    }
+  </div>
+}

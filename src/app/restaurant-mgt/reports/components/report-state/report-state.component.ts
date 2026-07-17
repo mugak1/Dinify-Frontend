@@ -72,42 +72,54 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
-            >
-              <ng-container [ngSwitch]="mode">
-                <ng-container *ngSwitchCase="'error'">
-                  <svg:circle cx="12" cy="12" r="10" />
-                  <svg:line x1="12" x2="12" y1="8" y2="12" />
-                  <svg:line x1="12" x2="12.01" y1="16" y2="16" />
-                </ng-container>
-                <ng-container *ngSwitchCase="'empty'">
-                  <svg:polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-                  <svg:path
-                    d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
-                  />
-                </ng-container>
-                <ng-container *ngSwitchCase="'listing-guard'">
-                  <svg:circle cx="12" cy="12" r="10" />
-                  <svg:path d="M12 16v-4" />
-                  <svg:path d="M12 8h.01" />
-                </ng-container>
-                <ng-container *ngSwitchCase="'under-construction'">
-                  <svg:path
-                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-                  />
-                </ng-container>
-                <ng-container *ngSwitchDefault>
-                  <svg:rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                  <svg:line x1="16" x2="16" y1="2" y2="6" />
-                  <svg:line x1="8" x2="8" y1="2" y2="6" />
-                  <svg:line x1="3" x2="21" y1="10" y2="10" />
-                </ng-container>
+              >
+              <ng-container>
+                @switch (mode) {
+                  @case ('error') {
+                    <ng-container>
+                      <svg:circle cx="12" cy="12" r="10" />
+                      <svg:line x1="12" x2="12" y1="8" y2="12" />
+                      <svg:line x1="12" x2="12.01" y1="16" y2="16" />
+                    </ng-container>
+                  }
+                  @case ('empty') {
+                    <ng-container>
+                      <svg:polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+                      <svg:path
+                        d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+                        />
+                    </ng-container>
+                  }
+                  @case ('listing-guard') {
+                    <ng-container>
+                      <svg:circle cx="12" cy="12" r="10" />
+                      <svg:path d="M12 16v-4" />
+                      <svg:path d="M12 8h.01" />
+                    </ng-container>
+                  }
+                  @case ('under-construction') {
+                    <ng-container>
+                      <svg:path
+                        d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+                        />
+                    </ng-container>
+                  }
+                  @default {
+                    <ng-container>
+                      <svg:rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                      <svg:line x1="16" x2="16" y1="2" y2="6" />
+                      <svg:line x1="8" x2="8" y1="2" y2="6" />
+                      <svg:line x1="3" x2="21" y1="10" y2="10" />
+                    </ng-container>
+                  }
+                }
               </ng-container>
             </svg>
           </div>
-
+    
           <h3 class="text-lg font-semibold text-foreground mb-2">{{ resolvedTitle }}</h3>
           <p class="text-sm text-muted-foreground mb-4 max-w-md">{{ resolvedMessage }}</p>
-
+    
           @if (mode === 'error') {
             <button
               type="button"
@@ -116,7 +128,7 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
               size="sm"
               class="gap-2"
               (click)="retry.emit()"
-            >
+              >
               <svg
                 aria-hidden="true"
                 class="w-4 h-4"
@@ -126,7 +138,7 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
-              >
+                >
                 <svg:path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
                 <svg:path d="M21 3v5h-5" />
                 <svg:path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
@@ -138,7 +150,7 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
         </div>
       }
     </app-dn-card>
-  `,
+    `,
 })
 export class ReportStateComponent {
   @Input() mode: ReportStateMode = 'loading';

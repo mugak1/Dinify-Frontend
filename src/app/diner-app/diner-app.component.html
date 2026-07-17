@@ -1,75 +1,79 @@
-<app-diner-connection-error
-  *ngIf="!table && scanRetryable"
-  [restaurantName]="restaurant_name"
-  (retry)="getTableDetails(table_id)">
-</app-diner-connection-error>
-<app-no-table *ngIf="!table && !scanRetryable" [message]="scanMessage"></app-no-table>
+@if (!table && scanRetryable) {
+  <app-diner-connection-error
+    [restaurantName]="restaurant_name"
+    (retry)="getTableDetails(table_id)">
+  </app-diner-connection-error>
+}
+@if (!table && !scanRetryable) {
+  <app-no-table [message]="scanMessage"></app-no-table>
+}
 <!-- has-hero is now a STATIC class: the menu route always renders a header block
-     (the photo hero when there's a cover_photo, else the white cover-less header),
-     so the sticky banner's identity row stays collapsed at scroll-0 and reveals
-     only on condense in BOTH cases (see .menu-banner__identity in src/styles.css).
-     On non-menu routes the class is inert — the brand-strip pins opaque regardless. -->
-<div *ngIf="table" class="min-h-screen flex flex-col has-hero"
-     appScrollProgress [condenseAfter]="200"
-     [class.is-offline]="connectivity.isOffline()">
-  <!-- Background + ink are driven entirely by the .brand-strip CSS state machine
-       keyed off the shell-root classes (.has-hero / .is-condensed / .is-offline) —
-       see src/styles.css. Do NOT reintroduce inline [style.background-color] /
-       [style.color]: inline styles out-specify the state rules and would freeze
-       the strip in one look. -->
-  <!-- Hidden on the MENU route only: there the menu component renders ONE sticky
-       frosted banner (single backdrop-filter, no seam) that owns the restaurant
-       name + table chip, so a second frosted strip here would double up. The strip
-       stays for basket / item-detail / every other diner page. Route binding (not a
-       CSS :has() hack) keeps this robust on older Android. *ngIf, not [hidden] — the
-       strip's `flex` utility out-specifies the [hidden] UA display:none. -->
-  <div #brandStrip
-       *ngIf="!navState.isMenuActive() && !navState.isBasketPageActive()"
-       class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2">
-    <!-- Dinify wordmark, shown only in the over-hero state (CSS-gated) and hidden in every
-         frosted state where the restaurant name leads. DARK-ink asset on purpose: this shell
-         strip is hidden on the menu route (where the real hero + its own white wordmark live),
-         so when it shows here — basket / item-detail — it sits over the white page, where dark
-         reads. The restaurant's own logo is no longer rendered in the strip in any state. -->
-    <img src="assets/images/dinify-logo-full.svg" alt="Dinify"
-         class="brand-strip__dinify h-7 w-auto flex-shrink-0">
-    <span class="brand-strip__name font-display font-semibold truncate min-w-0">{{ restaurant_name }}</span>
-    <span *ngIf="table?.number" class="brand-strip__chip bg-d-red text-white">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
-      </svg>
-      Table {{ table.number }}
-    </span>
-  </div>
-
-  <!-- Ambient offline status — spans every diner page. Pins under the 48px brand
-       strip on most routes, but at the very top (0) on the menu route where the
-       strip is hidden, so the single banner can dock directly beneath it. -->
-  <app-offline-strip [stickyTop]="navState.isMenuActive() || navState.isBasketPageActive() ? '0px' : '48px'"></app-offline-strip>
-
-  <div class="flex-1">
-    <!-- The menu single-banner header renders inside the menu component, BELOW the
-         hero (menu.component.html), so the hero sits at the very top for the
-         over-hero takeover. The banner's sticky offset (0, or 40px below the
-         offline strip) is set there via bannerTop. -->
-    <div class="lg:flex lg:items-start">
-      <!-- Main content column -->
-      <div class="lg:flex-1 lg:min-w-0">
-        <router-outlet></router-outlet>
+(the photo hero when there's a cover_photo, else the white cover-less header),
+so the sticky banner's identity row stays collapsed at scroll-0 and reveals
+only on condense in BOTH cases (see .menu-banner__identity in src/styles.css).
+On non-menu routes the class is inert — the brand-strip pins opaque regardless. -->
+@if (table) {
+  <div class="min-h-screen flex flex-col has-hero"
+    appScrollProgress [condenseAfter]="200"
+    [class.is-offline]="connectivity.isOffline()">
+    <!-- Background + ink are driven entirely by the .brand-strip CSS state machine
+    keyed off the shell-root classes (.has-hero / .is-condensed / .is-offline) —
+    see src/styles.css. Do NOT reintroduce inline [style.background-color] /
+    [style.color]: inline styles out-specify the state rules and would freeze
+    the strip in one look. -->
+    <!-- Hidden on the MENU route only: there the menu component renders ONE sticky
+    frosted banner (single backdrop-filter, no seam) that owns the restaurant
+    name + table chip, so a second frosted strip here would double up. The strip
+    stays for basket / item-detail / every other diner page. Route binding (not a
+    CSS :has() hack) keeps this robust on older Android. *ngIf, not [hidden] — the
+    strip's `flex` utility out-specifies the [hidden] UA display:none. -->
+    @if (!navState.isMenuActive() && !navState.isBasketPageActive()) {
+      <div #brandStrip
+        class="brand-strip sticky inset-x-0 top-0 z-40 h-[48px] px-4 flex items-center gap-2">
+        <!-- Dinify wordmark, shown only in the over-hero state (CSS-gated) and hidden in every
+        frosted state where the restaurant name leads. DARK-ink asset on purpose: this shell
+        strip is hidden on the menu route (where the real hero + its own white wordmark live),
+        so when it shows here — basket / item-detail — it sits over the white page, where dark
+        reads. The restaurant's own logo is no longer rendered in the strip in any state. -->
+        <img src="assets/images/dinify-logo-full.svg" alt="Dinify"
+          class="brand-strip__dinify h-7 w-auto flex-shrink-0">
+        <span class="brand-strip__name font-display font-semibold truncate min-w-0">{{ restaurant_name }}</span>
+        @if (table?.number) {
+          <span class="brand-strip__chip bg-d-red text-white">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Table {{ table.number }}
+          </span>
+        }
       </div>
-
-      <!-- Persistent basket sidebar, lg:+ only -->
+    }
+    <!-- Ambient offline status — spans every diner page. Pins under the 48px brand
+    strip on most routes, but at the very top (0) on the menu route where the
+    strip is hidden, so the single banner can dock directly beneath it. -->
+    <app-offline-strip [stickyTop]="navState.isMenuActive() || navState.isBasketPageActive() ? '0px' : '48px'"></app-offline-strip>
+    <div class="flex-1">
+      <!-- The menu single-banner header renders inside the menu component, BELOW the
+      hero (menu.component.html), so the hero sits at the very top for the
+      over-hero takeover. The banner's sticky offset (0, or 40px below the
+      offline strip) is set there via bannerTop. -->
+      <div class="lg:flex lg:items-start">
+        <!-- Main content column -->
+        <div class="lg:flex-1 lg:min-w-0">
+          <router-outlet></router-outlet>
+        </div>
+        <!-- Persistent basket sidebar, lg:+ only -->
       <aside class="hidden lg:block lg:w-1/3 lg:min-w-[360px] lg:max-w-[480px]
                     lg:mr-4 lg:ml-4
                     lg:sticky lg:top-[100px]
                     lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto
                     lg:bg-white lg:rounded-none lg:shadow-sm
                     lg:border lg:border-gray-200">
-        <app-basket-body [sidebar]="true"></app-basket-body>
-      </aside>
+          <app-basket-body [sidebar]="true"></app-basket-body>
+        </aside>
+      </div>
     </div>
+    <app-diner-footer></app-diner-footer>
   </div>
-
-  <app-diner-footer></app-diner-footer>
-</div>
+}

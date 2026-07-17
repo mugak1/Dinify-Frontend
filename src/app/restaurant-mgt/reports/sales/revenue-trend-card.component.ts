@@ -1,5 +1,5 @@
 import { Component, ElementRef, Input, OnChanges, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions, TooltipItem } from 'chart.js';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
@@ -21,7 +21,7 @@ const BEST = 'hsl(142, 71%, 45%)';
 @Component({
   selector: 'app-revenue-trend-card',
   standalone: true,
-  imports: [CommonModule, CardComponent, BaseChartDirective],
+  imports: [CardComponent, BaseChartDirective],
   template: `
     <app-dn-card class="block">
       <div class="p-4 sm:p-6">

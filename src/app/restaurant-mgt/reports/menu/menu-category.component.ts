@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { DnSegmentedComponent } from '../../../_shared/ui/segmented/segmented.component';
 import { ReportTableComponent } from '../components/report-table/report-table.component';
@@ -31,11 +31,10 @@ const GROUPINGS: { value: MenuGrouping; label: string }[] = [
   selector: 'app-menu-category',
   standalone: true,
   imports: [
-    CommonModule,
     CardComponent,
     DnSegmentedComponent,
-    ReportTableComponent,
-  ],
+    ReportTableComponent
+],
   template: `
     <app-dn-card class="block">
       <div class="p-4 sm:p-6">

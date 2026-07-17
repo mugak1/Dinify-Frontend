@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { AuthenticationService } from '../../_services/authentication.service';
 import { CardComponent, ButtonComponent, AvatarComponent } from '../../_shared/ui';
 
 @Component({
   selector: 'app-account',
   standalone: true,
-  imports: [CommonModule, CardComponent, ButtonComponent, AvatarComponent],
+  imports: [CardComponent, ButtonComponent, AvatarComponent],
   templateUrl: './account.component.html',
 })
 export class AccountComponent {

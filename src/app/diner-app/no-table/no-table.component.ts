@@ -1,11 +1,11 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, Input, OnInit } from '@angular/core';
 import { SessionStorageService } from '../../_services/storage/session-storage.service';
 import { Restaurant } from '../../_models/app.models';
 
 @Component({
     selector: 'app-no-table',
-    imports: [CommonModule],
+    imports: [],
     templateUrl: './no-table.component.html',
     styleUrls: ['./no-table.component.css']
 })

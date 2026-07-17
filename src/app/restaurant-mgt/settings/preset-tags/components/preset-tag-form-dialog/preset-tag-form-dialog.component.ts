@@ -6,7 +6,7 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
@@ -29,12 +29,11 @@ const MAX_NAME = 50;
   selector: 'app-preset-tag-form-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     DialogComponent,
     ButtonComponent,
-    TagPillComponent,
-  ],
+    TagPillComponent
+],
   templateUrl: './preset-tag-form-dialog.component.html',
 })
 export class PresetTagFormDialogComponent implements OnChanges {

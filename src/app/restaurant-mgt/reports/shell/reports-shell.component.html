@@ -1,87 +1,97 @@
 <!-- Negative margins cancel the host <main> padding so the shell spans edge to
-     edge. <main> is the scroll container and keeps top padding (p-3 sm:p-4
-     md:p-6); a plain sticky top-0 would pin the bar BELOW that padding, and
-     since scroll-container padding doesn't clip overflow, rows scroll up
-     through the gap above the bar. The negative sticky top offset matches
-     <main>'s padding so the bar sticks flush to the scroll viewport's top edge
-     and covers scrolled rows. -->
-<div class="flex flex-col min-h-full -mx-3 -mt-3 sm:-mx-4 sm:-mt-4 md:-mx-6 md:-mt-6">
-  <!-- Persistent, sticky header: date range (left) + compare toggle (right). Never
-       unmounts as reports switch. Wraps the toggle below the range on narrow screens. -->
-  <div
-    class="sticky -top-3 sm:-top-4 md:-top-6 z-20 min-h-[64px] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 sm:px-4 md:px-6 py-2 bg-card border-b border-border"
-  >
-    <app-report-date-range
-      [value]="(range$ | async)!"
-      (valueChange)="onRange($event)"
-    ></app-report-date-range>
+edge. <main> is the scroll container and keeps top padding (p-3 sm:p-4
+md:p-6); a plain sticky top-0 would pin the bar BELOW that padding, and
+since scroll-container padding doesn't clip overflow, rows scroll up
+through the gap above the bar. The negative sticky top offset matches
+<main>'s padding so the bar sticks flush to the scroll viewport's top edge
+  and covers scrolled rows. -->
+  <div class="flex flex-col min-h-full -mx-3 -mt-3 sm:-mx-4 sm:-mt-4 md:-mx-6 md:-mt-6">
+    <!-- Persistent, sticky header: date range (left) + compare toggle (right). Never
+    unmounts as reports switch. Wraps the toggle below the range on narrow screens. -->
+    <div
+      class="sticky -top-3 sm:-top-4 md:-top-6 z-20 min-h-[64px] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 sm:px-4 md:px-6 py-2 bg-card border-b border-border"
+      >
+      <app-report-date-range
+        [value]="(range$ | async)!"
+        (valueChange)="onRange($event)"
+      ></app-report-date-range>
 
-    <!-- Compare-to-previous-period toggle. Text span beside the switch, mirroring the
-         app-dn-switch pattern used elsewhere (new-area-modal, tables setup view). -->
-    <div class="flex items-center gap-2 text-sm text-muted-foreground">
-      <span>Compare to {{ compareLabel$ | async }}</span>
-      <app-dn-switch
-        size="sm"
-        [checked]="(compareEnabled$ | async) ?? true"
-        (checkedChange)="onCompareToggle($event)"
-      ></app-dn-switch>
+      <!-- Compare-to-previous-period toggle. Text span beside the switch, mirroring the
+      app-dn-switch pattern used elsewhere (new-area-modal, tables setup view). -->
+      <div class="flex items-center gap-2 text-sm text-muted-foreground">
+        <span>Compare to {{ compareLabel$ | async }}</span>
+        <app-dn-switch
+          size="sm"
+          [checked]="(compareEnabled$ | async) ?? true"
+          (checkedChange)="onCompareToggle($event)"
+        ></app-dn-switch>
+      </div>
     </div>
-  </div>
 
-  <!-- Segmented rail (all breakpoints), under the header. The shared `app-dn-segmented`
-       control renders the sunken pill track, the white sliding glider, and the routerLink
-       anchors (a11y + middle-click); this shell owns only the URL→active derivation, fed in
-       as [value]. The <nav> supplies the navigation landmark + border/padding. -->
-  <nav class="border-b border-border px-3 sm:px-4 md:px-6 py-2" aria-label="Reports">
-    <app-dn-segmented
-      mode="router"
-      layout="responsive"
-      [items]="reportNav"
-      [value]="activeKey()"
-      [relativeTo]="route"
-    >
-      <!-- Leading icon per segment. Colour is inherited via currentColor from the segment's
-           text colour (active text-foreground / inactive text-muted-foreground), so the SVG
-           carries sizing only. -->
-      <ng-template #icon let-item>
-        <svg
-          aria-hidden="true"
-          class="w-4 h-4 shrink-0 transition-colors"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+    <!-- Segmented rail (all breakpoints), under the header. The shared `app-dn-segmented`
+    control renders the sunken pill track, the white sliding glider, and the routerLink
+    anchors (a11y + middle-click); this shell owns only the URL→active derivation, fed in
+    as [value]. The <nav> supplies the navigation landmark + border/padding. -->
+    <nav class="border-b border-border px-3 sm:px-4 md:px-6 py-2" aria-label="Reports">
+      <app-dn-segmented
+        mode="router"
+        layout="responsive"
+        [items]="reportNav"
+        [value]="activeKey()"
+        [relativeTo]="route"
         >
-          <ng-container [ngSwitch]="item.icon">
-            <ng-container *ngSwitchCase="'sales'">
-              <svg:polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-              <svg:polyline points="16 7 22 7 22 13" />
+        <!-- Leading icon per segment. Colour is inherited via currentColor from the segment's
+        text colour (active text-foreground / inactive text-muted-foreground), so the SVG
+        carries sizing only. -->
+        <ng-template #icon let-item>
+          <svg
+            aria-hidden="true"
+            class="w-4 h-4 shrink-0 transition-colors"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            >
+            <ng-container>
+              @switch (item.icon) {
+                @case ('sales') {
+                  <ng-container>
+                    <svg:polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                    <svg:polyline points="16 7 22 7 22 13" />
+                  </ng-container>
+                }
+                @case ('menu') {
+                  <ng-container>
+                    <svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                    <svg:path d="M7 2v20" />
+                    <svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+                  </ng-container>
+                }
+                @case ('card') {
+                  <ng-container>
+                    <svg:rect width="20" height="14" x="2" y="5" rx="2" />
+                    <svg:line x1="2" x2="22" y1="10" y2="10" />
+                  </ng-container>
+                }
+                @case ('users') {
+                  <ng-container>
+                    <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <svg:circle cx="9" cy="7" r="4" />
+                    <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </ng-container>
+                }
+              }
             </ng-container>
-            <ng-container *ngSwitchCase="'menu'">
-              <svg:path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
-              <svg:path d="M7 2v20" />
-              <svg:path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
-            </ng-container>
-            <ng-container *ngSwitchCase="'card'">
-              <svg:rect width="20" height="14" x="2" y="5" rx="2" />
-              <svg:line x1="2" x2="22" y1="10" y2="10" />
-            </ng-container>
-            <ng-container *ngSwitchCase="'users'">
-              <svg:path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <svg:circle cx="9" cy="7" r="4" />
-              <svg:path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <svg:path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </ng-container>
-          </ng-container>
-        </svg>
-      </ng-template>
-    </app-dn-segmented>
-  </nav>
+          </svg>
+        </ng-template>
+      </app-dn-segmented>
+    </nav>
 
-  <!-- Full-width report content. -->
-  <section class="flex-1 min-w-0 p-3 sm:p-4 md:p-6">
-    <router-outlet></router-outlet>
-  </section>
-</div>
+    <!-- Full-width report content. -->
+    <section class="flex-1 min-w-0 p-3 sm:p-4 md:p-6">
+      <router-outlet></router-outlet>
+    </section>
+  </div>

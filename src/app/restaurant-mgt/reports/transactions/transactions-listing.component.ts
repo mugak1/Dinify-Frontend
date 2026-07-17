@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
 import { ReportTableComponent } from '../components/report-table/report-table.component';
@@ -29,7 +29,7 @@ const PAGE_SIZE = 50;
 @Component({
   selector: 'app-transactions-listing',
   standalone: true,
-  imports: [CommonModule, CardComponent, ButtonComponent, ReportTableComponent, ReportStateComponent],
+  imports: [CardComponent, ButtonComponent, ReportTableComponent, ReportStateComponent],
   template: `
     <app-dn-card class="block">
       <div class="p-4 sm:p-6">

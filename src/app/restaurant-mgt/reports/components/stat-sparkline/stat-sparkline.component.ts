@@ -1,5 +1,5 @@
 import { Component, ElementRef, Input, OnChanges, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions } from 'chart.js';
 import { resolveColorString } from 'src/app/_common/utils/chart-theme-utils';
@@ -13,7 +13,7 @@ import { resolveColorString } from 'src/app/_common/utils/chart-theme-utils';
 @Component({
   selector: 'app-report-sparkline',
   standalone: true,
-  imports: [CommonModule, BaseChartDirective],
+  imports: [BaseChartDirective],
   template: `
     <div class="h-8 w-full">
       <canvas

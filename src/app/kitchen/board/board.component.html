@@ -50,28 +50,32 @@
   </div>
 
   <!-- Jump controls (landscape pager navigation; active-only — Completed is newest-first,
-       nothing is overdue; hidden on the narrow scroll list). -->
-  <div *ngIf="!isNarrow() && viewMode() === 'active'" class="flex items-center gap-1 ml-2">
-    <button type="button" (click)="jumpOldest()" class="kbtn">Oldest</button>
-    <button
-      type="button"
-      (click)="jumpFirstOverdue()"
-      [disabled]="!hasOverdue"
-      class="kbtn"
-      [ngClass]="{ 'kbtn-danger': hasOverdue, 'opacity-40 pointer-events-none': !hasOverdue }">
-      First overdue
-    </button>
-    <button type="button" (click)="jumpNewest()" class="kbtn">Newest</button>
-  </div>
+  nothing is overdue; hidden on the narrow scroll list). -->
+  @if (!isNarrow() && viewMode() === 'active') {
+    <div class="flex items-center gap-1 ml-2">
+      <button type="button" (click)="jumpOldest()" class="kbtn">Oldest</button>
+      <button
+        type="button"
+        (click)="jumpFirstOverdue()"
+        [disabled]="!hasOverdue"
+        class="kbtn"
+        [ngClass]="{ 'kbtn-danger': hasOverdue, 'opacity-40 pointer-events-none': !hasOverdue }">
+        First overdue
+      </button>
+      <button type="button" (click)="jumpNewest()" class="kbtn">Newest</button>
+    </div>
+  }
 
   <div class="flex-1"></div>
 
   <!-- Pager position (landscape only; the scroll list has no pages) -->
-  <div *ngIf="!isNarrow()" class="flex items-center gap-1">
-    <button type="button" (click)="prevPage()" [disabled]="currentPage() === 0" class="kbtn" aria-label="Previous page">‹</button>
-    <span class="text-sm tabular-nums text-gray-300 px-1">{{ currentPage() + 1 }} / {{ pages().length }}</span>
-    <button type="button" (click)="nextPage()" [disabled]="currentPage() >= pages().length - 1" class="kbtn" aria-label="Next page">›</button>
-  </div>
+  @if (!isNarrow()) {
+    <div class="flex items-center gap-1">
+      <button type="button" (click)="prevPage()" [disabled]="currentPage() === 0" class="kbtn" aria-label="Previous page">‹</button>
+      <span class="text-sm tabular-nums text-gray-300 px-1">{{ currentPage() + 1 }} / {{ pages().length }}</span>
+      <button type="button" (click)="nextPage()" [disabled]="currentPage() >= pages().length - 1" class="kbtn" aria-label="Next page">›</button>
+    </div>
+  }
 
   <!-- Sold-out ("86") panel trigger -->
   <button
@@ -82,131 +86,147 @@
     title="Mark menu items sold out or back in stock">
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
     Sold out
-    <span
-      *ngIf="stock.soldOutCount() > 0"
-      class="ml-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold tabular-nums text-white">
-      {{ stock.soldOutCount() }}
-    </span>
+    @if (stock.soldOutCount() > 0) {
+      <span
+        class="ml-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold tabular-nums text-white">
+        {{ stock.soldOutCount() }}
+      </span>
+    }
   </button>
 
   <!-- Sound -->
-  <button
-    *ngIf="!soundArmed()"
-    type="button"
-    (click)="enableSound()"
-    class="kbtn kbtn-accent inline-flex items-center gap-1.5"
-    title="Browsers block autoplay — tap once to enable the new-order chime">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg>
-    Enable sound
-  </button>
-  <span
-    *ngIf="soundArmed()"
-    class="inline-flex items-center gap-1.5 text-sm text-green-300 px-2"
-    title="New-order chime armed">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/></svg>
-    Sound on
-  </span>
+  @if (!soundArmed()) {
+    <button
+      type="button"
+      (click)="enableSound()"
+      class="kbtn kbtn-accent inline-flex items-center gap-1.5"
+      title="Browsers block autoplay — tap once to enable the new-order chime">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg>
+      Enable sound
+    </button>
+  }
+  @if (soundArmed()) {
+    <span
+      class="inline-flex items-center gap-1.5 text-sm text-green-300 px-2"
+      title="New-order chime armed">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/></svg>
+      Sound on
+    </span>
+  }
 
   <!-- Wake lock -->
-  <button
-    *ngIf="wakeLockSupported"
-    type="button"
-    (click)="toggleWakeLock()"
-    class="kbtn inline-flex items-center gap-1.5"
-    [ngClass]="{ 'kbtn-accent': wakeLockActive() }"
-    [title]="wakeLockActive() ? 'Screen will stay awake' : 'Screen may sleep — tap to keep awake'">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
-    {{ wakeLockActive() ? 'Awake' : 'Keep awake' }}
-  </button>
+  @if (wakeLockSupported) {
+    <button
+      type="button"
+      (click)="toggleWakeLock()"
+      class="kbtn inline-flex items-center gap-1.5"
+      [ngClass]="{ 'kbtn-accent': wakeLockActive() }"
+      [title]="wakeLockActive() ? 'Screen will stay awake' : 'Screen may sleep — tap to keep awake'">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
+      {{ wakeLockActive() ? 'Awake' : 'Keep awake' }}
+    </button>
+  }
 
 </header>
 
 <!-- Board area: fills the viewport below the 64px bar. -->
 <div class="relative" style="height: calc(100dvh - 64px)">
   <!-- Connection escalation banner (overlay; does NOT consume grid height — pinned to the top
-       of this relative container, above both the wide pager and the narrow list). The header
-       dot is the always-on indicator; this is the can't-miss escalation: newer orders may be
-       missing. Driven SOLELY by connectionState(). pointer-events-none so the thin strip never
-       steals taps from the top row of cards. -->
+  of this relative container, above both the wide pager and the narrow list). The header
+  dot is the always-on indicator; this is the can't-miss escalation: newer orders may be
+  missing. Driven SOLELY by connectionState(). pointer-events-none so the thin strip never
+  steals taps from the top row of cards. -->
   <!-- Offline: loud, solid red, white text, spinner — impossible to miss across the room. -->
-  <div
-    *ngIf="service.connectionState() === 'offline'"
-    data-testid="kitchen-offline-banner"
-    role="alert"
-    aria-live="assertive"
-    class="absolute top-0 inset-x-0 z-20 pointer-events-none flex items-center justify-center gap-3 px-4 py-3 bg-red-600 text-white font-display text-base sm:text-lg font-bold tracking-tight shadow-lg">
-    <svg class="h-5 w-5 shrink-0 kitchen-conn-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-    <span>Offline — you may be missing new orders. Reconnecting…</span>
-  </div>
+  @if (service.connectionState() === 'offline') {
+    <div
+      data-testid="kitchen-offline-banner"
+      role="alert"
+      aria-live="assertive"
+      class="absolute top-0 inset-x-0 z-20 pointer-events-none flex items-center justify-center gap-3 px-4 py-3 bg-red-600 text-white font-display text-base sm:text-lg font-bold tracking-tight shadow-lg">
+      <svg class="h-5 w-5 shrink-0 kitchen-conn-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <span>Offline — you may be missing new orders. Reconnecting…</span>
+    </div>
+  }
 
   <!-- Reconnecting: subtler amber strip. -->
-  <div
-    *ngIf="service.connectionState() === 'reconnecting'"
-    data-testid="kitchen-reconnecting-banner"
-    role="status"
-    aria-live="polite"
-    class="absolute top-0 inset-x-0 z-20 pointer-events-none flex items-center justify-center gap-2 px-4 py-1.5 bg-amber-500 text-amber-950 font-display text-sm font-semibold tracking-tight shadow">
-    <span class="h-2 w-2 rounded-full bg-amber-900 kitchen-conn-pulse" aria-hidden="true"></span>
-    <span>Reconnecting…</span>
-  </div>
+  @if (service.connectionState() === 'reconnecting') {
+    <div
+      data-testid="kitchen-reconnecting-banner"
+      role="status"
+      aria-live="polite"
+      class="absolute top-0 inset-x-0 z-20 pointer-events-none flex items-center justify-center gap-2 px-4 py-1.5 bg-amber-500 text-amber-950 font-display text-sm font-semibold tracking-tight shadow">
+      <span class="h-2 w-2 rounded-full bg-amber-900 kitchen-conn-pulse" aria-hidden="true"></span>
+      <span>Reconnecting…</span>
+    </div>
+  }
 
   <!-- Empty state -->
-  <div *ngIf="tickets().length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-60"><path d="M3 11h18"/><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>
-    <p class="font-display text-lg font-semibold">{{ viewMode() === 'completed' ? 'No completed orders' : 'No active orders' }}</p>
-    <p class="text-sm">{{ viewMode() === 'completed' ? 'Served orders will appear here.' : 'New tickets will appear here automatically.' }}</p>
-  </div>
+  @if (tickets().length === 0) {
+    <div class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-60"><path d="M3 11h18"/><path d="M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>
+      <p class="font-display text-lg font-semibold">{{ viewMode() === 'completed' ? 'No completed orders' : 'No active orders' }}</p>
+      <p class="text-sm">{{ viewMode() === 'completed' ? 'Served orders will appear here.' : 'New tickets will appear here automatically.' }}</p>
+    </div>
+  }
 
   <!-- One mode-aware card renderer, reused by the wide pager and the narrow list.
-       active    → full controls; completed → read-only with Recall only. -->
+  active    → full controls; completed → read-only with Recall only. -->
   <ng-template #card let-t>
-    <app-kitchen-ticket-card
-      *ngIf="viewMode() === 'active'"
-      [ticket]="t"
-      [now]="now()"
-      [isManager]="service.isManager"
-      (advance)="onAdvance($event)"
-      (recall)="onRecall($event)"
-      (togglePriority)="onTogglePriority($event)"
+    @if (viewMode() === 'active') {
+      <app-kitchen-ticket-card
+        [ticket]="t"
+        [now]="now()"
+        [isManager]="service.isManager"
+        (advance)="onAdvance($event)"
+        (recall)="onRecall($event)"
+        (togglePriority)="onTogglePriority($event)"
       (cancelRequested)="onCardCancel($event)"></app-kitchen-ticket-card>
-    <app-kitchen-ticket-card
-      *ngIf="viewMode() === 'completed'"
-      [ticket]="t"
-      [now]="now()"
-      [completed]="true"
+    }
+    @if (viewMode() === 'completed') {
+      <app-kitchen-ticket-card
+        [ticket]="t"
+        [now]="now()"
+        [completed]="true"
       (recall)="onRecallCompleted($event)"></app-kitchen-ticket-card>
+    }
   </ng-template>
 
   <!-- Wide (tablet-landscape): paginated snap grid (horizontal page snap, not infinite scroll) -->
-  <div
-    *ngIf="!isNarrow()"
-    #pager
-    (scroll)="onPagerScroll()"
-    class="flex h-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth">
-    <section *ngFor="let page of pages()" class="snap-start shrink-0 w-full h-full p-3">
-      <div class="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 grid-rows-2 gap-3 h-full">
+  @if (!isNarrow()) {
+    <div
+      #pager
+      (scroll)="onPagerScroll()"
+      class="flex h-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth">
+      @for (page of pages(); track page) {
+        <section class="snap-start shrink-0 w-full h-full p-3">
+          <div class="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 grid-rows-2 gap-3 h-full">
+            @for (t of page; track t) {
+              <div
+                class="min-h-0"
+                [ngClass]="{ 'kitchen-enter': isEntering(t.id) }">
+                <ng-container *ngTemplateOutlet="card; context: { $implicit: t }"></ng-container>
+              </div>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+
+  <!-- Narrow (phone / tablet-portrait): single-column vertical scroll, no pager. -->
+  @if (isNarrow()) {
+    <div
+      data-testid="kitchen-narrow-list"
+      class="h-full overflow-y-auto overflow-x-hidden p-3 space-y-3">
+      @for (t of tickets(); track t) {
         <div
-          *ngFor="let t of page"
-          class="min-h-0"
+          class="min-h-[260px]"
           [ngClass]="{ 'kitchen-enter': isEntering(t.id) }">
           <ng-container *ngTemplateOutlet="card; context: { $implicit: t }"></ng-container>
         </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- Narrow (phone / tablet-portrait): single-column vertical scroll, no pager. -->
-  <div
-    *ngIf="isNarrow()"
-    data-testid="kitchen-narrow-list"
-    class="h-full overflow-y-auto overflow-x-hidden p-3 space-y-3">
-    <div
-      *ngFor="let t of tickets()"
-      class="min-h-[260px]"
-      [ngClass]="{ 'kitchen-enter': isEntering(t.id) }">
-      <ng-container *ngTemplateOutlet="card; context: { $implicit: t }"></ng-container>
+      }
     </div>
-  </div>
+  }
 </div>
 
 <!-- Sold-out ("86") slide-over panel -->
@@ -217,4 +237,4 @@
   [open]="!!cancelTarget()"
   [order]="cancelTarget()"
   (confirm)="onCancelConfirm($event)"
-  (closed)="onCancelDismiss()"></app-kitchen-cancel-dialog>
+(closed)="onCancelDismiss()"></app-kitchen-cancel-dialog>

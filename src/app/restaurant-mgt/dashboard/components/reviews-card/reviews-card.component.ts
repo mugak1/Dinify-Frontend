@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
@@ -14,13 +14,12 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
   standalone: true,
   host: { class: 'block' },
   imports: [
-    CommonModule,
     RouterModule,
     CardComponent,
     CardSkeletonComponent,
     CardErrorComponent,
-    AnimatedNumberComponent,
-  ],
+    AnimatedNumberComponent
+],
   template: `
     @if (loading) {
       <app-card-skeleton variant="wide" [square]="true"></app-card-skeleton>

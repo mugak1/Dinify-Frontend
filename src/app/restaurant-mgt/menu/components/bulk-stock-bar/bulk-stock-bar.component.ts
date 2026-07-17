@@ -1,11 +1,11 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 
 @Component({
   selector: 'app-bulk-stock-bar',
   standalone: true,
-  imports: [CommonModule, ButtonComponent],
+  imports: [ButtonComponent],
   templateUrl: './bulk-stock-bar.component.html',
 })
 export class BulkStockBarComponent {

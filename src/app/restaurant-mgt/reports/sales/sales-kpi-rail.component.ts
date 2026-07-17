@@ -1,5 +1,5 @@
 import { Component, Input, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.component';
@@ -24,7 +24,7 @@ interface KpiTile {
 @Component({
   selector: 'app-sales-kpi-rail',
   standalone: true,
-  imports: [CommonModule, CardComponent, ReportDeltaChipComponent, ReportSparklineComponent],
+  imports: [CardComponent, ReportDeltaChipComponent, ReportSparklineComponent],
   template: `
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       @for (t of tiles; track t.label) {

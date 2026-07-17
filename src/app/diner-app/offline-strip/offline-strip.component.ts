@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, inject, Input } from '@angular/core';
 import { ConnectivityService } from '../../_services/connectivity.service';
 
@@ -16,7 +16,7 @@ import { ConnectivityService } from '../../_services/connectivity.service';
 @Component({
   selector: 'app-offline-strip',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './offline-strip.component.html',
   host: { class: 'contents' },
 })

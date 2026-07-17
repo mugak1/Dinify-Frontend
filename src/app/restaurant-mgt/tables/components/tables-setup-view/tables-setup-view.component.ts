@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { OverlayModule, ConnectedPosition } from '@angular/cdk/overlay';
 import { Subject, combineLatest, forkJoin } from 'rxjs';
@@ -32,7 +32,6 @@ import QRCode from 'qrcode';
   selector: 'app-tables-setup-view',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     OverlayModule,
     CardComponent,
@@ -44,8 +43,8 @@ import QRCode from 'qrcode';
     NewAreaModalComponent,
     NewTableModalComponent,
     BulkAddTablesModalComponent,
-    QrCodePreviewModalComponent,
-  ],
+    QrCodePreviewModalComponent
+],
   templateUrl: './tables-setup-view.component.html',
   host: { class: 'block' },
 })

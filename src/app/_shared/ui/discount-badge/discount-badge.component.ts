@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { cn } from '../../utils/cn';
 import { formatUGX } from '../../utils/price-utils';
 
@@ -22,19 +22,23 @@ export type DiscountBadgeSize = 'sm' | 'md' | 'lg';
 @Component({
   selector: 'app-discount-badge',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <span [class]="containerClass">
-      <span *ngIf="variant === 'frosted'" [class]="discClass">
-        <svg [attr.width]="iconSize" [attr.height]="iconSize" viewBox="0 0 24 24"
-             fill="currentColor" aria-hidden="true">
-          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/>
-        </svg>
-      </span>
+      @if (variant === 'frosted') {
+        <span [class]="discClass">
+          <svg [attr.width]="iconSize" [attr.height]="iconSize" viewBox="0 0 24 24"
+            fill="currentColor" aria-hidden="true">
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/>
+          </svg>
+        </span>
+      }
       <span>{{ displayPercent }}% off</span>
-      <span *ngIf="save != null" class="font-medium opacity-90">· Save {{ formattedSave }}</span>
+      @if (save != null) {
+        <span class="font-medium opacity-90">· Save {{ formattedSave }}</span>
+      }
     </span>
-  `,
+    `,
 })
 export class DiscountBadgeComponent {
   @Input() percent = 0;

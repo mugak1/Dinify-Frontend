@@ -8,7 +8,7 @@ import {
   SimpleChanges,
   inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions, TooltipItem } from 'chart.js';
@@ -24,14 +24,13 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
   selector: 'app-revenue-card',
   standalone: true,
   imports: [
-    CommonModule,
     RouterModule,
     BaseChartDirective,
     CardComponent,
     CardSkeletonComponent,
     CardErrorComponent,
-    AnimatedNumberComponent,
-  ],
+    AnimatedNumberComponent
+],
   template: `
     @if (loading) {
       <app-card-skeleton variant="default" [square]="true"></app-card-skeleton>

@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component } from '@angular/core';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
@@ -9,7 +9,7 @@ import { PageHeaderComponent } from '../../_shared/ui/page-header/page-header.co
 @Component({
   selector: 'app-tables',
   standalone: true,
-  imports: [CommonModule, TablesSetupViewComponent, PageHeaderComponent],
+  imports: [TablesSetupViewComponent, PageHeaderComponent],
   templateUrl: './tables.component.html',
   styleUrls: ['./tables.component.css'],
 })

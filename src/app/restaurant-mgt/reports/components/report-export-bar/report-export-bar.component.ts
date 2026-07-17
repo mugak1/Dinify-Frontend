@@ -5,7 +5,7 @@
 // disabled, all three actions disable and a tooltip explains why.
 
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
 import { AuthenticationService } from '../../../../_services/authentication.service';
@@ -16,7 +16,7 @@ import { printReport } from '../../utils/report-print-sheet';
 @Component({
   selector: 'app-report-export-bar',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, TooltipDirective],
+  imports: [ButtonComponent, TooltipDirective],
   templateUrl: './report-export-bar.component.html',
 })
 export class ReportExportBarComponent {

@@ -1,107 +1,120 @@
 <div class="relative">
 
   <!-- Selected tag pills -->
-  <div *ngIf="selectedTags.length > 0" class="flex flex-wrap gap-1.5 mb-2">
-    <span *ngFor="let tag of selectedTags; trackBy: trackById"
+  @if (selectedTags.length > 0) {
+    <div class="flex flex-wrap gap-1.5 mb-2">
+      @for (tag of selectedTags; track trackById($index, tag)) {
+        <span
           class="inline-flex items-center gap-1">
-      <app-tag-pill
-        [name]="tag.name"
-        [icon]="tag.icon"
-        [colour]="tag.colour"
-        size="sm"
-      ></app-tag-pill>
-      <button type="button"
-              (click)="removeTag(tag.id)"
-              class="inline-flex items-center justify-center w-4 h-4 -ml-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-              [attr.aria-label]="'Remove ' + tag.name">
-        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-        </svg>
-      </button>
-    </span>
-  </div>
+          <app-tag-pill
+            [name]="tag.name"
+            [icon]="tag.icon"
+            [colour]="tag.colour"
+            size="sm"
+          ></app-tag-pill>
+          <button type="button"
+            (click)="removeTag(tag.id)"
+            class="inline-flex items-center justify-center w-4 h-4 -ml-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+            [attr.aria-label]="'Remove ' + tag.name">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            </svg>
+          </button>
+        </span>
+      }
+    </div>
+  }
 
   <!-- Typeahead input -->
   <input #tagInput
-         type="text"
-         autocapitalize="off"
-         autocorrect="off"
-         [(ngModel)]="query"
-         (ngModelChange)="onQueryChange()"
-         (focus)="onInputFocus()"
-         [readonly]="atCapacity"
+    type="text"
+    autocapitalize="off"
+    autocorrect="off"
+    [(ngModel)]="query"
+    (ngModelChange)="onQueryChange()"
+    (focus)="onInputFocus()"
+    [readonly]="atCapacity"
          [placeholder]="atCapacity
            ? 'Maximum 20 tags reached.'
            : 'Search tags or type to create a new one'"
-         class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:cursor-not-allowed"
-         [class.bg-muted]="atCapacity"
-         [class.cursor-not-allowed]="atCapacity" />
+    class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:cursor-not-allowed"
+    [class.bg-muted]="atCapacity"
+    [class.cursor-not-allowed]="atCapacity" />
 
-  <p *ngIf="atCapacity" class="text-xs text-muted-foreground mt-1">
-    Maximum 20 tags reached.
-  </p>
+  @if (atCapacity) {
+    <p class="text-xs text-muted-foreground mt-1">
+      Maximum 20 tags reached.
+    </p>
+  }
 
   <!-- Dropdown -->
-  <div *ngIf="dropdownOpen && !atCapacity"
-       class="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-background shadow-lg">
-
-    <ng-container *ngIf="catalogLoaded; else loadingState">
-      <ul *ngIf="filteredDropdown.length > 0" class="py-1">
-        <li *ngFor="let tag of filteredDropdown; trackBy: trackById">
-          <button type="button"
+  @if (dropdownOpen && !atCapacity) {
+    <div
+      class="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-background shadow-lg">
+      @if (catalogLoaded) {
+        @if (filteredDropdown.length > 0) {
+          <ul class="py-1">
+            @for (tag of filteredDropdown; track trackById($index, tag)) {
+              <li>
+                <button type="button"
                   (click)="selectTag(tag)"
                   class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none">
-            <app-tag-pill
-              [name]="tag.name"
-              [icon]="tag.icon"
-              [colour]="tag.colour"
-              size="sm"
-            ></app-tag-pill>
-            <span class="ml-auto inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded"
-                  [ngClass]="categoryBadgeClass(tag.category)">
-              <!-- Allergen-category warning icon: highlight safety-relevant tags. -->
-              <svg *ngIf="tag.category === 'allergen'"
-                   xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2.5"
-                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                <line x1="12" x2="12" y1="9" y2="13"/>
-                <line x1="12" x2="12.01" y1="17" y2="17"/>
+                  <app-tag-pill
+                    [name]="tag.name"
+                    [icon]="tag.icon"
+                    [colour]="tag.colour"
+                    size="sm"
+                  ></app-tag-pill>
+                  <span class="ml-auto inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded"
+                    [ngClass]="categoryBadgeClass(tag.category)">
+                    <!-- Allergen-category warning icon: highlight safety-relevant tags. -->
+                    @if (tag.category === 'allergen') {
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                        <line x1="12" x2="12" y1="9" y2="13"/>
+                        <line x1="12" x2="12.01" y1="17" y2="17"/>
+                      </svg>
+                    }
+                    {{ categoryLabel(tag.category) }}
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+        @if (filteredDropdown.length === 0 && !showCreateOption) {
+          <p
+            class="px-3 py-3 text-xs text-muted-foreground">
+            No matching tags.
+          </p>
+        }
+        @if (showCreateOption) {
+          <div class="border-t border-border">
+            <button type="button"
+              (click)="openCreate()"
+              class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none text-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14"/><path d="M12 5v14"/>
               </svg>
-              {{ categoryLabel(tag.category) }}
-            </span>
-          </button>
-        </li>
-      </ul>
-
-      <p *ngIf="filteredDropdown.length === 0 && !showCreateOption"
-         class="px-3 py-3 text-xs text-muted-foreground">
-        No matching tags.
-      </p>
-
-      <div *ngIf="showCreateOption" class="border-t border-border">
-        <button type="button"
-                (click)="openCreate()"
-                class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none text-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14"/><path d="M12 5v14"/>
-          </svg>
-          Create &ldquo;{{ query.trim() }}&rdquo; as new tag
-        </button>
-      </div>
-    </ng-container>
-
-    <ng-template #loadingState>
-      <p class="px-3 py-3 text-xs text-muted-foreground">Loading tags…</p>
-    </ng-template>
-  </div>
+              Create &ldquo;{{ query.trim() }}&rdquo; as new tag
+            </button>
+          </div>
+        }
+      } @else {
+        <p class="px-3 py-3 text-xs text-muted-foreground">Loading tags…</p>
+      }
+    </div>
+  }
 </div>
 
 <!-- Create modal — reuses the same dialog the Preset Tags settings page uses,
-     pre-filled with the typed name. -->
+pre-filled with the typed name. -->
 <app-preset-tag-form-dialog
   [open]="createOpen"
   [tag]="null"

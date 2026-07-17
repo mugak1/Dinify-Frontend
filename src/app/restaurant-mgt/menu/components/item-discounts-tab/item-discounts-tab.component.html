@@ -9,34 +9,31 @@
     <span class="text-sm font-medium text-foreground">Has Discount</span>
   </div>
 
-  <ng-container *ngIf="enabled">
-
+  @if (enabled) {
     <!-- Base price display -->
     <div class="rounded-md border border-border bg-muted/50 px-4 py-3">
       <span class="text-xs text-muted-foreground">Base Price</span>
       <p class="text-sm font-semibold text-foreground">UGX {{ formatUGX(primaryPrice) }}</p>
     </div>
-
     <!-- Discount type selector -->
     <div>
       <label class="block text-sm font-medium text-foreground mb-2">Discount type</label>
       <div class="space-y-2">
         <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
           <input type="radio" name="discount_type"
-                 [checked]="discountType === 'percentage'"
-                 (change)="onDiscountTypeChange('percentage')"
-                 class="mt-0.5 accent-primary" />
+            [checked]="discountType === 'percentage'"
+            (change)="onDiscountTypeChange('percentage')"
+            class="mt-0.5 accent-primary" />
           <span class="flex-1">
             <span class="block text-sm font-medium text-foreground">Percentage</span>
             <span class="block text-xs text-muted-foreground">Discount by a percentage of the price</span>
           </span>
         </label>
-
         <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
           <input type="radio" name="discount_type"
-                 [checked]="discountType === 'fixed'"
-                 (change)="onDiscountTypeChange('fixed')"
-                 class="mt-0.5 accent-primary" />
+            [checked]="discountType === 'fixed'"
+            (change)="onDiscountTypeChange('fixed')"
+            class="mt-0.5 accent-primary" />
           <span class="flex-1">
             <span class="block text-sm font-medium text-foreground">Fixed amount</span>
             <span class="block text-xs text-muted-foreground">Discount by a specific UGX amount</span>
@@ -44,91 +41,94 @@
         </label>
       </div>
     </div>
-
     <!-- Discount value input -->
     <div>
       <label class="block text-sm font-medium text-foreground mb-1">Discount value</label>
       <div class="relative">
         <input type="number"
-               [(ngModel)]="discountAmount"
-               (ngModelChange)="emitChange()"
-               [min]="1"
-               [max]="discountType === 'percentage' ? 99 : primaryPrice - 1"
-               [placeholder]="discountType === 'percentage' ? '20' : '3000'"
-               class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm pr-16 focus:outline-none focus:ring-2 focus:ring-ring" />
+          [(ngModel)]="discountAmount"
+          (ngModelChange)="emitChange()"
+          [min]="1"
+          [max]="discountType === 'percentage' ? 99 : primaryPrice - 1"
+          [placeholder]="discountType === 'percentage' ? '20' : '3000'"
+          class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm pr-16 focus:outline-none focus:ring-2 focus:ring-ring" />
         <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
           {{ discountType === 'percentage' ? '% off' : 'UGX off' }}
         </span>
       </div>
-
       <!-- Validation message -->
-      <p *ngIf="discountAmount > 0 && isAmountTooHigh"
-         class="mt-1 text-xs text-destructive">
-        {{ validationMessage }}
-      </p>
+      @if (discountAmount > 0 && isAmountTooHigh) {
+        <p
+          class="mt-1 text-xs text-destructive">
+          {{ validationMessage }}
+        </p>
+      }
     </div>
-
     <!-- Date range -->
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class="block text-sm font-medium text-foreground mb-1">Start Date</label>
         <input type="date"
-               [(ngModel)]="startDate"
-               (ngModelChange)="emitChange()"
-               class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          [(ngModel)]="startDate"
+          (ngModelChange)="emitChange()"
+          class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
       </div>
       <div>
         <label class="block text-sm font-medium text-foreground mb-1">End Date</label>
         <input type="date"
-               [(ngModel)]="endDate"
-               (ngModelChange)="emitChange()"
-               [min]="startDate"
-               class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          [(ngModel)]="endDate"
+          (ngModelChange)="emitChange()"
+          [min]="startDate"
+          class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
       </div>
     </div>
-
     <!-- Date-window validation: inverted (hard error, blocks save) vs past (advisory only) -->
-    <p *ngIf="hasDateError" class="mt-1 text-xs text-destructive">
-      End date must be on or after the start date.
-    </p>
-    <p *ngIf="isWindowPast" class="mt-1 text-xs text-warning">
-      End date is in the past — this discount won't run until you extend it.
-    </p>
-
+    @if (hasDateError) {
+      <p class="mt-1 text-xs text-destructive">
+        End date must be on or after the start date.
+      </p>
+    }
+    @if (isWindowPast) {
+      <p class="mt-1 text-xs text-warning">
+        End date is in the past — this discount won't run until you extend it.
+      </p>
+    }
     <!-- Day-of-week checkboxes -->
     <div>
       <label class="block text-sm font-medium text-foreground mb-2">Recurring Days</label>
       <div class="flex flex-wrap gap-2">
-        <button *ngFor="let day of weekdays"
-                type="button"
-                (click)="toggleDay(day.value)"
+        @for (day of weekdays; track day) {
+          <button
+            type="button"
+            (click)="toggleDay(day.value)"
                 [class]="isDaySelected(day.value)
                   ? 'px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground'
                   : 'px-4 py-2 rounded-md text-sm font-medium border border-input bg-background text-muted-foreground hover:text-foreground'">
-          {{ day.label }}
-        </button>
+            {{ day.label }}
+          </button>
+        }
       </div>
     </div>
-
     <!-- Enhanced preview card -->
-    <div *ngIf="discountAmount > 0 && !isAmountTooHigh"
-         class="rounded-lg border border-primary/20 bg-primary/5 p-4">
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <span class="block text-xs text-muted-foreground">Final price</span>
-          <span class="block text-lg font-bold text-primary">UGX {{ formatUGX(priceAfterDiscount) }}</span>
-        </div>
-        <div>
-          <span class="block text-xs text-muted-foreground">Savings</span>
-          <span class="block text-lg font-bold text-green-600">UGX {{ formatUGX(savings) }}</span>
-          <span class="block text-xs text-muted-foreground">
-            {{ discountType === 'percentage'
+    @if (discountAmount > 0 && !isAmountTooHigh) {
+      <div
+        class="rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <span class="block text-xs text-muted-foreground">Final price</span>
+            <span class="block text-lg font-bold text-primary">UGX {{ formatUGX(priceAfterDiscount) }}</span>
+          </div>
+          <div>
+            <span class="block text-xs text-muted-foreground">Savings</span>
+            <span class="block text-lg font-bold text-green-600">UGX {{ formatUGX(savings) }}</span>
+            <span class="block text-xs text-muted-foreground">
+              {{ discountType === 'percentage'
               ? discountAmount + '% off'
               : (primaryPrice > 0 ? (savings / primaryPrice * 100 | number:'1.0-0') : 0) + '% off' }}
-          </span>
+            </span>
+          </div>
         </div>
       </div>
-    </div>
-
-  </ng-container>
+    }
+  }
 </div>

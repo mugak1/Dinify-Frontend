@@ -1,26 +1,28 @@
 <!-- Calm ambient offline status. Shown only while offline; sticky top is set by the
-     shell via [stickyTop] — '48px' under the brand strip on most routes, '0px' on the
-     menu route (strip hidden there). Stays put while scrolling. Amber (a status), not
-     red. Height is LITERAL px (h-[42px]) on purpose: the app sets html{font-size:14px},
-     so rem-based Tailwind sizes (h-10 = 35px here) render shorter than the headers'
-     sticky offsets and reopen a transparent gap. The visible 40px butts against the
-     header below it; the extra ~2px tucks under its background as a safety overlap. -->
-<div *ngIf="connectivity.isOffline()"
-     [style.top]="stickyTop"
+shell via [stickyTop] — '48px' under the brand strip on most routes, '0px' on the
+menu route (strip hidden there). Stays put while scrolling. Amber (a status), not
+red. Height is LITERAL px (h-[42px]) on purpose: the app sets html{font-size:14px},
+so rem-based Tailwind sizes (h-10 = 35px here) render shorter than the headers'
+sticky offsets and reopen a transparent gap. The visible 40px butts against the
+header below it; the extra ~2px tucks under its background as a safety overlap. -->
+@if (connectivity.isOffline()) {
+  <div
+    [style.top]="stickyTop"
      class="sticky z-30 flex h-[42px] items-center justify-center gap-2 px-4
             border-b border-amber-200 bg-amber-50 text-amber-900 text-xs sm:text-sm text-center"
-     role="status"
-     aria-live="polite">
-  <svg class="flex-shrink-0 text-amber-600" width="16" height="16" viewBox="0 0 24 24"
-       fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-       stroke-linejoin="round" aria-hidden="true" focusable="false">
-    <line x1="2" y1="2" x2="22" y2="22"></line>
-    <path d="M8.5 16.5a5 5 0 0 1 7 0"></path>
-    <path d="M2 8.82a15 15 0 0 1 4.17-2.65"></path>
-    <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"></path>
-    <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"></path>
-    <path d="M5 13a10 10 0 0 1 5.24-2.76"></path>
-    <line x1="12" y1="20" x2="12.01" y2="20"></line>
-  </svg>
-  <span>You're offline — keep browsing; you can place your order once you reconnect.</span>
-</div>
+    role="status"
+    aria-live="polite">
+    <svg class="flex-shrink-0 text-amber-600" width="16" height="16" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <line x1="2" y1="2" x2="22" y2="22"></line>
+      <path d="M8.5 16.5a5 5 0 0 1 7 0"></path>
+      <path d="M2 8.82a15 15 0 0 1 4.17-2.65"></path>
+      <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"></path>
+      <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"></path>
+      <path d="M5 13a10 10 0 0 1 5.24-2.76"></path>
+      <line x1="12" y1="20" x2="12.01" y2="20"></line>
+    </svg>
+    <span>You're offline — keep browsing; you can place your order once you reconnect.</span>
+  </div>
+}

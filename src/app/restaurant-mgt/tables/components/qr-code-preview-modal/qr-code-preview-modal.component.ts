@@ -8,7 +8,7 @@ import {
   ElementRef,
   ViewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
@@ -21,7 +21,7 @@ import QRCode from 'qrcode';
 @Component({
   selector: 'app-qr-code-preview-modal',
   standalone: true,
-  imports: [CommonModule, DialogComponent, ButtonComponent, BadgeComponent],
+  imports: [DialogComponent, ButtonComponent, BadgeComponent],
   templateUrl: './qr-code-preview-modal.component.html',
 })
 export class QrCodePreviewModalComponent implements OnChanges {

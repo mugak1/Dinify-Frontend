@@ -6,7 +6,7 @@ import {
   ElementRef,
   ViewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
@@ -31,7 +31,7 @@ export const STATUS_COLORS: Record<TableStatus, { bg: string; border: string; te
 @Component({
   selector: 'app-floor-plan-canvas',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, BadgeComponent, TooltipDirective],
+  imports: [ButtonComponent, BadgeComponent, TooltipDirective],
   templateUrl: './floor-plan-canvas.component.html',
 })
 export class FloorPlanCanvasComponent {

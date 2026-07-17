@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 /**
@@ -10,7 +10,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
  */
 @Component({
     selector: 'app-diner-connection-error',
-    imports: [CommonModule],
+    imports: [],
     templateUrl: './connection-error.component.html',
     styleUrls: ['./connection-error.component.css'],
 })

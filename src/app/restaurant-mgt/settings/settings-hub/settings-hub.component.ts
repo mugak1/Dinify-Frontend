@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 
 import {
@@ -34,7 +34,7 @@ interface HubGroup {
 @Component({
   selector: 'app-settings-hub',
   standalone: true,
-  imports: [CommonModule, RouterModule, SettingsIconComponent, PageHeaderComponent],
+  imports: [RouterModule, SettingsIconComponent, PageHeaderComponent],
   templateUrl: './settings-hub.component.html',
 })
 export class SettingsHubComponent {

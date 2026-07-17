@@ -1,5 +1,5 @@
 import { Component, HostListener } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { TagPillComponent } from 'src/app/_shared/tags';
 import { MenuNavStateService } from '../menu-nav-state.service';
 
@@ -15,7 +15,7 @@ import { MenuNavStateService } from '../menu-nav-state.service';
 @Component({
   selector: 'app-diner-tag-filter-sheet',
   standalone: true,
-  imports: [CommonModule, TagPillComponent],
+  imports: [TagPillComponent],
   templateUrl: './diner-tag-filter-sheet.component.html',
 })
 export class DinerTagFilterSheetComponent {

@@ -11,7 +11,7 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
-import { CommonModule } from '@angular/common';
+
 import {
   Component,
   ComponentRef,
@@ -35,7 +35,7 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
 @Component({
   selector: 'app-report-date-range',
   standalone: true,
-  imports: [CommonModule, SheetComponent, DateRangePanelComponent],
+  imports: [SheetComponent, DateRangePanelComponent],
   template: `
     <button
       #trigger

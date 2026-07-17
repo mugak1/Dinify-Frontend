@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { HourBar, formatHourLabel, peakLabel } from './sales-view';
 
@@ -13,7 +13,7 @@ import { HourBar, formatHourLabel, peakLabel } from './sales-view';
 @Component({
   selector: 'app-orders-by-hour-card',
   standalone: true,
-  imports: [CommonModule, CardComponent],
+  imports: [CardComponent],
   template: `
     <app-dn-card class="block">
       <div class="p-4 sm:p-6">

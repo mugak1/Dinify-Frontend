@@ -1,29 +1,29 @@
 <!--
-  Dinify — Login (centered card, FULL design fidelity)
-  ============================================================================
-  Faithful port of the approved mock (Dinify Portal — Sign In (centered).html):
-  warm cream + fine-grain environment, floating white rounded-2xl card,
-  red eyebrow + display title, focus-lift fields with lead icons + colour-shift,
-  arrow-on-button. Wired onto the REAL restaurant-portal flow.
+Dinify — Login (centered card, FULL design fidelity)
+============================================================================
+Faithful port of the approved mock (Dinify Portal — Sign In (centered).html):
+warm cream + fine-grain environment, floating white rounded-2xl card,
+red eyebrow + display title, focus-lift fields with lead icons + colour-shift,
+arrow-on-button. Wired onto the REAL restaurant-portal flow.
 
-  DROP-IN for the HTML only. Every Angular binding is preserved verbatim, so
-  login.component.ts / .css / .spec.ts need NO changes:
-  loginForm, [formGroup], the (ngSubmit) expression, require_otp, showLoginForm,
-  showRestaurantSelector, inputPTO, onInputChange, toggleFieldTextType,
-  fieldTextType, loading, rateLimited, inactivityNotice, f['password'],
-  countdown, resendOTP, backToLogin, setRestaurant, user, as_diner.
+DROP-IN for the HTML only. Every Angular binding is preserved verbatim, so
+login.component.ts / .css / .spec.ts need NO changes:
+loginForm, [formGroup], the (ngSubmit) expression, require_otp, showLoginForm,
+showRestaurantSelector, inputPTO, onInputChange, toggleFieldTextType,
+fieldTextType, loading, rateLimited, inactivityNotice, f['password'],
+countdown, resendOTP, backToLogin, setRestaurant, user, as_diner.
 
-  DELTAS from the raw handoff (everything else is verbatim):
-  (1) font-display -> font-gabarito on title/eyebrow/labels/buttons, so the
-      centered page renders GABARITO per the design spec. font-display resolves
-      to Bricolage, and there is no Gabarito token yet — add `font-gabarito` to
-      tailwind.config.js (mirror the existing `display`/`sans` entries,
-      primary family "Gabarito Variable").
-  (2) The Sign-in arrow nudge is gated behind desktop-hover (group-hover) so it
-      can't stick after a tap on touch devices.
+DELTAS from the raw handoff (everything else is verbatim):
+(1) font-display -> font-gabarito on title/eyebrow/labels/buttons, so the
+centered page renders GABARITO per the design spec. font-display resolves
+to Bricolage, and there is no Gabarito token yet — add `font-gabarito` to
+tailwind.config.js (mirror the existing `display`/`sans` entries,
+primary family "Gabarito Variable").
+(2) The Sign-in arrow nudge is gated behind desktop-hover (group-hover) so it
+can't stick after a tap on touch devices.
 
-  Tokens: d-red, font-gabarito (NEW token — add to tailwind.config.js), desktop-hover:, shadow-glow, warning.
-  Component stays standalone:false (declarations) — unchanged.
+Tokens: d-red, font-gabarito (NEW token — add to tailwind.config.js), desktop-hover:, shadow-glow, warning.
+Component stays standalone:false (declarations) — unchanged.
 ============================================================================ -->
 
 <!-- Environment: warm cream gradient, centered. -->
@@ -37,7 +37,7 @@
 
   <!-- Floating white card — holds all four auth states. -->
   <form [formGroup]="loginForm"
-        (ngSubmit)="require_otp?(inputPTO?.valid?this.SubmitOTP():false):onSubmit()"
+    (ngSubmit)="require_otp?(inputPTO?.valid?this.SubmitOTP():false):onSubmit()"
         class="relative z-10 w-full max-w-[452px] bg-white border border-gray-200/80 rounded-[22px]
                shadow-[0_1px_2px_rgba(60,40,20,0.05),0_34px_70px_-30px_rgba(60,40,20,0.34)]
                px-8 py-10 sm:px-11 sm:py-12 text-center">
@@ -46,195 +46,223 @@
     <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-9 mx-auto mb-7" />
 
     <!-- ===================================================================
-         STATE 1 — login form
+    STATE 1 — login form
     ==================================================================== -->
-    <div *ngIf="showLoginForm && !require_otp && !showRestaurantSelector" class="w-full space-y-[18px] text-left">
-      <div class="space-y-1.5 text-center">
-        <p class="font-gabarito text-xs font-bold tracking-[0.16em] uppercase text-[#C2151B]">Welcome back</p>
-        <h1 class="font-gabarito font-bold text-[33px] leading-tight tracking-tight text-gray-900">Sign in to Dinify</h1>
-        <p class="text-[15px] text-gray-400">Pick up where you left off.</p>
-      </div>
-
-      <!-- Inactivity / rate-limit notices -->
-      <div *ngIf="inactivityNotice && !rateLimited" role="status"
+    @if (showLoginForm && !require_otp && !showRestaurantSelector) {
+      <div class="w-full space-y-[18px] text-left">
+        <div class="space-y-1.5 text-center">
+          <p class="font-gabarito text-xs font-bold tracking-[0.16em] uppercase text-[#C2151B]">Welcome back</p>
+          <h1 class="font-gabarito font-bold text-[33px] leading-tight tracking-tight text-gray-900">Sign in to Dinify</h1>
+          <p class="text-[15px] text-gray-400">Pick up where you left off.</p>
+        </div>
+        <!-- Inactivity / rate-limit notices -->
+        @if (inactivityNotice && !rateLimited) {
+          <div role="status"
            class="flex items-start gap-3 px-[15px] py-3.5 rounded-[14px] border border-[#F3DACE]
                   bg-[linear-gradient(180deg,#FFF6F1_0%,#FFFFFF_100%)]
                   shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_22px_-16px_rgba(180,90,40,0.5)]">
         <span class="flex items-center justify-center w-[38px] h-[38px] shrink-0 rounded-[11px] bg-white text-d-red
                      shadow-[inset_0_0_0_1px_rgba(255,44,50,0.16),0_4px_10px_-4px_rgba(255,44,50,0.4)]">
-          <svg class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
-        </span>
-        <div class="min-w-0 pt-px text-left">
-          <p class="text-sm font-bold text-gray-900 leading-tight tracking-[-0.005em]">We paused your session</p>
-          <p class="mt-0.5 text-[13px] leading-relaxed text-[#4B423C]">After a quiet spell we signed you out to keep the floor secure. Sign back in to carry on.</p>
+              <svg class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+            </span>
+            <div class="min-w-0 pt-px text-left">
+              <p class="text-sm font-bold text-gray-900 leading-tight tracking-[-0.005em]">We paused your session</p>
+              <p class="mt-0.5 text-[13px] leading-relaxed text-[#4B423C]">After a quiet spell we signed you out to keep the floor secure. Sign back in to carry on.</p>
+            </div>
+          </div>
+        }
+        @if (rateLimited) {
+          <div
+            class="flex items-start gap-2.5 p-3 bg-warning/10 border border-warning/30 rounded-[11px]">
+            <svg class="h-4 w-4 mt-0.5 shrink-0 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <p class="text-sm text-yellow-800">Too many attempts. Please wait a few minutes before trying again.</p>
+          </div>
+        }
+        <!-- Phone field (group/field drives the label colour-shift) -->
+        <div class="group/field flex flex-col gap-2">
+          <label class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
+            Phone number <span class="text-d-red">*</span>
+          </label>
+          <!-- Uganda-only phone input: static +256 + a local flag, no dropdown. Shell styling
+          lives inside the component and matches the password field by construction (incl.
+          edge-to-edge autofill). The host `.field-invalid` class reddens the box on a failed
+          submit. It emits a clean phone string; login reads only that and sets `username`. -->
+          <app-dinify-phone-input
+            [class.field-invalid]="submitted && loginForm.get('username')?.errors?.['required']"
+            (valueChange)="onInputChange($event)">
+          </app-dinify-phone-input>
         </div>
-      </div>
-      <div *ngIf="rateLimited"
-           class="flex items-start gap-2.5 p-3 bg-warning/10 border border-warning/30 rounded-[11px]">
-        <svg class="h-4 w-4 mt-0.5 shrink-0 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        <p class="text-sm text-yellow-800">Too many attempts. Please wait a few minutes before trying again.</p>
-      </div>
-
-      <!-- Phone field (group/field drives the label colour-shift) -->
-      <div class="group/field flex flex-col gap-2">
-        <label class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
-          Phone number <span class="text-d-red">*</span>
-        </label>
-        <!-- Uganda-only phone input: static +256 + a local flag, no dropdown. Shell styling
-             lives inside the component and matches the password field by construction (incl.
-             edge-to-edge autofill). The host `.field-invalid` class reddens the box on a failed
-             submit. It emits a clean phone string; login reads only that and sets `username`. -->
-        <app-dinify-phone-input
-          [class.field-invalid]="submitted && loginForm.get('username')?.errors?.['required']"
-          (valueChange)="onInputChange($event)">
-        </app-dinify-phone-input>
-      </div>
-
-      <!-- Password field -->
-      <div class="group/field flex flex-col gap-2">
-        <label for="password" class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
-          Password <span class="text-d-red">*</span>
-        </label>
-        <!-- control: the <input> is the ONLY element spanning the full interior (so the
-             browser's autofill colour fills border-to-border); the lock + eye are painted
-             above it with transparent backgrounds. Wrapper owns border/radius/bg + focus ring;
-             it gains an explicit h-[52px] because the input now leaves the flow (absolute). -->
+        <!-- Password field -->
+        <div class="group/field flex flex-col gap-2">
+          <label for="password" class="font-gabarito text-[13.5px] font-semibold text-gray-700 transition-colors group-focus-within/field:text-[#C2151B]">
+            Password <span class="text-d-red">*</span>
+          </label>
+          <!-- control: the <input> is the ONLY element spanning the full interior (so the
+          browser's autofill colour fills border-to-border); the lock + eye are painted
+          above it with transparent backgrounds. Wrapper owns border/radius/bg + focus ring;
+          it gains an explicit h-[52px] because the input now leaves the flow (absolute). -->
         <div class="group/ctrl relative flex items-center justify-between h-[52px] bg-white border-[1.5px] rounded-[11px]
                     transition-all duration-200
                     focus-within:border-d-red focus-within:ring-4 focus-within:ring-d-red/[0.13]
                     focus-within:-translate-y-px focus-within:shadow-[0_6px_18px_-8px_rgba(255,44,50,0.4)]"
-             [class.border-gray-200]="!(submitted && f['password']?.invalid)"
-             [class.border-d-red]="submitted && f['password']?.invalid">
-          <span class="relative z-10 flex items-center justify-center w-[46px] h-full bg-transparent pointer-events-none text-[#B8AFA6] transition-colors group-focus-within/ctrl:text-d-red">
-            <svg class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
-          </span>
-          <input
-            [type]="fieldTextType ? 'text' : 'password'"
-            id="password"
-            formControlName="password"
-            name="password"
-            autocomplete="current-password"
-            (keyup)="onPasswordKeyup($event)"
-            (blur)="capsLockOn = false"
+            [class.border-gray-200]="!(submitted && f['password']?.invalid)"
+            [class.border-d-red]="submitted && f['password']?.invalid">
+            <span class="relative z-10 flex items-center justify-center w-[46px] h-full bg-transparent pointer-events-none text-[#B8AFA6] transition-colors group-focus-within/ctrl:text-d-red">
+              <svg class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
+            </span>
+            <input
+              [type]="fieldTextType ? 'text' : 'password'"
+              id="password"
+              formControlName="password"
+              name="password"
+              autocomplete="current-password"
+              (keyup)="onPasswordKeyup($event)"
+              (blur)="capsLockOn = false"
             class="absolute inset-0 w-full h-full bg-transparent border-0 outline-none rounded-[9.5px] text-gray-900 text-[15.5px] pl-[53px] pr-[53px]
                    placeholder:text-[#B8AFA6]" />
-          <button type="button" (click)="toggleFieldTextType()"
-                  [attr.aria-label]="fieldTextType ? 'Hide password' : 'Show password'"
-                  class="relative z-10 flex items-center justify-center w-[46px] h-full bg-transparent text-gray-400 desktop-hover:text-gray-900 transition-colors">
-            <svg *ngIf="fieldTextType" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A9.3 9.3 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.4 4.1"/><path d="M6.2 6.7A17 17 0 0 0 2 12s3.6 7 10 7a9.4 9.4 0 0 0 3-.5"/></svg>
-            <svg *ngIf="!fieldTextType" class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
+            <button type="button" (click)="toggleFieldTextType()"
+              [attr.aria-label]="fieldTextType ? 'Hide password' : 'Show password'"
+              class="relative z-10 flex items-center justify-center w-[46px] h-full bg-transparent text-gray-400 desktop-hover:text-gray-900 transition-colors">
+              @if (fieldTextType) {
+                <svg class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A9.3 9.3 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.4 4.1"/><path d="M6.2 6.7A17 17 0 0 0 2 12s3.6 7 10 7a9.4 9.4 0 0 0 3-.5"/></svg>
+              }
+              @if (!fieldTextType) {
+                <svg class="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              }
+            </button>
+          </div>
+          @if (capsLockOn) {
+            <div role="status" class="flex items-center gap-1.5 text-warning text-[13px]">
+              <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+              Caps Lock is on
+            </div>
+          }
+          @if (f['password']?.invalid && f['password']?.errors?.['required'] && submitted) {
+            <div class="flex items-center gap-1.5 text-[#C2151B] text-[12.5px]">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+              Your password is required.
+            </div>
+          }
         </div>
-        <div *ngIf="capsLockOn" role="status" class="flex items-center gap-1.5 text-warning text-[13px]">
-          <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
-          Caps Lock is on
+        <div class="flex justify-end">
+          @if (!as_diner) {
+            <a [routerLink]="['/forgot-password']"
+            class="text-[13px] font-semibold text-gray-600 desktop-hover:text-[#C2151B] transition-colors">Forgot password?</a>
+          }
         </div>
-        <div *ngIf="f['password']?.invalid && f['password']?.errors?.['required'] && submitted" class="flex items-center gap-1.5 text-[#C2151B] text-[12.5px]">
-          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
-          Your password is required.
-        </div>
-      </div>
-
-      <div class="flex justify-end">
-        <a *ngIf="!as_diner" [routerLink]="['/forgot-password']"
-           class="text-[13px] font-semibold text-gray-600 desktop-hover:text-[#C2151B] transition-colors">Forgot password?</a>
-      </div>
-
-      <!-- Primary button: arrow nudges on desktop hover; spinner on loading. -->
-      <button [disabled]="loading"
+        <!-- Primary button: arrow nudges on desktop hover; spinner on loading. -->
+        <button [disabled]="loading"
               class="group/btn relative flex items-center justify-center gap-2.5 w-full h-[54px] mt-1 rounded-[11px]
                      bg-d-red text-white font-gabarito font-bold text-base shadow-glow
                      disabled:opacity-60 desktop-hover:bg-[#E61C22] active:scale-[0.985]
                      transition-all duration-150">
-        <svg *ngIf="loading" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-        </svg>
-        <ng-container *ngIf="!loading">
-          <span>Sign in</span>
-          <svg class="h-[18px] w-[18px] transition-transform duration-200 desktop-hover:group-hover/btn:translate-x-0.5"
-               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
-        </ng-container>
-        <span *ngIf="loading">Signing in</span>
-      </button>
-    </div>
+          @if (loading) {
+            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+            </svg>
+          }
+          @if (!loading) {
+            <span>Sign in</span>
+            <svg class="h-[18px] w-[18px] transition-transform duration-200 desktop-hover:group-hover/btn:translate-x-0.5"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+          }
+          @if (loading) {
+            <span>Signing in</span>
+          }
+        </button>
+      </div>
+    }
 
     <!-- ===================================================================
-         STATE 2 — OTP
+    STATE 2 — OTP
     ==================================================================== -->
-    <div *ngIf="require_otp" class="w-full">
-      <div class="mx-auto flex w-full max-w-md flex-col space-y-10">
-        <div class="flex flex-col items-center justify-center text-center space-y-1.5">
-          <p class="font-gabarito text-xs font-bold tracking-[0.16em] uppercase text-[#C2151B]">Almost there</p>
-          <h1 class="font-gabarito font-bold text-[33px] leading-tight tracking-tight text-gray-900">Enter your code</h1>
-          <p class="text-[15px] text-gray-400">We've sent a one-time password to your phone</p>
-        </div>
-
-        <div class="flex flex-col space-y-8">
-          <app-otp-input #inputPTO="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
-
-          <div class="flex flex-col space-y-4">
-            <button [disabled]="inputPTO.invalid || isSubmittingOtp"
-                    [ngClass]="{'opacity-65 hover:cursor-not-allowed': inputPTO.invalid}"
-                    type="submit"
+    @if (require_otp) {
+      <div class="w-full">
+        <div class="mx-auto flex w-full max-w-md flex-col space-y-10">
+          <div class="flex flex-col items-center justify-center text-center space-y-1.5">
+            <p class="font-gabarito text-xs font-bold tracking-[0.16em] uppercase text-[#C2151B]">Almost there</p>
+            <h1 class="font-gabarito font-bold text-[33px] leading-tight tracking-tight text-gray-900">Enter your code</h1>
+            <p class="text-[15px] text-gray-400">We've sent a one-time password to your phone</p>
+          </div>
+          <div class="flex flex-col space-y-8">
+            <app-otp-input #inputPTO="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
+            <div class="flex flex-col space-y-4">
+              <button [disabled]="inputPTO.invalid || isSubmittingOtp"
+                [ngClass]="{'opacity-65 hover:cursor-not-allowed': inputPTO.invalid}"
+                type="submit"
                     class="flex items-center justify-center gap-2.5 w-full h-[54px] rounded-[11px] bg-d-red text-white
                            font-gabarito font-bold text-base shadow-glow desktop-hover:bg-[#E61C22]
                            active:scale-[0.985] transition-all duration-150">
-              <svg *ngIf="isSubmittingOtp" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-              </svg>
-              {{ isSubmittingOtp ? 'Verifying' : 'Verify' }} OTP
-            </button>
-
-            <button type="button" (click)="backToLogin()" [disabled]="isSubmittingOtp"
+                @if (isSubmittingOtp) {
+                  <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+                  </svg>
+                }
+                {{ isSubmittingOtp ? 'Verifying' : 'Verify' }} OTP
+              </button>
+              <button type="button" (click)="backToLogin()" [disabled]="isSubmittingOtp"
                     class="mx-auto flex items-center justify-center gap-2 text-sm font-medium text-gray-500
                            desktop-hover:text-[#C2151B] transition-colors disabled:opacity-50">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-              Back to sign in
-            </button>
-
-            <div class="flex items-center justify-center gap-1 text-sm font-medium text-gray-500">
-              <p *ngIf="countdown > 0">Didn't receive a code? Resend in {{ countdown }}s.</p>
-              <p *ngIf="countdown === 0">Didn't receive a code?</p>
-              <button type="button" *ngIf="countdown === 0" class="text-d-red font-semibold" (click)="resendOTP()">Resend</button>
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Back to sign in
+              </button>
+              <div class="flex items-center justify-center gap-1 text-sm font-medium text-gray-500">
+                @if (countdown > 0) {
+                  <p>Didn't receive a code? Resend in {{ countdown }}s.</p>
+                }
+                @if (countdown === 0) {
+                  <p>Didn't receive a code?</p>
+                }
+                @if (countdown === 0) {
+                  <button type="button" class="text-d-red font-semibold" (click)="resendOTP()">Resend</button>
+                }
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    }
 
     <!-- ===================================================================
-         STATE 3 — inter-state loading spinner
+    STATE 3 — inter-state loading spinner
     ==================================================================== -->
-    <div *ngIf="!showLoginForm && !require_otp && !showRestaurantSelector" class="flex items-center justify-center p-10">
-      <svg class="animate-spin h-10 w-10 text-d-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
-      </svg>
-    </div>
+    @if (!showLoginForm && !require_otp && !showRestaurantSelector) {
+      <div class="flex items-center justify-center p-10">
+        <svg class="animate-spin h-10 w-10 text-d-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+        </svg>
+      </div>
+    }
 
     <!-- ===================================================================
-         STATE 4 — restaurant selector
+    STATE 4 — restaurant selector
     ==================================================================== -->
-    <div *ngIf="showRestaurantSelector" class="w-full">
-      <div class="mx-auto flex w-full max-w-md flex-col space-y-7">
-        <div class="flex flex-col items-center justify-center text-center space-y-1.5">
-          <p class="font-gabarito text-xs font-bold tracking-[0.16em] uppercase text-[#C2151B]">Choose a restaurant</p>
-          <h1 class="font-gabarito font-bold text-[33px] leading-tight tracking-tight text-gray-900">Welcome {{ user }}</h1>
-          <p class="text-[15px] text-gray-400">Pick the restaurant you'd like to open</p>
-        </div>
-
-        <div class="flex flex-col space-y-3">
-          <button type="button" *ngFor="let r of availableRestaurants" (click)="setRestaurant(r)"
+    @if (showRestaurantSelector) {
+      <div class="w-full">
+        <div class="mx-auto flex w-full max-w-md flex-col space-y-7">
+          <div class="flex flex-col items-center justify-center text-center space-y-1.5">
+            <p class="font-gabarito text-xs font-bold tracking-[0.16em] uppercase text-[#C2151B]">Choose a restaurant</p>
+            <h1 class="font-gabarito font-bold text-[33px] leading-tight tracking-tight text-gray-900">Welcome {{ user }}</h1>
+            <p class="text-[15px] text-gray-400">Pick the restaurant you'd like to open</p>
+          </div>
+          <div class="flex flex-col space-y-3">
+            @for (r of availableRestaurants; track r) {
+              <button type="button" (click)="setRestaurant(r)"
                   class="text-left border border-gray-200 rounded-[14px] p-4 bg-white flex flex-col items-start
                          shadow-sm desktop-hover:shadow-md desktop-hover:border-d-red/40 desktop-hover:bg-gray-50 transition">
-            <p class="font-semibold text-lg text-gray-800">{{ r.restaurant }}</p>
-            <p class="text-sm text-gray-500">Role: <span *ngFor="let role of r.roles">{{ role | titlecase }}</span></p>
-          </button>
+                <p class="font-semibold text-lg text-gray-800">{{ r.restaurant }}</p>
+                <p class="text-sm text-gray-500">Role: @for (role of r.roles; track role) {
+                  <span>{{ role | titlecase }}</span>
+                }</p>
+              </button>
+            }
+          </div>
         </div>
       </div>
-    </div>
+    }
 
   </form>
 </div>
