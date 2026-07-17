@@ -6,7 +6,7 @@ import {
   OnChanges,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
@@ -34,7 +34,7 @@ const MAX_COUNT = 100;
 @Component({
   selector: 'app-bulk-add-tables-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogComponent, ButtonComponent],
+  imports: [FormsModule, DialogComponent, ButtonComponent],
   templateUrl: './bulk-add-tables-modal.component.html',
 })
 export class BulkAddTablesModalComponent implements OnChanges {

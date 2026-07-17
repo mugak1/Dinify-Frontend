@@ -5,15 +5,15 @@
   [state]="loadState"
   errorMessage="We couldn't load roles & access. Please try again."
   (retry)="load()"
->
+  >
   <div class="px-4 py-4 sm:px-6">
     <!-- Staleness hint (informational, not a warning): the permissions map is a
-         login-time snapshot, so an edit only re-shapes a logged-in user at their
-         next sign-in. Make that legible at the point of action. -->
+    login-time snapshot, so an edit only re-shapes a logged-in user at their
+    next sign-in. Make that legible at the point of action. -->
     <p
       class="mb-4 flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
       role="note"
-    >
+      >
       <svg class="mt-0.5 h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="10" />
         <path d="M12 16v-4" />
@@ -23,10 +23,10 @@
     </p>
 
     <!-- Grid: 4 roles × 7 modules. Two presentations of one data source — the
-         table shows at md+ (horizontal-scroll safety retained), and a
-         card-per-role list (below) replaces it under md so nothing needs
-         horizontal scrolling. Explicit px row heights (root font-size is 14px,
-         so rem heights drift). -->
+    table shows at md+ (horizontal-scroll safety retained), and a
+    card-per-role list (below) replaces it under md so nothing needs
+    horizontal scrolling. Explicit px row heights (root font-size is 14px,
+    so rem heights drift). -->
     <div class="hidden overflow-x-auto md:block">
       <table class="w-full border-collapse text-sm">
         <thead>
@@ -34,51 +34,65 @@
             <th scope="col" class="sticky left-0 z-10 bg-card px-3 text-left font-medium text-gray-500">
               Role
             </th>
-            <th *ngFor="let col of columns" scope="col" class="px-3 text-center font-medium text-gray-500 whitespace-nowrap">
-              {{ col.label }}
-            </th>
+            @for (col of columns; track col) {
+              <th scope="col" class="px-3 text-center font-medium text-gray-500 whitespace-nowrap">
+                {{ col.label }}
+              </th>
+            }
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of rows" class="h-[52px] border-b border-gray-100 last:border-0">
-            <th scope="row" class="sticky left-0 z-10 bg-card px-3 text-left font-medium text-gray-900 whitespace-nowrap">
-              {{ roleLabel(row.role) }}
-              <span *ngIf="!row.editable" class="ml-2 align-middle text-xs font-normal text-gray-400">Locked</span>
-            </th>
-            <td *ngFor="let col of columns" class="px-3 text-center">
-              <div class="flex justify-center">
-                <app-dn-switch
-                  [checked]="isOn(row, col.key)"
-                  [disabled]="!row.editable"
-                  (checkedChange)="onToggle(row, col.key, $event)"
-                ></app-dn-switch>
-              </div>
-            </td>
-          </tr>
+          @for (row of rows; track row) {
+            <tr class="h-[52px] border-b border-gray-100 last:border-0">
+              <th scope="row" class="sticky left-0 z-10 bg-card px-3 text-left font-medium text-gray-900 whitespace-nowrap">
+                {{ roleLabel(row.role) }}
+                @if (!row.editable) {
+                  <span class="ml-2 align-middle text-xs font-normal text-gray-400">Locked</span>
+                }
+              </th>
+              @for (col of columns; track col) {
+                <td class="px-3 text-center">
+                  <div class="flex justify-center">
+                    <app-dn-switch
+                      [checked]="isOn(row, col.key)"
+                      [disabled]="!row.editable"
+                      (checkedChange)="onToggle(row, col.key, $event)"
+                    ></app-dn-switch>
+                  </div>
+                </td>
+              }
+            </tr>
+          }
         </tbody>
       </table>
     </div>
 
     <!-- Narrow screens (<md): one card per role; each module permission is a
-         labeled switch row. Same rows/columns/onToggle as the table above, so
-         edits write through to the identical state (owner row stays locked). -->
+    labeled switch row. Same rows/columns/onToggle as the table above, so
+    edits write through to the identical state (owner row stays locked). -->
     <div class="space-y-3 md:hidden">
-      <div *ngFor="let row of rows" class="rounded-lg border border-gray-200 bg-card">
-        <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <span class="text-sm font-semibold text-gray-900">{{ roleLabel(row.role) }}</span>
-          <span *ngIf="!row.editable" class="text-xs font-normal text-gray-400">Locked</span>
+      @for (row of rows; track row) {
+        <div class="rounded-lg border border-gray-200 bg-card">
+          <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <span class="text-sm font-semibold text-gray-900">{{ roleLabel(row.role) }}</span>
+            @if (!row.editable) {
+              <span class="text-xs font-normal text-gray-400">Locked</span>
+            }
+          </div>
+          <ul class="divide-y divide-gray-100">
+            @for (col of columns; track col) {
+              <li class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-gray-700">{{ col.label }}</span>
+                <app-dn-switch
+                  [checked]="isOn(row, col.key)"
+                  [disabled]="!row.editable"
+                  (checkedChange)="onToggle(row, col.key, $event)"
+                ></app-dn-switch>
+              </li>
+            }
+          </ul>
         </div>
-        <ul class="divide-y divide-gray-100">
-          <li *ngFor="let col of columns" class="flex items-center justify-between px-4 py-3">
-            <span class="text-sm text-gray-700">{{ col.label }}</span>
-            <app-dn-switch
-              [checked]="isOn(row, col.key)"
-              [disabled]="!row.editable"
-              (checkedChange)="onToggle(row, col.key, $event)"
-            ></app-dn-switch>
-          </li>
-        </ul>
-      </div>
+      }
     </div>
   </div>
 </app-settings-section-page>

@@ -19,7 +19,9 @@
           <select [(ngModel)]="statusFilter" (change)="onFilterChange()"
             class="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
             <option value="">All statuses</option>
-            <option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</option>
+            @for (opt of statusOptions; track opt) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
           </select>
         </div>
         <div>
@@ -27,7 +29,9 @@
           <select [(ngModel)]="categoryFilter" (change)="onFilterChange()"
             class="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
             <option value="">All categories</option>
-            <option *ngFor="let opt of categoryOptions" [value]="opt.value">{{ opt.label }}</option>
+            @for (opt of categoryOptions; track opt) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
           </select>
         </div>
         <div>
@@ -35,166 +39,188 @@
           <select [(ngModel)]="impactFilter" (change)="onFilterChange()"
             class="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
             <option value="">All impact levels</option>
-            <option *ngFor="let opt of impactOptions" [value]="opt.value">{{ opt.label }}</option>
+            @for (opt of impactOptions; track opt) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
           </select>
         </div>
       </div>
 
-      <p *ngIf="loading" class="text-sm text-muted-foreground py-6 text-center">Loading…</p>
+      @if (loading) {
+        <p class="text-sm text-muted-foreground py-6 text-center">Loading…</p>
+      }
 
       <!-- Empty state -->
-      <div *ngIf="!loading && issues.length === 0"
-        class="flex flex-col items-center justify-center text-center py-10 gap-2">
-        <p class="text-sm text-muted-foreground">No support issues</p>
-        <p class="text-xs text-muted-foreground">Issues reported by restaurants will appear here.</p>
-      </div>
+      @if (!loading && issues.length === 0) {
+        <div
+          class="flex flex-col items-center justify-center text-center py-10 gap-2">
+          <p class="text-sm text-muted-foreground">No support issues</p>
+          <p class="text-xs text-muted-foreground">Issues reported by restaurants will appear here.</p>
+        </div>
+      }
 
       <!-- Table -->
-      <div *ngIf="!loading && issues.length > 0" class="overflow-x-auto">
-        <table class="w-full text-sm border-collapse">
-          <thead>
-            <tr class="text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
-              <th class="py-2 pr-4 font-medium">Reference</th>
-              <th class="py-2 pr-4 font-medium">Restaurant</th>
-              <th class="py-2 pr-4 font-medium">Title</th>
-              <th class="py-2 pr-4 font-medium">Category</th>
-              <th class="py-2 pr-4 font-medium">Impact</th>
-              <th class="py-2 pr-4 font-medium">Status</th>
-              <th class="py-2 pr-4 font-medium">Last updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let issue of issues" (click)="openDetail(issue)"
-              class="border-b last:border-0 cursor-pointer hover:bg-accent/50 transition-colors">
-              <td class="py-3 pr-4 font-mono text-xs font-medium text-foreground whitespace-nowrap">{{ issue.reference }}</td>
-              <td class="py-3 pr-4 text-foreground whitespace-nowrap">{{ issue.restaurant_name }}</td>
-              <td class="py-3 pr-4 text-foreground max-w-[260px] truncate">{{ issue.title }}</td>
-              <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ categoryLabel(issue.category) }}</td>
-              <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ impactLabel(issue.impact) }}</td>
-              <td class="py-3 pr-4 whitespace-nowrap">
-                <app-dn-badge [variant]="statusMeta(issue.status).variant">{{ statusMeta(issue.status).label }}</app-dn-badge>
-              </td>
-              <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ issue.time_last_updated | date: 'mediumDate' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      @if (!loading && issues.length > 0) {
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border-collapse">
+            <thead>
+              <tr class="text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
+                <th class="py-2 pr-4 font-medium">Reference</th>
+                <th class="py-2 pr-4 font-medium">Restaurant</th>
+                <th class="py-2 pr-4 font-medium">Title</th>
+                <th class="py-2 pr-4 font-medium">Category</th>
+                <th class="py-2 pr-4 font-medium">Impact</th>
+                <th class="py-2 pr-4 font-medium">Status</th>
+                <th class="py-2 pr-4 font-medium">Last updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (issue of issues; track issue) {
+                <tr (click)="openDetail(issue)"
+                  class="border-b last:border-0 cursor-pointer hover:bg-accent/50 transition-colors">
+                  <td class="py-3 pr-4 font-mono text-xs font-medium text-foreground whitespace-nowrap">{{ issue.reference }}</td>
+                  <td class="py-3 pr-4 text-foreground whitespace-nowrap">{{ issue.restaurant_name }}</td>
+                  <td class="py-3 pr-4 text-foreground max-w-[260px] truncate">{{ issue.title }}</td>
+                  <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ categoryLabel(issue.category) }}</td>
+                  <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ impactLabel(issue.impact) }}</td>
+                  <td class="py-3 pr-4 whitespace-nowrap">
+                    <app-dn-badge [variant]="statusMeta(issue.status).variant">{{ statusMeta(issue.status).label }}</app-dn-badge>
+                  </td>
+                  <td class="py-3 pr-4 text-muted-foreground whitespace-nowrap">{{ issue.time_last_updated | date: 'mediumDate' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
   </app-dn-card>
 </div>
 
 <!-- Issue detail + triage modal -->
 <app-dn-dialog [open]="!!selected" (closed)="closeDetail()" maxWidth="lg">
-  <div *ngIf="selected as issue" class="max-h-[80vh] overflow-y-auto pr-1">
-    <!-- Header -->
-    <div class="flex items-start justify-between gap-3 mb-3">
-      <div>
-        <p class="font-mono text-xs font-medium text-muted-foreground">{{ issue.reference }}</p>
-        <h2 class="text-lg font-semibold text-foreground mt-1">{{ issue.title }}</h2>
-        <p class="text-sm text-muted-foreground mt-0.5">{{ issue.restaurant_name }}</p>
+  @if (selected; as issue) {
+    <div class="max-h-[80vh] overflow-y-auto pr-1">
+      <!-- Header -->
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p class="font-mono text-xs font-medium text-muted-foreground">{{ issue.reference }}</p>
+          <h2 class="text-lg font-semibold text-foreground mt-1">{{ issue.title }}</h2>
+          <p class="text-sm text-muted-foreground mt-0.5">{{ issue.restaurant_name }}</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <app-dn-badge [variant]="statusMeta(issue.status).variant">{{ statusMeta(issue.status).label }}</app-dn-badge>
+          <button type="button" (click)="closeDetail()" aria-label="Close"
+            class="text-muted-foreground hover:text-foreground transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" class="h-5 w-5">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </div>
-      <div class="flex items-center gap-2 shrink-0">
-        <app-dn-badge [variant]="statusMeta(issue.status).variant">{{ statusMeta(issue.status).label }}</app-dn-badge>
-        <button type="button" (click)="closeDetail()" aria-label="Close"
-          class="text-muted-foreground hover:text-foreground transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round" class="h-5 w-5">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+      <p class="text-xs text-muted-foreground mb-4">
+        {{ categoryLabel(issue.category) }} · {{ impactLabel(issue.impact) }}
+      </p>
+      <!-- Description -->
+      <div class="mb-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Description</h3>
+        <p class="text-sm text-foreground whitespace-pre-line">{{ issue.description }}</p>
       </div>
-    </div>
-
-    <p class="text-xs text-muted-foreground mb-4">
-      {{ categoryLabel(issue.category) }} · {{ impactLabel(issue.impact) }}
-    </p>
-
-    <!-- Description -->
-    <div class="mb-4">
-      <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Description</h3>
-      <p class="text-sm text-foreground whitespace-pre-line">{{ issue.description }}</p>
-    </div>
-
-    <!-- Context -->
-    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm border-t pt-4 mb-4">
-      <div *ngIf="issue.created_by_name" class="flex justify-between gap-3">
-        <dt class="text-muted-foreground">Reported by</dt>
-        <dd class="text-foreground text-right">{{ issue.created_by_name }}</dd>
-      </div>
-      <div class="flex justify-between gap-3">
-        <dt class="text-muted-foreground">Reported</dt>
-        <dd class="text-foreground text-right">{{ issue.time_created | date: 'medium' }}</dd>
-      </div>
-      <div class="flex justify-between gap-3">
-        <dt class="text-muted-foreground">Last updated</dt>
-        <dd class="text-foreground text-right">{{ issue.time_last_updated | date: 'medium' }}</dd>
-      </div>
-      <div *ngIf="issue.contact_phone" class="flex justify-between gap-3">
-        <dt class="text-muted-foreground">Contact phone</dt>
-        <dd class="text-foreground text-right">{{ issue.contact_phone }}</dd>
-      </div>
-      <div *ngIf="issue.contact_email" class="flex justify-between gap-3">
-        <dt class="text-muted-foreground">Contact email</dt>
-        <dd class="text-foreground text-right break-all">{{ issue.contact_email }}</dd>
-      </div>
-      <div *ngIf="issue.preferred_contact_method" class="flex justify-between gap-3">
-        <dt class="text-muted-foreground">Preferred contact</dt>
-        <dd class="text-foreground text-right capitalize">{{ issue.preferred_contact_method }}</dd>
-      </div>
-      <div *ngIf="issue.resolved_at" class="flex justify-between gap-3">
-        <dt class="text-muted-foreground">Resolved</dt>
-        <dd class="text-foreground text-right">{{ issue.resolved_at | date: 'medium' }}</dd>
-      </div>
-      <div *ngIf="issue.closed_at" class="flex justify-between gap-3">
-        <dt class="text-muted-foreground">Closed</dt>
-        <dd class="text-foreground text-right">{{ issue.closed_at | date: 'medium' }}</dd>
-      </div>
-      <div *ngIf="issue.page_url" class="sm:col-span-2">
-        <dt class="text-muted-foreground mb-0.5">Page URL</dt>
-        <dd class="text-foreground break-all font-mono text-xs">{{ issue.page_url }}</dd>
-      </div>
-      <div *ngIf="issue.user_agent" class="sm:col-span-2">
-        <dt class="text-muted-foreground mb-0.5">User agent</dt>
-        <dd class="text-foreground break-all text-xs">{{ issue.user_agent }}</dd>
-      </div>
-    </dl>
-
-    <!-- Triage -->
-    <form [formGroup]="triageForm" (ngSubmit)="saveTriage()" class="space-y-4 border-t pt-4">
-      <h3 class="text-sm font-semibold text-foreground">Triage</h3>
-
-      <div>
-        <label class="block text-sm font-medium text-foreground mb-1">Status</label>
-        <select formControlName="status"
-          class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-          <option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-foreground mb-1">
-          Internal notes <span class="text-muted-foreground font-normal">(not shown to the restaurant)</span>
-        </label>
-        <textarea formControlName="internal_notes" rows="3"
-          placeholder="Investigation notes, context, next steps…"
+      <!-- Context -->
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm border-t pt-4 mb-4">
+        @if (issue.created_by_name) {
+          <div class="flex justify-between gap-3">
+            <dt class="text-muted-foreground">Reported by</dt>
+            <dd class="text-foreground text-right">{{ issue.created_by_name }}</dd>
+          </div>
+        }
+        <div class="flex justify-between gap-3">
+          <dt class="text-muted-foreground">Reported</dt>
+          <dd class="text-foreground text-right">{{ issue.time_created | date: 'medium' }}</dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt class="text-muted-foreground">Last updated</dt>
+          <dd class="text-foreground text-right">{{ issue.time_last_updated | date: 'medium' }}</dd>
+        </div>
+        @if (issue.contact_phone) {
+          <div class="flex justify-between gap-3">
+            <dt class="text-muted-foreground">Contact phone</dt>
+            <dd class="text-foreground text-right">{{ issue.contact_phone }}</dd>
+          </div>
+        }
+        @if (issue.contact_email) {
+          <div class="flex justify-between gap-3">
+            <dt class="text-muted-foreground">Contact email</dt>
+            <dd class="text-foreground text-right break-all">{{ issue.contact_email }}</dd>
+          </div>
+        }
+        @if (issue.preferred_contact_method) {
+          <div class="flex justify-between gap-3">
+            <dt class="text-muted-foreground">Preferred contact</dt>
+            <dd class="text-foreground text-right capitalize">{{ issue.preferred_contact_method }}</dd>
+          </div>
+        }
+        @if (issue.resolved_at) {
+          <div class="flex justify-between gap-3">
+            <dt class="text-muted-foreground">Resolved</dt>
+            <dd class="text-foreground text-right">{{ issue.resolved_at | date: 'medium' }}</dd>
+          </div>
+        }
+        @if (issue.closed_at) {
+          <div class="flex justify-between gap-3">
+            <dt class="text-muted-foreground">Closed</dt>
+            <dd class="text-foreground text-right">{{ issue.closed_at | date: 'medium' }}</dd>
+          </div>
+        }
+        @if (issue.page_url) {
+          <div class="sm:col-span-2">
+            <dt class="text-muted-foreground mb-0.5">Page URL</dt>
+            <dd class="text-foreground break-all font-mono text-xs">{{ issue.page_url }}</dd>
+          </div>
+        }
+        @if (issue.user_agent) {
+          <div class="sm:col-span-2">
+            <dt class="text-muted-foreground mb-0.5">User agent</dt>
+            <dd class="text-foreground break-all text-xs">{{ issue.user_agent }}</dd>
+          </div>
+        }
+      </dl>
+      <!-- Triage -->
+      <form [formGroup]="triageForm" (ngSubmit)="saveTriage()" class="space-y-4 border-t pt-4">
+        <h3 class="text-sm font-semibold text-foreground">Triage</h3>
+        <div>
+          <label class="block text-sm font-medium text-foreground mb-1">Status</label>
+          <select formControlName="status"
+            class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            @for (opt of statusOptions; track opt) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-foreground mb-1">
+            Internal notes <span class="text-muted-foreground font-normal">(not shown to the restaurant)</span>
+          </label>
+          <textarea formControlName="internal_notes" rows="3"
+            placeholder="Investigation notes, context, next steps…"
           class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"></textarea>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-foreground mb-1">Resolution summary</label>
-        <textarea formControlName="resolution_summary" rows="3"
-          placeholder="What was done to resolve the issue."
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-foreground mb-1">Resolution summary</label>
+          <textarea formControlName="resolution_summary" rows="3"
+            placeholder="What was done to resolve the issue."
           class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"></textarea>
-      </div>
-
-      <div class="flex flex-wrap justify-end gap-2 pt-2">
-        <button type="button" app-dn-button variant="outline" (click)="closeDetail()">Close</button>
-        <button type="button" app-dn-button variant="secondary" [disabled]="saving" (click)="markResolved()">Mark resolved</button>
-        <button type="button" app-dn-button variant="secondary" [disabled]="saving" (click)="markClosed()">Mark closed</button>
-        <button type="submit" app-dn-button [disabled]="saving">Save</button>
-      </div>
-    </form>
-  </div>
+        </div>
+        <div class="flex flex-wrap justify-end gap-2 pt-2">
+          <button type="button" app-dn-button variant="outline" (click)="closeDetail()">Close</button>
+          <button type="button" app-dn-button variant="secondary" [disabled]="saving" (click)="markResolved()">Mark resolved</button>
+          <button type="button" app-dn-button variant="secondary" [disabled]="saving" (click)="markClosed()">Mark closed</button>
+          <button type="submit" app-dn-button [disabled]="saving">Save</button>
+        </div>
+      </form>
+    </div>
+  }
 </app-dn-dialog>

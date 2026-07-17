@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import {
   CdkDragDrop,
@@ -27,15 +27,14 @@ type LoadState = 'loading' | 'ready' | 'error';
   selector: 'app-preset-tags',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     DragDropModule,
     TagPillComponent,
     ButtonComponent,
     SectionPageComponent,
     PresetTagFormDialogComponent,
-    PresetTagDeleteDialogComponent,
-  ],
+    PresetTagDeleteDialogComponent
+],
   templateUrl: './preset-tags.component.html',
 })
 export class PresetTagsComponent implements OnInit {

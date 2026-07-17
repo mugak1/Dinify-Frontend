@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 import { SwitchComponent, ToastService } from 'src/app/_shared/ui';
 import { SectionPageComponent } from '../../components/section-page/section-page.component';
@@ -25,7 +25,7 @@ type GridLoadState = 'loading' | 'ready' | 'error';
 @Component({
   selector: 'app-roles-access',
   standalone: true,
-  imports: [CommonModule, SwitchComponent, SectionPageComponent],
+  imports: [SwitchComponent, SectionPageComponent],
   templateUrl: './roles-access.component.html',
 })
 export class RolesAccessComponent implements OnInit {

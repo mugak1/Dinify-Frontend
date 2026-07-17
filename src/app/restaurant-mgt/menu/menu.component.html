@@ -1,21 +1,27 @@
 <!-- Page landmark: the Menu layout is full-bleed with a bespoke tab strip and no
-     visible title bar, so the page heading is a screen-reader-only landmark. -->
+visible title bar, so the page heading is a screen-reader-only landmark. -->
 <h1 class="sr-only">Menu</h1>
 
 <!-- Approval bar -->
-<div *ngIf="isThirdChild && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit' || auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')"
-     class="flex items-center gap-2 px-5 md:px-6 py-2 border-b border-neutral-200 bg-neutral-50">
-  <button *ngIf="(auth.currentRestaurantRole?.roles?.includes('owner') || auth.userValue?.profile?.roles?.includes('dinify_admin')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit')"
-          (click)="approveMenu('approve')"
-          class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
-    Approve Menu
-  </button>
-  <button *ngIf="(auth.currentRestaurantRole?.roles?.includes('manager') || auth.currentRestaurantRole?.roles?.includes('owner') || auth.userValue?.profile?.roles?.includes('dinify_admin')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')"
-          (click)="approveMenu('submit')"
-          class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
-    Submit Menu
-  </button>
-</div>
+@if (isThirdChild && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit' || auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')) {
+  <div
+    class="flex items-center gap-2 px-5 md:px-6 py-2 border-b border-neutral-200 bg-neutral-50">
+    @if ((auth.currentRestaurantRole?.roles?.includes('owner') || auth.userValue?.profile?.roles?.includes('dinify_admin')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit')) {
+      <button
+        (click)="approveMenu('approve')"
+        class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+        Approve Menu
+      </button>
+    }
+    @if ((auth.currentRestaurantRole?.roles?.includes('manager') || auth.currentRestaurantRole?.roles?.includes('owner') || auth.userValue?.profile?.roles?.includes('dinify_admin')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')) {
+      <button
+        (click)="approveMenu('submit')"
+        class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+        Submit Menu
+      </button>
+    }
+  </div>
+}
 
 <!-- Tab navigation -->
 <div class="border-b border-neutral-200 bg-neutral-50 px-5 md:px-6 pt-3 pb-3">
@@ -31,85 +37,84 @@
 <div class="flex flex-col flex-1 overflow-hidden bg-neutral-50">
 
   <!-- Sections tab content -->
-  <div *ngIf="activeTab === 'sections'" class="flex flex-col lg:flex-row flex-1 overflow-hidden">
-
-    <!-- Section Rail (left sidebar, hidden on mobile) -->
-    <app-section-rail
-      (newSection)="openSectionForm()"
-      (editSection)="openSectionForm($event)"
-      (deleteSection)="confirmDeleteSection($event)"
-      (newItem)="openItemForm()">
-    </app-section-rail>
-
-    <!-- Main content area -->
-    <div class="flex-1 flex flex-col overflow-hidden min-w-0">
-
-      <!-- Toolbar -->
-      <div class="border-b border-neutral-200 px-5 md:px-6 py-4 flex items-center justify-between gap-2 bg-neutral-50">
-
-        <!-- Mobile section selector (visible below lg) -->
-        <div class="lg:hidden flex-1">
-          <select (change)="onMobileSectionChange($any($event).target.value)"
-                  class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm">
-            <option *ngFor="let s of sections$ | async"
-                    [value]="s.id"
-                    [selected]="(selectedSectionId$ | async) === s.id">
-              {{ s.name }} ({{ s.item_count || 0 }})
-            </option>
-          </select>
-        </div>
-
-        <!-- Desktop section name (hidden on mobile) -->
-        <h2 *ngIf="selectedSection$ | async as section"
-            class="hidden lg:block text-2xl font-bold text-foreground">
-          {{ section.name }}
-        </h2>
-
-        <div class="flex items-center gap-2">
-          <!-- Sort dropdown -->
-          <select [ngModel]="sortMode"
-                  (ngModelChange)="onSortModeChange($event)"
-                  class="border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm">
-            <option value="manual">Manual</option>
-            <option value="a-z">A–Z</option>
-            <option value="price-low">Price ↑</option>
-            <option value="price-high">Price ↓</option>
-          </select>
-
-          <!-- Search button -->
-          <button (click)="searchOpen = true"
-                  class="inline-flex items-center gap-1 border border-input rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
-                  title="Search (Ctrl+K)">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <span class="hidden sm:inline">Search</span>
-          </button>
-
-          <!-- Preview Menu button -->
-          <button (click)="previewOpen = true"
-                  class="inline-flex items-center gap-1 border border-primary text-primary rounded-md px-4 py-2 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
-            </svg>
-            <span class="hidden sm:inline">Preview Menu</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Items grid -->
-      <app-item-list
-        (editItem)="openItemForm($event)"
-        (deleteItem)="confirmDeleteItem($event)"
+  @if (activeTab === 'sections') {
+    <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
+      <!-- Section Rail (left sidebar, hidden on mobile) -->
+      <app-section-rail
+        (newSection)="openSectionForm()"
+        (editSection)="openSectionForm($event)"
+        (deleteSection)="confirmDeleteSection($event)"
         (newItem)="openItemForm()">
-      </app-item-list>
+      </app-section-rail>
+      <!-- Main content area -->
+      <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+        <!-- Toolbar -->
+        <div class="border-b border-neutral-200 px-5 md:px-6 py-4 flex items-center justify-between gap-2 bg-neutral-50">
+          <!-- Mobile section selector (visible below lg) -->
+          <div class="lg:hidden flex-1">
+            <select (change)="onMobileSectionChange($any($event).target.value)"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm">
+              @for (s of sections$ | async; track s) {
+                <option
+                  [value]="s.id"
+                  [selected]="(selectedSectionId$ | async) === s.id">
+                  {{ s.name }} ({{ s.item_count || 0 }})
+                </option>
+              }
+            </select>
+          </div>
+          <!-- Desktop section name (hidden on mobile) -->
+          @if (selectedSection$ | async; as section) {
+            <h2
+              class="hidden lg:block text-2xl font-bold text-foreground">
+              {{ section.name }}
+            </h2>
+          }
+          <div class="flex items-center gap-2">
+            <!-- Sort dropdown -->
+            <select [ngModel]="sortMode"
+              (ngModelChange)="onSortModeChange($event)"
+              class="border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm">
+              <option value="manual">Manual</option>
+              <option value="a-z">A–Z</option>
+              <option value="price-low">Price ↑</option>
+              <option value="price-high">Price ↓</option>
+            </select>
+            <!-- Search button -->
+            <button (click)="searchOpen = true"
+              class="inline-flex items-center gap-1 border border-input rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
+              title="Search (Ctrl+K)">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <span class="hidden sm:inline">Search</span>
+            </button>
+            <!-- Preview Menu button -->
+            <button (click)="previewOpen = true"
+              class="inline-flex items-center gap-1 border border-primary text-primary rounded-md px-4 py-2 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span class="hidden sm:inline">Preview Menu</span>
+            </button>
+          </div>
+        </div>
+        <!-- Items grid -->
+        <app-item-list
+          (editItem)="openItemForm($event)"
+          (deleteItem)="confirmDeleteItem($event)"
+          (newItem)="openItemForm()">
+        </app-item-list>
+      </div>
     </div>
-  </div>
+  }
 
   <!-- Upsells tab content -->
-  <app-upsells-tab *ngIf="activeTab === 'upsells'" class="flex-1 overflow-y-auto"></app-upsells-tab>
+  @if (activeTab === 'upsells') {
+    <app-upsells-tab class="flex-1 overflow-y-auto"></app-upsells-tab>
+  }
 </div>
 
 <!-- Section form dialog (create / edit) -->

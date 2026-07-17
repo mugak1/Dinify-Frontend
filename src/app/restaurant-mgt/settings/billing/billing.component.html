@@ -5,7 +5,7 @@
   [state]="loadState"
   [dirty]="false"
   (retry)="reload()"
->
+  >
   <!-- ── Current subscription ─────────────────────────────────────────── -->
   <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
     <div class="flex items-start justify-between gap-3 flex-wrap">
@@ -51,7 +51,7 @@
         <div
           class="relative flex flex-col rounded-lg border p-4"
           [ngClass]="isCurrentPlan(plan) ? 'border-primary ring-1 ring-primary bg-primary/5' : 'border-gray-200'"
-        >
+          >
           <div class="flex items-center justify-between gap-2">
             <h3 class="text-card-title text-foreground">{{ plan.name }}</h3>
             @if (isCurrentPlan(plan)) {
@@ -143,100 +143,100 @@
 </app-settings-section-page>
 
 <!-- ── Payment + billing-date dialog (PRESERVED VERBATIM — the untouched seam) ── -->
-    <app-dn-dialog [open]="showModal" maxWidth="lg" (closed)="closeModal()">
-    <div class="relative">
-      <!-- Modal content -->
-      <div class="relative rounded-lg">
-          <div  class="flex items-start justify-between p-4 rounded-t">
-            <h3 class="flex flex-row">
-               <span *ngIf="PaymentForm" class="font-thin">Pay Subscription Now</span>
-              </h3>
-             <button type="button" (click)="closeModal()" class="text-muted-foreground bg-transparent hover:bg-accent hover:text-foreground rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
-              <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-              </svg>
-              <span class="sr-only">Close modal</span>
-          </button>
-          </div>
-          <!-- Modal body -->
-          <div class="flex flex-col">
-            <form *ngIf="PaymentForm" [formGroup]="PaymentForm" class="px-3" (ngSubmit)="Save()">
-              <!-- <div class="absolute text-left ml-auto right-6">
-                <label class="font-medium flex flex-row"><span class="flex flex-col ml-8"> <span class="text-xs ml-auto">{{order.table_details.table_room_name}}</span>Table No. {{order.table_details.table_number}}
-                
-                </span>
-                </label>
-              </div> -->
-              <div class="mt-6 sm:mt-8 lg:mt-0">
-                <div class="space-y-4 rounded-lg border border-border bg-muted p-6">
-                  <div class="space-y-2">
-<!--                     <dl class="flex items-center justify-between gap-4">
-                      <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Original price</dt>
-                      <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$6,592.00</dd>
-                    </dl>
-      
-                    <dl class="flex items-center justify-between gap-4">
-                      <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Savings</dt>
-                      <dd class="text-base font-medium text-green-500">-$299.00</dd>
-                    </dl>
-      
-                    <dl class="flex items-center justify-between gap-4">
-                      <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Store Pickup</dt>
-                      <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$99</dd>
-                    </dl>
-      
-                    <dl class="flex items-center justify-between gap-4">
-                      <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Tax</dt>
-                      <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$799</dd>
-                    </dl>
-                  </div> -->
-      
-                  <dl class="flex items-center justify-between gap-4 border-t border-border pt-2">
-                    <dt class="text-base font-semibold text-foreground">Total Bill Due</dt>
-                    <dd class="text-base font-semibold text-foreground">UGX {{rest?.flat_fee|number}}</dd>
-                  </dl>
-                </div>
-                </div>
-                </div>
-            <!--   <div class="mt-12">
-                <div class="text-lg">Select the payment mode</div>
-              </div>
-              <div class="mt-4 flex flex-row space-x-3">
-                  <div class="flex">
-                      <div class="flex items-center h-5">
-                          <input formControlName="payment_form" value="full" type="radio" class="w-4 h-4 text-primary bg-muted border-border">
-                      </div>
-                      <div class="ms-2 text-sm">
-                          <label for="helper-radio" class="font-medium text-foreground">Full Payment</label>
-                          <p id="helper-radio-text" class="text-xs font-normal">Pay the full outstanding amount UGX {{order.actual_cost|number}}</p>
-                      </div>
-                  </div>
-                  <div class="flex">
-                      <div class="flex items-center h-5">
-                          <input formControlName="payment_form" value="split" type="radio" class="w-4 h-4 text-primary bg-muted border-border">
-                      </div>
-                      <div class="ms-2 text-sm">
-                          <label for="helper-radio" class="font-medium">Split Payment</label>
-                          <p id="helper-radio-text" class="text-xs font-normal">Pay the part of the outstanding amount UGX {{order.actual_cost|number}}</p>
-                      </div>
-                  </div>
-              </div> -->
-              <div *ngIf="PaymentForm.get('payment_form')?.value==='split'&&!require_otp" class="mt-4">
-                  <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Amount to Pay</label>
-                  <input formControlName="amount" class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 ">
-              </div>
-              <div class="mt-4" *ngIf="!require_otp">
-                  <div class="text-lg">Select the Payment Method</div>
-                  <div class="flex items-center justify-center mt-4">
-              
-                      <!-- Component Start -->
-                      <div [ngClass]="{'grid-cols-3':!canChangeBillingDate,'grid-cols-4':canChangeBillingDate}" class="grid gap-2 w-full">
-                          <div>
-                              <input #momopayment formControlName="payment_mode" value="momo" class="hidden" id="radio_1" type="radio">
-                              <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-primary border-2':momopayment.checked,'border-border':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_1">
-                                <svg class="mx-auto" x="0px" y="0px"
-                                width="60px" height="60px" viewBox="0 0 276.661 276.262" enable-background="new 0 0 276.661 276.262"
-                                xml:space="preserve">
+<app-dn-dialog [open]="showModal" maxWidth="lg" (closed)="closeModal()">
+  <div class="relative">
+    <!-- Modal content -->
+    <div class="relative rounded-lg">
+      <div  class="flex items-start justify-between p-4 rounded-t">
+        <h3 class="flex flex-row">
+          @if (PaymentForm) {
+            <span class="font-thin">Pay Subscription Now</span>
+          }
+        </h3>
+        <button type="button" (click)="closeModal()" class="text-muted-foreground bg-transparent hover:bg-accent hover:text-foreground rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editUserModal">
+          <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+          </svg>
+          <span class="sr-only">Close modal</span>
+        </button>
+      </div>
+      <!-- Modal body -->
+      <div class="flex flex-col">
+        @if (PaymentForm) {
+          <form [formGroup]="PaymentForm" class="px-3" (ngSubmit)="Save()">
+            <!-- <div class="absolute text-left ml-auto right-6">
+            <label class="font-medium flex flex-row"><span class="flex flex-col ml-8"> <span class="text-xs ml-auto">{{order.table_details.table_room_name}}</span>Table No. {{order.table_details.table_number}}
+          </span>
+        </label>
+      </div> -->
+      <div class="mt-6 sm:mt-8 lg:mt-0">
+        <div class="space-y-4 rounded-lg border border-border bg-muted p-6">
+          <div class="space-y-2">
+            <!--                     <dl class="flex items-center justify-between gap-4">
+            <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Original price</dt>
+            <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$6,592.00</dd>
+          </dl>
+          <dl class="flex items-center justify-between gap-4">
+            <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Savings</dt>
+            <dd class="text-base font-medium text-green-500">-$299.00</dd>
+          </dl>
+          <dl class="flex items-center justify-between gap-4">
+            <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Store Pickup</dt>
+            <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$99</dd>
+          </dl>
+          <dl class="flex items-center justify-between gap-4">
+            <dt class="text-base font-normal text-muted-foreground dark:text-muted-foreground">Tax</dt>
+            <dd class="text-base font-medium text-foreground dark:text-primary-foreground">$799</dd>
+          </dl>
+        </div> -->
+        <dl class="flex items-center justify-between gap-4 border-t border-border pt-2">
+          <dt class="text-base font-semibold text-foreground">Total Bill Due</dt>
+          <dd class="text-base font-semibold text-foreground">UGX {{rest?.flat_fee|number}}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <!--   <div class="mt-12">
+  <div class="text-lg">Select the payment mode</div>
+</div>
+<div class="mt-4 flex flex-row space-x-3">
+  <div class="flex">
+    <div class="flex items-center h-5">
+      <input formControlName="payment_form" value="full" type="radio" class="w-4 h-4 text-primary bg-muted border-border">
+    </div>
+    <div class="ms-2 text-sm">
+      <label for="helper-radio" class="font-medium text-foreground">Full Payment</label>
+      <p id="helper-radio-text" class="text-xs font-normal">Pay the full outstanding amount UGX {{order.actual_cost|number}}</p>
+    </div>
+  </div>
+  <div class="flex">
+    <div class="flex items-center h-5">
+      <input formControlName="payment_form" value="split" type="radio" class="w-4 h-4 text-primary bg-muted border-border">
+    </div>
+    <div class="ms-2 text-sm">
+      <label for="helper-radio" class="font-medium">Split Payment</label>
+      <p id="helper-radio-text" class="text-xs font-normal">Pay the part of the outstanding amount UGX {{order.actual_cost|number}}</p>
+    </div>
+  </div>
+</div> -->
+@if (PaymentForm.get('payment_form')?.value==='split'&&!require_otp) {
+  <div class="mt-4">
+    <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Amount to Pay</label>
+    <input formControlName="amount" class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 ">
+  </div>
+}
+@if (!require_otp) {
+  <div class="mt-4">
+    <div class="text-lg">Select the Payment Method</div>
+    <div class="flex items-center justify-center mt-4">
+      <!-- Component Start -->
+      <div [ngClass]="{'grid-cols-3':!canChangeBillingDate,'grid-cols-4':canChangeBillingDate}" class="grid gap-2 w-full">
+        <div>
+          <input #momopayment formControlName="payment_mode" value="momo" class="hidden" id="radio_1" type="radio">
+          <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-primary border-2':momopayment.checked,'border-border':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_1">
+            <svg class="mx-auto" x="0px" y="0px"
+              width="60px" height="60px" viewBox="0 0 276.661 276.262" enable-background="new 0 0 276.661 276.262"
+              xml:space="preserve">
                              <path style="stroke-width: 3px;stroke: black;" fill="none" d="M140.4,276.262c-45.854,0-89.049-5.785-124.916-16.729L4.138,256.07V23.93l11.347-3.462
                                C51.352,9.522,94.547,3.738,140.4,3.738c45.852,0,89.046,5.785,124.913,16.73l11.348,3.462V256.07l-11.348,3.463
                                C229.444,270.477,186.25,276.262,140.4,276.262"/>
@@ -252,7 +252,6 @@
                                C166.113,234.583,162.808,236.496,159.428,235.9"/>
                              <path style="stroke-width: 2px;stroke: black;" fill="#FFFFFF"   d="M138.854,213.811c1.381-3.792-0.574-7.984-4.366-9.364c-3.792-1.381-7.985,0.574-9.364,4.366
                                c-1.381,3.792,0.574,7.984,4.366,9.364C133.281,219.558,137.474,217.603,138.854,213.811"/>
-                             
                              <path fill="#FFFFFF" d="M210.524,81.301L155.39,61.234c-2.134-0.777-4.492,0.323-5.269,2.456l-21.705,59.645l58.392,35.157l26.173-71.923
                                C213.756,84.436,212.657,82.077,210.524,81.301"/>
                              <path style="stroke-width: 2px;stroke: gray;" color="#FFFFFF"  fill="none" d="M160.902,45.655l-0.284-0.354l-2.12-2.679c-1.123-1.024-2.912-1.185-4.243-0.381l-22.821,13.88
@@ -264,184 +263,176 @@
                                c0.153,0.138,0.298,0.279,0.449,0.418C175.229,72.934,183.645,102.27,182.252,135.917 M103.729,48.704l-40.532,69.545
                                c59.289,19.192,101.272,44.101,109.405,71.468c0.281,0.944,0.522,1.892,0.723,2.842c1.543-5.403,2.756-10.967,3.591-16.672
                                C185.377,118.085,154.133,64.87,103.729,48.704"/>
-                             
                              <path d="M146.783,211.728c-0.479-0.175-1.003,0.149-1.038,0.657c-0.083,1.221-0.32,2.447-0.761,3.657
                                c-0.439,1.208-1.047,2.302-1.768,3.289c-0.3,0.413-0.105,0.998,0.373,1.173l15.307,5.57c1.615,0.589,3.402-0.244,3.99-1.86
                                l1.064-2.925c0.588-1.616-0.245-3.402-1.86-3.99L146.783,211.728z"/>
                              <path d="M120.388,202.12l-15.307-5.571c-1.615-0.588-3.401,0.245-3.99,1.86l-1.064,2.926c-0.588,1.615,0.245,3.402,1.86,3.99
                                l15.308,5.571c0.479,0.174,1.004-0.149,1.038-0.658c0.083-1.221,0.321-2.448,0.76-3.656c0.441-1.209,1.048-2.302,1.769-3.291
                                C121.061,202.88,120.866,202.294,120.388,202.12"/>
-                             </svg>
-                                  <span class="text-xs font-semibold uppercase mx-auto">Mobile Money</span>
-                                 <!--  <span class="text-xl font-bold mt-2">$10/mo</span>
-                                  <ul class="text-sm mt-2">
-                                      <li>Thing 1</li>
-                                      <li>Thing 2</li>
-                                  </ul> -->
-                              </label>
-                          </div>
-                          <div>
-                              <input #cardpayment formControlName="payment_mode" value="card" class="hidden" id="radio_2" type="radio">
-                              <label for="radio_2" (click)="cardpayment.click()" [ngClass]="{'border-2 border-primary':cardpayment.checked,'border-border':!cardpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_2">
-                                <svg version="1.1" class="mx-auto" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
-                                  <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
-                                      <path d="M 51.751 51.893 H 3.96 c -2.184 0 -3.96 -1.777 -3.96 -3.961 v -37.6 c 0 -2.184 1.777 -3.961 3.96 -3.961 h 62.964 c 2.184 0 3.96 1.777 3.96 3.961 v 22.123 c 0 0.552 -0.447 1 -1 1 s -1 -0.448 -1 -1 V 10.332 c 0 -1.081 -0.879 -1.961 -1.96 -1.961 H 3.96 C 2.879 8.371 2 9.251 2 10.332 v 37.6 c 0 1.081 0.879 1.961 1.96 1.961 h 47.791 c 0.553 0 1 0.447 1 1 S 52.304 51.893 51.751 51.893 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 22.844 26.025 H 8.898 c -0.552 0 -1 -0.448 -1 -1 V 14.511 c 0 -0.552 0.448 -1 1 -1 h 13.946 c 0.552 0 1 0.448 1 1 v 10.515 C 23.844 25.578 23.396 26.025 22.844 26.025 z M 9.898 24.025 h 11.946 v -8.515 H 9.898 V 24.025 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 22.844 38.971 H 8.898 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 13.946 c 0.552 0 1 0.448 1 1 S 23.396 38.971 22.844 38.971 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 35.442 38.971 h -4.675 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 4.675 c 0.552 0 1 0.448 1 1 S 35.995 38.971 35.442 38.971 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 47.568 19.161 c -0.553 0 -1 -0.448 -1 -1 v -3.65 c 0 -0.552 0.447 -1 1 -1 s 1 0.448 1 1 v 3.65 C 48.568 18.713 48.121 19.161 47.568 19.161 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 52.646 19.161 c -0.553 0 -1 -0.448 -1 -1 v -3.65 c 0 -0.552 0.447 -1 1 -1 s 1 0.448 1 1 v 3.65 C 53.646 18.713 53.199 19.161 52.646 19.161 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 57.724 19.161 c -0.553 0 -1 -0.448 -1 -1 v -3.65 c 0 -0.552 0.447 -1 1 -1 s 1 0.448 1 1 v 3.65 C 58.724 18.713 58.276 19.161 57.724 19.161 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 62.802 19.161 c -0.553 0 -1 -0.448 -1 -1 v -3.65 c 0 -0.552 0.447 -1 1 -1 s 1 0.448 1 1 v 3.65 C 63.802 18.713 63.354 19.161 62.802 19.161 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 9.717 65 c -0.802 0 -1.583 -0.244 -2.255 -0.712 c -0.868 -0.605 -1.449 -1.512 -1.635 -2.554 l -1.082 -6.046 c -0.097 -0.543 0.265 -1.063 0.808 -1.16 c 0.547 -0.095 1.064 0.265 1.161 0.809 l 1.082 6.046 c 0.092 0.516 0.379 0.965 0.809 1.264 c 0.43 0.299 0.95 0.411 1.466 0.321 l 47.044 -8.411 c 0.545 -0.097 1.063 0.265 1.16 0.809 s -0.265 1.063 -0.809 1.16 l -47.044 8.411 C 10.188 64.979 9.951 65 9.717 65 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 89 67.568 h -2.797 c 0.39 -3.955 0.985 -7.413 1.564 -10.761 c 1.136 -6.561 2.116 -12.226 1.108 -19.249 c -0.671 -4.672 -3.806 -8.652 -8.138 -10.37 l -3.621 -1.636 c -0.504 -0.228 -1.097 -0.003 -1.323 0.5 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 3.664 1.654 c 3.712 1.472 6.37 4.849 6.938 8.813 c 0.964 6.709 0.008 12.23 -1.099 18.623 c -0.596 3.44 -1.207 6.995 -1.602 11.103 H 57.919 c 0.992 -5.249 3.437 -9.945 6.993 -13.309 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -7.671 -7.379 c -0.572 -0.5 -1.229 -0.877 -1.95 -1.119 c -0.042 -0.014 -0.084 -0.025 -0.127 -0.034 l -7.66 -1.494 c -2.577 -0.897 -4.054 -3.563 -3.439 -6.229 l 0.236 -1.024 c 0.623 -2.705 3.263 -4.486 6.069 -4.061 l 7.399 0.645 c 0.559 0.086 1.101 0.303 1.562 0.625 l 14.237 10.03 c 0.454 0.319 1.076 0.21 1.394 -0.241 c 0.318 -0.452 0.21 -1.076 -0.241 -1.394 L 60.484 31.105 c -0.714 -0.498 -1.546 -0.832 -2.47 -0.971 l -7.399 -0.645 c -3.768 -0.582 -7.4 1.875 -8.258 5.596 l -0.236 1.024 c -0.851 3.694 1.218 7.389 4.812 8.594 c 0.042 0.014 0.084 0.025 0.127 0.033 l 7.659 1.494 c 0.447 0.158 0.854 0.396 1.177 0.677 l 6.897 6.637 c -3.54 3.667 -5.952 8.588 -6.908 14.024 h -3.099 c -0.553 0 -1 0.447 -1 1 v 14.061 c 0 0.553 0.447 1 1 1 H 89 c 0.553 0 1 -0.447 1 -1 V 68.568 C 90 68.016 89.553 67.568 89 67.568 z M 88 81.629 H 53.786 V 69.568 H 88 V 81.629 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                  </g>
-                                <!--   <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
-                                      <path d="M 81.159 25.776 l -0.9 -10.05 c -0.101 -1.123 -1.092 -1.952 -2.215 -1.851 L 1.86 20.698 c -1.123 0.101 -1.952 1.092 -1.851 2.215 l 4.128 46.09 c 0.101 1.123 1.092 1.952 2.215 1.851 l 3.076 -0.276 L 81.159 25.776 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(176,182,188); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 9.428 74.189 c 0 1.074 0.871 1.944 1.944 1.944 h 76.683 c 1.074 0 1.944 -0.871 1.944 -1.944 V 49.73 c -26.255 -4.947 -53.138 -4.734 -80.572 0 V 74.189 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(64,89,107); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 88.056 25.776 H 11.372 c -1.074 0 -1.944 0.871 -1.944 1.945 v 7.719 c 26.857 6.175 53.715 6.175 80.572 0 v -7.719 C 90 26.647 89.129 25.776 88.056 25.776 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(64,89,107); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <rect x="9.43" y="35.44" rx="0" ry="0" width="80.57" height="14.29" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) "/>
-                                      <path d="M 51.045 60.484 H 19.469 c -0.552 0 -1 -0.447 -1 -1 s 0.448 -1 1 -1 h 31.576 c 0.553 0 1 0.447 1 1 S 51.598 60.484 51.045 60.484 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 37.707 68.001 H 19.469 c -0.552 0 -1 -0.447 -1 -1 s 0.448 -1 1 -1 h 18.238 c 0.552 0 1 0.447 1 1 S 38.259 68.001 37.707 68.001 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 51.045 68.001 h -8.574 c -0.552 0 -1 -0.447 -1 -1 s 0.448 -1 1 -1 h 8.574 c 0.553 0 1 0.447 1 1 S 51.598 68.001 51.045 68.001 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      <path d="M 81.153 58.484 H 65.638 c -0.553 0 -1 0.447 -1 1 v 7.517 c 0 0.553 0.447 1 1 1 h 15.516 c 0.553 0 1 -0.447 1 -1 v -7.517 C 82.153 58.932 81.706 58.484 81.153 58.484 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                  </g> -->
-                                      </svg>
-                                  <!--   <svg fill="#ffffff" height="60px" width="60px" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-48.7 -48.7 584.40 584.40" xml:space="preserve" stroke="#ffffff"><g id="SVGRepo_bgCarrier" stroke-width="0"><rect x="-48.7" y="-48.7" width="584.40" height="584.40" rx="35.06399999999999" fill="#000000" strokewidth="0"></rect></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <path d="M79.8,155.1v178.1c0,20.4,16.6,37,37,37h61.3v-22.9c0-1.9,0.1-3.7,0.4-5.6h-61.6c-4.7,0-8.5-3.8-8.5-8.5V221.3h350.1 v111.9c0,4.7-3.8,8.5-8.5,8.5h-61.6c0.2,1.8,0.3,3.7,0.3,5.6v22.9H450c20.4,0,37-16.6,37-37V155.1c0-20.4-16.6-37-37-37H116.8 C96.3,118.1,79.8,134.6,79.8,155.1z M458.5,155.1V174H108.3v-18.9c0-4.7,3.8-8.5,8.5-8.5H450C454.7,146.6,458.5,150.4,458.5,155.1 z"></path> <path d="M37,291.8h18.4v-28.5H37c-4.7,0-8.5-3.8-8.5-8.5V76.6c0-4.7,3.8-8.5,8.5-8.5h333.2c4.7,0,8.5,3.8,8.5,8.5v17.1h28.5V76.6 c0-20.4-16.6-37-37-37H37c-20.4,0-37,16.6-37,37v178.1C0,275.2,16.5,291.8,37,291.8z"></path> <path d="M251.1,331.9h-25.5h-1.4c-8.5,0-15.4,6.9-15.4,15.4V432c0,8.5,6.9,15.4,15.4,15.4h118.3c8.5,0,15.4-6.9,15.4-15.4v-84.7 c0-8.5-6.9-15.4-15.4-15.4h-0.4v-18.5c0-30.3-22.4-56.8-52.6-59.7c-32.6-3.1-60.5,21-63.6,52.2c-0.3,3.1,2.1,5.7,5.2,5.7h15.2 c2.6,0,4.7-1.9,5.1-4.5c2.4-17.3,18.3-30.4,36.8-28c16.5,2.1,28.4,17,28.4,33.6v19.1h-65.5V331.9z M292.5,393.4 c-1.2,0.9-1.5,1.7-1.5,3.1c0,6.2,0,12.4,0,18.6l0,0c0.1,2.6-1.2,5.1-3.5,6.3c-5.4,2.8-10.9-1.1-10.9-6.3l0,0c0-6.2,0-12.5,0-18.7 c0-1.3-0.3-2.1-1.4-2.9c-5.6-4.2-7.5-11.2-4.7-17.5c2.7-6.1,9.4-9.6,15.7-8.4c7,1.4,11.9,7.1,12,14.1 C298.4,386.6,296.4,390.6,292.5,393.4z"></path> </g> </g> </g></svg> -->
-                                  <span class="text-xs font-semibold uppercase mx-auto">Card</span>
-                                 
-                              </label>
-                          </div>
-                          <div>
-                            <input #collectionspayment formControlName="payment_mode" value="ova" class="hidden" id="radio_4" type="radio">
-                            <label for="radio_3" (click)="collectionspayment.click()" [ngClass]="{'border-2 border-primary':collectionspayment.checked,'border-border':!collectionspayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_4">
-                             <!--    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
-            
-                                    <defs>
-                                    </defs>
-                                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
-                                        <path d="M 42.769 69.743 H 21.635 c -0.552 0 -1 -0.447 -1 -1 V 7.413 c 0 -0.552 0.448 -1 1 -1 h 33.341 c 0.553 0 1 0.448 1 1 v 44.884 c 0 0.553 -0.447 1 -1 1 s -1 -0.447 -1 -1 V 8.413 H 22.635 v 59.331 h 20.134 c 0.552 0 1 0.447 1 1 S 43.321 69.743 42.769 69.743 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                        <path d="M 38.305 48.615 c -5.307 0 -9.625 -4.318 -9.625 -9.625 s 4.317 -9.625 9.625 -9.625 s 9.625 4.317 9.625 9.625 S 43.612 48.615 38.305 48.615 z M 38.305 31.366 c -4.204 0 -7.625 3.42 -7.625 7.625 s 3.42 7.625 7.625 7.625 s 7.625 -3.42 7.625 -7.625 S 42.509 31.366 38.305 31.366 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                        <path d="M 29.73 58.593 c -0.552 0 -1 -0.447 -1 -1 v -7.587 c 0 -0.553 0.448 -1 1 -1 s 1 0.447 1 1 v 7.587 C 30.73 58.146 30.283 58.593 29.73 58.593 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                        <path d="M 46.93 28.975 c -0.553 0 -1 -0.448 -1 -1 v -6.669 c -2.496 -0.422 -4.47 -2.397 -4.893 -4.893 h -5.414 c -0.422 2.496 -2.397 4.471 -4.893 4.893 v 6.669 c 0 0.552 -0.448 1 -1 1 s -1 -0.448 -1 -1 v -7.586 c 0 -0.552 0.448 -1 1 -1 c 2.192 0 3.976 -1.784 3.976 -3.977 c 0 -0.552 0.448 -1 1 -1 h 7.247 c 0.552 0 1 0.448 1 1 c 0 2.193 1.784 3.977 3.976 3.977 c 0.553 0 1 0.448 1 1 v 7.586 C 47.93 28.527 47.482 28.975 46.93 28.975 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                        <path d="M 60.499 44.146 c -0.553 0 -1 -0.448 -1 -1 c 0 -17.598 1.384 -31.08 4.229 -41.146 H 31.722 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 33.341 c 0.316 0 0.615 0.15 0.804 0.405 c 0.188 0.254 0.245 0.583 0.153 0.886 c -3.042 10.003 -4.521 23.695 -4.521 41.855 C 61.499 43.699 61.052 44.146 60.499 44.146 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                        <path d="M 68.365 78.001 h -1.661 c 0.276 -2.665 0.675 -5.034 1.07 -7.315 c 0.812 -4.688 1.513 -8.738 0.79 -13.778 c -0.492 -3.425 -2.791 -6.343 -5.955 -7.596 l -2.574 -1.164 c -0.504 -0.228 -1.097 -0.004 -1.323 0.499 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 2.618 1.183 c 2.543 1.008 4.365 3.322 4.755 6.039 c 0.679 4.727 0.003 8.632 -0.78 13.153 c -0.41 2.374 -0.827 4.841 -1.109 7.656 H 46.61 c 0.735 -3.535 2.417 -6.688 4.824 -8.966 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -5.465 -5.256 c -0.435 -0.381 -0.935 -0.668 -1.485 -0.854 c -0.042 -0.014 -0.084 -0.024 -0.127 -0.033 l -5.427 -1.058 c -1.682 -0.596 -2.643 -2.341 -2.24 -4.085 l 0.168 -0.729 c 0.41 -1.776 2.151 -2.946 4.009 -2.666 l 5.244 0.457 c 0.354 0.055 0.697 0.192 0.988 0.395 l 10.124 7.133 c 0.454 0.317 1.076 0.211 1.394 -0.241 s 0.21 -1.075 -0.241 -1.394 L 48.253 52.12 c -0.544 -0.379 -1.177 -0.633 -1.896 -0.741 l -5.244 -0.457 c -2.829 -0.436 -5.554 1.408 -6.198 4.201 l -0.168 0.729 c -0.639 2.772 0.914 5.546 3.612 6.45 c 0.042 0.014 0.083 0.025 0.126 0.033 l 5.425 1.058 c 0.276 0.101 0.526 0.247 0.713 0.41 l 4.699 4.521 c -2.398 2.571 -4.047 5.95 -4.747 9.676 h -1.962 c -0.552 0 -1 0.447 -1 1 v 10 c 0 0.553 0.448 1 1 1 h 25.753 c 0.553 0 1 -0.447 1 -1 v -9.999 C 69.365 78.448 68.918 78.001 68.365 78.001 z M 67.365 88 H 43.612 v -7.999 h 23.753 V 88 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                    </g>
-                                    </svg> -->
-                                    <svg width="60" class="mx-auto" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                                        <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                                        <g id="SVGRepo_iconCarrier"> <path d="M7 15L7 9" stroke="#000000" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"></path> 
-                                            <path stroke-width="0.5" d="M20.8333 9H18.2308C16.4465 9 15 10.3431 15 12C15 13.6569 16.4465 15 18.2308 15H20.8333C20.9167 15 20.9583 15 20.9935 14.9979C21.5328 14.965 21.9623 14.5662 21.9977 14.0654C22 14.0327 22 13.994 22 13.9167V10.0833C22 10.006 22 9.96726 21.9977 9.9346C21.9623 9.43384 21.5328 9.03496 20.9935 9.00214C20.9583 9 20.9167 9 20.8333 9Z" stroke="#000000"></path> 
-                                            <path stroke-width="0.5" d="M20.965 9C20.8873 7.1277 20.6366 5.97975 19.8284 5.17157C18.6569 4 16.7712 4 13 4L10 4C6.22876 4 4.34315 4 3.17157 5.17157C2 6.34315 2 8.22876 2 12C2 15.7712 2 17.6569 3.17157 18.8284C4.34315 20 6.22876 20 10 20H13C16.7712 20 18.6569 20 19.8284 18.8284C20.6366 18.0203 20.8873 16.8723 20.965 15" stroke="#000000" >
-                                            </path> <path d="M17.9912 12H18.0002" stroke="#000000" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"></path> </g>
-                                    </svg>
-                                <span class="text-xs font-semibold uppercase mx-auto">Collections</span>
-                            </label>
-                        </div>
-<!-- -->                          <div *ngIf="canChangeBillingDate">
-                              <input #cashpayment formControlName="payment_mode" value="cash" class="hidden" id="radio_3" type="radio">
-                              <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-primary':cashpayment.checked,'border-border':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
-                                  <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
-              
-                                      <defs>
-                                      </defs>
-                                      <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
-                                          <path d="M 42.769 69.743 H 21.635 c -0.552 0 -1 -0.447 -1 -1 V 7.413 c 0 -0.552 0.448 -1 1 -1 h 33.341 c 0.553 0 1 0.448 1 1 v 44.884 c 0 0.553 -0.447 1 -1 1 s -1 -0.447 -1 -1 V 8.413 H 22.635 v 59.331 h 20.134 c 0.552 0 1 0.447 1 1 S 43.321 69.743 42.769 69.743 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 38.305 48.615 c -5.307 0 -9.625 -4.318 -9.625 -9.625 s 4.317 -9.625 9.625 -9.625 s 9.625 4.317 9.625 9.625 S 43.612 48.615 38.305 48.615 z M 38.305 31.366 c -4.204 0 -7.625 3.42 -7.625 7.625 s 3.42 7.625 7.625 7.625 s 7.625 -3.42 7.625 -7.625 S 42.509 31.366 38.305 31.366 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 29.73 58.593 c -0.552 0 -1 -0.447 -1 -1 v -7.587 c 0 -0.553 0.448 -1 1 -1 s 1 0.447 1 1 v 7.587 C 30.73 58.146 30.283 58.593 29.73 58.593 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 46.93 28.975 c -0.553 0 -1 -0.448 -1 -1 v -6.669 c -2.496 -0.422 -4.47 -2.397 -4.893 -4.893 h -5.414 c -0.422 2.496 -2.397 4.471 -4.893 4.893 v 6.669 c 0 0.552 -0.448 1 -1 1 s -1 -0.448 -1 -1 v -7.586 c 0 -0.552 0.448 -1 1 -1 c 2.192 0 3.976 -1.784 3.976 -3.977 c 0 -0.552 0.448 -1 1 -1 h 7.247 c 0.552 0 1 0.448 1 1 c 0 2.193 1.784 3.977 3.976 3.977 c 0.553 0 1 0.448 1 1 v 7.586 C 47.93 28.527 47.482 28.975 46.93 28.975 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 60.499 44.146 c -0.553 0 -1 -0.448 -1 -1 c 0 -17.598 1.384 -31.08 4.229 -41.146 H 31.722 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 33.341 c 0.316 0 0.615 0.15 0.804 0.405 c 0.188 0.254 0.245 0.583 0.153 0.886 c -3.042 10.003 -4.521 23.695 -4.521 41.855 C 61.499 43.699 61.052 44.146 60.499 44.146 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                          <path d="M 68.365 78.001 h -1.661 c 0.276 -2.665 0.675 -5.034 1.07 -7.315 c 0.812 -4.688 1.513 -8.738 0.79 -13.778 c -0.492 -3.425 -2.791 -6.343 -5.955 -7.596 l -2.574 -1.164 c -0.504 -0.228 -1.097 -0.004 -1.323 0.499 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 2.618 1.183 c 2.543 1.008 4.365 3.322 4.755 6.039 c 0.679 4.727 0.003 8.632 -0.78 13.153 c -0.41 2.374 -0.827 4.841 -1.109 7.656 H 46.61 c 0.735 -3.535 2.417 -6.688 4.824 -8.966 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -5.465 -5.256 c -0.435 -0.381 -0.935 -0.668 -1.485 -0.854 c -0.042 -0.014 -0.084 -0.024 -0.127 -0.033 l -5.427 -1.058 c -1.682 -0.596 -2.643 -2.341 -2.24 -4.085 l 0.168 -0.729 c 0.41 -1.776 2.151 -2.946 4.009 -2.666 l 5.244 0.457 c 0.354 0.055 0.697 0.192 0.988 0.395 l 10.124 7.133 c 0.454 0.317 1.076 0.211 1.394 -0.241 s 0.21 -1.075 -0.241 -1.394 L 48.253 52.12 c -0.544 -0.379 -1.177 -0.633 -1.896 -0.741 l -5.244 -0.457 c -2.829 -0.436 -5.554 1.408 -6.198 4.201 l -0.168 0.729 c -0.639 2.772 0.914 5.546 3.612 6.45 c 0.042 0.014 0.083 0.025 0.126 0.033 l 5.425 1.058 c 0.276 0.101 0.526 0.247 0.713 0.41 l 4.699 4.521 c -2.398 2.571 -4.047 5.95 -4.747 9.676 h -1.962 c -0.552 0 -1 0.447 -1 1 v 10 c 0 0.553 0.448 1 1 1 h 25.753 c 0.553 0 1 -0.447 1 -1 v -9.999 C 69.365 78.448 68.918 78.001 68.365 78.001 z M 67.365 88 H 43.612 v -7.999 h 23.753 V 88 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-                                      </g>
-                                      </svg>
-                                  <span class="text-xs font-semibold uppercase mx-auto">Manual</span>
-                              </label>
-                          </div> 
-                      </div>
-                      <!-- Component End  -->
-                  
-                  </div>
-                  <div *ngIf="PaymentForm.get('payment_mode')?.value==='momo'" class="mt-4">
-                  <!--   <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Phone number</label>
-                    <input formControlName="msisdn" class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 "> -->
-                    <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Phone number</label>
-                    <div class="relative mt-2 rounded-md shadow-[var(--shadow-sm)]">
-                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <span class="text-muted-foreground sm:text-sm">+256</span>
-                        </div>
-                        <input type="text" formControlName="msisdn" class="block rounded w-full py-1.5 pl-[3.5rem] pr-20 text-foreground ring-1 ring-inset ring-border placeholder:text-muted-foreground focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6bg-muted border border-border placeholder:text-xs focus:ring-ring focus:border-ring">
-                      
-                      </div>
-                </div>
-                  <div class="mt-8">
-                      <button app-dn-button type="submit" class="w-full">
-        Pay Now
-                      </button>
-                  </div>
-                  </div>
-                  <div *ngIf="require_otp" class="relative bg-card px-6 pt-10 pb-9 shadow-[var(--shadow-lg)] mx-auto w-full max-w-screen rounded-2xl">
-                    <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
-                      <div class="flex flex-col items-center justify-center text-center space-y-2">
-                        <div class="font-semibold text-3xl">
-                          <p>One Time Password(OTP)</p>
-                        </div>
-                        <div class="flex flex-row text-sm font-medium text-muted-foreground">
-                          <p>We have sent the OTP to your phone</p>
-                        </div>
-                        <div class="font-semibold text-xl">
-                            <p>+256 {{this.PaymentForm.get('msisdn')?.value}}</p>
-                          </div>
-                      </div>
-                
-                      <div>
-                        
-                        
-                          <div class="flex flex-col space-y-16">
-                            <div>
-                                <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
-                            <!--   <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
-                              </div>
-                              <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
-                              </div>
-                              <div class="w-16 h-16">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
-                              </div>
-                              <div class="w-16 h-16 ">
-                                <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
-                              </div> -->
-                            </div>
-                
-                            <div class="flex flex-col space-y-5">
-                              <div>
-                                <button app-dn-button type="submit" [disabled]="!!input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
-                                  Verify OTP & Pay {{'UGX '+(rest?.flat_fee|number)}}
-                                </button>
-                              </div>
-                              <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 -my-2 text-muted-foreground">
-                                <a (click)="require_otp=false" class="flex flex-row items-center text-muted-foreground underline" [routerLink]="[]" >Cancel</a>
-                              </div>
-              
-                              <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-muted-foreground">
-                                <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.PaymentForm.get('msisdn')?.value,null)" class="flex flex-row items-center text-primary" [routerLink]="[]" >Resend</a>
-                              </div>
-                            </div>
-                          </div>
-                      
-                      </div>
-                    </div>
-                </div>
-              
-                     
-                  
-               
-              </form>
-            </div>
-            </div>
-            
-            <div>
+            </svg>
+            <span class="text-xs font-semibold uppercase mx-auto">Mobile Money</span>
+            <!--  <span class="text-xl font-bold mt-2">$10/mo</span>
+            <ul class="text-sm mt-2">
+              <li>Thing 1</li>
+              <li>Thing 2</li>
+            </ul> -->
+          </label>
+        </div>
+        <div>
+          <input #cardpayment formControlName="payment_mode" value="card" class="hidden" id="radio_2" type="radio">
+          <label for="radio_2" (click)="cardpayment.click()" [ngClass]="{'border-2 border-primary':cardpayment.checked,'border-border':!cardpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_2">
+            <svg version="1.1" class="mx-auto" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
+              <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                <path d="M 51.751 51.893 H 3.96 c -2.184 0 -3.96 -1.777 -3.96 -3.961 v -37.6 c 0 -2.184 1.777 -3.961 3.96 -3.961 h 62.964 c 2.184 0 3.96 1.777 3.96 3.961 v 22.123 c 0 0.552 -0.447 1 -1 1 s -1 -0.448 -1 -1 V 10.332 c 0 -1.081 -0.879 -1.961 -1.96 -1.961 H 3.96 C 2.879 8.371 2 9.251 2 10.332 v 37.6 c 0 1.081 0.879 1.961 1.96 1.961 h 47.791 c 0.553 0 1 0.447 1 1 S 52.304 51.893 51.751 51.893 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 22.844 26.025 H 8.898 c -0.552 0 -1 -0.448 -1 -1 V 14.511 c 0 -0.552 0.448 -1 1 -1 h 13.946 c 0.552 0 1 0.448 1 1 v 10.515 C 23.844 25.578 23.396 26.025 22.844 26.025 z M 9.898 24.025 h 11.946 v -8.515 H 9.898 V 24.025 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 22.844 38.971 H 8.898 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 13.946 c 0.552 0 1 0.448 1 1 S 23.396 38.971 22.844 38.971 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 35.442 38.971 h -4.675 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 4.675 c 0.552 0 1 0.448 1 1 S 35.995 38.971 35.442 38.971 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 47.568 19.161 c -0.553 0 -1 -0.448 -1 -1 v -3.65 c 0 -0.552 0.447 -1 1 -1 s 1 0.448 1 1 v 3.65 C 48.568 18.713 48.121 19.161 47.568 19.161 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 52.646 19.161 c -0.553 0 -1 -0.448 -1 -1 v -3.65 c 0 -0.552 0.447 -1 1 -1 s 1 0.448 1 1 v 3.65 C 53.646 18.713 53.199 19.161 52.646 19.161 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 57.724 19.161 c -0.553 0 -1 -0.448 -1 -1 v -3.65 c 0 -0.552 0.447 -1 1 -1 s 1 0.448 1 1 v 3.65 C 58.724 18.713 58.276 19.161 57.724 19.161 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 62.802 19.161 c -0.553 0 -1 -0.448 -1 -1 v -3.65 c 0 -0.552 0.447 -1 1 -1 s 1 0.448 1 1 v 3.65 C 63.802 18.713 63.354 19.161 62.802 19.161 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 9.717 65 c -0.802 0 -1.583 -0.244 -2.255 -0.712 c -0.868 -0.605 -1.449 -1.512 -1.635 -2.554 l -1.082 -6.046 c -0.097 -0.543 0.265 -1.063 0.808 -1.16 c 0.547 -0.095 1.064 0.265 1.161 0.809 l 1.082 6.046 c 0.092 0.516 0.379 0.965 0.809 1.264 c 0.43 0.299 0.95 0.411 1.466 0.321 l 47.044 -8.411 c 0.545 -0.097 1.063 0.265 1.16 0.809 s -0.265 1.063 -0.809 1.16 l -47.044 8.411 C 10.188 64.979 9.951 65 9.717 65 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                <path d="M 89 67.568 h -2.797 c 0.39 -3.955 0.985 -7.413 1.564 -10.761 c 1.136 -6.561 2.116 -12.226 1.108 -19.249 c -0.671 -4.672 -3.806 -8.652 -8.138 -10.37 l -3.621 -1.636 c -0.504 -0.228 -1.097 -0.003 -1.323 0.5 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 3.664 1.654 c 3.712 1.472 6.37 4.849 6.938 8.813 c 0.964 6.709 0.008 12.23 -1.099 18.623 c -0.596 3.44 -1.207 6.995 -1.602 11.103 H 57.919 c 0.992 -5.249 3.437 -9.945 6.993 -13.309 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -7.671 -7.379 c -0.572 -0.5 -1.229 -0.877 -1.95 -1.119 c -0.042 -0.014 -0.084 -0.025 -0.127 -0.034 l -7.66 -1.494 c -2.577 -0.897 -4.054 -3.563 -3.439 -6.229 l 0.236 -1.024 c 0.623 -2.705 3.263 -4.486 6.069 -4.061 l 7.399 0.645 c 0.559 0.086 1.101 0.303 1.562 0.625 l 14.237 10.03 c 0.454 0.319 1.076 0.21 1.394 -0.241 c 0.318 -0.452 0.21 -1.076 -0.241 -1.394 L 60.484 31.105 c -0.714 -0.498 -1.546 -0.832 -2.47 -0.971 l -7.399 -0.645 c -3.768 -0.582 -7.4 1.875 -8.258 5.596 l -0.236 1.024 c -0.851 3.694 1.218 7.389 4.812 8.594 c 0.042 0.014 0.084 0.025 0.127 0.033 l 7.659 1.494 c 0.447 0.158 0.854 0.396 1.177 0.677 l 6.897 6.637 c -3.54 3.667 -5.952 8.588 -6.908 14.024 h -3.099 c -0.553 0 -1 0.447 -1 1 v 14.061 c 0 0.553 0.447 1 1 1 H 89 c 0.553 0 1 -0.447 1 -1 V 68.568 C 90 68.016 89.553 67.568 89 67.568 z M 88 81.629 H 53.786 V 69.568 H 88 V 81.629 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              </g>
+              <!--   <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+              <path d="M 81.159 25.776 l -0.9 -10.05 c -0.101 -1.123 -1.092 -1.952 -2.215 -1.851 L 1.86 20.698 c -1.123 0.101 -1.952 1.092 -1.851 2.215 l 4.128 46.09 c 0.101 1.123 1.092 1.952 2.215 1.851 l 3.076 -0.276 L 81.159 25.776 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(176,182,188); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 9.428 74.189 c 0 1.074 0.871 1.944 1.944 1.944 h 76.683 c 1.074 0 1.944 -0.871 1.944 -1.944 V 49.73 c -26.255 -4.947 -53.138 -4.734 -80.572 0 V 74.189 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(64,89,107); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 88.056 25.776 H 11.372 c -1.074 0 -1.944 0.871 -1.944 1.945 v 7.719 c 26.857 6.175 53.715 6.175 80.572 0 v -7.719 C 90 26.647 89.129 25.776 88.056 25.776 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(64,89,107); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <rect x="9.43" y="35.44" rx="0" ry="0" width="80.57" height="14.29" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) "/>
+              <path d="M 51.045 60.484 H 19.469 c -0.552 0 -1 -0.447 -1 -1 s 0.448 -1 1 -1 h 31.576 c 0.553 0 1 0.447 1 1 S 51.598 60.484 51.045 60.484 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 37.707 68.001 H 19.469 c -0.552 0 -1 -0.447 -1 -1 s 0.448 -1 1 -1 h 18.238 c 0.552 0 1 0.447 1 1 S 38.259 68.001 37.707 68.001 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 51.045 68.001 h -8.574 c -0.552 0 -1 -0.447 -1 -1 s 0.448 -1 1 -1 h 8.574 c 0.553 0 1 0.447 1 1 S 51.598 68.001 51.045 68.001 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 81.153 58.484 H 65.638 c -0.553 0 -1 0.447 -1 1 v 7.517 c 0 0.553 0.447 1 1 1 h 15.516 c 0.553 0 1 -0.447 1 -1 v -7.517 C 82.153 58.932 81.706 58.484 81.153 58.484 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(242,242,242); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+            </g> -->
+          </svg>
+          <!--   <svg fill="#ffffff" height="60px" width="60px" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-48.7 -48.7 584.40 584.40" xml:space="preserve" stroke="#ffffff"><g id="SVGRepo_bgCarrier" stroke-width="0"><rect x="-48.7" y="-48.7" width="584.40" height="584.40" rx="35.06399999999999" fill="#000000" strokewidth="0"></rect></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <path d="M79.8,155.1v178.1c0,20.4,16.6,37,37,37h61.3v-22.9c0-1.9,0.1-3.7,0.4-5.6h-61.6c-4.7,0-8.5-3.8-8.5-8.5V221.3h350.1 v111.9c0,4.7-3.8,8.5-8.5,8.5h-61.6c0.2,1.8,0.3,3.7,0.3,5.6v22.9H450c20.4,0,37-16.6,37-37V155.1c0-20.4-16.6-37-37-37H116.8 C96.3,118.1,79.8,134.6,79.8,155.1z M458.5,155.1V174H108.3v-18.9c0-4.7,3.8-8.5,8.5-8.5H450C454.7,146.6,458.5,150.4,458.5,155.1 z"></path> <path d="M37,291.8h18.4v-28.5H37c-4.7,0-8.5-3.8-8.5-8.5V76.6c0-4.7,3.8-8.5,8.5-8.5h333.2c4.7,0,8.5,3.8,8.5,8.5v17.1h28.5V76.6 c0-20.4-16.6-37-37-37H37c-20.4,0-37,16.6-37,37v178.1C0,275.2,16.5,291.8,37,291.8z"></path> <path d="M251.1,331.9h-25.5h-1.4c-8.5,0-15.4,6.9-15.4,15.4V432c0,8.5,6.9,15.4,15.4,15.4h118.3c8.5,0,15.4-6.9,15.4-15.4v-84.7 c0-8.5-6.9-15.4-15.4-15.4h-0.4v-18.5c0-30.3-22.4-56.8-52.6-59.7c-32.6-3.1-60.5,21-63.6,52.2c-0.3,3.1,2.1,5.7,5.2,5.7h15.2 c2.6,0,4.7-1.9,5.1-4.5c2.4-17.3,18.3-30.4,36.8-28c16.5,2.1,28.4,17,28.4,33.6v19.1h-65.5V331.9z M292.5,393.4 c-1.2,0.9-1.5,1.7-1.5,3.1c0,6.2,0,12.4,0,18.6l0,0c0.1,2.6-1.2,5.1-3.5,6.3c-5.4,2.8-10.9-1.1-10.9-6.3l0,0c0-6.2,0-12.5,0-18.7 c0-1.3-0.3-2.1-1.4-2.9c-5.6-4.2-7.5-11.2-4.7-17.5c2.7-6.1,9.4-9.6,15.7-8.4c7,1.4,11.9,7.1,12,14.1 C298.4,386.6,296.4,390.6,292.5,393.4z"></path> </g> </g> </g></svg> -->
+          <span class="text-xs font-semibold uppercase mx-auto">Card</span>
+        </label>
+      </div>
+      <div>
+        <input #collectionspayment formControlName="payment_mode" value="ova" class="hidden" id="radio_4" type="radio">
+        <label for="radio_3" (click)="collectionspayment.click()" [ngClass]="{'border-2 border-primary':collectionspayment.checked,'border-border':!collectionspayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_4">
+          <!--    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
+          <defs>
+          </defs>
+          <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+            <path d="M 42.769 69.743 H 21.635 c -0.552 0 -1 -0.447 -1 -1 V 7.413 c 0 -0.552 0.448 -1 1 -1 h 33.341 c 0.553 0 1 0.448 1 1 v 44.884 c 0 0.553 -0.447 1 -1 1 s -1 -0.447 -1 -1 V 8.413 H 22.635 v 59.331 h 20.134 c 0.552 0 1 0.447 1 1 S 43.321 69.743 42.769 69.743 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+            <path d="M 38.305 48.615 c -5.307 0 -9.625 -4.318 -9.625 -9.625 s 4.317 -9.625 9.625 -9.625 s 9.625 4.317 9.625 9.625 S 43.612 48.615 38.305 48.615 z M 38.305 31.366 c -4.204 0 -7.625 3.42 -7.625 7.625 s 3.42 7.625 7.625 7.625 s 7.625 -3.42 7.625 -7.625 S 42.509 31.366 38.305 31.366 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+            <path d="M 29.73 58.593 c -0.552 0 -1 -0.447 -1 -1 v -7.587 c 0 -0.553 0.448 -1 1 -1 s 1 0.447 1 1 v 7.587 C 30.73 58.146 30.283 58.593 29.73 58.593 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+            <path d="M 46.93 28.975 c -0.553 0 -1 -0.448 -1 -1 v -6.669 c -2.496 -0.422 -4.47 -2.397 -4.893 -4.893 h -5.414 c -0.422 2.496 -2.397 4.471 -4.893 4.893 v 6.669 c 0 0.552 -0.448 1 -1 1 s -1 -0.448 -1 -1 v -7.586 c 0 -0.552 0.448 -1 1 -1 c 2.192 0 3.976 -1.784 3.976 -3.977 c 0 -0.552 0.448 -1 1 -1 h 7.247 c 0.552 0 1 0.448 1 1 c 0 2.193 1.784 3.977 3.976 3.977 c 0.553 0 1 0.448 1 1 v 7.586 C 47.93 28.527 47.482 28.975 46.93 28.975 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+            <path d="M 60.499 44.146 c -0.553 0 -1 -0.448 -1 -1 c 0 -17.598 1.384 -31.08 4.229 -41.146 H 31.722 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 33.341 c 0.316 0 0.615 0.15 0.804 0.405 c 0.188 0.254 0.245 0.583 0.153 0.886 c -3.042 10.003 -4.521 23.695 -4.521 41.855 C 61.499 43.699 61.052 44.146 60.499 44.146 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+            <path d="M 68.365 78.001 h -1.661 c 0.276 -2.665 0.675 -5.034 1.07 -7.315 c 0.812 -4.688 1.513 -8.738 0.79 -13.778 c -0.492 -3.425 -2.791 -6.343 -5.955 -7.596 l -2.574 -1.164 c -0.504 -0.228 -1.097 -0.004 -1.323 0.499 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 2.618 1.183 c 2.543 1.008 4.365 3.322 4.755 6.039 c 0.679 4.727 0.003 8.632 -0.78 13.153 c -0.41 2.374 -0.827 4.841 -1.109 7.656 H 46.61 c 0.735 -3.535 2.417 -6.688 4.824 -8.966 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -5.465 -5.256 c -0.435 -0.381 -0.935 -0.668 -1.485 -0.854 c -0.042 -0.014 -0.084 -0.024 -0.127 -0.033 l -5.427 -1.058 c -1.682 -0.596 -2.643 -2.341 -2.24 -4.085 l 0.168 -0.729 c 0.41 -1.776 2.151 -2.946 4.009 -2.666 l 5.244 0.457 c 0.354 0.055 0.697 0.192 0.988 0.395 l 10.124 7.133 c 0.454 0.317 1.076 0.211 1.394 -0.241 s 0.21 -1.075 -0.241 -1.394 L 48.253 52.12 c -0.544 -0.379 -1.177 -0.633 -1.896 -0.741 l -5.244 -0.457 c -2.829 -0.436 -5.554 1.408 -6.198 4.201 l -0.168 0.729 c -0.639 2.772 0.914 5.546 3.612 6.45 c 0.042 0.014 0.083 0.025 0.126 0.033 l 5.425 1.058 c 0.276 0.101 0.526 0.247 0.713 0.41 l 4.699 4.521 c -2.398 2.571 -4.047 5.95 -4.747 9.676 h -1.962 c -0.552 0 -1 0.447 -1 1 v 10 c 0 0.553 0.448 1 1 1 h 25.753 c 0.553 0 1 -0.447 1 -1 v -9.999 C 69.365 78.448 68.918 78.001 68.365 78.001 z M 67.365 88 H 43.612 v -7.999 h 23.753 V 88 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+          </g>
+        </svg> -->
+        <svg width="60" class="mx-auto" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+          <g id="SVGRepo_iconCarrier"> <path d="M7 15L7 9" stroke="#000000" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path stroke-width="0.5" d="M20.8333 9H18.2308C16.4465 9 15 10.3431 15 12C15 13.6569 16.4465 15 18.2308 15H20.8333C20.9167 15 20.9583 15 20.9935 14.9979C21.5328 14.965 21.9623 14.5662 21.9977 14.0654C22 14.0327 22 13.994 22 13.9167V10.0833C22 10.006 22 9.96726 21.9977 9.9346C21.9623 9.43384 21.5328 9.03496 20.9935 9.00214C20.9583 9 20.9167 9 20.8333 9Z" stroke="#000000"></path>
+          <path stroke-width="0.5" d="M20.965 9C20.8873 7.1277 20.6366 5.97975 19.8284 5.17157C18.6569 4 16.7712 4 13 4L10 4C6.22876 4 4.34315 4 3.17157 5.17157C2 6.34315 2 8.22876 2 12C2 15.7712 2 17.6569 3.17157 18.8284C4.34315 20 6.22876 20 10 20H13C16.7712 20 18.6569 20 19.8284 18.8284C20.6366 18.0203 20.8873 16.8723 20.965 15" stroke="#000000" >
+            </path> <path d="M17.9912 12H18.0002" stroke="#000000" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"></path> </g>
+          </svg>
+          <span class="text-xs font-semibold uppercase mx-auto">Collections</span>
+        </label>
+      </div>
+      <!-- -->                          @if (canChangeBillingDate) {
+      <div>
+        <input #cashpayment formControlName="payment_mode" value="cash" class="hidden" id="radio_3" type="radio">
+        <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-primary':cashpayment.checked,'border-border':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
+            <defs>
+            </defs>
+            <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+              <path d="M 42.769 69.743 H 21.635 c -0.552 0 -1 -0.447 -1 -1 V 7.413 c 0 -0.552 0.448 -1 1 -1 h 33.341 c 0.553 0 1 0.448 1 1 v 44.884 c 0 0.553 -0.447 1 -1 1 s -1 -0.447 -1 -1 V 8.413 H 22.635 v 59.331 h 20.134 c 0.552 0 1 0.447 1 1 S 43.321 69.743 42.769 69.743 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 38.305 48.615 c -5.307 0 -9.625 -4.318 -9.625 -9.625 s 4.317 -9.625 9.625 -9.625 s 9.625 4.317 9.625 9.625 S 43.612 48.615 38.305 48.615 z M 38.305 31.366 c -4.204 0 -7.625 3.42 -7.625 7.625 s 3.42 7.625 7.625 7.625 s 7.625 -3.42 7.625 -7.625 S 42.509 31.366 38.305 31.366 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 29.73 58.593 c -0.552 0 -1 -0.447 -1 -1 v -7.587 c 0 -0.553 0.448 -1 1 -1 s 1 0.447 1 1 v 7.587 C 30.73 58.146 30.283 58.593 29.73 58.593 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 46.93 28.975 c -0.553 0 -1 -0.448 -1 -1 v -6.669 c -2.496 -0.422 -4.47 -2.397 -4.893 -4.893 h -5.414 c -0.422 2.496 -2.397 4.471 -4.893 4.893 v 6.669 c 0 0.552 -0.448 1 -1 1 s -1 -0.448 -1 -1 v -7.586 c 0 -0.552 0.448 -1 1 -1 c 2.192 0 3.976 -1.784 3.976 -3.977 c 0 -0.552 0.448 -1 1 -1 h 7.247 c 0.552 0 1 0.448 1 1 c 0 2.193 1.784 3.977 3.976 3.977 c 0.553 0 1 0.448 1 1 v 7.586 C 47.93 28.527 47.482 28.975 46.93 28.975 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 60.499 44.146 c -0.553 0 -1 -0.448 -1 -1 c 0 -17.598 1.384 -31.08 4.229 -41.146 H 31.722 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 33.341 c 0.316 0 0.615 0.15 0.804 0.405 c 0.188 0.254 0.245 0.583 0.153 0.886 c -3.042 10.003 -4.521 23.695 -4.521 41.855 C 61.499 43.699 61.052 44.146 60.499 44.146 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+              <path d="M 68.365 78.001 h -1.661 c 0.276 -2.665 0.675 -5.034 1.07 -7.315 c 0.812 -4.688 1.513 -8.738 0.79 -13.778 c -0.492 -3.425 -2.791 -6.343 -5.955 -7.596 l -2.574 -1.164 c -0.504 -0.228 -1.097 -0.004 -1.323 0.499 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 2.618 1.183 c 2.543 1.008 4.365 3.322 4.755 6.039 c 0.679 4.727 0.003 8.632 -0.78 13.153 c -0.41 2.374 -0.827 4.841 -1.109 7.656 H 46.61 c 0.735 -3.535 2.417 -6.688 4.824 -8.966 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -5.465 -5.256 c -0.435 -0.381 -0.935 -0.668 -1.485 -0.854 c -0.042 -0.014 -0.084 -0.024 -0.127 -0.033 l -5.427 -1.058 c -1.682 -0.596 -2.643 -2.341 -2.24 -4.085 l 0.168 -0.729 c 0.41 -1.776 2.151 -2.946 4.009 -2.666 l 5.244 0.457 c 0.354 0.055 0.697 0.192 0.988 0.395 l 10.124 7.133 c 0.454 0.317 1.076 0.211 1.394 -0.241 s 0.21 -1.075 -0.241 -1.394 L 48.253 52.12 c -0.544 -0.379 -1.177 -0.633 -1.896 -0.741 l -5.244 -0.457 c -2.829 -0.436 -5.554 1.408 -6.198 4.201 l -0.168 0.729 c -0.639 2.772 0.914 5.546 3.612 6.45 c 0.042 0.014 0.083 0.025 0.126 0.033 l 5.425 1.058 c 0.276 0.101 0.526 0.247 0.713 0.41 l 4.699 4.521 c -2.398 2.571 -4.047 5.95 -4.747 9.676 h -1.962 c -0.552 0 -1 0.447 -1 1 v 10 c 0 0.553 0.448 1 1 1 h 25.753 c 0.553 0 1 -0.447 1 -1 v -9.999 C 69.365 78.448 68.918 78.001 68.365 78.001 z M 67.365 88 H 43.612 v -7.999 h 23.753 V 88 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+            </g>
+          </svg>
+          <span class="text-xs font-semibold uppercase mx-auto">Manual</span>
+        </label>
+      </div>
+    }
+  </div>
+  <!-- Component End  -->
+</div>
+@if (PaymentForm.get('payment_mode')?.value==='momo') {
+  <div class="mt-4">
+    <!--   <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Phone number</label>
+    <input formControlName="msisdn" class="bg-muted border border-border placeholder:text-xs text-foreground sm:text-sm rounded focus:ring-ring focus:border-ring block w-full p-2.5 "> -->
+    <label for="location" class="block mb-1 text-sm font-medium text-foreground">Enter Phone number</label>
+    <div class="relative mt-2 rounded-md shadow-[var(--shadow-sm)]">
+      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+        <span class="text-muted-foreground sm:text-sm">+256</span>
+      </div>
+      <input type="text" formControlName="msisdn" class="block rounded w-full py-1.5 pl-[3.5rem] pr-20 text-foreground ring-1 ring-inset ring-border placeholder:text-muted-foreground focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6bg-muted border border-border placeholder:text-xs focus:ring-ring focus:border-ring">
     </div>
+  </div>
+}
+<div class="mt-8">
+  <button app-dn-button type="submit" class="w-full">
+    Pay Now
+  </button>
+</div>
+</div>
+}
+@if (require_otp) {
+  <div class="relative bg-card px-6 pt-10 pb-9 shadow-[var(--shadow-lg)] mx-auto w-full max-w-screen rounded-2xl">
+    <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
+      <div class="flex flex-col items-center justify-center text-center space-y-2">
+        <div class="font-semibold text-3xl">
+          <p>One Time Password(OTP)</p>
+        </div>
+        <div class="flex flex-row text-sm font-medium text-muted-foreground">
+          <p>We have sent the OTP to your phone</p>
+        </div>
+        <div class="font-semibold text-xl">
+          <p>+256 {{this.PaymentForm.get('msisdn')?.value}}</p>
+        </div>
+      </div>
+      <div>
+        <div class="flex flex-col space-y-16">
+          <div>
+            <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
+            <!--   <div class="w-16 h-16 ">
+            <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
+          </div>
+          <div class="w-16 h-16 ">
+            <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
+          </div>
+          <div class="w-16 h-16">
+            <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
+          </div>
+          <div class="w-16 h-16 ">
+            <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-border text-lg bg-card focus:bg-muted focus:ring-1 ring-ring" type="text" name="" id="">
+          </div> -->
+        </div>
+        <div class="flex flex-col space-y-5">
+          <div>
+            <button app-dn-button type="submit" [disabled]="!!input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
+              Verify OTP & Pay {{'UGX '+(rest?.flat_fee|number)}}
+            </button>
+          </div>
+          <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 -my-2 text-muted-foreground">
+            <a (click)="require_otp=false" class="flex flex-row items-center text-muted-foreground underline" [routerLink]="[]" >Cancel</a>
+          </div>
+          <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-muted-foreground">
+            <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.PaymentForm.get('msisdn')?.value,null)" class="flex flex-row items-center text-primary" [routerLink]="[]" >Resend</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+}
+</form>
+}
+</div>
+</div>
+
+<div>
+</div>
 </div>
 </app-dn-dialog>

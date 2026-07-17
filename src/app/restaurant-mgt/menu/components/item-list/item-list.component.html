@@ -4,170 +4,182 @@
   <div class="flex items-center justify-between gap-3 px-5 md:px-6 pt-5">
     <p class="text-sm text-muted-foreground">
       {{ selectionMode ? 'Tap items to select'
-         : itemReorderMode ? 'Drag items to reorder'
-         : 'Manage your menu items' }}
+      : itemReorderMode ? 'Drag items to reorder'
+      : 'Manage your menu items' }}
     </p>
     <div class="flex items-center gap-2">
-      <button app-dn-button
-              *ngIf="(sortMode$ | async) === 'manual' && !selectionMode"
-              [variant]="itemReorderMode ? 'default' : 'outline'"
-              size="default"
-              (click)="toggleReorderMode()">
-        {{ itemReorderMode ? 'Done reordering' : 'Reorder' }}
-      </button>
-      <button app-dn-button
-              *ngIf="!itemReorderMode"
-              [variant]="selectionMode ? 'default' : 'outline'"
-              size="default"
-              (click)="toggleSelectionMode()">
-        {{ selectionMode ? 'Done selecting' : 'Select items' }}
-      </button>
+      @if ((sortMode$ | async) === 'manual' && !selectionMode) {
+        <button app-dn-button
+          [variant]="itemReorderMode ? 'default' : 'outline'"
+          size="default"
+          (click)="toggleReorderMode()">
+          {{ itemReorderMode ? 'Done reordering' : 'Reorder' }}
+        </button>
+      }
+      @if (!itemReorderMode) {
+        <button app-dn-button
+          [variant]="selectionMode ? 'default' : 'outline'"
+          size="default"
+          (click)="toggleSelectionMode()">
+          {{ selectionMode ? 'Done selecting' : 'Select items' }}
+        </button>
+      }
     </div>
   </div>
 
   <div class="flex-1 px-5 md:px-6 py-5 overflow-y-auto">
 
     <!-- Loading state -->
-    <div *ngIf="isLoading$ | async" class="space-y-4">
-      <div *ngFor="let s of skeletons"
-           class="border border-border rounded-2xl p-4 md:p-6 bg-card shadow-sm">
-        <div class="flex gap-4 md:gap-5">
-          <!-- Thumbnail placeholder -->
-          <div class="w-20 h-20 md:w-28 md:h-28 rounded-[16px] bg-muted animate-pulse flex-shrink-0"></div>
-          <!-- Content -->
-          <div class="flex-1 min-w-0">
-            <div class="flex items-start justify-between gap-2 mb-1">
-              <!-- Title + badge + description placeholders -->
-              <div class="flex-1 min-w-0 space-y-2">
-                <div class="flex items-center gap-2">
-                  <div class="h-5 w-40 bg-muted animate-pulse rounded"></div>
-                  <div class="h-4 w-14 bg-muted animate-pulse rounded"></div>
+    @if (isLoading$ | async) {
+      <div class="space-y-4">
+        @for (s of skeletons; track s) {
+          <div
+            class="border border-border rounded-2xl p-4 md:p-6 bg-card shadow-sm">
+            <div class="flex gap-4 md:gap-5">
+              <!-- Thumbnail placeholder -->
+              <div class="w-20 h-20 md:w-28 md:h-28 rounded-[16px] bg-muted animate-pulse flex-shrink-0"></div>
+              <!-- Content -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between gap-2 mb-1">
+                  <!-- Title + badge + description placeholders -->
+                  <div class="flex-1 min-w-0 space-y-2">
+                    <div class="flex items-center gap-2">
+                      <div class="h-5 w-40 bg-muted animate-pulse rounded"></div>
+                      <div class="h-4 w-14 bg-muted animate-pulse rounded"></div>
+                    </div>
+                    <div class="h-3 w-full bg-muted animate-pulse rounded"></div>
+                    <div class="h-3 w-2/3 bg-muted animate-pulse rounded"></div>
+                  </div>
+                  <!-- Action button placeholders -->
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <div class="h-8 w-8 bg-muted animate-pulse rounded"></div>
+                    <div class="h-8 w-8 bg-muted animate-pulse rounded"></div>
+                    <div class="h-8 w-8 bg-muted animate-pulse rounded"></div>
+                    <div class="h-8 w-16 bg-muted animate-pulse rounded"></div>
+                  </div>
                 </div>
-                <div class="h-3 w-full bg-muted animate-pulse rounded"></div>
-                <div class="h-3 w-2/3 bg-muted animate-pulse rounded"></div>
-              </div>
-              <!-- Action button placeholders -->
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <div class="h-8 w-8 bg-muted animate-pulse rounded"></div>
-                <div class="h-8 w-8 bg-muted animate-pulse rounded"></div>
-                <div class="h-8 w-8 bg-muted animate-pulse rounded"></div>
-                <div class="h-8 w-16 bg-muted animate-pulse rounded"></div>
+                <!-- Price placeholder -->
+                <div class="h-5 w-24 bg-muted animate-pulse rounded mt-2"></div>
               </div>
             </div>
-            <!-- Price placeholder -->
-            <div class="h-5 w-24 bg-muted animate-pulse rounded mt-2"></div>
           </div>
-        </div>
+        }
       </div>
-    </div>
+    }
 
     <!-- Error state -->
-    <ng-container *ngIf="error$ | async as error">
-      <div *ngIf="(isLoading$ | async) === false"
-           class="flex flex-col items-center justify-center h-64 text-center">
-        <!-- AlertCircle icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-destructive" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/>
-          <line x1="12" x2="12.01" y1="16" y2="16"/>
-        </svg>
-        <p class="text-base text-destructive font-medium mt-2">{{ error }}</p>
-        <button app-dn-button variant="outline" size="default" class="mt-4" (click)="onRetry()">
-          Retry
-        </button>
-      </div>
-    </ng-container>
-
-    <!-- Item grid -->
-    <ng-container *ngIf="(isLoading$ | async) === false && (error$ | async) === null">
-      <ng-container *ngIf="sortedItems$ | async as items">
-
-        <!-- Empty state -->
-        <div *ngIf="items.length === 0"
-             class="flex flex-col items-center justify-center h-64 text-center">
-          <!-- Empty plate icon -->
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-muted-foreground" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
-            <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+    @if (error$ | async; as error) {
+      @if ((isLoading$ | async) === false) {
+        <div
+          class="flex flex-col items-center justify-center h-64 text-center">
+          <!-- AlertCircle icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-destructive" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/>
+            <line x1="12" x2="12.01" y1="16" y2="16"/>
           </svg>
-          <p class="text-base text-muted-foreground mt-2">No items in this section yet.</p>
-          <button app-dn-button variant="default" size="default" class="mt-4" (click)="newItem.emit()">
-            + Add Item
+          <p class="text-base text-destructive font-medium mt-2">{{ error }}</p>
+          <button app-dn-button variant="outline" size="default" class="mt-4" (click)="onRetry()">
+            Retry
           </button>
         </div>
+      }
+    }
 
+    <!-- Item grid -->
+    @if ((isLoading$ | async) === false && (error$ | async) === null) {
+      @if (sortedItems$ | async; as items) {
+        <!-- Empty state -->
+        @if (items.length === 0) {
+          <div
+            class="flex flex-col items-center justify-center h-64 text-center">
+            <!-- Empty plate icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-muted-foreground" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+              <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+            </svg>
+            <p class="text-base text-muted-foreground mt-2">No items in this section yet.</p>
+            <button app-dn-button variant="default" size="default" class="mt-4" (click)="newItem.emit()">
+              + Add Item
+            </button>
+          </div>
+        }
         <!-- Vertical list with drag-drop -->
-        <div *ngIf="items.length > 0"
-             cdkDropList
-             [cdkDropListDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'"
-             (cdkDropListDropped)="onDrop($event)"
-             class="space-y-4"
-             [class.pb-20]="selectedItemIds.size > 0">
-
-          <!-- Drag helper text (reorder mode only) -->
-          <p *ngIf="itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual'"
-             class="text-sm text-muted-foreground">
-            Drag items by the handle to change the order.
-          </p>
-
-          <ng-container *ngIf="groupedItems$ | async as grouped">
-
-            <!-- Featured section -->
-            <ng-container *ngIf="grouped.featured.length > 0">
-              <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                Featured
-              </div>
-              <div *ngFor="let item of grouped.featured; trackBy: trackById"
-                   cdkDrag [cdkDragDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'">
-                <app-item-card
-                  [item]="item"
-                  [showDragHandle]="itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual'"
-                  [selectionMode]="selectionMode"
-                  [isSelected]="isItemSelected(item.id)"
-                  (edit)="editItem.emit(item)"
-                  (delete)="deleteItem.emit(item)"
-                  (toggleAvailability)="onToggleAvailability($event)"
-                  (toggleStock)="onToggleStock($event)"
-                  (toggleFeatured)="onToggleBadge($event, 'is_featured')"
-                  (togglePopular)="onToggleBadge($event, 'is_popular')"
-                  (toggleNew)="onToggleBadge($event, 'is_new')"
-                  (toggleSelect)="toggleItemSelection(item.id)">
-                </app-item-card>
-              </div>
-            </ng-container>
-
-            <!-- All items header (only when both sections present) -->
-            <div *ngIf="grouped.featured.length > 0 && grouped.regular.length > 0"
-                 class="text-sm font-medium text-muted-foreground mt-6">
-              All items
-            </div>
-
-            <!-- Regular items -->
-            <div *ngFor="let item of grouped.regular; trackBy: trackById"
-                 cdkDrag [cdkDragDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'">
-              <app-item-card
-                [item]="item"
-                [showDragHandle]="itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual'"
-                [selectionMode]="selectionMode"
-                [isSelected]="isItemSelected(item.id)"
-                (edit)="editItem.emit(item)"
-                (delete)="deleteItem.emit(item)"
-                (toggleAvailability)="onToggleAvailability($event)"
-                (toggleStock)="onToggleStock($event)"
-                (toggleFeatured)="onToggleBadge($event, 'is_featured')"
-                (togglePopular)="onToggleBadge($event, 'is_popular')"
-                (toggleNew)="onToggleBadge($event, 'is_new')"
-                (toggleSelect)="toggleItemSelection(item.id)">
-              </app-item-card>
-            </div>
-          </ng-container>
-        </div>
-
+        @if (items.length > 0) {
+          <div
+            cdkDropList
+            [cdkDropListDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'"
+            (cdkDropListDropped)="onDrop($event)"
+            class="space-y-4"
+            [class.pb-20]="selectedItemIds.size > 0">
+            <!-- Drag helper text (reorder mode only) -->
+            @if (itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual') {
+              <p
+                class="text-sm text-muted-foreground">
+                Drag items by the handle to change the order.
+              </p>
+            }
+            @if (groupedItems$ | async; as grouped) {
+              <!-- Featured section -->
+              @if (grouped.featured.length > 0) {
+                <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                  Featured
+                </div>
+                @for (item of grouped.featured; track trackById($index, item)) {
+                  <div
+                    cdkDrag [cdkDragDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'">
+                    <app-item-card
+                      [item]="item"
+                      [showDragHandle]="itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual'"
+                      [selectionMode]="selectionMode"
+                      [isSelected]="isItemSelected(item.id)"
+                      (edit)="editItem.emit(item)"
+                      (delete)="deleteItem.emit(item)"
+                      (toggleAvailability)="onToggleAvailability($event)"
+                      (toggleStock)="onToggleStock($event)"
+                      (toggleFeatured)="onToggleBadge($event, 'is_featured')"
+                      (togglePopular)="onToggleBadge($event, 'is_popular')"
+                      (toggleNew)="onToggleBadge($event, 'is_new')"
+                      (toggleSelect)="toggleItemSelection(item.id)">
+                    </app-item-card>
+                  </div>
+                }
+              }
+              <!-- All items header (only when both sections present) -->
+              @if (grouped.featured.length > 0 && grouped.regular.length > 0) {
+                <div
+                  class="text-sm font-medium text-muted-foreground mt-6">
+                  All items
+                </div>
+              }
+              <!-- Regular items -->
+              @for (item of grouped.regular; track trackById($index, item)) {
+                <div
+                  cdkDrag [cdkDragDisabled]="!itemReorderMode || selectionMode || (sortMode$ | async) !== 'manual'">
+                  <app-item-card
+                    [item]="item"
+                    [showDragHandle]="itemReorderMode && !selectionMode && (sortMode$ | async) === 'manual'"
+                    [selectionMode]="selectionMode"
+                    [isSelected]="isItemSelected(item.id)"
+                    (edit)="editItem.emit(item)"
+                    (delete)="deleteItem.emit(item)"
+                    (toggleAvailability)="onToggleAvailability($event)"
+                    (toggleStock)="onToggleStock($event)"
+                    (toggleFeatured)="onToggleBadge($event, 'is_featured')"
+                    (togglePopular)="onToggleBadge($event, 'is_popular')"
+                    (toggleNew)="onToggleBadge($event, 'is_new')"
+                    (toggleSelect)="toggleItemSelection(item.id)">
+                  </app-item-card>
+                </div>
+              }
+            }
+          </div>
+        }
         <!-- Bulk stock bar -->
         <app-bulk-stock-bar
           [selectedCount]="selectedItemIds.size"
@@ -179,8 +191,7 @@
           (addBadge)="bulkAddBadge($event)"
           (removeBadge)="bulkRemoveBadge($event)">
         </app-bulk-stock-bar>
-
-      </ng-container>
-    </ng-container>
+      }
+    }
   </div>
 </div>

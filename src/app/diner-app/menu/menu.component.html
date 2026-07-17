@@ -1,225 +1,259 @@
 <div class="flex flex-col bg-stone-50">
 
-<!-- Optional cover-photo hero: the FIRST thing on the menu when the restaurant
-     has a cover_photo. Full-bleed image dissolving into the white menu via the
-     scrim, with a scroll parallax driven by the inherited --sy var (see the
-     appScrollProgress directive on the diner shell root). No cover ⇒ no hero. -->
-<div *ngIf="coverPhoto && !coverFailed" class="hero relative h-[280px] overflow-hidden">
-  <img [src]="url + '/media/' + coverPhoto" [alt]="restaurantName"
-       class="hero-img absolute inset-0 w-full h-full object-cover" decoding="async"
-       (error)="coverFailed = true" />
-  <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
-  <!-- Over-hero chrome: Dinify wordmark + table chip at the hero's TOP. NON-sticky —
-       it scrolls away with the photo while the sticky banner below takes over. This
-       replaces the over-hero content of the now route-hidden shell brand-strip and
-       reuses the same white-on-photo wordmark asset. The env() pad is a no-op today
-       (no viewport-fit=cover) and only future-proofs against a notch if edge-to-edge
-       is ever enabled — it is NOT what keeps the chrome below the notch today. -->
-  <div class="absolute top-0 inset-x-0 z-10 h-[48px] px-4 flex items-center gap-2"
-       style="padding-top:env(safe-area-inset-top,0px)">
-    <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify"
-         class="h-7 w-auto flex-shrink-0">
-    <span *ngIf="tableNumber" class="brand-strip__chip bg-d-red text-white">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
-      </svg>
-      Table {{ tableNumber }}
-    </span>
-  </div>
-  <div class="absolute left-6 right-6 bottom-5 z-10">
-    <div class="text-white/80 font-display text-micro font-bold tracking-[0.18em] uppercase">
-      Dine-in · Table {{ tableNumber }}
-    </div>
-    <h1 class="font-display font-extrabold text-white text-4xl leading-none tracking-tight mt-1.5"
-        style="text-shadow:0 2px 12px rgba(0,0,0,.35)">{{ restaurantName }}</h1>
-  </div>
-</div>
-
-<!-- Cover-less white header: when the restaurant has NO cover photo we still frame
-     the menu with a header block (previously nothing rendered here). Mirrors the
-     photo hero's chrome — dark-on-light wordmark top-left, red table chip top-right,
-     eyebrow + venue name bottom-left — inverted for a light surface. The hairline
-     border-b plus the off-white page canvas (bg-stone-50 on the menu root) make it
-     read as a FRAME instead of dissolving into the page. Compact (no photo to fill);
-     it scrolls away like the hero and the sticky banner below takes over on condense. -->
-<div *ngIf="!coverPhoto" class="relative h-[180px] bg-white border-b border-gray-200 overflow-hidden">
-  <!-- TOP: dark-on-light Dinify wordmark + red table chip (env() pad mirrors the hero) -->
-  <div class="absolute top-0 inset-x-0 z-10 h-[48px] px-4 flex items-center gap-2"
-       style="padding-top:env(safe-area-inset-top,0px)">
-    <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-7 w-auto flex-shrink-0">
-    <span *ngIf="tableNumber" class="brand-strip__chip bg-d-red text-white">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
-      </svg>
-      Table {{ tableNumber }}
-    </span>
-  </div>
-  <!-- BOTTOM: eyebrow + venue name — dark on white, muted-grey eyebrow, no text-shadow -->
-  <div class="absolute left-6 right-6 bottom-5 z-10">
-    <div class="text-gray-500 font-display text-micro font-bold tracking-[0.18em] uppercase">
-      Dine-in · Table {{ tableNumber }}
-    </div>
-    <h1 class="font-display font-extrabold text-gray-900 text-4xl leading-none tracking-tight mt-1.5">{{ restaurantName }}</h1>
-  </div>
-</div>
-
-<!-- ONE sticky frosted banner (single backdrop-filter) for the diner shell. Row 1 =
-     identity (restaurant name + red table chip), collapsed over the hero and shown
-     when condensed or when there's no hero — visibility lives in src/styles.css,
-     keyed off the shell-root .has-hero / .is-condensed classes. Row 2 = the nav-bar,
-     made transparent + non-sticky so the banner's single blur reads through it with
-     no seam. Sticky top: 0 online, 40px (below the offline strip) when offline. -->
-<div *ngIf="!isInRestApp" #menuBanner class="menu-banner" [style.top]="bannerTop">
-  <div class="menu-banner__identity h-[48px] px-4 flex items-center gap-2">
-    <span class="menu-banner__name font-display font-semibold text-gray-900 truncate min-w-0">{{ restaurantName }}</span>
-    <span *ngIf="tableNumber" class="brand-strip__chip bg-d-red text-white">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
-      </svg>
-      Table {{ tableNumber }}
-    </span>
-  </div>
-  <app-menu-nav-bar [frosted]="true"></app-menu-nav-bar>
-</div>
-
-<!-- Heads-up: the scanned table already has an order still working through the
-     kitchen, so a new order can't be placed yet (the basket checkout is blocked
-     too). Sits at the top of the menu content; scrolls away as the diner browses. -->
-<div *ngIf="tableHasOngoingOrder" class="px-4 pt-3">
-  <app-ongoing-order-banner></app-ongoing-order-banner>
-</div>
-
-<!-- Rest-app embed (staff ordering): no diner shell or hero — keep the original
-     opaque, independently-sticky nav-bar (its own 49px offset + hairline). -->
-<app-menu-nav-bar *ngIf="isInRestApp" [stickyTop]="'49px'" [frosted]="false"></app-menu-nav-bar>
-
-<!-- Skeleton cards -->
-<div *ngIf="navState.isLoading()" class="flex flex-col px-6 pt-4">
-  <div *ngFor="let _ of [1,2,3,4,5]"
-       class="mb-3 rounded-card bg-white shadow-[var(--shadow-md)]">
-    <div class="flex gap-3 p-3">
-      <div class="flex-1 min-w-0 flex flex-col gap-2">
-        <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
-        <div class="h-3 w-full bg-gray-200 animate-pulse rounded"></div>
-        <div class="h-3 w-5/6 bg-gray-200 animate-pulse rounded"></div>
-        <div class="h-4 w-24 bg-gray-200 animate-pulse rounded mt-auto"></div>
+  <!-- Optional cover-photo hero: the FIRST thing on the menu when the restaurant
+  has a cover_photo. Full-bleed image dissolving into the white menu via the
+  scrim, with a scroll parallax driven by the inherited --sy var (see the
+  appScrollProgress directive on the diner shell root). No cover ⇒ no hero. -->
+  @if (coverPhoto && !coverFailed) {
+    <div class="hero relative h-[280px] overflow-hidden">
+      <img [src]="url + '/media/' + coverPhoto" [alt]="restaurantName"
+        class="hero-img absolute inset-0 w-full h-full object-cover" decoding="async"
+        (error)="coverFailed = true" />
+      <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
+      <!-- Over-hero chrome: Dinify wordmark + table chip at the hero's TOP. NON-sticky —
+      it scrolls away with the photo while the sticky banner below takes over. This
+      replaces the over-hero content of the now route-hidden shell brand-strip and
+      reuses the same white-on-photo wordmark asset. The env() pad is a no-op today
+      (no viewport-fit=cover) and only future-proofs against a notch if edge-to-edge
+      is ever enabled — it is NOT what keeps the chrome below the notch today. -->
+      <div class="absolute top-0 inset-x-0 z-10 h-[48px] px-4 flex items-center gap-2"
+        style="padding-top:env(safe-area-inset-top,0px)">
+        <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify"
+          class="h-7 w-auto flex-shrink-0">
+        @if (tableNumber) {
+          <span class="brand-strip__chip bg-d-red text-white">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Table {{ tableNumber }}
+          </span>
+        }
       </div>
-      <div class="w-[112px] h-[112px] bg-gray-200 animate-pulse rounded-xl flex-shrink-0"></div>
+      <div class="absolute left-6 right-6 bottom-5 z-10">
+        <div class="text-white/80 font-display text-micro font-bold tracking-[0.18em] uppercase">
+          Dine-in · Table {{ tableNumber }}
+        </div>
+        <h1 class="font-display font-extrabold text-white text-4xl leading-none tracking-tight mt-1.5"
+        style="text-shadow:0 2px 12px rgba(0,0,0,.35)">{{ restaurantName }}</h1>
+      </div>
     </div>
-  </div>
-</div>
+  }
 
-<!-- Cold-load failure: nothing rendered, the fetch genuinely didn't come back.
-     Recoverable dead-end with a "Try again" that re-runs the cold load. -->
-<app-diner-connection-error
-  *ngIf="coldLoadFailed && !navState.isLoading()"
-  [restaurantName]="restaurant?.name"
-  (retry)="retryColdLoad()">
-</app-diner-connection-error>
-
-<!-- Search mode: flat, ranked results (no sections, no featured). Shown only while
-     the query is non-blank; the browse view below handles the empty-query case. -->
-<div *ngIf="!navState.isLoading() && navState.searchQuery().trim()"
-     class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0">
-  <div *ngIf="navState.searchResults().length > 0" class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
-    <ng-container *ngFor="let i of navState.searchResults(); trackBy: trackItem">
-      <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: i }"></ng-container>
-    </ng-container>
-  </div>
-  <div *ngIf="navState.searchResults().length === 0"
-       class="flex flex-col items-center justify-center py-16 text-center">
-    <p class="text-gray-500">No dishes match "<span class="font-semibold text-gray-700">{{ navState.searchQuery() }}</span>"</p>
-  </div>
-</div>
-
-<div *ngIf="!navState.isLoading() && !navState.searchQuery().trim() && navState.filteredMenuList()" class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" [stickyOffset]="navState.navStackHeight()" (sectionChange)="onSectionChange($event)">
-
-    <!-- Featured Section: horizontal-scrolling carousel of items with is_featured.
-         Items also continue to render in their natural category sections below
-         (intentional merchandising parity).
-         Wrapped in a #Featured DIV so the scroll-spy (which only inspects
-         direct DIV children) tracks Featured as a section — otherwise the
-         pill never re-highlights when scrolling back to the top. The DIV is
-         gated on featuredItems().length > 0 so the spy never emits 'Featured'
-         into a state where no Featured pill exists in the nav bar. -->
-    <div *ngIf="navState.featuredItems().length > 0" id="Featured" class="scroll-mt-[var(--menu-nav-stack-height)]">
-      <app-featured-carousel
-        [items]="navState.featuredItems()"
-        (itemTap)="viewItem($event)">
-      </app-featured-carousel>
+  <!-- Cover-less white header: when the restaurant has NO cover photo we still frame
+  the menu with a header block (previously nothing rendered here). Mirrors the
+  photo hero's chrome — dark-on-light wordmark top-left, red table chip top-right,
+  eyebrow + venue name bottom-left — inverted for a light surface. The hairline
+  border-b plus the off-white page canvas (bg-stone-50 on the menu root) make it
+  read as a FRAME instead of dissolving into the page. Compact (no photo to fill);
+  it scrolls away like the hero and the sticky banner below takes over on condense. -->
+  @if (!coverPhoto) {
+    <div class="relative h-[180px] bg-white border-b border-gray-200 overflow-hidden">
+      <!-- TOP: dark-on-light Dinify wordmark + red table chip (env() pad mirrors the hero) -->
+      <div class="absolute top-0 inset-x-0 z-10 h-[48px] px-4 flex items-center gap-2"
+        style="padding-top:env(safe-area-inset-top,0px)">
+        <img src="assets/images/dinify-logo-full.svg" alt="Dinify" class="h-7 w-auto flex-shrink-0">
+        @if (tableNumber) {
+          <span class="brand-strip__chip bg-d-red text-white">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Table {{ tableNumber }}
+          </span>
+        }
+      </div>
+      <!-- BOTTOM: eyebrow + venue name — dark on white, muted-grey eyebrow, no text-shadow -->
+      <div class="absolute left-6 right-6 bottom-5 z-10">
+        <div class="text-gray-500 font-display text-micro font-bold tracking-[0.18em] uppercase">
+          Dine-in · Table {{ tableNumber }}
+        </div>
+        <h1 class="font-display font-extrabold text-gray-900 text-4xl leading-none tracking-tight mt-1.5">{{ restaurantName }}</h1>
+      </div>
     </div>
+  }
 
-    <div id="{{addUnderScore(s.name)}}" *ngFor="let s of navState.filteredMenuList();let is=index; let last=last; trackBy: trackSection" class="scroll-mt-[var(--menu-nav-stack-height)] flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
-       <span class="font-display font-bold text-2xl pt-4 pb-2">{{s?.name}}</span>
-       <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
-        <ng-container *ngFor="let i of s?.items; trackBy: trackItem">
-          <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: i }"></ng-container>
-        </ng-container>
-       </div>
+  <!-- ONE sticky frosted banner (single backdrop-filter) for the diner shell. Row 1 =
+  identity (restaurant name + red table chip), collapsed over the hero and shown
+  when condensed or when there's no hero — visibility lives in src/styles.css,
+  keyed off the shell-root .has-hero / .is-condensed classes. Row 2 = the nav-bar,
+  made transparent + non-sticky so the banner's single blur reads through it with
+  no seam. Sticky top: 0 online, 40px (below the offline strip) when offline. -->
+  @if (!isInRestApp) {
+    <div #menuBanner class="menu-banner" [style.top]="bannerTop">
+      <div class="menu-banner__identity h-[48px] px-4 flex items-center gap-2">
+        <span class="menu-banner__name font-display font-semibold text-gray-900 truncate min-w-0">{{ restaurantName }}</span>
+        @if (tableNumber) {
+          <span class="brand-strip__chip bg-d-red text-white">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Table {{ tableNumber }}
+          </span>
+        }
+      </div>
+      <app-menu-nav-bar [frosted]="true"></app-menu-nav-bar>
     </div>
-    <div *ngIf="(!navState.filteredMenuList() || !navState.filteredMenuList()?.length) && navState.menuList()?.length" class="flex flex-col items-center justify-center h-full w-full">
-      <svg width="300px" height="200px" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Magnifying Glass -->
-        <circle cx="100" cy="80" r="50" stroke="#d1d5db" stroke-width="6" fill="none"/>
-        <line x1="140" y1="120" x2="180" y2="160" stroke="#d1d5db" stroke-width="6" stroke-linecap="round"/>
+  }
 
-        <!-- Sad Face -->
-        <circle cx="100" cy="80" r="5" fill="#d1d5db"/>
-        <path d="M90 95 Q100 85 110 95" stroke="#d1d5db" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- Heads-up: the scanned table already has an order still working through the
+  kitchen, so a new order can't be placed yet (the basket checkout is blocked
+  too). Sits at the top of the menu content; scrolls away as the diner browses. -->
+  @if (tableHasOngoingOrder) {
+    <div class="px-4 pt-3">
+      <app-ongoing-order-banner></app-ongoing-order-banner>
+    </div>
+  }
 
-        <!-- Text -->
-        <text x="50%" y="180" text-anchor="middle" fill="#6b7280" font-size="16px">
-          {{ navState.hasActiveFilters() ? 'No items match your filters' : 'No items found' }}
-        </text>
-      </svg>
-      <button *ngIf="navState.hasActiveFilters()"
+  <!-- Rest-app embed (staff ordering): no diner shell or hero — keep the original
+  opaque, independently-sticky nav-bar (its own 49px offset + hairline). -->
+  @if (isInRestApp) {
+    <app-menu-nav-bar [stickyTop]="'49px'" [frosted]="false"></app-menu-nav-bar>
+  }
+
+  <!-- Skeleton cards -->
+  @if (navState.isLoading()) {
+    <div class="flex flex-col px-6 pt-4">
+      @for (_ of [1,2,3,4,5]; track _) {
+        <div
+          class="mb-3 rounded-card bg-white shadow-[var(--shadow-md)]">
+          <div class="flex gap-3 p-3">
+            <div class="flex-1 min-w-0 flex flex-col gap-2">
+              <div class="h-4 w-2/3 bg-gray-200 animate-pulse rounded"></div>
+              <div class="h-3 w-full bg-gray-200 animate-pulse rounded"></div>
+              <div class="h-3 w-5/6 bg-gray-200 animate-pulse rounded"></div>
+              <div class="h-4 w-24 bg-gray-200 animate-pulse rounded mt-auto"></div>
+            </div>
+            <div class="w-[112px] h-[112px] bg-gray-200 animate-pulse rounded-xl flex-shrink-0"></div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Cold-load failure: nothing rendered, the fetch genuinely didn't come back.
+  Recoverable dead-end with a "Try again" that re-runs the cold load. -->
+  @if (coldLoadFailed && !navState.isLoading()) {
+    <app-diner-connection-error
+      [restaurantName]="restaurant?.name"
+      (retry)="retryColdLoad()">
+    </app-diner-connection-error>
+  }
+
+  <!-- Search mode: flat, ranked results (no sections, no featured). Shown only while
+  the query is non-blank; the browse view below handles the empty-query case. -->
+  @if (!navState.isLoading() && navState.searchQuery().trim()) {
+    <div
+      class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0">
+      @if (navState.searchResults().length > 0) {
+        <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
+          @for (i of navState.searchResults(); track trackItem($index, i)) {
+            <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: i }"></ng-container>
+          }
+        </div>
+      }
+      @if (navState.searchResults().length === 0) {
+        <div
+          class="flex flex-col items-center justify-center py-16 text-center">
+          <p class="text-gray-500">No dishes match "<span class="font-semibold text-gray-700">{{ navState.searchQuery() }}</span>"</p>
+        </div>
+      }
+    </div>
+  }
+
+  @if (!navState.isLoading() && !navState.searchQuery().trim() && navState.filteredMenuList()) {
+    <div class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" [stickyOffset]="navState.navStackHeight()" (sectionChange)="onSectionChange($event)">
+      <!-- Featured Section: horizontal-scrolling carousel of items with is_featured.
+      Items also continue to render in their natural category sections below
+      (intentional merchandising parity).
+      Wrapped in a #Featured DIV so the scroll-spy (which only inspects
+      direct DIV children) tracks Featured as a section — otherwise the
+      pill never re-highlights when scrolling back to the top. The DIV is
+      gated on featuredItems().length > 0 so the spy never emits 'Featured'
+      into a state where no Featured pill exists in the nav bar. -->
+      @if (navState.featuredItems().length > 0) {
+        <div id="Featured" class="scroll-mt-[var(--menu-nav-stack-height)]">
+          <app-featured-carousel
+            [items]="navState.featuredItems()"
+            (itemTap)="viewItem($event)">
+          </app-featured-carousel>
+        </div>
+      }
+      @for (s of navState.filteredMenuList(); track trackSection(is, s); let is = $index; let last = $last) {
+        <div id="{{addUnderScore(s.name)}}" class="scroll-mt-[var(--menu-nav-stack-height)] flex flex-col justify-between w-full font-normal text-left rtl:text-right text-black">
+          <span class="font-display font-bold text-2xl pt-4 pb-2">{{s?.name}}</span>
+          <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
+            @for (i of s?.items; track trackItem($index, i)) {
+              <ng-container *ngTemplateOutlet="itemCard; context: { $implicit: i }"></ng-container>
+            }
+          </div>
+        </div>
+      }
+      @if ((!navState.filteredMenuList() || !navState.filteredMenuList()?.length) && navState.menuList()?.length) {
+        <div class="flex flex-col items-center justify-center h-full w-full">
+          <svg width="300px" height="200px" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Magnifying Glass -->
+            <circle cx="100" cy="80" r="50" stroke="#d1d5db" stroke-width="6" fill="none"/>
+            <line x1="140" y1="120" x2="180" y2="160" stroke="#d1d5db" stroke-width="6" stroke-linecap="round"/>
+            <!-- Sad Face -->
+            <circle cx="100" cy="80" r="5" fill="#d1d5db"/>
+            <path d="M90 95 Q100 85 110 95" stroke="#d1d5db" stroke-width="4" stroke-linecap="round" fill="none"/>
+            <!-- Text -->
+            <text x="50%" y="180" text-anchor="middle" fill="#6b7280" font-size="16px">
+              {{ navState.hasActiveFilters() ? 'No items match your filters' : 'No items found' }}
+            </text>
+          </svg>
+          @if (navState.hasActiveFilters()) {
+            <button
               type="button"
               (click)="navState.clearAllFilters()"
               class="-mt-6 text-sm font-semibold text-d-red hover:text-d-red-hover px-4 py-2">
-        Clear filters
-      </button>
-  </div>
-</div>
+              Clear filters
+            </button>
+          }
+        </div>
+      }
+    </div>
+  }
 
-<!-- Shared item card template — a thin adapter over the shared <app-menu-dish-card>
-     (src/app/_shared/ui/menu-dish-card), used by both the search-results grid and the
-     regular section listings. The card is the single source of truth shared with the
-     restaurant-portal preview drawer; all the diner's per-item helpers feed it here. -->
-<ng-template #itemCard let-i>
-  @let ct = getCardTags(i.tags);
-  <app-menu-dish-card
-    [name]="i.name"
-    [description]="i.description"
-    [calories]="i.calories"
-    [imageUrl]="i.image ? url + i.image : null"
-    [effectivePrice]="getDisplayPrice(i)"
-    [originalPrice]="basePrice(i)"
-    [showDiscount]="discountIsLive(i) && !isOutOfStock(i)"
-    [discountPercent]="calculateDiscount(i)"
-    [savings]="priceSaved(i)"
-    [outOfStock]="isOutOfStock(i)"
-    [isPopular]="!!i.is_popular"
-    [isNew]="!!i.is_new"
-    [visibleTags]="ct.visible"
-    [hiddenTagCount]="ct.hiddenCount"
-    [searchQuery]="navState.searchQuery()"
-    [showContainsCue]="!!navState.searchQuery().trim() && descMatchOnly(i)"
+  <!-- Shared item card template — a thin adapter over the shared <app-menu-dish-card>
+  (src/app/_shared/ui/menu-dish-card), used by both the search-results grid and the
+  regular section listings. The card is the single source of truth shared with the
+  restaurant-portal preview drawer; all the diner's per-item helpers feed it here. -->
+  <ng-template #itemCard let-i>
+    @let ct = getCardTags(i.tags);
+    <app-menu-dish-card
+      [name]="i.name"
+      [description]="i.description"
+      [calories]="i.calories"
+      [imageUrl]="i.image ? url + i.image : null"
+      [effectivePrice]="getDisplayPrice(i)"
+      [originalPrice]="basePrice(i)"
+      [showDiscount]="discountIsLive(i) && !isOutOfStock(i)"
+      [discountPercent]="calculateDiscount(i)"
+      [savings]="priceSaved(i)"
+      [outOfStock]="isOutOfStock(i)"
+      [isPopular]="!!i.is_popular"
+      [isNew]="!!i.is_new"
+      [visibleTags]="ct.visible"
+      [hiddenTagCount]="ct.hiddenCount"
+      [searchQuery]="navState.searchQuery()"
+      [showContainsCue]="!!navState.searchQuery().trim() && descMatchOnly(i)"
     (cardClick)="viewItem(i)"></app-menu-dish-card>
-</ng-template>
+  </ng-template>
 </div>
-  <!-- Floating Basket Bar -->
-  <div *ngIf="basketItems.length > 0"
-       class="fixed bottom-0 left-0 right-0 z-30 p-3 bg-white border-t border-gray-200 shadow-lg lg:hidden">
+<!-- Floating Basket Bar -->
+@if (basketItems.length > 0) {
+  <div
+    class="fixed bottom-0 left-0 right-0 z-30 p-3 bg-white border-t border-gray-200 shadow-lg lg:hidden">
     <button app-dn-button variant="cta"
-            [routerLink]="['/diner/basket']"
-            [attr.aria-label]="'View basket, ' + QuantitySum + ' items, UGX ' + (totalAmount | number)"
-            class="w-full justify-between">
+      [routerLink]="['/diner/basket']"
+      [attr.aria-label]="'View basket, ' + QuantitySum + ' items, UGX ' + (totalAmount | number)"
+      class="w-full justify-between">
       <div class="flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
           <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
         </svg>
@@ -231,7 +265,7 @@
       <span class="font-bold text-base">UGX {{ totalAmount | number }}</span>
     </button>
   </div>
+}
 
 <!-- Tag Filter Sheet — top-level so it renders regardless of item-detail state -->
 <app-diner-tag-filter-sheet></app-diner-tag-filter-sheet>
-     

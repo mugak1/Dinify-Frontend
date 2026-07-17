@@ -51,7 +51,7 @@ export class CurrencyInputComponent implements ControlValueAccessor, OnInit {
   }
 
   @HostListener('input', ['$event'])
-  private _onHostListenerInput(event: InputEvent): void {
+  _onHostListenerInput(event: Event): void {
     const inputElement:any = event.target as HTMLInputElement;
     let value: string | number = inputElement.value;
     if (value) value = +inputElement.value.replace(/\D/g, '');

@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
@@ -28,13 +28,12 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
   selector: 'app-kds-attention-card',
   standalone: true,
   imports: [
-    CommonModule,
     RouterModule,
     CardComponent,
     CardSkeletonComponent,
     AnimatedNumberComponent,
-    KdsBulletBarComponent,
-  ],
+    KdsBulletBarComponent
+],
   template: `
     @if (loading) {
       <app-card-skeleton variant="wide" [square]="true"></app-card-skeleton>

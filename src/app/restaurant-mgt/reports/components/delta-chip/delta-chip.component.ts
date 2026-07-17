@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 /**
  * Period-over-period change pill (▲/▼ N.N%) — the uniform "compare" treatment for
@@ -11,7 +11,7 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-report-delta-chip',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     @if (compareEnabled) {
       @if (hasBaseline) {

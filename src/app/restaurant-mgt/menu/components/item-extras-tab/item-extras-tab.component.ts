@@ -6,7 +6,7 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
 import { MenuItem } from 'src/app/_models/app.models';
@@ -14,7 +14,7 @@ import { MenuItem } from 'src/app/_models/app.models';
 @Component({
   selector: 'app-item-extras-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, SwitchComponent],
+  imports: [FormsModule, SwitchComponent],
   templateUrl: './item-extras-tab.component.html',
 })
 export class ItemExtrasTabComponent implements OnChanges {

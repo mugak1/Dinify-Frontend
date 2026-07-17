@@ -1,11 +1,11 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 
 @Component({
   selector: 'app-bulk-stock-bar',
   standalone: true,
-  imports: [CommonModule, ButtonComponent],
+  imports: [ButtonComponent],
   templateUrl: './bulk-stock-bar.component.html',
 })
 export class BulkStockBarComponent {
@@ -25,7 +25,7 @@ export class BulkStockBarComponent {
   constructor(private elRef: ElementRef) {}
 
   @HostListener('document:click', ['$event.target'])
-  onDocumentClick(target: HTMLElement): void {
+  onDocumentClick(target: EventTarget | null): void {
     if (!this.elRef.nativeElement.contains(target)) {
       this.addBadgeOpen = false;
       this.removeBadgeOpen = false;

@@ -1,5 +1,5 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { MenuItem } from 'src/app/_models/app.models';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
@@ -14,7 +14,7 @@ import { environment } from 'src/environments/environment';
 @Component({
   selector: 'app-item-card',
   standalone: true,
-  imports: [CommonModule, SwitchComponent, ButtonComponent, BadgeComponent, TooltipDirective, SafeArrayPipe, TagPillComponent, PriceDisplayComponent],
+  imports: [SwitchComponent, ButtonComponent, BadgeComponent, TooltipDirective, SafeArrayPipe, TagPillComponent, PriceDisplayComponent],
   templateUrl: './item-card.component.html',
 })
 export class ItemCardComponent {
@@ -38,7 +38,7 @@ export class ItemCardComponent {
   constructor(private elRef: ElementRef) {}
 
   @HostListener('document:click', ['$event.target'])
-  onDocumentClick(target: HTMLElement): void {
+  onDocumentClick(target: EventTarget | null): void {
     if (this.showStockMenu && !this.elRef.nativeElement.contains(target)) {
       this.showStockMenu = false;
     }

@@ -6,7 +6,7 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import { EmployeeListUser } from 'src/app/_models/app.models';
@@ -22,7 +22,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 @Component({
   selector: 'app-staff-remove-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogComponent, ButtonComponent],
+  imports: [FormsModule, DialogComponent, ButtonComponent],
   templateUrl: './staff-remove-dialog.component.html',
 })
 export class StaffRemoveDialogComponent implements OnChanges {

@@ -3,53 +3,69 @@
   <app-page-header
     title="Notifications"
     description="Updates from Dinify and your restaurant."
-  >
-    <app-dn-badge actions *ngIf="unreadCount > 0" variant="destructive">{{ unreadCount }} unread</app-dn-badge>
+    >
+    @if (unreadCount > 0) {
+      <app-dn-badge actions variant="destructive">{{ unreadCount }} unread</app-dn-badge>
+    }
   </app-page-header>
 
   <!-- Loading -->
-  <div *ngIf="state === 'loading'" class="space-y-3">
-    <div *ngFor="let i of [1, 2, 3]" class="h-[72px] rounded-lg border border-gray-200 bg-card animate-pulse"></div>
-  </div>
+  @if (state === 'loading') {
+    <div class="space-y-3">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="h-[72px] rounded-lg border border-gray-200 bg-card animate-pulse"></div>
+      }
+    </div>
+  }
 
   <!-- Error -->
-  <app-dn-card *ngIf="state === 'error'">
-    <div class="p-8 text-center">
-      <p class="text-sm text-muted-foreground mb-4">We couldn't load your notifications.</p>
-      <button app-dn-button variant="outline" (click)="load()">Try again</button>
-    </div>
-  </app-dn-card>
+  @if (state === 'error') {
+    <app-dn-card>
+      <div class="p-8 text-center">
+        <p class="text-sm text-muted-foreground mb-4">We couldn't load your notifications.</p>
+        <button app-dn-button variant="outline" (click)="load()">Try again</button>
+      </div>
+    </app-dn-card>
+  }
 
   <!-- Empty -->
-  <app-dn-card *ngIf="state === 'empty'">
-    <div class="p-10 text-center">
-      <div class="flex items-center justify-center w-12 h-12 mx-auto mb-3 rounded-full bg-muted text-muted-foreground">
-        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+  @if (state === 'empty') {
+    <app-dn-card>
+      <div class="p-10 text-center">
+        <div class="flex items-center justify-center w-12 h-12 mx-auto mb-3 rounded-full bg-muted text-muted-foreground">
+          <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </div>
+        <p class="text-base font-semibold text-foreground mb-1">You're all caught up</p>
+        <p class="text-sm text-muted-foreground">New notifications will show up here.</p>
       </div>
-      <p class="text-base font-semibold text-foreground mb-1">You're all caught up</p>
-      <p class="text-sm text-muted-foreground">New notifications will show up here.</p>
-    </div>
-  </app-dn-card>
+    </app-dn-card>
+  }
 
   <!-- List -->
-  <div *ngIf="state === 'ready'" class="space-y-3">
-    <app-dn-card *ngFor="let n of notifys">
-      <button type="button" (click)="toggle(n)"
-              class="w-full text-left p-4 flex items-start gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
-              [attr.aria-expanded]="expandedId === n._id">
-        <!-- Unread dot (brand red) replaces the legacy bg-gray-200 row tint. -->
-        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" [class.bg-primary]="!n.read" [class.bg-transparent]="n.read" aria-hidden="true"></span>
-        <div class="min-w-0 flex-1">
-          <div class="flex items-baseline justify-between gap-3">
-            <p class="text-foreground truncate" [class.font-bold]="!n.read" [class.font-medium]="n.read">{{ n.subject }}</p>
-            <span class="shrink-0 text-xs text-muted-foreground">{{ n.creation_timestamp.timestamp | date:'MMM d, h:mm a' }}</span>
-          </div>
-          <div *ngIf="expandedId === n._id" class="mt-2 text-sm text-muted-foreground break-words [&_a]:text-primary [&_a]:underline"
-               [innerHTML]="(n.email || n.sms) | safe:'html'"></div>
-        </div>
-        <svg class="h-4 w-4 mt-1 shrink-0 text-muted-foreground transition-transform" [class.rotate-180]="expandedId === n._id"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-      </button>
-    </app-dn-card>
-  </div>
+  @if (state === 'ready') {
+    <div class="space-y-3">
+      @for (n of notifys; track n) {
+        <app-dn-card>
+          <button type="button" (click)="toggle(n)"
+            class="w-full text-left p-4 flex items-start gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
+            [attr.aria-expanded]="expandedId === n._id">
+            <!-- Unread dot (brand red) replaces the legacy bg-gray-200 row tint. -->
+            <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" [class.bg-primary]="!n.read" [class.bg-transparent]="n.read" aria-hidden="true"></span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-baseline justify-between gap-3">
+                <p class="text-foreground truncate" [class.font-bold]="!n.read" [class.font-medium]="n.read">{{ n.subject }}</p>
+                <span class="shrink-0 text-xs text-muted-foreground">{{ n.creation_timestamp.timestamp | date:'MMM d, h:mm a' }}</span>
+              </div>
+              @if (expandedId === n._id) {
+                <div class="mt-2 text-sm text-muted-foreground break-words [&_a]:text-primary [&_a]:underline"
+                [innerHTML]="(n.email || n.sms) | safe:'html'"></div>
+              }
+            </div>
+            <svg class="h-4 w-4 mt-1 shrink-0 text-muted-foreground transition-transform" [class.rotate-180]="expandedId === n._id"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </app-dn-card>
+      }
+    </div>
+  }
 </div>

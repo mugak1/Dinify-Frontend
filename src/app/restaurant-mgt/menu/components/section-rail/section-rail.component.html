@@ -18,8 +18,8 @@
   <!-- Reorder toggle -->
   <div class="px-5 md:px-6 pb-2 flex justify-end">
     <button app-dn-button variant="ghost" size="sm"
-            [class.bg-accent]="reorderMode"
-            (click)="toggleReorderMode()">
+      [class.bg-accent]="reorderMode"
+      (click)="toggleReorderMode()">
       <!-- GripVertical icon -->
       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
       Reorder
@@ -29,76 +29,79 @@
   <!-- Section list -->
   <div class="flex-1 overflow-y-auto px-5 md:px-6 pb-4">
     <div cdkDropList
-         [cdkDropListDisabled]="!reorderMode"
-         (cdkDropListDropped)="onDrop($event)"
-         class="space-y-2.5">
+      [cdkDropListDisabled]="!reorderMode"
+      (cdkDropListDropped)="onDrop($event)"
+      class="space-y-2.5">
 
-      <ng-container *ngIf="{ sections: sections$ | async, selectedId: selectedSectionId$ | async } as vm">
-        <div *ngFor="let section of vm.sections; trackBy: trackById"
-             cdkDrag
-             [cdkDragDisabled]="!reorderMode"
-             class="group p-3.5 rounded-2xl border transition-all cursor-pointer"
+      @if ({ sections: sections$ | async, selectedId: selectedSectionId$ | async }; as vm) {
+        @for (section of vm.sections; track trackById($index, section)) {
+          <div
+            cdkDrag
+            [cdkDragDisabled]="!reorderMode"
+            class="group p-3.5 rounded-2xl border transition-all cursor-pointer"
              [ngClass]="{
                'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20': vm.selectedId === section.id,
                'border-neutral-200/80 bg-card hover:border-primary/40 hover:bg-muted/40': vm.selectedId !== section.id,
                'opacity-50 grayscale': !section.available
              }"
-             (click)="onSelect(section.id)">
-
-          <!-- Drag handle -->
-          <div *ngIf="reorderMode"
-               cdkDragHandle
-               class="flex justify-center mb-2 cursor-grab text-muted-foreground">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
-          </div>
-
-          <div class="flex items-center justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <p class="text-base font-medium truncate text-foreground" [title]="section.name">
-                {{ section.name }}
-              </p>
-              <!-- Schedule indicator -->
-              <div *ngIf="isScheduled(section)" class="flex items-center gap-1 mt-0.5"
-                   [appTooltip]="isSectionActive(section) ? 'Live now' : 'Off — outside scheduled hours'">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-                <span class="w-1.5 h-1.5 rounded-full"
+            (click)="onSelect(section.id)">
+            <!-- Drag handle -->
+            @if (reorderMode) {
+              <div
+                cdkDragHandle
+                class="flex justify-center mb-2 cursor-grab text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+              </div>
+            }
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium truncate text-foreground" [title]="section.name">
+                  {{ section.name }}
+                </p>
+                <!-- Schedule indicator -->
+                @if (isScheduled(section)) {
+                  <div class="flex items-center gap-1 mt-0.5"
+                    [appTooltip]="isSectionActive(section) ? 'Live now' : 'Off — outside scheduled hours'">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span class="w-1.5 h-1.5 rounded-full"
                       [class.bg-green-500]="isSectionActive(section)"
-                      [class.bg-muted-foreground]="!isSectionActive(section)"></span>
+                    [class.bg-muted-foreground]="!isSectionActive(section)"></span>
+                  </div>
+                }
+                <p class="text-sm font-semibold text-red-600">
+                  {{ section.item_count || 0 }} Item{{ section.item_count === 1 ? '' : 's' }}
+                </p>
               </div>
-              <p class="text-sm font-semibold text-red-600">
-                {{ section.item_count || 0 }} Item{{ section.item_count === 1 ? '' : 's' }}
-              </p>
-            </div>
-
-            <div class="flex items-center gap-1 shrink-0" (click)="$event.stopPropagation()">
-              <app-dn-switch
-                [checked]="section.available"
-                (checkedChange)="onToggleAvailability(section.id, $event)">
-              </app-dn-switch>
-              <!-- Edit + Delete (always visible) -->
-              <div class="flex items-center gap-1">
-                <!-- Pencil icon -->
-                <button app-dn-button variant="ghost" size="icon"
-                        class="h-8 w-8"
-                        [appTooltip]="'Edit section'"
-                        (click)="editSection.emit(section.id)">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
-                </button>
-                <!-- Trash icon -->
-                <button app-dn-button variant="ghost" size="icon"
-                        class="h-8 w-8 text-destructive"
-                        [appTooltip]="'Delete section'"
-                        (click)="deleteSection.emit(section.id)">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                </button>
+              <div class="flex items-center gap-1 shrink-0" (click)="$event.stopPropagation()">
+                <app-dn-switch
+                  [checked]="section.available"
+                  (checkedChange)="onToggleAvailability(section.id, $event)">
+                </app-dn-switch>
+                <!-- Edit + Delete (always visible) -->
+                <div class="flex items-center gap-1">
+                  <!-- Pencil icon -->
+                  <button app-dn-button variant="ghost" size="icon"
+                    class="h-8 w-8"
+                    [appTooltip]="'Edit section'"
+                    (click)="editSection.emit(section.id)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                  <!-- Trash icon -->
+                  <button app-dn-button variant="ghost" size="icon"
+                    class="h-8 w-8 text-destructive"
+                    [appTooltip]="'Delete section'"
+                    (click)="deleteSection.emit(section.id)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </ng-container>
+        }
+      }
     </div>
   </div>
 </aside>

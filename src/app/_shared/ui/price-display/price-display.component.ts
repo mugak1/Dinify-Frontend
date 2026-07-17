@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { cn } from '../../utils/cn';
 import { formatUGX } from '../../utils/price-utils';
 
@@ -19,13 +19,15 @@ export type PriceDisplayTone = 'accent' | 'neutral';
 @Component({
   selector: 'app-price-display',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <span [class]="rootClass">
       <span [class]="effectiveClass">{{ render(effective) }}</span>
-      <span *ngIf="showOriginal" [class]="originalClass">{{ render(original) }}</span>
+      @if (showOriginal) {
+        <span [class]="originalClass">{{ render(original) }}</span>
+      }
     </span>
-  `,
+    `,
 })
 export class PriceDisplayComponent {
   @Input() original = 0;

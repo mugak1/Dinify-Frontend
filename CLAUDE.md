@@ -11,7 +11,7 @@ that defer to this file — `CLAUDE.md` remains the authoritative project guide,
 so keep it current when conventions change.
 
 ## Tech Stack
-- Angular 20 with mixed component pattern (see below)
+- Angular 21 with mixed component pattern (see below)
 - Builds/serves/tests run on the esbuild-based `@angular/build` application
   builder (`@angular/build:application`, `:dev-server`, `:karma`) — migrated
   off the legacy webpack `@angular-devkit/build-angular` builder

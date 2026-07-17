@@ -1,5 +1,5 @@
 import { Component, ElementRef, Input, OnChanges, SimpleChanges, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions } from 'chart.js';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
@@ -21,12 +21,11 @@ interface StatusSegment {
   selector: 'app-total-orders-card',
   standalone: true,
   imports: [
-    CommonModule,
     BaseChartDirective,
     CardComponent,
     CardSkeletonComponent,
-    AnimatedNumberComponent,
-  ],
+    AnimatedNumberComponent
+],
   template: `
     @if (loading) {
       <app-card-skeleton variant="default" [square]="true"></app-card-skeleton>

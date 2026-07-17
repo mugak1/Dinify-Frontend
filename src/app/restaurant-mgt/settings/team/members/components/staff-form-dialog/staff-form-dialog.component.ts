@@ -6,7 +6,7 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 
@@ -46,12 +46,11 @@ interface RoleOption {
   selector: 'app-staff-form-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     DialogComponent,
     ButtonComponent,
-    DinifyPhoneInputComponent,
-  ],
+    DinifyPhoneInputComponent
+],
   templateUrl: './staff-form-dialog.component.html',
 })
 export class StaffFormDialogComponent implements OnChanges {

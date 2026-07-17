@@ -8,7 +8,7 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subscription } from 'rxjs';
 import { MenuService } from '../../services/menu.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -35,14 +35,13 @@ import { environment } from 'src/environments/environment';
   selector: 'app-item-detail-view',
   standalone: true,
   imports: [
-    CommonModule,
     TagPillComponent,
     PriceDisplayComponent,
     SavingsIndicatorComponent,
     DiscountBadgeComponent,
     ModifierGroupsSelectorComponent,
-    ExtrasSelectorComponent,
-  ],
+    ExtrasSelectorComponent
+],
   templateUrl: './item-detail-view.component.html',
   host: {
     class: 'flex flex-col h-full min-h-0',

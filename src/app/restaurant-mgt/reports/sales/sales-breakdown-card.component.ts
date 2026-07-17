@@ -1,5 +1,5 @@
 import { Component, Input, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { ReportTableComponent } from '../components/report-table/report-table.component';
 import { ReportExportBarComponent } from '../components/report-export-bar/report-export-bar.component';
@@ -16,7 +16,7 @@ import { SalesBreakdownRow } from './sales-view';
 @Component({
   selector: 'app-sales-breakdown-card',
   standalone: true,
-  imports: [CommonModule, CardComponent, ReportTableComponent, ReportExportBarComponent],
+  imports: [CardComponent, ReportTableComponent, ReportExportBarComponent],
   template: `
     <app-dn-card class="block">
       <div class="p-4 sm:p-6">

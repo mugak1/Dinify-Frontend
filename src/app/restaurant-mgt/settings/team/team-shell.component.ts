@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 
 interface TeamNavItem {
@@ -25,7 +25,7 @@ interface TeamNavItem {
 @Component({
   selector: 'app-team-shell',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   templateUrl: './team-shell.component.html',
 })
 export class TeamShellComponent {

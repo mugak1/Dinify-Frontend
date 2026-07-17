@@ -1,8 +1,8 @@
 <!--
-  Ticket card. Fills its grid slot (h-full flex-col); the item list scrolls
-  internally so a tall multi-item order never breaks the page grid. Overdue uses
-  a filled/pulsing treatment (not a bare red border) so it stays distinct from
-  the red advance button — the red wash over the white card reads clearly.
+Ticket card. Fills its grid slot (h-full flex-col); the item list scrolls
+internally so a tall multi-item order never breaks the page grid. Overdue uses
+a filled/pulsing treatment (not a bare red border) so it stays distinct from
+the red advance button — the red wash over the white card reads clearly.
 -->
 <article
   class="relative h-full flex flex-col rounded-xl border-2 overflow-hidden bg-white text-gray-900 shadow-lg"
@@ -34,185 +34,228 @@
     <div class="min-w-0">
       <div class="flex items-center gap-2">
         <span class="font-display text-xl font-bold tabular-nums">{{ orderNumber }}</span>
-        <span
-          *ngIf="ticket.priority"
-          class="inline-flex items-center gap-1 rounded-md bg-red-600 text-white border border-red-600 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide">
-          Priority
-        </span>
+        @if (ticket.priority) {
+          <span
+            class="inline-flex items-center gap-1 rounded-md bg-red-600 text-white border border-red-600 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide">
+            Priority
+          </span>
+        }
       </div>
       <div class="flex items-center gap-2 mt-0.5">
         <span class="text-base font-semibold truncate">{{ ticket.table_label }}</span>
-        <span
-          *ngIf="isServerAssisted"
-          class="inline-flex items-center gap-1 text-[11px] text-gray-500"
-          title="Server-assisted order">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Server
-        </span>
+        @if (isServerAssisted) {
+          <span
+            class="inline-flex items-center gap-1 text-[11px] text-gray-500"
+            title="Server-assisted order">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Server
+          </span>
+        }
       </div>
     </div>
 
     <div class="flex flex-col items-end gap-1 shrink-0">
       <!--
-        Escalation label. The amber/red tint alone can't be read by a colour-blind
-        cook (or across a glare-lit pass), so name the state in words: warning and
-        overdue tickets carry an explicit chip, not colour only.
+      Escalation label. The amber/red tint alone can't be read by a colour-blind
+      cook (or across a glare-lit pass), so name the state in words: warning and
+      overdue tickets carry an explicit chip, not colour only.
       -->
-      <span
-        *ngIf="!completed && !isServed && escalation !== 'normal'"
-        class="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+      @if (!completed && !isServed && escalation !== 'normal') {
+        <span
+          class="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
         [ngClass]="{
           'bg-amber-100 text-amber-800': escalation === 'warning',
           'bg-red-600 text-white': escalation === 'overdue'
         }">{{ escalation === 'overdue' ? 'Overdue' : 'Due soon' }}</span>
+      }
       <!-- Completed: muted "served {relative}" (omitted if no served stamp). Active: live age. -->
-      <span
-        *ngIf="completed && servedRelative"
+      @if (completed && servedRelative) {
+        <span
         class="text-xs font-medium text-gray-400">{{ servedRelative }}</span>
-      <span
-        *ngIf="!completed"
-        class="font-mono text-lg font-bold tabular-nums"
+      }
+      @if (!completed) {
+        <span
+          class="font-mono text-lg font-bold tabular-nums"
         [ngClass]="{
           'text-gray-700': escalation === 'normal' && !isServed,
           'text-amber-600': escalation === 'warning',
           'text-red-600': escalation === 'overdue',
           'text-gray-400': isServed
         }">{{ age }}</span>
-      <div *ngIf="!completed" class="flex items-center gap-1">
-        <button
-          *ngIf="canCancel"
-          type="button"
-          (click)="onCancel()"
-          class="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md border border-gray-300 text-gray-400 desktop-hover:bg-red-50 desktop-hover:text-red-600 desktop-hover:border-red-300 active:bg-red-50 active:text-red-600 transition-colors"
-          aria-label="Cancel order">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
-        </button>
-        <button
-          type="button"
-          (click)="onTogglePriority()"
-          class="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md border border-gray-300 text-gray-500 desktop-hover:bg-gray-100 active:bg-gray-100 transition-colors"
-          [ngClass]="{ 'bg-red-100 text-red-700 border-red-300': ticket.priority }"
-          [attr.aria-pressed]="ticket.priority"
-          aria-label="Toggle priority">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
-        </button>
-      </div>
+      }
+      @if (!completed) {
+        <div class="flex items-center gap-1">
+          @if (canCancel) {
+            <button
+              type="button"
+              (click)="onCancel()"
+              class="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md border border-gray-300 text-gray-400 desktop-hover:bg-red-50 desktop-hover:text-red-600 desktop-hover:border-red-300 active:bg-red-50 active:text-red-600 transition-colors"
+              aria-label="Cancel order">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+            </button>
+          }
+          <button
+            type="button"
+            (click)="onTogglePriority()"
+            class="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md border border-gray-300 text-gray-500 desktop-hover:bg-gray-100 active:bg-gray-100 transition-colors"
+            [ngClass]="{ 'bg-red-100 text-red-700 border-red-300': ticket.priority }"
+            [attr.aria-pressed]="ticket.priority"
+            aria-label="Toggle priority">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+          </button>
+        </div>
+      }
     </div>
   </header>
 
   <!-- Items (scrolls internally for tall orders) -->
   <div class="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-<div *ngFor="let item of ticket.items" class="text-base">
-    <div class="flex items-baseline gap-2">
-      <span
-        class="font-display tabular-nums shrink-0"
+    @for (item of ticket.items; track item) {
+      <div class="text-base">
+        <div class="flex items-baseline gap-2">
+          <span
+            class="font-display tabular-nums shrink-0"
         [ngClass]="item.quantity > 1
           ? 'inline-flex items-center justify-center min-w-[26px] h-[26px] bg-gray-900 text-white rounded-md font-bold text-base'
           : 'text-lg font-bold text-gray-500'">{{ item.quantity }}×</span>
-      <span class="text-lg font-bold leading-tight">{{ item.item_name_snapshot }}</span>
-      </div>
-
-      <!-- Modifiers: colour-coded by a frontend heuristic (classifyModifier). -->
-      <div *ngIf="item.modifiers.length" class="mt-0.5 ml-7 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-        <ng-container *ngFor="let mod of item.modifiers" [ngSwitch]="modType(mod)">
-          <span *ngSwitchCase="'omission'" class="inline-flex items-center gap-0.5 text-red-600 font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
-            {{ mod }}
-          </span>
-          <span *ngSwitchCase="'addition'" class="inline-flex items-center gap-0.5 text-blue-600 font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-            {{ mod }}
-          </span>
-          <span *ngSwitchCase="'prep'" class="inline-flex items-center rounded bg-purple-100 text-purple-800 px-1.5 py-0.5 text-[11px] font-medium">{{ mod }}</span>
-          <span *ngSwitchDefault class="text-gray-600">{{ mod }}</span>
-        </ng-container>
-      </div>
-
-      <div *ngIf="item.allergen_tags.length" class="mt-1 ml-7 flex flex-wrap gap-1">
-        <span
-          *ngFor="let tag of item.allergen_tags"
-          class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold"
-          [ngClass]="allergenChip(tag.colour)">
-          <span class="inline-flex items-center" [innerHTML]="iconSvg(tag.icon)"></span>
-          {{ tag.name }}
-        </span>
-      </div>
-
-      <!-- Extras (add-ons), indented under their parent line. -->
-      <div *ngIf="item.extras?.length" class="mt-1 ml-7 space-y-1">
-        <div *ngFor="let extra of item.extras" class="text-[13px]">
-          <!-- An extra IS an addition: tint the whole line blue. -->
-          <div class="flex items-baseline gap-1.5 text-blue-600">
-            <span
-              class="tabular-nums shrink-0 font-semibold"
+          <span class="text-lg font-bold leading-tight">{{ item.item_name_snapshot }}</span>
+        </div>
+        <!-- Modifiers: colour-coded by a frontend heuristic (classifyModifier). -->
+        @if (item.modifiers.length) {
+          <div class="mt-0.5 ml-7 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+            @for (mod of item.modifiers; track mod) {
+              @switch (modType(mod)) {
+                @case ('omission') {
+                  <span class="inline-flex items-center gap-0.5 text-red-600 font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+                    {{ mod }}
+                  </span>
+                }
+                @case ('addition') {
+                  <span class="inline-flex items-center gap-0.5 text-blue-600 font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    {{ mod }}
+                  </span>
+                }
+                @case ('prep') {
+                  <span class="inline-flex items-center rounded bg-purple-100 text-purple-800 px-1.5 py-0.5 text-[11px] font-medium">{{ mod }}</span>
+                }
+                @default {
+                  <span class="text-gray-600">{{ mod }}</span>
+                }
+              }
+            }
+          </div>
+        }
+        @if (item.allergen_tags.length) {
+          <div class="mt-1 ml-7 flex flex-wrap gap-1">
+            @for (tag of item.allergen_tags; track tag) {
+              <span
+                class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold"
+                [ngClass]="allergenChip(tag.colour)">
+                <span class="inline-flex items-center" [innerHTML]="iconSvg(tag.icon)"></span>
+                {{ tag.name }}
+              </span>
+            }
+          </div>
+        }
+        <!-- Extras (add-ons), indented under their parent line. -->
+        @if (item.extras?.length) {
+          <div class="mt-1 ml-7 space-y-1">
+            @for (extra of item.extras; track extra) {
+              <div class="text-[13px]">
+                <!-- An extra IS an addition: tint the whole line blue. -->
+                <div class="flex items-baseline gap-1.5 text-blue-600">
+                  <span
+                    class="tabular-nums shrink-0 font-semibold"
               [ngClass]="extra.quantity > 1
                 ? 'inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 bg-blue-600 text-white rounded font-bold text-[12px]'
                 : ''">+ {{ extra.quantity }}×</span>
-            <span class="font-medium leading-tight">{{ extra.item_name_snapshot }}</span>
+                  <span class="font-medium leading-tight">{{ extra.item_name_snapshot }}</span>
+                </div>
+                <!-- Same classification as the parent line, at the extra's smaller scale. -->
+                @if (extra.modifiers.length) {
+                  <div class="mt-0.5 ml-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+                    @for (mod of extra.modifiers; track mod) {
+                      @switch (modType(mod)) {
+                        @case ('omission') {
+                          <span class="inline-flex items-center gap-0.5 text-red-600 font-medium">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+                            {{ mod }}
+                          </span>
+                        }
+                        @case ('addition') {
+                          <span class="inline-flex items-center gap-0.5 text-blue-600 font-medium">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                            {{ mod }}
+                          </span>
+                        }
+                        @case ('prep') {
+                          <span class="inline-flex items-center rounded bg-purple-100 text-purple-800 px-1.5 py-0.5 text-[11px] font-medium">{{ mod }}</span>
+                        }
+                        @default {
+                          <span class="text-gray-500">{{ mod }}</span>
+                        }
+                      }
+                    }
+                  </div>
+                }
+                @if (extra.allergen_tags.length) {
+                  <div class="mt-0.5 ml-5 flex flex-wrap gap-1">
+                    @for (tag of extra.allergen_tags; track tag) {
+                      <span
+                        class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold"
+                        [ngClass]="allergenChip(tag.colour)">
+                        <span class="inline-flex items-center" [innerHTML]="iconSvg(tag.icon)"></span>
+                        {{ tag.name }}
+                      </span>
+                    }
+                  </div>
+                }
+              </div>
+            }
           </div>
-          <!-- Same classification as the parent line, at the extra's smaller scale. -->
-          <div *ngIf="extra.modifiers.length" class="mt-0.5 ml-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
-            <ng-container *ngFor="let mod of extra.modifiers" [ngSwitch]="modType(mod)">
-              <span *ngSwitchCase="'omission'" class="inline-flex items-center gap-0.5 text-red-600 font-medium">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
-                {{ mod }}
-              </span>
-              <span *ngSwitchCase="'addition'" class="inline-flex items-center gap-0.5 text-blue-600 font-medium">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                {{ mod }}
-              </span>
-              <span *ngSwitchCase="'prep'" class="inline-flex items-center rounded bg-purple-100 text-purple-800 px-1.5 py-0.5 text-[11px] font-medium">{{ mod }}</span>
-              <span *ngSwitchDefault class="text-gray-500">{{ mod }}</span>
-            </ng-container>
-          </div>
-          <div *ngIf="extra.allergen_tags.length" class="mt-0.5 ml-5 flex flex-wrap gap-1">
-            <span
-              *ngFor="let tag of extra.allergen_tags"
-              class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold"
-              [ngClass]="allergenChip(tag.colour)">
-              <span class="inline-flex items-center" [innerHTML]="iconSvg(tag.icon)"></span>
-              {{ tag.name }}
-            </span>
-          </div>
-        </div>
+        }
       </div>
-    </div>
+    }
   </div>
 
   <!-- Actions -->
   <footer class="shrink-0 flex items-center gap-2 px-3 py-2 border-t border-gray-200">
     <!-- Active mode: advance / recall / served label. -->
-    <ng-container *ngIf="!completed">
-      <button
-        *ngIf="next"
-        type="button"
-        (click)="onAdvance()"
-        class="flex-1 min-h-[44px] rounded-lg bg-primary text-primary-foreground font-display text-base font-bold uppercase tracking-wide desktop-hover:bg-primary/90 active:scale-[0.98] transition">
-        {{ advanceLabel }}
-      </button>
+    @if (!completed) {
+      @if (next) {
+        <button
+          type="button"
+          (click)="onAdvance()"
+          class="flex-1 min-h-[44px] rounded-lg bg-primary text-primary-foreground font-display text-base font-bold uppercase tracking-wide desktop-hover:bg-primary/90 active:scale-[0.98] transition">
+          {{ advanceLabel }}
+        </button>
+      }
+      @if (canRecall) {
+        <button
+          type="button"
+          (click)="onRecall()"
+          class="min-h-[44px] px-3 rounded-lg border border-gray-300 text-gray-700 font-semibold desktop-hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+          Recall
+        </button>
+      }
+      @if (isServed) {
+        <span
+        class="ml-auto text-xs font-semibold uppercase tracking-wide text-gray-400">Served</span>
+      }
+    }
 
+    <!-- Completed mode: a single Recall action puts the ticket back on the active board. -->
+    @if (completed) {
       <button
-        *ngIf="canRecall"
         type="button"
         (click)="onRecall()"
-        class="min-h-[44px] px-3 rounded-lg border border-gray-300 text-gray-700 font-semibold desktop-hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center gap-1">
+        class="flex-1 min-h-[44px] rounded-lg border border-gray-300 text-gray-700 font-semibold desktop-hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center justify-center gap-1.5">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
         Recall
       </button>
-
-      <span
-        *ngIf="isServed"
-        class="ml-auto text-xs font-semibold uppercase tracking-wide text-gray-400">Served</span>
-    </ng-container>
-
-    <!-- Completed mode: a single Recall action puts the ticket back on the active board. -->
-    <button
-      *ngIf="completed"
-      type="button"
-      (click)="onRecall()"
-      class="flex-1 min-h-[44px] rounded-lg border border-gray-300 text-gray-700 font-semibold desktop-hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center justify-center gap-1.5">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-      Recall
-    </button>
+    }
   </footer>
 </article>

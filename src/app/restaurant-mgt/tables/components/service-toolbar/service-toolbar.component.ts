@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import {
@@ -29,7 +29,7 @@ const TABLE_SIZE_OPTIONS = [2, 4, 6];
 @Component({
   selector: 'app-service-toolbar',
   standalone: true,
-  imports: [CommonModule, FormsModule, BadgeComponent],
+  imports: [FormsModule, BadgeComponent],
   templateUrl: './service-toolbar.component.html',
 })
 export class ServiceToolbarComponent {

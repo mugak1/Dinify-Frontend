@@ -8,7 +8,7 @@ import {
   SimpleChanges,
   ViewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
@@ -28,7 +28,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 @Component({
   selector: 'app-staff-credential-dialog',
   standalone: true,
-  imports: [CommonModule, DialogComponent, ButtonComponent],
+  imports: [DialogComponent, ButtonComponent],
   templateUrl: './staff-credential-dialog.component.html',
 })
 export class StaffCredentialDialogComponent implements OnChanges {

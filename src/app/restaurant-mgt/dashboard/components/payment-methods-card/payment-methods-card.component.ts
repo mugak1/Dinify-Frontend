@@ -1,5 +1,5 @@
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
 import { AnimatedNumberComponent } from '../animated-number/animated-number.component';
@@ -31,7 +31,7 @@ const METHOD_COLORS: Record<string, string> = {
   selector: 'app-payment-methods-card',
   standalone: true,
   host: { class: 'block h-full' },
-  imports: [CommonModule, CardComponent, CardSkeletonComponent, AnimatedNumberComponent],
+  imports: [CardComponent, CardSkeletonComponent, AnimatedNumberComponent],
   template: `
     @if (loading) {
       <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>

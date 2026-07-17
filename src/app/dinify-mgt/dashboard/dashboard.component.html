@@ -1,24 +1,26 @@
-<main *ngIf="stats" class="p-4 md:ml-auto h-auto bg-gray-100 absolute -z-[1]">
+@if (stats) {
+  <main class="p-4 md:ml-auto h-auto bg-gray-100 absolute -z-[1]">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-  
       <!-- Restaurants Card -->
       <div class="relative p-4 bg-white shadow-md rounded-lg">
         <h2 class="text-lg font-semibold">Restaurants</h2>
         <p class="text-3xl font-bold mt-2">{{ stats.restaurant_summary.total }}</p>
-  
         <!-- Change Indicator -->
         <div class="absolute top-4 right-4 flex items-center">
           <span class="text-sm font-medium" [ngClass]="stats.restaurant_summary.month_growth  ==='up' ? 'text-green-600' : 'text-red-600'">
             {{ stats.restaurant_summary.monthly}} This Month
           </span>
-          <svg *ngIf="stats.restaurant_summary.month_growth  ==='up'" class="w-5 h-5 text-green-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"></path>
-          </svg>
-          <svg *ngIf="stats.restaurant_summary.month_growth  ==='down'" class="w-5 h-5 text-red-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-          </svg>
+          @if (stats.restaurant_summary.month_growth  ==='up') {
+            <svg class="w-5 h-5 text-green-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"></path>
+            </svg>
+          }
+          @if (stats.restaurant_summary.month_growth  ==='down') {
+            <svg class="w-5 h-5 text-red-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          }
         </div>
-  
         <!-- Restaurant Status Breakdown -->
         <div class="mt-4 flex flex-wrap gap-2 text-xs">
           <span class="bg-green-100 text-green-600 px-3 py-1 rounded-lg">Active: {{ stats.restaurant_summary.status_breakdown.active}}</span>
@@ -28,440 +30,437 @@
           <span class="bg-black text-white px-3 py-1 rounded-lg">Blocked: {{ stats.restaurant_summary.status_breakdown.blocked }}</span>
         </div>
       </div>
-  
       <!-- Orders Card -->
       <div class="relative p-4 bg-white shadow-md rounded-lg">
         <h2 class="text-lg font-semibold">Orders</h2>
         <p class="text-3xl font-bold mt-2">{{ stats.orders_summary.total }}</p>
-  
         <!-- Change Indicator -->
         <div class="absolute top-4 right-4 flex items-center">
           <span class="text-sm font-medium" [ngClass]="stats.orders_summary.month_growth === 'up' ? 'text-green-600' : 'text-red-600'">
             {{ stats.orders_summary.monthly }} This Month
           </span>
-          <svg *ngIf="stats.orders_summary.month_growth === 'up'" class="w-5 h-5 text-green-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"></path>
-          </svg>
-          <svg *ngIf="stats.orders_summary.month_growth === 'down'" class="w-5 h-5 text-red-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-          </svg>
+          @if (stats.orders_summary.month_growth === 'up') {
+            <svg class="w-5 h-5 text-green-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"></path>
+            </svg>
+          }
+          @if (stats.orders_summary.month_growth === 'down') {
+            <svg class="w-5 h-5 text-red-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          }
         </div>
-  
         <!-- Orders Breakdown -->
         <div class="mt-4 flex flex-wrap gap-2 text-xs">
           <span class="bg-green-100 text-green-600 px-3 py-1 rounded-lg">Closed: {{ stats.orders_summary.status_breakdown.closed }}</span>
           <span class="bg-red-100 text-red-500 px-3 py-1 rounded-lg">Open: {{ stats.orders_summary.status_breakdown.open }}</span>
         </div>
       </div>
-  
       <!-- Diners Card -->
       <div class="relative p-4 bg-white shadow-md rounded-lg">
         <h2 class="text-lg font-semibold">Diners</h2>
         <p class="text-3xl font-bold mt-2">{{ stats.users_summary.diners }}</p>
-  
         <!-- Change Indicator -->
         <div class="absolute top-4 right-4 flex items-center">
           <span class="text-sm font-medium" [ngClass]="stats.users_summary.month_growth === 'up' ? 'text-green-600' : 'text-red-600'">
             {{ stats.users_summary.monthly }} Active This Month
           </span>
-          <svg *ngIf="stats.users_summary.month_growth === 'up'" class="w-5 h-5 text-green-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"></path>
-          </svg>
-          <svg *ngIf="stats.users_summary.month_growth === 'down'" class="w-5 h-5 text-red-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-          </svg>
+          @if (stats.users_summary.month_growth === 'up') {
+            <svg class="w-5 h-5 text-green-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"></path>
+            </svg>
+          }
+          @if (stats.users_summary.month_growth === 'down') {
+            <svg class="w-5 h-5 text-red-600 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          }
         </div>
-          <!-- Diners Breakdown -->
-  <div class="mt-4 flex flex-wrap gap-2 text-xs">
-    <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
-      Total Users: {{ stats.users_summary.total }}
-    </span>
-
-    <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
-      Restaurant Staff: {{ stats.users_summary.restaurant_staff }}
-    </span>
-
-    <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
-      Dinify Staff: {{ stats.users_summary.dinify_staff }}
-    </span>
-  </div>
+        <!-- Diners Breakdown -->
+        <div class="mt-4 flex flex-wrap gap-2 text-xs">
+          <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
+            Total Users: {{ stats.users_summary.total }}
+          </span>
+          <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+            Restaurant Staff: {{ stats.users_summary.restaurant_staff }}
+          </span>
+          <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
+            Dinify Staff: {{ stats.users_summary.dinify_staff }}
+          </span>
+        </div>
       </div>
-  
       <!-- Dinify Earnings Card -->
       <div class="relative p-4 bg-white shadow-md rounded-lg">
         <h2 class="text-lg font-semibold">Dinify Earnings (UGX)</h2>
         <p class="text-3xl font-bold mt-2">{{ stats.dinify_earnings.total| number }}</p>
-  
         <!-- Change Indicator -->
         <div class="absolute top-4 right-4 flex items-center">
           <span class="text-sm font-medium" [ngClass]="stats.dinify_earnings.month_growth === 'up' ? 'text-green-600' : 'text-red-600'">
-          UGX  {{ stats.dinify_earnings.monthly }} This Month
-            
+            UGX  {{ stats.dinify_earnings.monthly }} This Month
           </span>
         </div>
-  
-          <!-- Revenue Breakdown (Stacked) -->
-  <div class="mt-4 space-y-3">
-    <div class="flex flex-col bg-gray-50 p-3 rounded-lg shadow-sm">
-      <p class="text-gray-500 text-sm">From Subscriptions</p>
-      <p class="text-lg font-medium text-gray-800">UGX {{ stats.dinify_earnings.subscriptions| number }}</p>
-    </div>
-
-    <div class="flex flex-col bg-red-50 p-3 rounded-lg shadow-sm border-l-4 border-red-500">
-      <p class="text-red-600 text-sm font-semibold">Outstanding</p>
-      <p class="text-lg font-bold text-red-700">UGX {{ stats.dinify_earnings.outstanding | number }}</p>
-    </div>
-      </div>
-      </div>
-  
-      <!-- Top Restaurants Card -->
-<div class="p-4 bg-white shadow-md rounded-lg col-span-2">
-    <h2 class="text-lg font-semibold mb-4">Top Restaurants</h2>
-  
-    <ul class="divide-y divide-gray-200">
-      <li *ngFor="let restaurant of stats.top_restaurants" class="py-3 flex justify-between items-center">
-        <div>
-          <p class="text-lg font-medium">{{ restaurant.restaurant }}</p>
-          <p class="text-sm text-gray-600">Orders: {{ restaurant.orders }}</p>
+        <!-- Revenue Breakdown (Stacked) -->
+        <div class="mt-4 space-y-3">
+          <div class="flex flex-col bg-gray-50 p-3 rounded-lg shadow-sm">
+            <p class="text-gray-500 text-sm">From Subscriptions</p>
+            <p class="text-lg font-medium text-gray-800">UGX {{ stats.dinify_earnings.subscriptions| number }}</p>
+          </div>
+          <div class="flex flex-col bg-red-50 p-3 rounded-lg shadow-sm border-l-4 border-red-500">
+            <p class="text-red-600 text-sm font-semibold">Outstanding</p>
+            <p class="text-lg font-bold text-red-700">UGX {{ stats.dinify_earnings.outstanding | number }}</p>
+          </div>
         </div>
-        <p class="text-sm font-semibold text-gray-800">UGX {{ (restaurant.amount| number)||'0' }}</p>
-      </li>
-    </ul>
-  </div>
+      </div>
+      <!-- Top Restaurants Card -->
+      <div class="p-4 bg-white shadow-md rounded-lg col-span-2">
+        <h2 class="text-lg font-semibold mb-4">Top Restaurants</h2>
+        <ul class="divide-y divide-gray-200">
+          @for (restaurant of stats.top_restaurants; track restaurant) {
+            <li class="py-3 flex justify-between items-center">
+              <div>
+                <p class="text-lg font-medium">{{ restaurant.restaurant }}</p>
+                <p class="text-sm text-gray-600">Orders: {{ restaurant.orders }}</p>
+              </div>
+              <p class="text-sm font-semibold text-gray-800">UGX {{ (restaurant.amount| number)||'0' }}</p>
+            </li>
+          }
+        </ul>
+      </div>
     </div>
   </main>
-  
-    <!--
-    <main class="p-4 md:ml-auto h-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-            <a class="block p-6 bg-gray-200 rounded text-sm">
-                <div class="flex flex-row">
-                    <div class="left-0">
-                        <div class="text-gray-700">
-                            <span class="font-medium">Active Orders: </span> <span class="font-bold">006</span>
-                        </div>
-                        <div>
-                            +2%
-                        </div>
-                    </div>
-                    <div class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">UGX 200K</div>                
-                </div>
-            </a>
-            <a class="block p-6 bg-gray-200 rounded text-sm">
-                <div class="flex flex-row">
-                    <div class="left-0">
-                        <div class="text-gray-700">
-                            <span class="font-medium">Orders Today: </span> <span class="font-bold">134</span>
-                        </div>
-                        <div>
-                            +2%
-                        </div>
-                    </div>
-                    <div class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">UGX 200K</div>                
-                </div>
-            </a>
-            <a class="block p-6 bg-gray-200 rounded text-sm">
-                <div class="flex flex-row">
-                    <div class="left-0">
-                        <div class="text-gray-700">
-                            <span class="font-medium">Tables Served: </span> <span class="font-bold">006</span>
-                        </div>
-                        <div>
-                            +2%
-                        </div>
-                    </div>
-                    <div class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">UGX 200K</div>                
-                </div>
-            </a>
-        </div>
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-        <div class="flex flex-col border border-dashed border-black rounded-lg">
-            <div class="bg-black m-4 rounded text-white p-4">
-                <div class="flex flex-row">
-                    <h4 class="text-white">Total Sales Today</h4>
-                    <a class="ml-auto">
-                        <svg fill="#ffffff" height="25px" width="25px" viewBox="0 0 282.772 282.772">
-                            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                            <g id="SVGRepo_iconCarrier">
-                                <g>
-                                    <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
-                                    </path>
-                                    <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
-                                    </path>
-                                    <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
-                                    </path>
-                                    <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
-                                    </path>
-                                    <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
-                                    </path>
-                                </g>
-                            </g>
-                        </svg>
-                    </a>
-                </div>
-            
-                <div class="text-2xl mt-3">
-                    UGX 350
-                </div>
-                <div class="text-sm mb-3">Amount</div>
-            </div>
-            <div class="bg-gray-200 m-4 -mt-1 rounded text-black p-4">
-                <div class="flex flex-row">
-                    <h4 class="text-black">Total Sales Number</h4>                    
-                    <a class="ml-auto">
-                        <svg fill="#000000" height="25px" width="25px" viewBox="0 0 282.772 282.772">
-                            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                            <g id="SVGRepo_iconCarrier">
-                                <g>
-                                    <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
-                                    </path>
-                                    <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
-                                    </path>
-                                    <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
-                                    </path>
-                                    <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
-                                    </path>
-                                    <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
-                                    </path>
-                                </g>
-                            </g>
-                        </svg>
-                    </a>
-                </div>
-            
-                <div class="text-2xl my-3">
-                    10
-                </div>
-               
-            </div>
-            <div>
+}
 
-            </div>
-        </div>
-        <div class="flex flex-col border border-dashed border-black rounded-lg">
-            <div class="bg-black m-4 rounded text-white p-4">
-                <div class="flex flex-row">
-                    <h4 class="text-white">Total Sales Today</h4>
-                    <a class="ml-auto">
-                        <svg fill="#ffffff" height="25px" width="25px" viewBox="0 0 282.772 282.772">
-                            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                            <g id="SVGRepo_iconCarrier">
-                                <g>
-                                    <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
-                                    </path>
-                                    <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
-                                    </path>
-                                    <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
-                                    </path>
-                                    <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
-                                    </path>
-                                    <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
-                                    </path>
-                                </g>
-                            </g>
-                        </svg>
-                    </a>
-                </div>
-            
-                <div class="text-2xl mt-3">
-                    UGX 350
-                </div>
-                <div class="text-sm mb-3">Amount</div>
-            </div>
-            <div class="bg-gray-200 m-4 -mt-1 rounded text-black p-4">
-                <div class="flex flex-row">
-                    <h4 class="text-black">Total Sales Number</h4>                    
-                    <a class="ml-auto">
-                        <svg fill="#000000" height="25px" width="25px" viewBox="0 0 282.772 282.772">
-                            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                            <g id="SVGRepo_iconCarrier">
-                                <g>
-                                    <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
-                                    </path>
-                                    <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
-                                    </path>
-                                    <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
-                                    </path>
-                                    <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
-                                    </path>
-                                    <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
-                                    </path>
-                                </g>
-                            </g>
-                        </svg>
-                    </a>
-                </div>
-            
-                <div class="text-2xl my-3">
-                    10
-                </div>
-                <!-- <div class="text-sm mb-3">Number</div> 
-            </div>
-            <div>
-
-            </div>
-        </div>
-        <div class="flex flex-col border border-dashed border-black rounded-lg">
-            <div class="bg-black m-4 rounded text-white p-4">
-                <div class="flex flex-row">
-                    <h4 class="text-white">Total Sales Today</h4>
-                    <a class="ml-auto">
-                        <svg fill="#ffffff" height="25px" width="25px" viewBox="0 0 282.772 282.772">
-                            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                            <g id="SVGRepo_iconCarrier">
-                                <g>
-                                    <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
-                                    </path>
-                                    <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
-                                    </path>
-                                    <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
-                                    </path>
-                                    <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
-                                    </path>
-                                    <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
-                                    </path>
-                                </g>
-                            </g>
-                        </svg>
-                    </a>
-                </div>
-            
-                <div class="text-2xl mt-3">
-                    UGX 350
-                </div>
-                <div class="text-sm mb-3">Amount</div>
-            </div>
-            <div class="bg-gray-200 m-4 -mt-1 rounded text-black p-4">
-                <div class="flex flex-row">
-                    <h4 class="text-black">Total Sales Number</h4>                    
-                    <a class="ml-auto">
-                        <svg fill="#000000" height="25px" width="25px" viewBox="0 0 282.772 282.772">
-                            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                            <g id="SVGRepo_iconCarrier">
-                                <g>
-                                    <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
-                                    </path>
-                                    <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
-                                    </path>
-                                    <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
-                                    </path>
-                                    <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
-                                    </path>
-                                    <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
-                                    </path>
-                                </g>
-                            </g>
-                        </svg>
-                    </a>
-                </div>
-            
-                <div class="text-2xl my-3">
-                    10
-                </div>
-                <!-- <div class="text-sm mb-3">Number</div> 
-            </div>
-            <div>
-
-            </div>
-        </div>
-      </div>-->
-<!--       <div class="rounded-lg mb-4">
-        <div id="chart">
-            <apx-chart
-              [series]="chartOptions.series"
-              [chart]="chartOptions.chart"
-              [xaxis]="chartOptions.xaxis"
-              [stroke]="chartOptions.stroke"
-              [tooltip]="chartOptions.tooltip"
-              [dataLabels]="chartOptions.dataLabels"
-              [legend]="chartOptions.legend"
-              [markers]="chartOptions.markers"
-              [grid]="chartOptions.grid"
-              [yaxis]="chartOptions.yaxis"
-              [title]="chartOptions.title"
-            ></apx-chart>
+<!--
+<main class="p-4 md:ml-auto h-auto">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <a class="block p-6 bg-gray-200 rounded text-sm">
+      <div class="flex flex-row">
+        <div class="left-0">
+          <div class="text-gray-700">
+            <span class="font-medium">Active Orders: </span> <span class="font-bold">006</span>
           </div>
-      </div> -->
-     <!--  <div class="grid grid-cols-2 gap-4 mb-4">
-        <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
-        <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
-        <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
-        <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
-      </div>
-      <div class="border-2 border-dashed rounded-lg border-gray-300  h-96 mb-4"></div>
-      <div class="grid grid-cols-2 gap-4">
-        <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
-        <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
-        <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
-        <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
-      </div>
-    </main> -->
-    <!-- <main>
-        <div class="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-           
-            <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-blue-500">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h11M9 21V3m0 0a5.25 5.25 0 000 10.5M9 3a5.25 5.25 0 015.25 5.25" />
-              </svg>
-              <h2 class="text-xl font-semibold">Sales</h2>
-              <p>Number of Sales: {{ data.num_sales }}</p>
-              <p>Sales Amount: {{ data.sales_amount || 'No data' }}</p>
-            </div>
-          
-          
-            <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-green-500">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <h2 class="text-xl font-semibold">Orders Overview</h2>
-              <p>Paid Orders: {{ data.paid_orders.number }} ({{ data.paid_orders.percentage }}%)</p>
-              <p>Cancelled Orders: {{ data.cancelled_orders.number }} ({{ data.cancelled_orders.percentage }}%)</p>
-              <p>Refunded Orders: {{ data.refunded_orders.number }} ({{ data.refunded_orders.percentage }}%)</p>
-            </div>
-         
-            <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-orange-500">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9V7.875A2.625 2.625 0 0014.625 5.25h-5.25A2.625 2.625 0 006.75 7.875V9M4.5 9v10.875A2.625 2.625 0 007.125 22.5h9.75A2.625 2.625 0 0019.5 19.875V9m-7.5 0v13.5" />
-              </svg>
-              <h2 class="text-xl font-semibold">Diner Information</h2>
-              <p>New Diners: {{ data.new_diners }}</p>
-              <p>Repeat Diners: {{ data.repeat_diners }}</p>
-            </div>
-         
-            <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-purple-500">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.25h13.5m-13.5 13.5h13.5m-10.5-10.5v7.5m7.5-7.5v7.5" />
-              </svg>
-              <h2 class="text-xl font-semibold">Menu Insights</h2>
-              <p>Most Ordered Item: {{ data.most_ordered_item }}</p>
-              <p>Least Ordered Item: {{ data.least_ordered_item }}</p>
-              <p>Most Liked Item: {{ data.most_liked_item || 'No data' }}</p>
-              <p>Least Liked Item: {{ data.least_liked_item || 'No data' }}</p>
-            </div>
-          
-            <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-pink-500">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9.75L19.5 12m0 0l-3.75 2.25M19.5 12H7.125M12 3.375V20.25" />
-              </svg>
-              <h2 class="text-xl font-semibold">Peak Hour</h2>
-              <p>Peak Hour: {{ data.peak_hour }}:00</p>
-            </div>
-          
-           
-            <div class="shadow-md rounded-2xl p-4 bg-white col-span-2 lg:col-span-3 border">
-              <h2 class="text-xl font-semibold mb-1">Sales</h2>
-              <apx-chart 
-              [series]="chartOptions2.series" 
-              [chart]="chartOptions2.chart" 
-              [xaxis]="chartOptions2.xaxis"
-              [yaxis]="chartOptions2.yaxis"></apx-chart>
-            </div>
+          <div>
+            +2%
           </div>
-    </main>
- -->
+        </div>
+        <div class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">UGX 200K</div>
+      </div>
+    </a>
+    <a class="block p-6 bg-gray-200 rounded text-sm">
+      <div class="flex flex-row">
+        <div class="left-0">
+          <div class="text-gray-700">
+            <span class="font-medium">Orders Today: </span> <span class="font-bold">134</span>
+          </div>
+          <div>
+            +2%
+          </div>
+        </div>
+        <div class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">UGX 200K</div>
+      </div>
+    </a>
+    <a class="block p-6 bg-gray-200 rounded text-sm">
+      <div class="flex flex-row">
+        <div class="left-0">
+          <div class="text-gray-700">
+            <span class="font-medium">Tables Served: </span> <span class="font-bold">006</span>
+          </div>
+          <div>
+            +2%
+          </div>
+        </div>
+        <div class="bg-white rounded border text-gray-400 border-gray-300 py-2 px-4 ml-auto font-bold">UGX 200K</div>
+      </div>
+    </a>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="flex flex-col border border-dashed border-black rounded-lg">
+      <div class="bg-black m-4 rounded text-white p-4">
+        <div class="flex flex-row">
+          <h4 class="text-white">Total Sales Today</h4>
+          <a class="ml-auto">
+            <svg fill="#ffffff" height="25px" width="25px" viewBox="0 0 282.772 282.772">
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+              <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+              <g id="SVGRepo_iconCarrier">
+                <g>
+                  <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
+                  </path>
+                  <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
+                  </path>
+                  <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
+                  </path>
+                  <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
+                  </path>
+                  <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
+                  </path>
+                </g>
+              </g>
+            </svg>
+          </a>
+        </div>
+
+        <div class="text-2xl mt-3">
+          UGX 350
+        </div>
+        <div class="text-sm mb-3">Amount</div>
+      </div>
+      <div class="bg-gray-200 m-4 -mt-1 rounded text-black p-4">
+        <div class="flex flex-row">
+          <h4 class="text-black">Total Sales Number</h4>
+          <a class="ml-auto">
+            <svg fill="#000000" height="25px" width="25px" viewBox="0 0 282.772 282.772">
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+              <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+              <g id="SVGRepo_iconCarrier">
+                <g>
+                  <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
+                  </path>
+                  <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
+                  </path>
+                  <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
+                  </path>
+                  <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
+                  </path>
+                  <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
+                  </path>
+                </g>
+              </g>
+            </svg>
+          </a>
+        </div>
+
+        <div class="text-2xl my-3">
+          10
+        </div>
+
+      </div>
+      <div>
+
+      </div>
+    </div>
+    <div class="flex flex-col border border-dashed border-black rounded-lg">
+      <div class="bg-black m-4 rounded text-white p-4">
+        <div class="flex flex-row">
+          <h4 class="text-white">Total Sales Today</h4>
+          <a class="ml-auto">
+            <svg fill="#ffffff" height="25px" width="25px" viewBox="0 0 282.772 282.772">
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+              <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+              <g id="SVGRepo_iconCarrier">
+                <g>
+                  <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
+                  </path>
+                  <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
+                  </path>
+                  <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
+                  </path>
+                  <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
+                  </path>
+                  <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
+                  </path>
+                </g>
+              </g>
+            </svg>
+          </a>
+        </div>
+
+        <div class="text-2xl mt-3">
+          UGX 350
+        </div>
+        <div class="text-sm mb-3">Amount</div>
+      </div>
+      <div class="bg-gray-200 m-4 -mt-1 rounded text-black p-4">
+        <div class="flex flex-row">
+          <h4 class="text-black">Total Sales Number</h4>
+          <a class="ml-auto">
+            <svg fill="#000000" height="25px" width="25px" viewBox="0 0 282.772 282.772">
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+              <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+              <g id="SVGRepo_iconCarrier">
+                <g>
+                  <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
+                  </path>
+                  <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
+                  </path>
+                  <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
+                  </path>
+                  <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
+                  </path>
+                  <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
+                  </path>
+                </g>
+              </g>
+            </svg>
+          </a>
+        </div>
+
+        <div class="text-2xl my-3">
+          10
+        </div>
+        <!-- <div class="text-sm mb-3">Number</div>
+      </div>
+      <div>
+
+      </div>
+    </div>
+    <div class="flex flex-col border border-dashed border-black rounded-lg">
+      <div class="bg-black m-4 rounded text-white p-4">
+        <div class="flex flex-row">
+          <h4 class="text-white">Total Sales Today</h4>
+          <a class="ml-auto">
+            <svg fill="#ffffff" height="25px" width="25px" viewBox="0 0 282.772 282.772">
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+              <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+              <g id="SVGRepo_iconCarrier">
+                <g>
+                  <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
+                  </path>
+                  <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
+                  </path>
+                  <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
+                  </path>
+                  <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
+                  </path>
+                  <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
+                  </path>
+                </g>
+              </g>
+            </svg>
+          </a>
+        </div>
+
+        <div class="text-2xl mt-3">
+          UGX 350
+        </div>
+        <div class="text-sm mb-3">Amount</div>
+      </div>
+      <div class="bg-gray-200 m-4 -mt-1 rounded text-black p-4">
+        <div class="flex flex-row">
+          <h4 class="text-black">Total Sales Number</h4>
+          <a class="ml-auto">
+            <svg fill="#000000" height="25px" width="25px" viewBox="0 0 282.772 282.772">
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+              <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+              <g id="SVGRepo_iconCarrier">
+                <g>
+                  <path d="M61.472,143.036H23.881c-4.971,0-9,4.029-9,9v94.185c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-94.185 C70.472,147.065,66.443,143.036,61.472,143.036z M52.472,237.22H32.881v-76.185h19.591V237.22z">
+                  </path>
+                  <path d="M132.238,93.194H94.648c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V102.194 C141.238,97.224,137.209,93.194,132.238,93.194z M123.238,237.22h-19.591V111.194h19.591V237.22z">
+                  </path>
+                  <path d="M203.005,150.471h-37.591c-4.971,0-9,4.029-9,9v86.749c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9v-86.749 C212.005,154.5,207.976,150.471,203.005,150.471z M194.005,237.22h-19.591v-68.749h19.591V237.22z">
+                  </path>
+                  <path d="M273.772,96.516H236.18c-4.971,0-9,4.029-9,9V246.22c0,4.971,4.029,9,9,9h37.591c4.971,0,9-4.029,9-9V105.516 C282.772,100.545,278.742,96.516,273.772,96.516z M264.772,237.22H245.18V114.516h19.591V237.22z">
+                  </path>
+                  <path d="M178.918,112.796c3.276,2.381,7.739,2.28,10.905-0.246l67.269-53.682l-0.298,8.847c-0.167,4.968,3.724,9.131,8.692,9.298 c0.104,0.003,0.206,0.005,0.309,0.005c4.831,0,8.826-3.833,8.99-8.697l1.061-31.466c0.083-2.491-0.869-4.905-2.631-6.667 c-1.762-1.763-4.184-2.719-6.667-2.631l-31.466,1.061c-4.968,0.167-8.859,4.331-8.692,9.298c0.167,4.967,4.314,8.85,9.298,8.692 l8.261-0.278l-59.993,47.876l-68.22-49.585c-2.988-2.172-7-2.298-10.117-0.317L4.176,108.734 c-4.196,2.665-5.437,8.227-2.772,12.422c1.715,2.7,4.628,4.176,7.605,4.176c1.65,0,3.321-0.454,4.817-1.404l96.276-61.15 L178.918,112.796z">
+                  </path>
+                </g>
+              </g>
+            </svg>
+          </a>
+        </div>
+
+        <div class="text-2xl my-3">
+          10
+        </div>
+        <!-- <div class="text-sm mb-3">Number</div>
+      </div>
+      <div>
+
+      </div>
+    </div>
+  </div>-->
+  <!--       <div class="rounded-lg mb-4">
+  <div id="chart">
+    <apx-chart
+      [series]="chartOptions.series"
+      [chart]="chartOptions.chart"
+      [xaxis]="chartOptions.xaxis"
+      [stroke]="chartOptions.stroke"
+      [tooltip]="chartOptions.tooltip"
+      [dataLabels]="chartOptions.dataLabels"
+      [legend]="chartOptions.legend"
+      [markers]="chartOptions.markers"
+      [grid]="chartOptions.grid"
+      [yaxis]="chartOptions.yaxis"
+      [title]="chartOptions.title"
+    ></apx-chart>
+  </div>
+</div> -->
+<!--  <div class="grid grid-cols-2 gap-4 mb-4">
+<div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
+<div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
+<div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
+<div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
+</div>
+<div class="border-2 border-dashed rounded-lg border-gray-300  h-96 mb-4"></div>
+<div class="grid grid-cols-2 gap-4">
+  <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
+  <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
+  <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
+  <div class="border-2 border-dashed rounded-lg border-gray-300  h-48 md:h-72"></div>
+</div>
+</main> -->
+<!-- <main>
+<div class="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+
+  <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-blue-500">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h11M9 21V3m0 0a5.25 5.25 0 000 10.5M9 3a5.25 5.25 0 015.25 5.25" />
+    </svg>
+    <h2 class="text-xl font-semibold">Sales</h2>
+    <p>Number of Sales: {{ data.num_sales }}</p>
+    <p>Sales Amount: {{ data.sales_amount || 'No data' }}</p>
+  </div>
+
+
+  <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-green-500">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+    </svg>
+    <h2 class="text-xl font-semibold">Orders Overview</h2>
+    <p>Paid Orders: {{ data.paid_orders.number }} ({{ data.paid_orders.percentage }}%)</p>
+    <p>Cancelled Orders: {{ data.cancelled_orders.number }} ({{ data.cancelled_orders.percentage }}%)</p>
+    <p>Refunded Orders: {{ data.refunded_orders.number }} ({{ data.refunded_orders.percentage }}%)</p>
+  </div>
+
+  <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-orange-500">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9V7.875A2.625 2.625 0 0014.625 5.25h-5.25A2.625 2.625 0 006.75 7.875V9M4.5 9v10.875A2.625 2.625 0 007.125 22.5h9.75A2.625 2.625 0 0019.5 19.875V9m-7.5 0v13.5" />
+    </svg>
+    <h2 class="text-xl font-semibold">Diner Information</h2>
+    <p>New Diners: {{ data.new_diners }}</p>
+    <p>Repeat Diners: {{ data.repeat_diners }}</p>
+  </div>
+
+  <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-purple-500">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.25h13.5m-13.5 13.5h13.5m-10.5-10.5v7.5m7.5-7.5v7.5" />
+    </svg>
+    <h2 class="text-xl font-semibold">Menu Insights</h2>
+    <p>Most Ordered Item: {{ data.most_ordered_item }}</p>
+    <p>Least Ordered Item: {{ data.least_ordered_item }}</p>
+    <p>Most Liked Item: {{ data.most_liked_item || 'No data' }}</p>
+    <p>Least Liked Item: {{ data.least_liked_item || 'No data' }}</p>
+  </div>
+
+  <div class="shadow-md rounded-2xl p-4 bg-white flex flex-col items-start border">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 mb-2 text-pink-500">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9.75L19.5 12m0 0l-3.75 2.25M19.5 12H7.125M12 3.375V20.25" />
+    </svg>
+    <h2 class="text-xl font-semibold">Peak Hour</h2>
+    <p>Peak Hour: {{ data.peak_hour }}:00</p>
+  </div>
+
+
+  <div class="shadow-md rounded-2xl p-4 bg-white col-span-2 lg:col-span-3 border">
+    <h2 class="text-xl font-semibold mb-1">Sales</h2>
+    <apx-chart
+      [series]="chartOptions2.series"
+      [chart]="chartOptions2.chart"
+      [xaxis]="chartOptions2.xaxis"
+    [yaxis]="chartOptions2.yaxis"></apx-chart>
+  </div>
+</div>
+</main>
+-->

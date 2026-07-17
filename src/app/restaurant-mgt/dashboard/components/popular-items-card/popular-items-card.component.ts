@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
@@ -11,7 +11,7 @@ import { formatCurrency } from '../../utils/format.utils';
   selector: 'app-popular-items-card',
   standalone: true,
   host: { class: 'block h-full' },
-  imports: [CommonModule, RouterModule, CardComponent, CardSkeletonComponent, DnSegmentedComponent],
+  imports: [RouterModule, CardComponent, CardSkeletonComponent, DnSegmentedComponent],
   template: `
     @if (loading) {
       <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>

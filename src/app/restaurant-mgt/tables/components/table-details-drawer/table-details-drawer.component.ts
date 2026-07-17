@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
@@ -27,13 +27,12 @@ const STATUS_COLORS: Record<TableStatus, string> = {
   selector: 'app-table-details-drawer',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ButtonComponent,
     BadgeComponent,
     DialogComponent,
-    TooltipDirective,
-  ],
+    TooltipDirective
+],
   templateUrl: './table-details-drawer.component.html',
 })
 export class TableDetailsDrawerComponent {

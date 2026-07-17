@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
   AbstractControl,
@@ -59,12 +59,11 @@ function closeAfterOpen(group: AbstractControl): ValidationErrors | null {
   selector: 'app-availability',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     SectionPageComponent,
     SwitchComponent,
-    OpeningHoursEditorComponent,
-  ],
+    OpeningHoursEditorComponent
+],
   templateUrl: './availability.component.html',
 })
 export class AvailabilityComponent implements OnInit, HasUnsavedChanges {

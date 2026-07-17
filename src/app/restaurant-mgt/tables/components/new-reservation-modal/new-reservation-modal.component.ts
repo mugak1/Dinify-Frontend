@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
@@ -8,7 +8,7 @@ import { DiningArea, Reservation } from '../../models/tables.models';
 @Component({
   selector: 'app-new-reservation-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogComponent, ButtonComponent],
+  imports: [FormsModule, DialogComponent, ButtonComponent],
   templateUrl: './new-reservation-modal.component.html',
 })
 export class NewReservationModalComponent implements OnChanges {

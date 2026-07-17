@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subject, combineLatest } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
@@ -28,14 +28,13 @@ import { mockSeatedParties } from '../../data/tables-mock-data';
   selector: 'app-tables-service-view',
   standalone: true,
   imports: [
-    CommonModule,
     ServiceToolbarComponent,
     FloorPlanCanvasComponent,
     ReservationsPaneComponent,
     NewReservationModalComponent,
     TableDetailsDrawerComponent,
-    TransferTableModalComponent,
-  ],
+    TransferTableModalComponent
+],
   templateUrl: './tables-service-view.component.html',
   host: { class: 'block' },
 })

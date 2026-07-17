@@ -1,36 +1,35 @@
-<div
-  *ngIf="open && order"
-  class="fixed inset-0 z-50 flex items-center justify-center p-4">
-  <!-- Scrim: click anywhere outside the modal to back out. -->
-  <div class="absolute inset-0 bg-black/60 kcd-scrim" (click)="onClose()"></div>
-
-  <!-- Light modal centred over the dark board. -->
+@if (open && order) {
   <div
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="kcd-title"
-    class="relative z-10 w-full max-w-md bg-white rounded-xl shadow-xl p-6 kcd-modal">
-    <h2 id="kcd-title" class="font-display text-xl font-extrabold text-gray-900">
-      Cancel order {{ orderNumber }}?
-    </h2>
-    <p class="mt-0.5 text-sm font-medium text-gray-500">{{ order.table_label }}</p>
-
-    <p class="mt-5 text-sm font-semibold text-gray-700">Reason for cancelling</p>
-    <div class="mt-2 grid gap-2">
+    class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <!-- Scrim: click anywhere outside the modal to back out. -->
+    <div class="absolute inset-0 bg-black/60 kcd-scrim" (click)="onClose()"></div>
+    <!-- Light modal centred over the dark board. -->
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="kcd-title"
+      class="relative z-10 w-full max-w-md bg-white rounded-xl shadow-xl p-6 kcd-modal">
+      <h2 id="kcd-title" class="font-display text-xl font-extrabold text-gray-900">
+        Cancel order {{ orderNumber }}?
+      </h2>
+      <p class="mt-0.5 text-sm font-medium text-gray-500">{{ order.table_label }}</p>
+      <p class="mt-5 text-sm font-semibold text-gray-700">Reason for cancelling</p>
+      <div class="mt-2 grid gap-2">
+        @for (r of reasons; track r) {
+          <button
+            type="button"
+            (click)="onPick(r.value)"
+            class="w-full text-left rounded-lg border border-gray-200 px-4 py-3 text-base font-medium text-gray-800 desktop-hover:border-red-300 desktop-hover:bg-red-50 desktop-hover:text-red-700 active:bg-red-50 active:text-red-700 transition-colors">
+            {{ r.label }}
+          </button>
+        }
+      </div>
       <button
-        *ngFor="let r of reasons"
         type="button"
-        (click)="onPick(r.value)"
-        class="w-full text-left rounded-lg border border-gray-200 px-4 py-3 text-base font-medium text-gray-800 desktop-hover:border-red-300 desktop-hover:bg-red-50 desktop-hover:text-red-700 active:bg-red-50 active:text-red-700 transition-colors">
-        {{ r.label }}
+        (click)="onClose()"
+        class="mt-5 w-full rounded-lg bg-gray-900 px-4 py-3 text-base font-bold text-white desktop-hover:bg-gray-800 active:bg-gray-800 transition-colors">
+        Keep order
       </button>
     </div>
-
-    <button
-      type="button"
-      (click)="onClose()"
-      class="mt-5 w-full rounded-lg bg-gray-900 px-4 py-3 text-base font-bold text-white desktop-hover:bg-gray-800 active:bg-gray-800 transition-colors">
-      Keep order
-    </button>
   </div>
-</div>
+}

@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import {
   ChangeDetectionStrategy,
   Component,
@@ -26,7 +26,7 @@ interface CancelReason {
 @Component({
   selector: 'app-kitchen-cancel-dialog',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './cancel-dialog.component.html',
   styleUrls: ['./cancel-dialog.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,

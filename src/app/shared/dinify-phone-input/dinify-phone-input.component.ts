@@ -10,7 +10,7 @@ import {
   forwardRef,
   inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { AutofillMonitor } from '@angular/cdk/text-field';
 import { Subscription } from 'rxjs';
@@ -52,7 +52,7 @@ export interface DinifyPhoneChange {
 @Component({
   selector: 'app-dinify-phone-input',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './dinify-phone-input.component.html',
   styleUrls: ['./dinify-phone-input.component.css'],
   providers: [

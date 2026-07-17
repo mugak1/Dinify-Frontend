@@ -9,10 +9,10 @@
       </p>
     </div>
     <button app-dn-button variant="outline" (click)="previewOpen = true"
-            [disabled]="!config || config.items.length === 0">
+      [disabled]="!config || config.items.length === 0">
       <!-- Eye icon -->
       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1.5 inline-block" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/>
         <circle cx="12" cy="12" r="3"/>
       </svg>
@@ -46,12 +46,12 @@
         This title is displayed above the upsell carousel at checkout
       </p>
       <input type="text"
-             [(ngModel)]="localTitle"
-             (blur)="onTitleBlur()"
-             autocapitalize="off"
-             autocorrect="off"
-             placeholder="e.g. You might also like..."
-             class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+        [(ngModel)]="localTitle"
+        (blur)="onTitleBlur()"
+        autocapitalize="off"
+        autocorrect="off"
+        placeholder="e.g. You might also like..."
+        class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
     </div>
   </app-dn-card>
 
@@ -68,7 +68,7 @@
         <button app-dn-button variant="default" (click)="addModalOpen = true">
           <!-- Plus icon -->
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 inline-block" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 5v14"/><path d="M5 12h14"/>
           </svg>
           Add Items
@@ -76,82 +76,87 @@
       </div>
 
       <!-- Warning: enabled but no items -->
-      <div *ngIf="config?.enabled && (!config?.items || config!.items.length === 0)"
-           class="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
-        <!-- AlertTriangle icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
-          <path d="M12 9v4"/><path d="M12 17h.01"/>
-        </svg>
-        Upsells are enabled but no items have been added. Add items to show upsell suggestions.
-      </div>
+      @if (config?.enabled && (!config?.items || config!.items.length === 0)) {
+        <div
+          class="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+          <!-- AlertTriangle icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
+            <path d="M12 9v4"/><path d="M12 17h.01"/>
+          </svg>
+          Upsells are enabled but no items have been added. Add items to show upsell suggestions.
+        </div>
+      }
 
       <!-- Empty state -->
-      <div *ngIf="!config?.items || config!.items.length === 0"
-           class="flex flex-col items-center justify-center py-12 text-center">
-        <!-- ShoppingCart icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-muted-foreground mb-3" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
-          <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
-        </svg>
-        <p class="text-muted-foreground text-sm">No upsell items added yet</p>
-        <p class="text-muted-foreground text-xs mt-1">Click "Add Items" to get started</p>
-      </div>
+      @if (!config?.items || config!.items.length === 0) {
+        <div
+          class="flex flex-col items-center justify-center py-12 text-center">
+          <!-- ShoppingCart icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-muted-foreground mb-3" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
+            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+          </svg>
+          <p class="text-muted-foreground text-sm">No upsell items added yet</p>
+          <p class="text-muted-foreground text-xs mt-1">Click "Add Items" to get started</p>
+        </div>
+      }
 
       <!-- Items list (drag-sortable) -->
-      <div *ngIf="config?.items && config!.items.length > 0"
-           cdkDropList
-           (cdkDropListDropped)="onDrop($event)"
-           class="space-y-2">
-        <div *ngFor="let item of (config!.items | safeArray); trackBy: trackByUpsellItemId"
-             cdkDrag
-             class="flex items-center gap-3 p-3 border border-border rounded-lg bg-background hover:bg-muted/50 transition-colors">
-
-          <!-- Drag handle -->
-          <div cdkDragHandle class="cursor-grab text-muted-foreground">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/>
-              <circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>
-            </svg>
-          </div>
-
-          <!-- Item thumbnail -->
-          <div class="w-10 h-10 rounded-md overflow-hidden bg-muted shrink-0">
-            <img *ngIf="getUpsellItemImage(item)"
-                 [src]="getUpsellItemImage(item)"
-                 [alt]="item.item_name"
-                 class="w-full h-full object-cover" />
-          </div>
-
-          <!-- Item info -->
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-foreground truncate">
-              {{ item.item_name || 'Unknown item' }}
-            </p>
-            <p class="text-xs text-muted-foreground">
-              {{ (item.item_price || 0) | number:'1.0-0' }} UGX
-            </p>
-          </div>
-
-          <!-- Stock indicator -->
-          <span class="w-2 h-2 rounded-full shrink-0"
+      @if (config?.items && config!.items.length > 0) {
+        <div
+          cdkDropList
+          (cdkDropListDropped)="onDrop($event)"
+          class="space-y-2">
+          @for (item of (config!.items | safeArray); track trackByUpsellItemId($index, item)) {
+            <div
+              cdkDrag
+              class="flex items-center gap-3 p-3 border border-border rounded-lg bg-background hover:bg-muted/50 transition-colors">
+              <!-- Drag handle -->
+              <div cdkDragHandle class="cursor-grab text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/>
+                  <circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>
+                </svg>
+              </div>
+              <!-- Item thumbnail -->
+              <div class="w-10 h-10 rounded-md overflow-hidden bg-muted shrink-0">
+                @if (getUpsellItemImage(item)) {
+                  <img
+                    [src]="getUpsellItemImage(item)"
+                    [alt]="item.item_name"
+                    class="w-full h-full object-cover" />
+                }
+              </div>
+              <!-- Item info -->
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-foreground truncate">
+                  {{ item.item_name || 'Unknown item' }}
+                </p>
+                <p class="text-xs text-muted-foreground">
+                  {{ (item.item_price || 0) | number:'1.0-0' }} UGX
+                </p>
+              </div>
+              <!-- Stock indicator -->
+              <span class="w-2 h-2 rounded-full shrink-0"
                 [class.bg-green-500]="item.item_available"
-                [class.bg-red-500]="!item.item_available"></span>
-
-          <!-- Remove button -->
-          <button app-dn-button variant="ghost" size="icon"
-                  class="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  (click)="onRemoveItem(item)">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-            </svg>
-          </button>
+              [class.bg-red-500]="!item.item_available"></span>
+              <!-- Remove button -->
+              <button app-dn-button variant="ghost" size="icon"
+                class="h-8 w-8 text-muted-foreground hover:text-destructive"
+                (click)="onRemoveItem(item)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+              </button>
+            </div>
+          }
         </div>
-      </div>
+      }
     </div>
   </app-dn-card>
 
@@ -164,8 +169,8 @@
       <div class="space-y-1.5">
         <label class="text-sm text-muted-foreground">Max items to show</label>
         <select [ngModel]="config?.max_items_to_show ?? 4"
-                (ngModelChange)="onMaxItemsChange($event)"
-                class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          (ngModelChange)="onMaxItemsChange($event)"
+          class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="2">2</option>
           <option value="3">3</option>
           <option value="4">4</option>

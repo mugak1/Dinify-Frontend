@@ -1,176 +1,229 @@
 <section class="bg-white">
-    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
-        <svg height="50" viewBox="0 0 495.95 121.55">
-            <path d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58" />
-            <path d="M267.38,2.83A11.77,11.77,0,0,0,252,2.89a9.54,9.54,0,0,0-3.07,7.25A9.64,9.64,0,0,0,252,17.49a11.65,11.65,0,0,0,15.38,0,9.74,9.74,0,0,0,3-7.35,9.61,9.61,0,0,0-3-7.31M251,97h17.25V30.65H251Z" />
-            <path d="M335.19,36.19c-4.27-4.65-10.14-7-17.62-7q-13.14,0-20.63,10.5v-9H279.69V97h17.25V62.14q0-16.55,15-16.54,6.61,0,9.53,3.38t2.89,10.13V97h17.25V55.38q0-12.18-6.39-19.19" />
-            <path d="M368.72,2.83a11.77,11.77,0,0,0-15.38.06,9.59,9.59,0,0,0-3.08,7.25,9.68,9.68,0,0,0,3.08,7.35,11.65,11.65,0,0,0,15.38,0,9.71,9.71,0,0,0,3-7.35,9.58,9.58,0,0,0-3-7.31M352.32,97h17.25V30.65H352.32Z" />
-            <path d="M410.65,17.74A30.49,30.49,0,0,1,419,19.06l2.29.6,3.13-14a37.46,37.46,0,0,0-15.68-3q-11.34,0-19.19,6.82t-7.84,20.09V97h17.25V51.93l-14.94-5h37V30.65H398.94v-.26q0-12.64,11.71-12.65" />
-            <polygon points="477.48 30.65 460.96 69.49 444.55 30.65 426.21 30.65 451.79 88.19 436.92 121.55 455.27 121.55 495.94 30.65 477.48 30.65" />
-            <path class="fill-d-red" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34" />
-        </svg>
-       
-        <div class="w-full bg-white rounded shadow  md:mt-0 sm:max-w-md xl:p-0">
-            <div class="p-6 space-y-4 md:space-y-6 sm:p-8">
-                <h1 class="text-xl text-center font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
-                    Create an account
-                </h1>
-               
-                <form [formGroup]="RegisterForm" (ngSubmit)="RegisterForm.valid && phoneComponent?.isValid?Register():is_submitted=true" class="space-y-2 md:space-y-4">
-                    <div *ngIf="!require_otp">
-                        <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name <span class="text-d-red">*</span></label>
-                        <input type="text" formControlName="first_name" id="first_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your first name">
-                        <div *ngIf="is_submitted && RegisterForm.get('first_name')?.errors" class="text-d-red text-xs">
-                            <div *ngIf="RegisterForm.get('first_name')?.errors?.['required']">First name is required</div>
-                        </div>
-                    </div>
-                    <div *ngIf="!require_otp">
-                        <label for="last_name" class="block mb-1 text-sm font-medium text-gray-900">Last name <span class="text-d-red">*</span></label>
-                        <input type="text" id="last_name" formControlName="last_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your last name">
-                        <div *ngIf="is_submitted && RegisterForm.get('last_name')?.errors" class="text-d-red text-xs">
-                            <div *ngIf="RegisterForm.get('last_name')?.errors?.['required']">Last name is required</div>
-                        </div>
-                    </div>
-                    <div *ngIf="!require_otp">
-                        <label for="email" class="block mb-1 text-sm font-medium text-gray-900">Your email</label>
-                        <input type="email" formControlName="email" id="email" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="name@company.com">
-                        <div *ngIf="is_submitted && RegisterForm.get('email')?.errors" class="text-d-red text-xs">
-                            <div *ngIf="RegisterForm.get('email')?.errors?.['required']">Email is required</div>
-                        </div>
-                    </div>
-                    <div *ngIf="!require_otp">
-                      <label for = "phone" class="block mb-1 text-sm font-medium text-gray-900">Phone <span class="text-d-red">*</span></label>
-                    <app-dinify-phone-input #phoneregister [class.field-invalid]="is_submitted && !phoneComponent?.isValid" (valueChange)="onInputChange($event)"></app-dinify-phone-input>
-                    </div>
-                    
-                    <div *ngIf="!require_otp">
-                        <label for="password" class="block mb-1 text-sm font-medium text-gray-900">Password</label>
-                        <input type="password" formControlName="password" id="password" placeholder="••••••••"  class="bg-gray-50 border placeholder:text-xs border-gray-300 text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " required="">
-                        <div class="text-d-red text-xs" *ngIf="newpassword?.errors?.['pattern'] && is_submitted">
-                            Current Password is invalid
-                        </div>
-                        <div class="text-d-red text-xs" *ngIf="newpassword?.errors?.['required'] && is_submitted">
-                            Your new Password is required
-                        </div>
-                        <ul *ngIf="newpassword?.errors?.['pattern'] && is_submitted" class="text-xs bg-gray-100 border border-gray-200 p-2 text-gray-500 space-y-1 rounded" style=" list-style-type: none;">
-                            <li class="flex items-center"><span *ngIf="newpassword?.errors?.['minlength']" class="icon-close text-d-red">
-                               <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#D75A4A;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,34 25,25 34,16 "></polyline> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,16 25,25 34,34 "></polyline> </g></svg> 
-                           </span>
-                               <span *ngIf="!newpassword?.errors?.['minlength']" class="icon-check text-green-500">
-                               <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#25AE88;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" points=" 38,15 22,33 12,25 "></polyline> </g></svg>
-                               </span>
-                               &nbsp;Must be atleast 6 character</li>
-                            <li class="flex items-center">
-                           <span *ngIf="!checkMatch(newpassword?.value,'(?=.*[!@#$&*()<>?{}|,`~.%])')" class="icon-close text-danger">
-                               <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#D75A4A;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,34 25,25 34,16 "></polyline> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,16 25,25 34,34 "></polyline> </g></svg> 
-                           </span>
-                           <span *ngIf="checkMatch(newpassword?.value,'(?=.*[!@#$&*()<>?{}|,`~.%])')" class="icon-check text-success">
-                               <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#25AE88;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" points=" 38,15 22,33 12,25 "></polyline> </g></svg>
-                           </span>
-                           &nbsp;Atleast one special character</li>
-                            <li class="flex items-center">
-                               <i *ngIf="!checkMatch(newpassword?.value,'(.*[0-9].*)')" class="icon-close text-danger">
-                                   <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#D75A4A;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,34 25,25 34,16 "></polyline> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,16 25,25 34,34 "></polyline> </g></svg> 
-                               </i>
-                               <i *ngIf="checkMatch(newpassword?.value,'(.*[0-9].*)')" class="icon-check text-success">
-                                   <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#25AE88;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" points=" 38,15 22,33 12,25 "></polyline> </g></svg>
-                               </i>
-                               &nbsp;Atleast one digit</li>
-                          </ul> 
-                    </div>
-                    <div *ngIf="!require_otp">
-                        <label for="confirm-password" class="block mb-1 text-sm font-medium text-gray-900">Confirm password</label>
-                        <input type="password" formControlName="confirm_password" id="confirm-password" placeholder="••••••••" class="bg-gray-50 placeholder:text-xs border border-gray-300 text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " required="">
-                        <div class="text-d-red text-xs" *ngIf="is_submitted&&RegisterForm?.get('confirm_password')?.errors?.['confirmPasswordValidator']">
-                            Passwords do not match.
-                          </div>
-                          <div *ngIf="is_submitted && RegisterForm.get('confirm_password')?.errors" class="text-d-red text-xs">
-                            <div *ngIf="RegisterForm.get('confirm_password')?.errors?.['required']">Confirm is required</div>
-                        </div>
-                    </div>
-                    <div *ngIf="!require_otp" class="flex items-start">
-                        <div class="flex items-center h-5">
-                          <input id="terms" formControlName="ok" aria-describedby="terms" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-primary-300">
-                        </div>
-                        <div class="ml-3 text-sm">
-                          <label for="terms" class="font-light text-gray-500">I accept the <a class="font-medium text-d-red hover:underline" href="#">Terms and Conditions</a></label>
-                        </div>
-                    </div>
-                    <h3 *ngIf="require_otp" class="flex flex-row p-2">
-                     
-                        <svg width="55" height="55" viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <g clip-path="url(#clip0_25_361)">
+  <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
+    <svg height="50" viewBox="0 0 495.95 121.55">
+      <path d="M229.09,24.61Q216.7,12.55,198.26,12.55H167.74V97h30.52q18.45,0,30.83-12.06t12.36-30.16q0-18.09-12.36-30.16M217,73.35q-7.23,7.23-18.69,7.24H185V29h13.27q11.44,0,18.69,7.23t7.25,18.58q0,11.34-7.25,18.58" />
+      <path d="M267.38,2.83A11.77,11.77,0,0,0,252,2.89a9.54,9.54,0,0,0-3.07,7.25A9.64,9.64,0,0,0,252,17.49a11.65,11.65,0,0,0,15.38,0,9.74,9.74,0,0,0,3-7.35,9.61,9.61,0,0,0-3-7.31M251,97h17.25V30.65H251Z" />
+      <path d="M335.19,36.19c-4.27-4.65-10.14-7-17.62-7q-13.14,0-20.63,10.5v-9H279.69V97h17.25V62.14q0-16.55,15-16.54,6.61,0,9.53,3.38t2.89,10.13V97h17.25V55.38q0-12.18-6.39-19.19" />
+      <path d="M368.72,2.83a11.77,11.77,0,0,0-15.38.06,9.59,9.59,0,0,0-3.08,7.25,9.68,9.68,0,0,0,3.08,7.35,11.65,11.65,0,0,0,15.38,0,9.71,9.71,0,0,0,3-7.35,9.58,9.58,0,0,0-3-7.31M352.32,97h17.25V30.65H352.32Z" />
+      <path d="M410.65,17.74A30.49,30.49,0,0,1,419,19.06l2.29.6,3.13-14a37.46,37.46,0,0,0-15.68-3q-11.34,0-19.19,6.82t-7.84,20.09V97h17.25V51.93l-14.94-5h37V30.65H398.94v-.26q0-12.64,11.71-12.65" />
+      <polygon points="477.48 30.65 460.96 69.49 444.55 30.65 426.21 30.65 451.79 88.19 436.92 121.55 455.27 121.55 495.94 30.65 477.48 30.65" />
+      <path class="fill-d-red" d="M141.49,24.44a48.39,48.39,0,0,0-4-4.54A49.17,49.17,0,0,0,102.58,5.45H0L24.16,33.92a28.18,28.18,0,0,0,20.22,9.92l14.5.66a5.92,5.92,0,0,0,5.72-3.63,17.56,17.56,0,0,1,.82-1.73c3.44-5.86,10-9.68,20.93-9.68,18,0,41,10.29,41,23s-23,23-41,23c-10.17,0-16.55-3.31-20.16-8.48a18.16,18.16,0,0,1-1.72-3A6,6,0,0,0,58.8,60.4l-11.73.53,5.12,6,18,21.82a42,42,0,0,0,32.43,15.31A49.33,49.33,0,0,0,151.29,62.6a50.42,50.42,0,0,0,.62-7.82,49.15,49.15,0,0,0-10.42-30.34" />
+    </svg>
+
+    <div class="w-full bg-white rounded shadow  md:mt-0 sm:max-w-md xl:p-0">
+      <div class="p-6 space-y-4 md:space-y-6 sm:p-8">
+        <h1 class="text-xl text-center font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
+          Create an account
+        </h1>
+
+        <form [formGroup]="RegisterForm" (ngSubmit)="RegisterForm.valid && phoneComponent?.isValid?Register():is_submitted=true" class="space-y-2 md:space-y-4">
+          @if (!require_otp) {
+            <div>
+              <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name <span class="text-d-red">*</span></label>
+              <input type="text" formControlName="first_name" id="first_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your first name">
+              @if (is_submitted && RegisterForm.get('first_name')?.errors) {
+                <div class="text-d-red text-xs">
+                  @if (RegisterForm.get('first_name')?.errors?.['required']) {
+                    <div>First name is required</div>
+                  }
+                </div>
+              }
+            </div>
+          }
+          @if (!require_otp) {
+            <div>
+              <label for="last_name" class="block mb-1 text-sm font-medium text-gray-900">Last name <span class="text-d-red">*</span></label>
+              <input type="text" id="last_name" formControlName="last_name" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="Enter your last name">
+              @if (is_submitted && RegisterForm.get('last_name')?.errors) {
+                <div class="text-d-red text-xs">
+                  @if (RegisterForm.get('last_name')?.errors?.['required']) {
+                    <div>Last name is required</div>
+                  }
+                </div>
+              }
+            </div>
+          }
+          @if (!require_otp) {
+            <div>
+              <label for="email" class="block mb-1 text-sm font-medium text-gray-900">Your email</label>
+              <input type="email" formControlName="email" id="email" class="bg-gray-50 border border-gray-300 placeholder:text-xs text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " placeholder="name@company.com">
+              @if (is_submitted && RegisterForm.get('email')?.errors) {
+                <div class="text-d-red text-xs">
+                  @if (RegisterForm.get('email')?.errors?.['required']) {
+                    <div>Email is required</div>
+                  }
+                </div>
+              }
+            </div>
+          }
+          @if (!require_otp) {
+            <div>
+              <label for = "phone" class="block mb-1 text-sm font-medium text-gray-900">Phone <span class="text-d-red">*</span></label>
+              <app-dinify-phone-input #phoneregister [class.field-invalid]="is_submitted && !phoneComponent?.isValid" (valueChange)="onInputChange($event)"></app-dinify-phone-input>
+            </div>
+          }
+
+          @if (!require_otp) {
+            <div>
+              <label for="password" class="block mb-1 text-sm font-medium text-gray-900">Password</label>
+              <input type="password" formControlName="password" id="password" placeholder="••••••••"  class="bg-gray-50 border placeholder:text-xs border-gray-300 text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " required="">
+              @if (newpassword?.errors?.['pattern'] && is_submitted) {
+                <div class="text-d-red text-xs">
+                  Current Password is invalid
+                </div>
+              }
+              @if (newpassword?.errors?.['required'] && is_submitted) {
+                <div class="text-d-red text-xs">
+                  Your new Password is required
+                </div>
+              }
+              @if (newpassword?.errors?.['pattern'] && is_submitted) {
+                <ul class="text-xs bg-gray-100 border border-gray-200 p-2 text-gray-500 space-y-1 rounded" style=" list-style-type: none;">
+                  <li class="flex items-center">@if (newpassword?.errors?.['minlength']) {
+                    <span class="icon-close text-d-red">
+                      <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#D75A4A;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,34 25,25 34,16 "></polyline> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,16 25,25 34,34 "></polyline> </g></svg>
+                    </span>
+                  }
+                  @if (!newpassword?.errors?.['minlength']) {
+                    <span class="icon-check text-green-500">
+                      <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#25AE88;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" points=" 38,15 22,33 12,25 "></polyline> </g></svg>
+                    </span>
+                  }
+                &nbsp;Must be atleast 6 character</li>
+                <li class="flex items-center">
+                  @if (!checkMatch(newpassword?.value,'(?=.*[!@#$&*()<>?{}|,`~.%])')) {
+                    <span class="icon-close text-danger">
+                      <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#D75A4A;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,34 25,25 34,16 "></polyline> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,16 25,25 34,34 "></polyline> </g></svg>
+                    </span>
+                  }
+                  @if (checkMatch(newpassword?.value,'(?=.*[!@#$&*()<>?{}|,`~.%])')) {
+                    <span class="icon-check text-success">
+                      <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#25AE88;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" points=" 38,15 22,33 12,25 "></polyline> </g></svg>
+                    </span>
+                  }
+                &nbsp;Atleast one special character</li>
+                <li class="flex items-center">
+                  @if (!checkMatch(newpassword?.value,'(.*[0-9].*)')) {
+                    <i class="icon-close text-danger">
+                      <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#D75A4A;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,34 25,25 34,16 "></polyline> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;" points="16,16 25,25 34,34 "></polyline> </g></svg>
+                    </i>
+                  }
+                  @if (checkMatch(newpassword?.value,'(.*[0-9].*)')) {
+                    <i class="icon-check text-success">
+                      <svg version="1.1"  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 50 50" xml:space="preserve" width="25px" height="25px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle style="fill:#25AE88;" cx="25" cy="25" r="25"></circle> <polyline style="fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" points=" 38,15 22,33 12,25 "></polyline> </g></svg>
+                    </i>
+                  }
+                &nbsp;Atleast one digit</li>
+              </ul>
+            }
+          </div>
+        }
+        @if (!require_otp) {
+          <div>
+            <label for="confirm-password" class="block mb-1 text-sm font-medium text-gray-900">Confirm password</label>
+            <input type="password" formControlName="confirm_password" id="confirm-password" placeholder="••••••••" class="bg-gray-50 placeholder:text-xs border border-gray-300 text-gray-900 sm:text-sm rounded focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " required="">
+            @if (is_submitted&&RegisterForm?.get('confirm_password')?.errors?.['confirmPasswordValidator']) {
+              <div class="text-d-red text-xs">
+                Passwords do not match.
+              </div>
+            }
+            @if (is_submitted && RegisterForm.get('confirm_password')?.errors) {
+              <div class="text-d-red text-xs">
+                @if (RegisterForm.get('confirm_password')?.errors?.['required']) {
+                  <div>Confirm is required</div>
+                }
+              </div>
+            }
+          </div>
+        }
+        @if (!require_otp) {
+          <div class="flex items-start">
+            <div class="flex items-center h-5">
+              <input id="terms" formControlName="ok" aria-describedby="terms" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-primary-300">
+            </div>
+            <div class="ml-3 text-sm">
+              <label for="terms" class="font-light text-gray-500">I accept the <a class="font-medium text-d-red hover:underline" href="#">Terms and Conditions</a></label>
+            </div>
+          </div>
+        }
+        @if (require_otp) {
+          <h3 class="flex flex-row p-2">
+            <svg width="55" height="55" viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g clip-path="url(#clip0_25_361)">
                 <path d="M37.8125 20.625C37.8125 23.36 36.726 25.9831 34.792 27.917C32.8581 29.851 30.235 30.9375 27.5 30.9375C24.765 30.9375 22.1419 29.851 20.208 27.917C18.274 25.9831 17.1875 23.36 17.1875 20.625C17.1875 17.89 18.274 15.2669 20.208 13.333C22.1419 11.399 24.765 10.3125 27.5 10.3125C30.235 10.3125 32.8581 11.399 34.792 13.333C36.726 15.2669 37.8125 17.89 37.8125 20.625Z" fill="#3C3C43"/>
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M0 27.5C0 20.2065 2.89731 13.2118 8.05456 8.05456C13.2118 2.89731 20.2065 0 27.5 0C34.7935 0 41.7882 2.89731 46.9454 8.05456C52.1027 13.2118 55 20.2065 55 27.5C55 34.7935 52.1027 41.7882 46.9454 46.9454C41.7882 52.1027 34.7935 55 27.5 55C20.2065 55 13.2118 52.1027 8.05456 46.9454C2.89731 41.7882 0 34.7935 0 27.5ZM27.5 3.4375C22.9686 3.43774 18.5294 4.7175 14.6933 7.12947C10.8571 9.54144 7.78003 12.9876 5.81613 17.0713C3.85222 21.155 3.08133 25.7102 3.59218 30.2127C4.10304 34.7152 5.87487 38.982 8.70375 42.5219C11.1444 38.5894 16.5172 34.375 27.5 34.375C38.4828 34.375 43.8522 38.5859 46.2963 42.5219C49.1251 38.982 50.897 34.7152 51.4078 30.2127C51.9187 25.7102 51.1478 21.155 49.1839 17.0713C47.22 12.9876 44.1429 9.54144 40.3067 7.12947C36.4706 4.7175 32.0314 3.43774 27.5 3.4375Z" fill="#3C3C43"/>
-                </g>
-                <defs>
+              </g>
+              <defs>
                 <clipPath id="clip0_25_361">
-                <rect width="55" height="55" fill="white"/>
+                  <rect width="55" height="55" fill="white"/>
                 </clipPath>
-                </defs>
-                </svg>
-                <div class="ml-4 flex flex-col">
-                <span class="font-semibold text-black text-xl my-auto">{{RegisterForm.get('first_name')?.value}} {{RegisterForm.get('last_name')?.value}}</span>
-                <span *ngIf="RegisterForm.get('email')?.value" class="text-gray-600 text-sm">{{RegisterForm.get('email')?.value}}</span>
-                <span *ngIf="RegisterForm.get('phone_number')?.value" class="text-gray-600">+{{RegisterForm.get('phone_number')?.value}}</span>
-                
-                
-                </div>
-                        </h3>
-                    <div *ngIf="require_otp" class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-screen rounded-2xl">
-                        <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
-                          <div class="flex flex-col items-center justify-center text-center space-y-2">
-                            <div class="font-semibold text-3xl">
-                              <p>One Time Password(OTP)</p>
-                            </div>
-                            <div class="flex flex-row text-sm font-medium text-gray-400">
-                              <p>We have sent the OTP to your phone </p>
-                            </div>
-                          </div>
-                    
-                          <div>
-                            
-                            
-                              <div class="flex flex-col space-y-16">
-                                <div>
-                                    <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
-                                <!--   <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                                  </div>
-                                  <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                                  </div>
-                                  <div class="w-16 h-16">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                                  </div>
-                                  <div class="w-16 h-16 ">
-                                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
-                                  </div> -->
-                                </div>
-                    
-                                <div class="flex flex-col space-y-5">
-                                  <div>
-                                    <button type="submit" [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
-                                      Verify OTP & Complete Registration
-                                    </button>
-                                  </div>
-                  
-                                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
-                                    <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.RegisterForm.get('phone_number')?.value,null)" class="flex flex-row items-center text-blue-600" [routerLink]="[]" >Resend</a>
-                                  </div>
-                                </div>
-                              </div>
-                          
-                          </div>
-                        </div>
-                    </div>
-                    <button *ngIf="!require_otp" type="submit" class="w-full text-white bg-d-red hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded text-sm px-5 py-2.5 text-center">Create an account</button>
-                    <p *ngIf="!as_diner" class="text-sm font-light text-gray-500">
-                        Already have an account? <a [routerLink]="['/login']" class="font-medium text-d-red hover:underline">Login here</a>
-                    </p>
-                </form>
-               
+              </defs>
+            </svg>
+            <div class="ml-4 flex flex-col">
+              <span class="font-semibold text-black text-xl my-auto">{{RegisterForm.get('first_name')?.value}} {{RegisterForm.get('last_name')?.value}}</span>
+              @if (RegisterForm.get('email')?.value) {
+                <span class="text-gray-600 text-sm">{{RegisterForm.get('email')?.value}}</span>
+              }
+              @if (RegisterForm.get('phone_number')?.value) {
+                <span class="text-gray-600">+{{RegisterForm.get('phone_number')?.value}}</span>
+              }
             </div>
+          </h3>
+        }
+        @if (require_otp) {
+          <div class="relative bg-white px-6 pt-10 pb-9 shadow-xl mx-auto w-full max-w-screen rounded-2xl">
+            <div class="mx-auto flex w-full max-w-md flex-col space-y-16">
+              <div class="flex flex-col items-center justify-center text-center space-y-2">
+                <div class="font-semibold text-3xl">
+                  <p>One Time Password(OTP)</p>
+                </div>
+                <div class="flex flex-row text-sm font-medium text-gray-400">
+                  <p>We have sent the OTP to your phone </p>
+                </div>
+              </div>
+              <div>
+                <div class="flex flex-col space-y-16">
+                  <div>
+                    <app-otp-input #input="ngModel" [(ngModel)]="data" [ngModelOptions]="{standalone: true}"/>
+                    <!--   <div class="w-16 h-16 ">
+                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                  </div>
+                  <div class="w-16 h-16 ">
+                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                  </div>
+                  <div class="w-16 h-16">
+                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                  </div>
+                  <div class="w-16 h-16 ">
+                    <input class="w-full h-full flex flex-col items-center justify-center text-center px-5 outline-none rounded-xl border border-gray-200 text-lg bg-white focus:bg-gray-50 focus:ring-1 ring-blue-700" type="text" name="" id="">
+                  </div> -->
+                </div>
+                <div class="flex flex-col space-y-5">
+                  <div>
+                    <button type="submit" [disabled]="input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="flex flex-row items-center justify-center text-center w-full border rounded-xl outline-none py-5 bg-d-red border-none hover:opacity-75 text-white text-sm shadow-sm">
+                      Verify OTP & Complete Registration
+                    </button>
+                  </div>
+                  <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-gray-500">
+                    <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.RegisterForm.get('phone_number')?.value,null)" class="flex flex-row items-center text-blue-600" [routerLink]="[]" >Resend</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-    </div>
-  </section>
+      }
+      @if (!require_otp) {
+        <button type="submit" class="w-full text-white bg-d-red hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded text-sm px-5 py-2.5 text-center">Create an account</button>
+      }
+      @if (!as_diner) {
+        <p class="text-sm font-light text-gray-500">
+          Already have an account? <a [routerLink]="['/login']" class="font-medium text-d-red hover:underline">Login here</a>
+        </p>
+      }
+    </form>
+
+  </div>
+</div>
+</div>
+</section>

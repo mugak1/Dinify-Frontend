@@ -1,10 +1,10 @@
 <div class="px-1 flex flex-col min-h-screen">
   <!-- One-bar basket header: back arrow + "Your Basket" + red Table chip. The shared shell
-       brand-strip is hidden on the basket page (navState.isBasketPageActive), so this bar
-       stickies at the very top — 0 online, 40px below the offline strip when offline. No
-       restaurant name / subtitle: the chip carries the table identity. -->
+  brand-strip is hidden on the basket page (navState.isBasketPageActive), so this bar
+  stickies at the very top — 0 online, 40px below the offline strip when offline. No
+  restaurant name / subtitle: the chip carries the table identity. -->
   <div [style.top]="connectivity.isOffline() ? '40px' : '0px'"
-       class="flex items-center w-full py-1.5 pr-3 border-b border-gray-200 bg-white sticky z-30">
+    class="flex items-center w-full py-1.5 pr-3 border-b border-gray-200 bg-white sticky z-30">
     <!-- Back Button -->
     <a (click)="loc.back()" class="flex items-center px-3 py-1.5 rounded-md hover:bg-gray-100" aria-label="Go Back">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6">
@@ -13,14 +13,16 @@
     </a>
     <span class="font-display text-lg font-bold leading-tight">Your Basket</span>
     <!-- Red Table chip, top-right — reuses the shell brand-strip chip (.brand-strip__chip
-         carries margin-left:auto, so it floats right) for visual parity. -->
-    <span *ngIf="tableNumber !== null" class="brand-strip__chip bg-d-red text-white">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
-      </svg>
-      Table {{ tableNumber }}
-    </span>
+    carries margin-left:auto, so it floats right) for visual parity. -->
+    @if (tableNumber !== null) {
+      <span class="brand-strip__chip bg-d-red text-white">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+        </svg>
+        Table {{ tableNumber }}
+      </span>
+    }
   </div>
 
   <app-basket-body></app-basket-body>
