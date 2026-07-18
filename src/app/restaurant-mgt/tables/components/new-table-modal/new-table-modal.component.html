@@ -117,49 +117,66 @@
 
     <!-- QR Code Section -->
     <div class="space-y-3 pt-2 border-t">
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          [(ngModel)]="generateQR"
-          name="generateQR"
-          class="h-4 w-4 rounded border-input"
-        />
-        <span class="text-sm">Generate QR code on save</span>
-      </label>
-
-      @if (generateQR) {
-        <div class="space-y-2 ml-6">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              [(ngModel)]="qrMode"
-              name="qrMode"
-              value="menu_only"
-              class="h-4 w-4"
-            />
-            <span class="text-sm">View menu only</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              [(ngModel)]="qrMode"
-              name="qrMode"
-              value="order_pay"
-              class="h-4 w-4"
-            />
-            <span class="text-sm">Order &amp; pay</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              [(ngModel)]="qrMode"
-              name="qrMode"
-              value="order_only"
-              class="h-4 w-4"
-            />
-            <span class="text-sm">Order only</span>
-          </label>
+      @if (table) {
+        <!-- EDIT: QR status is read-only here. Generating or securely
+             regenerating a QR is a deliberate action from the table row or the
+             QR preview — this editor never rotates or revokes a credential. -->
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium">QR code</span>
+          <app-dn-badge [variant]="table.hasQR ? 'success' : 'warning'">
+            {{ table.hasQR ? 'QR active' : 'No QR yet' }}
+          </app-dn-badge>
         </div>
+        <p class="text-xs text-muted-foreground">
+          Generate or regenerate a QR from the table's row or the QR preview.
+          Saving here won't change it.
+        </p>
+
+        @if (table.hasQR) {
+          <div class="space-y-2">
+            <label class="text-sm font-medium">QR mode</label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="menu_only" class="h-4 w-4" />
+              <span class="text-sm">View menu only</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_pay" class="h-4 w-4" />
+              <span class="text-sm">Order &amp; pay</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_only" class="h-4 w-4" />
+              <span class="text-sm">Order only</span>
+            </label>
+          </div>
+        }
+      } @else {
+        <!-- CREATE: honestly activate an initial QR on save (no revocation). -->
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            [(ngModel)]="generateQR"
+            name="generateQR"
+            class="h-4 w-4 rounded border-input"
+          />
+          <span class="text-sm">Generate QR code on save</span>
+        </label>
+
+        @if (generateQR) {
+          <div class="space-y-2 ml-6">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="menu_only" class="h-4 w-4" />
+              <span class="text-sm">View menu only</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_pay" class="h-4 w-4" />
+              <span class="text-sm">Order &amp; pay</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_only" class="h-4 w-4" />
+              <span class="text-sm">Order only</span>
+            </label>
+          </div>
+        }
       }
     </div>
 

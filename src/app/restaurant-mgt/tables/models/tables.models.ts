@@ -49,6 +49,23 @@ export interface RestaurantTable {
   height: number;
 }
 
+// ── QR rotation result ────────────────────────────────────
+/**
+ * The validated result of a secure QR rotation (backend `table-actions/
+ * regenerate-qr/`). Every field is server-owned: the credential is freshly
+ * minted and signed by the backend, and the timestamp/version are stamped
+ * server-side. The frontend NEVER constructs any of these. `qrVersion` is
+ * returned for the caller's information only — it is NOT stored on
+ * `RestaurantTable` and is NEVER used to build a URL or as any authority.
+ */
+export interface QrRotationResult {
+  id: string;
+  number: number;
+  qrVersion: number;
+  qrRegeneratedAt: Date;
+  qrCredential: string;
+}
+
 // ── Server ────────────────────────────────────────────────
 export interface Server {
   id: string;

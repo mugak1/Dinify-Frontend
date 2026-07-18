@@ -1,4 +1,5 @@
-import { BehaviorSubject, of, throwError } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
+import QRCode from 'qrcode';
 import { TablesSetupViewComponent } from './tables-setup-view.component';
 import { BulkTablesConfig } from '../bulk-add-tables-modal/bulk-add-tables-modal.component';
 
@@ -419,5 +420,258 @@ describe('TablesSetupViewComponent — initial load state', () => {
 
     expect(component.loadError).toBeNull();
     expect(component.loading).toBeFalse();
+  });
+});
+
+/**
+ * Secure single-table QR rotation. The parent owns the confirmation + mutation:
+ * a double-click issues exactly one request, success swaps in the server
+ * credential and shows one toast + notice, and failure leaves the old QR active.
+ */
+describe('TablesSetupViewComponent — secure QR rotation', () => {
+  let component: TablesSetupViewComponent;
+  let tablesService: any;
+  let toast: any;
+
+  beforeEach(() => {
+    tablesService = jasmine.createSpyObj('TablesService', [
+      'regenerateTableQr', 'activateQrForTables', 'getAreas', 'getTables',
+    ]);
+    tablesService.getAreas.and.returnValue(of([]));
+    tablesService.getTables.and.returnValue(of([]));
+    tablesService.tables$ = new BehaviorSubject<any[]>([]);
+    toast = jasmine.createSpyObj('ToastService', [
+      'success', 'error', 'warning', 'info', 'clear',
+    ]);
+    const auth = { currentRestaurantRole: { restaurant_id: 'r1' } } as any;
+    component = new TablesSetupViewComponent(tablesService, toast, auth);
+  });
+
+  it('opens the confirmation for the right table (row action)', () => {
+    const t = { id: 't1', number: 5 } as any;
+    component.openRotateConfirm(t);
+    expect(component.confirmRotateTable).toBe(t);
+    expect(component.rotateAck).toBeFalse();
+  });
+
+  it('routes the preview-modal request through the same confirmation', () => {
+    const t = { id: 't2', number: 6 } as any;
+    // The template binds (regenerateRequested) to openRotateConfirm.
+    component.openRotateConfirm(t);
+    expect(component.confirmRotateTable).toBe(t);
+  });
+
+  it('does not call the service on cancel', () => {
+    component.confirmRotateTable = { id: 't1', number: 5 } as any;
+    component.cancelRotate();
+    expect(tablesService.regenerateTableQr).not.toHaveBeenCalled();
+    expect(component.confirmRotateTable).toBeNull();
+  });
+
+  it('does nothing until acknowledged', () => {
+    component.confirmRotateTable = { id: 't1', number: 5 } as any;
+    component.rotateAck = false;
+    component.confirmRotate();
+    expect(tablesService.regenerateTableQr).not.toHaveBeenCalled();
+  });
+
+  it('a double confirm issues EXACTLY ONE request', () => {
+    const inFlight = new Subject<any>();
+    tablesService.regenerateTableQr.and.returnValue(inFlight.asObservable());
+    component.confirmRotateTable = { id: 't1', number: 5 } as any;
+    component.rotateAck = true;
+
+    component.confirmRotate();
+    component.confirmRotate(); // second click while in flight
+
+    expect(tablesService.regenerateTableQr).toHaveBeenCalledTimes(1);
+    expect(component.rotatingTableId).toBe('t1'); // loading state present
+    inFlight.complete();
+  });
+
+  it('a second table cannot be rotated through a stale dialog while one is in flight', () => {
+    const inFlight = new Subject<any>();
+    tablesService.regenerateTableQr.and.returnValue(inFlight.asObservable());
+    component.confirmRotateTable = { id: 't1', number: 5 } as any;
+    component.rotateAck = true;
+    component.confirmRotate();
+
+    component.openRotateConfirm({ id: 't2', number: 6 } as any); // blocked
+
+    expect(component.confirmRotateTable).toEqual({ id: 't1', number: 5 } as any);
+    inFlight.complete();
+  });
+
+  it('on success swaps in the server credential, shows one toast, sets the notice, resets ack, keeps preview', () => {
+    tablesService.tables$.next([
+      { id: 't1', number: 5, hasQR: true, qrCredential: 'NEW-CRED' } as any,
+    ]);
+    tablesService.regenerateTableQr.and.returnValue(
+      of({ id: 't1', number: 5, qrVersion: 2, qrRegeneratedAt: new Date(), qrCredential: 'NEW-CRED' }),
+    );
+    component.confirmRotateTable = { id: 't1', number: 5, qrCredential: 'OLD' } as any;
+    component.rotateAck = true;
+
+    component.confirmRotate();
+
+    expect(component.qrPreviewTable?.qrCredential).toBe('NEW-CRED'); // old credential gone
+    expect(component.isQrModalOpen).toBeTrue();
+    expect(component.recentlyRotatedId).toBe('t1');
+    expect(component.confirmRotateTable).toBeNull();
+    expect(component.rotateAck).toBeFalse();
+    expect(component.rotatingTableId).toBeNull();
+    expect(toast.success).toHaveBeenCalledOnceWith(
+      'Old QR revoked. Download or print the replacement QR now.',
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('on failure preserves the old QR, keeps the dialog open, surfaces the backend message, clears the lock', () => {
+    tablesService.regenerateTableQr.and.returnValue(throwError(() => 'boom from server'));
+    const target = { id: 't1', number: 5, qrCredential: 'OLD' } as any;
+    component.confirmRotateTable = target;
+    component.rotateAck = true;
+
+    component.confirmRotate();
+
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.clear).toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('boom from server');
+    expect(component.confirmRotateTable).toBe(target); // stays open to retry
+    expect(component.rotatingTableId).toBeNull(); // lock cleared via finalize
+  });
+
+  it('uses the fixed "existing QR is still active" fallback when the error carries no message', () => {
+    tablesService.regenerateTableQr.and.returnValue(throwError(() => ({})));
+    component.confirmRotateTable = { id: 't1', number: 5 } as any;
+    component.rotateAck = true;
+
+    component.confirmRotate();
+
+    expect(toast.error).toHaveBeenCalledWith(
+      'Could not regenerate this QR code. The existing QR is still active.',
+    );
+  });
+
+  it('can retry after a failure (lock cleared)', () => {
+    tablesService.regenerateTableQr.and.returnValue(throwError(() => 'boom'));
+    component.confirmRotateTable = { id: 't1', number: 5 } as any;
+    component.rotateAck = true;
+    component.confirmRotate();
+    expect(component.rotatingTableId).toBeNull();
+
+    tablesService.tables$.next([
+      { id: 't1', number: 5, hasQR: true, qrCredential: 'NEW' } as any,
+    ]);
+    tablesService.regenerateTableQr.and.returnValue(
+      of({ id: 't1', number: 5, qrVersion: 3, qrRegeneratedAt: new Date(), qrCredential: 'NEW' }),
+    );
+    component.confirmRotate(); // rotateAck is still true; dialog still open
+
+    expect(component.qrPreviewTable?.qrCredential).toBe('NEW');
+  });
+});
+
+/**
+ * QR row fail-closed guards + activation-vs-rotation separation. Copy/download
+ * refuse a table with no usable credential, and area/bulk/single "generate"
+ * actions only ever ACTIVATE missing QRs — never rotate an active one.
+ */
+describe('TablesSetupViewComponent — QR fail-closed + activation vs rotation', () => {
+  let component: TablesSetupViewComponent;
+  let tablesService: any;
+  let toast: any;
+
+  beforeEach(() => {
+    tablesService = jasmine.createSpyObj('TablesService', [
+      'activateQrForTables', 'regenerateTableQr', 'bulkUpdateTables',
+      'getAreas', 'getTables',
+    ]);
+    tablesService.getAreas.and.returnValue(of([]));
+    tablesService.getTables.and.returnValue(of([]));
+    tablesService.activateQrForTables.and.returnValue(of([]));
+    toast = jasmine.createSpyObj('ToastService', [
+      'success', 'error', 'warning', 'info', 'clear',
+    ]);
+    const auth = { currentRestaurantRole: { restaurant_id: 'r1' } } as any;
+    component = new TablesSetupViewComponent(tablesService, toast, auth);
+  });
+
+  it('blocks copy and errors when the table has no credential', async () => {
+    await component.handleCopyLink(
+      { id: 't1', number: 5, hasQR: true, qrCredential: '' } as any,
+    );
+    expect(toast.error).toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('blocks download (no QRCode generation) when the table has no credential', async () => {
+    const toDataURL = spyOn(QRCode, 'toDataURL');
+    await component.handleDownloadQR(
+      { id: 't1', number: 5, hasQR: true, qrCredential: undefined } as any,
+    );
+    expect(toDataURL).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  it('area generation targets only tables WITHOUT a QR and never rotates', () => {
+    component.tables = [
+      { id: 't1', areaId: 'a1', hasQR: false, number: 1 },
+      { id: 't2', areaId: 'a1', hasQR: true, number: 2 },
+      { id: 't3', areaId: 'a1', hasQR: false, number: 3 },
+    ] as any;
+    tablesService.activateQrForTables.and.returnValue(
+      of([{ id: 't1', ok: true }, { id: 't3', ok: true }]),
+    );
+
+    component.generateQRForArea({ id: 'a1', name: 'Main' } as any);
+
+    expect(tablesService.activateQrForTables).toHaveBeenCalledOnceWith(['t1', 't3']);
+    expect(tablesService.regenerateTableQr).not.toHaveBeenCalled();
+    const msg = toast.success.calls.mostRecent().args[0];
+    expect(msg).toContain('Generated QR for 2');
+    expect(msg).toContain('1 already had one');
+  });
+
+  it('area generation makes NO request when every table already has a QR', () => {
+    component.tables = [{ id: 't2', areaId: 'a1', hasQR: true, number: 2 }] as any;
+    component.generateQRForArea({ id: 'a1', name: 'Main' } as any);
+    expect(tablesService.activateQrForTables).not.toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalled();
+  });
+
+  it('bulk generate targets only missing selected tables and reports partial failures', () => {
+    component.tables = [
+      { id: 't1', hasQR: false, number: 1 },
+      { id: 't2', hasQR: true, number: 2 },
+      { id: 't3', hasQR: false, number: 3 },
+    ] as any;
+    component.selectedTableIds = ['t1', 't2', 't3'];
+    tablesService.activateQrForTables.and.returnValue(
+      of([{ id: 't1', ok: true }, { id: 't3', ok: false }]),
+    );
+
+    component.handleBulkAction('generate-qr');
+
+    expect(tablesService.activateQrForTables).toHaveBeenCalledOnceWith(['t1', 't3']);
+    expect(tablesService.regenerateTableQr).not.toHaveBeenCalled();
+    const msg = toast.error.calls.mostRecent().args[0]; // a failure → error toast
+    expect(msg).toContain('Generated QR for 1');
+    expect(msg).toContain('1 already had one');
+    expect(msg).toContain('1 failed');
+    expect(component.selectedTableIds).toEqual([]); // cleared after the outcome
+  });
+
+  it('single missing-table generate activates without any revocation claim', () => {
+    component.tables = [{ id: 't1', hasQR: false, number: 9 }] as any;
+    tablesService.activateQrForTables.and.returnValue(of([{ id: 't1', ok: true }]));
+
+    component.generateSingleTableQr({ id: 't1', number: 9, hasQR: false } as any);
+
+    expect(tablesService.activateQrForTables).toHaveBeenCalledOnceWith(['t1']);
+    expect(tablesService.regenerateTableQr).not.toHaveBeenCalled();
+    const msg = toast.success.calls.mostRecent().args[0];
+    expect(msg).toContain('QR code generated for Table 9');
+    expect(msg.toLowerCase()).not.toContain('revok');
   });
 });

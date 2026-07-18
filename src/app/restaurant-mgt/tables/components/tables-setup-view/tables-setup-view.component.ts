@@ -3,7 +3,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OverlayModule, ConnectedPosition } from '@angular/cdk/overlay';
 import { Subject, combineLatest, forkJoin } from 'rxjs';
-import { switchMap, takeUntil } from 'rxjs/operators';
+import { finalize, switchMap, takeUntil } from 'rxjs/operators';
 import { AuthenticationService } from '../../../../_services/authentication.service';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
@@ -101,6 +101,14 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   // QR preview
   qrPreviewTable: RestaurantTable | null = null;
   isQrModalOpen = false;
+
+  // Secure QR rotation (single-table). `rotatingTableId` is the in-flight lock
+  // that makes a double-click issue exactly one request; `recentlyRotatedId`
+  // drives the preview's "old QR revoked" notice.
+  confirmRotateTable: RestaurantTable | null = null;
+  rotateAck = false;
+  rotatingTableId: string | null = null;
+  recentlyRotatedId: string | null = null;
 
   private destroy$ = new Subject<void>();
 
@@ -441,7 +449,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
       isActive: true,
       hasQR: config.generateQR,
       qrMode: config.generateQR ? config.qrMode : undefined,
-      qrRegeneratedAt: config.generateQR ? new Date() : undefined,
+      // Initial activation only — no client rotation timestamp.
     }));
 
     this.tablesService.bulkCreateTables(specs, this.restaurantId).subscribe(results => {
@@ -524,17 +532,31 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ── QR Actions ────────────────────────────────────────
+  // ── QR: initial activation (NOT rotation) ─────────────
+  //
+  // Activation sets has_qr=true for tables that DON'T have a QR yet. It never
+  // touches an already-active QR, so it can't silently rotate a credential or
+  // invalidate a live diner session, and it never writes a client timestamp.
 
+  /** Generate QR codes only for the tables in this area that don't have one. */
   generateQRForArea(area: DiningArea): void {
     const areaTables = this.tables.filter(t => t.areaId === area.id);
-    this.tablesService.bulkUpdateTables(
-      areaTables.map(t => t.id),
-      { hasQR: true, qrRegeneratedAt: new Date() },
-    ).subscribe({
-      next: () => {
+    const missing = areaTables.filter(t => !t.hasQR);
+    const alreadyActive = areaTables.length - missing.length;
+    if (missing.length === 0) {
+      this.toast.info(
+        areaTables.length === 0
+          ? `No tables in ${area.name} yet.`
+          : `All tables in ${area.name} already have a QR code.`,
+      );
+      return;
+    }
+    this.tablesService.activateQrForTables(missing.map(t => t.id)).subscribe({
+      next: (results) => {
+        const failed = results.filter(r => !r.ok).length;
+        if (failed) this.toast.clear();
         this.refresh();
-        this.toast.success(`QR codes generated for ${area.name}`);
+        this.reportActivation(results.length - failed, alreadyActive, failed);
       },
       error: (err) => {
         this.toast.clear();
@@ -542,6 +564,108 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
           this.extractError(
             err,
             `Could not generate QR codes for ${area.name}. Please try again.`,
+          ),
+        );
+      },
+    });
+  }
+
+  /** Activate a QR for a single table that has none yet (from the row / preview
+   *  missing-credential state). Initial activation — makes no revocation claim. */
+  generateSingleTableQr(table: RestaurantTable): void {
+    if (table.hasQR) return;
+    this.tablesService.activateQrForTables([table.id]).subscribe({
+      next: (results) => {
+        const ok = results.every(r => r.ok);
+        if (!ok) this.toast.clear();
+        this.refresh();
+        if (ok) {
+          this.toast.success(`QR code generated for Table ${table.number}.`);
+        } else {
+          this.toast.error(
+            `Could not generate a QR code for Table ${table.number}. Please try again.`,
+          );
+        }
+      },
+      error: (err) => {
+        this.toast.clear();
+        this.toast.error(
+          this.extractError(
+            err,
+            `Could not generate a QR code for Table ${table.number}. Please try again.`,
+          ),
+        );
+      },
+    });
+  }
+
+  /** Honest aggregate toast for an activation batch. */
+  private reportActivation(generated: number, skipped: number, failed: number): void {
+    const parts = [`Generated QR for ${generated} table(s)`];
+    if (skipped > 0) parts.push(`${skipped} already had one`);
+    if (failed > 0) parts.push(`${failed} failed`);
+    const msg = parts.join('; ');
+    if (failed > 0) this.toast.error(msg);
+    else this.toast.success(msg);
+  }
+
+  // ── QR: secure rotation (single-table) ────────────────
+
+  /**
+   * Open the rotation confirmation for one table. Called from the row action and
+   * from the QR preview's (regenerateRequested). Ignored while a rotation is in
+   * flight, so a stale dialog can never queue a second table's rotation.
+   */
+  openRotateConfirm(table: RestaurantTable): void {
+    if (this.rotatingTableId) return;
+    this.confirmRotateTable = table;
+    this.rotateAck = false;
+  }
+
+  /** Cancel/close the confirmation — never while a request is in flight. */
+  cancelRotate(): void {
+    if (this.rotatingTableId) return;
+    this.confirmRotateTable = null;
+    this.rotateAck = false;
+  }
+
+  /**
+   * Perform the confirmed rotation. Guarded so a double-click (or keyboard
+   * re-activation) issues EXACTLY ONE request: no-ops unless a table is
+   * confirmed, acknowledged, and no rotation is already in flight. On success the
+   * server credential becomes the only live one and the open preview rebuilds
+   * from it; on failure the existing QR is left untouched and the dialog stays
+   * open so the operator can retry or cancel.
+   */
+  confirmRotate(): void {
+    const table = this.confirmRotateTable;
+    if (!table || this.rotatingTableId || !this.rotateAck) return;
+    this.rotatingTableId = table.id;
+    this.tablesService.regenerateTableQr(table.id).pipe(
+      finalize(() => { this.rotatingTableId = null; }),
+    ).subscribe({
+      next: () => {
+        // Re-read the patched table (new object ref) so the preview's
+        // ngOnChanges fires and rebuilds the QR from the fresh credential.
+        const updated =
+          this.tablesService.tables$.value.find(t => t.id === table.id) ?? null;
+        this.qrPreviewTable = updated;
+        this.isQrModalOpen = true;
+        this.recentlyRotatedId = updated?.id ?? null;
+        this.confirmRotateTable = null;
+        this.rotateAck = false;
+        this.toast.success(
+          'Old QR revoked. Download or print the replacement QR now.',
+        );
+      },
+      error: (err) => {
+        // Keep the dialog open to retry/cancel. The old QR is still active — say
+        // so, and never claim a revocation that did not happen.
+        this.toast.clear();
+        this.toast.error(
+          this.extractError(
+            err,
+            'Could not regenerate this QR code. The existing QR is still active.',
           ),
         );
       },
@@ -564,6 +688,36 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
         ),
       );
     };
+
+    if (action === 'generate-qr') {
+      // Initial ACTIVATION only — target selected tables WITHOUT a QR; never
+      // rotate an active one. Keep the selection until the async outcome is
+      // known (per-table failures are isolated and reported honestly).
+      const selected = this.tables.filter(t => ids.includes(t.id));
+      const missing = selected.filter(t => !t.hasQR);
+      const alreadyActive = selected.length - missing.length;
+      this.showBulkMenu = false;
+      if (missing.length === 0) {
+        this.toast.info('All selected tables already have a QR code.');
+        this.selectedTableIds = [];
+        return;
+      }
+      this.tablesService.activateQrForTables(missing.map(t => t.id)).subscribe({
+        next: (results) => {
+          const failed = results.filter(r => !r.ok).length;
+          if (failed) this.toast.clear();
+          this.refresh();
+          this.reportActivation(results.length - failed, alreadyActive, failed);
+          this.selectedTableIds = [];
+        },
+        error: (err) => {
+          onError(err);
+          this.selectedTableIds = [];
+        },
+      });
+      return;
+    }
+
     switch (action) {
       case 'enable':
         this.tablesService.bulkUpdateTables(ids, { isActive: true }).subscribe({
@@ -579,18 +733,6 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
           next: () => {
             this.refresh();
             this.toast.success(`${count} table(s) disabled`);
-          },
-          error: onError,
-        });
-        break;
-      case 'generate-qr':
-        this.tablesService.bulkUpdateTables(ids, {
-          hasQR: true,
-          qrRegeneratedAt: new Date(),
-        }).subscribe({
-          next: () => {
-            this.refresh();
-            this.toast.success(`QR codes generated for ${count} table(s)`);
           },
           error: onError,
         });
@@ -647,6 +789,8 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   // ── QR Preview ─────────────────────────────────────────
 
   openQrPreview(table: RestaurantTable): void {
+    // Manual open — clear any stale "just rotated" notice from a prior rotation.
+    this.recentlyRotatedId = null;
     this.qrPreviewTable = table;
     this.isQrModalOpen = true;
   }
@@ -654,6 +798,7 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
   onQrModalClosed(): void {
     this.isQrModalOpen = false;
     this.qrPreviewTable = null;
+    this.recentlyRotatedId = null;
   }
 
   getQrPreviewArea(): DiningArea | undefined {
@@ -665,6 +810,11 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   async handleCopyLink(table: RestaurantTable): Promise<void> {
     const url = getTableQRUrl(table);
+    if (!url) {
+      this.toast.clear();
+      this.toast.error("QR credential unavailable — regenerate this table's QR.");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(url);
       this.toast.success('Link copied to clipboard');
@@ -675,6 +825,11 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   async handleDownloadQR(table: RestaurantTable): Promise<void> {
     const url = getTableQRUrl(table);
+    if (!url) {
+      this.toast.clear();
+      this.toast.error("QR credential unavailable — regenerate this table's QR.");
+      return;
+    }
     try {
       const dataUrl = await QRCode.toDataURL(url, {
         width: 400,
@@ -693,17 +848,37 @@ export class TablesSetupViewComponent implements OnInit, OnDestroy {
 
   // ── Print Sheet ───────────────────────────────────────
 
-  downloadPrintSheet(area: DiningArea): void {
+  async downloadPrintSheet(area: DiningArea): Promise<void> {
     const areaTables = this.tables.filter(t => t.areaId === area.id);
-    const withQR = areaTables.filter(t => t.hasQR);
-    if (withQR.length === 0) {
-      this.toast.error('No tables with QR codes in this area');
+    // generateQRPrintSheet opens the print window synchronously (popup-safe)
+    // before its first await, so calling it here inside the click gesture is
+    // safe even though downloadPrintSheet awaits the result.
+    const { printed, skipped, opened } = await generateQRPrintSheet(
+      areaTables,
+      area,
+    );
+    if (printed === 0) {
+      this.toast.clear();
+      this.toast.error(
+        skipped > 0
+          ? `No printable QR codes — ${skipped} table(s) are missing a credential.`
+          : `No tables with QR codes in ${area.name}.`,
+      );
       return;
     }
-    // Fire-and-forget: the print window opens synchronously inside this gesture
-    // (popup-safe); QR data URLs fill it a moment later.
-    void generateQRPrintSheet(areaTables, area);
-    this.toast.success(`Print sheet opened for ${area.name}`);
+    if (!opened) {
+      this.toast.clear();
+      this.toast.error('Allow pop-ups to open the print sheet.');
+      return;
+    }
+    // Never silently print fewer than expected — always name the skipped tables.
+    if (skipped > 0) {
+      this.toast.success(
+        `Print sheet opened for ${printed} table(s); ${skipped} skipped (credential unavailable).`,
+      );
+    } else {
+      this.toast.success(`Print sheet opened for ${area.name}.`);
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────

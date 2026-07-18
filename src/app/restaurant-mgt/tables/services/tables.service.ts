@@ -10,6 +10,7 @@ import {
   SeatedParty,
   Server,
   TableStatus,
+  QrRotationResult,
   mapApiArea,
   mapApiTable,
 } from '../models/tables.models';
@@ -420,7 +421,10 @@ export class TablesService {
         isActive: data.isActive ?? true,
         hasQR: data.hasQR ?? false,
         qrMode: data.qrMode,
-        qrRegeneratedAt: data.hasQR ? new Date() : undefined,
+        // Creation is NOT rotation — never fabricate a rotation timestamp here.
+        // `qr_regenerated_at` is server-owned metadata, populated only by a real
+        // read after the backend mints it.
+        qrRegeneratedAt: undefined,
         x: 50,
         y: 50,
         width: 10,
@@ -552,6 +556,134 @@ export class TablesService {
     if (ids.length === 0) return of([]);
     return forkJoin(
       ids.map(id => this.updateTable({ id, ...changes })),
+    );
+  }
+
+  // ── QR lifecycle ──────────────────────────────────────
+  //
+  // Two DELIBERATELY DIFFERENT operations:
+  //  • activateQrForTables — initial ACTIVATION (has_qr=true). Revokes nothing.
+  //  • regenerateTableQr   — secure ROTATION. Revokes the old credential AND
+  //                          every live diner session for that one table.
+
+  /**
+   * Securely rotate ONE table's QR credential through the backend regenerate-qr
+   * action. The backend atomically bumps qr_version, mints a fresh server-signed
+   * credential, and invalidates every previously-issued credential and live diner
+   * session for the table. The frontend NEVER mints a credential or timestamp —
+   * the returned server credential becomes the only live one.
+   *
+   * `tables$` is patched ONLY after the response validates, preserving all
+   * unrelated table fields. On any error (HTTP failure OR an invalid success-shape
+   * response) local state is left untouched, so a failed rotation never strands
+   * the UI on a dead credential and never reports a false revocation.
+   */
+  regenerateTableQr(tableId: string): Observable<QrRotationResult> {
+    if (USE_MOCK_SETUP) {
+      // Mock rotation for local design review (flag is false in prod). This IS a
+      // rotation, so a mock credential/timestamp is faithful here.
+      const result: QrRotationResult = {
+        id: tableId,
+        number: this.tables$.value.find(t => t.id === tableId)?.number ?? 0,
+        qrVersion: 2,
+        qrRegeneratedAt: new Date(),
+        qrCredential: `mock-rotated-${tableId}`,
+      };
+      this.applyRotationResult(result);
+      return of(result);
+    }
+    // Body carries ONLY table_id — the backend resolves the restaurant from the
+    // table server-side, so a UI-supplied restaurant id can never widen scope.
+    return this.api.postPatch(
+      'restaurant-setup/table-actions/regenerate-qr/',
+      { table_id: tableId },
+      'post', '', {}, false, '', true,
+    ).pipe(
+      map((res: any) => this.parseRotationResult(res, tableId)),
+      tap(result => this.applyRotationResult(result)),
+    );
+  }
+
+  /**
+   * Validates a regenerate-qr response into a typed QrRotationResult. Throws (→
+   * error notification) unless EVERY load-bearing field is present and sane: the
+   * returned id matches the requested table, the credential is a non-blank
+   * string, qr_version is present, and qr_regenerated_at parses to a valid Date.
+   * Never constructs a credential or timestamp locally.
+   */
+  private parseRotationResult(res: any, expectedId: string): QrRotationResult {
+    const data = res?.data ?? {};
+    const id = data.id;
+    const credential = data.qr_credential;
+    const version = data.qr_version;
+    const rawTs = data.qr_regenerated_at;
+    const regeneratedAt = rawTs != null ? new Date(rawTs) : null;
+    const valid =
+      typeof id === 'string' && id === expectedId &&
+      typeof credential === 'string' && credential.trim() !== '' &&
+      version != null &&
+      regeneratedAt !== null && !isNaN(regeneratedAt.getTime());
+    if (!valid) {
+      throw new Error(
+        'QR regeneration failed: the server response was incomplete.',
+      );
+    }
+    return {
+      id,
+      number:
+        typeof data.number === 'number'
+          ? data.number
+          : this.tables$.value.find(t => t.id === id)?.number ?? 0,
+      qrVersion: Number(version),
+      qrRegeneratedAt: regeneratedAt,
+      qrCredential: credential,
+    };
+  }
+
+  /** Patch the rotated table in tables$ with the server credential, preserving
+   *  every unrelated field. Produces a NEW object reference so the open preview's
+   *  ngOnChanges fires and rebuilds the QR from the fresh URL. */
+  private applyRotationResult(result: QrRotationResult): void {
+    this.tables$.next(
+      this.tables$.value.map(t =>
+        t.id === result.id
+          ? {
+              ...t,
+              hasQR: true,
+              qrCredential: result.qrCredential,
+              qrRegeneratedAt: result.qrRegeneratedAt,
+            }
+          : t,
+      ),
+    );
+  }
+
+  /**
+   * Initial QR ACTIVATION for a set of tables — sets has_qr=true via the ordinary
+   * table update path. This is NOT rotation: it never bumps qr_version, never
+   * mints a client credential/timestamp, and never revokes an existing QR or diner
+   * session. Per-table failures are isolated (each call catches its own error) so
+   * one bad update never hides the outcome of the rest — emits once with one
+   * { id, ok } per input id, in input order.
+   */
+  activateQrForTables(ids: string[]): Observable<{ id: string; ok: boolean }[]> {
+    // forkJoin([]) completes WITHOUT emitting — guard so subscribers always run.
+    if (ids.length === 0) return of([]);
+    if (USE_MOCK_SETUP) {
+      this.tables$.next(
+        this.tables$.value.map(t =>
+          ids.includes(t.id) ? { ...t, hasQR: true } : t,
+        ),
+      );
+      return of(ids.map(id => ({ id, ok: true })));
+    }
+    return forkJoin(
+      ids.map(id =>
+        this.updateTable({ id, hasQR: true }).pipe(
+          map(() => ({ id, ok: true })),
+          catchError(() => of({ id, ok: false })),
+        ),
+      ),
     );
   }
 

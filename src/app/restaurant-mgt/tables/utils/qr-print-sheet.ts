@@ -13,25 +13,37 @@ import { environment } from 'src/environments/environment';
 export async function generateQRPrintSheet(
   areaTables: RestaurantTable[],
   area: DiningArea,
-): Promise<void> {
+): Promise<{ printed: number; skipped: number; opened: boolean }> {
   const baseUrl = environment.dinerBaseUrl || window.location.origin;
 
-  const printable = areaTables
-    .filter(t => t.hasQR)
-    .sort((a, b) => a.number - b.number);
+  // Only QR-enabled tables with a valid (non-empty) credential are printable. A
+  // table flagged hasQR but missing its credential is SKIPPED and reported to the
+  // caller — never silently dropped, and never printed as an invalid `?c=` QR.
+  const withQr = areaTables.filter(t => t.hasQR);
+  const printable = withQr
+    .map(table => ({ table, url: buildDinerQRUrl(baseUrl, table) }))
+    .filter(
+      (entry): entry is { table: RestaurantTable; url: string } =>
+        entry.url !== null,
+    )
+    .sort((a, b) => a.table.number - b.table.number);
+  const skipped = withQr.length - printable.length;
 
-  if (!printable.length) return;
+  if (printable.length === 0) {
+    return { printed: 0, skipped, opened: false };
+  }
 
   // Open the print window synchronously, inside the click gesture, so the
   // browser doesn't block the popup; fill it once the QR data URLs are ready.
   const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
+  if (!printWindow) {
+    return { printed: printable.length, skipped, opened: false };
+  }
 
   const tableCards = (
     await Promise.all(
-      printable.map(async table => {
-        const qrUrl = buildDinerQRUrl(baseUrl, table);
-        const qrImageUrl = await QRCode.toDataURL(qrUrl, {
+      printable.map(async ({ table, url }) => {
+        const qrImageUrl = await QRCode.toDataURL(url, {
           width: 400,
           margin: 2,
           errorCorrectionLevel: 'H',
@@ -120,7 +132,7 @@ export async function generateQRPrintSheet(
     <body>
       <div class="header">
         <h1>${area.name} – QR Codes</h1>
-        <p>${areaTables.filter(t => t.hasQR).length} tables &middot; Generated ${new Date().toLocaleDateString()}</p>
+        <p>${printable.length} tables &middot; Generated ${new Date().toLocaleDateString()}</p>
       </div>
       <div class="grid">
         ${tableCards}
@@ -140,25 +152,38 @@ export async function generateQRPrintSheet(
     </html>
   `);
   printWindow.document.close();
+  return { printed: printable.length, skipped, opened: true };
 }
 
 /**
- * Builds the diner-facing QR URL for a table. The QR encodes the opaque, signed
- * credential (backend PR 7A) as `?c=` — the diner app reads it, then exchanges it
+ * Builds the diner-facing QR URL for a table, or returns `null` when the table
+ * has no usable credential — FAIL CLOSED. The QR encodes the opaque, signed
+ * credential (backend PR 7A) as `?c=`; the diner app reads it, then exchanges it
  * at the protected scan endpoint for a short-lived table session. The `:table`
  * path segment is retained only so the existing `/diner/h/:table` route matches;
  * it is a display hint, NOT authority (the backend derives the table from the
  * credential, which encodes it).
+ *
+ * Returning `null` (rather than the old `?c=` empty fallback) guarantees no
+ * caller can ever render, copy, download, open or print a credential-less QR.
  */
-function buildDinerQRUrl(baseUrl: string, table: RestaurantTable): string {
-  const credential = encodeURIComponent(table.qrCredential ?? '');
-  return `${baseUrl}/diner/h/${table.id}?c=${credential}`;
+function buildDinerQRUrl(
+  baseUrl: string,
+  table: RestaurantTable,
+): string | null {
+  const credential = table.qrCredential;
+  if (!table.id || typeof credential !== 'string' || credential.trim() === '') {
+    return null;
+  }
+  return `${baseUrl}/diner/h/${table.id}?c=${encodeURIComponent(credential)}`;
 }
 
 /**
- * Returns the diner-facing URL for a table's QR code.
+ * Returns the diner-facing URL for a table's QR code, or `null` when the table
+ * has no usable credential (see `buildDinerQRUrl`). Callers MUST treat `null` as
+ * "no QR" and refuse to render/copy/download/open/print.
  */
-export function getTableQRUrl(table: RestaurantTable): string {
+export function getTableQRUrl(table: RestaurantTable): string | null {
   const baseUrl = environment.dinerBaseUrl || window.location.origin;
   return buildDinerQRUrl(baseUrl, table);
 }

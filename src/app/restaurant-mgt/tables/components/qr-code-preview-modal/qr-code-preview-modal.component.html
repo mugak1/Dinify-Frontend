@@ -8,57 +8,116 @@
       }
     </div>
 
-    <!-- QR Code Display -->
-    <div class="flex flex-col items-center py-6">
+    @if (recentlyRotated) {
+      <!-- Live-region success notice after a rotation. -->
       <div
-        #qrContainer
-        class="bg-white p-6 rounded-xl shadow-sm border"
-        [innerHTML]="qrSvgHtml"
-      ></div>
+        role="status"
+        class="mb-4 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-sm text-foreground"
+      >
+        Old QR revoked. Download or print the replacement QR now.
+      </div>
+    }
 
-      <!-- Table Info -->
-      <div class="mt-4 text-center">
-        <p class="text-sm text-muted-foreground">
-          {{ table.maxCapacity }} seats &middot; {{ table.shape }}
-        </p>
-        <p class="text-xs text-muted-foreground mt-1 font-mono break-all">
-          {{ qrUrl }}
+    @if (qrUrl) {
+      <!-- QR Code Display -->
+      <div class="flex flex-col items-center py-6">
+        <div
+          class="bg-white p-6 rounded-xl shadow-sm border"
+          [innerHTML]="qrSvgHtml"
+        ></div>
+
+        <!-- Table Info -->
+        <div class="mt-4 text-center">
+          <p class="text-sm text-muted-foreground">
+            {{ table.maxCapacity }} seats &middot; {{ table.shape }}
+          </p>
+          <!-- The raw credential URL is deliberately NOT shown. Possession of the
+               credential can mint a table session, so it only ever travels inside
+               the QR image or an explicit Copy Link the operator requests. -->
+          <p class="text-xs text-muted-foreground mt-1">Secure table link ready</p>
+        </div>
+      </div>
+
+      <div class="border-t my-4"></div>
+
+      <!-- Action Buttons 2x2 Grid -->
+      <div class="grid grid-cols-2 gap-2">
+        <button app-dn-button variant="outline" (click)="handleDownloadPNG()">
+          <!-- Download icon -->
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download PNG
+        </button>
+        <button app-dn-button variant="outline" (click)="handleDownloadSVG()">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download SVG
+        </button>
+        <button app-dn-button variant="outline" (click)="handlePrint()">
+          <!-- Printer icon -->
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print
+        </button>
+        <button app-dn-button variant="outline" (click)="handleCopyLink()">
+          <!-- Copy icon -->
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy Link
+        </button>
+      </div>
+
+      <!-- Open menu link -->
+      <div class="flex gap-2 mt-2">
+        <button app-dn-button variant="secondary" class="flex-1" (click)="handleOpenLink()">
+          <!-- External link icon -->
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Open Menu Link
+        </button>
+      </div>
+
+      <!-- Secure rotation (destructive) -->
+      <div class="border-t mt-4 pt-4">
+        <button
+          app-dn-button
+          variant="destructive"
+          class="w-full"
+          [loading]="rotating"
+          (click)="onRegenerate()"
+        >
+          <!-- Refresh icon -->
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+          Regenerate QR
+        </button>
+        <p class="text-xs text-muted-foreground mt-2 text-center">
+          Regenerating immediately invalidates the current printed QR and any
+          active diner session for this table.
         </p>
       </div>
-    </div>
-
-    <div class="border-t my-4"></div>
-
-    <!-- Action Buttons 2x2 Grid -->
-    <div class="grid grid-cols-2 gap-2">
-      <button app-dn-button variant="outline" (click)="handleDownloadPNG()">
-        <!-- Download icon -->
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download PNG
-      </button>
-      <button app-dn-button variant="outline" (click)="handleDownloadSVG()">
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download SVG
-      </button>
-      <button app-dn-button variant="outline" (click)="handlePrint()">
-        <!-- Printer icon -->
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-        Print
-      </button>
-      <button app-dn-button variant="outline" (click)="handleCopyLink()">
-        <!-- Copy icon -->
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        Copy Link
-      </button>
-    </div>
-
-    <!-- Bottom Row -->
-    <div class="flex gap-2 mt-2">
-      <button app-dn-button variant="secondary" class="flex-1" (click)="handleOpenLink()">
-        <!-- External link icon -->
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        Open Menu Link
-      </button>
-    </div>
+    } @else {
+      <!-- Fail-closed: no usable credential -->
+      <div class="flex flex-col items-center justify-center py-10 text-center">
+        <div class="mb-3 text-muted-foreground">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        </div>
+        <h3 class="text-card-title mb-1">QR credential unavailable</h3>
+        @if (!table.hasQR) {
+          <p class="text-sm text-muted-foreground mb-4 max-w-xs">
+            This table doesn't have a QR code yet. Generate one so diners can scan
+            to view the menu and order.
+          </p>
+          <button app-dn-button (click)="onGenerate()">Generate QR code</button>
+        } @else {
+          <p class="text-sm text-muted-foreground mb-4 max-w-xs">
+            This table is marked as having a QR, but its secure credential is
+            missing. Refresh the page, or regenerate the QR to issue a new one.
+          </p>
+          <button
+            app-dn-button
+            variant="destructive"
+            [loading]="rotating"
+            (click)="onRegenerate()"
+          >
+            Regenerate QR
+          </button>
+        }
+      </div>
+    }
   }
 </app-dn-dialog>
