@@ -6,10 +6,11 @@
 # This script is the single committed source of truth for these checks; if a
 # command changes, change it here (and CI).
 #
-#   1. type-check   (tsc --noEmit)
-#   2. lint         (ng lint)
-#   3. test         (ng test, headless single run)
-#   4. build:prod   (ng build --configuration=production)
+#   1. type-check              (tsc --noEmit)
+#   2. lint                    (ng lint)
+#   3. tenant-isolation gate   (focused tenant-boundary spec set, fail-fast)
+#   4. test                    (ng test, headless single run)
+#   5. build:prod              (ng build --configuration=production)
 #
 # This is a manual, post-change pre-PR gate — run it after making changes and
 # paste the output into the PR. It is intentionally NOT wired as a hook.
@@ -43,6 +44,11 @@ run_step() {
 
 run_step "type-check" npm run type-check
 run_step "lint"       npm run lint
+# Fail-fast tenant-isolation closure gate (TENANT-ISO-PR6B): the focused
+# tenant-boundary spec set (the _security closure spec + the diner-capability,
+# QR-lifecycle and selected-restaurant specs it builds on). Runs BEFORE the full
+# suite so a broken boundary fails early. Does NOT replace the full test:ci below.
+run_step "tenant-isolation closure gate" npm run test:tenant-boundary
 run_step "test"       npm run test:ci
 run_step "build:prod" npm run build:prod
 
