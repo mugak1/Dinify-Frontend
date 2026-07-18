@@ -97,7 +97,7 @@ export class NewTableModalComponent implements OnChanges {
 
   onSubmit(): void {
     if (!this.number || !this.maxCapacity) return;
-    this.saved.emit({
+    const base: Partial<RestaurantTable> = {
       number: this.number,
       displayName: this.displayName.trim() || undefined,
       minCapacity: this.minCapacity,
@@ -106,10 +106,26 @@ export class NewTableModalComponent implements OnChanges {
       areaId: this.areaId || undefined,
       tags: this.tags,
       isActive: this.isActive,
-      hasQR: this.generateQR,
-      qrMode: this.generateQR ? this.qrMode : undefined,
-      qrRegeneratedAt: this.generateQR ? new Date() : undefined,
-    });
+    };
+    if (this.table) {
+      // EDIT: never re-send has_qr (a loaded value is not a QR change) and never
+      // a client rotation timestamp — the generic editor must not masquerade as
+      // QR activation or revocation. QR generation/rotation is a deliberate
+      // action from the table row or the QR preview. qr_mode stays an ordinary
+      // setting, editable only for a table that already has a QR.
+      this.saved.emit({
+        ...base,
+        qrMode: this.table.hasQR ? this.qrMode : undefined,
+      });
+    } else {
+      // CREATE: the "Generate QR code on save" toggle honestly activates an
+      // initial QR (has_qr). No client timestamp — the credential is server-minted.
+      this.saved.emit({
+        ...base,
+        hasQR: this.generateQR,
+        qrMode: this.generateQR ? this.qrMode : undefined,
+      });
+    }
   }
 
   onClose(): void {

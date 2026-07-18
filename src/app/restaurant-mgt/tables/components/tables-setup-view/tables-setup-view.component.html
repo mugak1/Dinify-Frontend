@@ -199,7 +199,7 @@
             <button app-dn-button variant="outline" size="sm" (click)="generateQRForArea(area)">
               <!-- QR icon -->
               <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="4" height="4"/><line x1="22" y1="14" x2="22" y2="18"/><line x1="18" y1="22" x2="22" y2="22"/></svg>
-              Generate QR for all
+              Generate missing QRs
             </button>
             <button app-dn-button variant="outline" size="sm" (click)="downloadPrintSheet(area)">
               <!-- Download icon -->
@@ -294,10 +294,30 @@
                             >
                               <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                             </button>
+                            <!-- Regenerate QR (secure rotation — revokes the old one) -->
+                            <button
+                              class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md text-destructive desktop-hover:bg-accent active:bg-accent transition-colors"
+                              [appTooltip]="'Regenerate QR (revokes the old one)'"
+                              [attr.aria-label]="'Regenerate QR for table ' + table.number"
+                              (click)="openRotateConfirm(table)"
+                            >
+                              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+                            </button>
                           </div>
                         </div>
                       } @else {
-                        <app-dn-badge variant="warning" class="text-[10px]">QR missing</app-dn-badge>
+                        <div class="flex items-center gap-2">
+                          <app-dn-badge variant="warning" class="text-[10px]">QR missing</app-dn-badge>
+                          <button
+                            app-dn-button
+                            variant="outline"
+                            size="sm"
+                            [attr.aria-label]="'Generate QR for table ' + table.number"
+                            (click)="generateSingleTableQr(table)"
+                          >
+                            Generate QR
+                          </button>
+                        </div>
                       }
                     </td>
                     <td class="p-3 text-right">
@@ -465,10 +485,60 @@
   </div>
 </app-dn-dialog>
 
+<!-- Regenerate QR Confirmation (secure single-table rotation) -->
+<app-dn-dialog
+  [open]="!!confirmRotateTable"
+  [disableClose]="!!rotatingTableId"
+  (closed)="cancelRotate()"
+  maxWidth="sm"
+>
+  @if (confirmRotateTable) {
+    <h2 class="text-section-title mb-2">
+      Regenerate QR for Table {{ confirmRotateTable.number }}?
+    </h2>
+    <p class="text-sm text-muted-foreground mb-3">
+      This immediately invalidates the currently printed QR code and every active
+      diner session for this table. Diners using the old code will need to scan
+      the newly generated QR.
+    </p>
+    <p class="text-sm font-medium mb-4">
+      Reprint and replace the old table sticker after regeneration.
+    </p>
+    <label class="flex items-start gap-2 cursor-pointer mb-4">
+      <input
+        type="checkbox"
+        class="h-4 w-4 mt-0.5 rounded border-input"
+        [checked]="rotateAck"
+        (change)="rotateAck = $any($event.target).checked"
+      />
+      <span class="text-sm">I understand that the old QR code will stop working.</span>
+    </label>
+    <div class="flex justify-end gap-2">
+      <button
+        app-dn-button
+        variant="outline"
+        [disabled]="!!rotatingTableId"
+        (click)="cancelRotate()"
+      >Cancel</button>
+      <button
+        app-dn-button
+        variant="destructive"
+        [disabled]="!rotateAck"
+        [loading]="rotatingTableId === confirmRotateTable.id"
+        (click)="confirmRotate()"
+      >Regenerate and revoke old QR</button>
+    </div>
+  }
+</app-dn-dialog>
+
 <!-- QR Code Preview Modal -->
 <app-qr-code-preview-modal
   [open]="isQrModalOpen"
   [table]="qrPreviewTable"
   [area]="getQrPreviewArea()"
+  [recentlyRotated]="!!qrPreviewTable && qrPreviewTable.id === recentlyRotatedId"
+  [rotating]="!!qrPreviewTable && qrPreviewTable.id === rotatingTableId"
   (closed)="onQrModalClosed()"
+  (regenerateRequested)="openRotateConfirm($event)"
+  (generateRequested)="generateSingleTableQr($event)"
 ></app-qr-code-preview-modal>

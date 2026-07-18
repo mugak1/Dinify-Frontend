@@ -166,3 +166,215 @@ describe('TablesService.bulkCreateTables', () => {
     expect(result).toEqual([]);
   });
 });
+
+/**
+ * Secure QR rotation. regenerateTableQr POSTs { table_id } to the backend
+ * regenerate-qr action, validates the server-signed response, and patches
+ * tables$ ONLY after validation — never optimistically, never with a
+ * locally-minted credential/timestamp. On any error (HTTP or invalid
+ * success-shape) local state is left untouched.
+ */
+describe('TablesService.regenerateTableQr', () => {
+  let service: TablesService;
+  let httpMock: HttpTestingController;
+
+  const REGEN_URL = 'table-actions/regenerate-qr';
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    service = TestBed.inject(TablesService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  function seed(): void {
+    service.tables$.next([
+      { id: 't1', number: 5, hasQR: true, qrMode: 'order_pay', areaId: 'a1', qrCredential: 'OLD-1' } as any,
+      { id: 't2', number: 6, hasQR: true, qrCredential: 'OLD-2' } as any,
+    ]);
+  }
+
+  function okBody(over: Record<string, unknown> = {}) {
+    return {
+      status: 200,
+      message: 'QR code regenerated successfully.',
+      data: {
+        id: 't1',
+        number: 5,
+        qr_version: 2,
+        qr_regenerated_at: '2026-07-18T10:00:00Z',
+        qr_credential: 'NEW-CRED-1',
+        ...over,
+      },
+    };
+  }
+
+  const cred = (id: string) => service.tables$.value.find(t => t.id === id)!.qrCredential;
+
+  it('POSTs exactly once to regenerate-qr with ONLY { table_id }', () => {
+    seed();
+    service.regenerateTableQr('t1').subscribe();
+    const req = httpMock.expectOne(r => r.url.includes(REGEN_URL));
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ table_id: 't1' });
+    // No restaurant id and no credential smuggled in as authority.
+    expect(Object.keys(req.request.body)).toEqual(['table_id']);
+    req.flush(okBody());
+  });
+
+  it('parses the envelope, maps qr_regenerated_at→Date and qr_credential verbatim', () => {
+    seed();
+    let result: any;
+    service.regenerateTableQr('t1').subscribe(r => (result = r));
+    httpMock.expectOne(r => r.url.includes(REGEN_URL)).flush(okBody());
+    expect(result.qrCredential).toBe('NEW-CRED-1');
+    expect(result.qrVersion).toBe(2);
+    expect(result.qrRegeneratedAt instanceof Date).toBeTrue();
+    expect(result.qrRegeneratedAt.toISOString()).toBe('2026-07-18T10:00:00.000Z');
+  });
+
+  it('updates ONLY the rotated tables$ row after success, preserving unrelated fields', () => {
+    seed();
+    service.regenerateTableQr('t1').subscribe();
+    httpMock.expectOne(r => r.url.includes(REGEN_URL)).flush(okBody());
+    const t1 = service.tables$.value.find(t => t.id === 't1')!;
+    expect(t1.qrCredential).toBe('NEW-CRED-1');
+    expect(t1.hasQR).toBeTrue();
+    expect(t1.qrMode).toBe('order_pay'); // unrelated fields preserved
+    expect(t1.areaId).toBe('a1');
+    expect(t1.number).toBe(5);
+    expect(cred('t2')).toBe('OLD-2'); // other row untouched
+  });
+
+  it('makes NO optimistic change — the old credential survives until the response', () => {
+    seed();
+    service.regenerateTableQr('t1').subscribe();
+    const req = httpMock.expectOne(r => r.url.includes(REGEN_URL));
+    expect(cred('t1')).toBe('OLD-1'); // still the old one before flush
+    req.flush(okBody());
+    expect(cred('t1')).toBe('NEW-CRED-1');
+  });
+
+  it('rejects an empty/whitespace credential and leaves state untouched', () => {
+    seed();
+    let errored = false;
+    service.regenerateTableQr('t1').subscribe({ error: () => (errored = true) });
+    httpMock.expectOne(r => r.url.includes(REGEN_URL)).flush(okBody({ qr_credential: '   ' }));
+    expect(errored).toBeTrue();
+    expect(cred('t1')).toBe('OLD-1');
+  });
+
+  it('rejects a mismatched response table id', () => {
+    seed();
+    let errored = false;
+    service.regenerateTableQr('t1').subscribe({ error: () => (errored = true) });
+    httpMock.expectOne(r => r.url.includes(REGEN_URL)).flush(okBody({ id: 'OTHER' }));
+    expect(errored).toBeTrue();
+    expect(cred('t1')).toBe('OLD-1');
+  });
+
+  it('rejects a malformed timestamp', () => {
+    seed();
+    let errored = false;
+    service.regenerateTableQr('t1').subscribe({ error: () => (errored = true) });
+    httpMock.expectOne(r => r.url.includes(REGEN_URL)).flush(okBody({ qr_regenerated_at: 'not-a-date' }));
+    expect(errored).toBeTrue();
+    expect(cred('t1')).toBe('OLD-1');
+  });
+
+  it('rejects a missing qr_version', () => {
+    seed();
+    let errored = false;
+    service.regenerateTableQr('t1').subscribe({ error: () => (errored = true) });
+    httpMock.expectOne(r => r.url.includes(REGEN_URL)).flush(okBody({ qr_version: null }));
+    expect(errored).toBeTrue();
+    expect(cred('t1')).toBe('OLD-1');
+  });
+
+  it('leaves old state untouched on an HTTP error', () => {
+    seed();
+    let errored = false;
+    service.regenerateTableQr('t1').subscribe({ error: () => (errored = true) });
+    httpMock
+      .expectOne(r => r.url.includes(REGEN_URL))
+      .flush('boom', { status: 500, statusText: 'Server Error' });
+    expect(errored).toBeTrue();
+    expect(cred('t1')).toBe('OLD-1');
+    expect(service.tables$.value.find(t => t.id === 't1')!.hasQR).toBeTrue();
+  });
+
+  it('never logs the old or new credential', () => {
+    const spies = [
+      spyOn(console, 'log'),
+      spyOn(console, 'warn'),
+      spyOn(console, 'error'),
+      spyOn(console, 'info'),
+      spyOn(console, 'debug'),
+    ];
+    seed();
+    service.regenerateTableQr('t1').subscribe();
+    httpMock.expectOne(r => r.url.includes(REGEN_URL)).flush(okBody());
+    const leaked = spies.some(s =>
+      s.calls.allArgs().some(args => {
+        const dump = JSON.stringify(args);
+        return dump.includes('NEW-CRED-1') || dump.includes('OLD-1');
+      }),
+    );
+    expect(leaked).toBeFalse();
+  });
+});
+
+/**
+ * Initial QR ACTIVATION. activateQrForTables sets has_qr=true via per-table PUTs
+ * with isolated failures (one {id, ok} per input id, in order). It never rotates
+ * (no qr_version bump), never sends a client timestamp, and never revokes.
+ */
+describe('TablesService.activateQrForTables', () => {
+  let service: TablesService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    service = TestBed.inject(TablesService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  it('activates each table via a has_qr PUT (no rotation timestamp) and isolates failures', () => {
+    let result: { id: string; ok: boolean }[] | undefined;
+    service.activateQrForTables(['t1', 't2', 't3']).subscribe(r => (result = r));
+
+    const reqs = httpMock.match(
+      r => r.url.includes('restaurant-setup/tables/') && r.method === 'PUT',
+    );
+    expect(reqs.length).toBe(3);
+    reqs.forEach(r => {
+      expect(r.request.body.has_qr).toBeTrue();
+      expect(r.request.body.qr_regenerated_at).toBeUndefined();
+      expect(r.request.body.qr_credential).toBeUndefined();
+    });
+
+    const byId = (id: string) => reqs.find(r => r.request.body.id === id)!;
+    byId('t1').flush({ status: 200, data: {} });
+    byId('t3').flush({ status: 200, data: {} });
+    byId('t2').flush('boom', { status: 500, statusText: 'Server Error' });
+
+    expect(result).toEqual([
+      { id: 't1', ok: true },
+      { id: 't2', ok: false },
+      { id: 't3', ok: true },
+    ]);
+  });
+
+  it('emits [] and fires no request for an empty id list', () => {
+    let result: { id: string; ok: boolean }[] | undefined;
+    service.activateQrForTables([]).subscribe(r => (result = r));
+    expect(result).toEqual([]);
+  });
+});
