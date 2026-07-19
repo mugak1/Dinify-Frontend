@@ -38,20 +38,24 @@ import { WINDOW } from '../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../_services/storage/storage-key-prefix.token';
 import { getTableQRUrl } from '../restaurant-mgt/tables/utils/qr-print-sheet';
 import { RestaurantTable } from '../restaurant-mgt/tables/models/tables.models';
+import {
+  CREDENTIAL_HEADER,
+  SESSION_HEADER,
+  CREDENTIAL_ROUTE,
+  SESSION_ROUTES,
+  PUBLIC_MENU_ROUTE,
+  classifyDinerCapabilityRequest,
+} from '../_security/diner-capability-contract';
 
 const API = environment.apiUrl;
 
-// The contract constants the backend also asserts (its ContractParityClosureTests).
-const CREDENTIAL_HEADER = 'X-Diner-Credential';
-const SESSION_HEADER = 'X-Diner-Session';
-const SCAN_ROUTE = 'orders/journey/table-scan/';
-const SESSION_GATED_ROUTES = [
-  'orders/journey/order-details/',
-  'orders/journey/payment-details/',
-  'orders/initiate/',
-  'orders/submit/',
-  'reviews/submit/',
-];
+// The capability header + route contract is OWNED by the frontend contract module
+// (imported above, never re-declared here) and asserted against the backend in §14
+// below, so the interceptor and this gate cannot drift apart (task §7).
+const scanUrl = `${API}${CREDENTIAL_ROUTE.path}`;
+const sessionUrl = (needle: string) =>
+  `${API}${SESSION_ROUTES.find(r => r.path.includes(needle))!.path}`;
+const showMenuUrl = `${API}${PUBLIC_MENU_ROUTE.path}`;
 const EXPIRED_MESSAGE = 'Your table session has expired. Please rescan the QR code.';
 const CAPABILITY_DENIED_404 = 'Not found.';
 
@@ -101,8 +105,8 @@ describe('Closure §A/F — capability transport & channel separation', () => {
   it('anon scan carries only X-Diner-Credential (no session, no JWT)', () => {
     dinerSession.setCredential('QR-CRED');
     dinerSession.setToken('SESS');
-    httpClient.get(`${API}/api/v1/${SCAN_ROUTE}`).subscribe();
-    const req = httpMock.expectOne(`${API}/api/v1/${SCAN_ROUTE}`);
+    httpClient.get(scanUrl).subscribe();
+    const req = httpMock.expectOne(scanUrl);
     expect(req.request.headers.get(CREDENTIAL_HEADER)).toBe('QR-CRED');
     expect(req.request.headers.has(SESSION_HEADER)).toBeFalse();
     expect(req.request.headers.has('Authorization')).toBeFalse();
@@ -111,8 +115,8 @@ describe('Closure §A/F — capability transport & channel separation', () => {
 
   it('anon downstream diner calls carry only X-Diner-Session (no credential, no JWT)', () => {
     dinerSession.setToken('SESS-1');
-    httpClient.post(`${API}/api/v2/orders/initiate/`, { items: [] }).subscribe();
-    const req = httpMock.expectOne(`${API}/api/v2/orders/initiate/`);
+    httpClient.post(sessionUrl('initiate'), { items: [] }).subscribe();
+    const req = httpMock.expectOne(sessionUrl('initiate'));
     expect(req.request.headers.get(SESSION_HEADER)).toBe('SESS-1');
     expect(req.request.headers.has(CREDENTIAL_HEADER)).toBeFalse();
     expect(req.request.headers.has('Authorization')).toBeFalse();
@@ -122,8 +126,8 @@ describe('Closure §A/F — capability transport & channel separation', () => {
   it('a signed-in staff user rides the JWT channel and gets NO diner header on a diner endpoint', () => {
     setUser({ token: 'staff-jwt' });
     dinerSession.setToken('SESS');   // stale diner state must not leak
-    httpClient.post(`${API}/api/v2/orders/initiate/`, { source: 'admin' }).subscribe();
-    const req = httpMock.expectOne(`${API}/api/v2/orders/initiate/`);
+    httpClient.post(sessionUrl('initiate'), { source: 'admin' }).subscribe();
+    const req = httpMock.expectOne(sessionUrl('initiate'));
     expect(req.request.headers.get('Authorization')).toBe('Bearer staff-jwt');
     expect(req.request.headers.has(SESSION_HEADER)).toBeFalse();
     expect(req.request.headers.has(CREDENTIAL_HEADER)).toBeFalse();
@@ -132,8 +136,8 @@ describe('Closure §A/F — capability transport & channel separation', () => {
 
   it('an anon diner request gets NO Authorization header even with stale staff state absent', () => {
     dinerSession.setToken('SESS-2');
-    httpClient.post(`${API}/api/v1/reviews/submit/`, { order: 'o1' }).subscribe();
-    const req = httpMock.expectOne(`${API}/api/v1/reviews/submit/`);
+    httpClient.post(sessionUrl('reviews'), { order: 'o1' }).subscribe();
+    const req = httpMock.expectOne(sessionUrl('reviews'));
     expect(req.request.headers.has('Authorization')).toBeFalse();
     expect(req.request.headers.get(SESSION_HEADER)).toBe('SESS-2');
     req.flush({ status: 201, data: {} });
@@ -141,8 +145,8 @@ describe('Closure §A/F — capability transport & channel separation', () => {
 
   it('the session token never rides the URL or body (header-only)', () => {
     dinerSession.setToken('SECRET-TOKEN');
-    httpClient.post(`${API}/api/v1/reviews/submit/`, { order: 'o1' }).subscribe();
-    const req = httpMock.expectOne(`${API}/api/v1/reviews/submit/`);
+    httpClient.post(sessionUrl('reviews'), { order: 'o1' }).subscribe();
+    const req = httpMock.expectOne(sessionUrl('reviews'));
     expect(req.request.urlWithParams).not.toContain('SECRET-TOKEN');
     expect(JSON.stringify(req.request.body)).not.toContain('SECRET-TOKEN');
     req.flush({});
@@ -153,6 +157,17 @@ describe('Closure §A/F — capability transport & channel separation', () => {
     dinerSession.setToken('SESS');
     httpClient.get(`${API}/api/v1/restaurant-setup/menuitems/`).subscribe();
     const req = httpMock.expectOne(`${API}/api/v1/restaurant-setup/menuitems/`);
+    expect(req.request.headers.has(SESSION_HEADER)).toBeFalse();
+    expect(req.request.headers.has(CREDENTIAL_HEADER)).toBeFalse();
+    req.flush({ data: {} });
+  });
+
+  it('the public show-menu read carries neither capability header', () => {
+    dinerSession.setCredential('QR-CRED');
+    dinerSession.setToken('SESS');
+    const target = `${showMenuUrl}?restaurant=r1`;
+    httpClient.get(target).subscribe();
+    const req = httpMock.expectOne(target);
     expect(req.request.headers.has(SESSION_HEADER)).toBeFalse();
     expect(req.request.headers.has(CREDENTIAL_HEADER)).toBeFalse();
     req.flush({ data: {} });
@@ -340,14 +355,27 @@ describe('Closure §14 — cross-repo contract parity', () => {
   });
 
   it('the scan route and session-gated route set are the agreed contract', () => {
-    expect(SCAN_ROUTE).toBe('orders/journey/table-scan/');
-    // Every session-gated route is recognised by the interceptor's diner matcher.
-    const isDiner = (u: string) =>
-      u.includes('orders/journey/') || u.includes('orders/initiate/') ||
-      u.includes('orders/submit/') || u.includes('reviews/submit/');
-    for (const route of SESSION_GATED_ROUTES) {
-      expect(isDiner(route)).withContext(route).toBeTrue();
+    // Credential route: GET table-scan, exact and version-pinned.
+    expect(CREDENTIAL_ROUTE.method).toBe('GET');
+    expect(CREDENTIAL_ROUTE.path).toBe('/api/v1/orders/journey/table-scan/');
+    expect(classifyDinerCapabilityRequest('GET', scanUrl, API)).toBe('credential');
+
+    // Exactly the five agreed session-gated routes, each classified as 'session' by the
+    // real first-party classifier (exact origin/base + method + path — no substring match).
+    expect(SESSION_ROUTES.map(r => `${r.method} ${r.path}`)).toEqual([
+      'GET /api/v1/orders/journey/order-details/',
+      'GET /api/v1/orders/journey/payment-details/',
+      'POST /api/v2/orders/initiate/',
+      'PUT /api/v1/orders/submit/',
+      'POST /api/v1/reviews/submit/',
+    ]);
+    for (const route of SESSION_ROUTES) {
+      expect(classifyDinerCapabilityRequest(route.method, `${API}${route.path}`, API))
+        .withContext(route.path).toBe('session');
     }
+
+    // The public menu read is explicitly NOT capability-gated.
+    expect(classifyDinerCapabilityRequest('GET', showMenuUrl, API)).toBeNull();
   });
 
   it('the session-expiry (400) and credential-denied (404) messages match the backend', () => {
