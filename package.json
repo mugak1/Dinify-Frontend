@@ -11,6 +11,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox",
+    "test:tenant-boundary": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox --include=src/app/_security/**/*.spec.ts --include=src/app/_helpers/diner-session.interceptor.spec.ts --include=src/app/_services/diner-session.service.spec.ts --include=src/app/diner-app/basket/basket-body/basket-body.component.spec.ts --include=src/app/diner-app/menu/menu.component.spec.ts --include=src/app/diner-app/diner-app.component.spec.ts --include=src/app/restaurant-mgt/tables/components/qr-code-preview-modal/qr-code-preview-modal.component.spec.ts --include=src/app/restaurant-mgt/tables/components/tables-setup-view/tables-setup-view.component.spec.ts --include=src/app/restaurant-mgt/tables/services/tables.service.spec.ts --include=src/app/restaurant-mgt/menu/menu.component.spec.ts --include=src/app/kitchen/services/kitchen-order.service.spec.ts --include=src/app/kitchen/services/kitchen-stock.service.spec.ts",
     "lint": "ng lint",
     "type-check": "tsc --noEmit -p tsconfig.app.json"
   },

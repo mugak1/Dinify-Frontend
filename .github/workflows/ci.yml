@@ -27,6 +27,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Tenant-isolation closure gate
+        # Fail-fast tenant-boundary regression gate (TENANT-ISO-PR6B): the focused
+        # _security closure spec + the diner-capability, QR-lifecycle and
+        # selected-restaurant specs it builds on. Runs BEFORE the full suite so a
+        # broken restaurant/diner boundary fails early. Mirrors scripts/verify.sh;
+        # does NOT replace the full "Test" step below.
+        run: npm run test:tenant-boundary
+
       - name: Test
         run: npm run test:ci
 
