@@ -11,6 +11,7 @@ import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { KitchenComponent } from './kitchen/kitchen.component';
 import { redirectLegacyRestAppUrl } from './_helpers/legacy-rest-app-redirect';
+import { DINER_MOUNT_EMBEDDED } from './diner-app/diner-mount';
 
 export const routes: Routes = [
   {path:'',redirectTo:'login',pathMatch:'full'},
@@ -19,7 +20,7 @@ export const routes: Routes = [
 {path:'forgot-password',component:ForgotPasswordComponent, title:'Forgot Password'},
 {path:'welcome',component:WelcomeComponent,title:'Welcome'},
 {path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin']},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
-{path:'diner',component:DinerAppComponent,loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
+{path:'diner',component:DinerAppComponent,data:{[DINER_MOUNT_EMBEDDED]: false},loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
 // Kitchen View — staff-only board on live order data. Policy mirrors the Phase 2
 // backend: platform dinify_admin / dinify_account_manager, or a restaurant
 // owner / manager / kitchen role (handled additively via data.restaurant_roles).

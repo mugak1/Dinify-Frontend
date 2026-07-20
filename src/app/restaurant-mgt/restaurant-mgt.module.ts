@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import {NgxCurrencyDirective} from 'ngx-currency'
+import { DINER_MOUNT_EMBEDDED } from '../diner-app/diner-mount';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './dashboard/dashboard.component';
@@ -73,7 +74,9 @@ import { AccountComponent } from './account/account.component';
 // and a team/billing-only user must reach those children, so each LEAF is gated
 // instead. R3 — `reports` is guarded on the PARENT only (children inherit).
 // R2 — `reviews/feed` is a SIBLING route, so it carries its own guard.
-const routes: Routes = [
+// Exported so diner-mount.spec.ts can assert the real `rest-app-ordering`
+// mount declaration (its DINER_MOUNT_EMBEDDED data) by reference.
+export const restaurantMgtRoutes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
   {path:'dashboard',component:DashboardComponent,title:'Dashboard',canActivate:[permissionGuard],data:{module:'dashboard'}},
   {path:'settings',title:'Settings',children:[
@@ -106,7 +109,7 @@ const routes: Routes = [
   ]},
   {path:'support',component:SupportComponent,title:'Support'},
   {path:'notifications',component:RestNotificationsComponent,title:'Notifications'},
-  { path: 'rest-app-ordering', loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule) }, // Load DinerApp for ordering
+  { path: 'rest-app-ordering', data: {[DINER_MOUNT_EMBEDDED]: true}, loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule) }, // DinerApp as the portal's embedded ordering preview (admin embed reuses this via the nested module)
   { path: '**', redirectTo: '' }
   ];
 
@@ -122,7 +125,7 @@ const routes: Routes = [
     CommonModule,
     ReactiveFormsModule,
     FormsModule,
-    RouterModule.forChild(routes),
+    RouterModule.forChild(restaurantMgtRoutes),
     DinifyCommonModule,
     QRCodeComponent,
     NgxCurrencyDirective,

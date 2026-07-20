@@ -1,5 +1,5 @@
 import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild, effect, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { BasketItem, MenuItem, MenuItemTagRef, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
@@ -16,7 +16,7 @@ import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
 import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
 import { menuItemUrl } from '../menu-item-detail/menu-item-url';
-import { isEmbeddedDinerMount } from '../diner-mount';
+import { resolveDinerMountEmbedded } from '../diner-mount';
 import { ConnectivityService } from 'src/app/_services/connectivity.service';
 
 @Component({
@@ -98,10 +98,19 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     private api: ApiService,
     private basketService: BasketService,
     private router: Router,
+    private readonly route: ActivatedRoute,
     public navState: MenuNavStateService,
     private toast: ToastService,
     private connectivity: ConnectivityService,
   ) {
+    // Embed detection is declared ON THE ROUTE (DINER_MOUNT_EMBEDDED data on
+    // each DinerAppModule mount) and resolved once from this activation's own
+    // snapshot — never sniffed from router.url, which can still hold the
+    // previous tree while a navigation is in flight. Resolved at construction
+    // (the snapshot is fixed for the component's lifetime) so the flag is valid
+    // before EVERY tryLoadMenu path, including the StorageValue subscription
+    // registered below. See resolveDinerMountEmbedded.
+    this.isInRestApp = resolveDinerMountEmbedded(this.route.snapshot);
     // Seed currentSection reactively whenever the menu loads (or reloads after
     // ngOnDestroy clears it). Self-healing: if currentSection ever falls back
     // to '' while a menu is loaded, this re-fires and re-populates it. Idempotent
@@ -193,10 +202,6 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Embed detection is by MOUNT, not by a path substring: anything outside
-    // the standalone /diner shell is a back-office embed (portal ordering
-    // preview or admin restaurant embed) — see isEmbeddedDinerMount.
-    this.isInRestApp = isEmbeddedDinerMount(this.router.url);
     this.navState.setMenuActive(true);
     // If restaurant is already available (session storage sync-read OR @Input()
     // from staff ordering), proceed immediately. Otherwise the StorageValue
@@ -249,7 +254,8 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       // Standalone diner shell → the diner error page; an embedded mount
       // (portal preview / admin embed) appends 'error' to its own URL instead.
-      if (!isEmbeddedDinerMount(this.router.url)) {
+      // Reuses the route-resolved flag from ngOnInit — do not re-derive here.
+      if (!this.isInRestApp) {
         this.router.navigate(['/diner', 'error']);
       } else {
         this.router.navigate([this.router.url, 'error']);

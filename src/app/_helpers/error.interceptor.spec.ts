@@ -177,6 +177,40 @@ describe('ErrorInterceptor', () => {
       req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
     });
 
+    it('still shows the toast at the bare root "/" while offline (mid-navigation: no shell rendered yet)', (done) => {
+      // router.url is '/' until the first navigation commits — a request fired
+      // from a guard or the diner scan mid-flight must keep its offline toast.
+      routerStub.url = '/';
+      connectivityStub.isOffline = () => true;
+
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(toast.error).toHaveBeenCalledWith("You're offline — check your connection.");
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
+    it('still shows the toast for an empty router.url while offline (same bare-root guard)', (done) => {
+      routerStub.url = '';
+      connectivityStub.isOffline = () => true;
+
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(toast.error).toHaveBeenCalledWith("You're offline — check your connection.");
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
     it('treats a deep portal URL with query params as the banner shell (suppressed)', (done) => {
       // First-segment parsing must survive query strings — /settings/team?tab=roles
       // is still the portal shell, so the banner owns the offline signal.

@@ -50,7 +50,9 @@ export class ErrorInterceptor implements HttpInterceptor {
                     // Rethrow either way so callers' own handlers (scan retry, failOrder) keep working.
                     // Shell detection is inverted (see NON_BANNER_SHELL_ROOTS): the portal owns
                     // the URL root, so everything is a banner shell except the known bannerless
-                    // first segments (and the bare root, which renders no shell at all).
+                    // first segments — and the bare root, because router.url can still be '/'
+                    // while a request fired mid-navigation (e.g. from a guard or the diner
+                    // scan) is in flight, and no shell is rendered there to own the signal.
                     const firstSegment = this.router.url.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] ?? '';
                     const onBannerShell = firstSegment !== '' && !NON_BANNER_SHELL_ROOTS.includes(firstSegment);
                     if (!this.isDinerRequest(request) && !(onBannerShell && this.connectivity.isOffline())) {

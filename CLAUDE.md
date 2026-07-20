@@ -33,9 +33,12 @@ so keep it current when conventions change.
   + fragment, one history entry — a mid-URL `rest-app` segment is never
   touched). `MODULE_ROUTES`/`NO_MODULE_ROUTE` are prefix-free; the error
   interceptor's banner-shell check is an inverted first-segment deny-list
-  (`NON_BANNER_SHELL_ROOTS` in `error.interceptor.ts`); the diner embed check
-  is `isEmbeddedDinerMount` (`diner-app/diner-mount.ts` — `!startsWith('/diner')`,
-  replacing the old 'rest-app' substring match). The admin embed segment
+  (`NON_BANNER_SHELL_ROOTS` in `error.interceptor.ts`); the diner embed flag is
+  DECLARED ON THE ROUTE — `DINER_MOUNT_EMBEDDED` data on each DinerAppModule
+  mount, resolved via `resolveDinerMountEmbedded` (`diner-app/diner-mount.ts`,
+  walking up the snapshot chain since `paramsInheritanceStrategy` stays at the
+  default `'emptyOnly'`; no-flag defaults to standalone) — never sniffed from
+  `router.url`, which is stale mid-navigation. The admin embed segment
   `mgt-app/restaurants/rest-app/:id` and the portal child `rest-app-ordering`
   are intentionally UNRENAMED
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
