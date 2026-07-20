@@ -32,7 +32,7 @@ describe('ReviewsOverviewComponent', () => {
 
   it('always exposes a "View all reviews" link to the feed', () => {
     const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector(
-      'a[href="/rest-app/reviews/feed"]',
+      'a[href="/reviews/feed"]',
     );
     expect(link).toBeTruthy();
     expect(link?.textContent).toContain('View all reviews');

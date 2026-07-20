@@ -64,8 +64,8 @@ exit 1
 
 # ── Manual checklist: Reports surface (PR1 — shell + Sales, mock-first) ───────
 # The four checks above are the automated gate. After they pass, manually verify
-# the Reports hub on the dev server (npm start) at /rest-app/reports:
-#   [ ] /rest-app/reports redirects to /rest-app/reports/sales
+# the Reports hub on the dev server (npm start) at /reports:
+#   [ ] /reports redirects to /reports/sales
 #   [ ] The date range persists as you switch Sales ↔ Menu ↔ Transactions ↔ Diners
 #   [ ] The date range survives a full page reload (localStorage), scoped per restaurant
 #   [ ] Default (this-month) shows the daily aggregate + the 50/page listing + totals footer
@@ -76,7 +76,7 @@ exit 1
 
 # ── Manual checklist: Reports export bar (CSV / XLSX / Print, mock-first) ─────
 # The export bar lives in each report's header (title left / bar right). On the
-# dev server (npm start) at /rest-app/reports/*, after the automated gate passes:
+# dev server (npm start) at /reports/*, after the automated gate passes:
 #   [ ] Each report (Sales/Menu/Transactions/Diners) shows Export XLSX · Export
 #       CSV · Print in the header
 #   [ ] Export CSV downloads dinify-<report>-<from>_<to>.csv of the PRIMARY table's
@@ -94,9 +94,9 @@ exit 1
 
 # ── Manual checklist: Reports layout & table polish (Issues 2–5) ──────────────
 # After the automated gate passes, on the dev server (npm start) at
-# /rest-app/reports/*:
-#   [ ] /rest-app/reports/menu uses the padded layout like the other three (no
-#       crop/shift); the food menu /rest-app/menu is still full-bleed
+# /reports/*:
+#   [ ] /reports/menu uses the padded layout like the other three (no
+#       crop/shift); the food menu /menu is still full-bleed
 #   [ ] Active rail/pill item is white text on red (readable), desktop + mobile;
 #       inactive items go white on red on hover
 #   [ ] First rail item has clear breathing room below the sticky date bar
@@ -107,7 +107,7 @@ exit 1
 
 # ── Manual checklist: Reports date-range popover (Issue 1) ────────────────────
 # The sticky date bar now hosts ONE trigger button instead of the pill row. After
-# the automated gate passes, on the dev server (npm start) at /rest-app/reports/*:
+# the automated gate passes, on the dev server (npm start) at /reports/*:
 #   [ ] Trigger reads "<preset> · <span>" (e.g. "This month · 1–30 Jun 2026");
 #       a hand-picked range reads "Custom · 28 May – 3 Jun 2026"
 #   [ ] Desktop (>=1024px): the trigger opens an anchored popover that is NOT

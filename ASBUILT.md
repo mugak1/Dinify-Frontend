@@ -36,7 +36,7 @@ The split is a classic **frontend / backend** pair. They communicate exclusively
 The frontend is one app with **four surfaces**, selected by URL and login role:
 
 1. **Diner App** (`/diner/...`) — public, no login. What a customer sees after scanning a table QR code.
-2. **Restaurant Management Portal** (`/rest-app/...`) — login required (owner/manager). Menu, tables, dashboard, payments, settings, support.
+2. **Restaurant Management Portal** (the URL root — `/dashboard`, `/menu`, …; legacy `/rest-app/*` URLs redirect) — login required (owner/manager). Menu, tables, dashboard, payments, settings, support.
 3. **Kitchen View / KDS** (`/kitchen`) — login required (kitchen/owner/manager). The live order board. Kitchen-only staff are routed here automatically at login.
 4. **Platform Admin Portal** (`/mgt-app/...`) — login required (Dinify's own `dinify_admin` role). Onboard/manage restaurants, triage support, platform dashboard.
 
@@ -64,7 +64,7 @@ API environments configured in the frontend: `api-dev.dinifyapp.com` (dev), `api
 
 ### 2.1 Menu module — ✅ Fully implemented & wired
 
-The most complete module in the product. In the portal (`/rest-app/menu`, backed by `api/v1/restaurant-setup/menusections|menuitems/`):
+The most complete module in the product. In the portal (`/menu`, backed by `api/v1/restaurant-setup/menusections|menuitems/`):
 
 - Sections with drag-to-reorder, optional banner images, and **availability scheduling** (e.g. "Breakfast: Mon–Fri 07:00–11:00" — scheduled sections are filtered out of the diner menu outside their window).
 - Items with: price, image (auto-optimised to 800px), description, calories, and two **independent** switches — `available` (is it on the menu at all?) and `in_stock` (can it be ordered right now? off = "Sold out" badge).
@@ -81,7 +81,7 @@ A per-restaurant "You might also like" carousel. The owner configures it in the 
 
 ### 2.3 Tables module — split status
 
-- **Setup View** (`/rest-app/dining-tables`) — ✅ **Fully wired.** Dining areas (indoor/outdoor, smoking, accessibility), tables (number, display name, capacity, shape, status), a drag-and-drop **floor plan** (positions stored as `floor_x/y/width/height`), and **QR codes**: the portal generates QR images *in the browser* (`angularx-qrcode`) encoding the diner URL for each table, with a preview modal and a printable QR sheet (`tables/utils/qr-print-sheet.ts`). The backend stores only QR metadata (`has_qr`, `qr_mode`, `qr_regenerated_at`) — it does not generate images. Deleting is guarded: an area with tables, or a table with an unsettled order, is refused with the reason shown (HTTP 409 + `deletion_blockers()` on the models).
+- **Setup View** (`/dining-tables`) — ✅ **Fully wired.** Dining areas (indoor/outdoor, smoking, accessibility), tables (number, display name, capacity, shape, status), a drag-and-drop **floor plan** (positions stored as `floor_x/y/width/height`), and **QR codes**: the portal generates QR images *in the browser* (`angularx-qrcode`) encoding the diner URL for each table, with a preview modal and a printable QR sheet (`tables/utils/qr-print-sheet.ts`). The backend stores only QR metadata (`has_qr`, `qr_mode`, `qr_regenerated_at`) — it does not generate images. Deleting is guarded: an area with tables, or a table with an unsettled order, is refused with the reason shown (HTTP 409 + `deletion_blockers()` on the models).
 - **Service View** (reservations, waitlist, seated parties) — ⏸️ **Parked and hidden.** A full UI exists in the repo but is forcibly hidden (`TablesComponent.activeView` is hardwired to `'setup'`) and runs on mock data (`USE_MOCK_SERVICE = true`). Meanwhile the **backend is complete**: `Reservation` and `WaitlistEntry` models with full endpoints (`restaurant-setup/reservations/`, `waitlist/`), plus `table-actions/` endpoints (seat, clear, transfer, update-status, update-floor-plan). **Nothing in the shipped UI calls the reservation/waitlist/table-action endpoints** — they are backend-only orphans today.
 
 ### 2.4 Kitchen View / KDS — ✅ Fully implemented & wired
@@ -101,30 +101,30 @@ Public, anonymous (no login, no account). Covered step-by-step in section 3. Inc
 
 ### 2.6 Dashboard (restaurant portal) — 🟡 Partially built (still on mock data)
 
-`/rest-app/dashboard` shows revenue, orders, tables, KDS-attention, reviews and payment-method cards with date-range pills and auto-refresh — but `DashboardService.USE_MOCK_DATA = true`, so **almost everything displayed is fake demo data** (exception: the Popular Items card pulls real menu data). The real backend endpoint exists and computes genuine aggregates from the orders table (`api/v1/reports/restaurant/dashboard/` and `dashboard-v2/`, `reports_app/controllers/restaurant/dashboard.py` — real SQL aggregations, not placeholders). Two caveats once it's switched on: (a) "gross sales" counts **paid** orders only, and since almost no order ever reaches `paid` (section 4), revenue would read ≈ zero; (b) report reads are not visibly tenant-scoped the way restaurant-setup reads are.
+`/dashboard` shows revenue, orders, tables, KDS-attention, reviews and payment-method cards with date-range pills and auto-refresh — but `DashboardService.USE_MOCK_DATA = true`, so **almost everything displayed is fake demo data** (exception: the Popular Items card pulls real menu data). The real backend endpoint exists and computes genuine aggregates from the orders table (`api/v1/reports/restaurant/dashboard/` and `dashboard-v2/`, `reports_app/controllers/restaurant/dashboard.py` — real SQL aggregations, not placeholders). Two caveats once it's switched on: (a) "gross sales" counts **paid** orders only, and since almost no order ever reaches `paid` (section 4), revenue would read ≈ zero; (b) report reads are not visibly tenant-scoped the way restaurant-setup reads are.
 
 ### 2.7 Reports / analytics ("Eatlytics") — backend 🟡, portal UI 🔵
 
 - The name **"Eatlytics" appears nowhere in either repository** (verified by full-text search). If it is a brand you use for analytics, it has not made it into the code.
 - **Backend**: a fairly rich report endpoint family exists and computes real aggregates: `api/v1/reports/restaurant/<name>/` with `dashboard`, `dashboard-v2`, `dashboard-reviews`, `sales-summary/listing/trends`, `diners-summary/listing/trends`, `menu-summary`, `transactions-summary/listing`; plus `api/v1/reports/dinify/...` for platform-level numbers.
-- **Portal UI**: the Reports page (`/rest-app/reports`) and Report Detail page are **empty components** — routed, but render nothing meaningful. The only report endpoint the portal actually consumes today is `transactions-listing` (used by the Payments and Billing pages).
+- **Portal UI**: the Reports page (`/reports`) and Report Detail page are **empty components** — routed, but render nothing meaningful. The only report endpoint the portal actually consumes today is `transactions-listing` (used by the Payments and Billing pages).
 
 ### 2.8 Payments & billing surfaces — 🟡 (full detail in section 4)
 
 - **Diner payment screen** (`/diner/orders` + `/diner/payment-details/:id`): complete mobile-money/card/tip/OTP form, correctly wired to the real backend endpoint — but **orphaned**: no button or link anywhere in the diner journey navigates to it.
-- **Restaurant Payments page** (`/rest-app/payments`): shows account info and a real daily transaction listing; the "Disburse Now" (cash-out) dialog exists but its save handler is **empty** — the button does nothing.
-- **Billing page** (`/rest-app/settings/billing`): ✅ real-wired — shows the restaurant's billing method (per-order surcharge vs monthly/yearly subscription fee), validity/expiry, subscription transaction history, and a working "Pay Now" that initiates a subscription payment via mobile money (`finances/transactions/`, `transaction_type='subscription'`).
+- **Restaurant Payments page** (`/payments`): shows account info and a real daily transaction listing; the "Disburse Now" (cash-out) dialog exists but its save handler is **empty** — the button does nothing.
+- **Billing page** (`/settings/billing`): ✅ real-wired — shows the restaurant's billing method (per-order surcharge vs monthly/yearly subscription fee), validity/expiry, subscription transaction history, and a working "Pay Now" that initiates a subscription payment via mobile money (`finances/transactions/`, `transaction_type='subscription'`).
 - **Platform Admin Payments page** (`/mgt-app/payments`): same shape as the restaurant one; same incomplete disbursement form.
 
 ### 2.9 Reviews — 🟡 read side real, write side has no UI
 
-- Portal Reviews page (`/rest-app/reviews`): ✅ real — rating summary, distribution, paginated review list with date filters (`restaurant-setup/orderreviews/`).
+- Portal Reviews page (`/reviews`): ✅ real — rating summary, distribution, paginated review list with date filters (`restaurant-setup/orderreviews/`).
 - Backend accepts diner ratings/reviews per order or per item (`POST api/v1/orders/review/`, no login needed) and lets staff block abusive reviews (`block-review`).
-- **But no diner-facing screen ever asks for a review**, so in practice no reviews can be created through the product. A second portal page, Reviews Management (`/rest-app/reviews-management`), is 🔵 a scaffold.
+- **But no diner-facing screen ever asks for a review**, so in practice no reviews can be created through the product. A second portal page, Reviews Management (`/reviews-management`), is 🔵 a scaffold.
 
 ### 2.10 Support — ✅ Fully implemented & wired
 
-Two-sided ticketing. Restaurant side (`/rest-app/support`): create and track issues with category (orders/KDS, menu, tables/QR, payments, reports, account, bug, other), impact level, and contact preferences; sequential references like `SUP-000123`. Dinify side (`/mgt-app/support`): platform-wide triage — filter, assign, set status (open → in progress → resolved → closed), keep internal notes (never shown to the restaurant) and a restaurant-visible resolution summary. Backend: `support_app`, `api/v1/support/issues/` and `support/admin/issues/`, properly tenant-scoped. (It supersedes a legacy `crm_app.ServiceTicket` — see 2.16.)
+Two-sided ticketing. Restaurant side (`/support`): create and track issues with category (orders/KDS, menu, tables/QR, payments, reports, account, bug, other), impact level, and contact preferences; sequential references like `SUP-000123`. Dinify side (`/mgt-app/support`): platform-wide triage — filter, assign, set status (open → in progress → resolved → closed), keep internal notes (never shown to the restaurant) and a restaurant-visible resolution summary. Backend: `support_app`, `api/v1/support/issues/` and `support/admin/issues/`, properly tenant-scoped. (It supersedes a legacy `crm_app.ServiceTicket` — see 2.16.)
 
 ### 2.11 Notifications — backend ✅ exists, frontend 🔵 placeholder
 
@@ -143,7 +143,7 @@ Restaurant profile (name, location, logo, toggles such as "require order prepaym
 ### 2.14 Auth & identity — ✅ Fully implemented & wired
 
 - **Staff/owners**: phone number + password login, then a 4-digit **OTP by SMS** (Yo Uganda; in dev mode the OTP is hardcoded `1234`). JWTs from SimpleJWT with 30-min access tokens and 7-day rotating, blacklist-on-logout refresh tokens. Tokens are stored in browser `localStorage` (an httpOnly-cookie migration is a known TODO). Self-service registration and forgot-password flows exist.
-- **Roles**: platform roles `dinify_admin`, `dinify_account_manager`; per-restaurant roles `owner`, `manager`, `kitchen`, `waiter`, `finance` (via a `RestaurantEmployee` record per user per restaurant). Login routes kitchen-only staff to `/kitchen`, admins to `/mgt-app`, everyone else to `/rest-app`; users with several restaurants get a picker.
+- **Roles**: platform roles `dinify_admin`, `dinify_account_manager`; per-restaurant roles `owner`, `manager`, `kitchen`, `waiter`, `finance` (via a `RestaurantEmployee` record per user per restaurant). Login routes kitchen-only staff to `/kitchen`, admins to `/mgt-app`, everyone else to the portal root (first accessible module, e.g. `/dashboard`); users with several restaurants get a picker.
 - **Diners are anonymous** — no account, no login. The scanned table is their identity. (The order model *can* link a registered customer, but nothing in the diner flow creates or uses one; a phone number only enters the picture at payment time, for the mobile-money OTP.)
 - **Tenant isolation**: backend reads are scoped to the caller's restaurants (`get_readable_restaurant_ids` / `can_read_restaurant`); cross-tenant requests return 404 so they don't even confirm existence.
 

@@ -92,7 +92,7 @@ import { formatCurrency } from '../../utils/format.utils';
 
           <!-- Footer link -->
           <a
-            routerLink="/rest-app/reports"
+            routerLink="/reports"
             class="text-xs text-primary hover:underline flex items-center gap-1 mt-3 sm:mt-4"
           >
             See full list

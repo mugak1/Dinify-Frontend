@@ -16,6 +16,7 @@ import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from './menu-nav-state.service';
 import { splitTagsForCard, TagCardSplit } from 'src/app/_shared/tags/tag-truncation';
 import { menuItemUrl } from '../menu-item-detail/menu-item-url';
+import { isEmbeddedDinerMount } from '../diner-mount';
 import { ConnectivityService } from 'src/app/_services/connectivity.service';
 
 @Component({
@@ -49,7 +50,7 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   private refreshSeq = 0;
   private refreshSub?: Subscription;
 
-  /** The single sticky banner — diner shell only; absent in the rest-app embed. */
+  /** The single sticky banner — diner shell only; absent in the portal embed. */
   @ViewChild('menuBanner') private menuBanner?: ElementRef<HTMLElement>;
   /** Live banner height (px), fed by a ResizeObserver; 0 until first measured.
    *  Drives the scroll-margin var so clicked sections land flush under the banner. */
@@ -87,7 +88,7 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Sticky-top offset for the single menu banner (diner shell). Flush to the
    *  viewport top when online; 40px down — clearing the offline strip — when offline.
    *  Identity-row (hero/condensed) visibility is CSS-driven; this only positions the
-   *  banner. The rest-app embed renders the bare nav-bar with its own 49px offset. */
+   *  banner. The portal embed renders the bare nav-bar with its own 49px offset. */
   get bannerTop(): string {
     return this.connectivity.isOffline() ? `${DinersMenuComponent.OFFLINE_STRIP_PX}px` : '0px';
   }
@@ -121,7 +122,7 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     // real height plus its sticky-top offset, so clicked sections land flush under
     // it. Re-runs on a measured-height change (ResizeObserver) or an offline flip
     // (which shifts the banner down 40px). Stays null until first measured and in the
-    // rest-app (no banner), where the service falls back to its constant formula.
+    // portal embed (no banner), where the service falls back to its constant formula.
     effect(() => {
       const h = this.bannerHeightPx();
       const top = this.connectivity.isOffline() ? DinersMenuComponent.OFFLINE_STRIP_PX : 0;
@@ -192,7 +193,10 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.isInRestApp = this.router.url.includes('rest-app');
+    // Embed detection is by MOUNT, not by a path substring: anything outside
+    // the standalone /diner shell is a back-office embed (portal ordering
+    // preview or admin restaurant embed) — see isEmbeddedDinerMount.
+    this.isInRestApp = isEmbeddedDinerMount(this.router.url);
     this.navState.setMenuActive(true);
     // If restaurant is already available (session storage sync-read OR @Input()
     // from staff ordering), proceed immediately. Otherwise the StorageValue
@@ -219,7 +223,7 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     // revalidates again anyway.
     this.refreshSub?.unsubscribe();
     this.bannerResizeObserver?.disconnect();
-    // Drop the banner-measured override so a later rest-app mount (or any non-banner
+    // Drop the banner-measured override so a later portal-embed mount (or any non-banner
     // consumer) falls back to the constant scroll-margin formula.
     this.navState.setMenuBannerStackHeight(null);
     this.navState.setMenuActive(false);
@@ -243,7 +247,9 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.restaurant?.menu_approval_status == 'approve' || (this.restaurant as any)?.first_time_menu_approval) {
       this.loadMenu();
     } else {
-      if (!this.router.url.includes('rest-app')) {
+      // Standalone diner shell → the diner error page; an embedded mount
+      // (portal preview / admin embed) appends 'error' to its own URL instead.
+      if (!isEmbeddedDinerMount(this.router.url)) {
         this.router.navigate(['/diner', 'error']);
       } else {
         this.router.navigate([this.router.url, 'error']);

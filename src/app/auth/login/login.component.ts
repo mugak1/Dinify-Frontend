@@ -269,9 +269,9 @@ const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
    * Default landing path for a single restaurant membership, derived from its
    * RBAC permissions map via the shared firstAccessibleRoute helper:
    *  - a present map lands on the first module the user can access (e.g. a
-   *    Tables-only staff lands on /rest-app/dining-tables, NOT the bare
-   *    /rest-app that used to bounce through the dashboard redirect);
-   *  - a map granting no module lands on /rest-app/account (the same predicate
+   *    Tables-only staff lands on /dining-tables, NOT the bare portal root
+   *    that used to bounce through the dashboard redirect);
+   *  - a map granting no module lands on /account (the same predicate
    *    that drives the sidebar "No modules assigned" note — they can't diverge);
    *  - an absent map (pre-permissions snapshot) falls back on roles: kitchen-only
    *    staff to the Kitchen board, everyone else to the dashboard.

@@ -46,14 +46,14 @@ describe('module-access', () => {
       expect(firstAccessibleRoute(fullMap(true))).toBe(MODULE_ROUTES.dashboard);
     });
 
-    it('lands a Tables-only map on /rest-app/dining-tables', () => {
-      expect(firstAccessibleRoute(onlyTrue('tables'))).toBe('/rest-app/dining-tables');
+    it('lands a Tables-only map on /dining-tables', () => {
+      expect(firstAccessibleRoute(onlyTrue('tables'))).toBe('/dining-tables');
       expect(firstAccessibleRoute(onlyTrue('tables'))).toBe(MODULE_ROUTES.tables);
     });
 
-    it('lands an all-false map on /rest-app/account (the no-module fallback)', () => {
+    it('lands an all-false map on /account (the no-module fallback)', () => {
       expect(firstAccessibleRoute(fullMap(false))).toBe(NO_MODULE_ROUTE);
-      expect(firstAccessibleRoute(fullMap(false))).toBe('/rest-app/account');
+      expect(firstAccessibleRoute(fullMap(false))).toBe('/account');
     });
 
     it('honours MODULE_PRIORITY order (menu beats tables when both granted)', () => {
@@ -64,7 +64,7 @@ describe('module-access', () => {
       expect(firstAccessibleRoute(onlyTrue('kitchen'))).toBe('/kitchen');
     });
 
-    it('lands a billing-only map on /rest-app/settings/billing (sub-module trails)', () => {
+    it('lands a billing-only map on /settings/billing (sub-module trails)', () => {
       expect(firstAccessibleRoute(onlyTrue('billing'))).toBe(MODULE_ROUTES.billing);
     });
 

@@ -45,7 +45,7 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
                 <h2 class="text-card-title text-foreground">Revenue (UGX)</h2>
                 <a
-                  routerLink="/rest-app/reports"
+                  routerLink="/reports"
                   class="text-xs sm:text-sm text-primary hover:underline flex items-center gap-1 sm:hidden whitespace-nowrap"
                 >
                   Sales
@@ -81,7 +81,7 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
               </div>
             </div>
             <a
-              routerLink="/rest-app/reports"
+              routerLink="/reports"
               class="hidden sm:flex text-sm text-primary hover:underline items-center gap-1 whitespace-nowrap shrink-0"
             >
               See Sales report

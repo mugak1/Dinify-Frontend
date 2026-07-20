@@ -10,14 +10,14 @@ import { DinerAppComponent } from './diner-app/diner-app.component';
 import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { KitchenComponent } from './kitchen/kitchen.component';
+import { redirectLegacyRestAppUrl } from './_helpers/legacy-rest-app-redirect';
 
-const routes: Routes = [
+export const routes: Routes = [
   {path:'',redirectTo:'login',pathMatch:'full'},
 {path:'login', component:LoginComponent,title:'Login'},
 {path:'register',component:RegisterComponent, title:'Register'},
 {path:'forgot-password',component:ForgotPasswordComponent, title:'Forgot Password'},
 {path:'welcome',component:WelcomeComponent,title:'Welcome'},
-{path:'rest-app',component:RestaurantMgtComponent,canActivate:[AuthGuard],data:{roles:['restaurant_staff']},loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module').then(m => m.RestaurantMgtModule)},
 {path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin']},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
 {path:'diner',component:DinerAppComponent,loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
 // Kitchen View — staff-only board on live order data. Policy mirrors the Phase 2
@@ -28,7 +28,21 @@ const routes: Routes = [
 { path: 'privacy', loadComponent: () => import('./legal/privacy-policy/privacy-policy.component').then(m => m.PrivacyPolicyComponent), title: 'Privacy Policy' },
 { path: 'terms', loadComponent: () => import('./legal/terms-and-conditions/terms-and-conditions.component').then(m => m.TermsAndConditionsComponent), title: 'Terms and Conditions' },
 { path: 'cookies', loadComponent: () => import('./legal/cookie-policy/cookie-policy.component').then(m => m.CookiePolicyComponent), title: 'Cookie Policy' },
-    // otherwise redirect to home
+// Legacy portal URLs from before the hoist to the URL root: strip the leading
+// `rest-app` segment (bare `/rest-app` -> `/dashboard`), preserving query
+// params + fragment. See redirectLegacyRestAppUrl for the behaviour contract.
+{path:'rest-app', children: [
+  {path:'', pathMatch:'full', redirectTo: redirectLegacyRestAppUrl},
+  {path:'**', redirectTo: redirectLegacyRestAppUrl},
+]},
+// The restaurant portal owns the URL ROOT. This empty-path parent
+// prefix-matches every URL no route above claimed, and its lazy children end
+// in a `**` wildcard — so any NEW root-level route MUST be declared ABOVE this
+// entry or the portal will swallow it (the route-ordering ratchet in
+// app-routing.module.spec.ts fails on exactly that mistake).
+{path:'',component:RestaurantMgtComponent,canActivate:[AuthGuard],data:{roles:['restaurant_staff']},loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module').then(m => m.RestaurantMgtModule)},
+// Unreachable in practice — the portal's internal wildcard above swallows any
+// unknown URL first. Kept as a safety net should the portal parent ever move.
 { path: '**', redirectTo: 'login' }
 ];
 

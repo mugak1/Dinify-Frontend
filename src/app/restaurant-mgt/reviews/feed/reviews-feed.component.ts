@@ -18,7 +18,7 @@ type FeedView = 'all' | 'attention';
 type ResolutionFilter = 'open' | 'resolved' | null;
 
 /**
- * Reviews Feed — the browse/queue surface at /rest-app/reviews/feed. Read-only
+ * Reviews Feed — the browse/queue surface at /reviews/feed. Read-only
  * list of real reviews (the `reviews/` endpoint) with a prominent
  * "needs attention" queue (critical + open). Sentiment treatment (sentiment by
  * rating) mirrors the dashboard reviews-card. The resolve action is a follow-up.
@@ -32,7 +32,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
       <!-- Header -->
       <div>
         <a
-          routerLink="/rest-app/reviews"
+          routerLink="/reviews"
           class="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"

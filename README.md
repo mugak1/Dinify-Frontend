@@ -31,7 +31,7 @@ A comprehensive restaurant management and customer dining application built with
 
 Dinify is a multi-tenant restaurant management platform with three distinct applications:
 
-1. **Restaurant Management App** (`/rest-app`) - For restaurant staff and owners to manage menus, orders, and operations
+1. **Restaurant Management App** (the URL root — `/dashboard`, `/menu`, `/settings`, …; legacy `/rest-app/*` URLs redirect) - For restaurant staff and owners to manage menus, orders, and operations
 2. **Dinify Management App** (`/mgt-app`) - For platform administrators to manage restaurants, payments, and reports
 3. **Diner App** (`/diner`) - For customers to scan QR codes, view menus, place orders, and pay
 
@@ -320,9 +320,11 @@ The application uses lazy-loaded modules for each sub-application:
 const routes: Routes = [
   { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
   { path: 'auth', loadChildren: () => import('./auth/auth.module') },
-  { path: 'rest-app', canActivate: [AuthGuard], loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module') },
   { path: 'mgt-app', canActivate: [AuthGuard], loadChildren: () => import('./dinify-mgt/dinify-mgt.module') },
-  { path: 'diner', loadChildren: () => import('./diner-app/diner-app.module') }
+  { path: 'diner', loadChildren: () => import('./diner-app/diner-app.module') },
+  // The restaurant portal owns the URL ROOT (an empty-path parent declared
+  // LAST, before the wildcard) — new root-level routes must go above it.
+  { path: '', canActivate: [AuthGuard], loadChildren: () => import('./restaurant-mgt/restaurant-mgt.module') }
 ];
 ```
 
@@ -341,7 +343,7 @@ const routes: Routes = [
 3. Token stored in localStorage
 4. AuthGuard checks token validity on route navigation
 5. AuthInterceptor adds Bearer token to API requests
-6. Role-based routing: admins → `/mgt-app`, staff → `/rest-app`
+6. Role-based routing: admins → `/mgt-app`, staff → the portal root (first accessible module, e.g. `/dashboard`)
 
 ---
 

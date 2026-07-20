@@ -44,10 +44,10 @@ describe('permissionGuard', () => {
   it('redirects a denied module to the first accessible route as a UrlTree (never navigate to /)', () => {
     const result = run(routeFor('menu'));
     expect(result instanceof UrlTree).toBeTrue();
-    // Tables-only → first accessible route is /rest-app/dining-tables, which is
+    // Tables-only → first accessible route is /dining-tables, which is
     // itself accessible, so the redirect cannot loop.
     const router = TestBed.inject(Router);
-    expect((result as UrlTree).toString()).toBe(router.parseUrl('/rest-app/dining-tables').toString());
-    expect((result as UrlTree).toString()).toBe('/rest-app/dining-tables');
+    expect((result as UrlTree).toString()).toBe(router.parseUrl('/dining-tables').toString());
+    expect((result as UrlTree).toString()).toBe('/dining-tables');
   });
 });

@@ -7,6 +7,23 @@ import { AuthenticationService } from '../_services/authentication.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { ConnectivityService } from '../_services/connectivity.service';
 
+/**
+ * First URL segments that are NOT back-office banner shells. Now that the
+ * restaurant portal lives at the URL ROOT, the banner-shell check is INVERTED
+ * into this deny-list: a positive list of portal segments would drift (the
+ * portal owns support/notifications/account/rest-app-ordering, which are not
+ * RBAC modules, while kitchen IS a module but renders no OfflineBanner), so a
+ * URL counts as a banner shell UNLESS its first segment is one of these known
+ * bannerless surfaces — the auth/legal/lock screens, the standalone diner app,
+ * and the Kitchen board. `mgt-app` is a banner shell and is deliberately
+ * absent. A NEW root-level surface without an OfflineBannerComponent must be
+ * added here, or its failed requests will lose the offline toast.
+ */
+export const NON_BANNER_SHELL_ROOTS: readonly string[] = [
+    'login', 'register', 'forgot-password', 'welcome', 'lock-otp-exp',
+    'privacy', 'terms', 'cookies', 'kitchen', 'diner',
+];
+
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
     private isRefreshing = false;
@@ -31,7 +48,11 @@ export class ErrorInterceptor implements HttpInterceptor {
                     // It still fires elsewhere (e.g. login/auth) and for a status-0 failure
                     // while the browser reports ONLINE (server down/DNS), where no banner shows.
                     // Rethrow either way so callers' own handlers (scan retry, failOrder) keep working.
-                    const onBannerShell = /^\/(rest-app|mgt-app)/.test(this.router.url);
+                    // Shell detection is inverted (see NON_BANNER_SHELL_ROOTS): the portal owns
+                    // the URL root, so everything is a banner shell except the known bannerless
+                    // first segments (and the bare root, which renders no shell at all).
+                    const firstSegment = this.router.url.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] ?? '';
+                    const onBannerShell = firstSegment !== '' && !NON_BANNER_SHELL_ROOTS.includes(firstSegment);
                     if (!this.isDinerRequest(request) && !(onBannerShell && this.connectivity.isOffline())) {
                         this.toast.error("You're offline — check your connection.");
                     }

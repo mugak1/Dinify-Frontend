@@ -21,6 +21,23 @@ so keep it current when conventions change.
 
 ## Current Implementation Status
 - Phase 0 (Foundation): ✅ Complete
+- Portal URL hoist: ✅ the restaurant portal moved from `/rest-app/*` to the URL
+  ROOT (`/dashboard`, `/menu`, `/dining-tables`, `/reviews`, `/reports`,
+  `/support`, `/settings`, `/account`, `/notifications`). The portal parent is
+  an empty-path route declared SECOND-TO-LAST in `app-routing.module.ts` — any
+  NEW root-level route MUST be declared above it or the portal's internal
+  wildcard swallows it (pinned by the ordering ratchet in
+  `app-routing.module.spec.ts`). Legacy `/rest-app/*` URLs redirect via
+  `_helpers/legacy-rest-app-redirect.ts` (bare `/rest-app` → `/dashboard`;
+  otherwise the leading `rest-app` segment is stripped, preserving query params
+  + fragment, one history entry — a mid-URL `rest-app` segment is never
+  touched). `MODULE_ROUTES`/`NO_MODULE_ROUTE` are prefix-free; the error
+  interceptor's banner-shell check is an inverted first-segment deny-list
+  (`NON_BANNER_SHELL_ROOTS` in `error.interceptor.ts`); the diner embed check
+  is `isEmbeddedDinerMount` (`diner-app/diner-mount.ts` — `!startsWith('/diner')`,
+  replacing the old 'rest-app' substring match). The admin embed segment
+  `mgt-app/restaurants/rest-app/:id` and the portal child `rest-app-ordering`
+  are intentionally UNRENAMED
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
 - Phase 2 (Dashboard): ✅ Complete — `USE_MOCK_DATA` still true in DashboardService
   for the core metrics, but TWO cards are real-wired exceptions: the Popular Items
@@ -137,7 +154,7 @@ so keep it current when conventions change.
   DISTINCT from `settings/account` (`AccountSecurityComponent`, the
   security/password section). It is NOT module-guarded (any signed-in member
   reaches it), is opened from the account chip pinned to the bottom of the
-  `SidebarComponent`, and is the `/rest-app/account` landing fallback for a
+  `SidebarComponent`, and is the `/account` landing fallback for a
   member with no accessible modules (the "No modules assigned" case). The
   shared `app-dn-avatar` (initials-in-a-circle) renders the user glyph here and
   in the sidebar chip

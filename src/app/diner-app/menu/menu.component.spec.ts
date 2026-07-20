@@ -102,7 +102,7 @@ describe('DinersMenuComponent', () => {
   it('positions the single menu banner flush online and below the offline strip offline', () => {
     // Diner shell banner: flush to the viewport top online, dropped 40px (clearing the
     // top offline strip) offline. bannerTop is a pure getter — no detectChanges needed.
-    // (The rest-app embed renders the bare nav-bar with a fixed 49px offset via a
+    // (The portal embed renders the bare nav-bar with a fixed 49px offset via a
     // template literal, not this getter, so there's nothing to assert here for it.)
     isOfflineValue = false;
     expect(component.bannerTop).toBe('0px');

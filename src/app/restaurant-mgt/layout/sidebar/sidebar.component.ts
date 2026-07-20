@@ -22,19 +22,19 @@ export class SidebarComponent implements OnChanges, OnDestroy {
   // always shown. Items the current membership can't access are filtered out by
   // visibleNavItems — UX hygiene mirroring the route guards.
   navItems: { label: string; route: string; icon: string; module?: ModuleKey }[] = [
-    { label: 'Dashboard', route: '/rest-app/dashboard',     icon: 'dashboard', module: 'dashboard' },
-    { label: 'Menu',      route: '/rest-app/menu',          icon: 'menu',      module: 'menu' },
-    { label: 'Tables',    route: '/rest-app/dining-tables', icon: 'tables',    module: 'tables' },
-    // Kitchen (KDS board) is a top-level route OUTSIDE the /rest-app shell, but it
-    // is a first-class RBAC module, so it gates through canAccess like its siblings
-    // (owner/manager/kitchen see it; restaurant_staff has kitchen:false). This is
-    // the sidebar entry the audit flagged as missing — /kitchen was reachable only
-    // from a single dashboard anchor.
-    { label: 'Kitchen',   route: '/kitchen',                icon: 'kitchen',   module: 'kitchen' },
-    { label: 'Reviews',   route: '/rest-app/reviews',       icon: 'reviews',   module: 'reviews' },
-    { label: 'Reports',   route: '/rest-app/reports',       icon: 'reports',   module: 'reports' },
-    { label: 'Support',   route: '/rest-app/support',       icon: 'support' },
-    { label: 'Settings',  route: '/rest-app/settings',      icon: 'settings',  module: 'settings' },
+    { label: 'Dashboard', route: '/dashboard',     icon: 'dashboard', module: 'dashboard' },
+    { label: 'Menu',      route: '/menu',          icon: 'menu',      module: 'menu' },
+    { label: 'Tables',    route: '/dining-tables', icon: 'tables',    module: 'tables' },
+    // Kitchen (KDS board) is its own top-level route OUTSIDE the portal shell,
+    // but it is a first-class RBAC module, so it gates through canAccess like its
+    // siblings (owner/manager/kitchen see it; restaurant_staff has kitchen:false).
+    // This is the sidebar entry the audit flagged as missing — /kitchen was
+    // reachable only from a single dashboard anchor.
+    { label: 'Kitchen',   route: '/kitchen',       icon: 'kitchen',   module: 'kitchen' },
+    { label: 'Reviews',   route: '/reviews',       icon: 'reviews',   module: 'reviews' },
+    { label: 'Reports',   route: '/reports',       icon: 'reports',   module: 'reports' },
+    { label: 'Support',   route: '/support',       icon: 'support' },
+    { label: 'Settings',  route: '/settings',      icon: 'settings',  module: 'settings' },
   ];
 
   constructor(
