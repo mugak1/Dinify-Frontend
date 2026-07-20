@@ -116,7 +116,12 @@ so keep it current when conventions change.
   redirect ALWAYS lands on this computed module — it no longer honors a `returnUrl`
   deep link, and neither the `AuthGuard` nor the inactivity logout captures one, so
   re-authenticating (manual sign-out OR the 15-min idle timeout) never resumes the
-  last-visited module. The restaurant portal sidebar now ALSO surfaces a
+  last-visited module. The `/login` route itself carries `loginRedirectGuard`
+  (`_helpers/login-redirect.guard.ts`): an already-authenticated user hitting
+  `/login` — or the bare domain, which redirects there — is forwarded to this same
+  landing (membershipless admins → `/mgt-app`) via a `replaceUrl` redirect instead
+  of being shown the form; with no resolvable landing (no selected membership) the
+  form still renders. The restaurant portal sidebar now ALSO surfaces a
   **Kitchen** entry (route `/kitchen`, gated on the `kitchen` module —
   owner/manager/kitchen see it, `restaurant_staff` does not), so back-office
   staff reach the board from portal nav, not only via the login auto-redirect

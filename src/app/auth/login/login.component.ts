@@ -46,12 +46,7 @@ capsLockOn = false;
       private router: Router,
       private authenticationService: AuthenticationService,
       private toast:ToastService
-  ) {
-      // redirect to home if already logged in
-      if (this.authenticationService.userValue&&!this.as_diner) {
-         // this.router.navigate(['/']);
-      } 
-  }
+  ) {}
 
   ngOnInit() {
       this.loginForm = this.formBuilder.group({
