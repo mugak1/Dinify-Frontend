@@ -39,14 +39,27 @@ so keep it current when conventions change.
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
   the QR credential and the minted session token, and a `DinerSessionInterceptor`
-  (`_helpers/diner-session.interceptor.ts`) attaches them to diner requests; a
-  denied credential drives a rescan panel on the diner shell. See Key Domain
+  (`_helpers/diner-session.interceptor.ts`) attaches them only to an exact
+  first-party route allowlist owned by `_security/diner-capability-contract.ts`;
+  a denied credential drives a rescan panel on the diner shell. See Key Domain
   Concepts for the two-token model and its invariants
 - Dashboard responsiveness: ✅ Complete
 - Phase 3 (Tables module): 🔄 MVP ships Setup View only (route `dining-tables`)
   - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`);
     blocked deletes (e.g. an area that still has tables) surface the backend
     message as a single toast (see error-handling note below)
+  - Secure single-table QR lifecycle: ✅ the Setup View activates AND rotates a
+    table's QR. Activation (`has_qr=true`, via the ordinary table update) revokes
+    nothing; ROTATION (`restaurant-setup/table-actions/regenerate-qr/`, one table
+    at a time) bumps the backend generation, revoking every outstanding credential
+    + live session for that table. Rotation is single-request-guarded (one confirm
+    → one request; rapid clicks can't double-rotate), sends only `{ table_id }`,
+    strictly parses the server-signed response into `QrRotationResult`
+    (`id`/`qr_version`/`qr_regenerated_at`/`qr_credential`) and only then swaps in
+    the new credential — a failed rotation leaves local state untouched. The
+    printed QR encodes the opaque, signed `RestaurantTable.qrCredential` (backend
+    PR 7A), never the table UUID; the QR-preview modal renders/copies/downloads/
+    prints ONLY with a non-empty credential
   - Service View (reservations, waitlist, seated parties): ⏸️ parked AND hidden
     from the UI — its component/services/mocks/models stay in the repo but are
     NOT rendered. `TablesComponent.activeView` is forced to `'setup'` (seed +
@@ -179,6 +192,22 @@ so keep it current when conventions change.
   flow lives in the Kitchen View (KDS board) at `/kitchen`. The diner app's
   parked OrdersComponent (another dead Falcon payment screen) has likewise been
   removed
+- Tenant-isolation closure (frontend regression gate): ✅ a focused
+  `src/app/_security/` layer pins the client-side tenant-boundary invariants.
+  `diner-capability-contract.ts` is the single source of truth for the diner
+  capability header names + the EXACT first-party route allowlist and its pure
+  `classifyDinerCapabilityRequest` classifier (imported by the
+  `DinerSessionInterceptor`); `tenant-isolation-closure.spec.ts` is a
+  cross-cutting matrix — header-only capability transport, diner/JWT channel
+  exclusivity, no raw-UUID authority, no id-in-body, QR-credential non-emptiness,
+  single-guarded QR rotation, login-selected restaurant scope, and cross-repo
+  contract parity with the backend. It runs in CI (and `scripts/verify.sh`) as a
+  dedicated fail-fast `npm run test:tenant-boundary` gate BEFORE the full suite.
+  The engineering closure record is `docs/TENANT_ISOLATION_CLOSURE.md`
+  (counterpart to the backend PR6A record) — refresh it when the diner capability
+  transport, the `?c=` capture, the QR URL/rotation flow, the order-request
+  builders, the selected-restaurant scoping, or the cross-repo contract constants
+  change
 
 ## Deployment Rules — CRITICAL
 - Pushing to main triggers automatic Firebase deployment via GitHub Actions
@@ -414,12 +443,21 @@ writing new tag or price/menu logic:
   - the **table session** — short-lived (6h backend TTL), minted at the protected
     `orders/journey/table-scan/` exchange
   `DinerSessionInterceptor` (`_helpers/diner-session.interceptor.ts`) is the ONLY
-  place the capability is transmitted: `X-Diner-Credential` on the scan,
-  `X-Diner-Session` on every later diner call (`orders/journey/`,
-  `orders/initiate/`, `orders/submit/`, `reviews/submit/`). It is a channel
-  COMPLETELY SEPARATE from staff auth — it attaches nothing when a staff user is
-  signed in, so diner capability state never bleeds into a JWT request (and vice
-  versa). Both tokens live in sessionStorage + in-memory signals and are NEVER
+  place the capability is transmitted, and it matches each header against an EXACT
+  first-party route allowlist — NOT substring/prefix inference. The allowlist,
+  header names and the pure `classifyDinerCapabilityRequest` classifier are the
+  single source of truth in `_security/diner-capability-contract.ts` (method-exact,
+  version-pinned pathname, request origin checked against `environment.apiUrl`,
+  fail-closed on any mismatch): `X-Diner-Credential` rides ONLY the GET
+  `orders/journey/table-scan/` scan; `X-Diner-Session` rides ONLY GET
+  `orders/journey/order-details/`, GET `orders/journey/payment-details/`, POST
+  `orders/initiate/`, PUT `orders/submit/`, and POST `reviews/submit/`. The public
+  `orders/journey/show-menu/` read, an unknown journey endpoint, a wrong method,
+  an external origin that merely contains a route substring, and a route embedded
+  only in a query param all receive NEITHER header. It is a channel COMPLETELY
+  SEPARATE from staff auth — it attaches nothing when a staff user is signed in,
+  so diner capability state never bleeds into a JWT request (and vice versa).
+  Both tokens live in sessionStorage + in-memory signals and are NEVER
   logged, URL-embedded, or placed in a body/analytics payload. Recovery: a
   session TTL lapse (400 with the fixed expiry message) re-mints silently from the
   retained credential; a denied credential (404 `Not found.`) sets `needsRescan`
@@ -464,8 +502,12 @@ writing new tag or price/menu logic:
 - Dashboard real endpoints: `reports/restaurant/dashboard-v2/` (core metrics, gated by
   `USE_MOCK_DATA`) and `reviews/summary/` (Reviews card, already live behind
   `USE_MOCK_REVIEWS = false`) — both parsed through `dashboard-adapter`
-- Tables real endpoints: reservations, waitlist, table-actions — all exist
-  in the backend already and remain to be wired for the Service View
+- Tables real endpoints: Setup View is real-wired to the `restaurant-setup/`
+  areas + tables endpoints plus the QR lifecycle — activation via the ordinary
+  table update (`has_qr=true`) and secure rotation via
+  `restaurant-setup/table-actions/regenerate-qr/` (one `{ table_id }` per call,
+  server-signed response). The Service-View endpoints (reservations, waitlist,
+  seated-party/table actions) exist in the backend already and remain to be wired
 - Kitchen real endpoints: GET `kitchen/orders/active/` (polled), PATCH
   `kitchen/orders/{id}/fulfilment-status/` and `kitchen/orders/{id}/priority/`
 - Reviews real endpoints: GET `reviews/analytics/` (Overview) and `reviews/`
@@ -535,17 +577,24 @@ writing new tag or price/menu logic:
 Before raising any PR:
 1. Run `npm run type-check` and confirm zero TypeScript errors
 2. Run `npm run lint` and confirm clean
-3. Run `npm run test:ci` for any module you touched
-4. Run `npm run build:prod` and confirm zero errors
-5. Confirm standalone components are in `imports`, not `declarations`
+3. Run `npm run test:tenant-boundary` (the fail-fast tenant-boundary gate) and
+   confirm green — especially if you touched the diner capability, QR lifecycle,
+   selected-restaurant scoping, or the `_security/` contract
+4. Run `npm run test:ci` for any module you touched
+5. Run `npm run build:prod` and confirm zero errors
+6. Confirm standalone components are in `imports`, not `declarations`
 
-A convenience runner `scripts/verify.sh` runs all four checks in CI order
-(continuing past failures so you see every problem at once, exiting non-zero if
-any fail). It is a manual pre-PR gate — run it and paste the output into the PR;
-it is intentionally NOT wired as a hook.
+A convenience runner `scripts/verify.sh` runs all five checks in CI order —
+type-check → lint → tenant-isolation closure gate (`npm run test:tenant-boundary`)
+→ test:ci → build:prod — continuing past failures so you see every problem at once,
+exiting non-zero if any fail. It is a manual pre-PR gate — run it and paste the
+output into the PR; it is intentionally NOT wired as a hook.
 
-CI (`.github/workflows/ci.yml`) runs all four (`type-check`, `lint`,
-`test:ci`, `build:prod`) on every PR to `main`. The production deploy workflow
+CI (`.github/workflows/ci.yml`) runs all five steps on every PR to `main`:
+`type-check`, `lint`, the tenant-isolation closure gate
+(`npm run test:tenant-boundary` — a focused, fail-fast tenant-boundary spec set
+that runs BEFORE the full suite so a broken diner/restaurant boundary fails
+early), `test:ci`, and `build:prod`. The production deploy workflow
 (`deploy-prod.yml`) builds with `--configuration=uat` (intentionally still the
 uat build config for now — the prod backend API doesn't exist yet) and pushes to
 the `dinify-prod` Firebase Hosting target on every merge to `main`. A third
