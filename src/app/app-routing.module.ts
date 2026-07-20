@@ -11,11 +11,15 @@ import { LockScreenComponent } from './auth/lock-screen/lock-screen.component';
 import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { KitchenComponent } from './kitchen/kitchen.component';
 import { redirectLegacyRestAppUrl } from './_helpers/legacy-rest-app-redirect';
+import { loginRedirectGuard } from './_helpers/login-redirect.guard';
 import { DINER_MOUNT_EMBEDDED } from './diner-app/diner-mount';
 
 export const routes: Routes = [
   {path:'',redirectTo:'login',pathMatch:'full'},
-{path:'login', component:LoginComponent,title:'Login'},
+// The bare root redirects here, so an already-authenticated user typing the
+// domain (or /login) is forwarded to their landing by loginRedirectGuard
+// instead of seeing the form again.
+{path:'login', component:LoginComponent,canActivate:[loginRedirectGuard],title:'Login'},
 {path:'register',component:RegisterComponent, title:'Register'},
 {path:'forgot-password',component:ForgotPasswordComponent, title:'Forgot Password'},
 {path:'welcome',component:WelcomeComponent,title:'Welcome'},

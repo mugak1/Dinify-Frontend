@@ -338,12 +338,13 @@ const routes: Routes = [
 
 ### Authentication Flow
 
-1. User logs in via `/auth/login`
+1. User logs in via `/login`
 2. OTP verification (if enabled)
 3. Token stored in localStorage
 4. AuthGuard checks token validity on route navigation
 5. AuthInterceptor adds Bearer token to API requests
 6. Role-based routing: admins → `/mgt-app`, staff → the portal root (first accessible module, e.g. `/dashboard`)
+7. An already-authenticated user navigating to `/login` (or the bare domain, which redirects there) is forwarded to that same landing by a route guard instead of seeing the form again
 
 ---
 
