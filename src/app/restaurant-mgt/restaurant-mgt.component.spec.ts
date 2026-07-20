@@ -71,7 +71,7 @@ describe('RestaurantMgtComponent — sidebar state persistence', () => {
     const api = { get: () => of({ data: {} }) } as unknown as ApiService;
     const dialog = {} as unknown as ConfirmDialogService;
     const route = { pathFromRoot: [] } as unknown as ActivatedRoute;
-    const router = { events: of(), url: '/rest-app' } as unknown as Router;
+    const router = { events: of(), url: '/dashboard' } as unknown as Router;
     const cdr = { detectChanges: () => {} } as unknown as ChangeDetectorRef;
 
     const component = new RestaurantMgtComponent(

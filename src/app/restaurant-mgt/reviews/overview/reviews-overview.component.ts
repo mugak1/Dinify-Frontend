@@ -16,7 +16,7 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
 type TimeframeDays = 30 | 90;
 
 /**
- * Reviews Overview — the analytics landing for /rest-app/reviews. Layout B
+ * Reviews Overview — the analytics landing for /reviews. Layout B
  * (action-first): summary line → needs-attention block → dimension hero →
  * demoted metrics strip → rating-trend line chart (fed by the adapter-parsed
  * `trend`).
@@ -47,7 +47,7 @@ type TimeframeDays = 30 | 90;
           </div>
           <!-- Primary-action slot: solid brand-red CTA to the full reviews feed -->
           <a
-            routerLink="/rest-app/reviews/feed"
+            routerLink="/reviews/feed"
             class="inline-flex items-center gap-2 h-[42px] px-5 rounded-md bg-d-red text-white text-[15px] font-semibold whitespace-nowrap shadow-[0_1px_2px_rgba(255,44,50,0.28),0_8px_20px_-8px_rgba(255,44,50,0.5)] transition-[background-color,box-shadow,transform] duration-200 desktop-hover:bg-d-red-hover desktop-hover:-translate-y-px motion-safe:active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-d-red focus-visible:ring-offset-2"
           >
             View all reviews
@@ -161,7 +161,7 @@ type TimeframeDays = 30 | 90;
                   }
                 </ul>
                 <a
-                  routerLink="/rest-app/reviews/feed"
+                  routerLink="/reviews/feed"
                   [queryParams]="{ view: 'attention' }"
                   class="inline-flex items-center gap-1 mt-2 text-sm font-medium text-primary hover:text-primary/80"
                 >

@@ -47,45 +47,45 @@ describe('LoginComponent', () => {
     const TABLES_ONLY: PermissionsMap = { ...ALL_FALSE, tables: true };
 
     // ── Absent permissions map → role-based fallback (migration cushion). The
-    // bare '/rest-app' of the old contract is gone: non-kitchen now resolves to
+    // bare portal-root landing of the old contract is gone: non-kitchen now resolves to
     // the explicit dashboard route, killing the ''→dashboard redirect bounce. ──
     it('routes a kitchen-only membership (no map) to /kitchen', () => {
       expect(landingFor(membership(['kitchen']))).toBe('/kitchen');
     });
 
     it('routes kitchen + owner (no map) to the dashboard', () => {
-      expect(landingFor(membership(['kitchen', 'owner']))).toBe('/rest-app/dashboard');
+      expect(landingFor(membership(['kitchen', 'owner']))).toBe('/dashboard');
     });
 
     it('routes kitchen + manager (no map) to the dashboard', () => {
-      expect(landingFor(membership(['kitchen', 'manager']))).toBe('/rest-app/dashboard');
+      expect(landingFor(membership(['kitchen', 'manager']))).toBe('/dashboard');
     });
 
     it('routes owner-only (no map) to the dashboard', () => {
-      expect(landingFor(membership(['owner']))).toBe('/rest-app/dashboard');
+      expect(landingFor(membership(['owner']))).toBe('/dashboard');
     });
 
     it('routes manager-only (no map) to the dashboard', () => {
-      expect(landingFor(membership(['manager']))).toBe('/rest-app/dashboard');
+      expect(landingFor(membership(['manager']))).toBe('/dashboard');
     });
 
     it('routes the restaurant_staff role (no map) to the dashboard', () => {
-      expect(landingFor(membership(['restaurant_staff']))).toBe('/rest-app/dashboard');
+      expect(landingFor(membership(['restaurant_staff']))).toBe('/dashboard');
     });
 
     it('routes an empty / missing role list (no map) to the dashboard', () => {
-      expect(landingFor(membership([]))).toBe('/rest-app/dashboard');
+      expect(landingFor(membership([]))).toBe('/dashboard');
       expect(landingFor({ restaurant_id: 'r1', restaurant: 'Test' } as RestaurantRole))
-        .toBe('/rest-app/dashboard');
+        .toBe('/dashboard');
     });
 
     // ── Present permissions map → first accessible module ──
-    it('lands a Tables-only staff on /rest-app/dining-tables, not the blocked dashboard', () => {
-      expect(landingFor(membership(['restaurant_staff'], TABLES_ONLY))).toBe('/rest-app/dining-tables');
+    it('lands a Tables-only staff on /dining-tables, not the blocked dashboard', () => {
+      expect(landingFor(membership(['restaurant_staff'], TABLES_ONLY))).toBe('/dining-tables');
     });
 
-    it('lands an all-false map on /rest-app/account (shared with the no-modules note)', () => {
-      expect(landingFor(membership(['restaurant_staff'], ALL_FALSE))).toBe('/rest-app/account');
+    it('lands an all-false map on /account (shared with the no-modules note)', () => {
+      expect(landingFor(membership(['restaurant_staff'], ALL_FALSE))).toBe('/account');
     });
   });
 

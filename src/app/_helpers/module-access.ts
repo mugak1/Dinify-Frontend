@@ -14,19 +14,21 @@ import { ModuleKey, PermissionsMap } from '../_models/app.models';
 
 /**
  * The reconciliation point between permission vocabulary (ModuleKey) and router
- * vocabulary (absolute routes). Note tables→/dining-tables and kitchen→/kitchen
- * (a top-level route, not under /rest-app), and the two settings sub-modules.
+ * vocabulary (absolute routes). The restaurant portal lives at the URL ROOT
+ * (no path prefix — legacy /rest-app/* URLs redirect here). Note
+ * tables→/dining-tables, kitchen→/kitchen (its own top-level route, outside
+ * the portal shell), and the two settings sub-modules.
  */
 export const MODULE_ROUTES: Record<ModuleKey, string> = {
-  dashboard: '/rest-app/dashboard',
-  menu: '/rest-app/menu',
-  tables: '/rest-app/dining-tables',
-  reviews: '/rest-app/reviews',
-  reports: '/rest-app/reports',
-  settings: '/rest-app/settings',
+  dashboard: '/dashboard',
+  menu: '/menu',
+  tables: '/dining-tables',
+  reviews: '/reviews',
+  reports: '/reports',
+  settings: '/settings',
   kitchen: '/kitchen',
-  team: '/rest-app/settings/team',
-  billing: '/rest-app/settings/billing',
+  team: '/settings/team',
+  billing: '/settings/billing',
 };
 
 /**
@@ -36,7 +38,7 @@ export const MODULE_ROUTES: Record<ModuleKey, string> = {
  * diverge — a user on /account for having no modules MUST see the note, and a
  * user seeing the note MUST be one who landed on /account.
  */
-export const NO_MODULE_ROUTE = '/rest-app/account';
+export const NO_MODULE_ROUTE = '/account';
 
 /**
  * Landing priority: the first module the user can access wins. Dashboard is the

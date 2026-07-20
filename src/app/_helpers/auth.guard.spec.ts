@@ -47,7 +47,7 @@ describe('AuthGuard', () => {
 
   it('should redirect to login when not authenticated', () => {
     setUser(null);
-    const result = guard.canActivate(makeRoute(), makeState('/rest-app'));
+    const result = guard.canActivate(makeRoute(), makeState('/dashboard'));
     expect(result).toBeFalse();
     // No returnUrl is captured: the post-login redirect always lands the user on
     // their first accessible module.
@@ -82,7 +82,7 @@ describe('AuthGuard', () => {
         restaurant_roles: [{ restaurant_id: 'r1', restaurant: 'Rest1', roles: ['manager'] }]
       }
     });
-    const result = guard.canActivate(makeRoute(['restaurant_staff']), makeState('/rest-app'));
+    const result = guard.canActivate(makeRoute(['restaurant_staff']), makeState('/dashboard'));
     expect(result).toBeTrue();
   });
 
