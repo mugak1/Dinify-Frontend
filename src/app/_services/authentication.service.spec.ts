@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { AuthenticationService } from './authentication.service';
@@ -208,6 +208,113 @@ describe('AuthenticationService', () => {
       expect(params.get('returnUrl')).toBeNull();
       expect(service.userValue).toBeNull();
     });
+  });
+
+  describe('logout — refresh-token revocation', () => {
+    const userWithRefresh = {
+      token: 'access-xyz',
+      refresh: 'refresh-abc',
+      profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+      require_otp: false,
+      prompt_password_change: false,
+    };
+
+    // Build a service that reads the just-seeded localStorage user. Its rawHttp
+    // is wired to the same testing HttpBackend, so httpMock catches the POST.
+    function makeService(): { svc: AuthenticationService; redirectSpy: jasmine.Spy } {
+      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const redirectSpy = spyOn<any>(svc, 'hardRedirect');
+      return { svc, redirectSpy };
+    }
+
+    it('POSTs the refresh token to users/auth/logout/ with a Bearer header, then clears storage and redirects', () => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
+      const { svc, redirectSpy } = makeService();
+
+      svc.logout();
+
+      const req = httpMock.expectOne(`${base}/users/auth/logout/`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ refresh: 'refresh-abc' });
+      expect(req.request.headers.get('Authorization')).toBe('Bearer access-xyz');
+      req.flush({ status: 200, message: 'Logout successful.' });
+
+      expect(localStorage.getItem('user')).toBeNull();
+      expect(svc.userValue).toBeNull();
+      expect(redirectSpy).toHaveBeenCalledWith('/login');
+    });
+
+    it('still clears storage and redirects when the revocation POST errors', () => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
+      const { svc, redirectSpy } = makeService();
+
+      svc.logout();
+
+      const req = httpMock.expectOne(`${base}/users/auth/logout/`);
+      req.flush('server error', { status: 500, statusText: 'Server Error' });
+
+      expect(localStorage.getItem('user')).toBeNull();
+      expect(svc.userValue).toBeNull();
+      expect(redirectSpy).toHaveBeenCalledWith('/login');
+    });
+
+    it('revokes but does not redirect when no_redirect is true', () => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
+      const { svc, redirectSpy } = makeService();
+
+      svc.logout(true);
+
+      const req = httpMock.expectOne(`${base}/users/auth/logout/`);
+      expect(req.request.body).toEqual({ refresh: 'refresh-abc' });
+      req.flush({ status: 200 });
+
+      expect(localStorage.getItem('user')).toBeNull();
+      expect(svc.userValue).toBeNull();
+      expect(redirectSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not POST when there is no refresh token, and redirects immediately', () => {
+      localStorage.setItem('user', JSON.stringify({ token: 'access-only', profile: userWithRefresh.profile }));
+      const { svc, redirectSpy } = makeService();
+
+      svc.logout();
+
+      httpMock.expectNone(`${base}/users/auth/logout/`);
+      expect(localStorage.getItem('user')).toBeNull();
+      expect(svc.userValue).toBeNull();
+      expect(redirectSpy).toHaveBeenCalledWith('/login');
+    });
+
+    it('logoutDueToInactivity revokes then redirects to /login?reason=inactivity', () => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
+      const { svc, redirectSpy } = makeService();
+
+      svc.logoutDueToInactivity();
+
+      const req = httpMock.expectOne(`${base}/users/auth/logout/`);
+      expect(req.request.method).toBe('POST');
+      req.flush({ status: 200 });
+
+      expect(svc.userValue).toBeNull();
+      expect(redirectSpy).toHaveBeenCalledWith('/login?reason=inactivity');
+    });
+
+    it('redirects anyway if the revocation exceeds the timeout', fakeAsync(() => {
+      localStorage.setItem('user', JSON.stringify(userWithRefresh));
+      const { svc, redirectSpy } = makeService();
+
+      svc.logout();
+
+      // Issued but never flushed — the timeout must backstop it so the user is
+      // never trapped on the page by a hung revoke.
+      httpMock.expectOne(`${base}/users/auth/logout/`);
+      expect(redirectSpy).not.toHaveBeenCalled();
+
+      tick(2000);
+
+      expect(redirectSpy).toHaveBeenCalledWith('/login');
+      expect(localStorage.getItem('user')).toBeNull();
+    }));
   });
 
   describe('attemptTokenRefresh', () => {

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, of, map, catchError } from 'rxjs';
+import { BehaviorSubject, Observable, of, map, catchError, timeout } from 'rxjs';
 import { ApiResponse, LoginResponse, ModuleKey, OTPResponse, PermissionsMap, RestaurantDetail, RestaurantRole} from '../_models/app.models';
 import { HttpBackend, HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
@@ -20,6 +20,13 @@ import { canAccess as canAccessModule, firstAccessibleRoute as firstAccessibleMo
 const LOGOUT_PRESERVE_PREFIXES: readonly string[] = [
   '[dinify]menu.sortMode:',
 ] as const;
+
+/**
+ * Upper bound on how long logout waits for the server-side refresh-token
+ * revocation before proceeding to clear storage and redirect anyway. A slow
+ * or failed revoke must never trap the user on the page.
+ */
+const LOGOUT_REVOKE_TIMEOUT_MS = 2000;
 
 @Injectable({
   providedIn: 'root'
@@ -215,15 +222,11 @@ this.userSubject.next(u as any)
   }
 
   logout(no_redirect?: boolean) {
-    this.resetStorage();
-    this.userSubject.next(null);
-    if (!no_redirect) {
-      // Hard reload so all providedIn:'root' services are destroyed and
-      // re-seeded from cleaned localStorage on the next login. Soft
-      // navigation would leave in-memory PersistedBehaviorSubject values
-      // intact, defeating the storage clear.
-      this.hardRedirect('/login');
-    }
+    // Hard reload (in revokeAndExit) so all providedIn:'root' services are
+    // destroyed and re-seeded from cleaned localStorage on the next login. Soft
+    // navigation would leave in-memory PersistedBehaviorSubject values intact,
+    // defeating the storage clear.
+    this.revokeAndExit(no_redirect ? null : '/login');
   }
 
   /**
@@ -234,9 +237,56 @@ this.userSubject.next(u as any)
    * accessible module, so there is no returnUrl to capture.
    */
   logoutDueToInactivity() {
-    this.resetStorage();
-    this.userSubject.next(null);
-    this.hardRedirect('/login?reason=inactivity');
+    this.revokeAndExit('/login?reason=inactivity');
+  }
+
+  /**
+   * Shared logout tail: revoke the refresh token server-side, then clear local
+   * state and (optionally) redirect. Blacklisting the refresh token is what
+   * makes "sign out" actually end the server session — without it the token
+   * stays valid for its full refresh lifetime after logout.
+   *
+   * Sequencing rules baked in here:
+   * - Capture the access + refresh tokens BEFORE resetStorage() wipes them.
+   * - Use rawHttp (bypasses interceptors): ErrorInterceptor.handle401 calls
+   *   logout(), so an interceptor-wrapped logout that 401s would recurse. Since
+   *   we bypass the JWT interceptor, attach the Authorization header explicitly.
+   * - hardRedirect is a full page load that cancels in-flight requests, so we do
+   *   NOT fire-and-forget: storage-clear + redirect run once, from a single
+   *   settled exit, on BOTH the success and error paths.
+   * - A slow/failed revoke must never trap the user: a timeout backstops the
+   *   request so the redirect always proceeds.
+   * - No refresh token → skip the POST and exit immediately (prior behaviour).
+   */
+  private revokeAndExit(redirectTarget: string | null): void {
+    const user = this.userValue;
+    const refresh = user?.refresh;
+    const access = user?.token;
+
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      this.resetStorage();
+      this.userSubject.next(null);
+      if (redirectTarget) {
+        this.hardRedirect(redirectTarget);
+      }
+    };
+
+    if (!refresh) {
+      finish();
+      return;
+    }
+
+    this.rawHttp
+      .post(
+        `${this._base}/users/auth/logout/`,
+        { refresh },
+        access ? { headers: { Authorization: `Bearer ${access}` } } : {},
+      )
+      .pipe(timeout(LOGOUT_REVOKE_TIMEOUT_MS))
+      .subscribe({ next: () => finish(), error: () => finish() });
   }
 
   // Indirection over `window.location.href = url` so unit tests can spy on
