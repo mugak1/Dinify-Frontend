@@ -47,8 +47,12 @@ export class RestaurantTagService {
   }
 
   update(id: string, payload: Partial<RestaurantTagPayload>): Observable<RestaurantTag> {
+    // PATCH the detail route restaurant-tags/<id>/ (RestaurantTagDetailEndpoint).
+    // The list route restaurant-tags/ serves GET/POST only, so the previous
+    // PUT-to-list 405'd on every tag edit. The backend derives `id` from the URL
+    // kwarg, so it is carried in the path, not the body.
     return this.api
-      .postPatch(this.base, { id, ...payload }, 'put')
+      .postPatch(`${this.base}${id}/`, payload, 'patch')
       .pipe(map((res: any) => (res?.data ?? res) as RestaurantTag));
   }
 
