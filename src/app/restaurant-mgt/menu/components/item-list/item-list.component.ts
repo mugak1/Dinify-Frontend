@@ -94,8 +94,8 @@ export class ItemListComponent implements OnInit, OnDestroy {
     const regular = sectionItems.filter(i => !i.is_featured);
     const flat = [...featured, ...regular];
 
-    // Reject cross-group drags (featured ↔ regular). Matches Lovable's
-    // behaviour: featured-ness is a separate axis, controlled by toggling
+    // Reject cross-group drags (featured ↔ regular) by design:
+    // featured-ness is a separate axis, controlled by toggling
     // the badge — not by where you drop. The dragged item snaps back via
     // cdk's default behaviour because we never mutate state here.
     const featuredCount = featured.length;
