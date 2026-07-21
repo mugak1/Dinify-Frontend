@@ -39,7 +39,7 @@ const MAX_TAGS_PER_ITEM = 20;
  * - On modal save, the new tag is created via RestaurantTagService.create()
  *   and immediately added to the current item's selection.
  * - At MAX_TAGS_PER_ITEM (20) selected, the input becomes read-only with a
- *   "Maximum 20 tags reached." hint, matching the Lovable spec.
+ *   "Maximum 20 tags reached." hint.
  *
  * Inputs / Outputs:
  * - `restaurantId` is required so the catalog scope and tenant for any new

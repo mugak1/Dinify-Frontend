@@ -22,8 +22,6 @@ been merged, to keep CLAUDE.md accurate as the project evolves.
   that are not yet documented in CLAUDE.md?
 - Are there any items marked as outstanding or in-progress that are
   now resolved?
-- Is the Lovable prototype still being used as the visual reference,
-  or has that changed?
 - Are there any rules or notes that are now outdated or incorrect?
 
 ## 4. Update CLAUDE.md

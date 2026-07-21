@@ -264,12 +264,6 @@ so keep it current when conventions change.
 - If you discover mid-task that the base was stale, `git rebase origin/main` and
   re-run verification before pushing.
 
-## Visual Reference
-- The Lovable React prototype (mugak1/Dinify-Restaurant-Portal) is the
-  canonical visual reference for ALL UI work
-- Always check the prototype for layout, spacing, component behaviour,
-  and visual design before writing any code
-
 ## Component Pattern — CRITICAL
 The module uses a deliberate mixed pattern — follow it exactly:
 - Older components (DashboardComponent, MenuComponent, SupportComponent,
@@ -382,8 +376,8 @@ writing new tag or price/menu logic:
   structural directives
 
 ## Styling Rules
-- `overflow-hidden` on layout containers is intentional — matches the
-  Lovable prototype. Do not remove it to fix visual clipping issues
+- `overflow-hidden` on layout containers is intentional — it is part of the
+  intended layout design. Do not remove it to fix visual clipping issues
 - Collapse toggle elements must be inside a `relative` wrapper div
 - Typography — three variable fonts are imported in `src/styles.css`, each
   with a distinct role. Plus Jakarta Sans is the default body (`font-sans`);
@@ -639,6 +633,4 @@ matching angular.json configurations, all built by the esbuild
 `@angular/build:karma` builder (`npm run test:ci` uses ChromeHeadless).
 
 ## Available Slash Commands
-- `/lovable-check` — audit a planned UI change against the Lovable
-  prototype before writing code
 - `/update-context` — re-audit the repo and refresh this file
