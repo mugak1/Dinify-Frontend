@@ -37,7 +37,6 @@ const routes: Routes = [
     RestaurantsComponent,
     ReportsComponent,
     PaymentsComponent,
-    RestaurantMgtComponent,
     MgtNotificationsComponent,
     MgtSupportComponent
   ],

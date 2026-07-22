@@ -1,12 +1,16 @@
 import { ChangeDetectorRef, Component, HostListener } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ApiService } from '../_services/api.service';
 import { RestaurantDetail } from '../_models/app.models';
 import { ConfirmDialogService } from '../_common/confirm-dialog.service';
 import { environment } from 'src/environments/environment';
-import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { LocalStorageService } from '../_services/storage/local-storage.service';
+import { SidebarComponent } from './layout/sidebar/sidebar.component';
+import { TopNavComponent } from './layout/top-nav/top-nav.component';
+import { OfflineBannerComponent } from '../_shared/ui';
 
 // Persisted sidebar expand/collapse state. Stored through LocalStorageService as
 // `[dinify]sidebar.expanded` (the `[dinify]` prefix and `{value:T}` wrapping are
@@ -20,7 +24,8 @@ const SIDEBAR_STATE_KEY = 'sidebar.expanded';
     selector: 'app-restaurant-mgt',
     templateUrl: './restaurant-mgt.component.html',
     styleUrls: ['./restaurant-mgt.component.css'],
-    standalone: false
+    standalone: true,
+    imports: [NgClass, RouterOutlet, SidebarComponent, TopNavComponent, OfflineBannerComponent]
 })
 export class RestaurantMgtComponent {
   private _sidebarOpen = true;
