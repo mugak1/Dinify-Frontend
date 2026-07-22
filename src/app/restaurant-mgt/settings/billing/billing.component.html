@@ -230,10 +230,10 @@
     <div class="text-lg">Select the Payment Method</div>
     <div class="flex items-center justify-center mt-4">
       <!-- Component Start -->
-      <div [ngClass]="{'grid-cols-3':!canChangeBillingDate,'grid-cols-4':canChangeBillingDate}" class="grid gap-2 w-full">
+      <div [ngClass]="{'grid-cols-2':!canChangeBillingDate,'grid-cols-3':canChangeBillingDate}" class="grid gap-2 w-full">
         <div>
           <input #momopayment formControlName="payment_mode" value="momo" class="hidden" id="radio_1" type="radio">
-          <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-primary border-2':momopayment.checked,'border-border':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_1">
+          <label for="radio_1" (click)="momopayment.click()" [ngClass]="{'border-primary border-2':momopayment.checked,'border-border':!momopayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer">
             <svg class="mx-auto" x="0px" y="0px"
               width="60px" height="60px" viewBox="0 0 276.661 276.262" enable-background="new 0 0 276.661 276.262"
               xml:space="preserve">
@@ -280,7 +280,7 @@
         </div>
         <div>
           <input #cardpayment formControlName="payment_mode" value="card" class="hidden" id="radio_2" type="radio">
-          <label for="radio_2" (click)="cardpayment.click()" [ngClass]="{'border-2 border-primary':cardpayment.checked,'border-border':!cardpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_2">
+          <label for="radio_2" (click)="cardpayment.click()" [ngClass]="{'border-2 border-primary':cardpayment.checked,'border-border':!cardpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer">
             <svg version="1.1" class="mx-auto" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
               <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
                 <path d="M 51.751 51.893 H 3.96 c -2.184 0 -3.96 -1.777 -3.96 -3.961 v -37.6 c 0 -2.184 1.777 -3.961 3.96 -3.961 h 62.964 c 2.184 0 3.96 1.777 3.96 3.961 v 22.123 c 0 0.552 -0.447 1 -1 1 s -1 -0.448 -1 -1 V 10.332 c 0 -1.081 -0.879 -1.961 -1.96 -1.961 H 3.96 C 2.879 8.371 2 9.251 2 10.332 v 37.6 c 0 1.081 0.879 1.961 1.96 1.961 h 47.791 c 0.553 0 1 0.447 1 1 S 52.304 51.893 51.751 51.893 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
@@ -309,36 +309,10 @@
           <span class="text-xs font-semibold uppercase mx-auto">Card</span>
         </label>
       </div>
-      <div>
-        <input #collectionspayment formControlName="payment_mode" value="ova" class="hidden" id="radio_4" type="radio">
-        <label for="radio_3" (click)="collectionspayment.click()" [ngClass]="{'border-2 border-primary':collectionspayment.checked,'border-border':!collectionspayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_4">
-          <!--    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
-          <defs>
-          </defs>
-          <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
-            <path d="M 42.769 69.743 H 21.635 c -0.552 0 -1 -0.447 -1 -1 V 7.413 c 0 -0.552 0.448 -1 1 -1 h 33.341 c 0.553 0 1 0.448 1 1 v 44.884 c 0 0.553 -0.447 1 -1 1 s -1 -0.447 -1 -1 V 8.413 H 22.635 v 59.331 h 20.134 c 0.552 0 1 0.447 1 1 S 43.321 69.743 42.769 69.743 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-            <path d="M 38.305 48.615 c -5.307 0 -9.625 -4.318 -9.625 -9.625 s 4.317 -9.625 9.625 -9.625 s 9.625 4.317 9.625 9.625 S 43.612 48.615 38.305 48.615 z M 38.305 31.366 c -4.204 0 -7.625 3.42 -7.625 7.625 s 3.42 7.625 7.625 7.625 s 7.625 -3.42 7.625 -7.625 S 42.509 31.366 38.305 31.366 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-            <path d="M 29.73 58.593 c -0.552 0 -1 -0.447 -1 -1 v -7.587 c 0 -0.553 0.448 -1 1 -1 s 1 0.447 1 1 v 7.587 C 30.73 58.146 30.283 58.593 29.73 58.593 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-            <path d="M 46.93 28.975 c -0.553 0 -1 -0.448 -1 -1 v -6.669 c -2.496 -0.422 -4.47 -2.397 -4.893 -4.893 h -5.414 c -0.422 2.496 -2.397 4.471 -4.893 4.893 v 6.669 c 0 0.552 -0.448 1 -1 1 s -1 -0.448 -1 -1 v -7.586 c 0 -0.552 0.448 -1 1 -1 c 2.192 0 3.976 -1.784 3.976 -3.977 c 0 -0.552 0.448 -1 1 -1 h 7.247 c 0.552 0 1 0.448 1 1 c 0 2.193 1.784 3.977 3.976 3.977 c 0.553 0 1 0.448 1 1 v 7.586 C 47.93 28.527 47.482 28.975 46.93 28.975 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-            <path d="M 60.499 44.146 c -0.553 0 -1 -0.448 -1 -1 c 0 -17.598 1.384 -31.08 4.229 -41.146 H 31.722 c -0.552 0 -1 -0.448 -1 -1 s 0.448 -1 1 -1 h 33.341 c 0.316 0 0.615 0.15 0.804 0.405 c 0.188 0.254 0.245 0.583 0.153 0.886 c -3.042 10.003 -4.521 23.695 -4.521 41.855 C 61.499 43.699 61.052 44.146 60.499 44.146 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-            <path d="M 68.365 78.001 h -1.661 c 0.276 -2.665 0.675 -5.034 1.07 -7.315 c 0.812 -4.688 1.513 -8.738 0.79 -13.778 c -0.492 -3.425 -2.791 -6.343 -5.955 -7.596 l -2.574 -1.164 c -0.504 -0.228 -1.097 -0.004 -1.323 0.499 c -0.228 0.503 -0.004 1.096 0.499 1.323 l 2.618 1.183 c 2.543 1.008 4.365 3.322 4.755 6.039 c 0.679 4.727 0.003 8.632 -0.78 13.153 c -0.41 2.374 -0.827 4.841 -1.109 7.656 H 46.61 c 0.735 -3.535 2.417 -6.688 4.824 -8.966 c 0.198 -0.188 0.312 -0.449 0.313 -0.723 s -0.109 -0.535 -0.307 -0.725 l -5.465 -5.256 c -0.435 -0.381 -0.935 -0.668 -1.485 -0.854 c -0.042 -0.014 -0.084 -0.024 -0.127 -0.033 l -5.427 -1.058 c -1.682 -0.596 -2.643 -2.341 -2.24 -4.085 l 0.168 -0.729 c 0.41 -1.776 2.151 -2.946 4.009 -2.666 l 5.244 0.457 c 0.354 0.055 0.697 0.192 0.988 0.395 l 10.124 7.133 c 0.454 0.317 1.076 0.211 1.394 -0.241 s 0.21 -1.075 -0.241 -1.394 L 48.253 52.12 c -0.544 -0.379 -1.177 -0.633 -1.896 -0.741 l -5.244 -0.457 c -2.829 -0.436 -5.554 1.408 -6.198 4.201 l -0.168 0.729 c -0.639 2.772 0.914 5.546 3.612 6.45 c 0.042 0.014 0.083 0.025 0.126 0.033 l 5.425 1.058 c 0.276 0.101 0.526 0.247 0.713 0.41 l 4.699 4.521 c -2.398 2.571 -4.047 5.95 -4.747 9.676 h -1.962 c -0.552 0 -1 0.447 -1 1 v 10 c 0 0.553 0.448 1 1 1 h 25.753 c 0.553 0 1 -0.447 1 -1 v -9.999 C 69.365 78.448 68.918 78.001 68.365 78.001 z M 67.365 88 H 43.612 v -7.999 h 23.753 V 88 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
-          </g>
-        </svg> -->
-        <svg width="60" class="mx-auto" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-          <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-          <g id="SVGRepo_iconCarrier"> <path d="M7 15L7 9" stroke="#000000" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"></path>
-          <path stroke-width="0.5" d="M20.8333 9H18.2308C16.4465 9 15 10.3431 15 12C15 13.6569 16.4465 15 18.2308 15H20.8333C20.9167 15 20.9583 15 20.9935 14.9979C21.5328 14.965 21.9623 14.5662 21.9977 14.0654C22 14.0327 22 13.994 22 13.9167V10.0833C22 10.006 22 9.96726 21.9977 9.9346C21.9623 9.43384 21.5328 9.03496 20.9935 9.00214C20.9583 9 20.9167 9 20.8333 9Z" stroke="#000000"></path>
-          <path stroke-width="0.5" d="M20.965 9C20.8873 7.1277 20.6366 5.97975 19.8284 5.17157C18.6569 4 16.7712 4 13 4L10 4C6.22876 4 4.34315 4 3.17157 5.17157C2 6.34315 2 8.22876 2 12C2 15.7712 2 17.6569 3.17157 18.8284C4.34315 20 6.22876 20 10 20H13C16.7712 20 18.6569 20 19.8284 18.8284C20.6366 18.0203 20.8873 16.8723 20.965 15" stroke="#000000" >
-            </path> <path d="M17.9912 12H18.0002" stroke="#000000" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"></path> </g>
-          </svg>
-          <span class="text-xs font-semibold uppercase mx-auto">Collections</span>
-        </label>
-      </div>
       <!-- -->                          @if (canChangeBillingDate) {
       <div>
         <input #cashpayment formControlName="payment_mode" value="cash" class="hidden" id="radio_3" type="radio">
-        <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-primary':cashpayment.checked,'border-border':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer" for="radio_3">
+        <label for="radio_3" (click)="cashpayment.click()" [ngClass]="{'border-2 border-primary':cashpayment.checked,'border-border':!cashpayment.checked}" class="flex flex-col p-4 border rounded cursor-pointer">
           <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="60" height="60" viewBox="0 0 256 256" xml:space="preserve">
             <defs>
             </defs>

@@ -1,6 +1,5 @@
 import { Component } from '@angular/core';
 import { AuthenticationService } from '../../_services/authentication.service';
-import { Router } from '@angular/router';
 
 @Component({
     selector: 'app-welcome',
@@ -25,8 +24,7 @@ import { Router } from '@angular/router';
 })
 export class WelcomeComponent {
   constructor(
-    private authenticationService: AuthenticationService,
-    private router: Router
+    private authenticationService: AuthenticationService
   ) {}
 
   logout() {

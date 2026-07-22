@@ -1,31 +1,3 @@
-<!--
-Dinify — Login (centered card, FULL design fidelity)
-============================================================================
-Faithful port of the approved mock (Dinify Portal — Sign In (centered).html):
-warm cream + fine-grain environment, floating white rounded-2xl card,
-red eyebrow + display title, focus-lift fields with lead icons + colour-shift,
-arrow-on-button. Wired onto the REAL restaurant-portal flow.
-
-DROP-IN for the HTML only. Every Angular binding is preserved verbatim, so
-login.component.ts / .css / .spec.ts need NO changes:
-loginForm, [formGroup], the (ngSubmit) expression, require_otp, showLoginForm,
-showRestaurantSelector, inputPTO, onInputChange, toggleFieldTextType,
-fieldTextType, loading, rateLimited, inactivityNotice, f['password'],
-countdown, resendOTP, backToLogin, setRestaurant, user, as_diner.
-
-DELTAS from the raw handoff (everything else is verbatim):
-(1) font-display -> font-gabarito on title/eyebrow/labels/buttons, so the
-centered page renders GABARITO per the design spec. font-display resolves
-to Bricolage, and there is no Gabarito token yet — add `font-gabarito` to
-tailwind.config.js (mirror the existing `display`/`sans` entries,
-primary family "Gabarito Variable").
-(2) The Sign-in arrow nudge is gated behind desktop-hover (group-hover) so it
-can't stick after a tap on touch devices.
-
-Tokens: d-red, font-gabarito (NEW token — add to tailwind.config.js), desktop-hover:, shadow-glow, warning.
-Component stays standalone:false (declarations) — unchanged.
-============================================================================ -->
-
 <!-- Environment: warm cream gradient, centered. -->
 <div class="relative min-h-screen flex items-center justify-center px-6 py-10 overflow-hidden
             bg-[radial-gradient(60%_50%_at_88%_4%,rgba(255,160,120,0.13)_0%,rgba(255,160,120,0)_60%),radial-gradient(52%_44%_at_4%_100%,rgba(255,44,50,0.07)_0%,rgba(255,44,50,0)_60%),linear-gradient(158deg,#FCF6EE_0%,#F4E8D8_100%)]">

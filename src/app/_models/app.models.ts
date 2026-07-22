@@ -234,24 +234,6 @@ export interface DiscountDetails {
 /** @deprecated Alias kept for existing imports — prefer DiscountDetails. */
 export type ItemDiscountDetails = DiscountDetails;
 
-export interface TableListItem {
-  id: string
-  time_created: string
-  time_last_updated: string
-  time_deleted: any
-  deleted: boolean
-  deletion_reason: any
-  archived: boolean
-  number: number
-  room_name: any
-  prepayment_required: boolean
-  smoking_zone: boolean
-  outdoor_seating: boolean
-  available: boolean
-  created_by: string
-  deleted_by: any
-  restaurant: string
-}
 export interface TableScan {
   id: string
   number: number
@@ -379,24 +361,6 @@ export interface Socials {
   x?: string | null
   tiktok?: string | null
 }
-export interface Item {
-  id: string
-  name: string
-  description?: string
-  primary_price: number
-  discounted_price: any
-  running_discount: boolean
-  image: string
-  available: boolean
-  has_options: boolean
-  options: Options
-  group: any
-}
-
-export interface Options {
-
-}
-
   export interface BasketItem {
     itemId: string;
     itemName: string;
@@ -482,78 +446,6 @@ export interface AvailableItem {
   status: string
   order: string
 }
-export interface OrderDetail {
-  id: string
-  table: string
-  customer: string
-  total_cost: number
-  discounted_cost: number
-  savings: number
-  actual_cost: number
-  prepayment_required: boolean
-  payment_status: string
-  order_status: string
-  items: Item[]
-  order_number: number
-  time_created: string
-  table_details: OrderedTableDetails
-  count_items_served: number
-  total_paid: string
-  balance_payable: string
-  time_last_updated: string
-}
-export interface OrdersListItem{
-
-  total_paid: string
-  balance_payable: string
-  time_last_updated: string
-
-  id: string
-  table: string
-  customer: any
-  total_cost: number
-  discounted_cost: number
-  savings: number
-  actual_cost: number
-  prepayment_required: boolean
-  payment_status: string
-  order_status: string
-  items: OrderedItem[]
-  extras:any[]
-  order_number: number
-  time_created: string
-  table_details: OrderedTableDetails
-  count_items_served:number
-  count_items_considered:number
-}
-
-export interface OrderedItem {
-  id: string
-  item: OrderedItemDetail
-  available: boolean
-  quantity: number
-  unit_price: number
-  discounted_price: number
-  savings: number
-  options: any[]
-  extras:any[]
-  cost_of_options: number
-  actual_cost: number
-  status: string
-  deleted:boolean;
-  deletion_reason?:string;
-  time_last_updated: string
-}
-
-export interface OrderedItemDetail {
-  id: string
-  name: string
-  is_special:boolean
-}
-export interface OrderedTableDetails {
-  table_number: number
-  table_room_name: any
-}
 export interface EmployeeListUser {
   id: string
   time_created: string
@@ -579,17 +471,6 @@ export interface CreateEmployeeResponse {
     [key: string]: any
   }
   [key: string]: any
-}
-export interface ReviewListItem {
-  id: string
-  rating: number
-  review: string
-  block_review: boolean
-  customer: string
-  time_created:string
-  order_number:number;
-  showReadMore:boolean;
-  isExpanded:boolean;
 }
 export interface NotificationItem {
   _id: string
@@ -637,17 +518,6 @@ export interface TransactionListItem {
   amount_out: number
   transaction_status: string
   transaction_platform: string
-}
-export interface SalesReportListItem {
-  id: string
-  order_number: number
-  no_items: number
-  total_cost: number
-  discounted_cost: number
-  payment_mode: string
-  payment_status: string
-  time_created: string
-  last_updated_by: string
 }
 // Restaurant-facing support ticketing (api/v1/support/issues/).
 // Mirrors the restaurant read serializer — i.e. WITHOUT internal_notes or
@@ -703,33 +573,6 @@ export interface SupportIssueAdmin extends SupportIssue {
   internal_notes: string | null;
   created_by: string;
 }
-export interface SalesTrendListItem {
-  number_of_sales: number
-  gross_sales_amount: number
-  sales_by_payment_channel: any
-  sales_amount_by_payment_channel: any
-  average_order_amount: number
-  maximum_order_amount: number
-  minimum_order_amount: number
-  total_discounts_offered: number
-  date: string
-  month:string
-  year:string
-}
-export interface RatingSummary {
-  total_ratings: number
-  one_star_percent: number
-  two_star_percent: number
-  three_star_percent: number
-  four_star_percent: number
-  five_star_percent: number
-  average_rating: number
-}
-export interface ChartData {
-  series: Series[]
-  xaxis: Xaxis
-}
-
 export interface Series {
   name: string
   data: number[]
@@ -815,88 +658,6 @@ export interface Series {
   name: string
   data: number[]
 }
-export interface RestaurantDashboardData {
-  revenue: Revenue
-  orders: Orders
-}
-
-export interface Revenue {
-  total: number
-  this_month: number
-  month_growth: string
-}
-
-export interface Orders {
-  num_orders: number
-  this_month_orders: number
-  month_growth: string
-  order_count_overview: OrderCountOverview
-  real_time: RealTime
-  top_items: TopItem[]
-  top_customers: TopCustomers
-  diners: Diners
-}
-
-export interface OrderCountOverview {
-  total: number
-  closed: number
-  cancelled: number
-}
-
-export interface RealTime {
-  active: number
-  occupied_tables: number
-  total_tables: number
-  distinct_order_items: number
-}
-
-export interface TopItem {
-  item__name: string
-  total_quantity: number
-}
-
-export interface TopCustomers {
-  by_revenue: ByRevenue[]
-  by_orders: ByOrder[]
-}
-
-export interface ByRevenue {
-  customer?: string
-  total_spent: number
-}
-
-export interface ByOrder {
-  customer__first_name: string
-  customer__last_name: string
-  customer__username: string
-  total_orders: number
-}
-
-export interface Diners {
-  total: number
-  monthly: number
-  monthly_growth: string
-}
-export interface DiningArea {
-  id: string
-  name: string
-  description: any
-  smoking_zone: boolean
-  outdoor_seating: boolean
-  no_tables: number
-  tables: DiningAreaTable[]
-  isCollapsed:boolean
-  available:boolean
-}
-
-export interface DiningAreaTable {
-  id:any;
-  number: number
-  available: {available:boolean,message:string,order_id?:string}
-  reserved: boolean
-  enabled: boolean
-}
-
 export interface Pagination {
   paginated: boolean
   total_records: number
@@ -906,12 +667,6 @@ export interface Pagination {
   has_next: boolean
   has_previous: boolean
 }
-export interface GroupedTableAreas {
-  dining_area: DiningArea
-  tables: DiningAreaTable[]
-  isCollapsed:boolean
-}
-
 export interface RestaurantTag {
   id: string;
   name: string;

@@ -5,7 +5,6 @@ import { Observable, Subject, forkJoin } from 'rxjs';
 import { map, takeUntil } from 'rxjs/operators';
 
 import { MenuService, SortMode } from '../../services/menu.service';
-import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { MenuItem } from 'src/app/_models/app.models';
 import { ItemCardComponent } from '../item-card/item-card.component';
@@ -42,7 +41,6 @@ export class ItemListComponent implements OnInit, OnDestroy {
 
   constructor(
     private menuService: MenuService,
-    private auth: AuthenticationService,
     private toast: ToastService
   ) {
     this.sortedItems$ = this.menuService.sortedItems$;

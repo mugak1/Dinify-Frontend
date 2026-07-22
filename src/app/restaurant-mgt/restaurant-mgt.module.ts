@@ -1,5 +1,4 @@
 import { NgModule } from '@angular/core';
-import {NgxCurrencyDirective} from 'ngx-currency'
 import { DINER_MOUNT_EMBEDDED } from '../diner-app/diner-mount';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
@@ -21,7 +20,6 @@ import { KdsAttentionCardComponent } from './dashboard/components/kds-attention-
 import { ReviewsCardComponent } from './dashboard/components/reviews-card/reviews-card.component';
 import { MenuComponent } from './menu/menu.component';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
-import { CommonChartModule } from '../_common/common-chart/common-chart.module';
 import { TablesComponent } from './tables/tables.component';
 import { IdentityComponent } from './settings/identity/identity.component';
 import { AvailabilityComponent } from './settings/availability/availability.component';
@@ -126,7 +124,6 @@ export const restaurantMgtRoutes: Routes = [
     FormsModule,
     RouterModule.forChild(restaurantMgtRoutes),
     DinifyCommonModule,
-    NgxCurrencyDirective,
     DragDropModule,
     BaseChartDirective,
     TrendIndicatorComponent,
@@ -140,7 +137,6 @@ export const restaurantMgtRoutes: Routes = [
     TablesCardComponent,
     KdsAttentionCardComponent,
     ReviewsCardComponent,
-    CommonChartModule,
     SidebarComponent,
     TopNavComponent,
     SectionRailComponent,

@@ -11,7 +11,6 @@ import { MenuItemDetailComponent } from './menu-item-detail/menu-item-detail.com
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { PaymentDetailsComponent } from './payment-details/payment-details.component';
 import { OrderCompleteComponent } from './order-complete/order-complete.component';
-import { NgxCurrencyDirective } from 'ngx-currency';
 import { ErrorPageComponent } from "./error-page/error-page.component";
 import { DinerConnectionErrorComponent } from './connection-error/connection-error.component';
 import { MenuNavBarComponent } from './menu/menu-nav-bar/menu-nav-bar.component';
@@ -57,7 +56,6 @@ const routes: Routes = [
         prefix: 'dinify-diner-app'
     }),
     DinifyCommonModule,
-    NgxCurrencyDirective,
     FormsModule,
     ErrorPageComponent,
     DinerConnectionErrorComponent,

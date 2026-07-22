@@ -8,7 +8,6 @@ import { RestaurantsComponent } from './restaurants/restaurants.component';
 import { ReportsComponent } from './reports/reports.component';
 import { PaymentsComponent } from './payments/payments.component';
 import { RouterModule, Routes } from '@angular/router';
-import { NgApexchartsModule } from 'ng-apexcharts';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RestaurantMgtComponent } from '../restaurant-mgt/restaurant-mgt.component';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
@@ -47,7 +46,6 @@ const routes: Routes = [
     ReactiveFormsModule,
     FormsModule,
     RouterModule.forChild(routes),
-    NgApexchartsModule,
     DinifyCommonModule,
     DinifyPhoneInputComponent,
     NgxCurrencyDirective,
