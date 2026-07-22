@@ -124,7 +124,14 @@ so keep it current when conventions change.
   form still renders. The restaurant portal sidebar now ALSO surfaces a
   **Kitchen** entry (route `/kitchen`, gated on the `kitchen` module —
   owner/manager/kitchen see it, `restaurant_staff` does not), so back-office
-  staff reach the board from portal nav, not only via the login auto-redirect
+  staff reach the board from portal nav, not only via the login auto-redirect.
+  Both logout paths (`logout()` and `logoutDueToInactivity()`) now revoke the
+  refresh token server-side before clearing state — a shared `revokeAndExit()`
+  POSTs the refresh to `users/auth/logout/` (via `rawHttp` to dodge the error
+  interceptor's 401→`logout()` recursion, Bearer access token attached explicitly)
+  so sign-out actually blacklists the token and ends the server session; a 2s
+  timeout backstops the redirect if the revoke stalls, and a missing refresh token
+  skips the POST (PR #597)
 - Support: ✅ real-wired — the restaurant Support page (`support/`) reads/writes
   the `support/issues/` API; the Dinify-admin triage screen
   (`dinify-mgt/mgt-support`) is wired against `support/admin/issues/`.
@@ -504,6 +511,14 @@ writing new tag or price/menu logic:
   defensive `parseGrid`, PUT sends `{restaurant, role, modules}`; dormant mock
   behind the flag, mirroring `restaurant-identity`). Staff
   & roles, Billing, and Account & security call `ApiService` directly (no mock flag)
+- `RestaurantTagService` (`_services/restaurant-tag.service.ts`, backs Settings ›
+  Preset tags) fully wires the `restaurant-setup/restaurant-tags/` catalog:
+  `list`/`create` (GET/POST the list route), `update` PATCHes the DETAIL route
+  `restaurant-tags/<id>/` (id in the PATH, not the body — the list route serves
+  GET/POST only, so the old PUT-to-list 405'd on every edit/filterable-toggle;
+  fixed PR #597), `delete`, `countItemsUsing` (GET `<id>/usage-count/`) and
+  `reorder` (POST `reorder/` with `{order:[{id,display_order}]}`) — the last two
+  backed by backend PR #245
 - ReportsService uses a single `USE_MOCK_DATA = true` flag (mock-first),
   mirroring DashboardService — all four reports render mock data while a dormant
   `reports-adapter` parsing layer + scaffolded real endpoints wait behind the
