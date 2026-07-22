@@ -23,7 +23,6 @@ import { MenuComponent } from './menu/menu.component';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
 import { CommonChartModule } from '../_common/common-chart/common-chart.module';
 import { TablesComponent } from './tables/tables.component';
-import { QRCodeComponent } from 'angularx-qrcode';
 import { IdentityComponent } from './settings/identity/identity.component';
 import { AvailabilityComponent } from './settings/availability/availability.component';
 import { TaxReceiptsComponent } from './settings/tax-receipts/tax-receipts.component';
@@ -127,7 +126,6 @@ export const restaurantMgtRoutes: Routes = [
     FormsModule,
     RouterModule.forChild(restaurantMgtRoutes),
     DinifyCommonModule,
-    QRCodeComponent,
     NgxCurrencyDirective,
     DragDropModule,
     BaseChartDirective,
