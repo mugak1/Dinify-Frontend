@@ -1,9 +1,7 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CommonImageComponent } from './common-image/common-image.component';
-import { DatePickerComponent } from './date-picker/date-picker.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { AutoCompleteComponent } from './auto-complete/auto-complete.component';
 import { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
 import { ScrollSpyCommonDirective } from './scroll-spy-common.directive';
 import { DinifyPhoneInputComponent } from '../shared/dinify-phone-input/dinify-phone-input.component';
@@ -17,8 +15,6 @@ import { SafePipe } from './common.pipe';
 @NgModule({
   declarations: [
     CommonImageComponent,
-    DatePickerComponent,
-    AutoCompleteComponent,
     ConfirmDialogComponent,
     CommonUserProfileComponent,
     OtpInputComponent,
@@ -27,8 +23,6 @@ import { SafePipe } from './common.pipe';
   ],
   exports:[
     CommonImageComponent,
-    DatePickerComponent,
-    AutoCompleteComponent,
     ConfirmDialogComponent,
    CommonUserProfileComponent,
    OtpInputComponent,

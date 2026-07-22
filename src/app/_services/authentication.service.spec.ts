@@ -1,6 +1,5 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { Router } from '@angular/router';
 import { AuthenticationService } from './authentication.service';
 import { environment } from 'src/environments/environment';
 import { HttpBackend, HttpClient, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
@@ -8,19 +7,15 @@ import { HttpBackend, HttpClient, provideHttpClient, withInterceptorsFromDi } fr
 describe('AuthenticationService', () => {
   let service: AuthenticationService;
   let httpMock: HttpTestingController;
-  let router: jasmine.SpyObj<Router>;
   const base = `${environment.apiUrl}/api/${environment.version}`;
 
   beforeEach(() => {
     localStorage.clear();
 
-    const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
-
     TestBed.configureTestingModule({
     imports: [],
     providers: [
         AuthenticationService,
-        { provide: Router, useValue: routerSpy },
         provideHttpClient(withInterceptorsFromDi()),
         provideHttpClientTesting()
     ]
@@ -28,7 +23,6 @@ describe('AuthenticationService', () => {
 
     service = TestBed.inject(AuthenticationService);
     httpMock = TestBed.inject(HttpTestingController);
-    router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
   });
 
   afterEach(() => {
@@ -50,7 +44,7 @@ describe('AuthenticationService', () => {
       localStorage.setItem('user', JSON.stringify(stored));
 
       // Re-create service to pick up localStorage
-      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       expect(svc.userValue).toBeTruthy();
       expect(svc.userValue!.token).toBe('abc');
     });
@@ -103,7 +97,7 @@ describe('AuthenticationService', () => {
         }
       };
 
-      service.login('user', 'pass').subscribe((res) => {
+      service.login('user', 'pass').subscribe(() => {
         expect(localStorage.getItem('user')).toBeNull();
         expect(service.userValue).toBeNull();
       });
@@ -123,7 +117,7 @@ describe('AuthenticationService', () => {
         }
       };
 
-      service.login('user', 'pass').subscribe((res) => {
+      service.login('user', 'pass').subscribe(() => {
         expect(localStorage.getItem('user')).toBeNull();
         expect(service.userValue).toBeNull();
       });
@@ -179,13 +173,11 @@ describe('AuthenticationService', () => {
     it('should hard-redirect to /login by default', () => {
       service.logout();
       expect(redirectSpy).toHaveBeenCalledWith('/login');
-      expect(router.navigate).not.toHaveBeenCalled();
     });
 
     it('should not redirect when no_redirect is true', () => {
       service.logout(true);
       expect(redirectSpy).not.toHaveBeenCalled();
-      expect(router.navigate).not.toHaveBeenCalled();
     });
   });
 
@@ -222,7 +214,7 @@ describe('AuthenticationService', () => {
     // Build a service that reads the just-seeded localStorage user. Its rawHttp
     // is wired to the same testing HttpBackend, so httpMock catches the POST.
     function makeService(): { svc: AuthenticationService; redirectSpy: jasmine.Spy } {
-      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       const redirectSpy = spyOn<any>(svc, 'hardRedirect');
       return { svc, redirectSpy };
     }
@@ -337,7 +329,7 @@ describe('AuthenticationService', () => {
     it('should return null when user has no refresh token', (done) => {
       localStorage.setItem('user', JSON.stringify({ token: 'abc', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] } }));
 
-      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       svc.attemptTokenRefresh().subscribe((result) => {
         expect(result).toBeNull();
         done();
@@ -348,7 +340,7 @@ describe('AuthenticationService', () => {
     it('should POST refresh token and resolve to new access token from native SimpleJWT shape', (done) => {
       localStorage.setItem('user', JSON.stringify(userWithRefresh));
 
-      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       svc.attemptTokenRefresh().subscribe((result) => {
         expect(result).toBe('new-access');
         expect(svc.userValue!.token).toBe('new-access');
@@ -369,7 +361,7 @@ describe('AuthenticationService', () => {
     it('should persist the rotated refresh token when the response includes one (ROTATE_REFRESH_TOKENS=True)', (done) => {
       localStorage.setItem('user', JSON.stringify(userWithRefresh));
 
-      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       svc.attemptTokenRefresh().subscribe((result) => {
         expect(result).toBe('new-access');
         expect(svc.userValue!.token).toBe('new-access');
@@ -387,7 +379,7 @@ describe('AuthenticationService', () => {
     it('should return null (and NOT call logout) when refresh endpoint returns 401', (done) => {
       localStorage.setItem('user', JSON.stringify(userWithRefresh));
 
-      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       const logoutSpy = spyOn(svc, 'logout');
 
       svc.attemptTokenRefresh().subscribe((result) => {
@@ -408,7 +400,7 @@ describe('AuthenticationService', () => {
     it('should return null when response is missing the access field', (done) => {
       localStorage.setItem('user', JSON.stringify(userWithRefresh));
 
-      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       svc.attemptTokenRefresh().subscribe((result) => {
         expect(result).toBeNull();
         done();
@@ -443,7 +435,7 @@ describe('AuthenticationService', () => {
         token: 'old', refresh: 'old-r',
         profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }
       }));
-      const svc = new AuthenticationService(router, TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+      const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
 
       const result = svc.UpdateUser({ valid: true, token: 'new-token', refresh: 'new-refresh' });
       expect(result!.token).toBe('new-token');

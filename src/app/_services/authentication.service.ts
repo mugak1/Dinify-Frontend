@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, of, map, catchError, timeout } from 'rxjs';
 import { ApiResponse, LoginResponse, ModuleKey, OTPResponse, PermissionsMap, RestaurantDetail, RestaurantRole} from '../_models/app.models';
 import { HttpBackend, HttpClient } from '@angular/common/http';
@@ -38,7 +37,6 @@ export class AuthenticationService {
   private rawHttp: HttpClient;
 
   constructor(
-      private router: Router,
       private http: HttpClient,
       httpBackend: HttpBackend
   ) {

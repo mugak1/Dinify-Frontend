@@ -22,7 +22,6 @@ import { MenuService, SortMode } from '../../services/menu.service';
 import { applyMenuSort } from 'src/app/_shared/utils/menu-sort';
 import { CartService } from '../../services/cart.service';
 import { TagService, PresetTag } from '../../services/tag.service';
-import { UpsellService } from '../../services/upsell.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { CartItem } from '../../models/cart.model';
 import { MenuSectionListItem } from 'src/app/_models/app.models';
@@ -78,7 +77,6 @@ export class PreviewMenuDrawerComponent implements OnChanges {
     private menuService: MenuService,
     public cartService: CartService,
     private tagService: TagService,
-    private upsellService: UpsellService,
     private toast: ToastService,
     private host: ElementRef<HTMLElement>,
   ) {}

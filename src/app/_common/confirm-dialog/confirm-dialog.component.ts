@@ -1,7 +1,6 @@
 import { Component, AfterViewInit, OnDestroy } from '@angular/core';
 import { ConfirmaDialogData } from 'src/app/_models/app.models';
 import { ConfirmDialogService } from '../confirm-dialog.service';
-import { Subscription } from 'rxjs';
 
 @Component({
     selector: 'app-confirm-dialog',
@@ -19,7 +18,6 @@ has_reason?:boolean;
 // Locks both footer buttons (and shows a spinner) so the confirm action cannot be
 // re-tapped while the async work it triggered (e.g. placing an order) is in flight.
 pending=false;
-private modalSubscription!: Subscription;
 
 
   constructor(private confirmService:ConfirmDialogService) {

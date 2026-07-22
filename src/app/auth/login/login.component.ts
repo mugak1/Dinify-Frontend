@@ -145,7 +145,7 @@ get user(){
 const log_otp=val.data as unknown as OTPResponse;
 if(log_otp.valid){
 // Pass the original login response so UpdateUser can merge profile + real tokens
-const _u = this.authenticationService.UpdateUser(log_otp, this.log_in);
+this.authenticationService.UpdateUser(log_otp, this.log_in);
                   if (this.log_in.profile.restaurant_roles.length === 1) {
   // One restaurant → auto set and redirect
   const membership = this.log_in.profile.restaurant_roles[0];
