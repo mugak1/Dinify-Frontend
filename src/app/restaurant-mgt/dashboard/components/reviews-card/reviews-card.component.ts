@@ -41,8 +41,11 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
             <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Guest Reviews
             </h2>
+            <!-- The FEED (the full review list), not the /reviews Overview: "View all" promises
+                 every review, and the Overview is a summary. Matches the Overview's own
+                 "View all reviews" CTA, which already points here. -->
             <a
-              routerLink="/reviews"
+              routerLink="/reviews/feed"
               class="text-xs sm:text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1"
             >
               View all <span aria-hidden="true">→</span>
