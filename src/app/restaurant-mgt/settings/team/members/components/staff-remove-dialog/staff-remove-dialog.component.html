@@ -20,7 +20,7 @@
           rows="3"
           [(ngModel)]="reason"
           placeholder="e.g. No longer with the team"
-          class="w-full text-sm rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+          class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
         ></textarea>
         @if (submitted && !reason.trim()) {
           <p class="text-xs text-red-600 mt-1">A reason is required.</p>

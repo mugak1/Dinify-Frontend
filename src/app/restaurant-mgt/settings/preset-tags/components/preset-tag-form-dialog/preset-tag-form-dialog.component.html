@@ -27,7 +27,7 @@
         [(ngModel)]="name"
         (ngModelChange)="onNameChange()"
         [maxlength]="maxName"
-        class="w-full text-sm rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+        class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
         placeholder="e.g. Spicy"
       />
       <div class="flex items-center justify-between mt-1">
@@ -84,7 +84,7 @@
           type="text"
           [(ngModel)]="iconSearch"
           placeholder="Search icons"
-          class="text-xs rounded border border-gray-300 px-2 py-1 w-40 focus:outline-none focus:ring-1 focus:ring-d-red"
+          class="text-xs rounded-md border border-gray-300 px-2 py-1 w-40 focus:outline-none focus:ring-1 focus:ring-d-red"
         />
       </div>
       <div class="grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-44 overflow-y-auto p-1 border border-gray-100 rounded">

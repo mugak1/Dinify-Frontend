@@ -7,16 +7,16 @@
         type="button"
         (click)="selectArea('all')"
         [class]="filters.area === 'all'
-          ? 'px-3 py-1.5 text-xs font-medium rounded transition-all bg-card text-foreground shadow-sm'
-          : 'px-3 py-1.5 text-xs font-medium rounded transition-all text-muted-foreground hover:text-foreground'"
+          ? 'px-3 py-1.5 text-xs font-medium rounded-sm transition-all bg-card text-foreground shadow-sm'
+          : 'px-3 py-1.5 text-xs font-medium rounded-sm transition-all text-muted-foreground hover:text-foreground'"
       >All areas</button>
       @for (area of activeAreas; track area.id) {
         <button
           type="button"
           (click)="selectArea(area.id)"
           [class]="filters.area === area.id
-            ? 'px-3 py-1.5 text-xs font-medium rounded transition-all bg-card text-foreground shadow-sm'
-            : 'px-3 py-1.5 text-xs font-medium rounded transition-all text-muted-foreground hover:text-foreground'"
+            ? 'px-3 py-1.5 text-xs font-medium rounded-sm transition-all bg-card text-foreground shadow-sm'
+            : 'px-3 py-1.5 text-xs font-medium rounded-sm transition-all text-muted-foreground hover:text-foreground'"
         >{{ area.name }}</button>
       }
     </div>

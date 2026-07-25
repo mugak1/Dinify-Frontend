@@ -10,7 +10,9 @@
   justify-content: center;
   height: 2.25rem;
   padding: 0 0.75rem;
-  border-radius: 0.5rem;
+  /* Track the shared --radius token rather than a frozen 0.5rem, so these
+     toolbar buttons stay in step with the ticket-card buttons below them. */
+  border-radius: var(--radius);
   border: 1px solid hsl(0 0% 100% / 0.15);
   font-weight: 600;
   font-size: 0.875rem;

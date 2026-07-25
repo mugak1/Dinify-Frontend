@@ -9,22 +9,22 @@
           type="button"
           (click)="activeTab = 'reservations'"
           [class]="activeTab === 'reservations'
-            ? 'flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all bg-card text-foreground shadow-sm'
-            : 'flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all text-muted-foreground hover:text-foreground'"
+            ? 'flex-1 px-2 py-1.5 text-xs font-medium rounded-sm transition-all bg-card text-foreground shadow-sm'
+            : 'flex-1 px-2 py-1.5 text-xs font-medium rounded-sm transition-all text-muted-foreground hover:text-foreground'"
         >Reservations ({{ activeReservations.length }})</button>
         <button
           type="button"
           (click)="activeTab = 'waitlist'"
           [class]="activeTab === 'waitlist'
-            ? 'flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all bg-card text-foreground shadow-sm'
-            : 'flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all text-muted-foreground hover:text-foreground'"
+            ? 'flex-1 px-2 py-1.5 text-xs font-medium rounded-sm transition-all bg-card text-foreground shadow-sm'
+            : 'flex-1 px-2 py-1.5 text-xs font-medium rounded-sm transition-all text-muted-foreground hover:text-foreground'"
         >Waitlist ({{ waitlist.length }})</button>
         <button
           type="button"
           (click)="activeTab = 'seated'"
           [class]="activeTab === 'seated'
-            ? 'flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all bg-card text-foreground shadow-sm'
-            : 'flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all text-muted-foreground hover:text-foreground'"
+            ? 'flex-1 px-2 py-1.5 text-xs font-medium rounded-sm transition-all bg-card text-foreground shadow-sm'
+            : 'flex-1 px-2 py-1.5 text-xs font-medium rounded-sm transition-all text-muted-foreground hover:text-foreground'"
         >Seated ({{ seatedParties.length }})</button>
       </div>
       <!-- New button -->
