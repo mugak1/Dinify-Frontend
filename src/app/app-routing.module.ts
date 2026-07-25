@@ -1,7 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { RestaurantMgtComponent } from './restaurant-mgt/restaurant-mgt.component';
-import { DinifyMgtComponent } from './dinify-mgt/dinify-mgt.component';
 import { LoginComponent } from './auth/login/login.component';
 import { RegisterComponent } from './auth/register/register.component';
 import { ForgotPasswordComponent } from './auth/forgot-password/forgot-password.component';
@@ -23,7 +22,6 @@ export const routes: Routes = [
 {path:'register',component:RegisterComponent, title:'Register'},
 {path:'forgot-password',component:ForgotPasswordComponent, title:'Forgot Password'},
 {path:'welcome',component:WelcomeComponent,title:'Welcome'},
-{path:'mgt-app',component:DinifyMgtComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin']},loadChildren: () => import('./dinify-mgt/dinify-mgt.module').then(m => m.DinifyMgtModule)},
 {path:'diner',component:DinerAppComponent,data:{[DINER_MOUNT_EMBEDDED]: false},loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
 // Kitchen View — staff-only board on live order data. Policy mirrors the Phase 2
 // backend: platform dinify_admin / dinify_account_manager, or a restaurant

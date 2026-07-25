@@ -17,8 +17,8 @@ import { RedirectFunction, Router } from '@angular/router';
  * The redirect resolves inside the same navigation, so the browser gets a
  * single history entry holding the final URL — the back button never bounces
  * off `/rest-app`. A `rest-app` segment that is not the FIRST primary segment
- * (e.g. the admin embed `/mgt-app/restaurants/rest-app/:id/...`) is claimed by
- * an earlier named route and never reaches this handler.
+ * (e.g. `/diner/rest-app/42/...`) is claimed by an earlier named route and
+ * never reaches this handler.
  */
 export const redirectLegacyRestAppUrl: RedirectFunction = ({ url, queryParams, fragment }) => {
   const segments = url.length ? url.map((segment) => segment.path) : ['dashboard'];

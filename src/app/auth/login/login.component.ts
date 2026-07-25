@@ -102,8 +102,6 @@ this.startCountdown();
                     const membership = this.log_in.profile.restaurant_roles[0];
                     this.authenticationService.setCurrentRestaurantRole(membership);
                     this.router.navigateByUrl(this.landingPathForMembership(membership));
-                  } else if (this.log_in.profile.roles.includes('dinify_admin')) {
-                    this.router.navigateByUrl('/mgt-app');
                   } else if (this.log_in.profile.restaurant_roles.length > 1) {
                     this.showLoginForm = false;
                     this.showRestaurantSelector = true;
@@ -151,10 +149,6 @@ this.authenticationService.UpdateUser(log_otp, this.log_in);
   const membership = this.log_in.profile.restaurant_roles[0];
   this.authenticationService.setCurrentRestaurantRole(membership);
   this.router.navigateByUrl(this.landingPathForMembership(membership));
-
-} else if (this.log_in.profile.roles.includes('dinify_admin')) {
-  // Admin → go to management
-  this.router.navigateByUrl('/mgt-app');
 
 } else if (this.log_in.profile.restaurant_roles.length > 1) {
   // Multiple restaurants → switch popup

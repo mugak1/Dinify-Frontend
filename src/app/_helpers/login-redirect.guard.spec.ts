@@ -145,11 +145,14 @@ describe('loginRedirectGuard (routed)', () => {
       expect(router.url).toBe('/account');
     });
 
-    it('lands a membershipless dinify_admin on /mgt-app (never /dashboard, which its AuthGuard would deny into a loop)', async () => {
+    // PR-6 removed the admin plane from this origin, and with it the guard's
+    // only non-membership landing. A membershipless account — administrator or
+    // not — now has nothing to be redirected to, so the form simply renders.
+    it('renders the form for a membershipless account rather than inventing a landing', async () => {
       authState.userValue = user(['dinify_admin'], []);
       authState.currentRestaurantRole = null;
       await harness.navigateByUrl('/login');
-      expect(router.url).toBe('/mgt-app');
+      expect(router.url).toBe('/login');
     });
 
     it('settles in ONE navigation and writes NO /login history entry (back button cannot bounce)', async () => {

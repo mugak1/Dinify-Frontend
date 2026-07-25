@@ -9,8 +9,9 @@ import { restaurantMgtRoutes } from '../restaurant-mgt/restaurant-mgt.module';
 import { DINER_MOUNT_EMBEDDED, resolveDinerMountEmbedded } from './diner-mount';
 
 /**
- * The diner surface renders in three mounts (standalone shell, portal ordering
- * preview, admin restaurant embed). The embed flag is declared ON THE ROUTE
+ * The diner surface renders in two mounts (standalone shell, portal ordering
+ * preview) — a third, the admin restaurant embed, left with the admin plane in
+ * PR-6. The embed flag is declared ON THE ROUTE
  * (DINER_MOUNT_EMBEDDED data) and resolved at activation — this spec exercises
  * REAL routed activation from a cold start, because the predecessor of this
  * mechanism (a pure URL-string predicate) had a spec that called the function
@@ -57,7 +58,7 @@ describe('diner mount declarations (ratchet on the real route configs)', () => {
     expect(dinerRoute.data?.[DINER_MOUNT_EMBEDDED]).toBeFalse();
   });
 
-  it('declares the portal rest-app-ordering mount as embedded (the admin embed nests this same declaration)', () => {
+  it('declares the portal rest-app-ordering mount as embedded', () => {
     expect(orderingRoute).toBeDefined();
     expect(orderingRoute.data?.[DINER_MOUNT_EMBEDDED]).toBeTrue();
   });
@@ -81,12 +82,16 @@ describe('resolveDinerMountEmbedded — routed activation from a cold start', ()
           // nesting; components are stubs so activation stays cheap.
           { path: 'diner', component: ShellStubComponent, data: dinerRoute.data, children: DINER_CHILD_STUBS },
           { path: orderingRoute.path!, component: ShellStubComponent, data: orderingRoute.data, children: DINER_CHILD_STUBS },
+          // A flag-bearing mount nested several levels down, beneath an ancestor
+          // declaring the OPPOSITE flag. This shape was the platform-admin embed
+          // until PR-6 removed it. The conflicting outer flag makes the
+          // replacement STRONGER than the original, whose ancestors were all
+          // flagless: it pins nearest-ancestor-wins, not merely "a flag is found
+          // somewhere up the chain".
           {
-            path: 'mgt-app', component: ShellStubComponent, children: [
-              { path: 'restaurants', component: ShellStubComponent, children: [
-                { path: 'rest-app/:id', component: ShellStubComponent, children: [
-                  { path: orderingRoute.path!, component: ShellStubComponent, data: orderingRoute.data, children: DINER_CHILD_STUBS },
-                ] },
+            path: 'outer', component: ShellStubComponent, data: { [DINER_MOUNT_EMBEDDED]: false }, children: [
+              { path: 'mid/:id', component: ShellStubComponent, children: [
+                { path: orderingRoute.path!, component: ShellStubComponent, data: orderingRoute.data, children: DINER_CHILD_STUBS },
               ] },
             ],
           },
@@ -106,8 +111,8 @@ describe('resolveDinerMountEmbedded — routed activation from a cold start', ()
     expect(await resolveOnColdNavigate('/rest-app-ordering/menu')).toBeTrue();
   });
 
-  it('resolves the admin restaurant embed as embedded (flag found by walking up the snapshot chain)', async () => {
-    expect(await resolveOnColdNavigate('/mgt-app/restaurants/rest-app/42/rest-app-ordering/menu')).toBeTrue();
+  it('stops at the NEAREST declaring ancestor — a nested embedded mount beats an outer standalone flag', async () => {
+    expect(await resolveOnColdNavigate('/outer/mid/42/rest-app-ordering/menu')).toBeTrue();
   });
 
   it('defaults to standalone when NO route on the chain declares the flag', async () => {

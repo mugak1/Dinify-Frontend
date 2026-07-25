@@ -68,7 +68,7 @@ describe('AuthGuard', () => {
       token: 'test-token',
       profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['dinify_admin'], phone_number: '', other_names: '', restaurant_roles: [] }
     });
-    const result = guard.canActivate(makeRoute(['dinify_admin']), makeState('/mgt-app'));
+    const result = guard.canActivate(makeRoute(['dinify_admin']), makeState('/kitchen'));
     expect(result).toBeTrue();
   });
 
@@ -91,7 +91,7 @@ describe('AuthGuard', () => {
       token: 'test-token',
       profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['diner'], phone_number: '', other_names: '', restaurant_roles: [] }
     });
-    const result = guard.canActivate(makeRoute(['dinify_admin']), makeState('/mgt-app'));
+    const result = guard.canActivate(makeRoute(['dinify_admin']), makeState('/kitchen'));
     expect(result).toBeFalse();
     expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
