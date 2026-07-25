@@ -19,7 +19,7 @@
           <select
             id="staff-edit-role"
             formControlName="roles"
-            class="w-full text-sm rounded border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+            class="w-full text-sm rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
           >
             @for (opt of editRoleOptions; track opt.value) {
               <option [value]="opt.value">{{ opt.label }}</option>
@@ -35,7 +35,7 @@
           <select
             id="staff-edit-status"
             formControlName="active"
-            class="w-full text-sm rounded border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+            class="w-full text-sm rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
           >
             <option value="true">Active</option>
             <option value="false">Inactive</option>
@@ -79,7 +79,7 @@
               type="text"
               formControlName="first_name"
               placeholder="First name"
-              class="w-full text-sm rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+              class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
             />
           </div>
           <div>
@@ -89,7 +89,7 @@
               type="text"
               formControlName="last_name"
               placeholder="Last name"
-              class="w-full text-sm rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+              class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
             />
           </div>
           <div>
@@ -99,7 +99,7 @@
               type="email"
               formControlName="email"
               placeholder="name@example.com"
-              class="w-full text-sm rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+              class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
             />
           </div>
         }
@@ -110,7 +110,7 @@
             <select
               id="staff-add-role"
               formControlName="roles"
-              class="w-full text-sm rounded border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+              class="w-full text-sm rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
             >
               <option value="" disabled>Select a role</option>
               @for (opt of addRoleOptions; track opt.value) {
