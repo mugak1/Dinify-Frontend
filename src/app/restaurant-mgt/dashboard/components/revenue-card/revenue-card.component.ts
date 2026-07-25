@@ -33,11 +33,11 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
 ],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="default" [square]="true"></app-card-skeleton>
+      <app-card-skeleton variant="default"></app-card-skeleton>
     } @else if (error) {
-      <app-card-error title="Revenue" [message]="error" [square]="true" (retry)="retry.emit()"></app-card-error>
+      <app-card-error title="Revenue" [message]="error" (retry)="retry.emit()"></app-card-error>
     } @else if (revenueData) {
-      <app-dn-card [square]="true">
+      <app-dn-card>
         <div class="p-4 sm:p-6">
           <!-- Header -->
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">

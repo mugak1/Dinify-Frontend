@@ -21,9 +21,9 @@ import { formatCompact } from '../../utils/format.utils';
 ],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>
+      <app-card-skeleton variant="compact"></app-card-skeleton>
     } @else if (!tablesData) {
-      <app-dn-card [fullHeight]="true" [square]="true">
+      <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <h2 class="text-card-title text-foreground mb-1">Tables</h2>
           <hr class="border-border mb-3" />
@@ -33,7 +33,7 @@ import { formatCompact } from '../../utils/format.utils';
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card [fullHeight]="true" [square]="true">
+      <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6 overflow-hidden flex flex-col h-full">
           <!-- Header -->
           <div class="flex items-start justify-between mb-4 sm:mb-5">

@@ -14,9 +14,9 @@ import { formatCurrency } from '../../utils/format.utils';
   imports: [RouterModule, CardComponent, CardSkeletonComponent, DnSegmentedComponent],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="compact" [square]="true"></app-card-skeleton>
+      <app-card-skeleton variant="compact"></app-card-skeleton>
     } @else if (!items || items.length === 0) {
-      <app-dn-card [fullHeight]="true" [square]="true">
+      <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6">
           <h2 class="text-card-title text-foreground mb-3">Popular Items</h2>
           <hr class="border-border mb-4" />
@@ -24,7 +24,7 @@ import { formatCurrency } from '../../utils/format.utils';
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card [fullHeight]="true" [square]="true">
+      <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6 overflow-hidden">
           <!-- Header -->
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 sm:mb-4">
