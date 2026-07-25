@@ -106,7 +106,7 @@ export const restaurantMgtRoutes: Routes = [
   ]},
   {path:'support',component:SupportComponent,title:'Support'},
   {path:'notifications',component:RestNotificationsComponent,title:'Notifications'},
-  { path: 'rest-app-ordering', data: {[DINER_MOUNT_EMBEDDED]: true}, loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule) }, // DinerApp as the portal's embedded ordering preview (admin embed reuses this via the nested module)
+  { path: 'rest-app-ordering', data: {[DINER_MOUNT_EMBEDDED]: true}, loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule) }, // DinerApp as the portal's embedded ordering preview
   { path: '**', redirectTo: '' }
   ];
 

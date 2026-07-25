@@ -15,9 +15,9 @@ import { ConnectivityService } from '../_services/connectivity.service';
  * RBAC modules, while kitchen IS a module but renders no OfflineBanner), so a
  * URL counts as a banner shell UNLESS its first segment is one of these known
  * bannerless surfaces — the auth/legal/lock screens, the standalone diner app,
- * and the Kitchen board. `mgt-app` is a banner shell and is deliberately
- * absent. A NEW root-level surface without an OfflineBannerComponent must be
- * added here, or its failed requests will lose the offline toast.
+ * and the Kitchen board. A NEW root-level surface without an
+ * OfflineBannerComponent must be added here, or its failed requests will lose
+ * the offline toast.
  */
 export const NON_BANNER_SHELL_ROOTS: readonly string[] = [
     'login', 'register', 'forgot-password', 'welcome', 'lock-otp-exp',

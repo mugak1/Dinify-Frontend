@@ -1,11 +1,12 @@
 import { ActivatedRouteSnapshot } from '@angular/router';
 
 /**
- * The diner surface renders in three MOUNTS: the standalone diner shell
- * (`/diner/...`), the restaurant portal's ordering preview
- * (`/rest-app-ordering/...`), and the platform-admin embed
- * (`/mgt-app/restaurants/rest-app/:id/rest-app-ordering/...` — which nests the
- * portal module and therefore reuses the same `rest-app-ordering` declaration).
+ * The diner surface renders in two MOUNTS: the standalone diner shell
+ * (`/diner/...`) and the restaurant portal's ordering preview
+ * (`/rest-app-ordering/...`). A third mount, the platform-admin embed, was
+ * removed with the admin plane in PR-6; the walk below is unaffected, because
+ * the flag was always declared on the `rest-app-ordering` route itself rather
+ * than on any admin ancestor.
  *
  * Whether a mount is an EMBED is declared ON THE ROUTE via this data key —
  * never inferred from the URL string. `router.url` is unreliable while a
@@ -25,7 +26,8 @@ export const DINER_MOUNT_EMBEDDED = 'dinerEmbeddedMount';
  * non-empty-path routes) does NOT inherit into child snapshots; do not set the
  * strategy globally just for this. No flag anywhere on the chain defaults to
  * STANDALONE — the safe answer for the QR cold-load path. Pinned by
- * diner-mount.spec.ts across all three mounts via routed activation.
+ * diner-mount.spec.ts across both mounts via routed activation, plus a nested
+ * case proving the walk still finds a flag declared on a grandparent.
  */
 export function resolveDinerMountEmbedded(route: ActivatedRouteSnapshot | null): boolean {
   for (let snapshot = route; snapshot; snapshot = snapshot.parent) {

@@ -118,6 +118,14 @@ The role-based access control check in the only `AuthGuard` is completely commen
 
 **Recommended Fix:** Uncomment the role check, populate the `data.roles` array on each protected route, and validate against `user.profile.roles` and `user.profile.restaurant_roles`.
 
+> **CLOSED.** The role check was restored (`AuthGuard` now validates `data.roles`
+> against `user.profile.roles`, with an additive `data.restaurant_roles` check), and
+> PR-6 removed the `/mgt-app` admin panel from this origin entirely — the first bullet
+> above describes a surface that no longer exists. Dinify admin functionality now
+> lives only at `admin.dinifyapp.com` behind separate platform-staff credentials, and
+> the customer login endpoint refuses to mint a token for such an account. The "three
+> apps" framing is likewise superseded: this repository holds two.
+
 ---
 
 ### F03 — CRITICAL: SafePipe Bypasses All Sanitisation

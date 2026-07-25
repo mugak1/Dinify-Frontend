@@ -18,11 +18,14 @@ import { firstAccessibleRoute, MODULE_ROUTES } from './module-access';
  *   paths clear storage BEFORE a full-page hardRedirect, so the arriving
  *   /login?reason=inactivity load is unauthenticated and its banner shows)
  * - login-selected membership (rest_role) → firstAccessibleRoute for it
- * - no membership but dinify_admin → /mgt-app (the post-login admin branch;
- *   without this an admin would bounce /dashboard → AuthGuard deny → '/' →
- *   /login → here, forever)
- * - no membership, not admin (a multi-restaurant user who never picked one,
- *   or a zero-membership account) → login renders, matching today
+ * - no membership (a multi-restaurant user who never picked one, or a
+ *   zero-membership account) → login renders
+ *
+ * There is no administrator branch. The Dinify admin plane left this origin in
+ * PR-6: platform staff authenticate at admin.dinifyapp.com against a separate
+ * credential system, and the customer login endpoint refuses to mint a token
+ * for a platform-staff account at all. Nothing on this origin has an admin
+ * landing to redirect to.
  *
  * replaceUrl: the /login (or bare-domain) history entry must not survive the
  * redirect, or the back button would bounce straight back into this guard.
@@ -53,8 +56,6 @@ export const loginRedirectGuard: CanActivateFn = () => {
         membership.roles,
       );
     }
-  } else if ((user.profile?.roles ?? []).includes('dinify_admin')) {
-    target = '/mgt-app';
   }
 
   if (!target) {

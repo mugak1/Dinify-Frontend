@@ -6,7 +6,8 @@ type NotifState = 'loading' | 'ready' | 'error' | 'empty';
 
 /**
  * Restaurant-portal Notifications. Rebuilt off the legacy CoreUI "email widget"
- * (`app-common-notifications`, still used by dinify-mgt) onto the portal
+ * (`app-common-notifications`, now unrendered — its last consumer left with the
+ * admin plane in PR-6) onto the portal
  * primitives — a real <h1>, cards, an unread badge, and an honest
  * loading/ready/error/empty state machine (the legacy widget's `isLoading` was
  * never set true, so "no messages" flashed during the first load). The fetch +

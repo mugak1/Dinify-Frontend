@@ -40,9 +40,6 @@ class ShellStubComponent {}
 class PortalLeafStubComponent {}
 
 @Component({ template: '' })
-class MgtLeafStubComponent {}
-
-@Component({ template: '' })
 class DinerLeafStubComponent {}
 
 @Component({ template: '' })
@@ -50,7 +47,6 @@ class KitchenLeafStubComponent {}
 
 const LAZY_LEAF_STUBS: Record<string, Type<unknown>> = {
   '': PortalLeafStubComponent,
-  'mgt-app': MgtLeafStubComponent,
   'diner': DinerLeafStubComponent,
   'kitchen': KitchenLeafStubComponent,
 };
@@ -98,7 +94,7 @@ describe('app routes — ordering ratchet (static, real config)', () => {
   });
 
   it('declares every named root route (and the legacy rest-app redirect) above the portal parent', () => {
-    const named = ['login', 'register', 'forgot-password', 'welcome', 'mgt-app', 'diner',
+    const named = ['login', 'register', 'forgot-password', 'welcome', 'diner',
       'kitchen', 'lock-otp-exp', 'privacy', 'terms', 'cookies', 'rest-app'];
     for (const path of named) {
       const index = routes.findIndex((r) => r.path === path);
@@ -146,12 +142,6 @@ describe('app routes — navigation behaviour (stubbed components, real paths/or
         expect(deepestComponent()).toBe(NamedStubComponent);
       });
     }
-
-    it('resolves /mgt-app inside the admin shell, not the portal', async () => {
-      await harness.navigateByUrl('/mgt-app');
-      expect(topRoutePath()).toBe('mgt-app');
-      expect(deepestComponent()).toBe(MgtLeafStubComponent);
-    });
 
     it('resolves /diner inside the diner shell, not the portal', async () => {
       await harness.navigateByUrl('/diner');
@@ -216,11 +206,27 @@ describe('app routes — navigation behaviour (stubbed components, real paths/or
       expect(router.url).toBe('/menu#todays-specials');
     });
 
-    it('never touches a mid-URL rest-app segment: the admin embed URL is unchanged', async () => {
-      await harness.navigateByUrl('/mgt-app/restaurants/rest-app/42/menu');
-      expect(router.url).toBe('/mgt-app/restaurants/rest-app/42/menu');
-      expect(topRoutePath()).toBe('mgt-app');
-      expect(deepestComponent()).toBe(MgtLeafStubComponent);
+    it('strips ONLY the leading segment when a second rest-app sits deeper in the same URL', async () => {
+      // This one genuinely runs the handler: the router has already consumed the
+      // leading `rest-app`, so redirectLegacyRestAppUrl receives
+      // ['menu','rest-app','42'] and must rebuild them verbatim. A "drop every
+      // rest-app segment" regression would land on /menu/42 instead.
+      await harness.navigateByUrl('/rest-app/menu/rest-app/42');
+      expect(router.url).toBe('/menu/rest-app/42');
+      expect(deepestComponent()).toBe(PortalLeafStubComponent);
+    });
+
+    // A literal `rest-app` segment in a NON-first position must never reach
+    // redirectLegacyRestAppUrl — an earlier named route claims the URL first.
+    // (The sibling case above covers `rest-app-ordering`, a different string,
+    // so it does not substitute for this one.) The carrier was the admin embed
+    // until PR-6 removed it; `/diner` serves identically — a named route
+    // declared above `rest-app` whose subtree swallows the rest.
+    it('never touches a mid-URL rest-app segment (an earlier named route claims it)', async () => {
+      await harness.navigateByUrl('/diner/rest-app/42/menu');
+      expect(router.url).toBe('/diner/rest-app/42/menu');
+      expect(topRoutePath()).toBe('diner');
+      expect(deepestComponent()).toBe(DinerLeafStubComponent);
     });
 
     it('resolves the redirect inside one navigation — no /rest-app entry ever reaches the history log', async () => {

@@ -76,26 +76,25 @@ Phantom-dependency fix + dead-dep removal, one lockfile event:
 Code the program deliberately did **not** remove. These are intentional — do not
 delete them as "dead" without the noted check.
 
-- **`lucide-angular`** (`^1.0.0`, imported only by `dinify-mgt.module.ts`) — with
-  `angularx-qrcode` gone, this is the **sole remaining dependency that supports the
-  current Angular 21 but caps its peer below 22** (`@angular/common` / `@angular/core`:
-  `13.x – 21.x`) — the last of the two Angular-22 upgrade blockers the audit named.
-  Kept because the legacy `dinify-mgt` (Platform Admin) module still imports it; new
-  code uses inline SVGs per project rule. Removing it is an Angular-22-prep task in its
-  own right.
-  - *Footnote:* `ngx-currency`'s peer caps even lower (`^19.0.0`) — already behind
-    Angular 21 and tolerated only via `npm ci --legacy-peer-deps` — a **pre-existing
-    peer gap, not a 21→22 blocker**. CI installs with `--legacy-peer-deps`, so neither
-    package mechanically blocks an install; the peer ranges are official-support
-    signals only.
+- **`lucide-angular`** (`^1.0.0`) — **REMOVED in PR-6.** It was kept here only because
+  the legacy `dinify-mgt` (Platform Admin) module imported it; PR-6 deleted that module,
+  taking the last importer with it. It had been the **sole remaining dependency that
+  supported Angular 21 while capping its peer below 22** (`@angular/common` /
+  `@angular/core`: `13.x – 21.x`), i.e. the last of the two Angular-22 upgrade blockers
+  the audit named — **that blocker is now cleared.** Note it was already inert before
+  removal: `LucideAngularModule.pick(...)` was registered but no template in the repo
+  ever rendered a lucide element. New code continues to use inline SVGs per project rule.
 - **`tag-palette.ts` rule comment** (`src/app/_shared/tags/tag-palette.ts:86–90` —
   "SVG markup is inlined (no lucide-angular dependency per project Angular rules)") —
   **kept (audit override DC-FE-197)**: it encodes a standing project rule, not stale
   narration. Deleting it would drop the "why inline SVG here" context.
-- **`ngx-currency`** (`^19.0.0`) — **live**: the `currencyMask` directive on the
-  `flat_fee` input at `dinify-mgt/restaurants/restaurants.component.html:524` (sole
-  importer `dinify-mgt.module.ts`). FE-3 removed only the two *unused* module imports
-  (diner-app, restaurant-mgt); the package and its live use stay.
+- **`ngx-currency`** (`^19.0.0`) — **REMOVED in PR-6.** Its one live use was the
+  `currencyMask` directive on the `flat_fee` input at
+  `dinify-mgt/restaurants/restaurants.component.html:524`, with `dinify-mgt.module.ts`
+  as sole importer; both went with the admin module. (FE-3 had earlier removed only the
+  two *unused* module imports in diner-app and restaurant-mgt.) Its peer capped lower
+  still (`^19.0.0`) — a pre-existing peer gap tolerated via `--legacy-peer-deps`,
+  never a 21→22 blocker — and that gap is now closed too.
 - **`firebase-tools`** (`^15.22.0`, devDependency) — **kept by default**: no automated
   consumer. The production deploy uses the `FirebaseExtended/action-hosting-deploy`
   marketplace action (not a `firebase deploy` shell-out), and no npm script invokes

@@ -29,11 +29,15 @@ A comprehensive restaurant management and customer dining application built with
 
 ## Project Overview
 
-Dinify is a multi-tenant restaurant management platform with three distinct applications:
+Dinify is a multi-tenant restaurant management platform. This repository holds two applications:
 
 1. **Restaurant Management App** (the URL root — `/dashboard`, `/menu`, `/settings`, …; legacy `/rest-app/*` URLs redirect) - For restaurant staff and owners to manage menus, orders, and operations
-2. **Dinify Management App** (`/mgt-app`) - For platform administrators to manage restaurants, payments, and reports
-3. **Diner App** (`/diner`) - For customers to scan QR codes, view menus, place orders, and pay
+2. **Diner App** (`/diner`) - For customers to scan QR codes, view menus, place orders, and pay
+
+The platform-administrator application is **not** in this repository. It lives on its
+own origin (`admin.dinifyapp.com`) with its own credentials — platform-staff accounts,
+TOTP, and opaque cookie sessions. This application contains no admin surface and no
+code path that can authenticate an administrator.
 
 ### Key Features
 - Multi-tenant role-based access control
@@ -292,8 +296,7 @@ dinify_frontend/
 │   │   ├── _services/            # Core services
 │   │   ├── auth/                 # Authentication module
 │   │   ├── diner-app/            # Customer app module
-│   │   ├── restaurant-mgt/       # Restaurant staff app module
-│   │   └── dinify-mgt/           # Admin app module
+│   │   └── restaurant-mgt/       # Restaurant staff app module
 │   ├── assets/
 │   └── environments/
 ├── .github/workflows/            # CI and deployment automation
@@ -320,7 +323,6 @@ The application uses lazy-loaded modules for each sub-application:
 const routes: Routes = [
   { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
   { path: 'auth', loadChildren: () => import('./auth/auth.module') },
-  { path: 'mgt-app', canActivate: [AuthGuard], loadChildren: () => import('./dinify-mgt/dinify-mgt.module') },
   { path: 'diner', loadChildren: () => import('./diner-app/diner-app.module') },
   // The restaurant portal owns the URL ROOT (an empty-path parent declared
   // LAST, before the wildcard) — new root-level routes must go above it.
@@ -343,7 +345,7 @@ const routes: Routes = [
 3. Token stored in localStorage
 4. AuthGuard checks token validity on route navigation
 5. AuthInterceptor adds Bearer token to API requests
-6. Role-based routing: admins → `/mgt-app`, staff → the portal root (first accessible module, e.g. `/dashboard`)
+6. Role-based routing: staff land on the portal root (their first accessible module, e.g. `/dashboard`). There is no administrator landing — platform staff authenticate on the admin origin, and the customer login endpoint refuses to mint a token for a platform-staff account
 7. An already-authenticated user navigating to `/login` (or the bare domain, which redirects there) is forwarded to that same landing by a route guard instead of seeing the form again
 
 ---
@@ -362,7 +364,6 @@ const routes: Routes = [
 
 ### Component Libraries
 - **Angular CDK**: ^20.2.14
-- **ngx-currency**: ^19.0.0 (currency input formatting)
 - **angularx-qrcode**: ^20.0.0 (QR code generation)
 - **ngx-color-picker**: ^20.0.0 (color selection)
 - **@ryware/ngx-drag-and-drop-lists**: ^3.0.0 (drag-and-drop)

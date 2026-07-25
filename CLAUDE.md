@@ -2,9 +2,12 @@
 
 ## Project Overview
 Dinify is a QR-code-based digital ordering and restaurant management platform
-built for Uganda and mobile-money-first markets. This repo contains three
-portals — Restaurant Management Portal, Diner App, and Platform Admin —
-plus a staff-facing Kitchen View board (route `/kitchen`).
+built for Uganda and mobile-money-first markets. This repo contains two
+portals — Restaurant Management Portal and Diner App — plus a staff-facing
+Kitchen View board (route `/kitchen`). The Platform Admin surface LEFT this repo
+in PR-6: Dinify admin functionality now lives only at `admin.dinifyapp.com`
+(separate origin, platform-staff accounts, TOTP, opaque cookie sessions), and
+this application contains no code path that can authenticate an administrator.
 Deployed to Firebase Hosting at dinify-prod.web.app.
 A parallel `AGENTS.md` at the repo root carries Codex/other-agent instructions
 that defer to this file — `CLAUDE.md` remains the authoritative project guide,
@@ -38,9 +41,9 @@ so keep it current when conventions change.
   mount, resolved via `resolveDinerMountEmbedded` (`diner-app/diner-mount.ts`,
   walking up the snapshot chain since `paramsInheritanceStrategy` stays at the
   default `'emptyOnly'`; no-flag defaults to standalone) — never sniffed from
-  `router.url`, which is stale mid-navigation. The admin embed segment
-  `mgt-app/restaurants/rest-app/:id` and the portal child `rest-app-ordering`
-  are intentionally UNRENAMED
+  `router.url`, which is stale mid-navigation. There are now TWO diner mounts —
+  the standalone `/diner` shell and the portal child `rest-app-ordering`; the
+  third (the admin embed) went with the admin plane in PR-6
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
 - Phase 2 (Dashboard): ✅ Complete — `USE_MOCK_DATA` still true in DashboardService
   for the core metrics, but TWO cards are real-wired exceptions: the Popular Items
@@ -119,9 +122,10 @@ so keep it current when conventions change.
   last-visited module. The `/login` route itself carries `loginRedirectGuard`
   (`_helpers/login-redirect.guard.ts`): an already-authenticated user hitting
   `/login` — or the bare domain, which redirects there — is forwarded to this same
-  landing (membershipless admins → `/mgt-app`) via a `replaceUrl` redirect instead
-  of being shown the form; with no resolvable landing (no selected membership) the
-  form still renders. The restaurant portal sidebar now ALSO surfaces a
+  landing via a `replaceUrl` redirect instead of being shown the form; with no
+  resolvable landing (no selected membership) the form still renders. The guard has
+  NO administrator branch — PR-6 removed it along with the admin plane.
+  The restaurant portal sidebar now ALSO surfaces a
   **Kitchen** entry (route `/kitchen`, gated on the `kitchen` module —
   owner/manager/kitchen see it, `restaurant_staff` does not), so back-office
   staff reach the board from portal nav, not only via the login auto-redirect.
@@ -133,10 +137,9 @@ so keep it current when conventions change.
   timeout backstops the redirect if the revoke stalls, and a missing refresh token
   skips the POST (PR #597)
 - Support: ✅ real-wired — the restaurant Support page (`support/`) reads/writes
-  the `support/issues/` API; the Dinify-admin triage screen
-  (`dinify-mgt/mgt-support`) is wired against `support/admin/issues/`.
-  Status/category/impact badge styling + labels are shared from
-  `src/app/_shared/support/`
+  the `support/issues/` API. The Dinify-admin triage screen was deleted with the
+  admin plane in PR-6; `support/admin/issues/` is now an admin-portal concern.
+  Status/category/impact badge styling + labels live in `src/app/_shared/support/`
 - Settings: ✅ rebuilt as a grouped hub shell (route `settings`,
   `SettingsHubComponent`) with standalone, real-wired section pages —
   Restaurant identity & branding (`settings/restaurant`, `IdentityComponent`),
@@ -373,9 +376,9 @@ writing new tag or price/menu logic:
 
 ## Angular Rules
 - Always set `outputHashing: "all"` across ALL build configurations
-- Never use lucide-angular in new code — use inline SVGs instead. (The
-  legacy Platform Admin module `dinify-mgt` still imports it; do not
-  extend that usage.)
+- Never use lucide-angular — use inline SVGs instead. The dependency was
+  REMOVED in PR-6 along with its only importer (the deleted `dinify-mgt`
+  module); do not reintroduce it. `ngx-currency` went the same way.
 - Templates use Angular's built-in control flow (`@if` / `@for` / `@switch`) —
   the Angular 21 upgrade ran the control-flow migration across the app's
   templates (a handful of legacy `*ngIf`/`*ngFor` holdouts remain). Prefer the

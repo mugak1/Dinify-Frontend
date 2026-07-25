@@ -110,22 +110,6 @@ describe('ErrorInterceptor', () => {
       req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
     });
 
-    it('suppresses the toast on the admin shell while the browser reports offline', (done) => {
-      routerStub.url = '/mgt-app/dashboard';
-      connectivityStub.isOffline = () => true;
-
-      httpClient.get('/api/test').subscribe({
-        error: (err) => {
-          expect(err).toBe('no network');
-          expect(toast.error).not.toHaveBeenCalled();
-          done();
-        }
-      });
-
-      const req = httpMock.expectOne('/api/test');
-      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
-    });
-
     it('still shows the toast on a banner shell for a status-0 failure while online (server down)', (done) => {
       // navigator.onLine is true → no banner is showing, so the toast is the only signal.
       routerStub.url = '/dashboard';

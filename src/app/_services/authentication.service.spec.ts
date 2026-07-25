@@ -125,6 +125,34 @@ describe('AuthenticationService', () => {
       const req = httpMock.expectOne(`${base}/users/auth/login/`);
       req.flush(mockResponse);
     });
+
+    // PR-6: the customer origin holds no administrator credential path. The
+    // backend is the boundary — it refuses to mint a customer token for a
+    // platform-staff account (backend PR-2b) and returns the SAME 401 body as
+    // an ordinary wrong password, deliberately, so the response is not an
+    // account-type oracle. That indistinguishability is exactly why this test
+    // asserts the general rule rather than a platform-staff special case: a
+    // rejected login must persist NOTHING, whoever it belonged to.
+    it('persists no auth state when the login is rejected (no admin credential path on this origin)', () => {
+      let errored = false;
+
+      service.login('platform-admin', 'pass').subscribe({
+        next: () => fail('a 401 login must not emit a user'),
+        error: () => { errored = true; },
+      });
+
+      const req = httpMock.expectOne(`${base}/users/auth/login/`);
+      req.flush(
+        { status: 401, message: 'The password is incorrect.' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+
+      expect(errored).toBeTrue();
+      expect(localStorage.getItem('user')).toBeNull();
+      expect(localStorage.getItem('rest_role')).toBeNull();
+      expect(localStorage.getItem('current_resta')).toBeNull();
+      expect(service.userValue).toBeNull();
+    });
   });
 
   describe('logout', () => {

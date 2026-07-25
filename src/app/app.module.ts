@@ -4,7 +4,6 @@ import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@a
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { DinifyMgtComponent } from './dinify-mgt/dinify-mgt.component';
 import { DinerAppComponent } from './diner-app/diner-app.component';
 import { LoginComponent } from './auth/login/login.component';
 import { AuthInterceptor } from './_helpers/auth.interceptor';
@@ -24,14 +23,12 @@ import { BasketBodyComponent } from './diner-app/basket/basket-body/basket-body.
 import { DinerFooterComponent } from './diner-app/diner-footer/diner-footer.component';
 import { MenuNavBarComponent } from './diner-app/menu/menu-nav-bar/menu-nav-bar.component';
 import { ToastComponent } from './_shared/ui/toast/toast.component';
-import { OfflineBannerComponent } from './_shared/ui/offline-banner/offline-banner.component';
 import { ScrollProgressDirective } from './diner-app/_shared/scroll-progress.directive';
 import { DinifyPhoneInputComponent } from './shared/dinify-phone-input/dinify-phone-input.component';
 import { AuthShellComponent } from './auth/auth-shell/auth-shell.component';
 
 @NgModule({ declarations: [
         AppComponent,
-        DinifyMgtComponent,
         DinerAppComponent,
         LoginComponent,
         RegisterComponent,
@@ -52,7 +49,6 @@ import { AuthShellComponent } from './auth/auth-shell/auth-shell.component';
         DinerFooterComponent,
         MenuNavBarComponent,
         ToastComponent,
-        OfflineBannerComponent,
         ScrollProgressDirective,
         DinifyPhoneInputComponent,
         AuthShellComponent], providers: [
