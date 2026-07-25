@@ -95,9 +95,11 @@ describe('DnSegmentedComponent', () => {
     expect(c.gliderClass).toContain('bg-primary');
     expect(c.trackClass()).toContain('bg-card');
     expect(c.trackClass()).toContain('border');
-    // Active ink is white on the red pill; inactive is muted grey.
+    // Active ink is white on the red pill; inactive is full-strength foreground (near-black),
+    // NOT muted grey — muted read as washed out against the white track.
     expect(c.segClass(VALUE_ITEMS[0])).toContain('text-primary-foreground'); // 'a' is active (value='a')
-    expect(c.segClass(VALUE_ITEMS[1])).toContain('text-muted-foreground');
+    expect(c.segClass(VALUE_ITEMS[1])).toContain('text-foreground');
+    expect(c.segClass(VALUE_ITEMS[1])).not.toContain('text-muted-foreground');
   });
 
   it('value mode: renders a role="tab" button per item, active one aria-selected', () => {
