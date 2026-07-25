@@ -214,9 +214,10 @@ so keep it current when conventions change.
 - Notifications: scaffolded and routed (route `notifications`,
   `RestNotificationsComponent`) — per-view data-wiring status varies
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
-  persistent `OfflineBannerComponent` in the back-office shells (restaurant +
-  Dinify admin) and an `OfflineStripComponent` in the diner app. The HTTP error
-  interceptor surfaces request failures as toasts via `ToastService` (the legacy
+  persistent `OfflineBannerComponent` in the restaurant portal shell (its only
+  host now that the admin plane has left) and an `OfflineStripComponent` in the
+  diner app. The HTTP error interceptor surfaces request failures as toasts via
+  `ToastService` (the legacy
   `MessageService` banner is retired) and suppresses its global 'no network' toast
   where a banner already shows (see error-handling note below)
 - Legal pages: standalone components in `src/app/legal/` (privacy-policy,
@@ -243,6 +244,14 @@ so keep it current when conventions change.
   transport, the `?c=` capture, the QR URL/rotation flow, the order-request
   builders, the selected-restaurant scoping, or the cross-repo contract constants
   change
+- Dead-code closure (frontend audit program): ✅ the dependency-hygiene +
+  dead-code-removal program is closed and recorded in `docs/DEAD_CODE_CLOSURE.md`
+  (the sibling of `TENANT_ISOLATION_CLOSURE.md`). It records what was removed AND
+  what was deliberately KEPT — the `_security/` layer and tenant-boundary specs,
+  the dormant `USE_MOCK` seams (product state, not oversights), the parked Tables
+  Service View, the Tailwind tokens, and `ConfirmDialogComponent`. Read the
+  "deliberate keeps" list before deleting anything that merely looks unused, and
+  refresh the record when those keeps change
 
 ## Deployment Rules — CRITICAL
 - Pushing to main triggers automatic Firebase deployment via GitHub Actions
@@ -296,6 +305,11 @@ The module uses a deliberate mixed pattern — follow it exactly:
 - A lazy feature module may host a STANDALONE root component resolved
   directly by the router with an empty (or absent) `declarations` array —
   see `KitchenModule`/`BoardComponent` (mirrors the diner-app pattern)
+- The portal SHELL itself (`RestaurantMgtComponent`) is now STANDALONE too — it
+  is referenced by the root route in `app-routing.module.ts` and declares its own
+  `imports` (`SidebarComponent`, `TopNavComponent`, `OfflineBannerComponent`,
+  `RouterOutlet`), so it is NOT in any module's `declarations`. Only the five
+  older feature components above remain non-standalone
 
 ## Shared UI Component Library
 A shared component library lives in `src/app/_shared/ui/`:
@@ -362,9 +376,9 @@ writing new tag or price/menu logic:
 - `src/app/_shared/support/` (barrel `index.ts`) — support-issue display
   metadata: `STATUS_META`/`CATEGORY_LABEL`/`IMPACT_LABEL` maps, the matching
   `statusMeta`/`categoryLabel`/`impactLabel` helpers, and
-  `CATEGORY_OPTIONS`/`IMPACT_OPTIONS`. Shared by the restaurant Support page and
-  the Dinify-admin triage screen — reuse before hand-rolling status badges or
-  category labels
+  `CATEGORY_OPTIONS`/`IMPACT_OPTIONS`. Its only consumer since the admin plane
+  left is the restaurant Support page — still reuse it before hand-rolling status
+  badges or category labels
 - `src/app/_shared/reviews/` (per-file imports, no barrel) — the diner
   quick-feedback chip taxonomy: `ReviewTagChip`, the canonical `REVIEW_TAG_CHIPS`
   set, and the `reviewTagLabel` key→label helper (unknown keys are humanized so
@@ -379,6 +393,14 @@ writing new tag or price/menu logic:
 - Never use lucide-angular — use inline SVGs instead. The dependency was
   REMOVED in PR-6 along with its only importer (the deleted `dinify-mgt`
   module); do not reintroduce it. `ngx-currency` went the same way.
+- chart.js + ng2-charts is the ONE charting stack. The apexcharts / ng-apexcharts
+  stack and the `_common/common-chart` wrapper it fed were retired in the
+  dead-code pass — do not reintroduce either, and do not add a second charting
+  dependency for a new surface
+- QR rendering uses the raw `qrcode` package, now a DIRECT dependency. The
+  `angularx-qrcode` Angular wrapper was removed (it was imported but its
+  `<qrcode>` selector rendered nowhere), which also cleared one of the two
+  Angular 22 upgrade blockers — do not reintroduce it
 - Templates use Angular's built-in control flow (`@if` / `@for` / `@switch`) —
   the Angular 21 upgrade ran the control-flow migration across the app's
   templates (a handful of legacy `*ngIf`/`*ngFor` holdouts remain). Prefer the
@@ -407,6 +429,18 @@ writing new tag or price/menu logic:
   them back. Contrast rule: white on brand red is only ~3.7:1, so brand red may
   only sit behind LARGE/BOLD CTA text; small white-on-red text must pair with
   `--destructive` or `--primary-hover` (both ≥4.5:1 with white)
+- Corner radius flows from ONE token: `--radius` in `src/styles.css`, raised from
+  `0.5rem` to `0.875rem` so the shared button/input corner reads soft on tall
+  filled controls. `rounded-sm`/`rounded-md`/`rounded-lg` are all `calc()`ed off
+  it and move together (8.25 / 10.25 / 12.25px at the 14px root) — `rounded-md` is
+  the shared corner for `app-dn-button` AND ~88 hand-rolled inputs, which is
+  exactly why they must not be tuned apart. Two consequences: prefer the SCALING
+  radii on any new portal control (bare `rounded` is a stock 3.5px that does NOT
+  track the token, and was swept off the Settings/Team/Billing form controls for
+  that reason), and mind that `rounded-lg` (12.25px) now EXCEEDS the stock
+  `rounded-xl` (10.5px) — a `rounded-lg` child inside a `rounded-xl` shell reads
+  as rounder than its container. Deliberately left on stock radii: `rounded-full`
+  chips/avatars/badges, skeleton bars, small icon hit areas and checkboxes
 - Semantic type + radius tokens exist in `tailwind.config.js` — `text-page-title`,
   `text-section-title`, `text-card-title`, `text-body`, `text-caption`,
   `text-micro` (11px hard floor), and `rounded-card` (20px, the diner dish-card
@@ -600,7 +634,6 @@ writing new tag or price/menu logic:
   value directly as the login/lookup key; never prepend `+256` or a trunk `0`
   yourself
 - localStorage to httpOnly cookie migration requires backend coordination
-- Login 500 regression still outstanding — parked pending Apache log access
 - Tables Service View is parked AND hidden from the UI (MVP ships Setup View
   only); `TablesComponent.activeView` is forced to `'setup'`. It still sits on
   mock data (`USE_MOCK_SERVICE = true`) — real reservations/waitlist endpoints
