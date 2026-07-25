@@ -36,7 +36,7 @@ type TimeframeDays = 30 | 90;
               <button
                 type="button"
                 (click)="setTimeframe(days)"
-                class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                class="px-3 py-1.5 text-sm font-medium rounded-sm transition-colors"
                 [class.bg-primary/10]="timeframeDays === days"
                 [class.text-primary]="timeframeDays === days"
                 [class.text-muted-foreground]="timeframeDays !== days"
@@ -45,10 +45,17 @@ type TimeframeDays = 30 | 90;
               </button>
             }
           </div>
-          <!-- Primary-action slot: solid brand-red CTA to the full reviews feed -->
+          <!--
+            Primary-action slot: solid brand-red CTA to the full reviews feed.
+            self-stretch (not a fixed height) makes it exactly as tall as the
+            timeframe track beside it — the flex line's cross size is set by that
+            taller sibling — so the two controls stay matched if either changes.
+            Stays a real anchor for middle-click/open-in-new-tab; the dn-button
+            selector only matches the button element form, not anchors.
+          -->
           <a
             routerLink="/reviews/feed"
-            class="inline-flex items-center gap-2 h-[42px] px-5 rounded-md bg-d-red text-white text-[15px] font-semibold whitespace-nowrap shadow-[0_1px_2px_rgba(255,44,50,0.28),0_8px_20px_-8px_rgba(255,44,50,0.5)] transition-[background-color,box-shadow,transform] duration-200 desktop-hover:bg-d-red-hover desktop-hover:-translate-y-px motion-safe:active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-d-red focus-visible:ring-offset-2"
+            class="inline-flex items-center gap-2 self-stretch px-4 rounded-md bg-primary text-white text-sm font-semibold whitespace-nowrap shadow-glow transition-[background-color,box-shadow] duration-200 desktop-hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             View all reviews
             <svg
@@ -128,7 +135,7 @@ type TimeframeDays = 30 | 90;
 
         <!-- 2. Needs-attention block (adaptive — hidden when nothing to flag) -->
         @if (analytics.unresolvedCriticalCount > 0) {
-          <div class="rounded-xl bg-warning/10 border border-warning/20 p-4 sm:p-5">
+          <div class="rounded-lg bg-warning/10 border border-warning/20 p-4 sm:p-5">
             <div class="flex items-start gap-3">
               <svg
                 aria-hidden="true"
