@@ -22,11 +22,11 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
 ],
   template: `
     @if (loading) {
-      <app-card-skeleton variant="wide" [square]="true"></app-card-skeleton>
+      <app-card-skeleton variant="wide"></app-card-skeleton>
     } @else if (error) {
-      <app-card-error title="Reviews" [message]="error" [square]="true" (retry)="retry.emit()"></app-card-error>
+      <app-card-error title="Reviews" [message]="error" (retry)="retry.emit()"></app-card-error>
     } @else if (!reviewsData) {
-      <app-dn-card [square]="true">
+      <app-dn-card>
         <div class="p-4 sm:p-6">
           <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Guest Reviews</h2>
           <hr class="border-border mb-4" />
@@ -34,15 +34,18 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
         </div>
       </app-dn-card>
     } @else {
-      <app-dn-card [square]="true">
+      <app-dn-card>
         <div class="p-4 sm:p-6">
           <!-- Section 1: Header -->
           <div class="flex items-center justify-between mb-3 sm:mb-4">
             <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Guest Reviews
             </h2>
+            <!-- The FEED (the full review list), not the /reviews Overview: "View all" promises
+                 every review, and the Overview is a summary. Matches the Overview's own
+                 "View all reviews" CTA, which already points here. -->
             <a
-              routerLink="/reviews"
+              routerLink="/reviews/feed"
               class="text-xs sm:text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1"
             >
               View all <span aria-hidden="true">→</span>

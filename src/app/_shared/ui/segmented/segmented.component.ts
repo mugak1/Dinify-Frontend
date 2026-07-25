@@ -44,8 +44,11 @@ export type DnSegLayout = 'hug' | 'responsive' | 'fill';
  * the bespoke Reports rail). A white pill track (`bg-card` + hairline border) holds N segments and
  * one absolutely-positioned RED glider (`bg-primary`) that slides to the active segment; the active
  * segment's text/icon go `text-primary-foreground` (white on the red pill), inactive
- * `text-muted-foreground hover:text-foreground` (icons inherit via `currentColor`). Pure semantic
- * tokens — no hex colours.
+ * `text-foreground` (icons inherit via `currentColor`). Pure semantic tokens — no hex colours.
+ * Inactive ink is deliberately full-strength `text-foreground`, NOT `text-muted-foreground`: at
+ * `0 0% 38%` the unselected labels read as washed-out grey against the white track. Because that
+ * now matches the hover target, there is no hover colour shift — the glider, cursor and focus ring
+ * carry the affordance.
  *
  * Two modes, chosen by `[mode]`:
  *  • `value` (default) — click-select `<button role="tab">`s; emits `(valueChange)`; sets the
@@ -246,7 +249,7 @@ export class DnSegmentedComponent implements OnChanges, AfterViewInit {
       'text-[13.5px] font-semibold no-underline select-none transition-colors',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       flex,
-      this.isActive(it) ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+      this.isActive(it) ? 'text-primary-foreground' : 'text-foreground',
       it.disabled && 'opacity-50 pointer-events-none',
       // Error ink wins over the active/inactive colour (value mode, e.g. the item-form tabs).
       it.hasError && 'text-destructive',
