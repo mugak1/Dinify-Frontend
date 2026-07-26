@@ -40,8 +40,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
     } @else if (!kdsData) {
       <app-dn-card>
         <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
-          <h2 class="text-card-title text-foreground mb-1">Kitchen Load (KDS)</h2>
-          <hr class="border-border mb-3" />
+          <h2 class="text-card-title text-foreground mb-4">Kitchen Load (KDS)</h2>
           <div class="flex-1 flex items-center justify-center">
             <p class="text-sm text-muted-foreground text-center">No KDS data available</p>
           </div>
@@ -79,7 +78,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
               ></app-animated-number>
               <div class="text-xs text-muted-foreground mt-1">Open tickets</div>
             </div>
-            <div class="flex flex-col border-x border-border px-4">
+            <div class="flex flex-col px-4">
               <app-animated-number
                 [value]="kdsData.over_sla"
                 [duration]="2000"

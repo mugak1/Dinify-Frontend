@@ -25,8 +25,7 @@ import { formatCompact } from '../../utils/format.utils';
     } @else if (!tablesData) {
       <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
-          <h2 class="text-card-title text-foreground mb-1">Tables</h2>
-          <hr class="border-border mb-3" />
+          <h2 class="text-card-title text-foreground mb-4">Tables</h2>
           <div class="flex-1 flex items-center justify-center">
             <p class="text-sm text-muted-foreground text-center">No table data available</p>
           </div>
@@ -159,7 +158,7 @@ import { formatCompact } from '../../utils/format.utils';
           </div>
 
           <!-- Footer -->
-          <div class="pt-3 sm:pt-4 mt-3 sm:mt-4 border-t">
+          <div class="pt-3 sm:pt-4 mt-3 sm:mt-4">
             <p class="text-[10px] sm:text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
               <!-- Activity icon -->
               <svg aria-hidden="true" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

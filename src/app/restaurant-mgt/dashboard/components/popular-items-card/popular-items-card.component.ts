@@ -18,8 +18,7 @@ import { formatCurrency } from '../../utils/format.utils';
     } @else if (!items || items.length === 0) {
       <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6">
-          <h2 class="text-card-title text-foreground mb-3">Popular Items</h2>
-          <hr class="border-border mb-4" />
+          <h2 class="text-card-title text-foreground mb-7">Popular Items</h2>
           <p class="text-sm text-muted-foreground text-center py-8">No item data available</p>
         </div>
       </app-dn-card>
@@ -27,7 +26,7 @@ import { formatCurrency } from '../../utils/format.utils';
       <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6 overflow-hidden">
           <!-- Header -->
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 sm:mb-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 sm:mb-8">
             <h2 class="text-card-title text-foreground">Popular Items</h2>
             <app-dn-segmented
               [items]="sortItems"
@@ -36,8 +35,6 @@ import { formatCurrency } from '../../utils/format.utils';
               ariaLabel="Sort popular items"
             ></app-dn-segmented>
           </div>
-
-          <hr class="border-border mb-3 sm:mb-4" />
 
           <!-- Table -->
           <div class="overflow-hidden flex-1">

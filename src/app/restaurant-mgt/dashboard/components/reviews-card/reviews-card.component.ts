@@ -28,8 +28,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
     } @else if (!reviewsData) {
       <app-dn-card>
         <div class="p-4 sm:p-6">
-          <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Guest Reviews</h2>
-          <hr class="border-border mb-4" />
+          <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-7">Guest Reviews</h2>
           <p class="text-sm text-muted-foreground text-center py-8">No review data available</p>
         </div>
       </app-dn-card>
@@ -114,7 +113,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
 
           <!-- Section 3: Recent Reviews -->
           @if (recentReviews.length > 0) {
-            <div class="border-t border-border pt-3 sm:pt-4 space-y-2">
+            <div class="pt-3 sm:pt-4 space-y-2">
               @for (review of recentReviews; track review.review_id) {
                 <div
                   class="p-2 sm:p-3 rounded-none border"
