@@ -7,6 +7,15 @@ import { Component, Input } from '@angular/core';
  * Mirrors the dashboard TrendIndicator visual but is a standalone reports primitive
  * with two additions: a "New" state when there is no baseline, and `invert` for
  * metrics where a DECREASE is the good outcome (e.g. discounts / refunds).
+ *
+ * NOTE — this keeps its OWN baseline predicate (`hasBaseline` below), which DIVERGES from
+ * the shared `percentChange` (`_shared/utils/percent-change.ts`) that the dashboard badges
+ * use: there is no negative-baseline gate here, so a negative `previous` renders a
+ * sign-flipped chip where the dashboard suppresses. Deliberate scoping when the dashboard
+ * fix shipped, not an oversight — consolidating onto `percentChange` is a scheduled
+ * follow-up, and until it lands any change to that null set must be mirrored here.
+ * The "New" markup below is likewise duplicated in `_shared/ui/no-baseline-chip/`; keep
+ * the two identical.
  */
 @Component({
   selector: 'app-report-delta-chip',
