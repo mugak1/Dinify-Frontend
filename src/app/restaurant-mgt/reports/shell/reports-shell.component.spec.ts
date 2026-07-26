@@ -64,7 +64,7 @@ describe('ReportsShellComponent', () => {
   });
 
   it('mounts the persistent date-range control above the outlet', () => {
-    expect(fixture.nativeElement.querySelector('app-report-date-range')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-timeframe-picker')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
   });
 

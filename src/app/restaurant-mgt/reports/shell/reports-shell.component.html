@@ -11,10 +11,10 @@ through the gap above the bar. The negative sticky top offset matches
     <div
       class="sticky -top-3 sm:-top-4 md:-top-6 z-20 min-h-[64px] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 sm:px-4 md:px-6 py-2 bg-card border-b border-border"
       >
-      <app-report-date-range
+      <app-timeframe-picker
         [value]="(range$ | async)!"
         (valueChange)="onRange($event)"
-      ></app-report-date-range>
+      ></app-timeframe-picker>
 
       <!-- Compare-to-previous-period toggle. Text span beside the switch, mirroring the
       app-dn-switch pattern used elsewhere (new-area-modal, tables setup view). -->

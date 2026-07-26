@@ -3,7 +3,7 @@
 // panel summary.
 
 import { format, getMonth, getYear, parseISO } from 'date-fns';
-import { ReportPreset } from '../../../../_shared/timeframe';
+import { ReportPreset } from '../timeframe-range';
 
 /** Human labels for every preset — drives the trigger text and the preset list. */
 export const PRESET_LABELS: Record<ReportPreset, string> = {
