@@ -20,6 +20,8 @@ import { RevenueData } from '../../models/dashboard.models';
 import { ReportBucketUnit, ReportDateRange } from '../../../../_shared/timeframe';
 import { formatCurrency, formatChartTick, formatCompact } from '../../utils/format.utils';
 import { bucketAxisLabel, comparisonCaption } from '../../utils/timeframe-labels';
+import { percentChange } from '../../../../_shared/utils/percent-change';
+import { NoBaselineChipComponent } from '../../../../_shared/ui/no-baseline-chip/no-baseline-chip.component';
 import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
 
 @Component({
@@ -31,7 +33,8 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
     CardComponent,
     CardSkeletonComponent,
     CardErrorComponent,
-    AnimatedNumberComponent
+    AnimatedNumberComponent,
+    NoBaselineChipComponent
 ],
   template: `
     @if (loading) {
@@ -64,21 +67,31 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
                   [formatFn]="currencyFormatter"
                 ></app-animated-number>
 
-                <!-- Trend indicator -->
-                <div
-                  class="flex items-center gap-1 text-xs sm:text-sm font-medium"
-                  [class]="percentageChange >= 0 ? 'text-success' : 'text-destructive'"
-                >
-                  @if (percentageChange >= 0) {
-                    <svg aria-hidden="true" class="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
-                    </svg>
+                <!-- Trend badge + comparison caption. The caption is a SIBLING of the
+                badge, never a child: with no usable baseline the badge is replaced by a
+                "New" chip and the caption has to survive to name what was compared
+                against. Wrapping lets it drop to its own line on a narrow phone. -->
+                <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  @if (hasBaseline) {
+                    <div
+                      class="flex items-center gap-1 text-xs sm:text-sm font-medium"
+                      [class]="isPositive ? 'text-success' : 'text-destructive'"
+                    >
+                      @if (isPositive) {
+                        <svg aria-hidden="true" class="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+                        </svg>
+                      } @else {
+                        <svg aria-hidden="true" class="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>
+                        </svg>
+                      }
+                      <span class="whitespace-nowrap">{{ absPercentage }}%</span>
+                    </div>
                   } @else {
-                    <svg aria-hidden="true" class="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>
-                    </svg>
+                    <app-no-baseline-chip></app-no-baseline-chip>
                   }
-                  <span class="whitespace-nowrap">{{ absPercentage }}%<span class="hidden sm:inline"> {{ periodLabel }}</span></span>
+                  <span class="text-xs sm:text-sm text-muted-foreground">{{ periodLabel }}</span>
                 </div>
               </div>
             </div>
@@ -137,19 +150,30 @@ export class RevenueCardComponent implements OnChanges {
 
   readonly currencyFormatter = (v: number) => formatCurrency(v);
 
-  get percentageChange(): number {
-    if (!this.revenueData) return 0;
-    const prev = this.revenueData.previous_totals.net;
-    if (prev === 0) return 0;
-    return ((this.revenueData.totals.net - prev) / prev) * 100;
+  /** Signed % change, or `null` when the baseline cannot support one — see
+   *  `_shared/utils/percent-change.ts` for which baselines qualify and why. */
+  get percentageChange(): number | null {
+    if (!this.revenueData) return null;
+    return percentChange(this.revenueData.totals.net, this.revenueData.previous_totals.net);
+  }
+
+  /** Gates the badge: `false` swaps in the "New" chip and leaves the caption standing. */
+  get hasBaseline(): boolean {
+    return this.percentageChange !== null;
+  }
+
+  get isPositive(): boolean {
+    const change = this.percentageChange;
+    return change !== null && change >= 0;
   }
 
   get absPercentage(): string {
-    return Math.abs(this.percentageChange).toFixed(1);
+    const change = this.percentageChange;
+    return change === null ? '' : Math.abs(change).toFixed(1);
   }
 
   /** e.g. `vs. UGX 1.2M (14 – 20 Jul)` — the compared window, named. Compact rather than
-   *  full precision because the caption sits in a `whitespace-nowrap` span. */
+   *  full precision to keep it short enough to sit beside the badge. */
   get periodLabel(): string {
     if (!this.range || !this.revenueData) return '';
     return comparisonCaption(this.range, `UGX ${formatCompact(this.revenueData.previous_totals.net)}`);

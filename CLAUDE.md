@@ -377,7 +377,8 @@ The module uses a deliberate mixed pattern — follow it exactly:
 A shared component library lives in `src/app/_shared/ui/`:
 allergen-disclaimer, avatar (`app-dn-avatar`, initials-in-a-circle), badge,
 button (`app-dn-button`), card, dialog, discount-badge, extras-selector,
-featured-carousel, menu-dish-card, modifier-groups-selector, offline-banner,
+featured-carousel, menu-dish-card, modifier-groups-selector,
+no-baseline-chip (`app-no-baseline-chip`), offline-banner,
 page-header (`app-page-header`), price-display, savings-indicator,
 segmented (`app-dn-segmented`), sheet, switch (`app-dn-switch`; supports a
 `disabled` input for locked toggles, e.g. the Roles & access owner row), toast —
@@ -385,6 +386,15 @@ plus the `tooltip` directive (`[appTooltip]`, not a component), the
 `SafeArrayPipe`, and the `HighlightPipe` (search-term highlighting). The
 `toast/` folder also exports the injectable `ToastService` (the app-wide toast
 queue), re-exported from the barrel.
+
+`app-no-baseline-chip` is the empty state for a trend badge with no usable
+baseline — the neutral grey "New" pill. Pair it with `percentChange` (see
+`_shared/utils/` below): when that returns `null` the badge is REPLACED by this
+chip, never merely hidden, and any comparison caption must stay visible BESIDE
+it rather than nested inside the badge (nesting is what made the caption vanish
+with the badge in the first place). It duplicates the inline `@else` markup of
+the Reports `delta-chip` deliberately — that consolidation is a scheduled
+follow-up — so keep the two identical, `aria-label` included.
 
 `app-dn-segmented` is the single shared segmented / tab control — it REPLACED
 the deleted `dn-tabs` component (do not reintroduce a `tabs` component). It runs
@@ -475,8 +485,19 @@ writing new tag, price/menu or date-range logic:
   `MenuItemTagSelectorComponent`, plus `filterMenuItems` and truncation helpers
 - `src/app/_shared/utils/` (per-file imports, no barrel) — `cn`, `formatUGX`,
   price/discount helpers (`getCurrentPrice`, `isDiscountActive`,
-  `calculateSavings`, `getDiscountBadgeText`), and `searchMenuItems` /
-  `applyMenuSort`
+  `calculateSavings`, `getDiscountBadgeText`), `searchMenuItems` /
+  `applyMenuSort`, and `percentChange` — the ONE period-over-period delta
+  predicate. It returns `null` whenever the baseline cannot support a percentage
+  (`0`, `null`/`undefined`, non-finite, or NEGATIVE), because a badge that says
+  "0.0% ▲" for a restaurant that went from no trade to UGX 2M is a false
+  statement, and a negative denominator sign-flips a recovery into a red
+  decline. Its docstring carries BOTH the qualifying rule for which components
+  must route through it (divides by a baseline it holds → in scope; renders a
+  server-computed `change_pct` → report, don't fix; direction-only arrow → leave
+  alone; percentage of a capacity → not a delta) AND a census of every baseline
+  predicate in the repo. `delta-chip.hasBaseline` (Reports) is the one that
+  still diverges — no negative gate — so any change to the null set must be
+  mirrored there until the consolidation lands
 - `src/app/_shared/support/` (barrel `index.ts`) — support-issue display
   metadata: `STATUS_META`/`CATEGORY_LABEL`/`IMPACT_LABEL` maps, the matching
   `statusMeta`/`categoryLabel`/`impactLabel` helpers, and

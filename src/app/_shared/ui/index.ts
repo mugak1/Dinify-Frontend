@@ -22,3 +22,4 @@ export {
 } from './modifier-groups-selector/modifier-groups-selector.component';
 export { ExtrasSelectorComponent, ExtraOption } from './extras-selector/extras-selector.component';
 export { PageHeaderComponent } from './page-header/page-header.component';
+export { NoBaselineChipComponent } from './no-baseline-chip/no-baseline-chip.component';
