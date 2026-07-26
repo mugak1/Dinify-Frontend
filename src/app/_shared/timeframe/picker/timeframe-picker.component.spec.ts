@@ -1,5 +1,6 @@
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { format } from 'date-fns';
 import { BehaviorSubject } from 'rxjs';
 
 import { TimeframePickerComponent } from './timeframe-picker.component';
@@ -25,6 +26,10 @@ describe('TimeframePickerComponent', () => {
 
   function overlayPanel(): Element | null {
     return document.querySelector('.dn-daterange-overlay-panel');
+  }
+
+  function arrow(label: 'Previous period' | 'Next period'): HTMLButtonElement {
+    return fixture.nativeElement.querySelector(`button[aria-label="${label}"]`);
   }
 
   beforeEach(async () => {
@@ -121,6 +126,78 @@ describe('TimeframePickerComponent', () => {
       fixture.detectChanges();
       expect(emitted.length).toBe(0);
       expect(overlayPanel()).toBeNull();
+    });
+  });
+
+  // The arrows step by the range's SHAPE; the arithmetic itself is pinned in
+  // timeframe-engine.spec.ts. What matters here is the wiring: that they render, that a
+  // click commits through the SAME `valueChange` the staged picker uses, that they never
+  // open the panel, and that forward is really `disabled` at the present rather than just
+  // styled to look it.
+  //
+  // Expectations are chosen to be independent of the real system date — the component
+  // cannot be handed a `now` — so a step back from a whole June is asserted as May
+  // (true for any `now`) and the forward step uses a range safely in the past.
+  describe('period arrows', () => {
+    beforeEach(() => {
+      bp$.next({ matches: true, breakpoints: {} });
+      fixture.detectChanges();
+    });
+
+    it('renders a labelled arrow on each side of the trigger', () => {
+      expect(arrow('Previous period')).toBeTruthy();
+      expect(arrow('Next period')).toBeTruthy();
+    });
+
+    it('steps back one whole calendar month, emitting exactly once', () => {
+      arrow('Previous period').click();
+      fixture.detectChanges();
+
+      expect(emitted.length).toBe(1);
+      expect(emitted[0].from).toBe('2026-05-01');
+      expect(emitted[0].to).toBe('2026-05-31');
+    });
+
+    it('steps forward one whole calendar month', () => {
+      fixture.componentRef.setInput('value', {
+        preset: 'custom',
+        from: '2020-03-01',
+        to: '2020-03-31',
+      } as ReportDateRange);
+      fixture.detectChanges();
+
+      arrow('Next period').click();
+      fixture.detectChanges();
+
+      expect(emitted.length).toBe(1);
+      expect(emitted[0].from).toBe('2020-04-01');
+      expect(emitted[0].to).toBe('2020-04-30');
+    });
+
+    it('does not open the staged picker', () => {
+      arrow('Previous period').click();
+      fixture.detectChanges();
+      expect(overlayPanel()).toBeNull();
+    });
+
+    it('disables the forward arrow at the present, and enables it in the past', () => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      fixture.componentRef.setInput('value', {
+        preset: 'today',
+        from: today,
+        to: today,
+      } as ReportDateRange);
+      fixture.detectChanges();
+      expect(arrow('Next period').disabled).toBeTrue();
+      expect(arrow('Previous period').disabled).toBeFalse();
+
+      fixture.componentRef.setInput('value', {
+        preset: 'custom',
+        from: '2020-03-01',
+        to: '2020-03-31',
+      } as ReportDateRange);
+      fixture.detectChanges();
+      expect(arrow('Next period').disabled).toBeFalse();
     });
   });
 

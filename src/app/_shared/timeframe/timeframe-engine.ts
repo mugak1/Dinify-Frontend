@@ -12,19 +12,27 @@
 // sales-view (resolveTimeframe / ReportBucketUnit / SalesTrendsCategory).
 
 import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
   differenceInCalendarDays,
   endOfMonth,
   endOfYear,
   format,
+  getDate,
+  getDay,
+  getMonth,
   parseISO,
   startOfMonth,
+  startOfWeek,
   startOfYear,
   subDays,
   subMonths,
   subWeeks,
   subYears,
 } from 'date-fns';
-import { ReportDateRange } from './timeframe-range';
+import { REPORT_PRESETS, ReportDateRange, ReportPreset, presetToRange } from './timeframe-range';
 
 /** Time bucket the UI renders a range at. `hour` is the single-day sales-hourly path. */
 export type ReportBucketUnit = 'hour' | 'day' | 'month' | 'year';
@@ -195,6 +203,36 @@ export function previousEqualLengthPeriod(
 }
 
 /**
+ * The EXACT INVERSE of `previousEqualLengthPeriod` — the equal-length window immediately
+ * AFTER a range:
+ *
+ *     delta     = (to - from) + 1 day
+ *     next_from = to + 1 day
+ *     next_to   = to + delta
+ *
+ * `previousEqualLengthPeriod(nextEqualLengthPeriod(r))` returns `r`, and vice versa; that
+ * identity is spec-pinned and is the whole point of writing the two side by side. The
+ * reference implementation this feature is modelled on gets the BACKWARD case wrong by
+ * offsetting `from` by the INCLUSIVE length instead of the exclusive one, so its window
+ * grows a day on every click, in both directions. Keeping forward and backward adjacent
+ * and provably inverse is what stops that reappearing here.
+ *
+ * These two functions are the ONLY place equal-length stepping arithmetic lives. Callers
+ * step through them; they do not re-derive offsets.
+ *
+ * Note the caller, not this function, is responsible for clamping `to` to today — an
+ * equal-length window after a range that ends near the present legitimately runs into the
+ * future, and only the caller knows whether that is allowed.
+ */
+export function nextEqualLengthPeriod(
+  range: Pick<ReportDateRange, 'from' | 'to'>,
+): ReportDateRange {
+  const to = parseISO(range.to);
+  const deltaDays = differenceInCalendarDays(to, parseISO(range.from)) + 1;
+  return comparison(addDays(to, 1), addDays(to, deltaDays));
+}
+
+/**
  * Human label for the period `comparisonRange` compares against — drives the shell's
  * "Compare to {label}" toggle. Preset-aware so the label reads naturally:
  *   today                 → "yesterday"
@@ -223,4 +261,245 @@ export function comparisonRangeLabel(range: ReportDateRange): string {
     default:
       return 'the previous period';
   }
+}
+
+// ─── Range shape + period stepping (TIMEFRAME-01C) ───────────────────────────────────
+
+/**
+ * What a range IS, structurally: a single day, a Mon–Sun week, a whole calendar
+ * month/year, the in-progress version of any of those, or none of the above.
+ */
+export type RangeShape =
+  | 'day'
+  | 'week'
+  | 'week-to-date'
+  | 'month'
+  | 'month-to-date'
+  | 'year'
+  | 'year-to-date'
+  | 'custom';
+
+/** The natural period a shape is measured in. `custom` has none — it steps by length. */
+type PeriodLevel = 'day' | 'week' | 'month' | 'year';
+
+const SHAPE_PERIOD: Record<Exclude<RangeShape, 'custom'>, PeriodLevel> = {
+  day: 'day',
+  week: 'week',
+  'week-to-date': 'week',
+  month: 'month',
+  'month-to-date': 'month',
+  year: 'year',
+  'year-to-date': 'year',
+};
+
+/**
+ * Preset → period level, used ONLY to break a tie the dates cannot break (see
+ * `classifyRangeShape`) and to keep a stepped range's preset continuous (see
+ * `presetForSteppedRange`).
+ *
+ * `yesterday` / `last-week` / `last-month` are deliberately absent: they are CLOSED
+ * ranges (`to < today`) and every ambiguity here requires `to === today`, so they can
+ * never reach a tiebreak. `custom` reads as `day` — the narrowest reading of a
+ * hand-picked single day, since no period intent was recorded.
+ */
+const PRESET_PERIOD: Partial<Record<ReportPreset, PeriodLevel>> = {
+  today: 'day',
+  'this-week': 'week',
+  'this-month': 'month',
+  'this-year': 'year',
+  custom: 'day',
+};
+
+/**
+ * Every shape whose definition these dates satisfy, in precedence order. Declaration
+ * order IS the precedence: complete before to-date at each period level, `day` first.
+ */
+function matchingShapes(from: string, to: string, now: Date): Exclude<RangeShape, 'custom'>[] {
+  const start = parseISO(from);
+  const today = fmt(now);
+  const matches: Exclude<RangeShape, 'custom'>[] = [];
+
+  if (from === to) matches.push('day');
+  if (getDay(start) === 1 && to === fmt(addDays(start, 6))) matches.push('week');
+  if (from === fmt(startOfWeek(now, { weekStartsOn: 1 })) && to === today) {
+    matches.push('week-to-date');
+  }
+  if (getDate(start) === 1 && to === fmt(endOfMonth(start))) matches.push('month');
+  if (from === fmt(startOfMonth(now)) && to === today) matches.push('month-to-date');
+  if (getDate(start) === 1 && getMonth(start) === 0 && to === fmt(endOfYear(start))) {
+    matches.push('year');
+  }
+  if (from === fmt(startOfYear(now)) && to === today) matches.push('year-to-date');
+
+  return matches;
+}
+
+/**
+ * The shape of a range — what the period arrows step by.
+ *
+ * CLASSIFY FROM THE DATES. Step back twice from `this-month` and the preset reads
+ * `custom` while the range is still a real calendar month; stepping it by equal length
+ * would then be wrong the moment month lengths differ (1–31 Jul → 1–31 Jun, a month that
+ * does not exist). The dates always know what shape they are; a stepped preset has
+ * decayed.
+ *
+ * Precedence is `matchingShapes`' declaration order, so a to-date range that happens to
+ * be COMPLETE — today is Sunday, or the last day of the month — classifies as the
+ * complete shape. Harmless, since the two step identically, but pinned so it is
+ * deliberate rather than incidental.
+ *
+ * THE ONE SCOPED EXCEPTION. Some date pairs satisfy several definitions at once, and in
+ * those the dates carry no distinguishing information AT ALL: on the 1st of a month,
+ * Reports' `this-month` and the Dashboard's `today` produce byte-identical `from`/`to`.
+ * There — and only there — `preset` breaks the tie, picking the matching shape at its
+ * period level (preferring the complete variant, so the rule above still holds).
+ *
+ * That does not reopen the door the first rule closes, which is about a STALE preset —
+ * one left over from a range since stepped away from its period. A tie requires
+ * `to === today`, and every pair of COMPLETE shapes is mutually impossible (a 7-day
+ * month, a 1-day year), so a multi-match always contains a to-date shape. That leaves
+ * exactly two cases, both sound:
+ *   - an UNSTEPPED range — the preset is the user's own selection and has not decayed;
+ *   - a range stepped FORWARD into the present (1–30 Jun → 1–1 Jul, on the 1st) — there
+ *     `stepRange` has just assigned the preset by CONTINUITY of the shape it stepped
+ *     from, so it is truthful by construction. That is precisely what makes
+ *     back-then-forward return the original range.
+ * A range stepped BACKWARD always lands in the past and can never reach the tie.
+ *
+ * PHASE 2 inherits this. Its comparison vocabulary keys off shape and will hit the
+ * identical tie on the 1st, which is why the tiebreak lives here and not in a caller.
+ */
+export function classifyRangeShape(
+  range: { from: string; to: string; preset?: ReportPreset },
+  now: Date = new Date(),
+): RangeShape {
+  const matches = matchingShapes(range.from, range.to, now);
+  if (matches.length === 0) return 'custom';
+
+  if (matches.length > 1) {
+    const level = range.preset ? PRESET_PERIOD[range.preset] : undefined;
+    const preferred = level && matches.find((s) => SHAPE_PERIOD[s] === level);
+    if (preferred) return preferred;
+  }
+
+  return matches[0];
+}
+
+/**
+ * The preset to stamp on a stepped range: the known preset whose resolution for `now`
+ * EXACTLY equals it, else `custom`. Stepping back from `this-month` therefore yields
+ * `last-month` and the picker highlights it.
+ *
+ * `level` is the period level of the shape stepped FROM, and it is load-bearing rather
+ * than cosmetic. On the 1st of a month `today` and `this-month` resolve to the SAME
+ * dates, so a forward step from 1–30 Jun into 1–1 Jul matches both. Continuity picks
+ * `this-month` — a month-shaped step lands on a month preset. Assign `today` instead and
+ * the next back-click moves one DAY, and back-then-forward stops returning the original
+ * range. (Collisions are possible only among the open to-date presets, all of which have
+ * `to === today`; the closed presets can coincide with nothing.)
+ *
+ * Cosmetic in every OTHER respect — `classifyRangeShape`, not this, drives stepping.
+ *
+ * PHASE 2 NOTE: the comparison vocabulary must key off `classifyRangeShape`, not
+ * `preset`, for the same reason that function classifies from dates. That may leave
+ * `preset` vestigial for semantics and useful only for picker highlighting — a decision
+ * for Phase 2, not something to pre-empt here.
+ */
+function presetForSteppedRange(
+  from: string,
+  to: string,
+  now: Date,
+  level: PeriodLevel | null,
+): ReportPreset {
+  const matches = REPORT_PRESETS.filter((p) => {
+    if (p === 'custom') return false;
+    const resolved = presetToRange(p, now);
+    return resolved.from === from && resolved.to === to;
+  });
+
+  if (matches.length === 0) return 'custom';
+  if (matches.length > 1 && level) {
+    const preferred = matches.find((p) => PRESET_PERIOD[p] === level);
+    if (preferred) return preferred;
+  }
+  return matches[0];
+}
+
+/**
+ * Step the whole window one period in `direction` (-1 back, +1 forward), where "one
+ * period" is decided by the range's SHAPE, not its preset.
+ *
+ * BACKWARD always yields the COMPLETE natural period:
+ *   day                    → the previous day
+ *   week | week-to-date    → the previous complete Mon–Sun week
+ *   month | month-to-date  → the previous complete calendar month
+ *   year | year-to-date    → the previous complete calendar year
+ *   custom                 → `previousEqualLengthPeriod`
+ * So stepping back from month-to-date (1–26 Jul) gives ALL of June, not 1–26 Jun. A
+ * completed month is a completed month; truncating it to match the shape of an
+ * in-progress one would hide four days of real trade.
+ *
+ * FORWARD mirrors that, then clamps the END to today (22–24 Jul → 25–26 Jul, not
+ * 25–27 Jul). It does NOT collapse an overshoot to a single "Today" range the way the
+ * reference model does — that silently turns a three-day measurement into a one-day one.
+ * Clamping the end is honest, and the label shows the real dates.
+ *
+ * Stepping arithmetic is never re-derived here: the equal-length case goes through
+ * `previousEqualLengthPeriod` / `nextEqualLengthPeriod`, which are provably inverse.
+ */
+export function stepRange(
+  range: ReportDateRange,
+  direction: -1 | 1,
+  now: Date = new Date(),
+): ReportDateRange {
+  const shape = classifyRangeShape(range, now);
+  const level = shape === 'custom' ? null : SHAPE_PERIOD[shape];
+  const from = parseISO(range.from);
+  const today = fmt(now);
+  const back = direction === -1;
+
+  let stepped: { from: string; to: string };
+
+  switch (level) {
+    case 'day': {
+      const d = back ? subDays(from, 1) : addDays(from, 1);
+      stepped = { from: fmt(d), to: fmt(d) };
+      break;
+    }
+    case 'week': {
+      // `from` is this week's Monday for both week shapes, so one formula serves both.
+      const monday = back ? subWeeks(from, 1) : addWeeks(from, 1);
+      stepped = { from: fmt(monday), to: fmt(addDays(monday, 6)) };
+      break;
+    }
+    case 'month': {
+      const first = back ? subMonths(startOfMonth(from), 1) : addMonths(startOfMonth(from), 1);
+      stepped = { from: fmt(first), to: fmt(endOfMonth(first)) };
+      break;
+    }
+    case 'year': {
+      const first = back ? subYears(startOfYear(from), 1) : addYears(startOfYear(from), 1);
+      stepped = { from: fmt(first), to: fmt(endOfYear(first)) };
+      break;
+    }
+    default: {
+      const equal = back ? previousEqualLengthPeriod(range) : nextEqualLengthPeriod(range);
+      stepped = { from: equal.from, to: equal.to };
+    }
+  }
+
+  if (!back) {
+    // The period has not begun yet — the UI disables the control here, so this is
+    // defensive. Returning the range unchanged keeps the function total and stops it ever
+    // emitting `from > to` or a future-dated range, which `parseTimeframeParams` would
+    // reject on the next page load.
+    if (stepped.from > today) return range;
+    if (stepped.to > today) stepped = { from: stepped.from, to: today };
+  }
+
+  return {
+    preset: presetForSteppedRange(stepped.from, stepped.to, now, level),
+    from: stepped.from,
+    to: stepped.to,
+  };
 }

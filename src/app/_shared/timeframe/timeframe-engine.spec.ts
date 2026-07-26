@@ -3,12 +3,16 @@ import { ReportDateRange, ReportPreset, presetToRange } from './timeframe-range'
 import {
   BUCKET_TO_CATEGORY,
   HOURLY_MAX_DAYS,
+  RangeShape,
   ReportBucketUnit,
   SALES_TRENDS_CAP_DAYS,
+  classifyRangeShape,
   comparisonRange,
   comparisonRangeLabel,
+  nextEqualLengthPeriod,
   previousEqualLengthPeriod,
   resolveTimeframe,
+  stepRange,
 } from './timeframe-engine';
 
 describe('shared timeframe engine', () => {
@@ -21,7 +25,7 @@ describe('shared timeframe engine', () => {
     return { preset: 'custom', from: format(subDays(parseISO(ANCHOR), span), 'yyyy-MM-dd'), to: ANCHOR };
   }
 
-  const inclusiveLen = (r: ReportDateRange): number =>
+  const inclusiveLen = (r: Pick<ReportDateRange, 'from' | 'to'>): number =>
     differenceInCalendarDays(parseISO(r.to), parseISO(r.from)) + 1;
 
   describe('constants mirror the backend caps', () => {
@@ -295,6 +299,407 @@ describe('shared timeframe engine', () => {
       // June has 30 days and May has 31 — so even here they are not identical.
       expect(previousEqualLengthPeriod(wholeMonth).to).toBe(comparisonRange(wholeMonth).to);
       expect(previousEqualLengthPeriod(wholeMonth).from).not.toBe(comparisonRange(wholeMonth).from);
+    });
+  });
+
+  // ─── Range shape + period stepping (TIMEFRAME-01C) ─────────────────────────────────
+  //
+  // Same rule as the block above: every expected date is HAND-COMPUTED and written out
+  // literally. A spec that re-derives its expectations with the same date-fns calls the
+  // implementation uses would pass no matter what the implementation did.
+  //
+  // Weekday anchors used below, all verified against the real calendar:
+  //   2026-07-26 Sun   2026-07-22 Wed   2026-07-20 Mon   2026-07-13 Mon   2026-07-19 Sun
+  //   2026-07-01 Wed   2026-01-01 Thu   2026-06-01 Mon   2026-05-25 Mon   2026-05-31 Sun
+  describe('range shape + period stepping', () => {
+    /** 26 Jul 2026 — a SUNDAY, so "this week" is a COMPLETE Mon 20 – Sun 26 at this anchor. */
+    const SUN_26_JUL = new Date(2026, 6, 26);
+    /** 22 Jul 2026 — a Wednesday, needed for a genuinely in-progress week. */
+    const WED_22_JUL = new Date(2026, 6, 22);
+
+    const r = (from: string, to: string, preset: ReportPreset = 'custom'): ReportDateRange => ({
+      preset,
+      from,
+      to,
+    });
+    /** Dates only — a stepped range's preset legitimately differs from its input's. */
+    const dates = (x: { from: string; to: string }) => ({ from: x.from, to: x.to });
+
+    describe('classifyRangeShape — precision, including near-misses', () => {
+      const cases: { label: string; range: ReportDateRange; now: Date; shape: RangeShape }[] = [
+        { label: 'a single day', range: r('2026-07-15', '2026-07-15'), now: SUN_26_JUL, shape: 'day' },
+        { label: 'a complete Mon–Sun week', range: r('2026-07-13', '2026-07-19'), now: SUN_26_JUL, shape: 'week' },
+        { label: 'an in-progress week', range: r('2026-07-20', '2026-07-22'), now: WED_22_JUL, shape: 'week-to-date' },
+        { label: 'a whole calendar month', range: r('2026-06-01', '2026-06-30'), now: SUN_26_JUL, shape: 'month' },
+        { label: 'a month-to-date', range: r('2026-07-01', '2026-07-26'), now: SUN_26_JUL, shape: 'month-to-date' },
+        { label: 'a whole calendar year', range: r('2025-01-01', '2025-12-31'), now: SUN_26_JUL, shape: 'year' },
+        { label: 'a year-to-date', range: r('2026-01-01', '2026-07-26'), now: SUN_26_JUL, shape: 'year-to-date' },
+        // The near-misses. Each is one day / one boundary off a real period.
+        { label: 'Tue–Mon, 7 days but not a week', range: r('2026-07-14', '2026-07-20'), now: SUN_26_JUL, shape: 'custom' },
+        { label: '1–30 Jul, a 31-day month one day short', range: r('2026-07-01', '2026-07-30'), now: SUN_26_JUL, shape: 'custom' },
+        { label: '2 Jan – 31 Dec, a year starting a day late', range: r('2025-01-02', '2025-12-31'), now: SUN_26_JUL, shape: 'custom' },
+        { label: 'a mid-month 5-day span', range: r('2026-07-10', '2026-07-14'), now: SUN_26_JUL, shape: 'custom' },
+      ];
+
+      for (const c of cases) {
+        it(`classifies ${c.label} as '${c.shape}'`, () => {
+          expect(classifyRangeShape(c.range, c.now)).toBe(c.shape);
+        });
+      }
+
+      // Deliberate precedence, not an accident of check order: the two step identically,
+      // so the only thing at stake is that the answer is stable and pinned.
+      it("calls a to-date range that IS complete by its complete shape (today is Sunday)", () => {
+        expect(classifyRangeShape(r('2026-07-20', '2026-07-26', 'this-week'), SUN_26_JUL)).toBe('week');
+      });
+
+      it('ignores a decayed preset — a stepped calendar month is still a month', () => {
+        // preset says 'custom' (two steps back from this-month); the DATES say June.
+        expect(classifyRangeShape(r('2026-06-01', '2026-06-30', 'custom'), SUN_26_JUL)).toBe('month');
+      });
+    });
+
+    // The whole reason the preset is consulted at all. On the 1st of a period several
+    // definitions match the SAME dates, so the dates cannot decide — Reports' this-month
+    // and the Dashboard's today are byte-identical there.
+    describe('classifyRangeShape — the preset tiebreak on the 1st', () => {
+      const FIRST_JUL = new Date(2026, 6, 1); // Wednesday
+      const FIRST_JAN = new Date(2026, 0, 1); // Thursday
+      const FIRST_JUN = new Date(2026, 5, 1); // MONDAY — pulls week-to-date into the tie
+
+      it("resolves 1–1 Jul by preset: today → day, this-month → month-to-date", () => {
+        expect(classifyRangeShape(r('2026-07-01', '2026-07-01', 'today'), FIRST_JUL)).toBe('day');
+        expect(classifyRangeShape(r('2026-07-01', '2026-07-01', 'this-month'), FIRST_JUL)).toBe(
+          'month-to-date',
+        );
+      });
+
+      it("reads a hand-picked single day ('custom') as the narrowest shape", () => {
+        expect(classifyRangeShape(r('2026-07-01', '2026-07-01', 'custom'), FIRST_JUL)).toBe('day');
+      });
+
+      it('falls back to the narrowest shape when no preset is supplied at all', () => {
+        expect(classifyRangeShape({ from: '2026-07-01', to: '2026-07-01' }, FIRST_JUL)).toBe('day');
+      });
+
+      it('resolves the 1 Jan TRIPLE collision (day / month-to-date / year-to-date)', () => {
+        expect(classifyRangeShape(r('2026-01-01', '2026-01-01', 'today'), FIRST_JAN)).toBe('day');
+        expect(classifyRangeShape(r('2026-01-01', '2026-01-01', 'this-month'), FIRST_JAN)).toBe(
+          'month-to-date',
+        );
+        expect(classifyRangeShape(r('2026-01-01', '2026-01-01', 'this-year'), FIRST_JAN)).toBe(
+          'year-to-date',
+        );
+      });
+
+      it('resolves a MONDAY 1st, where week-to-date joins the collision', () => {
+        expect(classifyRangeShape(r('2026-06-01', '2026-06-01', 'this-week'), FIRST_JUN)).toBe(
+          'week-to-date',
+        );
+        expect(classifyRangeShape(r('2026-06-01', '2026-06-01', 'this-month'), FIRST_JUN)).toBe(
+          'month-to-date',
+        );
+        expect(classifyRangeShape(r('2026-06-01', '2026-06-01', 'today'), FIRST_JUN)).toBe('day');
+      });
+
+      it('steps the 1st by the period the preset names', () => {
+        expect(dates(stepRange(r('2026-07-01', '2026-07-01', 'today'), -1, FIRST_JUL))).toEqual({
+          from: '2026-06-30',
+          to: '2026-06-30',
+        });
+        expect(dates(stepRange(r('2026-07-01', '2026-07-01', 'this-month'), -1, FIRST_JUL))).toEqual({
+          from: '2026-06-01',
+          to: '2026-06-30',
+        });
+      });
+
+      // Continuity: forward from June must land on `this-month`, not `today`. Both resolve
+      // to 1–1 Jul on the 1st, and picking `today` would make the NEXT back-click step one
+      // day instead of one month — silently breaking the round trip.
+      it('round-trips from the 1st in both directions, for both presets', () => {
+        const asToday = r('2026-07-01', '2026-07-01', 'today');
+        const backFromToday = stepRange(asToday, -1, FIRST_JUL);
+        const returnedToday = stepRange(backFromToday, 1, FIRST_JUL);
+        expect(dates(returnedToday)).toEqual(dates(asToday));
+        expect(returnedToday.preset).toBe('today');
+
+        const asMonth = r('2026-07-01', '2026-07-01', 'this-month');
+        const backFromMonth = stepRange(asMonth, -1, FIRST_JUL);
+        const returnedMonth = stepRange(backFromMonth, 1, FIRST_JUL);
+        expect(dates(returnedMonth)).toEqual(dates(asMonth));
+        expect(returnedMonth.preset).toBe('this-month');
+
+        // …and the restored preset keeps stepping by MONTH, which is the point of it.
+        expect(dates(stepRange(returnedMonth, -1, FIRST_JUL))).toEqual({
+          from: '2026-06-01',
+          to: '2026-06-30',
+        });
+      });
+    });
+
+    // THE regression this feature exists to avoid. The reference implementation offsets
+    // `from` by the INCLUSIVE length instead of the exclusive one, so its window grows a
+    // day on every click, in BOTH directions: 10–14 Jul back gives 4–9 Jul (6 days), back
+    // again 27 Jun – 3 Jul (7 days). Pin its absence first and hardest.
+    describe('stepRange — the window never grows', () => {
+      it('holds a 5-day custom range at 5 days across three steps BACK', () => {
+        const start = r('2026-07-10', '2026-07-14');
+        const first = stepRange(start, -1, SUN_26_JUL);
+
+        // The exact off-by-one: 5 Jul, never 4 Jul.
+        expect(dates(first)).toEqual({ from: '2026-07-05', to: '2026-07-09' });
+
+        const second = stepRange(first, -1, SUN_26_JUL);
+        expect(dates(second)).toEqual({ from: '2026-06-30', to: '2026-07-04' });
+
+        const third = stepRange(second, -1, SUN_26_JUL);
+        expect(dates(third)).toEqual({ from: '2026-06-25', to: '2026-06-29' });
+
+        for (const step of [start, first, second, third]) {
+          expect(inclusiveLen(step)).toBe(5);
+        }
+      });
+
+      it('holds a 5-day custom range at 5 days across three steps FORWARD', () => {
+        // Started far enough back that the clamp never engages (clamping is its own spec).
+        const start = r('2026-06-10', '2026-06-14');
+        const first = stepRange(start, 1, SUN_26_JUL);
+        expect(dates(first)).toEqual({ from: '2026-06-15', to: '2026-06-19' });
+
+        const second = stepRange(first, 1, SUN_26_JUL);
+        expect(dates(second)).toEqual({ from: '2026-06-20', to: '2026-06-24' });
+
+        const third = stepRange(second, 1, SUN_26_JUL);
+        expect(dates(third)).toEqual({ from: '2026-06-25', to: '2026-06-29' });
+
+        for (const step of [start, first, second, third]) {
+          expect(inclusiveLen(step)).toBe(5);
+        }
+      });
+
+      it('leaves no gap and no overlap between a range and its predecessor', () => {
+        const start = r('2026-07-10', '2026-07-14');
+        const back = stepRange(start, -1, SUN_26_JUL);
+        expect(differenceInCalendarDays(parseISO(start.from), parseISO(back.to))).toBe(1);
+      });
+    });
+
+    describe('stepRange — month lengths are respected', () => {
+      const MID_APR_2026 = new Date(2026, 3, 15);
+      const MID_APR_2028 = new Date(2028, 3, 15);
+      const MID_AUG_2026 = new Date(2026, 7, 15);
+
+      it('steps a 31-day July back into a 30-day June', () => {
+        expect(dates(stepRange(r('2026-07-01', '2026-07-31'), -1, MID_AUG_2026))).toEqual({
+          from: '2026-06-01',
+          to: '2026-06-30',
+        });
+      });
+
+      it('steps March back into a 28-day February', () => {
+        expect(dates(stepRange(r('2026-03-01', '2026-03-31'), -1, MID_APR_2026))).toEqual({
+          from: '2026-02-01',
+          to: '2026-02-28',
+        });
+      });
+
+      it('steps March back into a 29-day February in a leap year', () => {
+        expect(dates(stepRange(r('2028-03-01', '2028-03-31'), -1, MID_APR_2028))).toEqual({
+          from: '2028-02-01',
+          to: '2028-02-29',
+        });
+      });
+
+      it('steps January forward into February, leap and non-leap', () => {
+        expect(dates(stepRange(r('2026-01-01', '2026-01-31'), 1, MID_APR_2026))).toEqual({
+          from: '2026-02-01',
+          to: '2026-02-28',
+        });
+        expect(dates(stepRange(r('2028-01-01', '2028-01-31'), 1, MID_APR_2028))).toEqual({
+          from: '2028-02-01',
+          to: '2028-02-29',
+        });
+      });
+    });
+
+    describe('stepRange — round-trip for every complete shape', () => {
+      const cases: { label: string; range: ReportDateRange }[] = [
+        { label: 'day', range: r('2026-07-15', '2026-07-15') },
+        { label: 'week', range: r('2026-07-13', '2026-07-19') },
+        { label: 'month', range: r('2026-06-01', '2026-06-30') },
+        { label: 'year', range: r('2025-01-01', '2025-12-31') },
+      ];
+
+      // Dates only: the returned preset legitimately IMPROVES (13–19 Jul comes back
+      // labelled 'last-week'), which is the picker highlighting doing its job.
+      for (const c of cases) {
+        it(`returns the original ${c.label} range after back-then-forward`, () => {
+          const back = stepRange(c.range, -1, SUN_26_JUL);
+          expect(dates(stepRange(back, 1, SUN_26_JUL))).toEqual(dates(c.range));
+        });
+      }
+
+      it('steps a complete week to the complete week before it', () => {
+        expect(dates(stepRange(r('2026-07-13', '2026-07-19'), -1, SUN_26_JUL))).toEqual({
+          from: '2026-07-06',
+          to: '2026-07-12',
+        });
+      });
+    });
+
+    describe('stepRange — to-date ranges promote to the complete period', () => {
+      it('steps month-to-date back to ALL of the previous month, not a matching slice', () => {
+        const mtd = r('2026-07-01', '2026-07-26', 'this-month');
+        const back = stepRange(mtd, -1, SUN_26_JUL);
+
+        expect(dates(back)).toEqual({ from: '2026-06-01', to: '2026-06-30' });
+        // The truncation we are refusing to do: 1–26 Jun would hide four days of trade.
+        expect(back.to).not.toBe('2026-06-26');
+      });
+
+      it('steps a complete month forward into a CLAMPED month-to-date', () => {
+        const forward = stepRange(r('2026-06-01', '2026-06-30', 'last-month'), 1, SUN_26_JUL);
+
+        expect(dates(forward)).toEqual({ from: '2026-07-01', to: '2026-07-26' });
+        expect(forward.preset).toBe('this-month');
+      });
+
+      it('steps year-to-date back to the whole previous year', () => {
+        expect(dates(stepRange(r('2026-01-01', '2026-07-26', 'this-year'), -1, SUN_26_JUL))).toEqual({
+          from: '2025-01-01',
+          to: '2025-12-31',
+        });
+      });
+
+      it('steps an in-progress week back to the complete week before it', () => {
+        expect(dates(stepRange(r('2026-07-20', '2026-07-22', 'this-week'), -1, WED_22_JUL))).toEqual({
+          from: '2026-07-13',
+          to: '2026-07-19',
+        });
+      });
+    });
+
+    describe('stepRange — forward clamps at the present', () => {
+      it('clamps the END and keeps the computed start', () => {
+        // 25–27 Jul overshoots by a day; the honest answer is 25–26, NOT a collapse to
+        // "today", which would turn a three-day measurement into a one-day one.
+        const forward = stepRange(r('2026-07-22', '2026-07-24'), 1, SUN_26_JUL);
+
+        expect(dates(forward)).toEqual({ from: '2026-07-25', to: '2026-07-26' });
+        expect(forward.from).not.toBe('2026-07-26');
+      });
+
+      it('returns the range untouched when the next period has not begun', () => {
+        const today = r('2026-07-26', '2026-07-26', 'today');
+        expect(stepRange(today, 1, SUN_26_JUL)).toEqual(today);
+
+        const mtd = r('2026-07-01', '2026-07-26', 'this-month');
+        expect(stepRange(mtd, 1, SUN_26_JUL)).toEqual(mtd);
+      });
+
+      it('never emits a future-dated or inverted range, in either direction', () => {
+        const seeds: ReportDateRange[] = [
+          r('2026-07-26', '2026-07-26', 'today'),
+          r('2026-07-01', '2026-07-26', 'this-month'),
+          r('2026-07-20', '2026-07-26', 'this-week'),
+          r('2026-01-01', '2026-07-26', 'this-year'),
+          r('2026-07-22', '2026-07-24'),
+          r('2026-06-01', '2026-06-30'),
+        ];
+
+        for (const seed of seeds) {
+          for (const direction of [-1, 1] as const) {
+            const stepped = stepRange(seed, direction, SUN_26_JUL);
+            expect(stepped.from <= stepped.to).toBeTrue();
+            expect(stepped.to <= '2026-07-26').toBeTrue();
+          }
+        }
+      });
+    });
+
+    describe('stepRange — preset assignment', () => {
+      it('labels a step back from this-month as last-month', () => {
+        const back = stepRange(r('2026-07-01', '2026-07-26', 'this-month'), -1, SUN_26_JUL);
+        expect(back.preset).toBe('last-month');
+      });
+
+      it('falls to custom on the second step back — and still moves a WHOLE month', () => {
+        const once = stepRange(r('2026-07-01', '2026-07-26', 'this-month'), -1, SUN_26_JUL);
+        const twice = stepRange(once, -1, SUN_26_JUL);
+
+        expect(twice.preset).toBe('custom');
+        expect(dates(twice)).toEqual({ from: '2026-05-01', to: '2026-05-31' });
+      });
+
+      it('labels the obvious single-period steps', () => {
+        expect(stepRange(r('2026-07-26', '2026-07-26', 'today'), -1, SUN_26_JUL).preset).toBe(
+          'yesterday',
+        );
+        expect(stepRange(r('2026-07-20', '2026-07-26', 'this-week'), -1, SUN_26_JUL).preset).toBe(
+          'last-week',
+        );
+      });
+    });
+
+    // A step must never push a range over a ladder cap — that would silently re-bucket
+    // the data (or trigger resolveTimeframe's clamp) as a side effect of paging.
+    describe('stepRange — cap safety', () => {
+      it('keeps calendar-month steps on the daily bucket across the 31→28 Feb boundary', () => {
+        const marchBack = stepRange(r('2026-03-01', '2026-03-31'), -1, new Date(2026, 3, 15));
+        const febForward = stepRange(r('2026-02-01', '2026-02-28'), 1, new Date(2026, 3, 15));
+
+        for (const stepped of [marchBack, febForward]) {
+          const resolved = resolveTimeframe(stepped);
+          expect(resolved.bucketUnit).toBe('day');
+          expect(resolved.clamped).toBeFalse();
+        }
+      });
+
+      it('keeps whole-year steps on the monthly bucket, leap year included', () => {
+        const back = stepRange(r('2025-01-01', '2025-12-31'), -1, SUN_26_JUL);
+
+        expect(dates(back)).toEqual({ from: '2024-01-01', to: '2024-12-31' });
+        expect(resolveTimeframe(back).bucketUnit).toBe('month');
+        expect(resolveTimeframe(back).clamped).toBeFalse();
+      });
+
+      it('preserves the span of a range sitting exactly on the annual cap', () => {
+        const atCap = rangeOfSpan(SALES_TRENDS_CAP_DAYS.annual);
+        const back = stepRange(atCap, -1, NOW);
+
+        expect(inclusiveLen(back)).toBe(inclusiveLen(atCap));
+        expect(resolveTimeframe(back).clamped).toBeFalse();
+      });
+    });
+
+    // The structural guard against the growth bug ever returning on the forward side.
+    describe('nextEqualLengthPeriod — the exact inverse of previousEqualLengthPeriod', () => {
+      const samples = [
+        { from: '2026-06-10', to: '2026-06-14' },
+        { from: '2026-06-15', to: '2026-06-15' },
+        { from: '2026-06-01', to: '2026-06-30' },
+        { from: '2024-02-25', to: '2024-03-05' },
+      ];
+
+      it('round-trips forward-then-back', () => {
+        for (const s of samples) {
+          expect(dates(previousEqualLengthPeriod(nextEqualLengthPeriod(s)))).toEqual(s);
+        }
+      });
+
+      it('round-trips back-then-forward', () => {
+        for (const s of samples) {
+          expect(dates(nextEqualLengthPeriod(previousEqualLengthPeriod(s)))).toEqual(s);
+        }
+      });
+
+      it('starts the day after the range ends, leaving no gap and no overlap', () => {
+        for (const s of samples) {
+          const next = nextEqualLengthPeriod(s);
+          expect(differenceInCalendarDays(parseISO(next.from), parseISO(s.to))).toBe(1);
+          expect(inclusiveLen(next)).toBe(inclusiveLen(s));
+        }
+      });
     });
   });
 
