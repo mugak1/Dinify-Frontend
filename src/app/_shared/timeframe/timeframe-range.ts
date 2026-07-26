@@ -140,6 +140,25 @@ export function isFutureDated(range: { from: string; to: string }, now: Date = n
 }
 
 /**
+ * True when TODAY falls inside the (inclusive) range — i.e. the range is still OPEN and
+ * its numbers can still change. A closed window cannot, so a surface polling one is
+ * spending requests on an answer that is already final.
+ *
+ * Written as the honest two-sided test rather than `to === today`. Those are equivalent
+ * only because `presetToRange` clamps and `parseTimeframeParams` rejects future bounds —
+ * invariants that live in other functions and could be relaxed without anyone thinking
+ * to look here. Same string-compare trick as `isFutureDated`: ISO dates sort
+ * chronologically.
+ */
+export function rangeIncludesToday(
+  range: { from: string; to: string },
+  now: Date = new Date(),
+): boolean {
+  const today = fmt(now);
+  return range.from <= today && today <= range.to;
+}
+
+/**
  * A real calendar date in `yyyy-MM-dd`. The regex alone accepts `2026-02-31`, so the
  * parsed value is round-tripped back through `format` — if the two disagree, date-fns
  * rolled the day over and the input was never a real date.

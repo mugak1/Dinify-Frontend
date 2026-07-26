@@ -16,6 +16,7 @@ export {
   isValidReportDateRange,
   parseTimeframeParams,
   presetToRange,
+  rangeIncludesToday,
 } from './timeframe-range';
 export type { ReportDateRange, ReportPreset, TimeframeParams } from './timeframe-range';
 
@@ -25,6 +26,7 @@ export {
   SALES_TRENDS_CAP_DAYS,
   comparisonRange,
   comparisonRangeLabel,
+  previousEqualLengthPeriod,
   resolveTimeframe,
 } from './timeframe-engine';
 export type { ReportBucketUnit, SalesTrendsCategory, TimeframeResolution } from './timeframe-engine';
