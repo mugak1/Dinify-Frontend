@@ -40,7 +40,7 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
       <app-dn-card>
         <div class="p-4 sm:p-6">
           <!-- Header -->
-          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-8">
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
                 <h2 class="text-card-title text-foreground">Revenue (UGX)</h2>
@@ -90,8 +90,6 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
               </svg>
             </a>
           </div>
-
-          <hr class="border-border mb-4" />
 
           <!-- Pills row -->
           <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-4 sm:mb-6">

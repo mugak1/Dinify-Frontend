@@ -33,7 +33,7 @@ interface StatusSegment {
       <app-dn-card>
         <div class="p-4 sm:p-6">
           <!-- Header -->
-          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-4">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-8">
             <div class="min-w-0">
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
                 <h2 class="text-card-title text-foreground">Total Orders ({{ timeframeLabel }})</h2>
@@ -67,8 +67,6 @@ interface StatusSegment {
             </div>
           </div>
 
-          <hr class="border-border mb-4" />
-
           <!-- Stacked status bar -->
           <div class="mb-4">
             <div class="flex gap-1 h-8 rounded-none overflow-hidden">
@@ -84,7 +82,7 @@ interface StatusSegment {
           </div>
 
           <!-- Status breakdown grid -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-7 sm:mb-8">
             @for (seg of segments; track seg.key) {
               <div class="text-center p-1.5 sm:p-2 bg-muted rounded-none">
                 <div class="text-base sm:text-lg font-bold" [class]="seg.colorClass">{{ seg.count }}</div>
@@ -93,8 +91,6 @@ interface StatusSegment {
               </div>
             }
           </div>
-
-          <hr class="border-border my-3 sm:my-4" />
 
           <!-- Orders vs Time chart -->
           <div>

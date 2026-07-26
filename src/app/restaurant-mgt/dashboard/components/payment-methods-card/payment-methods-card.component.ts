@@ -38,11 +38,10 @@ const METHOD_COLORS: Record<string, string> = {
     } @else if (!paymentMethods || total === 0) {
       <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
-          <div class="mb-1">
+          <div class="mb-4 sm:mb-5">
             <h2 class="text-card-title text-foreground">Payment Methods (UGX)</h2>
             <p class="text-[10px] sm:text-xs text-muted-foreground">Share of payments in selected period</p>
           </div>
-          <hr class="border-border mb-3 sm:mb-4" />
           <div class="flex-1 flex items-center justify-center">
             <p class="text-sm text-muted-foreground text-center">No settled payments in this period</p>
           </div>
@@ -52,15 +51,13 @@ const METHOD_COLORS: Record<string, string> = {
       <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <!-- Header -->
-          <div class="mb-1">
+          <div class="mb-4 sm:mb-5">
             <h2 class="text-card-title text-foreground">Payment Methods (UGX)</h2>
             <p class="text-[10px] sm:text-xs text-muted-foreground">Share of payments in selected period</p>
             <p class="text-[10px] sm:text-xs text-muted-foreground/80 mt-0.5">
               Total settled: <span class="font-medium text-foreground">{{ totalCompact }} UGX</span>
             </p>
           </div>
-
-          <hr class="border-border mb-3 sm:mb-4" />
 
           <!-- Method bars -->
           <div class="flex flex-col gap-3 flex-1">
@@ -105,7 +102,7 @@ const METHOD_COLORS: Record<string, string> = {
           </div>
 
           <!-- Footer -->
-          <p class="text-[10px] sm:text-xs text-muted-foreground mt-auto pt-3 border-t border-border">
+          <p class="text-[10px] sm:text-xs text-muted-foreground mt-auto pt-3">
             Based on settled payments in the selected period.
           </p>
         </div>
