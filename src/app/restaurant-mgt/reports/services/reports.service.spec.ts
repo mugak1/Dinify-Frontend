@@ -5,7 +5,6 @@ import { ReportsService } from './reports.service';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
-import { ReportDateRange } from '../models/reports.models';
 
 describe('ReportsService', () => {
   let service: ReportsService;
@@ -29,19 +28,11 @@ describe('ReportsService', () => {
     service = TestBed.inject(ReportsService);
   });
 
-  it('seeds the date range to the this-month default', () => {
-    expect(service.dateRange$.value.preset).toBe('this-month');
-    expect(service.dateRange$.value.from <= service.dateRange$.value.to).toBeTrue();
-  });
-
-  it('persists the range, keyed by restaurant, when it changes', () => {
-    const range: ReportDateRange = { preset: 'today', from: '2026-06-21', to: '2026-06-21' };
-    service.dateRange$.next(range);
-
-    expect(setItem).toHaveBeenCalled();
-    const [key, value] = setItem.calls.mostRecent().args;
-    expect(key).toBe('reports.dateRange:r1');
-    expect(value).toEqual(range);
+  // The date range moved to TimeframeService (URL-as-truth) in TIMEFRAME-01A. Its
+  // default-seed and per-restaurant-persistence coverage moved with it, to
+  // _shared/timeframe/timeframe.service.spec.ts — it was not dropped.
+  it('no longer owns the date range', () => {
+    expect((service as unknown as Record<string, unknown>)['dateRange$']).toBeUndefined();
   });
 
   it('seeds the compare toggle on (preserving the always-on default)', () => {

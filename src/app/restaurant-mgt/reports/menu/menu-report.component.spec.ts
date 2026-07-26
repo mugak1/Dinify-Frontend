@@ -2,7 +2,9 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { of, throwError } from 'rxjs';
 
 import { MenuReportComponent } from './menu-report.component';
+import { provideRouter } from '@angular/router';
 import { ReportsService } from '../services/reports.service';
+import { TimeframeService } from '../../../_shared/timeframe';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
@@ -18,11 +20,14 @@ describe('MenuReportComponent', () => {
   let component: MenuReportComponent;
   let fixture: ComponentFixture<MenuReportComponent>;
   let reports: ReportsService;
+  let timeframe: TimeframeService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MenuReportComponent],
       providers: [
+        provideRouter([]),
+        TimeframeService,
         { provide: ApiService, useValue: jasmine.createSpyObj('ApiService', ['get', 'loadAllPages']) },
         {
           provide: AuthenticationService,
@@ -34,6 +39,8 @@ describe('MenuReportComponent', () => {
     }).compileComponents();
 
     reports = TestBed.inject(ReportsService);
+
+    timeframe = TestBed.inject(TimeframeService);
     fixture = TestBed.createComponent(MenuReportComponent);
     component = fixture.componentInstance;
   });
@@ -78,7 +85,7 @@ describe('MenuReportComponent', () => {
   }));
 
   it('renders at a range longer than 31 days (no listing guard for menu)', fakeAsync(() => {
-    reports.dateRange$.next({ preset: 'custom', from: '2026-01-01', to: '2026-06-30' });
+    timeframe.set({ preset: 'custom', from: '2026-01-01', to: '2026-06-30' });
 
     component.ngOnInit();
     tick(600);

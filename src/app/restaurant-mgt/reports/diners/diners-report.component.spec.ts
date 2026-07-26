@@ -2,7 +2,9 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { of, throwError } from 'rxjs';
 
 import { DinersReportComponent } from './diners-report.component';
+import { provideRouter } from '@angular/router';
 import { ReportsService } from '../services/reports.service';
+import { TimeframeService } from '../../../_shared/timeframe';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
@@ -35,11 +37,14 @@ describe('DinersReportComponent', () => {
   let component: DinersReportComponent;
   let fixture: ComponentFixture<DinersReportComponent>;
   let reports: ReportsService;
+  let timeframe: TimeframeService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [DinersReportComponent],
       providers: [
+        provideRouter([]),
+        TimeframeService,
         { provide: ApiService, useValue: jasmine.createSpyObj('ApiService', ['get', 'loadAllPages']) },
         {
           provide: AuthenticationService,
@@ -50,6 +55,8 @@ describe('DinersReportComponent', () => {
     }).compileComponents();
 
     reports = TestBed.inject(ReportsService);
+
+    timeframe = TestBed.inject(TimeframeService);
     fixture = TestBed.createComponent(DinersReportComponent);
     component = fixture.componentInstance;
   });
@@ -114,7 +121,7 @@ describe('DinersReportComponent', () => {
   }));
 
   it('shows the most recent 31-day window (capped, NOT hidden) for a long range', fakeAsync(() => {
-    reports.dateRange$.next({ preset: 'custom', from: '2026-01-01', to: '2026-12-31' });
+    timeframe.set({ preset: 'custom', from: '2026-01-01', to: '2026-12-31' });
     spyOn(reports, 'getDinersSummary').and.returnValue(of({ data: summary() } as any));
     const listingSpy = spyOn(reports, 'getDinersListing').and.returnValue(of({ data: [dinerRow(1)] } as any));
 

@@ -1,0 +1,155 @@
+import { differenceInCalendarDays, getDay, parseISO } from 'date-fns';
+import {
+  REPORT_PRESETS,
+  defaultRange,
+  isFutureDated,
+  isValidReportDateRange,
+  parseTimeframeParams,
+  presetToRange,
+} from './timeframe-range';
+
+describe('timeframe range model', () => {
+  // Fixed reference date keeps month/week boundaries deterministic.
+  const now = new Date(2026, 5, 15); // 15 Jun 2026 (local)
+
+  describe('presetToRange', () => {
+    it('maps single-day presets', () => {
+      expect(presetToRange('today', now)).toEqual({ preset: 'today', from: '2026-06-15', to: '2026-06-15' });
+      expect(presetToRange('yesterday', now)).toEqual({
+        preset: 'yesterday',
+        from: '2026-06-14',
+        to: '2026-06-14',
+      });
+    });
+
+    // ── In-progress presets end at TODAY, not at the end of the period ──
+    it('clamps this-month to month-to-date, leaving last-month whole', () => {
+      expect(presetToRange('this-month', now)).toEqual({
+        preset: 'this-month',
+        from: '2026-06-01',
+        to: '2026-06-15', // today, NOT 2026-06-30
+      });
+      // A closed period is already wholly in the past — untouched.
+      expect(presetToRange('last-month', now)).toEqual({
+        preset: 'last-month',
+        from: '2026-05-01',
+        to: '2026-05-31',
+      });
+    });
+
+    it('clamps this-year to year-to-date', () => {
+      expect(presetToRange('this-year', now)).toEqual({
+        preset: 'this-year',
+        from: '2026-01-01',
+        to: '2026-06-15', // today, NOT 2026-12-31
+      });
+    });
+
+    it('clamps this-week to week-to-date, keeping the Monday start', () => {
+      const tw = presetToRange('this-week', now);
+      expect(getDay(parseISO(tw.from))).toBe(1); // Monday
+      expect(tw.to).toBe('2026-06-15'); // today — the reference date IS a Monday,
+      expect(tw.from).toBe('2026-06-15'); // so week-to-date is a single day here
+    });
+
+    it('leaves last-week a whole Monday→Sunday span, adjacent to this week', () => {
+      const tw = presetToRange('this-week', now);
+      const lw = presetToRange('last-week', now);
+      expect(getDay(parseISO(lw.from))).toBe(1); // Monday
+      expect(differenceInCalendarDays(parseISO(lw.to), parseISO(lw.from))).toBe(6);
+      // Last week ends the day before this week starts.
+      expect(differenceInCalendarDays(parseISO(tw.from), parseISO(lw.to))).toBe(1);
+    });
+
+    it('never emits a bound past today, for any preset', () => {
+      const today = '2026-06-15';
+      for (const p of REPORT_PRESETS) {
+        const r = presetToRange(p, now);
+        expect(r.from <= today)
+          .withContext(`${p} from=${r.from}`)
+          .toBeTrue();
+        expect(r.to <= today)
+          .withContext(`${p} to=${r.to}`)
+          .toBeTrue();
+      }
+    });
+
+    it('defaults to month-to-date (always ≤31 days)', () => {
+      const d = defaultRange(now);
+      expect(d.preset).toBe('this-month');
+      expect(d.to).toBe('2026-06-15'); // ends today, not at month-end
+      expect(differenceInCalendarDays(parseISO(d.to), parseISO(d.from))).toBeLessThanOrEqual(31);
+    });
+  });
+
+  describe('isValidReportDateRange', () => {
+    it('accepts a well-formed range', () => {
+      expect(isValidReportDateRange({ preset: 'today', from: '2026-06-15', to: '2026-06-15' })).toBeTrue();
+    });
+
+    it('rejects bad presets, bad dates, inverted ranges and non-objects', () => {
+      expect(isValidReportDateRange({ preset: 'nope', from: '2026-06-15', to: '2026-06-15' })).toBeFalse();
+      expect(isValidReportDateRange({ preset: 'today', from: '2026/06/15', to: '2026-06-15' })).toBeFalse();
+      expect(isValidReportDateRange({ preset: 'today', from: '2026-06-16', to: '2026-06-15' })).toBeFalse();
+      expect(isValidReportDateRange(null)).toBeFalse();
+      expect(isValidReportDateRange('today')).toBeFalse();
+    });
+
+    it('does NOT range-check against today — that is isFutureDated\'s job', () => {
+      // Kept as a separate rule so the seed can be shape-validated without also
+      // asserting recency; the URL parser composes the two.
+      expect(isValidReportDateRange({ preset: 'custom', from: '2999-01-01', to: '2999-01-02' })).toBeTrue();
+    });
+  });
+
+  describe('isFutureDated', () => {
+    it('flags a bound after today, and only that', () => {
+      expect(isFutureDated({ from: '2026-06-01', to: '2026-06-15' }, now)).toBeFalse(); // to === today
+      expect(isFutureDated({ from: '2026-06-01', to: '2026-06-16' }, now)).toBeTrue();
+      expect(isFutureDated({ from: '2026-06-16', to: '2026-06-20' }, now)).toBeTrue();
+    });
+  });
+
+  describe('parseTimeframeParams', () => {
+    const parse = (from: string | null, to: string | null, preset: string | null = null) =>
+      parseTimeframeParams({ from, to, preset }, now);
+
+    it('accepts a valid, past-bounded pair and keeps a known preset', () => {
+      expect(parse('2026-06-01', '2026-06-15', 'this-month')).toEqual({
+        preset: 'this-month',
+        from: '2026-06-01',
+        to: '2026-06-15',
+      });
+    });
+
+    it('coerces an absent or unrecognised preset to custom rather than rejecting', () => {
+      expect(parse('2026-06-01', '2026-06-10')).toEqual({
+        preset: 'custom',
+        from: '2026-06-01',
+        to: '2026-06-10',
+      });
+      expect(parse('2026-06-01', '2026-06-10', 'banana')).toEqual({
+        preset: 'custom',
+        from: '2026-06-01',
+        to: '2026-06-10',
+      });
+    });
+
+    it('returns null for absent, malformed, inverted or future params — never throws', () => {
+      expect(() => parse(null, null)).not.toThrow();
+      expect(parse(null, null)).toBeNull();
+      expect(parse('2026-06-01', null)).toBeNull(); // incomplete pair
+      expect(parse('2026-13-45', '2026-06-15')).toBeNull(); // unparseable
+      expect(parse('2026/06/01', '2026-06-15')).toBeNull(); // wrong separator
+      expect(parse('2026-06-10', '2026-06-01')).toBeNull(); // inverted
+      expect(parse('2026-06-01', '2999-01-01')).toBeNull(); // future `to`
+      expect(parse('2999-01-01', '2999-01-02')).toBeNull(); // wholly future
+    });
+
+    it('rejects a regex-shaped but non-existent calendar date', () => {
+      // 2026 is not a leap year, and February never has 31 days.
+      expect(parse('2026-02-29', '2026-06-15')).toBeNull();
+      expect(parse('2026-06-01', '2026-02-31')).toBeNull();
+    });
+  });
+});

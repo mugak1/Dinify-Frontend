@@ -11,7 +11,8 @@
 // xlsx library — it is dynamically imported only when an .xlsx is generated.
 
 import { format as formatDate, parseISO } from 'date-fns';
-import { ReportColumn, ReportDateRange } from '../models/reports.models';
+import { ReportColumn } from '../models/reports.models';
+import { ReportDateRange } from '../../../_shared/timeframe';
 
 export interface ReportExportContext {
   reportTitle: string;

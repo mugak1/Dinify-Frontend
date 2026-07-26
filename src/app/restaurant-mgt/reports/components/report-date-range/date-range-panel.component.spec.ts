@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { DateRangePanelComponent } from './date-range-panel.component';
-import { ReportDateRange } from '../../models/reports.models';
+import { ReportDateRange } from '../../../../_shared/timeframe';
 
 describe('DateRangePanelComponent', () => {
   let fixture: ComponentFixture<DateRangePanelComponent>;

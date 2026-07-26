@@ -1,15 +1,16 @@
 import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
-import { ReportDateRange, ReportPreset, presetToRange } from '../models/reports.models';
+import { ReportDateRange, ReportPreset, presetToRange } from './timeframe-range';
 import {
   BUCKET_TO_CATEGORY,
   HOURLY_MAX_DAYS,
+  ReportBucketUnit,
   SALES_TRENDS_CAP_DAYS,
   comparisonRange,
   comparisonRangeLabel,
   resolveTimeframe,
-} from './reports-timeframe';
+} from './timeframe-engine';
 
-describe('reports timeframe engine', () => {
+describe('shared timeframe engine', () => {
   // Fixed reference date keeps month/week/year boundaries deterministic.
   const NOW = new Date(2026, 5, 15); // 15 Jun 2026 (local)
   const ANCHOR = '2026-06-15';
@@ -78,6 +79,39 @@ describe('reports timeframe engine', () => {
       expect(r.clamped).toBeFalse();
       expect(r.effectiveRange).toEqual(rangeOfSpan(1850));
     });
+
+    // Regression guard for the presetToRange to-date clamp: shortening an in-progress
+    // preset must not silently re-bucket the report it feeds. Mid-period both the
+    // clamped and unclamped spans land in the same ladder tier.
+    it('keeps the bucket an in-progress preset resolves to, clamped or not', () => {
+      const cases: Array<[string, ReportDateRange, ReportDateRange, ReportBucketUnit]> = [
+        [
+          'this-month',
+          presetToRange('this-month', NOW), // 2026-06-01 → 06-15, span 14
+          { preset: 'this-month', from: '2026-06-01', to: '2026-06-30' }, // span 29
+          'day',
+        ],
+        [
+          'this-year',
+          presetToRange('this-year', NOW), // 2026-01-01 → 06-15, span 165
+          { preset: 'this-year', from: '2026-01-01', to: '2026-12-31' }, // span 364
+          'month',
+        ],
+      ];
+      for (const [label, clamped, unclamped, expected] of cases) {
+        expect(resolveTimeframe(clamped).bucketUnit).withContext(`${label} clamped`).toBe(expected);
+        expect(resolveTimeframe(unclamped).bucketUnit)
+          .withContext(`${label} unclamped`)
+          .toBe(expected);
+      }
+    });
+
+    // The one place the clamp DOES move the bucket, documented rather than guarded: on
+    // the opening day(s) of a period the to-date span is ≤ HOURLY_MAX_DAYS, so the range
+    // renders hour-of-day — the same treatment `today` already gets. NOW is a Monday.
+    it('buckets an opening-of-period preset by hour, as any ≤1-day span is', () => {
+      expect(resolveTimeframe(presetToRange('this-week', NOW)).bucketUnit).toBe('hour');
+    });
   });
 
   describe('resolveTimeframe — over-cap clamp', () => {
@@ -116,13 +150,17 @@ describe('reports timeframe engine', () => {
       });
     });
 
-    it('this-week → last-week (equal-length Mon–Sun window)', () => {
+    it('this-week → the same week-to-date window one week back', () => {
+      // this-week is clamped to week-to-date, so its comparison shifts BOTH bounds by a
+      // week rather than landing on the whole of last week — deliberately like-for-like
+      // (N days vs the same N days), unlike the month/year cases below.
+      const tw = presetToRange('this-week', NOW);
+      const comp = comparisonRange(tw);
+      expect(comp).toEqual({ preset: 'custom', from: '2026-06-08', to: '2026-06-08' });
+      expect(inclusiveLen(comp)).toBe(inclusiveLen(tw));
+      // It sits inside last week, which is a full Mon–Sun span in its own right.
       const lw = presetToRange('last-week', NOW);
-      expect(comparisonRange(presetToRange('this-week', NOW))).toEqual({
-        preset: 'custom',
-        from: lw.from,
-        to: lw.to,
-      });
+      expect(comp.from >= lw.from && comp.to <= lw.to).toBeTrue();
     });
 
     it('last-week → the week before it (equal length, adjacent)', () => {

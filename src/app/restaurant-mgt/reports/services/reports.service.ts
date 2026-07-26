@@ -2,8 +2,11 @@
 //
 // Mirrors DashboardService exactly: a USE_MOCK_DATA flag gates a mock branch
 // (of({data}).pipe(delay)) against a scaffolded real branch (api.get / loadAllPages
-// → adapter). The date range is a PersistedBehaviorSubject keyed by restaurant,
-// so it survives both report switches and full sessions.
+// → adapter).
+//
+// The active DATE RANGE is NOT here. It moved to the route-scoped `TimeframeService`
+// (`_shared/timeframe/`) in TIMEFRAME-01A, where the URL owns it — read it from there,
+// not from this service. What stays is the refresh signal and the compare toggle.
 
 import { Injectable } from '@angular/core';
 import { Observable, Subject, of } from 'rxjs';
@@ -18,15 +21,12 @@ import {
   DinersSummary,
   MenuGrouping,
   MenuRow,
-  ReportDateRange,
   ReportGranularity,
   SalesAggregateRow,
   SalesHourlyRow,
   SalesListingRow,
   TransactionsListingRow,
   TransactionsSummary,
-  defaultRange,
-  isValidReportDateRange,
 } from '../models/reports.models';
 import {
   getMockDinersListing,
@@ -71,14 +71,13 @@ export class ReportsService {
   /** Emit to force a data reload. */
   refresh$ = new Subject<void>();
 
-  /** Shared, persisted preset date range (survives report switches AND sessions). */
-  dateRange$!: PersistedBehaviorSubject<ReportDateRange>;
-
   /**
    * Shared, persisted "compare to previous period" toggle. Default `true` preserves
    * the original always-on behaviour; when `false` every surface hides its comparison
-   * UI (the Sales ghost line + all delta chips). Keyed per-restaurant, exactly like
-   * `dateRange$`, so it survives report switches AND sessions.
+   * UI (the Sales ghost line + all delta chips). Keyed per-restaurant, so it survives
+   * report switches AND sessions. Unlike the date range, this stays localStorage-primary
+   * with no URL param — Phase 2 replaces it wholesale with a comparison vocabulary, and
+   * half-migrating it now would be worse than leaving it alone.
    */
   compareEnabled$!: PersistedBehaviorSubject<boolean>;
 
@@ -87,11 +86,6 @@ export class ReportsService {
     private localStorage: LocalStorageService,
     private auth: AuthenticationService,
   ) {
-    this.dateRange$ = new PersistedBehaviorSubject<ReportDateRange>(defaultRange(), {
-      storage: this.localStorage,
-      getKey: () => `reports.dateRange:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
-      validate: isValidReportDateRange,
-    });
     this.compareEnabled$ = new PersistedBehaviorSubject<boolean>(true, {
       storage: this.localStorage,
       getKey: () => `reports.compareEnabled:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,

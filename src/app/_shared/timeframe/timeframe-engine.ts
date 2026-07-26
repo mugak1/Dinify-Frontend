@@ -1,12 +1,15 @@
-// Reports timeframe engine — pure range→bucket resolution + comparison windows.
+// Shared timeframe engine — pure range→bucket resolution + comparison windows.
 //
-// Generalises the binary `days <= 31 ? 'daily' : 'monthly'` derivation (today
-// living inline in sales-report.component.ts) into a 4-tier ladder that mirrors
-// the backend's sales-trends day-span caps, and adds the single-day → hour-of-day
-// path that feeds the new `sales-hourly` endpoint. Pure functions only (no DI, no
-// component) so the ladder, the cap clamp, and the comparison-window maths are
-// unit-testable in isolation. Lands DORMANT — no tab calls it yet (PRs B–E adopt
-// it); it is validated entirely by reports-timeframe.spec.ts.
+// Generalises the binary `days <= 31 ? 'daily' : 'monthly'` derivation into a 4-tier
+// ladder that mirrors the backend's sales-trends day-span caps, and adds the
+// single-day → hour-of-day path that feeds the `sales-hourly` endpoint. Pure
+// functions only (no DI, no component) so the ladder, the cap clamp, and the
+// comparison-window maths are unit-testable in isolation.
+//
+// Relocated out of the Reports module (TIMEFRAME-01A) alongside the range model so
+// Dashboard can adopt the same ladder in 01B. Live consumers today: the Reports shell
+// (comparisonRangeLabel), all four report tabs (comparisonRange), and the Sales tab +
+// sales-view (resolveTimeframe / ReportBucketUnit / SalesTrendsCategory).
 
 import {
   differenceInCalendarDays,
@@ -21,7 +24,7 @@ import {
   subWeeks,
   subYears,
 } from 'date-fns';
-import { ReportDateRange } from '../models/reports.models';
+import { ReportDateRange } from './timeframe-range';
 
 /** Time bucket the UI renders a range at. `hour` is the single-day sales-hourly path. */
 export type ReportBucketUnit = 'hour' | 'day' | 'month' | 'year';

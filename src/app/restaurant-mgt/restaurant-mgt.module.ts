@@ -25,6 +25,7 @@ import { IdentityComponent } from './settings/identity/identity.component';
 import { AvailabilityComponent } from './settings/availability/availability.component';
 import { TaxReceiptsComponent } from './settings/tax-receipts/tax-receipts.component';
 import { ReportsShellComponent } from './reports/shell/reports-shell.component';
+import { TimeframeService } from '../_shared/timeframe';
 import { SalesReportComponent } from './reports/sales/sales-report.component';
 import { MenuReportComponent } from './reports/menu/menu-report.component';
 import { TransactionsReportComponent } from './reports/transactions/transactions-report.component';
@@ -97,7 +98,11 @@ export const restaurantMgtRoutes: Routes = [
 
   {path:'reviews',component:ReviewsOverviewComponent,title:'Reviews',canActivate:[permissionGuard],data:{module:'reviews'}},
   {path:'reviews/feed',component:ReviewsFeedComponent,title:'Reviews',canActivate:[permissionGuard],data:{module:'reviews'}},
-  {path:'reports',component:ReportsShellComponent,title:'Reports',canActivate:[permissionGuard],data:{module:'reports'},children:[
+  // TimeframeService is scoped to this route subtree ON PURPOSE, not providedIn:'root' —
+  // it makes the URL the source of truth for the date range, so it must only exist where
+  // a timeframe exists. Route providers build one EnvironmentInjector for the subtree, so
+  // the shell and all four children share the single instance.
+  {path:'reports',component:ReportsShellComponent,title:'Reports',canActivate:[permissionGuard],data:{module:'reports'},providers:[TimeframeService],children:[
     {path: "", redirectTo: "sales", pathMatch: "full"},
     {path:'sales',component:SalesReportComponent,title:'Sales'},
     {path:'menu',component:MenuReportComponent,title:'Menu performance'},

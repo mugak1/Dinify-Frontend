@@ -18,7 +18,7 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, QueryParamsHandling, RouterModule } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { cn } from '../../utils/cn';
 
@@ -91,6 +91,7 @@ export type DnSegLayout = 'hug' | 'responsive' | 'fill';
             #seg
             [routerLink]="it.path"
             [relativeTo]="relativeTo ?? null"
+            [queryParamsHandling]="queryParamsHandling ?? null"
             [attr.aria-current]="isActive(it) ? 'page' : null"
             [class]="segClass(it)"
           >
@@ -135,6 +136,13 @@ export class DnSegmentedComponent implements OnChanges, AfterViewInit {
   /** Router mode escape hatch — pass the host's `ActivatedRoute` so relative `routerLink`s
    *  resolve unambiguously even under a nested outlet. Unbound is fine for the common case. */
   @Input() relativeTo?: ActivatedRoute;
+  /**
+   * Router mode: what each segment does with the CURRENT query params. Unbound keeps
+   * Angular's default of DROPPING them — which silently loses any state the URL owns
+   * (e.g. the Reports timeframe) the moment you switch segments. A rail whose siblings
+   * share URL state must pass `'merge'`.
+   */
+  @Input() queryParamsHandling?: QueryParamsHandling;
 
   /** Value mode only. */
   @Output() valueChange = new EventEmitter<string>();

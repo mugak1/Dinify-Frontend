@@ -9,7 +9,8 @@ import { Component, Input } from '@angular/core';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
 import { AuthenticationService } from '../../../../_services/authentication.service';
-import { ReportColumn, ReportDateRange } from '../../models/reports.models';
+import { ReportColumn } from '../../models/reports.models';
+import { ReportDateRange } from '../../../../_shared/timeframe';
 import { exportCsv, exportXlsx } from '../../utils/report-export';
 import { printReport } from '../../utils/report-print-sheet';
 

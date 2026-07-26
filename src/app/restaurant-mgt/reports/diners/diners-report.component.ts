@@ -14,8 +14,13 @@ import { Subject, combineLatest, of } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
-import { comparisonRange } from '../utils/reports-timeframe';
-import { DinersListingRow, DinersSummary, ReportColumn, ReportDateRange, ReportPreset } from '../models/reports.models';
+import {
+  comparisonRange,
+  ReportDateRange,
+  ReportPreset,
+  TimeframeService,
+} from '../../../_shared/timeframe';
+import { DinersListingRow, DinersSummary, ReportColumn } from '../models/reports.models';
 import { sumColumns } from '../data/reports-mock-data';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import {
@@ -100,6 +105,7 @@ export class DinersReportComponent implements OnInit, OnDestroy {
 
   constructor(
     private reports: ReportsService,
+    private timeframe: TimeframeService,
     private auth: AuthenticationService,
   ) {}
 
@@ -111,7 +117,7 @@ export class DinersReportComponent implements OnInit, OnDestroy {
       return;
     }
 
-    combineLatest([this.reports.dateRange$, this.reports.refresh$.pipe(startWith(undefined))])
+    combineLatest([this.timeframe.range$, this.reports.refresh$.pipe(startWith(undefined))])
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {

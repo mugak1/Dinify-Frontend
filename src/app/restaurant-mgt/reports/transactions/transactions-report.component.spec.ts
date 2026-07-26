@@ -2,7 +2,9 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { of, throwError } from 'rxjs';
 
 import { TransactionsReportComponent } from './transactions-report.component';
+import { provideRouter } from '@angular/router';
 import { ReportsService } from '../services/reports.service';
+import { TimeframeService } from '../../../_shared/timeframe';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
@@ -44,11 +46,14 @@ describe('TransactionsReportComponent', () => {
   let component: TransactionsReportComponent;
   let fixture: ComponentFixture<TransactionsReportComponent>;
   let reports: ReportsService;
+  let timeframe: TimeframeService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TransactionsReportComponent],
       providers: [
+        provideRouter([]),
+        TimeframeService,
         { provide: ApiService, useValue: jasmine.createSpyObj('ApiService', ['get', 'loadAllPages']) },
         {
           provide: AuthenticationService,
@@ -59,6 +64,8 @@ describe('TransactionsReportComponent', () => {
     }).compileComponents();
 
     reports = TestBed.inject(ReportsService);
+
+    timeframe = TestBed.inject(TimeframeService);
     fixture = TestBed.createComponent(TransactionsReportComponent);
     component = fixture.componentInstance;
   });
@@ -97,7 +104,7 @@ describe('TransactionsReportComponent', () => {
   }));
 
   it('shows the most recent 31-day window (capped, NOT hidden) for a long range', fakeAsync(() => {
-    reports.dateRange$.next({ preset: 'custom', from: '2026-01-01', to: '2026-06-30' }); // 180 days
+    timeframe.set({ preset: 'custom', from: '2026-01-01', to: '2026-06-30' }); // 180 days
     spyOn(reports, 'getTransactionsSummary').and.returnValue(of({ data: summary() } as any));
     const listingSpy = spyOn(reports, 'getTransactionsListing').and.returnValue(of({ data: [listingRow(1)] } as any));
 

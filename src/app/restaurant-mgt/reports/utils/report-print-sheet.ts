@@ -6,7 +6,8 @@
 
 import { format as formatDate, parseISO } from 'date-fns';
 import { formatUGX } from '../../../_shared/utils/price-utils';
-import { ReportColumn, ReportDateRange } from '../models/reports.models';
+import { ReportColumn } from '../models/reports.models';
+import { ReportDateRange } from '../../../_shared/timeframe';
 
 export interface ReportPrintContext {
   reportTitle: string;

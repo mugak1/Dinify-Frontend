@@ -16,14 +16,15 @@ import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import {
   comparisonRange,
-  resolveTimeframe,
   ReportBucketUnit,
-  SalesTrendsCategory,
-} from '../utils/reports-timeframe';
-import {
-  ReportColumn,
   ReportDateRange,
   ReportPreset,
+  resolveTimeframe,
+  SalesTrendsCategory,
+  TimeframeService,
+} from '../../../_shared/timeframe';
+import {
+  ReportColumn,
   SalesAggregateRow,
   SalesHourlyRow,
   SalesListingRow,
@@ -138,6 +139,7 @@ export class SalesReportComponent implements OnInit, OnDestroy {
 
   constructor(
     private reports: ReportsService,
+    private timeframe: TimeframeService,
     private auth: AuthenticationService,
   ) {}
 
@@ -149,7 +151,7 @@ export class SalesReportComponent implements OnInit, OnDestroy {
       return;
     }
 
-    combineLatest([this.reports.dateRange$, this.reports.refresh$.pipe(startWith(undefined))])
+    combineLatest([this.timeframe.range$, this.reports.refresh$.pipe(startWith(undefined))])
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {
