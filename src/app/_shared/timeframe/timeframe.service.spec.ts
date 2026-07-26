@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { firstValueFrom } from 'rxjs';
 
 import { TimeframeService } from './timeframe.service';
+import { TIMEFRAME_CONFIG } from './timeframe-config';
 import { ReportDateRange, defaultRange } from './timeframe-range';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
@@ -26,7 +27,20 @@ describe('TimeframeService — the URL is the source of truth', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
-          { path: 'reports', component: HostComponent, providers: [TimeframeService] },
+          {
+            path: 'reports',
+            component: HostComponent,
+            // Register the config exactly as the production route does. The token has a
+            // root default, but it is deliberately NEUTRAL — leaning on it here would
+            // test a fallback no host actually uses.
+            providers: [
+              TimeframeService,
+              {
+                provide: TIMEFRAME_CONFIG,
+                useValue: { seedKey: 'reports.dateRange', defaultPreset: 'this-month' },
+              },
+            ],
+          },
           { path: 'elsewhere', component: HostComponent },
         ]),
         {
@@ -263,5 +277,87 @@ describe('TimeframeService — the URL is the source of truth', () => {
   it('exposes range$ with BehaviorSubject replay semantics', async () => {
     const { service } = await bootAt('/reports?from=2026-05-01&to=2026-05-31&preset=custom');
     await expectAsync(firstValueFrom(service.range$)).toBeResolvedTo(service.value);
+  });
+
+  // TIMEFRAME_CONFIG — the seed key and the landing preset are per HOST, so two hosts
+  // can never inherit each other's "last used" range. Host-vs-host isolation through the
+  // real router is pinned separately in restaurant-mgt/timeframe-host-isolation.spec.ts;
+  // these cases pin that the service reads the token at all.
+  describe('TIMEFRAME_CONFIG', () => {
+    /** Boots at `url` with an explicit config, mirroring a production route. */
+    async function bootWithConfig(
+      url: string,
+      config: { seedKey: string; defaultPreset: 'today' | 'this-month' },
+    ): Promise<TimeframeService> {
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([
+            {
+              path: 'anywhere',
+              component: HostComponent,
+              providers: [TimeframeService, { provide: TIMEFRAME_CONFIG, useValue: config }],
+            },
+          ]),
+          {
+            provide: AuthenticationService,
+            useValue: { currentRestaurantRole: { restaurant_id: 'r1' } },
+          },
+          {
+            provide: LocalStorageService,
+            useValue: { getItem: (k: string) => stored[k] ?? null, setItem },
+          },
+        ],
+      });
+
+      const harness = await RouterTestingHarness.create(url);
+      const service = harness.routeDebugElement!.injector.get(TimeframeService);
+      await flush();
+      return service;
+    }
+
+    it('lands on the host default preset when neither URL nor seed supplies a range', async () => {
+      const service = await bootWithConfig('/anywhere', {
+        seedKey: 'dashboard.timeframe',
+        defaultPreset: 'today',
+      });
+
+      expect(service.value.preset).toBe('today');
+      expect(service.value.from).toBe(today);
+      expect(service.value.to).toBe(today);
+    });
+
+    it('writes the seed under the host key, never a shared one', async () => {
+      const service = await bootWithConfig('/anywhere', {
+        seedKey: 'dashboard.timeframe',
+        defaultPreset: 'today',
+      });
+
+      service.set({ preset: 'custom', from: '2026-03-01', to: '2026-03-31' });
+
+      expect(setItem).toHaveBeenCalledWith('dashboard.timeframe:r1', jasmine.anything());
+      // The whole point of the token: this host can never touch the Reports memo.
+      expect(setItem).not.toHaveBeenCalledWith(SEED_KEY, jasmine.anything());
+    });
+
+    it('reads its seed from the host key', async () => {
+      const seeded: ReportDateRange = { preset: 'custom', from: '2026-02-01', to: '2026-02-14' };
+      stored['dashboard.timeframe:r1'] = seeded;
+
+      const service = await bootWithConfig('/anywhere', {
+        seedKey: 'dashboard.timeframe',
+        defaultPreset: 'today',
+      });
+
+      expect(service.value).toEqual(seeded);
+    });
+
+    it("the reports config's landing range is exactly the pre-token defaultRange()", async () => {
+      const service = await bootWithConfig('/anywhere', {
+        seedKey: 'reports.dateRange',
+        defaultPreset: 'this-month',
+      });
+
+      expect(service.value).toEqual(defaultRange());
+    });
   });
 });

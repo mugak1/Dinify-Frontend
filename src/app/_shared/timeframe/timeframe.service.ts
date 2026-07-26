@@ -6,12 +6,17 @@
 // is demoted to a per-restaurant "last used" SEED — see `seed` below.
 //
 // SCOPE. This service is deliberately NOT `providedIn: 'root'`. It is registered on
-// the Reports parent route (`providers: [TimeframeService]` in restaurant-mgt.module),
-// so it exists only while that subtree is active and cannot stamp `?from=…&to=…` onto
-// the URL of a page that has no timeframe. Route `providers` create an
-// EnvironmentInjector for the subtree, so the shell and all four routed children
-// resolve the SAME instance. Adding a second host (01B's Dashboard) means adding a
-// second route registration, not switching this to root.
+// each host ROUTE (`providers: [TimeframeService, {provide: TIMEFRAME_CONFIG, …}]` in
+// restaurant-mgt.module), so it exists only while that subtree is active and cannot
+// stamp `?from=…&to=…` onto the URL of a page that has no timeframe. Route `providers`
+// create an EnvironmentInjector for the subtree, so a shell and its routed children
+// resolve the SAME instance. There are TWO hosts as of 01B — the Reports shell and the
+// Dashboard — and each got there by adding a route registration, not by switching this
+// to root. A third host is the same move again.
+//
+// PER-HOST CONFIG. The seed key and the landing preset come from `TIMEFRAME_CONFIG`
+// (see timeframe-config.ts) rather than being hardcoded here: two hosts must not share
+// a "last used" memo, and they land on different defaults.
 //
 // REPLACE, NEVER PUSH. Every timeframe write navigates with `replaceUrl: true`. Once
 // the period-stepping arrows land (01C), pushing would put twenty history entries
@@ -22,19 +27,21 @@
 // PARAM VOCABULARY. `from` / `to` rather than `start` / `end`, matching the names the
 // API layer already uses — one vocabulary, not two.
 
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { ParamMap, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
 import { PersistedBehaviorSubject } from '../../_services/storage/persisted-state';
+import { TIMEFRAME_CONFIG, TimeframeConfig } from './timeframe-config';
 import {
   ReportDateRange,
-  defaultRange,
+  ReportPreset,
   isFutureDated,
   isValidReportDateRange,
   parseTimeframeParams,
+  presetToRange,
 } from './timeframe-range';
 
 const rangesEqual = (a: ReportDateRange, b: ReportDateRange): boolean =>
@@ -57,6 +64,10 @@ export class TimeframeService {
 
   private readonly _range$: BehaviorSubject<ReportDateRange>;
 
+  /** This host's landing preset. Read once from `TIMEFRAME_CONFIG`; `resolveOnEntry`
+   *  runs from the constructor body, so it must be assigned before that call. */
+  private readonly defaultPreset: Exclude<ReportPreset, 'custom'>;
+
   /** The active range. Shape-compatible with the `dateRange$` it replaced: emits the
    *  current value on subscribe, so `combineLatest` consumers need no other change. */
   readonly range$: Observable<ReportDateRange>;
@@ -65,10 +76,13 @@ export class TimeframeService {
     private router: Router,
     localStorage: LocalStorageService,
     auth: AuthenticationService,
+    @Inject(TIMEFRAME_CONFIG) config: TimeframeConfig,
   ) {
-    this.seed = new PersistedBehaviorSubject<ReportDateRange>(defaultRange(), {
+    this.defaultPreset = config.defaultPreset;
+
+    this.seed = new PersistedBehaviorSubject<ReportDateRange>(this.hostDefault(), {
       storage: localStorage,
-      getKey: () => `reports.dateRange:${auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
+      getKey: () => `${config.seedKey}:${auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
       validate: isValidReportDateRange,
     });
 
@@ -99,6 +113,12 @@ export class TimeframeService {
     return this._range$.value;
   }
 
+  /** This host's landing range. Was `defaultRange()` before the config token — which
+   *  is literally `presetToRange('this-month')`, so Reports is unchanged. */
+  private hostDefault(): ReportDateRange {
+    return presetToRange(this.defaultPreset);
+  }
+
   /**
    * Commit a new timeframe. Writes the seed, emits optimistically, then puts the range
    * in the URL. The optimistic emit preserves the synchronous-on-write semantics the
@@ -115,7 +135,7 @@ export class TimeframeService {
    * Entry resolution, in priority order:
    *   1. Valid URL params  → authoritative. Refresh the seed; leave the URL alone.
    *   2. Usable seed       → adopt it and publish it to the URL.
-   *   3. Neither           → `defaultRange()`, published to the URL.
+   *   3. Neither           → this host's `defaultPreset`, published to the URL.
    *
    * The seed gets a `isFutureDated` check the URL path already applies: a stale entry
    * written before in-progress presets were clamped (e.g. `to: 2026-07-31` saved mid-
@@ -139,7 +159,7 @@ export class TimeframeService {
       return { range: seeded, writeUrl: true, writeSeed: false };
     }
 
-    return { range: defaultRange(), writeUrl: true, writeSeed: true };
+    return { range: this.hostDefault(), writeUrl: true, writeSeed: true };
   }
 
   /** Adopt a range the URL now carries. Deliberately inert on absent/invalid params —

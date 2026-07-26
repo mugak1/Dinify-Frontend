@@ -23,4 +23,7 @@ export {
 } from './timeframe-engine';
 export type { ReportBucketUnit, SalesTrendsCategory, TimeframeResolution } from './timeframe-engine';
 
+export { TIMEFRAME_CONFIG } from './timeframe-config';
+export type { TimeframeConfig } from './timeframe-config';
+
 export { TimeframeService } from './timeframe.service';
