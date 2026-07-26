@@ -8,7 +8,12 @@
 // anchors + white sliding glider). The shell owns only the URL→active derivation:
 // `activeKey` is seeded from the URL and updated on NavigationEnd, then fed to the
 // control as `[value]`. All glider geometry/measurement/ResizeObserver logic now lives
-// inside the shared control.
+// inside the shared control. The switcher passes `queryParamsHandling="merge"` so the
+// timeframe params ride along to the next tab instead of being dropped.
+//
+// The date range itself is owned by the route-scoped `TimeframeService`, where the URL
+// is the source of truth — this shell only reads `range$` and hands picker output to
+// `set()`. The compare toggle is still `ReportsService`' localStorage-backed subject.
 
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -19,8 +24,8 @@ import { ReportsService } from '../services/reports.service';
 import { ReportDateRangeComponent } from '../components/report-date-range/report-date-range.component';
 import { SwitchComponent } from '../../../_shared/ui/switch/switch.component';
 import { DnSegmentedComponent, DnSegItem } from '../../../_shared/ui/segmented/segmented.component';
-import { comparisonRangeLabel } from '../utils/reports-timeframe';
-import { ReportDateRange, ReportKey } from '../models/reports.models';
+import { ReportDateRange, TimeframeService, comparisonRangeLabel } from '../../../_shared/timeframe';
+import { ReportKey } from '../models/reports.models';
 
 @Component({
   selector: 'app-reports-shell',
@@ -35,7 +40,7 @@ import { ReportDateRange, ReportKey } from '../models/reports.models';
   templateUrl: './reports-shell.component.html',
 })
 export class ReportsShellComponent {
-  readonly range$ = this.reports.dateRange$;
+  readonly range$ = this.timeframe.range$;
   readonly compareEnabled$ = this.reports.compareEnabled$;
   /** "Compare to {label}" — the label reflects the comparison period for the active range. */
   readonly compareLabel$ = this.range$.pipe(map((r) => comparisonRangeLabel(r)));
@@ -54,6 +59,7 @@ export class ReportsShellComponent {
 
   constructor(
     private reports: ReportsService,
+    private timeframe: TimeframeService,
     private router: Router,
     public route: ActivatedRoute,
   ) {
@@ -71,7 +77,7 @@ export class ReportsShellComponent {
   }
 
   onRange(range: ReportDateRange): void {
-    this.reports.dateRange$.next(range);
+    this.timeframe.set(range);
   }
 
   onCompareToggle(enabled: boolean): void {

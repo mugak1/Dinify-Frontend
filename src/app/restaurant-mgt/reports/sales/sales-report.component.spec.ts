@@ -2,7 +2,9 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { of, throwError } from 'rxjs';
 
 import { SalesReportComponent } from './sales-report.component';
+import { provideRouter } from '@angular/router';
 import { ReportsService } from '../services/reports.service';
+import { TimeframeService } from '../../../_shared/timeframe';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
@@ -12,11 +14,14 @@ describe('SalesReportComponent', () => {
   let component: SalesReportComponent;
   let fixture: ComponentFixture<SalesReportComponent>;
   let reports: ReportsService;
+  let timeframe: TimeframeService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SalesReportComponent],
       providers: [
+        provideRouter([]),
+        TimeframeService,
         provideCharts(withDefaultRegisterables()),
         { provide: ApiService, useValue: jasmine.createSpyObj('ApiService', ['get', 'loadAllPages']) },
         {
@@ -28,6 +33,8 @@ describe('SalesReportComponent', () => {
     }).compileComponents();
 
     reports = TestBed.inject(ReportsService);
+
+    timeframe = TestBed.inject(TimeframeService);
     fixture = TestBed.createComponent(SalesReportComponent);
     component = fixture.componentInstance;
   });
@@ -46,7 +53,7 @@ describe('SalesReportComponent', () => {
   }));
 
   it('uses the hourly bucket for a single-day range and hides the weekday cycle', fakeAsync(() => {
-    reports.dateRange$.next({ preset: 'today', from: '2026-06-15', to: '2026-06-15' });
+    timeframe.set({ preset: 'today', from: '2026-06-15', to: '2026-06-15' });
     component.ngOnInit();
     tick(600);
 
@@ -58,7 +65,7 @@ describe('SalesReportComponent', () => {
 
   it('uses the monthly bucket for a single calendar year and hides the weekday cycle', fakeAsync(() => {
     // ~364 days ≤ the 731-day monthly cap → a single year stays a MONTHLY bucket.
-    reports.dateRange$.next({ preset: 'this-year', from: '2026-01-01', to: '2026-12-31' });
+    timeframe.set({ preset: 'this-year', from: '2026-01-01', to: '2026-12-31' });
     component.ngOnInit();
     tick(600);
 
@@ -72,7 +79,7 @@ describe('SalesReportComponent', () => {
     // 'annual'; the component must consume tf.category and NOT collapse it to monthly
     // (which the backend would 400). callThrough so the mock still feeds the cards.
     const aggSpy = spyOn(reports, 'getSalesAggregate').and.callThrough();
-    reports.dateRange$.next({ preset: 'custom', from: '2023-01-01', to: '2026-12-31' });
+    timeframe.set({ preset: 'custom', from: '2023-01-01', to: '2026-12-31' });
     component.ngOnInit();
     tick(600);
 

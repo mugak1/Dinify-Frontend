@@ -189,7 +189,7 @@ so keep it current when conventions change.
   that surface read-only on the operator Feed. The old monolithic
   reviews-management surface has been removed
 - Reports: ✅ a master–detail shell (route `reports`, `ReportsShellComponent`)
-  with a persistent, per-restaurant-persisted date-range bar sitting above the
+  with a persistent date-range bar sitting above the
   `<router-outlet>` and four standalone child reports — Sales (`reports/sales`,
   the default), Menu performance (`reports/menu`), Transactions
   (`reports/transactions`), and Diners (`reports/diners`). Each report carries a
@@ -206,6 +206,39 @@ so keep it current when conventions change.
   orders-by-hour & revenue-weekday, Menu top-items, Transactions status-breakdown,
   Diners composition — are hand-rolled CSS `[style.width.%]` / `[style.height.%]`
   bars, NOT ng2-charts
+- Shared timeframe core, URL-as-truth (TIMEFRAME-01A): ✅ the Reports date range is
+  URL-DRIVEN. The range model + the bucket/comparison engine + the state that owns
+  them left the Reports module for `src/app/_shared/timeframe/` (see Shared Libraries)
+  so Dashboard can adopt them in 01B. `TimeframeService` is registered on the
+  `reports` ROUTE (`providers: [TimeframeService]`), deliberately NOT
+  `providedIn:'root'` — it must only exist where a timeframe exists, and route
+  providers give the shell + all four children one shared instance. The query string
+  (`?from&to&preset`, matching the API layer's param names) is the SOURCE OF TRUTH;
+  localStorage keeps the same per-restaurant `reports.dateRange:{id|global}` key but
+  is demoted to a "last used" SEED. Entry order: valid URL params win (seed refreshed,
+  URL untouched) → else a usable seed (adopted, published to the URL) → else
+  `defaultRange()`. A hand-edited URL never throws — it falls through to the seed and
+  the URL is corrected. `preset` is carried explicitly, never re-derived from the
+  dates, because it drives comparison semantics. Every write uses
+  `replaceUrl: true` + `queryParamsHandling: 'merge'` — REPLACE not push, so that
+  01C's period arrows can't bury the previous page under twenty history entries
+  (deliberate and reversible). The entry URL correction is deferred one microtask past
+  route activation; navigating synchronously would re-enter the router mid-cycle.
+  `ReportsService.dateRange$` is GONE — read `TimeframeService.range$`, write
+  `set()`. `compareEnabled$` is deliberately untouched (localStorage-primary, no URL
+  param) pending its Phase-2 replacement.
+  **Dashboard still runs its own coarse `'day'|'week'|'month'|'ytd'` enum**
+  (`dashboard/models/dashboard.models.ts`, persisted per-restaurant, rendered in
+  `layout/top-nav`) — untouched by 01A and migrated onto the shared timeframe in 01B.
+  Two timeframe systems are live until then; that is the known, temporary state.
+  The picker components (`report-date-range`, `date-range-panel`, `range-calendar`,
+  `range-label`) also stay in `reports/components/` until 01B needs them.
+  `presetToRange` now CLAMPS the in-progress presets (`this-week` / `this-month` /
+  `this-year`) to end at TODAY — a range never extends into the future, so the
+  landing range is month-to-date. `today`/`yesterday`/`last-*`/`custom` are unchanged.
+  Consequence to know: on the opening day(s) of a period the clamped span is ≤1 day,
+  so the engine's ladder buckets it by HOUR (on a Monday, "This week" renders the
+  hour-of-day view — the same treatment `today` gets)
 - Payments: removed — the standalone restaurant Payments module (its real
   transactions listing plus the dead Falcon wallet UI: Disburse Funds,
   DinifyAccount balance) has been deleted. There is no `payments` route or
@@ -329,7 +362,12 @@ the deleted `dn-tabs` component (do not reintroduce a `tabs` component). It runs
 in two modes: `mode="value"` (the default — emits the picked value; used for
 in-page toggles like the dashboard card sort switches and the item-form tabs)
 and `mode="router"` (each segment is a `routerLink`, for route-driven rails like
-the Reports shell). `app-page-header` is the shared portal page-title block (its
+the Reports shell). In router mode it takes an optional `queryParamsHandling` —
+UNBOUND MEANS ANGULAR'S DEFAULT, WHICH DROPS QUERY PARAMS on every segment click.
+Any rail whose siblings share URL state must pass `'merge'` (the Reports shell does,
+so the timeframe survives a tab switch); it fails silently otherwise, which is why
+`reports-timeframe-navigation.spec.ts` pins it. `app-page-header` is the shared
+portal page-title block (its
 Gabarito heading comes from the `app-restaurant-mgt h1` selector, plus an
 optional subtitle and a right-aligned actions slot) — reuse it for portal page
 titles instead of hand-rolling an `<h1>`. All portal buttons/CTAs are unified on
@@ -363,8 +401,27 @@ re-export `FeaturedCarouselComponent`, the tooltip directive, or
 existing components before creating new ones. They are all standalone and
 go in the module `imports` array.
 
-Four more reuse-first libraries sit alongside `ui/` — check them before
-writing new tag or price/menu logic:
+Five more reuse-first libraries sit alongside `ui/` — check them before
+writing new tag, price/menu or date-range logic:
+- `src/app/_shared/timeframe/` (barrel `index.ts` — THE only import path; there is
+  deliberately no re-export shim left in `reports/`) — the shared timeframe core,
+  relocated out of Reports in TIMEFRAME-01A:
+  - the range model (`timeframe-range.ts`): `ReportPreset`, `ReportDateRange`,
+    `REPORT_PRESETS`, `presetToRange` (clamps in-progress presets to today),
+    `defaultRange` (month-to-date), `isValidReportDateRange` (shape only — used as the
+    localStorage seed validator), `isFutureDated` (the separate recency rule), and
+    `parseTimeframeParams` (the fail-soft URL-param parser: real-date round-trip check,
+    `from <= to`, neither bound future, unknown `preset` → `'custom'`, never throws)
+  - the engine (`timeframe-engine.ts`): `resolveTimeframe` (the span ladder
+    hour→day→month→year + the over-cap clamp), `comparisonRange`,
+    `comparisonRangeLabel`, `SALES_TRENDS_CAP_DAYS`, `HOURLY_MAX_DAYS`,
+    `BUCKET_TO_CATEGORY`, `ReportBucketUnit`, `SalesTrendsCategory`
+  - `TimeframeService` — the URL-backed state (see the 01A bullet above). ROUTE-scoped,
+    not root. Registering it on a new route is how a second surface adopts it
+  The identifiers keep their `Report*` prefixes ON PURPOSE: renaming `ReportDateRange`
+  to `DateRange` would collide with the dashboard's coarse enum, which is exactly the
+  type 01B deletes. Reports-specific types (`ReportKey`, `ReportGranularity`, row /
+  column / summary types) stayed behind in `reports/models/reports.models.ts`
 - `src/app/_shared/tags/` (barrel `index.ts`) — the dietary-tag system:
   `TagColour`/`TagIcon`/`TagCategory`, `TAG_COLOUR_PALETTE`, `TAG_ICONS`,
   `TAG_CATEGORIES`, `TagPillComponent`, `TagOverflowPillComponent`,

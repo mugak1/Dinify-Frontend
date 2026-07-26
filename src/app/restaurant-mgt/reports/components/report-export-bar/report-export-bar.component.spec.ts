@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReportExportBarComponent } from './report-export-bar.component';
 import { AuthenticationService } from '../../../../_services/authentication.service';
-import { ReportColumn, ReportDateRange } from '../../models/reports.models';
+import { ReportColumn } from '../../models/reports.models';
+import { ReportDateRange } from '../../../../_shared/timeframe';
 
 const columns: ReportColumn[] = [
   { key: 'order_number', label: 'Order', format: 'text' },

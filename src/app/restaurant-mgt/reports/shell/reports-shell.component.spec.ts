@@ -6,7 +6,7 @@ import { ReportsService } from '../services/reports.service';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
-import { ReportDateRange } from '../models/reports.models';
+import { ReportDateRange, TimeframeService } from '../../../_shared/timeframe';
 
 describe('ReportsShellComponent', () => {
   let component: ReportsShellComponent;
@@ -18,6 +18,7 @@ describe('ReportsShellComponent', () => {
       imports: [ReportsShellComponent],
       providers: [
         provideRouter([]),
+        TimeframeService,
         { provide: ApiService, useValue: jasmine.createSpyObj('ApiService', ['get', 'loadAllPages']) },
         {
           provide: AuthenticationService,
@@ -67,11 +68,12 @@ describe('ReportsShellComponent', () => {
     expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
   });
 
-  it('pushes range changes onto the shared subject', () => {
-    spyOn(reports.dateRange$, 'next');
+  it('commits range changes through the timeframe service, not a local subject', () => {
+    const timeframe = TestBed.inject(TimeframeService);
+    spyOn(timeframe, 'set');
     const range: ReportDateRange = { preset: 'today', from: '2026-06-21', to: '2026-06-21' };
     component.onRange(range);
-    expect(reports.dateRange$.next).toHaveBeenCalledWith(range);
+    expect(timeframe.set).toHaveBeenCalledWith(range);
   });
 
   it('pushes compare-toggle changes onto the shared subject', () => {

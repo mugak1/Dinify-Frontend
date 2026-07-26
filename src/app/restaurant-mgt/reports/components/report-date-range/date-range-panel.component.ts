@@ -9,12 +9,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { parseISO } from 'date-fns';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
-import {
-  ReportDateRange,
-  ReportPreset,
-  REPORT_PRESETS,
-  presetToRange,
-} from '../../models/reports.models';
+import { ReportDateRange, ReportPreset, REPORT_PRESETS, presetToRange } from '../../../../_shared/timeframe';
 import { RangeCalendarComponent } from './range-calendar.component';
 import { PRESET_LABELS, formatRangeSummary } from './range-label';
 

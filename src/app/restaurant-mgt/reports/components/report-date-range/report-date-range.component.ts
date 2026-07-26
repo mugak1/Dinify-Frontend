@@ -28,7 +28,7 @@ import { format } from 'date-fns';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { SheetComponent } from '../../../../_shared/ui/sheet/sheet.component';
-import { ReportDateRange, presetToRange } from '../../models/reports.models';
+import { ReportDateRange, presetToRange } from '../../../../_shared/timeframe';
 import { DateRangePanelComponent } from './date-range-panel.component';
 import { PRESET_LABELS, formatRangeSpan } from './range-label';
 

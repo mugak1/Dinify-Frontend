@@ -13,14 +13,13 @@ import { BehaviorSubject, Subject, combineLatest, of } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
-import { comparisonRange } from '../utils/reports-timeframe';
 import {
-  ReportColumn,
+  comparisonRange,
   ReportDateRange,
   ReportPreset,
-  TransactionsListingRow,
-  TransactionsSummary,
-} from '../models/reports.models';
+  TimeframeService,
+} from '../../../_shared/timeframe';
+import { ReportColumn, TransactionsListingRow, TransactionsSummary } from '../models/reports.models';
 import { sumColumns } from '../data/reports-mock-data';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import {
@@ -108,6 +107,7 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
 
   constructor(
     private reports: ReportsService,
+    private timeframe: TimeframeService,
     private auth: AuthenticationService,
   ) {}
 
@@ -120,7 +120,7 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
     }
 
     // Summary pipeline — chips + breakdown over the FULL range (uncapped).
-    combineLatest([this.reports.dateRange$, this.reports.refresh$.pipe(startWith(undefined))])
+    combineLatest([this.timeframe.range$, this.reports.refresh$.pipe(startWith(undefined))])
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {
@@ -142,7 +142,7 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
 
     // Listing pipeline — recent window, re-fetched on the status-filter chip.
     combineLatest([
-      this.reports.dateRange$,
+      this.timeframe.range$,
       this.reports.refresh$.pipe(startWith(undefined)),
       this.filter$,
     ])

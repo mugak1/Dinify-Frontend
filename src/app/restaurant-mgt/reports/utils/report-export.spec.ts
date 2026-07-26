@@ -5,7 +5,8 @@ import {
   fileCellValue,
   fileHeader,
 } from './report-export';
-import { ReportColumn, ReportDateRange } from '../models/reports.models';
+import { ReportColumn } from '../models/reports.models';
+import { ReportDateRange } from '../../../_shared/timeframe';
 
 // A representative listing-shaped column set covering every format.
 const columns: ReportColumn[] = [

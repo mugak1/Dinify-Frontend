@@ -7,7 +7,8 @@
 // component — every transform is unit-testable (transactions-view.spec.ts).
 
 import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
-import { ReportDateRange, TransactionsSummary } from '../models/reports.models';
+import { TransactionsSummary } from '../models/reports.models';
+import { ReportDateRange } from '../../../_shared/timeframe';
 
 // ── PROVISIONAL display vocab (reconciled at Gate 2) ───────────────────────────
 // Presentation intent ONLY. Driven by whatever token a row carries (+ a humanize

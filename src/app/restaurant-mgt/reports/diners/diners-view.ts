@@ -8,7 +8,8 @@
 // every transform is unit-testable (diners-view.spec.ts).
 
 import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
-import { DinersListingRow, DinersSummary, ReportDateRange } from '../models/reports.models';
+import { DinersListingRow, DinersSummary } from '../models/reports.models';
+import { ReportDateRange } from '../../../_shared/timeframe';
 
 /** Display name — full name, phone-number fallback (mirrors the backend `_diner_name`). */
 export function dinerName(row: { name?: string; phone_number?: string }): string {

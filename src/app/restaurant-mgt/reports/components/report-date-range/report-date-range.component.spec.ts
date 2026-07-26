@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BehaviorSubject } from 'rxjs';
 
 import { ReportDateRangeComponent } from './report-date-range.component';
-import { ReportDateRange } from '../../models/reports.models';
+import { ReportDateRange } from '../../../../_shared/timeframe';
 
 describe('ReportDateRangeComponent', () => {
   let fixture: ComponentFixture<ReportDateRangeComponent>;

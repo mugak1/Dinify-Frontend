@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter } from '@angular/router';
+import { QueryParamsHandling, RouterLink, provideRouter } from '@angular/router';
 import { DnSegmentedComponent, DnSegItem } from './segmented.component';
 
 const VALUE_ITEMS: DnSegItem[] = [
@@ -26,6 +26,7 @@ const ROUTER_ITEMS: DnSegItem[] = [
       [mode]="mode"
       [layout]="layout"
       [manualActivation]="manualActivation"
+      [queryParamsHandling]="queryParamsHandling"
       (valueChange)="onChange($event)"
     ></app-dn-segmented>
   `,
@@ -36,6 +37,7 @@ class HostComponent {
   mode: 'value' | 'router' = 'value';
   layout: 'hug' | 'responsive' | 'fill' = 'hug';
   manualActivation = false;
+  queryParamsHandling: QueryParamsHandling | undefined = undefined;
   changed: string[] = [];
   onChange(v: string): void {
     this.changed.push(v);
@@ -206,6 +208,26 @@ describe('DnSegmentedComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('button[role="tab"]').length).toBe(0);
     expect(anchors[0].getAttribute('aria-current')).toBe('page');
     expect(anchors[1].getAttribute('aria-current')).toBeNull();
+  });
+
+  // Angular's default drops query params on navigation. A rail whose siblings share URL
+  // state (the Reports timeframe) must opt into merging — and it fails SILENTLY if it
+  // does not, so the wiring is pinned here rather than left to a manual click-through.
+  it('router mode: forwards queryParamsHandling to the anchors, defaulting to off', () => {
+    host.items = ROUTER_ITEMS;
+    host.mode = 'router';
+    fixture.detectChanges();
+
+    const link = () =>
+      fixture.debugElement
+        .queryAll(By.directive(RouterLink))
+        .map((d) => d.injector.get(RouterLink))[0];
+
+    expect(link().queryParamsHandling).toBeFalsy(); // unbound → Angular's default
+
+    host.queryParamsHandling = 'merge';
+    fixture.detectChanges();
+    expect(link().queryParamsHandling).toBe('merge');
   });
 
   it('projects the #icon template with { $implicit: item, active } context', () => {

@@ -16,8 +16,13 @@ import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { MenuService } from '../../menu/services/menu.service';
 import { MenuItem } from '../../../_models/app.models';
-import { comparisonRange } from '../utils/reports-timeframe';
-import { MenuGrouping, MenuRow, ReportColumn, ReportDateRange, ReportPreset } from '../models/reports.models';
+import {
+  comparisonRange,
+  ReportDateRange,
+  ReportPreset,
+  TimeframeService,
+} from '../../../_shared/timeframe';
+import { MenuGrouping, MenuRow, ReportColumn } from '../models/reports.models';
 import { sumColumns } from '../data/reports-mock-data';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { CategoryBar, EMPTY_MENU_TOTALS, MenuTotals, categoryBars, menuTotals } from './menu-view';
@@ -90,6 +95,7 @@ export class MenuReportComponent implements OnInit, OnDestroy {
 
   constructor(
     private reports: ReportsService,
+    private timeframe: TimeframeService,
     private auth: AuthenticationService,
     private menuService: MenuService,
   ) {}
@@ -109,7 +115,7 @@ export class MenuReportComponent implements OnInit, OnDestroy {
       this.outOfStockCount = active.filter((i) => !i.in_stock).length;
     });
 
-    combineLatest([this.reports.dateRange$, this.reports.refresh$.pipe(startWith(undefined)), this.grouping$])
+    combineLatest([this.timeframe.range$, this.reports.refresh$.pipe(startWith(undefined)), this.grouping$])
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {

@@ -3,7 +3,8 @@ import { Component, Input, OnChanges } from '@angular/core';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { ReportTableComponent } from '../components/report-table/report-table.component';
 import { ReportExportBarComponent } from '../components/report-export-bar/report-export-bar.component';
-import { ReportColumn, ReportDateRange } from '../models/reports.models';
+import { ReportColumn } from '../models/reports.models';
+import { ReportDateRange } from '../../../_shared/timeframe';
 import { SalesBreakdownRow } from './sales-view';
 
 /**

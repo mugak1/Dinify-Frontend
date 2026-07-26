@@ -7,7 +7,7 @@
 // transform is unit-testable in isolation (sales-view.spec.ts).
 
 import { format, getDay, parseISO } from 'date-fns';
-import { ReportBucketUnit } from '../utils/reports-timeframe';
+import { ReportBucketUnit } from '../../../_shared/timeframe';
 import { SalesAggregateRow, SalesHourlyRow } from '../models/reports.models';
 
 /** Which service feeds a bucket + how the breakdown table is titled. */
