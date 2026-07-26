@@ -16,8 +16,10 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
 import { CardErrorComponent } from '../card-error/card-error.component';
 import { AnimatedNumberComponent } from '../animated-number/animated-number.component';
-import { RevenueData, DateRange } from '../../models/dashboard.models';
-import { formatCurrency, formatChartTick } from '../../utils/format.utils';
+import { RevenueData } from '../../models/dashboard.models';
+import { ReportBucketUnit, ReportDateRange } from '../../../../_shared/timeframe';
+import { formatCurrency, formatChartTick, formatCompact } from '../../utils/format.utils';
+import { bucketAxisLabel, comparisonCaption } from '../../utils/timeframe-labels';
 import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
 
 @Component({
@@ -119,7 +121,10 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
 })
 export class RevenueCardComponent implements OnChanges {
   @Input() revenueData: RevenueData | null = null;
-  @Input() dateRange: DateRange = 'day';
+  /** The range the rendered data covers — labels the comparison window. */
+  @Input() range: ReportDateRange | null = null;
+  /** Resolved bucket for the rendered range — drives axis tick formatting. */
+  @Input() bucketUnit: ReportBucketUnit = 'hour';
   @Input() loading = false;
   @Input() error: string | null = null;
   @Output() retry = new EventEmitter<void>();
@@ -143,17 +148,15 @@ export class RevenueCardComponent implements OnChanges {
     return Math.abs(this.percentageChange).toFixed(1);
   }
 
+  /** e.g. `vs. UGX 1.2M (14 – 20 Jul)` — the compared window, named. Compact rather than
+   *  full precision because the caption sits in a `whitespace-nowrap` span. */
   get periodLabel(): string {
-    switch (this.dateRange) {
-      case 'day': return 'vs last day';
-      case 'week': return 'vs last week';
-      case 'month': return 'vs last month';
-      case 'ytd': return 'vs last year';
-    }
+    if (!this.range || !this.revenueData) return '';
+    return comparisonCaption(this.range, `UGX ${formatCompact(this.revenueData.previous_totals.net)}`);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['revenueData'] || changes['dateRange']) && this.revenueData) {
+    if ((changes['revenueData'] || changes['bucketUnit'] || changes['range']) && this.revenueData) {
       this.buildPills();
       this.buildChart();
     }
@@ -284,17 +287,6 @@ export class RevenueCardComponent implements OnChanges {
   }
 
   private formatXLabel(at: string): string {
-    const d = new Date(at);
-    if (isNaN(d.getTime())) return at;
-    switch (this.dateRange) {
-      case 'day':
-        return d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
-      case 'week':
-        return d.toLocaleDateString('en-US', { weekday: 'short' });
-      case 'month':
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      case 'ytd':
-        return d.toLocaleDateString('en-US', { month: 'short' });
-    }
+    return bucketAxisLabel(at, this.bucketUnit);
   }
 }

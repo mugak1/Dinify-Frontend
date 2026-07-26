@@ -25,7 +25,7 @@ import { IdentityComponent } from './settings/identity/identity.component';
 import { AvailabilityComponent } from './settings/availability/availability.component';
 import { TaxReceiptsComponent } from './settings/tax-receipts/tax-receipts.component';
 import { ReportsShellComponent } from './reports/shell/reports-shell.component';
-import { TIMEFRAME_CONFIG, TimeframeService } from '../_shared/timeframe';
+import { TIMEFRAME_CONFIG, TimeframePickerComponent, TimeframeService } from '../_shared/timeframe';
 import { SalesReportComponent } from './reports/sales/sales-report.component';
 import { MenuReportComponent } from './reports/menu/menu-report.component';
 import { TransactionsReportComponent } from './reports/transactions/transactions-report.component';
@@ -168,6 +168,10 @@ export const restaurantMgtRoutes: Routes = [
     BadgeComponent,
     SheetComponent,
     PageHeaderComponent,
+    // Mounted by DashboardComponent, which is non-standalone and so has no component-level
+    // `imports` of its own. Missing this is an AOT-only failure (NG8001) — `type-check`
+    // never compiles templates, so `build:prod` is the gate.
+    TimeframePickerComponent,
     TablesComponent,
     PresetTagsComponent,
     SettingsHubComponent,

@@ -1,19 +1,16 @@
 import { Component, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DashboardService } from '../../dashboard/services/dashboard.service';
-import { DateRange } from '../../dashboard/models/dashboard.models';
-import { DnSegmentedComponent } from '../../../_shared/ui/segmented/segmented.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
 
-interface DateRangeOption {
-  value: DateRange;
-  label: string;
-}
-
+// The dashboard date-range pills used to live here, gated on a
+// `DashboardService.isDashboardActive$` flag that existed for no other reason. They moved
+// into the dashboard's own page header in TIMEFRAME-01B — the timeframe is now owned by a
+// route-scoped TimeframeService, which this global chrome cannot inject, and a control
+// that only ever applied to one page did not belong in the shell anyway.
 @Component({
   selector: 'app-top-nav',
   standalone: true,
-  imports: [CommonModule, DnSegmentedComponent],
+  imports: [CommonModule],
   templateUrl: './top-nav.component.html',
 })
 export class TopNavComponent {
@@ -21,17 +18,7 @@ export class TopNavComponent {
   @Output() logoutClick = new EventEmitter<void>();
   @Input() compact = false;
 
-  ranges: DateRangeOption[] = [
-    { value: 'day', label: 'Day' },
-    { value: 'week', label: 'Week' },
-    { value: 'month', label: 'Month' },
-    { value: 'ytd', label: 'YTD' },
-  ];
-
-  constructor(
-    public dashboardService: DashboardService,
-    private auth: AuthenticationService,
-  ) {}
+  constructor(private auth: AuthenticationService) {}
 
   /**
    * The current restaurant's name, surfaced in the chrome so a multi-venue
@@ -43,9 +30,5 @@ export class TopNavComponent {
    */
   get restaurantName(): string {
     return this.auth.currentRestaurant?.name || this.auth.currentRestaurantRole?.restaurant || '';
-  }
-
-  onDateRangeChange(range: DateRange): void {
-    this.dashboardService.dateRange$.next(range);
   }
 }

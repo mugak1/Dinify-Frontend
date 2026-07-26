@@ -5,7 +5,9 @@ import { ChartData, ChartOptions } from 'chart.js';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
 import { AnimatedNumberComponent } from '../animated-number/animated-number.component';
-import { OrdersData, DateRange } from '../../models/dashboard.models';
+import { OrdersData } from '../../models/dashboard.models';
+import { ReportBucketUnit, ReportDateRange } from '../../../../_shared/timeframe';
+import { bucketAxisLabel, comparisonCaption } from '../../utils/timeframe-labels';
 import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
 
 interface StatusSegment {
@@ -36,7 +38,9 @@ interface StatusSegment {
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-8">
             <div class="min-w-0">
               <div class="flex items-center justify-between sm:justify-start gap-2 mb-1">
-                <h2 class="text-card-title text-foreground">Total Orders ({{ timeframeLabel }})</h2>
+                <!-- No range in the title: the picker in the page header states it, and
+                a parenthetical that can now read "(1 – 26 Jul)" is noise beside it. -->
+                <h2 class="text-card-title text-foreground">Total Orders</h2>
               </div>
               <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                 <app-animated-number
@@ -113,7 +117,10 @@ interface StatusSegment {
 })
 export class TotalOrdersCardComponent implements OnChanges {
   @Input() ordersData: OrdersData | null = null;
-  @Input() dateRange: DateRange = 'day';
+  /** The range the rendered data covers — labels the comparison window. */
+  @Input() range: ReportDateRange | null = null;
+  /** Resolved bucket for the rendered range — drives axis tick formatting. */
+  @Input() bucketUnit: ReportBucketUnit = 'hour';
   @Input() loading = false;
 
   chartData: ChartData<'line'> = { labels: [], datasets: [] };
@@ -122,22 +129,10 @@ export class TotalOrdersCardComponent implements OnChanges {
 
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  get timeframeLabel(): string {
-    switch (this.dateRange) {
-      case 'day': return 'Today';
-      case 'week': return 'This Week';
-      case 'month': return 'This Month';
-      case 'ytd': return 'Year to Date';
-    }
-  }
-
+  /** e.g. `vs. 340 orders (14 – 20 Jul)` — the compared window, named. */
   get periodLabel(): string {
-    switch (this.dateRange) {
-      case 'day': return 'vs last day';
-      case 'week': return 'vs last week';
-      case 'month': return 'vs last month';
-      case 'ytd': return 'vs last year';
-    }
+    if (!this.range || !this.ordersData) return '';
+    return comparisonCaption(this.range, `${this.ordersData.previous_total} orders`);
   }
 
   get percentageChange(): number {
@@ -150,7 +145,7 @@ export class TotalOrdersCardComponent implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['ordersData'] || changes['dateRange']) && this.ordersData) {
+    if ((changes['ordersData'] || changes['bucketUnit'] || changes['range']) && this.ordersData) {
       this.buildSegments();
       this.buildChart();
     }
@@ -251,17 +246,6 @@ export class TotalOrdersCardComponent implements OnChanges {
   }
 
   private formatXLabel(at: string): string {
-    const d = new Date(at);
-    if (isNaN(d.getTime())) return at;
-    switch (this.dateRange) {
-      case 'day':
-        return d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
-      case 'week':
-        return d.toLocaleDateString('en-US', { weekday: 'short' });
-      case 'month':
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      case 'ytd':
-        return d.toLocaleDateString('en-US', { month: 'short' });
-    }
+    return bucketAxisLabel(at, this.bucketUnit);
   }
 }

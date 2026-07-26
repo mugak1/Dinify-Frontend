@@ -20,23 +20,11 @@
         </svg>
       </button>
 
-      <!-- Date range pills (dashboard only) -->
-      @if (dashboardService.isDashboardActive$ | async) {
-        <div class="overflow-x-auto">
-          <app-dn-segmented
-            [items]="ranges"
-            [value]="(dashboardService.dateRange$ | async)!"
-            (valueChange)="onDateRangeChange($any($event))"
-            ariaLabel="Date range selector"
-            layout="hug"
-          ></app-dn-segmented>
-        </div>
-      }
-
       <!-- Right side: projected content + the current restaurant name. The name
       is surfaced here so a multi-venue operator always sees which venue they
-      are editing, and it fills the otherwise-empty band on non-dashboard
-      pages. Right-aligned so it never collides with the date pills. -->
+      are editing. It stays right-aligned via `flex-1 … justify-end` — the layout
+      that used to keep it clear of the dashboard date pills, which now live in
+      the dashboard's own page header. -->
       <div class="flex-1 flex items-center justify-end gap-3 min-w-0">
         <ng-content></ng-content>
         @if (restaurantName; as name) {
