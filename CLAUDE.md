@@ -49,7 +49,14 @@ so keep it current when conventions change.
   for the core metrics, but TWO cards are real-wired exceptions: the Popular Items
   card overlays real menu-item identities onto the (still-mock) metrics, and the
   Reviews card pulls live data via `reviews/summary/` behind its own
-  `USE_MOCK_REVIEWS = false` flag
+  `USE_MOCK_REVIEWS = false` flag. The date range comes from the shared
+  `TimeframeService` (see the timeframe bullet below) and the picker sits in the page
+  header's `app-page-header` `[actions]` slot — NOT in `layout/top-nav`, which no
+  longer carries any timeframe control. Polling is CONDITIONAL: `timer(0, 30_000)`
+  runs only while the selected range includes today; a closed range fetches once,
+  since a finished period's numbers cannot change. Manual refresh (`refresh$`) works
+  for any range. The Reviews chain still polls unconditionally — `reviews/summary/`
+  takes no date range, so the selected window says nothing about it
 - Diner App menu redesign: ✅ Complete (sticky brand strip, scroll-aware nav
   pills, quick-add affordance, allergen-safety disclaimer banner)
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
@@ -206,18 +213,29 @@ so keep it current when conventions change.
   orders-by-hour & revenue-weekday, Menu top-items, Transactions status-breakdown,
   Diners composition — are hand-rolled CSS `[style.width.%]` / `[style.height.%]`
   bars, NOT ng2-charts
-- Shared timeframe core, URL-as-truth (TIMEFRAME-01A): ✅ the Reports date range is
-  URL-DRIVEN. The range model + the bucket/comparison engine + the state that owns
-  them left the Reports module for `src/app/_shared/timeframe/` (see Shared Libraries)
-  so Dashboard can adopt them in 01B. `TimeframeService` is registered on the
-  `reports` ROUTE (`providers: [TimeframeService]`), deliberately NOT
-  `providedIn:'root'` — it must only exist where a timeframe exists, and route
-  providers give the shell + all four children one shared instance. The query string
+- Shared timeframe core, URL-as-truth (TIMEFRAME-01A / 01B): ✅ Reports AND Dashboard
+  are URL-DRIVEN and share ONE timeframe. The range model + the bucket/comparison
+  engine + the state that owns them live in `src/app/_shared/timeframe/` (see Shared
+  Libraries). `TimeframeService` is registered on BOTH the `reports` and `dashboard`
+  ROUTES (`providers: [TimeframeService, {provide: TIMEFRAME_CONFIG, …}]`),
+  deliberately NOT `providedIn:'root'` — it must only exist where a timeframe exists,
+  and route providers give a shell + its children one shared instance. A third host is
+  the same move again: a route registration, never a switch to root. The query string
   (`?from&to&preset`, matching the API layer's param names) is the SOURCE OF TRUTH;
-  localStorage keeps the same per-restaurant `reports.dateRange:{id|global}` key but
-  is demoted to a "last used" SEED. Entry order: valid URL params win (seed refreshed,
-  URL untouched) → else a usable seed (adopted, published to the URL) → else
-  `defaultRange()`. A hand-edited URL never throws — it falls through to the seed and
+  localStorage is demoted to a "last used" SEED, keyed per HOST and per restaurant.
+  `TIMEFRAME_CONFIG` (`_shared/timeframe/timeframe-config.ts`) carries each host's
+  `seedKey` + `defaultPreset`: Reports → `reports.dateRange:{id|global}` (the pre-01B
+  key VERBATIM, so persisted seeds survived) landing on `this-month`; Dashboard →
+  `dashboard.timeframe:{id|global}` landing on `today`. The two seeds are INDEPENDENT
+  ON PURPOSE — Dashboard asks "how are we doing now", Reports asks "what happened over
+  this period", so a Dashboard opening on last month because you did month-end
+  reporting yesterday is wrong. The token's root-factory default is a NEUTRAL key
+  (`timeframe.dateRange`), not Reports', so a host that forgets to register a config
+  cannot silently share the Reports memo; it exists so the service stays constructible
+  in a TestBed with no route. `defaultPreset` excludes `'custom'` by type.
+  Entry order: valid URL params win (seed refreshed,
+  URL untouched) → else a usable seed (adopted, published to the URL) → else the host's
+  `defaultPreset`. A hand-edited URL never throws — it falls through to the seed and
   the URL is corrected. `preset` is carried explicitly, never re-derived from the
   dates, because it drives comparison semantics. Every write uses
   `replaceUrl: true` + `queryParamsHandling: 'merge'` — REPLACE not push, so that
@@ -227,12 +245,23 @@ so keep it current when conventions change.
   `ReportsService.dateRange$` is GONE — read `TimeframeService.range$`, write
   `set()`. `compareEnabled$` is deliberately untouched (localStorage-primary, no URL
   param) pending its Phase-2 replacement.
-  **Dashboard still runs its own coarse `'day'|'week'|'month'|'ytd'` enum**
-  (`dashboard/models/dashboard.models.ts`, persisted per-restaurant, rendered in
-  `layout/top-nav`) — untouched by 01A and migrated onto the shared timeframe in 01B.
-  Two timeframe systems are live until then; that is the known, temporary state.
-  The picker components (`report-date-range`, `date-range-panel`, `range-calendar`,
-  `range-label`) also stay in `reports/components/` until 01B needs them.
+  **The Dashboard's coarse `'day'|'week'|'month'|'ytd'` enum is DELETED** (01B), along
+  with `DashboardService.dateRange$` / `isDashboardActive$` and the component's
+  `computeDateRange()`. The two-timeframe-systems state is over. The picker moved to
+  `_shared/timeframe/picker/` as `TimeframePickerComponent` /
+  `app-timeframe-picker` (renamed off `report-date-range` — it serves two hosts now);
+  `date-range-panel`, `range-calendar` and `range-label` moved with it and keep their
+  names. The barrel exports the PICKER ONLY — the panel and calendar carry non-obvious
+  contracts and stay internal. **Inside `_shared/timeframe/` (picker included) import
+  siblings by DIRECT PATH, never the barrel** — the barrel re-exports the picker, so a
+  barrel import from inside is a cycle that does not fail the build and instead
+  surfaces as an `undefined` at module-init.
+  Known characteristic, pre-existing since 01A and true of BOTH hosts: Angular caches
+  a route's EnvironmentInjector against the route CONFIG, so returning to a timeframe
+  host REUSES the service — `resolveOnEntry` runs once per app load. The in-memory
+  range survives a Dashboard → Menu → Dashboard round trip (picker and data stay
+  correct) but the URL is not re-published, so it reads bare. Pinned by
+  `restaurant-mgt/timeframe-host-isolation.spec.ts`.
   `presetToRange` now CLAMPS the in-progress presets (`this-week` / `this-month` /
   `this-year`) to end at TODAY — a range never extends into the future, so the
   landing range is month-to-date. `today`/`yesterday`/`last-*`/`custom` are unchanged.
@@ -403,25 +432,43 @@ go in the module `imports` array.
 
 Five more reuse-first libraries sit alongside `ui/` — check them before
 writing new tag, price/menu or date-range logic:
-- `src/app/_shared/timeframe/` (barrel `index.ts` — THE only import path; there is
-  deliberately no re-export shim left in `reports/`) — the shared timeframe core,
-  relocated out of Reports in TIMEFRAME-01A:
+- `src/app/_shared/timeframe/` (barrel `index.ts` — THE only import path FOR OUTSIDE
+  CONSUMERS; there is deliberately no re-export shim left in `reports/`) — the shared
+  timeframe core, relocated out of Reports in TIMEFRAME-01A and adopted by Dashboard
+  in 01B:
   - the range model (`timeframe-range.ts`): `ReportPreset`, `ReportDateRange`,
     `REPORT_PRESETS`, `presetToRange` (clamps in-progress presets to today),
     `defaultRange` (month-to-date), `isValidReportDateRange` (shape only — used as the
-    localStorage seed validator), `isFutureDated` (the separate recency rule), and
+    localStorage seed validator), `isFutureDated` (the separate recency rule),
+    `rangeIncludesToday` (the two-sided "is this range still OPEN?" predicate that gates
+    the Dashboard's polling), and
     `parseTimeframeParams` (the fail-soft URL-param parser: real-date round-trip check,
     `from <= to`, neither bound future, unknown `preset` → `'custom'`, never throws)
   - the engine (`timeframe-engine.ts`): `resolveTimeframe` (the span ladder
     hour→day→month→year + the over-cap clamp), `comparisonRange`,
-    `comparisonRangeLabel`, `SALES_TRENDS_CAP_DAYS`, `HOURLY_MAX_DAYS`,
-    `BUCKET_TO_CATEGORY`, `ReportBucketUnit`, `SalesTrendsCategory`
-  - `TimeframeService` — the URL-backed state (see the 01A bullet above). ROUTE-scoped,
-    not root. Registering it on a new route is how a second surface adopts it
-  The identifiers keep their `Report*` prefixes ON PURPOSE: renaming `ReportDateRange`
-  to `DateRange` would collide with the dashboard's coarse enum, which is exactly the
-  type 01B deletes. Reports-specific types (`ReportKey`, `ReportGranularity`, row /
-  column / summary types) stayed behind in `reports/models/reports.models.ts`
+    `comparisonRangeLabel`, `previousEqualLengthPeriod`, `SALES_TRENDS_CAP_DAYS`,
+    `HOURLY_MAX_DAYS`, `BUCKET_TO_CATEGORY`, `ReportBucketUnit`, `SalesTrendsCategory`.
+    **`comparisonRange` and `previousEqualLengthPeriod` are NOT interchangeable** —
+    the first is PRESET-AWARE (`this-month` compares against the full prior calendar
+    month) and drives the Reports compare toggle; the second mirrors the
+    `dashboard-v2` backend formula exactly (`prev_from = from − ((to−from)+1d)`,
+    `prev_to = from − 1d`) and is what the Dashboard cards must use. Mixing them
+    produces a frontend delta measured against a different window than the backend
+    total it is compared to — a wrong number with no error attached. Change
+    `previousEqualLengthPeriod` in lockstep with the backend, never alone
+  - `TIMEFRAME_CONFIG` + `TimeframeConfig` — the per-host `seedKey` / `defaultPreset`
+    (see the timeframe bullet in Current Implementation Status)
+  - `TimeframeService` — the URL-backed state. ROUTE-scoped, not root. Registering it
+    (with a config) on a new route is how a third surface adopts it
+  - `picker/` — `TimeframePickerComponent` (`app-timeframe-picker`), the shared
+    date-range control, plus its internal `date-range-panel` / `range-calendar` /
+    `range-label`. Only the picker is barrel-exported. It owns NO committed state
+    (`value` in, `valueChange` out), which is what lets one component serve both hosts
+  The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
+  colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
+  is finally possible, but it is a wide mechanical diff and has not been done.
+  Reports-specific types (`ReportKey`, `ReportGranularity`, row / column / summary
+  types) stayed behind in `reports/models/reports.models.ts`
 - `src/app/_shared/tags/` (barrel `index.ts`) — the dietary-tag system:
   `TagColour`/`TagIcon`/`TagCategory`, `TAG_COLOUR_PALETTE`, `TAG_ICONS`,
   `TAG_CATEGORIES`, `TagPillComponent`, `TagOverflowPillComponent`,
@@ -586,10 +633,18 @@ writing new tag, price/menu or date-range logic:
   the follow-up review submission / back-to-menu re-scan keeps its session
 
 ## Mock Data Pattern
-- DashboardService now splits its mock flag in two (like TablesService):
+- DashboardService now splits its mock flag in two (like TablesService). Both are
+  `static` on the class (not module `const`s), mirroring `ReportsService`, so the
+  contract specs can flip them and exercise the real branch — without that seam there
+  is no way to assert what actually reaches the API:
   - `USE_MOCK_DATA = true` — core dashboard metrics are still mock
   - `USE_MOCK_REVIEWS = false` — the Reviews card is real-wired to `reviews/summary/`
     (its in-memory mock stays dormant behind the flag as a design-review aid)
+  The dashboard mock walks the SAME range→bucket ladder as the live path
+  (`generateDates(from, to, bucket)` enumerates the real range; it no longer re-derives
+  a window from `new Date()`), and BOTH the revenue and orders comparisons come from
+  `previousEqualLengthPeriod` over the shared `_shared/mock/daily-revenue` basis — the
+  orders mock previously faked `previous_total = total * 0.88`, a flat invented 12%
 - TablesService now splits the flag in two:
   - `USE_MOCK_SETUP = false` — Setup View (areas, tables) is real-wired
   - `USE_MOCK_SERVICE = true` — Service View (reservations, waitlist,
@@ -629,7 +684,13 @@ writing new tag, price/menu or date-range logic:
   Split flags by sub-domain when different views go live at different times
 - Dashboard real endpoints: `reports/restaurant/dashboard-v2/` (core metrics, gated by
   `USE_MOCK_DATA`) and `reviews/summary/` (Reviews card, already live behind
-  `USE_MOCK_REVIEWS = false`) — both parsed through `dashboard-adapter`
+  `USE_MOCK_REVIEWS = false`) — both parsed through `dashboard-adapter`.
+  dashboard-v2 takes `restaurant` + `from` + `to` + **`bucket`** (`hour|day|month|year`,
+  from `resolveTimeframe`). The legacy `period` parameter — keyed on the old UI
+  selection rather than on a granularity — is NO LONGER SENT BY ANY CALLER since 01B,
+  which unblocks the backend's follow-up removal of its `TRUNC_MAP`. The backend
+  resolves `bucket` FAIL-CLOSED: an unrecognised value is a 400 naming the accepted
+  set, not a silent fallback to hourly, so the vocabulary has to match exactly
 - Tables real endpoints: Setup View is real-wired to the `restaurant-setup/`
   areas + tables endpoints plus the QR lifecycle — activation via the ordinary
   table update (`has_qr=true`) and secure rotation via

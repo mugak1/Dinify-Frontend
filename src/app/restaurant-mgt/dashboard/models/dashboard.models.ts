@@ -1,5 +1,8 @@
 // ── Date range ────────────────────────────────────────────
-export type DateRange = 'day' | 'week' | 'month' | 'ytd';
+// The coarse 'day'|'week'|'month'|'ytd' enum that used to live here was deleted in
+// TIMEFRAME-01B. The Dashboard now shares the range model in `_shared/timeframe`
+// (`ReportDateRange` + `ReportBucketUnit`) with Reports, so arbitrary ranges are
+// selectable and there is one timeframe vocabulary in the app rather than two.
 
 // ── Revenue ───────────────────────────────────────────────
 export interface RevenueSeriesPoint {

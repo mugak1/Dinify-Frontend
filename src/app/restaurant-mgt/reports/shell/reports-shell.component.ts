@@ -21,10 +21,14 @@ import { ActivatedRoute, NavigationEnd, Router, RouterModule } from '@angular/ro
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs/operators';
 import { ReportsService } from '../services/reports.service';
-import { ReportDateRangeComponent } from '../components/report-date-range/report-date-range.component';
 import { SwitchComponent } from '../../../_shared/ui/switch/switch.component';
 import { DnSegmentedComponent, DnSegItem } from '../../../_shared/ui/segmented/segmented.component';
-import { ReportDateRange, TimeframeService, comparisonRangeLabel } from '../../../_shared/timeframe';
+import {
+  ReportDateRange,
+  TimeframePickerComponent,
+  TimeframeService,
+  comparisonRangeLabel,
+} from '../../../_shared/timeframe';
 import { ReportKey } from '../models/reports.models';
 
 @Component({
@@ -33,7 +37,7 @@ import { ReportKey } from '../models/reports.models';
   imports: [
     CommonModule,
     RouterModule,
-    ReportDateRangeComponent,
+    TimeframePickerComponent,
     SwitchComponent,
     DnSegmentedComponent,
   ],

@@ -160,6 +160,41 @@ export function comparisonRange(range: ReportDateRange): ReportDateRange {
 }
 
 /**
+ * The EQUAL-LENGTH window immediately before a range — the exact formula
+ * `reports/restaurant/dashboard-v2/` uses to build its `previous_totals`:
+ *
+ *     delta     = (to - from) + 1 day
+ *     prev_from = from - delta
+ *     prev_to   = from - 1 day
+ *
+ * MIRRORS THE BACKEND. If dashboard-v2's previous window changes, this changes in the
+ * same PR. `prev_to` is written as `from - 1 day` literally rather than the equivalent
+ * `to - length` so a line-by-line diff against the backend is trivially checkable.
+ *
+ * NOT `comparisonRange`, and the Dashboard must never call that one. `comparisonRange`
+ * is PRESET-AWARE — a `this-month` range compares against the FULL prior calendar month
+ * — while dashboard-v2 is not. A frontend delta computed one way against a backend total
+ * computed the other is a wrong number with no error attached to it. The two coincide
+ * only when the selection happens to be a whole calendar month, which is why the drift
+ * was invisible while the Dashboard could only pick four fixed ranges.
+ *
+ * Do NOT "simplify" this by delegating to `comparisonRange`'s `custom` branch. That
+ * branch is arithmetically identical TODAY only because both shift by the same inclusive
+ * length; reaching it means synthesising `{...range, preset: 'custom'}`, which spells
+ * "treat this as a custom range" — the exact semantic being avoided — and it would
+ * silently inherit any future change to comparison semantics.
+ *
+ * Takes only `from`/`to` so the mock data layer can call it with a bare pair.
+ */
+export function previousEqualLengthPeriod(
+  range: Pick<ReportDateRange, 'from' | 'to'>,
+): ReportDateRange {
+  const from = parseISO(range.from);
+  const deltaDays = differenceInCalendarDays(parseISO(range.to), from) + 1;
+  return comparison(subDays(from, deltaDays), subDays(from, 1));
+}
+
+/**
  * Human label for the period `comparisonRange` compares against — drives the shell's
  * "Compare to {label}" toggle. Preset-aware so the label reads naturally:
  *   today                 → "yesterday"

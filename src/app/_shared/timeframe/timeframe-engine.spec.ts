@@ -7,6 +7,7 @@ import {
   SALES_TRENDS_CAP_DAYS,
   comparisonRange,
   comparisonRangeLabel,
+  previousEqualLengthPeriod,
   resolveTimeframe,
 } from './timeframe-engine';
 
@@ -218,6 +219,82 @@ describe('shared timeframe engine', () => {
       expect(comparisonRangeLabel(presetToRange('last-month', NOW))).toBe('April');
       expect(comparisonRangeLabel(presetToRange('this-year', NOW))).toBe('2025');
       expect(comparisonRangeLabel(rangeOfSpan(13))).toBe('the previous period');
+    });
+  });
+
+  // previousEqualLengthPeriod mirrors the backend's dashboard-v2 `previous_totals`
+  // window. Every expectation below is HAND-COMPUTED from the backend formula
+  //   delta = (to - from) + 1d;  prev_from = from - delta;  prev_to = from - 1d
+  // rather than derived with the same date-fns calls the implementation uses — a spec
+  // that re-runs the implementation's own arithmetic would pass no matter what it did.
+  describe('previousEqualLengthPeriod — parity with dashboard-v2', () => {
+    const cases: { label: string; from: string; to: string; prevFrom: string; prevTo: string }[] = [
+      // The off-by-one case: 5 inclusive days must step back exactly 5, not 4 or 6.
+      { label: '5-day range', from: '2026-06-10', to: '2026-06-14', prevFrom: '2026-06-05', prevTo: '2026-06-09' },
+      { label: 'single day', from: '2026-06-15', to: '2026-06-15', prevFrom: '2026-06-14', prevTo: '2026-06-14' },
+      // Month boundary: a full 30-day June steps into a 30-day slice of May that does
+      // NOT start on the 1st — the exact place a calendar-month comparison would differ.
+      { label: 'whole calendar month', from: '2026-06-01', to: '2026-06-30', prevFrom: '2026-05-02', prevTo: '2026-05-31' },
+      { label: 'year boundary', from: '2026-01-01', to: '2026-01-31', prevFrom: '2025-12-01', prevTo: '2025-12-31' },
+      { label: 'across a leap February', from: '2024-03-01', to: '2024-03-05', prevFrom: '2024-02-25', prevTo: '2024-02-29' },
+    ];
+
+    for (const c of cases) {
+      it(`steps back one equal-length block — ${c.label}`, () => {
+        expect(previousEqualLengthPeriod({ from: c.from, to: c.to })).toEqual({
+          preset: 'custom',
+          from: c.prevFrom,
+          to: c.prevTo,
+        });
+      });
+    }
+
+    it('always returns a window of exactly the same inclusive length', () => {
+      for (const span of [0, 1, 4, 29, 30, 364]) {
+        const range = rangeOfSpan(span);
+        expect(inclusiveLen(previousEqualLengthPeriod(range))).toBe(inclusiveLen(range));
+      }
+    });
+
+    it('ends the day before the range starts, leaving no gap and no overlap', () => {
+      for (const span of [0, 6, 45]) {
+        const range = rangeOfSpan(span);
+        const prev = previousEqualLengthPeriod(range);
+        expect(differenceInCalendarDays(parseISO(range.from), parseISO(prev.to))).toBe(1);
+      }
+    });
+
+    it('ignores the preset — that is what makes it match the backend', () => {
+      const asPreset: ReportDateRange = { preset: 'this-month', from: '2026-06-01', to: '2026-06-15' };
+      const asCustom: ReportDateRange = { ...asPreset, preset: 'custom' };
+
+      expect(previousEqualLengthPeriod(asPreset)).toEqual(previousEqualLengthPeriod(asCustom));
+    });
+
+    // The reason Dashboard must not reuse comparisonRange. For a month-to-date range the
+    // two disagree outright; if this ever stops failing, one of them changed meaning.
+    it('DIVERGES from the preset-aware comparisonRange on a partial month', () => {
+      const midMonth: ReportDateRange = { preset: 'this-month', from: '2026-06-01', to: '2026-06-15' };
+
+      expect(previousEqualLengthPeriod(midMonth)).toEqual({
+        preset: 'custom',
+        from: '2026-05-17',
+        to: '2026-05-31',
+      });
+      expect(comparisonRange(midMonth)).toEqual({
+        preset: 'custom',
+        from: '2026-05-01',
+        to: '2026-05-31',
+      });
+    });
+
+    it('coincides with comparisonRange only for a WHOLE calendar month', () => {
+      const wholeMonth: ReportDateRange = { preset: 'this-month', from: '2026-06-01', to: '2026-06-30' };
+
+      // Same start; the equal-length window is one day shorter than full May because
+      // June has 30 days and May has 31 — so even here they are not identical.
+      expect(previousEqualLengthPeriod(wholeMonth).to).toBe(comparisonRange(wholeMonth).to);
+      expect(previousEqualLengthPeriod(wholeMonth).from).not.toBe(comparisonRange(wholeMonth).from);
     });
   });
 

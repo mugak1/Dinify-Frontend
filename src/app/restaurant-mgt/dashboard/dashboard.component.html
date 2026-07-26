@@ -1,15 +1,26 @@
 <div class="space-y-4 sm:space-y-6">
+  <!-- The timeframe control lives HERE, not in top-nav: TimeframeService is route-scoped,
+  so the global chrome cannot inject it, and the page that owns a timeframe should own its
+  control. `actions` is app-page-header's existing right-aligned slot — its wrapper already
+  wraps the control below the title on narrow screens, so no layout classes are needed. -->
   <app-page-header
     title="Dashboard"
     [description]="'Last updated at ' + ((dashboardService.lastFetchTimestamp$ | async) | date:'HH:mm')"
-  ></app-page-header>
+  >
+    <app-timeframe-picker
+      actions
+      [value]="(range$ | async)!"
+      (valueChange)="onRange($event)"
+    ></app-timeframe-picker>
+  </app-page-header>
 
   <!-- Row 1: Revenue (large) + Payment Methods (compact) -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
     <div class="lg:col-span-2">
       <app-revenue-card
         [revenueData]="dashboardData?.revenue ?? null"
-        [dateRange]="(dashboardService.dateRange$ | async) ?? 'day'"
+        [range]="range"
+        [bucketUnit]="bucketUnit"
         [loading]="loading"
         [error]="error"
         (retry)="retryDashboard()"
@@ -30,7 +41,8 @@
     <div class="lg:col-span-2">
       <app-total-orders-card
         [ordersData]="dashboardData?.orders ?? null"
-        [dateRange]="(dashboardService.dateRange$ | async) ?? 'day'"
+        [range]="range"
+        [bucketUnit]="bucketUnit"
         [loading]="loading"
       ></app-total-orders-card>
     </div>

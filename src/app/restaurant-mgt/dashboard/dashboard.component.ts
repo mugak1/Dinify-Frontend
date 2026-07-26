@@ -1,14 +1,20 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { Subject, combineLatest, of, timer } from 'rxjs';
-import { switchMap, startWith, catchError, tap, takeUntil, map } from 'rxjs/operators';
+import { Observable, Subject, combineLatest, of, timer } from 'rxjs';
+import { switchMap, startWith, catchError, tap, takeUntil, takeWhile, map } from 'rxjs/operators';
 import { DashboardService } from './services/dashboard.service';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { MenuService } from 'src/app/restaurant-mgt/menu/services/menu.service';
 import { MenuItem } from 'src/app/_models/app.models';
 import { environment } from 'src/environments/environment';
 import {
+  ReportBucketUnit,
+  ReportDateRange,
+  TimeframeService,
+  rangeIncludesToday,
+  resolveTimeframe,
+} from '../../_shared/timeframe';
+import {
   DashboardV2Response,
-  DateRange,
   PopularItemData,
   ReviewsSummaryResponse,
 } from './models/dashboard.models';
@@ -19,12 +25,26 @@ import {
     standalone: false,
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  private static readonly POLL_MS = 30_000;
+
   dashboardData: DashboardV2Response | null = null;
   reviewsData: ReviewsSummaryResponse | null = null;
   loading = true;
   error: string | null = null;
   reviewsLoading = true;
   reviewsError: string | null = null;
+
+  /** Live range, for the picker binding only. */
+  readonly range$ = this.timeframe.range$;
+
+  /**
+   * The range and bucket the CURRENTLY-RENDERED data was fetched for — captured at
+   * fetch time, not read live. Binding the cards to `range$` directly would let their
+   * axis format and comparison label describe a range one frame ahead of the numbers
+   * beside them, which is exactly the kind of wrong that never looks wrong.
+   */
+  range: ReportDateRange | null = null;
+  bucketUnit: ReportBucketUnit = 'hour';
 
   // Placeholder Popular Items metrics with real menu-item identities overlaid.
   popularItems: PopularItemData[] | null = null;
@@ -34,14 +54,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   constructor(
     public dashboardService: DashboardService,
+    private timeframe: TimeframeService,
     private auth: AuthenticationService,
     private menuService: MenuService,
   ) {}
 
-  ngOnInit(): void {
-    this.dashboardService.isDashboardActive$.next(true);
-    this.dashboardService.dateRange$.next('day');
+  /** Commit a range the user picked. The URL is the source of truth; the service owns it. */
+  onRange(range: ReportDateRange): void {
+    this.timeframe.set(range);
+  }
 
+  ngOnInit(): void {
     const restaurantId = this.auth.currentRestaurantRole?.restaurant_id;
     if (!restaurantId) return;
 
@@ -55,23 +78,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.recomputePopularItems();
       });
 
-    // Dashboard data: reacts to dateRange and manual refresh; always polls in
-    // the background (every 30s) so the surface stays live without a page reload.
+    // Dashboard data: reacts to the shared timeframe and to manual refresh. Polls only
+    // while the selected range is still open — see fetchTicks.
     combineLatest([
-      this.dashboardService.dateRange$,
+      this.timeframe.range$,
       this.dashboardService.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
         takeUntil(this.destroy$),
+        // ABOVE the timer switchMap on purpose: the skeleton shows on a range change or
+        // a manual refresh, never on a background poll tick.
         tap(() => {
           this.loading = true;
           this.error = null;
         }),
-        switchMap(([range]) => timer(0, 30_000).pipe(map(() => range))),
+        switchMap(([range]) => this.fetchTicks(range).pipe(map(() => range))),
         switchMap((range) => {
-          const { from, to } = this.computeDateRange(range);
+          const { bucketUnit, effectiveRange } = resolveTimeframe(range);
+          this.range = range;
+          this.bucketUnit = bucketUnit;
           return this.dashboardService
-            .getDashboardData(restaurantId, from, to, range)
+            .getDashboardData(restaurantId, effectiveRange.from, effectiveRange.to, bucketUnit)
             .pipe(catchError((err) => of({ data: null, error: err })));
         }),
       )
@@ -86,7 +113,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.dashboardService.lastFetchTimestamp$.next(Date.now());
       });
 
-    // Reviews data: reacts to manual refresh; always polls in the background.
+    // Reviews data: reacts to manual refresh; always polls in the background. NOT gated
+    // on the timeframe — `reviews/summary/` takes no date range at all, so "the selected
+    // window is closed" says nothing about whether reviews changed.
     this.dashboardService.refresh$
       .pipe(
         startWith(undefined),
@@ -95,7 +124,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.reviewsLoading = true;
           this.reviewsError = null;
         }),
-        switchMap(() => timer(0, 30_000)),
+        switchMap(() => timer(0, DashboardComponent.POLL_MS)),
         switchMap(() =>
           this.dashboardService
             .getReviewsSummary(restaurantId)
@@ -113,9 +142,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.dashboardService.isDashboardActive$.next(false);
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /**
+   * One emission per fetch of `range`.
+   *
+   *   OPEN range (includes today) → poll every 30s; the numbers can still move.
+   *   CLOSED range                → fetch exactly once. A finished period cannot change,
+   *                                 so repolling it is spending requests on a settled
+   *                                 answer. Manual refresh re-enters the OUTER
+   *                                 combineLatest, so retryDashboard() still works here.
+   *
+   * The `takeWhile` covers midnight: `timer` captures `range` by closure, so a dashboard
+   * left open overnight on "Today" would otherwise poll for yesterday forever. When the
+   * captured range stops including today the poll stops rather than continuing to ask
+   * for a window that is now closed. The displayed range stays as the URL describes it —
+   * re-picking is the user's move, and quietly rewriting the URL under them is not ours.
+   */
+  private fetchTicks(range: ReportDateRange): Observable<unknown> {
+    if (!rangeIncludesToday(range)) return of(0);
+    return timer(0, DashboardComponent.POLL_MS).pipe(takeWhile(() => rangeIncludesToday(range)));
   }
 
   retryDashboard(): void {
@@ -152,40 +200,4 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private computeDateRange(range: DateRange): { from: string; to: string } {
-    const today = new Date();
-    const to = this.formatDate(today);
-    let from: string;
-
-    switch (range) {
-      case 'day':
-        from = to;
-        break;
-      case 'week': {
-        const d = new Date(today);
-        d.setDate(d.getDate() - 6); // inclusive of today → exactly 7 days (last 7)
-        from = this.formatDate(d);
-        break;
-      }
-      case 'month': {
-        const d = new Date(today);
-        d.setDate(d.getDate() - 29); // inclusive of today → exactly 30 days (last 30)
-        from = this.formatDate(d);
-        break;
-      }
-      case 'ytd': {
-        from = `${today.getFullYear()}-01-01`;
-        break;
-      }
-    }
-
-    return { from, to };
-  }
-
-  private formatDate(d: Date): string {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
 }

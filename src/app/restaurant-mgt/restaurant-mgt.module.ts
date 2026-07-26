@@ -25,7 +25,7 @@ import { IdentityComponent } from './settings/identity/identity.component';
 import { AvailabilityComponent } from './settings/availability/availability.component';
 import { TaxReceiptsComponent } from './settings/tax-receipts/tax-receipts.component';
 import { ReportsShellComponent } from './reports/shell/reports-shell.component';
-import { TimeframeService } from '../_shared/timeframe';
+import { TIMEFRAME_CONFIG, TimeframePickerComponent, TimeframeService } from '../_shared/timeframe';
 import { SalesReportComponent } from './reports/sales/sales-report.component';
 import { MenuReportComponent } from './reports/menu/menu-report.component';
 import { TransactionsReportComponent } from './reports/transactions/transactions-report.component';
@@ -76,7 +76,11 @@ import { AccountComponent } from './account/account.component';
 // mount declaration (its DINER_MOUNT_EMBEDDED data) by reference.
 export const restaurantMgtRoutes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
-  {path:'dashboard',component:DashboardComponent,title:'Dashboard',canActivate:[permissionGuard],data:{module:'dashboard'}},
+  // Second TimeframeService host (TIMEFRAME-01B). Same route-scoping rationale as
+  // Reports below; the config gives it its OWN seed key and its own landing preset —
+  // Dashboard answers "how are we doing now", so it opens on Today, and it must not
+  // inherit a range left behind by month-end reporting in Reports.
+  {path:'dashboard',component:DashboardComponent,title:'Dashboard',canActivate:[permissionGuard],data:{module:'dashboard'},providers:[TimeframeService,{provide:TIMEFRAME_CONFIG,useValue:{seedKey:'dashboard.timeframe',defaultPreset:'today'}}]},
   {path:'settings',title:'Settings',children:[
     {path: "", component: SettingsHubComponent, pathMatch: "full",canActivate:[permissionGuard],data:{module:'settings'}},
     {path:'restaurant',component:IdentityComponent,title:'Restaurant identity & branding',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
@@ -101,8 +105,9 @@ export const restaurantMgtRoutes: Routes = [
   // TimeframeService is scoped to this route subtree ON PURPOSE, not providedIn:'root' —
   // it makes the URL the source of truth for the date range, so it must only exist where
   // a timeframe exists. Route providers build one EnvironmentInjector for the subtree, so
-  // the shell and all four children share the single instance.
-  {path:'reports',component:ReportsShellComponent,title:'Reports',canActivate:[permissionGuard],data:{module:'reports'},providers:[TimeframeService],children:[
+  // the shell and all four children share the single instance. `seedKey` is the pre-01B
+  // key VERBATIM, so users' persisted "last used" ranges survive the config change.
+  {path:'reports',component:ReportsShellComponent,title:'Reports',canActivate:[permissionGuard],data:{module:'reports'},providers:[TimeframeService,{provide:TIMEFRAME_CONFIG,useValue:{seedKey:'reports.dateRange',defaultPreset:'this-month'}}],children:[
     {path: "", redirectTo: "sales", pathMatch: "full"},
     {path:'sales',component:SalesReportComponent,title:'Sales'},
     {path:'menu',component:MenuReportComponent,title:'Menu performance'},
@@ -163,6 +168,10 @@ export const restaurantMgtRoutes: Routes = [
     BadgeComponent,
     SheetComponent,
     PageHeaderComponent,
+    // Mounted by DashboardComponent, which is non-standalone and so has no component-level
+    // `imports` of its own. Missing this is an AOT-only failure (NG8001) — `type-check`
+    // never compiles templates, so `build:prod` is the gate.
+    TimeframePickerComponent,
     TablesComponent,
     PresetTagsComponent,
     SettingsHubComponent,

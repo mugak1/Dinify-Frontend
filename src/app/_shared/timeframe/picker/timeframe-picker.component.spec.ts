@@ -2,12 +2,12 @@ import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BehaviorSubject } from 'rxjs';
 
-import { ReportDateRangeComponent } from './report-date-range.component';
-import { ReportDateRange } from '../../../../_shared/timeframe';
+import { TimeframePickerComponent } from './timeframe-picker.component';
+import { ReportDateRange } from '../timeframe-range';
 
-describe('ReportDateRangeComponent', () => {
-  let fixture: ComponentFixture<ReportDateRangeComponent>;
-  let component: ReportDateRangeComponent;
+describe('TimeframePickerComponent', () => {
+  let fixture: ComponentFixture<TimeframePickerComponent>;
+  let component: TimeframePickerComponent;
   let emitted: ReportDateRange[];
   let bp$: BehaviorSubject<BreakpointState>;
 
@@ -31,13 +31,13 @@ describe('ReportDateRangeComponent', () => {
     bp$ = new BehaviorSubject<BreakpointState>({ matches: true, breakpoints: {} });
 
     await TestBed.configureTestingModule({
-      imports: [ReportDateRangeComponent],
+      imports: [TimeframePickerComponent],
       providers: [
         { provide: BreakpointObserver, useValue: { observe: () => bp$.asObservable() } },
       ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(ReportDateRangeComponent);
+    fixture = TestBed.createComponent(TimeframePickerComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('value', {
       preset: 'this-month',

@@ -6,6 +6,7 @@ import {
   isValidReportDateRange,
   parseTimeframeParams,
   presetToRange,
+  rangeIncludesToday,
 } from './timeframe-range';
 
 describe('timeframe range model', () => {
@@ -150,6 +151,48 @@ describe('timeframe range model', () => {
       // 2026 is not a leap year, and February never has 31 days.
       expect(parse('2026-02-29', '2026-06-15')).toBeNull();
       expect(parse('2026-06-01', '2026-02-31')).toBeNull();
+    });
+  });
+
+  // Drives "is this range still OPEN?" — the Dashboard polls a live range and fetches a
+  // closed one exactly once, because a closed period's numbers cannot change.
+  describe('rangeIncludesToday', () => {
+    it('is true when today is inside the range', () => {
+      expect(rangeIncludesToday({ from: '2026-06-01', to: '2026-06-30' }, now)).toBeTrue();
+    });
+
+    it('is true on either inclusive boundary', () => {
+      expect(rangeIncludesToday({ from: '2026-06-15', to: '2026-06-30' }, now)).toBeTrue();
+      expect(rangeIncludesToday({ from: '2026-06-01', to: '2026-06-15' }, now)).toBeTrue();
+    });
+
+    it('is true for a single-day range that IS today', () => {
+      expect(rangeIncludesToday({ from: '2026-06-15', to: '2026-06-15' }, now)).toBeTrue();
+    });
+
+    it('is false for a wholly past range', () => {
+      expect(rangeIncludesToday({ from: '2026-05-01', to: '2026-05-31' }, now)).toBeFalse();
+      // Ends the day before today — the boundary a `<=` slip would get wrong.
+      expect(rangeIncludesToday({ from: '2026-06-01', to: '2026-06-14' }, now)).toBeFalse();
+    });
+
+    it('is false for a wholly future range', () => {
+      // Unreachable through the picker, but the predicate is two-sided on purpose and
+      // must not answer "open" for a window that has not started.
+      expect(rangeIncludesToday({ from: '2026-06-16', to: '2026-06-20' }, now)).toBeFalse();
+    });
+
+    it('holds for every in-progress preset, and for none of the closed ones', () => {
+      for (const preset of ['today', 'this-week', 'this-month', 'this-year'] as const) {
+        expect(rangeIncludesToday(presetToRange(preset, now), now))
+          .withContext(preset)
+          .toBeTrue();
+      }
+      for (const preset of ['yesterday', 'last-week', 'last-month'] as const) {
+        expect(rangeIncludesToday(presetToRange(preset, now), now))
+          .withContext(preset)
+          .toBeFalse();
+      }
     });
   });
 });

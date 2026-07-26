@@ -1,8 +1,20 @@
-// Shared preset date-range control. Owns no committed state — it reads `value`
-// and emits `valueChange`, so the shell binds it straight to
-// ReportsService.dateRange$. The trigger opens a STAGED picker: an anchored CDK
-// Overlay popover on desktop, a bottom sheet on mobile. Selection only commits on
-// Apply; Cancel / Esc / backdrop discard. Emits zero-padded ISO ranges.
+// Shared preset date-range control. Owns no committed state — it reads `value` and
+// emits `valueChange`, so a host binds it straight to `TimeframeService.range$` /
+// `set()`. That statelessness is what lets ONE instance serve both hosts (the Reports
+// shell and the Dashboard header) with no per-host variant. The trigger opens a STAGED
+// picker: an anchored CDK Overlay popover on desktop, a bottom sheet on mobile.
+// Selection only commits on Apply; Cancel / Esc / backdrop discard. Emits zero-padded
+// ISO ranges.
+//
+// NAMING. Called `timeframe-picker`, not `report-date-range`: it was relocated here from
+// the Reports module in TIMEFRAME-01B precisely because it stopped being Reports'. A
+// selector naming one of its two hosts sends the next reader to the wrong module.
+//
+// IMPORTS. Siblings by direct path (`../timeframe-range`), never the barrel — the barrel
+// re-exports this file, so importing it from here is a cycle. It would not fail the
+// build; it would surface as an `undefined` at module-init. This file must also never
+// import `../timeframe.service`: the picker is `value`/`valueChange` only, which keeps
+// index → picker → timeframe-range a strict DAG.
 //
 // CDK Overlay (not an in-flow absolute panel) is required: the host sits inside
 // `overflow-hidden` ancestors that would clip an in-flow popover. The overlay
@@ -27,13 +39,13 @@ import {
 import { format } from 'date-fns';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { SheetComponent } from '../../../../_shared/ui/sheet/sheet.component';
-import { ReportDateRange, presetToRange } from '../../../../_shared/timeframe';
+import { SheetComponent } from '../../ui/sheet/sheet.component';
+import { ReportDateRange, presetToRange } from '../timeframe-range';
 import { DateRangePanelComponent } from './date-range-panel.component';
 import { PRESET_LABELS, formatRangeSpan } from './range-label';
 
 @Component({
-  selector: 'app-report-date-range',
+  selector: 'app-timeframe-picker',
   standalone: true,
   imports: [SheetComponent, DateRangePanelComponent],
   template: `
@@ -71,7 +83,7 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
     }
   `,
 })
-export class ReportDateRangeComponent implements OnInit, OnDestroy {
+export class TimeframePickerComponent implements OnInit, OnDestroy {
   @Input() value: ReportDateRange = presetToRange('this-month');
   @Output() valueChange = new EventEmitter<ReportDateRange>();
 

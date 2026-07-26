@@ -1,5 +1,4 @@
 import {
-  DateRange,
   DashboardV2Response,
   KdsData,
   OrdersBreakdown,
@@ -12,99 +11,71 @@ import {
   ReviewsSummaryResponse,
   TablesData,
 } from '../models/dashboard.models';
-import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
+import {
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  eachMonthOfInterval,
+  eachYearOfInterval,
+  format,
+  parseISO,
+} from 'date-fns';
+import { ReportBucketUnit, previousEqualLengthPeriod } from '../../../_shared/timeframe';
 import { DailyRevenueRow, dailyRevenue } from '../../../_shared/mock/daily-revenue';
 import { distributeByHour } from '../../../_shared/mock/hour-of-day';
 
-// ── Seeded PRNG (mulberry32) ─────────────────────────────
-// Keeps data stable across auto-refresh cycles within the same dateRange.
-function seededRandom(seed: number): () => number {
-  return () => {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-const SEED_MAP: Record<DateRange, number> = { day: 101, week: 202, month: 303, ytd: 404 };
-
-// ── Hourly pattern multipliers (hour 0-23) ───────────────
-const HOUR_MULTIPLIERS = [
-  0.1, 0.1, 0.05, 0.05, 0.05, 0.1, // 0-5 am: near-zero
-  0.3, 0.5, 0.7, 0.8, 0.9, 1.0, // 6-11 am: morning ramp
-  1.2, 1.1, 0.9, 0.7, 0.7, 0.8, // 12-5 pm: lunch peak then lull
-  1.0, 1.3, 1.2, 0.9, 0.6, 0.3, // 6-11 pm: dinner peak then wind-down
-];
+// The mock walks the SAME range→bucket ladder the live surface does, so mock mode and
+// live mode render the same number of points for the same range. Everything numeric
+// derives from the shared per-(restaurant, day) basis in `_shared/mock/`, which is what
+// keeps Dashboard and Reports reconciling for an identical {from, to}.
+//
+// The old seeded-PRNG scaffolding (SEED_MAP, HOUR_MULTIPLIERS, getPatternMultiplier,
+// getScaleFactor) is gone: once orders come from the shared basis, the per-day rhythm
+// (weekday-seeded) and the intra-day curve (distributeByHour) both arrive with the data,
+// and the invented multipliers were a second, contradictory rhythm layered on top of it.
 
 // ── Date helpers ─────────────────────────────────────────
-function generateDates(dateRange: DateRange): string[] {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dates: string[] = [];
 
-  switch (dateRange) {
-    case 'day':
-      for (let h = 0; h < 24; h++) {
-        const d = new Date(today);
-        d.setHours(h, 0, 0, 0);
-        dates.push(d.toISOString());
-      }
-      break;
-    case 'week':
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        dates.push(d.toISOString());
-      }
-      break;
-    case 'month':
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        dates.push(d.toISOString());
-      }
-      break;
-    case 'ytd': {
-      const currentMonth = now.getMonth();
-      for (let m = 0; m <= currentMonth; m++) {
-        const d = new Date(now.getFullYear(), m, 1);
-        dates.push(d.toISOString());
-      }
-      break;
-    }
-  }
-  return dates;
+/** Inclusive day count of [from, to]; at least 1 so an inverted pair can't zero a divisor. */
+function rangeDays(from: string, to: string): number {
+  return Math.max(1, differenceInCalendarDays(parseISO(to), parseISO(from)) + 1);
 }
 
-function getPatternMultiplier(dateRange: DateRange, index: number, total: number): number {
-  switch (dateRange) {
+/**
+ * The bucket boundaries [from, to] renders at — the same ladder `resolveTimeframe`
+ * walks. Unlike the version this replaces, it honours the ACTUAL range instead of
+ * re-deriving a window from `new Date()`, so an arbitrary historical range works.
+ *
+ * It also defines the EMPTY buckets: a month with no orders still gets a point rather
+ * than vanishing from the axis.
+ */
+function generateDates(from: string, to: string, bucket: ReportBucketUnit): string[] {
+  const start = parseISO(from);
+  const end = parseISO(to);
+
+  switch (bucket) {
+    // A ≤1-day span renders as hour-of-day on the first day, matching the live path.
+    case 'hour':
+      return Array.from({ length: 24 }, (_, h) => dayAtIso(from, h));
     case 'day':
-      return HOUR_MULTIPLIERS[index] ?? 0.5;
-    case 'week':
-      return [0.8, 0.9, 1.0, 1.1, 1.2, 1.4, 1.3][index] ?? 1.0;
+      return eachDayOfInterval({ start, end }).map((d) => dayAtIso(format(d, 'yyyy-MM-dd')));
     case 'month':
-      return 0.8 + 0.4 * Math.sin((index / total) * Math.PI);
-    case 'ytd':
-      return 0.7 + 0.6 * Math.sin((index / total) * Math.PI * 2);
-    default:
-      return 1.0;
+      return eachMonthOfInterval({ start, end }).map((d) => dayAtIso(format(d, 'yyyy-MM-01')));
+    case 'year':
+      return eachYearOfInterval({ start, end }).map((d) => dayAtIso(`${format(d, 'yyyy')}-01-01`));
   }
 }
 
-function getScaleFactor(dateRange: DateRange): number {
-  switch (dateRange) {
+/** The bucket a given day falls into, as the matching `generateDates` key. */
+function bucketKey(date: string, bucket: ReportBucketUnit): string {
+  const d = parseISO(date);
+  switch (bucket) {
+    case 'hour':
     case 'day':
-      return 1;
-    case 'week':
-      return 7;
+      return format(d, 'yyyy-MM-dd');
     case 'month':
-      return 30;
-    case 'ytd':
-      return 120;
-    default:
-      return 1;
+      return format(d, 'yyyy-MM-01');
+    case 'year':
+      return `${format(d, 'yyyy')}-01-01`;
   }
 }
 
@@ -135,9 +106,19 @@ function aov(net: number, orders: number): number {
   return orders > 0 ? Math.round(net / orders) : 0;
 }
 
-function buildRevenueSeries(rows: DailyRevenueRow[], period: DateRange): RevenueSeriesPoint[] {
-  // day → spread the single day's totals across 24 hours; the points sum to the day total.
-  if (period === 'day') {
+/**
+ * Groups the shared daily rows into the bucket slots `generateDates` defines, so
+ * `Σ series === totals` holds by construction at every granularity and the revenue and
+ * orders charts share one x-axis exactly.
+ */
+function buildRevenueSeries(
+  rows: DailyRevenueRow[],
+  from: string,
+  to: string,
+  bucket: ReportBucketUnit,
+): RevenueSeriesPoint[] {
+  // hour → spread the single day's totals across 24 hours; the points sum to the day total.
+  if (bucket === 'hour') {
     const day = rows[0];
     if (!day) return [];
     const oH = distributeByHour(day.orders);
@@ -152,54 +133,39 @@ function buildRevenueSeries(rows: DailyRevenueRow[], period: DateRange): Revenue
     }));
   }
 
-  // ytd → one point per calendar month (grouped-and-summed daily rows).
-  if (period === 'ytd') {
-    const months = new Map<string, RevenueSeriesPoint>();
-    for (const r of rows) {
-      const key = format(parseISO(r.date), 'yyyy-MM');
-      const p = months.get(key) ?? { at: dayAtIso(`${key}-01`), gross: 0, net: 0, orders: 0, aov: 0 };
-      p.gross += r.gross;
-      p.net += r.net;
-      p.orders += r.orders;
-      months.set(key, p);
-    }
-    return [...months.values()].map((p) => ({ ...p, aov: aov(p.net, p.orders) }));
+  const slots = new Map<string, RevenueSeriesPoint>(
+    generateDates(from, to, bucket).map((at) => [at, { at, gross: 0, net: 0, orders: 0, aov: 0 }]),
+  );
+  for (const r of rows) {
+    const p = slots.get(dayAtIso(bucketKey(r.date, bucket)));
+    if (!p) continue;
+    p.gross += r.gross;
+    p.net += r.net;
+    p.orders += r.orders;
   }
-
-  // week / month → one point per daily row.
-  return rows.map((r) => ({
-    at: dayAtIso(r.date),
-    gross: r.gross,
-    net: r.net,
-    orders: r.orders,
-    aov: aov(r.net, r.orders),
-  }));
+  return [...slots.values()].map((p) => ({ ...p, aov: aov(p.net, p.orders) }));
 }
 
 export function getMockRevenueData(
   restaurantId: string,
   from: string,
   to: string,
-  period: DateRange,
+  bucket: ReportBucketUnit,
 ): RevenueData {
   const rows = dailyRevenue(restaurantId, from, to);
-
-  // Real period-over-period: the equal-length window immediately preceding [from, to].
-  const len = Math.max(1, differenceInCalendarDays(parseISO(to), parseISO(from)) + 1);
-  const prevTo = subDays(parseISO(from), 1);
-  const prevFrom = subDays(prevTo, len - 1);
-  const prevRows = dailyRevenue(restaurantId, format(prevFrom, 'yyyy-MM-dd'), format(prevTo, 'yyyy-MM-dd'));
+  const prev = previousEqualLengthPeriod({ from, to });
+  const prevRows = dailyRevenue(restaurantId, prev.from, prev.to);
 
   return {
-    series: buildRevenueSeries(rows, period),
+    series: buildRevenueSeries(rows, from, to, bucket),
     totals: sumTotals(rows),
     previous_totals: sumTotals(prevRows),
   };
 }
 
 // ── 2. Payment Methods ───────────────────────────────────
-export function getMockPaymentMethods(dateRange: DateRange): PaymentMethodData[] {
-  const scale = getScaleFactor(dateRange);
+export function getMockPaymentMethods(from: string, to: string): PaymentMethodData[] {
+  const scale = rangeDays(from, to);
   return [
     { method: 'mobile_money', amount: Math.round(1_800_000 * scale), tx_count: Math.round(45 * scale), change_pct: 12.5 },
     { method: 'cash', amount: Math.round(1_200_000 * scale), tx_count: Math.round(38 * scale), change_pct: -3.2 },
@@ -208,30 +174,54 @@ export function getMockPaymentMethods(dateRange: DateRange): PaymentMethodData[]
 }
 
 // ── 3. Orders ────────────────────────────────────────────
-export function getMockOrdersData(dateRange: DateRange): OrdersData {
-  const rand = seededRandom(SEED_MAP[dateRange] + 50);
-  const dates = generateDates(dateRange);
-  const baseOrders = dateRange === 'day' ? 8 : 45;
+/** Fixed status mix as a share of a REAL total, allocated by largest remainder so the
+ *  four segments sum to exactly `total` — the stacked bar and the headline number can
+ *  never disagree. (The shared basis models order counts, not order status.) */
+function splitBreakdown(total: number, shares: OrdersBreakdown): OrdersBreakdown {
+  const keys = Object.keys(shares) as (keyof OrdersBreakdown)[];
+  const exact = keys.map((k) => ({ k, v: total * shares[k] }));
+  const out = { paid: 0, open: 0, cancelled: 0, refunded: 0 } as OrdersBreakdown;
+  for (const e of exact) out[e.k] = Math.floor(e.v);
 
-  const series = dates.map((at, i) => {
-    const pattern = getPatternMultiplier(dateRange, i, dates.length);
-    const variance = 0.8 + rand() * 0.4;
-    const orders = Math.max(1, Math.round(baseOrders * pattern * variance));
-    return { at, orders };
-  });
+  let remainder = total - keys.reduce((a, k) => a + out[k], 0);
+  for (const e of [...exact].sort((a, b) => (b.v % 1) - (a.v % 1))) {
+    if (remainder <= 0) break;
+    out[e.k] += 1;
+    remainder -= 1;
+  }
+  return out;
+}
 
-  const scale = getScaleFactor(dateRange);
-  const breakdown: OrdersBreakdown = {
-    paid: Math.round(52 * scale),
-    open: Math.round(8 * scale),
-    cancelled: Math.round(3 * scale),
-    refunded: Math.round(2 * scale),
+export function getMockOrdersData(
+  restaurantId: string,
+  from: string,
+  to: string,
+  bucket: ReportBucketUnit,
+): OrdersData {
+  const rows = dailyRevenue(restaurantId, from, to);
+  const total = rows.reduce((a, r) => a + r.orders, 0);
+
+  // A REAL equal-length comparison, same window the backend uses. This previously read
+  // `Math.round(total * 0.88)` — a flat, invented 12% that made the delta chip show
+  // roughly +13.6% for every range and hid whether the timeframe was working at all.
+  const prev = previousEqualLengthPeriod({ from, to });
+  const previous_total = dailyRevenue(restaurantId, prev.from, prev.to).reduce(
+    (a, r) => a + r.orders,
+    0,
+  );
+
+  // Same slots as the revenue series, so the two charts share one x-axis exactly.
+  const series = buildRevenueSeries(rows, from, to, bucket).map((p) => ({
+    at: p.at,
+    orders: p.orders,
+  }));
+
+  return {
+    series,
+    breakdown: splitBreakdown(total, { paid: 0.8, open: 0.12, cancelled: 0.05, refunded: 0.03 }),
+    total,
+    previous_total,
   };
-
-  const total = breakdown.paid + breakdown.open + breakdown.cancelled + breakdown.refunded;
-  const previous_total = Math.round(total * 0.88);
-
-  return { series, breakdown, total, previous_total };
 }
 
 // ── 4. Popular Items ─────────────────────────────────────
@@ -319,12 +309,12 @@ export function getMockDashboardData(
   restaurantId: string,
   from: string,
   to: string,
-  dateRange: DateRange,
+  bucket: ReportBucketUnit,
 ): DashboardV2Response {
   return {
-    revenue: getMockRevenueData(restaurantId, from, to, dateRange),
-    payments: getMockPaymentMethods(dateRange),
-    orders: getMockOrdersData(dateRange),
+    revenue: getMockRevenueData(restaurantId, from, to, bucket),
+    payments: getMockPaymentMethods(from, to),
+    orders: getMockOrdersData(restaurantId, from, to, bucket),
     popular_items: getMockPopularItems(),
     tables: getMockTablesData(),
     kds: getMockKdsData(),
