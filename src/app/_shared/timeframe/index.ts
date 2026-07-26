@@ -24,12 +24,20 @@ export {
   BUCKET_TO_CATEGORY,
   HOURLY_MAX_DAYS,
   SALES_TRENDS_CAP_DAYS,
+  classifyRangeShape,
   comparisonRange,
   comparisonRangeLabel,
+  nextEqualLengthPeriod,
   previousEqualLengthPeriod,
   resolveTimeframe,
+  stepRange,
 } from './timeframe-engine';
-export type { ReportBucketUnit, SalesTrendsCategory, TimeframeResolution } from './timeframe-engine';
+export type {
+  RangeShape,
+  ReportBucketUnit,
+  SalesTrendsCategory,
+  TimeframeResolution,
+} from './timeframe-engine';
 
 export { TIMEFRAME_CONFIG } from './timeframe-config';
 export type { TimeframeConfig } from './timeframe-config';

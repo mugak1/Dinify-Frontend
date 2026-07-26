@@ -240,11 +240,17 @@ so keep it current when conventions change.
   dates, because it drives comparison semantics. Every write uses
   `replaceUrl: true` + `queryParamsHandling: 'merge'` — REPLACE not push, so that
   01C's period arrows can't bury the previous page under twenty history entries
-  (deliberate and reversible). The entry URL correction is deferred one microtask past
+  (deliberate and reversible; the arrows have since LANDED and depend on it).
+  The entry URL correction is deferred one microtask past
   route activation; navigating synchronously would re-enter the router mid-cycle.
   `ReportsService.dateRange$` is GONE — read `TimeframeService.range$`, write
   `set()`. `compareEnabled$` is deliberately untouched (localStorage-primary, no URL
   param) pending its Phase-2 replacement.
+  Period-stepping arrows (01C): ✅ the shared picker now renders `[◀] [▶] [date ▾]`, so
+  BOTH hosts page the window by one period — a day steps a day, a Mon–Sun week a week,
+  a calendar month a whole month respecting month lengths. The shape is derived from
+  the DATES (`classifyRangeShape`, see Shared Libraries), never from `preset`; the
+  comparison VOCABULARY that will consume that classifier is Phase 2 and is not here.
   **The Dashboard's coarse `'day'|'week'|'month'|'ytd'` enum is DELETED** (01B), along
   with `DashboardService.dateRange$` / `isDashboardActive$` and the component's
   `computeDateRange()`. The two-timeframe-systems state is over. The picker moved to
@@ -465,7 +471,24 @@ writing new tag, price/menu or date-range logic:
     `prev_to = from − 1d`) and is what the Dashboard cards must use. Mixing them
     produces a frontend delta measured against a different window than the backend
     total it is compared to — a wrong number with no error attached. Change
-    `previousEqualLengthPeriod` in lockstep with the backend, never alone
+    `previousEqualLengthPeriod` in lockstep with the backend, never alone.
+    The engine ALSO owns period stepping (01C): `classifyRangeShape` →
+    `RangeShape` (`day`/`week`/`week-to-date`/`month`/`month-to-date`/`year`/
+    `year-to-date`/`custom`) and `stepRange(range, ±1, now)`, plus
+    `nextEqualLengthPeriod` — the exact, spec-pinned INVERSE of
+    `previousEqualLengthPeriod`. Those two are the ONLY place equal-length stepping
+    arithmetic lives; do not re-derive an offset anywhere else (the reference model
+    this was built from offsets `from` by the INCLUSIVE length, so its window grows a
+    day on every click, in both directions — pinned absent). Shape comes from the
+    DATES, never the preset: two steps back from `this-month` reads `custom` while the
+    range is still a real calendar month, and equal-length stepping would then be wrong
+    the moment month lengths differ. The ONE scoped exception is a genuine tie — on the
+    1st of a period, `today` and `this-month` produce byte-identical dates — where
+    `preset` picks the period level; that requires `to === today`, so it cannot
+    propagate into a backward-stepped range. `stepRange` steps into the past as the
+    COMPLETE natural period (month-to-date back → all of last month) and clamps the END
+    (never the start, never a collapse to "Today") going forward. **Phase 2's
+    comparison vocabulary must key off `classifyRangeShape`, not `preset`**
   - `TIMEFRAME_CONFIG` + `TimeframeConfig` — the per-host `seedKey` / `defaultPreset`
     (see the timeframe bullet in Current Implementation Status)
   - `TimeframeService` — the URL-backed state. ROUTE-scoped, not root. Registering it
@@ -473,7 +496,11 @@ writing new tag, price/menu or date-range logic:
   - `picker/` — `TimeframePickerComponent` (`app-timeframe-picker`), the shared
     date-range control, plus its internal `date-range-panel` / `range-calendar` /
     `range-label`. Only the picker is barrel-exported. It owns NO committed state
-    (`value` in, `valueChange` out), which is what lets one component serve both hosts
+    (`value` in, `valueChange` out), which is what lets one component serve both hosts.
+    Since 01C it renders a control cluster — `[◀] [▶] [date button ▾]` — where the
+    arrows step by `stepRange` and the forward one carries a real `disabled` at the
+    present. They commit through the SAME `valueChange` as the staged picker (no second
+    `@Output`), which is why both hosts inherited them with no host-side change
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.

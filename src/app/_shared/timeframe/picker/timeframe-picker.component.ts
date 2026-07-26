@@ -6,6 +6,10 @@
 // Selection only commits on Apply; Cancel / Esc / backdrop discard. Emits zero-padded
 // ISO ranges.
 //
+// TWO commit paths, both through `valueChange`: `onApply` (the staged picker) and `step`
+// (the period arrows, 01C). The arrows deliberately add no second `@Output` — a step is
+// just a new value, so both hosts inherited them with no host-side change at all.
+//
 // NAMING. Called `timeframe-picker`, not `report-date-range`: it was relocated here from
 // the Reports module in TIMEFRAME-01B precisely because it stopped being Reports'. A
 // selector naming one of its two hosts sends the next reader to the wrong module.
@@ -40,6 +44,7 @@ import { format } from 'date-fns';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { SheetComponent } from '../../ui/sheet/sheet.component';
+import { stepRange } from '../timeframe-engine';
 import { ReportDateRange, presetToRange } from '../timeframe-range';
 import { DateRangePanelComponent } from './date-range-panel.component';
 import { PRESET_LABELS, formatRangeSpan } from './range-label';
@@ -49,23 +54,52 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
   standalone: true,
   imports: [SheetComponent, DateRangePanelComponent],
   template: `
-    <button
-      #trigger
-      type="button"
-      class="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      [attr.aria-label]="'Date range: ' + triggerLabel + '. Activate to change.'"
-      aria-haspopup="dialog"
-      [attr.aria-expanded]="isOpen"
-      (click)="open()"
-    >
-      <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <path d="M16 2v4" />
-        <path d="M8 2v4" />
-        <path d="M3 10h18" />
-      </svg>
-      <span>{{ presetLabel }} <span class="text-muted-foreground">·</span> {{ spanLabel }}</span>
-    </button>
+    <!-- Control cluster: [◀] [▶] [date button ▾]. The arrows are explicitly sized to the
+         trigger's computed 38px (text-sm line-height 20 + py-2 + border), because the
+         14px root makes rem-derived heights land ~12.5% short and this cluster sits in a
+         header that feeds sticky offsets. -->
+    <div class="inline-flex items-center gap-1">
+      <button
+        type="button"
+        class="h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-input bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30 disabled:pointer-events-none"
+        aria-label="Previous period"
+        (click)="step(-1)"
+      >
+        <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        class="h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-input bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30 disabled:pointer-events-none"
+        aria-label="Next period"
+        [disabled]="nextDisabled"
+        (click)="step(1)"
+      >
+        <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+
+      <button
+        #trigger
+        type="button"
+        class="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        [attr.aria-label]="'Date range: ' + triggerLabel + '. Activate to change.'"
+        aria-haspopup="dialog"
+        [attr.aria-expanded]="isOpen"
+        (click)="open()"
+      >
+        <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4" />
+          <path d="M8 2v4" />
+          <path d="M3 10h18" />
+        </svg>
+        <span>{{ presetLabel }} <span class="text-muted-foreground">·</span> {{ spanLabel }}</span>
+      </button>
+    </div>
 
     <!-- Mobile: bottom sheet. Only mounted below the desktop breakpoint. The
          desktop popover is the same DateRangePanelComponent, created imperatively
@@ -118,6 +152,28 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
     return format(new Date(), 'yyyy-MM-dd');
   }
 
+  /**
+   * There is no period after the present to step into. ISO calendar dates compare
+   * lexically, so a string compare is the whole test.
+   */
+  get nextDisabled(): boolean {
+    return this.value.to >= this.todayIso;
+  }
+
+  /**
+   * Step the window one period, where "one period" comes from the range's SHAPE — a day
+   * steps a day, a Mon–Sun week a week, a calendar month a whole month respecting month
+   * lengths. All of that lives in `stepRange`; this only routes the click.
+   *
+   * Emitted through the existing `valueChange` rather than a new output: a step IS just a
+   * new value, and both hosts already route `valueChange` into `TimeframeService.set()` —
+   * which writes the URL with `replaceUrl: true`, so arrow spam cannot bury the page the
+   * user arrived from under a stack of history entries.
+   */
+  step(direction: -1 | 1): void {
+    this.valueChange.emit(stepRange(this.value, direction));
+  }
+
   ngOnInit(): void {
     this.breakpoints
       .observe('(min-width: 1024px)')
@@ -138,7 +194,7 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
   }
 
   onApply(range: ReportDateRange): void {
-    this.valueChange.emit(range); // the only path that commits
+    this.valueChange.emit(range); // the only path the STAGED picker commits through
     this.close();
   }
 
