@@ -69,6 +69,40 @@ import { DateRangePanelComponent } from './date-range-panel.component';
 import { ComparisonStartPanelComponent } from './comparison-start-panel.component';
 import { PRESET_LABELS, formatRangeSpan } from './range-label';
 
+/**
+ * THE position ladder for every overlay this control opens — the calendar, the comparison
+ * menu and the custom-start calendar alike.
+ *
+ * END-ALIGNED FIRST is the load-bearing part. On the Dashboard the cluster sits in the
+ * page header's right-aligned actions slot, so the space to a trigger's RIGHT is only the
+ * page gutter while the space to its LEFT is the whole content column. Start-aligned, the
+ * calendar overflowed: its popover carries no width class of its own (the width emerges
+ * from a `w-32` preset column plus two `w-64` month grids, measured at 618px), which put
+ * its right edge 304px past the frame with BOTH month grids clipped and the second one
+ * entirely off-screen. Note that overflow was viewport-INDEPENDENT — measured identically
+ * at 1024px and 1600px — because the trigger is pinned to the content column's right edge,
+ * so widening the window moved the panel with it. Aligning the panel's right edge to the
+ * trigger's right edge opens it leftward and resolves it at every width.
+ *
+ * The start-aligned pair is a REAL fallback, not decoration: the Reports host puts this
+ * control at the LEFT of its date bar, where end-alignment would overflow the opposite
+ * edge, so CDK falls through to it and that host's placement is unchanged. `offsetY` is
+ * unchanged from the three arrays this replaced, so no gap shifts anywhere.
+ *
+ * ONE ladder, not three. Before this, each overlay hand-maintained its own copy and they
+ * had already drifted apart on `withPush` — which is how a fix could land on one and miss
+ * the others. Call this ONCE into a single field (see `overlayPositions`) so every overlay
+ * reads the same instance and they cannot diverge again.
+ */
+export function timeframeOverlayPositions(): ConnectedPosition[] {
+  return [
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 8 },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -8 },
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
+    { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
+  ];
+}
+
 @Component({
   selector: 'app-timeframe-picker',
   standalone: true,
@@ -152,7 +186,8 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
         cdkConnectedOverlay
         [cdkConnectedOverlayOrigin]="cmpOrigin"
         [cdkConnectedOverlayOpen]="cmpOpen"
-        [cdkConnectedOverlayPositions]="cmpPositions"
+        [cdkConnectedOverlayPositions]="overlayPositions"
+        [cdkConnectedOverlayPush]="true"
         [cdkConnectedOverlayHasBackdrop]="true"
         cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
         cdkConnectedOverlayPanelClass="dn-comparison-overlay-panel"
@@ -239,11 +274,13 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
   isDesktop = false;
   cmpOpen = false;
 
-  /** Below the trigger, flipping above when there is no room. Mirrors the range panel. */
-  readonly cmpPositions: ConnectedPosition[] = [
-    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
-    { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
-  ];
+  /**
+   * ONE array instance, read by all three overlays — the comparison menu binds it, and
+   * `openOverlay` / `openCustomStart` pass this same reference to `withPositions`. Built
+   * once here rather than per call site precisely so the three are reference-identical:
+   * that is what makes it impossible to re-fix one placement and miss the others.
+   */
+  readonly overlayPositions: ConnectedPosition[] = timeframeOverlayPositions();
 
   private overlayRef?: OverlayRef;
   private panelRef?: ComponentRef<DateRangePanelComponent>;
@@ -462,10 +499,7 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
       .flexibleConnectedTo(this.cmpTriggerEl!)
       .withFlexibleDimensions(false)
       .withPush(true)
-      .withPositions([
-        { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
-        { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
-      ]);
+      .withPositions(this.overlayPositions);
 
     this.customStartRef = this.overlay.create({
       positionStrategy,
@@ -522,12 +556,12 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
     const positionStrategy = this.overlay
       .position()
       .flexibleConnectedTo(this.triggerEl)
+      // Flexible dimensions stay OFF: a two-month calendar that reflows to fit is worse
+      // than one that repositions. Push is the backstop for the case none of the four
+      // placements fits — without it a panel wider than the viewport has nowhere to go.
       .withFlexibleDimensions(false)
-      .withPush(false)
-      .withPositions([
-        { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
-        { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
-      ]);
+      .withPush(true)
+      .withPositions(this.overlayPositions);
 
     this.overlayRef = this.overlay.create({
       positionStrategy,
