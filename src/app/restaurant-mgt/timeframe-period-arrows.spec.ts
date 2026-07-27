@@ -165,4 +165,26 @@ describe('period arrows — both timeframe hosts', () => {
       });
     });
   }
+  // ─── Comparison control, per host (TIMEFRAME-02A) ──────────────────────────────────
+  //
+  // The picker is SHARED, and 02A gives the comparison dropdown only to Reports — the
+  // Dashboard keeps its server-computed `previous_totals` until 02B. `showComparison`
+  // defaults to false to make that so, and this is the spec that stops a later default
+  // flip shipping silently to the primary surface. Delete it in 02B, with the flag.
+  describe('the comparison dropdown is scoped to Reports until 02B', () => {
+    const cmpTrigger = (el: HTMLElement): HTMLButtonElement | null =>
+      el.querySelector('button[aria-haspopup="listbox"]');
+
+    it('the Reports shell renders it', async () => {
+      const el = await bootAt('/reports' + MARCH_2020);
+      expect(cmpTrigger(el)).not.toBeNull();
+    });
+
+    it('the Dashboard renders NO comparison control', async () => {
+      const el = await bootAt('/dashboard' + MARCH_2020);
+
+      expect(el.querySelector('app-timeframe-picker')).not.toBeNull(); // the picker IS there…
+      expect(cmpTrigger(el)).toBeNull(); // …without the dropdown
+    });
+  });
 });

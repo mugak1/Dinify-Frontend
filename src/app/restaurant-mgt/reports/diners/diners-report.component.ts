@@ -3,7 +3,7 @@
 // The honesty-laden tab: it mirrors the backend's separation of IDENTIFIED diners
 // (account-holders) from ANONYMOUS guests (the majority, an order count only), with NO
 // new-vs-returning and NO member-since. Orchestrator only, ONE pipeline:
-//   • full-range summary (+ comparisonRange) → the 4 chips + repeat-vs-one-time;
+//   • full-range summary (+ the selected comparison window) → the 4 chips + repeat-vs-one-time;
 //   • listing over the recent-31-day window → the leaderboard + identified-order count;
 //   • a windowed summary (only when capped) → the split's window-consistent guest_orders.
 // The order split is the centrepiece; all maths live in the pure diners-view helpers.
@@ -15,9 +15,10 @@ import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/oper
 import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import {
-  comparisonRange,
+  ComparisonOption,
+  comparisonCaption,
+  resolveComparison,
   ReportDateRange,
-  ReportPreset,
   TimeframeService,
 } from '../../../_shared/timeframe';
 import { DinersListingRow, DinersSummary, ReportColumn } from '../models/reports.models';
@@ -50,16 +51,6 @@ const EXPORT_COLUMNS: ReportColumn[] = [
   { key: 'last_order_date', label: 'Last seen', format: 'datetime' },
 ];
 
-const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
-  today: 'vs yesterday',
-  yesterday: 'vs prior day',
-  'this-week': 'vs last week',
-  'last-week': 'vs prior week',
-  'this-month': 'vs last month',
-  'last-month': 'vs prior month',
-  'this-year': 'vs last year',
-};
-
 @Component({
   selector: 'app-diners-report',
   standalone: true,
@@ -79,8 +70,10 @@ export class DinersReportComponent implements OnInit, OnDestroy {
   readonly exportColumns = EXPORT_COLUMNS;
   readonly fmt = formatUGX;
   readonly rate = repeatRate;
-  /** Shared "compare to previous period" toggle — gates the delta chips. */
-  readonly compareEnabled$ = this.reports.compareEnabled$;
+  /** Whether a comparison is being shown at all — gates the delta chips. Derived from
+   *  the shared basis, so "No comparison" hides them exactly as the old boolean toggle
+   *  did, and the template's `@let compareOn` line is unchanged. */
+  readonly compareEnabled$ = this.timeframe.comparison$.pipe(map((o) => o !== 'none'));
 
   // Summary (range-aggregate, full range).
   summaryReady = false;
@@ -117,7 +110,11 @@ export class DinersReportComponent implements OnInit, OnDestroy {
       return;
     }
 
-    combineLatest([this.timeframe.range$, this.reports.refresh$.pipe(startWith(undefined))])
+    combineLatest([
+      this.timeframe.range$,
+      this.timeframe.comparison$,
+      this.reports.refresh$.pipe(startWith(undefined)),
+    ])
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {
@@ -126,15 +123,18 @@ export class DinersReportComponent implements OnInit, OnDestroy {
           this.summaryState = 'loading';
           this.listingState = 'loading';
         }),
-        switchMap(([range]) => {
+        switchMap(([range, basis]) => {
           const win = recentWindow(range);
-          const cmp = comparisonRange(range);
+          const cmp = resolveComparison(range, basis);
           const full$ = this.reports
             .getDinersSummary(restaurantId, range.from, range.to)
             .pipe(catchError(() => of({ data: null } as any)));
-          const prev$ = this.reports
-            .getDinersSummary(restaurantId, cmp.from, cmp.to)
-            .pipe(catchError(() => of({ data: null } as any)));
+          // NO REQUEST when the basis is 'none' — see the Sales pipeline for the why.
+          const prev$ = cmp
+            ? this.reports
+                .getDinersSummary(restaurantId, cmp.from, cmp.to)
+                .pipe(catchError(() => of({ data: null } as any)))
+            : of({ data: null } as any);
           const listing$ = this.reports
             .getDinersListing(restaurantId, win.from, win.to)
             .pipe(catchError(() => of({ data: null } as any)));
@@ -144,7 +144,15 @@ export class DinersReportComponent implements OnInit, OnDestroy {
             : of(null);
 
           return combineLatest([full$, prev$, listing$, winSum$]).pipe(
-            map(([full, prev, listing, winSum]) => ({ range, win, full, prev, listing, winSum })),
+            map(([full, prev, listing, winSum]) => ({
+              range,
+              basis,
+              win,
+              full,
+              prev,
+              listing,
+              winSum,
+            })),
           );
         }),
       )
@@ -162,6 +170,7 @@ export class DinersReportComponent implements OnInit, OnDestroy {
 
   private apply(p: {
     range: ReportDateRange;
+    basis: ComparisonOption;
     win: { from: string; to: string; capped: boolean };
     full: any;
     prev: any;
@@ -187,7 +196,7 @@ export class DinersReportComponent implements OnInit, OnDestroy {
 
     this.summary = s;
     this.prevSummary = p.prev?.data ?? null;
-    this.comparisonLabel = COMPARISON_LABELS[p.range.preset] ?? 'vs prior period';
+    this.comparisonLabel = comparisonCaption(p.basis);
     this.repeat = repeatBreakdown(s);
 
     // Leaderboard + export (identified, recent window).

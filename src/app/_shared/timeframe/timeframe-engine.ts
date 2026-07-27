@@ -7,9 +7,15 @@
 // comparison-window maths are unit-testable in isolation.
 //
 // Relocated out of the Reports module (TIMEFRAME-01A) alongside the range model so
-// Dashboard can adopt the same ladder in 01B. Live consumers today: the Reports shell
-// (comparisonRangeLabel), all four report tabs (comparisonRange), and the Sales tab +
-// sales-view (resolveTimeframe / ReportBucketUnit / SalesTrendsCategory).
+// Dashboard can adopt the same ladder in 01B. Live consumers today: all four report tabs
+// (resolveComparison), the shared picker (comparisonOptionsFor / stepRange), the Dashboard
+// (previousEqualLengthPeriod), and the Sales tab + sales-view (resolveTimeframe /
+// ReportBucketUnit / SalesTrendsCategory).
+//
+// ONE COMPARISON-WINDOW RESOLVER. `resolveComparison` is it. The preset-keyed
+// `comparisonRange`/`comparisonRangeLabel` pair it replaced (TIMEFRAME-02A) is gone —
+// a comparison basis is now a user SELECTION keyed on the range's shape, not a
+// consequence of the preset. Do not reintroduce a second entry point.
 
 import {
   addDays,
@@ -32,6 +38,7 @@ import {
   subWeeks,
   subYears,
 } from 'date-fns';
+import { ComparisonOption } from './comparison-option';
 import { REPORT_PRESETS, ReportDateRange, ReportPreset, presetToRange } from './timeframe-range';
 
 /** Time bucket the UI renders a range at. `hour` is the single-day sales-hourly path. */
@@ -127,47 +134,6 @@ function comparison(from: Date, to: Date): ReportDateRange {
 }
 
 /**
- * The equivalent prior window for a range — the basis for period-over-period
- * deltas (the visuals land in a later PR; the range maths live here). Preset-aware:
- *   today / yesterday     → the prior single day
- *   this-week / last-week → the prior Mon–Sun week
- *   this-month/last-month → the FULL prior calendar month (not a fixed-day shift)
- *   this-year             → the prior calendar year
- *   custom (and fallback) → an equal-length window immediately before the range
- */
-export function comparisonRange(range: ReportDateRange): ReportDateRange {
-  const from = parseISO(range.from);
-  const to = parseISO(range.to);
-
-  switch (range.preset) {
-    case 'today':
-    case 'yesterday':
-      return comparison(subDays(from, 1), subDays(to, 1));
-
-    case 'this-week':
-    case 'last-week':
-      return comparison(subWeeks(from, 1), subWeeks(to, 1));
-
-    case 'this-month':
-    case 'last-month': {
-      const prev = subMonths(from, 1);
-      return comparison(startOfMonth(prev), endOfMonth(prev));
-    }
-
-    case 'this-year': {
-      const prev = subYears(from, 1);
-      return comparison(startOfYear(prev), endOfYear(prev));
-    }
-
-    case 'custom':
-    default: {
-      const lengthDays = differenceInCalendarDays(to, from) + 1; // inclusive length
-      return comparison(subDays(from, lengthDays), subDays(to, lengthDays));
-    }
-  }
-}
-
-/**
  * The EQUAL-LENGTH window immediately before a range — the exact formula
  * `reports/restaurant/dashboard-v2/` uses to build its `previous_totals`:
  *
@@ -179,18 +145,19 @@ export function comparisonRange(range: ReportDateRange): ReportDateRange {
  * same PR. `prev_to` is written as `from - 1 day` literally rather than the equivalent
  * `to - length` so a line-by-line diff against the backend is trivially checkable.
  *
- * NOT `comparisonRange`, and the Dashboard must never call that one. `comparisonRange`
- * is PRESET-AWARE — a `this-month` range compares against the FULL prior calendar month
- * — while dashboard-v2 is not. A frontend delta computed one way against a backend total
- * computed the other is a wrong number with no error attached to it. The two coincide
- * only when the selection happens to be a whole calendar month, which is why the drift
- * was invisible while the Dashboard could only pick four fixed ranges.
+ * NOT `resolveComparison`, and the Dashboard must never call that one. `resolveComparison`
+ * answers "what did the USER choose to compare against", and its `prev-month` on a
+ * month-to-date range gives 1–26 Jun for 1–26 Jul — while dashboard-v2 always shifts by
+ * the inclusive length. A frontend delta computed one way against a backend total computed
+ * the other is a wrong number with no error attached to it. The two coincide only when the
+ * selection happens to be a whole calendar month, which is why the drift was invisible
+ * while the Dashboard could only pick four fixed ranges.
  *
- * Do NOT "simplify" this by delegating to `comparisonRange`'s `custom` branch. That
- * branch is arithmetically identical TODAY only because both shift by the same inclusive
- * length; reaching it means synthesising `{...range, preset: 'custom'}`, which spells
- * "treat this as a custom range" — the exact semantic being avoided — and it would
- * silently inherit any future change to comparison semantics.
+ * `resolveComparison` DOES delegate here for its `prev-period` option, and that is the
+ * intended direction: `prev-period` means precisely "the equal-length block immediately
+ * before", so it must not re-derive the offset. The dependency does not run the other way
+ * — do not "simplify" this function by routing it through the resolver, which would make
+ * the backend mirror inherit any future change to comparison semantics.
  *
  * Takes only `from`/`to` so the mock data layer can call it with a bare pair.
  */
@@ -230,37 +197,6 @@ export function nextEqualLengthPeriod(
   const to = parseISO(range.to);
   const deltaDays = differenceInCalendarDays(to, parseISO(range.from)) + 1;
   return comparison(addDays(to, 1), addDays(to, deltaDays));
-}
-
-/**
- * Human label for the period `comparisonRange` compares against — drives the shell's
- * "Compare to {label}" toggle. Preset-aware so the label reads naturally:
- *   today                 → "yesterday"
- *   this-week / last-week → "last week" / "the previous week"
- *   this-month/last-month → the prior calendar month's name (e.g. "May")
- *   this-year             → the prior calendar year (e.g. "2025")
- *   custom (and fallback) → "the previous period"
- * Consumes `comparisonRange` (single source of truth) for the month/year cases.
- */
-export function comparisonRangeLabel(range: ReportDateRange): string {
-  switch (range.preset) {
-    case 'today':
-      return 'yesterday';
-    case 'yesterday':
-      return 'the previous day';
-    case 'this-week':
-      return 'last week';
-    case 'last-week':
-      return 'the previous week';
-    case 'this-month':
-    case 'last-month':
-      return format(parseISO(comparisonRange(range).from), 'MMMM');
-    case 'this-year':
-      return format(parseISO(comparisonRange(range).from), 'yyyy');
-    case 'custom':
-    default:
-      return 'the previous period';
-  }
 }
 
 // ─── Range shape + period stepping (TIMEFRAME-01C) ───────────────────────────────────
@@ -366,8 +302,9 @@ function matchingShapes(from: string, to: string, now: Date): Exclude<RangeShape
  *     back-then-forward return the original range.
  * A range stepped BACKWARD always lands in the past and can never reach the tie.
  *
- * PHASE 2 inherits this. Its comparison vocabulary keys off shape and will hit the
- * identical tie on the 1st, which is why the tiebreak lives here and not in a caller.
+ * THE COMPARISON VOCABULARY INHERITS THIS (02A, shipped). `comparisonOptionsFor` and
+ * `resolveComparison` key off shape and hit the identical tie on the 1st, which is why
+ * the tiebreak lives here and not in a caller.
  */
 export function classifyRangeShape(
   range: { from: string; to: string; preset?: ReportPreset },
@@ -400,10 +337,10 @@ export function classifyRangeShape(
  *
  * Cosmetic in every OTHER respect — `classifyRangeShape`, not this, drives stepping.
  *
- * PHASE 2 NOTE: the comparison vocabulary must key off `classifyRangeShape`, not
- * `preset`, for the same reason that function classifies from dates. That may leave
- * `preset` vestigial for semantics and useful only for picker highlighting — a decision
- * for Phase 2, not something to pre-empt here.
+ * As of 02A the comparison vocabulary keys off `classifyRangeShape` rather than `preset`,
+ * for the same reason that function classifies from dates. `preset` is now vestigial for
+ * semantics: it survives to highlight the matching entry in the picker's preset list, and
+ * to break the 1st-of-the-period shape tie described in `classifyRangeShape`.
  */
 function presetForSteppedRange(
   from: string,
@@ -502,4 +439,161 @@ export function stepRange(
     from: stepped.from,
     to: stepped.to,
   };
+}
+
+// ─── Comparison basis (TIMEFRAME-02A) ────────────────────────────────────────────────
+//
+// What a range is measured AGAINST is a user selection. The vocabulary lives in
+// `comparison-option.ts`; the two functions below are the whole of the logic — which
+// options a shape offers, and what window a chosen option resolves to.
+//
+// KEYED ON SHAPE, NEVER ON PRESET, for the reason `classifyRangeShape` documents: two
+// steps back from `this-month` reads `custom` while the range is still a real calendar
+// month, and a preset-keyed comparison would then be wrong the moment month lengths
+// differ.
+
+/**
+ * The comparison bases on offer for a range of this shape, in MENU ORDER. The first
+ * entry is always `'none'`; the second is the shape's default (see
+ * `defaultComparisonFor`).
+ *
+ * No set contains two entries that resolve to the same window — that would be a menu
+ * that lies. That rule is why the year shapes omit `dates-last-year`: for a whole
+ * calendar year it is `prev-year` (see below), so offering both would render one window
+ * under two names. It is also why there is a single `prev-month`/`prev-year` rather than
+ * a by-day/by-date pair; how two series are PAIRED inside a chart is 02C, and pairing is
+ * not a different window.
+ *
+ * `custom` is deliberately absent from every set: a hand-picked comparison range is 02D.
+ */
+export function comparisonOptionsFor(shape: RangeShape): ComparisonOption[] {
+  switch (shape) {
+    case 'day':
+      return ['none', 'prev-day', 'prev-week', 'prev-year', 'dates-last-year'];
+    case 'week':
+    case 'week-to-date':
+      return ['none', 'prev-week', 'prev-year', 'dates-last-year'];
+    case 'month':
+    case 'month-to-date':
+      return ['none', 'prev-month', 'prev-year', 'dates-last-year'];
+    case 'year':
+    case 'year-to-date':
+      return ['none', 'prev-year'];
+    case 'custom':
+      return ['none', 'prev-period'];
+  }
+}
+
+/**
+ * A shape's default basis: its first non-`'none'` option.
+ *
+ * NOT `'none'`. Reports has always shown a comparison and must keep doing so — landing on
+ * "No comparison" would silently remove a number people read every day, and read it as a
+ * bug rather than a default.
+ */
+export function defaultComparisonFor(shape: RangeShape): ComparisonOption {
+  return comparisonOptionsFor(shape)[1];
+}
+
+/** True when `option` is on offer for a range of this shape. */
+export function isComparisonOfferedFor(shape: RangeShape, option: ComparisonOption): boolean {
+  return comparisonOptionsFor(shape).includes(option);
+}
+
+/**
+ * `1 .. n` of the month `monthsBack` before `from`'s, where `n` is the primary range's
+ * inclusive day count — clamped to that month's real length.
+ *
+ * The clamp is the February case: month-to-date 1–30 Mar has no 30th to land on in
+ * February, so it resolves to 1–28 (or 1–29 in a leap year). Shortening rather than
+ * spilling into March keeps the comparison inside the month it names.
+ */
+function priorMonthWindow(from: Date, lengthDays: number): ReportDateRange {
+  const start = startOfMonth(subMonths(from, 1));
+  const end = endOfMonth(start);
+  const wanted = addDays(start, lengthDays - 1);
+  return comparison(start, wanted > end ? end : wanted);
+}
+
+/**
+ * The window a chosen comparison basis resolves to, or `null` for `'none'`.
+ *
+ * THE ONE COMPARISON-WINDOW RESOLVER. Every surface routes through this; nothing
+ * re-derives a comparison offset of its own.
+ *
+ * Two of the options need the range's SHAPE, so it is classified here rather than passed
+ * in — a caller that computed shape separately could hand us one derived from a different
+ * `now` than the window is built with, and the menu and the number would disagree with no
+ * error attached.
+ *
+ *   none            → null
+ *   prev-period     → `previousEqualLengthPeriod` (which is the ONLY place equal-length
+ *                     stepping arithmetic lives — see its docstring)
+ *   prev-day        → both bounds one day back
+ *   prev-week       → both bounds seven days back; partial-to-partial for week-to-date,
+ *                     and "the same weekday last week" for a single day
+ *   prev-month      → a COMPLETE month compares to the complete prior month; a
+ *                     MONTH-TO-DATE range compares PARTIAL-TO-PARTIAL (see below)
+ *   prev-year       → 364 days back, so a Wednesday compares to a Wednesday — EXCEPT for
+ *                     the whole-year shapes, where it is calendar-aligned (see below)
+ *   dates-last-year → the same calendar dates, one year back (29 Feb → 28 Feb)
+ *
+ * MONTH-TO-DATE COMPARES PARTIAL-TO-PARTIAL (behaviour change, 02A). 1–26 Jul resolves to
+ * 1–26 Jun, not the whole of June. Setting a 26-day total against a complete 30-day month
+ * makes every month look like a collapse until roughly the 28th, for arithmetic reasons
+ * rather than trading ones. The week-level equivalent already did the right thing, which
+ * makes the old month behaviour an inconsistency rather than a considered choice. Complete
+ * shapes are unaffected: a whole calendar month still compares to the whole prior one.
+ *
+ * `prev-year` IS CALENDAR-ALIGNED FOR THE YEAR SHAPES. A 364-day shift is the retail
+ * convention and is right for a day, a week or a month, but a calendar year is 365 or 366
+ * days: shifting 2026 back by 364 gives 2 Jan 2025 – 1 Jan 2026, a window that OVERLAPS
+ * the range it is being compared to. It is also what makes the year sets honest — with
+ * calendar alignment, `dates-last-year` would resolve identically there, which is why it
+ * is not offered.
+ *
+ * TOTAL BY CONSTRUCTION. `TimeframeService` rejects a shape-invalid `cmp` before it ever
+ * reaches here, but an option is still resolved for any shape rather than throwing —
+ * same discipline as `stepRange`'s forward-overshoot guard.
+ */
+export function resolveComparison(
+  range: ReportDateRange,
+  option: ComparisonOption,
+  now: Date = new Date(),
+): ReportDateRange | null {
+  if (option === 'none') return null;
+  if (option === 'prev-period') return previousEqualLengthPeriod(range);
+
+  const from = parseISO(range.from);
+  const to = parseISO(range.to);
+  const shape = classifyRangeShape(range, now);
+
+  switch (option) {
+    case 'prev-day':
+      return comparison(subDays(from, 1), subDays(to, 1));
+
+    case 'prev-week':
+      return comparison(subWeeks(from, 1), subWeeks(to, 1));
+
+    case 'prev-month': {
+      if (shape === 'month') {
+        const prev = startOfMonth(subMonths(from, 1));
+        return comparison(prev, endOfMonth(prev));
+      }
+      if (shape === 'month-to-date') {
+        return priorMonthWindow(from, differenceInCalendarDays(to, from) + 1);
+      }
+      // Defensive: `prev-month` is offered for the month shapes only.
+      return comparison(subMonths(from, 1), subMonths(to, 1));
+    }
+
+    case 'prev-year':
+      if (shape === 'year' || shape === 'year-to-date') {
+        return comparison(subYears(from, 1), subYears(to, 1));
+      }
+      return comparison(subDays(from, 364), subDays(to, 364));
+
+    case 'dates-last-year':
+      return comparison(subYears(from, 1), subYears(to, 1));
+  }
 }

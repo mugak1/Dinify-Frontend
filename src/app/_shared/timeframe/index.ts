@@ -10,6 +10,13 @@
 // compile error pointing at the cause.
 
 export {
+  COMPARISON_OPTIONS,
+  comparisonCaption,
+  comparisonOptionLabel,
+} from './comparison-option';
+export type { ComparisonOption } from './comparison-option';
+
+export {
   REPORT_PRESETS,
   defaultRange,
   isFutureDated,
@@ -18,17 +25,24 @@ export {
   presetToRange,
   rangeIncludesToday,
 } from './timeframe-range';
-export type { ReportDateRange, ReportPreset, TimeframeParams } from './timeframe-range';
+export type {
+  ParsedTimeframe,
+  ReportDateRange,
+  ReportPreset,
+  TimeframeParams,
+} from './timeframe-range';
 
 export {
   BUCKET_TO_CATEGORY,
   HOURLY_MAX_DAYS,
   SALES_TRENDS_CAP_DAYS,
   classifyRangeShape,
-  comparisonRange,
-  comparisonRangeLabel,
+  comparisonOptionsFor,
+  defaultComparisonFor,
+  isComparisonOfferedFor,
   nextEqualLengthPeriod,
   previousEqualLengthPeriod,
+  resolveComparison,
   resolveTimeframe,
   stepRange,
 } from './timeframe-engine';

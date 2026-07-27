@@ -2,9 +2,9 @@
 //
 // Orchestrator only: it owns the data flow and hands each card a finished view
 // model. The shared timeframe drives everything through the PR-A engine —
-// resolveTimeframe(range) picks the bucket (hour/day/month/year) and comparisonRange
-// gives the equal-length prior window for the ghost line + delta chips. Per the
-// engine: today → hourly, week/month → daily, year → monthly, multi-year → annual. All card maths live
+// resolveTimeframe(range) picks the bucket (hour/day/month/year) and resolveComparison
+// gives the window the user chose to compare against, for the ghost line + delta chips.
+// Per the engine: today → hourly, week/month → daily, year → monthly, multi-year → annual. All card maths live
 // in the pure sales-view helpers; the cards themselves are presentational.
 
 import { Component, OnDestroy, OnInit } from '@angular/core';
@@ -15,10 +15,11 @@ import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import {
-  comparisonRange,
+  ComparisonOption,
+  comparisonCaption,
   ReportBucketUnit,
   ReportDateRange,
-  ReportPreset,
+  resolveComparison,
   resolveTimeframe,
   SalesTrendsCategory,
   TimeframeService,
@@ -68,16 +69,6 @@ const SALES_LISTING_COLUMNS: ReportColumn[] = [
   { key: 'payment_status', label: 'Status', format: 'status' },
 ];
 
-const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
-  today: 'vs yesterday',
-  yesterday: 'vs prior day',
-  'this-week': 'vs last week',
-  'last-week': 'vs prior week',
-  'this-month': 'vs last month',
-  'last-month': 'vs prior month',
-  'this-year': 'vs last year',
-};
-
 @Component({
   selector: 'app-sales-report',
   standalone: true,
@@ -95,8 +86,10 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
   templateUrl: './sales-report.component.html',
 })
 export class SalesReportComponent implements OnInit, OnDestroy {
-  /** Shared "compare to previous period" toggle — gates the ghost line + delta chips. */
-  readonly compareEnabled$ = this.reports.compareEnabled$;
+  /** Whether a comparison is being shown at all — gates the ghost line + delta chips.
+   *  Derived from the shared basis, so "No comparison" hides them exactly as the old
+   *  boolean toggle did, and the templates' `@let compareOn` line is unchanged. */
+  readonly compareEnabled$ = this.timeframe.comparison$.pipe(map((o) => o !== 'none'));
   ready = false;
   stateMode: ReportStateMode = 'loading';
   range: ReportDateRange | null = null;
@@ -151,25 +144,34 @@ export class SalesReportComponent implements OnInit, OnDestroy {
       return;
     }
 
-    combineLatest([this.timeframe.range$, this.reports.refresh$.pipe(startWith(undefined))])
+    combineLatest([
+      this.timeframe.range$,
+      this.timeframe.comparison$,
+      this.reports.refresh$.pipe(startWith(undefined)),
+    ])
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {
           this.ready = false;
           this.stateMode = 'loading';
         }),
-        switchMap(([range]) => {
+        switchMap(([range, basis]) => {
           const tf = resolveTimeframe(range);
-          const cmp = comparisonRange(range);
+          const cmp = resolveComparison(range, basis);
           const er = tf.effectiveRange;
           const inclusiveDays = differenceInCalendarDays(parseISO(range.to), parseISO(range.from)) + 1;
 
           const main$ = this.fetchSeries(restaurantId, er.from, er.to, tf.category).pipe(
             catchError((error) => of({ data: null, error } as any)),
           );
-          const cmp$ = this.fetchSeries(restaurantId, cmp.from, cmp.to, tf.category).pipe(
-            catchError(() => of({ data: null } as any)),
-          );
+          // NO REQUEST when the basis is 'none'. Before 02A this fired regardless of the
+          // compare toggle — wasted then, indefensible now that a user can deliberately
+          // ask for no comparison and still be charged a round trip for one.
+          const cmp$ = cmp
+            ? this.fetchSeries(restaurantId, cmp.from, cmp.to, tf.category).pipe(
+                catchError(() => of({ data: null } as any)),
+              )
+            : of({ data: null } as any);
           // The hour-of-day card needs the 24-hour shape for ANY range; reuse main when it IS hourly.
           const hourly$ =
             tf.bucketUnit === 'hour'
@@ -188,6 +190,7 @@ export class SalesReportComponent implements OnInit, OnDestroy {
           return combineLatest([main$, cmp$, hourly$, listing$]).pipe(
             map(([main, comparison, hourly, listing]) => ({
               range,
+              basis,
               tf,
               cmp,
               inclusiveDays,
@@ -229,8 +232,9 @@ export class SalesReportComponent implements OnInit, OnDestroy {
 
   private apply(p: {
     range: ReportDateRange;
+    basis: ComparisonOption;
     tf: ReturnType<typeof resolveTimeframe>;
-    cmp: ReportDateRange;
+    cmp: ReportDateRange | null;
     inclusiveDays: number;
     main: any;
     comparison: any;
@@ -266,8 +270,8 @@ export class SalesReportComponent implements OnInit, OnDestroy {
     // with the aggregate. ngOnInit already bailed if there's no restaurant id.
     const refundRestaurantId = this.auth.currentRestaurantRole?.restaurant_id ?? '';
     this.refunds = mockSalesRefunds(refundRestaurantId, p.range.from, p.range.to);
-    this.prevRefunds = mockSalesRefunds(refundRestaurantId, p.cmp.from, p.cmp.to);
-    this.comparisonLabel = COMPARISON_LABELS[p.range.preset] ?? 'vs prior period';
+    this.prevRefunds = p.cmp ? mockSalesRefunds(refundRestaurantId, p.cmp.from, p.cmp.to) : 0;
+    this.comparisonLabel = comparisonCaption(p.basis);
 
     // Trend + KPI series.
     this.trendPoints = mainPoints;
