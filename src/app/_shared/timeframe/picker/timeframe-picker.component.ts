@@ -6,9 +6,16 @@
 // Selection only commits on Apply; Cancel / Esc / backdrop discard. Emits zero-padded
 // ISO ranges.
 //
-// TWO commit paths, both through `valueChange`: `onApply` (the staged picker) and `step`
-// (the period arrows, 01C). The arrows deliberately add no second `@Output` — a step is
-// just a new value, so both hosts inherited them with no host-side change at all.
+// TWO commit paths for the RANGE, both through `valueChange`: `onApply` (the staged
+// picker) and `step` (the period arrows, 01C). The arrows deliberately add no second
+// `@Output` — a step is just a new range, so both hosts inherited them with no host-side
+// change at all.
+//
+// The comparison dropdown (02A) DOES carry its own `@Output`, and that is not a reversal
+// of the note above: an arrow emits a new RANGE, so `valueChange` already expresses it,
+// whereas a comparison basis is separate state and there is no range that means "compare
+// against last year". Same reasoning, opposite conclusion, because it is a different kind
+// of value.
 //
 // NAMING. Called `timeframe-picker`, not `report-date-range`: it was relocated here from
 // the Reports module in TIMEFRAME-01B precisely because it stopped being Reports'. A
@@ -24,8 +31,9 @@
 // `overflow-hidden` ancestors that would clip an in-flow popover. The overlay
 // renders at document.body, escaping the clip.
 
+import { NgClass } from '@angular/common';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { Overlay, OverlayRef } from '@angular/cdk/overlay';
+import { ConnectedPosition, Overlay, OverlayModule, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 
 import {
@@ -37,14 +45,17 @@ import {
   OnDestroy,
   OnInit,
   Output,
+  QueryList,
   ViewChild,
+  ViewChildren,
   ViewContainerRef,
 } from '@angular/core';
 import { format } from 'date-fns';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { SheetComponent } from '../../ui/sheet/sheet.component';
-import { stepRange } from '../timeframe-engine';
+import { ComparisonOption, comparisonOptionLabel } from '../comparison-option';
+import { classifyRangeShape, comparisonOptionsFor, stepRange } from '../timeframe-engine';
 import { ReportDateRange, presetToRange } from '../timeframe-range';
 import { DateRangePanelComponent } from './date-range-panel.component';
 import { PRESET_LABELS, formatRangeSpan } from './range-label';
@@ -52,7 +63,7 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
 @Component({
   selector: 'app-timeframe-picker',
   standalone: true,
-  imports: [SheetComponent, DateRangePanelComponent],
+  imports: [NgClass, OverlayModule, SheetComponent, DateRangePanelComponent],
   template: `
     <!-- Control cluster: [◀] [▶] [date button ▾]. The arrows are explicitly sized to the
          trigger's computed 38px (text-sm line-height 20 + py-2 + border), because the
@@ -99,6 +110,75 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
         </svg>
         <span>{{ presetLabel }} <span class="text-muted-foreground">·</span> {{ spanLabel }}</span>
       </button>
+
+      <!-- Comparison basis (02A). Same h-[38px] as the rest of the cluster. Its menu is
+           derived from the range's SHAPE, so it re-shapes as the range does. -->
+      @if (showComparison) {
+        <button
+          #cmpTrigger
+          type="button"
+          cdkOverlayOrigin
+          #cmpOrigin="cdkOverlayOrigin"
+          class="h-[38px] inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          [attr.aria-label]="'Compare against: ' + comparisonLabel + '. Activate to change.'"
+          aria-haspopup="listbox"
+          [attr.aria-expanded]="cmpOpen"
+          (click)="toggleComparison()"
+          (keydown)="onTriggerKeydown($event)"
+        >
+          <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18" />
+            <path d="M7 12h10" />
+            <path d="M11 18h2" />
+          </svg>
+          <span>{{ comparisonLabel }}</span>
+          <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+
+        <ng-template
+          cdkConnectedOverlay
+          [cdkConnectedOverlayOrigin]="cmpOrigin"
+          [cdkConnectedOverlayOpen]="cmpOpen"
+          [cdkConnectedOverlayPositions]="cmpPositions"
+          [cdkConnectedOverlayHasBackdrop]="true"
+          cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+          cdkConnectedOverlayPanelClass="dn-comparison-overlay-panel"
+          (backdropClick)="closeComparison()"
+          (detach)="closeComparison()"
+          (overlayKeydown)="onMenuKeydown($event)"
+        >
+          <div
+            role="listbox"
+            aria-label="Comparison basis"
+            class="min-w-[13rem] overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
+          >
+            @for (option of comparisonOptions; track option; let i = $index) {
+              <button
+                #cmpOption
+                type="button"
+                role="option"
+                [attr.aria-selected]="option === comparison"
+                [attr.tabindex]="option === comparison ? 0 : -1"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                [ngClass]="option === comparison ? 'font-medium text-foreground' : 'text-muted-foreground'"
+                (click)="pickComparison(option)"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="h-4 w-4 shrink-0"
+                  [class.invisible]="option !== comparison"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                <span>{{ labelFor(option) }}</span>
+              </button>
+            }
+          </div>
+        </ng-template>
+      }
     </div>
 
     <!-- Mobile: bottom sheet. Only mounted below the desktop breakpoint. The
@@ -121,10 +201,36 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
   @Input() value: ReportDateRange = presetToRange('this-month');
   @Output() valueChange = new EventEmitter<ReportDateRange>();
 
+  /**
+   * SCAFFOLDING FOR THE 02A/02B SPLIT — DELETE IN 02B.
+   *
+   * 02A gives Reports a selectable comparison basis; the Dashboard keeps its
+   * server-computed `previous_totals` until 02B. This picker serves both hosts, so the
+   * control needs a way to be absent on one of them, and this is it. When 02B lands and
+   * both hosts show the dropdown, remove the input and the `@if` around the markup —
+   * a flag that is `true` at every call site is dead config, and the only thing that
+   * stops one surviving by inertia is having said so at the declaration.
+   */
+  @Input() showComparison = false;
+
+  /** The active comparison basis. `TimeframeService` owns it; this control never does. */
+  @Input() comparison: ComparisonOption = 'none';
+
+  @Output() comparisonChange = new EventEmitter<ComparisonOption>();
+
   @ViewChild('trigger') triggerEl!: ElementRef<HTMLElement>;
+  @ViewChild('cmpTrigger') cmpTriggerEl?: ElementRef<HTMLElement>;
+  @ViewChildren('cmpOption') cmpOptionEls?: QueryList<ElementRef<HTMLElement>>;
 
   isOpen = false;
   isDesktop = false;
+  cmpOpen = false;
+
+  /** Below the trigger, flipping above when there is no room. Mirrors the range panel. */
+  readonly cmpPositions: ConnectedPosition[] = [
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
+    { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
+  ];
 
   private overlayRef?: OverlayRef;
   private panelRef?: ComponentRef<DateRangePanelComponent>;
@@ -135,6 +241,87 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
     private vcr: ViewContainerRef,
     private breakpoints: BreakpointObserver,
   ) {}
+
+  /**
+   * The bases on offer for the current range's shape.
+   *
+   * The current selection is UNIONED IN even when the shape does not offer it. Shape is
+   * derived from `new Date()` here and from the service's own `new Date()` there, so
+   * across midnight the two can disagree for a single render — and a menu with nothing
+   * selected reads as a bug. This is a defensive union, not a synchronisation mechanism;
+   * `TimeframeService.carryComparison` is what actually keeps the selection legal.
+   */
+  get comparisonOptions(): ComparisonOption[] {
+    const offered = comparisonOptionsFor(classifyRangeShape(this.value));
+    return offered.includes(this.comparison) ? offered : [...offered, this.comparison];
+  }
+
+  get comparisonLabel(): string {
+    return comparisonOptionLabel(this.comparison);
+  }
+
+  labelFor(option: ComparisonOption): string {
+    return comparisonOptionLabel(option);
+  }
+
+  toggleComparison(): void {
+    this.cmpOpen = !this.cmpOpen;
+    if (this.cmpOpen) this.focusSelectedOption();
+  }
+
+  closeComparison(): void {
+    if (!this.cmpOpen) return;
+    this.cmpOpen = false;
+    // Return focus to the trigger. The range popover does not do this (a pre-existing
+    // gap); a menu is worse for it, since dismissing one drops you at <body> mid-header.
+    this.cmpTriggerEl?.nativeElement.focus();
+  }
+
+  pickComparison(option: ComparisonOption): void {
+    this.cmpOpen = false;
+    this.cmpTriggerEl?.nativeElement.focus();
+    if (option !== this.comparison) this.comparisonChange.emit(option);
+  }
+
+  /** ArrowDown / ArrowUp / Enter / Space open the menu from the trigger. */
+  onTriggerKeydown(event: KeyboardEvent): void {
+    if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+    event.preventDefault();
+    if (!this.cmpOpen) this.toggleComparison();
+  }
+
+  /** Roving focus inside the menu, plus Escape to dismiss. */
+  onMenuKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeComparison();
+      return;
+    }
+
+    const items = this.cmpOptionEls?.toArray() ?? [];
+    if (!items.length) return;
+
+    const current = items.findIndex((el) => el.nativeElement === document.activeElement);
+    let next: number | null = null;
+
+    if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length;
+    else if (event.key === 'ArrowUp') next = current <= 0 ? items.length - 1 : current - 1;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = items.length - 1;
+
+    if (next === null) return;
+    event.preventDefault();
+    items[next].nativeElement.focus();
+  }
+
+  /** Focus the selected row once the overlay has actually rendered its content. */
+  private focusSelectedOption(): void {
+    setTimeout(() => {
+      const items = this.cmpOptionEls?.toArray() ?? [];
+      const index = Math.max(0, this.comparisonOptions.indexOf(this.comparison));
+      items[index]?.nativeElement.focus();
+    });
+  }
 
   get presetLabel(): string {
     return PRESET_LABELS[this.value.preset];

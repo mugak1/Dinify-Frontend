@@ -21,6 +21,7 @@ import {
   subMonths,
   subWeeks,
 } from 'date-fns';
+import { COMPARISON_OPTIONS, ComparisonOption } from './comparison-option';
 
 export type ReportPreset =
   | 'today'
@@ -169,29 +170,50 @@ function isRealIsoDate(v: string | null): v is string {
   return isValid(parsed) && fmt(parsed) === v;
 }
 
-/** The `from` / `to` / `preset` triple as read off the URL — each independently absent. */
+/** The URL query params the timeframe owns — each independently absent. */
 export interface TimeframeParams {
   from: string | null;
   to: string | null;
   preset: string | null;
+  /** Comparison basis (TIMEFRAME-02A). Absent whenever the selection is the default. */
+  cmp: string | null;
 }
 
 /**
- * Parses URL query params into a range, or `null` when they are absent or unusable.
- * NEVER throws — a hand-edited URL is untrusted input, not an error condition.
+ * What the URL yielded: the range, plus the comparison basis if one was named.
+ *
+ * `comparison` is `null` for an absent OR unrecognised `cmp` — the caller then falls
+ * back to its seed and finally to the shape's default, exactly as it does for a missing
+ * range. It is deliberately NOT resolved to a default here: this function has no idea
+ * what shape the range is, and the shape is what decides which bases are on offer.
+ */
+export interface ParsedTimeframe {
+  range: ReportDateRange;
+  comparison: ComparisonOption | null;
+}
+
+/**
+ * Parses URL query params into a range + comparison basis, or `null` when the range
+ * params are absent or unusable. NEVER throws — a hand-edited URL is untrusted input,
+ * not an error condition.
  *
  * A param triple is accepted when both bounds are real `yyyy-MM-dd` dates, `from <= to`,
  * and neither bound is in the future. `preset` is treated as METADATA, not as a
  * validity condition: absent or unrecognised coerces to `'custom'` rather than
  * rejecting an otherwise-good range. It is carried explicitly (never re-derived from
- * the dates) because it drives comparison semantics — a `this-month` range and an
- * identical `custom` range must compare differently — and re-deriving it would make a
- * shared link mean something different tomorrow than it did today.
+ * the dates) because it breaks the shape tie on the 1st of a period, and re-deriving it
+ * would make a shared link mean something different tomorrow than it did today.
+ *
+ * `cmp` is validated only as a KNOWN TOKEN. Whether that basis is offered for this
+ * particular range is a shape question, and shape lives in `timeframe-engine.ts`, which
+ * imports this file — so asking here would be a cycle. `TimeframeService` owns that
+ * second check. THE ONE URL PARSER: everything the timeframe reads off the query string
+ * is read here, so there is a single place where an untrusted URL is made safe.
  */
 export function parseTimeframeParams(
   params: TimeframeParams,
   now: Date = new Date(),
-): ReportDateRange | null {
+): ParsedTimeframe | null {
   const { from, to } = params;
   if (!isRealIsoDate(from) || !isRealIsoDate(to)) return null;
   if (from > to) return null;
@@ -201,5 +223,9 @@ export function parseTimeframeParams(
     ? (params.preset as ReportPreset)
     : 'custom';
 
-  return { preset, from, to };
+  const comparison = COMPARISON_OPTIONS.includes(params.cmp as ComparisonOption)
+    ? (params.cmp as ComparisonOption)
+    : null;
+
+  return { range: { preset, from, to }, comparison };
 }

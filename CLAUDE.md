@@ -244,13 +244,34 @@ so keep it current when conventions change.
   The entry URL correction is deferred one microtask past
   route activation; navigating synchronously would re-enter the router mid-cycle.
   `ReportsService.dateRange$` is GONE — read `TimeframeService.range$`, write
-  `set()`. `compareEnabled$` is deliberately untouched (localStorage-primary, no URL
-  param) pending its Phase-2 replacement.
+  `set()`.
   Period-stepping arrows (01C): ✅ the shared picker now renders `[◀] [▶] [date ▾]`, so
   BOTH hosts page the window by one period — a day steps a day, a Mon–Sun week a week,
   a calendar month a whole month respecting month lengths. The shape is derived from
-  the DATES (`classifyRangeShape`, see Shared Libraries), never from `preset`; the
-  comparison VOCABULARY that will consume that classifier is Phase 2 and is not here.
+  the DATES (`classifyRangeShape`, see Shared Libraries), never from `preset`.
+  Selectable comparison basis, URL-backed (02A): ✅ **what a range is measured AGAINST is
+  now a user SELECTION, not a consequence of the preset.** `TimeframeService` gained
+  `comparison$` / `comparisonValue` / `setComparison()` beside `range$` / `set()`, and the
+  picker cluster is now `[◀] [▶] [date ▾] [comparison ▾]`. The option set depends on the
+  range's SHAPE (`comparisonOptionsFor`, see Shared Libraries), so the menu re-shapes as
+  the range does. **`ReportsService.compareEnabled$` is DELETED** — "off" is just the
+  `'none'` entry in the basis menu, and a separate boolean would have been a second answer
+  to one question. `comparisonRange` / `comparisonRangeLabel` are deleted too, replaced by
+  the single `resolveComparison`. URL param `cmp`, parsed inside `parseTimeframeParams`
+  (one parser) and **OMITTED whenever the selection is the current shape's default**, so
+  ordinary URLs stay as clean as they were; an unknown or shape-invalid value falls back
+  and corrects the URL by REPLACE. Seeded per host under `<seedKey>.cmp:<restaurantId>`,
+  so Dashboard and Reports keep independent memories exactly as they do for the range.
+  On a range change the selection is re-evaluated — offered by the new shape → KEPT;
+  not offered → that shape's default; `'none'` → stays `'none'` — so it survives BOTH an
+  arrow step and a calendar Apply, and is never silently wiped. The four report tabs now
+  **skip the comparison request entirely when the basis is `'none'`** (before 02A all four
+  fetched it unconditionally). Reports is the only consumer: the Dashboard keeps
+  server-side `previous_totals` until 02B, kept out by `TimeframePickerComponent`'s
+  `showComparison` input — **scaffolding, to be deleted in 02B**. The Dashboard's service
+  still PARSES a hand-crafted `?cmp=` into state nothing renders; that is inert and
+  intended (nothing there can set a non-default, so `cmp` is never written to a Dashboard
+  URL), and route-specific stripping must NOT be added to prevent it.
   **The Dashboard's coarse `'day'|'week'|'month'|'ytd'` enum is DELETED** (01B), along
   with `DashboardService.dateRange$` / `isDashboardActive$` and the component's
   `computeDateRange()`. The two-timeframe-systems state is over. The picker moved to
@@ -476,19 +497,45 @@ writing new tag, price/menu or date-range logic:
     `rangeIncludesToday` (the two-sided "is this range still OPEN?" predicate that gates
     the Dashboard's polling), and
     `parseTimeframeParams` (the fail-soft URL-param parser: real-date round-trip check,
-    `from <= to`, neither bound future, unknown `preset` → `'custom'`, never throws)
+    `from <= to`, neither bound future, unknown `preset` → `'custom'`, unknown `cmp` →
+    absent, never throws — it is THE one place an untrusted timeframe URL is made safe,
+    so a new param joins it rather than getting a parser of its own)
+  - the comparison vocabulary (`comparison-option.ts`, 02A): `ComparisonOption`
+    (`none` / `prev-period` / `prev-day` / `prev-week` / `prev-month` / `prev-year` /
+    `dates-last-year`), `COMPARISON_OPTIONS`, and THE ONE LABEL SOURCE —
+    `comparisonOptionLabel` (menu) + `comparisonCaption` (delta-chip), over a single
+    table. It replaced FIVE vocabularies: four byte-identical per-tab `COMPARISON_LABELS`
+    maps and the engine's `comparisonRangeLabel`. **Zero imports, deliberately** — the
+    range model must validate `cmp` but can never import the engine (the engine imports
+    it), so the vocabulary lives in a leaf module and the graph stays a DAG
   - the engine (`timeframe-engine.ts`): `resolveTimeframe` (the span ladder
-    hour→day→month→year + the over-cap clamp), `comparisonRange`,
-    `comparisonRangeLabel`, `previousEqualLengthPeriod`, `SALES_TRENDS_CAP_DAYS`,
+    hour→day→month→year + the over-cap clamp), `resolveComparison`,
+    `comparisonOptionsFor`, `defaultComparisonFor`, `isComparisonOfferedFor`,
+    `previousEqualLengthPeriod`, `SALES_TRENDS_CAP_DAYS`,
     `HOURLY_MAX_DAYS`, `BUCKET_TO_CATEGORY`, `ReportBucketUnit`, `SalesTrendsCategory`.
-    **`comparisonRange` and `previousEqualLengthPeriod` are NOT interchangeable** —
-    the first is PRESET-AWARE (`this-month` compares against the full prior calendar
-    month) and drives the Reports compare toggle; the second mirrors the
+    `resolveComparison` is **THE ONE comparison-window resolver** — the preset-keyed
+    `comparisonRange` / `comparisonRangeLabel` pair it replaced is gone; do not add a
+    second entry point. Its option sets key off SHAPE: day → prev-day/prev-week/
+    prev-year/dates-last-year; week* → prev-week/prev-year/dates-last-year; month* →
+    prev-month/prev-year/dates-last-year; year* → prev-year only; custom → prev-period.
+    Each shape's default is its first non-`none` entry (never `none` — Reports has always
+    shown a comparison). No set holds two entries resolving to the SAME window, which is
+    why the year shapes omit `dates-last-year`. Two rules worth knowing: **month-to-date
+    compares PARTIAL-TO-PARTIAL** (1–26 Jul → 1–26 Jun, clamped into a shorter prior
+    month; a complete month still compares to the complete prior one) — changed in 02A
+    because a 26-day total against a complete 30-day month always read as a collapse for
+    arithmetic rather than trading reasons; and **`prev-year` is weekday-aligned (364
+    days) below the year level but CALENDAR-aligned for `year`/`year-to-date`**, since a
+    364-day shift on a 365-day year produces a window that overlaps the range itself.
+    **`resolveComparison` and `previousEqualLengthPeriod` are NOT interchangeable** —
+    the first answers "what did the USER choose", the second mirrors the
     `dashboard-v2` backend formula exactly (`prev_from = from − ((to−from)+1d)`,
     `prev_to = from − 1d`) and is what the Dashboard cards must use. Mixing them
     produces a frontend delta measured against a different window than the backend
     total it is compared to — a wrong number with no error attached. Change
-    `previousEqualLengthPeriod` in lockstep with the backend, never alone.
+    `previousEqualLengthPeriod` in lockstep with the backend, never alone. The
+    dependency runs ONE way: `resolveComparison`'s `prev-period` delegates to it (that
+    helper is the only home of equal-length arithmetic), never the reverse.
     The engine ALSO owns period stepping (01C): `classifyRangeShape` →
     `RangeShape` (`day`/`week`/`week-to-date`/`month`/`month-to-date`/`year`/
     `year-to-date`/`custom`) and `stepRange(range, ±1, now)`, plus
@@ -504,20 +551,27 @@ writing new tag, price/menu or date-range logic:
     `preset` picks the period level; that requires `to === today`, so it cannot
     propagate into a backward-stepped range. `stepRange` steps into the past as the
     COMPLETE natural period (month-to-date back → all of last month) and clamps the END
-    (never the start, never a collapse to "Today") going forward. **Phase 2's
-    comparison vocabulary must key off `classifyRangeShape`, not `preset`**
+    (never the start, never a collapse to "Today") going forward. **The comparison
+    vocabulary keys off `classifyRangeShape`, not `preset`** (02A, shipped)
   - `TIMEFRAME_CONFIG` + `TimeframeConfig` — the per-host `seedKey` / `defaultPreset`
     (see the timeframe bullet in Current Implementation Status)
   - `TimeframeService` — the URL-backed state. ROUTE-scoped, not root. Registering it
     (with a config) on a new route is how a third surface adopts it
   - `picker/` — `TimeframePickerComponent` (`app-timeframe-picker`), the shared
-    date-range control, plus its internal `date-range-panel` / `range-calendar` /
+    timeframe control, plus its internal `date-range-panel` / `range-calendar` /
     `range-label`. Only the picker is barrel-exported. It owns NO committed state
-    (`value` in, `valueChange` out), which is what lets one component serve both hosts.
+    (`value`/`comparison` in, `valueChange`/`comparisonChange` out), which is what lets
+    one component serve both hosts.
     Since 01C it renders a control cluster — `[◀] [▶] [date button ▾]` — where the
     arrows step by `stepRange` and the forward one carries a real `disabled` at the
     present. They commit through the SAME `valueChange` as the staged picker (no second
-    `@Output`), which is why both hosts inherited them with no host-side change
+    `@Output`), which is why both hosts inherited them with no host-side change.
+    02A appends a `[comparison ▾]` dropdown (a second CDK overlay with its own
+    `panelClass`; listbox a11y + Arrow/Home/End/Escape). That one DOES carry a second
+    `@Output`, and it is not a reversal of the note above: an arrow emits a new RANGE,
+    which `valueChange` already expresses, whereas a basis is separate state. It is gated
+    on `showComparison` (default false) so the Dashboard mount is unchanged —
+    **scaffolding for the 02A/02B split, delete it in 02B**
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.

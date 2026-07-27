@@ -1,8 +1,9 @@
-// Reports shell. A sticky header holds the persistent date-range bar and the
-// "Compare to previous period" toggle; a segmented tab switcher sits beneath it and
-// the report content runs full-width below — all ABOVE the <router-outlet>, so the
-// header + tabs never unmount as you switch reports. The shell is the parent route
-// component; children (sales / menu / transactions / diners) render in the outlet.
+// Reports shell. A sticky header holds the persistent timeframe cluster — date range
+// AND comparison basis, both in the one shared picker; a segmented tab switcher sits
+// beneath it and the report content runs full-width below — all ABOVE the
+// <router-outlet>, so the header + tabs never unmount as you switch reports. The shell is
+// the parent route component; children (sales / menu / transactions / diners) render in
+// the outlet.
 //
 // The switcher is the shared `app-dn-segmented` control in router mode (routerLink
 // anchors + white sliding glider). The shell owns only the URL→active derivation:
@@ -11,43 +12,36 @@
 // inside the shared control. The switcher passes `queryParamsHandling="merge"` so the
 // timeframe params ride along to the next tab instead of being dropped.
 //
-// The date range itself is owned by the route-scoped `TimeframeService`, where the URL
-// is the source of truth — this shell only reads `range$` and hands picker output to
-// `set()`. The compare toggle is still `ReportsService`' localStorage-backed subject.
+// BOTH the date range and the comparison basis are owned by the route-scoped
+// `TimeframeService`, where the URL is the source of truth — this shell only reads
+// `range$` / `comparison$` and hands picker output back to `set()` / `setComparison()`.
+// The old localStorage-backed `ReportsService.compareEnabled$` toggle is gone (02A): a
+// boolean cannot express "compare against the same weekday last year", and keeping both
+// would have left two places to ask what a number is measured against.
 
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, NavigationEnd, Router, RouterModule } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter, map } from 'rxjs/operators';
-import { ReportsService } from '../services/reports.service';
-import { SwitchComponent } from '../../../_shared/ui/switch/switch.component';
+import { filter } from 'rxjs/operators';
 import { DnSegmentedComponent, DnSegItem } from '../../../_shared/ui/segmented/segmented.component';
 import {
+  ComparisonOption,
   ReportDateRange,
   TimeframePickerComponent,
   TimeframeService,
-  comparisonRangeLabel,
 } from '../../../_shared/timeframe';
 import { ReportKey } from '../models/reports.models';
 
 @Component({
   selector: 'app-reports-shell',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterModule,
-    TimeframePickerComponent,
-    SwitchComponent,
-    DnSegmentedComponent,
-  ],
+  imports: [CommonModule, RouterModule, TimeframePickerComponent, DnSegmentedComponent],
   templateUrl: './reports-shell.component.html',
 })
 export class ReportsShellComponent {
   readonly range$ = this.timeframe.range$;
-  readonly compareEnabled$ = this.reports.compareEnabled$;
-  /** "Compare to {label}" — the label reflects the comparison period for the active range. */
-  readonly compareLabel$ = this.range$.pipe(map((r) => comparisonRangeLabel(r)));
+  readonly comparison$ = this.timeframe.comparison$;
 
   /** Segments for the shared control. `value` doubles as the report key; `icon` is the opaque
    *  key the projected `#icon` template resolves to an inline SVG. */
@@ -62,7 +56,6 @@ export class ReportsShellComponent {
   readonly activeKey = signal<ReportKey>('sales');
 
   constructor(
-    private reports: ReportsService,
     private timeframe: TimeframeService,
     private router: Router,
     public route: ActivatedRoute,
@@ -84,8 +77,8 @@ export class ReportsShellComponent {
     this.timeframe.set(range);
   }
 
-  onCompareToggle(enabled: boolean): void {
-    this.reports.compareEnabled$.next(enabled);
+  onComparison(option: ComparisonOption): void {
+    this.timeframe.setComparison(option);
   }
 
   /** Last matching report segment in the URL, ignoring query/fragment/trailing

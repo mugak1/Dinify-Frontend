@@ -28,24 +28,24 @@ describe('ReportsService', () => {
     service = TestBed.inject(ReportsService);
   });
 
-  // The date range moved to TimeframeService (URL-as-truth) in TIMEFRAME-01A. Its
-  // default-seed and per-restaurant-persistence coverage moved with it, to
-  // _shared/timeframe/timeframe.service.spec.ts — it was not dropped.
+  // The date range moved to TimeframeService (URL-as-truth) in TIMEFRAME-01A, and the
+  // comparison basis followed it in 02A. Their default-seed and per-restaurant-
+  // persistence coverage moved with them, to
+  // _shared/timeframe/timeframe.service.spec.ts — neither was dropped.
   it('no longer owns the date range', () => {
     expect((service as unknown as Record<string, unknown>)['dateRange$']).toBeUndefined();
   });
 
-  it('seeds the compare toggle on (preserving the always-on default)', () => {
-    expect(service.compareEnabled$.value).toBeTrue();
+  // 02A replaced the `compareEnabled$` boolean with a selectable basis on
+  // TimeframeService. Asserting its ABSENCE, rather than just deleting the old specs,
+  // is what stops a well-meaning revert quietly reinstating a second, competing answer
+  // to "what is this number measured against".
+  it('no longer owns a compare toggle', () => {
+    expect((service as unknown as Record<string, unknown>)['compareEnabled$']).toBeUndefined();
   });
 
-  it('persists the compare toggle, keyed by restaurant, when it changes', () => {
-    service.compareEnabled$.next(false);
-
-    expect(setItem).toHaveBeenCalled();
-    const [key, value] = setItem.calls.mostRecent().args;
-    expect(key).toBe('reports.compareEnabled:r1');
-    expect(value).toBeFalse();
+  it('writes nothing to localStorage — it holds no persisted state at all', () => {
+    expect(setItem).not.toHaveBeenCalled();
   });
 
   it('returns mock sales aggregate rows after the simulated latency', fakeAsync(() => {

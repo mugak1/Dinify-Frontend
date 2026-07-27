@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Location } from '@angular/common';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { format } from 'date-fns';
@@ -8,6 +9,7 @@ import { firstValueFrom } from 'rxjs';
 import { TimeframeService } from './timeframe.service';
 import { TIMEFRAME_CONFIG } from './timeframe-config';
 import { ReportDateRange, defaultRange } from './timeframe-range';
+import { resolveComparison, stepRange } from './timeframe-engine';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
 
@@ -358,6 +360,146 @@ describe('TimeframeService — the URL is the source of truth', () => {
       });
 
       expect(service.value).toEqual(defaultRange());
+    });
+  });
+  // ─── Comparison basis (TIMEFRAME-02A) ──────────────────────────────────────────────
+  //
+  // The seed key mirrors the range's, suffixed `.cmp`, so the two hosts keep independent
+  // memories of the basis exactly as they do of the range.
+  describe('comparison basis', () => {
+    const CMP_KEY = 'reports.dateRange.cmp:r1';
+    // A month-shaped range: `prev-month` is its default, `prev-year` a valid alternative,
+    // `prev-day` not offered at all.
+    const MONTH = 'from=2026-05-01&to=2026-05-31&preset=custom';
+
+    it("lands on the shape's default and keeps `cmp` OUT of the URL", async () => {
+      const { service, router } = await bootAt(`/reports?${MONTH}`);
+
+      expect(service.comparisonValue).toBe('prev-month');
+      expect(queryOf(router)['cmp']).toBeUndefined();
+    });
+
+    it('adopts a shape-valid cmp from the URL and leaves the URL alone', async () => {
+      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+
+      expect(service.comparisonValue).toBe('prev-year');
+      expect(queryOf(router)['cmp']).toBe('prev-year');
+    });
+
+    it('falls back and CORRECTS the URL for an unrecognised cmp', async () => {
+      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=banana`);
+
+      expect(service.comparisonValue).toBe('prev-month');
+      expect(queryOf(router)['cmp']).toBeUndefined();
+    });
+
+    it('falls back and CORRECTS the URL for a cmp this shape does not offer', async () => {
+      // 'prev-day' is a known token, but a month-shaped range never offers it.
+      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-day`);
+
+      expect(service.comparisonValue).toBe('prev-month');
+      expect(queryOf(router)['cmp']).toBeUndefined();
+    });
+
+    // REPLACE, never push — the same rule the range writes under, and what stops the
+    // period arrows burying the page the user arrived from.
+    it('corrects a bad cmp by REPLACE, so Back still leaves the screen', async () => {
+      const { router } = await bootAt(`/reports?${MONTH}&cmp=banana`);
+      const location = TestBed.inject(Location);
+
+      location.back();
+      await flush();
+
+      expect(location.path()).not.toContain('/reports');
+    });
+
+    it('writes a non-default cmp to the URL and persists it under the .cmp seed key', async () => {
+      const { service, router } = await bootAt(`/reports?${MONTH}`);
+
+      service.setComparison('prev-year');
+      await flush();
+
+      expect(queryOf(router)['cmp']).toBe('prev-year');
+      expect(setItem).toHaveBeenCalledWith(CMP_KEY, 'prev-year');
+    });
+
+    it('REMOVES cmp from the URL when the selection returns to the default', async () => {
+      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+
+      service.setComparison('prev-month');
+      await flush();
+
+      expect(queryOf(router)['cmp']).toBeUndefined();
+      // …and the range params are untouched by the comparison write.
+      expect(queryOf(router)['from']).toBe('2026-05-01');
+    });
+
+    it('seeds from localStorage when the URL names no basis', async () => {
+      stored['reports.dateRange.cmp:r1'] = 'prev-year';
+
+      const { service } = await bootAt(`/reports?${MONTH}`);
+
+      expect(service.comparisonValue).toBe('prev-year');
+    });
+
+    it('ignores a seeded basis the entry range does not offer', async () => {
+      stored['reports.dateRange.cmp:r1'] = 'prev-day'; // not offered for a month
+      const { service } = await bootAt(`/reports?${MONTH}`);
+      expect(service.comparisonValue).toBe('prev-month');
+    });
+  });
+
+  // The rule that separates this from the reference model, which resets to "No
+  // comparison" on every calendar Apply — even when the selection was still valid — and
+  // then tells you in its own docs to use the arrows instead.
+  describe('comparison across a range change', () => {
+    const MONTH = 'from=2026-05-01&to=2026-05-31&preset=custom';
+
+    it('KEEPS a selection the new shape still offers (a calendar Apply, same shape)', async () => {
+      const { service } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+
+      // Apply a different month — same shape, so the basis must survive.
+      service.set({ preset: 'custom', from: '2026-04-01', to: '2026-04-30' });
+
+      expect(service.comparisonValue).toBe('prev-year');
+    });
+
+    it('KEEPS a selection across an ARROW STEP, and recomputes the window for it', async () => {
+      const { service } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+      const stepped = stepRange(service.value, -1, new Date(2026, 4, 15));
+
+      service.set(stepped);
+
+      expect(service.comparisonValue).toBe('prev-year');
+      // The window follows the new range rather than staying pinned to the old one.
+      expect(resolveComparison(service.value, service.comparisonValue)).not.toEqual(
+        resolveComparison({ preset: 'custom', from: '2026-05-01', to: '2026-05-31' }, 'prev-year'),
+      );
+    });
+
+    it("falls back to the NEW shape's default when the selection is no longer offered", async () => {
+      const { service } = await bootAt(`/reports?${MONTH}&cmp=dates-last-year`);
+
+      // Month → single day. 'dates-last-year' IS offered for a day, so pick a basis that
+      // is not: switch to a year, whose only non-none option is 'prev-year'.
+      service.set({ preset: 'custom', from: '2025-01-01', to: '2025-12-31' });
+
+      expect(service.comparisonValue).toBe('prev-year');
+    });
+
+    it("never silently wipes an active comparison — the fallback is never 'none'", async () => {
+      const { service } = await bootAt(`/reports?${MONTH}&cmp=dates-last-year`);
+      service.set({ preset: 'custom', from: '2025-01-01', to: '2025-12-31' });
+      expect(service.comparisonValue).not.toBe('none');
+    });
+
+    it("leaves 'none' as 'none' — an explicit opt-out is not overridden by a shape change", async () => {
+      const { service } = await bootAt(`/reports?${MONTH}&cmp=none`);
+      expect(service.comparisonValue).toBe('none');
+
+      service.set({ preset: 'today', from: today, to: today });
+
+      expect(service.comparisonValue).toBe('none');
     });
   });
 });

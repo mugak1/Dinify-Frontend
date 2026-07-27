@@ -112,28 +112,55 @@ describe('timeframe range model', () => {
   });
 
   describe('parseTimeframeParams', () => {
-    const parse = (from: string | null, to: string | null, preset: string | null = null) =>
-      parseTimeframeParams({ from, to, preset }, now);
+    const parse = (
+      from: string | null,
+      to: string | null,
+      preset: string | null = null,
+      cmp: string | null = null,
+    ) => parseTimeframeParams({ from, to, preset, cmp }, now);
 
     it('accepts a valid, past-bounded pair and keeps a known preset', () => {
       expect(parse('2026-06-01', '2026-06-15', 'this-month')).toEqual({
-        preset: 'this-month',
-        from: '2026-06-01',
-        to: '2026-06-15',
+        range: { preset: 'this-month', from: '2026-06-01', to: '2026-06-15' },
+        comparison: null,
       });
     });
 
     it('coerces an absent or unrecognised preset to custom rather than rejecting', () => {
       expect(parse('2026-06-01', '2026-06-10')).toEqual({
-        preset: 'custom',
-        from: '2026-06-01',
-        to: '2026-06-10',
+        range: { preset: 'custom', from: '2026-06-01', to: '2026-06-10' },
+        comparison: null,
       });
       expect(parse('2026-06-01', '2026-06-10', 'banana')).toEqual({
-        preset: 'custom',
-        from: '2026-06-01',
-        to: '2026-06-10',
+        range: { preset: 'custom', from: '2026-06-01', to: '2026-06-10' },
+        comparison: null,
       });
+    });
+
+    // The `cmp` param joined this parser in 02A rather than getting one of its own, so
+    // there stays exactly ONE place an untrusted timeframe URL is made safe.
+    it('carries a known cmp token through', () => {
+      expect(parse('2026-06-01', '2026-06-15', 'this-month', 'prev-year')?.comparison).toBe(
+        'prev-year',
+      );
+      expect(parse('2026-06-01', '2026-06-15', 'this-month', 'none')?.comparison).toBe('none');
+    });
+
+    it('treats an unrecognised cmp as ABSENT — never as a reason to reject the range', () => {
+      const parsed = parse('2026-06-01', '2026-06-15', 'this-month', 'banana');
+      expect(parsed).not.toBeNull();
+      expect(parsed!.range.from).toBe('2026-06-01'); // the range still stands
+      expect(parsed!.comparison).toBeNull();
+    });
+
+    // Whether a basis is OFFERED for this range is a shape question, and shape lives in
+    // timeframe-engine, which imports this file — so it cannot be asked here. The parser
+    // only vouches for the token; TimeframeService applies the shape gate.
+    it('does not shape-check a known cmp — that is the service\'s job', () => {
+      // 'prev-month' is not offered for a single-day range, yet the token is known.
+      expect(parse('2026-06-15', '2026-06-15', 'today', 'prev-month')?.comparison).toBe(
+        'prev-month',
+      );
     });
 
     it('returns null for absent, malformed, inverted or future params — never throws', () => {

@@ -2,7 +2,6 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { ReportsShellComponent } from './reports-shell.component';
-import { ReportsService } from '../services/reports.service';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
@@ -11,7 +10,6 @@ import { ReportDateRange, TimeframeService } from '../../../_shared/timeframe';
 describe('ReportsShellComponent', () => {
   let component: ReportsShellComponent;
   let fixture: ComponentFixture<ReportsShellComponent>;
-  let reports: ReportsService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -30,7 +28,6 @@ describe('ReportsShellComponent', () => {
 
     fixture = TestBed.createComponent(ReportsShellComponent);
     component = fixture.componentInstance;
-    reports = TestBed.inject(ReportsService);
     fixture.detectChanges();
   });
 
@@ -76,9 +73,18 @@ describe('ReportsShellComponent', () => {
     expect(timeframe.set).toHaveBeenCalledWith(range);
   });
 
-  it('pushes compare-toggle changes onto the shared subject', () => {
-    spyOn(reports.compareEnabled$, 'next');
-    component.onCompareToggle(false);
-    expect(reports.compareEnabled$.next).toHaveBeenCalledWith(false);
+  // 02A: the "Compare to {label}" switch is gone. The basis is chosen in the shared
+  // picker's dropdown and committed through the same route-scoped service that owns the
+  // range, so the shell holds no comparison state of its own.
+  it('commits comparison changes through the timeframe service', () => {
+    const timeframe = TestBed.inject(TimeframeService);
+    spyOn(timeframe, 'setComparison');
+    component.onComparison('prev-year');
+    expect(timeframe.setComparison).toHaveBeenCalledWith('prev-year');
+  });
+
+  it('renders no standalone compare switch — the picker owns the control', () => {
+    expect(fixture.nativeElement.querySelector('app-dn-switch')).toBeNull();
+    expect(fixture.nativeElement.textContent as string).not.toContain('Compare to');
   });
 });
