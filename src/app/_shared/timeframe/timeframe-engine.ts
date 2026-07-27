@@ -48,35 +48,66 @@ import {
 } from './timeframe-range';
 
 /** Time bucket the UI renders a range at. `hour` is the single-day sales-hourly path. */
-export type ReportBucketUnit = 'hour' | 'day' | 'month' | 'year';
+export type ReportBucketUnit = 'hour' | 'day' | 'week' | 'month' | 'year';
 
 /**
  * Backend `category` vocabulary for sales-trends. Superset of the narrower
- * `ReportGranularity` (daily|monthly) the Sales tab derives today. `quarterly` is
- * a valid backend category but the ladder never auto-selects it (a month bucket
- * already covers that span) — it is exposed here + in the cap map for completeness.
+ * `ReportGranularity` the Sales tab derives today. `quarterly` is a valid backend
+ * category but the ladder never auto-selects it (a month bucket already covers that
+ * span) — it is exposed here + in the cap map for completeness.
  */
-export type SalesTrendsCategory = 'daily' | 'monthly' | 'quarterly' | 'annual';
+export type SalesTrendsCategory = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual';
 
 /**
  * Max day-span (`differenceInCalendarDays`, i.e. to − from) the backend accepts
- * per category before it 400s. Mirrored here as the single source of truth that
- * drives both the ladder and the over-cap clamp.
+ * per category before it 400s. Mirrored here as the single source of truth for what
+ * the SERVER ACCEPTS, and it drives the over-cap clamp.
+ *
+ * It is NOT the ladder — see `LADDER_MAX_DAYS`. Until LADDER-WEEK-00 this map served
+ * as both, which worked only because each cap happened to be a sensible switch point.
  */
 export const SALES_TRENDS_CAP_DAYS: Record<SalesTrendsCategory, number> = {
   daily: 31,
+  weekly: 371,
   monthly: 731,
   quarterly: 731,
   annual: 1850,
 };
 
+/**
+ * Span (to − from, in calendar days) at which each bucket gives way to the next.
+ *
+ * NOT the backend caps, and the distinction is the whole point of this map. A CAP is what
+ * the server will ACCEPT — it bounds query cost and drives the over-cap clamp. A THRESHOLD
+ * is where the FRONTEND changes bucket so the chart stays legible. Two different numbers
+ * answering two different questions.
+ *
+ * For the first four buckets they coincided by ACCIDENT, not by design, and `weekly` is
+ * where that accident ran out. Its cap is 371 days, set deliberately generous to bound
+ * query cost rather than to shape a chart; read as a threshold it would render every range
+ * up to a year as 53 weekly points and leave `month` unreachable below that.
+ *
+ * `week: 92` is a legibility judgement — roughly a quarter, ~13 weekly points. Adding a
+ * bucket means adding an entry HERE; adding a cap the backend enforces means adding one to
+ * `SALES_TRENDS_CAP_DAYS`. They are not interchangeable.
+ *
+ * `year` has no entry: it is the last rung, so its boundary IS the annual cap.
+ */
+const LADDER_MAX_DAYS: Record<Exclude<ReportBucketUnit, 'year'>, number> = {
+  hour: 1,
+  day: 31,
+  week: 92,
+  month: 731,
+};
+
 /** At/under this span (in days) a range buckets by hour-of-day (sales-hourly). */
-export const HOURLY_MAX_DAYS = 1;
+export const HOURLY_MAX_DAYS = LADDER_MAX_DAYS.hour;
 
 /** Bucket → sales-trends category. `hour` has no category (it uses sales-hourly). */
 export const BUCKET_TO_CATEGORY: Record<ReportBucketUnit, SalesTrendsCategory | null> = {
   hour: null,
   day: 'daily',
+  week: 'weekly',
   month: 'monthly',
   year: 'annual',
 };
@@ -99,25 +130,33 @@ export interface TimeframeResolution {
 const fmt = (d: Date): string => format(d, 'yyyy-MM-dd');
 
 /**
- * Maps a date range to the bucket + sales-trends category the UI should request,
- * mirroring the backend caps. Ladder by calendar-day span (to − from):
+ * Maps a date range to the bucket + sales-trends category the UI should request.
+ * Ladder by calendar-day span (to − from), from `LADDER_MAX_DAYS`:
  *   ≤ 1     → hour   (sales-hourly; no category)
  *   ≤ 31    → day    → 'daily'
+ *   ≤ 92    → week   → 'weekly'
  *   ≤ 731   → month  → 'monthly'
  *   ≤ 1850  → year   → 'annual'
  *   > 1850  → year   → 'annual', range clamped so the request stays within the cap.
+ *
+ * The first four rungs read the LADDER map (legibility); the last reads the CAP map,
+ * because `year` has no successor to give way to — its boundary is what the backend
+ * will serve. See `LADDER_MAX_DAYS` for why the two are separate.
  */
 export function resolveTimeframe(range: ReportDateRange): TimeframeResolution {
   const to = parseISO(range.to);
   const span = differenceInCalendarDays(to, parseISO(range.from));
 
-  if (span <= HOURLY_MAX_DAYS) {
+  if (span <= LADDER_MAX_DAYS.hour) {
     return { bucketUnit: 'hour', category: null, effectiveRange: range, clamped: false };
   }
-  if (span <= SALES_TRENDS_CAP_DAYS.daily) {
+  if (span <= LADDER_MAX_DAYS.day) {
     return { bucketUnit: 'day', category: 'daily', effectiveRange: range, clamped: false };
   }
-  if (span <= SALES_TRENDS_CAP_DAYS.monthly) {
+  if (span <= LADDER_MAX_DAYS.week) {
+    return { bucketUnit: 'week', category: 'weekly', effectiveRange: range, clamped: false };
+  }
+  if (span <= LADDER_MAX_DAYS.month) {
     return { bucketUnit: 'month', category: 'monthly', effectiveRange: range, clamped: false };
   }
   if (span <= SALES_TRENDS_CAP_DAYS.annual) {

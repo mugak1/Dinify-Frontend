@@ -24,6 +24,7 @@ describe('sales-view (pure)', () => {
     it('maps each bucket to its source + breakdown title (year → annual)', () => {
       expect(salesBucketView('hour')).toEqual({ source: 'hourly', tableTitle: 'Hourly breakdown' });
       expect(salesBucketView('day')).toEqual({ source: 'daily', tableTitle: 'Daily breakdown' });
+      expect(salesBucketView('week')).toEqual({ source: 'weekly', tableTitle: 'Weekly breakdown' });
       expect(salesBucketView('month')).toEqual({ source: 'monthly', tableTitle: 'Monthly breakdown' });
       expect(salesBucketView('year')).toEqual({ source: 'annual', tableTitle: 'Yearly breakdown' });
     });
@@ -149,6 +150,64 @@ describe('sales-view (pure)', () => {
       expect(sparse.length).toBe(2);
       expect(computeTotals(dense)).toEqual(computeTotals(sparse));
       expect(breakdownTotals(dense)).toEqual(breakdownTotals(sparse));
+    });
+
+    // LADDER-WEEK-00. Every Monday below is verified: 15/22/29 Jun and 6 Jul 2026 are Mondays,
+    // 18 Jun is a Thursday.
+    describe('the WEEK bucket', () => {
+      it('enumerates Monday-anchored keys in the daily yyyy-MM-dd format', () => {
+        const rows = [day('2026-06-01', 10), day('2026-06-08', 20), day('2026-06-15', 30)];
+        const points = normalizeSeries(rows, 'week', { from: '2026-06-01', to: '2026-06-21' });
+
+        expect(points.map((p) => p.key)).toEqual(['2026-06-01', '2026-06-08', '2026-06-15']);
+      });
+
+      // THE MOST IMPORTANT SPEC IN LADDER-WEEK-00. A weekly bucket is keyed to its Monday, so a
+      // window opening on Thu 18 Jun has a FIRST BUCKET KEYED 15 JUN — three days BEFORE the
+      // window starts. Enumerating from `from` instead would produce 18/25 Jun and 2 Jul, which
+      // match none of the returned keys, and every bucket would densify to zero: a chart that
+      // renders plausibly and is entirely wrong, with no error anywhere to catch it.
+      it('enumerates from the Monday CONTAINING `from`, so a mid-week window keeps its data', () => {
+        const rows = [day('2026-06-15', 40), day('2026-06-22', 50), day('2026-06-29', 60)];
+        const points = normalizeSeries(rows, 'week', { from: '2026-06-18', to: '2026-07-05' });
+
+        expect(points.map((p) => p.key)).toEqual(['2026-06-15', '2026-06-22', '2026-06-29']);
+        // Real takings, NOT zero-fill — the failure mode this spec exists to catch.
+        expect(points.map((p) => p.orders)).toEqual([40, 50, 60]);
+        expect(points[0].key < '2026-06-18')
+          .withContext('first bucket key precedes the window start, by design')
+          .toBeTrue();
+      });
+
+      it('fills a missing week with a labelled zero bucket, leaving totals untouched', () => {
+        // w/c 8 Jun is absent from the wire — that week traded nothing.
+        const rows = [day('2026-06-01', 10), day('2026-06-15', 30)];
+        const dense = normalizeSeries(rows, 'week', { from: '2026-06-01', to: '2026-06-21' });
+        const sparse = normalizeSeries(rows, 'week', null);
+
+        expect(dense.map((p) => p.key)).toEqual(['2026-06-01', '2026-06-08', '2026-06-15']);
+        expect(dense[1]).toEqual({
+          label: 'w/c 8 Jun',
+          key: '2026-06-08',
+          revenue: 0,
+          orders: 0,
+          discount: 0,
+        });
+        expect(computeTotals(dense)).toEqual(computeTotals(sparse));
+        expect(breakdownTotals(dense)).toEqual(breakdownTotals(sparse));
+      });
+
+      it('labels a week distinguishably from a day sharing the same key format', () => {
+        // Both buckets key on yyyy-MM-dd, so the LABEL is the only thing separating
+        // "Monday the 15th took X" from "the week of the 15th took X".
+        const rows = [day('2026-06-15', 10)];
+        const asWeek = normalizeSeries(rows, 'week', { from: '2026-06-15', to: '2026-06-21' });
+        const asDay = normalizeSeries(rows, 'day', { from: '2026-06-15', to: '2026-06-15' });
+
+        expect(asWeek[0].label).toBe('w/c 15 Jun');
+        expect(asDay[0].label).toBe('15 Jun');
+        expect(asWeek[0].label).not.toBe(asDay[0].label);
+      });
     });
   });
 
@@ -373,10 +432,36 @@ describe('sales-view (pure)', () => {
       const hours: SalesPoint[] = [0, 1, 2].map((h) => ({
         label: `${h}`, key: String(h), revenue: h, orders: 1, discount: 0,
       }));
-      for (const bucket of ['hour', 'month', 'year'] as ReportBucketUnit[]) {
+      for (const bucket of ['hour', 'week', 'month', 'year'] as ReportBucketUnit[]) {
         const aligned = alignComparisonSeries(hours, hours, 'by-day', bucket);
         expect(aligned.map((p) => p!.key)).withContext(bucket).toEqual(['0', '1', '2']);
       }
+    });
+
+    // LADDER-WEEK-00 §2.5. This is CORRECT, NOT INCIDENTAL — do not "fix" it by extending the
+    // `bucketUnit === 'day'` guard to include week. Both series are Monday-anchored on both
+    // sides, so index i is the i-th Monday in each and positional pairing already aligns week
+    // to week; a weekday offset between two Mondays is zero by definition. Applying the by-day
+    // shift here would compute an offset of 0 at best and misalign the series at worst.
+    it('pairs WEEKLY buckets positionally — two Mondays need no weekday shift', () => {
+      // Jul 2026 weeks vs Jun 2026 weeks. June opens on a Monday, July on a Wednesday — the
+      // exact asymmetry that makes by-day pairing shift the DAY bucket by 2. Weekly buckets are
+      // keyed to Mondays either way, so the pairing must be identical under both options.
+      const weeks = (starts: string[]): SalesPoint[] =>
+        starts.map((key, i) => ({ label: `w/c ${key}`, key, revenue: i, orders: 1, discount: 0 }));
+      const julyWeeks = weeks(['2026-06-29', '2026-07-06', '2026-07-13', '2026-07-20']);
+      const juneWeeks = weeks(['2026-06-01', '2026-06-08', '2026-06-15', '2026-06-22']);
+
+      const byDay = alignComparisonSeries(julyWeeks, juneWeeks, 'by-day', 'week');
+      const byDate = alignComparisonSeries(julyWeeks, juneWeeks, 'by-date', 'week');
+
+      expect(byDay.map((p) => p!.key)).toEqual([
+        '2026-06-01',
+        '2026-06-08',
+        '2026-06-15',
+        '2026-06-22',
+      ]);
+      expect(byDay).toEqual(byDate);
     });
 
     it('always returns one entry per PRIMARY index, under either pairing', () => {
@@ -397,6 +482,19 @@ describe('sales-view (pure)', () => {
     it('formats a day bucket from key, WITH the year', () => {
       expect(pointDateLabel(point('2026-06-15', '15 Jun'), 'day')).toBe('15 Jun 2026');
       expect(pointDateLabel(point('2025-06-15', '15 Jun'), 'day')).toBe('15 Jun 2025');
+    });
+
+    // Same reasoning as `day` (the week label carries no year either), plus the `w/c` prefix:
+    // a bare Monday date in a tooltip reads as one day's takings, which is what it is not.
+    it('formats a week bucket from key, WITH the year and a w/c prefix', () => {
+      expect(pointDateLabel(point('2026-07-20', 'w/c 20 Jul'), 'week')).toBe('w/c 20 Jul 2026');
+      expect(pointDateLabel(point('2025-07-21', 'w/c 21 Jul'), 'week')).toBe('w/c 21 Jul 2025');
+    });
+
+    it('renders a week distinguishably from the same date as a day', () => {
+      const p = point('2026-07-20', 'ignored');
+      expect(pointDateLabel(p, 'week')).not.toBe(pointDateLabel(p, 'day'));
+      expect(pointDateLabel(p, 'day')).toBe('20 Jul 2026');
     });
 
     it('reuses the label for buckets whose label is already unambiguous', () => {

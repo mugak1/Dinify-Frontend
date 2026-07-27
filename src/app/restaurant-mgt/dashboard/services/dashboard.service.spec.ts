@@ -56,7 +56,7 @@ describe('DashboardService', () => {
     });
 
     it('passes every bucket in the ladder through verbatim', () => {
-      const buckets: ReportBucketUnit[] = ['hour', 'day', 'month', 'year'];
+      const buckets: ReportBucketUnit[] = ['hour', 'day', 'week', 'month', 'year'];
 
       for (const bucket of buckets) {
         service.getDashboardData('r1', '2026-06-01', '2026-06-30', bucket).subscribe();

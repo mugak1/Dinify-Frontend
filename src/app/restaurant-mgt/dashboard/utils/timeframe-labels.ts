@@ -18,6 +18,12 @@ import { formatRangeSpan } from '../../../_shared/timeframe/picker/range-label';
  *   `month` was month-only ("Jun") for YTD — but `month` now covers up to 731 days, so
  *           a bare month name would appear twice on a two-year axis.
  * `year` is new: the old enum could not express a multi-year range at all.
+ *
+ * `week` (LADDER-WEEK-00) is the point's Monday, PREFIXED "w/c". This is a per-point tick, not
+ * an axis title — the cards call it once per point, and the tooltip title reuses whatever it
+ * returns — so a bucket NOUN here would label every tick and every tooltip identically. The
+ * prefix is what keeps it from reading as a single day: without it a week tick is byte-identical
+ * to a `day` tick. The bucket noun ("Week") lives on the Sales breakdown table's column heading.
  */
 export function bucketAxisLabel(at: string, bucketUnit: ReportBucketUnit): string {
   const d = new Date(at);
@@ -27,6 +33,8 @@ export function bucketAxisLabel(at: string, bucketUnit: ReportBucketUnit): strin
       return d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
     case 'day':
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    case 'week':
+      return `w/c ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
     case 'month':
       return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
     case 'year':

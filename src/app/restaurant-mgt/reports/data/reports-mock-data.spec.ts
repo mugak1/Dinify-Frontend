@@ -117,6 +117,37 @@ describe('reports mock data — granularity reconciliation (shared basis)', () =
     expect(monthly[0].discount).toBe(s.discount);
   });
 
+  // LADDER-WEEK-00. Reports SHIPS on this mock (USE_MOCK_DATA = true), so a `weekly` arm that
+  // fell through to the monthly default would emit `yyyy-MM` keys, match none of `bucketKeysIn`'s
+  // Monday-keyed weekly enumeration, and render every bucket as zero in the running app.
+  it('weekly buckets key to their MONDAY and sum back to the daily rows', () => {
+    const FROM = '2026-06-01'; // a Monday
+    const TO = '2026-06-28'; //   the Sunday closing the 4th week
+    const daily = getMockSalesAggregate(RID, FROM, TO, 'daily');
+    const weekly = getMockSalesAggregate(RID, FROM, TO, 'weekly');
+
+    expect(weekly.map((r) => r.period)).toEqual([
+      '2026-06-01',
+      '2026-06-08',
+      '2026-06-15',
+      '2026-06-22',
+    ]);
+    // Keys share the daily yyyy-MM-dd format, so the sum is the only thing proving they are
+    // weeks rather than four individual Mondays — which, the restaurant being closed Mondays,
+    // would all be zero.
+    expect(sum(weekly)).toEqual(sum(daily));
+    expect(weekly.every((r) => r.orders > 0)).toBeTrue();
+  });
+
+  it('weekly buckets a mid-week window into the containing Monday', () => {
+    // Thu 18 Jun → Sun 5 Jul. The opening partial week is keyed 15 Jun, three days BEFORE the
+    // window — exactly what `bucketKeysIn` enumerates back to, and why the two must agree.
+    const weekly = getMockSalesAggregate(RID, '2026-06-18', '2026-07-05', 'weekly');
+
+    expect(weekly.map((r) => r.period)).toEqual(['2026-06-15', '2026-06-22', '2026-06-29']);
+    expect(weekly[0].period < '2026-06-18').toBeTrue();
+  });
+
   it('annual bucket === sum of its monthly buckets for the same range', () => {
     const FROM = '2026-01-01';
     const TO = '2026-12-31';

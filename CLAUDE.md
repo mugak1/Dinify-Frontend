@@ -598,10 +598,37 @@ writing new tag, price/menu or date-range logic:
     range model must validate `cmp` but can never import the engine (the engine imports
     it), so the vocabulary lives in a leaf module and the graph stays a DAG
   - the engine (`timeframe-engine.ts`): `resolveTimeframe` (the span ladder
-    hour→day→month→year + the over-cap clamp), `resolveComparison`,
+    hour→day→**week**→month→year + the over-cap clamp), `resolveComparison`,
     `comparisonOptionsFor`, `defaultComparisonFor`, `isComparisonOfferedFor`,
     `previousEqualLengthPeriod`, `SALES_TRENDS_CAP_DAYS`,
     `HOURLY_MAX_DAYS`, `BUCKET_TO_CATEGORY`, `ReportBucketUnit`, `SalesTrendsCategory`.
+    **LADDER THRESHOLDS ARE A SEPARATE MAP FROM THE BACKEND CAPS** (LADDER-WEEK-00), and
+    which one you touch matters. `SALES_TRENDS_CAP_DAYS` mirrors what the SERVER ACCEPTS
+    and drives the over-cap clamp; the module-private `LADDER_MAX_DAYS`
+    (hour 1 / day 31 / **week 92** / month 731) is where the FRONTEND changes bucket for
+    LEGIBILITY, and it is what `resolveTimeframe` reads. Until the weekly rung landed one
+    map served as both, which worked only because each cap happened to be a sensible
+    switch point — an accident, not a design. `weekly` is where it ran out: its cap is
+    **371 days**, set deliberately generous to bound query cost, so reading it as a
+    threshold would render every range up to a year as 53 weekly points and leave `month`
+    unreachable below that. 92 (≈ a quarter, ~13 points) is a legibility judgement.
+    `year` has no threshold entry — it is the last rung, so its boundary IS the annual cap,
+    and the clamp still targets that cap and nothing else. A new bucket needs an entry in
+    `LADDER_MAX_DAYS`; a new server limit needs one in `SALES_TRENDS_CAP_DAYS`.
+    Consequence worth knowing: 32–92 day ranges now render ~9–13 weekly points instead of
+    two or three monthly ones, and `this-year` between roughly 1 Feb and 2 Apr is the one
+    PRESET the change moves (every other affected range is `custom`). The weekly bucket is
+    **Monday-anchored on both sides**, keyed as the Monday's `yyyy-MM-dd` — the same key
+    FORMAT as `day`, so every label carries a `w/c` prefix (`w/c 20 Jul`) to stay
+    distinguishable from a single day's takings. `bucketKeysIn` (`sales/sales-view.ts`)
+    enumerates it via `eachWeekOfInterval(…, {weekStartsOn: 1})` and **must enumerate from
+    the Monday CONTAINING `from`, not from `from`** — a window opening mid-week has a first
+    bucket keyed up to six days BEFORE it, so pre-advancing `start` leaves every returned
+    key unmatched and densifies the whole chart to zero with no error. That is also why the
+    `normalizeSeries` docstring no longer claims an out-of-window bucket "cannot occur".
+    `week` falls to INDEX pairing in `alignComparisonSeries` and that is correct, not
+    incidental: both series are Monday-anchored, so index *i* is the *i*-th Monday in each
+    — do not extend the `bucketUnit === 'day'` guard to cover it.
     `resolveComparison` is **THE ONE comparison-window resolver** — the preset-keyed
     `comparisonRange` / `comparisonRangeLabel` pair it replaced is gone; do not add a
     second entry point. Its option sets key off SHAPE: day → prev-day/prev-week/

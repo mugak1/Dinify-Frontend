@@ -36,14 +36,31 @@ describe('shared timeframe engine', () => {
 
   describe('constants mirror the backend caps', () => {
     it('pins the sales-trends day-span caps (incl. quarterly for completeness)', () => {
-      expect(SALES_TRENDS_CAP_DAYS).toEqual({ daily: 31, monthly: 731, quarterly: 731, annual: 1850 });
+      expect(SALES_TRENDS_CAP_DAYS).toEqual({
+        daily: 31,
+        weekly: 371,
+        monthly: 731,
+        quarterly: 731,
+        annual: 1850,
+      });
       expect(HOURLY_MAX_DAYS).toBe(1);
+    });
+
+    // THE CAP IS NOT THE THRESHOLD. `weekly`'s cap is deliberately generous — it bounds query
+    // cost, not chart legibility — so the ladder switches to `month` at 92 days, far below it.
+    // If this ever fails because the ladder started honouring the cap again, 53 weekly points
+    // is what a one-year range renders as and `month` becomes unreachable below 371 days.
+    it('caps weekly far above where the ladder actually leaves the weekly bucket', () => {
+      expect(SALES_TRENDS_CAP_DAYS.weekly).toBe(371);
+      expect(resolveTimeframe(rangeOfSpan(93)).bucketUnit).toBe('month');
+      expect(resolveTimeframe(rangeOfSpan(370)).bucketUnit).toBe('month');
     });
 
     it('maps each bucket to its sales-trends category (hour → none)', () => {
       expect(BUCKET_TO_CATEGORY).toEqual({
         hour: null,
         day: 'daily',
+        week: 'weekly',
         month: 'monthly',
         year: 'annual',
       });
@@ -68,12 +85,32 @@ describe('shared timeframe engine', () => {
       }
     });
 
-    it('buckets 32 … 731 days as monthly', () => {
-      for (const span of [32, 90, 365, 731]) {
+    it('buckets 32 … 92 days as weekly', () => {
+      for (const span of [32, 60, 90, 92]) {
         const r = resolveTimeframe(rangeOfSpan(span));
-        expect(r.bucketUnit).toBe('month');
-        expect(r.category).toBe('monthly');
+        expect(r.bucketUnit).withContext(`span ${span}`).toBe('week');
+        expect(r.category).withContext(`span ${span}`).toBe('weekly');
+        expect(r.clamped).withContext(`span ${span}`).toBeFalse();
       }
+    });
+
+    it('buckets 93 … 731 days as monthly', () => {
+      for (const span of [93, 180, 365, 731]) {
+        const r = resolveTimeframe(rangeOfSpan(span));
+        expect(r.bucketUnit).withContext(`span ${span}`).toBe('month');
+        expect(r.category).withContext(`span ${span}`).toBe('monthly');
+      }
+    });
+
+    // Asserted one span either side of each new edge, because an off-by-one here is invisible
+    // in normal use: 31 vs 32 days is a chart that looks plausible either way. Spans are
+    // EXCLUSIVE (to − from) and every rung is `<=`, so the named number is the LAST span in
+    // its bucket, not the first of the next.
+    it('switches bucket at exactly 31→32 and 92→93 days', () => {
+      expect(resolveTimeframe(rangeOfSpan(31)).bucketUnit).toBe('day');
+      expect(resolveTimeframe(rangeOfSpan(32)).bucketUnit).toBe('week');
+      expect(resolveTimeframe(rangeOfSpan(92)).bucketUnit).toBe('week');
+      expect(resolveTimeframe(rangeOfSpan(93)).bucketUnit).toBe('month');
     });
 
     it('buckets 732 … 1850 days as annual', () => {
@@ -140,6 +177,9 @@ describe('shared timeframe engine', () => {
       );
       // The clamped range is now a legal annual request (not > cap).
       expect(resolveTimeframe(r.effectiveRange).clamped).toBeFalse();
+      // Splitting the ladder thresholds out of the cap map did not move the clamp's TARGET:
+      // it still clamps to the widest span the backend will serve, not to a ladder boundary.
+      expect(r.effectiveRange.from).not.toBe(rangeOfSpan(SALES_TRENDS_CAP_DAYS.weekly).from);
     });
   });
 

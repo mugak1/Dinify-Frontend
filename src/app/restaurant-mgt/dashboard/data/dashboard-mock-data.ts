@@ -14,9 +14,11 @@ import {
 import {
   eachDayOfInterval,
   eachMonthOfInterval,
+  eachWeekOfInterval,
   eachYearOfInterval,
   format,
   parseISO,
+  startOfWeek,
 } from 'date-fns';
 import { ReportBucketUnit, previousEqualLengthPeriod } from '../../../_shared/timeframe';
 import { DailyRevenueRow, dailyRevenue } from '../../../_shared/mock/daily-revenue';
@@ -68,6 +70,13 @@ function generateDates(from: string, to: string, bucket: ReportBucketUnit): stri
       return Array.from({ length: 24 }, (_, h) => dayAtIso(from, h));
     case 'day':
       return eachDayOfInterval({ start, end }).map((d) => dayAtIso(format(d, 'yyyy-MM-dd')));
+    // Monday-anchored, matching the backend. `eachWeekOfInterval` snaps back to the week
+    // start, so a window opening mid-week yields a first slot dated BEFORE `from` — which is
+    // right: that slot holds the partial opening week's takings.
+    case 'week':
+      return eachWeekOfInterval({ start, end }, { weekStartsOn: 1 }).map((d) =>
+        dayAtIso(format(d, 'yyyy-MM-dd')),
+      );
     case 'month':
       return eachMonthOfInterval({ start, end }).map((d) => dayAtIso(format(d, 'yyyy-MM-01')));
     case 'year':
@@ -75,13 +84,21 @@ function generateDates(from: string, to: string, bucket: ReportBucketUnit): stri
   }
 }
 
-/** The bucket a given day falls into, as the matching `generateDates` key. */
+/**
+ * The bucket a given day falls into, as the matching `generateDates` key.
+ *
+ * MUST agree with `generateDates` key-for-key: `buildRevenueSeries` looks each row's bucket up
+ * in the slot map with `slots.get(dayAtIso(bucketKey(...)))`, so a disagreement is not a type
+ * error or an exception — every lookup silently misses and the whole series renders as zero.
+ */
 function bucketKey(date: string, bucket: ReportBucketUnit): string {
   const d = parseISO(date);
   switch (bucket) {
     case 'hour':
     case 'day':
       return format(d, 'yyyy-MM-dd');
+    case 'week':
+      return format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
     case 'month':
       return format(d, 'yyyy-MM-01');
     case 'year':
