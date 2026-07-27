@@ -1,9 +1,14 @@
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
+import { CdkConnectedOverlay, Overlay } from '@angular/cdk/overlay';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { format } from 'date-fns';
 import { BehaviorSubject } from 'rxjs';
 
-import { TimeframePickerComponent } from './timeframe-picker.component';
+import {
+  TimeframePickerComponent,
+  timeframeOverlayPositions,
+} from './timeframe-picker.component';
 import { ComparisonOption } from '../comparison-option';
 import { ReportDateRange } from '../timeframe-range';
 
@@ -523,6 +528,138 @@ describe('TimeframePickerComponent', () => {
 
       expect(cmpPanel()).not.toBeNull();
       expect(overlayPanel()).toBeNull(); // the date-range panel never opened
+    });
+  });
+
+  // ─── Overlay positioning (PICKER-OVERLAY-00) ──────────────────────────────────────
+  //
+  // The cluster sits at the right edge of the page header, so an overlay anchored
+  // start-to-start opens into whatever space is left over. The ~618px calendar did not
+  // fit: at 1024px it overflowed by ~180px and rendered its whole second month off-frame.
+  //
+  // Geometry is awkward to assert in a unit test, so what is pinned here is the
+  // CONFIGURATION, which is where the defect actually lived — and above all that all
+  // THREE overlays read ONE array. They each hand-maintained their own copy before this,
+  // and had already drifted apart on `withPush`; reference identity is what makes it
+  // impossible to fix one placement and miss the other two.
+  describe('overlay positioning (PICKER-OVERLAY-00)', () => {
+    /**
+     * Capture what an imperative overlay hands its position strategy, without reaching
+     * into CDK privates. `callThrough` throughout, so the overlay still really opens.
+     *
+     * Install this immediately before the action under test and read `mostRecent()`: the
+     * declarative comparison menu builds its strategy through the same `position()`
+     * builder, so a spy left in place across two opens captures the wrong call.
+     */
+    function spyOnNextStrategy(): {
+      withPositions: jasmine.Spy;
+      withPush: jasmine.Spy;
+      withFlexibleDimensions: jasmine.Spy;
+    } {
+      const overlay = TestBed.inject(Overlay);
+      const builder = overlay.position();
+      const strategy = builder.flexibleConnectedTo(document.createElement('div'));
+
+      const withPositions = spyOn(strategy, 'withPositions').and.callThrough();
+      const withPush = spyOn(strategy, 'withPush').and.callThrough();
+      const withFlexibleDimensions = spyOn(strategy, 'withFlexibleDimensions').and.callThrough();
+
+      spyOn(builder, 'flexibleConnectedTo').and.returnValue(strategy);
+      spyOn(overlay, 'position').and.returnValue(builder);
+
+      return { withPositions, withPush, withFlexibleDimensions };
+    }
+
+    /** The `cdkConnectedOverlay` on the comparison menu's `ng-template`. */
+    function comparisonOverlayDirective(): CdkConnectedOverlay {
+      const node = fixture.debugElement.queryAllNodes(By.directive(CdkConnectedOverlay))[0];
+      return node.injector.get(CdkConnectedOverlay);
+    }
+
+    beforeEach(() => {
+      bp$.next({ matches: true, breakpoints: {} });
+      fixture.detectChanges();
+    });
+
+    it('offers four placements, end-aligned first', () => {
+      const positions = timeframeOverlayPositions();
+
+      expect(positions.length).toBe(4);
+
+      // The primary pair opens LEFTWARD from the trigger's right edge — the fix for a
+      // right-aligned control. Start-aligned survives only as the last resort.
+      expect(positions.slice(0, 2).map((p) => [p.originX, p.overlayX])).toEqual([
+        ['end', 'end'],
+        ['end', 'end'],
+      ]);
+      expect(positions.slice(2).map((p) => [p.originX, p.overlayX])).toEqual([
+        ['start', 'start'],
+        ['start', 'start'],
+      ]);
+
+      // Each alignment carries a below-then-above vertical flip.
+      expect(positions.map((p) => p.originY)).toEqual(['bottom', 'top', 'bottom', 'top']);
+      expect(positions.map((p) => p.overlayY)).toEqual(['top', 'bottom', 'top', 'bottom']);
+    });
+
+    it('gives the calendar the shared array and enables push', () => {
+      const spies = spyOnNextStrategy();
+
+      trigger().click();
+      fixture.detectChanges();
+
+      expect(spies.withPositions.calls.mostRecent().args[0]).toBe(component.overlayPositions);
+      expect(spies.withPush).toHaveBeenCalledWith(true);
+      // A two-month calendar that reflows to fit is worse than one that repositions.
+      expect(spies.withFlexibleDimensions).toHaveBeenCalledWith(false);
+    });
+
+    it('gives the comparison menu the SAME array and enables push', () => {
+      const directive = comparisonOverlayDirective();
+
+      // Reference identity, not deep equality: this is the assertion that a future edit
+      // cannot fix one overlay's placement and leave the other behind.
+      expect(directive.positions).toBe(component.overlayPositions);
+      expect(directive.push).toBeTrue();
+      // Unset in the template — pinned here so a CDK default flip cannot silently enable it.
+      expect(directive.flexibleDimensions).toBeFalse();
+    });
+
+    it('gives the custom-start calendar the SAME array and enables push', () => {
+      const cmpTrigger = (): HTMLButtonElement =>
+        fixture.nativeElement.querySelector('button[aria-haspopup="listbox"]');
+
+      cmpTrigger().click();
+      fixture.detectChanges();
+      const entry = Array.from(
+        document.querySelectorAll<HTMLButtonElement>(
+          '.dn-comparison-overlay-panel [role="option"]',
+        ),
+      ).find((o) => (o.textContent ?? '').includes('Custom period'))!;
+
+      // Only now — the menu above opened through the same `position()` builder.
+      const spies = spyOnNextStrategy();
+      entry.click();
+      fixture.detectChanges();
+
+      expect(document.querySelector('.dn-comparison-start-overlay-panel')).not.toBeNull();
+      expect(spies.withPositions.calls.mostRecent().args[0]).toBe(component.overlayPositions);
+      expect(spies.withPush).toHaveBeenCalledWith(true);
+      expect(spies.withFlexibleDimensions).toHaveBeenCalledWith(false);
+    });
+
+    // This control is anchored, not overlaid, only ABOVE the breakpoint. Below it the
+    // calendar is a full-width sheet that cannot overflow, so positioning must not have
+    // reached into that path at all.
+    it('still takes the sheet path below 1024px', () => {
+      bp$.next({ matches: false, breakpoints: {} });
+      fixture.detectChanges();
+
+      trigger().click();
+      fixture.detectChanges();
+
+      expect(overlayPanel()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.fixed.bottom-0')).toBeTruthy();
     });
   });
 });
