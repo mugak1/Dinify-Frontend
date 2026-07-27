@@ -45,6 +45,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Live comparison basis, for the picker binding only. */
   readonly comparison$ = this.timeframe.comparison$;
 
+  /** Live custom-window start, for the picker binding only. */
+  readonly customComparisonFrom$ = this.timeframe.customComparisonFrom$;
+
   /**
    * The comparison window's payload, and the window it covers. Both `null` while the
    * basis is `'none'` — which is what tells the cards to render no comparison row at all.
@@ -84,8 +87,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Commit a comparison basis the user picked. Mirrors `onRange`. */
-  onComparison(option: ComparisonOption): void {
-    this.timeframe.setComparison(option);
+  onComparison(e: { option: ComparisonOption; customFrom?: string | null }): void {
+    // Basis and custom start commit TOGETHER — see `setComparison`. Two calls would leave a
+    // frame where 'custom' names a stale window and every pipeline fetches it.
+    this.timeframe.setComparison(e.option, e.customFrom);
   }
 
   ngOnInit(): void {
@@ -151,11 +156,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     combineLatest([
       this.timeframe.range$,
       this.timeframe.comparison$,
+      this.timeframe.customComparisonFrom$,
       this.dashboardService.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
         takeUntil(this.destroy$),
-        switchMap(([range, basis]) => {
+        switchMap(([range, basis, customFrom]) => {
           const { bucketUnit, effectiveRange } = resolveTimeframe(range);
           // CLASSIFY AND RESOLVE FROM THE SAME WINDOW. `effectiveRange` is what the primary
           // request actually measured, so the baseline has to span the same length or the
@@ -167,11 +173,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
           const honoured = isComparisonOfferedFor(shape, basis)
             ? basis
             : defaultComparisonFor(shape);
-          const cmp = resolveComparison(effectiveRange, honoured);
+          const cmp = resolveComparison(effectiveRange, honoured, undefined, customFrom);
           this.comparisonWindow = cmp;
 
           // 'none' → no request at all. Nothing renders it, so fetching it would spend a
-          // round trip answering a question the user declined to ask.
+          // round trip answering a question the user declined to ask. An UNPLACED 'custom'
+          // resolves to null too and takes this same path — a comparison not yet placed is
+          // not a comparison, and needs no handling of its own.
           if (!cmp) return of({ data: null });
           return this.dashboardService
             .getDashboardData(restaurantId, cmp.from, cmp.to, bucketUnit)

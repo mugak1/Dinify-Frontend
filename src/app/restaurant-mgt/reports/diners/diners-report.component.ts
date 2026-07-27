@@ -113,6 +113,7 @@ export class DinersReportComponent implements OnInit, OnDestroy {
     combineLatest([
       this.timeframe.range$,
       this.timeframe.comparison$,
+      this.timeframe.customComparisonFrom$,
       this.reports.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
@@ -123,9 +124,9 @@ export class DinersReportComponent implements OnInit, OnDestroy {
           this.summaryState = 'loading';
           this.listingState = 'loading';
         }),
-        switchMap(([range, basis]) => {
+        switchMap(([range, basis, customFrom]) => {
           const win = recentWindow(range);
-          const cmp = resolveComparison(range, basis);
+          const cmp = resolveComparison(range, basis, undefined, customFrom);
           const full$ = this.reports
             .getDinersSummary(restaurantId, range.from, range.to)
             .pipe(catchError(() => of({ data: null } as any)));

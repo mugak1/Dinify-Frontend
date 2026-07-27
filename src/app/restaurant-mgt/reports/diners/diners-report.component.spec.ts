@@ -174,5 +174,22 @@ describe('DinersReportComponent', () => {
       expect(spy.calls.count()).toBeGreaterThan(withoutComparison);
       expect(component.prevSummary).not.toBeNull();
     }));
+
+    // An UNPLACED custom period issues no request either — it resolves to `null`, the exact
+    // path `'none'` already takes, so the surface needs no branch of its own for it.
+    it("issues NO comparison request for a 'custom' basis with no start placed", fakeAsync(() => {
+      const spy = spyOn(reports, 'getDinersSummary').and.callThrough();
+
+      timeframe.setComparison('none');
+      component.ngOnInit();
+      tick(600);
+      const baseline = spy.calls.count();
+
+      spy.calls.reset();
+      timeframe.setComparison('custom'); // no start
+      tick(600);
+
+      expect(spy.calls.count()).toBe(baseline);
+    }));
   });
 });

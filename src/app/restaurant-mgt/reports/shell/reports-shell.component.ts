@@ -43,6 +43,9 @@ export class ReportsShellComponent {
   readonly range$ = this.timeframe.range$;
   readonly comparison$ = this.timeframe.comparison$;
 
+  /** Live custom-window start, for the picker binding only. */
+  readonly customComparisonFrom$ = this.timeframe.customComparisonFrom$;
+
   /** Segments for the shared control. `value` doubles as the report key; `icon` is the opaque
    *  key the projected `#icon` template resolves to an inline SVG. */
   readonly reportNav: DnSegItem[] = [
@@ -77,8 +80,10 @@ export class ReportsShellComponent {
     this.timeframe.set(range);
   }
 
-  onComparison(option: ComparisonOption): void {
-    this.timeframe.setComparison(option);
+  onComparison(e: { option: ComparisonOption; customFrom?: string | null }): void {
+    // Basis and custom start commit TOGETHER — see `setComparison`. Two calls would leave a
+    // frame where 'custom' names a stale window and every pipeline fetches it.
+    this.timeframe.setComparison(e.option, e.customFrom);
   }
 
   /** Last matching report segment in the URL, ignoring query/fragment/trailing

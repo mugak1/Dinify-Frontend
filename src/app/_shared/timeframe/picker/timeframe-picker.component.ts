@@ -58,9 +58,15 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { SheetComponent } from '../../ui/sheet/sheet.component';
 import { ComparisonOption, comparisonOptionLabel } from '../comparison-option';
-import { classifyRangeShape, comparisonOptionsFor, stepRange } from '../timeframe-engine';
+import {
+  classifyRangeShape,
+  comparisonOptionsFor,
+  resolveComparison,
+  stepRange,
+} from '../timeframe-engine';
 import { ReportDateRange, presetToRange } from '../timeframe-range';
 import { DateRangePanelComponent } from './date-range-panel.component';
+import { ComparisonStartPanelComponent } from './comparison-start-panel.component';
 import { PRESET_LABELS, formatRangeSpan } from './range-label';
 
 @Component({
@@ -72,7 +78,10 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
          trigger's computed 38px (text-sm line-height 20 + py-2 + border), because the
          14px root makes rem-derived heights land ~12.5% short and this cluster sits in a
          header that feeds sticky offsets. -->
-    <div class="inline-flex items-center gap-1">
+    <!-- flex-wrap, NOT truncation: at 360px with a custom period selected the comparison
+         label is the only thing telling the operator what the figures are measured
+         against, so it wraps to a second line instead of being cut. -->
+    <div class="inline-flex flex-wrap items-center gap-1">
       <button
         type="button"
         class="h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-input bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30 disabled:pointer-events-none"
@@ -122,7 +131,7 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
         cdkOverlayOrigin
         #cmpOrigin="cdkOverlayOrigin"
         class="h-[38px] inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        [attr.aria-label]="'Compare against: ' + comparisonLabel + '. Activate to change.'"
+        [attr.aria-label]="'Compare against: ' + comparisonTriggerLabel + '. Activate to change.'"
         aria-haspopup="listbox"
         [attr.aria-expanded]="cmpOpen"
         (click)="toggleComparison()"
@@ -133,7 +142,7 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
           <path d="M7 12h10" />
           <path d="M11 18h2" />
         </svg>
-        <span>{{ comparisonLabel }}</span>
+        <span>{{ comparisonTriggerLabel }}</span>
         <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m6 9 6 6 6-6" />
         </svg>
@@ -205,7 +214,22 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
   /** The active comparison basis. `TimeframeService` owns it; this control never does. */
   @Input() comparison: ComparisonOption = 'none';
 
-  @Output() comparisonChange = new EventEmitter<ComparisonOption>();
+  /** The custom window's START (02D), or `null` when none is placed. Owned by the service. */
+  @Input() customComparisonFrom: string | null = null;
+
+  /**
+   * One output for one concern — the basis, and for `'custom'` the start that goes with it.
+   *
+   * A second output for the start would mean the host makes two service calls, and between
+   * them the basis reads `'custom'` with a stale or absent window: every consumer pipeline
+   * would fire a request against the wrong dates before the right ones arrived. Carrying
+   * both in one payload makes that unrepresentable rather than a rule each host must
+   * remember.
+   */
+  @Output() comparisonChange = new EventEmitter<{
+    option: ComparisonOption;
+    customFrom?: string | null;
+  }>();
 
   @ViewChild('trigger') triggerEl!: ElementRef<HTMLElement>;
   @ViewChild('cmpTrigger') cmpTriggerEl?: ElementRef<HTMLElement>;
@@ -223,6 +247,9 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
 
   private overlayRef?: OverlayRef;
   private panelRef?: ComponentRef<DateRangePanelComponent>;
+  /** The custom-start overlay (02D). Separate from the range popover above — both can
+   *  never be open at once, but they attach different panels to different origins. */
+  private customStartRef?: OverlayRef;
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -249,6 +276,24 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
     return comparisonOptionLabel(this.comparison);
   }
 
+  /**
+   * What the TRIGGER shows: the basis name, plus the resolved dates FOR `'custom'` ONLY.
+   *
+   * THE ASYMMETRY IS DELIBERATE — do not "consistency-fix" it into either uniform dates or
+   * a bare label. Every other basis's name fully determines its window given the range
+   * ("Previous month" can only mean one thing), so dates there are redundant chrome. A
+   * custom period is the one basis whose name says nothing about which window it names, and
+   * the one whose window silently re-derives when an arrow step changes the range's length
+   * — so showing it is also how the user sees that the step did the right thing.
+   *
+   * An unplaced custom period shows the bare label: there is no window to name yet.
+   */
+  get comparisonTriggerLabel(): string {
+    if (this.comparison !== 'custom') return this.comparisonLabel;
+    const w = resolveComparison(this.value, 'custom', undefined, this.customComparisonFrom);
+    return w ? `${this.comparisonLabel} · ${formatRangeSpan(w.from, w.to)}` : this.comparisonLabel;
+  }
+
   labelFor(option: ComparisonOption): string {
     return comparisonOptionLabel(option);
   }
@@ -269,7 +314,27 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
   pickComparison(option: ComparisonOption): void {
     this.cmpOpen = false;
     this.cmpTriggerEl?.nativeElement.focus();
-    if (option !== this.comparison) this.comparisonChange.emit(option);
+
+    // 'custom' is the ONE entry that does not commit on pick — it needs a start date, so it
+    // opens a staged calendar and commits on Apply. Re-picking it while it is already the
+    // basis re-opens that calendar, which is how the start is edited.
+    if (option === 'custom') {
+      this.openCustomStart();
+      return;
+    }
+
+    if (option !== this.comparison) this.comparisonChange.emit({ option });
+  }
+
+  /** Apply from the custom-start panel: the basis and its start, committed together. */
+  onCustomStartApplied(from: string): void {
+    this.closeCustomStart();
+    this.comparisonChange.emit({ option: 'custom', customFrom: from });
+  }
+
+  /** Cancel / Escape / backdrop — the previous basis is left entirely untouched. */
+  onCustomStartCancelled(): void {
+    this.closeCustomStart();
   }
 
   /** ArrowDown / ArrowUp / Enter / Space open the menu from the trigger. */
@@ -380,8 +445,77 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.close();
+    this.closeCustomStart();
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /**
+   * The staged custom-start calendar. Same imperative Overlay + ComponentPortal idiom as the
+   * range panel above, and a separate overlay from the comparison dropdown, which has
+   * already closed by the time this opens.
+   */
+  private openCustomStart(): void {
+    this.closeCustomStart();
+    const positionStrategy = this.overlay
+      .position()
+      .flexibleConnectedTo(this.cmpTriggerEl!)
+      .withFlexibleDimensions(false)
+      .withPush(true)
+      .withPositions([
+        { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
+        { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
+      ]);
+
+    this.customStartRef = this.overlay.create({
+      positionStrategy,
+      scrollStrategy: this.overlay.scrollStrategies.reposition(),
+      hasBackdrop: true,
+      backdropClass: 'cdk-overlay-transparent-backdrop',
+      panelClass: 'dn-comparison-start-overlay-panel',
+    });
+
+    const ref = this.customStartRef.attach(
+      new ComponentPortal(ComparisonStartPanelComponent, this.vcr),
+    );
+    ref.setInput('variant', this.isDesktop ? 'popover' : 'sheet');
+    ref.setInput('today', this.todayIso);
+    ref.setInput('range', this.value);
+    // Seed from the window the CURRENT basis resolves to, so the calendar opens somewhere
+    // sensible rather than empty — a placed custom start if there is one, else the start of
+    // whatever the active basis already compares against.
+    ref.setInput('initial', this.customStartSeed());
+
+    const closed$ = this.customStartRef.detachments();
+    ref.instance.applied.pipe(takeUntil(closed$)).subscribe((f) => this.onCustomStartApplied(f));
+    ref.instance.cancelled.pipe(takeUntil(closed$)).subscribe(() => this.onCustomStartCancelled());
+    this.customStartRef
+      .backdropClick()
+      .pipe(takeUntil(closed$))
+      .subscribe(() => this.closeCustomStart());
+    this.customStartRef
+      .keydownEvents()
+      .pipe(takeUntil(closed$))
+      .subscribe((e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          this.closeCustomStart();
+        }
+      });
+  }
+
+  private customStartSeed(): string | null {
+    if (this.customComparisonFrom) return this.customComparisonFrom;
+    const current = resolveComparison(this.value, this.comparison);
+    return current?.from ?? null;
+  }
+
+  private closeCustomStart(): void {
+    if (!this.customStartRef) return;
+    this.customStartRef.detach();
+    this.customStartRef.dispose();
+    this.customStartRef = undefined;
+    this.cmpTriggerEl?.nativeElement.focus();
   }
 
   private openOverlay(): void {

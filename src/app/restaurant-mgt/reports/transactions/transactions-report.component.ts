@@ -117,6 +117,7 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
     combineLatest([
       this.timeframe.range$,
       this.timeframe.comparison$,
+      this.timeframe.customComparisonFrom$,
       this.reports.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
@@ -125,8 +126,8 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
           this.summaryReady = false;
           this.summaryState = 'loading';
         }),
-        switchMap(([range, basis]) => {
-          const cmp = resolveComparison(range, basis);
+        switchMap(([range, basis, customFrom]) => {
+          const cmp = resolveComparison(range, basis, undefined, customFrom);
           const cur$ = this.reports
             .getTransactionsSummary(restaurantId, range.from, range.to)
             .pipe(catchError(() => of({ data: null } as any)));

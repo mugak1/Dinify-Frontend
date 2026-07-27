@@ -164,7 +164,7 @@ export function rangeIncludesToday(
  * parsed value is round-tripped back through `format` — if the two disagree, date-fns
  * rolled the day over and the input was never a real date.
  */
-function isRealIsoDate(v: string | null): v is string {
+export function isRealIsoDate(v: string | null | undefined): v is string {
   if (typeof v !== 'string' || !ISO_DATE.test(v)) return false;
   const parsed = parseISO(v);
   return isValid(parsed) && fmt(parsed) === v;
@@ -177,6 +177,12 @@ export interface TimeframeParams {
   preset: string | null;
   /** Comparison basis (TIMEFRAME-02A). Absent whenever the selection is the default. */
   cmp: string | null;
+  /**
+   * START of a user-placed comparison window (TIMEFRAME-02D). Only ever present alongside
+   * `cmp=custom`. Only the start travels — the end is derived from the range's length at
+   * every read, so a link cannot carry a window whose two bounds disagree about its length.
+   */
+  cmpFrom: string | null;
 }
 
 /**
@@ -190,6 +196,14 @@ export interface TimeframeParams {
 export interface ParsedTimeframe {
   range: ReportDateRange;
   comparison: ComparisonOption | null;
+  /**
+   * The custom window's start, or `null`. Non-null only when `comparison === 'custom'` AND
+   * the value is a real calendar date. Whether that start is REACHABLE — non-overlapping,
+   * not future-dated — depends on the range's length, and is checked by `TimeframeService`
+   * for the same reason the basis's shape-validity is: this parser deliberately knows
+   * nothing about windows.
+   */
+  customFrom: string | null;
 }
 
 /**
@@ -227,5 +241,10 @@ export function parseTimeframeParams(
     ? (params.cmp as ComparisonOption)
     : null;
 
-  return { range: { preset, from, to }, comparison };
+  // `cmpFrom` is meaningless without `cmp=custom`, so it is dropped rather than carried:
+  // a stray `?cmpFrom=` beside any other basis is not a partially-valid state to preserve.
+  const customFrom =
+    comparison === 'custom' && isRealIsoDate(params.cmpFrom) ? params.cmpFrom : null;
+
+  return { range: { preset, from, to }, comparison, customFrom };
 }

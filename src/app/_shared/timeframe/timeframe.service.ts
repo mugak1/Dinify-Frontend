@@ -45,12 +45,14 @@ import {
   classifyRangeShape,
   defaultComparisonFor,
   isComparisonOfferedFor,
+  maxCustomComparisonStart,
 } from './timeframe-engine';
 import {
   ParsedTimeframe,
   ReportDateRange,
   ReportPreset,
   isFutureDated,
+  isRealIsoDate,
   isValidReportDateRange,
   parseTimeframeParams,
   presetToRange,
@@ -61,6 +63,11 @@ const rangesEqual = (a: ReportDateRange, b: ReportDateRange): boolean =>
 
 const isComparisonOption = (v: unknown): v is ComparisonOption =>
   typeof v === 'string' && COMPARISON_OPTIONS.includes(v as ComparisonOption);
+
+/** Seed guard for the custom start. Shape only — the range-dependent bound is applied at
+ *  read time by `boundedCustomFrom`, since a seed outlives the range it was placed in. */
+const isCustomFromSeed = (v: unknown): v is string | null =>
+  v === null || isRealIsoDate(v as string);
 
 @Injectable()
 export class TimeframeService {
@@ -87,9 +94,25 @@ export class TimeframeService {
    */
   private readonly comparisonSeed: PersistedBehaviorSubject<ComparisonOption>;
 
+  /**
+   * The custom window's START, keyed `<seedKey>.cmpFrom:<restaurantId>` (TIMEFRAME-02D).
+   *
+   * ONLY the start is ever persisted — here, in the URL, or anywhere else. The end is
+   * derived from the primary range's length on every read, which is what lets an arrow step
+   * across a 31 → 30 month boundary keep the window equal-length without rewriting a date
+   * the user chose. Storing both bounds would force exactly that silent rewrite.
+   *
+   * Kept even while the basis is not `custom`, so switching away and back restores the
+   * window the user placed rather than an empty calendar. The URL param is stripped in that
+   * state; the seed is a memo, not a mirror of the URL.
+   */
+  private readonly customFromSeed: PersistedBehaviorSubject<string | null>;
+
   private readonly _range$: BehaviorSubject<ReportDateRange>;
 
   private readonly _comparison$: BehaviorSubject<ComparisonOption>;
+
+  private readonly _customFrom$: BehaviorSubject<string | null>;
 
   /** This host's landing preset. Read once from `TIMEFRAME_CONFIG`; `resolveOnEntry`
    *  runs from the constructor body, so it must be assigned before that call. */
@@ -108,6 +131,16 @@ export class TimeframeService {
    * nothing reads it until 02B.
    */
   readonly comparison$: Observable<ComparisonOption>;
+
+  /**
+   * The custom window's start (TIMEFRAME-02D), or `null` when none is placed. Same
+   * emit-on-subscribe shape as the two above, so a consumer drops it into its existing
+   * `combineLatest` beside `comparison$`.
+   *
+   * Meaningful only while `comparison$` is `'custom'`; every consumer passes both to
+   * `resolveComparison`, which ignores this for any other basis.
+   */
+  readonly customComparisonFrom$: Observable<string | null>;
 
   constructor(
     private router: Router,
@@ -137,13 +170,23 @@ export class TimeframeService {
       },
     );
 
+    this.customFromSeed = new PersistedBehaviorSubject<string | null>(null, {
+      storage: localStorage,
+      getKey: () =>
+        `${config.seedKey}.cmpFrom:${auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
+      validate: isCustomFromSeed,
+    });
+
     const entry = this.resolveOnEntry();
     this._range$ = new BehaviorSubject<ReportDateRange>(entry.range);
     this._comparison$ = new BehaviorSubject<ComparisonOption>(entry.comparison);
+    this._customFrom$ = new BehaviorSubject<string | null>(entry.customFrom);
     this.range$ = this._range$.asObservable();
     this.comparison$ = this._comparison$.asObservable();
+    this.customComparisonFrom$ = this._customFrom$.asObservable();
     if (entry.writeSeed) this.seed.next(entry.range);
     if (entry.writeComparisonSeed) this.comparisonSeed.next(entry.comparison);
+    if (entry.customFrom !== null) this.customFromSeed.next(entry.customFrom);
     if (entry.writeUrl) {
       // DEFERRED ON PURPOSE. This service is constructed DURING route activation, so the
       // navigation that brought us here is still in flight — navigating synchronously
@@ -151,7 +194,9 @@ export class TimeframeService {
       // cancelled by) the navigation still completing. A microtask puts the URL fixup
       // after the current cycle, where it is an ordinary same-route query-param replace.
       // Only the ENTRY correction needs this; `set()` is user-initiated and already idle.
-      void Promise.resolve().then(() => this.writeUrl(entry.range, entry.comparison));
+      void Promise.resolve().then(() =>
+        this.writeUrl(entry.range, entry.comparison, entry.customFrom),
+      );
     }
 
     // Follow LATER URL changes — browser back/forward, and any in-app link that
@@ -170,6 +215,11 @@ export class TimeframeService {
   /** Current comparison basis, for callers that need it synchronously. */
   get comparisonValue(): ComparisonOption {
     return this._comparison$.value;
+  }
+
+  /** Current custom-window start, for callers that need it synchronously. */
+  get customComparisonFromValue(): string | null {
+    return this._customFrom$.value;
   }
 
   /** This host's landing range. Was `defaultRange()` before the config token — which
@@ -197,14 +247,36 @@ export class TimeframeService {
       this.comparisonSeed.next(comparison);
       this._comparison$.next(comparison);
     }
-    this.writeUrl(range, comparison);
+    // THE START IS NEVER REWRITTEN HERE — only re-checked. The end re-derives from the new
+    // range's length at the next read, which is what makes an arrow step across a 31 → 30
+    // month boundary keep the window equal-length without touching a date the user picked.
+    // The bound does have to be re-applied though: a LONGER range moves it earlier, so a
+    // start that was legal before can overlap now, and it is dropped rather than moved.
+    const customFrom = this.boundedCustomFrom(range, this._customFrom$.value);
+    if (customFrom !== this._customFrom$.value) this._customFrom$.next(customFrom);
+    this.writeUrl(range, comparison, customFrom);
   }
 
-  /** Commit a new comparison basis. Mirrors `set()`; the range is untouched. */
-  setComparison(option: ComparisonOption): void {
+  /**
+   * Commit a new comparison basis, and — for `'custom'` — the window's start, in ONE write.
+   *
+   * The start is a second argument rather than a second setter on purpose. Two setters
+   * would mean two `replaceUrl` navigations and two emissions, and between them the basis
+   * would read `'custom'` with a stale or absent start: every consumer pipeline would fire
+   * a request against the wrong window before the right one arrived. That is exactly the
+   * wasted round trip 02A removed when it stopped fetching a comparison under `'none'`.
+   *
+   * Omitting `customFrom` keeps whatever start is held, so switching away from `custom` and
+   * back restores the placed window instead of an empty calendar.
+   */
+  setComparison(option: ComparisonOption, customFrom?: string | null): void {
     this.comparisonSeed.next(option);
     this._comparison$.next(option);
-    this.writeUrl(this._range$.value, option);
+    if (customFrom !== undefined && customFrom !== this._customFrom$.value) {
+      this.customFromSeed.next(customFrom);
+      this._customFrom$.next(customFrom);
+    }
+    this.writeUrl(this._range$.value, option, this._customFrom$.value);
   }
 
   /**
@@ -248,6 +320,7 @@ export class TimeframeService {
   private resolveOnEntry(): {
     range: ReportDateRange;
     comparison: ComparisonOption;
+    customFrom: string | null;
     writeUrl: boolean;
     writeSeed: boolean;
     writeComparisonSeed: boolean;
@@ -258,16 +331,23 @@ export class TimeframeService {
     if (fromUrl) {
       // An authoritative URL is normally left EXACTLY as the sharer wrote it. The one
       // exception is a param we had to coerce — a preset (absent or unrecognised →
-      // 'custom'), or a `cmp` that is unknown or not offered for this range's shape.
-      // There the URL no longer describes the state we adopted, so leaving it would
-      // publish a link that means one thing and renders another. Normalise it.
+      // 'custom'), a `cmp` that is unknown or not offered for this range's shape, or a
+      // `cmpFrom` we could not honour. There the URL no longer describes the state we
+      // adopted, so leaving it would publish a link that means one thing and renders
+      // another. Normalise it.
       const comparison = this.resolveComparisonFor(fromUrl.range, fromUrl.comparison);
+      const customFrom = this.heldCustomFrom(fromUrl.range, fromUrl.customFrom);
       const coercedPreset = pm.get('preset') !== fromUrl.range.preset;
       const coercedCmp = pm.get('cmp') !== null && pm.get('cmp') !== comparison;
+      // Compare against what `writeUrl` WOULD publish, which is `null` under any basis but
+      // `custom` — so a stray `?cmpFrom=` beside `prev-year` counts as coerced and is stripped.
+      const coercedCmpFrom =
+        pm.get('cmpFrom') !== (comparison === 'custom' ? customFrom : null);
       return {
         range: fromUrl.range,
         comparison,
-        writeUrl: coercedPreset || coercedCmp,
+        customFrom,
+        writeUrl: coercedPreset || coercedCmp || coercedCmpFrom,
         writeSeed: true,
         writeComparisonSeed: true,
       };
@@ -275,9 +355,11 @@ export class TimeframeService {
 
     const seeded = this.seed.value;
     if (isValidReportDateRange(seeded) && !isFutureDated(seeded)) {
+      const comparison = this.resolveComparisonFor(seeded, null);
       return {
         range: seeded,
-        comparison: this.resolveComparisonFor(seeded, null),
+        comparison,
+        customFrom: this.heldCustomFrom(seeded, null),
         writeUrl: true,
         writeSeed: false,
         writeComparisonSeed: false,
@@ -285,13 +367,47 @@ export class TimeframeService {
     }
 
     const fallback = this.hostDefault();
+    const comparison = this.resolveComparisonFor(fallback, null);
     return {
       range: fallback,
-      comparison: this.resolveComparisonFor(fallback, null),
+      comparison,
+      customFrom: this.heldCustomFrom(fallback, null),
       writeUrl: true,
       writeSeed: true,
       writeComparisonSeed: true,
     };
+  }
+
+  /**
+   * `candidate` if it is a real date that still clears the bound for `range`, else `null`.
+   *
+   * The bound is `maxCustomComparisonStart` — see its docstring for why ONE comparison
+   * covers both the non-overlap and the not-future rule. Re-checked on every range change,
+   * not just at entry: a step that lengthens the range moves the bound earlier, and a start
+   * that was legal for the old range can overlap the new one.
+   *
+   * Out-of-bounds is DROPPED, never clamped. Silently moving a date the user picked is the
+   * defect this whole design exists to avoid; dropping it is visible and recoverable.
+   */
+  private boundedCustomFrom(range: ReportDateRange, candidate: string | null): string | null {
+    const max = maxCustomComparisonStart(range);
+    return isRealIsoDate(candidate) && candidate <= max ? candidate : null;
+  }
+
+  /**
+   * The start to hold for `range`: the URL's if usable, else the seeded one.
+   *
+   * Deliberately NOT gated on the basis being `'custom'`. The held start is a MEMO of where
+   * the user last placed the window, and it outlives a switch to another basis — otherwise
+   * switching away and back would hand them an empty calendar instead of their own window.
+   * Holding one under another basis is inert: `resolveComparison` ignores it for every other
+   * option, and `writeUrl` publishes it only under `'custom'`.
+   */
+  private heldCustomFrom(range: ReportDateRange, fromUrl: string | null): string | null {
+    return (
+      this.boundedCustomFrom(range, fromUrl) ??
+      this.boundedCustomFrom(range, this.customFromSeed.value)
+    );
   }
 
   /**
@@ -330,7 +446,9 @@ export class TimeframeService {
     // stays authoritative until the next `set()` / `setComparison()`.
     const comparison = this.resolveComparisonFor(parsed.range, parsed.comparison);
     const comparisonChanged = comparison !== this._comparison$.value;
-    if (!rangeChanged && !comparisonChanged) return;
+    const customFrom = this.heldCustomFrom(parsed.range, parsed.customFrom);
+    const customFromChanged = customFrom !== this._customFrom$.value;
+    if (!rangeChanged && !comparisonChanged && !customFromChanged) return;
 
     if (rangeChanged) {
       this.seed.next(parsed.range);
@@ -340,6 +458,13 @@ export class TimeframeService {
       this.comparisonSeed.next(comparison);
       this._comparison$.next(comparison);
     }
+    if (customFromChanged) {
+      // Only PERSIST a real start. A `null` here is often just "this URL names a different
+      // basis", and letting that wipe the memo would lose the placed window on a back/
+      // forward step through a comparison switch — the state it exists to survive.
+      if (customFrom !== null) this.customFromSeed.next(customFrom);
+      this._customFrom$.next(customFrom);
+    }
   }
 
   private readUrl(pm: ParamMap): ParsedTimeframe | null {
@@ -348,6 +473,7 @@ export class TimeframeService {
       to: pm.get('to'),
       preset: pm.get('preset'),
       cmp: pm.get('cmp'),
+      cmpFrom: pm.get('cmpFrom'),
     });
   }
 
@@ -357,12 +483,20 @@ export class TimeframeService {
    * query string. Do NOT "fix" this by adding `relativeTo` — that resolves against the
    * root and would navigate away from the active report.
    */
-  private writeUrl(range: ReportDateRange, comparison: ComparisonOption): void {
+  private writeUrl(
+    range: ReportDateRange,
+    comparison: ComparisonOption,
+    customFrom: string | null,
+  ): void {
     // `cmp` is OMITTED at the shape's default, so ordinary URLs stay as clean as they
     // were before 02A and only a deliberate choice shows up in a shared link. `null` is
     // how you remove a param under `queryParamsHandling: 'merge'` — dropping the key
     // instead would leave a stale value behind on a range that no longer offers it.
     const isDefault = comparison === defaultComparisonFor(classifyRangeShape(range));
+    // `cmpFrom` rides ONLY with `cmp=custom`. Under any other basis it names nothing the
+    // page renders, so it is stripped rather than left to go stale — and only the START is
+    // ever published, so a link can never carry two bounds that disagree about its length.
+    const publishCustomFrom = comparison === 'custom' ? customFrom : null;
     this.router
       .navigate([], {
         queryParams: {
@@ -370,6 +504,7 @@ export class TimeframeService {
           to: range.to,
           preset: range.preset,
           cmp: isDefault ? null : comparison,
+          cmpFrom: publishCustomFrom,
         },
         queryParamsHandling: 'merge',
         replaceUrl: true,

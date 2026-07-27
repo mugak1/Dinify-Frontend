@@ -79,8 +79,8 @@ describe('ReportsShellComponent', () => {
   it('commits comparison changes through the timeframe service', () => {
     const timeframe = TestBed.inject(TimeframeService);
     spyOn(timeframe, 'setComparison');
-    component.onComparison('prev-year');
-    expect(timeframe.setComparison).toHaveBeenCalledWith('prev-year');
+    component.onComparison({ option: 'prev-year' });
+    expect(timeframe.setComparison).toHaveBeenCalledWith('prev-year', undefined);
   });
 
   it('renders no standalone compare switch — the picker owns the control', () => {

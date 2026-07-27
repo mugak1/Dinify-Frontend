@@ -34,6 +34,7 @@ describe('DashboardComponent — timeframe wiring', () => {
   let component: DashboardComponent;
   let range$: BehaviorSubject<ReportDateRange>;
   let comparison$: BehaviorSubject<ComparisonOption>;
+  let customFrom$: BehaviorSubject<string | null>;
   let refresh$: Subject<void>;
   let dashboardService: jasmine.SpyObj<DashboardService> & { refresh$: Subject<void> };
   let timeframeSet: jasmine.Spy;
@@ -44,6 +45,7 @@ describe('DashboardComponent — timeframe wiring', () => {
     // Defaults to 'none' so the pre-02B specs keep asserting the PRIMARY request in
     // isolation — with a basis set, every call count would also carry the comparison.
     comparison$ = new BehaviorSubject<ComparisonOption>(basis);
+    customFrom$ = new BehaviorSubject<string | null>(null);
     refresh$ = new Subject<void>();
     timeframeSet = jasmine.createSpy('set');
     timeframeSetComparison = jasmine.createSpy('setComparison');
@@ -72,11 +74,15 @@ describe('DashboardComponent — timeframe wiring', () => {
           useValue: {
             range$: range$.asObservable(),
             comparison$: comparison$.asObservable(),
+            customComparisonFrom$: customFrom$.asObservable(),
             get value() {
               return range$.value;
             },
             get comparisonValue() {
               return comparison$.value;
+            },
+            get customComparisonFromValue() {
+              return customFrom$.value;
             },
             set: timeframeSet,
             setComparison: timeframeSetComparison,
@@ -265,6 +271,38 @@ describe('DashboardComponent — timeframe wiring', () => {
     }));
   });
 
+  // An UNPLACED custom period (TIMEFRAME-02D) takes the SAME path — it resolves to `null`,
+  // so the Dashboard needs no branch of its own for "chosen but not yet placed".
+  describe("basis 'custom' with no start placed", () => {
+    it('issues no second request and renders no comparison', fakeAsync(() => {
+      boot(closedRange, 'custom'); // customFrom$ seeds to null
+      fixture.detectChanges();
+      tick();
+
+      expect(dashboardService.getDashboardData).toHaveBeenCalledTimes(1);
+      expect(comparisonCalls(closedRange)).toEqual([]);
+      expect(component.comparisonWindow).toBeNull();
+      expect(component.comparisonData).toBeNull();
+    }));
+
+    it('fetches an equal-length window as soon as a start IS placed', fakeAsync(() => {
+      boot(closedRange, 'custom');
+      fixture.detectChanges();
+      tick();
+      expect(component.comparisonWindow).toBeNull();
+
+      // closedRange is Jan 2026 — 31 inclusive days — so 1 Nov 2025 runs 1 Nov – 1 Dec.
+      customFrom$.next('2025-11-01');
+      tick();
+
+      expect(component.comparisonWindow).toEqual({
+        preset: 'custom',
+        from: '2025-11-01',
+        to: '2025-12-01',
+      });
+    }));
+  });
+
   describe('a selected basis', () => {
     // A whole calendar July: the equal-length block before it is 31 May – 30 Jun, while
     // `prev-month` is 1–30 Jun. Choosing a range where the two DIFFER is the whole point —
@@ -400,8 +438,8 @@ describe('DashboardComponent — timeframe wiring', () => {
   it('commits a picked basis through the service, not to local state', () => {
     boot(openRange(0));
 
-    component.onComparison('prev-year');
+    component.onComparison({ option: 'prev-year' });
 
-    expect(timeframeSetComparison).toHaveBeenCalledWith('prev-year');
+    expect(timeframeSetComparison).toHaveBeenCalledWith('prev-year', undefined);
   });
 });

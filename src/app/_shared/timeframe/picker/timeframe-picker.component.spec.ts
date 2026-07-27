@@ -247,10 +247,15 @@ describe('TimeframePickerComponent', () => {
     const labels = (): string[] => cmpOptions().map((b) => (b.textContent ?? '').trim());
 
     let picked: ComparisonOption[];
+    let emitted: { option: ComparisonOption; customFrom?: string | null }[];
 
     beforeEach(() => {
       picked = [];
-      component.comparisonChange.subscribe((o) => picked.push(o));
+      emitted = [];
+      component.comparisonChange.subscribe((e) => {
+        picked.push(e.option);
+        emitted.push(e);
+      });
     });
 
     // assert here. The both-hosts coverage that replaced it lives in
@@ -281,6 +286,110 @@ describe('TimeframePickerComponent', () => {
       expect(selected[0].textContent).toContain('Previous year by day');
     });
 
+    // ─── The user-placed window (TIMEFRAME-02D) ───────────────────────────────────
+    //
+    // 'Custom period' is the ONE menu entry that does not commit on pick — it needs a start
+    // date, so it opens a staged calendar and commits on Apply. Everything here is about
+    // that difference.
+    describe("'Custom period'", () => {
+      const startPanel = (): Element | null =>
+        document.querySelector('.dn-comparison-start-overlay-panel');
+
+      /** Open the dropdown and click the 'Custom period' entry. */
+      function pickCustom(): void {
+        cmpTrigger()!.click();
+        fixture.detectChanges();
+        const entry = cmpOptions().find((o) => (o.textContent ?? '').includes('Custom period'))!;
+        entry.click();
+        fixture.detectChanges();
+      }
+
+      it('opens a staged calendar instead of committing the basis', () => {
+        pickCustom();
+
+        expect(startPanel()).not.toBeNull();
+        expect(picked).toEqual([]); // nothing committed yet
+      });
+
+      it('commits the basis AND the start together, in one emission', () => {
+        pickCustom();
+        const day = startPanel()!.querySelector<HTMLButtonElement>('button[data-iso="2026-05-01"]')!;
+        day.click();
+        fixture.detectChanges();
+        (
+          Array.from(startPanel()!.querySelectorAll('button')).find(
+            (b) => (b.textContent ?? '').trim() === 'Apply',
+          ) as HTMLButtonElement
+        ).click();
+        fixture.detectChanges();
+
+        // ONE emission carrying BOTH — two would leave a frame where the basis is 'custom'
+        // with a stale window, and every consumer pipeline would fetch it.
+        expect(emitted.length).toBe(1);
+        expect(emitted[0]).toEqual({ option: 'custom', customFrom: '2026-05-01' });
+      });
+
+      it('leaves the previous basis untouched on Cancel', () => {
+        pickCustom();
+        (
+          Array.from(startPanel()!.querySelectorAll('button')).find(
+            (b) => (b.textContent ?? '').trim() === 'Cancel',
+          ) as HTMLButtonElement
+        ).click();
+        fixture.detectChanges();
+
+        expect(startPanel()).toBeNull();
+        expect(emitted).toEqual([]);
+      });
+
+      // The range is June 2026 — 30 inclusive days — so a start s runs [s, s+29] and must
+      // end before 1 Jun. The last legal start is therefore 2 May (2–31 May). Hand-computed;
+      // the cell either renders disabled or it does not.
+      it('blocks exactly the starts whose window would overlap the range', () => {
+        pickCustom();
+        const day = (iso: string): HTMLButtonElement =>
+          startPanel()!.querySelector<HTMLButtonElement>(`button[data-iso="${iso}"]`)!;
+
+        expect(day('2026-05-02').disabled).toBeFalse(); // 2–31 May, clear of 1 Jun
+        expect(day('2026-05-01').disabled).toBeFalse(); // 1–30 May
+        expect(day('2026-05-03').disabled).toBeTrue(); // 3 May–1 Jun — overlaps by a day
+        expect(day('2026-05-31').disabled).toBeTrue();
+      });
+
+      // Blocked means UNSELECTABLE, not rejected after the fact.
+      it('a blocked day cannot be picked at all', () => {
+        pickCustom();
+        startPanel()!.querySelector<HTMLButtonElement>('button[data-iso="2026-05-03"]')!.click();
+        fixture.detectChanges();
+
+        expect(emitted).toEqual([]);
+      });
+
+      // THE ASYMMETRY, pinned: dates on the trigger for `custom` and for nothing else.
+      it('shows the resolved window on the trigger — and only for custom', () => {
+        fixture.componentRef.setInput('comparison', 'custom');
+        fixture.componentRef.setInput('customComparisonFrom', '2026-03-01');
+        fixture.detectChanges();
+        // 31 days from 1 Mar is 1–31 Mar.
+        expect(cmpTrigger()!.textContent).toContain('Custom period');
+        expect(cmpTrigger()!.textContent).toContain('1–30 Mar 2026');
+
+        fixture.componentRef.setInput('comparison', 'prev-year-by-day');
+        fixture.detectChanges();
+        // Every other basis's NAME already determines its window, so no dates.
+        expect(cmpTrigger()!.textContent).toContain('Previous year by day');
+        expect(cmpTrigger()!.textContent).not.toContain('2026');
+      });
+
+      it('shows the bare label while the window is unplaced', () => {
+        fixture.componentRef.setInput('comparison', 'custom');
+        fixture.componentRef.setInput('customComparisonFrom', null);
+        fixture.detectChanges();
+
+        expect(cmpTrigger()!.textContent!.trim()).toBe('Custom period');
+      });
+    });
+
     // The whole point of keying on shape: the menu is not a fixed list.
     it('RE-SHAPES its menu when the range changes shape', () => {
       fixture.componentRef.setInput('comparison', 'prev-month-by-day');
@@ -290,12 +399,15 @@ describe('TimeframePickerComponent', () => {
       // The month menu is the only one carrying by-day / by-date variants, and the only
       // one WITHOUT a bare 'Previous year' — at month level that means the same calendar
       // month, which is what 'Previous year by day' gives.
+      // 'Custom period' (02D) closes EVERY shape's menu, which is why it appears in both
+      // assertions here — it is offered everywhere so a placed window survives a shape change.
       expect(labels()).toEqual([
         'No comparison',
         'Previous month by day (Mon–Sun)',
         'Previous month by date (DD/MM)',
         'Previous year by day (Mon–Sun)',
         'Dates last year (DD/MM)',
+        'Custom period',
       ]);
 
       component.closeComparison();
@@ -315,6 +427,7 @@ describe('TimeframePickerComponent', () => {
         'Previous week',
         'Previous year',
         'Dates last year (DD/MM)',
+        'Custom period',
       ]);
     });
 
