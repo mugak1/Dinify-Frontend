@@ -361,6 +361,34 @@ describe('TimeframeService — the URL is the source of truth', () => {
 
       expect(service.value).toEqual(defaultRange());
     });
+
+    // The custom start is per-host too, suffixed `.cmpFrom` — Dashboard and Reports must be
+    // able to hold DIFFERENT placed windows, exactly as they hold different ranges.
+    it('keys the custom-window start per host, so the two never share one', async () => {
+      const service = await bootWithConfig(
+        '/anywhere?from=2026-05-01&to=2026-05-31&preset=custom',
+        { seedKey: 'dashboard.timeframe', defaultPreset: 'today' },
+      );
+
+      service.setComparison('custom', '2026-02-01');
+      await flush();
+
+      expect(setItem).toHaveBeenCalledWith('dashboard.timeframe.cmpFrom:r1', '2026-02-01');
+      expect(setItem).not.toHaveBeenCalledWith('reports.dateRange.cmpFrom:r1', jasmine.anything());
+    });
+
+    it('reads back only its OWN host seed, never the other host\'s', async () => {
+      // A start placed on Reports must be invisible to the Dashboard.
+      stored['reports.dateRange.cmpFrom:r1'] = '2026-02-01';
+
+      const service = await bootWithConfig(
+        '/anywhere?from=2026-05-01&to=2026-05-31&preset=custom&cmp=custom',
+        { seedKey: 'dashboard.timeframe', defaultPreset: 'today' },
+      );
+
+      expect(service.comparisonValue).toBe('custom');
+      expect(service.customComparisonFromValue).toBeNull();
+    });
   });
   // ─── Comparison basis (TIMEFRAME-02A) ──────────────────────────────────────────────
   //
@@ -536,6 +564,138 @@ describe('TimeframeService — the URL is the source of truth', () => {
       service.set({ preset: 'today', from: today, to: today });
 
       expect(service.comparisonValue).toBe('none');
+    });
+  });
+
+  // ─── A user-placed comparison window (TIMEFRAME-02D) ─────────────────────────────
+  //
+  // Only the START is state, anywhere: the URL, the seed, and the service all carry one
+  // date. Every assertion below is really the same claim from a different angle — that the
+  // end is DERIVED, so nothing can ever rewrite a bound the user chose.
+  describe('custom comparison window', () => {
+    const CMP_FROM_KEY = 'reports.dateRange.cmpFrom:r1';
+    /** May 2026 — 31 inclusive days, so a valid start must end before 1 May. */
+    const MAY = 'from=2026-05-01&to=2026-05-31&preset=custom';
+
+    it('adopts cmpFrom from the URL and derives an equal-length window', async () => {
+      const { service, router } = await bootAt(`/reports?${MAY}&cmp=custom&cmpFrom=2026-03-01`);
+
+      expect(service.comparisonValue).toBe('custom');
+      expect(service.customComparisonFromValue).toBe('2026-03-01');
+      expect(queryOf(router)['cmpFrom']).toBe('2026-03-01');
+      // 31 days from 1 Mar is 1–31 Mar.
+      expect(resolveComparison(service.value, 'custom', undefined, service.customComparisonFromValue))
+        .toEqual({ preset: 'custom', from: '2026-03-01', to: '2026-03-31' });
+    });
+
+    it('writes cmp AND cmpFrom in ONE commit, and seeds the start', async () => {
+      const { service, router } = await bootAt(`/reports?${MAY}`);
+
+      service.setComparison('custom', '2026-02-01');
+      await flush();
+
+      expect(queryOf(router)['cmp']).toBe('custom');
+      expect(queryOf(router)['cmpFrom']).toBe('2026-02-01');
+      expect(setItem).toHaveBeenCalledWith(CMP_FROM_KEY, '2026-02-01');
+    });
+
+    it('STRIPS cmpFrom from the URL when the basis moves away', async () => {
+      const { service, router } = await bootAt(`/reports?${MAY}&cmp=custom&cmpFrom=2026-03-01`);
+
+      service.setComparison('prev-year-by-day');
+      await flush();
+
+      expect(queryOf(router)['cmp']).toBe('prev-year-by-day');
+      expect(queryOf(router)['cmpFrom']).toBeUndefined();
+    });
+
+    it('RESTORES the placed start when the basis comes back to custom', async () => {
+      // The seed is a memo, not a mirror of the URL — switching away and back must not
+      // hand the user an empty calendar.
+      const { service, router } = await bootAt(`/reports?${MAY}&cmp=custom&cmpFrom=2026-03-01`);
+
+      service.setComparison('prev-year-by-day');
+      await flush();
+      service.setComparison('custom');
+      await flush();
+
+      expect(service.customComparisonFromValue).toBe('2026-03-01');
+      expect(queryOf(router)['cmpFrom']).toBe('2026-03-01');
+    });
+
+    it('drops an out-of-bounds cmpFrom and CORRECTS the URL by replace', async () => {
+      // 15 May sits inside the range — the window would be partly self-referential.
+      const { service, router } = await bootAt(`/reports?${MAY}&cmp=custom&cmpFrom=2026-05-15`);
+
+      expect(service.comparisonValue).toBe('custom');
+      expect(service.customComparisonFromValue).toBeNull();
+      expect(queryOf(router)['cmpFrom']).toBeUndefined();
+
+      const location = TestBed.inject(Location);
+      location.back();
+      await flush();
+      expect(location.path()).not.toContain('/reports');
+    });
+
+    it('drops an unreal cmpFrom without rejecting the range', async () => {
+      const { service } = await bootAt(`/reports?${MAY}&cmp=custom&cmpFrom=2026-02-31`);
+
+      expect(service.value.from).toBe('2026-05-01');
+      expect(service.customComparisonFromValue).toBeNull();
+    });
+
+    it('ignores cmpFrom entirely under any other basis', async () => {
+      const { service, router } = await bootAt(
+        `/reports?${MAY}&cmp=prev-year-by-day&cmpFrom=2026-03-01`,
+      );
+
+      expect(service.customComparisonFromValue).toBeNull();
+      expect(queryOf(router)['cmpFrom']).toBeUndefined();
+    });
+
+    // THE CASE THAT WOULD HAVE FORCED A SILENT REWRITE had both bounds been stored. An
+    // arrow step changes the range's LENGTH across a month boundary; the start is
+    // untouched and the end simply re-derives.
+    it('an arrow step keeps the START and re-derives the END across 31 → 30', async () => {
+      const { service } = await bootAt(`/reports?${MAY}&cmp=custom&cmpFrom=2026-03-01`);
+      const before = resolveComparison(service.value, 'custom', undefined, '2026-03-01')!;
+      expect(before).toEqual({ preset: 'custom', from: '2026-03-01', to: '2026-03-31' });
+
+      // May (31 days) → April (30 days).
+      service.set(stepRange(service.value, -1));
+      await flush();
+
+      expect(service.value).toEqual({ preset: 'custom', from: '2026-04-01', to: '2026-04-30' });
+      expect(service.customComparisonFromValue).toBe('2026-03-01'); // untouched
+      const after = resolveComparison(service.value, 'custom', undefined, '2026-03-01')!;
+      expect(after.from).toBe('2026-03-01');
+      expect(after.to).toBe('2026-03-30'); // one day shorter, derived — not rewritten
+    });
+
+    // `custom` is offered by every shape, so `carryComparison` always keeps it. Nothing in
+    // the service does this explicitly; it falls out of the option sets, and this pins it.
+    it('SURVIVES a shape change, re-deriving against the new length', async () => {
+      const { service } = await bootAt(`/reports?${MAY}&cmp=custom&cmpFrom=2026-03-01`);
+
+      service.set({ preset: 'today', from: today, to: today }); // month → day
+      await flush();
+
+      expect(service.comparisonValue).toBe('custom');
+      expect(service.customComparisonFromValue).toBe('2026-03-01');
+      // A single-day range means a single-day comparison.
+      const w = resolveComparison(service.value, 'custom', undefined, '2026-03-01')!;
+      expect(w).toEqual({ preset: 'custom', from: '2026-03-01', to: '2026-03-01' });
+    });
+
+    // An unplaced custom basis is a comparison not yet made, not an error state.
+    it("resolves to null with no start — the same path 'none' takes", async () => {
+      const { service } = await bootAt(`/reports?${MAY}&cmp=custom`);
+
+      expect(service.comparisonValue).toBe('custom');
+      expect(service.customComparisonFromValue).toBeNull();
+      expect(
+        resolveComparison(service.value, 'custom', undefined, service.customComparisonFromValue),
+      ).toBeNull();
     });
   });
 });

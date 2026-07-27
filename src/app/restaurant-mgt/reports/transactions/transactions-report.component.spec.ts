@@ -201,5 +201,21 @@ describe('TransactionsReportComponent', () => {
       expect(spy.calls.count()).toBe(2); // current + comparison
       expect(component.prevMetrics).not.toBeNull();
     }));
+
+    // An UNPLACED custom period issues no request either — it resolves to `null`, the exact
+    // path `'none'` already takes, so the surface needs no branch of its own for it.
+    it("issues NO comparison request for a 'custom' basis with no start placed", fakeAsync(() => {
+      const spy = spyOn(reports, 'getTransactionsSummary').and.returnValue(
+        of({ data: summary() } as any),
+      );
+      spyOn(reports, 'getTransactionsListing').and.returnValue(of({ data: [] } as any));
+
+      timeframe.setComparison('custom'); // no start
+      component.ngOnInit();
+      tick(600);
+
+      expect(spy.calls.count()).toBe(1); // the current window only
+      expect(component.prevMetrics).toBeNull();
+    }));
   });
 });

@@ -50,7 +50,23 @@ export type ComparisonOption =
   /** The same calendar month one year back, paired by weekday. Month shapes only. */
   | 'prev-year-by-day'
   /** Calendar-aligned: the same dates, one year back. */
-  | 'dates-last-year';
+  | 'dates-last-year'
+  /**
+   * A window the USER places, rather than one the range derives (TIMEFRAME-02D). Offered by
+   * every shape, and always LAST in the menu.
+   *
+   * Only its START is state. The end is always `start + (primary inclusive length − 1)`, so
+   * the window is EQUAL LENGTH to the range by construction — everything downstream depends
+   * on that: a percentage between a 2-day total and a 10-day total measures duration rather
+   * than performance, 02C's pairing offset indexes two parallel arrays, and the axis has to
+   * keep representing the selected range. Storing only the start is also what lets an arrow
+   * step re-derive the end across a 31 → 30 month boundary without rewriting anything the
+   * user chose.
+   *
+   * Uniquely, this id does NOT determine its own window: `resolveComparison` needs the start
+   * passed alongside it, and yields `null` without one — an unplaced comparison, not an error.
+   */
+  | 'custom';
 
 /**
  * How the two series line up inside a chart, independent of which window they are drawn
@@ -87,6 +103,7 @@ export const COMPARISON_OPTIONS: ComparisonOption[] = [
   'prev-year',
   'prev-year-by-day',
   'dates-last-year',
+  'custom',
 ];
 
 /**
@@ -126,6 +143,14 @@ const COMPARISON_LABELS: Record<ComparisonOption, { menu: string; caption: strin
   // these entries from the "by day" ones sitting directly above them. On a chip, beside a
   // number, it is noise.
   'dates-last-year': { menu: 'Dates last year (DD/MM)', caption: 'vs dates last year' },
+  // "period", not "range" — the control behind this entry picks ONE date and derives the
+  // end from the primary's length. Calling it a range would promise a two-ended calendar
+  // whose end then silently snaps, and a control that lies about what it does is worse
+  // than a narrower one.
+  //
+  // The MENU label is bare, but the picker's TRIGGER appends the resolved dates for this id
+  // alone — see `comparisonTriggerLabel` in the picker for why that asymmetry is correct.
+  custom: { menu: 'Custom period', caption: 'vs custom period' },
 };
 
 /** Dropdown label, e.g. "Previous month". */

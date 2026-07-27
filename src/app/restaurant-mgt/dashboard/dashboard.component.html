@@ -12,6 +12,7 @@
       [value]="(range$ | async)!"
       (valueChange)="onRange($event)"
       [comparison]="(comparison$ | async)!"
+      [customComparisonFrom]="customComparisonFrom$ | async"
       (comparisonChange)="onComparison($event)"
     ></app-timeframe-picker>
   </app-page-header>

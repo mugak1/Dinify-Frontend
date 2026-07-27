@@ -155,6 +155,7 @@ export class SalesReportComponent implements OnInit, OnDestroy {
     combineLatest([
       this.timeframe.range$,
       this.timeframe.comparison$,
+      this.timeframe.customComparisonFrom$,
       this.reports.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
@@ -163,9 +164,9 @@ export class SalesReportComponent implements OnInit, OnDestroy {
           this.ready = false;
           this.stateMode = 'loading';
         }),
-        switchMap(([range, basis]) => {
+        switchMap(([range, basis, customFrom]) => {
           const tf = resolveTimeframe(range);
-          const cmp = resolveComparison(range, basis);
+          const cmp = resolveComparison(range, basis, undefined, customFrom);
           const er = tf.effectiveRange;
           const inclusiveDays = differenceInCalendarDays(parseISO(range.to), parseISO(range.from)) + 1;
 

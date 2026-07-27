@@ -39,7 +39,13 @@ import {
   subYears,
 } from 'date-fns';
 import { ComparisonOption } from './comparison-option';
-import { REPORT_PRESETS, ReportDateRange, ReportPreset, presetToRange } from './timeframe-range';
+import {
+  REPORT_PRESETS,
+  ReportDateRange,
+  ReportPreset,
+  isRealIsoDate,
+  presetToRange,
+} from './timeframe-range';
 
 /** Time bucket the UI renders a range at. `hour` is the single-day sales-hourly path. */
 export type ReportBucketUnit = 'hour' | 'day' | 'month' | 'year';
@@ -161,6 +167,39 @@ function comparison(from: Date, to: Date): ReportDateRange {
  *
  * Takes only `from`/`to` so the mock data layer can call it with a bare pair.
  */
+/**
+ * Inclusive day count of a range — 1 Jun…1 Jun is 1, not 0.
+ *
+ * Used ONLY by `resolveComparison`'s `custom` branch. `previousEqualLengthPeriod`,
+ * `nextEqualLengthPeriod` and `priorMonthWindow` inline the same `+ 1`; they mirror the
+ * backend's formula and are spec-pinned as they stand, so folding them in here is a
+ * separate change and not one 02D should smuggle in.
+ */
+function inclusiveDays(range: Pick<ReportDateRange, 'from' | 'to'>): number {
+  return differenceInCalendarDays(parseISO(range.to), parseISO(range.from)) + 1;
+}
+
+/**
+ * The LATEST start a custom comparison window may take for `range` — THE single bound, and
+ * the only place it is derived (TIMEFRAME-02D).
+ *
+ * There look to be two rules, and there are not. The derived window is `[s, s + L − 1]`:
+ *
+ *   non-overlap  requires  s + L − 1 <  range.from   →  s ≤ range.from − L
+ *   not-future   requires  s + L − 1 ≤  today        →  s ≤ today − (L − 1)
+ *
+ * `presetToRange` clamps every in-progress preset to today, so `range.from ≤ range.to ≤
+ * today` always holds — which makes `range.from − L ≤ today − L < today − (L − 1)`. The
+ * non-overlap bound is therefore STRICTLY TIGHTER and implies the future one.
+ *
+ * So one `max` covers both, and the calendar needs no per-date predicate. DO NOT re-add an
+ * overlap check beside this believing `max` only handles the future rule — it handles both,
+ * and the second check would be dead code implying a gap that is not there.
+ */
+export function maxCustomComparisonStart(range: Pick<ReportDateRange, 'from' | 'to'>): string {
+  return fmt(subDays(parseISO(range.from), inclusiveDays(range)));
+}
+
 export function previousEqualLengthPeriod(
   range: Pick<ReportDateRange, 'from' | 'to'>,
 ): ReportDateRange {
@@ -468,15 +507,19 @@ export function stepRange(
  * paired inside the chart is a real question with two legitimate answers. They behave
  * differently, which is what the rule was ever about.
  *
- * `custom` is deliberately absent from every set: a hand-picked comparison range is 02D.
+ * `custom` (02D) is offered by EVERY shape and is always LAST. Last is load-bearing:
+ * `defaultComparisonFor` reads index 1, so appending it cannot change any shape's default.
+ * Offered everywhere is what makes it survive a shape change untouched — `carryComparison`
+ * keeps a basis the new shape still offers, so a placed custom window is never silently
+ * swapped out from under the user by an arrow step.
  */
 export function comparisonOptionsFor(shape: RangeShape): ComparisonOption[] {
   switch (shape) {
     case 'day':
-      return ['none', 'prev-day', 'prev-week', 'prev-year', 'dates-last-year'];
+      return ['none', 'prev-day', 'prev-week', 'prev-year', 'dates-last-year', 'custom'];
     case 'week':
     case 'week-to-date':
-      return ['none', 'prev-week', 'prev-year', 'dates-last-year'];
+      return ['none', 'prev-week', 'prev-year', 'dates-last-year', 'custom'];
     case 'month':
     case 'month-to-date':
       // Month level is the ONLY place pairing is a question, so it is the only place the
@@ -489,12 +532,13 @@ export function comparisonOptionsFor(shape: RangeShape): ComparisonOption[] {
         'prev-month-by-date',
         'prev-year-by-day',
         'dates-last-year',
+        'custom',
       ];
     case 'year':
     case 'year-to-date':
-      return ['none', 'prev-year'];
+      return ['none', 'prev-year', 'custom'];
     case 'custom':
-      return ['none', 'prev-period'];
+      return ['none', 'prev-period', 'custom'];
   }
 }
 
@@ -578,14 +622,28 @@ function priorMonthWindow(from: Date, lengthDays: number): ReportDateRange {
  * TOTAL BY CONSTRUCTION. `TimeframeService` rejects a shape-invalid `cmp` before it ever
  * reaches here, but an option is still resolved for any shape rather than throwing —
  * same discipline as `stepRange`'s forward-overshoot guard.
+ *
+ * `custom` (02D) IS THE ONE OPTION THAT DOES NOT DETERMINE ITS OWN WINDOW. It needs
+ * `customFrom` passed alongside it, and yields `null` without one — an unplaced comparison,
+ * not an error. Every consumer already renders `null` as no comparison and skips the
+ * request, so the unplaced state costs no new handling anywhere. Only the START is ever
+ * stored: the end is derived HERE, from the primary's length, on every single read. That is
+ * what keeps the window equal-length through an arrow step across a 31 → 30 month boundary
+ * without rewriting a date the user picked. Do not derive an end anywhere else.
  */
 export function resolveComparison(
   range: ReportDateRange,
   option: ComparisonOption,
   now: Date = new Date(),
+  customFrom?: string | null,
 ): ReportDateRange | null {
   if (option === 'none') return null;
   if (option === 'prev-period') return previousEqualLengthPeriod(range);
+  if (option === 'custom') {
+    if (!isRealIsoDate(customFrom)) return null;
+    const start = parseISO(customFrom);
+    return comparison(start, addDays(start, inclusiveDays(range) - 1));
+  }
 
   const from = parseISO(range.from);
   const to = parseISO(range.to);

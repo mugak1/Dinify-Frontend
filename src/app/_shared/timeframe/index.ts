@@ -41,6 +41,7 @@ export {
   comparisonOptionsFor,
   defaultComparisonFor,
   isComparisonOfferedFor,
+  maxCustomComparisonStart,
   nextEqualLengthPeriod,
   previousEqualLengthPeriod,
   resolveComparison,

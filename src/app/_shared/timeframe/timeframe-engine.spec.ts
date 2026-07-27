@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
+import { addDays, differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
 import { COMPARISON_OPTIONS, ComparisonOption, pairingFor } from './comparison-option';
 import { ReportDateRange, ReportPreset, presetToRange } from './timeframe-range';
 import {
@@ -10,6 +10,7 @@ import {
   classifyRangeShape,
   comparisonOptionsFor,
   defaultComparisonFor,
+  maxCustomComparisonStart,
   nextEqualLengthPeriod,
   previousEqualLengthPeriod,
   resolveComparison,
@@ -26,6 +27,9 @@ describe('shared timeframe engine', () => {
   function rangeOfSpan(span: number): ReportDateRange {
     return { preset: 'custom', from: format(subDays(parseISO(ANCHOR), span), 'yyyy-MM-dd'), to: ANCHOR };
   }
+
+  /** ISO day string, matching the engine's own `fmt`. */
+  const fmtIso = (d: Date): string => format(d, 'yyyy-MM-dd');
 
   const inclusiveLen = (r: Pick<ReportDateRange, 'from' | 'to'>): number =>
     differenceInCalendarDays(parseISO(r.to), parseISO(r.from)) + 1;
@@ -147,10 +151,12 @@ describe('shared timeframe engine', () => {
   // implementation's own arithmetic passes no matter what that arithmetic does.
 
   describe('comparisonOptionsFor — the menu each shape offers', () => {
+    // `'custom'` (02D) closes every row, and LAST is load-bearing: `defaultComparisonFor`
+    // reads index 1, so appending it cannot move any shape's default.
     const EXPECTED: Record<RangeShape, ComparisonOption[]> = {
-      day: ['none', 'prev-day', 'prev-week', 'prev-year', 'dates-last-year'],
-      week: ['none', 'prev-week', 'prev-year', 'dates-last-year'],
-      'week-to-date': ['none', 'prev-week', 'prev-year', 'dates-last-year'],
+      day: ['none', 'prev-day', 'prev-week', 'prev-year', 'dates-last-year', 'custom'],
+      week: ['none', 'prev-week', 'prev-year', 'dates-last-year', 'custom'],
+      'week-to-date': ['none', 'prev-week', 'prev-year', 'dates-last-year', 'custom'],
       // Month level is the only place pairing is a question, so it is the only place the
       // menu carries by-day / by-date variants — and the only place `prev-year` is ABSENT,
       // because at month level "previous year" means the same calendar month.
@@ -160,6 +166,7 @@ describe('shared timeframe engine', () => {
         'prev-month-by-date',
         'prev-year-by-day',
         'dates-last-year',
+        'custom',
       ],
       'month-to-date': [
         'none',
@@ -167,10 +174,11 @@ describe('shared timeframe engine', () => {
         'prev-month-by-date',
         'prev-year-by-day',
         'dates-last-year',
+        'custom',
       ],
-      year: ['none', 'prev-year'],
-      'year-to-date': ['none', 'prev-year'],
-      custom: ['none', 'prev-period'],
+      year: ['none', 'prev-year', 'custom'],
+      'year-to-date': ['none', 'prev-year', 'custom'],
+      custom: ['none', 'prev-period', 'custom'],
     };
     const SHAPES = Object.keys(EXPECTED) as RangeShape[];
 
@@ -242,10 +250,15 @@ describe('shared timeframe engine', () => {
     // legitimate answers. The rule it was ever about is intact; what counts as
     // "identically" has widened to include how the series are drawn. Narrowing it back to
     // the window alone would make the month menu unrepresentable, not safer.
+    //
+    // `'custom'` (02D) is EXCLUDED. Its window is supplied by the user, so a coincidental
+    // match with another basis is the user's own choice — not a menu offering two entries
+    // that behave identically, which is the only thing this rule was ever about. (It also
+    // resolves to `null` without a start, so it has no window to key on here.)
     it('never offers two bases that resolve to the same window AND pair it the same way', () => {
       for (const shape of SHAPES) {
         const behaviours = comparisonOptionsFor(shape)
-          .filter((o) => o !== 'none')
+          .filter((o) => o !== 'none' && o !== 'custom')
           .map((o) => {
             const w = resolveComparison(SAMPLES[shape], o, NOW)!;
             return `${w.from}..${w.to}/${pairingFor(o)}`;
@@ -279,16 +292,65 @@ describe('shared timeframe engine', () => {
     // by-day/by-date variants, then user-supplied windows — and a NEW option that
     // silently overlaps is precisely what this catches. The net is worth more before the
     // vocabulary grows than after.
+    //
+    // `'custom'` cannot join a DETERMINISTIC sweep — its window is whatever start the user
+    // placed, and with none it resolves to `null`. The property still has to hold for it, so
+    // it is asserted separately over the starts the UI can actually produce; see "a custom
+    // window never overlaps, for any start the calendar allows" below. This filter narrows
+    // the sweep's reach, not the invariant's.
     it('never resolves a window that overlaps the range it is compared against', () => {
       for (const shape of SHAPES) {
         const range = SAMPLES[shape];
-        for (const option of comparisonOptionsFor(shape).filter((o) => o !== 'none')) {
+        for (const option of comparisonOptionsFor(shape).filter(
+          (o) => o !== 'none' && o !== 'custom',
+        )) {
           const w = resolveComparison(range, option, NOW)!;
           // ISO dates sort chronologically, so a string compare is the whole test.
           expect(w.to < range.from)
             .withContext(`${shape} / ${option} → ${w.from}..${w.to} vs range from ${range.from}`)
             .toBeTrue();
         }
+      }
+    });
+
+    // The targeted half of the invariant, standing in for `custom` in the sweep above.
+    // The claim is not "some starts are safe" but "exactly the starts the calendar ALLOWS
+    // are safe, and exactly the ones it blocks are not" — so the UI cannot produce an
+    // overlapping window, and is not needlessly refusing a legal one either.
+    it('a custom window never overlaps, for any start the calendar allows', () => {
+      for (const shape of SHAPES) {
+        const range = SAMPLES[shape];
+        const max = maxCustomComparisonStart(range);
+
+        // Every allowed start, sampled from the bound backwards.
+        for (const back of [0, 1, 2, 7, 45, 400]) {
+          const start = fmtIso(subDays(parseISO(max), back));
+          const w = resolveComparison(range, 'custom', NOW, start)!;
+          expect(w.to < range.from)
+            .withContext(`${shape} / start ${start} → ${w.from}..${w.to} vs ${range.from}`)
+            .toBeTrue();
+          // …and it is the same length as the range, which is the other half of the deal.
+          expect(inclusiveLen(w)).withContext(`${shape} / start ${start}`).toBe(inclusiveLen(range));
+        }
+
+        // The first BLOCKED start — one day past the bound — is exactly where it breaks.
+        const justPast = fmtIso(addDays(parseISO(max), 1));
+        const bad = resolveComparison(range, 'custom', NOW, justPast)!;
+        expect(bad.to < range.from)
+          .withContext(`${shape} / start ${justPast} should overlap`)
+          .toBeFalse();
+      }
+    });
+
+    // The bound looks like two rules and is one — see `maxCustomComparisonStart`. This pins
+    // the implication so nobody re-adds a redundant future check believing it is missing.
+    it('the non-overlap bound already implies the not-future bound', () => {
+      for (const shape of SHAPES) {
+        const range = SAMPLES[shape];
+        const w = resolveComparison(range, 'custom', NOW, maxCustomComparisonStart(range))!;
+        // The latest legal window ends before the range starts, and therefore before today.
+        expect(w.to < range.from).withContext(shape).toBeTrue();
+        expect(w.to <= ANCHOR).withContext(`${shape} → ${w.to} vs today ${ANCHOR}`).toBeTrue();
       }
     });
   });
@@ -298,6 +360,64 @@ describe('shared timeframe engine', () => {
 
     it("returns null for 'none'", () => {
       expect(resolveComparison(presetToRange('this-month', NOW), 'none', NOW)).toBeNull();
+    });
+
+    // ─── The user-placed window (TIMEFRAME-02D) ─────────────────────────────────────
+    //
+    // The ONE option that does not determine its own window. Only the START is state; the
+    // end is derived here, from the primary's length, on every read.
+    describe("'custom'", () => {
+      it('derives the end from the RANGE length, so the two windows always match', () => {
+        // 1–15 Jun is 15 inclusive days, so a 1 Mar start runs 1–15 Mar.
+        const range = presetToRange('this-month', NOW);
+        expect(inclusiveLen(range)).toBe(15);
+        expect(resolveComparison(range, 'custom', NOW, '2026-03-01')).toEqual(
+          cmp('2026-03-01', '2026-03-15'),
+        );
+      });
+
+      it('holds for a 5-day and a 31-day primary alike', () => {
+        // Hand-computed: 5 days from 2 Feb is 2–6 Feb; 31 days from 1 Jan is 1–31 Jan.
+        expect(resolveComparison(rangeOfSpan(4), 'custom', NOW, '2026-02-02')).toEqual(
+          cmp('2026-02-02', '2026-02-06'),
+        );
+        expect(resolveComparison(rangeOfSpan(30), 'custom', NOW, '2026-01-01')).toEqual(
+          cmp('2026-01-01', '2026-01-31'),
+        );
+      });
+
+      it('crosses a month boundary by DAY COUNT, not by calendar shape', () => {
+        // 15 days from 25 Feb 2026 (a 28-day February) runs into March: 25 Feb → 11 Mar.
+        expect(resolveComparison(presetToRange('this-month', NOW), 'custom', NOW, '2026-02-25')).toEqual(
+          cmp('2026-02-25', '2026-03-11'),
+        );
+      });
+
+      // An unplaced comparison is not an error — it takes the exact path `'none'` does, so
+      // no consumer needs a branch for it.
+      it('returns null for an absent, empty or unreal start', () => {
+        const range = presetToRange('this-month', NOW);
+        for (const bad of [undefined, null, '', 'banana', '2026-02-31', '2026/03/01']) {
+          expect(resolveComparison(range, 'custom', NOW, bad as string | null))
+            .withContext(String(bad))
+            .toBeNull();
+        }
+      });
+
+      it('is ignored by every other basis', () => {
+        const range = presetToRange('this-month', NOW);
+        for (const option of COMPARISON_OPTIONS.filter((o) => o !== 'custom')) {
+          expect(resolveComparison(range, option, NOW, '2020-01-01'))
+            .withContext(option)
+            .toEqual(resolveComparison(range, option, NOW));
+        }
+      });
+
+      // Two arbitrarily-placed windows share no weekday structure to align to, so index
+      // pairing — what every non-`-by-day` id already does — is the only honest answer.
+      it('pairs by DATE (index pairing)', () => {
+        expect(pairingFor('custom')).toBe('by-date');
+      });
     });
 
     it('always returns a computed (custom) window', () => {

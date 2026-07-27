@@ -257,7 +257,8 @@ so keep it current when conventions change.
   the range does — on BOTH hosts as of 02B. **`ReportsService.compareEnabled$` is DELETED**
   — "off" is just the `'none'` entry in the basis menu, and a separate boolean would have
   been a second answer to one question. `comparisonRange` / `comparisonRangeLabel` are
-  deleted too, replaced by the single `resolveComparison`. URL param `cmp`, parsed inside `parseTimeframeParams`
+  deleted too, replaced by the single `resolveComparison`. URL params `cmp` and (02D) `cmpFrom`,
+  both parsed inside `parseTimeframeParams`
   (one parser) and **OMITTED whenever the selection is the current shape's default**, so
   ordinary URLs stay as clean as they were; an unknown or shape-invalid value falls back
   and corrects the URL by REPLACE. Seeded per host under `<seedKey>.cmp:<restaurantId>`,
@@ -320,6 +321,40 @@ so keep it current when conventions change.
   `yyyy-MM-dd`, the window would have to be threaded into the adapter, and its mock path already
   densifies — so the defect is dormant behind `USE_MOCK_DATA` and unexercised by any verification
   in this repo
+  A user-placed comparison window (02D): ✅ **`'custom'` lets the operator put the comparison
+  window where they like**, instead of choosing from bases the primary range derives — the
+  "compare this month against the month we ran the promotion" question, which is about position,
+  not duration. Offered by EVERY shape and always LAST in the menu (last is load-bearing:
+  `defaultComparisonFor` reads index 1, so appending it moves no shape's default; offered
+  everywhere is what makes a placed window survive a shape change untouched).
+  **THE WINDOW IS EQUAL LENGTH, and only its START is state** — anywhere: the URL (`cmpFrom`),
+  the seed (`<seedKey>.cmpFrom:<restaurantId>`) and the service all carry one date. The end is
+  derived in `resolveComparison` on every read, from the primary's inclusive length. That is not
+  a restriction wearing a disguise: a percentage between a 2-day total and a 10-day total measures
+  duration rather than performance, 02C's pairing offset indexes two parallel arrays, and the axis
+  has to keep representing the selected range. It is also what makes stepping work — an arrow step
+  across a 31 → 30 month boundary re-derives the end and leaves the start alone, with no guard and
+  nothing to silently rewrite. `resolveComparison` gained a fourth `customFrom` argument (all five
+  callers pass `undefined` for `now`); an absent or invalid start yields `null`, the exact path
+  `'none'` takes, so no consumer needs a branch for "chosen but not yet placed".
+  **`maxCustomComparisonStart` is THE bound, and it is ONE bound, not two.** The window is
+  `[s, s + L − 1]`; non-overlap needs `s + L − 1 < range.from` and not-future needs
+  `s + L − 1 ≤ today`, and since `presetToRange` clamps every range to `≤ today`, the first
+  STRICTLY IMPLIES the second. So the calendar takes a single `max` and needs no per-date
+  predicate — do not re-add an overlap check beside it believing `max` only covers the future rule.
+  A start past the bound is DROPPED, never clamped. `RangeCalendarComponent` gained `mode`
+  (`'range'` | `'single'`) and `max` (defaulting to `today`), so the range path is unchanged —
+  all 8 of its pre-existing specs pass untouched. The picker's `comparisonChange` now emits
+  `{option, customFrom?}` and `setComparison(option, customFrom?)` commits both in ONE write:
+  two writes would expose a frame where the basis reads `custom` against a stale window and every
+  consumer pipeline would fetch it. `'Custom period'` is the one menu entry that does NOT commit
+  on pick — it opens a staged single-date panel (`ComparisonStartPanelComponent`) and commits on
+  Apply; the trigger then shows `Custom period · 4–30 Jun`, dates for this basis ONLY (every other
+  basis's name already determines its window; this is the only one whose window silently
+  re-derives on a step). `'custom'` is excluded from BOTH engine invariants — from the
+  distinctness sweep because a user-supplied window matching another basis is the user's own
+  choice, and from the non-overlap sweep because it cannot be swept deterministically; a targeted
+  spec asserts non-overlap for every start the calendar allows and overlap for the first it blocks
   `tables-card`'s `trend-indicator` tiles are deliberately
   OUTSIDE the comparison basis — they compare `turns_today` / `avg_ticket_today` against
   their `*_yesterday` server fields, which are anchored to yesterday rather than derived

@@ -126,6 +126,21 @@ export class RangeCalendarComponent implements OnChanges {
   @Input() seed!: { from: string; to: string };
   @Input() monthCount: 1 | 2 = 1;
   @Input() today = '';
+  /**
+   * `'range'` is the two-click behaviour this component has always had. `'single'`
+   * (TIMEFRAME-02D) makes every click anchor a fresh one-day selection, so there is no
+   * second click to complete a range and no way to end up mid-selection.
+   */
+  @Input() mode: 'range' | 'single' = 'range';
+  /**
+   * Latest selectable date. Defaults to `today`, which is what this component hardcoded
+   * before 02D — so every existing caller is unchanged.
+   *
+   * Callers pass a TIGHTER bound when one applies; see `maxCustomComparisonStart` for the
+   * comparison-window case, where a single upper bound turns out to cover both the
+   * non-overlap and the not-future rule.
+   */
+  @Input() max = '';
   @Output() rangeChange = new EventEmitter<{ from: string; to: string }>();
 
   readonly weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -150,6 +165,16 @@ export class RangeCalendarComponent implements OnChanges {
   onDayClick(cell: DayCell): void {
     if (cell.disabled) return;
     const d = cell.date;
+
+    if (this.mode === 'single') {
+      // Every click re-anchors. `pendingEnd` stays false, which is the whole difference:
+      // in range mode it is what makes the NEXT click extend instead of restart.
+      this.start = d;
+      this.end = d;
+      this.rebuild();
+      this.rangeChange.emit({ from: cell.iso, to: cell.iso });
+      return;
+    }
 
     if (!this.pendingEnd) {
       // First click: set the start, clear the end.
@@ -201,11 +226,16 @@ export class RangeCalendarComponent implements OnChanges {
     }
     this.months = months;
 
-    const todayIso = this.today || this.iso(new Date());
     const rightMonth = addMonths(this.viewMonth, this.monthCount - 1);
-    // Disable "next" once the right-most visible month is the current one (or
-    // later) — navigating further would only show all-future, disabled days.
-    this.nextDisabled = !isBefore(startOfMonth(rightMonth), startOfMonth(parseISO(todayIso)));
+    // Disable "next" once the right-most visible month is the last SELECTABLE one (or
+    // later) — navigating further would only show all-disabled days. Keyed off `max`, not
+    // `today`, so a tighter bound stops the nav where it stops the cells.
+    this.nextDisabled = !isBefore(startOfMonth(rightMonth), startOfMonth(parseISO(this.maxIso())));
+  }
+
+  /** The effective upper bound: an explicit `max`, else `today`, else the real clock. */
+  private maxIso(): string {
+    return this.max || this.today || this.iso(new Date());
   }
 
   private buildMonth(monthStart: Date): MonthView {
@@ -213,6 +243,7 @@ export class RangeCalendarComponent implements OnChanges {
     const daysInMonth = getDate(endOfMonth(first));
     const leading = (first.getDay() + 6) % 7; // Monday-start offset
     const todayIso = this.today || this.iso(new Date());
+    const maxIso = this.maxIso();
     const startIso = this.start ? this.iso(this.start) : null;
     const endIso = this.end ? this.iso(this.end) : null;
 
@@ -226,7 +257,7 @@ export class RangeCalendarComponent implements OnChanges {
         date,
         iso,
         label: day,
-        disabled: iso > todayIso,
+        disabled: iso > maxIso,
         isToday: iso === todayIso,
         isStart,
         isEnd,

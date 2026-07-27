@@ -111,6 +111,7 @@ export class MenuReportComponent implements OnInit, OnDestroy {
     combineLatest([
       this.timeframe.range$,
       this.timeframe.comparison$,
+      this.timeframe.customComparisonFrom$,
       this.reports.refresh$.pipe(startWith(undefined)),
       this.grouping$,
     ])
@@ -120,8 +121,8 @@ export class MenuReportComponent implements OnInit, OnDestroy {
           this.ready = false;
           this.state = 'loading';
         }),
-        switchMap(([range, basis, , grouping]) => {
-          const cmp = resolveComparison(range, basis);
+        switchMap(([range, basis, customFrom, , grouping]) => {
+          const cmp = resolveComparison(range, basis, undefined, customFrom);
           const items$ = this.reports
             .getMenuSummary(restaurantId, range.from, range.to, 'items')
             .pipe(catchError((error) => of({ data: null, error } as any)));

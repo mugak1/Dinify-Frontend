@@ -91,4 +91,75 @@ describe('RangeCalendarComponent', () => {
     expect(day('2026-05-15')).toBeTruthy();
     expect(day('2026-06-10')).toBeTruthy();
   });
+
+  // ─── Single-date mode + an explicit max (TIMEFRAME-02D) ──────────────────────────
+  //
+  // Everything above this point runs on the DEFAULTS (`mode='range'`, `max=''` → today) and
+  // is unchanged by 02D — that is the proof the range path is untouched. These add the two
+  // new inputs on top.
+  describe("mode='single'", () => {
+    beforeEach(() => {
+      fixture.componentRef.setInput('mode', 'single');
+      fixture.detectChanges();
+    });
+
+    it('emits a one-day range on every click', () => {
+      day('2026-06-15')!.click();
+      expect(emitted[emitted.length - 1]).toEqual({ from: '2026-06-15', to: '2026-06-15' });
+    });
+
+    // THE difference from range mode: there is no pending second click, so the next click
+    // re-anchors rather than extending. In range mode this same sequence yields 15→18.
+    it('RE-ANCHORS on the next click instead of extending', () => {
+      day('2026-06-15')!.click();
+      fixture.detectChanges();
+      day('2026-06-18')!.click();
+
+      expect(emitted[emitted.length - 1]).toEqual({ from: '2026-06-18', to: '2026-06-18' });
+    });
+
+    it('re-anchors backwards too, with no restart special case', () => {
+      day('2026-06-18')!.click();
+      fixture.detectChanges();
+      day('2026-06-12')!.click();
+
+      expect(emitted[emitted.length - 1]).toEqual({ from: '2026-06-12', to: '2026-06-12' });
+    });
+  });
+
+  describe('max', () => {
+    it('disables past an explicit max, tighter than today', () => {
+      fixture.componentRef.setInput('max', '2026-06-12');
+      fixture.detectChanges();
+
+      expect(day('2026-06-12')!.disabled).toBeFalse();
+      expect(day('2026-06-13')!.disabled).toBeTrue();
+      // Still before today (the 21st), which the default bound would have allowed.
+      expect(day('2026-06-15')!.disabled).toBeTrue();
+    });
+
+    it('a disabled day never emits, in either mode', () => {
+      fixture.componentRef.setInput('max', '2026-06-12');
+      for (const mode of ['range', 'single']) {
+        fixture.componentRef.setInput('mode', mode);
+        fixture.detectChanges();
+        emitted.length = 0;
+        day('2026-06-20')!.click();
+        expect(emitted).withContext(mode).toEqual([]);
+      }
+    });
+
+    // The month-nav clamp reads the same bound as the cells, so navigation stops where
+    // selection does rather than offering a month of dead days.
+    it('stops forward navigation at the max month, not at today', () => {
+      fixture.componentRef.setInput('seed', { from: '2026-04-10', to: '2026-04-10' });
+      fixture.componentRef.setInput('max', '2026-05-20');
+      fixture.detectChanges();
+
+      expect(component.nextDisabled).toBeFalse(); // April → May is allowed
+      component.nextMonth();
+      fixture.detectChanges();
+      expect(component.nextDisabled).toBeTrue(); // …and May is as far as it goes
+    });
+  });
 });

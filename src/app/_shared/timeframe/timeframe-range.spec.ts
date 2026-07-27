@@ -117,12 +117,14 @@ describe('timeframe range model', () => {
       to: string | null,
       preset: string | null = null,
       cmp: string | null = null,
-    ) => parseTimeframeParams({ from, to, preset, cmp }, now);
+      cmpFrom: string | null = null,
+    ) => parseTimeframeParams({ from, to, preset, cmp, cmpFrom }, now);
 
     it('accepts a valid, past-bounded pair and keeps a known preset', () => {
       expect(parse('2026-06-01', '2026-06-15', 'this-month')).toEqual({
         range: { preset: 'this-month', from: '2026-06-01', to: '2026-06-15' },
         comparison: null,
+        customFrom: null,
       });
     });
 
@@ -130,10 +132,12 @@ describe('timeframe range model', () => {
       expect(parse('2026-06-01', '2026-06-10')).toEqual({
         range: { preset: 'custom', from: '2026-06-01', to: '2026-06-10' },
         comparison: null,
+        customFrom: null,
       });
       expect(parse('2026-06-01', '2026-06-10', 'banana')).toEqual({
         range: { preset: 'custom', from: '2026-06-01', to: '2026-06-10' },
         comparison: null,
+        customFrom: null,
       });
     });
 
@@ -161,6 +165,42 @@ describe('timeframe range model', () => {
       expect(parse('2026-06-15', '2026-06-15', 'today', 'prev-month-by-day')?.comparison).toBe(
         'prev-month-by-day',
       );
+    });
+
+    // `cmpFrom` (TIMEFRAME-02D) joined this parser too, for the same reason `cmp` did.
+    describe('cmpFrom — the custom window start', () => {
+      it('carries a real date through, but only alongside cmp=custom', () => {
+        expect(
+          parse('2026-06-01', '2026-06-15', 'this-month', 'custom', '2026-04-01')?.customFrom,
+        ).toBe('2026-04-01');
+      });
+
+      it('drops it when the basis is anything else', () => {
+        // Not a partially-valid state worth preserving: under any other basis the start
+        // names nothing the page renders.
+        expect(
+          parse('2026-06-01', '2026-06-15', 'this-month', 'prev-year', '2026-04-01')?.customFrom,
+        ).toBeNull();
+        expect(parse('2026-06-01', '2026-06-15', 'this-month', null, '2026-04-01')?.customFrom).toBeNull();
+      });
+
+      it('drops an unreal date and never rejects the range for it', () => {
+        const parsed = parse('2026-06-01', '2026-06-15', 'this-month', 'custom', '2026-02-31');
+        expect(parsed).not.toBeNull();
+        expect(parsed!.range.from).toBe('2026-06-01'); // the range still stands
+        expect(parsed!.customFrom).toBeNull();
+        expect(parse('2026-06-01', '2026-06-15', 'this-month', 'custom', 'banana')?.customFrom).toBeNull();
+      });
+
+      // Whether the start is REACHABLE — non-overlapping, not future-dated — depends on the
+      // range's LENGTH, and that is a window question. Same split as the `cmp` shape gate
+      // directly above: the parser vouches for the token, the service for the window.
+      it('does not bound-check the start — that is the service\'s job', () => {
+        // Wildly overlapping (it sits inside the range), yet a perfectly real date.
+        expect(
+          parse('2026-06-01', '2026-06-15', 'this-month', 'custom', '2026-06-10')?.customFrom,
+        ).toBe('2026-06-10');
+      });
     });
 
     it('returns null for absent, malformed, inverted or future params — never throws', () => {
