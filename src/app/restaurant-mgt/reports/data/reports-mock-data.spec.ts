@@ -106,7 +106,10 @@ describe('reports mock data — granularity reconciliation (shared basis)', () =
     const monthly = getMockSalesAggregate(RID, FROM, TO, 'monthly');
     const s = sum(daily);
 
-    expect(daily.length).toBe(30);
+    // 30 calendar days minus five closed Mondays — a period with no orders yields NO bucket,
+    // mirroring the backend's group-by. The reconciliation below is unaffected: a dropped day
+    // contributed nothing to the monthly sum in the first place.
+    expect(daily.length).toBe(25);
     expect(monthly.length).toBe(1); // June only
     expect(monthly[0].period).toBe('2026-06');
     expect(monthly[0].orders).toBe(s.orders);

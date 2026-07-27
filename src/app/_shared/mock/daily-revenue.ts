@@ -51,7 +51,24 @@ function randInt(rand: () => number, min: number, max: number): number {
   return Math.floor(rand() * (max - min + 1)) + min;
 }
 
-/** Fri/Sat busiest, Mon quietest — a believable weekly rhythm. */
+/**
+ * The weekday the mock restaurant is CLOSED — no orders, no takings, at all.
+ *
+ * This exists to make the mock as sparse as production, not as tidy as we would like it. The
+ * backend's period aggregation is a plain group-by, so a day with no orders yields NO BUCKET;
+ * only the hourly path is zero-filled. A mock that emits every calendar day is therefore DENSER
+ * than the thing it stands in for, and a mock denser than production silently hides an entire
+ * class of defect from every feature built on it — the sparse-series bugs in the Sales trend
+ * axis and in comparison-series pairing survived three consecutive PRs in that exact area
+ * precisely because nothing in the running app could produce a gap.
+ *
+ * Monday, because `weekdayMultiplier` already made it the quietest day and a closure is trivial
+ * to spot on screen ("every Monday is missing"). One closed weekday is enough: the point is that
+ * gaps EXIST, not how many.
+ */
+const CLOSED_WEEKDAY = 1; // Mon (date-fns getDay: 0 = Sun)
+
+/** Fri/Sat busiest, Mon quietest — a believable weekly rhythm. Unused on the closed day. */
 function weekdayMultiplier(date: Date): number {
   switch (getDay(date)) {
     case 5:
@@ -80,6 +97,12 @@ export function dailyRevenue(restaurantId: string, from: string, to: string): Da
 
   return eachDayOfInterval({ start, end }).map((d) => {
     const date = format(d, 'yyyy-MM-dd');
+    // A closed day is emitted as a ZERO ROW, not omitted. This function's contract is one row
+    // per inclusive calendar day, and the Dashboard mock densifies off it. Consumers that
+    // mirror the backend's group-by (getMockSalesAggregate) drop the zero rows themselves.
+    if (getDay(d) === CLOSED_WEEKDAY) {
+      return { date, orders: 0, gross: 0, discount: 0, refunds: 0, net: 0 };
+    }
     const rand = seededRandom(hashDay(restaurantId, date));
     const orders = Math.round(randInt(rand, 60, 160) * weekdayMultiplier(d));
     const avgTicket = randInt(rand, 18000, 35000); // UGX

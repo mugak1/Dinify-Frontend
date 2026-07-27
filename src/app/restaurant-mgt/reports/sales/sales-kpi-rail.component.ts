@@ -9,7 +9,8 @@ import { EMPTY_TOTALS, SalesPoint, SalesTotals } from './sales-view';
 interface KpiTile {
   label: string;
   value: string;
-  series: number[];
+  /** `null` marks a bucket where the metric is UNDEFINED, not zero — Chart.js draws a gap. */
+  series: (number | null)[];
   current: number;
   previous: number;
   invert: boolean;
@@ -63,9 +64,15 @@ export class SalesKpiRailComponent implements OnChanges {
   tiles: KpiTile[] = [];
 
   ngOnChanges(): void {
+    // Orders and Discounts are ZERO on a bucket that took nothing — that is a true statement,
+    // so they plot a point on the axis. AVERAGE ORDER VALUE is not: with no orders there is
+    // nothing to average, and plotting 0 would draw a restaurant with a rock-steady ticket and
+    // a weekly closure as violently volatile. `null` leaves a gap, which is what "undefined"
+    // looks like. Same principle the trend card applies past the end of a comparison series —
+    // a fabricated point is worse than a visible gap — applied per METRIC rather than per series.
     const orders = this.points.map((p) => p.orders);
     const discounts = this.points.map((p) => p.discount);
-    const aov = this.points.map((p) => (p.orders > 0 ? Math.round(p.revenue / p.orders) : 0));
+    const aov = this.points.map((p) => (p.orders > 0 ? Math.round(p.revenue / p.orders) : null));
 
     this.tiles = [
       {

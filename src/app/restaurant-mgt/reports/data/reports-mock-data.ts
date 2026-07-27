@@ -79,7 +79,12 @@ export function getMockSalesAggregate(
   to: string,
   granularity: ReportGranularity,
 ): SalesAggregateRow[] {
-  const rows = dailyRevenue(restaurantId, from, to);
+  // MIRROR THE BACKEND'S GROUP-BY: a period with no orders produces no bucket at all. The
+  // shared basis emits a zero row for the closed weekday (see CLOSED_WEEKDAY in
+  // `_shared/mock/daily-revenue`); dropping it here is what makes this mock as SPARSE as the
+  // real `sales-trends` response. The UI densifies to the requested window — that is
+  // `normalizeSeries`'s job, not the wire's.
+  const rows = dailyRevenue(restaurantId, from, to).filter((r) => r.orders > 0);
   if (rows.length === 0) return [];
 
   // Daily granularity IS the basis — one SalesAggregateRow per day (revenue net of discount).

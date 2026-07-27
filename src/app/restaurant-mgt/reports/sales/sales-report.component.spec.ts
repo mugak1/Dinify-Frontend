@@ -53,7 +53,10 @@ describe('SalesReportComponent', () => {
   }));
 
   it('uses the hourly bucket for a single-day range and hides the weekday cycle', fakeAsync(() => {
-    timeframe.set({ preset: 'today', from: '2026-06-15', to: '2026-06-15' });
+    // A TRADING day. 15 Jun 2026 is a Monday, and the mock restaurant is shut on Mondays, so
+    // that date now resolves to a zero-order range and the empty state — correctly. The date
+    // was incidental to what this spec is about; the 16th is the same test with trade in it.
+    timeframe.set({ preset: 'today', from: '2026-06-16', to: '2026-06-16' });
     component.ngOnInit();
     tick(600);
 
@@ -141,6 +144,76 @@ describe('SalesReportComponent', () => {
 
       expect(spy.calls.count()).toBeGreaterThan(withoutComparison);
       expect(component.previous).not.toBeNull();
+    }));
+  });
+
+  // ─── Densification ────────────────────────────────────────────────────────────────
+  //
+  // The mock now shuts on Mondays and drops those buckets, mirroring the backend's group-by,
+  // so this suite can finally observe the thing the fix is about.
+  describe('series densification', () => {
+    it('fills the closed days back in, so the series spans the whole range', fakeAsync(() => {
+      // June 2026 has 30 days, five of them Mondays. The wire returns 25 buckets; the chart
+      // must still plot 30, or the axis runs Sunday straight through to Tuesday.
+      timeframe.set({ preset: 'custom', from: '2026-06-01', to: '2026-06-30' });
+      component.ngOnInit();
+      tick(600);
+
+      expect(component.trendPoints.length).toBe(30);
+      expect(component.trendPoints.filter((p) => p.orders === 0).length).toBe(5);
+      expect(component.trendPoints[0].key).toBe('2026-06-01');
+      expect(component.trendPoints[29].key).toBe('2026-06-30');
+      // The breakdown table is a 1:1 map of the series, so it gains the same zero rows.
+      expect(component.breakdownRows.length).toBe(30);
+    }));
+
+    it('leaves the totals to the buckets that traded', fakeAsync(() => {
+      timeframe.set({ preset: 'custom', from: '2026-06-01', to: '2026-06-30' });
+      component.ngOnInit();
+      tick(600);
+
+      const summed = component.trendPoints.reduce((a, p) => a + p.orders, 0);
+      expect(component.current.orders).toBe(summed); // zero buckets contribute nothing
+      expect(component.current.aov).toBe(Math.round(component.current.revenue / summed));
+    }));
+
+    // THE PAIR that keeps the two empty comparison cases distinguishable. `cmpRows` is empty
+    // both when no request was made and when a real window had no trade; only the window
+    // argument tells them apart, which is why it must be `p.cmp` and never `p.range`.
+    it("yields previous === null under 'none' — no window, so nothing to fill", fakeAsync(() => {
+      timeframe.setComparison('none');
+      component.ngOnInit();
+      tick(600);
+
+      expect(component.previous).toBeNull();
+      expect(component.trendComparisonPoints).toEqual([]);
+      // And the chips are hidden by compareEnabled, not by the null — assert the real reason.
+      let compareOn = true;
+      component.compareEnabled$.subscribe((v) => (compareOn = v));
+      expect(compareOn).toBeFalse();
+    }));
+
+    it('yields a ZEROED previous for a real comparison window that returned nothing', fakeAsync(() => {
+      // A window before the restaurant existed. Densified it is a full run of zero points, so
+      // `previous` is a zeroed SalesTotals rather than null — correct, and distinguishable
+      // from the 'none' case above, which is the property this all turns on.
+      const real = reports.getSalesAggregate.bind(reports);
+      let call = 0;
+      spyOn(reports, 'getSalesAggregate').and.callFake((...args: any[]) => {
+        // Call order within one emission is main, then comparison.
+        call += 1;
+        return call === 2 ? of({ data: [] } as any) : (real as any)(...args);
+      });
+
+      timeframe.setComparison('prev-month-by-day');
+      component.ngOnInit();
+      tick(600);
+
+      expect(component.previous).not.toBeNull();
+      expect(component.previous!.orders).toBe(0);
+      expect(component.previous!.revenue).toBe(0);
+      expect(component.trendComparisonPoints.length).toBeGreaterThan(0);
+      expect(component.trendComparisonPoints.every((p) => p.orders === 0)).toBeTrue();
     }));
   });
 });

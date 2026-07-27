@@ -14,6 +14,7 @@ import {
   peakLabel,
   salesBucketView,
   toBreakdownRows,
+  tradingBuckets,
   weekdayEligible,
   SalesPoint,
 } from './sales-view';
@@ -39,29 +40,143 @@ describe('sales-view (pure)', () => {
   });
 
   describe('normalizeSeries', () => {
+    // A `null` window is the "do not densify" escape hatch, so it is what the pure
+    // shape/labelling cases below use — they are about mapping, not filling.
     it('maps hourly rows (count → orders, hour → label)', () => {
       const rows: SalesHourlyRow[] = [{ hour: 13, count: 5, revenue: 100, discount: 10 }];
-      expect(normalizeSeries(rows, 'hour')).toEqual([
+      expect(normalizeSeries(rows, 'hour', null)).toEqual([
         { label: '1 PM', key: '13', revenue: 100, orders: 5, discount: 10 },
       ]);
     });
 
     it('labels daily aggregate rows as "d MMM"', () => {
       const rows: SalesAggregateRow[] = [{ period: '2026-06-15', orders: 10, revenue: 1000, discount: 100 }];
-      const [p] = normalizeSeries(rows, 'day');
+      const [p] = normalizeSeries(rows, 'day', null);
       expect(p).toEqual({ label: '15 Jun', key: '2026-06-15', revenue: 1000, orders: 10, discount: 100 });
     });
 
     it('labels monthly aggregate rows as "MMM yyyy"', () => {
       const rows: SalesAggregateRow[] = [{ period: '2026-06', orders: 300, revenue: 50000, discount: 5000 }];
-      expect(normalizeSeries(rows, 'month')[0].label).toBe('Jun 2026');
+      expect(normalizeSeries(rows, 'month', null)[0].label).toBe('Jun 2026');
     });
 
     it('labels annual (year-bucket) aggregate rows as "yyyy"', () => {
       const rows: SalesAggregateRow[] = [{ period: '2024', orders: 30000, revenue: 5_000_000, discount: 500_000 }];
-      const [p] = normalizeSeries(rows, 'year');
+      const [p] = normalizeSeries(rows, 'year', null);
       expect(p.label).toBe('2024');
       expect(p.key).toBe('2024');
+    });
+  });
+
+  // ─── Densification ────────────────────────────────────────────────────────────────
+  //
+  // The backend zero-fills only the hourly path; a period with no orders yields no bucket at
+  // all. Left sparse, the x-axis omits closed days outright and every index after a gap shifts,
+  // which misaligns the comparison series under BOTH pairings.
+  describe('normalizeSeries — zero-fill to the window', () => {
+    const day = (period: string, orders: number): SalesAggregateRow => ({
+      period,
+      orders,
+      revenue: orders * 100,
+      discount: orders,
+    });
+
+    it('fills a missing DAY bucket with a labelled zero point, in order', () => {
+      // Tue 2 Jun is absent from the wire — the restaurant was closed.
+      const rows = [day('2026-06-01', 10), day('2026-06-03', 30)];
+      const points = normalizeSeries(rows, 'day', { from: '2026-06-01', to: '2026-06-03' });
+
+      expect(points.map((p) => p.key)).toEqual(['2026-06-01', '2026-06-02', '2026-06-03']);
+      expect(points[1]).toEqual({
+        label: '2 Jun',
+        key: '2026-06-02',
+        revenue: 0,
+        orders: 0,
+        discount: 0,
+      });
+    });
+
+    it('fills MONTH and YEAR buckets in their own wire key formats', () => {
+      const months = normalizeSeries([day('2026-06', 5)], 'month', {
+        from: '2026-05-15',
+        to: '2026-07-04',
+      });
+      expect(months.map((p) => p.key)).toEqual(['2026-05', '2026-06', '2026-07']);
+      expect(months[0].label).toBe('May 2026'); // a filled bucket still labels correctly
+
+      const years = normalizeSeries([day('2025', 5)], 'year', {
+        from: '2024-03-01',
+        to: '2026-02-01',
+      });
+      expect(years.map((p) => p.key)).toEqual(['2024', '2025', '2026']);
+      expect(years[2].label).toBe('2026');
+    });
+
+    it('returns the rows verbatim for a NULL window — the "none" comparison basis', () => {
+      // The distinction is load-bearing: no request was made, so a run of zero points would be
+      // a baseline the user explicitly asked not to have.
+      const rows = [day('2026-06-01', 10), day('2026-06-03', 30)];
+      expect(normalizeSeries(rows, 'day', null).map((p) => p.key)).toEqual([
+        '2026-06-01',
+        '2026-06-03',
+      ]);
+      expect(normalizeSeries([], 'day', null)).toEqual([]);
+    });
+
+    it('leaves the HOUR bucket alone even when handed a window', () => {
+      // Its key is '0'…'23' — no date for a window to enumerate, and it is already dense on
+      // both the backend and the mock.
+      const rows: SalesHourlyRow[] = [{ hour: 13, count: 5, revenue: 100, discount: 10 }];
+      const points = normalizeSeries(rows, 'hour', { from: '2026-06-01', to: '2026-06-01' });
+      expect(points.map((p) => p.key)).toEqual(['13']);
+    });
+
+    it('drops a bucket outside the window — the window DEFINES the series', () => {
+      // Unreachable against a real fetch (both request exactly this window); carrying it would
+      // put an out-of-sequence label on the axis.
+      const rows = [day('2026-05-30', 10), day('2026-06-01', 10)];
+      const points = normalizeSeries(rows, 'day', { from: '2026-06-01', to: '2026-06-02' });
+      expect(points.map((p) => p.key)).toEqual(['2026-06-01', '2026-06-02']);
+    });
+
+    it('changes NO total — zero buckets add zero to every accumulator', () => {
+      // The claim the whole change rests on: this is an axis fix, not a numbers change.
+      const rows = [day('2026-06-01', 10), day('2026-06-03', 30)];
+      const sparse = normalizeSeries(rows, 'day', null);
+      const dense = normalizeSeries(rows, 'day', { from: '2026-06-01', to: '2026-06-05' });
+
+      expect(dense.length).toBe(5);
+      expect(sparse.length).toBe(2);
+      expect(computeTotals(dense)).toEqual(computeTotals(sparse));
+      expect(breakdownTotals(dense)).toEqual(breakdownTotals(sparse));
+    });
+  });
+
+  describe('tradingBuckets', () => {
+    const pt = (key: string, orders: number): SalesPoint => ({
+      label: key,
+      key,
+      orders,
+      revenue: orders * 100,
+      discount: 0,
+    });
+
+    it('counts only buckets that took an order', () => {
+      expect(tradingBuckets([pt('a', 3), pt('b', 0), pt('c', 7)])).toBe(2);
+      expect(tradingBuckets([])).toBe(0);
+    });
+
+    it('is what keeps a per-day average stable across densification', () => {
+      const rows: SalesAggregateRow[] = [
+        { period: '2026-06-01', orders: 10, revenue: 1000, discount: 0 },
+        { period: '2026-06-03', orders: 10, revenue: 1000, discount: 0 },
+      ];
+      const sparse = normalizeSeries(rows, 'day', null);
+      const dense = normalizeSeries(rows, 'day', { from: '2026-06-01', to: '2026-06-05' });
+
+      // `points.length` moves 2 → 5; the trading-day count does not, which is the point.
+      expect(dense.length).not.toBe(sparse.length);
+      expect(tradingBuckets(dense)).toBe(tradingBuckets(sparse));
     });
   });
 
@@ -222,11 +337,12 @@ describe('sales-view (pure)', () => {
       expect(aligned[30]).toBeNull();
     });
 
-    // THE SPARSITY CASE the data-derived offset exists for, and the reason window bounds
-    // would be wrong here. The period series is a plain group-by, so a closed day is simply
-    // absent. Dropping a leading element shifts every index down by one AND advances the
-    // observed opening weekday by one — the two cancel, so reading the offset off the data
-    // self-corrects where an offset computed for a dense array would not.
+    // RESIDUAL ROBUSTNESS, not a pipeline case. `normalizeSeries` now densifies both series to
+    // their windows, so production never hands this function a gap — but it is exported and
+    // pure, so the two specs below pin the FUNCTION rather than the pipeline. They are why the
+    // offset stays data-derived: dropping a leading element shifts every index down by one AND
+    // advances the observed opening weekday by one, and the two cancel, so reading the offset
+    // off the data self-corrects where one computed from window bounds would not.
     it('is unaffected by a MISSING FIRST comparison bucket', () => {
       const sparseJune = june.slice(1); // no trade on Mon 1 Jun
       const dense = alignComparisonSeries(july, june, 'by-day', 'day');
