@@ -11,6 +11,8 @@
       actions
       [value]="(range$ | async)!"
       (valueChange)="onRange($event)"
+      [comparison]="(comparison$ | async)!"
+      (comparisonChange)="onComparison($event)"
     ></app-timeframe-picker>
   </app-page-header>
 
@@ -19,6 +21,8 @@
     <div class="lg:col-span-2">
       <app-revenue-card
         [revenueData]="dashboardData?.revenue ?? null"
+        [previousNet]="comparisonData?.revenue?.totals?.net ?? null"
+        [comparisonWindow]="comparisonWindow"
         [range]="range"
         [bucketUnit]="bucketUnit"
         [loading]="loading"
@@ -41,6 +45,8 @@
     <div class="lg:col-span-2">
       <app-total-orders-card
         [ordersData]="dashboardData?.orders ?? null"
+        [previousTotal]="comparisonData?.orders?.total ?? null"
+        [comparisonWindow]="comparisonWindow"
         [range]="range"
         [bucketUnit]="bucketUnit"
         [loading]="loading"

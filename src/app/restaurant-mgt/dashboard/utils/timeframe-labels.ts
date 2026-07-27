@@ -5,7 +5,7 @@
 // now, keyed on the resolved bucket and range, so the two charts can never disagree
 // about how a tick reads or which window a delta is measured against.
 
-import { ReportBucketUnit, ReportDateRange, previousEqualLengthPeriod } from '../../../_shared/timeframe';
+import { ReportBucketUnit, ReportDateRange } from '../../../_shared/timeframe';
 import { formatRangeSpan } from '../../../_shared/timeframe/picker/range-label';
 
 /**
@@ -35,19 +35,31 @@ export function bucketAxisLabel(at: string, bucketUnit: ReportBucketUnit): strin
 }
 
 /**
- * Caption for a period-over-period delta: `vs. <previous value> (<from> – <to>)`.
+ * Caption for a period-over-period delta: `vs. <baseline value> (<from> – <to>)`.
  *
- * It names the window the number was actually measured against, computed with
- * `previousEqualLengthPeriod` — the mirror of what dashboard-v2 does. This replaces
- * 'vs last day' / 'vs last week' / 'vs last month' / 'vs last year', which were derived
- * from the UI selection and never from the data. The YTD case was outright wrong: the
- * backend returns the preceding equal-length block (roughly Jun–Dec of the prior year
- * for a Jan–Jul selection), never "last year".
+ * TAKES THE WINDOW, COMPUTES NONE. Until 02B it derived its own with
+ * `previousEqualLengthPeriod`, which was right only while the Dashboard's baseline came
+ * from `dashboard-v2`'s `previous_totals`. Now the user picks the basis, so a
+ * self-computed window would confidently print dates nobody chose — and would print them
+ * beside a number measured over a different span.
  *
- * `formattedPrevious` is the caller's already-formatted scalar, so a currency card and a
+ * NAMES NO BASIS, deliberately. The basis is in the header dropdown governing every card;
+ * repeating "vs previous month" per card duplicates it, and the caption is always visible,
+ * so the extra clause wraps to a second line on a phone. That also keeps this away from
+ * `comparisonCaption(option)` in `_shared/timeframe/comparison-option.ts`, which is THE
+ * basis-word table — there is no second vocabulary here to drift from it.
+ *
+ * NAMED `baselineCaption`, not `comparisonCaption`. The shared module already exports that
+ * name with a different signature, and two same-named functions are a trap the moment
+ * someone auto-imports, disjoint module trees or not. "Baseline" is DASH-BASELINE-00's own
+ * word for the thing a delta is measured against.
+ *
+ * `formattedValue` is the caller's already-formatted scalar, so a currency card and a
  * count card can each render their own units without this helper knowing about either.
  */
-export function comparisonCaption(range: ReportDateRange, formattedPrevious: string): string {
-  const prev = previousEqualLengthPeriod(range);
-  return `vs. ${formattedPrevious} (${formatRangeSpan(prev.from, prev.to)})`;
+export function baselineCaption(
+  comparisonWindow: ReportDateRange,
+  formattedValue: string,
+): string {
+  return `vs. ${formattedValue} (${formatRangeSpan(comparisonWindow.from, comparisonWindow.to)})`;
 }

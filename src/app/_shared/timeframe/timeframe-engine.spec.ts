@@ -178,28 +178,68 @@ describe('shared timeframe engine', () => {
       }
     });
 
+    /** One representative range per shape. Shared by the two sweeps below. */
+    const SAMPLES: Record<RangeShape, ReportDateRange> = {
+      day: { preset: 'today', from: ANCHOR, to: ANCHOR },
+      week: { preset: 'custom', from: '2026-06-08', to: '2026-06-14' },
+      // NOW is a MONDAY, so week-to-date is necessarily a single day here — and that
+      // collides with `day`, which wins on declaration order. The `this-week` preset is
+      // what breaks the tie (see `classifyRangeShape`'s scoped exception), and it is
+      // load-bearing rather than decorative: with `preset: 'custom'` this entry classified
+      // as `custom`, so both sweeps below silently exercised custom's option set while
+      // claiming to cover week-to-date. The fidelity guard above is what caught that.
+      'week-to-date': { preset: 'this-week', from: ANCHOR, to: ANCHOR },
+      month: { preset: 'custom', from: '2026-05-01', to: '2026-05-31' },
+      'month-to-date': { preset: 'this-month', from: '2026-06-01', to: ANCHOR },
+      year: { preset: 'custom', from: '2025-01-01', to: '2025-12-31' },
+      'year-to-date': { preset: 'this-year', from: '2026-01-01', to: ANCHOR },
+      custom: rangeOfSpan(13),
+    };
+
+    // The sweeps below are only as good as the table they iterate: a sample that does not
+    // actually classify as the shape it is filed under would test the wrong option set and
+    // still pass. Pin it.
+    it('the sample table classifies as the shape each entry is filed under', () => {
+      for (const shape of SHAPES) {
+        expect(classifyRangeShape(SAMPLES[shape], NOW)).withContext(shape).toBe(shape);
+      }
+    });
+
     // A set holding two entries that resolve to the SAME window is a menu that lies:
     // the user picks a different label and nothing changes. This is why the year shapes
     // omit 'dates-last-year' — with a calendar-aligned prev-year it would duplicate it.
     it('never offers two bases that resolve to the same window', () => {
-      const samples: Record<RangeShape, ReportDateRange> = {
-        day: { preset: 'today', from: ANCHOR, to: ANCHOR },
-        week: { preset: 'custom', from: '2026-06-08', to: '2026-06-14' },
-        'week-to-date': { preset: 'custom', from: '2026-06-08', to: '2026-06-10' },
-        month: { preset: 'custom', from: '2026-05-01', to: '2026-05-31' },
-        'month-to-date': { preset: 'this-month', from: '2026-06-01', to: ANCHOR },
-        year: { preset: 'custom', from: '2025-01-01', to: '2025-12-31' },
-        'year-to-date': { preset: 'this-year', from: '2026-01-01', to: ANCHOR },
-        custom: rangeOfSpan(13),
-      };
       for (const shape of SHAPES) {
         const windows = comparisonOptionsFor(shape)
           .filter((o) => o !== 'none')
           .map((o) => {
-            const w = resolveComparison(samples[shape], o, NOW)!;
+            const w = resolveComparison(SAMPLES[shape], o, NOW)!;
             return `${w.from}..${w.to}`;
           });
         expect(new Set(windows).size).withContext(shape).toBe(windows.length);
+      }
+    });
+
+    // THE NON-OVERLAP NET (TIMEFRAME-02B). 02A asserted this for the one shape where it
+    // was nearly got wrong — a 364-day shift on a calendar year lands its last day INSIDE
+    // the range — and swept the full matrix only for `not.toThrow()`. This is the
+    // exhaustive version: no offered basis, on any shape, may resolve to a window that
+    // touches the range it is measured against.
+    //
+    // It lands here rather than with 02C/02D deliberately. Those grow the vocabulary —
+    // by-day/by-date variants, then user-supplied windows — and a NEW option that
+    // silently overlaps is precisely what this catches. The net is worth more before the
+    // vocabulary grows than after.
+    it('never resolves a window that overlaps the range it is compared against', () => {
+      for (const shape of SHAPES) {
+        const range = SAMPLES[shape];
+        for (const option of comparisonOptionsFor(shape).filter((o) => o !== 'none')) {
+          const w = resolveComparison(range, option, NOW)!;
+          // ISO dates sort chronologically, so a string compare is the whole test.
+          expect(w.to < range.from)
+            .withContext(`${shape} / ${option} → ${w.from}..${w.to} vs range from ${range.from}`)
+            .toBeTrue();
+        }
       }
     });
   });

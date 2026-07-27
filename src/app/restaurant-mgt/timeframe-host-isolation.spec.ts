@@ -294,14 +294,15 @@ describe('timeframe hosts — isolation and route scoping', () => {
       expect(queryOf()).toEqual({});
     });
 
-    // The Dashboard's service DOES parse a hand-crafted ?cmp= into state — inert and
-    // intended. Nothing on the Dashboard can set a non-default, so cmp is never WRITTEN
-    // to a Dashboard URL, and 02B activates state that is already being parsed. Adding
-    // route-specific stripping to prevent this would be worse than the untidiness.
-    it('parses a hand-crafted cmp on the Dashboard without rendering or republishing it', async () => {
+    // A shared deep link is honoured on the Dashboard exactly as it is on Reports: the
+    // basis is adopted and the URL is left as the sharer wrote it. Through 02A this was
+    // the "inert but intended" case — the state was parsed and nothing rendered it. 02B
+    // gave the Dashboard the dropdown, so the same assertions now describe a live
+    // selection rather than a dormant one.
+    it('adopts a hand-crafted cmp on the Dashboard without republishing it', async () => {
       const service = await bootAt(`/dashboard?from=${today}&to=${today}&preset=today&cmp=prev-week`);
 
-      expect(service.comparisonValue).toBe('prev-week'); // parsed, held, unrendered
+      expect(service.comparisonValue).toBe('prev-week');
       expect(queryOf()['cmp']).toBe('prev-week'); // left exactly as the URL had it
     });
   });

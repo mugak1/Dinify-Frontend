@@ -253,16 +253,10 @@ describe('TimeframePickerComponent', () => {
       component.comparisonChange.subscribe((o) => picked.push(o));
     });
 
-    // The Dashboard case. `showComparison` is 02A/02B scaffolding, and its default is
-    // what leaves the Dashboard's mount byte-identical.
-    it('renders NOTHING when showComparison is false (the default)', () => {
-      fixture.detectChanges();
-      expect(component.showComparison).toBeFalse();
-      expect(cmpTrigger()).toBeNull();
-    });
-
-    it('renders the trigger when a host opts in', () => {
-      fixture.componentRef.setInput('showComparison', true);
+    // assert here. The both-hosts coverage that replaced it lives in
+    // `restaurant-mgt/timeframe-period-arrows.spec.ts`, which mounts the real Dashboard
+    // and Reports shell — the right level to catch a host dropping the control.
+    it('renders the trigger', () => {
       fixture.componentRef.setInput('comparison', 'prev-month');
       fixture.detectChanges();
 
@@ -275,7 +269,6 @@ describe('TimeframePickerComponent', () => {
     });
 
     it('opens on click, sets aria-expanded, and marks the selected option', () => {
-      fixture.componentRef.setInput('showComparison', true);
       fixture.componentRef.setInput('comparison', 'prev-year');
       fixture.detectChanges();
 
@@ -290,7 +283,6 @@ describe('TimeframePickerComponent', () => {
 
     // The whole point of keying on shape: the menu is not a fixed list.
     it('RE-SHAPES its menu when the range changes shape', () => {
-      fixture.componentRef.setInput('showComparison', true);
       fixture.componentRef.setInput('comparison', 'prev-month');
       fixture.detectChanges();
       cmpTrigger()!.click();
@@ -323,7 +315,6 @@ describe('TimeframePickerComponent', () => {
     });
 
     it('emits the picked basis and closes', () => {
-      fixture.componentRef.setInput('showComparison', true);
       fixture.componentRef.setInput('comparison', 'prev-month');
       fixture.detectChanges();
       cmpTrigger()!.click();
@@ -337,7 +328,6 @@ describe('TimeframePickerComponent', () => {
     });
 
     it('does not re-emit when the current basis is picked again', () => {
-      fixture.componentRef.setInput('showComparison', true);
       fixture.componentRef.setInput('comparison', 'prev-month');
       fixture.detectChanges();
       cmpTrigger()!.click();
@@ -350,7 +340,6 @@ describe('TimeframePickerComponent', () => {
     });
 
     it('dismisses on Escape and on a backdrop click, emitting nothing', () => {
-      fixture.componentRef.setInput('showComparison', true);
       fixture.componentRef.setInput('comparison', 'prev-month');
       fixture.detectChanges();
 
@@ -372,7 +361,6 @@ describe('TimeframePickerComponent', () => {
     });
 
     it('moves focus with ArrowDown / ArrowUp / Home / End', () => {
-      fixture.componentRef.setInput('showComparison', true);
       fixture.componentRef.setInput('comparison', 'prev-month');
       fixture.detectChanges();
       cmpTrigger()!.click();
@@ -399,7 +387,6 @@ describe('TimeframePickerComponent', () => {
     // Across midnight they can disagree for one render, and a menu with nothing selected
     // reads as a bug.
     it('still shows a selection the current shape does not offer', () => {
-      fixture.componentRef.setInput('showComparison', true);
       fixture.componentRef.setInput('comparison', 'prev-day'); // not offered for a month
       fixture.detectChanges();
       cmpTrigger()!.click();
@@ -411,7 +398,6 @@ describe('TimeframePickerComponent', () => {
     });
 
     it('leaves the date-range overlay untouched — separate panelClass, separate control', () => {
-      fixture.componentRef.setInput('showComparison', true);
       fixture.componentRef.setInput('comparison', 'prev-month');
       fixture.detectChanges();
 

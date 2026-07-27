@@ -18,22 +18,34 @@ import { ReportDateRange } from '../../../_shared/timeframe';
 
 const NO_BASELINE = '[aria-label="No prior period to compare"]';
 
-/** 14–20 Jul 2026 — a closed 7-day window, so the compared period is 7–13 Jul. */
+/** 14–20 Jul 2026 — a closed 7-day window. */
 const range: ReportDateRange = { preset: 'custom', from: '2026-07-14', to: '2026-07-20' };
+
+/**
+ * The window the baseline was measured over. Since 02B the cards are TOLD this rather
+ * than deriving it, so it is a plain input here — and the caption names these dates.
+ */
+const comparisonWindow: ReportDateRange = { preset: 'custom', from: '2026-07-07', to: '2026-07-13' };
 
 const totals = (net: number): RevenueTotals => ({ gross: net, net, discounts: 0, refunds: 0 });
 
-const revenue = (net: number, prevNet: number): RevenueData => ({
+// `previous_totals` / `previous_total` are still on the models (the backend still sends
+// them) but NOTHING reads them since 02B — the baseline arrives as its own input from the
+// comparison response. They are filled with a deliberately WRONG value below, so a
+// regression that starts reading them again fails loudly instead of passing by luck.
+const WRONG = 999_999_999;
+
+const revenue = (net: number): RevenueData => ({
   series: [],
   totals: totals(net),
-  previous_totals: totals(prevNet),
+  previous_totals: totals(WRONG),
 });
 
-const orders = (total: number, previous_total: number): OrdersData => ({
+const orders = (total: number): OrdersData => ({
   series: [],
   breakdown: { paid: total, open: 0, cancelled: 0, refunded: 0 },
   total,
-  previous_total,
+  previous_total: WRONG,
 });
 
 describe('dashboard trend badges — no-baseline handling', () => {
@@ -49,9 +61,11 @@ describe('dashboard trend badges — no-baseline handling', () => {
     let fixture: ComponentFixture<RevenueCardComponent>;
     let host: HTMLElement;
 
-    function render(net: number, prevNet: number): void {
+    function render(net: number, prevNet: number | null): void {
       fixture = TestBed.createComponent(RevenueCardComponent);
-      fixture.componentRef.setInput('revenueData', revenue(net, prevNet));
+      fixture.componentRef.setInput('revenueData', revenue(net));
+      fixture.componentRef.setInput('previousNet', prevNet);
+      fixture.componentRef.setInput('comparisonWindow', comparisonWindow);
       fixture.componentRef.setInput('range', range);
       fixture.detectChanges();
       host = fixture.nativeElement as HTMLElement;
@@ -75,6 +89,11 @@ describe('dashboard trend badges — no-baseline handling', () => {
     it('keeps the comparison caption in BOTH states', () => {
       render(1_350_000, 1_200_000);
       expect(host.textContent).toContain('vs. UGX 1.2M');
+      // …and it names the window it was GIVEN, not one it derived for itself. The
+      // equal-length window for 14–20 Jul is the same 7–13 Jul, so this assertion alone
+      // cannot tell the two apart — `dashboard.component.spec.ts` carries the case where
+      // they diverge (prev-month on a whole July → 1–30 Jun, not 31 May – 30 Jun).
+      expect(host.textContent).toContain('7–13 Jul 2026');
 
       render(2_000_000, 0);
       expect(host.textContent)
@@ -96,9 +115,11 @@ describe('dashboard trend badges — no-baseline handling', () => {
     let fixture: ComponentFixture<TotalOrdersCardComponent>;
     let host: HTMLElement;
 
-    function render(total: number, previous: number): void {
+    function render(total: number, previous: number | null): void {
       fixture = TestBed.createComponent(TotalOrdersCardComponent);
-      fixture.componentRef.setInput('ordersData', orders(total, previous));
+      fixture.componentRef.setInput('ordersData', orders(total));
+      fixture.componentRef.setInput('previousTotal', previous);
+      fixture.componentRef.setInput('comparisonWindow', comparisonWindow);
       fixture.componentRef.setInput('range', range);
       fixture.detectChanges();
       host = fixture.nativeElement as HTMLElement;

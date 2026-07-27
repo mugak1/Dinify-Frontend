@@ -19,7 +19,7 @@ import { AnimatedNumberComponent } from '../animated-number/animated-number.comp
 import { RevenueData } from '../../models/dashboard.models';
 import { ReportBucketUnit, ReportDateRange } from '../../../../_shared/timeframe';
 import { formatCurrency, formatChartTick, formatCompact } from '../../utils/format.utils';
-import { bucketAxisLabel, comparisonCaption } from '../../utils/timeframe-labels';
+import { bucketAxisLabel, baselineCaption } from '../../utils/timeframe-labels';
 import { percentChange } from '../../../../_shared/utils/percent-change';
 import { NoBaselineChipComponent } from '../../../../_shared/ui/no-baseline-chip/no-baseline-chip.component';
 import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
@@ -71,28 +71,30 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
                 badge, never a child: with no usable baseline the badge is replaced by a
                 "New" chip and the caption has to survive to name what was compared
                 against. Wrapping lets it drop to its own line on a narrow phone. -->
-                <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  @if (hasBaseline) {
-                    <div
-                      class="flex items-center gap-1 text-xs sm:text-sm font-medium"
-                      [class]="isPositive ? 'text-success' : 'text-destructive'"
-                    >
-                      @if (isPositive) {
-                        <svg aria-hidden="true" class="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
-                        </svg>
-                      } @else {
-                        <svg aria-hidden="true" class="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>
-                        </svg>
-                      }
-                      <span class="whitespace-nowrap">{{ absPercentage }}%</span>
-                    </div>
-                  } @else {
-                    <app-no-baseline-chip></app-no-baseline-chip>
-                  }
-                  <span class="text-xs sm:text-sm text-muted-foreground">{{ periodLabel }}</span>
-                </div>
+                @if (comparisonWindow) {
+                  <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    @if (hasBaseline) {
+                      <div
+                        class="flex items-center gap-1 text-xs sm:text-sm font-medium"
+                        [class]="isPositive ? 'text-success' : 'text-destructive'"
+                      >
+                        @if (isPositive) {
+                          <svg aria-hidden="true" class="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+                          </svg>
+                        } @else {
+                          <svg aria-hidden="true" class="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>
+                          </svg>
+                        }
+                        <span class="whitespace-nowrap">{{ absPercentage }}%</span>
+                      </div>
+                    } @else {
+                      <app-no-baseline-chip></app-no-baseline-chip>
+                    }
+                    <span class="text-xs sm:text-sm text-muted-foreground">{{ periodLabel }}</span>
+                  </div>
+                }
               </div>
             </div>
             <a
@@ -138,6 +140,17 @@ export class RevenueCardComponent implements OnChanges {
   @Input() range: ReportDateRange | null = null;
   /** Resolved bucket for the rendered range — drives axis tick formatting. */
   @Input() bucketUnit: ReportBucketUnit = 'hour';
+  /** Baseline for the delta — the comparison window's net revenue. `null` means the
+   *  window returned nothing, which `percentChange` turns into the "New" chip. */
+  @Input() previousNet: number | null = null;
+  /**
+   * The window the baseline was measured over, or `null` when the basis is 'none'.
+   *
+   * `null` suppresses the ENTIRE comparison row — badge, "New" chip and caption alike.
+   * A user who picked "No comparison" is not missing a baseline, they declined one, and
+   * a "New" chip would answer a question they did not ask.
+   */
+  @Input() comparisonWindow: ReportDateRange | null = null;
   @Input() loading = false;
   @Input() error: string | null = null;
   @Output() retry = new EventEmitter<void>();
@@ -154,7 +167,7 @@ export class RevenueCardComponent implements OnChanges {
    *  `_shared/utils/percent-change.ts` for which baselines qualify and why. */
   get percentageChange(): number | null {
     if (!this.revenueData) return null;
-    return percentChange(this.revenueData.totals.net, this.revenueData.previous_totals.net);
+    return percentChange(this.revenueData.totals.net, this.previousNet);
   }
 
   /** Gates the badge: `false` swaps in the "New" chip and leaves the caption standing. */
@@ -175,8 +188,8 @@ export class RevenueCardComponent implements OnChanges {
   /** e.g. `vs. UGX 1.2M (14 – 20 Jul)` — the compared window, named. Compact rather than
    *  full precision to keep it short enough to sit beside the badge. */
   get periodLabel(): string {
-    if (!this.range || !this.revenueData) return '';
-    return comparisonCaption(this.range, `UGX ${formatCompact(this.revenueData.previous_totals.net)}`);
+    if (!this.comparisonWindow) return '';
+    return baselineCaption(this.comparisonWindow, `UGX ${formatCompact(this.previousNet ?? 0)}`);
   }
 
   ngOnChanges(changes: SimpleChanges): void {

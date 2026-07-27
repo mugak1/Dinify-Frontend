@@ -15,7 +15,6 @@ through the gap above the bar. The negative sticky top offset matches
       <app-timeframe-picker
         [value]="(range$ | async)!"
         (valueChange)="onRange($event)"
-        [showComparison]="true"
         [comparison]="(comparison$ | async)!"
         (comparisonChange)="onComparison($event)"
       ></app-timeframe-picker>

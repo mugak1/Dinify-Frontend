@@ -7,10 +7,15 @@ import { MenuService } from 'src/app/restaurant-mgt/menu/services/menu.service';
 import { MenuItem } from 'src/app/_models/app.models';
 import { environment } from 'src/environments/environment';
 import {
+  ComparisonOption,
   ReportBucketUnit,
   ReportDateRange,
   TimeframeService,
+  classifyRangeShape,
+  defaultComparisonFor,
+  isComparisonOfferedFor,
   rangeIncludesToday,
+  resolveComparison,
   resolveTimeframe,
 } from '../../_shared/timeframe';
 import {
@@ -37,6 +42,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Live range, for the picker binding only. */
   readonly range$ = this.timeframe.range$;
 
+  /** Live comparison basis, for the picker binding only. */
+  readonly comparison$ = this.timeframe.comparison$;
+
+  /**
+   * The comparison window's payload, and the window it covers. Both `null` while the
+   * basis is `'none'` — which is what tells the cards to render no comparison row at all.
+   *
+   * Captured at fetch time for the same reason `range` is: the caption names the window,
+   * and a caption describing a window the numbers beside it were not measured over is
+   * exactly the kind of wrong that never looks wrong.
+   */
+  comparisonData: DashboardV2Response | null = null;
+  comparisonWindow: ReportDateRange | null = null;
+
   /**
    * The range and bucket the CURRENTLY-RENDERED data was fetched for — captured at
    * fetch time, not read live. Binding the cards to `range$` directly would let their
@@ -62,6 +81,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Commit a range the user picked. The URL is the source of truth; the service owns it. */
   onRange(range: ReportDateRange): void {
     this.timeframe.set(range);
+  }
+
+  /** Commit a comparison basis the user picked. Mirrors `onRange`. */
+  onComparison(option: ComparisonOption): void {
+    this.timeframe.setComparison(option);
   }
 
   ngOnInit(): void {
@@ -111,6 +135,51 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.error = res.error?.message || 'Failed to load dashboard data';
         }
         this.dashboardService.lastFetchTimestamp$.next(Date.now());
+      });
+
+    // Comparison window: a SECOND call, deliberately OUTSIDE the polling chain.
+    //
+    // A comparison window is always in the past, so its data cannot change — fetching it
+    // once per window change is the whole of the requirement. It cannot live in the stream
+    // above: the 30s timer sits inside `fetchTicks`, so every tick re-emits `range` into
+    // that stream's request `switchMap`, and a request placed there would poll a settled
+    // answer forever.
+    //
+    // The window changes on an arrow step, a calendar Apply (both land on `range$` via
+    // TimeframeService.set) and an option change (`comparison$`) — all three re-fetch here.
+    // `refresh$` joins them so a manual retry re-attempts a comparison fetch that failed.
+    combineLatest([
+      this.timeframe.range$,
+      this.timeframe.comparison$,
+      this.dashboardService.refresh$.pipe(startWith(undefined)),
+    ])
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap(([range, basis]) => {
+          const { bucketUnit, effectiveRange } = resolveTimeframe(range);
+          // CLASSIFY AND RESOLVE FROM THE SAME WINDOW. `effectiveRange` is what the primary
+          // request actually measured, so the baseline has to span the same length or the
+          // delta compares unlike things. Below the ~1850-day cap the two are identical and
+          // this is inert; above it, deriving the offered set from one window and the
+          // comparison from another is how a menu comes to offer an option the resolver
+          // will not honour.
+          const shape = classifyRangeShape(effectiveRange);
+          const honoured = isComparisonOfferedFor(shape, basis)
+            ? basis
+            : defaultComparisonFor(shape);
+          const cmp = resolveComparison(effectiveRange, honoured);
+          this.comparisonWindow = cmp;
+
+          // 'none' → no request at all. Nothing renders it, so fetching it would spend a
+          // round trip answering a question the user declined to ask.
+          if (!cmp) return of({ data: null });
+          return this.dashboardService
+            .getDashboardData(restaurantId, cmp.from, cmp.to, bucketUnit)
+            .pipe(catchError(() => of({ data: null })));
+        }),
+      )
+      .subscribe((res: any) => {
+        this.comparisonData = res.data ?? null;
       });
 
     // Reviews data: reacts to manual refresh; always polls in the background. NOT gated
