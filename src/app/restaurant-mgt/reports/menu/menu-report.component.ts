@@ -2,8 +2,8 @@
 //
 // Orchestrator only. Menu has NO time-series: the timeframe just changes the window
 // the aggregates/rankings cover (no buckets, no trend chart). Three range-aggregate
-// chips (Items sold / Menu revenue / Avg item price) carry delta chips vs
-// comparisonRange; a fourth, Active items, is POINT-IN-TIME (live menu via
+// chips (Items sold / Menu revenue / Avg item price) carry delta chips against the
+// user-selected comparison basis; a fourth, Active items, is POINT-IN-TIME (live menu via
 // MenuService — fixed as the range changes, no delta, "as of now"). Top-selling
 // items + the category breakdown / full menu read getMenuSummary. Reuses the PR-B
 // primitives; the card maths live in the pure menu-view helpers.
@@ -17,9 +17,10 @@ import { AuthenticationService } from '../../../_services/authentication.service
 import { MenuService } from '../../menu/services/menu.service';
 import { MenuItem } from '../../../_models/app.models';
 import {
-  comparisonRange,
+  ComparisonOption,
+  comparisonCaption,
+  resolveComparison,
   ReportDateRange,
-  ReportPreset,
   TimeframeService,
 } from '../../../_shared/timeframe';
 import { MenuGrouping, MenuRow, ReportColumn } from '../models/reports.models';
@@ -40,16 +41,6 @@ const ITEM_COLUMNS: ReportColumn[] = [
   { key: 'revenue', label: 'Revenue', format: 'ugx', align: 'right', total: true },
 ];
 
-const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
-  today: 'vs yesterday',
-  yesterday: 'vs prior day',
-  'this-week': 'vs last week',
-  'last-week': 'vs prior week',
-  'this-month': 'vs last month',
-  'last-month': 'vs prior month',
-  'this-year': 'vs last year',
-};
-
 @Component({
   selector: 'app-menu-report',
   standalone: true,
@@ -67,8 +58,10 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
 export class MenuReportComponent implements OnInit, OnDestroy {
   readonly exportColumns = ITEM_COLUMNS;
   readonly fmt = formatUGX;
-  /** Shared "compare to previous period" toggle — gates the delta chips. */
-  readonly compareEnabled$ = this.reports.compareEnabled$;
+  /** Whether a comparison is being shown at all — gates the delta chips. Derived from
+   *  the shared basis, so "No comparison" hides them exactly as the old boolean toggle
+   *  did, and the template's `@let compareOn` line is unchanged. */
+  readonly compareEnabled$ = this.timeframe.comparison$.pipe(map((o) => o !== 'none'));
 
   ready = false;
   state: ReportStateMode = 'loading';
@@ -115,21 +108,29 @@ export class MenuReportComponent implements OnInit, OnDestroy {
       this.outOfStockCount = active.filter((i) => !i.in_stock).length;
     });
 
-    combineLatest([this.timeframe.range$, this.reports.refresh$.pipe(startWith(undefined)), this.grouping$])
+    combineLatest([
+      this.timeframe.range$,
+      this.timeframe.comparison$,
+      this.reports.refresh$.pipe(startWith(undefined)),
+      this.grouping$,
+    ])
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {
           this.ready = false;
           this.state = 'loading';
         }),
-        switchMap(([range, , grouping]) => {
-          const cmp = comparisonRange(range);
+        switchMap(([range, basis, , grouping]) => {
+          const cmp = resolveComparison(range, basis);
           const items$ = this.reports
             .getMenuSummary(restaurantId, range.from, range.to, 'items')
             .pipe(catchError((error) => of({ data: null, error } as any)));
-          const cmpItems$ = this.reports
-            .getMenuSummary(restaurantId, cmp.from, cmp.to, 'items')
-            .pipe(catchError(() => of({ data: null } as any)));
+          // NO REQUEST when the basis is 'none' — see the Sales pipeline for the why.
+          const cmpItems$ = cmp
+            ? this.reports
+                .getMenuSummary(restaurantId, cmp.from, cmp.to, 'items')
+                .pipe(catchError(() => of({ data: null } as any)))
+            : of({ data: null } as any);
           // Category bars need the selected grouping; for items, reuse the items rows.
           const category$ =
             grouping === 'items'
@@ -139,7 +140,14 @@ export class MenuReportComponent implements OnInit, OnDestroy {
                   .pipe(catchError(() => of({ data: null } as any)));
 
           return combineLatest([items$, cmpItems$, category$]).pipe(
-            map(([items, cmpItems, category]) => ({ range, grouping, items, cmpItems, category })),
+            map(([items, cmpItems, category]) => ({
+              range,
+              basis,
+              grouping,
+              items,
+              cmpItems,
+              category,
+            })),
           );
         }),
       )
@@ -165,6 +173,7 @@ export class MenuReportComponent implements OnInit, OnDestroy {
 
   private apply(p: {
     range: ReportDateRange;
+    basis: ComparisonOption;
     grouping: MenuGrouping;
     items: any;
     cmpItems: any;
@@ -189,7 +198,7 @@ export class MenuReportComponent implements OnInit, OnDestroy {
     this.current = menuTotals(itemRows);
     const cmpRows = (p.cmpItems?.data ?? []) as MenuRow[];
     this.previous = cmpRows.length ? menuTotals(cmpRows) : null;
-    this.comparisonLabel = COMPARISON_LABELS[p.range.preset] ?? 'vs prior period';
+    this.comparisonLabel = comparisonCaption(p.basis);
 
     const categoryRows = (p.grouping === 'items' ? itemRows : (p.category?.data ?? [])) as MenuRow[];
     this.bars = p.grouping === 'items' ? [] : categoryBars(categoryRows);

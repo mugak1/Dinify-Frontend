@@ -170,4 +170,36 @@ describe('TransactionsReportComponent', () => {
     component.retry();
     expect(refreshSpy).toHaveBeenCalled();
   }));
+  // ─── Comparison basis (TIMEFRAME-02A) ──────────────────────────────────────────────
+  //
+  // Before 02A the comparison window was fetched on EVERY load regardless of the compare
+  // toggle — wasted work then, indefensible once "No comparison" is a deliberate choice.
+  // Driven through the LIVE pipeline (comparison$ is one of its inputs), which is how a
+  // user actually flips the basis. The summary is stubbed, as everywhere else in this
+  // file, because the mock returns an empty summary for the default range and the
+  // component short-circuits on that before it ever reaches the comparison.
+  describe('comparison basis', () => {
+    it("issues NO comparison request while the basis is 'none', and one when it is not", fakeAsync(() => {
+      const spy = spyOn(reports, 'getTransactionsSummary').and.returnValue(
+        of({ data: summary() } as any),
+      );
+      spyOn(reports, 'getTransactionsListing').and.returnValue(of({ data: [] } as any));
+
+      timeframe.setComparison('none');
+      component.ngOnInit();
+      tick(600);
+
+      const withoutComparison = spy.calls.count();
+      expect(withoutComparison).toBe(1); // the current window only
+      expect(component.prevMetrics).toBeNull();
+
+      // Flip to a real basis on the same live pipeline: one MORE call, and a comparison.
+      spy.calls.reset();
+      timeframe.setComparison('prev-month');
+      tick(600);
+
+      expect(spy.calls.count()).toBe(2); // current + comparison
+      expect(component.prevMetrics).not.toBeNull();
+    }));
+  });
 });

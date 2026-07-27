@@ -4,17 +4,15 @@
 // (of({data}).pipe(delay)) against a scaffolded real branch (api.get / loadAllPages
 // → adapter).
 //
-// The active DATE RANGE is NOT here. It moved to the route-scoped `TimeframeService`
-// (`_shared/timeframe/`) in TIMEFRAME-01A, where the URL owns it — read it from there,
-// not from this service. What stays is the refresh signal and the compare toggle.
+// Neither the active DATE RANGE nor the COMPARISON BASIS is here. Both live on the
+// route-scoped `TimeframeService` (`_shared/timeframe/`), where the URL owns them — the
+// range moved in TIMEFRAME-01A, the basis in 02A. Read them from there, not from this
+// service. What stays is the refresh signal and the data access.
 
 import { Injectable } from '@angular/core';
 import { Observable, Subject, of } from 'rxjs';
 import { delay, map } from 'rxjs/operators';
 import { ApiService } from '../../../_services/api.service';
-import { AuthenticationService } from '../../../_services/authentication.service';
-import { LocalStorageService } from '../../../_services/storage/local-storage.service';
-import { PersistedBehaviorSubject } from '../../../_services/storage/persisted-state';
 import { ApiResponse } from '../../../_models/app.models';
 import {
   DinersListingRow,
@@ -71,27 +69,13 @@ export class ReportsService {
   /** Emit to force a data reload. */
   refresh$ = new Subject<void>();
 
-  /**
-   * Shared, persisted "compare to previous period" toggle. Default `true` preserves
-   * the original always-on behaviour; when `false` every surface hides its comparison
-   * UI (the Sales ghost line + all delta chips). Keyed per-restaurant, so it survives
-   * report switches AND sessions. Unlike the date range, this stays localStorage-primary
-   * with no URL param — Phase 2 replaces it wholesale with a comparison vocabulary, and
-   * half-migrating it now would be worse than leaving it alone.
-   */
-  compareEnabled$!: PersistedBehaviorSubject<boolean>;
+  // The comparison basis is NOT here. It lives on the route-scoped `TimeframeService`
+  // (TIMEFRAME-02A), beside the range it is measured against and in the URL with it. The
+  // `compareEnabled$` boolean this service used to own — localStorage-primary, no URL
+  // param — was replaced wholesale rather than extended: "off" is now just one entry in
+  // the basis menu, so a separate flag would have been a second answer to one question.
 
-  constructor(
-    private api: ApiService,
-    private localStorage: LocalStorageService,
-    private auth: AuthenticationService,
-  ) {
-    this.compareEnabled$ = new PersistedBehaviorSubject<boolean>(true, {
-      storage: this.localStorage,
-      getKey: () => `reports.compareEnabled:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
-      validate: (v): v is boolean => typeof v === 'boolean',
-    });
-  }
+  constructor(private api: ApiService) {}
 
   /** Time-bucketed sales summary. Always small (≤31 daily rows, or ~12 monthly). */
   getSalesAggregate(

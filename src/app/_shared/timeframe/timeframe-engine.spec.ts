@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
+import { COMPARISON_OPTIONS, ComparisonOption } from './comparison-option';
 import { ReportDateRange, ReportPreset, presetToRange } from './timeframe-range';
 import {
   BUCKET_TO_CATEGORY,
@@ -7,10 +8,11 @@ import {
   ReportBucketUnit,
   SALES_TRENDS_CAP_DAYS,
   classifyRangeShape,
-  comparisonRange,
-  comparisonRangeLabel,
+  comparisonOptionsFor,
+  defaultComparisonFor,
   nextEqualLengthPeriod,
   previousEqualLengthPeriod,
+  resolveComparison,
   resolveTimeframe,
   stepRange,
 } from './timeframe-engine';
@@ -137,92 +139,213 @@ describe('shared timeframe engine', () => {
     });
   });
 
-  describe('comparisonRange — equivalent prior window', () => {
-    it('always returns a computed (custom) window', () => {
-      expect(comparisonRange(presetToRange('this-month', NOW)).preset).toBe('custom');
-    });
+  // ─── Comparison basis (TIMEFRAME-02A) ──────────────────────────────────────────────
+  //
+  // Windows below are HAND-COMPUTED, not derived with the same date-fns calls the
+  // implementation uses — the convention this file already applies to
+  // previousEqualLengthPeriod, for the same reason: a spec that re-runs the
+  // implementation's own arithmetic passes no matter what that arithmetic does.
 
-    it('today → the prior single day; yesterday → the day before', () => {
-      expect(comparisonRange(presetToRange('today', NOW))).toEqual({
-        preset: 'custom',
-        from: '2026-06-14',
-        to: '2026-06-14',
+  describe('comparisonOptionsFor — the menu each shape offers', () => {
+    const EXPECTED: Record<RangeShape, ComparisonOption[]> = {
+      day: ['none', 'prev-day', 'prev-week', 'prev-year', 'dates-last-year'],
+      week: ['none', 'prev-week', 'prev-year', 'dates-last-year'],
+      'week-to-date': ['none', 'prev-week', 'prev-year', 'dates-last-year'],
+      month: ['none', 'prev-month', 'prev-year', 'dates-last-year'],
+      'month-to-date': ['none', 'prev-month', 'prev-year', 'dates-last-year'],
+      year: ['none', 'prev-year'],
+      'year-to-date': ['none', 'prev-year'],
+      custom: ['none', 'prev-period'],
+    };
+    const SHAPES = Object.keys(EXPECTED) as RangeShape[];
+
+    for (const shape of SHAPES) {
+      it(`offers exactly the documented set for '${shape}'`, () => {
+        expect(comparisonOptionsFor(shape)).toEqual(EXPECTED[shape]);
       });
-      expect(comparisonRange(presetToRange('yesterday', NOW))).toEqual({
-        preset: 'custom',
-        from: '2026-06-13',
-        to: '2026-06-13',
-      });
+    }
+
+    it("starts every set with 'none'", () => {
+      for (const shape of SHAPES) {
+        expect(comparisonOptionsFor(shape)[0]).withContext(shape).toBe('none');
+      }
     });
 
-    it('this-week → the same week-to-date window one week back', () => {
-      // this-week is clamped to week-to-date, so its comparison shifts BOTH bounds by a
-      // week rather than landing on the whole of last week — deliberately like-for-like
-      // (N days vs the same N days), unlike the month/year cases below.
-      const tw = presetToRange('this-week', NOW);
-      const comp = comparisonRange(tw);
-      expect(comp).toEqual({ preset: 'custom', from: '2026-06-08', to: '2026-06-08' });
-      expect(inclusiveLen(comp)).toBe(inclusiveLen(tw));
-      // It sits inside last week, which is a full Mon–Sun span in its own right.
-      const lw = presetToRange('last-week', NOW);
-      expect(comp.from >= lw.from && comp.to <= lw.to).toBeTrue();
+    it("makes each shape's default its first non-'none' entry — never 'none' itself", () => {
+      for (const shape of SHAPES) {
+        expect(defaultComparisonFor(shape)).withContext(shape).toBe(EXPECTED[shape][1]);
+        expect(defaultComparisonFor(shape)).withContext(shape).not.toBe('none');
+      }
     });
 
-    it('last-week → the week before it (equal length, adjacent)', () => {
-      const lw = presetToRange('last-week', NOW);
-      const comp = comparisonRange(lw);
-      expect(inclusiveLen(comp)).toBe(7);
-      expect(differenceInCalendarDays(parseISO(lw.from), parseISO(comp.to))).toBe(1); // adjacent
-    });
-
-    it('this-month → the FULL prior calendar month (May, not a 30-day shift)', () => {
-      expect(comparisonRange(presetToRange('this-month', NOW))).toEqual({
-        preset: 'custom',
-        from: '2026-05-01',
-        to: '2026-05-31',
-      });
-    });
-
-    it('last-month → the month before it (April)', () => {
-      expect(comparisonRange(presetToRange('last-month', NOW))).toEqual({
-        preset: 'custom',
-        from: '2026-04-01',
-        to: '2026-04-30',
-      });
-    });
-
-    it('this-year → the full prior calendar year', () => {
-      expect(comparisonRange(presetToRange('this-year', NOW))).toEqual({
-        preset: 'custom',
-        from: '2025-01-01',
-        to: '2025-12-31',
-      });
-    });
-
-    it('custom N-day windows → an equal-length window immediately before', () => {
-      for (const span of [0, 13, 199]) {
-        const range = rangeOfSpan(span);
-        const comp = comparisonRange(range);
-        expect(comp.preset).toBe('custom');
-        // Equal inclusive length…
-        expect(inclusiveLen(comp)).toBe(inclusiveLen(range));
-        // …sitting immediately before the source range.
-        expect(differenceInCalendarDays(parseISO(range.from), parseISO(comp.to))).toBe(1);
+    // A set holding two entries that resolve to the SAME window is a menu that lies:
+    // the user picks a different label and nothing changes. This is why the year shapes
+    // omit 'dates-last-year' — with a calendar-aligned prev-year it would duplicate it.
+    it('never offers two bases that resolve to the same window', () => {
+      const samples: Record<RangeShape, ReportDateRange> = {
+        day: { preset: 'today', from: ANCHOR, to: ANCHOR },
+        week: { preset: 'custom', from: '2026-06-08', to: '2026-06-14' },
+        'week-to-date': { preset: 'custom', from: '2026-06-08', to: '2026-06-10' },
+        month: { preset: 'custom', from: '2026-05-01', to: '2026-05-31' },
+        'month-to-date': { preset: 'this-month', from: '2026-06-01', to: ANCHOR },
+        year: { preset: 'custom', from: '2025-01-01', to: '2025-12-31' },
+        'year-to-date': { preset: 'this-year', from: '2026-01-01', to: ANCHOR },
+        custom: rangeOfSpan(13),
+      };
+      for (const shape of SHAPES) {
+        const windows = comparisonOptionsFor(shape)
+          .filter((o) => o !== 'none')
+          .map((o) => {
+            const w = resolveComparison(samples[shape], o, NOW)!;
+            return `${w.from}..${w.to}`;
+          });
+        expect(new Set(windows).size).withContext(shape).toBe(windows.length);
       }
     });
   });
 
-  describe('comparisonRangeLabel — toggle label for the comparison period', () => {
-    it('labels each preset by the period it compares against', () => {
-      expect(comparisonRangeLabel(presetToRange('today', NOW))).toBe('yesterday');
-      expect(comparisonRangeLabel(presetToRange('yesterday', NOW))).toBe('the previous day');
-      expect(comparisonRangeLabel(presetToRange('this-week', NOW))).toBe('last week');
-      expect(comparisonRangeLabel(presetToRange('last-week', NOW))).toBe('the previous week');
-      // month/year compare against the FULL prior calendar month/year → its name.
-      expect(comparisonRangeLabel(presetToRange('this-month', NOW))).toBe('May');
-      expect(comparisonRangeLabel(presetToRange('last-month', NOW))).toBe('April');
-      expect(comparisonRangeLabel(presetToRange('this-year', NOW))).toBe('2025');
-      expect(comparisonRangeLabel(rangeOfSpan(13))).toBe('the previous period');
+  describe('resolveComparison — the one comparison-window resolver', () => {
+    const cmp = (from: string, to: string): ReportDateRange => ({ preset: 'custom', from, to });
+
+    it("returns null for 'none'", () => {
+      expect(resolveComparison(presetToRange('this-month', NOW), 'none', NOW)).toBeNull();
+    });
+
+    it('always returns a computed (custom) window', () => {
+      expect(resolveComparison(presetToRange('today', NOW), 'prev-day', NOW)!.preset).toBe('custom');
+    });
+
+    it('prev-day → the prior single day', () => {
+      expect(resolveComparison(presetToRange('today', NOW), 'prev-day', NOW)).toEqual(
+        cmp('2026-06-14', '2026-06-14'),
+      );
+      expect(resolveComparison(presetToRange('yesterday', NOW), 'prev-day', NOW)).toEqual(
+        cmp('2026-06-13', '2026-06-13'),
+      );
+    });
+
+    it('prev-week on a single day → the same weekday one week back', () => {
+      // 15 Jun 2026 is a Monday; 8 Jun 2026 is the Monday before it.
+      expect(resolveComparison(presetToRange('today', NOW), 'prev-week', NOW)).toEqual(
+        cmp('2026-06-08', '2026-06-08'),
+      );
+    });
+
+    it('prev-week on a complete Mon–Sun week → the previous complete week', () => {
+      const week: ReportDateRange = { preset: 'custom', from: '2026-06-08', to: '2026-06-14' };
+      expect(resolveComparison(week, 'prev-week', NOW)).toEqual(cmp('2026-06-01', '2026-06-07'));
+    });
+
+    it('prev-week on a week-to-date range → partial-to-partial, equal length', () => {
+      const wtd: ReportDateRange = { preset: 'custom', from: '2026-06-08', to: '2026-06-10' };
+      const comp = resolveComparison(wtd, 'prev-week', NOW)!;
+      expect(comp).toEqual(cmp('2026-06-01', '2026-06-03'));
+      expect(inclusiveLen(comp)).toBe(inclusiveLen(wtd));
+    });
+
+    // THE 02A BEHAVIOUR CHANGE, and the reason this spec was rewritten rather than
+    // deleted. It formerly read "this-month → the FULL prior calendar month (May, not a
+    // 30-day shift)" and asserted 1–31 May. That set a 15-day month-to-date total against
+    // a complete 31-day month, so early in any month the comparison showed a collapse
+    // that was arithmetic rather than trade. The week-level case above always compared
+    // partial-to-partial, which made the month behaviour an inconsistency rather than a
+    // considered choice. This is an INTENDED change, not a regression.
+    it('MONTH-TO-DATE compares PARTIAL-TO-PARTIAL — 1–15 Jun → 1–15 May, not all of May', () => {
+      expect(resolveComparison(presetToRange('this-month', NOW), 'prev-month', NOW)).toEqual(
+        cmp('2026-05-01', '2026-05-15'),
+      );
+    });
+
+    // Scoping the change: a COMPLETE month is unaffected.
+    it('a complete calendar month still compares to the complete prior month', () => {
+      expect(resolveComparison(presetToRange('last-month', NOW), 'prev-month', NOW)).toEqual(
+        cmp('2026-04-01', '2026-04-30'),
+      );
+      // 31 → 30 boundary: July compares to the whole of June, not to a 31-day window.
+      const july: ReportDateRange = { preset: 'custom', from: '2025-07-01', to: '2025-07-31' };
+      expect(resolveComparison(july, 'prev-month', NOW)).toEqual(cmp('2025-06-01', '2025-06-30'));
+    });
+
+    it('prev-month clamps into a SHORTER prior month rather than spilling past its end', () => {
+      // Month-to-date 1–30 Mar has no 30th to land on in February.
+      const mar2026: ReportDateRange = { preset: 'custom', from: '2026-03-01', to: '2026-03-30' };
+      expect(resolveComparison(mar2026, 'prev-month', new Date(2026, 2, 30))).toEqual(
+        cmp('2026-02-01', '2026-02-28'),
+      );
+      // …and 2028 is a leap year, so the same window gains a day.
+      const mar2028: ReportDateRange = { preset: 'custom', from: '2028-03-01', to: '2028-03-30' };
+      expect(resolveComparison(mar2028, 'prev-month', new Date(2028, 2, 30))).toEqual(
+        cmp('2028-02-01', '2028-02-29'),
+      );
+    });
+
+    it('prev-year is WEEKDAY-aligned below the year level — exactly 364 days back', () => {
+      const comp = resolveComparison(presetToRange('today', NOW), 'prev-year', NOW)!;
+      expect(comp).toEqual(cmp('2025-06-16', '2025-06-16'));
+      // 364 = 52 whole weeks, so the weekday is preserved: Monday → Monday.
+      expect(differenceInCalendarDays(parseISO(ANCHOR), parseISO(comp.from))).toBe(364);
+      expect(format(parseISO(comp.from), 'EEEE')).toBe(format(parseISO(ANCHOR), 'EEEE'));
+    });
+
+    it('prev-year is CALENDAR-aligned for the year shapes, so it cannot overlap the range', () => {
+      const year: ReportDateRange = { preset: 'custom', from: '2025-01-01', to: '2025-12-31' };
+      const comp = resolveComparison(year, 'prev-year', NOW)!;
+      expect(comp).toEqual(cmp('2024-01-01', '2024-12-31'));
+      // A literal 364-day shift would give 2 Jan 2024 – 1 Jan 2025, whose last day sits
+      // INSIDE the range being compared. That is the defect this branch exists to avoid.
+      expect(comp.to < year.from).toBeTrue();
+    });
+
+    it('year-to-date compares against the same dates last year', () => {
+      expect(resolveComparison(presetToRange('this-year', NOW), 'prev-year', NOW)).toEqual(
+        cmp('2025-01-01', '2025-06-15'),
+      );
+    });
+
+    it('dates-last-year is CALENDAR-aligned, and differs from prev-year below the year level', () => {
+      const today = presetToRange('today', NOW);
+      expect(resolveComparison(today, 'dates-last-year', NOW)).toEqual(
+        cmp('2025-06-15', '2025-06-15'),
+      );
+      // Same calendar date, DIFFERENT weekday — which is exactly why both are offered.
+      expect(resolveComparison(today, 'dates-last-year', NOW)).not.toEqual(
+        resolveComparison(today, 'prev-year', NOW)!,
+      );
+    });
+
+    it('dates-last-year rolls 29 Feb back onto 28 Feb', () => {
+      const leapDay: ReportDateRange = { preset: 'custom', from: '2028-02-29', to: '2028-02-29' };
+      expect(resolveComparison(leapDay, 'dates-last-year', new Date(2028, 1, 29))).toEqual(
+        cmp('2027-02-28', '2027-02-28'),
+      );
+    });
+
+    it('prev-period → an equal-length window immediately before the range', () => {
+      for (const span of [0, 13, 199]) {
+        const range = rangeOfSpan(span);
+        const comp = resolveComparison(range, 'prev-period', NOW)!;
+        expect(comp.preset).toBe('custom');
+        expect(inclusiveLen(comp)).toBe(inclusiveLen(range));
+        expect(differenceInCalendarDays(parseISO(range.from), parseISO(comp.to))).toBe(1);
+      }
+    });
+
+    // Totality. The service rejects a shape-invalid `cmp` before it reaches the resolver,
+    // but a hand-edited URL must never be able to throw its way into the render path.
+    it('resolves every option against every shape without throwing', () => {
+      const ranges: ReportDateRange[] = [
+        presetToRange('today', NOW),
+        presetToRange('this-week', NOW),
+        presetToRange('this-month', NOW),
+        presetToRange('this-year', NOW),
+        { preset: 'custom', from: '2025-01-01', to: '2025-12-31' },
+        rangeOfSpan(13),
+      ];
+      for (const range of ranges) {
+        for (const option of COMPARISON_OPTIONS) {
+          expect(() => resolveComparison(range, option, NOW)).not.toThrow();
+        }
+      }
     });
   });
 
@@ -275,30 +398,42 @@ describe('shared timeframe engine', () => {
       expect(previousEqualLengthPeriod(asPreset)).toEqual(previousEqualLengthPeriod(asCustom));
     });
 
-    // The reason Dashboard must not reuse comparisonRange. For a month-to-date range the
-    // two disagree outright; if this ever stops failing, one of them changed meaning.
-    it('DIVERGES from the preset-aware comparisonRange on a partial month', () => {
+    // The reason Dashboard must not reuse the user-facing comparison resolver. For a
+    // month-to-date range the two disagree outright; if this ever stops failing, one of
+    // them changed meaning.
+    //
+    // These two specs predate 02A and are DELIBERATELY KEPT. Only the symbol changed:
+    // they used to compare against the deleted preset-keyed `comparisonRange`, and now
+    // compare against `resolveComparison(…, 'prev-month')` — which is what a
+    // month-shaped range's default basis resolves to. The divergence they exist to pin
+    // survives the rename intact.
+    it("DIVERGES from the user-selected 'prev-month' basis on a partial month", () => {
       const midMonth: ReportDateRange = { preset: 'this-month', from: '2026-06-01', to: '2026-06-15' };
+      const NOW_MID = new Date(2026, 5, 15);
 
       expect(previousEqualLengthPeriod(midMonth)).toEqual({
         preset: 'custom',
         from: '2026-05-17',
         to: '2026-05-31',
       });
-      expect(comparisonRange(midMonth)).toEqual({
+      // Post-02A this is partial-to-partial (1–15 May), where it used to be all of May.
+      // Either way it is NOT the equal-length window above — that is the point.
+      expect(resolveComparison(midMonth, 'prev-month', NOW_MID)).toEqual({
         preset: 'custom',
         from: '2026-05-01',
-        to: '2026-05-31',
+        to: '2026-05-15',
       });
     });
 
-    it('coincides with comparisonRange only for a WHOLE calendar month', () => {
+    it("coincides with the 'prev-month' basis only for a WHOLE calendar month", () => {
       const wholeMonth: ReportDateRange = { preset: 'this-month', from: '2026-06-01', to: '2026-06-30' };
+      const NOW_EOM = new Date(2026, 5, 30);
+      const basis = resolveComparison(wholeMonth, 'prev-month', NOW_EOM)!;
 
-      // Same start; the equal-length window is one day shorter than full May because
+      // Same end; the equal-length window is one day shorter than full May because
       // June has 30 days and May has 31 — so even here they are not identical.
-      expect(previousEqualLengthPeriod(wholeMonth).to).toBe(comparisonRange(wholeMonth).to);
-      expect(previousEqualLengthPeriod(wholeMonth).from).not.toBe(comparisonRange(wholeMonth).from);
+      expect(previousEqualLengthPeriod(wholeMonth).to).toBe(basis.to);
+      expect(previousEqualLengthPeriod(wholeMonth).from).not.toBe(basis.from);
     });
   });
 
@@ -716,8 +851,12 @@ describe('shared timeframe engine', () => {
     ];
     for (const p of presets) {
       const range = presetToRange(p, NOW);
-      expect(() => comparisonRange(range)).not.toThrow();
       expect(() => resolveTimeframe(range)).not.toThrow();
+      // Every preset must also resolve a comparison for its own shape's default basis.
+      // The (shape × option) sweep lives in the resolveComparison describe above; this
+      // one guards the preset→shape→basis path each host actually lands on.
+      const shape = classifyRangeShape(range, NOW);
+      expect(() => resolveComparison(range, defaultComparisonFor(shape), NOW)).not.toThrow();
     }
   });
 });

@@ -2,7 +2,7 @@
 //
 // The most payment-gated tab: real data lives on DinifyTransaction and stays empty
 // until the PSP integration (Gate 2), so it is built fully on mock now. Orchestrator
-// only — TWO independent pipelines: a SUMMARY pipeline (range + comparisonRange) drives
+// only — TWO independent pipelines: a SUMMARY pipeline (range + the selected comparison) drives
 // the four chips + the status breakdown over the FULL range; a LISTING pipeline (range +
 // the status-filter chip) drives the recent-transactions table over the most-recent-31-day
 // window. All display vocab is PROVISIONAL (transactions-view), reconciled at Gate 2.
@@ -14,9 +14,10 @@ import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/oper
 import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import {
-  comparisonRange,
+  ComparisonOption,
+  comparisonCaption,
+  resolveComparison,
   ReportDateRange,
-  ReportPreset,
   TimeframeService,
 } from '../../../_shared/timeframe';
 import { ReportColumn, TransactionsListingRow, TransactionsSummary } from '../models/reports.models';
@@ -54,16 +55,6 @@ const LISTING_COLUMNS: ReportColumn[] = [
   { key: 'transaction_status', label: 'Status', format: 'status' },
 ];
 
-const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
-  today: 'vs yesterday',
-  yesterday: 'vs prior day',
-  'this-week': 'vs last week',
-  'last-week': 'vs prior week',
-  'this-month': 'vs last month',
-  'last-month': 'vs prior month',
-  'this-year': 'vs last year',
-};
-
 @Component({
   selector: 'app-transactions-report',
   standalone: true,
@@ -82,8 +73,10 @@ const COMPARISON_LABELS: Partial<Record<ReportPreset, string>> = {
 export class TransactionsReportComponent implements OnInit, OnDestroy {
   readonly exportColumns = LISTING_COLUMNS;
   readonly fmt = formatUGX;
-  /** Shared "compare to previous period" toggle — gates the delta chips. */
-  readonly compareEnabled$ = this.reports.compareEnabled$;
+  /** Whether a comparison is being shown at all — gates the delta chips. Derived from
+   *  the shared basis, so "No comparison" hides them exactly as the old boolean toggle
+   *  did, and the template's `@let compareOn` line is unchanged. */
+  readonly compareEnabled$ = this.timeframe.comparison$.pipe(map((o) => o !== 'none'));
 
   // Summary (range-aggregate).
   summaryReady = false;
@@ -119,26 +112,36 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Summary pipeline — chips + breakdown over the FULL range (uncapped).
-    combineLatest([this.timeframe.range$, this.reports.refresh$.pipe(startWith(undefined))])
+    // Summary pipeline — chips + breakdown over the FULL range (uncapped). The listing
+    // pipeline below carries no comparison; it works off `recentWindow(range)`.
+    combineLatest([
+      this.timeframe.range$,
+      this.timeframe.comparison$,
+      this.reports.refresh$.pipe(startWith(undefined)),
+    ])
       .pipe(
         takeUntil(this.destroy$),
         tap(() => {
           this.summaryReady = false;
           this.summaryState = 'loading';
         }),
-        switchMap(([range]) => {
-          const cmp = comparisonRange(range);
+        switchMap(([range, basis]) => {
+          const cmp = resolveComparison(range, basis);
           const cur$ = this.reports
             .getTransactionsSummary(restaurantId, range.from, range.to)
             .pipe(catchError(() => of({ data: null } as any)));
-          const prev$ = this.reports
-            .getTransactionsSummary(restaurantId, cmp.from, cmp.to)
-            .pipe(catchError(() => of({ data: null } as any)));
-          return combineLatest([cur$, prev$]).pipe(map(([cur, prev]) => ({ range, cur, prev })));
+          // NO REQUEST when the basis is 'none' — see the Sales pipeline for the why.
+          const prev$ = cmp
+            ? this.reports
+                .getTransactionsSummary(restaurantId, cmp.from, cmp.to)
+                .pipe(catchError(() => of({ data: null } as any)))
+            : of({ data: null } as any);
+          return combineLatest([cur$, prev$]).pipe(
+            map(([cur, prev]) => ({ range, basis, cur, prev })),
+          );
         }),
       )
-      .subscribe(({ range, cur, prev }) => this.applySummary(range, cur, prev));
+      .subscribe(({ range, basis, cur, prev }) => this.applySummary(range, basis, cur, prev));
 
     // Listing pipeline — recent window, re-fetched on the status-filter chip.
     combineLatest([
@@ -177,7 +180,12 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
     this.reports.refresh$.next();
   }
 
-  private applySummary(range: ReportDateRange, cur: any, prev: any): void {
+  private applySummary(
+    range: ReportDateRange,
+    basis: ComparisonOption,
+    cur: any,
+    prev: any,
+  ): void {
     this.range = range;
     const s: TransactionsSummary | null = cur?.data ?? null;
     if (!s) {
@@ -197,7 +205,7 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
     const ps: TransactionsSummary | null = prev?.data ?? null;
     this.prevMetrics = ps ? txnSummaryMetrics(ps) : null;
     this.breakdown = statusBreakdown(s);
-    this.comparisonLabel = COMPARISON_LABELS[range.preset] ?? 'vs prior period';
+    this.comparisonLabel = comparisonCaption(basis);
     this.summaryReady = true;
   }
 

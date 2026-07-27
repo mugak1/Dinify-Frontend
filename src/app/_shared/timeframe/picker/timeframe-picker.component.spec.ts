@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { BehaviorSubject } from 'rxjs';
 
 import { TimeframePickerComponent } from './timeframe-picker.component';
+import { ComparisonOption } from '../comparison-option';
 import { ReportDateRange } from '../timeframe-range';
 
 describe('TimeframePickerComponent', () => {
@@ -227,6 +228,198 @@ describe('TimeframePickerComponent', () => {
       fixture.detectChanges();
       expect(emitted.length).toBe(1);
       expect(emitted[0].preset).toBe('today');
+    });
+  });
+  // ─── Comparison dropdown (TIMEFRAME-02A) ───────────────────────────────────────────
+  //
+  // A SECOND overlay on this component, with its own panelClass — `overlayPanel()` above
+  // matches `.dn-daterange-overlay-panel`, so a shared class would make the date-range
+  // specs silently pick this one up.
+  describe('comparison basis dropdown', () => {
+    const cmpTrigger = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector('button[aria-haspopup="listbox"]');
+
+    const cmpPanel = (): Element | null => document.querySelector('.dn-comparison-overlay-panel');
+
+    const cmpOptions = (): HTMLButtonElement[] =>
+      Array.from(cmpPanel()?.querySelectorAll('[role="option"]') ?? []) as HTMLButtonElement[];
+
+    const labels = (): string[] => cmpOptions().map((b) => (b.textContent ?? '').trim());
+
+    let picked: ComparisonOption[];
+
+    beforeEach(() => {
+      picked = [];
+      component.comparisonChange.subscribe((o) => picked.push(o));
+    });
+
+    // The Dashboard case. `showComparison` is 02A/02B scaffolding, and its default is
+    // what leaves the Dashboard's mount byte-identical.
+    it('renders NOTHING when showComparison is false (the default)', () => {
+      fixture.detectChanges();
+      expect(component.showComparison).toBeFalse();
+      expect(cmpTrigger()).toBeNull();
+    });
+
+    it('renders the trigger when a host opts in', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-month');
+      fixture.detectChanges();
+
+      const t = cmpTrigger()!;
+      expect(t).not.toBeNull();
+      expect(t.textContent).toContain('Previous month');
+      expect(t.getAttribute('aria-expanded')).toBe('false');
+      // Sized to the cluster, like the arrows and the date trigger.
+      expect(t.className).toContain('h-[38px]');
+    });
+
+    it('opens on click, sets aria-expanded, and marks the selected option', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-year');
+      fixture.detectChanges();
+
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+
+      expect(cmpTrigger()!.getAttribute('aria-expanded')).toBe('true');
+      const selected = cmpOptions().filter((o) => o.getAttribute('aria-selected') === 'true');
+      expect(selected.length).toBe(1);
+      expect(selected[0].textContent).toContain('Previous year');
+    });
+
+    // The whole point of keying on shape: the menu is not a fixed list.
+    it('RE-SHAPES its menu when the range changes shape', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-month');
+      fixture.detectChanges();
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+      expect(labels()).toEqual([
+        'No comparison',
+        'Previous month',
+        'Previous year',
+        'Dates last year (DD/MM)',
+      ]);
+
+      component.closeComparison();
+      fixture.componentRef.setInput('value', {
+        preset: 'today',
+        from: '2026-06-15',
+        to: '2026-06-15',
+      } as ReportDateRange);
+      fixture.componentRef.setInput('comparison', 'prev-day');
+      fixture.detectChanges();
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+
+      expect(labels()).toEqual([
+        'No comparison',
+        'Previous day',
+        'Previous week',
+        'Previous year',
+        'Dates last year (DD/MM)',
+      ]);
+    });
+
+    it('emits the picked basis and closes', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-month');
+      fixture.detectChanges();
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+
+      cmpOptions().find((o) => (o.textContent ?? '').includes('Previous year'))!.click();
+      fixture.detectChanges();
+
+      expect(picked).toEqual(['prev-year']);
+      expect(cmpPanel()).toBeNull();
+    });
+
+    it('does not re-emit when the current basis is picked again', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-month');
+      fixture.detectChanges();
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+
+      cmpOptions().find((o) => (o.textContent ?? '').includes('Previous month'))!.click();
+      fixture.detectChanges();
+
+      expect(picked).toEqual([]);
+    });
+
+    it('dismisses on Escape and on a backdrop click, emitting nothing', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-month');
+      fixture.detectChanges();
+
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+      cmpPanel()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      fixture.detectChanges();
+      expect(cmpPanel()).toBeNull();
+
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+      (document.querySelector('.cdk-overlay-backdrop') as HTMLElement).dispatchEvent(
+        new MouseEvent('click'),
+      );
+      fixture.detectChanges();
+      expect(cmpPanel()).toBeNull();
+
+      expect(picked).toEqual([]);
+    });
+
+    it('moves focus with ArrowDown / ArrowUp / Home / End', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-month');
+      fixture.detectChanges();
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+
+      const items = cmpOptions();
+      const press = (key: string) =>
+        cmpPanel()!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+
+      press('Home');
+      expect(document.activeElement).toBe(items[0]);
+      press('ArrowDown');
+      expect(document.activeElement).toBe(items[1]);
+      press('ArrowUp');
+      expect(document.activeElement).toBe(items[0]);
+      press('End');
+      expect(document.activeElement).toBe(items[items.length - 1]);
+      // Wraps, so the list is navigable without hunting for the boundary.
+      press('ArrowDown');
+      expect(document.activeElement).toBe(items[0]);
+    });
+
+    // Shape here comes from `new Date()`, and from the service's own `new Date()` there.
+    // Across midnight they can disagree for one render, and a menu with nothing selected
+    // reads as a bug.
+    it('still shows a selection the current shape does not offer', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-day'); // not offered for a month
+      fixture.detectChanges();
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+
+      expect(labels()).toContain('Previous day');
+      const selected = cmpOptions().filter((o) => o.getAttribute('aria-selected') === 'true');
+      expect(selected.length).toBe(1);
+    });
+
+    it('leaves the date-range overlay untouched — separate panelClass, separate control', () => {
+      fixture.componentRef.setInput('showComparison', true);
+      fixture.componentRef.setInput('comparison', 'prev-month');
+      fixture.detectChanges();
+
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+
+      expect(cmpPanel()).not.toBeNull();
+      expect(overlayPanel()).toBeNull(); // the date-range panel never opened
     });
   });
 });
