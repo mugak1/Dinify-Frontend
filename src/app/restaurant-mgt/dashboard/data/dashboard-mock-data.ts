@@ -12,7 +12,6 @@ import {
   TablesData,
 } from '../models/dashboard.models';
 import {
-  differenceInCalendarDays,
   eachDayOfInterval,
   eachMonthOfInterval,
   eachYearOfInterval,
@@ -28,17 +27,28 @@ import { distributeByHour } from '../../../_shared/mock/hour-of-day';
 // derives from the shared per-(restaurant, day) basis in `_shared/mock/`, which is what
 // keeps Dashboard and Reports reconciling for an identical {from, to}.
 //
+// EVERY revenue-derived card reads that basis — revenue, orders, payment methods and
+// popular items alike. Payments and popular items did not, until DASH-MOCK-COHERENCE-00:
+// payments multiplied three fixed per-day constants by a CALENDAR-day count, and popular
+// items took no arguments at all. So the closed weekday (CLOSED_WEEKDAY in
+// `_shared/mock/daily-revenue`) read as UGX 0 revenue and 0 orders beside UGX 3.6M
+// settled and 8.17M of popular-item revenue. That was always wrong — a restaurant with
+// no orders would always have reported 3.6M settled — and the closure merely made it
+// visible. A mock that contradicts itself is worse than no mock, because it teaches
+// whoever reads the screen that the numbers do not have to agree.
+//
+// The rule this establishes, for the next generator added here: READ THE BASIS. Do not
+// synthesise figures, and do not scale by a day count — a closed day is a calendar day
+// that traded nothing, so `rangeDays`-style scaling overstates every window containing
+// one. Summing the basis handles that by construction, which is why no trading-day
+// helper is needed anywhere in this file.
+//
 // The old seeded-PRNG scaffolding (SEED_MAP, HOUR_MULTIPLIERS, getPatternMultiplier,
 // getScaleFactor) is gone: once orders come from the shared basis, the per-day rhythm
 // (weekday-seeded) and the intra-day curve (distributeByHour) both arrive with the data,
 // and the invented multipliers were a second, contradictory rhythm layered on top of it.
 
 // ── Date helpers ─────────────────────────────────────────
-
-/** Inclusive day count of [from, to]; at least 1 so an inverted pair can't zero a divisor. */
-function rangeDays(from: string, to: string): number {
-  return Math.max(1, differenceInCalendarDays(parseISO(to), parseISO(from)) + 1);
-}
 
 /**
  * The bucket boundaries [from, to] renders at — the same ladder `resolveTimeframe`
@@ -77,6 +87,40 @@ function bucketKey(date: string, bucket: ReportBucketUnit): string {
     case 'year':
       return `${format(d, 'yyyy')}-01-01`;
   }
+}
+
+// ── Allocation ───────────────────────────────────────────
+
+/**
+ * Splits `total` across `weights` by the Largest Remainder Method, so the parts sum to
+ * EXACTLY `total` — no rounding drift between a card's rows and its own headline, and
+ * none between two cards that share a total.
+ *
+ * Only the RATIOS of `weights` matter; they need not sum to 1. That is deliberate — the
+ * callers pass the original hardcoded figures verbatim as weights, so the proportions
+ * this file shipped with are preserved by construction rather than restated as decimals
+ * someone has to check.
+ *
+ * A non-positive `total` (or an all-zero weight vector) yields all zeros, which is what
+ * drives the cards' existing empty states on a window with no trade.
+ */
+function allocateByShares(total: number, weights: number[]): number[] {
+  const sum = weights.reduce((a, w) => a + w, 0);
+  if (total <= 0 || sum <= 0) return weights.map(() => 0);
+
+  const exact = weights.map((w) => (w / sum) * total);
+  const out = exact.map((v) => Math.floor(v));
+
+  let remainder = Math.round(total - out.reduce((a, v) => a + v, 0));
+  const byRemainder = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (const e of byRemainder) {
+    if (remainder <= 0) break;
+    out[e.i] += 1;
+    remainder -= 1;
+  }
+  return out;
 }
 
 // ── 1. Revenue (derived from the shared per-(restaurant,day) basis) ──
@@ -164,13 +208,55 @@ export function getMockRevenueData(
 }
 
 // ── 2. Payment Methods ───────────────────────────────────
-export function getMockPaymentMethods(from: string, to: string): PaymentMethodData[] {
-  const scale = rangeDays(from, to);
-  return [
-    { method: 'mobile_money', amount: Math.round(1_800_000 * scale), tx_count: Math.round(45 * scale), change_pct: 12.5 },
-    { method: 'cash', amount: Math.round(1_200_000 * scale), tx_count: Math.round(38 * scale), change_pct: -3.2 },
-    { method: 'card', amount: Math.round(600_000 * scale), tx_count: Math.round(15 * scale), change_pct: 28.1 },
-  ];
+
+/**
+ * The method mix, expressed as the per-day figures this file previously hardcoded. Used
+ * as WEIGHTS, so the card's rendered split stays 50 / 33 / 17 exactly as it was — the
+ * change is invisible on an ordinary trading day, and visible only where the basis is
+ * zero or unusually low. `amount` and `tx_count` carry SEPARATE weights on purpose: cash
+ * tickets are smaller than mobile-money ones (UGX ~31.6K vs ~40K average), so a single
+ * vector would flatten a real difference the old figures already encoded.
+ */
+const PAYMENT_METHOD_MIX: { method: string; amountWeight: number; txWeight: number; change_pct: number }[] = [
+  { method: 'mobile_money', amountWeight: 1_800_000, txWeight: 45, change_pct: 12.5 },
+  { method: 'cash', amountWeight: 1_200_000, txWeight: 38, change_pct: -3.2 },
+  { method: 'card', amountWeight: 600_000, txWeight: 15, change_pct: 28.1 },
+];
+
+/**
+ * Settled payments for the window, split across the methods.
+ *
+ * The SETTLED TOTAL is the window's `net` (gross − discount − refunds) — the very figure
+ * the Revenue card puts in its headline (`revenue-card` renders `totals.net`). Allocating
+ * it by largest remainder means the payment card's "Total settled" equals the Revenue
+ * headline to the shilling, which is the coherence this generator exists to provide: a
+ * diner pays the discounted price, and a refund is money given back, so both belong out
+ * of what was settled.
+ *
+ * Transaction counts scale off the window's ACTUAL order count, never a day count, so
+ * payments-per-order stays around one however long the window is.
+ *
+ * `change_pct` is left as it was: still hardcoded, still consumed by no template, and its
+ * correct source is a backend concern recorded as a follow-up.
+ */
+export function getMockPaymentMethods(
+  restaurantId: string,
+  from: string,
+  to: string,
+): PaymentMethodData[] {
+  const rows = dailyRevenue(restaurantId, from, to);
+  const settled = rows.reduce((a, r) => a + r.net, 0);
+  const orders = rows.reduce((a, r) => a + r.orders, 0);
+
+  const amounts = allocateByShares(settled, PAYMENT_METHOD_MIX.map((m) => m.amountWeight));
+  const counts = allocateByShares(orders, PAYMENT_METHOD_MIX.map((m) => m.txWeight));
+
+  return PAYMENT_METHOD_MIX.map((m, i) => ({
+    method: m.method,
+    amount: amounts[i],
+    tx_count: counts[i],
+    change_pct: m.change_pct,
+  }));
 }
 
 // ── 3. Orders ────────────────────────────────────────────
@@ -179,16 +265,12 @@ export function getMockPaymentMethods(from: string, to: string): PaymentMethodDa
  *  never disagree. (The shared basis models order counts, not order status.) */
 function splitBreakdown(total: number, shares: OrdersBreakdown): OrdersBreakdown {
   const keys = Object.keys(shares) as (keyof OrdersBreakdown)[];
-  const exact = keys.map((k) => ({ k, v: total * shares[k] }));
+  const parts = allocateByShares(
+    total,
+    keys.map((k) => shares[k]),
+  );
   const out = { paid: 0, open: 0, cancelled: 0, refunded: 0 } as OrdersBreakdown;
-  for (const e of exact) out[e.k] = Math.floor(e.v);
-
-  let remainder = total - keys.reduce((a, k) => a + out[k], 0);
-  for (const e of [...exact].sort((a, b) => (b.v % 1) - (a.v % 1))) {
-    if (remainder <= 0) break;
-    out[e.k] += 1;
-    remainder -= 1;
-  }
+  keys.forEach((k, i) => (out[k] = parts[i]));
   return out;
 }
 
@@ -225,14 +307,74 @@ export function getMockOrdersData(
 }
 
 // ── 4. Popular Items ─────────────────────────────────────
-export function getMockPopularItems(): PopularItemData[] {
-  return [
-    { item_id: 'item-001', name: 'Luwombo Chicken', section: 'Main Course', revenue: 2_450_000, qty: 98 },
-    { item_id: 'item-002', name: 'Rolex (Chapati Egg Roll)', section: 'Street Food', revenue: 1_870_000, qty: 187 },
-    { item_id: 'item-003', name: 'Matoke & Groundnut Stew', section: 'Main Course', revenue: 1_620_000, qty: 81 },
-    { item_id: 'item-004', name: 'Tilapia Fillet (Grilled)', section: 'Seafood', revenue: 1_340_000, qty: 67 },
-    { item_id: 'item-005', name: 'Passion Fruit Juice (1L)', section: 'Beverages', revenue: 890_000, qty: 178 },
-  ];
+
+/**
+ * The five placeholder dishes, as a revenue WEIGHT and a unit price.
+ *
+ * `revenueWeight` is the revenue figure this file previously hardcoded, reused verbatim
+ * so the ranking and the card's `%` column are preserved exactly — that column is a share
+ * of the displayed five, so a uniform scale cancels out of it entirely.
+ *
+ * `unitPrice` is not invented either: the old fixture's revenue ÷ qty came out to an exact
+ * round price for all five (25K / 10K / 20K / 20K / 5K). Deriving `qty` back from it keeps
+ * today's non-obvious quantity ordering — Rolex 187 > Juice 178 > Luwombo 98, because a
+ * Rolex is a tenth the price of a Luwombo — rather than re-deriving something plausible.
+ * Feeding a top-five total of UGX 8,170,000 reproduces the previous fixture exactly.
+ *
+ * Names here are a FALLBACK only: `DashboardComponent.recomputePopularItems` overlays the
+ * restaurant's real menu identities onto these rows positionally, keeping the metrics.
+ */
+const POPULAR_ITEM_MIX: {
+  item_id: string;
+  name: string;
+  section: string;
+  revenueWeight: number;
+  unitPrice: number;
+}[] = [
+  { item_id: 'item-001', name: 'Luwombo Chicken', section: 'Main Course', revenueWeight: 2_450_000, unitPrice: 25_000 },
+  { item_id: 'item-002', name: 'Rolex (Chapati Egg Roll)', section: 'Street Food', revenueWeight: 1_870_000, unitPrice: 10_000 },
+  { item_id: 'item-003', name: 'Matoke & Groundnut Stew', section: 'Main Course', revenueWeight: 1_620_000, unitPrice: 20_000 },
+  { item_id: 'item-004', name: 'Tilapia Fillet (Grilled)', section: 'Seafood', revenueWeight: 1_340_000, unitPrice: 20_000 },
+  { item_id: 'item-005', name: 'Passion Fruit Juice (1L)', section: 'Beverages', revenueWeight: 890_000, unitPrice: 5_000 },
+];
+
+/**
+ * What share of a window's takings the five best sellers account for.
+ *
+ * These rows are the TOP five, not the whole menu — the card links out to the full list
+ * in Reports — so they must not sum to the window's entire revenue, which would assert a
+ * five-item restaurant. 60% is a modelling choice, and the only free parameter here;
+ * everything else in this generator is derived.
+ */
+const TOP_ITEMS_REVENUE_SHARE = 0.6;
+
+/**
+ * The window's best sellers, scaled off the same basis every other card reads.
+ *
+ * Previously this took NO arguments, so it returned identical figures for "Today", for
+ * "Last year", and for a period with no trade at all. It now tracks the window: a window
+ * with no takings has no best sellers, so it returns an EMPTY LIST rather than five rows
+ * of zero — which is both what the backend's group-by would produce and what drives the
+ * card's existing "No item data available" state, instead of a ranking table of `0.0%`.
+ */
+export function getMockPopularItems(
+  restaurantId: string,
+  from: string,
+  to: string,
+): PopularItemData[] {
+  const net = dailyRevenue(restaurantId, from, to).reduce((a, r) => a + r.net, 0);
+  if (net <= 0) return [];
+
+  const topRevenue = Math.round(net * TOP_ITEMS_REVENUE_SHARE);
+  const revenues = allocateByShares(topRevenue, POPULAR_ITEM_MIX.map((m) => m.revenueWeight));
+
+  return POPULAR_ITEM_MIX.map((m, i) => ({
+    item_id: m.item_id,
+    name: m.name,
+    section: m.section,
+    revenue: revenues[i],
+    qty: Math.round(revenues[i] / m.unitPrice),
+  }));
 }
 
 // ── 5. Tables ────────────────────────────────────────────
@@ -313,9 +455,9 @@ export function getMockDashboardData(
 ): DashboardV2Response {
   return {
     revenue: getMockRevenueData(restaurantId, from, to, bucket),
-    payments: getMockPaymentMethods(from, to),
+    payments: getMockPaymentMethods(restaurantId, from, to),
     orders: getMockOrdersData(restaurantId, from, to, bucket),
-    popular_items: getMockPopularItems(),
+    popular_items: getMockPopularItems(restaurantId, from, to),
     tables: getMockTablesData(),
     kds: getMockKdsData(),
   };
