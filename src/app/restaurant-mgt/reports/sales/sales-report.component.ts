@@ -94,6 +94,14 @@ export class SalesReportComponent implements OnInit, OnDestroy {
   stateMode: ReportStateMode = 'loading';
   range: ReportDateRange | null = null;
   comparisonLabel = '';
+  /**
+   * The basis and bucket the RENDERED series was built for — captured at apply time, the
+   * same discipline as `range`. Reading them live would let the trend chart pair its two
+   * series by a selection the points on screen predate, which is the kind of wrong that
+   * never looks wrong.
+   */
+  basis: ComparisonOption = 'none';
+  bucketUnit: ReportBucketUnit = 'hour';
 
   // Hero + KPI (range-aggregate).
   current: SalesTotals = EMPTY_TOTALS;
@@ -272,6 +280,8 @@ export class SalesReportComponent implements OnInit, OnDestroy {
     this.refunds = mockSalesRefunds(refundRestaurantId, p.range.from, p.range.to);
     this.prevRefunds = p.cmp ? mockSalesRefunds(refundRestaurantId, p.cmp.from, p.cmp.to) : 0;
     this.comparisonLabel = comparisonCaption(p.basis);
+    this.basis = p.basis;
+    this.bucketUnit = bucketUnit;
 
     // Trend + KPI series.
     this.trendPoints = mainPoints;

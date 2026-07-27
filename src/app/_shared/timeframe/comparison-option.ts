@@ -17,12 +17,23 @@
  * A comparison basis. Which of these are OFFERED depends on the shape of the selected
  * range (`comparisonOptionsFor`), so this union is the full vocabulary, not a menu.
  *
- * `prev-year` and `dates-last-year` are genuinely different windows and both belong in
- * the sets that carry them: `prev-year` is WEEKDAY-aligned (a Wednesday compares to a
- * Wednesday), `dates-last-year` is CALENDAR-aligned (22 Jul compares to 22 Jul, which
- * was a different weekday). Where the two would resolve identically — a whole calendar
- * year — only one is offered, because an option set containing two entries that render
- * the same window is a menu that lies.
+ * An id names TWO things: the window to compare against, and — at month level, where the
+ * question exists — how the two series are PAIRED inside the chart (`pairingFor`). Below
+ * month level pairing is not a choice: a day is one point, and a Mon–Sun week against a
+ * Mon–Sun week is already weekday-aligned by position.
+ *
+ * ⚠ `prev-year` and `prev-year-by-day` are DIFFERENT WINDOWS, not two spellings of one.
+ * This is the most confusable pair in the vocabulary, so it is spelled out here rather
+ * than left to a commit message:
+ *   `prev-year`        — a bare 364-day shift. Offered BELOW month level, where the window
+ *                        itself is the unit being compared and shifting it is what makes
+ *                        "the same Wednesday last year" mean anything. (At year shapes it
+ *                        resolves calendar-aligned; a 364-day shift on a 365-day year would
+ *                        overlap the range itself.)
+ *   `prev-year-by-day` — the SAME CALENDAR MONTH one year back, paired by weekday. Offered
+ *                        at month level only. A 364-day shift there straddles two months,
+ *                        so its total mixes July and August takings and no operator would
+ *                        recognise it as "last July".
  */
 export type ComparisonOption =
   | 'none'
@@ -30,11 +41,36 @@ export type ComparisonOption =
   | 'prev-period'
   | 'prev-day'
   | 'prev-week'
-  | 'prev-month'
-  /** Weekday-aligned: 364 days back. Calendar-aligned for whole-year shapes. */
+  /** The previous calendar month, paired by weekday. Month shapes only. */
+  | 'prev-month-by-day'
+  /** The previous calendar month, paired by calendar date. Month shapes only. */
+  | 'prev-month-by-date'
+  /** A bare 364-day shift. Below month level; calendar-aligned at whole-year shapes. */
   | 'prev-year'
+  /** The same calendar month one year back, paired by weekday. Month shapes only. */
+  | 'prev-year-by-day'
   /** Calendar-aligned: the same dates, one year back. */
   | 'dates-last-year';
+
+/**
+ * How the two series line up inside a chart, independent of which window they are drawn
+ * from (TIMEFRAME-02C).
+ *
+ * `by-date` is index pairing — position N of the comparison against position N of the
+ * primary, which is what the chart has always done. `by-day` shifts the comparison lookup
+ * so weekdays meet: a restaurant's Saturday does not resemble its Tuesday, so pairing July
+ * against June by calendar date sets Tue 7 Jul beside Sun 7 Jun and reads as a collapse
+ * that never happened.
+ */
+export type SeriesPairing = 'by-day' | 'by-date';
+
+/**
+ * The pairing an id implies. `by-date` for everything that is not explicitly `-by-day`,
+ * so every option that predates 02C keeps its behaviour exactly.
+ */
+export function pairingFor(option: ComparisonOption): SeriesPairing {
+  return option === 'prev-month-by-day' || option === 'prev-year-by-day' ? 'by-day' : 'by-date';
+}
 
 /**
  * Every option id, for validating an untrusted `cmp` URL param. Membership here means
@@ -46,8 +82,10 @@ export const COMPARISON_OPTIONS: ComparisonOption[] = [
   'prev-period',
   'prev-day',
   'prev-week',
-  'prev-month',
+  'prev-month-by-day',
+  'prev-month-by-date',
   'prev-year',
+  'prev-year-by-day',
   'dates-last-year',
 ];
 
@@ -67,10 +105,19 @@ const COMPARISON_LABELS: Record<ComparisonOption, { menu: string; caption: strin
   'prev-period': { menu: 'Previous period', caption: 'vs previous period' },
   'prev-day': { menu: 'Previous day', caption: 'vs previous day' },
   'prev-week': { menu: 'Previous week', caption: 'vs previous week' },
-  'prev-month': { menu: 'Previous month', caption: 'vs previous month' },
+  // THE CAPTION NAMES THE WINDOW, NOT THE PAIRING. `prev-month-by-day` and
+  // `prev-month-by-date` resolve to the SAME window, so their delta chips show identical
+  // numbers — captioning them differently would imply a difference the figures do not
+  // have. Pairing is a chart concern and shows up in the chart.
+  'prev-month-by-day': { menu: 'Previous month by day (Mon–Sun)', caption: 'vs previous month' },
+  'prev-month-by-date': { menu: 'Previous month by date (DD/MM)', caption: 'vs previous month' },
   'prev-year': { menu: 'Previous year', caption: 'vs previous year' },
+  'prev-year-by-day': {
+    menu: 'Previous year by day (Mon–Sun)',
+    caption: 'vs same month last year',
+  },
   // The "(DD/MM)" qualifier earns its place in the MENU, where it is what distinguishes
-  // this entry from "Previous year" sitting directly above it. On a chip, beside a
+  // these entries from the "by day" ones sitting directly above them. On a chip, beside a
   // number, it is noise.
   'dates-last-year': { menu: 'Dates last year (DD/MM)', caption: 'vs dates last year' },
 };

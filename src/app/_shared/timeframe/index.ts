@@ -13,8 +13,9 @@ export {
   COMPARISON_OPTIONS,
   comparisonCaption,
   comparisonOptionLabel,
+  pairingFor,
 } from './comparison-option';
-export type { ComparisonOption } from './comparison-option';
+export type { ComparisonOption, SeriesPairing } from './comparison-option';
 
 export {
   REPORT_PRESETS,

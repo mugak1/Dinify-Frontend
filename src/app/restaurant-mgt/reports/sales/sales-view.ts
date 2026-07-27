@@ -7,7 +7,7 @@
 // transform is unit-testable in isolation (sales-view.spec.ts).
 
 import { format, getDay, parseISO } from 'date-fns';
-import { ReportBucketUnit } from '../../../_shared/timeframe';
+import { ReportBucketUnit, SeriesPairing } from '../../../_shared/timeframe';
 import { SalesAggregateRow, SalesHourlyRow } from '../models/reports.models';
 
 /** Which service feeds a bucket + how the breakdown table is titled. */
@@ -236,4 +236,70 @@ export function peakLabel(hour: number | null): string {
   if (hour >= 12 && hour <= 14) return 'Lunch peak';
   if (hour >= 18 && hour <= 21) return 'Dinner peak';
   return 'Busiest hour';
+}
+
+// ─── Comparison-series pairing (TIMEFRAME-02C) ───────────────────────────────────────
+//
+// WHICH window the comparison is drawn from is `resolveComparison`'s job. HOW the two
+// series line up inside the chart is this one's, and at month level it is a real question
+// with two legitimate answers: a restaurant's Saturday does not resemble its Tuesday, so
+// pairing July against June by calendar date sets Tue 7 Jul beside Sun 7 Jun and reads as
+// a collapse that never happened — while accounting-style reconciliation wants exactly
+// that date-against-date view.
+//
+// This lives here rather than in `_shared/timeframe/` for two reasons: it needs date-fns,
+// which the zero-import comparison-option module must not take on; and it operates on
+// `SalesPoint`, a Sales type the shared timeframe core has no business knowing about.
+
+/** Monday-first weekday index, 0 = Mon … 6 = Sun. Matches `presetToRange`'s weekStartsOn. */
+const mondayIndex = (isoDate: string): number => (getDay(parseISO(isoDate)) + 6) % 7;
+
+/**
+ * The comparison point to render at each PRIMARY index, or `null` where there is none.
+ *
+ * Returns POINTS rather than numbers so one alignment feeds both the chart series and the
+ * tooltip's comparison date — a second lookup would mean a second offset calculation, and
+ * two of those disagree the moment either changes.
+ *
+ * `by-date` is index pairing, which is what the chart has always done. `by-day` shifts the
+ * lookup by the difference between the two windows' opening weekdays, so weekdays meet:
+ * July 2026 opens on a Wednesday and June 2026 on a Monday, giving an offset of 2, so
+ * primary index 4 (Sun 5 Jul) reads comparison index 6 (Sun 7 Jun).
+ *
+ * PAIRING APPLIES ONLY TO THE `day` BUCKET. Weekday alignment is meaningless once buckets
+ * are months, and impossible for `hour`, where `key` is `'0'…'23'` and no date exists
+ * anywhere in the pipeline. Any other bucket falls back to index pairing.
+ *
+ * Out-of-range indices yield `null` — never wrapped, never clamped to the nearest end.
+ * Chart.js draws a gap there (its `spanGaps` default is false), and a visible gap is
+ * honest where a fabricated point is not.
+ *
+ * The offset reads each series' FIRST key rather than the window bounds, which assumes a
+ * series starts at its window's start. That is the same density assumption index pairing
+ * has always made, so it is no weaker — and it keeps `key` as the single date source.
+ */
+export function alignComparisonSeries(
+  points: SalesPoint[],
+  comparisonPoints: SalesPoint[],
+  pairing: SeriesPairing,
+  bucketUnit: ReportBucketUnit,
+): (SalesPoint | null)[] {
+  const offset =
+    pairing === 'by-day' && bucketUnit === 'day' && points.length && comparisonPoints.length
+      ? (mondayIndex(points[0].key) - mondayIndex(comparisonPoints[0].key) + 7) % 7
+      : 0;
+
+  return points.map((_, i) => comparisonPoints[i + offset] ?? null);
+}
+
+/**
+ * A point's date, unambiguous enough to sit in a tooltip.
+ *
+ * The `day` case formats from `key` rather than reusing `label`, which is `'15 Jun'` and
+ * carries NO YEAR — beside a `prev-year-by-day` or `dates-last-year` comparison that would
+ * print a date indistinguishable from the primary's. Every other bucket's label already
+ * carries a year (`'Jun 2026'`, `'2026'`) or is date-free (`'1 PM'`), so it is reused.
+ */
+export function pointDateLabel(p: SalesPoint, bucketUnit: ReportBucketUnit): string {
+  return bucketUnit === 'day' ? format(parseISO(p.key), 'd MMM yyyy') : p.label;
 }
