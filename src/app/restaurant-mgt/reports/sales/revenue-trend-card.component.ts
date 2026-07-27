@@ -4,7 +4,8 @@ import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions, TooltipItem } from 'chart.js';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
-import { SalesPoint, bestPoint } from './sales-view';
+import { ComparisonOption, ReportBucketUnit, pairingFor } from '../../../_shared/timeframe';
+import { SalesPoint, alignComparisonSeries, bestPoint, pointDateLabel } from './sales-view';
 import { chartMutedColor, chartTooltipTheme, resolveHsl } from 'src/app/_common/utils/chart-theme-utils';
 
 const BRAND = 'hsl(142, 76%, 36%)'; // dashboard revenue-chart green
@@ -14,7 +15,13 @@ const BEST = 'hsl(142, 71%, 45%)';
  * Revenue trend (bucket-driven, line). The x-axis IS the bucket — it redraws
  * hourly / daily / monthly as the timeframe changes. Shaped CLIENT-SIDE from the
  * normalized series (no result=graph call). Overlays: a dashed GHOST of the
- * comparison window (aligned by bucket index) and a marker on the best bucket.
+ * comparison window and a marker on the best bucket.
+ *
+ * HOW THE GHOST LINES UP is the user's choice at month level (02C): `by-date` is index
+ * pairing, `by-day` shifts the lookup so weekdays meet. The alignment itself lives in
+ * `alignComparisonSeries`; this card only routes `pairingFor(basis)` into it and keeps the
+ * result for the tooltip. The x-axis ALWAYS shows the primary range's own dates — the
+ * comparison LOOKUP shifts, the axis never does.
  * The daily average is surfaced as a "Daily avg" stat chip in the card header
  * (it is no longer drawn as a chart line).
  */
@@ -68,12 +75,24 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
   @Input() comparisonLabel = 'Previous period';
   /** When false, the dashed comparison "ghost" line + its legend are hidden. */
   @Input() compareEnabled = true;
+  /** The selected basis. The card reads only `pairingFor(basis)` off it. */
+  @Input() basis: ComparisonOption = 'none';
+  /** Resolved bucket — pairing applies to `day` only; see `alignComparisonSeries`. */
+  @Input() bucketUnit: ReportBucketUnit = 'day';
 
   readonly brand = BRAND;
   /** Daily average, formatted as millions for the header chip (e.g. "UGX 2.93M"). */
   dailyAvgLabel = 'UGX 0.00M';
   data: ChartData<'line'> = { labels: [], datasets: [] };
   options!: ChartOptions<'line'>;
+
+  /**
+   * The comparison point rendered at each primary index, `null` where there is none.
+   * Held on the instance because `ghost` reduces to a bare `number[]` and the tooltip
+   * still needs the comparison DATE — the same closure-over-the-series pattern the
+   * dashboard revenue card uses.
+   */
+  private aligned: (SalesPoint | null)[] = [];
 
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -85,7 +104,17 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
     const labels = this.points.map((p) => p.label);
     const main = this.points.map((p) => p.revenue);
     // Compare off → empty ghost series so the dashed comparison line draws nothing.
-    const ghost = (this.compareEnabled ? this.comparisonPoints : []).map((p) => p.revenue);
+    this.aligned = this.compareEnabled
+      ? alignComparisonSeries(
+          this.points,
+          this.comparisonPoints,
+          pairingFor(this.basis),
+          this.bucketUnit,
+        )
+      : [];
+    // `null` where the pairing offset runs past the end of the comparison series —
+    // Chart.js draws a gap there, which is honest where a fabricated point is not.
+    const ghost = this.aligned.map((p) => p?.revenue ?? null);
     const avg = main.length ? main.reduce((a, b) => a + b, 0) / main.length : 0;
     this.dailyAvgLabel = 'UGX ' + (avg / 1e6).toFixed(2) + 'M';
 
@@ -132,6 +161,31 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
     };
   }
 
+  /**
+   * Tooltip callbacks, built once but reading `this` live so they follow each redraw.
+   *
+   * NAMING BOTH DATES IS LOAD-BEARING, not polish. Under `by-day` a point's comparison
+   * value no longer comes from the same date number, so without it the user sees two lines
+   * and has no way to learn what the grey one is aligned to. Before 02C there was only a
+   * `label` callback and no `title` at all, so nothing named any date.
+   */
+  private tooltipCallbacks() {
+    return {
+      title: (items: TooltipItem<'line'>[]) => {
+        const p = this.points[items[0]?.dataIndex ?? -1];
+        return p ? pointDateLabel(p, this.bucketUnit) : '';
+      },
+      label: (item: TooltipItem<'line'>) => {
+        const value = formatUGX(Number(item.raw) || 0);
+        // Dataset 0 is the ghost (see the datasets array); only it carries a second date.
+        if (item.datasetIndex !== 0) return `${item.dataset.label}: ${value}`;
+        const cmp = this.aligned[item.dataIndex];
+        if (!cmp) return '';
+        return `${item.dataset.label}: ${value} · ${pointDateLabel(cmp, this.bucketUnit)}`;
+      },
+    };
+  }
+
   private buildOptions(): ChartOptions<'line'> {
     const tt = chartTooltipTheme(this.host.nativeElement);
     const muted = chartMutedColor(this.host.nativeElement);
@@ -151,9 +205,7 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
           padding: 12,
           cornerRadius: 8,
           displayColors: false,
-          callbacks: {
-            label: (item: TooltipItem<'line'>) => `${item.dataset.label}: ${formatUGX(Number(item.raw) || 0)}`,
-          },
+          callbacks: this.tooltipCallbacks(),
         },
       },
       scales: {

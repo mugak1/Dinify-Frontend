@@ -280,7 +280,30 @@ so keep it current when conventions change.
   Dashboard classifies AND resolves from `effectiveRange`, not the raw range, so the
   baseline spans the same length the primary request measured; Reports still resolves from
   the raw range and carries the same latent over-cap mismatch (a known follow-up, reachable
-  only via a hand-crafted URL). `tables-card`'s `trend-indicator` tiles are deliberately
+  only via a hand-crafted URL).
+  Weekday vs calendar-date pairing (02C): ✅ **at month level, HOW the two chart series are
+  paired is a user choice**, separate from which window they are drawn from — a restaurant's
+  Saturday does not resemble its Tuesday, so pairing July against June by calendar date sets
+  Tue 7 Jul beside Sun 7 Jun and reads as a collapse that never happened. The month menu
+  carries `prev-month-by-day` / `prev-month-by-date` and `prev-year-by-day` /
+  `dates-last-year` — two pairs each sharing a window and differing only in `pairingFor`.
+  Pairing is offered at month shapes ONLY (a day is one point; a Mon–Sun week against a
+  Mon–Sun week is already weekday-aligned by position; a year buckets monthly) and applies
+  only to the `day` bucket. The alignment lives in `alignComparisonSeries`
+  (`reports/sales/sales-view.ts`) and reaches exactly one surface, `revenue-trend-card` —
+  no other card takes a comparison SERIES. Its offset is read from each series' own first
+  `key`, NOT from the window bounds, and that is deliberate: the period series is a plain
+  group-by (the backend zero-fills only the hourly path), so a closed day is absent, and
+  dropping a leading element shifts every index down by one while advancing the observed
+  opening weekday by one — the two cancel, so a data-derived offset self-corrects where one
+  computed for a dense array would not. Known limitation, pre-existing and shared with index
+  pairing: an INTERNAL gap still shifts every index after it. Densifying each series to its
+  window is the next PR and should land before 02D — it also fixes the x-axis silently
+  omitting closed days — and it touches `normalizeSeries`, which every Sales card consumes,
+  so it needs its own recon. The **month default is now `prev-month-by-day`**, i.e. weekday
+  pairing. The Dashboard is unaffected: it renders no comparison series, only a headline, a
+  badge and a caption, so pairing has nothing to act on there.
+  `tables-card`'s `trend-indicator` tiles are deliberately
   OUTSIDE the comparison basis — they compare `turns_today` / `avg_ticket_today` against
   their `*_yesterday` server fields, which are anchored to yesterday rather than derived
   from the selected range.
@@ -512,9 +535,11 @@ writing new tag, price/menu or date-range logic:
     `from <= to`, neither bound future, unknown `preset` → `'custom'`, unknown `cmp` →
     absent, never throws — it is THE one place an untrusted timeframe URL is made safe,
     so a new param joins it rather than getting a parser of its own)
-  - the comparison vocabulary (`comparison-option.ts`, 02A): `ComparisonOption`
-    (`none` / `prev-period` / `prev-day` / `prev-week` / `prev-month` / `prev-year` /
-    `dates-last-year`), `COMPARISON_OPTIONS`, and THE ONE LABEL SOURCE —
+  - the comparison vocabulary (`comparison-option.ts`, 02A; pairing added in 02C):
+    `ComparisonOption` (`none` / `prev-period` / `prev-day` / `prev-week` /
+    `prev-month-by-day` / `prev-month-by-date` / `prev-year` / `prev-year-by-day` /
+    `dates-last-year`), `COMPARISON_OPTIONS`, `SeriesPairing` + `pairingFor`, and
+    THE ONE LABEL SOURCE —
     `comparisonOptionLabel` (menu) + `comparisonCaption` (delta-chip), over a single
     table. It replaced FIVE vocabularies: four byte-identical per-tab `COMPARISON_LABELS`
     maps and the engine's `comparisonRangeLabel`. **Zero imports, deliberately** — the
@@ -528,17 +553,24 @@ writing new tag, price/menu or date-range logic:
     `resolveComparison` is **THE ONE comparison-window resolver** — the preset-keyed
     `comparisonRange` / `comparisonRangeLabel` pair it replaced is gone; do not add a
     second entry point. Its option sets key off SHAPE: day → prev-day/prev-week/
-    prev-year/dates-last-year; week* → prev-week/prev-year/dates-last-year; month* →
-    prev-month/prev-year/dates-last-year; year* → prev-year only; custom → prev-period.
+    prev-year/dates-last-year; week* → prev-week/prev-year/dates-last-year; **month* →
+    prev-month-by-day/prev-month-by-date/prev-year-by-day/dates-last-year** (02C);
+    year* → prev-year only; custom → prev-period.
     Each shape's default is its first non-`none` entry (never `none` — Reports has always
-    shown a comparison). No set holds two entries resolving to the SAME window, which is
-    why the year shapes omit `dates-last-year`. Two rules worth knowing: **month-to-date
+    shown a comparison). No set holds two entries resolving to the same window AND pairing
+    it the same way — 02C **loosened that invariant from "window" to "(window, pairing)"**,
+    because the month sets now carry two pairs sharing a window on purpose. Three rules
+    worth knowing: **month-to-date
     compares PARTIAL-TO-PARTIAL** (1–26 Jul → 1–26 Jun, clamped into a shorter prior
     month; a complete month still compares to the complete prior one) — changed in 02A
     because a 26-day total against a complete 30-day month always read as a collapse for
-    arithmetic rather than trading reasons; and **`prev-year` is weekday-aligned (364
-    days) below the year level but CALENDAR-aligned for `year`/`year-to-date`**, since a
-    364-day shift on a 365-day year produces a window that overlaps the range itself.
+    arithmetic rather than trading reasons; **`prev-year` is weekday-aligned (364
+    days) below MONTH level but CALENDAR-aligned from month level up** (year shapes in 02A,
+    month shapes in 02C) — a 364-day shift straddles a month boundary, giving July a window
+    that mixes July and August takings, and on a year it overlaps the range itself; and
+    **`prev-year` and `prev-year-by-day` are DIFFERENT WINDOWS, not two spellings of one** —
+    the bare 364-day shift below month level, the same calendar month at month level. That
+    is the most confusable pair in the vocabulary and it is spelled out at the declaration.
     **`resolveComparison` and `previousEqualLengthPeriod` are NOT interchangeable** —
     the first answers "what did the USER choose", the second mirrors the
     `dashboard-v2` backend formula exactly (`prev_from = from − ((to−from)+1d)`,

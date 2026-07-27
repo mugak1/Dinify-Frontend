@@ -195,7 +195,7 @@ describe('TransactionsReportComponent', () => {
 
       // Flip to a real basis on the same live pipeline: one MORE call, and a comparison.
       spy.calls.reset();
-      timeframe.setComparison('prev-month');
+      timeframe.setComparison('prev-month-by-day');
       tick(600);
 
       expect(spy.calls.count()).toBe(2); // current + comparison

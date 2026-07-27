@@ -246,7 +246,7 @@ describe('timeframe hosts — isolation and route scoping', () => {
       await flush();
       const reports = harness.routeDebugElement!.injector.get(TimeframeService);
       expect(reports).not.toBe(dashboard);
-      expect(reports.comparisonValue).toBe('prev-month');
+      expect(reports.comparisonValue).toBe('prev-month-by-day');
     });
 
     it('neither host writes cmp to the URL at its default', async () => {
@@ -276,7 +276,7 @@ describe('timeframe hosts — isolation and route scoping', () => {
 
     it('a seeded Dashboard basis never leaks into Reports', async () => {
       stored[DASHBOARD_CMP_KEY] = 'dates-last-year';
-      expect((await bootAt('/reports')).comparisonValue).toBe('prev-month');
+      expect((await bootAt('/reports')).comparisonValue).toBe('prev-month-by-day');
     });
 
     it('a non-default cmp does not follow you onto a route with no timeframe', async () => {

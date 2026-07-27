@@ -146,8 +146,8 @@ function comparison(from: Date, to: Date): ReportDateRange {
  * `to - length` so a line-by-line diff against the backend is trivially checkable.
  *
  * NOT `resolveComparison`, and the Dashboard must never call that one. `resolveComparison`
- * answers "what did the USER choose to compare against", and its `prev-month` on a
- * month-to-date range gives 1–26 Jun for 1–26 Jul — while dashboard-v2 always shifts by
+ * answers "what did the USER choose to compare against", and its prev-month ids on a
+ * month-to-date range give 1–26 Jun for 1–26 Jul — while dashboard-v2 always shifts by
  * the inclusive length. A frontend delta computed one way against a backend total computed
  * the other is a wrong number with no error attached to it. The two coincide only when the
  * selection happens to be a whole calendar month, which is why the drift was invisible
@@ -457,12 +457,16 @@ export function stepRange(
  * entry is always `'none'`; the second is the shape's default (see
  * `defaultComparisonFor`).
  *
- * No set contains two entries that resolve to the same window — that would be a menu
- * that lies. That rule is why the year shapes omit `dates-last-year`: for a whole
- * calendar year it is `prev-year` (see below), so offering both would render one window
- * under two names. It is also why there is a single `prev-month`/`prev-year` rather than
- * a by-day/by-date pair; how two series are PAIRED inside a chart is 02C, and pairing is
- * not a different window.
+ * No set contains two entries that resolve to the same window AND pair it the same way —
+ * that would be a menu that lies. The rule is why the year shapes omit `dates-last-year`:
+ * for a whole calendar year it is `prev-year` (see below), so offering both would render
+ * one window under two names.
+ *
+ * 02C widened it from "window" to "(window, pairing)". The month sets deliberately carry
+ * pairs that SHARE a window — `prev-month-by-day` / `prev-month-by-date`, and
+ * `prev-year-by-day` / `dates-last-year` — because at month level how the two series are
+ * paired inside the chart is a real question with two legitimate answers. They behave
+ * differently, which is what the rule was ever about.
  *
  * `custom` is deliberately absent from every set: a hand-picked comparison range is 02D.
  */
@@ -475,7 +479,17 @@ export function comparisonOptionsFor(shape: RangeShape): ComparisonOption[] {
       return ['none', 'prev-week', 'prev-year', 'dates-last-year'];
     case 'month':
     case 'month-to-date':
-      return ['none', 'prev-month', 'prev-year', 'dates-last-year'];
+      // Month level is the ONLY place pairing is a question, so it is the only place the
+      // menu carries by-day / by-date variants. `prev-year` is deliberately absent here:
+      // at month level "previous year" means the same calendar month, which is what
+      // `prev-year-by-day` and `dates-last-year` give.
+      return [
+        'none',
+        'prev-month-by-day',
+        'prev-month-by-date',
+        'prev-year-by-day',
+        'dates-last-year',
+      ];
     case 'year':
     case 'year-to-date':
       return ['none', 'prev-year'];
@@ -532,11 +546,16 @@ function priorMonthWindow(from: Date, lengthDays: number): ReportDateRange {
  *   prev-day        → both bounds one day back
  *   prev-week       → both bounds seven days back; partial-to-partial for week-to-date,
  *                     and "the same weekday last week" for a single day
- *   prev-month      → a COMPLETE month compares to the complete prior month; a
- *                     MONTH-TO-DATE range compares PARTIAL-TO-PARTIAL (see below)
- *   prev-year       → 364 days back, so a Wednesday compares to a Wednesday — EXCEPT for
- *                     the whole-year shapes, where it is calendar-aligned (see below)
- *   dates-last-year → the same calendar dates, one year back (29 Feb → 28 Feb)
+ *   prev-month-by-day, prev-month-by-date
+ *                   → ONE window: a COMPLETE month compares to the complete prior month,
+ *                     a MONTH-TO-DATE range PARTIAL-TO-PARTIAL (see below). They differ
+ *                     only in `pairingFor`, which is a chart concern
+ *   prev-year       → 364 days back, so a Wednesday compares to a Wednesday — EXCEPT from
+ *                     MONTH LEVEL UP, where it is calendar-aligned (see below)
+ *   prev-year-by-day, dates-last-year
+ *                   → ONE window: the same calendar dates one year back (29 Feb → 28 Feb),
+ *                     which at month level is the same calendar month. Again they differ
+ *                     only in pairing
  *
  * MONTH-TO-DATE COMPARES PARTIAL-TO-PARTIAL (behaviour change, 02A). 1–26 Jul resolves to
  * 1–26 Jun, not the whole of June. Setting a 26-day total against a complete 30-day month
@@ -545,9 +564,13 @@ function priorMonthWindow(from: Date, lengthDays: number): ReportDateRange {
  * makes the old month behaviour an inconsistency rather than a considered choice. Complete
  * shapes are unaffected: a whole calendar month still compares to the whole prior one.
  *
- * `prev-year` IS CALENDAR-ALIGNED FOR THE YEAR SHAPES. A 364-day shift is the retail
- * convention and is right for a day, a week or a month, but a calendar year is 365 or 366
- * days: shifting 2026 back by 364 gives 2 Jan 2025 – 1 Jan 2026, a window that OVERLAPS
+ * `prev-year` IS CALENDAR-ALIGNED FROM MONTH LEVEL UP (year shapes in 02A, month shapes
+ * in 02C). A 364-day shift is the retail convention and is right for a day or a week, but
+ * it straddles boundaries above that. On a MONTH it produces roughly 3 Jul – 2 Aug for a
+ * July range, whose total mixes two months' takings; 02C moved weekday alignment at month
+ * level into `pairingFor`, where it belongs, so the window can be the honest one. On a
+ * YEAR it is worse still: shifting 2026 back by 364 gives 2 Jan 2025 – 1 Jan 2026, which
+ * OVERLAPS
  * the range it is being compared to. It is also what makes the year sets honest — with
  * calendar alignment, `dates-last-year` would resolve identically there, which is why it
  * is not offered.
@@ -575,7 +598,11 @@ export function resolveComparison(
     case 'prev-week':
       return comparison(subWeeks(from, 1), subWeeks(to, 1));
 
-    case 'prev-month': {
+    // One window, two pairings. The `-by-day` / `-by-date` split is a CHART concern
+    // (`pairingFor`) and changes nothing about which dates are fetched — which is exactly
+    // why they share this branch rather than each getting one.
+    case 'prev-month-by-day':
+    case 'prev-month-by-date': {
       if (shape === 'month') {
         const prev = startOfMonth(subMonths(from, 1));
         return comparison(prev, endOfMonth(prev));
@@ -583,16 +610,30 @@ export function resolveComparison(
       if (shape === 'month-to-date') {
         return priorMonthWindow(from, differenceInCalendarDays(to, from) + 1);
       }
-      // Defensive: `prev-month` is offered for the month shapes only.
+      // Defensive: the prev-month ids are offered for the month shapes only.
       return comparison(subMonths(from, 1), subMonths(to, 1));
     }
 
     case 'prev-year':
-      if (shape === 'year' || shape === 'year-to-date') {
+      // CALENDAR-ALIGNED FROM MONTH LEVEL UP (02C widened this from the year shapes). A
+      // 364-day shift on a month straddles two of them — July 2026 would compare against
+      // roughly 3 Jul – 2 Aug 2025, a total mixing July and August takings that no
+      // operator would recognise as "last July". Month menus no longer offer this id at
+      // all; the branch is fixed anyway so no path can return that window.
+      if (
+        shape === 'year' ||
+        shape === 'year-to-date' ||
+        shape === 'month' ||
+        shape === 'month-to-date'
+      ) {
         return comparison(subYears(from, 1), subYears(to, 1));
       }
+      // Below month level the window IS the unit being compared, and shifting it whole is
+      // what makes "the same Wednesday last year" mean anything.
       return comparison(subDays(from, 364), subDays(to, 364));
 
+    // Same window, different pairing — see the prev-month pair above.
+    case 'prev-year-by-day':
     case 'dates-last-year':
       return comparison(subYears(from, 1), subYears(to, 1));
   }

@@ -157,9 +157,9 @@ describe('timeframe range model', () => {
     // timeframe-engine, which imports this file — so it cannot be asked here. The parser
     // only vouches for the token; TimeframeService applies the shape gate.
     it('does not shape-check a known cmp — that is the service\'s job', () => {
-      // 'prev-month' is not offered for a single-day range, yet the token is known.
-      expect(parse('2026-06-15', '2026-06-15', 'today', 'prev-month')?.comparison).toBe(
-        'prev-month',
+      // 'prev-month-by-day' is not offered for a single-day range, yet the token is known.
+      expect(parse('2026-06-15', '2026-06-15', 'today', 'prev-month-by-day')?.comparison).toBe(
+        'prev-month-by-day',
       );
     });
 
