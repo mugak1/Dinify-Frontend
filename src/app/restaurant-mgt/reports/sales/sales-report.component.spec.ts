@@ -53,9 +53,9 @@ describe('SalesReportComponent', () => {
   }));
 
   it('uses the hourly bucket for a single-day range and hides the weekday cycle', fakeAsync(() => {
-    // A TRADING day. 15 Jun 2026 is a Monday, and the mock restaurant is shut on Mondays, so
-    // that date now resolves to a zero-order range and the empty state — correctly. The date
-    // was incidental to what this spec is about; the 16th is the same test with trade in it.
+    // The date is incidental to what this spec is about — any single day gives an hourly
+    // bucket. (It was moved off the 15th when the mock shut on Mondays; closures are off
+    // again, so both dates now trade, and it is left here rather than churned back.)
     timeframe.set({ preset: 'today', from: '2026-06-16', to: '2026-06-16' });
     component.ngOnInit();
     tick(600);
@@ -164,33 +164,36 @@ describe('SalesReportComponent', () => {
     }));
   });
 
-  // ─── Densification ────────────────────────────────────────────────────────────────
+  // ─── Series spans the window ──────────────────────────────────────────────────────
   //
-  // The mock now shuts on Mondays and drops those buckets, mirroring the backend's group-by,
-  // so this suite can finally observe the thing the fix is about.
-  describe('series densification', () => {
-    it('fills the closed days back in, so the series spans the whole range', fakeAsync(() => {
-      // June 2026 has 30 days, five of them Mondays. The wire returns 25 buckets; the chart
-      // must still plot 30, or the axis runs Sunday straight through to Tuesday.
+  // MOCK-NO-CLOSURES-00: the mock trades every day again (CLOSED_WEEKDAY = null), so the wire
+  // hands this component a DENSE series and there is nothing here for `normalizeSeries` to
+  // fill. The fill itself is covered by `sales-view.spec.ts`, whose sparse fixtures are
+  // hand-built and never touched the mock. What is still worth pinning end to end is that the
+  // rendered series spans the SELECTED WINDOW rather than whatever the wire happened to send —
+  // true at any wire density, and the thing that breaks if the window stops being threaded in.
+  describe('series spans the selected window', () => {
+    it('plots every day of the range, in order', fakeAsync(() => {
       timeframe.set({ preset: 'custom', from: '2026-06-01', to: '2026-06-30' });
       component.ngOnInit();
       tick(600);
 
       expect(component.trendPoints.length).toBe(30);
-      expect(component.trendPoints.filter((p) => p.orders === 0).length).toBe(5);
       expect(component.trendPoints[0].key).toBe('2026-06-01');
       expect(component.trendPoints[29].key).toBe('2026-06-30');
-      // The breakdown table is a 1:1 map of the series, so it gains the same zero rows.
+      // The breakdown table is a 1:1 map of the series.
       expect(component.breakdownRows.length).toBe(30);
     }));
 
-    it('leaves the totals to the buckets that traded', fakeAsync(() => {
+    it('totals the plotted series exactly — the headline and the chart agree', fakeAsync(() => {
       timeframe.set({ preset: 'custom', from: '2026-06-01', to: '2026-06-30' });
       component.ngOnInit();
       tick(600);
 
+      // Holds whether or not the series carries filled zero buckets: a zero bucket adds
+      // nothing to the sum, so the headline matches the chart at any wire density.
       const summed = component.trendPoints.reduce((a, p) => a + p.orders, 0);
-      expect(component.current.orders).toBe(summed); // zero buckets contribute nothing
+      expect(component.current.orders).toBe(summed);
       expect(component.current.aov).toBe(Math.round(component.current.revenue / summed));
     }));
 

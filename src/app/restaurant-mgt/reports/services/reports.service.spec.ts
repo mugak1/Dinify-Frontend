@@ -59,12 +59,12 @@ describe('ReportsService', () => {
     tick(600);
 
     expect(Array.isArray(rows)).toBeTrue();
-    // One bucket per TRADING day, not per calendar day. 1 Jun 2026 is a Monday and the mock
-    // restaurant is shut then, so the wire simply has no bucket for it — the same plain
-    // group-by the backend does. Filling the gap is the UI's job (`normalizeSeries`).
-    expect(rows.length).toBe(6);
-    expect(rows[0].period).toBe('2026-06-02');
-    expect(rows.some((r: any) => r.period === '2026-06-01')).toBeFalse();
+    // One bucket per TRADING day. The wire still omits a day with no orders — the same plain
+    // group-by the backend does, with filling the gap left to the UI (`normalizeSeries`) — but
+    // with closures off (CLOSED_WEEKDAY = null) every day trades, so all 7 are present.
+    expect(rows.length).toBe(7);
+    expect(rows[0].period).toBe('2026-06-01');
+    expect(rows.some((r: any) => r.period === '2026-06-01')).toBeTrue();
   }));
 
   it('returns mock sales listing rows after the simulated latency', fakeAsync(() => {

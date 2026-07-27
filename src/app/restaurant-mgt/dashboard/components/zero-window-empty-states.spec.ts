@@ -11,8 +11,8 @@ import { getMockPaymentMethods, getMockPopularItems } from '../data/dashboard-mo
  *
  * Until DASH-MOCK-COHERENCE-00 neither branch was reachable in mock mode. Payments
  * multiplied fixed constants by a calendar-day count and popular items took no arguments,
- * so both cards reported takings for a closed day. The empty states existed but nothing in
- * the running app could produce one, and neither card had any spec at all.
+ * so both cards reported takings for a day with no orders. The empty states existed but
+ * nothing in the running app could produce one, and neither card had any spec at all.
  *
  * These specs feed the cards the REAL generator output rather than hand-written zeros, so
  * they pin the generator → card contract end to end: if a future generator goes back to
@@ -20,8 +20,16 @@ import { getMockPaymentMethods, getMockPopularItems } from '../data/dashboard-mo
  */
 
 const RID = 'r1';
-/** June 2026: the 1st is a Monday — the mock restaurant's closed day. */
-const CLOSED = '2026-06-01';
+/**
+ * A window with no trade. MOCK-NO-CLOSURES-00 switched closures off (CLOSED_WEEKDAY = null)
+ * so every calendar day trades, which leaves an INVERTED range as the only input for which
+ * the basis yields no rows — `dailyRevenue` returns [] for one by contract. Restore
+ * CLOSED_WEEKDAY to a weekday index and a single closed date works here again. Feeding the
+ * generators rather than hand-writing an empty array is the point: it is the generator → card
+ * contract under test, not the cards alone.
+ */
+const NO_TRADE_FROM = '2026-06-02';
+const NO_TRADE_TO = '2026-06-01';
 const TRADING = '2026-06-02';
 
 describe('dashboard cards — a window with no trade', () => {
@@ -45,7 +53,7 @@ describe('dashboard cards — a window with no trade', () => {
     }
 
     it('says nothing settled, rather than showing a zero-width split', () => {
-      const host = render(CLOSED, CLOSED);
+      const host = render(NO_TRADE_FROM, NO_TRADE_TO);
 
       expect(host.textContent).toContain('No settled payments in this period');
       expect(host.textContent).not.toContain('Total settled');
@@ -55,7 +63,7 @@ describe('dashboard cards — a window with no trade', () => {
     });
 
     it('computes no percentage it cannot state — no NaN anywhere', () => {
-      const host = render(CLOSED, CLOSED);
+      const host = render(NO_TRADE_FROM, NO_TRADE_TO);
       expect(host.textContent).not.toContain('NaN');
       expect(fixture.componentInstance.total).toBe(0);
 
@@ -101,7 +109,7 @@ describe('dashboard cards — a window with no trade', () => {
     }
 
     it('renders the empty state, not a ranking table of 0 and 0.0%', () => {
-      const host = render(CLOSED, CLOSED);
+      const host = render(NO_TRADE_FROM, NO_TRADE_TO);
 
       expect(host.textContent).toContain('No item data available');
       expect(host.querySelector('table')).toBeNull();
@@ -110,7 +118,7 @@ describe('dashboard cards — a window with no trade', () => {
     });
 
     it('divides by no zero total — the denominator is never reached', () => {
-      render(CLOSED, CLOSED);
+      render(NO_TRADE_FROM, NO_TRADE_TO);
       expect(fixture.componentInstance.displayItems).toEqual([]);
       expect(fixture.componentInstance.totalValue).toBe(0);
     });

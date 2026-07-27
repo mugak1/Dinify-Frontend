@@ -951,18 +951,33 @@ writing new tag, price/menu or date-range logic:
   basis in `src/app/_shared/mock/` (`daily-revenue.ts`, `hour-of-day.ts`, both
   spec-pinned) so the two surfaces stay numerically consistent — reuse it rather than
   re-deriving mock revenue in a new surface
-- **The mock restaurant is CLOSED ON MONDAYS, on purpose** (`CLOSED_WEEKDAY` in
-  `_shared/mock/daily-revenue.ts`). `dailyRevenue` still emits a ROW for a closed day — a
-  fully zero one, since its contract is one row per inclusive calendar day and the Dashboard
-  mock densifies off it — while `getMockSalesAggregate` DROPS zero-order rows, mirroring the
-  backend's plain group-by (only the hourly path is zero-filled server-side). This exists so
-  the mock is as SPARSE as production: a mock denser than the thing it stands in for hides an
-  entire class of defect from every feature built on it, and that is exactly how the Sales
-  x-axis and comparison-pairing sparsity bugs survived three consecutive PRs in that area.
-  Do NOT "fix" the mock to trade every day. Two practical consequences: mock totals are ~10%
-  lower than pre-closure, and a spec that hard-codes a single day must pick a TRADING one —
-  1 Jun 2026 and 15 Jun 2026 are both Mondays, which is what broke three specs when this
-  landed
+- **The mock models NO CLOSURES — every calendar day trades** (MOCK-NO-CLOSURES-00). This is
+  a DELIBERATE TEMPORARY STATE, reversible by ONE CONSTANT: `CLOSED_WEEKDAY` in
+  `_shared/mock/daily-revenue.ts` is `number | null` and currently `null`; setting it back to
+  a weekday index (`1` = Mon) restores closures wholesale. The guard, the zero-row shape and
+  every consumer's sparse handling are INTACT — do not delete them to tidy up, or the next
+  person needing a sparse fixture in the running app has to write it again.
+  Why it is off: the Dashboard defaults to **Today**, so one day in seven its opening screen
+  read zero revenue, zero orders, "No settled payments in this period" and "No item data
+  available" — every figure correct, the whole screen useless, including in front of a
+  prospective restaurant. Design work needs every date populated.
+  **Why closures existed, which is what a future reader needs in order to decide whether to
+  turn them back on:** the backend's period aggregation is a plain group-by, so a day with no
+  orders yields NO BUCKET (only the hourly path is zero-filled server-side). A mock that emits
+  every calendar day is DENSER than the thing it stands in for, and that density hid the Sales
+  x-axis and comparison-pairing sparsity bugs through three consecutive PRs in that area. We
+  are back in that condition. The mitigation is that it is no longer the only line of defence —
+  the sparse-input specs for `normalizeSeries` and `alignComparisonSeries` build their own
+  fixtures and never touched the mock — but end-to-end visibility in the RUNNING APP is gone.
+  **The next change to densification, comparison pairing or the bucket ladder should flip the
+  constant back to `1` for its verification pass.**
+  Consequences of the current state: `dailyRevenue`'s one-row-per-inclusive-calendar-day
+  contract is unchanged; `getMockSalesAggregate` still DROPS zero-order rows (mirroring the
+  group-by) but that filter is now a NO-OP, since no in-range row is ever zero; mock totals are
+  back up ~10%; the "pick a TRADING date" rule for a spec hard-coding a single day no longer
+  applies; and **the only remaining no-trade window is an INVERTED range** (`dailyRevenue`
+  returns `[]` for one by contract) — which is what the zero-window empty-state specs in
+  `dashboard/` are driven by
 - For any new module service, follow the same constant-flag pattern.
   Split flags by sub-domain when different views go live at different times
 - Dashboard real endpoints: `reports/restaurant/dashboard-v2/` (core metrics, gated by
