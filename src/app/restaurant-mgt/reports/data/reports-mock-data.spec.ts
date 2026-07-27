@@ -106,10 +106,11 @@ describe('reports mock data — granularity reconciliation (shared basis)', () =
     const monthly = getMockSalesAggregate(RID, FROM, TO, 'monthly');
     const s = sum(daily);
 
-    // 30 calendar days minus five closed Mondays — a period with no orders yields NO bucket,
-    // mirroring the backend's group-by. The reconciliation below is unaffected: a dropped day
-    // contributed nothing to the monthly sum in the first place.
-    expect(daily.length).toBe(25);
+    // One bucket per calendar day. The generator still drops zero-order rows, mirroring the
+    // backend's group-by, but with closures off (CLOSED_WEEKDAY = null) no in-range row is
+    // ever zero — so that filter is currently a NO-OP, not gone. Restore the constant and
+    // this drops back to 25 for June 2026.
+    expect(daily.length).toBe(30);
     expect(monthly.length).toBe(1); // June only
     expect(monthly[0].period).toBe('2026-06');
     expect(monthly[0].orders).toBe(s.orders);
@@ -133,8 +134,8 @@ describe('reports mock data — granularity reconciliation (shared basis)', () =
       '2026-06-22',
     ]);
     // Keys share the daily yyyy-MM-dd format, so the sum is the only thing proving they are
-    // weeks rather than four individual Mondays — which, the restaurant being closed Mondays,
-    // would all be zero.
+    // weeks rather than four individual Mondays: four single days would total a fraction of
+    // the 28 the daily rows cover.
     expect(sum(weekly)).toEqual(sum(daily));
     expect(weekly.every((r) => r.orders > 0)).toBeTrue();
   });

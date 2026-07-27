@@ -53,22 +53,35 @@ function randInt(rand: () => number, min: number, max: number): number {
 
 /**
  * The weekday the mock restaurant is CLOSED — no orders, no takings, at all.
+ * `null` DISABLES closures: every calendar day trades.
  *
- * This exists to make the mock as sparse as production, not as tidy as we would like it. The
+ * CURRENTLY OFF, DELIBERATELY. The Dashboard defaults to Today, so one day in seven its
+ * opening screen read zero revenue, zero orders, "No settled payments in this period" and
+ * "No item data available" — every figure correct and the whole screen useless, including in
+ * front of a prospective restaurant. Design work needs every date populated, so closures are
+ * switched off rather than removed. Setting this back to a weekday index (`1` = Mon) is ALL
+ * that is required to restore them; the guard below, the zero-row shape and every consumer's
+ * sparse handling are untouched and still work.
+ *
+ * WHY THEY EXISTED, which is the whole reason this is a constant and not a deletion: the
  * backend's period aggregation is a plain group-by, so a day with no orders yields NO BUCKET;
  * only the hourly path is zero-filled. A mock that emits every calendar day is therefore DENSER
  * than the thing it stands in for, and a mock denser than production silently hides an entire
  * class of defect from every feature built on it — the sparse-series bugs in the Sales trend
  * axis and in comparison-series pairing survived three consecutive PRs in that exact area
- * precisely because nothing in the running app could produce a gap.
+ * precisely because nothing in the running app could produce a gap. That is the condition we
+ * are back in. The sparse-input specs for `normalizeSeries` and `alignComparisonSeries` build
+ * their own fixtures and still cover the logic, but nothing in the RUNNING APP produces a gap
+ * again. So: the next change to densification, comparison pairing or the bucket ladder should
+ * flip this back to `1` for its verification pass.
  *
- * Monday, because `weekdayMultiplier` already made it the quietest day and a closure is trivial
- * to spot on screen ("every Monday is missing"). One closed weekday is enough: the point is that
- * gaps EXIST, not how many.
+ * Monday when on, because `weekdayMultiplier` already makes it the quietest day and a closure
+ * is trivial to spot on screen ("every Monday is missing"). One closed weekday is enough: the
+ * point is that gaps EXIST, not how many.
  */
-const CLOSED_WEEKDAY = 1; // Mon (date-fns getDay: 0 = Sun)
+const CLOSED_WEEKDAY: number | null = null; // 1 = Mon (date-fns getDay: 0 = Sun)
 
-/** Fri/Sat busiest, Mon quietest — a believable weekly rhythm. Unused on the closed day. */
+/** Fri/Sat busiest, Mon quietest — a believable weekly rhythm. Unused on a closed day. */
 function weekdayMultiplier(date: Date): number {
   switch (getDay(date)) {
     case 5:
@@ -100,7 +113,9 @@ export function dailyRevenue(restaurantId: string, from: string, to: string): Da
     // A closed day is emitted as a ZERO ROW, not omitted. This function's contract is one row
     // per inclusive calendar day, and the Dashboard mock densifies off it. Consumers that
     // mirror the backend's group-by (getMockSalesAggregate) drop the zero rows themselves.
-    if (getDay(d) === CLOSED_WEEKDAY) {
+    // With CLOSED_WEEKDAY at null this branch never runs and every day trades — see its
+    // docstring for why it is switched off rather than deleted.
+    if (CLOSED_WEEKDAY !== null && getDay(d) === CLOSED_WEEKDAY) {
       return { date, orders: 0, gross: 0, discount: 0, refunds: 0, net: 0 };
     }
     const rand = seededRandom(hashDay(restaurantId, date));

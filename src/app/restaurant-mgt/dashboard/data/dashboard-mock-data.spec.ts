@@ -160,11 +160,19 @@ describe('dashboard orders mock', () => {
 // the one basis, and that an ordinary trading day is left looking exactly as it was.
 describe('dashboard payments + popular-items mock — one trading basis', () => {
   const RID = 'r1';
-  /** June 2026: the 1st, 8th, 15th, 22nd and 29th are Mondays — the mock's closed day. */
-  const CLOSED = '2026-06-01';
-  const TRADING = '2026-06-02';
+  const DAY_1 = '2026-06-01';
+  const DAY_2 = '2026-06-02';
   const FROM = '2026-06-01';
   const TO = '2026-06-30';
+
+  /**
+   * A window with no trade. MOCK-NO-CLOSURES-00 switched closures off (CLOSED_WEEKDAY = null)
+   * so every calendar day trades, which leaves an INVERTED range as the only input for which
+   * the basis yields no rows — `dailyRevenue` returns [] for one by contract. Restore
+   * CLOSED_WEEKDAY to a weekday index and a single closed date works here again.
+   */
+  const NO_TRADE_FROM = '2026-06-02';
+  const NO_TRADE_TO = '2026-06-01';
 
   const netOver = (from: string, to: string) =>
     dailyRevenue(RID, from, to).reduce((a, r) => a + r.net, 0);
@@ -189,15 +197,19 @@ describe('dashboard payments + popular-items mock — one trading basis', () => 
   const LEGACY_QTY_TOTAL = LEGACY_ITEMS.reduce((a, i) => a + i.qty, 0);
 
   // ── A window with no trade ────────────────────────────────
-  describe('a window of closed days only', () => {
+  describe('a window with no trade', () => {
     it('settles nothing — every method zero, so the card falls to its empty state', () => {
-      expect(netOver(CLOSED, CLOSED)).toBe(0); // precondition: the day really is closed
-      const payments = getMockPaymentMethods(RID, CLOSED, CLOSED);
+      // Precondition: the window really does yield no rows, whatever makes it so.
+      expect(netOver(NO_TRADE_FROM, NO_TRADE_TO)).toBe(0);
+      const payments = getMockPaymentMethods(RID, NO_TRADE_FROM, NO_TRADE_TO);
 
       expect(payments.length).toBe(3); // the methods you accept are still the methods you accept
       for (const p of payments) {
         expect(p.amount).withContext(p.method).toBe(0);
         expect(p.tx_count).withContext(p.method).toBe(0);
+        // No division ever reached an empty basis.
+        expect(p.amount).withContext(p.method).not.toBeNaN();
+        expect(p.tx_count).withContext(p.method).not.toBeNaN();
       }
       expect(sumAmounts(payments)).toBe(0); // ⇒ the card's `total === 0` branch
     });
@@ -205,38 +217,33 @@ describe('dashboard payments + popular-items mock — one trading basis', () => 
     it('has no best sellers — an empty list, not five rows of zero', () => {
       // Five zero rows would render a full ranking table of `0` and `0.0%`; the backend's
       // group-by would return no rows at all, and so does this.
-      expect(getMockPopularItems(RID, CLOSED, CLOSED)).toEqual([]);
+      expect(getMockPopularItems(RID, NO_TRADE_FROM, NO_TRADE_TO)).toEqual([]);
     });
 
     it('reads zero across the WHOLE screen, not just the two cards that always did', () => {
-      const d = getMockDashboardData(RID, CLOSED, CLOSED, 'hour');
+      // `hour` deliberately: `buildRevenueSeries` short-circuits on an empty basis before it
+      // reaches `generateDates`, which would throw on an inverted interval at any other rung.
+      const d = getMockDashboardData(RID, NO_TRADE_FROM, NO_TRADE_TO, 'hour');
       expect(d.revenue.totals.net).toBe(0);
       expect(d.orders.total).toBe(0);
       expect(sumAmounts(d.payments)).toBe(0);
       expect(d.popular_items).toEqual([]);
     });
-
-    it('survives an inverted range without dividing by an empty basis', () => {
-      expect(sumAmounts(getMockPaymentMethods(RID, TO, FROM))).toBe(0);
-      expect(getMockPopularItems(RID, TO, FROM)).toEqual([]);
-      for (const p of getMockPaymentMethods(RID, TO, FROM)) {
-        expect(p.amount).not.toBeNaN();
-        expect(p.tx_count).not.toBeNaN();
-      }
-    });
   });
 
-  // ── Trading days, not calendar days ───────────────────────
-  it('scales by trading days — a closed day in the window contributes nothing', () => {
-    // Mon (closed) + Tue against Tue alone. The old `rangeDays` scaling would report
-    // exactly double for the two-day window; summing the basis reports the same figure.
-    const withClosedDay = getMockPaymentMethods(RID, CLOSED, TRADING);
-    const tradingOnly = getMockPaymentMethods(RID, TRADING, TRADING);
+  // ── Summed, never scaled ──────────────────────────────────
+  it('sums the basis rather than scaling by a day count', () => {
+    // The defect DASH-MOCK-COHERENCE-00 fixed: `rangeDays`-style scaling reported a two-day
+    // window as exactly twice a one-day one, regardless of what either day actually took.
+    // Two adjacent days never take the same amount, so summing cannot coincide with doubling.
+    const twoDays = getMockPaymentMethods(RID, DAY_1, DAY_2);
+    const secondOnly = getMockPaymentMethods(RID, DAY_2, DAY_2);
 
-    expect(sumAmounts(withClosedDay)).toBe(sumAmounts(tradingOnly));
-    expect(sumAmounts(withClosedDay)).not.toBe(2 * sumAmounts(tradingOnly));
-    expect(getMockPopularItems(RID, CLOSED, TRADING)).toEqual(
-      getMockPopularItems(RID, TRADING, TRADING),
+    expect(sumAmounts(twoDays)).toBe(netOver(DAY_1, DAY_2));
+    expect(sumAmounts(twoDays)).not.toBe(2 * sumAmounts(secondOnly));
+    // Popular items track the window too — they took no arguments at all before the fix.
+    expect(getMockPopularItems(RID, DAY_1, DAY_2)).not.toEqual(
+      getMockPopularItems(RID, DAY_2, DAY_2),
     );
   });
 
@@ -290,7 +297,7 @@ describe('dashboard payments + popular-items mock — one trading basis', () => 
 
     it('splits payments 50 / 33 / 17 as the card renders them, for every window', () => {
       for (const [f, t] of [
-        [TRADING, TRADING],
+        [DAY_2, DAY_2],
         [FROM, TO],
         ['2026-01-01', '2026-06-30'],
       ]) {
@@ -344,7 +351,7 @@ describe('dashboard payments + popular-items mock — one trading basis', () => 
     });
 
     it('tracks the window, where it used to be identical for every range', () => {
-      const day = getMockPopularItems(RID, TRADING, TRADING);
+      const day = getMockPopularItems(RID, DAY_2, DAY_2);
       const month = getMockPopularItems(RID, FROM, TO);
       expect(day[0].revenue).toBeLessThan(month[0].revenue);
       expect(day[0].revenue).not.toBe(LEGACY_ITEMS[0].revenue);
