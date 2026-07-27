@@ -63,13 +63,19 @@ describe('AuthGuard', () => {
     expect(result).toBeTrue();
   });
 
-  it('should allow access when user has matching top-level role', () => {
+  it('denies a route when the account-level roles array is the only thing that matches', () => {
+    // The guard used to carry a `hasTopLevelRole` branch that admitted on
+    // `profile.roles`. That is what made a platform role string in `data.roles`
+    // grant route access, so it went with the platform-role vocabulary. Authority
+    // comes from the MEMBERSHIP arrays now, and an account-level string alone
+    // grants nothing — including for an ordinary restaurant role.
     setUser({
       token: 'test-token',
-      profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['dinify_admin'], phone_number: '', other_names: '', restaurant_roles: [] }
+      profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['restaurant_staff'], phone_number: '', other_names: '', restaurant_roles: [] }
     });
-    const result = guard.canActivate(makeRoute(['dinify_admin']), makeState('/kitchen'));
-    expect(result).toBeTrue();
+    const result = guard.canActivate(makeRoute(['restaurant_staff']), makeState('/dashboard'));
+    expect(result).toBeFalse();
+    expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
 
   it('should allow restaurant_staff access when user has restaurant_roles even without top-level role', () => {
@@ -91,15 +97,15 @@ describe('AuthGuard', () => {
       token: 'test-token',
       profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['diner'], phone_number: '', other_names: '', restaurant_roles: [] }
     });
-    const result = guard.canActivate(makeRoute(['dinify_admin']), makeState('/kitchen'));
+    const result = guard.canActivate(makeRoute(['restaurant_staff']), makeState('/dashboard'));
     expect(result).toBeFalse();
     expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
 
-  // ── Kitchen route policy (additive data.restaurant_roles) ───────────────
-  // /kitchen → roles:['dinify_admin','dinify_account_manager'],
-  //            restaurant_roles:['owner','manager','kitchen']
-  const KITCHEN_TOP = ['dinify_admin', 'dinify_account_manager'];
+  // ── Kitchen route policy (data.restaurant_roles only) ───────────────────
+  // /kitchen → restaurant_roles:['owner','manager','kitchen'], and NO data.roles.
+  // The platform-role entry that used to sit beside it is gone; a membership role
+  // is now the only thing that admits.
   const KITCHEN_REST = ['owner', 'manager', 'kitchen'];
 
   function setKitchenUser(topRoles: string[], restRoles: string[]) {
@@ -117,24 +123,29 @@ describe('AuthGuard', () => {
 
   it('allows /kitchen for a restaurant kitchen role', () => {
     setKitchenUser([], ['kitchen']);
-    expect(guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
+    expect(guard.canActivate(makeRoute(undefined, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
   });
 
   it('allows /kitchen for a restaurant owner or manager role', () => {
     setKitchenUser([], ['manager']);
-    expect(guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
+    expect(guard.canActivate(makeRoute(undefined, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
     setKitchenUser([], ['owner']);
-    expect(guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
-  });
-
-  it('allows /kitchen for a platform dinify_account_manager', () => {
-    setKitchenUser(['dinify_account_manager'], []);
-    expect(guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
+    expect(guard.canActivate(makeRoute(undefined, KITCHEN_REST), makeState('/kitchen'))).toBeTrue();
   });
 
   it('denies /kitchen for a user holding none of the kitchen roles', () => {
     setKitchenUser([], ['cashier']);
-    const result = guard.canActivate(makeRoute(KITCHEN_TOP, KITCHEN_REST), makeState('/kitchen'));
+    const result = guard.canActivate(makeRoute(undefined, KITCHEN_REST), makeState('/kitchen'));
+    expect(result).toBeFalse();
+    expect(router.navigate).toHaveBeenCalledWith(['/']);
+  });
+
+  it('denies /kitchen for an account-level role, however privileged it looks', () => {
+    // The replaced test asserted the opposite: it admitted a platform account
+    // manager on the strength of profile.roles alone. That branch is gone, and the
+    // route no longer carries data.roles at all — a membership is the only key.
+    setKitchenUser(['owner', 'manager', 'kitchen'], []);
+    const result = guard.canActivate(makeRoute(undefined, KITCHEN_REST), makeState('/kitchen'));
     expect(result).toBeFalse();
     expect(router.navigate).toHaveBeenCalledWith(['/']);
   });

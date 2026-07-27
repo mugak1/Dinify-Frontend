@@ -23,10 +23,11 @@ export const routes: Routes = [
 {path:'forgot-password',component:ForgotPasswordComponent, title:'Forgot Password'},
 {path:'welcome',component:WelcomeComponent,title:'Welcome'},
 {path:'diner',component:DinerAppComponent,data:{[DINER_MOUNT_EMBEDDED]: false},loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
-// Kitchen View — staff-only board on live order data. Policy mirrors the Phase 2
-// backend: platform dinify_admin / dinify_account_manager, or a restaurant
-// owner / manager / kitchen role (handled additively via data.restaurant_roles).
-{path:'kitchen',component:KitchenComponent,canActivate:[AuthGuard],data:{roles:['dinify_admin','dinify_account_manager'],restaurant_roles:['owner','manager','kitchen']},loadChildren: () => import('./kitchen/kitchen.module').then(m => m.KitchenModule)},
+// Kitchen View — staff-only board on live order data. Admission is a restaurant
+// owner / manager / kitchen role on ANY membership, via data.restaurant_roles.
+// There is deliberately no data.roles here: profile.roles carries restaurant
+// roles only and is never a platform-authority signal (see scripts/check-platform-roles.mjs).
+{path:'kitchen',component:KitchenComponent,canActivate:[AuthGuard],data:{restaurant_roles:['owner','manager','kitchen']},loadChildren: () => import('./kitchen/kitchen.module').then(m => m.KitchenModule)},
 { path: "lock-otp-exp", component: LockScreenComponent },
 { path: 'privacy', loadComponent: () => import('./legal/privacy-policy/privacy-policy.component').then(m => m.PrivacyPolicyComponent), title: 'Privacy Policy' },
 { path: 'terms', loadComponent: () => import('./legal/terms-and-conditions/terms-and-conditions.component').then(m => m.TermsAndConditionsComponent), title: 'Terms and Conditions' },

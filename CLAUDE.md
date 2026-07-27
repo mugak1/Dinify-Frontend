@@ -312,6 +312,23 @@ so keep it current when conventions change.
   transport, the `?c=` capture, the QR URL/rotation flow, the order-request
   builders, the selected-restaurant scoping, or the cross-repo contract constants
   change
+- Platform-role vocabulary — REMOVED (Closure PR 1, frontend half): ✅ nothing in this
+  app derives authority from the account-level `profile.roles` array any more. Four
+  production sites did: the `/kitchen` route's `data.roles`, the
+  `KITCHEN_ROUTE_TOP_LEVEL_ROLES` mirror in `login-redirect.guard.ts`, a
+  `canChangeBillingDate` getter revealing a Cash payment option, and the two first-time
+  menu-approval buttons. **`AuthGuard`'s `hasTopLevelRole` branch went with them** — it
+  was the mechanism by which a `data.roles` string granted route access, so `data.roles`
+  now feeds ONLY the `restaurant_staff` membership bridge. Consequence to know: an
+  account whose `profile.roles` carries a matching string but holds ZERO active
+  memberships no longer passes `AuthGuard`. That is the intended tightening — a
+  deactivated employee should not reach the portal shell. Route authority is
+  `data.restaurant_roles` (checked against every membership) plus that bridge; nothing
+  else. `/kitchen` carries NO `data.roles` at all, and
+  `restaurant_roles:['owner','manager','kitchen']` is what admits — the guard's
+  `if (roles || restaurant_roles)` still fires on the truthy array, so it stays gated.
+  Held by a standing source gate, `scripts/check-platform-roles.mjs` (FE-AUTH-00) —
+  see the Verification section
 - Dead-code closure (frontend audit program): ✅ the dependency-hygiene +
   dead-code-removal program is closed and recorded in `docs/DEAD_CODE_CLOSURE.md`
   (the sibling of `TENANT_ISOLATION_CLOSURE.md`). It records what was removed AND
@@ -813,9 +830,23 @@ writing new tag, price/menu or date-range logic:
 Before raising any PR:
 1. Run `npm run type-check` and confirm zero TypeScript errors
 2. Run `npm run lint` and confirm clean
-3. Run `npm run test:tenant-boundary` (the fail-fast tenant-boundary gate) and
-   confirm green — especially if you touched the diner capability, QR lifecycle,
-   selected-restaurant scoping, or the `_security/` contract
+3. Run `npm run test:tenant-boundary` (the fail-fast boundary gate) and confirm
+   green — especially if you touched the diner capability, QR lifecycle,
+   selected-restaurant scoping, or the `_security/` contract. It is COMPOUND: it
+   runs `scripts/check-platform-roles.mjs --self-test`, then the real scan, then
+   the spec set. The script is the frontend counterpart to the backend's
+   `ambient_authority.py` — it fails on any `dinify_admin` /
+   `dinify_account_manager` literal, or any `profile.roles`-derived authority read
+   (`profile.roles.includes/some/indexOf`), across `src/**/*.{ts,html}`.
+   It is a NODE script, not a spec, deliberately: a source scanner cannot run in
+   Karma here — headless Chrome on the esbuild `@angular/build:karma` builder has
+   no `fs`, no `require.context` (webpack-only; the repo migrated off webpack), no
+   raw-loader and no `preprocessors` hook, and `tsconfig.spec.json` compiles only
+   specs + `.d.ts`. Two of the removed sites lived in HTML templates, which no
+   browser-side spec can read as text. Its `ALLOWLIST` is EMPTY and permanent —
+   restaurant roles come from `currentRestaurantRole` / `restaurant_roles`, never
+   from `profile.roles`. `_security/platform-role-ratchet.spec.ts` is the
+   object-graph half, asserting the live `routes` export stays clean
 4. Run `npm run test:ci` for any module you touched
 5. Run `npm run build:prod` and confirm zero errors
 6. Confirm standalone components are in `imports`, not `declarations`

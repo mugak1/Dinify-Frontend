@@ -149,7 +149,7 @@ describe('loginRedirectGuard (routed)', () => {
     // only non-membership landing. A membershipless account — administrator or
     // not — now has nothing to be redirected to, so the form simply renders.
     it('renders the form for a membershipless account rather than inventing a landing', async () => {
-      authState.userValue = user(['dinify_admin'], []);
+      authState.userValue = user(['restaurant_staff'], []);
       authState.currentRestaurantRole = null;
       await harness.navigateByUrl('/login');
       expect(router.url).toBe('/login');

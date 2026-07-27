@@ -58,7 +58,7 @@ describe('AuthenticationService', () => {
         data: {
           token: 'jwt-token',
           refresh: 'refresh-token',
-          profile: { id: '1', first_name: 'Test', last_name: 'User', email: 'test@test.com', roles: ['dinify_admin'], phone_number: '123', other_names: '', restaurant_roles: [] },
+          profile: { id: '1', first_name: 'Test', last_name: 'User', email: 'test@test.com', roles: ['restaurant_staff'], phone_number: '123', other_names: '', restaurant_roles: [] },
           require_otp: false,
           prompt_password_change: false
         },
