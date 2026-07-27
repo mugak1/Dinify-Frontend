@@ -292,17 +292,34 @@ so keep it current when conventions change.
   only to the `day` bucket. The alignment lives in `alignComparisonSeries`
   (`reports/sales/sales-view.ts`) and reaches exactly one surface, `revenue-trend-card` —
   no other card takes a comparison SERIES. Its offset is read from each series' own first
-  `key`, NOT from the window bounds, and that is deliberate: the period series is a plain
-  group-by (the backend zero-fills only the hourly path), so a closed day is absent, and
-  dropping a leading element shifts every index down by one while advancing the observed
-  opening weekday by one — the two cancel, so a data-derived offset self-corrects where one
-  computed for a dense array would not. Known limitation, pre-existing and shared with index
-  pairing: an INTERNAL gap still shifts every index after it. Densifying each series to its
-  window is the next PR and should land before 02D — it also fixes the x-axis silently
-  omitting closed days — and it touches `normalizeSeries`, which every Sales card consumes,
-  so it needs its own recon. The **month default is now `prev-month-by-day`**, i.e. weekday
-  pairing. The Dashboard is unaffected: it renders no comparison series, only a headline, a
-  badge and a caption, so pairing has nothing to act on there.
+  `key`, NOT from the window bounds — since densification the two coincide (a dense series
+  opens on its window's first bucket), so this is no longer a choice between two answers; the
+  data-derived form is kept because it needs no window threaded through the card and stays
+  correct if ever handed a sparse series directly. The **month default is now
+  `prev-month-by-day`**, i.e. weekday pairing. The Dashboard is unaffected: it renders no
+  comparison series, only a headline, a badge and a caption, so pairing has nothing to act on
+  there.
+  Series densification: ✅ **every Sales series is now zero-filled to the window it was fetched
+  over**, which is what removed 02C's internal-gap limitation. `normalizeSeries`
+  (`reports/sales/sales-view.ts`) takes a REQUIRED third `window` argument — the primary series
+  fills to `tf.effectiveRange` (never the raw range: the over-cap clamp moves `from`, and filling
+  to the raw range fabricates buckets that were never requested), the comparison series to
+  `p.cmp`. **`p.cmp`'s NULLNESS is load-bearing** — `cmpRows` is empty both when the basis is
+  `'none'` (no request was ever made) and when a real window had no trade, and only the window
+  argument tells them apart; `null` means DO NOT densify, which is the only escape hatch. The
+  `hour` bucket is exempt (already dense by contract on both paths, and its key is `'0'…'23'`
+  with no date to enumerate). A bucket outside the window is DROPPED — the window defines the
+  series. Two knock-ons worth knowing: `points.length` used to mean "buckets that traded" purely
+  because the series was sparse, so every site reading it that way now goes through the explicit
+  `tradingBuckets` predicate (the trend card's "Daily avg" divisor and its empty-state gate) —
+  the axis changed, no displayed number did; and the **AOV sparkline emits `null`, not `0`, for a
+  zero-order bucket**, because with no orders there is nothing to average and a 0 would draw a
+  steady-ticket restaurant as violently volatile (Orders and Discounts keep zeros — those are
+  true). **Reported, not fixed:** `dashboard-adapter.ts:32-46`'s `adaptRevenueSeries` carries the
+  identical defect on the Dashboard's LIVE path. Its key format is an ISO datetime rather than
+  `yyyy-MM-dd`, the window would have to be threaded into the adapter, and its mock path already
+  densifies — so the defect is dormant behind `USE_MOCK_DATA` and unexercised by any verification
+  in this repo
   `tables-card`'s `trend-indicator` tiles are deliberately
   OUTSIDE the comparison basis — they compare `turns_today` / `avg_ticket_today` against
   their `*_yesterday` server fields, which are anchored to yesterday rather than derived
@@ -843,6 +860,18 @@ writing new tag, price/menu or date-range logic:
   basis in `src/app/_shared/mock/` (`daily-revenue.ts`, `hour-of-day.ts`, both
   spec-pinned) so the two surfaces stay numerically consistent — reuse it rather than
   re-deriving mock revenue in a new surface
+- **The mock restaurant is CLOSED ON MONDAYS, on purpose** (`CLOSED_WEEKDAY` in
+  `_shared/mock/daily-revenue.ts`). `dailyRevenue` still emits a ROW for a closed day — a
+  fully zero one, since its contract is one row per inclusive calendar day and the Dashboard
+  mock densifies off it — while `getMockSalesAggregate` DROPS zero-order rows, mirroring the
+  backend's plain group-by (only the hourly path is zero-filled server-side). This exists so
+  the mock is as SPARSE as production: a mock denser than the thing it stands in for hides an
+  entire class of defect from every feature built on it, and that is exactly how the Sales
+  x-axis and comparison-pairing sparsity bugs survived three consecutive PRs in that area.
+  Do NOT "fix" the mock to trade every day. Two practical consequences: mock totals are ~10%
+  lower than pre-closure, and a spec that hard-codes a single day must pick a TRADING one —
+  1 Jun 2026 and 15 Jun 2026 are both Mondays, which is what broke three specs when this
+  landed
 - For any new module service, follow the same constant-flag pattern.
   Split flags by sub-domain when different views go live at different times
 - Dashboard real endpoints: `reports/restaurant/dashboard-v2/` (core metrics, gated by
@@ -898,6 +927,12 @@ writing new tag, price/menu or date-range logic:
   backend — slug, params AND response shape — since the mock returns
   frontend-shaped data and masks any drift until flip; (3) resolve the
   `payment_mode` vocab gap above
+- Dashboard flip-time gate — when `DashboardService.USE_MOCK_DATA` goes `false`, the revenue
+  series becomes SPARSE (the backend emits no bucket for a period with no orders) and the
+  densification defect in `dashboard-adapter.ts:32-46`'s `adaptRevenueSeries` ACTIVATES. Its
+  mock path densifies, so nothing before the flip exercises it. Densify to the requested
+  window at flip time — mind that its keys are ISO datetimes, not `yyyy-MM-dd` — rather than
+  letting a customer find the gap
 
 ## Known Issues & Deferred Work
 - `ngx-intl-telephone-input` was REMOVED (PRs 2a–2c) and replaced by the

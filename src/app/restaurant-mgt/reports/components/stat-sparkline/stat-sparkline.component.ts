@@ -28,7 +28,8 @@ import { resolveColorString } from 'src/app/_common/utils/chart-theme-utils';
   `,
 })
 export class ReportSparklineComponent implements OnChanges {
-  @Input() values: number[] = [];
+  /** `null` = no value for that bucket; Chart.js `spanGaps` defaults false, so it draws a gap. */
+  @Input() values: (number | null)[] = [];
   @Input() color = 'hsl(var(--primary))';
   @Input() ariaLabel = 'Trend sparkline';
 

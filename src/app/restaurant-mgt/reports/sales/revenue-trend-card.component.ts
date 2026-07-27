@@ -5,7 +5,13 @@ import { ChartData, ChartOptions, TooltipItem } from 'chart.js';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { ComparisonOption, ReportBucketUnit, pairingFor } from '../../../_shared/timeframe';
-import { SalesPoint, alignComparisonSeries, bestPoint, pointDateLabel } from './sales-view';
+import {
+  SalesPoint,
+  alignComparisonSeries,
+  bestPoint,
+  pointDateLabel,
+  tradingBuckets,
+} from './sales-view';
 import { chartMutedColor, chartTooltipTheme, resolveHsl } from 'src/app/_common/utils/chart-theme-utils';
 
 const BRAND = 'hsl(142, 76%, 36%)'; // dashboard revenue-chart green
@@ -35,7 +41,7 @@ const BEST = 'hsl(142, 71%, 45%)';
         <div class="flex items-center justify-between gap-3 mb-1">
           <h2 class="text-card-title text-foreground">Revenue trend</h2>
           <div class="flex flex-col items-end gap-1">
-            @if (points.length) {
+            @if (hasTrade) {
               <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-500">
                 <span class="w-3 border-t border-dotted border-gray-400"></span>
                 Daily avg
@@ -44,6 +50,10 @@ const BEST = 'hsl(142, 71%, 45%)';
             }
             <div class="flex items-center gap-3 text-xs text-gray-500">
               <span class="inline-flex items-center gap-1"><span class="w-3 h-0.5 rounded" [style.background]="brand"></span>This period</span>
+              <!-- .length, NOT hasTrade — deliberate. The host passes an empty array only when
+                   NO comparison was fetched, so length here means "is there a comparison at
+                   all". A window that WAS fetched and genuinely earned nothing should show its
+                   legend and its flat-zero ghost: that is true, and it is information. -->
               @if (compareEnabled && comparisonPoints.length) {
                 <span class="inline-flex items-center gap-1"><span class="w-3 border-t border-dashed border-gray-400"></span>{{ comparisonLabel }}</span>
               }
@@ -51,7 +61,7 @@ const BEST = 'hsl(142, 71%, 45%)';
           </div>
         </div>
 
-        @if (points.length) {
+        @if (hasTrade) {
           <div class="h-56 sm:h-72">
             <canvas
               baseChart
@@ -83,6 +93,15 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
   readonly brand = BRAND;
   /** Daily average, formatted as millions for the header chip (e.g. "UGX 2.93M"). */
   dailyAvgLabel = 'UGX 0.00M';
+
+  /**
+   * Is there anything worth charting? Not `points.length` — since densification a dead window
+   * arrives as a full run of zero points, so length only tells you the window exists. Gating on
+   * it would replace "No revenue to chart for this period." with a flat line along the axis.
+   */
+  get hasTrade(): boolean {
+    return tradingBuckets(this.points) > 0;
+  }
   data: ChartData<'line'> = { labels: [], datasets: [] };
   options!: ChartOptions<'line'>;
 
@@ -115,7 +134,12 @@ export class RevenueTrendCardComponent implements OnChanges, OnInit {
     // `null` where the pairing offset runs past the end of the comparison series —
     // Chart.js draws a gap there, which is honest where a fabricated point is not.
     const ghost = this.aligned.map((p) => p?.revenue ?? null);
-    const avg = main.length ? main.reduce((a, b) => a + b, 0) / main.length : 0;
+    // Divide by buckets that TRADED, not by buckets in the window. `main.length` used to mean
+    // the former only because the series was sparse; once densified it would silently mean the
+    // latter and drop this figure on every range containing a closed day. `tradingBuckets`
+    // states the predicate so the number survives densification unchanged.
+    const traded = tradingBuckets(this.points);
+    const avg = traded ? main.reduce((a, b) => a + b, 0) / traded : 0;
     this.dailyAvgLabel = 'UGX ' + (avg / 1e6).toFixed(2) + 'M';
 
     const best = bestPoint(this.points);

@@ -93,6 +93,60 @@ describe('RevenueTrendCardComponent', () => {
     });
   });
 
+  // Densification made `points.length` mean "calendar days in the window" where it used to mean
+  // "days that traded". Both of these read it, and neither was pinned before — the one number
+  // the change could silently move was the one number nothing guarded.
+  describe('closed buckets do not move the headline or blank the chart', () => {
+    /** A dense series where `closedAt` indices are zero-order buckets. */
+    const withClosures = (count: number, closedAt: number[]): SalesPoint[] =>
+      series('2026-07-01', count).map((p, i) =>
+        closedAt.includes(i) ? { ...p, revenue: 0, orders: 0 } : { ...p, revenue: 1_000_000 },
+      );
+
+    it('averages over TRADING buckets, not over the window', () => {
+      // 10 buckets, 2 closed → 8 trading days × 1M = 8M, so the average is 1.00M. Dividing by
+      // points.length would give 0.80M — a 20% drop caused by nothing but the axis fix.
+      fixture.componentRef.setInput('points', withClosures(10, [3, 7]));
+      fixture.componentRef.setInput('compareEnabled', false);
+      fixture.detectChanges();
+
+      expect(component.dailyAvgLabel).toBe('UGX 1.00M');
+    });
+
+    it('is unchanged whether the closed days are present or absent from the series', () => {
+      fixture.componentRef.setInput('points', withClosures(10, [3, 7]));
+      fixture.detectChanges();
+      const dense = component.dailyAvgLabel;
+
+      // The same trade, delivered sparse — which is exactly what the wire used to return.
+      fixture.componentRef.setInput(
+        'points',
+        withClosures(10, [3, 7]).filter((p) => p.orders > 0),
+      );
+      fixture.detectChanges();
+
+      expect(component.dailyAvgLabel).toBe(dense);
+    });
+
+    it('still shows the empty message when the whole window is closed', () => {
+      // All-zero, so `points.length` is truthy but there is nothing to chart. Gating on length
+      // would draw a flat line along the axis instead.
+      fixture.componentRef.setInput('points', withClosures(10, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
+      fixture.detectChanges();
+
+      expect(component.hasTrade).toBeFalse();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('No revenue to chart for this period.');
+    });
+
+    it('charts as soon as a single bucket traded', () => {
+      fixture.componentRef.setInput('points', withClosures(10, [0, 1, 2, 3, 4, 5, 6, 7, 8]));
+      fixture.detectChanges();
+
+      expect(component.hasTrade).toBeTrue();
+    });
+  });
+
   describe('the tooltip names both dates', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const callbacks = (): any => (component.options as any).plugins.tooltip.callbacks;

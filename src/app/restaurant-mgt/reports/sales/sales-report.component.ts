@@ -259,9 +259,14 @@ export class SalesReportComponent implements OnInit, OnDestroy {
     }
 
     const mainRows = p.main.data as SalesAggregateRow[] | SalesHourlyRow[];
-    const mainPoints = normalizeSeries(mainRows, bucketUnit);
+    // Densify to `effectiveRange`, NOT `p.range` — the fetch above used the same, and the
+    // engine's over-cap clamp moves `from`. Filling to the raw range would fabricate buckets
+    // that were never requested.
+    const mainPoints = normalizeSeries(mainRows, bucketUnit, p.tf.effectiveRange);
     const current = computeTotals(mainPoints);
-    if (mainPoints.length === 0 || current.orders === 0) {
+    // `mainPoints.length === 0` used to guard this too; densification made it unreachable for
+    // any non-empty window. `current.orders === 0` is what catches a dead range now.
+    if (current.orders === 0) {
       this.ready = false;
       this.stateMode = 'empty';
       return;
@@ -269,7 +274,12 @@ export class SalesReportComponent implements OnInit, OnDestroy {
 
     const view = salesBucketView(bucketUnit);
     const cmpRows = (p.comparison?.data ?? []) as SalesAggregateRow[] | SalesHourlyRow[];
-    const cmpPoints = normalizeSeries(cmpRows, bucketUnit);
+    // `p.cmp`, never `p.range` — and its NULLNESS is load-bearing. `cmpRows` is empty in two
+    // different situations: the basis is 'none' (no request was ever made) and a real window
+    // that had no trade. A null window skips densification, so the first keeps yielding `[]`
+    // → `previous === null` → no chips. Densifying unconditionally would light every chip up
+    // against a baseline the user explicitly asked not to have.
+    const cmpPoints = normalizeSeries(cmpRows, bucketUnit, p.cmp);
 
     // Hero + KPI rail.
     this.current = current;

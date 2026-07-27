@@ -6,7 +6,14 @@
 // the hour-of-day display window. No DI, no component, no fetching — so every
 // transform is unit-testable in isolation (sales-view.spec.ts).
 
-import { format, getDay, parseISO } from 'date-fns';
+import {
+  eachDayOfInterval,
+  eachMonthOfInterval,
+  eachYearOfInterval,
+  format,
+  getDay,
+  parseISO,
+} from 'date-fns';
 import { ReportBucketUnit, SeriesPairing } from '../../../_shared/timeframe';
 import { SalesAggregateRow, SalesHourlyRow } from '../models/reports.models';
 
@@ -109,10 +116,71 @@ function formatPeriodLabel(period: string, source: SalesSource): string {
   return source === 'monthly' ? format(d, 'MMM yyyy') : format(d, 'd MMM');
 }
 
-/** Hourly rows OR aggregate rows → one common point shape, labelled for the bucket. */
+/** The inclusive window a series was fetched over. Structural so a caller needn't invent a preset. */
+export interface SeriesWindow {
+  from: string;
+  to: string;
+}
+
+/**
+ * Every bucket key the window covers, ascending, in the WIRE `period` format the rows use.
+ *
+ * The formats have to match `formatPeriodLabel`'s `parseISO` input exactly, which is why this
+ * lives beside `normalizeSeries` rather than in `_shared/timeframe/`: it emits a Reports wire
+ * contract, not a timeframe concept. `dashboard-mock-data.ts`'s `generateDates` is the same
+ * idea one surface over, but it emits ISO DATETIMES via `dayAtIso` — a different key format —
+ * so it is precedent to follow, not code to import.
+ *
+ * `hour` never reaches here: its key is `'0'…'23'` with no date, and the caller exempts it.
+ */
+function bucketKeysIn(window: SeriesWindow, bucketUnit: ReportBucketUnit): string[] {
+  const start = parseISO(window.from);
+  const end = parseISO(window.to);
+  switch (bucketUnit) {
+    case 'month':
+      return eachMonthOfInterval({ start, end }).map((d) => format(d, 'yyyy-MM'));
+    case 'year':
+      return eachYearOfInterval({ start, end }).map((d) => format(d, 'yyyy'));
+    default:
+      return eachDayOfInterval({ start, end }).map((d) => format(d, 'yyyy-MM-dd'));
+  }
+}
+
+/**
+ * Hourly rows OR aggregate rows → one common point shape, labelled for the bucket, ZERO-FILLED
+ * to `window`.
+ *
+ * WHY DENSIFY. `reports_app/controllers/common/bucketing.py` zero-fills only the hourly path
+ * (its line 111); the period path is a plain group-by, so a day with no orders is simply ABSENT
+ * from the response. Closed days are ordinary in hospitality, so a sparse series is the normal
+ * case, not an edge one — and it costs two things. The x-axis omits the closed day entirely,
+ * drawing Sunday straight through to Tuesday as though the month ran unbroken; and every index
+ * after the gap shifts, which misaligns `alignComparisonSeries` under BOTH pairings.
+ *
+ * A zero-filled bucket is not a fabricated point. The restaurant genuinely took nothing that
+ * day, and saying so is more honest than not drawing it. (Contrast `alignComparisonSeries`,
+ * which yields `null` past the end of the comparison series — there no corresponding bucket
+ * EXISTS, so a zero would be an invention.)
+ *
+ * THE WINDOW DEFINES THE SERIES. Pass the window the rows were actually FETCHED over — for the
+ * primary series that is `effectiveRange`, not the raw range, since the engine's over-cap clamp
+ * moves `from`. A returned bucket outside the window is dropped: it cannot occur against either
+ * fetch, it would be a backend contract violation, and carrying it would put an out-of-sequence
+ * label on the axis.
+ *
+ * `window: null` means DO NOT densify, and is the only escape hatch — used when no request was
+ * made at all (the `'none'` comparison basis), where a full array of zero points would be a
+ * baseline nobody asked for. The argument is required rather than defaulted so every call site
+ * answers the question deliberately.
+ *
+ * `hour` is exempt: it is already dense by contract on both paths (the backend zero-fills it and
+ * `getMockSalesHourly` returns exactly 24 rows), and its key carries no date for a window to
+ * enumerate.
+ */
 export function normalizeSeries(
   rows: SalesAggregateRow[] | SalesHourlyRow[],
   bucketUnit: ReportBucketUnit,
+  window: SeriesWindow | null,
 ): SalesPoint[] {
   const { source } = salesBucketView(bucketUnit);
   if (source === 'hourly') {
@@ -124,13 +192,42 @@ export function normalizeSeries(
       discount: r.discount,
     }));
   }
-  return (rows as SalesAggregateRow[]).map((r) => ({
+
+  const points = (rows as SalesAggregateRow[]).map((r) => ({
     label: formatPeriodLabel(r.period, source),
     key: r.period,
     revenue: r.revenue,
     orders: r.orders,
     discount: r.discount,
   }));
+  if (!window) return points;
+
+  const byKey = new Map(points.map((p) => [p.key, p]));
+  return bucketKeysIn(window, bucketUnit).map(
+    (key) =>
+      byKey.get(key) ?? {
+        label: formatPeriodLabel(key, source),
+        key,
+        revenue: 0,
+        orders: 0,
+        discount: 0,
+      },
+  );
+}
+
+/**
+ * Buckets that actually traded — the honest divisor for a per-day average.
+ *
+ * `points.length` USED to mean this, but only by accident: the series was sparse, so absent
+ * buckets were absent from the count. It was never a deliberate choice, and now that the series
+ * is densified it would silently mean "calendar days" instead. Stating the predicate keeps the
+ * number it feeds fixed across that change.
+ *
+ * KNOWN LIMIT OF THE PROXY: a missing bucket means "no orders", NOT "closed". This counts days
+ * with at least one order and cannot tell a closure from an open day that took nothing.
+ */
+export function tradingBuckets(points: SalesPoint[]): number {
+  return points.filter((p) => p.orders > 0).length;
 }
 
 /** A zeroed totals object — a safe default for the hero/KPI inputs before data lands. */
@@ -266,32 +363,18 @@ const mondayIndex = (isoDate: string): number => (getDay(parseISO(isoDate)) + 6)
  * July 2026 opens on a Wednesday and June 2026 on a Monday, giving an offset of 2, so
  * primary index 4 (Sun 5 Jul) reads comparison index 6 (Sun 7 Jun).
  *
- * THE OFFSET IS READ FROM THE SERIES' OWN FIRST `key`, NOT FROM THE WINDOW BOUNDS — and
- * that is deliberate, because it reads the DATA rather than despite it. Window bounds are
- * the intuitive choice and someone will try to "correct" this back, so here is why they
- * are wrong.
+ * THE OFFSET IS READ FROM THE SERIES' OWN FIRST `key`, NOT FROM THE WINDOW BOUNDS. Since
+ * densification `normalizeSeries` zero-fills each series to the window it was fetched over, so
+ * `points[0].key` IS that window's first bucket and the two derivations coincide — this is no
+ * longer a choice between two answers.
  *
- * The period series is not dense. `reports_app/controllers/common/bucketing.py` zero-fills
- * only the hourly path (its line 111); the period path is a plain group-by, so a day with
- * no orders is simply absent, and closed days are ordinary in hospitality. Window bounds
- * compute an offset for a dense array and then index a sparse one. The series' own first
- * key self-corrects instead, because DROPPING A LEADING ELEMENT SHIFTS EVERY INDEX DOWN BY
- * ONE AND ADVANCES THE OBSERVED OPENING WEEKDAY BY ONE — the two cancel exactly.
- *
- * Worked: no trade on Mon 1 Jun, so the comparison array opens on Tue 2 Jun. The offset
- * falls from 2 to 1, and primary index 4 (Sun 5 Jul) reads `sparseJune[5]` — still Sun
- * 7 Jun, the same point the dense case pairs it with. From window bounds the offset would
- * stay 2 and land on `sparseJune[6]`, Mon 8 Jun: a Sunday charted against a Monday, which
- * is the exact defect by-day exists to remove. The cancellation holds for any number of
- * leading gaps, and for a leading gap in EITHER series.
- *
- * KNOWN LIMITATION — INTERNAL gaps. A closed Monday mid-month shifts every index after it,
- * and no opening-weekday offset can see that. Note this breaks INDEX pairing identically,
- * so it is pre-existing and shared rather than introduced by by-day. The fix is to densify
- * each series to its own window, which is the next PR and should land before 02D: beyond
- * pairing, the x-axis today silently omits closed days and draws Sunday straight through to
- * Tuesday. It touches `normalizeSeries`, which every Sales card consumes, so it needs its
- * own recon and verification rather than riding along here.
+ * It stays data-derived because that form needs no window threaded through the card, and stays
+ * correct under EITHER condition. `alignComparisonSeries` is exported and pure; handed a sparse
+ * series directly it still self-corrects for leading gaps, because dropping a leading element
+ * shifts every index down by one AND advances the observed opening weekday by one — the two
+ * cancel exactly. Window bounds would compute an offset for a dense array and then index a
+ * sparse one. The sparse-input specs in `sales-view.spec.ts` pin that residual robustness; they
+ * pin the FUNCTION, not the pipeline, which no longer feeds it gaps.
  *
  * PAIRING APPLIES ONLY TO THE `day` BUCKET. Weekday alignment is meaningless once buckets
  * are months, and impossible for `hour`, where `key` is `'0'…'23'` and no date exists
