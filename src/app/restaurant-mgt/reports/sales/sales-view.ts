@@ -9,6 +9,7 @@
 import {
   eachDayOfInterval,
   eachMonthOfInterval,
+  eachWeekOfInterval,
   eachYearOfInterval,
   format,
   getDay,
@@ -18,7 +19,7 @@ import { ReportBucketUnit, SeriesPairing } from '../../../_shared/timeframe';
 import { SalesAggregateRow, SalesHourlyRow } from '../models/reports.models';
 
 /** Which service feeds a bucket + how the breakdown table is titled. */
-export type SalesSource = 'hourly' | 'daily' | 'monthly' | 'annual';
+export type SalesSource = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'annual';
 
 export interface SalesBucketView {
   source: SalesSource;
@@ -94,6 +95,8 @@ export function salesBucketView(bucketUnit: ReportBucketUnit): SalesBucketView {
       return { source: 'hourly', tableTitle: 'Hourly breakdown' };
     case 'day':
       return { source: 'daily', tableTitle: 'Daily breakdown' };
+    case 'week':
+      return { source: 'weekly', tableTitle: 'Weekly breakdown' };
     case 'year':
       return { source: 'annual', tableTitle: 'Yearly breakdown' };
     case 'month':
@@ -110,10 +113,16 @@ export function formatHourLabel(hour: number): string {
   return h < 12 ? `${h} AM` : `${h - 12} PM`;
 }
 
+/**
+ * `weekly` shares the daily `yyyy-MM-dd` key format (the bucket's Monday), so its label
+ * has to say WEEK explicitly — an unadorned '20 Jul' beside a daily axis is indistinguishable
+ * from a single day's takings.
+ */
 function formatPeriodLabel(period: string, source: SalesSource): string {
   const d = parseISO(period);
   if (source === 'annual') return format(d, 'yyyy');
-  return source === 'monthly' ? format(d, 'MMM yyyy') : format(d, 'd MMM');
+  if (source === 'monthly') return format(d, 'MMM yyyy');
+  return source === 'weekly' ? `w/c ${format(d, 'd MMM')}` : format(d, 'd MMM');
 }
 
 /** The inclusive window a series was fetched over. Structural so a caller needn't invent a preset. */
@@ -132,11 +141,27 @@ export interface SeriesWindow {
  * so it is precedent to follow, not code to import.
  *
  * `hour` never reaches here: its key is `'0'…'23'` with no date, and the caller exempts it.
+ *
+ * `week` IS KEYED TO ITS MONDAY, matching what the backend anchors to, and that key can fall
+ * BEFORE `window.from` — by up to six days, whenever the window opens mid-week. That is not a
+ * bug to guard against, it is the contract: `eachWeekOfInterval` snaps `start` back to its
+ * containing week start, and defeating that (by pre-advancing `start` to the next Monday, say)
+ * would leave the first returned bucket unmatched and densify it to zero. Every other bucket
+ * happens to have `from` land on or after its own boundary, which is why nothing before this
+ * had to state the rule.
+ *
+ * NOTE: this `switch` has a `default`, so adding a member to `ReportBucketUnit` does NOT make
+ * the compiler flag it here. A new bucket needs an arm added by hand.
  */
 function bucketKeysIn(window: SeriesWindow, bucketUnit: ReportBucketUnit): string[] {
   const start = parseISO(window.from);
   const end = parseISO(window.to);
   switch (bucketUnit) {
+    case 'week':
+      // Monday-first (Uganda convention, and what TRENDS-WEEKLY-00 anchors to server-side).
+      return eachWeekOfInterval({ start, end }, { weekStartsOn: 1 }).map((d) =>
+        format(d, 'yyyy-MM-dd'),
+      );
     case 'month':
       return eachMonthOfInterval({ start, end }).map((d) => format(d, 'yyyy-MM'));
     case 'year':
@@ -162,11 +187,18 @@ function bucketKeysIn(window: SeriesWindow, bucketUnit: ReportBucketUnit): strin
  * which yields `null` past the end of the comparison series — there no corresponding bucket
  * EXISTS, so a zero would be an invention.)
  *
- * THE WINDOW DEFINES THE SERIES. Pass the window the rows were actually FETCHED over — for the
- * primary series that is `effectiveRange`, not the raw range, since the engine's over-cap clamp
- * moves `from`. A returned bucket outside the window is dropped: it cannot occur against either
- * fetch, it would be a backend contract violation, and carrying it would put an out-of-sequence
+ * THE ENUMERATION DEFINES THE SERIES. Pass the window the rows were actually FETCHED over — for
+ * the primary series that is `effectiveRange`, not the raw range, since the engine's over-cap
+ * clamp moves `from`. `bucketKeysIn` turns that window into the exact key set the output carries,
+ * and a returned bucket outside that set is dropped — carrying it would put an out-of-sequence
  * label on the axis.
+ *
+ * The enumeration is NOT the window's literal bounds, and the difference is load-bearing for
+ * `week`: a weekly bucket is keyed to its Monday, so when the window opens mid-week the FIRST
+ * enumerated key precedes `from` by up to six days — deliberately, because that is the key the
+ * backend returns for the partial opening week. Matching it is what keeps that week's real
+ * takings on the chart instead of zero-filling over them. (For every other bucket the two
+ * coincide, which is why this used to read as "a bucket outside the window cannot occur".)
  *
  * `window: null` means DO NOT densify, and is the only escape hatch — used when no request was
  * made at all (the `'none'` comparison basis), where a full array of zero points would be a
@@ -380,6 +412,13 @@ const mondayIndex = (isoDate: string): number => (getDay(parseISO(isoDate)) + 6)
  * are months, and impossible for `hour`, where `key` is `'0'…'23'` and no date exists
  * anywhere in the pipeline. Any other bucket falls back to index pairing.
  *
+ * `week` FALLING TO INDEX PAIRING IS CORRECT, NOT INCIDENTAL — do not "fix" it by widening the
+ * guard. Both series are Monday-anchored on both sides, so index i is the i-th Monday in each
+ * and positional pairing already aligns week to week; a weekday offset between two Mondays is
+ * zero by construction. (It cannot even be reached: `pairingFor` returns `by-day` only for
+ * `prev-month-by-day` / `prev-year-by-day`, offered at month shapes only, whose spans are ≤31
+ * days and therefore resolve to the `day` bucket.)
+ *
  * Out-of-range indices yield `null` — never wrapped, never clamped to the nearest end.
  * Chart.js draws a gap there (its `spanGaps` default is false), and a visible gap is
  * honest where a fabricated point is not.
@@ -401,11 +440,14 @@ export function alignComparisonSeries(
 /**
  * A point's date, unambiguous enough to sit in a tooltip.
  *
- * The `day` case formats from `key` rather than reusing `label`, which is `'15 Jun'` and
- * carries NO YEAR — beside a `prev-year-by-day` or `dates-last-year` comparison that would
- * print a date indistinguishable from the primary's. Every other bucket's label already
- * carries a year (`'Jun 2026'`, `'2026'`) or is date-free (`'1 PM'`), so it is reused.
+ * The `day` and `week` cases format from `key` rather than reusing `label`, which is `'15 Jun'`
+ * / `'w/c 15 Jun'` and carries NO YEAR — beside a `prev-year-by-day` or `dates-last-year`
+ * comparison that would print a date indistinguishable from the primary's. Every other bucket's
+ * label already carries a year (`'Jun 2026'`, `'2026'`) or is date-free (`'1 PM'`), so it is
+ * reused. `week` keeps its `w/c` prefix here: a bare Monday date in a tooltip reads as a single
+ * day's takings, which is precisely what the point is not.
  */
 export function pointDateLabel(p: SalesPoint, bucketUnit: ReportBucketUnit): string {
+  if (bucketUnit === 'week') return `w/c ${format(parseISO(p.key), 'd MMM yyyy')}`;
   return bucketUnit === 'day' ? format(parseISO(p.key), 'd MMM yyyy') : p.label;
 }

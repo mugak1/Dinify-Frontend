@@ -16,10 +16,11 @@ export type ReportKey = 'sales' | 'menu' | 'transactions' | 'diners';
  * range needs (year-wide ranges resolve to `annual`; `quarterly` is accepted but
  * never auto-selected).
  */
-export type ReportGranularity = 'daily' | 'monthly' | 'quarterly' | 'annual';
+export type ReportGranularity = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual';
 
 export interface SalesAggregateRow {
-  /** ISO label: yyyy-MM-dd (daily) or yyyy-MM (monthly) — sorts chronologically as text. */
+  /** ISO label: yyyy-MM-dd (daily, and weekly as the Monday) or yyyy-MM (monthly) —
+   *  sorts chronologically as text. */
   period: string;
   orders: number;
   /** UGX, net of discount (gross − discount). */

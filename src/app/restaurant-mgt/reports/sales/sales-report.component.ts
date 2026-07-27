@@ -341,6 +341,7 @@ export class SalesReportComponent implements OnInit, OnDestroy {
   private periodLabel(bucketUnit: ReportBucketUnit): string {
     if (bucketUnit === 'hour') return 'Hour';
     if (bucketUnit === 'day') return 'Day';
+    if (bucketUnit === 'week') return 'Week';
     if (bucketUnit === 'year') return 'Year';
     return 'Month';
   }

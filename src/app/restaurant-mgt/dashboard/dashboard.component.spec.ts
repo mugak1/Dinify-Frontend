@@ -119,6 +119,9 @@ describe('DashboardComponent — timeframe wiring', () => {
     const cases: { label: string; span: number; bucket: string }[] = [
       { label: '1 day', span: 1, bucket: 'hour' },
       { label: '25 days', span: 25, bucket: 'day' },
+      // The range LADDER-WEEK-00 exists for: 60 days used to reach the wire as `month`, i.e.
+      // two points. `bucket` fails CLOSED server-side, so this string has to be exact.
+      { label: '60 days', span: 60, bucket: 'week' },
       { label: '200 days', span: 200, bucket: 'month' },
       { label: '900 days', span: 900, bucket: 'year' },
     ];

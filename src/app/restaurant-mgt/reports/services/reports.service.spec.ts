@@ -2,6 +2,7 @@ import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { of } from 'rxjs';
 
 import { ReportsService } from './reports.service';
+import { BUCKET_TO_CATEGORY, resolveTimeframe } from '../../../_shared/timeframe';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
@@ -132,6 +133,24 @@ describe('ReportsService', () => {
         from: FROM,
         to: TO,
         category: 'daily',
+        result: 'table',
+      });
+    });
+
+    // LADDER-WEEK-00. `weekly` is a category the backend has served since Phase 0 and nothing
+    // asked for until the ladder gained a week rung. The engine resolves a 32–92 day range to
+    // it, so it has to survive the trip to the wire rather than being widened to monthly.
+    it('Sales aggregate → sends category=weekly for a 32–92 day bucket', () => {
+      expect(BUCKET_TO_CATEGORY.week).toBe('weekly');
+      const { category } = resolveTimeframe({ preset: 'custom', from: '2026-05-01', to: '2026-06-30' });
+      expect(category).toBe('weekly');
+
+      service.getSalesAggregate('r1', FROM, TO, category!).subscribe();
+      expect(api.get).toHaveBeenCalledWith(null, 'reports/restaurant/sales-trends/', {
+        restaurant: 'r1',
+        from: FROM,
+        to: TO,
+        category: 'weekly',
         result: 'table',
       });
     });

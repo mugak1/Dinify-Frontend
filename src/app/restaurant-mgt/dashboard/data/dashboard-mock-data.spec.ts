@@ -56,6 +56,7 @@ describe('dashboard revenue mock — shared-basis reconciliation', () => {
     const cases: [string, string][] = [
       ['2026-06-24', '2026-06-30'], // 7 days   → day
       [FROM, TO], //                   30 days  → day
+      ['2026-05-01', '2026-06-30'], // 60 days  → week
       ['2026-01-01', '2026-06-30'], // 181 days → month
       ['2022-01-01', '2026-06-30'], // ~4.5 yrs → year
     ];
@@ -69,6 +70,29 @@ describe('dashboard revenue mock — shared-basis reconciliation', () => {
         .withContext(`net @ ${bucket} (${f}..${t})`)
         .toBe(rev.totals.net);
     }
+  });
+
+  // LADDER-WEEK-00. `generateDates` and `bucketKey` must agree key-for-key: `buildRevenueSeries`
+  // resolves each row's slot with `slots.get(dayAtIso(bucketKey(...)))`, so a disagreement throws
+  // nothing — every lookup misses and the series comes back as a run of zeros beside non-zero
+  // totals. Σ-vs-totals above would catch that; this names the failure so the next reader knows
+  // what a red line here means.
+  it('buckets a 60-day range into Monday-anchored weekly points that actually carry data', () => {
+    const [f, t] = ['2026-05-01', '2026-06-30']; // span 60 → the ladder's weekly rung
+    expect(bucketFor(f, t)).toBe('week');
+    const rev = getMockRevenueData(RID, f, t, 'week');
+
+    // ~9 weekly points rather than the 2 monthly ones this range used to render.
+    expect(rev.series.length).toBeGreaterThan(7);
+    expect(rev.series.length).toBeLessThan(12);
+    // Every point is a Monday. 1 May 2026 is a Friday, so the first bucket is w/c 27 Apr —
+    // BEFORE the window, holding the partial opening week. That is the contract, not a bug.
+    for (const p of rev.series) {
+      expect(new Date(p.at).getDay()).withContext(p.at).toBe(1);
+    }
+    expect(rev.series.some((p) => p.gross > 0))
+      .withContext('a zeroed series means bucketKey and generateDates disagree')
+      .toBeTrue();
   });
 
   it('hourly view spreads the single day across 24 points that sum to the day total', () => {

@@ -11,6 +11,7 @@ import {
   getDay,
   parseISO,
   startOfQuarter,
+  startOfWeek,
 } from 'date-fns';
 import {
   DinersListingRow,
@@ -101,10 +102,15 @@ export function getMockSalesAggregate(
   // generation) — so Σ(daily) === the bucket, by construction. Grouping the actual
   // in-range rows also handles partial buckets correctly. eachDayOfInterval is
   // ascending, so the buckets come out chronological.
+  // `weekly` keys to the bucket's MONDAY in the daily `yyyy-MM-dd` format, matching what the
+  // backend anchors to. It must be an explicit arm: falling through to the monthly default
+  // would emit `yyyy-MM` keys that match none of `bucketKeysIn`'s weekly enumeration, and
+  // `normalizeSeries` would then zero-fill the entire chart without erroring.
   const bucketKey = (date: string): string => {
     const d = parseISO(date);
     if (granularity === 'annual') return format(d, 'yyyy');
     if (granularity === 'quarterly') return format(startOfQuarter(d), 'yyyy-MM');
+    if (granularity === 'weekly') return format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
     return format(d, 'yyyy-MM'); // monthly
   };
 
