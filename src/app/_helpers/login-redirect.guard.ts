@@ -65,17 +65,11 @@ export const loginRedirectGuard: CanActivateFn = () => {
 };
 
 // The /kitchen route's admission policy, mirrored from its declaration in
-// app-routing.module.ts (data.roles + data.restaurant_roles as AuthGuard
-// evaluates them — any membership counts, not just the selected one). Keep in
-// sync with that route.
-const KITCHEN_ROUTE_TOP_LEVEL_ROLES = ['dinify_admin', 'dinify_account_manager'];
+// app-routing.module.ts (data.restaurant_roles as AuthGuard evaluates it — any
+// membership counts, not just the selected one). Keep in sync with that route.
 const KITCHEN_ROUTE_RESTAURANT_ROLES = ['owner', 'manager', 'kitchen'];
 
 function canEnterKitchenRoute(user: LoginResponse): boolean {
-  const topLevelRoles = user.profile?.roles ?? [];
-  if (KITCHEN_ROUTE_TOP_LEVEL_ROLES.some((role) => topLevelRoles.includes(role))) {
-    return true;
-  }
   return (user.profile?.restaurant_roles ?? []).some(
     (rr) => rr.roles?.some((role) => KITCHEN_ROUTE_RESTAURANT_ROLES.includes(role)),
   );

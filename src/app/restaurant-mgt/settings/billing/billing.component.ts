@@ -253,7 +253,12 @@ export class BillingComponent implements OnInit {
         this.require_otp = true;
       });
   }
-  get canChangeBillingDate() {
-    return this.auth.userValue?.profile.roles.includes('dinify_admin');
-  }
+  // Phase 1: cash subscription payment is admin-plane functionality.
+  //
+  // A `canChangeBillingDate` getter used to stand here, gating a third "Cash"
+  // option in the payment-method picker on a platform role read off
+  // profile.roles. It went with the platform-role vocabulary. Nothing replaced
+  // it deliberately: Save() below branches on 'momo' and 'card' only, so
+  // selecting Cash fired no request, showed no toast and closed nothing — the
+  // affordance was already inert. Restaurant roles never had it.
 }

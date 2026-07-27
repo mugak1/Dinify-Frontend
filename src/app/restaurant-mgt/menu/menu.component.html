@@ -6,14 +6,14 @@ visible title bar, so the page heading is a screen-reader-only landmark. -->
 @if (isThirdChild && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit' || auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')) {
   <div
     class="flex items-center gap-2 px-5 md:px-6 py-2 border-b border-neutral-200 bg-neutral-50">
-    @if ((auth.currentRestaurantRole?.roles?.includes('owner') || auth.userValue?.profile?.roles?.includes('dinify_admin')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit')) {
+    @if (auth.currentRestaurantRole?.roles?.includes('owner') && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit')) {
       <button
         (click)="approveMenu('approve')"
         class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
         Approve Menu
       </button>
     }
-    @if ((auth.currentRestaurantRole?.roles?.includes('manager') || auth.currentRestaurantRole?.roles?.includes('owner') || auth.userValue?.profile?.roles?.includes('dinify_admin')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')) {
+    @if ((auth.currentRestaurantRole?.roles?.includes('manager') || auth.currentRestaurantRole?.roles?.includes('owner')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')) {
       <button
         (click)="approveMenu('submit')"
         class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">

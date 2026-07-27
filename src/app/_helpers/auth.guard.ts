@@ -15,11 +15,14 @@ export class AuthGuard {
             // check if route is restricted by role
             const { roles, restaurant_roles } = route.data;
             if (roles || restaurant_roles) {
-                const hasTopLevelRole = Array.isArray(roles)
-                    && roles.some((r: string) => user.profile.roles.includes(r));
+                // NOTE there is deliberately no `profile.roles` branch here. One used to
+                // sit above this line, and it was the mechanism by which a platform role
+                // string in `data.roles` granted route access. `profile.roles` is the
+                // ACCOUNT-level array; authority comes from the MEMBERSHIP arrays below.
+                // Held by scripts/check-platform-roles.mjs — do not reintroduce it.
 
-                // Existing 'restaurant_staff' bridge — any restaurant role grants
-                // access, since the backend may not duplicate that into profile.roles.
+                // The 'restaurant_staff' bridge — any restaurant membership grants
+                // access. This is what gates the portal shell.
                 const hasRestaurantRole = Array.isArray(roles)
                     && roles.includes('restaurant_staff')
                     && user.profile.restaurant_roles
@@ -35,7 +38,7 @@ export class AuthGuard {
                     && (user.profile.restaurant_roles ?? []).some(
                         rr => rr.roles?.some(role => requiredRestaurantRoles.includes(role)));
 
-                if (!hasTopLevelRole && !hasRestaurantRole && !hasSpecificRestaurantRole) {
+                if (!hasRestaurantRole && !hasSpecificRestaurantRole) {
                     this.router.navigate(['/']);
                     return false;
                 }

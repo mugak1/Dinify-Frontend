@@ -44,10 +44,13 @@ run_step() {
 
 run_step "type-check" npm run type-check
 run_step "lint"       npm run lint
-# Fail-fast tenant-isolation closure gate (TENANT-ISO-PR6B): the focused
-# tenant-boundary spec set (the _security closure spec + the diner-capability,
-# QR-lifecycle and selected-restaurant specs it builds on). Runs BEFORE the full
-# suite so a broken boundary fails early. Does NOT replace the full test:ci below.
+# Fail-fast boundary gate, two things in order: the platform-role source gate
+# (FE-AUTH-00, scripts/check-platform-roles.mjs — its own --self-test first, so a
+# matcher that stopped matching fails here rather than passing everything), then
+# the tenant-boundary spec set (TENANT-ISO-PR6B: the _security closure spec plus
+# the diner-capability, QR-lifecycle and selected-restaurant specs it builds on).
+# Runs BEFORE the full suite so a broken boundary fails early. Does NOT replace
+# the full test:ci below.
 run_step "tenant-isolation closure gate" npm run test:tenant-boundary
 run_step "test"       npm run test:ci
 run_step "build:prod" npm run build:prod
