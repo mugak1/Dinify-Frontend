@@ -7,7 +7,14 @@ import { DashboardComponent } from './dashboard.component';
 import { DashboardService } from './services/dashboard.service';
 import { MenuService } from '../menu/services/menu.service';
 import { AuthenticationService } from '../../_services/authentication.service';
-import { ReportDateRange, TimeframeService } from '../../_shared/timeframe';
+import {
+  ComparisonOption,
+  ReportDateRange,
+  TimeframeService,
+  classifyRangeShape,
+  comparisonOptionsFor,
+  resolveComparison,
+} from '../../_shared/timeframe';
 
 const today = format(new Date(), 'yyyy-MM-dd');
 const daysAgo = (n: number) => format(subDays(new Date(), n), 'yyyy-MM-dd');
@@ -26,14 +33,20 @@ describe('DashboardComponent — timeframe wiring', () => {
   let fixture: ComponentFixture<DashboardComponent>;
   let component: DashboardComponent;
   let range$: BehaviorSubject<ReportDateRange>;
+  let comparison$: BehaviorSubject<ComparisonOption>;
   let refresh$: Subject<void>;
   let dashboardService: jasmine.SpyObj<DashboardService> & { refresh$: Subject<void> };
   let timeframeSet: jasmine.Spy;
+  let timeframeSetComparison: jasmine.Spy;
 
-  function boot(initial: ReportDateRange): void {
+  function boot(initial: ReportDateRange, basis: ComparisonOption = 'none'): void {
     range$ = new BehaviorSubject<ReportDateRange>(initial);
+    // Defaults to 'none' so the pre-02B specs keep asserting the PRIMARY request in
+    // isolation — with a basis set, every call count would also carry the comparison.
+    comparison$ = new BehaviorSubject<ComparisonOption>(basis);
     refresh$ = new Subject<void>();
     timeframeSet = jasmine.createSpy('set');
+    timeframeSetComparison = jasmine.createSpy('setComparison');
 
     const getDashboardData = jasmine.createSpy('getDashboardData').and.returnValue(of({ data: null }));
     const getReviewsSummary = jasmine.createSpy('getReviewsSummary').and.returnValue(of({ data: null }));
@@ -58,10 +71,15 @@ describe('DashboardComponent — timeframe wiring', () => {
           provide: TimeframeService,
           useValue: {
             range$: range$.asObservable(),
+            comparison$: comparison$.asObservable(),
             get value() {
               return range$.value;
             },
+            get comparisonValue() {
+              return comparison$.value;
+            },
             set: timeframeSet,
+            setComparison: timeframeSetComparison,
           },
         },
         {
@@ -209,5 +227,181 @@ describe('DashboardComponent — timeframe wiring', () => {
     component.onRange(picked);
 
     expect(timeframeSet).toHaveBeenCalledWith(picked);
+  });
+  // ─── Comparison basis (TIMEFRAME-02B) ──────────────────────────────────────────────
+  //
+  // The Dashboard stopped reading `dashboard-v2`'s `previous_totals` and now honours the
+  // user's selected basis via a SECOND call for that window. Everything below is about
+  // that call: whether it happens, what window it asks for, where the number comes from,
+  // and — the one that would silently cost real money — that it never rides the poll.
+
+  /** Every window `getDashboardData` was asked for, in call order. */
+  const windows = (): string[] =>
+    dashboardService.getDashboardData.calls
+      .allArgs()
+      .map((a) => `${a[1]}..${a[2]}`);
+
+  /** Calls for anything OTHER than the primary window — i.e. the comparison ones. */
+  const comparisonCalls = (primary: ReportDateRange): string[] =>
+    windows().filter((w) => w !== `${primary.from}..${primary.to}`);
+
+  describe("basis 'none'", () => {
+    it('issues NO second request', fakeAsync(() => {
+      boot(closedRange, 'none');
+      fixture.detectChanges();
+      tick();
+
+      expect(dashboardService.getDashboardData).toHaveBeenCalledTimes(1);
+      expect(comparisonCalls(closedRange)).toEqual([]);
+    }));
+
+    it('renders no comparison at all — window null, so no badge, chip or caption', fakeAsync(() => {
+      boot(closedRange, 'none');
+      fixture.detectChanges();
+      tick();
+
+      expect(component.comparisonWindow).toBeNull();
+      expect(component.comparisonData).toBeNull();
+    }));
+  });
+
+  describe('a selected basis', () => {
+    // A whole calendar July: the equal-length block before it is 31 May – 30 Jun, while
+    // `prev-month` is 1–30 Jun. Choosing a range where the two DIFFER is the whole point —
+    // on most ranges a wrong implementation would coincide with a right one.
+    const july: ReportDateRange = { preset: 'custom', from: '2025-07-01', to: '2025-07-31' };
+
+    it('requests exactly the window resolveComparison returns', fakeAsync(() => {
+      boot(july, 'prev-month');
+      fixture.detectChanges();
+      tick();
+
+      const expected = resolveComparison(july, 'prev-month')!;
+      expect(expected.from).toBe('2025-06-01');
+      expect(expected.to).toBe('2025-06-30'); // NOT 31 May – 30 Jun
+      expect(comparisonCalls(july)).toEqual([`${expected.from}..${expected.to}`]);
+    }));
+
+    it('sends the same bucket as the primary request', fakeAsync(() => {
+      boot(july, 'prev-month');
+      fixture.detectChanges();
+      tick();
+
+      const buckets = dashboardService.getDashboardData.calls.allArgs().map((a) => a[3]);
+      expect(new Set(buckets).size).toBe(1);
+    }));
+
+    it('captures the window it fetched, for the caption to name', fakeAsync(() => {
+      boot(july, 'prev-month');
+      fixture.detectChanges();
+      tick();
+
+      expect(component.comparisonWindow).toEqual(
+        jasmine.objectContaining({ from: '2025-06-01', to: '2025-06-30' }),
+      );
+    }));
+
+    // The 02B swap, asserted where it can actually be caught: a response whose two fields
+    // DISAGREE. Reading `previous_totals` would give 999_999_999.
+    it("takes the baseline from the comparison response's totals, never its previous_totals", fakeAsync(() => {
+      const comparisonResponse = {
+        data: {
+          revenue: {
+            series: [],
+            totals: { gross: 500, net: 500, discounts: 0, refunds: 0 },
+            previous_totals: { gross: 999999999, net: 999999999, discounts: 0, refunds: 0 },
+          },
+          orders: { series: [], breakdown: {}, total: 42, previous_total: 999999999 },
+        },
+      };
+      boot(july, 'prev-month');
+      dashboardService.getDashboardData.and.callFake(
+        (...args: unknown[]) =>
+          of(args[1] === july.from ? { data: null } : comparisonResponse) as never,
+      );
+      fixture.detectChanges();
+      tick();
+
+      expect(component.comparisonData!.revenue.totals.net).toBe(500);
+      expect(component.comparisonData!.orders.total).toBe(42);
+    }));
+
+    // The offered set and the resolved window must be derived from the SAME range, or a
+    // menu can offer an option the resolver will not honour.
+    it('honours only a basis the resolver’s own window actually offers', fakeAsync(() => {
+      boot(july, 'prev-month');
+      fixture.detectChanges();
+      tick();
+
+      const window = component.comparisonWindow!;
+      const shape = classifyRangeShape(july);
+      expect(comparisonOptionsFor(shape)).toContain('prev-month');
+      expect(resolveComparison(july, 'prev-month')).toEqual(window);
+    }));
+  });
+
+  describe('the comparison never rides the poll', () => {
+    // A comparison window is always in the past, so its data cannot change. Re-fetching it
+    // every 30 seconds would be spending requests on a settled answer, forever.
+    it('N poll ticks issue N primary requests and exactly ONE comparison request', fakeAsync(() => {
+      const open = openRange(3);
+      boot(open, 'prev-week');
+      fixture.detectChanges();
+      tick();
+
+      const afterFirst = comparisonCalls(open).length;
+      expect(afterFirst).toBe(1);
+
+      tick(30_000);
+      tick(30_000);
+      tick(30_000);
+
+      // Primary polled three more times…
+      expect(windows().filter((w) => w === `${open.from}..${open.to}`).length).toBe(4);
+      // …and the comparison did not move.
+      expect(comparisonCalls(open).length).toBe(1);
+
+      discardPeriodicTasks();
+    }));
+  });
+
+  describe('the comparison re-fetches when its window changes', () => {
+    const july: ReportDateRange = { preset: 'custom', from: '2025-07-01', to: '2025-07-31' };
+    const june: ReportDateRange = { preset: 'custom', from: '2025-06-01', to: '2025-06-30' };
+
+    it('on a range change — an arrow step or a calendar Apply', fakeAsync(() => {
+      boot(july, 'prev-month');
+      fixture.detectChanges();
+      tick();
+      expect(comparisonCalls(july)).toEqual(['2025-06-01..2025-06-30']);
+
+      dashboardService.getDashboardData.calls.reset();
+      range$.next(june);
+      tick();
+
+      // The new range's comparison is May, fetched fresh.
+      expect(comparisonCalls(june)).toEqual(['2025-05-01..2025-05-31']);
+    }));
+
+    it('on an option change', fakeAsync(() => {
+      boot(july, 'prev-month');
+      fixture.detectChanges();
+      tick();
+
+      dashboardService.getDashboardData.calls.reset();
+      comparison$.next('prev-year');
+      tick();
+
+      const expected = resolveComparison(july, 'prev-year')!;
+      expect(comparisonCalls(july)).toEqual([`${expected.from}..${expected.to}`]);
+    }));
+  });
+
+  it('commits a picked basis through the service, not to local state', () => {
+    boot(openRange(0));
+
+    component.onComparison('prev-year');
+
+    expect(timeframeSetComparison).toHaveBeenCalledWith('prev-year');
   });
 });

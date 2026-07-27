@@ -11,11 +11,14 @@
 // `@Output` — a step is just a new range, so both hosts inherited them with no host-side
 // change at all.
 //
-// The comparison dropdown (02A) DOES carry its own `@Output`, and that is not a reversal
-// of the note above: an arrow emits a new RANGE, so `valueChange` already expresses it,
-// whereas a comparison basis is separate state and there is no range that means "compare
-// against last year". Same reasoning, opposite conclusion, because it is a different kind
-// of value.
+// The comparison dropdown DOES carry its own `@Output`, and that is not a reversal of the
+// note above: an arrow emits a new RANGE, so `valueChange` already expresses it, whereas a
+// comparison basis is separate state and there is no range that means "compare against last
+// year". Same reasoning, opposite conclusion, because it is a different kind of value.
+//
+// Both hosts render the full cluster as of 02B. The `showComparison` flag that kept the
+// dropdown off the Dashboard through 02A is gone — it was scaffolding for that split, and a
+// flag true at every call site is dead config.
 //
 // NAMING. Called `timeframe-picker`, not `report-date-range`: it was relocated here from
 // the Reports module in TIMEFRAME-01B precisely because it stopped being Reports'. A
@@ -113,72 +116,70 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
 
       <!-- Comparison basis (02A). Same h-[38px] as the rest of the cluster. Its menu is
            derived from the range's SHAPE, so it re-shapes as the range does. -->
-      @if (showComparison) {
-        <button
-          #cmpTrigger
-          type="button"
-          cdkOverlayOrigin
-          #cmpOrigin="cdkOverlayOrigin"
-          class="h-[38px] inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          [attr.aria-label]="'Compare against: ' + comparisonLabel + '. Activate to change.'"
-          aria-haspopup="listbox"
-          [attr.aria-expanded]="cmpOpen"
-          (click)="toggleComparison()"
-          (keydown)="onTriggerKeydown($event)"
-        >
-          <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 6h18" />
-            <path d="M7 12h10" />
-            <path d="M11 18h2" />
-          </svg>
-          <span>{{ comparisonLabel }}</span>
-          <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
+      <button
+        #cmpTrigger
+        type="button"
+        cdkOverlayOrigin
+        #cmpOrigin="cdkOverlayOrigin"
+        class="h-[38px] inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        [attr.aria-label]="'Compare against: ' + comparisonLabel + '. Activate to change.'"
+        aria-haspopup="listbox"
+        [attr.aria-expanded]="cmpOpen"
+        (click)="toggleComparison()"
+        (keydown)="onTriggerKeydown($event)"
+      >
+        <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18" />
+          <path d="M7 12h10" />
+          <path d="M11 18h2" />
+        </svg>
+        <span>{{ comparisonLabel }}</span>
+        <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
 
-        <ng-template
-          cdkConnectedOverlay
-          [cdkConnectedOverlayOrigin]="cmpOrigin"
-          [cdkConnectedOverlayOpen]="cmpOpen"
-          [cdkConnectedOverlayPositions]="cmpPositions"
-          [cdkConnectedOverlayHasBackdrop]="true"
-          cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
-          cdkConnectedOverlayPanelClass="dn-comparison-overlay-panel"
-          (backdropClick)="closeComparison()"
-          (detach)="closeComparison()"
-          (overlayKeydown)="onMenuKeydown($event)"
+      <ng-template
+        cdkConnectedOverlay
+        [cdkConnectedOverlayOrigin]="cmpOrigin"
+        [cdkConnectedOverlayOpen]="cmpOpen"
+        [cdkConnectedOverlayPositions]="cmpPositions"
+        [cdkConnectedOverlayHasBackdrop]="true"
+        cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+        cdkConnectedOverlayPanelClass="dn-comparison-overlay-panel"
+        (backdropClick)="closeComparison()"
+        (detach)="closeComparison()"
+        (overlayKeydown)="onMenuKeydown($event)"
+      >
+        <div
+          role="listbox"
+          aria-label="Comparison basis"
+          class="min-w-[13rem] overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
         >
-          <div
-            role="listbox"
-            aria-label="Comparison basis"
-            class="min-w-[13rem] overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
-          >
-            @for (option of comparisonOptions; track option; let i = $index) {
-              <button
-                #cmpOption
-                type="button"
-                role="option"
-                [attr.aria-selected]="option === comparison"
-                [attr.tabindex]="option === comparison ? 0 : -1"
-                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                [ngClass]="option === comparison ? 'font-medium text-foreground' : 'text-muted-foreground'"
-                (click)="pickComparison(option)"
+          @for (option of comparisonOptions; track option; let i = $index) {
+            <button
+              #cmpOption
+              type="button"
+              role="option"
+              [attr.aria-selected]="option === comparison"
+              [attr.tabindex]="option === comparison ? 0 : -1"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+              [ngClass]="option === comparison ? 'font-medium text-foreground' : 'text-muted-foreground'"
+              (click)="pickComparison(option)"
+            >
+              <svg
+                aria-hidden="true"
+                class="h-4 w-4 shrink-0"
+                [class.invisible]="option !== comparison"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
               >
-                <svg
-                  aria-hidden="true"
-                  class="h-4 w-4 shrink-0"
-                  [class.invisible]="option !== comparison"
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                >
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-                <span>{{ labelFor(option) }}</span>
-              </button>
-            }
-          </div>
-        </ng-template>
-      }
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <span>{{ labelFor(option) }}</span>
+            </button>
+          }
+        </div>
+      </ng-template>
     </div>
 
     <!-- Mobile: bottom sheet. Only mounted below the desktop breakpoint. The
@@ -200,18 +201,6 @@ import { PRESET_LABELS, formatRangeSpan } from './range-label';
 export class TimeframePickerComponent implements OnInit, OnDestroy {
   @Input() value: ReportDateRange = presetToRange('this-month');
   @Output() valueChange = new EventEmitter<ReportDateRange>();
-
-  /**
-   * SCAFFOLDING FOR THE 02A/02B SPLIT — DELETE IN 02B.
-   *
-   * 02A gives Reports a selectable comparison basis; the Dashboard keeps its
-   * server-computed `previous_totals` until 02B. This picker serves both hosts, so the
-   * control needs a way to be absent on one of them, and this is it. When 02B lands and
-   * both hosts show the dropdown, remove the input and the `@if` around the markup —
-   * a flag that is `true` at every call site is dead config, and the only thing that
-   * stops one surviving by inertia is having said so at the declaration.
-   */
-  @Input() showComparison = false;
 
   /** The active comparison basis. `TimeframeService` owns it; this control never does. */
   @Input() comparison: ComparisonOption = 'none';

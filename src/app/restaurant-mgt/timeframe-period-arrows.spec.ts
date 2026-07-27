@@ -165,26 +165,29 @@ describe('period arrows — both timeframe hosts', () => {
       });
     });
   }
-  // ─── Comparison control, per host (TIMEFRAME-02A) ──────────────────────────────────
+  // ─── Comparison control, per host (TIMEFRAME-02B) ──────────────────────────────────
   //
-  // The picker is SHARED, and 02A gives the comparison dropdown only to Reports — the
-  // Dashboard keeps its server-computed `previous_totals` until 02B. `showComparison`
-  // defaults to false to make that so, and this is the spec that stops a later default
-  // flip shipping silently to the primary surface. Delete it in 02B, with the flag.
-  describe('the comparison dropdown is scoped to Reports until 02B', () => {
+  // The picker is SHARED, and as of 02B BOTH hosts render the full cluster — the
+  // `showComparison` flag that held the dropdown off the Dashboard through 02A is gone.
+  //
+  // This is the successor to 02A's "scoped to Reports until 02B" block, not a deletion of
+  // it: the same two mounts are still asserted, with the Dashboard's expectation inverted.
+  // Component-level coverage of the dropdown lives in the picker's own spec; what only
+  // THIS file can catch is a host quietly dropping the control from its own template.
+  describe('the comparison dropdown renders on both hosts', () => {
     const cmpTrigger = (el: HTMLElement): HTMLButtonElement | null =>
       el.querySelector('button[aria-haspopup="listbox"]');
 
-    it('the Reports shell renders it', async () => {
-      const el = await bootAt('/reports' + MARCH_2020);
-      expect(cmpTrigger(el)).not.toBeNull();
-    });
+    for (const host of hosts) {
+      it(`${host.label} renders it beside the date control`, async () => {
+        const el = await bootAt(host.url + MARCH_2020);
 
-    it('the Dashboard renders NO comparison control', async () => {
-      const el = await bootAt('/dashboard' + MARCH_2020);
-
-      expect(el.querySelector('app-timeframe-picker')).not.toBeNull(); // the picker IS there…
-      expect(cmpTrigger(el)).toBeNull(); // …without the dropdown
-    });
+        expect(el.querySelector('app-timeframe-picker')).not.toBeNull();
+        expect(cmpTrigger(el)).not.toBeNull();
+        // The whole cluster, in one place: arrows, date trigger, comparison.
+        expect(arrow(el, 'Previous period')).not.toBeNull();
+        expect(arrow(el, 'Next period')).not.toBeNull();
+      });
+    }
   });
 });

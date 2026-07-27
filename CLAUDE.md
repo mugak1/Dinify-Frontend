@@ -254,24 +254,36 @@ so keep it current when conventions change.
   `comparison$` / `comparisonValue` / `setComparison()` beside `range$` / `set()`, and the
   picker cluster is now `[◀] [▶] [date ▾] [comparison ▾]`. The option set depends on the
   range's SHAPE (`comparisonOptionsFor`, see Shared Libraries), so the menu re-shapes as
-  the range does. **`ReportsService.compareEnabled$` is DELETED** — "off" is just the
-  `'none'` entry in the basis menu, and a separate boolean would have been a second answer
-  to one question. `comparisonRange` / `comparisonRangeLabel` are deleted too, replaced by
-  the single `resolveComparison`. URL param `cmp`, parsed inside `parseTimeframeParams`
+  the range does — on BOTH hosts as of 02B. **`ReportsService.compareEnabled$` is DELETED**
+  — "off" is just the `'none'` entry in the basis menu, and a separate boolean would have
+  been a second answer to one question. `comparisonRange` / `comparisonRangeLabel` are
+  deleted too, replaced by the single `resolveComparison`. URL param `cmp`, parsed inside `parseTimeframeParams`
   (one parser) and **OMITTED whenever the selection is the current shape's default**, so
   ordinary URLs stay as clean as they were; an unknown or shape-invalid value falls back
   and corrects the URL by REPLACE. Seeded per host under `<seedKey>.cmp:<restaurantId>`,
   so Dashboard and Reports keep independent memories exactly as they do for the range.
   On a range change the selection is re-evaluated — offered by the new shape → KEPT;
   not offered → that shape's default; `'none'` → stays `'none'` — so it survives BOTH an
-  arrow step and a calendar Apply, and is never silently wiped. The four report tabs now
-  **skip the comparison request entirely when the basis is `'none'`** (before 02A all four
-  fetched it unconditionally). Reports is the only consumer: the Dashboard keeps
-  server-side `previous_totals` until 02B, kept out by `TimeframePickerComponent`'s
-  `showComparison` input — **scaffolding, to be deleted in 02B**. The Dashboard's service
-  still PARSES a hand-crafted `?cmp=` into state nothing renders; that is inert and
-  intended (nothing there can set a non-default, so `cmp` is never written to a Dashboard
-  URL), and route-specific stripping must NOT be added to prevent it.
+  arrow step and a calendar Apply, and is never silently wiped. Every consuming surface
+  **skips the comparison request entirely when the basis is `'none'`** (before 02A all four
+  report tabs fetched it unconditionally).
+  Dashboard adoption (02B): ✅ the Dashboard honours the selected basis too, and
+  `TimeframePickerComponent`'s `showComparison` scaffolding is GONE — both hosts render the
+  full `[◀] [▶] [date ▾] [comparison ▾]` cluster. It gets its baseline from a **second
+  `dashboard-v2` call** for the comparison window, reading that response's `totals`; it no
+  longer reads `previous_totals` at all. Two consequences worth knowing:
+  **`previous_totals` and the deprecated `period` param now have NO frontend caller**,
+  which unblocks their backend removal; and the second call lives in its OWN subscription
+  with no timer, because the 30s poll sits inside `fetchTicks` and anything in that chain
+  re-fires per tick — a comparison window is always in the past, so it is fetched once per
+  window change (arrow step, calendar Apply, option change) and never on a tick. The
+  Dashboard classifies AND resolves from `effectiveRange`, not the raw range, so the
+  baseline spans the same length the primary request measured; Reports still resolves from
+  the raw range and carries the same latent over-cap mismatch (a known follow-up, reachable
+  only via a hand-crafted URL). `tables-card`'s `trend-indicator` tiles are deliberately
+  OUTSIDE the comparison basis — they compare `turns_today` / `avg_ticket_today` against
+  their `*_yesterday` server fields, which are anchored to yesterday rather than derived
+  from the selected range.
   **The Dashboard's coarse `'day'|'week'|'month'|'ytd'` enum is DELETED** (01B), along
   with `DashboardService.dateRange$` / `isDashboardActive$` and the component's
   `computeDateRange()`. The two-timeframe-systems state is over. The picker moved to
@@ -566,12 +578,12 @@ writing new tag, price/menu or date-range logic:
     arrows step by `stepRange` and the forward one carries a real `disabled` at the
     present. They commit through the SAME `valueChange` as the staged picker (no second
     `@Output`), which is why both hosts inherited them with no host-side change.
-    02A appends a `[comparison ▾]` dropdown (a second CDK overlay with its own
+    02A appended a `[comparison ▾]` dropdown (a second CDK overlay with its own
     `panelClass`; listbox a11y + Arrow/Home/End/Escape). That one DOES carry a second
     `@Output`, and it is not a reversal of the note above: an arrow emits a new RANGE,
-    which `valueChange` already expresses, whereas a basis is separate state. It is gated
-    on `showComparison` (default false) so the Dashboard mount is unchanged —
-    **scaffolding for the 02A/02B split, delete it in 02B**
+    which `valueChange` already expresses, whereas a basis is separate state. 02B deleted
+    the `showComparison` flag that briefly gated it — both hosts render the full cluster,
+    and a flag true at every call site is dead config
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.
