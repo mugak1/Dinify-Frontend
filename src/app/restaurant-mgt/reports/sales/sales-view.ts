@@ -262,9 +262,36 @@ const mondayIndex = (isoDate: string): number => (getDay(parseISO(isoDate)) + 6)
  * two of those disagree the moment either changes.
  *
  * `by-date` is index pairing, which is what the chart has always done. `by-day` shifts the
- * lookup by the difference between the two windows' opening weekdays, so weekdays meet:
+ * lookup by the difference between the two series' opening weekdays, so weekdays meet:
  * July 2026 opens on a Wednesday and June 2026 on a Monday, giving an offset of 2, so
  * primary index 4 (Sun 5 Jul) reads comparison index 6 (Sun 7 Jun).
+ *
+ * THE OFFSET IS READ FROM THE SERIES' OWN FIRST `key`, NOT FROM THE WINDOW BOUNDS — and
+ * that is deliberate, because it reads the DATA rather than despite it. Window bounds are
+ * the intuitive choice and someone will try to "correct" this back, so here is why they
+ * are wrong.
+ *
+ * The period series is not dense. `reports_app/controllers/common/bucketing.py` zero-fills
+ * only the hourly path (its line 111); the period path is a plain group-by, so a day with
+ * no orders is simply absent, and closed days are ordinary in hospitality. Window bounds
+ * compute an offset for a dense array and then index a sparse one. The series' own first
+ * key self-corrects instead, because DROPPING A LEADING ELEMENT SHIFTS EVERY INDEX DOWN BY
+ * ONE AND ADVANCES THE OBSERVED OPENING WEEKDAY BY ONE — the two cancel exactly.
+ *
+ * Worked: no trade on Mon 1 Jun, so the comparison array opens on Tue 2 Jun. The offset
+ * falls from 2 to 1, and primary index 4 (Sun 5 Jul) reads `sparseJune[5]` — still Sun
+ * 7 Jun, the same point the dense case pairs it with. From window bounds the offset would
+ * stay 2 and land on `sparseJune[6]`, Mon 8 Jun: a Sunday charted against a Monday, which
+ * is the exact defect by-day exists to remove. The cancellation holds for any number of
+ * leading gaps, and for a leading gap in EITHER series.
+ *
+ * KNOWN LIMITATION — INTERNAL gaps. A closed Monday mid-month shifts every index after it,
+ * and no opening-weekday offset can see that. Note this breaks INDEX pairing identically,
+ * so it is pre-existing and shared rather than introduced by by-day. The fix is to densify
+ * each series to its own window, which is the next PR and should land before 02D: beyond
+ * pairing, the x-axis today silently omits closed days and draws Sunday straight through to
+ * Tuesday. It touches `normalizeSeries`, which every Sales card consumes, so it needs its
+ * own recon and verification rather than riding along here.
  *
  * PAIRING APPLIES ONLY TO THE `day` BUCKET. Weekday alignment is meaningless once buckets
  * are months, and impossible for `hour`, where `key` is `'0'…'23'` and no date exists
@@ -273,10 +300,6 @@ const mondayIndex = (isoDate: string): number => (getDay(parseISO(isoDate)) + 6)
  * Out-of-range indices yield `null` — never wrapped, never clamped to the nearest end.
  * Chart.js draws a gap there (its `spanGaps` default is false), and a visible gap is
  * honest where a fabricated point is not.
- *
- * The offset reads each series' FIRST key rather than the window bounds, which assumes a
- * series starts at its window's start. That is the same density assumption index pairing
- * has always made, so it is no weaker — and it keeps `key` as the single date source.
  */
 export function alignComparisonSeries(
   points: SalesPoint[],

@@ -109,6 +109,12 @@ const COMPARISON_LABELS: Record<ComparisonOption, { menu: string; caption: strin
   // `prev-month-by-date` resolve to the SAME window, so their delta chips show identical
   // numbers — captioning them differently would imply a difference the figures do not
   // have. Pairing is a chart concern and shows up in the chart.
+  //
+  // THAT PRINCIPLE IS DELIBERATELY NOT APPLIED to `prev-year-by-day` / `dates-last-year`,
+  // which also share a window at month level yet are worded differently. `dates-last-year`
+  // is offered at day and week level TOO, where "same month last year" would be simply
+  // false, so its caption has to stay shape-agnostic. Unifying the two to satisfy the rule
+  // above would break the shapes that rule was never about — the divergence is intended.
   'prev-month-by-day': { menu: 'Previous month by day (Mon–Sun)', caption: 'vs previous month' },
   'prev-month-by-date': { menu: 'Previous month by date (DD/MM)', caption: 'vs previous month' },
   'prev-year': { menu: 'Previous year', caption: 'vs previous year' },

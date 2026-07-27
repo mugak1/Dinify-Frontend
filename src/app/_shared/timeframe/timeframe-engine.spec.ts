@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
-import { COMPARISON_OPTIONS, ComparisonOption } from './comparison-option';
+import { COMPARISON_OPTIONS, ComparisonOption, pairingFor } from './comparison-option';
 import { ReportDateRange, ReportPreset, presetToRange } from './timeframe-range';
 import {
   BUCKET_TO_CATEGORY,
@@ -151,8 +151,23 @@ describe('shared timeframe engine', () => {
       day: ['none', 'prev-day', 'prev-week', 'prev-year', 'dates-last-year'],
       week: ['none', 'prev-week', 'prev-year', 'dates-last-year'],
       'week-to-date': ['none', 'prev-week', 'prev-year', 'dates-last-year'],
-      month: ['none', 'prev-month', 'prev-year', 'dates-last-year'],
-      'month-to-date': ['none', 'prev-month', 'prev-year', 'dates-last-year'],
+      // Month level is the only place pairing is a question, so it is the only place the
+      // menu carries by-day / by-date variants — and the only place `prev-year` is ABSENT,
+      // because at month level "previous year" means the same calendar month.
+      month: [
+        'none',
+        'prev-month-by-day',
+        'prev-month-by-date',
+        'prev-year-by-day',
+        'dates-last-year',
+      ],
+      'month-to-date': [
+        'none',
+        'prev-month-by-day',
+        'prev-month-by-date',
+        'prev-year-by-day',
+        'dates-last-year',
+      ],
       year: ['none', 'prev-year'],
       'year-to-date': ['none', 'prev-year'],
       custom: ['none', 'prev-period'],
@@ -175,6 +190,17 @@ describe('shared timeframe engine', () => {
       for (const shape of SHAPES) {
         expect(defaultComparisonFor(shape)).withContext(shape).toBe(EXPECTED[shape][1]);
         expect(defaultComparisonFor(shape)).withContext(shape).not.toBe('none');
+      }
+    });
+
+    // Pairing is an axis of its own: `by-date` for everything that is not explicitly
+    // `-by-day`, so every option predating 02C keeps its behaviour exactly.
+    it('maps every option in the union to a pairing, by-date unless -by-day', () => {
+      const byDay: ComparisonOption[] = ['prev-month-by-day', 'prev-year-by-day'];
+      for (const option of COMPARISON_OPTIONS) {
+        expect(pairingFor(option))
+          .withContext(option)
+          .toBe(byDay.includes(option) ? 'by-day' : 'by-date');
       }
     });
 
@@ -205,18 +231,41 @@ describe('shared timeframe engine', () => {
       }
     });
 
-    // A set holding two entries that resolve to the SAME window is a menu that lies:
-    // the user picks a different label and nothing changes. This is why the year shapes
-    // omit 'dates-last-year' — with a calendar-aligned prev-year it would duplicate it.
-    it('never offers two bases that resolve to the same window', () => {
+    // A set holding two entries that BEHAVE identically is a menu that lies: the user picks
+    // a different label and nothing changes. This is why the year shapes omit
+    // 'dates-last-year' — with a calendar-aligned prev-year it would duplicate it.
+    //
+    // 02C LOOSENED THIS FROM "window" TO "(window, pairing)", deliberately. The month sets
+    // now carry two pairs that SHARE a window on purpose — prev-month-by-day /
+    // prev-month-by-date, and prev-year-by-day / dates-last-year — because at month level
+    // how the two series are PAIRED inside the chart is a real question with two
+    // legitimate answers. The rule it was ever about is intact; what counts as
+    // "identically" has widened to include how the series are drawn. Narrowing it back to
+    // the window alone would make the month menu unrepresentable, not safer.
+    it('never offers two bases that resolve to the same window AND pair it the same way', () => {
       for (const shape of SHAPES) {
-        const windows = comparisonOptionsFor(shape)
+        const behaviours = comparisonOptionsFor(shape)
           .filter((o) => o !== 'none')
           .map((o) => {
             const w = resolveComparison(SAMPLES[shape], o, NOW)!;
-            return `${w.from}..${w.to}`;
+            return `${w.from}..${w.to}/${pairingFor(o)}`;
           });
-        expect(new Set(windows).size).withContext(shape).toBe(windows.length);
+        expect(new Set(behaviours).size).withContext(shape).toBe(behaviours.length);
+      }
+    });
+
+    // …and the pairs that share a window really do share it, so the amendment above is
+    // load-bearing rather than a licence granted and never used.
+    it('offers exactly two window-sharing pairs at month level, distinguished by pairing', () => {
+      for (const shape of ['month', 'month-to-date'] as RangeShape[]) {
+        const w = (o: ComparisonOption) => {
+          const r = resolveComparison(SAMPLES[shape], o, NOW)!;
+          return `${r.from}..${r.to}`;
+        };
+        expect(w('prev-month-by-day')).withContext(shape).toBe(w('prev-month-by-date'));
+        expect(w('prev-year-by-day')).withContext(shape).toBe(w('dates-last-year'));
+        expect(pairingFor('prev-month-by-day')).not.toBe(pairingFor('prev-month-by-date'));
+        expect(pairingFor('prev-year-by-day')).not.toBe(pairingFor('dates-last-year'));
       }
     });
 
@@ -291,30 +340,30 @@ describe('shared timeframe engine', () => {
     // partial-to-partial, which made the month behaviour an inconsistency rather than a
     // considered choice. This is an INTENDED change, not a regression.
     it('MONTH-TO-DATE compares PARTIAL-TO-PARTIAL — 1–15 Jun → 1–15 May, not all of May', () => {
-      expect(resolveComparison(presetToRange('this-month', NOW), 'prev-month', NOW)).toEqual(
+      expect(resolveComparison(presetToRange('this-month', NOW), 'prev-month-by-day', NOW)).toEqual(
         cmp('2026-05-01', '2026-05-15'),
       );
     });
 
     // Scoping the change: a COMPLETE month is unaffected.
     it('a complete calendar month still compares to the complete prior month', () => {
-      expect(resolveComparison(presetToRange('last-month', NOW), 'prev-month', NOW)).toEqual(
+      expect(resolveComparison(presetToRange('last-month', NOW), 'prev-month-by-day', NOW)).toEqual(
         cmp('2026-04-01', '2026-04-30'),
       );
       // 31 → 30 boundary: July compares to the whole of June, not to a 31-day window.
       const july: ReportDateRange = { preset: 'custom', from: '2025-07-01', to: '2025-07-31' };
-      expect(resolveComparison(july, 'prev-month', NOW)).toEqual(cmp('2025-06-01', '2025-06-30'));
+      expect(resolveComparison(july, 'prev-month-by-day', NOW)).toEqual(cmp('2025-06-01', '2025-06-30'));
     });
 
     it('prev-month clamps into a SHORTER prior month rather than spilling past its end', () => {
       // Month-to-date 1–30 Mar has no 30th to land on in February.
       const mar2026: ReportDateRange = { preset: 'custom', from: '2026-03-01', to: '2026-03-30' };
-      expect(resolveComparison(mar2026, 'prev-month', new Date(2026, 2, 30))).toEqual(
+      expect(resolveComparison(mar2026, 'prev-month-by-day', new Date(2026, 2, 30))).toEqual(
         cmp('2026-02-01', '2026-02-28'),
       );
       // …and 2028 is a leap year, so the same window gains a day.
       const mar2028: ReportDateRange = { preset: 'custom', from: '2028-03-01', to: '2028-03-30' };
-      expect(resolveComparison(mar2028, 'prev-month', new Date(2028, 2, 30))).toEqual(
+      expect(resolveComparison(mar2028, 'prev-month-by-day', new Date(2028, 2, 30))).toEqual(
         cmp('2028-02-01', '2028-02-29'),
       );
     });
@@ -325,6 +374,30 @@ describe('shared timeframe engine', () => {
       // 364 = 52 whole weeks, so the weekday is preserved: Monday → Monday.
       expect(differenceInCalendarDays(parseISO(ANCHOR), parseISO(comp.from))).toBe(364);
       expect(format(parseISO(comp.from), 'EEEE')).toBe(format(parseISO(ANCHOR), 'EEEE'));
+    });
+
+    // 02C: the calendar-aligned branch widened DOWN to the month shapes. A 364-day shift on
+    // July 2026 gives roughly 3 Jul – 2 Aug 2025 — a total mixing two months' takings that
+    // no operator would recognise as "last July". Month menus no longer offer the id at all;
+    // the branch is fixed anyway so no path can return that window.
+    it('prev-year is CALENDAR-aligned for the MONTH shapes too', () => {
+      const july: ReportDateRange = { preset: 'custom', from: '2026-07-01', to: '2026-07-31' };
+      expect(resolveComparison(july, 'prev-year', NOW)).toEqual(cmp('2025-07-01', '2025-07-31'));
+
+      const mtd = presetToRange('this-month', NOW); // 1–15 Jun 2026
+      expect(resolveComparison(mtd, 'prev-year', NOW)).toEqual(cmp('2025-06-01', '2025-06-15'));
+    });
+
+    // Asserted as an ABSENCE so the window change above cannot be quietly reverted by
+    // re-adding the id to the month menu.
+    it('does NOT offer prev-year at month level — that is prev-year-by-day now', () => {
+      for (const shape of ['month', 'month-to-date'] as RangeShape[]) {
+        expect(comparisonOptionsFor(shape)).withContext(shape).not.toContain('prev-year');
+      }
+      // …while every shape that legitimately carries it still does.
+      for (const shape of ['day', 'week', 'week-to-date', 'year', 'year-to-date'] as RangeShape[]) {
+        expect(comparisonOptionsFor(shape)).withContext(shape).toContain('prev-year');
+      }
     });
 
     it('prev-year is CALENDAR-aligned for the year shapes, so it cannot overlap the range', () => {
@@ -444,10 +517,10 @@ describe('shared timeframe engine', () => {
     //
     // These two specs predate 02A and are DELIBERATELY KEPT. Only the symbol changed:
     // they used to compare against the deleted preset-keyed `comparisonRange`, and now
-    // compare against `resolveComparison(…, 'prev-month')` — which is what a
+    // compare against `resolveComparison(…, 'prev-month-by-day')` — which is what a
     // month-shaped range's default basis resolves to. The divergence they exist to pin
     // survives the rename intact.
-    it("DIVERGES from the user-selected 'prev-month' basis on a partial month", () => {
+    it("DIVERGES from the user-selected 'prev-month-by-day' basis on a partial month", () => {
       const midMonth: ReportDateRange = { preset: 'this-month', from: '2026-06-01', to: '2026-06-15' };
       const NOW_MID = new Date(2026, 5, 15);
 
@@ -458,17 +531,17 @@ describe('shared timeframe engine', () => {
       });
       // Post-02A this is partial-to-partial (1–15 May), where it used to be all of May.
       // Either way it is NOT the equal-length window above — that is the point.
-      expect(resolveComparison(midMonth, 'prev-month', NOW_MID)).toEqual({
+      expect(resolveComparison(midMonth, 'prev-month-by-day', NOW_MID)).toEqual({
         preset: 'custom',
         from: '2026-05-01',
         to: '2026-05-15',
       });
     });
 
-    it("coincides with the 'prev-month' basis only for a WHOLE calendar month", () => {
+    it("coincides with the 'prev-month-by-day' basis only for a WHOLE calendar month", () => {
       const wholeMonth: ReportDateRange = { preset: 'this-month', from: '2026-06-01', to: '2026-06-30' };
       const NOW_EOM = new Date(2026, 5, 30);
-      const basis = resolveComparison(wholeMonth, 'prev-month', NOW_EOM)!;
+      const basis = resolveComparison(wholeMonth, 'prev-month-by-day', NOW_EOM)!;
 
       // Same end; the equal-length window is one day shorter than full May because
       // June has 30 days and May has 31 — so even here they are not identical.

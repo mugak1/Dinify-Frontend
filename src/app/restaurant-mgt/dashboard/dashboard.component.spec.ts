@@ -272,18 +272,18 @@ describe('DashboardComponent — timeframe wiring', () => {
     const july: ReportDateRange = { preset: 'custom', from: '2025-07-01', to: '2025-07-31' };
 
     it('requests exactly the window resolveComparison returns', fakeAsync(() => {
-      boot(july, 'prev-month');
+      boot(july, 'prev-month-by-day');
       fixture.detectChanges();
       tick();
 
-      const expected = resolveComparison(july, 'prev-month')!;
+      const expected = resolveComparison(july, 'prev-month-by-day')!;
       expect(expected.from).toBe('2025-06-01');
       expect(expected.to).toBe('2025-06-30'); // NOT 31 May – 30 Jun
       expect(comparisonCalls(july)).toEqual([`${expected.from}..${expected.to}`]);
     }));
 
     it('sends the same bucket as the primary request', fakeAsync(() => {
-      boot(july, 'prev-month');
+      boot(july, 'prev-month-by-day');
       fixture.detectChanges();
       tick();
 
@@ -292,7 +292,7 @@ describe('DashboardComponent — timeframe wiring', () => {
     }));
 
     it('captures the window it fetched, for the caption to name', fakeAsync(() => {
-      boot(july, 'prev-month');
+      boot(july, 'prev-month-by-day');
       fixture.detectChanges();
       tick();
 
@@ -314,7 +314,7 @@ describe('DashboardComponent — timeframe wiring', () => {
           orders: { series: [], breakdown: {}, total: 42, previous_total: 999999999 },
         },
       };
-      boot(july, 'prev-month');
+      boot(july, 'prev-month-by-day');
       dashboardService.getDashboardData.and.callFake(
         (...args: unknown[]) =>
           of(args[1] === july.from ? { data: null } : comparisonResponse) as never,
@@ -329,14 +329,14 @@ describe('DashboardComponent — timeframe wiring', () => {
     // The offered set and the resolved window must be derived from the SAME range, or a
     // menu can offer an option the resolver will not honour.
     it('honours only a basis the resolver’s own window actually offers', fakeAsync(() => {
-      boot(july, 'prev-month');
+      boot(july, 'prev-month-by-day');
       fixture.detectChanges();
       tick();
 
       const window = component.comparisonWindow!;
       const shape = classifyRangeShape(july);
-      expect(comparisonOptionsFor(shape)).toContain('prev-month');
-      expect(resolveComparison(july, 'prev-month')).toEqual(window);
+      expect(comparisonOptionsFor(shape)).toContain('prev-month-by-day');
+      expect(resolveComparison(july, 'prev-month-by-day')).toEqual(window);
     }));
   });
 
@@ -370,7 +370,7 @@ describe('DashboardComponent — timeframe wiring', () => {
     const june: ReportDateRange = { preset: 'custom', from: '2025-06-01', to: '2025-06-30' };
 
     it('on a range change — an arrow step or a calendar Apply', fakeAsync(() => {
-      boot(july, 'prev-month');
+      boot(july, 'prev-month-by-day');
       fixture.detectChanges();
       tick();
       expect(comparisonCalls(july)).toEqual(['2025-06-01..2025-06-30']);
@@ -384,15 +384,15 @@ describe('DashboardComponent — timeframe wiring', () => {
     }));
 
     it('on an option change', fakeAsync(() => {
-      boot(july, 'prev-month');
+      boot(july, 'prev-month-by-day');
       fixture.detectChanges();
       tick();
 
       dashboardService.getDashboardData.calls.reset();
-      comparison$.next('prev-year');
+      comparison$.next('prev-year-by-day');
       tick();
 
-      const expected = resolveComparison(july, 'prev-year')!;
+      const expected = resolveComparison(july, 'prev-year-by-day')!;
       expect(comparisonCalls(july)).toEqual([`${expected.from}..${expected.to}`]);
     }));
   });

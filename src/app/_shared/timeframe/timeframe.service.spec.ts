@@ -375,21 +375,21 @@ describe('TimeframeService — the URL is the source of truth', () => {
     it("lands on the shape's default and keeps `cmp` OUT of the URL", async () => {
       const { service, router } = await bootAt(`/reports?${MONTH}`);
 
-      expect(service.comparisonValue).toBe('prev-month');
+      expect(service.comparisonValue).toBe('prev-month-by-day');
       expect(queryOf(router)['cmp']).toBeUndefined();
     });
 
     it('adopts a shape-valid cmp from the URL and leaves the URL alone', async () => {
-      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-year-by-day`);
 
-      expect(service.comparisonValue).toBe('prev-year');
-      expect(queryOf(router)['cmp']).toBe('prev-year');
+      expect(service.comparisonValue).toBe('prev-year-by-day');
+      expect(queryOf(router)['cmp']).toBe('prev-year-by-day');
     });
 
     it('falls back and CORRECTS the URL for an unrecognised cmp', async () => {
       const { service, router } = await bootAt(`/reports?${MONTH}&cmp=banana`);
 
-      expect(service.comparisonValue).toBe('prev-month');
+      expect(service.comparisonValue).toBe('prev-month-by-day');
       expect(queryOf(router)['cmp']).toBeUndefined();
     });
 
@@ -397,7 +397,7 @@ describe('TimeframeService — the URL is the source of truth', () => {
       // 'prev-day' is a known token, but a month-shaped range never offers it.
       const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-day`);
 
-      expect(service.comparisonValue).toBe('prev-month');
+      expect(service.comparisonValue).toBe('prev-month-by-day');
       expect(queryOf(router)['cmp']).toBeUndefined();
     });
 
@@ -416,17 +416,17 @@ describe('TimeframeService — the URL is the source of truth', () => {
     it('writes a non-default cmp to the URL and persists it under the .cmp seed key', async () => {
       const { service, router } = await bootAt(`/reports?${MONTH}`);
 
-      service.setComparison('prev-year');
+      service.setComparison('prev-year-by-day');
       await flush();
 
-      expect(queryOf(router)['cmp']).toBe('prev-year');
-      expect(setItem).toHaveBeenCalledWith(CMP_KEY, 'prev-year');
+      expect(queryOf(router)['cmp']).toBe('prev-year-by-day');
+      expect(setItem).toHaveBeenCalledWith(CMP_KEY, 'prev-year-by-day');
     });
 
     it('REMOVES cmp from the URL when the selection returns to the default', async () => {
-      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-year-by-day`);
 
-      service.setComparison('prev-month');
+      service.setComparison('prev-month-by-day');
       await flush();
 
       expect(queryOf(router)['cmp']).toBeUndefined();
@@ -435,17 +435,53 @@ describe('TimeframeService — the URL is the source of truth', () => {
     });
 
     it('seeds from localStorage when the URL names no basis', async () => {
-      stored['reports.dateRange.cmp:r1'] = 'prev-year';
+      stored['reports.dateRange.cmp:r1'] = 'prev-year-by-day';
 
       const { service } = await bootAt(`/reports?${MONTH}`);
 
-      expect(service.comparisonValue).toBe('prev-year');
+      expect(service.comparisonValue).toBe('prev-year-by-day');
+    });
+
+    // ── The ids 02C REMOVED (`prev-month`, and `prev-year` at month level) ────────────
+    //
+    // Both live in seeds written before the upgrade and in URLs already shared. Neither
+    // needs new code to degrade correctly, which is exactly why it is worth pinning: the
+    // graceful paths are the ones nobody notices breaking.
+    it('falls back when a SEED holds an id that no longer exists', async () => {
+      stored['reports.dateRange.cmp:r1'] = 'prev-month'; // removed in 02C
+
+      const { service } = await bootAt(`/reports?${MONTH}`);
+
+      // Rejected by the seed's own `validate`, so it never reaches the shape gate.
+      expect(service.comparisonValue).toBe('prev-month-by-day');
+    });
+
+    it('falls back and CORRECTS the URL for an id that no longer exists', async () => {
+      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-month`);
+
+      expect(service.comparisonValue).toBe('prev-month-by-day');
+      expect(queryOf(router)['cmp']).toBeUndefined();
+    });
+
+    // `prev-year` is still a KNOWN token — it survives at day, week and year level — so
+    // this exercises the shape gate rather than the parser, and by REPLACE, which the
+    // unknown-token path already covers but this one did not.
+    it('corrects a still-known id the month shape no longer offers, by REPLACE', async () => {
+      const { service, router } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+      const location = TestBed.inject(Location);
+
+      expect(service.comparisonValue).toBe('prev-month-by-day');
+      expect(queryOf(router)['cmp']).toBeUndefined();
+
+      location.back();
+      await flush();
+      expect(location.path()).not.toContain('/reports');
     });
 
     it('ignores a seeded basis the entry range does not offer', async () => {
       stored['reports.dateRange.cmp:r1'] = 'prev-day'; // not offered for a month
       const { service } = await bootAt(`/reports?${MONTH}`);
-      expect(service.comparisonValue).toBe('prev-month');
+      expect(service.comparisonValue).toBe('prev-month-by-day');
     });
   });
 
@@ -456,24 +492,24 @@ describe('TimeframeService — the URL is the source of truth', () => {
     const MONTH = 'from=2026-05-01&to=2026-05-31&preset=custom';
 
     it('KEEPS a selection the new shape still offers (a calendar Apply, same shape)', async () => {
-      const { service } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+      const { service } = await bootAt(`/reports?${MONTH}&cmp=prev-year-by-day`);
 
       // Apply a different month — same shape, so the basis must survive.
       service.set({ preset: 'custom', from: '2026-04-01', to: '2026-04-30' });
 
-      expect(service.comparisonValue).toBe('prev-year');
+      expect(service.comparisonValue).toBe('prev-year-by-day');
     });
 
     it('KEEPS a selection across an ARROW STEP, and recomputes the window for it', async () => {
-      const { service } = await bootAt(`/reports?${MONTH}&cmp=prev-year`);
+      const { service } = await bootAt(`/reports?${MONTH}&cmp=prev-year-by-day`);
       const stepped = stepRange(service.value, -1, new Date(2026, 4, 15));
 
       service.set(stepped);
 
-      expect(service.comparisonValue).toBe('prev-year');
+      expect(service.comparisonValue).toBe('prev-year-by-day');
       // The window follows the new range rather than staying pinned to the old one.
       expect(resolveComparison(service.value, service.comparisonValue)).not.toEqual(
-        resolveComparison({ preset: 'custom', from: '2026-05-01', to: '2026-05-31' }, 'prev-year'),
+        resolveComparison({ preset: 'custom', from: '2026-05-01', to: '2026-05-31' }, 'prev-year-by-day'),
       );
     });
 

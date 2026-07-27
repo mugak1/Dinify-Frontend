@@ -1,7 +1,10 @@
-import { getDay, parseISO } from 'date-fns';
+import { addDays, format, getDay, parseISO } from 'date-fns';
+import { ReportBucketUnit, SeriesPairing } from '../../../_shared/timeframe';
 import { SalesAggregateRow, SalesHourlyRow } from '../models/reports.models';
 import {
   aggregateByWeekday,
+  alignComparisonSeries,
+  pointDateLabel,
   bestPoint,
   breakdownTotals,
   computeTotals,
@@ -167,6 +170,123 @@ describe('sales-view (pure)', () => {
 
     it('totals the breakdown columns', () => {
       expect(breakdownTotals(points)).toEqual({ orders: 30, gross: 3300, discount: 300, net: 3000 });
+    });
+  });
+  // ─── Comparison-series pairing (TIMEFRAME-02C) ───────────────────────────────────────
+  //
+  // July 2026 opens on a WEDNESDAY, June 2026 on a MONDAY. Every expectation below is
+  // hand-derived from those two facts rather than from the implementation's own arithmetic.
+
+  describe('alignComparisonSeries', () => {
+    /** A dense daily series over `count` days from `from`, revenue = the day-of-month. */
+    const series = (from: string, count: number): SalesPoint[] =>
+      Array.from({ length: count }, (_, i) => {
+        const key = format(addDays(parseISO(from), i), 'yyyy-MM-dd');
+        return { label: format(parseISO(key), 'd MMM'), key, revenue: i + 1, orders: 1, discount: 0 };
+      });
+
+    const july = series('2026-07-01', 31);
+    const june = series('2026-06-01', 30);
+
+    it('pairs by INDEX under by-date — position N against position N', () => {
+      const aligned = alignComparisonSeries(july, june, 'by-date', 'day');
+
+      // Index 4 is Sun 5 Jul; by DATE it reads index 4 of June, which is Fri 5 Jun.
+      expect(aligned[4]!.key).toBe('2026-06-05');
+      expect(aligned[0]!.key).toBe('2026-06-01');
+    });
+
+    it('shifts by the opening-weekday difference under by-day, so weekdays meet', () => {
+      const aligned = alignComparisonSeries(july, june, 'by-day', 'day');
+
+      // Wed(2) − Mon(0) = offset 2. Index 4 (Sun 5 Jul) reads index 6 (Sun 7 Jun).
+      expect(aligned[4]!.key).toBe('2026-06-07');
+      expect(getDay(parseISO(aligned[4]!.key))).toBe(getDay(parseISO(july[4].key)));
+      // …and that holds for every paired point, which is the whole promise of by-day.
+      for (const [i, cmp] of aligned.entries()) {
+        if (!cmp) continue;
+        expect(getDay(parseISO(cmp.key)))
+          .withContext(`index ${i}: ${july[i].key} vs ${cmp.key}`)
+          .toBe(getDay(parseISO(july[i].key)));
+      }
+    });
+
+    it('yields null past the end of the comparison series — never wraps, never clamps', () => {
+      const aligned = alignComparisonSeries(july, june, 'by-day', 'day');
+
+      // 31 primary days, 30 comparison days, offset 2 → the last 3 have nothing to read.
+      expect(aligned.length).toBe(31);
+      expect(aligned.filter((p) => p === null).length).toBe(3);
+      expect(aligned.slice(-3).every((p) => p === null)).toBeTrue();
+      // A wrap would have put the series' own start at the end; a clamp its own end.
+      expect(aligned[30]).toBeNull();
+    });
+
+    // THE SPARSITY CASE the data-derived offset exists for, and the reason window bounds
+    // would be wrong here. The period series is a plain group-by, so a closed day is simply
+    // absent. Dropping a leading element shifts every index down by one AND advances the
+    // observed opening weekday by one — the two cancel, so reading the offset off the data
+    // self-corrects where an offset computed for a dense array would not.
+    it('is unaffected by a MISSING FIRST comparison bucket', () => {
+      const sparseJune = june.slice(1); // no trade on Mon 1 Jun
+      const dense = alignComparisonSeries(july, june, 'by-day', 'day');
+      const sparse = alignComparisonSeries(july, sparseJune, 'by-day', 'day');
+
+      // Offset falls 2 → 1, so index 4 lands on sparseJune[5] — the SAME point, Sun 7 Jun.
+      expect(sparse[4]!.key).toBe('2026-06-07');
+      expect(sparse[4]!.key).toBe(dense[4]!.key);
+    });
+
+    it('self-corrects for a leading gap in EITHER series', () => {
+      const sparseJuly = july.slice(1); // no trade on Wed 1 Jul
+      const aligned = alignComparisonSeries(sparseJuly, june, 'by-day', 'day');
+
+      // sparseJuly[0] is Thu 2 Jul; offset becomes 3, so it reads june[3] = Thu 4 Jun.
+      expect(getDay(parseISO(aligned[0]!.key))).toBe(getDay(parseISO(sparseJuly[0].key)));
+      expect(aligned[0]!.key).toBe('2026-06-04');
+    });
+
+    it('falls back to index pairing when either series is empty', () => {
+      expect(alignComparisonSeries(july, [], 'by-day', 'day').every((p) => p === null)).toBeTrue();
+      expect(alignComparisonSeries([], june, 'by-day', 'day')).toEqual([]);
+    });
+
+    // Weekday alignment is meaningless once buckets are months, and impossible for `hour`,
+    // where `key` is '0'…'23' and parsing it as a date would throw or lie.
+    it('ignores pairing for any bucket other than day', () => {
+      const hours: SalesPoint[] = [0, 1, 2].map((h) => ({
+        label: `${h}`, key: String(h), revenue: h, orders: 1, discount: 0,
+      }));
+      for (const bucket of ['hour', 'month', 'year'] as ReportBucketUnit[]) {
+        const aligned = alignComparisonSeries(hours, hours, 'by-day', bucket);
+        expect(aligned.map((p) => p!.key)).withContext(bucket).toEqual(['0', '1', '2']);
+      }
+    });
+
+    it('always returns one entry per PRIMARY index, under either pairing', () => {
+      for (const pairing of ['by-day', 'by-date'] as SeriesPairing[]) {
+        expect(alignComparisonSeries(july, june, pairing, 'day').length).toBe(july.length);
+        expect(alignComparisonSeries([], june, pairing, 'day').length).toBe(0);
+      }
+    });
+  });
+
+  describe('pointDateLabel', () => {
+    const point = (key: string, label: string): SalesPoint => ({
+      label, key, revenue: 0, orders: 0, discount: 0,
+    });
+
+    // The day label is '15 Jun' with NO YEAR, so beside a dates-last-year comparison it
+    // would print a date indistinguishable from the primary's. Formatted from `key` instead.
+    it('formats a day bucket from key, WITH the year', () => {
+      expect(pointDateLabel(point('2026-06-15', '15 Jun'), 'day')).toBe('15 Jun 2026');
+      expect(pointDateLabel(point('2025-06-15', '15 Jun'), 'day')).toBe('15 Jun 2025');
+    });
+
+    it('reuses the label for buckets whose label is already unambiguous', () => {
+      expect(pointDateLabel(point('2026-06', 'Jun 2026'), 'month')).toBe('Jun 2026');
+      expect(pointDateLabel(point('2026', '2026'), 'year')).toBe('2026');
+      expect(pointDateLabel(point('13', '1 PM'), 'hour')).toBe('1 PM');
     });
   });
 });
