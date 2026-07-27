@@ -860,6 +860,35 @@ writing new tag, price/menu or date-range logic:
   a window from `new Date()`), and BOTH the revenue and orders comparisons come from
   `previousEqualLengthPeriod` over the shared `_shared/mock/daily-revenue` basis — the
   orders mock previously faked `previous_total = total * 0.88`, a flat invented 12%
+- **EVERY Dashboard mock card derives from the shared `dailyRevenue` basis**, so the closed
+  weekday is coherent across the WHOLE screen rather than on the two cards that happened to
+  read it. **The rule for the next generator added to `dashboard-mock-data.ts`: read the
+  basis. Do not synthesise your own figures, and do not scale by a day count** — a closed
+  day is a calendar day that traded nothing, so `rangeDays`-style scaling overstates every
+  window containing one. Summing the basis handles that by construction, which is why the
+  file needs no trading-day helper. Until DASH-MOCK-COHERENCE-00 two cards broke this:
+  `getMockPaymentMethods(from, to)` multiplied three fixed per-day constants by a CALENDAR-day
+  count (never seeing `restaurantId`, so every restaurant reported identical payments), and
+  `getMockPopularItems()` took NO ARGUMENTS at all — byte-identical for "Today", "Last year"
+  and a period with no trade. A closed Monday therefore read UGX 0 revenue and 0 orders
+  beside UGX 3.6M settled and 8.17M of popular-item revenue. Both now take
+  `(restaurantId, from, to)`. Two consequences worth knowing:
+  **Payment Methods' "Total settled" is `Σ net`**, allocated across the methods by largest
+  remainder, so it EQUALS the Revenue card's headline (`revenue-card` renders `totals.net`)
+  to the shilling by construction — a diner pays the discounted price and a refund is money
+  given back, so both belong out of what was settled; `tx_count` splits the window's actual
+  ORDER count, never a day count. And **Popular Items returns an EMPTY LIST for a window
+  with no takings**, not five rows of zero — that is what the backend's group-by would
+  produce, and it is what drives the card's existing "No item data available" state instead
+  of a ranking table of `0.0%`. Its five rows are the TOP five of a wider menu, so they are
+  bounded by `TOP_ITEMS_REVENUE_SHARE` (0.6) of the window's net — the one free parameter in
+  either generator. Shares are preserved by passing the ORIGINAL hardcoded figures as
+  allocation WEIGHTS, and item `qty` derives from the exact unit prices the old fixture
+  already encoded (25K/10K/20K/20K/5K), so ranking and both `%` columns are unchanged and
+  the change is invisible on an ordinary trading day. `change_pct` is untouched — still
+  hardcoded, still consumed by no template, its correct source a backend concern
+- Still OUTSIDE the basis, deliberately: `getMockTablesData` and `getMockKdsData` (capacity
+  and kitchen load are not revenue-derived) and the reviews mock
 - TablesService now splits the flag in two:
   - `USE_MOCK_SETUP = false` — Setup View (areas, tables) is real-wired
   - `USE_MOCK_SERVICE = true` — Service View (reservations, waitlist,
