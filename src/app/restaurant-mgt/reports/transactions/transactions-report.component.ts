@@ -127,6 +127,12 @@ export class TransactionsReportComponent implements OnInit, OnDestroy {
           this.summaryState = 'loading';
         }),
         switchMap(([range, basis, customFrom]) => {
+          // THE COMPARISON WINDOW SPANS THE WINDOW THIS SURFACE'S PRIMARY WAS FETCHED OVER.
+          // Here that is the RAW range — `cur$` below requests `range` uncapped (see the
+          // pipeline comment above), so the raw range is the correct argument and this already
+          // satisfies the invariant. Switching it to `resolveTimeframe(range).effectiveRange`
+          // for symmetry with Sales would set a clamped baseline beside an unclamped primary
+          // and BREAK it. Sales differs because its primary is fetched over `effectiveRange`.
           const cmp = resolveComparison(range, basis, undefined, customFrom);
           const cur$ = this.reports
             .getTransactionsSummary(restaurantId, range.from, range.to)

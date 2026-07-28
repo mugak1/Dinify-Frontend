@@ -35,21 +35,23 @@
  *   Here: `tables-card.occupancyPct` divides by `total` (capacity), and its
  *   success/destructive colours are occupancy thresholds, not a change direction.
  *
- * ## The four baseline predicates in this repo
+ * ## The baseline predicates in this repo
  *
- * | Site                     | Predicate                                         |
- * |--------------------------|---------------------------------------------------|
- * | `revenue-card`           | → `percentChange`                                 |
- * | `total-orders-card`      | → `percentChange`                                 |
- * | `trend-indicator`        | → `percentChange`                                 |
- * | `delta-chip.hasBaseline` | `isFinite(previous) && previous !== 0` — DIVERGES  |
+ * | Site                | Predicate           |
+ * |---------------------|---------------------|
+ * | `revenue-card`      | → `percentChange`   |
+ * | `total-orders-card` | → `percentChange`   |
+ * | `trend-indicator`   | → `percentChange`   |
+ * | `delta-chip`        | → `percentChange`   |
  *
- * `ReportDeltaChipComponent` (`restaurant-mgt/reports/components/delta-chip/`) keeps its
- * own predicate, which has NO negative gate. The app therefore holds two different
- * answers for a negative baseline: Dashboard suppresses, Reports renders a sign-flipped
- * chip. That is a deliberate scoping decision, not an oversight — consolidating
- * `delta-chip` onto this helper is scheduled as a follow-up. Until it lands, ANY change
- * to the null set here must be applied to `delta-chip.hasBaseline` as well.
+ * ONE predicate, app-wide. `ReportDeltaChipComponent`
+ * (`restaurant-mgt/reports/components/delta-chip/`) held a fourth with no negative gate
+ * until REPORTS-COMPARISON-00; it now delegates here like the rest. A new site that
+ * divides by a baseline it holds joins this table rather than starting a fifth answer.
+ *
+ * One rendering difference remains, and it is deliberate rather than drift: on a NEGATIVE
+ * baseline the Reports chip renders nothing, while the Dashboard badges render the "New"
+ * pill they render for any `null`. Both agree on the number — there isn't one.
  */
 export function percentChange(
   current: number,

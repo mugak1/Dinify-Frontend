@@ -290,9 +290,24 @@ so keep it current when conventions change.
   re-fires per tick — a comparison window is always in the past, so it is fetched once per
   window change (arrow step, calendar Apply, option change) and never on a tick. The
   Dashboard classifies AND resolves from `effectiveRange`, not the raw range, so the
-  baseline spans the same length the primary request measured; Reports still resolves from
-  the raw range and carries the same latent over-cap mismatch (a known follow-up, reachable
-  only via a hand-crafted URL).
+  baseline spans the same length the primary request measured.
+  **THE COMPARISON WINDOW SPANS THE WINDOW THAT SURFACE'S PRIMARY WAS FETCHED OVER**
+  (REPORTS-COMPARISON-00, closing the Reports half). The rule is same-window-as-primary,
+  NOT "use `effectiveRange`" — stated the second way it gets mis-applied the next time
+  someone tidies the four report tabs into agreement. **Sales** fetches its primary over
+  `effectiveRange`, so it now classifies and resolves from there too (it resolved from the
+  raw range before, setting a ~900-day-longer baseline beside a clamped primary above the
+  annual cap); **Menu / Transactions / Diners** fetch their primaries UNCAPPED and therefore
+  satisfy the invariant with the RAW range — switching them for symmetry would break it, and
+  a spec on each pins that. Reachable only via a hand-crafted over-cap URL, so no visible
+  change. Sales also carries the Dashboard's `isComparisonOfferedFor(shape, basis) ?
+  basis : defaultComparisonFor(shape)` guard, because resolving from `effectiveRange` while
+  the shared picker still builds its menu from the raw range is exactly the gap that guard
+  exists to close. STILL OUTSTANDING and pre-existing on BOTH hosts: the shared layer —
+  `timeframe-picker.component.ts` (`comparisonOptionsFor(classifyRangeShape(this.value))`)
+  and `TimeframeService` — classifies from the raw range, so above the cap a menu can offer
+  a basis the resolver will not honour. Both hosts patch it consumer-side; the timeframe-core
+  fix is a separate change.
   Weekday vs calendar-date pairing (02C): ✅ **at month level, HOW the two chart series are
   paired is a user choice**, separate from which window they are drawn from — a restaurant's
   Saturday does not resemble its Tuesday, so pairing July against June by calendar date sets
@@ -529,14 +544,18 @@ plus the `tooltip` directive (`[appTooltip]`, not a component), the
 `toast/` folder also exports the injectable `ToastService` (the app-wide toast
 queue), re-exported from the barrel.
 
-`app-no-baseline-chip` is the empty state for a trend badge with no usable
-baseline — the neutral grey "New" pill. Pair it with `percentChange` (see
+`app-no-baseline-chip` is THE empty state for a trend badge with no usable
+baseline — the neutral grey "New" pill, rendered by BOTH hosts since
+REPORTS-COMPARISON-00 (the Dashboard badges and the Reports `delta-chip`, which
+inlined a duplicate copy until then). Pair it with `percentChange` (see
 `_shared/utils/` below): when that returns `null` the badge is REPLACED by this
 chip, never merely hidden, and any comparison caption must stay visible BESIDE
 it rather than nested inside the badge (nesting is what made the caption vanish
-with the badge in the first place). It duplicates the inline `@else` markup of
-the Reports `delta-chip` deliberately — that consolidation is a scheduled
-follow-up — so keep the two identical, `aria-label` included.
+with the badge in the first place). ONE EXCEPTION, deliberate: the Reports
+`delta-chip` renders NOTHING on a NEGATIVE baseline rather than this pill,
+because "New" claims there is no history and the restaurant did trade — it just
+netted below zero. The Dashboard badges still show "New" there. Both agree there
+is no number; they differ only on what to draw in its place.
 
 `app-dn-segmented` is the single shared segmented / tab control — it REPLACED
 the deleted `dn-tabs` component (do not reintroduce a `tabs` component). It runs
@@ -727,9 +746,14 @@ writing new tag, price/menu or date-range logic:
   must route through it (divides by a baseline it holds → in scope; renders a
   server-computed `change_pct` → report, don't fix; direction-only arrow → leave
   alone; percentage of a capacity → not a delta) AND a census of every baseline
-  predicate in the repo. `delta-chip.hasBaseline` (Reports) is the one that
-  still diverges — no negative gate — so any change to the null set must be
-  mirrored there until the consolidation lands
+  predicate in the repo. **It is now the ONLY baseline predicate app-wide**
+  (REPORTS-COMPARISON-00): the Reports `delta-chip` held a fourth with no
+  negative gate — rendering a sign-flipped chip where the Dashboard suppressed —
+  and now delegates here like `revenue-card`, `total-orders-card` and
+  `trend-indicator`. A new site that divides by a baseline it holds joins the
+  census rather than starting a fifth answer. `delta-chip` keeps ONE local
+  predicate, `baselineIsNegative`, which asks only WHY the result is null (to
+  split the "New" pill from rendering nothing) and never WHETHER
 - `src/app/_shared/support/` (barrel `index.ts`) — support-issue display
   metadata: `STATUS_META`/`CATEGORY_LABEL`/`IMPACT_LABEL` maps, the matching
   `statusMeta`/`categoryLabel`/`impactLabel` helpers, and
