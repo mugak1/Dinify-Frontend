@@ -274,7 +274,18 @@ so keep it current when conventions change.
   `dashboard-v2` call** for the comparison window, reading that response's `totals`; it no
   longer reads `previous_totals` at all. Two consequences worth knowing:
   **`previous_totals` and the deprecated `period` param now have NO frontend caller**,
-  which unblocks their backend removal; and the second call lives in its OWN subscription
+  which unblocks their backend removal — and as of DASH-DROP-PREVIOUS-00 the frontend no
+  longer TYPES them either: `previous_totals` / `previous_total` are gone from
+  `RevenueData` / `OrdersData`, out of `dashboard-adapter`, and out of the mock. **The next
+  PR is the backend removal of both fields and the deprecated `period` parameter**, and it
+  must also update `timeframe-engine.ts`'s `previousEqualLengthPeriod` docstring, which
+  claims parity with the server-side `previous_totals` computation it deletes (the claim
+  holds today, which is why it was left alone). Removals go FRONTEND-FIRST for the same
+  reason additions go backend-first — the wire may stop carrying a field the client still
+  declares non-optional, never the reverse. Note the frontend was already TOLERANT of the
+  field vanishing (`adaptRevenueTotals` zero-fills a falsy argument), so the ordering
+  prevents a silently-fabricated zero behind a non-optional type, not a crash; and the
+  second call lives in its OWN subscription
   with no timer, because the 30s poll sits inside `fetchTicks` and anything in that chain
   re-fires per tick — a comparison window is always in the past, so it is fetched once per
   window change (arrow step, calendar Apply, option change) and never on a tick. The
@@ -884,9 +895,12 @@ writing new tag, price/menu or date-range logic:
     (its in-memory mock stays dormant behind the flag as a design-review aid)
   The dashboard mock walks the SAME range→bucket ladder as the live path
   (`generateDates(from, to, bucket)` enumerates the real range; it no longer re-derives
-  a window from `new Date()`), and BOTH the revenue and orders comparisons come from
-  `previousEqualLengthPeriod` over the shared `_shared/mock/daily-revenue` basis — the
-  orders mock previously faked `previous_total = total * 0.88`, a flat invented 12%
+  a window from `new Date()`). It computes NO comparison of its own — DASH-DROP-PREVIOUS-00
+  deleted the `previousEqualLengthPeriod` walks that fed `previous_totals` /
+  `previous_total`, so a mock generator now only ever describes the window it was handed.
+  That is not a gap: `USE_MOCK_DATA` gates a single `getDashboardData`, so mock mode takes
+  the SAME second-call path the live surface does (§TIMEFRAME-02B) and the comparison
+  baseline is a second generator call over the selected window
 - **EVERY Dashboard mock card derives from the shared `dailyRevenue` basis**, so the closed
   weekday is coherent across the WHOLE screen rather than on the two cards that happened to
   read it. **The rule for the next generator added to `dashboard-mock-data.ts`: read the

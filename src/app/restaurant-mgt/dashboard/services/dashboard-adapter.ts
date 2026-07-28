@@ -57,13 +57,11 @@ function adaptRevenueTotals(raw: any): RevenueTotals {
 
 function adaptRevenue(raw: any): RevenueData {
   if (!raw) {
-    const emptyTotals: RevenueTotals = { gross: 0, net: 0, discounts: 0, refunds: 0 };
-    return { series: [], totals: emptyTotals, previous_totals: emptyTotals };
+    return { series: [], totals: { gross: 0, net: 0, discounts: 0, refunds: 0 } };
   }
   return {
     series: adaptRevenueSeries(raw.series),
     totals: adaptRevenueTotals(raw.totals),
-    previous_totals: adaptRevenueTotals(raw.previous_totals),
   };
 }
 
@@ -103,14 +101,12 @@ function adaptOrders(raw: any): OrdersData {
       series: [],
       breakdown: { paid: 0, open: 0, cancelled: 0, refunded: 0 },
       total: 0,
-      previous_total: 0,
     };
   }
   return {
     series: adaptOrdersSeries(raw.series),
     breakdown: adaptOrdersBreakdown(raw.breakdown),
     total: raw.total ?? 0,
-    previous_total: raw.previous_total ?? 0,
   };
 }
 

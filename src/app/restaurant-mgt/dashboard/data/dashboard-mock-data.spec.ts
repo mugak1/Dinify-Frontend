@@ -6,7 +6,7 @@ import {
   getMockRevenueData,
 } from './dashboard-mock-data';
 import { dailyRevenue } from '../../../_shared/mock/daily-revenue';
-import { previousEqualLengthPeriod, resolveTimeframe } from '../../../_shared/timeframe';
+import { resolveTimeframe } from '../../../_shared/timeframe';
 import { getMockSalesAggregate, mockSalesRefunds, sumAggregate } from '../../reports/data/reports-mock-data';
 
 // The whole point of PRs 3a + 3b: dashboard and Reports both aggregate the ONE shared
@@ -106,11 +106,6 @@ describe('dashboard revenue mock — shared-basis reconciliation', () => {
     expect(rev.series.reduce((a, p) => a + p.orders, 0)).toBe(row.orders);
   });
 
-  it('previous_totals == Σ over the equal-length window immediately before the range', () => {
-    const rev = getMockRevenueData(RID, FROM, TO, bucketFor(FROM, TO)); // June = 30 days
-    // The 30 days ending the day before June 1 → May 2 … May 31.
-    expect(rev.previous_totals).toEqual(sumRows(dailyRevenue(RID, '2026-05-02', '2026-05-31')));
-  });
 });
 
 describe('dashboard orders mock', () => {
@@ -123,17 +118,6 @@ describe('dashboard orders mock', () => {
     const orders = getMockOrdersData(RID, FROM, TO, bucket);
     const expected = dailyRevenue(RID, FROM, TO).reduce((a, r) => a + r.orders, 0);
     expect(orders.total).toBe(expected);
-  });
-
-  // Was `Math.round(total * 0.88)` — a flat invented 12% that made the delta chip read
-  // roughly +13.6% for every range and told you nothing about the selected window.
-  it('previous_total traces to the SAME equal-length window the revenue card uses', () => {
-    const orders = getMockOrdersData(RID, FROM, TO, bucket);
-    const prev = previousEqualLengthPeriod({ from: FROM, to: TO });
-    const expected = dailyRevenue(RID, prev.from, prev.to).reduce((a, r) => a + r.orders, 0);
-
-    expect(orders.previous_total).toBe(expected);
-    expect(orders.previous_total).not.toBe(Math.round(orders.total * 0.88));
   });
 
   it('breakdown sums to exactly the headline total', () => {

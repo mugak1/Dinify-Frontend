@@ -23,7 +23,6 @@ export interface RevenueTotals {
 export interface RevenueData {
   series: RevenueSeriesPoint[];
   totals: RevenueTotals;
-  previous_totals: RevenueTotals;
 }
 
 // ── Payment methods ───────────────────────────────────────
@@ -51,7 +50,6 @@ export interface OrdersData {
   series: OrdersSeriesPoint[];
   breakdown: OrdersBreakdown;
   total: number;
-  previous_total: number;
 }
 
 // ── Popular items ─────────────────────────────────────────

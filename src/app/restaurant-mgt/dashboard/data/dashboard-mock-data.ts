@@ -20,7 +20,7 @@ import {
   parseISO,
   startOfWeek,
 } from 'date-fns';
-import { ReportBucketUnit, previousEqualLengthPeriod } from '../../../_shared/timeframe';
+import { ReportBucketUnit } from '../../../_shared/timeframe';
 import { DailyRevenueRow, dailyRevenue } from '../../../_shared/mock/daily-revenue';
 import { distributeByHour } from '../../../_shared/mock/hour-of-day';
 
@@ -214,13 +214,10 @@ export function getMockRevenueData(
   bucket: ReportBucketUnit,
 ): RevenueData {
   const rows = dailyRevenue(restaurantId, from, to);
-  const prev = previousEqualLengthPeriod({ from, to });
-  const prevRows = dailyRevenue(restaurantId, prev.from, prev.to);
 
   return {
     series: buildRevenueSeries(rows, from, to, bucket),
     totals: sumTotals(rows),
-    previous_totals: sumTotals(prevRows),
   };
 }
 
@@ -300,15 +297,6 @@ export function getMockOrdersData(
   const rows = dailyRevenue(restaurantId, from, to);
   const total = rows.reduce((a, r) => a + r.orders, 0);
 
-  // A REAL equal-length comparison, same window the backend uses. This previously read
-  // `Math.round(total * 0.88)` — a flat, invented 12% that made the delta chip show
-  // roughly +13.6% for every range and hid whether the timeframe was working at all.
-  const prev = previousEqualLengthPeriod({ from, to });
-  const previous_total = dailyRevenue(restaurantId, prev.from, prev.to).reduce(
-    (a, r) => a + r.orders,
-    0,
-  );
-
   // Same slots as the revenue series, so the two charts share one x-axis exactly.
   const series = buildRevenueSeries(rows, from, to, bucket).map((p) => ({
     at: p.at,
@@ -319,7 +307,6 @@ export function getMockOrdersData(
     series,
     breakdown: splitBreakdown(total, { paid: 0.8, open: 0.12, cancelled: 0.05, refunded: 0.03 }),
     total,
-    previous_total,
   };
 }
 

@@ -1,4 +1,4 @@
-import { adaptReviewsResponse } from './dashboard-adapter';
+import { adaptDashboardResponse, adaptReviewsResponse } from './dashboard-adapter';
 
 // adaptRecentReviews / adaptDistribution are not exported, so they are asserted
 // through the public adaptReviewsResponse. Sample payload mirrors the shape
@@ -36,7 +36,65 @@ function rawSummary() {
   };
 }
 
+// A dashboard-v2 revenue/orders payload in WIRE shape, WITHOUT `previous_totals` /
+// `previous_total` — i.e. what the backend sends once it drops them. Note the wire
+// spellings the adapter has to translate: orders series points carry `count`, not
+// `orders`, and `breakdown` is an ARRAY of {status,count}, not an object.
+function rawDashboard() {
+  return {
+    revenue: {
+      series: [{ at: '2026-06-01T00:00:00Z', gross: '1000', discounts: '100', refunds: '50' }],
+      totals: { gross: '1000', net: '850', discounts: '100', refunds: '50' },
+    },
+    orders: {
+      series: [{ at: '2026-06-01T00:00:00Z', count: 7 }],
+      breakdown: [
+        { status: 'paid', count: 5 },
+        { status: 'cancelled', count: 2 },
+      ],
+      total: 7,
+    },
+  };
+}
+
 describe('dashboard-adapter', () => {
+  // DASH-DROP-PREVIOUS-00. This is the layer the backend removal actually lands on: the
+  // adapter is what runs against the live API once USE_MOCK_DATA flips, and it used to
+  // populate `previous_totals` / `previous_total` from the wire. Nothing had covered
+  // adaptDashboardResponse at all, so those reads were removed unpinned — hence these.
+  describe('adaptDashboardResponse — no previous_totals on the wire', () => {
+    it('adapts revenue and orders from a payload that omits the dropped fields', () => {
+      const out = adaptDashboardResponse(rawDashboard());
+
+      expect(out.revenue.totals).toEqual({ gross: 1000, net: 850, discounts: 100, refunds: 50 });
+      expect(out.orders.total).toBe(7);
+      expect(out.orders.breakdown).toEqual({ paid: 5, open: 0, cancelled: 2, refunded: 0 });
+      expect(out.orders.series).toEqual([{ at: '2026-06-01T00:00:00Z', orders: 7 }]);
+    });
+
+    // `in` rather than a toEqual/toBeUndefined: Jasmine treats an absent key and a key
+    // holding `undefined` as equal, which is exactly the distinction being asserted.
+    it('does not resurrect the dropped fields as zeroed keys', () => {
+      const out = adaptDashboardResponse(rawDashboard());
+
+      expect('previous_totals' in out.revenue).toBeFalse();
+      expect('previous_total' in out.orders).toBeFalse();
+    });
+
+    // The two `if (!raw)` guards. An absent section must not throw and must not leave a
+    // caller reading `undefined.totals`.
+    it('returns zeroed sections when revenue and orders are absent entirely', () => {
+      const out = adaptDashboardResponse({});
+
+      expect(out.revenue.totals).toEqual({ gross: 0, net: 0, discounts: 0, refunds: 0 });
+      expect(out.revenue.series).toEqual([]);
+      expect(out.orders.total).toBe(0);
+      expect(out.orders.breakdown).toEqual({ paid: 0, open: 0, cancelled: 0, refunded: 0 });
+      expect('previous_totals' in out.revenue).toBeFalse();
+      expect('previous_total' in out.orders).toBeFalse();
+    });
+  });
+
   describe('adaptReviewsResponse', () => {
     it('converts the string average_rating to a number', () => {
       const out = adaptReviewsResponse(rawSummary());

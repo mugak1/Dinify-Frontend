@@ -29,23 +29,20 @@ const comparisonWindow: ReportDateRange = { preset: 'custom', from: '2026-07-07'
 
 const totals = (net: number): RevenueTotals => ({ gross: net, net, discounts: 0, refunds: 0 });
 
-// `previous_totals` / `previous_total` are still on the models (the backend still sends
-// them) but NOTHING reads them since 02B — the baseline arrives as its own input from the
-// comparison response. They are filled with a deliberately WRONG value below, so a
-// regression that starts reading them again fails loudly instead of passing by luck.
-const WRONG = 999_999_999;
-
+// These fixtures used to carry `previous_totals` / `previous_total` set to a deliberately
+// WRONG value, so a regression that started reading them again failed loudly. The fields
+// are gone from the models as of DASH-DROP-PREVIOUS-00, which is a STRONGER guard than the
+// sentinel was: reading them now fails to compile rather than failing an assertion. The
+// baseline arrives as its own input from the comparison response.
 const revenue = (net: number): RevenueData => ({
   series: [],
   totals: totals(net),
-  previous_totals: totals(WRONG),
 });
 
 const orders = (total: number): OrdersData => ({
   series: [],
   breakdown: { paid: total, open: 0, cancelled: 0, refunded: 0 },
   total,
-  previous_total: WRONG,
 });
 
 describe('dashboard trend badges — no-baseline handling', () => {

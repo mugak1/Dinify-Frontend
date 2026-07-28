@@ -344,24 +344,53 @@ describe('DashboardComponent — timeframe wiring', () => {
 
     // The 02B swap, asserted where it can actually be caught: a response whose two fields
     // DISAGREE. Reading `previous_totals` would give 999_999_999.
-    it("takes the baseline from the comparison response's totals, never its previous_totals", fakeAsync(() => {
-      const comparisonResponse = {
-        data: {
-          revenue: {
-            series: [],
-            totals: { gross: 500, net: 500, discounts: 0, refunds: 0 },
-            previous_totals: { gross: 999999999, net: 999999999, discounts: 0, refunds: 0 },
-          },
-          orders: { series: [], breakdown: {}, total: 42, previous_total: 999999999 },
+    //
+    // DASH-DROP-PREVIOUS-00 removed both fields from the MODELS, but the wire is a separate
+    // question and the two cases below pin BOTH shapes it can take. These fixtures are
+    // untyped wire literals on purpose, so they can carry a field the models no longer
+    // declare — which is exactly the situation between this PR and the backend removal.
+    const withoutPrevious = {
+      data: {
+        revenue: { series: [], totals: { gross: 500, net: 500, discounts: 0, refunds: 0 } },
+        orders: { series: [], breakdown: {}, total: 42 },
+      },
+    };
+    // Same response plus the fields the backend still sends, carrying a value that would be
+    // impossible to mistake for the right one.
+    const withPrevious = {
+      data: {
+        revenue: {
+          ...withoutPrevious.data.revenue,
+          previous_totals: { gross: 999999999, net: 999999999, discounts: 0, refunds: 0 },
         },
-      };
+        orders: { ...withoutPrevious.data.orders, previous_total: 999999999 },
+      },
+    };
+
+    function bootWithComparisonResponse(response: unknown): void {
       boot(july, 'prev-month-by-day');
       dashboardService.getDashboardData.and.callFake(
-        (...args: unknown[]) =>
-          of(args[1] === july.from ? { data: null } : comparisonResponse) as never,
+        (...args: unknown[]) => of(args[1] === july.from ? { data: null } : response) as never,
       );
       fixture.detectChanges();
       tick();
+    }
+
+    // TODAY's wire shape. The extra fields are untyped extras on a JSON response, and this
+    // asserts they are inert — the baseline is still read from `totals`.
+    it("takes the baseline from the comparison response's totals, never its previous_totals", fakeAsync(() => {
+      bootWithComparisonResponse(withPrevious);
+
+      expect(component.comparisonData!.revenue.totals.net).toBe(500);
+      expect(component.comparisonData!.orders.total).toBe(42);
+    }));
+
+    // THE PROPERTY THAT MAKES THE BACKEND REMOVAL SAFE. Once `previous_totals` /
+    // `previous_total` stop being sent, the baseline must be unchanged — no `undefined`
+    // reaching an adapter, no zeroed delta, no thrown read. If this ever fails, the backend
+    // PR that deletes the fields cannot ship.
+    it('resolves the same baseline when the response omits previous_totals entirely', fakeAsync(() => {
+      bootWithComparisonResponse(withoutPrevious);
 
       expect(component.comparisonData!.revenue.totals.net).toBe(500);
       expect(component.comparisonData!.orders.total).toBe(42);
