@@ -62,6 +62,7 @@ import {
   classifyRangeShape,
   comparisonOptionsFor,
   resolveComparison,
+  resolveTimeframe,
   stepRange,
 } from '../timeframe-engine';
 import { ReportDateRange, presetToRange } from '../timeframe-range';
@@ -305,7 +306,10 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
    * `TimeframeService.carryComparison` is what actually keeps the selection legal.
    */
   get comparisonOptions(): ComparisonOption[] {
-    const offered = comparisonOptionsFor(classifyRangeShape(this.value));
+    // Classify and resolve from the same window (02B) — the FETCHED window, not the
+    // requested one.
+    const shape = classifyRangeShape(resolveTimeframe(this.value).effectiveRange);
+    const offered = comparisonOptionsFor(shape);
     return offered.includes(this.comparison) ? offered : [...offered, this.comparison];
   }
 

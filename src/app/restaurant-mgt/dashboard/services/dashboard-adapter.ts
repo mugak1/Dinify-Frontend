@@ -71,7 +71,6 @@ function adaptPaymentMethods(raw: any[]): PaymentMethodData[] {
     method: p.method ?? '',
     amount: safeFloat(p.amount),
     tx_count: p.tx_count ?? 0,
-    change_pct: 0,
   }));
 }
 

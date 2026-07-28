@@ -9,7 +9,7 @@ import { firstValueFrom } from 'rxjs';
 import { TimeframeService } from './timeframe.service';
 import { TIMEFRAME_CONFIG } from './timeframe-config';
 import { ReportDateRange, defaultRange } from './timeframe-range';
-import { resolveComparison, stepRange } from './timeframe-engine';
+import { SALES_TRENDS_CAP_DAYS, resolveComparison, stepRange } from './timeframe-engine';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
 
@@ -564,6 +564,77 @@ describe('TimeframeService — the URL is the source of truth', () => {
       service.set({ preset: 'today', from: today, to: today });
 
       expect(service.comparisonValue).toBe('none');
+    });
+  });
+
+  // ─── The basis describes the FETCHED window (TIMEFRAME-TIDY-00) ───────────────────
+  //
+  // The service half of the rule the picker spec states in full: classify and resolve
+  // from the same window (02B). Three sites classify a user-supplied range —
+  // `carryComparison`, `resolveComparisonFor` and `writeUrl` — and all three now read
+  // `effectiveRange`.
+  //
+  // The last two MOVE TOGETHER by necessity, which is the one thing here that is not
+  // merely tidiness: `writeUrl` omits `cmp` when it equals the shape's default, and
+  // `resolveComparisonFor` re-derives that same default when the URL comes back in. Split
+  // their windows and they can disagree about whether an OMITTED `cmp` meant the default,
+  // which turns a clean shared link into a different selection on arrival.
+  //
+  // Unobservable at the real cap, and the lowered cap has to run `custom` → real shape
+  // rather than the reverse — the picker spec carries the full explanation of why.
+  describe('with the annual cap lowered so the two windows can diverge', () => {
+    /** Four years ending on a year boundary: shape `custom`, span 1460, so it clamps. */
+    const FOUR_YEARS = 'from=2022-01-01&to=2025-12-31&preset=custom';
+    /** At a 364-day cap this clamps to 2025-01-01…2025-12-31 — a whole calendar `year`. */
+    const LOWERED = 364;
+
+    const realCap = SALES_TRENDS_CAP_DAYS.annual;
+    afterEach(() => {
+      SALES_TRENDS_CAP_DAYS.annual = realCap;
+    });
+
+    it("adopts the clamped window's default at entry, not the raw range's", async () => {
+      SALES_TRENDS_CAP_DAYS.annual = LOWERED;
+
+      const { service } = await bootAt(`/reports?${FOUR_YEARS}`);
+
+      // Raw is `custom` (default 'prev-period'); the fetched window is a whole `year`.
+      expect(service.comparisonValue).toBe('prev-year');
+    });
+
+    // Entry leaves a VALID URL alone, so the omission rule only shows on a write.
+    it("omits cmp on write when it is the clamped window's default", async () => {
+      SALES_TRENDS_CAP_DAYS.annual = LOWERED;
+
+      const { service, router } = await bootAt(`/reports?${FOUR_YEARS}`);
+      service.setComparison('prev-year');
+      await flush();
+
+      // 'prev-year' IS the default once clamped, so it is not worth a param. Classifying
+      // the raw range here would call it non-default — the raw shape is `custom`, whose
+      // default is 'prev-period' — and publish `cmp=prev-year` into every shared link.
+      expect(queryOf(router)['cmp']).toBeUndefined();
+    });
+
+    it('carries a basis across set() using the clamped shape', async () => {
+      SALES_TRENDS_CAP_DAYS.annual = LOWERED;
+      const { service } = await bootAt(`/reports?${FOUR_YEARS}`);
+      expect(service.comparisonValue).toBe('prev-year');
+
+      // Another over-cap range clamping onto a year boundary (2023 is not a leap year), so
+      // the shape is unchanged and the basis must survive.
+      service.set({ preset: 'custom', from: '2020-01-01', to: '2023-12-31' });
+
+      expect(service.comparisonValue).toBe('prev-year');
+    });
+
+    it('leaves the same range on the raw shape while it is under the cap', async () => {
+      const { service, router } = await bootAt(`/reports?${FOUR_YEARS}`);
+
+      // Nothing clamps at the real 1850-day cap, so this is ordinary `custom` behaviour —
+      // the invariance half, proving the change is invisible in normal use.
+      expect(service.comparisonValue).toBe('prev-period');
+      expect(queryOf(router)['cmp']).toBeUndefined();
     });
   });
 

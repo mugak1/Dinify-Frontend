@@ -189,5 +189,37 @@ describe('period arrows — both timeframe hosts', () => {
         expect(arrow(el, 'Next period')).not.toBeNull();
       });
     }
+
+    // TIMEFRAME-TIDY-00 moved the picker onto the FETCHED window, and the picker is
+    // shared — so a change made for Reports reaches the Dashboard's menu whether or not
+    // anyone looked. March 2020 is a whole calendar month, nowhere near the annual clamp,
+    // which is the ordinary case both hosts actually run in: the menu must not move.
+    const cmpLabels = (): string[] =>
+      Array.from(
+        document.querySelector('.dn-comparison-overlay-panel')?.querySelectorAll('[role="option"]') ??
+          [],
+      ).map((b) => (b.textContent ?? '').trim());
+
+    afterEach(() => {
+      document.querySelectorAll('.cdk-overlay-container').forEach((el) => el.remove());
+    });
+
+    for (const host of hosts) {
+      it(`${host.label} offers the unchanged month menu for an ordinary range`, async () => {
+        const el = await bootAt(host.url + MARCH_2020);
+
+        cmpTrigger(el)!.click();
+        harness.detectChanges();
+
+        expect(cmpLabels()).toEqual([
+          'No comparison',
+          'Previous month by day (Mon–Sun)',
+          'Previous month by date (DD/MM)',
+          'Previous year by day (Mon–Sun)',
+          'Dates last year (DD/MM)',
+          'Custom period',
+        ]);
+      });
+    }
   });
 });

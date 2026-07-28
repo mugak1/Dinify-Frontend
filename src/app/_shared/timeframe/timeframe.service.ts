@@ -46,6 +46,7 @@ import {
   defaultComparisonFor,
   isComparisonOfferedFor,
   maxCustomComparisonStart,
+  resolveTimeframe,
 } from './timeframe-engine';
 import {
   ParsedTimeframe,
@@ -161,6 +162,8 @@ export class TimeframeService {
     });
 
     this.comparisonSeed = new PersistedBehaviorSubject<ComparisonOption>(
+      // Raw is fine here: a host default is `presetToRange`, whose widest span is
+      // `this-year` (≤365d) against an 1850-day cap, so it can never clamp.
       defaultComparisonFor(classifyRangeShape(this.hostDefault())),
       {
         storage: localStorage,
@@ -297,7 +300,9 @@ export class TimeframeService {
   private carryComparison(range: ReportDateRange): ComparisonOption {
     const current = this._comparison$.value;
     if (current === 'none') return 'none';
-    const shape = classifyRangeShape(range);
+    // Classify and resolve from the same window (02B) — the FETCHED window, not the
+    // requested one.
+    const shape = classifyRangeShape(resolveTimeframe(range).effectiveRange);
     return isComparisonOfferedFor(shape, current) ? current : defaultComparisonFor(shape);
   }
 
@@ -420,7 +425,11 @@ export class TimeframeService {
     range: ReportDateRange,
     fromUrl: ComparisonOption | null,
   ): ComparisonOption {
-    const shape = classifyRangeShape(range);
+    // Classify and resolve from the same window (02B) — the FETCHED window, not the
+    // requested one. Moves in lockstep with `writeUrl`, which recomputes the same default
+    // to decide whether `cmp` is publishable: split the two windows and they could
+    // disagree about whether an OMITTED `cmp` meant the default.
+    const shape = classifyRangeShape(resolveTimeframe(range).effectiveRange);
     if (fromUrl && isComparisonOfferedFor(shape, fromUrl)) return fromUrl;
     const seeded = this.comparisonSeed.value;
     if (isComparisonOption(seeded) && isComparisonOfferedFor(shape, seeded)) return seeded;
@@ -492,7 +501,11 @@ export class TimeframeService {
     // were before 02A and only a deliberate choice shows up in a shared link. `null` is
     // how you remove a param under `queryParamsHandling: 'merge'` — dropping the key
     // instead would leave a stale value behind on a range that no longer offers it.
-    const isDefault = comparison === defaultComparisonFor(classifyRangeShape(range));
+    // Classify and resolve from the same window (02B) — the FETCHED window, not the
+    // requested one. Pairs with `resolveComparisonFor`, which re-derives this same default
+    // when the URL comes back in.
+    const shape = classifyRangeShape(resolveTimeframe(range).effectiveRange);
+    const isDefault = comparison === defaultComparisonFor(shape);
     // `cmpFrom` rides ONLY with `cmp=custom`. Under any other basis it names nothing the
     // page renders, so it is stripped rather than left to go stale — and only the START is
     // ever published, so a link can never carry two bounds that disagree about its length.

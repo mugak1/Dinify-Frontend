@@ -10,6 +10,7 @@ import {
   timeframeOverlayPositions,
 } from './timeframe-picker.component';
 import { ComparisonOption } from '../comparison-option';
+import { SALES_TRENDS_CAP_DAYS } from '../timeframe-engine';
 import { ReportDateRange } from '../timeframe-range';
 
 describe('TimeframePickerComponent', () => {
@@ -434,6 +435,76 @@ describe('TimeframePickerComponent', () => {
         'Dates last year (DD/MM)',
         'Custom period',
       ]);
+    });
+
+    // ─── The menu describes the FETCHED window (TIMEFRAME-TIDY-00) ─────────────────
+    //
+    // 02B's rule: classify and resolve from the same window, because deriving the offered
+    // set from one and the comparison from another is how a menu comes to offer a basis
+    // the resolver will not honour. The picker classified `this.value` — the REQUESTED
+    // range — while the resolver works from `effectiveRange`, the clamped window a request
+    // is actually fetched over.
+    //
+    // THIS IS UNOBSERVABLE AT THE REAL CAP, and that is a fact about the boundaries rather
+    // than about the fix. The two windows differ only above the 1850-day clamp, and no
+    // shape spans anywhere near that (365 at the outside — see the engine spec's
+    // "bounds every non-custom shape far below the clamp"), so above it BOTH read `custom`
+    // and both spellings agree for every range a user can produce.
+    //
+    // So the invariant can only be watched by making divergence possible, which is what
+    // the lowered cap below is for — a deliberate distortion of configuration, restored in
+    // `afterEach`.
+    //
+    // IT HAS TO RUN IN THIS DIRECTION: `custom` raw, real shape once clamped. The obvious
+    // construction is the reverse — take a whole calendar year and lower the cap under it
+    // so `year` clamps to `custom` — and it CANNOT WORK, for a reason worth writing down
+    // before someone spends an afternoon on it. The clamp branch sits after the ladder's
+    // `month` rung (731 days, module-private), so a range only reaches it above 731 days
+    // whatever the annual cap says; a 364-day year returns unclamped long before the cap
+    // is consulted. No shape spans 731, so no shape can ever be the thing that clamps.
+    //
+    // Hence: a 1460-day `custom` range, and a cap of 364 chosen so the window it clamps to
+    // lands exactly on 2025-01-01…2025-12-31 — a whole calendar `year`.
+    describe('with the annual cap lowered so the two windows can diverge', () => {
+      /** Four years, ending on a year boundary. Shape `custom`; span 1460, so it clamps. */
+      const FOUR_YEARS: ReportDateRange = {
+        preset: 'custom',
+        from: '2022-01-01',
+        to: '2025-12-31',
+      };
+
+      const realCap = SALES_TRENDS_CAP_DAYS.annual;
+      afterEach(() => {
+        SALES_TRENDS_CAP_DAYS.annual = realCap;
+      });
+
+      const openMenu = (value: ReportDateRange): void => {
+        fixture.componentRef.setInput('value', value);
+        fixture.componentRef.setInput('comparison', 'none');
+        fixture.detectChanges();
+        cmpTrigger()!.click();
+        fixture.detectChanges();
+      };
+
+      it('offers the raw shape menu while nothing clamps', () => {
+        // At the real 1850-day cap this range does not clamp, so `effectiveRange` IS
+        // `value` and both spellings agree — the invariance half.
+        openMenu(FOUR_YEARS);
+
+        expect(labels()).toEqual(['No comparison', 'Previous period', 'Custom period']);
+      });
+
+      it("switches to the clamped window's menu once the same range exceeds the cap", () => {
+        SALES_TRENDS_CAP_DAYS.annual = 364;
+
+        openMenu(FOUR_YEARS);
+
+        // 2025-12-31 less 364 days is 2025-01-01 (2025 is not a leap year), so the FETCHED
+        // window is a whole calendar year and offers 'Previous year'. The raw range is
+        // still `custom` and would offer 'Previous period' — a basis the resolver, working
+        // from the clamped window, would not honour. That mismatch is what 02B forbids.
+        expect(labels()).toEqual(['No comparison', 'Previous year', 'Custom period']);
+      });
     });
 
     it('emits the picked basis and closes', () => {

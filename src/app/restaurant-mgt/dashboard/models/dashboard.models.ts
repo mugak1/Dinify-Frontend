@@ -30,7 +30,6 @@ export interface PaymentMethodData {
   method: string;
   amount: number;
   tx_count: number;
-  change_pct: number;
 }
 
 // ── Orders ────────────────────────────────────────────────
