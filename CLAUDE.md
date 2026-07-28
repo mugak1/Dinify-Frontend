@@ -276,11 +276,13 @@ so keep it current when conventions change.
   **`previous_totals` and the deprecated `period` param now have NO frontend caller**,
   which unblocks their backend removal — and as of DASH-DROP-PREVIOUS-00 the frontend no
   longer TYPES them either: `previous_totals` / `previous_total` are gone from
-  `RevenueData` / `OrdersData`, out of `dashboard-adapter`, and out of the mock. **The next
-  PR is the backend removal of both fields and the deprecated `period` parameter**, and it
-  must also update `timeframe-engine.ts`'s `previousEqualLengthPeriod` docstring, which
-  claims parity with the server-side `previous_totals` computation it deletes (the claim
-  holds today, which is why it was left alone). Removals go FRONTEND-FIRST for the same
+  `RevenueData` / `OrdersData`, out of `dashboard-adapter`, and out of the mock. **That
+  two-repo removal is now COMPLETE**: backend DASH-REMOVE-LEGACY-00 deleted both fields and
+  the deprecated `period` parameter, and `timeframe-engine.ts`'s `previousEqualLengthPeriod`
+  docstring — which used to claim parity with the server-side computation being deleted — was
+  updated in step, so it now records that the mirrored formula has no backend counterpart left
+  and that its long-hand arithmetic is kept deliberately rather than pending a tidy-up.
+  Removals go FRONTEND-FIRST for the same
   reason additions go backend-first — the wire may stop carrying a field the client still
   declares non-optional, never the reverse. Note the frontend was already TOLERANT of the
   field vanishing (`adaptRevenueTotals` zero-fills a falsy argument), so the ordering
@@ -359,11 +361,15 @@ so keep it current when conventions change.
   the axis changed, no displayed number did; and the **AOV sparkline emits `null`, not `0`, for a
   zero-order bucket**, because with no orders there is nothing to average and a 0 would draw a
   steady-ticket restaurant as violently volatile (Orders and Discounts keep zeros — those are
-  true). **Reported, not fixed:** `dashboard-adapter.ts:32-46`'s `adaptRevenueSeries` carries the
-  identical defect on the Dashboard's LIVE path. Its key format is an ISO datetime rather than
-  `yyyy-MM-dd`, the window would have to be threaded into the adapter, and its mock path already
-  densifies — so the defect is dormant behind `USE_MOCK_DATA` and unexercised by any verification
-  in this repo
+  true). **The matching Dashboard gap is now CLOSED FROM THE SERVER, not here** (backend
+  BUCKETS-ZEROFILL-00): `dashboard-adapter.ts`'s `adaptRevenueSeries` still does not densify,
+  but `dashboard-v2` now returns BOTH its series (`revenue`, `orders`) dense over the requested
+  window, so there is nothing left for the adapter to fill. This was carried as a flip-time
+  hazard until the backend change landed; it is no longer one. What survives is a DEPENDENCY
+  worth naming — the Dashboard's density is the producer's guarantee, whereas Sales owns its own
+  via `normalizeSeries`. If that server guarantee is ever narrowed, the Dashboard gap reopens
+  and the adapter (whose keys are ISO datetimes, not `yyyy-MM-dd`, and which would need the
+  window threaded in) is where it would have to be closed
   A user-placed comparison window (02D): ✅ **`'custom'` lets the operator put the comparison
   window where they like**, instead of choosing from bases the primary range derives — the
   "compare this month against the month we ran the promotion" question, which is about position,
@@ -741,7 +747,22 @@ writing new tag, price/menu or date-range logic:
     `@Output`, and it is not a reversal of the note above: an arrow emits a new RANGE,
     which `valueChange` already expresses, whereas a basis is separate state. 02B deleted
     the `showComparison` flag that briefly gated it — both hosts render the full cluster,
-    and a flag true at every call site is dead config
+    and a flag true at every call site is dead config.
+    **ALL THREE overlays this control opens — the calendar, the comparison menu and 02D's
+    custom-start calendar — share ONE position ladder**, a module-level factory called once
+    into a single field, and the specs pin REFERENCE IDENTITY between the three call sites
+    (a deep-equal but separately-built array fails). That is not fussiness: the three
+    previously hand-maintained their own copies, had already drifted apart on `withPush`,
+    and the identity assertion is what stops the next positioning change from fixing one
+    overlay and missing the others. Positions run **end-aligned first**, then the
+    start-aligned pair. End-first is load-bearing for the Dashboard, whose cluster sits in
+    the right-aligned page-header actions slot where a start-aligned 618px calendar
+    overflowed the frame at every viewport width (the trigger is pinned to the content
+    column's right edge, so widening the window moves the panel with it). The start-aligned
+    pair is a REAL fallback, not decoration — Reports puts the control at the LEFT of its
+    date bar, where CDK falls through to it and that host's placement is unchanged. Push is
+    on as the backstop; flexible dimensions stay OFF, since a two-month calendar that
+    reflows to fit is worse than one that repositions
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.
@@ -1027,10 +1048,16 @@ writing new tag, price/menu or date-range logic:
   prospective restaurant. Design work needs every date populated.
   **Why closures existed, which is what a future reader needs in order to decide whether to
   turn them back on:** the backend's period aggregation is a plain group-by, so a day with no
-  orders yields NO BUCKET (only the hourly path is zero-filled server-side). A mock that emits
+  orders used to yield NO BUCKET. A mock that emits
   every calendar day is DENSER than the thing it stands in for, and that density hid the Sales
   x-axis and comparison-pairing sparsity bugs through three consecutive PRs in that area. We
-  are back in that condition. The mitigation is that it is no longer the only line of defence —
+  are back in that condition. **That rationale has since WEAKENED, though it has not vanished**
+  — backend BUCKETS-ZEROFILL-00 now zero-fills `sales-trends` and both `dashboard-v2` series
+  onto the requested window, so the live surfaces the mock stands in for are themselves dense
+  and the mock is no longer denser than its subject on those paths. A sparse fixture is still
+  the honest way to exercise the FE's own densification, which is defence against the server
+  guarantee narrowing rather than against today's wire.
+  The mitigation is that it is no longer the only line of defence —
   the sparse-input specs for `normalizeSeries` and `alignComparisonSeries` build their own
   fixtures and never touched the mock — but end-to-end visibility in the RUNNING APP is gone.
   **The next change to densification, comparison pairing or the bucket ladder should flip the
@@ -1047,12 +1074,17 @@ writing new tag, price/menu or date-range logic:
 - Dashboard real endpoints: `reports/restaurant/dashboard-v2/` (core metrics, gated by
   `USE_MOCK_DATA`) and `reviews/summary/` (Reviews card, already live behind
   `USE_MOCK_REVIEWS = false`) — both parsed through `dashboard-adapter`.
-  dashboard-v2 takes `restaurant` + `from` + `to` + **`bucket`** (`hour|day|month|year`,
-  from `resolveTimeframe`). The legacy `period` parameter — keyed on the old UI
-  selection rather than on a granularity — is NO LONGER SENT BY ANY CALLER since 01B,
-  which unblocks the backend's follow-up removal of its `TRUNC_MAP`. The backend
+  dashboard-v2 takes `restaurant` + `from` + `to` + **`bucket`**
+  (`hour|day|week|month|year`, from `resolveTimeframe`; `week` accepted since backend
+  DASH-WEEK-00, matching the ladder's weekly rung — see LADDER-WEEK-00). The legacy
+  `period` parameter — keyed on the old UI selection rather than on a granularity — has
+  not been sent by any caller since 01B, and the backend has since DELETED it along with
+  its `TRUNC_MAP` (DASH-REMOVE-LEGACY-00); `bucket` is now REQUIRED, and an absent or
+  whitespace-only value is a 400 exactly like an unknown one. The backend
   resolves `bucket` FAIL-CLOSED: an unrecognised value is a 400 naming the accepted
-  set, not a silent fallback to hourly, so the vocabulary has to match exactly
+  set, not a silent fallback to hourly, so the vocabulary has to match exactly.
+  Its series are DENSE — one row per bucket in the requested window, empty ones zeroed
+  (BUCKETS-ZEROFILL-00)
 - Tables real endpoints: Setup View is real-wired to the `restaurant-setup/`
   areas + tables endpoints plus the QR lifecycle — activation via the ordinary
   table update (`has_qr=true`) and secure rotation via
@@ -1067,9 +1099,12 @@ writing new tag, price/menu or date-range logic:
   `reviews/submit/` (diner capture). `ReviewsService` has no mock flag — it
   calls `ApiService` directly through a `reviews-adapter` layer
 - Reports real endpoints (scaffolded, dormant behind `USE_MOCK_DATA = true`):
-  GET `reports/restaurant/sales-trends/` (params `category`=daily|monthly|
-  quarterly|annual + `result`=table — the FE's "aggregate" is the backend's
-  trends table; there is NO `sales-aggregate` slug), `…/menu-summary/` (param
+  GET `reports/restaurant/sales-trends/` (params `category`=daily|**weekly**|
+  monthly|quarterly|annual + `result`=table — the FE's "aggregate" is the backend's
+  trends table; there is NO `sales-aggregate` slug. `weekly` is emitted by
+  `BUCKET_TO_CATEGORY` since LADDER-WEEK-00 and has always been in the backend's
+  `TREND_PERIODS`; its series, like the others, is now zero-filled server-side),
+  `…/menu-summary/` (param
   `grouping`), `…/transactions-summary/`, `…/diners-summary/`; paginated (via
   `ApiService.loadAllPages`) `…/sales-listing/`, `…/transactions-listing/`,
   `…/diners-listing/`. Backend wraps menu-summary in `data:{grouping,rows}` and
@@ -1097,12 +1132,14 @@ writing new tag, price/menu or date-range logic:
   backend — slug, params AND response shape — since the mock returns
   frontend-shaped data and masks any drift until flip; (3) resolve the
   `payment_mode` vocab gap above
-- Dashboard flip-time gate — when `DashboardService.USE_MOCK_DATA` goes `false`, the revenue
-  series becomes SPARSE (the backend emits no bucket for a period with no orders) and the
-  densification defect in `dashboard-adapter.ts:32-46`'s `adaptRevenueSeries` ACTIVATES. Its
-  mock path densifies, so nothing before the flip exercises it. Densify to the requested
-  window at flip time — mind that its keys are ISO datetimes, not `yyyy-MM-dd` — rather than
-  letting a customer find the gap
+- Dashboard flip-time gate — **the sparse-series hazard this entry used to carry is CLOSED**.
+  It warned that flipping `DashboardService.USE_MOCK_DATA` to `false` would activate a
+  densification gap in `dashboard-adapter`'s `adaptRevenueSeries`, because the backend emitted
+  no bucket for a period with no orders. Backend BUCKETS-ZEROFILL-00 now zero-fills both
+  `dashboard-v2` series onto the requested window, so the series arrives dense and the adapter
+  has nothing to fill. Left standing as the one thing to CHECK rather than fix at flip time:
+  the adapter still does not densify, so confirm the server-side fill is present on the
+  deployed backend before flipping — this repo's verification cannot see it
 
 ## Known Issues & Deferred Work
 - `ngx-intl-telephone-input` was REMOVED (PRs 2a–2c) and replaced by the
