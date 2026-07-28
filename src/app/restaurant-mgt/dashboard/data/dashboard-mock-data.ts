@@ -231,10 +231,10 @@ export function getMockRevenueData(
  * tickets are smaller than mobile-money ones (UGX ~31.6K vs ~40K average), so a single
  * vector would flatten a real difference the old figures already encoded.
  */
-const PAYMENT_METHOD_MIX: { method: string; amountWeight: number; txWeight: number; change_pct: number }[] = [
-  { method: 'mobile_money', amountWeight: 1_800_000, txWeight: 45, change_pct: 12.5 },
-  { method: 'cash', amountWeight: 1_200_000, txWeight: 38, change_pct: -3.2 },
-  { method: 'card', amountWeight: 600_000, txWeight: 15, change_pct: 28.1 },
+const PAYMENT_METHOD_MIX: { method: string; amountWeight: number; txWeight: number }[] = [
+  { method: 'mobile_money', amountWeight: 1_800_000, txWeight: 45 },
+  { method: 'cash', amountWeight: 1_200_000, txWeight: 38 },
+  { method: 'card', amountWeight: 600_000, txWeight: 15 },
 ];
 
 /**
@@ -249,9 +249,6 @@ const PAYMENT_METHOD_MIX: { method: string; amountWeight: number; txWeight: numb
  *
  * Transaction counts scale off the window's ACTUAL order count, never a day count, so
  * payments-per-order stays around one however long the window is.
- *
- * `change_pct` is left as it was: still hardcoded, still consumed by no template, and its
- * correct source is a backend concern recorded as a follow-up.
  */
 export function getMockPaymentMethods(
   restaurantId: string,
@@ -269,7 +266,6 @@ export function getMockPaymentMethods(
     method: m.method,
     amount: amounts[i],
     tx_count: counts[i],
-    change_pct: m.change_pct,
   }));
 }
 

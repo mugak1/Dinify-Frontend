@@ -34,6 +34,27 @@ describe('shared timeframe engine', () => {
   const inclusiveLen = (r: Pick<ReportDateRange, 'from' | 'to'>): number =>
     differenceInCalendarDays(parseISO(r.to), parseISO(r.from)) + 1;
 
+  /**
+   * One representative range per shape. Shared by the comparison-menu sweeps below and by
+   * the over-cap clamp block above, which needs the SPANS rather than the option sets.
+   */
+  const SAMPLES: Record<RangeShape, ReportDateRange> = {
+    day: { preset: 'today', from: ANCHOR, to: ANCHOR },
+    week: { preset: 'custom', from: '2026-06-08', to: '2026-06-14' },
+    // NOW is a MONDAY, so week-to-date is necessarily a single day here — and that
+    // collides with `day`, which wins on declaration order. The `this-week` preset is
+    // what breaks the tie (see `classifyRangeShape`'s scoped exception), and it is
+    // load-bearing rather than decorative: with `preset: 'custom'` this entry classified
+    // as `custom`, so both sweeps below silently exercised custom's option set while
+    // claiming to cover week-to-date. The fidelity guard there is what caught that.
+    'week-to-date': { preset: 'this-week', from: ANCHOR, to: ANCHOR },
+    month: { preset: 'custom', from: '2026-05-01', to: '2026-05-31' },
+    'month-to-date': { preset: 'this-month', from: '2026-06-01', to: ANCHOR },
+    year: { preset: 'custom', from: '2025-01-01', to: '2025-12-31' },
+    'year-to-date': { preset: 'this-year', from: '2026-01-01', to: ANCHOR },
+    custom: rangeOfSpan(13),
+  };
+
   describe('constants mirror the backend caps', () => {
     it('pins the sales-trends day-span caps (incl. quarterly for completeness)', () => {
       expect(SALES_TRENDS_CAP_DAYS).toEqual({
@@ -181,6 +202,52 @@ describe('shared timeframe engine', () => {
       // it still clamps to the widest span the backend will serve, not to a ladder boundary.
       expect(r.effectiveRange.from).not.toBe(rangeOfSpan(SALES_TRENDS_CAP_DAYS.weekly).from);
     });
+
+    // WHY TIMEFRAME-TIDY-00 IS INVISIBLE, and why the picker/service specs have to lower
+    // the cap to observe it at all.
+    //
+    // Classification and resolution can only disagree where `effectiveRange !== range`,
+    // which is the clamp branch and nothing else. But NO SHAPE REACHES THAT SPAN:
+    // `matchingShapes` bounds every non-`custom` shape structurally — `day` at 0,
+    // `week`/`week-to-date` at 6, `month`/`month-to-date` at 30, `year`/`year-to-date` at
+    // 365 (a `year` requires `to === endOfYear(from)`, so there is no multi-year `year`).
+    // Above 1850 days, therefore, the raw range and the 1850-day window it clamps to are
+    // BOTH `custom`, and the two spellings agree for every input the app can produce.
+    //
+    // Note the bound that actually gates the clamp is the ladder's `month` rung at 731,
+    // not the 1850-day cap — the cap is only consulted for spans that already cleared 731.
+    // Either number is far above 365, so the conclusion is the same; the ladder is simply
+    // the tighter of the two and the one a spec has to get past to observe anything.
+    //
+    // This is a real property, not a coincidence to be tidied away: it is what lets the
+    // shared layer switch to `effectiveRange` with no behavioural change at all. If a
+    // future threshold drops below 365 it stops holding and this spec is where that shows.
+    it('bounds every non-custom shape far below the clamp', () => {
+      for (const shape of Object.keys(SAMPLES) as RangeShape[]) {
+        if (shape === 'custom') continue;
+        const span = differenceInCalendarDays(
+          parseISO(SAMPLES[shape].to),
+          parseISO(SAMPLES[shape].from),
+        );
+        expect(span).withContext(shape).toBeLessThanOrEqual(365);
+        expect(span).withContext(shape).toBeLessThan(SALES_TRENDS_CAP_DAYS.annual);
+      }
+    });
+
+    it('classifies an over-cap range and its clamped window identically — both custom', () => {
+      // 1851 is the smallest clamping span (1850 exactly does not clamp — pinned above).
+      for (const span of [1851, 2500, 4200]) {
+        const raw = rangeOfSpan(span);
+        const { effectiveRange, clamped } = resolveTimeframe(raw);
+
+        expect(clamped).withContext(`span ${span}`).toBeTrue();
+        expect(effectiveRange).withContext(`span ${span}`).not.toBe(raw);
+        expect(classifyRangeShape(raw, NOW)).withContext(`raw, span ${span}`).toBe('custom');
+        expect(classifyRangeShape(effectiveRange, NOW))
+          .withContext(`effective, span ${span}`)
+          .toBe('custom');
+      }
+    });
   });
 
   // ─── Comparison basis (TIMEFRAME-02A) ──────────────────────────────────────────────
@@ -251,24 +318,6 @@ describe('shared timeframe engine', () => {
           .toBe(byDay.includes(option) ? 'by-day' : 'by-date');
       }
     });
-
-    /** One representative range per shape. Shared by the two sweeps below. */
-    const SAMPLES: Record<RangeShape, ReportDateRange> = {
-      day: { preset: 'today', from: ANCHOR, to: ANCHOR },
-      week: { preset: 'custom', from: '2026-06-08', to: '2026-06-14' },
-      // NOW is a MONDAY, so week-to-date is necessarily a single day here — and that
-      // collides with `day`, which wins on declaration order. The `this-week` preset is
-      // what breaks the tie (see `classifyRangeShape`'s scoped exception), and it is
-      // load-bearing rather than decorative: with `preset: 'custom'` this entry classified
-      // as `custom`, so both sweeps below silently exercised custom's option set while
-      // claiming to cover week-to-date. The fidelity guard above is what caught that.
-      'week-to-date': { preset: 'this-week', from: ANCHOR, to: ANCHOR },
-      month: { preset: 'custom', from: '2026-05-01', to: '2026-05-31' },
-      'month-to-date': { preset: 'this-month', from: '2026-06-01', to: ANCHOR },
-      year: { preset: 'custom', from: '2025-01-01', to: '2025-12-31' },
-      'year-to-date': { preset: 'this-year', from: '2026-01-01', to: ANCHOR },
-      custom: rangeOfSpan(13),
-    };
 
     // The sweeps below are only as good as the table they iterate: a sample that does not
     // actually classify as the shape it is filed under would test the wrong option set and

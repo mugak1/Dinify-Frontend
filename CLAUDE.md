@@ -303,11 +303,28 @@ so keep it current when conventions change.
   change. Sales also carries the Dashboard's `isComparisonOfferedFor(shape, basis) ?
   basis : defaultComparisonFor(shape)` guard, because resolving from `effectiveRange` while
   the shared picker still builds its menu from the raw range is exactly the gap that guard
-  exists to close. STILL OUTSTANDING and pre-existing on BOTH hosts: the shared layer —
-  `timeframe-picker.component.ts` (`comparisonOptionsFor(classifyRangeShape(this.value))`)
-  and `TimeframeService` — classifies from the raw range, so above the cap a menu can offer
-  a basis the resolver will not honour. Both hosts patch it consumer-side; the timeframe-core
-  fix is a separate change.
+  exists to close.
+  Shared layer on the fetched window (TIMEFRAME-TIDY-00): ✅ **every site that classifies a
+  user-supplied range now classifies `resolveTimeframe(range).effectiveRange`** — the picker's
+  `comparisonOptions` and the service's `carryComparison` / `resolveComparisonFor` / `writeUrl`.
+  The last two MOVE TOGETHER by necessity: `writeUrl` omits `cmp` at the shape's default and
+  `resolveComparisonFor` re-derives that default on re-entry, so splitting their windows lets
+  them disagree about whether an OMITTED `cmp` meant the default. `hostDefault()` is the ONE
+  site deliberately left raw — a preset's widest span is `this-year` (≤365d), so it can never
+  clamp; it carries a comment saying so. Sales' consumer-side guard is KEPT as redundant
+  defence — a guard that became redundant is not one that was wrong.
+  **The behavioural delta is EMPTY, provably, not merely small**, and knowing why saves the
+  next reader the afternoon it costs to rediscover: `matchingShapes` bounds every non-`custom`
+  shape structurally (day 0, week 6, month 30, year 365 — a `year` requires
+  `to === endOfYear(from)`, so no multi-year `year` exists), while the clamp branch is gated
+  by the ladder's `month` rung at 731 days and only then by the 1850-day cap. No shape can
+  reach the clamp, so above it the raw range and the window it clamps to are BOTH `custom`.
+  Consequence for testing: the obvious spec — lower the cap under a whole calendar year so
+  `year` clamps to `custom` — CANNOT WORK, because 364 days returns unclamped at the 731 rung
+  whatever the cap says. The discriminating specs therefore run the other direction, a
+  `custom` range clamping INTO a real shape (1460 days ending 2025-12-31, cap lowered to 364
+  → exactly 2025-01-01…2025-12-31, a whole `year`), and they are the only thing that fails if
+  the four sites are reverted.
   Weekday vs calendar-date pairing (02C): ✅ **at month level, HOW the two chart series are
   paired is a user choice**, separate from which window they are drawn from — a restaurant's
   Saturday does not resemble its Tuesday, so pairing July against June by calendar date sets
@@ -744,7 +761,7 @@ writing new tag, price/menu or date-range logic:
   statement, and a negative denominator sign-flips a recovery into a red
   decline. Its docstring carries BOTH the qualifying rule for which components
   must route through it (divides by a baseline it holds → in scope; renders a
-  server-computed `change_pct` → report, don't fix; direction-only arrow → leave
+  percentage the SERVER computed → report, don't fix; direction-only arrow → leave
   alone; percentage of a capacity → not a delta) AND a census of every baseline
   predicate in the repo. **It is now the ONLY baseline predicate app-wide**
   (REPORTS-COMPARISON-00): the Reports `delta-chip` held a fourth with no
@@ -950,8 +967,17 @@ writing new tag, price/menu or date-range logic:
   either generator. Shares are preserved by passing the ORIGINAL hardcoded figures as
   allocation WEIGHTS, and item `qty` derives from the exact unit prices the old fixture
   already encoded (25K/10K/20K/20K/5K), so ranking and both `%` columns are unchanged and
-  the change is invisible on an ordinary trading day. `change_pct` is untouched — still
-  hardcoded, still consumed by no template, its correct source a backend concern
+  the change is invisible on an ordinary trading day.
+  **`PaymentMethodData` carries NO `change_pct`** (TIMEFRAME-TIDY-00). It was removed rather
+  than repaired, the same treatment `previous_totals` got and for the same reason: there was
+  no producer. The backend never sent it, `dashboard-adapter` manufactured a literal `0`
+  (never reading the payload), the mock invented `12.5 / -3.2 / 28.1`, and no template,
+  getter or spec consumed any of it — the "backend follow-up" it was carried under since
+  DASH-MOCK-COHERENCE-00 pointed at nothing. When a payment-methods trend is genuinely
+  wanted it gets built against a baseline that can be ABSENT, which is precisely what the
+  old shape could not express: `0` and "no data" were indistinguishable. `tx_count` STAYS —
+  it reaches no pixel either, but it is pinned by a real cross-card invariant
+  (`Σ tx_count === orders.total`), which makes it unrendered-but-pinned rather than dead
 - Still OUTSIDE the basis, deliberately: `getMockTablesData` and `getMockKdsData` (capacity
   and kitchen load are not revenue-derived) and the reviews mock
 - TablesService now splits the flag in two:

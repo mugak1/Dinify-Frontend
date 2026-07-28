@@ -23,11 +23,14 @@
  * - **In scope** — the component divides by a baseline it holds to produce a percentage.
  *   Route through `percentChange` and gate the badge with `@if`.
  *   Here: `revenue-card`, `total-orders-card`, `TrendIndicatorComponent`.
- * - **Report, don't fix** — the component displays a server-computed percentage
- *   (`change_pct`). The frontend holds no baseline to test, and suppressing on `=== 0`
- *   would also hide genuine flat periods. Here: none rendering today —
- *   `PaymentMethodData.change_pct` exists on the model and in mock data, but no template
- *   or getter consumes it. That changes the moment the payment-methods trend is wired.
+ * - **Report, don't fix** — the component displays a percentage the SERVER computed. The
+ *   frontend holds no baseline to test, and suppressing on `=== 0` would also hide genuine
+ *   flat periods. Here: none. `PaymentMethodData` carried a `change_pct` until
+ *   TIMEFRAME-TIDY-00, but nothing produced it — the backend never sent it, the adapter
+ *   hardcoded `0` and no template read it — so it was removed rather than repaired. The
+ *   rule stands for the first field a server actually populates; when the payment-methods
+ *   trend is genuinely wanted it gets built against a baseline that can be ABSENT, which
+ *   is what the old shape could not express (`0` and "no data" were indistinguishable).
  * - **Leave alone** — a direction-only indicator derived from a direct `current > previous`
  *   comparison. That comparison is well-defined at a zero baseline; 0 → 340 is a real
  *   increase and the arrow is honest. Only the percentage magnitude is undefined.
