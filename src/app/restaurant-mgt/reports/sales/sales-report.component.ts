@@ -15,8 +15,11 @@ import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { ReportsService } from '../services/reports.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import {
+  classifyRangeShape,
   ComparisonOption,
   comparisonCaption,
+  defaultComparisonFor,
+  isComparisonOfferedFor,
   ReportBucketUnit,
   ReportDateRange,
   resolveComparison,
@@ -166,8 +169,23 @@ export class SalesReportComponent implements OnInit, OnDestroy {
         }),
         switchMap(([range, basis, customFrom]) => {
           const tf = resolveTimeframe(range);
-          const cmp = resolveComparison(range, basis, undefined, customFrom);
           const er = tf.effectiveRange;
+          // THE COMPARISON WINDOW SPANS THE WINDOW THIS SURFACE'S PRIMARY WAS FETCHED OVER.
+          // Here that is `effectiveRange`: `main$` below requests `er`, and the engine's
+          // over-cap clamp moves `from`. Resolving from the raw range would set a longer
+          // baseline beside a clamped primary and call the difference a trend.
+          //
+          // The rule is same-window-as-primary, NOT "use effectiveRange" — Menu, Transactions
+          // and Diners fetch their primaries uncapped and satisfy it with the raw range. Do
+          // not switch them for consistency; that would break the invariant, not spread it.
+          //
+          // Classify from the same window too. The shared picker still builds its menu from
+          // the raw range, so above the cap it can offer a basis this window does not — the
+          // Dashboard hit the same gap at TIMEFRAME-02B and closed it exactly here.
+          const shape = classifyRangeShape(er);
+          const honoured = isComparisonOfferedFor(shape, basis) ? basis : defaultComparisonFor(shape);
+          const cmp = resolveComparison(er, honoured, undefined, customFrom);
+          // Raw range on purpose: this guards the ≤31-day LISTING, an unrelated cap.
           const inclusiveDays = differenceInCalendarDays(parseISO(range.to), parseISO(range.from)) + 1;
 
           const main$ = this.fetchSeries(restaurantId, er.from, er.to, tf.category).pipe(

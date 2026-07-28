@@ -1,29 +1,39 @@
 import { Component, Input } from '@angular/core';
 
+import { NoBaselineChipComponent } from '../../../../_shared/ui/no-baseline-chip/no-baseline-chip.component';
+import { percentChange } from '../../../../_shared/utils/percent-change';
 
 /**
  * Period-over-period change pill (▲/▼ N.N%) — the uniform "compare" treatment for
  * headline numbers across the Reports redesign (hero + KPI rail; reused by C–E).
- * Mirrors the dashboard TrendIndicator visual but is a standalone reports primitive
- * with two additions: a "New" state when there is no baseline, and `invert` for
- * metrics where a DECREASE is the good outcome (e.g. discounts / refunds).
+ * Mirrors the dashboard TrendIndicator visual, with `invert` for metrics where a
+ * DECREASE is the good outcome (e.g. discounts / refunds).
  *
- * NOTE — this keeps its OWN baseline predicate (`hasBaseline` below), which DIVERGES from
- * the shared `percentChange` (`_shared/utils/percent-change.ts`) that the dashboard badges
- * use: there is no negative-baseline gate here, so a negative `previous` renders a
- * sign-flipped chip where the dashboard suppresses. Deliberate scoping when the dashboard
- * fix shipped, not an oversight — consolidating onto `percentChange` is a scheduled
- * follow-up, and until it lands any change to that null set must be mirrored here.
- * The "New" markup below is likewise duplicated in `_shared/ui/no-baseline-chip/`; keep
- * the two identical.
+ * THREE STATES, because `percentChange` returns `null` for two different reasons and they
+ * do not deserve the same answer:
+ *
+ *   a number                → the delta chip
+ *   null, baseline empty    → the shared "New" pill (`app-no-baseline-chip`)
+ *   null, baseline NEGATIVE → nothing at all
+ *
+ * "New" is a positive claim that there is no history to compare against. That is true of a
+ * zero, absent or non-finite baseline and FALSE of a negative one, where the restaurant
+ * traded and the period netted below zero — so the negative case says nothing rather than
+ * something wrong. `baselineIsNegative` below asks only WHY the percentage is null; WHETHER
+ * it is stays in `percentChange`, which is the one baseline predicate in the app.
+ *
+ * Two cases tightened by delegating, both unreachable from the 14 call sites (they all feed
+ * real numbers or `?? 0`): a non-finite `current` now falls to "New" rather than rendering
+ * `NaN%`, and a `null` `previous` falls to "New" rather than `-Infinity%` — the old local
+ * predicate used the coercing global `isFinite`, which admits `null`.
  */
 @Component({
   selector: 'app-report-delta-chip',
   standalone: true,
-  imports: [],
+  imports: [NoBaselineChipComponent],
   template: `
     @if (compareEnabled) {
-      @if (hasBaseline) {
+      @if (changePercent !== null) {
         <span
           class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium border tabular-nums whitespace-nowrap"
           [class]="
@@ -39,13 +49,8 @@ import { Component, Input } from '@angular/core';
             <span class="text-muted-foreground font-normal hidden md:inline">{{ label }}</span>
           }
         </span>
-      } @else {
-        <span
-          class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-muted text-muted-foreground border border-border whitespace-nowrap"
-          aria-label="No prior period to compare"
-        >
-          New
-        </span>
+      } @else if (!baselineIsNegative) {
+        <app-no-baseline-chip></app-no-baseline-chip>
       }
     }
   `,
@@ -60,11 +65,20 @@ export class ReportDeltaChipComponent {
   /** When false, the chip renders nothing — the shell's "Compare" toggle is off. */
   @Input() compareEnabled = true;
 
-  get hasBaseline(): boolean {
-    return isFinite(this.previous) && this.previous !== 0;
+  /** The one baseline predicate in the app — see `_shared/utils/percent-change.ts`. */
+  get changePercent(): number | null {
+    return percentChange(this.current, this.previous);
   }
+  /**
+   * WHY `changePercent` is null, not WHETHER — this is what splits the "New" pill from
+   * rendering nothing. Deliberately not a second answer to "is there a baseline".
+   */
+  get baselineIsNegative(): boolean {
+    return Number.isFinite(this.previous) && this.previous < 0;
+  }
+  /** Only read from the chip branch, where `changePercent` is non-null by construction. */
   get pct(): number {
-    return this.hasBaseline ? ((this.current - this.previous) / this.previous) * 100 : 0;
+    return this.changePercent ?? 0;
   }
   /** Arrow direction follows the raw sign (up = increase), regardless of good/bad. */
   get up(): boolean {

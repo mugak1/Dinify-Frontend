@@ -1,10 +1,11 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { of, throwError } from 'rxjs';
 
 import { TransactionsReportComponent } from './transactions-report.component';
 import { provideRouter } from '@angular/router';
 import { ReportsService } from '../services/reports.service';
-import { TimeframeService } from '../../../_shared/timeframe';
+import { resolveTimeframe, TimeframeService } from '../../../_shared/timeframe';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
@@ -216,6 +217,43 @@ describe('TransactionsReportComponent', () => {
 
       expect(spy.calls.count()).toBe(1); // the current window only
       expect(component.prevMetrics).toBeNull();
+    }));
+  });
+
+  // ─── The comparison window spans the PRIMARY's window (REPORTS-COMPARISON-00) ──────
+  //
+  // The invariant is same-window-as-primary, NOT "use effectiveRange". This surface fetches
+  // its primary UNCAPPED, over the raw range, so the raw range is the correct argument to
+  // `resolveComparison` and it already satisfies the invariant. Sales differs only because
+  // its primary is fetched over `effectiveRange`.
+  //
+  // This is a regression guard against tidying the four report tabs into agreement: switching
+  // this one to `effectiveRange` for symmetry would set a clamped baseline beside an
+  // unclamped primary and BREAK the invariant rather than spread it.
+  describe('comparison window vs the primary window', () => {
+    const OVER_CAP = { preset: 'custom' as const, from: '2019-01-01', to: '2026-06-30' };
+    const span = (from: string, to: string) =>
+      differenceInCalendarDays(parseISO(to), parseISO(from)) + 1;
+
+    it('measures the comparison over the same span as the primary — both uncapped', fakeAsync(() => {
+      const spy = spyOn(reports, 'getTransactionsSummary').and.callThrough();
+      timeframe.set(OVER_CAP);
+      timeframe.setComparison('prev-period');
+      component.ngOnInit();
+      tick(600);
+
+      // [0] is the primary, [1] the comparison — both built eagerly, in source order.
+      const [primary, comparison] = spy.calls.allArgs();
+      const raw = span(OVER_CAP.from, OVER_CAP.to);
+      const capped = span(
+        resolveTimeframe(OVER_CAP).effectiveRange.from,
+        resolveTimeframe(OVER_CAP).effectiveRange.to,
+      );
+      expect(capped).toBeLessThan(raw); // the fixture really is over the cap
+
+      expect(span(primary[1], primary[2])).toBe(raw);
+      expect(span(comparison[1], comparison[2])).toBe(raw);
+      expect(span(comparison[1], comparison[2])).not.toBe(capped);
     }));
   });
 });

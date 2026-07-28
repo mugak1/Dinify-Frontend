@@ -122,6 +122,12 @@ export class MenuReportComponent implements OnInit, OnDestroy {
           this.state = 'loading';
         }),
         switchMap(([range, basis, customFrom, , grouping]) => {
+          // THE COMPARISON WINDOW SPANS THE WINDOW THIS SURFACE'S PRIMARY WAS FETCHED OVER.
+          // Here that is the RAW range — `items$` below requests `range` uncapped, so the raw
+          // range is the correct argument and this already satisfies the invariant. Switching
+          // it to `resolveTimeframe(range).effectiveRange` for symmetry with Sales would set a
+          // clamped baseline beside an unclamped primary and BREAK it. Sales differs because
+          // its primary is fetched over `effectiveRange`, not because of where it lives.
           const cmp = resolveComparison(range, basis, undefined, customFrom);
           const items$ = this.reports
             .getMenuSummary(restaurantId, range.from, range.to, 'items')

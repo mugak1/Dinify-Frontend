@@ -179,34 +179,6 @@ function comparison(from: Date, to: Date): ReportDateRange {
 }
 
 /**
- * The EQUAL-LENGTH window immediately before a range — the exact formula
- * `reports/restaurant/dashboard-v2/` uses to build its `previous_totals`:
- *
- *     delta     = (to - from) + 1 day
- *     prev_from = from - delta
- *     prev_to   = from - 1 day
- *
- * MIRRORS THE BACKEND. If dashboard-v2's previous window changes, this changes in the
- * same PR. `prev_to` is written as `from - 1 day` literally rather than the equivalent
- * `to - length` so a line-by-line diff against the backend is trivially checkable.
- *
- * NOT `resolveComparison`, and the Dashboard must never call that one. `resolveComparison`
- * answers "what did the USER choose to compare against", and its prev-month ids on a
- * month-to-date range give 1–26 Jun for 1–26 Jul — while dashboard-v2 always shifts by
- * the inclusive length. A frontend delta computed one way against a backend total computed
- * the other is a wrong number with no error attached to it. The two coincide only when the
- * selection happens to be a whole calendar month, which is why the drift was invisible
- * while the Dashboard could only pick four fixed ranges.
- *
- * `resolveComparison` DOES delegate here for its `prev-period` option, and that is the
- * intended direction: `prev-period` means precisely "the equal-length block immediately
- * before", so it must not re-derive the offset. The dependency does not run the other way
- * — do not "simplify" this function by routing it through the resolver, which would make
- * the backend mirror inherit any future change to comparison semantics.
- *
- * Takes only `from`/`to` so the mock data layer can call it with a bare pair.
- */
-/**
  * Inclusive day count of a range — 1 Jun…1 Jun is 1, not 0.
  *
  * Used ONLY by `resolveComparison`'s `custom` branch. `previousEqualLengthPeriod`,
@@ -239,6 +211,36 @@ export function maxCustomComparisonStart(range: Pick<ReportDateRange, 'from' | '
   return fmt(subDays(parseISO(range.from), inclusiveDays(range)));
 }
 
+/**
+ * The EQUAL-LENGTH window immediately before a range:
+ *
+ *     delta     = (to - from) + 1 day
+ *     prev_from = from - delta
+ *     prev_to   = from - 1 day
+ *
+ * This implements the `prev-period` comparison basis, and it is the ONLY home of
+ * equal-length stepping arithmetic — `resolveComparison` delegates here for `prev-period`
+ * and `stepRange` for a custom-shaped step. Do not re-derive the offset elsewhere, and do
+ * not "simplify" this by routing it through the resolver: the dependency runs one way, so
+ * that would make it inherit any future change to comparison semantics.
+ *
+ * WHY THE ARITHMETIC IS SPELT OUT. `prev_to` is written as `from - 1 day` rather than the
+ * equivalent `to - length`, and the length as `differenceInCalendarDays(to, from) + 1`
+ * rather than folded into `inclusiveDays`, because this function once MIRRORED a
+ * server-side computation: `reports/restaurant/dashboard-v2/` built a `previous_totals`
+ * field with exactly this formula, and the shape here was kept diffable against it
+ * line-by-line. `DASH-REMOVE-LEGACY-00` deleted that field, so there is no longer a
+ * backend counterpart to stay in lockstep with — but the shape is left alone rather than
+ * tidied, since a reader meeting the long form otherwise has no way to know it was load-
+ * bearing. Folding it in is a deliberate change to make, not a cleanup to slip in.
+ *
+ * NOT INTERCHANGEABLE WITH `resolveComparison`. That one answers "what did the USER choose
+ * to compare against"; its prev-month bases give 1–26 Jun for a 1–26 Jul range, while this
+ * always shifts by the inclusive length. The two coincide only when the selection happens
+ * to be a whole calendar month.
+ *
+ * Takes only `from`/`to` so a caller can pass a bare pair.
+ */
 export function previousEqualLengthPeriod(
   range: Pick<ReportDateRange, 'from' | 'to'>,
 ): ReportDateRange {

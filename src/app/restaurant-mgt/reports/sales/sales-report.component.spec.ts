@@ -1,10 +1,11 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { of, throwError } from 'rxjs';
 
 import { SalesReportComponent } from './sales-report.component';
 import { provideRouter } from '@angular/router';
 import { ReportsService } from '../services/reports.service';
-import { TimeframeService } from '../../../_shared/timeframe';
+import { resolveTimeframe, TimeframeService } from '../../../_shared/timeframe';
 import { ApiService } from '../../../_services/api.service';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
@@ -161,6 +162,51 @@ describe('SalesReportComponent', () => {
       tick(600);
 
       expect(spy.calls.count()).toBe(baseline);
+    }));
+  });
+
+  // ─── The comparison window spans the PRIMARY's window (REPORTS-COMPARISON-00) ──────
+  //
+  // The invariant is same-window-as-primary, not "use effectiveRange". Sales fetches its
+  // primary over `effectiveRange`, so its comparison must resolve from there too; above the
+  // annual cap the clamp moves `from` and the raw range is ~900 days longer, which would set
+  // a longer baseline beside a clamped primary and call the arithmetic a trend.
+  //
+  // Reachable only through a hand-crafted over-cap URL, which is why nothing caught it.
+  describe('comparison window vs the primary window', () => {
+    const OVER_CAP = { preset: 'custom' as const, from: '2019-01-01', to: '2026-06-30' };
+    const span = (from: string, to: string) =>
+      differenceInCalendarDays(parseISO(to), parseISO(from)) + 1;
+
+    it('measures the comparison over the same span as the primary request', fakeAsync(() => {
+      const spy = spyOn(reports, 'getSalesAggregate').and.callThrough();
+      timeframe.set(OVER_CAP);
+      timeframe.setComparison('prev-period');
+      component.ngOnInit();
+      tick(600);
+
+      // [0] is main$ (the primary), [1] is cmp$ — both built eagerly, in source order.
+      const [primary, comparison] = spy.calls.allArgs();
+      expect(spy.calls.count()).toBe(2);
+      expect(span(comparison[1], comparison[2])).toBe(span(primary[1], primary[2]));
+    }));
+
+    it('clamps both windows to the cap — not the primary alone', fakeAsync(() => {
+      const spy = spyOn(reports, 'getSalesAggregate').and.callThrough();
+      timeframe.set(OVER_CAP);
+      timeframe.setComparison('prev-period');
+      component.ngOnInit();
+      tick(600);
+
+      const effective = resolveTimeframe(OVER_CAP).effectiveRange;
+      const capped = span(effective.from, effective.to);
+      const raw = span(OVER_CAP.from, OVER_CAP.to);
+      expect(capped).toBeLessThan(raw); // the fixture really is over the cap
+
+      const [primary, comparison] = spy.calls.allArgs();
+      expect(span(primary[1], primary[2])).toBe(capped);
+      // Was `raw` before the fix — a baseline ~900 days longer than what it was compared to.
+      expect(span(comparison[1], comparison[2])).toBe(capped);
     }));
   });
 
