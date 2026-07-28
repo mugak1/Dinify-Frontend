@@ -1197,16 +1197,33 @@ Before raising any PR:
    runs `scripts/check-platform-roles.mjs --self-test`, then the real scan, then
    the spec set. The script is the frontend counterpart to the backend's
    `ambient_authority.py` — it fails on any `dinify_admin` /
-   `dinify_account_manager` literal, or any `profile.roles`-derived authority read
-   (`profile.roles.includes/some/indexOf`), across `src/**/*.{ts,html}`.
-   It is a NODE script, not a spec, deliberately: a source scanner cannot run in
-   Karma here — headless Chrome on the esbuild `@angular/build:karma` builder has
+   `dinify_account_manager` literal, or on ANY RUNTIME READ of `profile.roles`,
+   across `src/**/*.{ts,html}`. That second rule was WIDENED (FE-AUTH-01): it used
+   to require a membership-test suffix (`profile.roles.includes/some/indexOf`),
+   which an alias defeated (`const r = user.profile.roles;` then test `r`). It now
+   matches property, bracket (`profile['roles']`) and destructured
+   (`const {roles} = user.profile`) reads with no suffix at all — a simpler rule
+   and a strictly stronger guarantee, since Closure PR 1 left no legitimate
+   production read to carve out. **The matcher is COMMENT-AWARE** for that rule
+   only, and it has to be: four production files carry tombstone comments naming
+   `profile.roles`, and allowlisting them would blind the gate inside
+   `auth.guard.ts` — the file that enforces route authority — because `ALLOWLIST`
+   is file+name scoped. The literal rule still runs on the raw line, deliberately:
+   it asks "does this string appear at all", the access rule asks "does this code
+   run". It is a NODE script, not a spec, deliberately: a source scanner cannot run
+   in Karma here — headless Chrome on the esbuild `@angular/build:karma` builder has
    no `fs`, no `require.context` (webpack-only; the repo migrated off webpack), no
    raw-loader and no `preprocessors` hook, and `tsconfig.spec.json` compiles only
    specs + `.d.ts`. Two of the removed sites lived in HTML templates, which no
    browser-side spec can read as text. Its `ALLOWLIST` is EMPTY and permanent —
    restaurant roles come from `currentRestaurantRole` / `restaurant_roles`, never
-   from `profile.roles`. `_security/platform-role-ratchet.spec.ts` is the
+   from `profile.roles` — and it needs no per-file exemption: the `Profile.roles`
+   TYPE DECLARATION reads `roles: string[]` and spec fixtures build nested literals
+   (`profile: { … roles: [] … }`), so neither spells the banned pair. What it still
+   cannot see is a two-step alias through the profile OBJECT
+   (`const p = user.profile; p.roles`) or a value fetched under another name — it is
+   a source scanner, not semantic analysis, and its docstring says so.
+   `_security/platform-role-ratchet.spec.ts` is the
    object-graph half, asserting the live `routes` export stays clean
 4. Run `npm run test:ci` for any module you touched
 5. Run `npm run build:prod` and confirm zero errors
