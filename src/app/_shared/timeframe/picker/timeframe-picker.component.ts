@@ -107,7 +107,13 @@ export function timeframeOverlayPositions(): ConnectedPosition[] {
 @Component({
   selector: 'app-timeframe-picker',
   standalone: true,
-  imports: [NgClass, OverlayModule, SheetComponent, DateRangePanelComponent],
+  imports: [
+    NgClass,
+    OverlayModule,
+    SheetComponent,
+    DateRangePanelComponent,
+    ComparisonStartPanelComponent,
+  ],
   template: `
     <!-- Control cluster: [◀] [▶] [date button ▾]. The arrows are explicitly sized to the
          trigger's computed 38px (text-sm line-height 20 + py-2 + border), because the
@@ -241,6 +247,40 @@ export function timeframeOverlayPositions(): ConnectedPosition[] {
         ></app-date-range-panel>
       </app-dn-sheet>
     }
+
+    <!-- Mobile: the custom-start calendar is a bottom sheet too (PICKER-SHEET-A11Y-00),
+         mirroring the range panel above rather than mounting a second way. The variant
+         input is STYLING; the dialog semantics — focus trap, role, aria-modal, accessible
+         name — come from the HOST, which is why 02D's overlay-at-every-width form dropped
+         them below the breakpoint. Above it the same panel is a ComponentPortal in a CDK
+         Overlay (see openCustomStart).
+
+         The open flag is in the @if, not only in [open]: projected content is instantiated
+         eagerly, so mounting on !isDesktop alone would keep ONE panel alive across opens,
+         and ngOnChanges re-seeds only when initial/range change — a start staged then
+         cancelled would still be staged on reopen, where the desktop portal (fresh per
+         open) shows none. Gating here matches the portal's lifetime.
+
+         ariaLabel repeats the panel's own popover label verbatim so the dialog announces
+         the SAME name on both paths, and it is required rather than belt-and-braces: the
+         panel's headings are paragraphs, so the sheet's heading fallback finds nothing. -->
+    @if (!isDesktop && customStartOpen) {
+      <app-dn-sheet
+        side="bottom"
+        [open]="customStartOpen"
+        (closed)="onCustomStartCancelled()"
+        ariaLabel="Choose the comparison period start"
+      >
+        <app-comparison-start-panel
+          variant="sheet"
+          [range]="value"
+          [today]="todayIso"
+          [initial]="customStartSeed()"
+          (applied)="onCustomStartApplied($event)"
+          (cancelled)="onCustomStartCancelled()"
+        ></app-comparison-start-panel>
+      </app-dn-sheet>
+    }
   `,
 })
 export class TimeframePickerComponent implements OnInit, OnDestroy {
@@ -274,6 +314,11 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
   isOpen = false;
   isDesktop = false;
   cmpOpen = false;
+  /**
+   * The custom-start calendar's MOBILE mount flag — the sheet's counterpart of
+   * `customStartRef`. Exactly one of the two is ever set, chosen by `isDesktop`.
+   */
+  customStartOpen = false;
 
   /**
    * ONE array instance, read by all three overlays — the comparison menu binds it, and
@@ -463,8 +508,12 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
       .subscribe((state) => {
         if (state.matches === this.isDesktop) return;
         this.isDesktop = state.matches;
-        // A surface for the other breakpoint is now wrong — discard cleanly.
+        // A surface for the other breakpoint is now wrong — discard cleanly. Both staged
+        // surfaces, not just the range one: since PICKER-SHEET-A11Y-00 the custom-start
+        // calendar also picks its host by breakpoint, so a flip would otherwise leave a
+        // bottom sheet at desktop width (or an anchored popover below it).
         if (this.isOpen) this.closeDiscard();
+        this.closeCustomStart(); // self-guards when nothing is open
       });
   }
 
@@ -492,12 +541,21 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * The staged custom-start calendar. Same imperative Overlay + ComponentPortal idiom as the
-   * range panel above, and a separate overlay from the comparison dropdown, which has
-   * already closed by the time this opens.
+   * The staged custom-start calendar, split by breakpoint exactly as `open()` splits the range
+   * panel (PICKER-SHEET-A11Y-00). Above it: the same imperative Overlay + ComponentPortal idiom
+   * as the range panel, a separate overlay from the comparison dropdown, which has already
+   * closed by the time this opens. Below it: the template sheet, which owns the dialog
+   * semantics `variant="sheet"` tells the panel to drop.
    */
   private openCustomStart(): void {
     this.closeCustomStart();
+
+    if (!this.isDesktop) {
+      // Mobile: the @if + [open] binding renders the sheet.
+      this.customStartOpen = true;
+      return;
+    }
+
     const positionStrategy = this.overlay
       .position()
       .flexibleConnectedTo(this.cmpTriggerEl!)
@@ -542,17 +600,28 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
       });
   }
 
-  private customStartSeed(): string | null {
+  /**
+   * Public because the sheet path binds it — the desktop path passes the same value through
+   * `setInput`. Returns a primitive, so the panel's `ngOnChanges` still fires only on a real
+   * change despite being re-read each cycle.
+   */
+  customStartSeed(): string | null {
     if (this.customComparisonFrom) return this.customComparisonFrom;
     const current = resolveComparison(this.value, this.comparison);
     return current?.from ?? null;
   }
 
+  /** Closes whichever host is mounted. Both paths return focus to the button that opened them. */
   private closeCustomStart(): void {
-    if (!this.customStartRef) return;
-    this.customStartRef.detach();
-    this.customStartRef.dispose();
-    this.customStartRef = undefined;
+    // Guard on BOTH, so the idempotent call at the top of `openCustomStart` — and the one in
+    // `ngOnDestroy` — stays a no-op rather than firing a spurious focus.
+    if (!this.customStartRef && !this.customStartOpen) return;
+    this.customStartOpen = false;
+    if (this.customStartRef) {
+      this.customStartRef.detach();
+      this.customStartRef.dispose();
+      this.customStartRef = undefined;
+    }
     this.cmpTriggerEl?.nativeElement.focus();
   }
 

@@ -762,7 +762,28 @@ writing new tag, price/menu or date-range logic:
     pair is a REAL fallback, not decoration — Reports puts the control at the LEFT of its
     date bar, where CDK falls through to it and that host's placement is unchanged. Push is
     on as the backstop; flexible dimensions stay OFF, since a two-month calendar that
-    reflows to fit is worse than one that repositions
+    reflows to fit is worse than one that repositions.
+    **WHICH of the three gets a sheet host below the breakpoint is a DELIBERATE
+    asymmetry, and both halves are recorded here so the next tidy-up does not "fix" it**
+    (PICKER-SHEET-A11Y-00). The two CALENDARS — the range panel, and since this change the
+    custom-period panel — mount inside `<app-dn-sheet side="bottom">` in the template below
+    1024px and in a CDK Overlay above it, chosen in `open()` / `openCustomStart()` off the
+    one shared `isDesktop`. The `variant` input is **STYLING ONLY**: `variant="sheet"` tells
+    the panel to DROP `cdkTrapFocus` / `role="dialog"` / `aria-modal` / its `aria-label`
+    because a host supplies them, so passing it without a sheet — which is what 02D did at
+    every width — silently strips the dialog semantics rather than restyling anything.
+    (Escape and backdrop dismissal still worked there; they came off the OverlayRef. What
+    was missing was the trap, the role and the accessible name.) The custom-period sheet's
+    `@if` carries the open flag as well as `!isDesktop`, because projected content is
+    instantiated eagerly and a single long-lived panel would keep a cancelled staged start
+    across opens, where the desktop portal is fresh each time. The COMPARISON MENU stays an
+    anchored overlay at EVERY width, by the same 02A decision that created it: five short
+    items, single-select, applying immediately — a menu, not a dialog, so it gets
+    `role="listbox"` + roving tabindex and no sheet. A spec pins each half.
+    Known gap, NOT closed by that change: neither range-calendar path restores focus to the
+    trigger explicitly — both rely on `CdkTrapFocus.ngOnDestroy` doing it — whereas the
+    comparison menu and the custom-period panel both call `cmpTriggerEl.focus()` on close.
+    A code comment on `closeComparison` has named this since 02A; it is a separate follow-up
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.
