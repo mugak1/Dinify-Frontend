@@ -279,6 +279,21 @@ describe('TimeframePickerComponent', () => {
       expect(t.className).toContain('h-[38px]');
     });
 
+    // 02A, pinned against the sheet migration next door: five short items, single-select,
+    // applying immediately. It is a MENU, not a dialog, so it stays anchored at every width
+    // while both calendars switch to a sheet below the breakpoint. The asymmetry is the
+    // decision, not an oversight — this is what stops it being "fixed".
+    it('stays an anchored overlay below the breakpoint, not a sheet', () => {
+      bp$.next({ matches: false, breakpoints: {} });
+      fixture.detectChanges();
+
+      cmpTrigger()!.click();
+      fixture.detectChanges();
+
+      expect(cmpPanel()).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('app-dn-sheet [role="listbox"]')).toBeNull();
+    });
+
     it('opens on click, sets aria-expanded, and marks the selected option', () => {
       fixture.componentRef.setInput('comparison', 'prev-year-by-day');
       fixture.detectChanges();
@@ -300,6 +315,30 @@ describe('TimeframePickerComponent', () => {
     describe("'Custom period'", () => {
       const startPanel = (): Element | null =>
         document.querySelector('.dn-comparison-start-overlay-panel');
+
+      /** The sheet-hosted panel (PICKER-SHEET-A11Y-00) — the template mount, below 1024px. */
+      const sheetPanel = (): Element | null =>
+        fixture.nativeElement.querySelector('app-dn-sheet app-comparison-start-panel');
+
+      /**
+       * The panel wherever it is mounted. Path-agnostic ON PURPOSE: the outcome specs below
+       * must not know which host they are driving, because knowing is how a divergence
+       * between the two gets written into the assertions along with the code.
+       */
+      const startPanelAnywhere = (): Element | null => startPanel() ?? sheetPanel();
+
+      const goNarrow = (): void => {
+        bp$.next({ matches: false, breakpoints: {} });
+        fixture.detectChanges();
+      };
+
+      const panelDay = (iso: string): HTMLButtonElement =>
+        startPanelAnywhere()!.querySelector<HTMLButtonElement>(`button[data-iso="${iso}"]`)!;
+
+      const panelButton = (text: string): HTMLButtonElement =>
+        Array.from(startPanelAnywhere()!.querySelectorAll('button')).find(
+          (b) => (b.textContent ?? '').trim() === text,
+        ) as HTMLButtonElement;
 
       /** Open the dropdown and click the 'Custom period' entry. */
       function pickCustom(): void {
@@ -393,6 +432,112 @@ describe('TimeframePickerComponent', () => {
         fixture.detectChanges();
 
         expect(cmpTrigger()!.textContent!.trim()).toBe('Custom period');
+      });
+
+      // ─── The mount host (PICKER-SHEET-A11Y-00) ────────────────────────────────────
+      //
+      // 02D mounted this panel in a CDK Overlay at EVERY width and passed
+      // `variant: isDesktop ? 'popover' : 'sheet'`. That input is styling AND a semantics
+      // switch — the panel drops role/aria-modal/trap in the sheet variant on the assumption
+      // that a host supplies them — and below the breakpoint no host did. So these assert the
+      // HOST, never the styling: `variant` read correctly the entire time it was wrong.
+
+      it('mounts inside app-dn-sheet below the breakpoint, not an overlay', () => {
+        goNarrow();
+        pickCustom();
+
+        expect(startPanel()).toBeNull();
+        expect(sheetPanel()).toBeTruthy();
+      });
+
+      it('mounts in the CDK overlay above the breakpoint, not a sheet', () => {
+        pickCustom(); // bp$ seeds desktop
+
+        expect(startPanel()).not.toBeNull();
+        expect(sheetPanel()).toBeNull();
+      });
+
+      it('lets the sheet host supply the dialog semantics the panel drops', () => {
+        goNarrow();
+        pickCustom();
+
+        // Present and configured. The trap's own behaviour is sheet.component.spec's job —
+        // re-testing it here would just pin the same code twice.
+        const host: HTMLElement = fixture.nativeElement.querySelector(
+          'app-dn-sheet [role="dialog"]',
+        );
+        expect(host).toBeTruthy();
+        expect(host.getAttribute('aria-modal')).toBe('true');
+        expect(host.getAttribute('aria-label')).toBe('Choose the comparison period start');
+        expect(host.querySelector('app-comparison-start-panel')).toBeTruthy();
+        expect(fixture.nativeElement.querySelector('app-dn-sheet [cdkTrapFocus]')).toBeTruthy();
+
+        // ...and the panel does not nest a SECOND dialog inside that one.
+        const panelRoot = sheetPanel()!.querySelector('.bg-popover')!;
+        expect(panelRoot.getAttribute('role')).toBeNull();
+        expect(panelRoot.hasAttribute('aria-modal')).toBeFalse();
+        expect(panelRoot.hasAttribute('aria-label')).toBeFalse();
+      });
+
+      it('closes the sheet on Escape without committing', () => {
+        goNarrow();
+        pickCustom();
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        fixture.detectChanges();
+
+        expect(startPanelAnywhere()).toBeNull();
+        expect(emitted).toEqual([]);
+      });
+
+      // The range panel has always been discarded on a flip; since this panel also picks its
+      // host by breakpoint, leaving it would strand a bottom sheet at desktop width.
+      it('discards the surface on a breakpoint flip, like the range panel', () => {
+        goNarrow();
+        pickCustom();
+
+        bp$.next({ matches: true, breakpoints: {} });
+        fixture.detectChanges();
+
+        expect(startPanelAnywhere()).toBeNull();
+        expect(emitted).toEqual([]);
+      });
+
+      // ─── Outcome parity ───────────────────────────────────────────────────────────
+      //
+      // THE pair that matters. A panel that applies on desktop and silently discards on a
+      // phone would be a worse bug than the a11y gap this closes, and invisible until
+      // someone used one. Identical bodies; `startPanelAnywhere()` decides nothing.
+      const hosts: ReadonlyArray<[string, () => void]> = [
+        ['desktop overlay', () => undefined],
+        ['mobile sheet', () => goNarrow()],
+      ];
+
+      hosts.forEach(([host, mount]) => {
+        it(`commits the basis and the start together on Apply — ${host}`, () => {
+          mount();
+          pickCustom();
+
+          panelDay('2026-05-01').click();
+          fixture.detectChanges();
+          panelButton('Apply').click();
+          fixture.detectChanges();
+
+          // ONE emission carrying BOTH, on either host.
+          expect(emitted).toEqual([{ option: 'custom', customFrom: '2026-05-01' }]);
+          expect(startPanelAnywhere()).toBeNull();
+        });
+
+        it(`leaves the previous basis untouched on Cancel — ${host}`, () => {
+          mount();
+          pickCustom();
+
+          panelButton('Cancel').click();
+          fixture.detectChanges();
+
+          expect(startPanelAnywhere()).toBeNull();
+          expect(emitted).toEqual([]);
+        });
       });
     });
 
