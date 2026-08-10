@@ -1163,6 +1163,23 @@ writing new tag, price/menu or date-range logic:
   deployed backend before flipping — this repo's verification cannot see it
 
 ## Known Issues & Deferred Work
+- ONE SPEC IS CALENDAR-DEPENDENT AND REDS CI FOR THE FIRST 13 DAYS OF EVERY
+  MONTH (found 2026-08-10, unfixed).
+  `reports/sales/sales-report.component.spec.ts` → "renders the full card set for
+  the default this-month (daily) range" asserts `showWeekday` is true, commented
+  "~30 days of daily data". But it never sets a range: it runs on the Reports host
+  default, `this-month`, which `presetToRange` CLAMPS TO TODAY — so on the 10th the
+  window is 10 inclusive days, `weekdayEligible` needs `inclusiveDays >=
+  WEEKDAY_MIN_DAYS` (14), and the assertion at line 52 fails "Expected false to be
+  true". It passes from the 14th onward and fails on days 1–13, on `main` as much
+  as on a branch. Nothing else in the suite fails with it (1657/1658 pass), so a
+  lone `SalesReportComponent` failure this shape is the calendar, not your change —
+  confirm by the date before hunting it. THE FIX IS TO PIN THE RANGE, NOT TO LOWER
+  THE THRESHOLD: the sibling spec below it already sets an explicit range via
+  `timeframe.set(...)` and is stable for exactly that reason, and `WEEKDAY_MIN_DAYS`
+  is a real display rule (a weekday cycle drawn from under two weeks is noise).
+  The clamp itself is correct and deliberate — a range must never extend into the
+  future; the spec is what assumes a full month
 - `ngx-intl-telephone-input` was REMOVED (PRs 2a–2c) and replaced by the
   in-repo standalone `<app-dinify-phone-input>`
   (`src/app/shared/dinify-phone-input` — Uganda-only static `+256` + local
@@ -1248,8 +1265,16 @@ weekly (Mondays 06:30 UTC) and on manual dispatch — it is NOT a PR check and
 never blocks a merge; it just fires a notification if a high/critical advisory
 reappears. package.json keeps a small `overrides` block (`lodash-es`, gaxios's
 `uuid`, `@grpc/grpc-js`, `esbuild`) to hold the audit-zero baseline — don't
-strip it; the `esbuild` pin (0.28.1) can be dropped once `@angular/build` ships
-on esbuild ≥0.28.1. All three workflows
+strip it wholesale; the three that still do work are doing different amounts of
+it. Only gaxios's `uuid` raises a version BEYOND its dependent's declared range
+(gaxios asks for `^9.0.1`, the override forces `11.1.1`); `lodash-es` and
+`@grpc/grpc-js` sit inside their dependents' ranges (`ng2-charts` wants
+`^4.17.15`, `google-gax` wants `^1.12.6`) and act as floors. **The `esbuild`
+entry's stated exit condition has been MET** — `@angular/build` 21.2.19 pins
+`esbuild` at exactly `0.28.1`, the same version the override names, so it can no
+longer raise anything and is a no-op today. It is safe to drop next time the
+block is touched, and re-checking it is only worth doing when `@angular/build`
+moves. All three workflows
 install with `npm ci --legacy-peer-deps` — use the same flag locally, since a
 plain `npm ci`/`npm install` can trip over peer-dependency conflicts.
 
