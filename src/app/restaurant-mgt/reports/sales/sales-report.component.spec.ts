@@ -40,7 +40,15 @@ describe('SalesReportComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('renders the full card set for the default this-month (daily) range', fakeAsync(() => {
+  it('renders the full card set for a whole-month (daily) range', fakeAsync(() => {
+    // PIN THE RANGE — do not fall back to the host default. This spec used to run on
+    // whatever `this-month` resolved to, and `presetToRange` CLAMPS that to today, so
+    // before the 14th of any month the window was under WEEKDAY_MIN_DAYS (14) and the
+    // showWeekday assertion below failed — on main as much as on a branch, for the
+    // first 13 days of every month. A complete calendar month is what the assertions
+    // were always describing; every other spec in this file pins its range for the
+    // same reason.
+    timeframe.set({ preset: 'this-month', from: '2026-06-01', to: '2026-06-30' });
     component.ngOnInit();
     tick(600);
 
@@ -49,7 +57,7 @@ describe('SalesReportComponent', () => {
     expect(component.breakdownTitle).toBe('Daily breakdown');
     expect(component.breakdownRows.length).toBe(component.trendPoints.length);
     expect(component.hourBars.length).toBe(12); // 11:00–22:00 window
-    expect(component.showWeekday).toBeTrue(); // ~30 days of daily data
+    expect(component.showWeekday).toBeTrue(); // 30 days ≥ WEEKDAY_MIN_DAYS (14)
     expect(component.previous).not.toBeNull(); // comparison window resolved
   }));
 
