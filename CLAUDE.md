@@ -1163,23 +1163,21 @@ writing new tag, price/menu or date-range logic:
   deployed backend before flipping — this repo's verification cannot see it
 
 ## Known Issues & Deferred Work
-- ONE SPEC IS CALENDAR-DEPENDENT AND REDS CI FOR THE FIRST 13 DAYS OF EVERY
-  MONTH (found 2026-08-10, unfixed).
-  `reports/sales/sales-report.component.spec.ts` → "renders the full card set for
-  the default this-month (daily) range" asserts `showWeekday` is true, commented
-  "~30 days of daily data". But it never sets a range: it runs on the Reports host
-  default, `this-month`, which `presetToRange` CLAMPS TO TODAY — so on the 10th the
-  window is 10 inclusive days, `weekdayEligible` needs `inclusiveDays >=
-  WEEKDAY_MIN_DAYS` (14), and the assertion at line 52 fails "Expected false to be
-  true". It passes from the 14th onward and fails on days 1–13, on `main` as much
-  as on a branch. Nothing else in the suite fails with it (1657/1658 pass), so a
-  lone `SalesReportComponent` failure this shape is the calendar, not your change —
-  confirm by the date before hunting it. THE FIX IS TO PIN THE RANGE, NOT TO LOWER
-  THE THRESHOLD: the sibling spec below it already sets an explicit range via
-  `timeframe.set(...)` and is stable for exactly that reason, and `WEEKDAY_MIN_DAYS`
-  is a real display rule (a weekday cycle drawn from under two weeks is noise).
-  The clamp itself is correct and deliberate — a range must never extend into the
-  future; the spec is what assumes a full month
+- EVERY SPEC IN `reports/sales/sales-report.component.spec.ts` PINS ITS RANGE, AND
+  THE FIRST ONE HAD TO BE MADE TO (found and fixed 2026-08-10 — do not un-pin it).
+  That spec ran on the Reports host default, `this-month`, and asserted
+  `showWeekday`. But `presetToRange` CLAMPS an in-progress preset to today, so the
+  window was only as long as the month was old: `weekdayEligible` needs
+  `inclusiveDays >= WEEKDAY_MIN_DAYS` (14), and the assertion therefore failed on
+  days 1–13 of EVERY month and passed from the 14th — **on `main` as much as on a
+  branch**, with the rest of the suite green (1657/1658). It now pins a complete
+  calendar month, which is what its assertions always described. Two things worth
+  keeping straight if this shape recurs: the clamp is CORRECT and deliberate (a
+  range must never extend into the future) and `WEEKDAY_MIN_DAYS` is a real display
+  rule (a weekday cycle drawn from under two weeks is noise) — so the fix is always
+  to pin the range, never to relax either of those. And a lone
+  `SalesReportComponent` failure with the rest of the suite passing is worth
+  checking the DATE on before hunting a regression
 - `ngx-intl-telephone-input` was REMOVED (PRs 2a–2c) and replaced by the
   in-repo standalone `<app-dinify-phone-input>`
   (`src/app/shared/dinify-phone-input` — Uganda-only static `+256` + local
