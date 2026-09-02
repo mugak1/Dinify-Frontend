@@ -5,7 +5,7 @@ A comprehensive restaurant management and customer dining application built with
 **Status**: Active development — stabilisation and feature work in progress.
 **Angular**: ^20.3.18
 **Angular CLI**: ~20.3.21
-**Node**: v20.x (used in CI)
+**Node**: v24.x (used in CI)
 
 ---
 
@@ -55,7 +55,9 @@ code path that can authenticate an administrator.
 
 Before you begin, ensure you have the following installed:
 
-- **Node.js**: v20.x (matches CI)
+- **Node.js**: v24.x (matches CI). Angular 22 requires
+  `^22.22.3 || ^24.15.0 || >=26.0.0` — Node 20 cannot run it, and the
+  "Verify installation" step below will fail on it.
 - **npm**: v9.x or higher (comes with Node.js)
 - **Angular CLI**: ~20.3.21 (installed as a dev dependency via npm)
 - **Firebase CLI**: For deployment (included as a dev dependency)
