@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PriceDisplayComponent } from '../price-display/price-display.component';
 
@@ -22,6 +22,7 @@ export interface ExtraOption {
  * scroll target intact.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-extras-selector',
   standalone: true,
   imports: [CommonModule, PriceDisplayComponent],

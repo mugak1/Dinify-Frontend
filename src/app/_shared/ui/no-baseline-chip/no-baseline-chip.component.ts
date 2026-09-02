@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 /**
  * The empty state for a trend badge with no usable baseline — a neutral grey "New" pill
@@ -17,6 +17,7 @@ import { Component } from '@angular/core';
  * alone does not say what it is new relative to. It is pinned by spec — do not reword it.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-no-baseline-chip',
   standalone: true,
   template: `

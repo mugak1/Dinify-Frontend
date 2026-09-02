@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ErrorInterceptor } from './error.interceptor';
 import { AuthenticationService } from '../_services/authentication.service';
@@ -43,7 +43,7 @@ describe('ErrorInterceptor', () => {
         { provide: Router, useValue: routerStub },
         { provide: ConnectivityService, useValue: connectivityStub },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
-        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClient(withXhr(), withInterceptorsFromDi()),
         provideHttpClientTesting()
     ]
 });

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 
@@ -19,6 +19,7 @@ import { OPENING_HOURS_DAYS } from '../../opening-hours.constants';
  * open/close stay in `form.value` for the payload and reappear when reopened.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-opening-hours-editor',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, ButtonComponent, SwitchComponent],

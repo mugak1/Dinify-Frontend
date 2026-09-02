@@ -40,6 +40,7 @@ import { ConnectedPosition, Overlay, OverlayModule, OverlayRef } from '@angular/
 import { ComponentPortal } from '@angular/cdk/portal';
 
 import {
+  ChangeDetectionStrategy,
   Component,
   ComponentRef,
   ElementRef,
@@ -105,6 +106,7 @@ export function timeframeOverlayPositions(): ConnectedPosition[] {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-timeframe-picker',
   standalone: true,
   imports: [

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { DnSegmentedComponent, DnSegItem } from '../../../_shared/ui/segmented/segmented.component';
@@ -15,6 +15,7 @@ const TOP_N = 6;
  * complete sortable item table). No per-item compare — that's deferred.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-top-items',
   standalone: true,
   imports: [CommonModule, CardComponent, DnSegmentedComponent],

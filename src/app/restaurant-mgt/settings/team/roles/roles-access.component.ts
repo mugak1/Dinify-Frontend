@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 
 
 import { SwitchComponent, ToastService } from 'src/app/_shared/ui';
@@ -23,6 +23,7 @@ type GridLoadState = 'loading' | 'ready' | 'error';
  * flag (never inferred from the role name), so the lock stays data-driven.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-roles-access',
   standalone: true,
   imports: [SwitchComponent, SectionPageComponent],

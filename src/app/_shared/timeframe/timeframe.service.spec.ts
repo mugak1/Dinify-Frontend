@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
 import { Router, provideRouter } from '@angular/router';
@@ -13,7 +13,8 @@ import { SALES_TRENDS_CAP_DAYS, resolveComparison, stepRange } from './timeframe
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
 
-@Component({ standalone: true, template: '' })
+@Component({ standalone: true, changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class HostComponent {}
 
 const SEED_KEY = 'reports.dateRange:r1';

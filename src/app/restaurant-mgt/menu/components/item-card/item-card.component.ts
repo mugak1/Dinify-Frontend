@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, HostListener, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, Output } from '@angular/core';
 
 import { MenuItem } from 'src/app/_models/app.models';
 import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
@@ -12,6 +12,7 @@ import { isDiscountActive, getCurrentPrice, getDiscountBadgeText } from 'src/app
 import { environment } from 'src/environments/environment';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-item-card',
   standalone: true,
   imports: [SwitchComponent, ButtonComponent, BadgeComponent, TooltipDirective, SafeArrayPipe, TagPillComponent, PriceDisplayComponent],

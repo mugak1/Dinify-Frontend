@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 
 /**
@@ -11,6 +11,7 @@ import { Component, Input } from '@angular/core';
  * projected in, so the card here is a plain <div> (not a <form>).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-auth-shell',
   standalone: true,
   imports: [],

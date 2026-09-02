@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { OrderSplit, RepeatBreakdown } from './diners-view';
@@ -12,6 +12,7 @@ import { OrderSplit, RepeatBreakdown } from './diners-view';
  *     "new vs returning" (no first-ever-seen logic exists).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diners-composition',
   standalone: true,
   imports: [CommonModule, CardComponent],

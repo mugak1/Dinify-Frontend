@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 /**
  * Diner-facing notice shown when the scanned table already has an order that
@@ -12,6 +12,7 @@ import { Component } from '@angular/core';
  * the flat amber allergy notice it sits alongside in the basket).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-ongoing-order-banner',
   standalone: true,
   template: `

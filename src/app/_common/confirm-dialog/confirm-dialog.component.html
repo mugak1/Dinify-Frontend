@@ -28,7 +28,7 @@
                 @if (data?.reason_required) {
                   <span class="text-d-red">*</span>
                 }
-                <p class="text-sm text-gray-500" [innerHTML]="data?.message"></p>
+                <p class="text-sm text-gray-500" [innerHTML]="$safeNavigationMigration(data?.message)"></p>
               </div>
             </div>
 
@@ -52,9 +52,9 @@
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
             }
-            {{(data?.submitButtonText? data?.submitButtonText: (has_reason?'Approve':'OK'))|titlecase}}
+            {{(data?.submitButtonText? $safeNavigationMigration(data?.submitButtonText): (has_reason?'Approve':'OK'))|titlecase}}
           </button>
-          <button type="button" (click)="has_reason?Reject():Cancel()" [disabled]="pending" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:opacity-75 disabled:opacity-60 disabled:cursor-not-allowed sm:mt-0 sm:w-auto">{{(data?.cancelButtonText? data?.cancelButtonText:(has_reason?'Reject':'Cancel'))|titlecase}}</button>
+          <button type="button" (click)="has_reason?Reject():Cancel()" [disabled]="pending" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:opacity-75 disabled:opacity-60 disabled:cursor-not-allowed sm:mt-0 sm:w-auto">{{(data?.cancelButtonText? $safeNavigationMigration(data?.cancelButtonText):(has_reason?'Reject':'Cancel'))|titlecase}}</button>
         </div>
       </div>
     </div>

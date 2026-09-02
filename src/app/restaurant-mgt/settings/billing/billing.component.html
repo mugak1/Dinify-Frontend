@@ -191,7 +191,7 @@
         </div> -->
         <dl class="flex items-center justify-between gap-4 border-t border-border pt-2">
           <dt class="text-base font-semibold text-foreground">Total Bill Due</dt>
-          <dd class="text-base font-semibold text-foreground">UGX {{rest?.flat_fee|number}}</dd>
+          <dd class="text-base font-semibold text-foreground">UGX {{$safeNavigationMigration(rest?.flat_fee)|number}}</dd>
         </dl>
       </div>
     </div>
@@ -366,14 +366,14 @@
         <div class="flex flex-col space-y-5">
           <div>
             <button app-dn-button type="submit" [disabled]="!!input.invalid" [ngClass]="{'opacity-65 hover:cursor-not-allowed':input.invalid}" class="w-full py-5">
-              Verify OTP & Pay {{'UGX '+(rest?.flat_fee|number)}}
+              Verify OTP & Pay {{'UGX '+($safeNavigationMigration(rest?.flat_fee)|number)}}
             </button>
           </div>
           <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 -my-2 text-muted-foreground">
             <a (click)="require_otp=false" class="flex flex-row items-center text-muted-foreground underline" [routerLink]="[]" >Cancel</a>
           </div>
           <div class="flex flex-row items-center justify-center text-center text-sm font-medium space-x-1 text-muted-foreground">
-            <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',this.PaymentForm.get('msisdn')?.value,null)" class="flex flex-row items-center text-primary" [routerLink]="[]" >Resend</a>
+            <p>Didn't recieve code?</p> <a (click)="sendOtp('msisdn',$safeNavigationMigration(this.PaymentForm.get('msisdn')?.value),null)" class="flex flex-row items-center text-primary" [routerLink]="[]" >Resend</a>
           </div>
         </div>
       </div>

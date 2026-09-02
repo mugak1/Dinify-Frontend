@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -18,6 +18,7 @@ import { environment } from 'src/environments/environment';
 import imageCompression from 'browser-image-compression';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-item-form-dialog',
   standalone: true,
   imports: [

@@ -1,7 +1,8 @@
-import { Component, ElementRef, Input, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Input, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
 import {environment} from '../../../environments/environment'
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-common-image',
     templateUrl: './common-image.component.html',
     styleUrls: ['./common-image.component.css'],

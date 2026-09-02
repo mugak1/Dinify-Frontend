@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
@@ -11,6 +11,7 @@ import { WeekdayRevenue } from './sales-view';
  * highlighted. No comparison ghost (deltas live on the headline numbers only).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-revenue-weekday-card',
   standalone: true,
   imports: [CardComponent],

@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild, effect, signal } from '@angular/core';
+import { ChangeDetectionStrategy, AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild, effect, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { BasketItem, MenuItem, MenuItemTagRef, Restaurant, TableScan } from 'src/app/_models/app.models';
@@ -20,6 +20,7 @@ import { resolveDinerMountEmbedded } from '../diner-mount';
 import { ConnectivityService } from 'src/app/_services/connectivity.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-diners-menu',
     templateUrl: './menu.component.html',
     styleUrls: ['./menu.component.css'],

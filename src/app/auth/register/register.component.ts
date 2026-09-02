@@ -1,10 +1,11 @@
-import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, UntypedFormGroup, Validators } from '@angular/forms';
 import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import { ApiService } from 'src/app/_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-register',
     templateUrl: './register.component.html',
     styleUrls: ['./register.component.css'],

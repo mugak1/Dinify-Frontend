@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { percentChange } from '../../../../_shared/utils/percent-change';
 import { NoBaselineChipComponent } from '../../../../_shared/ui/no-baseline-chip/no-baseline-chip.component';
 
@@ -17,6 +17,7 @@ import { NoBaselineChipComponent } from '../../../../_shared/ui/no-baseline-chip
  * headline dashboard cards, which show their caption at every breakpoint.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-trend-indicator',
   standalone: true,
   imports: [NoBaselineChipComponent],

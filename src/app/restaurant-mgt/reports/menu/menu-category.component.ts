@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { DnSegmentedComponent } from '../../../_shared/ui/segmented/segmented.component';
@@ -28,6 +28,7 @@ const GROUPINGS: { value: MenuGrouping; label: string }[] = [
  *     — this IS the full menu (grouping=items on menu-summary; no listing endpoint).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-category',
   standalone: true,
   imports: [

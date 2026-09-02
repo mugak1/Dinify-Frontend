@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, OnDestroy, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { BehaviorSubject, Subject, of } from 'rxjs';
@@ -22,6 +22,7 @@ type TimeframeDays = 30 | 90;
  * `trend`).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-reviews-overview',
   standalone: true,
   imports: [CommonModule, RouterModule, PageHeaderComponent, CardComponent, CardErrorComponent, BaseChartDirective],

@@ -136,7 +136,7 @@
   Recoverable dead-end with a "Try again" that re-runs the cold load. -->
   @if (coldLoadFailed && !navState.isLoading()) {
     <app-diner-connection-error
-      [restaurantName]="restaurant?.name"
+      [restaurantName]="$safeNavigationMigration(restaurant?.name)"
       (retry)="retryColdLoad()">
     </app-diner-connection-error>
   }

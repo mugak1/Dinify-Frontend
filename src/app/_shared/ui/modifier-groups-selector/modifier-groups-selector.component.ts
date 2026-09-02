@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModifierGroup } from 'src/app/_models/app.models';
 import { selectionConstraintPhrase } from 'src/app/_common/utils/modifier-utils';
@@ -26,6 +26,7 @@ export interface ModifierMultiToggleEvent {
  * keeps its `mod-group-<id>` DOM id so the diner route's scroll-to-first-unmet still works.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-modifier-groups-selector',
   standalone: true,
   imports: [CommonModule],

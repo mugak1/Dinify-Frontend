@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
@@ -39,6 +39,7 @@ const DEFAULT_VAT_RATE = 18;
  * order/receipt pipeline (separate).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tax-receipts',
   standalone: true,
   imports: [

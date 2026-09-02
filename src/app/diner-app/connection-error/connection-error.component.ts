@@ -1,5 +1,5 @@
 
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
 /**
  * Full-page diner error state for a load that genuinely didn't come back
@@ -9,6 +9,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
  * the *terminal* "ask staff" screen for a removed/disabled table.
  */
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-diner-connection-error',
     imports: [],
     templateUrl: './connection-error.component.html',

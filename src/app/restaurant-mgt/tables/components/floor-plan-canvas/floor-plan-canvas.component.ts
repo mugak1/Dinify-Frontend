@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   Output,
@@ -29,6 +30,7 @@ export const STATUS_COLORS: Record<TableStatus, { bg: string; border: string; te
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-floor-plan-canvas',
   standalone: true,
   imports: [ButtonComponent, BadgeComponent, TooltipDirective],

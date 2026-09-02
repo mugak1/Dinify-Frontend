@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 
 /**
@@ -21,6 +21,7 @@ export type SettingsIconName =
  * svg:path pattern — no lucide-angular, no SVGRepo dumps.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-settings-icon',
   standalone: true,
   imports: [],

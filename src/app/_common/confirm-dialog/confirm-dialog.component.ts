@@ -1,8 +1,9 @@
-import { Component, AfterViewInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, AfterViewInit, OnDestroy } from '@angular/core';
 import { ConfirmaDialogData } from 'src/app/_models/app.models';
 import { ConfirmDialogService } from '../confirm-dialog.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-confirm-dialog',
     templateUrl: './confirm-dialog.component.html',
     styleUrls: ['./confirm-dialog.component.css'],

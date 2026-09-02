@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
@@ -6,6 +6,7 @@ import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import { RestaurantTable, DiningArea, SeatedParty } from '../../models/tables.models';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-transfer-table-modal',
   standalone: true,
   imports: [CommonModule, DialogComponent, ButtonComponent, BadgeComponent],

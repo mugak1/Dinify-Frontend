@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component';
@@ -28,6 +28,7 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-payment-methods-card',
   standalone: true,
   host: { class: 'block h-full' },

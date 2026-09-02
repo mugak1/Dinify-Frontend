@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   Output,
@@ -32,6 +33,7 @@ export interface BulkTablesConfig {
 const MAX_COUNT = 100;
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-bulk-add-tables-modal',
   standalone: true,
   imports: [FormsModule, DialogComponent, ButtonComponent],

@@ -1,5 +1,5 @@
 
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
 import { PersistedValue } from '../../_services/storage/persisted-state';
@@ -7,6 +7,7 @@ import { TablesSetupViewComponent } from './components/tables-setup-view/tables-
 import { PageHeaderComponent } from '../../_shared/ui/page-header/page-header.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables',
   standalone: true,
   imports: [TablesSetupViewComponent, PageHeaderComponent],

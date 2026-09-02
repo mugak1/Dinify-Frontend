@@ -1,5 +1,5 @@
 import { CommonModule, Location } from '@angular/common';
-import { AfterViewInit, Component, ViewChild, ElementRef, OnDestroy, OnInit, Input } from '@angular/core';
+import { ChangeDetectionStrategy, AfterViewInit, Component, ViewChild, ElementRef, OnDestroy, OnInit, Input } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
@@ -18,6 +18,7 @@ import { MenuNavStateService } from '../../menu/menu-nav-state.service';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-basket-body',
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],

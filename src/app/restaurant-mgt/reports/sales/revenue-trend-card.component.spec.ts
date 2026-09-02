@@ -148,9 +148,7 @@ describe('RevenueTrendCardComponent', () => {
   });
 
   describe('the tooltip names both dates', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const callbacks = (): any => (component.options as any).plugins.tooltip.callbacks;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const item = (datasetIndex: number, dataIndex: number, raw: unknown): any => ({
       datasetIndex,
       dataIndex,

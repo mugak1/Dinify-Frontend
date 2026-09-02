@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { cn } from '../../utils/cn';
 
 export type ButtonVariant = 'default' | 'secondary' | 'ghost' | 'destructive' | 'outline' | 'link' | 'cta';
@@ -26,6 +26,7 @@ const sizeClasses: Record<ButtonSize, string> = {
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-button, button[app-dn-button]',
   standalone: true,
   // Loading shows a leading spinner and keeps the projected label; the host is

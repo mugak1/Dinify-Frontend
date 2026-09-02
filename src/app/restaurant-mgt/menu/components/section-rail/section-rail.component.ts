@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Observable } from 'rxjs';
@@ -12,6 +12,7 @@ import { TooltipDirective } from 'src/app/_shared/ui/tooltip/tooltip.directive';
 import { isSectionCurrentlyActive } from '../../utils/schedule-utils';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-section-rail',
   standalone: true,
   imports: [

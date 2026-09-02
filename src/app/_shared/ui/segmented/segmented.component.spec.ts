@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { QueryParamsHandling, RouterLink, provideRouter } from '@angular/router';
@@ -17,6 +17,7 @@ const ROUTER_ITEMS: DnSegItem[] = [
 ];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [DnSegmentedComponent],
   template: `
@@ -46,6 +47,7 @@ class HostComponent {
 
 /** Host that projects an #icon template so we can assert the ngTemplateOutlet context. */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [DnSegmentedComponent],
   template: `

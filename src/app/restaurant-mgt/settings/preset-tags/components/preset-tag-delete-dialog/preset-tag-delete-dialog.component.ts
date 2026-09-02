@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
@@ -6,6 +6,7 @@ import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import { RestaurantTag } from 'src/app/_models/app.models';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-preset-tag-delete-dialog',
   standalone: true,
   imports: [DialogComponent, TagPillComponent, ButtonComponent],

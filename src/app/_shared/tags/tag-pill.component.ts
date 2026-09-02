@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
@@ -22,6 +22,7 @@ import {
  *  - the portal menu item list (dense `sm` variant)
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tag-pill',
   standalone: true,
   imports: [CommonModule],

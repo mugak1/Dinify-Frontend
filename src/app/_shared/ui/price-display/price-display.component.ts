@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { cn } from '../../utils/cn';
 import { formatUGX } from '../../utils/price-utils';
@@ -17,6 +17,7 @@ export type PriceDisplayTone = 'accent' | 'neutral';
  * carousel, basket lines) at sizes sm→lg, plus the `+UGX` add-on / extra form via `prefix`.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-price-display',
   standalone: true,
   imports: [],

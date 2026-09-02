@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
@@ -38,7 +38,7 @@ describe('ReviewsFeedComponent', () => {
     await TestBed.configureTestingModule({
       // Standalone component → imports, NOT declarations
       imports: [ReviewsFeedComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting(), provideRouter([])],
       schemas: [NO_ERRORS_SCHEMA],
     }).compileComponents();
 
@@ -236,7 +236,7 @@ describe('ReviewsFeedComponent — ?view=attention deep-link', () => {
     await TestBed.configureTestingModule({
       imports: [ReviewsFeedComponent],
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         {
           provide: ActivatedRoute,

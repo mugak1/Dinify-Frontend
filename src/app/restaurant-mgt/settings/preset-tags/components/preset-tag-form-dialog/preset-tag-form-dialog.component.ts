@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   Input,
@@ -26,6 +27,7 @@ import { RestaurantTagPayload } from 'src/app/_services/restaurant-tag.service';
 const MAX_NAME = 50;
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-preset-tag-form-dialog',
   standalone: true,
   imports: [

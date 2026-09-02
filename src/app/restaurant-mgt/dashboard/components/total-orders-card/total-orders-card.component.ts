@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnChanges, SimpleChanges, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Input, OnChanges, SimpleChanges, inject } from '@angular/core';
 
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions } from 'chart.js';
@@ -22,6 +22,7 @@ interface StatusSegment {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-total-orders-card',
   standalone: true,
   imports: [

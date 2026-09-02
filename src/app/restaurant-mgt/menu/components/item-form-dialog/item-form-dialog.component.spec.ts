@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 import { ItemFormDialogComponent } from './item-form-dialog.component';
@@ -59,7 +59,7 @@ describe('ItemFormDialogComponent — canonical discount_details', () => {
         { provide: MenuService, useValue: menuStub },
         { provide: ToastService, useValue: toastStub },
         { provide: AuthenticationService, useValue: authStub },
-        provideHttpClient(),
+        provideHttpClient(withXhr()),
         provideHttpClientTesting(),
       ],
     }).compileComponents();

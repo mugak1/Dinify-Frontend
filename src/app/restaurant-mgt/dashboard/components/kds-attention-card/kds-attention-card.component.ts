@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
@@ -25,6 +25,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-kds-attention-card',
   standalone: true,
   imports: [

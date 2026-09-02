@@ -1,4 +1,4 @@
-import { Component, ViewChild, ViewContainerRef, AfterViewInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ViewChild, ViewContainerRef, AfterViewInit, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from './_common/confirm-dialog.service';
 import { ConfirmDialogComponent } from './_common/confirm-dialog/confirm-dialog.component';
@@ -6,6 +6,7 @@ import { AuthenticationService } from './_services/authentication.service';
 import { InactivityService } from './_services/inactivity.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],

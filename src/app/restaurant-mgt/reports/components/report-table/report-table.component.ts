@@ -9,7 +9,7 @@
 //   • highlightRow*   — emphasise the row whose [key] === [value] (e.g. best bucket).
 //   • stickyTotals    — pin the header + totals footer while the body scrolls.
 
-import { Component, Input, OnChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { format as formatDate, parseISO } from 'date-fns';
 import { BadgeComponent, BadgeVariant } from '../../../../_shared/ui/badge/badge.component';
@@ -29,6 +29,7 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-report-table',
   standalone: true,
   imports: [CommonModule, BadgeComponent],

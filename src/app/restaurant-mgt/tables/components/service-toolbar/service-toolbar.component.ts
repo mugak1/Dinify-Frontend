@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
@@ -27,6 +27,7 @@ const STATUS_OPTIONS: { value: TableStatus; label: string }[] = [
 const TABLE_SIZE_OPTIONS = [2, 4, 6];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-service-toolbar',
   standalone: true,
   imports: [FormsModule, BadgeComponent],

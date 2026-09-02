@@ -107,6 +107,13 @@ describe('SalesReportComponent', () => {
     spyOn(reports, 'getSalesHourly').and.returnValue(of({ data: [] } as any));
     spyOn(reports, 'getSalesListing').and.returnValue(of({ data: [] } as any));
 
+    // PIN THE RANGE, as the first spec explains. Unpinned, a spec runs on the host
+    // default, which presetToRange CLAMPS to today: on the 1st/2nd of a month that is
+    // a <=1-day window, and LADDER_MAX_DAYS.hour is 1, so the component takes the
+    // HOURLY branch and getSalesAggregate is never called. The six specs that had no
+    // pin failed or passed purely by calendar day; a whole month also keeps
+    // 'prev-month-by-day' an offered comparison basis.
+    timeframe.set({ preset: 'this-month', from: '2026-06-01', to: '2026-06-30' });
     component.ngOnInit();
     tick(600);
 
@@ -119,6 +126,8 @@ describe('SalesReportComponent', () => {
     spyOn(reports, 'getSalesHourly').and.returnValue(of({ data: [] } as any));
     spyOn(reports, 'getSalesListing').and.returnValue(of({ data: [] } as any));
 
+    // PIN THE RANGE — same reason as above.
+    timeframe.set({ preset: 'this-month', from: '2026-06-01', to: '2026-06-30' });
     component.ngOnInit();
     tick(600);
 
@@ -139,6 +148,8 @@ describe('SalesReportComponent', () => {
     it("issues NO comparison request while the basis is 'none', and one when it is not", fakeAsync(() => {
       const spy = spyOn(reports, 'getSalesAggregate').and.callThrough();
 
+      // PIN THE RANGE — same reason as above.
+      timeframe.set({ preset: 'this-month', from: '2026-06-01', to: '2026-06-30' });
       timeframe.setComparison('none');
       component.ngOnInit();
       tick(600);
@@ -160,6 +171,8 @@ describe('SalesReportComponent', () => {
     it("issues NO comparison request for a 'custom' basis with no start placed", fakeAsync(() => {
       const spy = spyOn(reports, 'getSalesAggregate').and.callThrough();
 
+      // PIN THE RANGE — same reason as above.
+      timeframe.set({ preset: 'this-month', from: '2026-06-01', to: '2026-06-30' });
       timeframe.setComparison('none');
       component.ngOnInit();
       tick(600);
@@ -255,6 +268,8 @@ describe('SalesReportComponent', () => {
     // both when no request was made and when a real window had no trade; only the window
     // argument tells them apart, which is why it must be `p.cmp` and never `p.range`.
     it("yields previous === null under 'none' — no window, so nothing to fill", fakeAsync(() => {
+      // PIN THE RANGE — same reason as above.
+      timeframe.set({ preset: 'this-month', from: '2026-06-01', to: '2026-06-30' });
       timeframe.setComparison('none');
       component.ngOnInit();
       tick(600);
@@ -279,6 +294,8 @@ describe('SalesReportComponent', () => {
         return call === 2 ? of({ data: [] } as any) : (real as any)(...args);
       });
 
+      // PIN THE RANGE — same reason as above.
+      timeframe.set({ preset: 'this-month', from: '2026-06-01', to: '2026-06-30' });
       timeframe.setComparison('prev-month-by-day');
       component.ngOnInit();
       tick(600);

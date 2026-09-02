@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { MenuComponent } from './menu.component';
@@ -19,7 +19,7 @@ describe('MenuComponent', () => {
     await TestBed.configureTestingModule({
       declarations: [MenuComponent],
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: WINDOW, useValue: window },
@@ -69,7 +69,7 @@ describe('MenuComponent restaurant scoping (tenant isolation)', () => {
     await TestBed.configureTestingModule({
       declarations: [MenuComponent],
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: WINDOW, useValue: window },

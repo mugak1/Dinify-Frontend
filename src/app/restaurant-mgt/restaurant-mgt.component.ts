@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, HostListener } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ApiService } from '../_services/api.service';
@@ -21,6 +21,7 @@ import { OfflineBannerComponent } from '../_shared/ui';
 const SIDEBAR_STATE_KEY = 'sidebar.expanded';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-restaurant-mgt',
     templateUrl: './restaurant-mgt.component.html',
     styleUrls: ['./restaurant-mgt.component.css'],

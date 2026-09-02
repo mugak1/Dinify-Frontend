@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
 
 import { Subject, combineLatest } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -25,6 +25,7 @@ import {
 import { mockSeatedParties } from '../../data/tables-mock-data';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables-service-view',
   standalone: true,
   imports: [

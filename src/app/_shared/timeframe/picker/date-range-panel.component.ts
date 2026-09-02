@@ -6,7 +6,7 @@
 
 import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { parseISO } from 'date-fns';
 import { ButtonComponent } from '../../ui/button/button.component';
 import { ReportDateRange, ReportPreset, REPORT_PRESETS, presetToRange } from '../timeframe-range';
@@ -14,6 +14,7 @@ import { RangeCalendarComponent } from './range-calendar.component';
 import { PRESET_LABELS, formatRangeSummary } from './range-label';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-date-range-panel',
   standalone: true,
   imports: [CommonModule, A11yModule, ButtonComponent, RangeCalendarComponent],

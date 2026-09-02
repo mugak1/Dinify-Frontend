@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   Input,
@@ -23,6 +24,7 @@ import {
 } from 'src/app/_models/app.models';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-item-modifiers-tab',
   standalone: true,
   imports: [

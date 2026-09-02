@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { PageHeaderComponent } from './page-header.component';
 
@@ -33,6 +33,7 @@ describe('PageHeaderComponent', () => {
 
   it('projects an actions slot', async () => {
     @Component({
+      changeDetection: ChangeDetectionStrategy.Eager,
       standalone: true,
       imports: [PageHeaderComponent],
       template: `<app-page-header title="Menu"><button actions id="cta">New</button></app-page-header>`,

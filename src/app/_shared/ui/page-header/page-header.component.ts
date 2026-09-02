@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 /**
  * The single source of truth for a portal page title. Renders one `<h1>` on the
@@ -12,6 +12,7 @@ import { Component, Input } from '@angular/core';
  * h1 textContent keep passing.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-page-header',
   standalone: true,
   template: `

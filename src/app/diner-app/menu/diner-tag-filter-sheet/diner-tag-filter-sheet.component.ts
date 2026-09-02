@@ -1,4 +1,4 @@
-import { Component, HostListener } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener } from '@angular/core';
 
 import { TagPillComponent } from 'src/app/_shared/tags';
 import { MenuNavStateService } from '../menu-nav-state.service';
@@ -13,6 +13,7 @@ import { MenuNavStateService } from '../menu-nav-state.service';
  * updates instantly. No Apply step — only a Clear at the top.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diner-tag-filter-sheet',
   standalone: true,
   imports: [TagPillComponent],

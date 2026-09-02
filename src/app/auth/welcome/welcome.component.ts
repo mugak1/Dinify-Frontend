@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { AuthenticationService } from '../../_services/authentication.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-welcome',
     template: `
     <app-auth-shell

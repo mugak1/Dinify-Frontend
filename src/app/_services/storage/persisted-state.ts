@@ -16,7 +16,7 @@ interface PersistedStateOptions<T> {
 
 function readSeed<T>(defaultValue: T, options: PersistedStateOptions<T>): T {
   const key = options.getKey();
-  let stored: T | null = null;
+  let stored: T | null;
   try {
     stored = options.storage.getItem<T>(key);
   } catch (e) {

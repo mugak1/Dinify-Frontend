@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { HourBar, formatHourLabel, peakLabel } from './sales-view';
@@ -11,6 +11,7 @@ import { HourBar, formatHourLabel, peakLabel } from './sales-view';
  * always renders. No comparison ghost (deltas live on headline numbers only).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-orders-by-hour-card',
   standalone: true,
   imports: [CardComponent],

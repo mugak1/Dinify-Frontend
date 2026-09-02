@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
@@ -9,6 +9,7 @@ import { TablesData } from '../../models/dashboard.models';
 import { formatCompact } from '../../utils/format.utils';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables-card',
   standalone: true,
   host: { class: 'block h-full' },

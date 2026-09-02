@@ -1,9 +1,10 @@
-import { Component, ElementRef, EventEmitter, HostListener, Input, Output, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, Output, ViewChild } from '@angular/core';
 import { A11yModule } from '@angular/cdk/a11y';
 import { cn } from '../../utils/cn';
 import { autoNameOverlayPanel } from '../dialog/dialog.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-sheet',
   standalone: true,
   imports: [A11yModule],

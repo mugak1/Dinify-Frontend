@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ApiResponse, NotificationItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 
@@ -14,6 +14,7 @@ type NotifState = 'loading' | 'ready' | 'error' | 'empty';
  * mark-read contract is ported verbatim.
  */
 @Component({
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-rest-notifications',
     templateUrl: './rest-notifications.component.html',
     styleUrl: './rest-notifications.component.css',

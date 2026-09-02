@@ -15,7 +15,7 @@
 // that the dashboard route is a LEAF with providers (Reports is a parent with children,
 // and only the parent case had prior coverage).
 
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -25,7 +25,8 @@ import { TIMEFRAME_CONFIG, TimeframeService } from '../_shared/timeframe';
 import { AuthenticationService } from '../_services/authentication.service';
 import { LocalStorageService } from '../_services/storage/local-storage.service';
 
-@Component({ standalone: true, template: '' })
+@Component({ standalone: true, changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class HostComponent {}
 
 const DASHBOARD_CONFIG = { seedKey: 'dashboard.timeframe', defaultPreset: 'today' as const };

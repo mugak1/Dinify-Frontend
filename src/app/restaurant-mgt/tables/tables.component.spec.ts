@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CommonModule } from '@angular/common';
 import { AuthenticationService } from '../../_services/authentication.service';
@@ -44,6 +44,7 @@ describe('TablesComponent — Setup View is the only view', () => {
 // slots into TablesComponent's template without pulling in the real child's
 // service graph.
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables-setup-view',
   standalone: true,
   template: '<div data-testid="setup-view-stub"></div>',
