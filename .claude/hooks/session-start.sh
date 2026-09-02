@@ -24,8 +24,9 @@ cd "${CLAUDE_PROJECT_DIR:-.}"
 git fetch origin main --quiet 2>/dev/null || true
 
 # 2) Install dependencies on a fresh container; skip when node_modules already exists
-#    (warm/cached container). CLAUDE.md mandates --legacy-peer-deps to avoid
-#    peer-dependency conflicts.
+#    (warm/cached container). Plain `npm ci`, matching CI and CLAUDE.md: the
+#    Angular 22 tree resolves strictly, so --legacy-peer-deps would only hide a
+#    future peer conflict here instead of failing fast (DEPS-HYGIENE-01).
 if [ ! -d node_modules ]; then
-  npm ci --legacy-peer-deps
+  npm ci
 fi

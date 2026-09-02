@@ -5,7 +5,7 @@ A comprehensive restaurant management and customer dining application built with
 **Status**: Active development — stabilisation and feature work in progress.
 **Angular**: ^20.3.18
 **Angular CLI**: ~20.3.21
-**Node**: v20.x (used in CI)
+**Node**: v24.x (used in CI)
 
 ---
 
@@ -55,7 +55,9 @@ code path that can authenticate an administrator.
 
 Before you begin, ensure you have the following installed:
 
-- **Node.js**: v20.x (matches CI)
+- **Node.js**: v24.x (matches CI). Angular 22 requires
+  `^22.22.3 || ^24.15.0 || >=26.0.0` — Node 20 cannot run it, and the
+  "Verify installation" step below will fail on it.
 - **npm**: v9.x or higher (comes with Node.js)
 - **Angular CLI**: ~20.3.21 (installed as a dev dependency via npm)
 - **Firebase CLI**: For deployment (included as a dev dependency)
@@ -79,10 +81,15 @@ npm --version
 
 2. **Install dependencies**
    ```bash
-   npm ci --legacy-peer-deps
+   npm ci
    ```
 
-   > **Note:** `--legacy-peer-deps` is currently required due to peer-dependency conflicts between several packages. This is a known item for future cleanup.
+   > **Note:** Use a plain `npm ci` — do **not** add `--legacy-peer-deps`. The
+   > Angular 22 tree resolves strictly, so the flag no longer fixes anything and
+   > would only hide the next conflict: a partial major bump installs cleanly
+   > under it and fails later at runtime instead of failing fast at install.
+   > If `npm ci` ever raises `ERESOLVE`, that is the signal to resolve the
+   > conflict, not to flag past it.
 
 3. **Verify installation**
    ```bash
@@ -213,9 +220,9 @@ Two GitHub Actions workflows exist in `.github/workflows/`:
 
 **Trigger:** Pull requests targeting `main`.
 
-Steps (on `ubuntu-latest`, Node 20):
+Steps (on `ubuntu-latest`, Node 24):
 
-1. `npm ci --legacy-peer-deps` — install dependencies
+1. `npm ci` — install dependencies
 2. `npm run type-check` — TypeScript type-checking
 3. `npm run lint` — ESLint
 4. `npm run test:ci` — unit tests (runs only the following spec files):
@@ -231,9 +238,9 @@ Steps (on `ubuntu-latest`, Node 20):
 
 **Trigger:** Push to `main`, or manual `workflow_dispatch`.
 
-Steps (on `ubuntu-latest`, Node 20):
+Steps (on `ubuntu-latest`, Node 24):
 
-1. `npm ci --legacy-peer-deps` — install dependencies
+1. `npm ci` — install dependencies
 2. `npm run type-check` — TypeScript type-checking
 3. `npm run lint` — ESLint
 4. `npx ng build --configuration=uat` — build (intentionally still the `uat` configuration for now; see the comment in `deploy-prod.yml`)
