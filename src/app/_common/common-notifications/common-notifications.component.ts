@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ApiResponse, NotificationItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-common-notifications',
     templateUrl: './common-notifications.component.html',
     styleUrl: './common-notifications.component.css',

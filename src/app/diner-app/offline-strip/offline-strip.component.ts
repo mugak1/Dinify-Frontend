@@ -1,5 +1,5 @@
 
-import { Component, inject, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, Input } from '@angular/core';
 import { ConnectivityService } from '../../_services/connectivity.service';
 
 /**
@@ -14,6 +14,7 @@ import { ConnectivityService } from '../../_services/connectivity.service';
  * under the 48px brand strip and stays visible while scrolling.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-offline-strip',
   standalone: true,
   imports: [],

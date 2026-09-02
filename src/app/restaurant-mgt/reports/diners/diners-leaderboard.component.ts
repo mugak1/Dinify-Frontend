@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
@@ -28,6 +28,7 @@ const PAGE_SIZE = 50;
  * searchable list; a banner shows when the range is capped to the recent 31 days.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-diners-leaderboard',
   standalone: true,
   imports: [CommonModule, CardComponent, ButtonComponent, AvatarComponent, ReportTableComponent, ReportStateComponent],

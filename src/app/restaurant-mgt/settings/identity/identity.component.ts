@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
@@ -41,6 +41,7 @@ const DEFAULT_BRAND_COLOR = '#171717';
  * membership, never a route param.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-identity',
   standalone: true,
   imports: [

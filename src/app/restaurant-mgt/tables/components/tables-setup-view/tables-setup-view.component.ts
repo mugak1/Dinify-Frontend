@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { OverlayModule, ConnectedPosition } from '@angular/cdk/overlay';
@@ -29,6 +29,7 @@ import { computeBulkTableNumbers } from '../../utils/bulk-table-numbers';
 import QRCode from 'qrcode';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-tables-setup-view',
   standalone: true,
   imports: [

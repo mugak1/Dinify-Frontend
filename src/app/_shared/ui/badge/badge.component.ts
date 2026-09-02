@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { cn } from '../../utils/cn';
 
 export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning';
@@ -13,6 +13,7 @@ const variantClasses: Record<BadgeVariant, string> = {
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-dn-badge',
   standalone: true,
   template: `<ng-content></ng-content>`,

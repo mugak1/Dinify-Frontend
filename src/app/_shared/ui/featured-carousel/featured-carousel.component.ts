@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { environment } from 'src/environments/environment';
 import { discountIsLive as discountIsLiveFn, serverEffectivePrice } from 'src/app/_shared/utils/price-utils';
@@ -6,6 +6,7 @@ import { PriceDisplayComponent } from '../price-display/price-display.component'
 import { DiscountBadgeComponent } from '../discount-badge/discount-badge.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-featured-carousel',
   standalone: true,
   imports: [CommonModule, PriceDisplayComponent, DiscountBadgeComponent],

@@ -1,9 +1,10 @@
 
-import { Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnInit } from '@angular/core';
 import { SessionStorageService } from '../../_services/storage/session-storage.service';
 import { Restaurant } from '../../_models/app.models';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-no-table',
     imports: [],
     templateUrl: './no-table.component.html',

@@ -4,7 +4,7 @@
 // just forwards to the pure report-export / report-print-sheet utilities. When
 // disabled, all three actions disable and a tooltip explains why.
 
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
@@ -15,6 +15,7 @@ import { exportCsv, exportXlsx } from '../../utils/report-export';
 import { printReport } from '../../utils/report-print-sheet';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-report-export-bar',
   standalone: true,
   imports: [ButtonComponent, TooltipDirective],

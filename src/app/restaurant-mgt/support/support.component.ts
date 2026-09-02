@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import {
@@ -25,6 +25,7 @@ const SUPPORT_CONTACTS = {
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-support',
   templateUrl: './support.component.html',
   styleUrl: './support.component.css',

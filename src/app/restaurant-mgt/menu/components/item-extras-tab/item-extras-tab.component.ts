@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   Input,
@@ -12,6 +13,7 @@ import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
 import { MenuItem } from 'src/app/_models/app.models';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-item-extras-tab',
   standalone: true,
   imports: [FormsModule, SwitchComponent],

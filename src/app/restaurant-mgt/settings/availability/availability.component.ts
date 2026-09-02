@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 
 import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
@@ -56,6 +56,7 @@ function closeAfterOpen(group: AbstractControl): ValidationErrors | null {
  * is the union of both, and a single JSON PUT carries both fields.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-availability',
   standalone: true,
   imports: [

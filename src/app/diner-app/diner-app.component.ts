@@ -1,4 +1,4 @@
-import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild, effect } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild, effect } from '@angular/core';
 import { Location } from '@angular/common';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -14,6 +14,7 @@ import { ConnectivityService } from '../_services/connectivity.service';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-diner-app',
     templateUrl: './diner-app.component.html',
     styleUrls: ['./diner-app.component.css'],

@@ -12,7 +12,7 @@
 
 import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { ButtonComponent } from '../../ui/button/button.component';
 import { ReportDateRange } from '../timeframe-range';
 import { maxCustomComparisonStart, resolveComparison } from '../timeframe-engine';
@@ -20,6 +20,7 @@ import { RangeCalendarComponent } from './range-calendar.component';
 import { formatRangeSummary } from './range-label';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-comparison-start-panel',
   standalone: true,
   imports: [CommonModule, A11yModule, ButtonComponent, RangeCalendarComponent],

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
@@ -12,6 +12,7 @@ import { DisplayTone, StatusBreakdown } from './transactions-view';
  * is mock-only until the payment integration (Gate 2) — marked with a footnote.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-transactions-status-breakdown',
   standalone: true,
   imports: [CommonModule, CardComponent],

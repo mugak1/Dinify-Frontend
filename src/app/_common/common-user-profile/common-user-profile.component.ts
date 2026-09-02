@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, AfterViewInit, Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import { Profile } from 'src/app/_models/app.models';
@@ -7,6 +7,7 @@ import { AuthenticationService } from 'src/app/_services/authentication.service'
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-common-user-profile',
     templateUrl: './common-user-profile.component.html',
     styleUrl: './common-user-profile.component.css',

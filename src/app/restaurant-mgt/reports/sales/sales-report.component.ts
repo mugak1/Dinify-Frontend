@@ -7,7 +7,7 @@
 // Per the engine: today → hourly, week/month → daily, year → monthly, multi-year → annual. All card maths live
 // in the pure sales-view helpers; the cards themselves are presentational.
 
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Observable, Subject, combineLatest, of } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
@@ -73,6 +73,7 @@ const SALES_LISTING_COLUMNS: ReportColumn[] = [
 ];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-sales-report',
   standalone: true,
   imports: [

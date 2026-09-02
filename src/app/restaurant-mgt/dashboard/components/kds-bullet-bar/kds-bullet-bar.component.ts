@@ -1,7 +1,8 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-kds-bullet-bar',
   standalone: true,
   imports: [],

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
@@ -12,6 +12,7 @@ interface GroupedItems {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-add-upsell-item-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, DialogComponent, ButtonComponent],

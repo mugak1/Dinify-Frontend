@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
@@ -10,6 +10,7 @@ import { ReviewsSummaryResponse, ReviewDistribution, RecentReview } from '../../
 type Sentiment = 'positive' | 'neutral' | 'negative';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-reviews-card',
   standalone: true,
   host: { class: 'block' },

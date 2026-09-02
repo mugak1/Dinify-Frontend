@@ -7,6 +7,7 @@
 
 import { CommonModule } from '@angular/common';
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   Input,
@@ -47,6 +48,7 @@ interface MonthView {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-range-calendar',
   standalone: true,
   imports: [CommonModule],

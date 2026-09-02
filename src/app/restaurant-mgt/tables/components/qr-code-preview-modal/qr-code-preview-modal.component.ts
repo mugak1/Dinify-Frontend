@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   Output,
@@ -27,6 +28,7 @@ import QRCode from 'qrcode';
  * modal renders an "unavailable" state instead of ever producing a `?c=` QR.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-qr-code-preview-modal',
   standalone: true,
   imports: [DialogComponent, ButtonComponent, BadgeComponent],

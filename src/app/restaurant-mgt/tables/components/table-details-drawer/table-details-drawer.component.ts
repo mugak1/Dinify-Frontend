@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
@@ -24,6 +24,7 @@ const STATUS_COLORS: Record<TableStatus, string> = {
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-table-details-drawer',
   standalone: true,
   imports: [

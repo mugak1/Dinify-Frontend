@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { cn } from '../../utils/cn';
 import { formatUGX } from '../../utils/price-utils';
@@ -20,6 +20,7 @@ export type DiscountBadgeSize = 'sm' | 'md' | 'lg';
  * tag-pill palette settled on (green-600 / green-700) — no color-mix, no new hexes.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-discount-badge',
   standalone: true,
   imports: [],

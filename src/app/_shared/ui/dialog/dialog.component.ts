@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, HostListener, Input, Output, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, Output, ViewChild } from '@angular/core';
 import { A11yModule } from '@angular/cdk/a11y';
 
 export type DialogMaxWidth = 'sm' | 'md' | 'lg';
@@ -40,6 +40,7 @@ export function autoNameOverlayPanel(
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-dn-dialog',
   standalone: true,
   imports: [A11yModule],

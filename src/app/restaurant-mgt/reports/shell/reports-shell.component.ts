@@ -19,7 +19,7 @@
 // boolean cannot express "compare against the same weekday last year", and keeping both
 // would have left two places to ask what a number is measured against.
 
-import { Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, NavigationEnd, Router, RouterModule } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -34,6 +34,7 @@ import {
 import { ReportKey } from '../models/reports.models';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-reports-shell',
   standalone: true,
   imports: [CommonModule, RouterModule, TimeframePickerComponent, DnSegmentedComponent],

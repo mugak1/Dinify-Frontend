@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -24,6 +24,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
  * rating) mirrors the dashboard reviews-card. The resolve action is a follow-up.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-reviews-feed',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent, CardComponent, CardErrorComponent, BadgeComponent],

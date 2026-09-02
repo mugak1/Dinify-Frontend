@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, Subject } from 'rxjs';
@@ -10,6 +10,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { environment } from 'src/environments/environment';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-menu-search',
   standalone: true,
   imports: [CommonModule, FormsModule, ButtonComponent],

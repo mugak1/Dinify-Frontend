@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HasUnsavedChanges } from '../../../_helpers/unsaved-changes.guard';
 import {
@@ -52,6 +52,7 @@ function passwordsMatch(group: AbstractControl): ValidationErrors | null {
  * requires an OTP round-trip that does not fit the clean edit→Save contract.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-account-security',
   standalone: true,
   imports: [

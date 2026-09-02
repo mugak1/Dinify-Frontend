@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
@@ -6,6 +6,7 @@ import { UpsellItem } from 'src/app/_models/app.models';
 import { environment } from 'src/environments/environment';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-upsell-preview-modal',
   standalone: true,
   imports: [CommonModule, DialogComponent, ButtonComponent],

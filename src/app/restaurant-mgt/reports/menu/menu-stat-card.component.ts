@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.component';
@@ -11,6 +11,7 @@ import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.co
  *     delta-chip and the value never reacts to the timeframe (Active items).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-menu-stat-card',
   standalone: true,
   imports: [CardComponent, ReportDeltaChipComponent],

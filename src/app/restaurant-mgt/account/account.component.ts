@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 import { AuthenticationService } from '../../_services/authentication.service';
 import { CardComponent, ButtonComponent, AvatarComponent } from '../../_shared/ui';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-account',
   standalone: true,
   imports: [CardComponent, ButtonComponent, AvatarComponent],

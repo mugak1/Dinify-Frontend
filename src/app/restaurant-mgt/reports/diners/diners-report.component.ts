@@ -8,7 +8,7 @@
 //   • a windowed summary (only when capped) → the split's window-consistent guest_orders.
 // The order split is the centrepiece; all maths live in the pure diners-view helpers.
 
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, combineLatest, of } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
@@ -52,6 +52,7 @@ const EXPORT_COLUMNS: ReportColumn[] = [
 ];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-diners-report',
   standalone: true,
   imports: [

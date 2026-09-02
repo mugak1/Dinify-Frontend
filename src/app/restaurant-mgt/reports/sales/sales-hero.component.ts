@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
@@ -12,6 +12,7 @@ import { EMPTY_TOTALS, SalesTotals } from './sales-view';
  * "on-platform refunds only". Pure presentational: the parent computes the totals.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-sales-hero',
   standalone: true,
   imports: [CardComponent, ReportDeltaChipComponent],

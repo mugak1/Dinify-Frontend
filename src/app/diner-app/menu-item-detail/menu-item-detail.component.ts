@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, effect, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, effect, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
@@ -25,6 +25,7 @@ import { MenuNavStateService } from '../menu/menu-nav-state.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-menu-item-detail',
   templateUrl: './menu-item-detail.component.html',
   styleUrls: ['./menu-item-detail.component.css'],

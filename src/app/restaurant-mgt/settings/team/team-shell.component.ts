@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 
@@ -23,6 +23,7 @@ interface TeamNavItem {
  * the 14px-root-font explicit-height rule).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-team-shell',
   standalone: true,
   imports: [RouterModule],

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
@@ -6,6 +6,7 @@ import { ButtonComponent } from '../../../../_shared/ui/button/button.component'
 import { DiningArea, Reservation } from '../../models/tables.models';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-new-reservation-modal',
   standalone: true,
   imports: [FormsModule, DialogComponent, ButtonComponent],

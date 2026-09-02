@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { DialogComponent } from './dialog.component';
@@ -107,6 +107,7 @@ describe('DialogComponent', () => {
   //    the naming setter fires on panel creation. ────────────────────────────
   describe('accessible name', () => {
     @Component({
+      changeDetection: ChangeDetectionStrategy.Default,
       standalone: true,
       imports: [DialogComponent],
       template: `<app-dn-dialog [open]="true" [ariaLabel]="ariaLabel" [ariaLabelledby]="ariaLabelledby">

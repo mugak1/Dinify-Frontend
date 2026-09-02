@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { NoBaselineChipComponent } from '../../../../_shared/ui/no-baseline-chip/no-baseline-chip.component';
 import { percentChange } from '../../../../_shared/utils/percent-change';
@@ -28,6 +28,7 @@ import { percentChange } from '../../../../_shared/utils/percent-change';
  * predicate used the coercing global `isFinite`, which admits `null`.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-report-delta-chip',
   standalone: true,
   imports: [NoBaselineChipComponent],

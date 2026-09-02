@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, Inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TooltipDirective } from '../../../_shared/ui/tooltip/tooltip.directive';
@@ -8,6 +8,7 @@ import { ModuleKey } from '../../../_models/app.models';
 import { NO_MODULE_ROUTE } from '../../../_helpers/module-access';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-sidebar',
   standalone: true,
   imports: [CommonModule, RouterModule, TooltipDirective, AvatarComponent],

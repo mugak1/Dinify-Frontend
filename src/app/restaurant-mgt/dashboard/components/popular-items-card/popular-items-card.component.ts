@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
@@ -8,6 +8,7 @@ import { PopularItemData } from '../../models/dashboard.models';
 import { formatCurrency } from '../../utils/format.utils';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-popular-items-card',
   standalone: true,
   host: { class: 'block h-full' },

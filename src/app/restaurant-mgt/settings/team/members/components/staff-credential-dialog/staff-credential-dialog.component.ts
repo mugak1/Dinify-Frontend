@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   EventEmitter,
@@ -26,6 +27,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
  *    and we show an error toast — never a false "copied" success.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-staff-credential-dialog',
   standalone: true,
   imports: [DialogComponent, ButtonComponent],

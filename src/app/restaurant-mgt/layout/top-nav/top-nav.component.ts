@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthenticationService } from '../../../_services/authentication.service';
 
@@ -8,6 +8,7 @@ import { AuthenticationService } from '../../../_services/authentication.service
 // route-scoped TimeframeService, which this global chrome cannot inject, and a control
 // that only ever applied to one page did not belong in the shell anyway.
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-top-nav',
   standalone: true,
   imports: [CommonModule],

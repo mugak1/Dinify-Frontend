@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { EmployeeListUser } from 'src/app/_models/app.models';
@@ -12,6 +12,7 @@ import { roleLabel } from '../../staff-roles';
  * user still shows "Finance" rather than blank.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-staff-detail-dialog',
   standalone: true,
   imports: [CommonModule, DialogComponent, ButtonComponent],

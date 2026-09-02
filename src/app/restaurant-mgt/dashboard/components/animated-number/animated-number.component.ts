@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   OnChanges,
@@ -10,6 +11,7 @@ import {
 } from '@angular/core';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-animated-number',
   standalone: true,
   template: `

@@ -1,4 +1,4 @@
-import { Component, computed, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from 'src/app/_services/api.service';
 import { Socials } from 'src/app/_models/app.models';
@@ -32,6 +32,7 @@ const VERDICTS: Record<number, Verdict> = {
 };
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-order-complete',
     templateUrl: './order-complete.component.html',
     styleUrl: './order-complete.component.css',

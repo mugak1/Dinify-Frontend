@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import {
@@ -24,6 +24,7 @@ import { PresetTagDeleteDialogComponent } from './components/preset-tag-delete-d
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-preset-tags',
   standalone: true,
   imports: [

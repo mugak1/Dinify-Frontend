@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ViewChild, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, ViewChild, OnInit, OnDestroy } from '@angular/core';
 import { FormGroup, FormBuilder, Validators, NgModel } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { first } from 'rxjs';
@@ -8,6 +8,7 @@ import { firstAccessibleRoute } from 'src/app/_helpers/module-access';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-login',
     templateUrl: './login.component.html',
     styleUrls: ['./login.component.css'],

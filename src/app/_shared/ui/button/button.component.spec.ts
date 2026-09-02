@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { ButtonComponent, ButtonVariant } from './button.component';
@@ -7,6 +7,7 @@ import { ButtonComponent, ButtonVariant } from './button.component';
 // consumer uses — so the disabled/aria-busy host bindings are exercised on a
 // real <button>.
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   standalone: true,
   imports: [ButtonComponent],
   template: `<button

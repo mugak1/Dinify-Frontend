@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../../_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-lock-screen',
     templateUrl: './lock-screen.component.html',
     styleUrls: ['./lock-screen.component.css'],

@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   Input,
@@ -43,6 +44,7 @@ interface RoleOption {
  * `saved`. The parent reloads + toasts + closes; errors are surfaced here.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-staff-form-dialog',
   standalone: true,
   imports: [

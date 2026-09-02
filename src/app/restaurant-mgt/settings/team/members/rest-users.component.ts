@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 
@@ -36,6 +36,7 @@ type LoadState = 'loading' | 'ready' | 'error';
  * delete + re-create is the only recovery (regenerate is deferred).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-rest-users',
   standalone: true,
   imports: [

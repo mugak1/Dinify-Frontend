@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ScheduleDay, SectionSchedule } from 'src/app/_models/app.models';
@@ -12,6 +12,7 @@ import {
 } from '../../utils/schedule-utils';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-schedule-builder',
   standalone: true,
   imports: [CommonModule, FormsModule, ButtonComponent],

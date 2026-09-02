@@ -7,7 +7,7 @@
 // the status-filter chip) drives the recent-transactions table over the most-recent-31-day
 // window. All display vocab is PROVISIONAL (transactions-view), reconciled at Gate 2.
 
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BehaviorSubject, Subject, combineLatest, of } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
@@ -56,6 +56,7 @@ const LISTING_COLUMNS: ReportColumn[] = [
 ];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-transactions-report',
   standalone: true,
   imports: [

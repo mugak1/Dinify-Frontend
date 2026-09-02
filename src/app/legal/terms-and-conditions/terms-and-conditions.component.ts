@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { Location } from '@angular/common';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-terms-and-conditions',
   imports: [],
   templateUrl: './terms-and-conditions.component.html'

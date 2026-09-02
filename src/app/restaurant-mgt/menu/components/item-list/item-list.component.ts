@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Observable, Subject, forkJoin } from 'rxjs';
@@ -12,6 +12,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { BulkStockBarComponent } from '../bulk-stock-bar/bulk-stock-bar.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-item-list',
   standalone: true,
   imports: [CommonModule, DragDropModule, ItemCardComponent, ButtonComponent, BulkStockBarComponent],

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { RestaurantDetail, TransactionListItem } from 'src/app/_models/app.models';
@@ -31,6 +31,7 @@ import {
  * (`billing-plans.ts`) while the charged amount stays the configured `flat_fee`.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-billing',
   templateUrl: './billing.component.html',
   styleUrl: './billing.component.css',
@@ -192,7 +193,6 @@ export class BillingComponent implements OnInit {
   // ── Payment flow — the provider seam (card redirect removed in 8a; reinstated with the provider in 8b) ──
   closeModal() {
     this.showModal = false;
-    this.PaymentForm != null;
     this.data = '';
     this.require_otp = false;
   }

@@ -1,8 +1,9 @@
-import { Component, ElementRef, EventEmitter, HostListener, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, Output } from '@angular/core';
 
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-bulk-stock-bar',
   standalone: true,
   imports: [ButtonComponent],

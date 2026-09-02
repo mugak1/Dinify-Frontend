@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
 import { Observable, Subject, combineLatest, of, timer } from 'rxjs';
 import { switchMap, startWith, catchError, tap, takeUntil, takeWhile, map } from 'rxjs/operators';
 import { DashboardService } from './services/dashboard.service';
@@ -25,6 +25,7 @@ import {
 } from './models/dashboard.models';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-rest-dashboard',
     templateUrl: './dashboard.component.html',
     standalone: false,

@@ -3,7 +3,7 @@
 // component covers every non-table state, including the under-construction
 // placeholder for reports we haven't built yet and the long-range listing guard.
 
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
@@ -48,6 +48,7 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-report-state',
   standalone: true,
   imports: [CommonModule, CardComponent, ButtonComponent],

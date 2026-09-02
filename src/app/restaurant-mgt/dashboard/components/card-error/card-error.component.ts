@@ -1,8 +1,9 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
 import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-card-error',
   standalone: true,
   imports: [CardComponent, ButtonComponent],

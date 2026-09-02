@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AuthShellComponent } from './auth-shell.component';
 
 describe('AuthShellComponent', () => {
   @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     standalone: true,
     imports: [AuthShellComponent],
     template: `<app-auth-shell [eyebrow]="eyebrow" [heading]="heading" [subtitle]="subtitle">

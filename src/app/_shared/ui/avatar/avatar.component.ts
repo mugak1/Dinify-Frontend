@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { cn } from '../../utils/cn';
 
 export type AvatarSize = 'sm' | 'md' | 'lg';
@@ -13,6 +13,7 @@ const sizeClasses: Record<AvatarSize, string> = {
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-dn-avatar',
   standalone: true,
   template: `{{ initials }}`,

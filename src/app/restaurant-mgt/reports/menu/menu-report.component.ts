@@ -8,7 +8,7 @@
 // items + the category breakdown / full menu read getMenuSummary. Reuses the PR-B
 // primitives; the card maths live in the pure menu-view helpers.
 
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BehaviorSubject, Subject, combineLatest, of } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
@@ -42,6 +42,7 @@ const ITEM_COLUMNS: ReportColumn[] = [
 ];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-menu-report',
   standalone: true,
   imports: [

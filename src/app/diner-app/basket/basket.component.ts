@@ -1,11 +1,12 @@
 import { Location } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { ConnectivityService } from '../../_services/connectivity.service';
 import { SessionStorageService } from '../../_services/storage/session-storage.service';
 import { TableScan } from '../../_models/app.models';
 import { MenuNavStateService } from '../menu/menu-nav-state.service';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-basket',
     templateUrl: './basket.component.html',
     styleUrls: ['./basket.component.css'],

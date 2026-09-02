@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 
@@ -32,6 +32,7 @@ interface HubGroup {
  * horizontal-tab shell. Standalone, following the preset-tags pattern.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-settings-hub',
   standalone: true,
   imports: [RouterModule, SettingsIconComponent, PageHeaderComponent],

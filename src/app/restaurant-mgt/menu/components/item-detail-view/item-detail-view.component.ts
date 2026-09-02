@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   Input,
@@ -32,6 +33,7 @@ import { ExtrasSelectorComponent } from 'src/app/_shared/ui/extras-selector/extr
 import { environment } from 'src/environments/environment';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-item-detail-view',
   standalone: true,
   imports: [

@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   Output,
@@ -36,6 +37,7 @@ export const TAG_OPTIONS = [
 ];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-new-table-modal',
   standalone: true,
   imports: [

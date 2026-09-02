@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnChanges, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Input, OnChanges, OnInit, inject } from '@angular/core';
 
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData, ChartOptions, TooltipItem } from 'chart.js';
@@ -32,6 +32,7 @@ const BEST = 'hsl(142, 71%, 45%)';
  * (it is no longer drawn as a chart line).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-revenue-trend-card',
   standalone: true,
   imports: [CardComponent, BaseChartDirective],

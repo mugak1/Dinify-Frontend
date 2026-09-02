@@ -1,10 +1,11 @@
-import { Component, ElementRef, Input, OnInit, Signal, computed, effect } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Input, OnInit, Signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TagPillComponent } from 'src/app/_shared/tags';
 import { MenuFilterOption, MenuNavStateService } from '../menu-nav-state.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-menu-nav-bar',
   standalone: true,
   imports: [CommonModule, FormsModule, TagPillComponent],

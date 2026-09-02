@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ToastService, Toast } from './toast.service';
 
 // Colours route through the semantic tokens (not raw green/red/amber literals) so
@@ -25,6 +25,7 @@ function isUrgent(type: Toast['type']): boolean {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-dn-toast',
   standalone: true,
   template: `

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 
 /**
@@ -9,6 +9,7 @@ import { RouterModule } from '@angular/router';
  * dark mode. The board renders into the router-outlet.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-kitchen',
   standalone: true,
   imports: [RouterModule],

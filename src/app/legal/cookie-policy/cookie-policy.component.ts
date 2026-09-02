@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { Location } from '@angular/common';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-cookie-policy',
   imports: [],
   templateUrl: './cookie-policy.component.html'

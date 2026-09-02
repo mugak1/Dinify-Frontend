@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges } from '@angular/core';
 
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { formatUGX } from '../../../_shared/utils/price-utils';
@@ -23,6 +23,7 @@ interface KpiTile {
  * window. The parent supplies the per-bucket points + the current/previous totals.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-sales-kpi-rail',
   standalone: true,
   imports: [CardComponent, ReportDeltaChipComponent, ReportSparklineComponent],

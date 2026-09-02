@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 /**
  * Neutral "+N" indicator rendered alongside tag pills when a compact
@@ -9,6 +9,7 @@ import { Component, Input } from '@angular/core';
  * detail modal) — this component is presentation-only.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-tag-overflow-pill',
   standalone: true,
   template: `

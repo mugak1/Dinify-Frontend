@@ -1,9 +1,10 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
 import { cn } from '../../utils/cn';
 
 export type SwitchSize = 'sm' | 'md';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-dn-switch',
   standalone: true,
   host: { class: 'inline-flex' },

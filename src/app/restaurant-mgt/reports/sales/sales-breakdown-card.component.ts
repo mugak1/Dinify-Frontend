@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges } from '@angular/core';
 
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { ReportTableComponent } from '../components/report-table/report-table.component';
@@ -15,6 +15,7 @@ import { SalesBreakdownRow } from './sales-view';
  * up, but the export never does.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   selector: 'app-sales-breakdown-card',
   standalone: true,
   imports: [CardComponent, ReportTableComponent, ReportExportBarComponent],

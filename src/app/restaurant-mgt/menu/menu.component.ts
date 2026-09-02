@@ -1,4 +1,4 @@
-import { Component, DestroyRef, HostListener, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, combineLatest, map } from 'rxjs';
@@ -12,6 +12,7 @@ import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { DnSegItem } from 'src/app/_shared/ui/segmented/segmented.component';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.Default,
     selector: 'app-menu',
     templateUrl: './menu.component.html',
     styleUrls: ['./menu.component.css'],
