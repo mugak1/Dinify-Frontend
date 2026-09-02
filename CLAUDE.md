@@ -845,20 +845,61 @@ writing new tag, price/menu or date-range logic:
   Angular 22 upgrade blockers (`lucide-angular` was the other, removed in PR-6).
   Both are gone and **the Angular 22 upgrade has since LANDED** — do not
   reintroduce either
-- **Every component MUST state `changeDetection` explicitly.** Angular 22 changed
-  the compiled default: `changeDetection: decl.changeDetection ?? OnPush`, so a
-  decorator that omits it is now OnPush, NOT Default. This app was written against
-  Default, so the upgrade pinned `ChangeDetectionStrategy.Default` on all 150
-  components (plus 8 spec-local host components) that had omitted it — that is
-  behaviour preservation, not an endorsement. A NEW component that omits the field
-  silently gets OnPush and will not re-render on plain field mutation, which no
-  compiler or lint error reports. angular-eslint v22's
-  `prefer-on-push-component-change-detection` is turned OFF in `eslint.config.js`
-  for exactly this reason (same opt-out spirit as `prefer-standalone` /
-  `prefer-inject`). Adopting OnPush properly is a separate, deliberate project:
-  it needs a per-component audit of every async mutation, since a `Default`
-  component updating from an HTTP/timer callback stops re-rendering under OnPush
-  unless something marks it dirty
+- **Every component MUST state `changeDetection` explicitly, as
+  `ChangeDetectionStrategy.Eager`.** Angular 22 changed the compiled default:
+  `changeDetection: decl.changeDetection ?? OnPush`, so a decorator that omits it
+  is now OnPush. This app was written against eager change detection, so every
+  component states it — behaviour preservation, not an endorsement.
+  **`Eager` is the v22 name; `Default` is the same enum value (both `1`) but is
+  `@deprecated` and "due to be removed"** — write `Eager`, and do not reintroduce
+  `Default`. A component that omits the field silently gets OnPush and stops
+  re-rendering on plain field mutation, which neither the compiler nor the type
+  checker reports. **That is now lint-enforced**: a `no-restricted-syntax` selector
+  in `eslint.config.js` fails any `@Component` whose metadata object has no
+  `changeDetection` property, spec-local host components included (the official v22
+  migration skipped four of those, which is why specs are in scope). Its `>
+  Property` is load-bearing — an unscoped `:has(Property…)` would also be satisfied
+  by a `changeDetection` key nested in an inner object and quietly stop catching the
+  real case. angular-eslint v22's `prefer-on-push-component-change-detection` is
+  turned OFF for the same decision's other half (same opt-out spirit as
+  `prefer-standalone` / `prefer-inject`). Adopting OnPush properly is a separate,
+  deliberate project: it needs a per-component audit of every async mutation, since
+  an eager component updating from an HTTP/timer callback stops re-rendering under
+  OnPush unless something marks it dirty
+- **HttpClient is pinned to the XHR backend.** Angular 22 flipped
+  `provideHttpClient()`'s default from XHR to Fetch, so the v22 migration added
+  `withXhr()` to the single call in `app.module.ts` (and to 32 spec TestBed setups).
+  This preserves pre-22 behaviour; **adopting Fetch is a deliberate follow-up, not a
+  default to drift into.** The audit for that follow-up, already done: no
+  `withCredentials` anywhere, no direct `XMLHttpRequest` / `XhrFactory` /
+  `HttpXhrBackend` reference, and the one genuinely Fetch-sensitive call —
+  `ApiService.postFileWithProgress` (`reportProgress` + `observe: 'events'`, which
+  Fetch cannot report for uploads) — **has no callers**. `UserChangePasswordOnLogin`
+  also sets `reportProgress: true`, but with `observe: 'response'`, where the flag is
+  inert. So the switch looks cheap; it still gets its own PR
+- **`$safeNavigationMigration()` wrappers in templates are load-bearing — never bulk
+  `sed` them away.** Pre-22 a template `?.` yielded `null` when the receiver was
+  nullish; v22 yields `undefined`. The v22 migration wrapped the sites where that
+  distinction reaches a null-sensitive sink, restoring `null`. There are **16, across
+  7 templates** (`auth/register` 5, `settings/billing` 3, `_common/confirm-dialog` 3,
+  `diner-app/payment-details` 2, then one each in `menu/section-form-dialog`,
+  `menu/item-form-dialog`, `diner-app/menu`). They are deliberately narrow — in
+  `confirm-dialog` only a ternary's consequent is wrapped, not its truthiness test,
+  and in `payment-details` the `=== 'successful'` comparisons are left bare, since
+  `null` and `undefined` are indistinguishable there. Unwrapping them is a
+  site-by-site audit of what each sink does with `null` vs `undefined`, one PR of its
+  own
+- **An Angular major is `ng update`, never a version bump.** A bump alone —
+  Dependabot's or ours — installs the new framework without running its migrations,
+  and the migrations that matter are RUNTIME behaviour changes that type-check, lint
+  and `build:prod` all pass straight through (v22's Fetch default and the `?.`
+  null→undefined change were both invisible to all five gates). **A Dependabot PR
+  crossing an Angular major is closed and replaced by an `ng update` PR.** If a
+  manual bump has already landed, run the migrations after the fact:
+  `ng update <pkg> --migrate-only --from=<old> --to=<new>` (needs `--allow-dirty`
+  after the first, and must be run for `@angular/cli`, `@angular/core` AND
+  `@angular/cdk` — each ships its own set). PR #648 is the worked example: it bumped
+  manually, went green, and still needed eight core migrations afterwards
 - Templates use Angular's built-in control flow (`@if` / `@for` / `@switch`) —
   the Angular 21 upgrade ran the control-flow migration across the app's
   templates (a handful of legacy `*ngIf`/`*ngFor` holdouts remain). Prefer the
@@ -1205,7 +1246,14 @@ writing new tag, price/menu or date-range logic:
   `baseUrl` (it errors, and goes away in TS 7) but ~319 imports here are written
   `src/app/...`, so the resolution moved to an equivalent `paths` mapping rather
   than being silenced with `ignoreDeprecations`. `downlevelIteration` was dropped
-  for the same reason — it only affects targets below ES2015 and this app is ES2022
+  for the same reason — it only affects targets below ES2015 and this app is ES2022.
+  Separately, `tsconfig.app.json` and `tsconfig.spec.json` (NOT `tsconfig.json`) each
+  carry an `angularCompilerOptions.extendedDiagnostics.checks` block suppressing
+  `nullishCoalescingNotNullable` and `optionalChainNotNullable`, written by the v22
+  migration: both would otherwise fire spuriously on the `$safeNavigationMigration()`
+  wrappers. Consequence worth knowing — `optionalChainNotNullable` IS NG8107, so the
+  three warnings `menu.component.html` used to print on every build are now silent by
+  configuration rather than by being fixed
 - `ngx-intl-telephone-input` was REMOVED (PRs 2a–2c) and replaced by the
   in-repo standalone `<app-dinify-phone-input>`
   (`src/app/shared/dinify-phone-input` — Uganda-only static `+256` + local
