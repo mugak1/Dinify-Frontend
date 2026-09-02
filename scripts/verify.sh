@@ -19,7 +19,7 @@
 #
 # Every step runs even if an earlier one fails, so you see all problems at
 # once; the script exits non-zero if any step failed. Assumes dependencies are
-# installed (npm ci --legacy-peer-deps).
+# installed (npm ci).
 
 set -uo pipefail
 

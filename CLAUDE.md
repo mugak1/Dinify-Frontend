@@ -1347,9 +1347,14 @@ entry is GONE** — its documented exit condition was met, and the Angular 22
 upgrade turned it from a no-op into a hazard: `@angular/build` 22.1.6 pins
 `esbuild` 0.28.2, which the `0.28.1` override would have DOWNGRADED. That is the
 standing lesson — re-check this block whenever `@angular/build` moves. All three
-workflows
-install with `npm ci --legacy-peer-deps` — use the same flag locally, since a
-plain `npm ci`/`npm install` can trip over peer-dependency conflicts.
+workflows install with a plain `npm ci` — **no `--legacy-peer-deps`** (DEPS-HYGIENE-01).
+The flag was needed while the Angular 21 tree had peer conflicts; the v22 tree
+resolves strictly, so it now only HIDES future ones. That matters concretely: a
+partial Dependabot major bump (exactly what #635 was) installs cleanly under the
+flag and fails later at runtime, instead of failing fast at install. Dinify-Admin
+already installs strictly, so this also removes Frontend as the org outlier. Use a
+plain `npm ci` locally too — if it ever raises ERESOLVE, that is the signal, not
+something to flag away.
 
 Lint runs on ESLint 10 + angular-eslint 22 through `eslint.config.js` (FLAT
 config). The former `.eslintrc.json` is gone and cannot come back: the v22 scoped
