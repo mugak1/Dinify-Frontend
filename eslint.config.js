@@ -37,12 +37,27 @@ module.exports = tseslint.config(
       'no-alert': 'warn',
       '@angular-eslint/prefer-standalone': 'off',
       '@angular-eslint/prefer-inject': 'off',
-      // angular-eslint v22 flags any component that states
-      // `ChangeDetectionStrategy.Default`, because Angular 22 made OnPush the
-      // compiled default. This app pins Default explicitly to keep the upgrade
-      // behaviour-preserving (see tsconfig/CLAUDE.md notes); adopting OnPush is
-      // separate, deliberate work. Same opt-out spirit as the two rules above.
+      // angular-eslint v22 flags any component that states an eager strategy,
+      // because Angular 22 made OnPush the compiled default. This app states
+      // `ChangeDetectionStrategy.Eager` explicitly to keep the upgrade
+      // behaviour-preserving; adopting OnPush is separate, deliberate work.
+      // Same opt-out spirit as the two rules above.
       '@angular-eslint/prefer-on-push-component-change-detection': 'off',
+      // ...and the other half of that decision: an OMITTED `changeDetection` is
+      // silently OnPush in v22 (`decl.changeDetection ?? OnPush` in the
+      // compiler). Nothing else reports it — it type-checks, lints and builds
+      // clean, then fails to re-render at runtime. This makes the CLAUDE.md
+      // rule mechanical. `> Property` is deliberate: a plain `:has(Property…)`
+      // would also match a `changeDetection` key nested in some inner object.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'Decorator > CallExpression[callee.name="Component"] > ObjectExpression:not(:has(> Property[key.name="changeDetection"]))',
+          message:
+            'Every @Component must state `changeDetection` explicitly: Angular 22 compiles an omitted field as OnPush. Use ChangeDetectionStrategy.Eager to preserve pre-22 behaviour.',
+        },
+      ],
     },
   },
   {
