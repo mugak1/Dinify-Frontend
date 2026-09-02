@@ -26,7 +26,7 @@ import { NoBaselineChipComponent } from '../../../../_shared/ui/no-baseline-chip
 import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-revenue-card',
   standalone: true,
   imports: [

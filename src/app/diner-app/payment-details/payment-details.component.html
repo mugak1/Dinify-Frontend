@@ -48,8 +48,8 @@
 
   @if (details) {
     <div class="w-full text-center">
-      <p class="font-bold text-lg">Payment {{details?.transaction_status|titlecase}}</p>
-      <p class="text-gray-400 text-sm mt-2"><span>Your payment of <span class="text-gray-500">UGX </span> <span class="text-black font-extrabold">{{details?.transaction_amount|number}}</span> paid @if (details?.transaction_status==='successful') {
+      <p class="font-bold text-lg">Payment {{$safeNavigationMigration(details?.transaction_status)|titlecase}}</p>
+      <p class="text-gray-400 text-sm mt-2"><span>Your payment of <span class="text-gray-500">UGX </span> <span class="text-black font-extrabold">{{$safeNavigationMigration(details?.transaction_amount)|number}}</span> paid @if (details?.transaction_status==='successful') {
       <span>was successfully received</span>
       }@if (details?.transaction_status==='pending'||details?.transaction_status==='initiated') {
       <span>is pending</span>

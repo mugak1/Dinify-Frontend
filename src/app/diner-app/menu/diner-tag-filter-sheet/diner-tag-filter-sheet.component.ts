@@ -13,7 +13,7 @@ import { MenuNavStateService } from '../menu-nav-state.service';
  * updates instantly. No Apply step — only a Clear at the top.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diner-tag-filter-sheet',
   standalone: true,
   imports: [TagPillComponent],

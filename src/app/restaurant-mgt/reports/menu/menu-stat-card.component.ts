@@ -11,7 +11,7 @@ import { ReportDeltaChipComponent } from '../components/delta-chip/delta-chip.co
  *     delta-chip and the value never reacts to the timeframe (Active items).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-stat-card',
   standalone: true,
   imports: [CardComponent, ReportDeltaChipComponent],

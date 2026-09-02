@@ -42,7 +42,7 @@ const ITEM_COLUMNS: ReportColumn[] = [
 ];
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-report',
   standalone: true,
   imports: [

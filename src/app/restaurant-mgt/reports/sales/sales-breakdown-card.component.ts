@@ -15,7 +15,7 @@ import { SalesBreakdownRow } from './sales-view';
  * up, but the export never does.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-sales-breakdown-card',
   standalone: true,
   imports: [CardComponent, ReportTableComponent, ReportExportBarComponent],

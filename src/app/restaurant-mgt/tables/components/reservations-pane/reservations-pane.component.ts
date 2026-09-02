@@ -28,7 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-reservations-pane',
   standalone: true,
   imports: [

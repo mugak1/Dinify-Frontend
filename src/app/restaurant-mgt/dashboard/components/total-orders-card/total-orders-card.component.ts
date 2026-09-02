@@ -22,7 +22,7 @@ interface StatusSegment {
 }
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-total-orders-card',
   standalone: true,
   imports: [

@@ -29,7 +29,7 @@ import { computeBulkTableNumbers } from '../../utils/bulk-table-numbers';
 import QRCode from 'qrcode';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables-setup-view',
   standalone: true,
   imports: [

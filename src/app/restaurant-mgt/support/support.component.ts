@@ -25,7 +25,7 @@ const SUPPORT_CONTACTS = {
 };
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-support',
   templateUrl: './support.component.html',
   styleUrl: './support.component.css',

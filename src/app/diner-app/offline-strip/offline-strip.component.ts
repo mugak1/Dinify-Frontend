@@ -14,7 +14,7 @@ import { ConnectivityService } from '../../_services/connectivity.service';
  * under the 48px brand strip and stays visible while scrolling.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-offline-strip',
   standalone: true,
   imports: [],

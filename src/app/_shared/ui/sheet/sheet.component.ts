@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 import { autoNameOverlayPanel } from '../dialog/dialog.component';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-sheet',
   standalone: true,
   imports: [A11yModule],

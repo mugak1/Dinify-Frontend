@@ -1,4 +1,4 @@
-import { Component, Type } from '@angular/core';
+import { Component, Type, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
 import { SpyLocation, provideLocationMocks } from '@angular/common/testing';
@@ -30,19 +30,24 @@ import { routes } from './app-routing.module';
  * portal's swallow-everything wildcard without pulling in real modules.
  */
 
-@Component({ template: '' })
+@Component({ changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class NamedStubComponent {}
 
-@Component({ template: '<router-outlet />', imports: [RouterOutlet] })
+@Component({ template: '<router-outlet />', changeDetection: ChangeDetectionStrategy.Eager,
+ imports: [RouterOutlet] })
 class ShellStubComponent {}
 
-@Component({ template: '' })
+@Component({ changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class PortalLeafStubComponent {}
 
-@Component({ template: '' })
+@Component({ changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class DinerLeafStubComponent {}
 
-@Component({ template: '' })
+@Component({ changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class KitchenLeafStubComponent {}
 
 const LAZY_LEAF_STUBS: Record<string, Type<unknown>> = {

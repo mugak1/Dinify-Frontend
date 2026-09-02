@@ -6,7 +6,7 @@ import { UpsellItem } from 'src/app/_models/app.models';
 import { environment } from 'src/environments/environment';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-upsell-preview-modal',
   standalone: true,
   imports: [CommonModule, DialogComponent, ButtonComponent],

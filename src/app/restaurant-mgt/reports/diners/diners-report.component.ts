@@ -52,7 +52,7 @@ const EXPORT_COLUMNS: ReportColumn[] = [
 ];
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diners-report',
   standalone: true,
   imports: [

@@ -22,7 +22,7 @@ type TimeframeDays = 30 | 90;
  * `trend`).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-reviews-overview',
   standalone: true,
   imports: [CommonModule, RouterModule, PageHeaderComponent, CardComponent, CardErrorComponent, BaseChartDirective],

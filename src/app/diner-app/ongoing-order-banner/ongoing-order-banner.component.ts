@@ -12,7 +12,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
  * the flat amber allergy notice it sits alongside in the basket).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-ongoing-order-banner',
   standalone: true,
   template: `

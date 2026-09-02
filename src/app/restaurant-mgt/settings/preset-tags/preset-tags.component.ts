@@ -24,7 +24,7 @@ import { PresetTagDeleteDialogComponent } from './components/preset-tag-delete-d
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-preset-tags',
   standalone: true,
   imports: [

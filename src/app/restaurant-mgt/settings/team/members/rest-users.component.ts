@@ -36,7 +36,7 @@ type LoadState = 'loading' | 'ready' | 'error';
  * delete + re-create is the only recovery (regenerate is deferred).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-rest-users',
   standalone: true,
   imports: [

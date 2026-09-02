@@ -73,7 +73,7 @@ const SALES_LISTING_COLUMNS: ReportColumn[] = [
 ];
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-sales-report',
   standalone: true,
   imports: [

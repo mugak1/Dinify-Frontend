@@ -21,7 +21,7 @@ import { OfflineBannerComponent } from '../_shared/ui';
 const SIDEBAR_STATE_KEY = 'sidebar.expanded';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-restaurant-mgt',
     templateUrl: './restaurant-mgt.component.html',
     styleUrls: ['./restaurant-mgt.component.css'],

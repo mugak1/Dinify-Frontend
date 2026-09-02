@@ -3,7 +3,7 @@ import { CardComponent } from '../../../../_shared/ui/card/card.component';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-card-error',
   standalone: true,
   imports: [CardComponent, ButtonComponent],

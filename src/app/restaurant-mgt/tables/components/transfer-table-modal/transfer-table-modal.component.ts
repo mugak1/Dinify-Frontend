@@ -6,7 +6,7 @@ import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import { RestaurantTable, DiningArea, SeatedParty } from '../../models/tables.models';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-transfer-table-modal',
   standalone: true,
   imports: [CommonModule, DialogComponent, ButtonComponent, BadgeComponent],

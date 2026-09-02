@@ -7,7 +7,7 @@ import { TablesSetupViewComponent } from './components/tables-setup-view/tables-
 import { PageHeaderComponent } from '../../_shared/ui/page-header/page-header.component';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables',
   standalone: true,
   imports: [TablesSetupViewComponent, PageHeaderComponent],

@@ -14,7 +14,7 @@ import { ConnectivityService } from '../_services/connectivity.service';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-diner-app',
     templateUrl: './diner-app.component.html',
     styleUrls: ['./diner-app.component.css'],

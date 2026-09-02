@@ -11,7 +11,7 @@ import { resolveColorString } from 'src/app/_common/utils/chart-theme-utils';
  * sparkline beside any metric.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-report-sparkline',
   standalone: true,
   imports: [BaseChartDirective],

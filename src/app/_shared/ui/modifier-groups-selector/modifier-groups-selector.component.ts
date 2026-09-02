@@ -26,7 +26,7 @@ export interface ModifierMultiToggleEvent {
  * keeps its `mod-group-<id>` DOM id so the diner route's scroll-to-first-unmet still works.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-modifier-groups-selector',
   standalone: true,
   imports: [CommonModule],

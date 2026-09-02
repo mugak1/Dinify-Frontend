@@ -4,7 +4,7 @@ import { By } from '@angular/platform-browser';
 import { ScrollProgressDirective } from './scroll-progress.directive';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [ScrollProgressDirective],
   template: `<div appScrollProgress [condenseAfter]="condenseAfter"></div>`,

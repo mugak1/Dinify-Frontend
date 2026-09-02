@@ -13,7 +13,7 @@ import { SwitchComponent } from 'src/app/_shared/ui/switch/switch.component';
 import { ItemDiscountDetails } from 'src/app/_models/app.models';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-item-discounts-tab',
   standalone: true,
   imports: [CommonModule, FormsModule, SwitchComponent],

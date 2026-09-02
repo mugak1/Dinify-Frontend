@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { cn } from '../../utils/cn';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-card',
   standalone: true,
   host: { class: 'block', '[class.h-full]': 'fullHeight' },

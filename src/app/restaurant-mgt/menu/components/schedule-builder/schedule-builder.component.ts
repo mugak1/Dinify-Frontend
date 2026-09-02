@@ -12,7 +12,7 @@ import {
 } from '../../utils/schedule-utils';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-schedule-builder',
   standalone: true,
   imports: [CommonModule, FormsModule, ButtonComponent],

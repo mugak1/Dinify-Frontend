@@ -18,7 +18,7 @@ import { MenuNavStateService } from '../../menu/menu-nav-state.service';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-basket-body',
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],

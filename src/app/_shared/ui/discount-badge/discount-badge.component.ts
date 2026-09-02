@@ -20,7 +20,7 @@ export type DiscountBadgeSize = 'sm' | 'md' | 'lg';
  * tag-pill palette settled on (green-600 / green-700) — no color-mix, no new hexes.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-discount-badge',
   standalone: true,
   imports: [],

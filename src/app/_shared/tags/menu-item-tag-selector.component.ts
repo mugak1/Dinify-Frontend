@@ -49,7 +49,7 @@ const MAX_TAGS_PER_ITEM = 20;
  *   `selectedTagIdsChange` output).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-item-tag-selector',
   standalone: true,
   imports: [

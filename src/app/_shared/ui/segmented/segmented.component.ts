@@ -65,7 +65,7 @@ export type DnSegLayout = 'hug' | 'responsive' | 'fill';
  * arms after the FIRST non-zero measurement, so the first real placement is an instant jump.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-segmented',
   standalone: true,
   imports: [CommonModule, RouterModule],

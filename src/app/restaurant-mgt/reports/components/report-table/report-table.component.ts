@@ -29,7 +29,7 @@ function compareValues(a: any, b: any, fmt: ReportColumnFormat | undefined, dir:
 }
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-report-table',
   standalone: true,
   imports: [CommonModule, BadgeComponent],

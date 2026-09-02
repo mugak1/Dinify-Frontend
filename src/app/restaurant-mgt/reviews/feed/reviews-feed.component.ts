@@ -24,7 +24,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
  * rating) mirrors the dashboard reviews-card. The resolve action is a follow-up.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-reviews-feed',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent, CardComponent, CardErrorComponent, BadgeComponent],

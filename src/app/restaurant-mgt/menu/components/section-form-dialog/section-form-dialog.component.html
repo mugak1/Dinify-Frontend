@@ -80,7 +80,7 @@
       <!-- Available -->
       <div class="flex items-center gap-2">
         <app-dn-switch
-          [checked]="form.get('available')?.value"
+          [checked]="$safeNavigationMigration(form.get('available')?.value)"
           (checkedChange)="form.get('available')?.setValue($event)">
         </app-dn-switch>
         <span class="text-sm text-foreground">Available</span>

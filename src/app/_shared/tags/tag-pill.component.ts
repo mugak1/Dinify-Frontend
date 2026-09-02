@@ -22,7 +22,7 @@ import {
  *  - the portal menu item list (dense `sm` variant)
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tag-pill',
   standalone: true,
   imports: [CommonModule],

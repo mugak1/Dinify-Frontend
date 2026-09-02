@@ -25,7 +25,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
 };
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-kds-attention-card',
   standalone: true,
   imports: [

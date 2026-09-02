@@ -12,7 +12,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { BulkStockBarComponent } from '../bulk-stock-bar/bulk-stock-bar.component';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-item-list',
   standalone: true,
   imports: [CommonModule, DragDropModule, ItemCardComponent, ButtonComponent, BulkStockBarComponent],

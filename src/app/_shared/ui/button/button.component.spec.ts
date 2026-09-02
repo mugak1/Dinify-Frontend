@@ -7,7 +7,7 @@ import { ButtonComponent, ButtonVariant } from './button.component';
 // consumer uses — so the disabled/aria-busy host bindings are exercised on a
 // real <button>.
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [ButtonComponent],
   template: `<button

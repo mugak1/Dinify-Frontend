@@ -10,7 +10,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import { environment } from 'src/environments/environment';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-search',
   standalone: true,
   imports: [CommonModule, FormsModule, ButtonComponent],

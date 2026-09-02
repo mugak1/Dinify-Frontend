@@ -13,7 +13,7 @@ const variantClasses: Record<BadgeVariant, string> = {
 };
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-badge',
   standalone: true,
   template: `<ng-content></ng-content>`,

@@ -32,7 +32,7 @@ const VERDICTS: Record<number, Verdict> = {
 };
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-order-complete',
     templateUrl: './order-complete.component.html',
     styleUrl: './order-complete.component.css',

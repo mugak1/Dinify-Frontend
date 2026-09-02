@@ -22,7 +22,7 @@ export interface ExtraOption {
  * scroll target intact.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-extras-selector',
   standalone: true,
   imports: [CommonModule, PriceDisplayComponent],

@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ApiService } from 'src/app/_services/api.service';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-payment-details',
     templateUrl: './payment-details.component.html',
     styleUrl: './payment-details.component.css',

@@ -17,7 +17,7 @@ import { UpsellPreviewModalComponent } from '../upsell-preview-modal/upsell-prev
 import { environment } from 'src/environments/environment';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-upsells-tab',
   standalone: true,
   imports: [

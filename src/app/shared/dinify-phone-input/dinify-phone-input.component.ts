@@ -51,7 +51,7 @@ export interface DinifyPhoneChange {
  *    the value was entered.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dinify-phone-input',
   standalone: true,
   imports: [],

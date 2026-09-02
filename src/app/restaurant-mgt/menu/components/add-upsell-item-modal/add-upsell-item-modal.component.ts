@@ -12,7 +12,7 @@ interface GroupedItems {
 }
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-add-upsell-item-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, DialogComponent, ButtonComponent],

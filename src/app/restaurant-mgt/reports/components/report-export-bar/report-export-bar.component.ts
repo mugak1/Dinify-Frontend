@@ -15,7 +15,7 @@ import { exportCsv, exportXlsx } from '../../utils/report-export';
 import { printReport } from '../../utils/report-print-sheet';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-report-export-bar',
   standalone: true,
   imports: [ButtonComponent, TooltipDirective],

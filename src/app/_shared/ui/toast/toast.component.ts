@@ -25,7 +25,7 @@ function isUrgent(type: Toast['type']): boolean {
 }
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-toast',
   standalone: true,
   template: `

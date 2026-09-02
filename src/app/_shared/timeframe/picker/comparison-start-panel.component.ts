@@ -20,7 +20,7 @@ import { RangeCalendarComponent } from './range-calendar.component';
 import { formatRangeSummary } from './range-label';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-comparison-start-panel',
   standalone: true,
   imports: [CommonModule, A11yModule, ButtonComponent, RangeCalendarComponent],

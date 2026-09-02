@@ -6,7 +6,7 @@
 // with no error anywhere. A manual click-through would catch it once; this catches it
 // forever. Drives the real shell + real child route table through the real router.
 
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -18,7 +18,8 @@ import { AuthenticationService } from '../../../_services/authentication.service
 import { LocalStorageService } from '../../../_services/storage/local-storage.service';
 import { TimeframeService } from '../../../_shared/timeframe';
 
-@Component({ standalone: true, template: '<p>report</p>' })
+@Component({ standalone: true, changeDetection: ChangeDetectionStrategy.Eager,
+ template: '<p>report</p>' })
 class StubReportComponent {}
 
 const REPORT_PATHS = ['sales', 'menu', 'transactions', 'diners'] as const;

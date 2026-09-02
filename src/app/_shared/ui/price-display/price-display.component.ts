@@ -17,7 +17,7 @@ export type PriceDisplayTone = 'accent' | 'neutral';
  * carousel, basket lines) at sizes sm→lg, plus the `+UGX` add-on / extra form via `prefix`.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-price-display',
   standalone: true,
   imports: [],

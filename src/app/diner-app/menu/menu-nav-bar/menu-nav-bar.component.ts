@@ -5,7 +5,7 @@ import { TagPillComponent } from 'src/app/_shared/tags';
 import { MenuFilterOption, MenuNavStateService } from '../menu-nav-state.service';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-nav-bar',
   standalone: true,
   imports: [CommonModule, FormsModule, TagPillComponent],

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideLocationMocks } from '@angular/common/testing';
 import { ActivatedRoute, provideRouter, RouterOutlet, Routes } from '@angular/router';
@@ -36,7 +36,8 @@ const orderingRoute = restaurantMgtRoutes.find((route) => route.path === 'rest-a
  *  activation so a silently-unactivated probe still fails. */
 const resolvedFlags: boolean[] = [];
 
-@Component({ template: '' })
+@Component({ changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class ProbeComponent implements OnInit {
   constructor(private readonly route: ActivatedRoute) {}
   ngOnInit(): void {
@@ -44,7 +45,8 @@ class ProbeComponent implements OnInit {
   }
 }
 
-@Component({ template: '<router-outlet />', imports: [RouterOutlet] })
+@Component({ template: '<router-outlet />', changeDetection: ChangeDetectionStrategy.Eager,
+ imports: [RouterOutlet] })
 class ShellStubComponent {}
 
 const DINER_CHILD_STUBS: Routes = [

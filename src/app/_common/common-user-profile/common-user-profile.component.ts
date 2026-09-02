@@ -7,7 +7,7 @@ import { AuthenticationService } from 'src/app/_services/authentication.service'
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-common-user-profile',
     templateUrl: './common-user-profile.component.html',
     styleUrl: './common-user-profile.component.css',

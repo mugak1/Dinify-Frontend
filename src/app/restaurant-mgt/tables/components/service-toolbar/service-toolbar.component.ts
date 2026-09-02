@@ -27,7 +27,7 @@ const STATUS_OPTIONS: { value: TableStatus; label: string }[] = [
 const TABLE_SIZE_OPTIONS = [2, 4, 6];
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-service-toolbar',
   standalone: true,
   imports: [FormsModule, BadgeComponent],

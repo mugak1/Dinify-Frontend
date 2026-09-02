@@ -8,7 +8,7 @@ import { AuthenticationService } from '../../../_services/authentication.service
 // route-scoped TimeframeService, which this global chrome cannot inject, and a control
 // that only ever applied to one page did not belong in the shell anyway.
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-top-nav',
   standalone: true,
   imports: [CommonModule],

@@ -41,7 +41,7 @@ const DEFAULT_BRAND_COLOR = '#171717';
  * membership, never a route param.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-identity',
   standalone: true,
   imports: [

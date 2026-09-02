@@ -21,7 +21,7 @@ import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
  * soft-delete PUT.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-staff-remove-dialog',
   standalone: true,
   imports: [FormsModule, DialogComponent, ButtonComponent],

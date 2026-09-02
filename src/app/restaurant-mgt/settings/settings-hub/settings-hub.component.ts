@@ -32,7 +32,7 @@ interface HubGroup {
  * horizontal-tab shell. Standalone, following the preset-tags pattern.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-settings-hub',
   standalone: true,
   imports: [RouterModule, SettingsIconComponent, PageHeaderComponent],

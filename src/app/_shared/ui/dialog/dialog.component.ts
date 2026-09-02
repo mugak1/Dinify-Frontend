@@ -40,7 +40,7 @@ export function autoNameOverlayPanel(
 }
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-dialog',
   standalone: true,
   imports: [A11yModule],

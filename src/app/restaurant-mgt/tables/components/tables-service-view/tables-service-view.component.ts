@@ -25,7 +25,7 @@ import {
 import { mockSeatedParties } from '../../data/tables-mock-data';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables-service-view',
   standalone: true,
   imports: [

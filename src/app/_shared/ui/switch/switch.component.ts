@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 export type SwitchSize = 'sm' | 'md';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-switch',
   standalone: true,
   host: { class: 'inline-flex' },

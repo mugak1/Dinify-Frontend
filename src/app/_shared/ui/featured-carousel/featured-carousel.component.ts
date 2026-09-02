@@ -6,7 +6,7 @@ import { PriceDisplayComponent } from '../price-display/price-display.component'
 import { DiscountBadgeComponent } from '../discount-badge/discount-badge.component';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-featured-carousel',
   standalone: true,
   imports: [CommonModule, PriceDisplayComponent, DiscountBadgeComponent],

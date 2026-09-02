@@ -16,7 +16,7 @@ import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import { DiningArea, RestaurantTable } from '../../models/tables.models';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-new-area-modal',
   standalone: true,
   imports: [

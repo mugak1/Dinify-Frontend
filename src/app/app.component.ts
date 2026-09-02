@@ -6,7 +6,7 @@ import { AuthenticationService } from './_services/authentication.service';
 import { InactivityService } from './_services/inactivity.service';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],

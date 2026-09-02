@@ -9,7 +9,7 @@ import { TablesData } from '../../models/dashboard.models';
 import { formatCompact } from '../../utils/format.utils';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables-card',
   standalone: true,
   host: { class: 'block h-full' },

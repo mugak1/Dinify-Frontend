@@ -17,7 +17,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
  * alone does not say what it is new relative to. It is pinned by spec — do not reword it.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-no-baseline-chip',
   standalone: true,
   template: `

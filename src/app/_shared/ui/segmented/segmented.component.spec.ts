@@ -17,7 +17,7 @@ const ROUTER_ITEMS: DnSegItem[] = [
 ];
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [DnSegmentedComponent],
   template: `
@@ -47,7 +47,7 @@ class HostComponent {
 
 /** Host that projects an #icon template so we can assert the ngTemplateOutlet context. */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [DnSegmentedComponent],
   template: `

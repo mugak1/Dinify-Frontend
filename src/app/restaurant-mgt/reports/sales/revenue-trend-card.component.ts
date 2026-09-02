@@ -32,7 +32,7 @@ const BEST = 'hsl(142, 71%, 45%)';
  * (it is no longer drawn as a chart line).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-revenue-trend-card',
   standalone: true,
   imports: [CardComponent, BaseChartDirective],

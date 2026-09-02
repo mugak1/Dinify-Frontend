@@ -31,7 +31,7 @@ import {
  * (`billing-plans.ts`) while the charged amount stays the configured `flat_fee`.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-billing',
   templateUrl: './billing.component.html',
   styleUrl: './billing.component.css',

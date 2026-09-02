@@ -27,7 +27,7 @@ const PAGE_SIZE = 50;
  * the footnote. A banner shows when the range is capped to the recent 31 days.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-transactions-listing',
   standalone: true,
   imports: [CardComponent, ButtonComponent, ReportTableComponent, ReportStateComponent],

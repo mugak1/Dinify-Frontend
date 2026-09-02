@@ -13,7 +13,7 @@ const sizeClasses: Record<AvatarSize, string> = {
 };
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dn-avatar',
   standalone: true,
   template: `{{ initials }}`,

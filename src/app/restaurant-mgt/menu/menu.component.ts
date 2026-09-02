@@ -12,7 +12,7 @@ import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { DnSegItem } from 'src/app/_shared/ui/segmented/segmented.component';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-menu',
     templateUrl: './menu.component.html',
     styleUrls: ['./menu.component.css'],

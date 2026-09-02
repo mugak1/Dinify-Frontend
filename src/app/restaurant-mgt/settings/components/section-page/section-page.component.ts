@@ -23,7 +23,7 @@ export type SectionPageState = 'ready' | 'loading' | 'error' | 'empty';
  * against the matching `pb-[64px]` content reserve. Literal px keeps them in lockstep.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-settings-section-page',
   standalone: true,
   imports: [CommonModule, RouterModule, ButtonComponent, SettingsIconComponent],

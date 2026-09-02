@@ -28,7 +28,7 @@ import { percentChange } from '../../../../_shared/utils/percent-change';
  * predicate used the coercing global `isFinite`, which admits `null`.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-report-delta-chip',
   standalone: true,
   imports: [NoBaselineChipComponent],

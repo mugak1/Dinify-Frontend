@@ -6,7 +6,7 @@ import { TagPillComponent } from 'src/app/_shared/tags/tag-pill.component';
 import { RestaurantTag } from 'src/app/_models/app.models';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-preset-tag-delete-dialog',
   standalone: true,
   imports: [DialogComponent, TagPillComponent, ButtonComponent],

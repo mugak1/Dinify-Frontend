@@ -34,7 +34,7 @@ import {
 import { ReportKey } from '../models/reports.models';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-reports-shell',
   standalone: true,
   imports: [CommonModule, RouterModule, TimeframePickerComponent, DnSegmentedComponent],

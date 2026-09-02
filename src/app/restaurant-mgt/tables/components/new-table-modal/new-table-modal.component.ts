@@ -37,7 +37,7 @@ export const TAG_OPTIONS = [
 ];
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-new-table-modal',
   standalone: true,
   imports: [

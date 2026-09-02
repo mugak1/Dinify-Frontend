@@ -3,7 +3,7 @@ import { ConfirmaDialogData } from 'src/app/_models/app.models';
 import { ConfirmDialogService } from '../confirm-dialog.service';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-confirm-dialog',
     templateUrl: './confirm-dialog.component.html',
     styleUrls: ['./confirm-dialog.component.css'],

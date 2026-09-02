@@ -11,7 +11,7 @@ import { createEmptySchedule, validateSchedules } from '../../utils/schedule-uti
 import { environment } from 'src/environments/environment';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-section-form-dialog',
   standalone: true,
   imports: [

@@ -6,7 +6,7 @@ import { ButtonComponent } from '../../../../_shared/ui/button/button.component'
 import { DiningArea, Reservation } from '../../models/tables.models';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-new-reservation-modal',
   standalone: true,
   imports: [FormsModule, DialogComponent, ButtonComponent],

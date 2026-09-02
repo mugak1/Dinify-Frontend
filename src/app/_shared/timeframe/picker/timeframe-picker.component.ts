@@ -106,7 +106,7 @@ export function timeframeOverlayPositions(): ConnectedPosition[] {
 }
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-timeframe-picker',
   standalone: true,
   imports: [

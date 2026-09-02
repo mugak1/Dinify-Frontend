@@ -6,7 +6,7 @@ import { TableScan } from '../../_models/app.models';
 import { MenuNavStateService } from '../menu/menu-nav-state.service';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-basket',
     templateUrl: './basket.component.html',
     styleUrls: ['./basket.component.css'],

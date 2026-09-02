@@ -23,7 +23,7 @@ interface TeamNavItem {
  * the 14px-root-font explicit-height rule).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-team-shell',
   standalone: true,
   imports: [RouterModule],

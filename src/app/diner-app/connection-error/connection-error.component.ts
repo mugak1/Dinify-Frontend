@@ -9,7 +9,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
  * the *terminal* "ask staff" screen for a removed/disabled table.
  */
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-diner-connection-error',
     imports: [],
     templateUrl: './connection-error.component.html',

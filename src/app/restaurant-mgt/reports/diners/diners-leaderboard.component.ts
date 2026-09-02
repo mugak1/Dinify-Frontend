@@ -28,7 +28,7 @@ const PAGE_SIZE = 50;
  * searchable list; a banner shows when the range is capped to the recent 31 days.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diners-leaderboard',
   standalone: true,
   imports: [CommonModule, CardComponent, ButtonComponent, AvatarComponent, ReportTableComponent, ReportStateComponent],

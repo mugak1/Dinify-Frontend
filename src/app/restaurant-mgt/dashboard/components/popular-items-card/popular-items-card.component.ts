@@ -8,7 +8,7 @@ import { PopularItemData } from '../../models/dashboard.models';
 import { formatCurrency } from '../../utils/format.utils';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-popular-items-card',
   standalone: true,
   host: { class: 'block h-full' },

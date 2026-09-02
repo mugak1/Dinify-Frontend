@@ -12,7 +12,7 @@ import { isDiscountActive, getCurrentPrice, getDiscountBadgeText } from 'src/app
 import { environment } from 'src/environments/environment';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-item-card',
   standalone: true,
   imports: [SwitchComponent, ButtonComponent, BadgeComponent, TooltipDirective, SafeArrayPipe, TagPillComponent, PriceDisplayComponent],

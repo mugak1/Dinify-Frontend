@@ -23,7 +23,7 @@ type GridLoadState = 'loading' | 'ready' | 'error';
  * flag (never inferred from the role name), so the lock stays data-driven.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-roles-access',
   standalone: true,
   imports: [SwitchComponent, SectionPageComponent],

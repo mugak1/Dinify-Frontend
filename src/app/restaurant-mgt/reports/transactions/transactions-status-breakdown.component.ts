@@ -12,7 +12,7 @@ import { DisplayTone, StatusBreakdown } from './transactions-view';
  * is mock-only until the payment integration (Gate 2) — marked with a footnote.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-transactions-status-breakdown',
   standalone: true,
   imports: [CommonModule, CardComponent],

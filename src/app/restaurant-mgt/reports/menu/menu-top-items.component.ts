@@ -15,7 +15,7 @@ const TOP_N = 6;
  * complete sortable item table). No per-item compare — that's deferred.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-top-items',
   standalone: true,
   imports: [CommonModule, CardComponent, DnSegmentedComponent],

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, Input, ViewChild, After
 import {environment} from '../../../environments/environment'
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-common-image',
     templateUrl: './common-image.component.html',
     styleUrls: ['./common-image.component.css'],

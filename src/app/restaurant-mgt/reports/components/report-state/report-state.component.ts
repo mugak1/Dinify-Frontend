@@ -48,7 +48,7 @@ const DEFAULT_COPY: Record<ReportStateMode, StateCopy> = {
 };
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-report-state',
   standalone: true,
   imports: [CommonModule, CardComponent, ButtonComponent],

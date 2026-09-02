@@ -9,7 +9,7 @@ import { RouterModule } from '@angular/router';
  * dark mode. The board renders into the router-outlet.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-kitchen',
   standalone: true,
   imports: [RouterModule],

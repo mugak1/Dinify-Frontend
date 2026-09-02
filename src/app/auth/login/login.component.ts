@@ -8,7 +8,7 @@ import { firstAccessibleRoute } from 'src/app/_helpers/module-access';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-login',
     templateUrl: './login.component.html',
     styleUrls: ['./login.component.css'],

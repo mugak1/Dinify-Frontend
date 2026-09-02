@@ -44,7 +44,7 @@ interface RoleOption {
  * `saved`. The parent reloads + toasts + closes; errors are surfaced here.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-staff-form-dialog',
   standalone: true,
   imports: [

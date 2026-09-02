@@ -48,7 +48,7 @@ interface MonthView {
 }
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-range-calendar',
   standalone: true,
   imports: [CommonModule],

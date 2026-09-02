@@ -11,7 +11,7 @@ import { HourBar, formatHourLabel, peakLabel } from './sales-view';
  * always renders. No comparison ghost (deltas live on headline numbers only).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-orders-by-hour-card',
   standalone: true,
   imports: [CardComponent],

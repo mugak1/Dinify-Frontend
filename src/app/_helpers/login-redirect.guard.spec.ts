@@ -1,8 +1,8 @@
-import { Component, NO_ERRORS_SCHEMA, Type } from '@angular/core';
+import { Component, NO_ERRORS_SCHEMA, Type, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
 import { SpyLocation, provideLocationMocks } from '@angular/common/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Route, Router, RouterOutlet, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -26,13 +26,16 @@ import { LoginResponse, PermissionsMap, RestaurantRole } from '../_models/app.mo
  * dropped, mirroring app-routing.module.spec.ts's stubbing approach.
  */
 
-@Component({ template: '' })
+@Component({ changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class NamedStubComponent {}
 
-@Component({ template: '<router-outlet />', imports: [RouterOutlet] })
+@Component({ template: '<router-outlet />', changeDetection: ChangeDetectionStrategy.Eager,
+ imports: [RouterOutlet] })
 class ShellStubComponent {}
 
-@Component({ template: '' })
+@Component({ changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class LazyLeafStubComponent {}
 
 function stubRoutesKeepingLoginGuard(): Routes {
@@ -97,7 +100,7 @@ describe('loginRedirectGuard (routed)', () => {
       providers: [
         provideRouter(stubRoutesKeepingLoginGuard()),
         provideLocationMocks(),
-        provideHttpClient(),
+        provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         {
           provide: AuthenticationService,

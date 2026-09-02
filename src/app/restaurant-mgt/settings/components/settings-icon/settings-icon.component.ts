@@ -21,7 +21,7 @@ export type SettingsIconName =
  * svg:path pattern — no lucide-angular, no SVGRepo dumps.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-settings-icon',
   standalone: true,
   imports: [],

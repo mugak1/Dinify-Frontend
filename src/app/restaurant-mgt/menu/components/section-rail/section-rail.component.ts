@@ -12,7 +12,7 @@ import { TooltipDirective } from 'src/app/_shared/ui/tooltip/tooltip.directive';
 import { isSectionCurrentlyActive } from '../../utils/schedule-utils';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-section-rail',
   standalone: true,
   imports: [

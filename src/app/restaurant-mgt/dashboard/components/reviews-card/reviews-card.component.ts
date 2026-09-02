@@ -10,7 +10,7 @@ import { ReviewsSummaryResponse, ReviewDistribution, RecentReview } from '../../
 type Sentiment = 'positive' | 'neutral' | 'negative';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-reviews-card',
   standalone: true,
   host: { class: 'block' },

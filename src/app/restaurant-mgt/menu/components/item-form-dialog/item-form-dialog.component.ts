@@ -18,7 +18,7 @@ import { environment } from 'src/environments/environment';
 import imageCompression from 'browser-image-compression';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-item-form-dialog',
   standalone: true,
   imports: [

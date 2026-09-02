@@ -24,7 +24,7 @@ import {
 } from 'src/app/_models/app.models';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-item-modifiers-tab',
   standalone: true,
   imports: [

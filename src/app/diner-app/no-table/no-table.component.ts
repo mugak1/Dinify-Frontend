@@ -4,7 +4,7 @@ import { SessionStorageService } from '../../_services/storage/session-storage.s
 import { Restaurant } from '../../_models/app.models';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-no-table',
     imports: [],
     templateUrl: './no-table.component.html',

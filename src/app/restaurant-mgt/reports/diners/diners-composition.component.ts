@@ -12,7 +12,7 @@ import { OrderSplit, RepeatBreakdown } from './diners-view';
  *     "new vs returning" (no first-ever-seen logic exists).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diners-composition',
   standalone: true,
   imports: [CommonModule, CardComponent],

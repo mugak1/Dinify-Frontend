@@ -15,7 +15,7 @@ export type SavingsIndicatorVariant = 'pill' | 'banner';
  * banner). Greens reuse the tag-pill palette steps (green-50 / green-200 / green-600 / green-700).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-savings-indicator',
   standalone: true,
   imports: [],

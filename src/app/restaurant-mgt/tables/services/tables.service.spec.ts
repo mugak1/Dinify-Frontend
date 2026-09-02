@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
@@ -17,7 +17,7 @@ describe('TablesService.updateFloorPlan', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
     });
     service = TestBed.inject(TablesService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -75,7 +75,7 @@ describe('TablesService Service-View fail-loud guard', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
     });
     service = TestBed.inject(TablesService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -126,7 +126,7 @@ describe('TablesService.bulkCreateTables', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
     });
     service = TestBed.inject(TablesService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -182,7 +182,7 @@ describe('TablesService.regenerateTableQr', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
     });
     service = TestBed.inject(TablesService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -338,7 +338,7 @@ describe('TablesService.activateQrForTables', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
     });
     service = TestBed.inject(TablesService);
     httpMock = TestBed.inject(HttpTestingController);

@@ -4,7 +4,7 @@ import { PresetTag } from '../../services/tag.service';
 import { getTagColorClasses, getTagIcon } from 'src/app/_common/utils/tag-utils';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tag-filter-sheet',
   standalone: true,
   imports: [CommonModule],

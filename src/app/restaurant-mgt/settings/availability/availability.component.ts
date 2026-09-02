@@ -56,7 +56,7 @@ function closeAfterOpen(group: AbstractControl): ValidationErrors | null {
  * is the union of both, and a single JSON PUT carries both fields.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-availability',
   standalone: true,
   imports: [

@@ -28,7 +28,7 @@ const GROUPINGS: { value: MenuGrouping; label: string }[] = [
  *     — this IS the full menu (grouping=items on menu-summary; no listing endpoint).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu-category',
   standalone: true,
   imports: [

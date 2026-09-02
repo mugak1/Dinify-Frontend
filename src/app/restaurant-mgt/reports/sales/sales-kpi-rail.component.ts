@@ -23,7 +23,7 @@ interface KpiTile {
  * window. The parent supplies the per-bucket points + the current/previous totals.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-sales-kpi-rail',
   standalone: true,
   imports: [CardComponent, ReportDeltaChipComponent, ReportSparklineComponent],

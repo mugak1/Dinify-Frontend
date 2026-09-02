@@ -24,7 +24,7 @@ const STATUS_COLORS: Record<TableStatus, string> = {
 };
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-table-details-drawer',
   standalone: true,
   imports: [

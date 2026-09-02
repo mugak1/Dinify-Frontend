@@ -12,7 +12,7 @@ import { EMPTY_TOTALS, SalesTotals } from './sales-view';
  * "on-platform refunds only". Pure presentational: the parent computes the totals.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-sales-hero',
   standalone: true,
   imports: [CardComponent, ReportDeltaChipComponent],

@@ -20,7 +20,7 @@ import { resolveDinerMountEmbedded } from '../diner-mount';
 import { ConnectivityService } from 'src/app/_services/connectivity.service';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-diners-menu',
     templateUrl: './menu.component.html',
     styleUrls: ['./menu.component.css'],

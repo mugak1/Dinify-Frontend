@@ -56,7 +56,7 @@ const LISTING_COLUMNS: ReportColumn[] = [
 ];
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-transactions-report',
   standalone: true,
   imports: [

@@ -21,7 +21,7 @@ import { PriceDisplayComponent } from 'src/app/_shared/ui/price-display/price-di
 import { environment } from 'src/environments/environment';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-upsell-carousel',
   standalone: true,
   imports: [PriceDisplayComponent],

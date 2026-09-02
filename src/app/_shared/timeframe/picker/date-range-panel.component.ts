@@ -14,7 +14,7 @@ import { RangeCalendarComponent } from './range-calendar.component';
 import { PRESET_LABELS, formatRangeSummary } from './range-label';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-date-range-panel',
   standalone: true,
   imports: [CommonModule, A11yModule, ButtonComponent, RangeCalendarComponent],

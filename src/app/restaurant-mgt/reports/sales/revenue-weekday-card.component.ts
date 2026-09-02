@@ -11,7 +11,7 @@ import { WeekdayRevenue } from './sales-view';
  * highlighted. No comparison ghost (deltas live on the headline numbers only).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-revenue-weekday-card',
   standalone: true,
   imports: [CardComponent],

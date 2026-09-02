@@ -25,7 +25,7 @@ import {
 } from './models/dashboard.models';
 
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-rest-dashboard',
     templateUrl: './dashboard.component.html',
     standalone: false,

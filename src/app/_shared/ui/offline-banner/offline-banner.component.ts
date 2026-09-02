@@ -15,7 +15,7 @@ import { ConnectivityService } from '../../../_services/connectivity.service';
  * the shell's flex column.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-offline-banner',
   standalone: true,
   template: `

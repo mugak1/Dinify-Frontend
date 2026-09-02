@@ -8,7 +8,7 @@ import { ModuleKey } from '../../../_models/app.models';
 import { NO_MODULE_ROUTE } from '../../../_helpers/module-access';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-sidebar',
   standalone: true,
   imports: [CommonModule, RouterModule, TooltipDirective, AvatarComponent],

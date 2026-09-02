@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListe
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-bulk-stock-bar',
   standalone: true,
   imports: [ButtonComponent],

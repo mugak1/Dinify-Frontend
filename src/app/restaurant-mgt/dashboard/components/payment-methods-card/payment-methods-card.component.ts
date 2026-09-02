@@ -28,7 +28,7 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-payment-methods-card',
   standalone: true,
   host: { class: 'block h-full' },

@@ -12,7 +12,7 @@ import { roleLabel } from '../../staff-roles';
  * user still shows "Finance" rather than blank.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-staff-detail-dialog',
   standalone: true,
   imports: [CommonModule, DialogComponent, ButtonComponent],

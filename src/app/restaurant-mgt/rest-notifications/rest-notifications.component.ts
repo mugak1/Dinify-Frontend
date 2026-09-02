@@ -14,7 +14,7 @@ type NotifState = 'loading' | 'ready' | 'error' | 'empty';
  * mark-read contract is ported verbatim.
  */
 @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-rest-notifications',
     templateUrl: './rest-notifications.component.html',
     styleUrl: './rest-notifications.component.css',

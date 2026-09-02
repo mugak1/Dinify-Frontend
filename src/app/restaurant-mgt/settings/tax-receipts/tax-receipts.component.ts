@@ -39,7 +39,7 @@ const DEFAULT_VAT_RATE = 18;
  * order/receipt pipeline (separate).
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.Default,
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tax-receipts',
   standalone: true,
   imports: [
