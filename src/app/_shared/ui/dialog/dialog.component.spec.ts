@@ -107,7 +107,7 @@ describe('DialogComponent', () => {
   //    the naming setter fires on panel creation. ────────────────────────────
   describe('accessible name', () => {
     @Component({
-      changeDetection: ChangeDetectionStrategy.Default,
+      changeDetection: ChangeDetectionStrategy.Eager,
       standalone: true,
       imports: [DialogComponent],
       template: `<app-dn-dialog [open]="true" [ariaLabel]="ariaLabel" [ariaLabelledby]="ariaLabelledby">

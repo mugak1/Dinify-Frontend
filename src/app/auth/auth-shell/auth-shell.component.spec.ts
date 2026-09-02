@@ -4,7 +4,7 @@ import { AuthShellComponent } from './auth-shell.component';
 
 describe('AuthShellComponent', () => {
   @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: true,
     imports: [AuthShellComponent],
     template: `<app-auth-shell [eyebrow]="eyebrow" [heading]="heading" [subtitle]="subtitle">

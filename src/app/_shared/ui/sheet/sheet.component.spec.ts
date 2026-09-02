@@ -51,7 +51,7 @@ describe('SheetComponent', () => {
 // configured fresh — the naming setter fires on panel creation.
 describe('SheetComponent accessible name', () => {
   @Component({
-    changeDetection: ChangeDetectionStrategy.Default,
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: true,
     imports: [SheetComponent],
     template: `<app-dn-sheet [open]="true"><h2>Review details</h2><p>Body</p></app-dn-sheet>`,

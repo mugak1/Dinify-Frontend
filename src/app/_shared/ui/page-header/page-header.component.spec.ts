@@ -33,7 +33,7 @@ describe('PageHeaderComponent', () => {
 
   it('projects an actions slot', async () => {
     @Component({
-      changeDetection: ChangeDetectionStrategy.Default,
+      changeDetection: ChangeDetectionStrategy.Eager,
       standalone: true,
       imports: [PageHeaderComponent],
       template: `<app-page-header title="Menu"><button actions id="cta">New</button></app-page-header>`,
