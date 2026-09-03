@@ -482,10 +482,10 @@ so keep it current when conventions change.
     that believes it is authenticated with no memberships, bounced off every guarded
     route while a valid session sat in storage. The redemption stays in memory until
     `GET users/user-profile/` succeeds, then ONE
-    `AuthenticationService.installAuthenticatedSession(session, membership)` seats it
-    (resetStorage → persist the complete `LoginResponse` → publish → persist
-    `rest_role`). That method mints nothing and is deliberately not a generic
-    `setUser(any)`
+    `AuthenticationService.installAuthenticatedSessionAndReload(session, membership,
+    landingPath)` seats it (resetStorage → persist the complete `LoginResponse` →
+    publish → persist `rest_role` → HARD navigate). That method mints nothing and is
+    deliberately not a generic `setUser(any)`
   - **THE CLAIMED MEMBERSHIP IS SELECTED FROM THE CANONICAL PROFILE, NEVER BUILT.**
     `restaurant_id` from redemption is CONTEXT; `profile.restaurant_roles` is AUTHORITY.
     The matching entry is used as-is, carrying the backend's resolved `permissions` map
@@ -508,6 +508,28 @@ so keep it current when conventions change.
     whatever page they had moved to. Redeem is worse — its `next` STARTS the bootstrap,
     so a dead component would issue a fresh request. All four are bound rather than only
     the bootstrap: they are one defect, not four
+  - **THE SUCCESSFUL CLAIM ENDS IN A FULL PAGE LOAD, NEVER `router.navigateByUrl`**
+    (OWNER-CLAIM-HARD-BOUNDARY-00). **Clearing storage does not replace an operator.**
+    `resetStorage()` empties localStorage, but every `providedIn: 'root'` service is
+    the SAME INSTANCE after a soft navigation, still holding the OUTGOING tenant's
+    data in its subjects. `MenuService._rawSections$` / `_allItems$` are the worked
+    example: they are BehaviorSubjects, so `sections$` keeps emitting the previous
+    restaurant's menu from the principal switch until a replacement read for the new
+    one SETTLES — and anything rendering off it in that window paints one tenant's
+    data inside another tenant's session. Owner claim can begin while a DIFFERENT
+    operator is signed in (the route is public, deliberately), so this is a
+    cross-session confidentiality problem rather than a stale-cache annoyance. The
+    hard navigation destroys the Angular injector and forces every root service to be
+    reconstructed under the new principal — the same mechanism `revokeAndExit`
+    already relies on for logout. **Do NOT substitute a hand-maintained list of root
+    caches to clear**: that list drifts the moment another root service starts
+    holding tenant data. The reload fires ONLY after a complete successful bootstrap
+    and canonical membership selection; an invalid claim, a wrong OTP, a rejected
+    password, a pending redemption, a failed bootstrap and a claimed restaurant
+    missing from the profile all return earlier and leave the ambient session
+    untouched. `hardRedirect` stays PROTECTED — reachable only through an operation
+    that has already put storage in a consistent state, never as a public
+    `hardRedirect(url)`
   - **THE BOOTSTRAP-FAILURE "Go to sign in" IS A BUTTON THROUGH `logout()`, NEVER A
     `routerLink` TO `/login`.** `/login` carries `loginRedirectGuard`, which forwards
     anyone holding a session AND a selected membership straight to their existing

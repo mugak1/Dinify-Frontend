@@ -11,6 +11,9 @@ import { AuthenticationService } from '../../_services/authentication.service';
 import { AuthInterceptor } from '../../_helpers/auth.interceptor';
 import { OWNER_CLAIM_TOKEN_HEADER } from '../../_services/owner-claim.service';
 import { LoginResponse, RestaurantRole } from '../../_models/app.models';
+import { MenuService } from '../../restaurant-mgt/menu/services/menu.service';
+import { WINDOW } from '../../_services/storage/window.token';
+import { STORAGE_KEY_PREFIX } from '../../_services/storage/storage-key-prefix.token';
 
 const BASE = `${environment.apiUrl}/api/${environment.version}`;
 const CHALLENGE_URL = `${BASE}/users/owner-claim/challenge/`;
@@ -79,6 +82,16 @@ describe('OwnerClaimComponent', () => {
   let auth: AuthenticationService;
   let navigate: jasmine.Spy;
   /**
+   * The `window.location.href = url` boundary inside AuthenticationService.
+   *
+   * Spying on it is what makes these specs runnable — executing it for real would
+   * unload the Karma host page. That unload is exactly the property production
+   * depends on: it destroys the Angular injector and every `providedIn: 'root'`
+   * service with it, which is the only thing that evicts the outgoing operator's
+   * in-memory tenant data. See the root-service isolation block below.
+   */
+  let hardRedirect: jasmine.Spy;
+  /**
    * Opt-in, per test. The teardown specs deliberately leave a CANCELLED request
    * open, and `verify()` counts a cancelled-but-open request by default. Flipping
    * this globally would make the assertion vacuous for every other spec here, which
@@ -142,12 +155,17 @@ describe('OwnerClaimComponent', () => {
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         provideHttpClient(withXhr(), withInterceptorsFromDi()),
         provideHttpClientTesting(),
+        // Only the root-service isolation block below needs these; MenuService
+        // reaches LocalStorageService through them. Inert for every other spec.
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: 'dinify' },
       ],
     });
 
     httpMock = TestBed.inject(HttpTestingController);
     auth = TestBed.inject(AuthenticationService);
     navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    hardRedirect = spyOn<any>(auth, 'hardRedirect');
 
     fixture = TestBed.createComponent(OwnerClaimComponent);
     component = fixture.componentInstance;
@@ -369,6 +387,7 @@ describe('OwnerClaimComponent', () => {
       expect(stored).not.toContain('NEW-CLAIM-TOKEN');
       expect(localStorage.getItem('rest_role')).toBeNull();
       expect(navigate).not.toHaveBeenCalled();
+      expect(hardRedirect).not.toHaveBeenCalled();
 
       httpMock.expectOne(PROFILE_URL).flush(profileBody([CLAIMED_MEMBERSHIP]));
     });
@@ -433,6 +452,7 @@ describe('OwnerClaimComponent', () => {
       expect(localStorage.getItem('user')).toBe(JSON.stringify(AMBIENT_SESSION));
       expect(localStorage.getItem('rest_role')).toBeNull();
       expect(navigate).not.toHaveBeenCalled();
+      expect(hardRedirect).not.toHaveBeenCalled();
       expect(component.stage).toBe('bootstrap-failed');
       expect(el().textContent).toContain('Retry');
     });
@@ -475,7 +495,9 @@ describe('OwnerClaimComponent', () => {
 
     it('lands on the first module the claimed membership can access', async () => {
       await completeClaimWith(CLAIMED_MEMBERSHIP);
-      expect(navigate).toHaveBeenCalledWith('/dashboard');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard');
+      // A principal switch must never be a soft navigation.
+      expect(navigate).not.toHaveBeenCalled();
     });
 
     it('does NOT hard-code /dashboard — a membership without it lands on its first module', async () => {
@@ -483,7 +505,9 @@ describe('OwnerClaimComponent', () => {
         ...CLAIMED_MEMBERSHIP,
         permissions: { dashboard: false, menu: true, tables: true },
       });
-      expect(navigate).toHaveBeenCalledWith('/menu');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/menu');
+      // A principal switch must never be a soft navigation.
+      expect(navigate).not.toHaveBeenCalled();
     });
 
     it('lands a membership with no accessible module on the shared no-module route', async () => {
@@ -494,7 +518,9 @@ describe('OwnerClaimComponent', () => {
           reports: false, settings: false, kitchen: false, billing: false, team: false,
         },
       });
-      expect(navigate).toHaveBeenCalledWith('/account');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/account');
+      // A principal switch must never be a soft navigation.
+      expect(navigate).not.toHaveBeenCalled();
     });
 
     it('lands a multi-restaurant claimant on the JUST-CLAIMED restaurant, keeping the rest', async () => {
@@ -505,7 +531,9 @@ describe('OwnerClaimComponent', () => {
 
       // EXISTING_MEMBERSHIP would have landed on /dashboard; the claimed one is
       // tables-first. No restaurant selector is shown.
-      expect(navigate).toHaveBeenCalledWith('/dining-tables');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/dining-tables');
+      // A principal switch must never be a soft navigation.
+      expect(navigate).not.toHaveBeenCalled();
       expect(auth.currentRestaurantRole.restaurant_id).toBe(CLAIMED_RESTAURANT);
       expect(auth.userValue?.profile.restaurant_roles.length).toBe(2);
     });
@@ -593,6 +621,7 @@ describe('OwnerClaimComponent', () => {
       expect(localStorage.getItem('user')).toBe(JSON.stringify(AMBIENT_SESSION));
       expect(auth.userValue?.token).toBe('AMBIENT-OPERATOR-TOKEN');
       expect(navigate).not.toHaveBeenCalled();
+      expect(hardRedirect).not.toHaveBeenCalled();
     });
 
     it('replaces that operator only once the claim has fully bootstrapped', async () => {
@@ -606,6 +635,141 @@ describe('OwnerClaimComponent', () => {
       httpMock.expectOne(PROFILE_URL).flush(profileBody([CLAIMED_MEMBERSHIP]));
       expect(auth.userValue?.token).toBe('n');
       expect(auth.userValue?.profile.id).toBe('owner-1');
+    });
+  });
+
+  // ── Why the reload exists ─────────────────────────────────────────────────────
+
+  describe('root-service isolation across a principal switch', () => {
+    /**
+     * THE REASON FOR THE HARD RELOAD, exercised against a real root service rather
+     * than asserted about one.
+     *
+     * `resetStorage()` empties localStorage. It does NOT touch the
+     * `providedIn: 'root'` services that survive a soft navigation, and those hold
+     * the outgoing tenant's data in memory. MenuService is the concrete case:
+     * `_rawSections$` keeps whatever was last loaded, and it is a BehaviorSubject —
+     * so `sections$` KEEPS EMITTING the previous restaurant's sections from the
+     * moment the principal changes until a replacement read for the incoming
+     * restaurant actually settles. Anything that renders off that subject in the
+     * meantime paints one tenant's menu inside another tenant's session.
+     *
+     * These specs cannot literally reload the Karma page, so they spy on
+     * `AuthenticationService.hardRedirect` — the `window.location.href = url`
+     * boundary. Executing it for real is what destroys the Angular injector and
+     * every root service with it; the spy stands in for that, and the assertions
+     * below show why nothing short of it is sufficient.
+     */
+
+    /** One page of sections, in the shape ApiService.loadAllPages unwraps. */
+    function sectionsPage(names: string[]) {
+      return {
+        status: 200,
+        data: { records: names.map((name, i) => ({ id: `sec-${i}`, name })) },
+      };
+    }
+
+    function sectionNames(menu: MenuService): string[] {
+      let latest: { name: string }[] = [];
+      menu.sections$.subscribe((v) => (latest = v as { name: string }[])).unsubscribe();
+      return latest.map((s) => s.name);
+    }
+
+    async function claimRestaurantB(): Promise<void> {
+      await passChallenge(false);
+      await typeInto('#claim-otp', '1234');
+      await submitForm();
+      httpMock.expectOne(REDEEM_URL).flush({
+        data: { token: 'n', refresh: 'r', restaurant_id: CLAIMED_RESTAURANT },
+      });
+      await settle();
+      httpMock.expectOne(PROFILE_URL).flush(profileBody([CLAIMED_MEMBERSHIP]));
+      await settle();
+    }
+
+    it('leaves the OUTGOING tenant\'s data in the surviving root service — only the reload clears it', async () => {
+      const menu = TestBed.inject(MenuService);
+
+      // Operator A's menu is loaded into the root service.
+      menu.loadSections('restaurant-A');
+      httpMock.expectOne((r) => r.url.includes('menusections'))
+        .flush(sectionsPage(['Restaurant A breakfast', 'Restaurant A grill']));
+      expect(sectionNames(menu)).toEqual(['Restaurant A breakfast', 'Restaurant A grill']);
+
+      await claimRestaurantB();
+
+      // The session HAS been replaced in storage...
+      expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id)
+        .toBe(CLAIMED_RESTAURANT);
+      // ...and yet the very same MenuService instance is still alive, still holding
+      // Restaurant A's sections. This is the defect a soft navigation would ship:
+      // resetStorage() cannot reach in-memory state.
+      expect(TestBed.inject(MenuService))
+        .withContext('the root service survived the principal switch')
+        .toBe(menu);
+      expect(sectionNames(menu))
+        .withContext("resetStorage() does not clear a root service's in-memory tenant data")
+        .toEqual(['Restaurant A breakfast', 'Restaurant A grill']);
+
+      // So the transition MUST go through the full-page boundary, which is the only
+      // thing that destroys the injector holding that instance.
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard');
+      expect(navigate)
+        .withContext('a soft navigation here would carry Restaurant A data into Restaurant B')
+        .not.toHaveBeenCalled();
+    });
+
+    it('keeps emitting the previous tenant while the incoming read is still in flight', async () => {
+      // The exposure window, stated exactly. `_rawSections$` is a BehaviorSubject:
+      // it holds its last value until something replaces it, so between the
+      // principal switch and the arrival of Restaurant B's sections, `sections$`
+      // still emits Restaurant A's. A soft navigation lands the user inside B's
+      // portal with that subject unchanged.
+      //
+      // (Note the failure path is NOT the exposure here: `loadAllPages` swallows a
+      // failed page and yields an empty list, so an ERROR overwrites the stale data
+      // with `[]`. It is the pending window that leaks, and it is enough.)
+      const menu = TestBed.inject(MenuService);
+      menu.loadSections('restaurant-A');
+      httpMock.expectOne((r) => r.url.includes('menusections'))
+        .flush(sectionsPage(['Restaurant A breakfast']));
+
+      await claimRestaurantB();
+
+      // A replacement read for the CLAIMED restaurant starts...
+      menu.loadSections(CLAIMED_RESTAURANT);
+      const pending = httpMock.expectOne((r) => r.url.includes('menusections'));
+
+      // ...and until it settles, the previous restaurant is what any subscriber sees.
+      expect(sectionNames(menu))
+        .withContext('Restaurant A stayed readable inside the Restaurant B session')
+        .toEqual(['Restaurant A breakfast']);
+
+      // Which is exactly why the account replacement ends in a page load: a reload
+      // means no such subscriber and no such subject exist at all.
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard');
+
+      pending.flush(sectionsPage(['Restaurant B mains']));
+    });
+
+    it('does NOT reload — and so does not disturb the ambient session — when the claim fails', async () => {
+      const menu = TestBed.inject(MenuService);
+      menu.loadSections('restaurant-A');
+      httpMock.expectOne((r) => r.url.includes('menusections'))
+        .flush(sectionsPage(['Restaurant A breakfast']));
+
+      await typeInto('#claim-code', CLAIM_CODE);
+      await submitForm();
+      httpMock.expectOne(CHALLENGE_URL).flush(
+        { status: 400, message: 'This owner claim is invalid or no longer available.' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+      await settle();
+
+      // Operator A keeps their session, their selection and their loaded menu.
+      expect(hardRedirect).not.toHaveBeenCalled();
+      expect(localStorage.getItem('user')).toBe(JSON.stringify(AMBIENT_SESSION));
+      expect(sectionNames(menu)).toEqual(['Restaurant A breakfast']);
     });
   });
 
@@ -637,6 +801,7 @@ describe('OwnerClaimComponent', () => {
       expect(localStorage.getItem('user')).toBe(JSON.stringify(AMBIENT_SESSION));
       expect(localStorage.getItem('rest_role')).toBeNull();
       expect(navigate).not.toHaveBeenCalled();
+      expect(hardRedirect).not.toHaveBeenCalled();
     });
 
     it('cancels an in-flight redemption and never starts the bootstrap from a dead component', async () => {
@@ -653,6 +818,7 @@ describe('OwnerClaimComponent', () => {
       // here would have a destroyed component issue a fresh request.
       httpMock.expectNone(PROFILE_URL);
       expect(navigate).not.toHaveBeenCalled();
+      expect(hardRedirect).not.toHaveBeenCalled();
     });
 
     it('cancels an in-flight challenge', async () => {
