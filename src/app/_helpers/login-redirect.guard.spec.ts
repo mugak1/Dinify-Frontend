@@ -75,7 +75,7 @@ const user = (topRoles: string[], memberships: RestaurantRole[]): LoginResponse 
   token: 't', refresh: 'r', require_otp: false, prompt_password_change: false,
   profile: {
     id: 'u1', first_name: 'Asha', last_name: 'K', email: 'asha@test.ug',
-    roles: topRoles, other_names: null, phone_number: null, restaurant_roles: memberships,
+    roles: topRoles, country: '', prompt_password_change: false, other_names: null, phone_number: null, restaurant_roles: memberships,
   },
 });
 

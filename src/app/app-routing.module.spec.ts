@@ -99,13 +99,27 @@ describe('app routes — ordering ratchet (static, real config)', () => {
   });
 
   it('declares every named root route (and the legacy rest-app redirect) above the portal parent', () => {
-    const named = ['login', 'register', 'forgot-password', 'welcome', 'diner',
-      'kitchen', 'lock-otp-exp', 'privacy', 'terms', 'cookies', 'rest-app'];
+    const named = ['login', 'register', 'forgot-password', 'welcome', 'owner-claim',
+      'diner', 'kitchen', 'lock-otp-exp', 'privacy', 'terms', 'cookies', 'rest-app'];
     for (const path of named) {
       const index = routes.findIndex((r) => r.path === path);
       expect(index).withContext(`route '${path}' is missing`).toBeGreaterThan(-1);
       expect(index).withContext(`route '${path}' must sit above the portal parent`).toBeLessThan(portalIndex);
     }
+  });
+
+  it('keeps /owner-claim public — neither AuthGuard nor loginRedirectGuard', () => {
+    // The claimant has no session (that is the point of the flow), and an
+    // already-signed-in operator claiming a SECOND restaurant must reach the form
+    // rather than be redirected to their existing landing. Either guard would break
+    // one of those two cases, so the route must carry neither.
+    const claim = routes.find((r) => r.path === 'owner-claim');
+    expect(claim).toBeTruthy();
+    expect(claim?.canActivate).toBeUndefined();
+    expect(claim?.canActivateChild).toBeUndefined();
+    expect(claim?.data?.['roles']).toBeUndefined();
+    expect(claim?.data?.['restaurant_roles']).toBeUndefined();
+    expect(claim?.loadComponent).toBeTruthy();
   });
 
   it('keeps the AuthGuard + restaurant_staff role data on the hoisted portal parent', () => {
@@ -139,7 +153,7 @@ describe('app routes — navigation behaviour (stubbed components, real paths/or
   }
 
   describe('named root routes resolve to their own route, never into the portal', () => {
-    for (const path of ['login', 'register', 'forgot-password', 'welcome', 'lock-otp-exp', 'privacy', 'terms', 'cookies']) {
+    for (const path of ['login', 'register', 'forgot-password', 'welcome', 'owner-claim', 'lock-otp-exp', 'privacy', 'terms', 'cookies']) {
       it(`resolves /${path} at its own route`, async () => {
         await harness.navigateByUrl(`/${path}`);
         expect(router.url).toBe(`/${path}`);

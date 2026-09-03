@@ -447,6 +447,90 @@ so keep it current when conventions change.
   `ToastService` (the legacy
   `MessageService` banner is retired) and suppresses its global 'no network' toast
   where a banner already shows (see error-handling note below)
+- Owner claim (route `/owner-claim`): ✅ the restaurant-portal half of backend Phase-1
+  Step 2F. A PUBLIC, standalone, lazy `OwnerClaimComponent` (`src/app/auth/owner-claim/`)
+  that turns a raw claim code plus an OTP into a fully bootstrapped portal session:
+  `POST users/owner-claim/challenge/` → `POST users/owner-claim/redeem/` →
+  `GET users/user-profile/` → install → land on the claimed restaurant. The route sits
+  ABOVE the portal parent and carries NEITHER `AuthGuard` (the claimant has no session)
+  NOR `loginRedirectGuard` (an already-signed-in operator claiming a SECOND restaurant
+  must reach the form, not be bounced to their existing landing); `owner-claim` is on
+  `NON_BANNER_SHELL_ROOTS` because it renders the AuthShell, not the portal banner.
+  Five things about it are load-bearing:
+  - **THE CLAIM CODE IS A BEARER CREDENTIAL HELD ONLY IN COMPONENT MEMORY.** Never a
+    query param, route param, fragment, localStorage, sessionStorage, cookie,
+    navigation state, analytics payload or log — it rides `X-Owner-Claim-Token` and
+    nothing else, matching the backend's single canonical extractor. A refresh loses
+    it and the owner pastes it again; that is the accepted cost of there being NO
+    delivery or claim-link architecture yet. Do not invent one, and do not fabricate
+    an invitation URL
+  - **ALL THREE CALLS BYPASS THE INTERCEPTORS**, via a `HttpBackend`-built client in
+    `_services/owner-claim.service.ts`. Two distinct defects: `AuthInterceptor` would
+    attach an ambient operator's Bearer token to endpoints the backend deliberately
+    declares `authentication_classes = []`; and — the one that produces a WRONG ANSWER
+    — it would overwrite the fresh redemption token on the bootstrap read, hydrating
+    the PREVIOUS user's profile and installing their memberships as the claimant's.
+    The bootstrap sets `Authorization` explicitly from the redemption result. A
+    consequence is that `ErrorInterceptor` is bypassed too, so the service owns its own
+    `HttpErrorResponse` translation (offline / rate_limited / refused / password /
+    server / unauthorized / malformed) and the screen renders errors inline instead of
+    as toasts. **Do NOT "fix" this by special-casing claim URLs in the global
+    interceptors** — the raw client is what makes the claim independent of ambient state
+  - **NOTHING IS PERSISTED UNTIL THE CANONICAL PROFILE ARRIVES.** Redemption returns
+    `token + refresh + restaurant_id` and NO profile, while `AuthGuard` authorises off
+    `profile.restaurant_roles` — so persisting the tokens alone would produce a browser
+    that believes it is authenticated with no memberships, bounced off every guarded
+    route while a valid session sat in storage. The redemption stays in memory until
+    `GET users/user-profile/` succeeds, then ONE
+    `AuthenticationService.installAuthenticatedSession(session, membership)` seats it
+    (resetStorage → persist the complete `LoginResponse` → publish → persist
+    `rest_role`). That method mints nothing and is deliberately not a generic
+    `setUser(any)`
+  - **THE CLAIMED MEMBERSHIP IS SELECTED FROM THE CANONICAL PROFILE, NEVER BUILT.**
+    `restaurant_id` from redemption is CONTEXT; `profile.restaurant_roles` is AUTHORITY.
+    The matching entry is used as-is, carrying the backend's resolved `permissions` map
+    that no client can compute. If the claimed restaurant is ABSENT from the profile the
+    flow **FAILS CLOSED** — no session, no navigation, no `restaurant_roles[0]` fallback
+    — and shows a recoverable error, because the claim result and the membership
+    resolver disagreeing is a real anomaly that deserves to be seen
+  - **REDEMPTION SUCCESS + BOOTSTRAP FAILURE IS ITS OWN STATE.** The claim has already
+    COMMITTED server-side, so Retry re-runs the PROFILE READ ONLY — re-POSTing a
+    consumed invitation would return the generic refusal and read as "your claim
+    failed" about a claim that succeeded. The panel says the claim is complete and
+    points at ordinary sign-in if the page is closed
+  - **EVERY CLAIM REQUEST IS BOUND TO THE COMPONENT'S LIFETIME** (`takeUntil(destroy$)`
+    on all four: challenge, resend, redeem, bootstrap). Angular does NOT cancel an HTTP
+    request when a component is destroyed — only unsubscribing does — and clearing the
+    fields in `ngOnDestroy` does not help, because `runBootstrap` closes over its
+    `redemption` ARGUMENT rather than reading the field. An unbound profile response
+    arriving after the user navigated away would still call `completeWith`: installing
+    the claimed session, replacing whoever was signed in, and redirecting them off
+    whatever page they had moved to. Redeem is worse — its `next` STARTS the bootstrap,
+    so a dead component would issue a fresh request. All four are bound rather than only
+    the bootstrap: they are one defect, not four
+  - **THE BOOTSTRAP-FAILURE "Go to sign in" IS A BUTTON THROUGH `logout()`, NEVER A
+    `routerLink` TO `/login`.** `/login` carries `loginRedirectGuard`, which forwards
+    anyone holding a session AND a selected membership straight to their existing
+    landing — and this panel deliberately PRESERVES an ambient operator's session, so a
+    plain link would bounce the claimant to somebody else's dashboard on the very screen
+    that promises "just sign in normally". `logout()` ends that session properly
+    (server-side revoke, storage cleared, hard redirect), so the form renders and the
+    guard has nothing to redirect; with no session open it is a no-op landing on
+    `/login`. The stage-1 "Already set up? Sign in" link is deliberately left a plain
+    `routerLink` — there, forwarding an already-signed-in operator to their landing is
+    the guard doing its job
+  Two smaller contracts worth keeping: `credential_setup_required` comes STRAIGHT from
+  the challenge response and is never inferred (it decides whether `new_password` is
+  sent, and the backend refuses an unwanted one rather than ignoring it); and "Send
+  another code" re-calls the CLAIM challenge, never `users/auth/resend-otp/`, because
+  the owner-claim OTP has its own purpose and redemption binds verification to it.
+  The post-claim landing uses the SAME `firstAccessibleRoute(permissions, roles)` login
+  uses — never a hard-coded `/dashboard` — and no restaurant selector is shown, since
+  the claimant just told us which restaurant they mean. It deliberately does NOT divert
+  to `lock-otp-exp` on `prompt_password_change`: that screen needs the user's OLD
+  password, which a claim never collects. The generic backend refusal is rendered
+  VERBATIM and never interpreted into "expired" / "wrong code" / "already claimed" —
+  the backend collapses those on purpose, and attempt counters are never displayed
 - Legal pages: standalone components in `src/app/legal/` (privacy-policy,
   terms-and-conditions, cookie-policy), lazy-loaded as public routes
   `/privacy`, `/terms`, `/cookies` via `loadComponent` in `app-routing.module.ts`

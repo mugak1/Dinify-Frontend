@@ -40,7 +40,7 @@ describe('AuthenticationService', () => {
     });
 
     it('should restore user from localStorage on construction', () => {
-      const stored = { token: 'abc', refresh: 'def', profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }, require_otp: false, prompt_password_change: false };
+      const stored = { token: 'abc', refresh: 'def', profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] }, require_otp: false, prompt_password_change: false };
       localStorage.setItem('user', JSON.stringify(stored));
 
       // Re-create service to pick up localStorage
@@ -58,7 +58,7 @@ describe('AuthenticationService', () => {
         data: {
           token: 'jwt-token',
           refresh: 'refresh-token',
-          profile: { id: '1', first_name: 'Test', last_name: 'User', email: 'test@test.com', roles: ['restaurant_staff'], phone_number: '123', other_names: '', restaurant_roles: [] },
+          profile: { id: '1', first_name: 'Test', last_name: 'User', email: 'test@test.com', roles: ['restaurant_staff'], phone_number: '123', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] },
           require_otp: false,
           prompt_password_change: false
         },
@@ -83,7 +83,7 @@ describe('AuthenticationService', () => {
 
       const req = httpMock.expectOne(`${base}/users/auth/login/`);
       expect(req.request.body).toEqual({ username: 'user', password: 'pass', source: 'diner' });
-      req.flush({ data: { token: 't', refresh: 'r', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }, require_otp: false, prompt_password_change: false } });
+      req.flush({ data: { token: 't', refresh: 'r', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] }, require_otp: false, prompt_password_change: false } });
     });
 
     it('should NOT store user in localStorage when require_otp is true', () => {
@@ -91,7 +91,7 @@ describe('AuthenticationService', () => {
         data: {
           token: 'temp-token',
           refresh: 'temp-refresh',
-          profile: { id: '1', first_name: 'Test', last_name: 'User', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+          profile: { id: '1', first_name: 'Test', last_name: 'User', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] },
           require_otp: true,
           prompt_password_change: false
         }
@@ -111,7 +111,7 @@ describe('AuthenticationService', () => {
         data: {
           token: 'temp-token',
           refresh: 'temp-refresh',
-          profile: { id: '1', first_name: 'Test', last_name: 'User', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+          profile: { id: '1', first_name: 'Test', last_name: 'User', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] },
           require_otp: false,
           prompt_password_change: true
         }
@@ -234,7 +234,7 @@ describe('AuthenticationService', () => {
     const userWithRefresh = {
       token: 'access-xyz',
       refresh: 'refresh-abc',
-      profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+      profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] },
       require_otp: false,
       prompt_password_change: false,
     };
@@ -341,7 +341,7 @@ describe('AuthenticationService', () => {
     const userWithRefresh = {
       token: 'old-access',
       refresh: 'refresh-123',
-      profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+      profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] },
       require_otp: false,
       prompt_password_change: false
     };
@@ -355,7 +355,7 @@ describe('AuthenticationService', () => {
     });
 
     it('should return null when user has no refresh token', (done) => {
-      localStorage.setItem('user', JSON.stringify({ token: 'abc', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] } }));
+      localStorage.setItem('user', JSON.stringify({ token: 'abc', profile: { id: '1', first_name: '', last_name: '', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] } }));
 
       const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
       svc.attemptTokenRefresh().subscribe((result) => {
@@ -443,7 +443,7 @@ describe('AuthenticationService', () => {
     it('should merge OTP tokens with login response and persist', () => {
       const loginResponse: any = {
         token: 'old', refresh: 'old-r',
-        profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+        profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] },
         require_otp: true, prompt_password_change: false
       };
 
@@ -461,7 +461,7 @@ describe('AuthenticationService', () => {
     it('should fall back to userValue when no loginResponse provided', () => {
       localStorage.setItem('user', JSON.stringify({
         token: 'old', refresh: 'old-r',
-        profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }
+        profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] }
       }));
       const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
 
@@ -472,6 +472,83 @@ describe('AuthenticationService', () => {
     it('should return null when no user is available', () => {
       const result = service.UpdateUser({ valid: true, token: 'tok', refresh: 'ref' });
       expect(result).toBeNull();
+    });
+  });
+
+  describe('installAuthenticatedSession', () => {
+    // The owner-claim flow's session seat. Everything asserted here is about it
+    // being ATOMIC and MINTING NOTHING: the credentials arrive already established
+    // from the redemption transaction.
+
+    const membership = {
+      restaurant_id: 'claimed-1',
+      restaurant: 'Baba House',
+      roles: ['owner'],
+      permissions: { dashboard: true, menu: true },
+    };
+
+    const session: any = {
+      token: 'claim-access',
+      refresh: 'claim-refresh',
+      profile: {
+        id: 'owner-1', first_name: 'Asha', last_name: 'K', email: 'a@test.ug',
+        country: 'UG', roles: [], other_names: null, phone_number: '256700000000',
+        prompt_password_change: false, restaurant_roles: [membership],
+      },
+      require_otp: false,
+      prompt_password_change: false,
+    };
+
+    it('persists the COMPLETE LoginResponse and publishes it through userSubject', (done) => {
+      service.installAuthenticatedSession(session, membership as any);
+
+      expect(JSON.parse(localStorage.getItem('user')!)).toEqual(session);
+      expect(service.userValue).toEqual(session);
+      service.user.subscribe((published) => {
+        expect(published?.token).toBe('claim-access');
+        expect(published?.profile.restaurant_roles.length).toBe(1);
+        done();
+      });
+    });
+
+    it('persists the given membership as the selected rest_role', () => {
+      service.installAuthenticatedSession(session, membership as any);
+      expect(JSON.parse(localStorage.getItem('rest_role')!)).toEqual(membership);
+      expect(service.currentRestaurantRole).toEqual(membership as any);
+    });
+
+    it('clears a PREVIOUS operator\'s selection and persisted nav state first', () => {
+      // Ordering matters: without the resetStorage() the old operator's
+      // current_resta and per-module nav state would sit underneath the new
+      // principal and scope the portal to the wrong restaurant.
+      localStorage.setItem('current_resta', JSON.stringify({ id: 'old-restaurant' }));
+      localStorage.setItem('rest_role', JSON.stringify({ restaurant_id: 'old-restaurant' }));
+      localStorage.setItem('[dinify]tables.activeArea:old-restaurant', '"area-9"');
+
+      service.installAuthenticatedSession(session, membership as any);
+
+      expect(localStorage.getItem('current_resta')).toBeNull();
+      expect(localStorage.getItem('[dinify]tables.activeArea:old-restaurant')).toBeNull();
+      expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id).toBe('claimed-1');
+    });
+
+    it('issues NO http request — it mints nothing and calls neither login nor verify-otp', () => {
+      service.installAuthenticatedSession(session, membership as any);
+      // httpMock.verify() in afterEach would fail on any stray request; this is the
+      // explicit statement of the same fact.
+      httpMock.expectNone(`${base}/users/auth/login/`);
+      httpMock.expectNone(`${base}/users/auth/verify-otp/`);
+      httpMock.expectNone(`${base}/users/auth/token/refresh/`);
+    });
+
+    it('drives the RBAC read-throughs off the newly selected membership', () => {
+      service.installAuthenticatedSession(
+        session,
+        { ...membership, permissions: { dashboard: false, menu: true } } as any,
+      );
+      expect(service.canAccess('dashboard')).toBeFalse();
+      expect(service.canAccess('menu')).toBeTrue();
+      expect(service.firstAccessibleRoute()).toBe('/menu');
     });
   });
 

@@ -15,7 +15,7 @@ function makeProfile(overrides: Record<string, unknown> = {}) {
     email: 'amara@example.com',
     phone_number: '256700000000',
     roles: [],
-    other_names: null,
+    country: '', prompt_password_change: false, other_names: null,
     restaurant_roles: [],
     ...overrides,
   };
