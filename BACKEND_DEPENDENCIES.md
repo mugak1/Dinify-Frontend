@@ -1,6 +1,6 @@
 # Backend Dependencies
 
-> **Last verified against codebase:** 2026-03-26
+> **Last verified against codebase:** 2026-09-03
 
 This document lists the backend API contracts that this frontend repo assumes but
 **cannot verify independently**. Each entry notes the frontend evidence (files,
@@ -148,6 +148,85 @@ particular, confirm:
 
 ---
 
+## 4b. Owner Claim + Profile Bootstrap (Backend Phase-1 Step 2F)
+
+**Status:** Active — VERIFIED against the backend source at
+`3b7e92ef490ff58f9fc8253e4ff4f551ef676d7d` (`platform_admin_app/endpoints/owner_claim.py`,
+`users_app/endpoints/user_profile.py`, `users_app/serializers.py`). Unlike the other
+entries here these are not assumptions: the three contracts below were read off the
+implementation, not inferred from frontend usage.
+
+**Frontend evidence:** `src/app/_services/owner-claim.service.ts` (all three calls, on a
+`HttpBackend`-built client so no interceptor runs) and
+`src/app/auth/owner-claim/owner-claim.component.ts` (route `/owner-claim`).
+
+### Step 2F.1 — challenge
+
+```
+POST /api/v1/users/owner-claim/challenge/
+X-Owner-Claim-Token: <raw claim code>      # header only; never URL, body or cookie
+Body: {}
+No Authorization header (backend declares authentication_classes = [])
+
+200 { "status": 200, "message": "Verification code sent.",
+      "data": { "credential_setup_required": true | false } }
+400 { "status": 400, "message": "This owner claim is invalid or no longer available." }
+500 { "status": 500, "message": "We couldn't send your verification code. Please try again." }
+429 DRF throttle (scope `owner_claim_challenge`, default 5/min per IP)
+```
+
+`credential_setup_required` is READ, never inferred: it decides whether redemption must
+carry `new_password`, and the backend refuses a password it did not ask for.
+
+### Step 2F.2 — redeem
+
+```
+POST /api/v1/users/owner-claim/redeem/
+X-Owner-Claim-Token: <the same raw claim code>
+Body (brand-new owner):  { "otp": "<string>", "new_password": "<raw, untrimmed>" }
+Body (established owner): { "otp": "<string>" }              # new_password OMITTED
+
+200 { "status": 200, "message": "Owner claim completed.",
+      "data": { "token": "<access>", "refresh": "<refresh>", "restaurant_id": "<uuid>" } }
+400 { "status": 400, "message": "This owner claim or verification code is invalid or no longer available." }
+400 { "status": 400, "message": "...", "errors": { "new_password": ["<Django validator messages>"] } }
+429 DRF throttle (scope `owner_claim_redeem`, default 5/min per IP)
+```
+
+`otp` is a STRING — never parsed as a number, since a leading zero is significant. The
+password is sent byte-for-byte untrimmed. NO profile is returned, deliberately.
+
+### Step 2F.3 — profile bootstrap
+
+```
+GET /api/v1/users/user-profile/
+Authorization: Bearer <the access token redemption just returned>
+
+200 { "status": 200, "message": "Profile retrieved.",
+      "data": { "profile": <SerGetUserProfile> } }
+```
+
+`SerGetUserProfile.Meta.fields` is exactly: `id`, `first_name`, `last_name`, `email`,
+`phone_number`, `country`, `roles`, `prompt_password_change`, `restaurant_roles`. Each
+`restaurant_roles` entry is `{restaurant_id, restaurant, roles, permissions}` from
+`get_any_restaurant_roles` — the SAME builder `login` feeds in through context, so login
+and bootstrap cannot disagree about a principal.
+
+**Two frontend invariants this contract creates:**
+
+- `restaurant_roles` is the AUTHORITY for tenant access. The `restaurant_id` redemption
+  returns is CONTEXT — it selects which membership out of that array, and says nothing
+  about what the membership may do. `roles` / `permissions` are NEVER fabricated from it.
+- `other_names` is in the frontend `Profile` model but is NOT in the serializer's field
+  list and never arrives. It is legacy; do not add readers of it.
+
+**Action needed:** none for this flow. If `SerGetUserProfile.Meta.fields` changes, update
+the `Profile` interface in `src/app/_models/app.models.ts` in the same change —
+`prompt_password_change` in particular is consumed when building the claimed session's
+`LoginResponse`.
+
+---
+
 ## 5. Diner Journey / Table Scan
 
 **Status:** In use, assumed working.
@@ -249,6 +328,7 @@ for current stabilization but recommended before production launch.
 | Dependency | Status | Blocking? |
 |------------|--------|-----------|
 | Token refresh endpoint | Active (SimpleJWT TokenRefreshView) | No |
+| Owner claim + profile bootstrap | Active — verified against backend source | No |
 | Login response shape | In use, needs confirmation | No — working in practice |
 | Role payload shape | In use, needs confirmation | No — working in practice |
 | Password change fields | In use, needs confirmation | No — working in practice |

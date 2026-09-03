@@ -33,14 +33,38 @@ export interface OTPResponse {
   refresh: string
 }
 
+/**
+ * The canonical authenticated principal, as the backend's `SerGetUserProfile`
+ * emits it. ONE profile shape serves BOTH bootstrap paths — ordinary login
+ * (`users/auth/login/`) and the owner-claim bootstrap read
+ * (`GET users/user-profile/`) — because the backend serves them from that same
+ * serializer with the same `get_any_restaurant_roles` membership resolver. There
+ * is deliberately no second claim-specific profile type: a parallel vocabulary is
+ * how the two paths come to disagree about what a principal may do.
+ *
+ * `restaurant_roles` is the AUTHORITY for tenant access. It is never derived from
+ * a restaurant id handed back by another call — see OwnerClaimComponent.
+ *
+ * NOTE `other_names` is NOT in the serializer's field list and never arrives; it
+ * is a legacy declaration kept because callers still reference it. Do not add new
+ * readers of it. Every other field here is emitted unconditionally.
+ */
 export interface Profile {
   id: string
   first_name: string
   last_name: string
   email: string
+  country: string
   roles: string[]
   other_names: any
   phone_number:any;
+  /**
+   * Whether the backend wants this identity to change its password before
+   * continuing. Emitted by `SerGetUserProfile`, so it has always been present on
+   * every profile this app has received — including persisted sessions.
+   * `LoginResponse.prompt_password_change` mirrors it at the envelope level.
+   */
+  prompt_password_change: boolean
   restaurant_roles: RestaurantRole[]
 }
 /**

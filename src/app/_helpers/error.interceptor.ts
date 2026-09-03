@@ -21,7 +21,7 @@ import { ConnectivityService } from '../_services/connectivity.service';
  */
 export const NON_BANNER_SHELL_ROOTS: readonly string[] = [
     'login', 'register', 'forgot-password', 'welcome', 'lock-otp-exp',
-    'privacy', 'terms', 'cookies', 'kitchen', 'diner',
+    'owner-claim', 'privacy', 'terms', 'cookies', 'kitchen', 'diner',
 ];
 
 @Injectable()

@@ -57,7 +57,7 @@ describe('AuthGuard', () => {
   it('should allow access when authenticated and no role restriction', () => {
     setUser({
       token: 'test-token',
-      profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] }
+      profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] }
     });
     const result = guard.canActivate(makeRoute(), makeState('/'));
     expect(result).toBeTrue();
@@ -71,7 +71,7 @@ describe('AuthGuard', () => {
     // grants nothing — including for an ordinary restaurant role.
     setUser({
       token: 'test-token',
-      profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['restaurant_staff'], phone_number: '', other_names: '', restaurant_roles: [] }
+      profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['restaurant_staff'], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] }
     });
     const result = guard.canActivate(makeRoute(['restaurant_staff']), makeState('/dashboard'));
     expect(result).toBeFalse();
@@ -84,7 +84,7 @@ describe('AuthGuard', () => {
       profile: {
         id: '1', first_name: 'A', last_name: 'B', email: '',
         roles: [],  // no top-level 'restaurant_staff' role
-        phone_number: '', other_names: '',
+        phone_number: '', country: '', prompt_password_change: false, other_names: '',
         restaurant_roles: [{ restaurant_id: 'r1', restaurant: 'Rest1', roles: ['manager'] }]
       }
     });
@@ -95,7 +95,7 @@ describe('AuthGuard', () => {
   it('should deny access when user has no matching roles at all', () => {
     setUser({
       token: 'test-token',
-      profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['diner'], phone_number: '', other_names: '', restaurant_roles: [] }
+      profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: ['diner'], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] }
     });
     const result = guard.canActivate(makeRoute(['restaurant_staff']), makeState('/dashboard'));
     expect(result).toBeFalse();
@@ -113,7 +113,7 @@ describe('AuthGuard', () => {
       token: 'test-token',
       profile: {
         id: '1', first_name: 'A', last_name: 'B', email: '',
-        roles: topRoles, phone_number: '', other_names: '',
+        roles: topRoles, phone_number: '', country: '', prompt_password_change: false, other_names: '',
         restaurant_roles: restRoles.length
           ? [{ restaurant_id: 'r1', restaurant: 'Rest1', roles: restRoles }]
           : [],

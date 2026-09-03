@@ -22,6 +22,14 @@ export const routes: Routes = [
 {path:'register',component:RegisterComponent, title:'Register'},
 {path:'forgot-password',component:ForgotPasswordComponent, title:'Forgot Password'},
 {path:'welcome',component:WelcomeComponent,title:'Welcome'},
+// Owner claim — the customer-plane half of backend Step 2F. PUBLIC by design: the
+// claimant is proving ownership with a claim code and an OTP, so they have no session
+// yet, and an ambient one must not influence the flow. Deliberately carries NEITHER
+// AuthGuard (there is nothing to authorise against) NOR loginRedirectGuard (an
+// already-signed-in operator claiming a NEW restaurant must reach this form, not be
+// bounced to their existing landing). Like every root-level route it must stay ABOVE
+// the empty-path portal parent below, whose lazy wildcard would otherwise swallow it.
+{ path: 'owner-claim', loadComponent: () => import('./auth/owner-claim/owner-claim.component').then(m => m.OwnerClaimComponent), title: 'Claim your restaurant' },
 {path:'diner',component:DinerAppComponent,data:{[DINER_MOUNT_EMBEDDED]: false},loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
 // Kitchen View — staff-only board on live order data. Admission is a restaurant
 // owner / manager / kitchen role on ANY membership, via data.restaurant_roles.

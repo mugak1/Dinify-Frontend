@@ -19,7 +19,7 @@ describe('ErrorInterceptor', () => {
   const mockUser = {
     token: 'test-token',
     refresh: 'test-refresh',
-    profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', other_names: '', restaurant_roles: [] },
+    profile: { id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '', country: '', prompt_password_change: false, other_names: '', restaurant_roles: [] },
     require_otp: false,
     prompt_password_change: false
   };
@@ -147,6 +147,26 @@ describe('ErrorInterceptor', () => {
       // /kitchen is a first segment on the NON_BANNER_SHELL_ROOTS deny-list: the
       // board renders no OfflineBannerComponent, so the toast stays its only signal.
       routerStub.url = '/kitchen';
+      connectivityStub.isOffline = () => true;
+
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(toast.error).toHaveBeenCalledWith("You're offline — check your connection.");
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/test');
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
+    it('still shows the toast on the owner-claim screen while offline (no banner there)', (done) => {
+      // /owner-claim is on the NON_BANNER_SHELL_ROOTS deny-list: it renders the
+      // AuthShell, not the portal, so no OfflineBannerComponent owns the signal.
+      // Without the deny-list entry the interceptor would classify it as a banner
+      // shell and swallow the toast, leaving a failed claim silent.
+      routerStub.url = '/owner-claim';
       connectivityStub.isOffline = () => true;
 
       httpClient.get('/api/test').subscribe({

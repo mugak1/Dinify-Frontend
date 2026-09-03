@@ -129,6 +129,45 @@ this.userSubject.next(u as any)
   
   }
  
+  /**
+   * Install an ALREADY-AUTHENTICATED, COMPLETE principal, atomically.
+   *
+   * The one sanctioned way to seat a session this service did not itself mint.
+   * Its only caller today is owner-claim redemption (backend Step 2F.2 + 2F.3),
+   * which authenticates out-of-band against `users/owner-claim/redeem/` and then
+   * hydrates the canonical profile from `GET users/user-profile/` — a flow that
+   * cannot go through `login()` at all, because an owner membership sets
+   * `require_otp` and would demand a SECOND verification code moments after the
+   * claim transaction consumed its own.
+   *
+   * It is deliberately NOT a generic `setUser(any)`. Both arguments are typed and
+   * both are required, so a caller cannot seat a half-built principal:
+   *  - `session` must be a COMPLETE LoginResponse (tokens AND the canonical
+   *    profile). AuthGuard reads `profile.restaurant_roles`, so persisting a
+   *    session whose profile has not arrived yet creates a browser that believes
+   *    it is authenticated and has no memberships to authorise with. The caller
+   *    must therefore hold its tokens in memory until the profile read succeeds.
+   *  - `membership` must be an entry taken FROM `session.profile.restaurant_roles`
+   *    — the resolved object itself, carrying the backend's `permissions` map.
+   *    Never a hand-built `{restaurant_id, roles:['owner']}`: the frontend cannot
+   *    compute a permissions map, and inventing one puts a second, wrong source of
+   *    truth in front of the real one.
+   *
+   * MINTS NOTHING. No token request, no refresh, no `login()`, no `verify-otp`,
+   * no OTP of any kind — the credentials are handed in, already established.
+   *
+   * Ordering matches the storage semantics logout already uses: `resetStorage()`
+   * first, so a PREVIOUS operator's `rest_role`, `current_resta` and per-module
+   * persisted nav state cannot survive underneath the new principal, then the
+   * complete response, then the publish, then the selected membership.
+   */
+  installAuthenticatedSession(session: LoginResponse, membership: RestaurantRole): void {
+    this.resetStorage();
+    localStorage.setItem('user', JSON.stringify(session));
+    this.userSubject.next(session);
+    this.setCurrentRestaurantRole(membership);
+  }
+
   setCurrentRestaurantRole(role:any){
     localStorage.setItem('rest_role', JSON.stringify((role)));    
   }

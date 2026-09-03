@@ -1,0 +1,201 @@
+<!--
+  Three visible stages on the shared AuthShell chrome. Nothing here renders a
+  restaurant id, a user id, an attempt counter or a backend state name — see the
+  component docstring.
+-->
+
+@if (stage === 'code') {
+  <app-auth-shell
+    eyebrow="Owner setup"
+    heading="Claim your restaurant"
+    subtitle="Enter the claim code Dinify gave you to finish setting up your account.">
+
+    <form class="flex flex-col gap-5 text-left" (ngSubmit)="submitCode()" novalidate>
+      <div class="flex flex-col gap-2">
+        <label for="claim-code" class="font-gabarito text-[13.5px] font-semibold text-gray-700">
+          Claim code
+        </label>
+        <input id="claim-code" name="claimCode" type="text" data-autofocus
+          [(ngModel)]="claimCode"
+          [disabled]="busy"
+          [attr.aria-invalid]="error ? 'true' : null"
+          [attr.aria-describedby]="error ? 'claim-error' : 'claim-code-hint'"
+          autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+          placeholder="Paste your claim code"
+          class="h-[52px] px-4 bg-white border-[1.5px] border-gray-200 rounded-[11px] text-gray-900 text-[15.5px] outline-none transition-all duration-200 focus:border-d-red focus:ring-4 focus:ring-d-red/[0.13] placeholder:text-[#B8AFA6] disabled:opacity-60" />
+        <p id="claim-code-hint" class="text-[12.5px] text-gray-400">
+          This is not your password. It is the one-time code sent to you when your
+          restaurant was set up.
+        </p>
+      </div>
+
+      @if (error) {
+        <p id="claim-error" role="alert" class="text-[#C2151B] text-[13px] leading-snug">{{ error }}</p>
+      }
+
+      <button type="submit" [disabled]="!canSubmitCode"
+        class="relative flex items-center justify-center gap-2.5 w-full h-[54px] rounded-[11px] bg-d-red text-white font-gabarito font-bold text-base shadow-glow disabled:opacity-60 desktop-hover:bg-[#E61C22] active:scale-[0.985] transition-all duration-150">
+        @if (busy) {
+          <svg class="animate-spin h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+          </svg>
+        }
+        <span>{{ busy ? 'Checking…' : 'Continue' }}</span>
+      </button>
+
+      <div class="text-center">
+        <a [routerLink]="['/login']" class="text-[13px] font-semibold text-gray-600 desktop-hover:text-[#C2151B] transition-colors">
+          Already set up? Sign in
+        </a>
+      </div>
+    </form>
+  </app-auth-shell>
+}
+
+@if (stage === 'verify') {
+  <app-auth-shell
+    eyebrow="Owner setup"
+    heading="Verify your phone"
+    subtitle="We sent a verification code to the phone number on your owner account.">
+
+    <form class="flex flex-col gap-5 text-left" (ngSubmit)="submitVerification()" novalidate>
+      <div class="flex flex-col gap-2">
+        <label for="claim-otp" class="font-gabarito text-[13.5px] font-semibold text-gray-700">
+          Verification code
+        </label>
+        <input id="claim-otp" name="otp" type="text" data-autofocus
+          [(ngModel)]="otp"
+          [disabled]="busy"
+          [attr.aria-invalid]="error ? 'true' : null"
+          [attr.aria-describedby]="error ? 'claim-error' : null"
+          inputmode="numeric" autocomplete="one-time-code" spellcheck="false"
+          placeholder="Enter the code"
+          class="h-[52px] px-4 bg-white border-[1.5px] border-gray-200 rounded-[11px] text-gray-900 text-[15.5px] tracking-[0.3em] outline-none transition-all duration-200 focus:border-d-red focus:ring-4 focus:ring-d-red/[0.13] placeholder:text-[#B8AFA6] placeholder:tracking-normal disabled:opacity-60" />
+      </div>
+
+      <!--
+        Shown only when the challenge said this identity still needs a password.
+        An established owner claiming an additional restaurant must NOT send one —
+        the backend refuses it rather than ignoring it.
+      -->
+      @if (credentialSetupRequired) {
+        <div class="flex flex-col gap-2">
+          <label for="claim-password" class="font-gabarito text-[13.5px] font-semibold text-gray-700">
+            Choose a password
+          </label>
+          <input id="claim-password" name="newPassword" type="password"
+            [(ngModel)]="newPassword"
+            [disabled]="busy"
+            [attr.aria-invalid]="passwordErrors.length ? 'true' : null"
+            [attr.aria-describedby]="passwordErrors.length ? 'claim-password-errors' : null"
+            autocomplete="new-password"
+            class="h-[52px] px-4 bg-white border-[1.5px] border-gray-200 rounded-[11px] text-gray-900 text-[15.5px] outline-none transition-all duration-200 focus:border-d-red focus:ring-4 focus:ring-d-red/[0.13] disabled:opacity-60" />
+          @if (passwordErrors.length) {
+            <ul id="claim-password-errors" role="alert" class="flex flex-col gap-1 text-[#C2151B] text-[12.5px] leading-snug list-disc pl-4">
+              @for (message of passwordErrors; track message) {
+                <li>{{ message }}</li>
+              }
+            </ul>
+          }
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="claim-password-confirm" class="font-gabarito text-[13.5px] font-semibold text-gray-700">
+            Confirm password
+          </label>
+          <input id="claim-password-confirm" name="confirmPassword" type="password"
+            [(ngModel)]="confirmPassword"
+            [disabled]="busy"
+            [attr.aria-invalid]="passwordMismatch ? 'true' : null"
+            [attr.aria-describedby]="passwordMismatch ? 'claim-password-mismatch' : null"
+            autocomplete="new-password"
+            class="h-[52px] px-4 bg-white border-[1.5px] border-gray-200 rounded-[11px] text-gray-900 text-[15.5px] outline-none transition-all duration-200 focus:border-d-red focus:ring-4 focus:ring-d-red/[0.13] disabled:opacity-60" />
+          @if (passwordMismatch) {
+            <p id="claim-password-mismatch" role="alert" class="text-[#C2151B] text-[12.5px]">
+              The two passwords don't match.
+            </p>
+          }
+        </div>
+      }
+
+      @if (error) {
+        <p id="claim-error" role="alert" class="text-[#C2151B] text-[13px] leading-snug">{{ error }}</p>
+      }
+
+      <button type="submit" [disabled]="!canSubmitVerification"
+        class="relative flex items-center justify-center gap-2.5 w-full h-[54px] rounded-[11px] bg-d-red text-white font-gabarito font-bold text-base shadow-glow disabled:opacity-60 desktop-hover:bg-[#E61C22] active:scale-[0.985] transition-all duration-150">
+        @if (busy) {
+          <svg class="animate-spin h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+          </svg>
+        }
+        <span>{{ busy ? 'Completing…' : 'Complete claim' }}</span>
+      </button>
+
+      <div class="text-center text-[13px] text-gray-500" aria-live="polite">
+        @if (resendNotice) {
+          <p class="text-gray-600">{{ resendNotice }}</p>
+        }
+        @if (resendCountdown > 0) {
+          <span>Didn't get it? Send another code in {{ resendCountdown }}s.</span>
+        } @else {
+          <button type="button" (click)="resendCode()" [disabled]="busy"
+            class="font-semibold text-gray-600 desktop-hover:text-[#C2151B] transition-colors disabled:opacity-60">
+            Send another code
+          </button>
+        }
+      </div>
+    </form>
+  </app-auth-shell>
+}
+
+@if (stage === 'bootstrapping') {
+  <app-auth-shell
+    eyebrow="Owner setup"
+    heading="Completing setup"
+    subtitle="Loading your restaurant…">
+    <div class="flex justify-center py-4" role="status" aria-live="polite">
+      <svg class="animate-spin h-7 w-7 text-d-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+      </svg>
+      <span class="sr-only">Loading your restaurant</span>
+    </div>
+  </app-auth-shell>
+}
+
+@if (stage === 'bootstrap-failed') {
+  <!--
+    Redemption COMMITTED and only the profile read failed, so the copy must not
+    suggest the claim itself went wrong. Retry re-runs the profile read only.
+  -->
+  <app-auth-shell
+    eyebrow="Owner setup"
+    heading="Almost there"
+    subtitle="Your claim is complete — we just couldn't load your restaurant.">
+
+    <div class="flex flex-col gap-5 text-left">
+      @if (error) {
+        <p role="alert" class="text-[#C2151B] text-[13px] leading-snug">{{ error }}</p>
+      }
+
+      <button type="button" data-autofocus (click)="retryBootstrap()" [disabled]="busy"
+        class="relative flex items-center justify-center gap-2.5 w-full h-[54px] rounded-[11px] bg-d-red text-white font-gabarito font-bold text-base shadow-glow disabled:opacity-60 desktop-hover:bg-[#E61C22] active:scale-[0.985] transition-all duration-150">
+        <span>Retry</span>
+      </button>
+
+      <p class="text-[12.5px] text-gray-500 leading-relaxed">
+        If you leave this page, your claim stays complete — just sign in normally with
+        @if (credentialSetupRequired) { the password you chose. } @else { your usual password. }
+      </p>
+
+      <div class="text-center">
+        <a [routerLink]="['/login']" class="text-[13px] font-semibold text-gray-600 desktop-hover:text-[#C2151B] transition-colors">
+          Go to sign in
+        </a>
+      </div>
+    </div>
+  </app-auth-shell>
+}
