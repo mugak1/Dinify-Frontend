@@ -495,8 +495,9 @@ describe('OwnerClaimComponent', () => {
 
     it('lands on the first module the claimed membership can access', async () => {
       await completeClaimWith(CLAIMED_MEMBERSHIP);
-      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard');
-      // A principal switch must never be a soft navigation.
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard', 'replace');
+      // A principal switch must never be a soft navigation — and it REPLACES the
+      // history entry, so Back cannot restore the pre-claim document.
       expect(navigate).not.toHaveBeenCalled();
     });
 
@@ -505,7 +506,7 @@ describe('OwnerClaimComponent', () => {
         ...CLAIMED_MEMBERSHIP,
         permissions: { dashboard: false, menu: true, tables: true },
       });
-      expect(hardRedirect).toHaveBeenCalledOnceWith('/menu');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/menu', 'replace');
       // A principal switch must never be a soft navigation.
       expect(navigate).not.toHaveBeenCalled();
     });
@@ -518,7 +519,7 @@ describe('OwnerClaimComponent', () => {
           reports: false, settings: false, kitchen: false, billing: false, team: false,
         },
       });
-      expect(hardRedirect).toHaveBeenCalledOnceWith('/account');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/account', 'replace');
       // A principal switch must never be a soft navigation.
       expect(navigate).not.toHaveBeenCalled();
     });
@@ -531,7 +532,7 @@ describe('OwnerClaimComponent', () => {
 
       // EXISTING_MEMBERSHIP would have landed on /dashboard; the claimed one is
       // tables-first. No restaurant selector is shown.
-      expect(hardRedirect).toHaveBeenCalledOnceWith('/dining-tables');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/dining-tables', 'replace');
       // A principal switch must never be a soft navigation.
       expect(navigate).not.toHaveBeenCalled();
       expect(auth.currentRestaurantRole.restaurant_id).toBe(CLAIMED_RESTAURANT);
@@ -713,7 +714,7 @@ describe('OwnerClaimComponent', () => {
 
       // So the transition MUST go through the full-page boundary, which is the only
       // thing that destroys the injector holding that instance.
-      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard', 'replace');
       expect(navigate)
         .withContext('a soft navigation here would carry Restaurant A data into Restaurant B')
         .not.toHaveBeenCalled();
@@ -747,7 +748,7 @@ describe('OwnerClaimComponent', () => {
 
       // Which is exactly why the account replacement ends in a page load: a reload
       // means no such subscriber and no such subject exist at all.
-      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard');
+      expect(hardRedirect).toHaveBeenCalledOnceWith('/dashboard', 'replace');
 
       pending.flush(sectionsPage(['Restaurant B mains']));
     });

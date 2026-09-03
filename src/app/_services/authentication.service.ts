@@ -166,6 +166,11 @@ this.userSubject.next(u as any)
    * hand-maintained list of root caches to clear — that list drifts the moment
    * another root service starts holding tenant data.
    *
+   * The navigation REPLACES the current history entry rather than pushing onto it,
+   * so the pre-claim document cannot be restored by Back (see `hardRedirect`'s
+   * `mode`). Destroying a document achieves nothing if the browser can return it
+   * intact from the back-forward cache.
+   *
    * ═══ WHAT THE ARGUMENTS GUARANTEE ════════════════════════════════════════════
    *
    * Deliberately NOT a generic `setUser(any)`. All three arguments are typed and
@@ -205,7 +210,14 @@ this.userSubject.next(u as any)
     // LAST. Full page load: the Angular injector and every providedIn:'root'
     // service go with it, which is the only thing that clears the outgoing
     // operator's in-memory tenant data.
-    this.hardRedirect(landingPath);
+    //
+    // REPLACE, not push. Destroying the document is not enough if the browser can
+    // hand it straight back: `location.href` would leave the pre-claim document in
+    // history, and a bfcache restore returns its whole JS heap — the hybrid state
+    // where this service has published the INCOMING principal while the other root
+    // services still hold the OUTGOING tenant's data. `location.replace` leaves no
+    // history entry pointing at it.
+    this.hardRedirect(landingPath, 'replace');
   }
 
   setCurrentRestaurantRole(role:any){
@@ -378,7 +390,7 @@ this.userSubject.next(u as any)
   }
 
   /**
-   * The full-page navigation primitive: `window.location.href = url`.
+   * The full-page navigation primitive.
    *
    * Deliberately PROTECTED. It is reachable only through an operation that has
    * already put storage in a consistent state — `revokeAndExit` (logout) or
@@ -390,8 +402,33 @@ this.userSubject.next(u as any)
    * `providedIn: 'root'` service, which is the property both callers depend on. The
    * indirection exists so unit tests can spy on that boundary without unloading the
    * Karma host page.
+   *
+   * ═══ `mode` — WHETHER THE OUTGOING DOCUMENT STAYS REACHABLE ══════════════════
+   *
+   * `'push'` (`location.href`, the default) leaves the outgoing document as a
+   * history entry, so Back can return to it — and the browser's back-forward cache
+   * may restore its ENTIRE JS heap rather than re-executing the page, injector and
+   * root services included.
+   *
+   * `'replace'` (`location.replace`) replaces the current history entry instead, so
+   * nothing points at the outgoing document and Back cannot restore it.
+   *
+   * WHICH ONE A CALLER NEEDS DEPENDS ON WHAT ITS OUTGOING DOCUMENT CONTAINS.
+   * `installAuthenticatedSessionAndReload` requires `'replace'`: by the time it
+   * navigates, that document is a HYBRID — this service has already published the
+   * INCOMING principal while every other root service still holds the OUTGOING
+   * tenant's data. Restoring one document holding both is the exact condition the
+   * reload exists to destroy, so it must not remain reachable. (It also has no
+   * legitimate use: the claim code is spent, so going Back to the claim screen can
+   * only show a stale spinner.) Logout keeps `'push'`: its outgoing document is
+   * internally consistent — one operator's services beside a `userSubject` this
+   * service set to null — and its history behaviour is deliberately unchanged here.
    */
-  protected hardRedirect(url: string): void {
+  protected hardRedirect(url: string, mode: 'push' | 'replace' = 'push'): void {
+    if (mode === 'replace') {
+      window.location.replace(url);
+      return;
+    }
     window.location.href = url;
   }
 }

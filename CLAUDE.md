@@ -529,7 +529,15 @@ so keep it current when conventions change.
     missing from the profile all return earlier and leave the ambient session
     untouched. `hardRedirect` stays PROTECTED — reachable only through an operation
     that has already put storage in a consistent state, never as a public
-    `hardRedirect(url)`
+    `hardRedirect(url)`. **It NAVIGATES BY `location.replace`, not `location.href`**:
+    destroying the document achieves nothing if the browser can hand it straight
+    back, and the back-forward cache restores a whole JS heap rather than
+    re-executing the page. The pre-claim document is the one thing that must not
+    come back — this service has already published the INCOMING principal there
+    while every other root service still holds the OUTGOING tenant's data, which is
+    precisely the hybrid the reload exists to destroy. `hardRedirect`'s `mode`
+    argument carries this; **logout keeps the `'push'` default** (its outgoing
+    document is internally consistent) and its history behaviour is unchanged
   - **THE BOOTSTRAP-FAILURE "Go to sign in" IS A BUTTON THROUGH `logout()`, NEVER A
     `routerLink` TO `/login`.** `/login` carries `loginRedirectGuard`, which forwards
     anyone holding a session AND a selected membership straight to their existing

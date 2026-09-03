@@ -543,11 +543,18 @@ describe('AuthenticationService', () => {
       expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id).toBe('claimed-1');
     });
 
-    it('HARD-navigates to the landing path it was given', () => {
+    it('HARD-navigates to the landing path it was given, REPLACING the history entry', () => {
       // A full page load, never a router navigation: replacing one operator with
       // another has to destroy the root services holding the outgoing tenant's data.
+      //
+      // And it must REPLACE rather than push. Destroying the document achieves
+      // nothing if Back can hand it back: the browser's back-forward cache restores
+      // a whole JS heap rather than re-executing the page, and the pre-claim
+      // document is a hybrid — this service has already published the INCOMING
+      // principal while every other root service still holds the OUTGOING tenant's
+      // data. `location.replace` leaves no history entry pointing at it.
       service.installAuthenticatedSessionAndReload(session, membership as any, '/dining-tables');
-      expect(redirectSpy).toHaveBeenCalledOnceWith('/dining-tables');
+      expect(redirectSpy).toHaveBeenCalledOnceWith('/dining-tables', 'replace');
     });
 
     it('does not re-derive the target — it reloads onto exactly the path passed in', () => {
@@ -558,7 +565,18 @@ describe('AuthenticationService', () => {
         { ...membership, permissions: { dashboard: false, menu: true } } as any,
         '/some/caller/resolved/path',
       );
-      expect(redirectSpy).toHaveBeenCalledOnceWith('/some/caller/resolved/path');
+      expect(redirectSpy).toHaveBeenCalledOnceWith('/some/caller/resolved/path', 'replace');
+    });
+
+    it('leaves LOGOUT on the default push navigation — its history behaviour is unchanged', () => {
+      // Scope guard. Logout's outgoing document is internally consistent (one
+      // operator's services beside a userSubject this service set to null), so it
+      // does not need the replace treatment and this change does not give it one.
+      redirectSpy.and.stub();
+      service.logout(false);
+      // Called with the URL only — no mode argument, so hardRedirect's 'push'
+      // default applies exactly as before.
+      expect(redirectSpy).toHaveBeenCalledOnceWith('/login');
     });
 
     it('completes every write BEFORE triggering the reload', () => {
