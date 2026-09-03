@@ -189,12 +189,21 @@
       <p class="text-[12.5px] text-gray-500 leading-relaxed">
         If you leave this page, your claim stays complete — just sign in normally with
         @if (credentialSetupRequired) { the password you chose. } @else { your usual password. }
+        @if (hasOpenSession) {
+          Signing in will end the session already open on this device.
+        }
       </p>
 
+      <!--
+        A button, NOT a routerLink to /login: that route carries loginRedirectGuard,
+        which would forward an already-signed-in operator to their existing landing
+        instead of the form this panel promises. See signInInstead().
+      -->
       <div class="text-center">
-        <a [routerLink]="['/login']" class="text-[13px] font-semibold text-gray-600 desktop-hover:text-[#C2151B] transition-colors">
+        <button type="button" (click)="signInInstead()"
+          class="text-[13px] font-semibold text-gray-600 desktop-hover:text-[#C2151B] transition-colors">
           Go to sign in
-        </a>
+        </button>
       </div>
     </div>
   </app-auth-shell>

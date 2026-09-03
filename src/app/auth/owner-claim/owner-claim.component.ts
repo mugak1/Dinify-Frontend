@@ -3,6 +3,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
 import { AuthShellComponent } from '../auth-shell/auth-shell.component';
 import { AuthenticationService } from '../../_services/authentication.service';
 import {
@@ -108,6 +109,27 @@ export class OwnerClaimComponent implements AfterViewChecked, OnDestroy {
    */
   private redemption: OwnerClaimRedemption | null = null;
 
+  /**
+   * Tears down every in-flight claim request when the screen goes away.
+   *
+   * WITHOUT THIS, A RESPONSE CAN OUTLIVE THE SCREEN AND HIJACK THE SESSION. Angular
+   * does not cancel an HTTP request when a component is destroyed — only
+   * unsubscribing does — and `ngOnDestroy` clearing the fields does not help,
+   * because `runBootstrap` closes over its `redemption` argument rather than
+   * reading the field. So a profile response arriving after the user navigated away
+   * would still call `completeWith`: installing the claimed session, replacing
+   * whoever was signed in, and redirecting them off whatever page they had moved
+   * to. The redeem subscription is worse still — its `next` STARTS the bootstrap
+   * request, so a dead component would issue a fresh one.
+   *
+   * Applied to ALL FOUR requests rather than only the bootstrap: they are the same
+   * defect, and leaving three of them unbound would fix an instance instead of the
+   * cause. Cancelling an in-flight redeem loses nothing that was recoverable — the
+   * screen it would have reported to is already gone, and the claim's durability is
+   * the server's, which is exactly what the recovery copy tells the owner.
+   */
+  private readonly destroy$ = new Subject<void>();
+
   private timer: ReturnType<typeof setInterval> | null = null;
   /** Set on every stage change; consumed once by ngAfterViewChecked. */
   private pendingFocus = true;
@@ -128,6 +150,8 @@ export class OwnerClaimComponent implements AfterViewChecked, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.stopCountdown();
     // Drop both credentials with the screen rather than letting them linger in a
     // detached component instance.
@@ -153,7 +177,7 @@ export class OwnerClaimComponent implements AfterViewChecked, OnDestroy {
     if (!this.canSubmitCode) return;
     const token = this.claimCode.trim();
     this.beginRequest();
-    this.claim.challenge(token).subscribe({
+    this.claim.challenge(token).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.busy = false;
         this.claimToken = token;
@@ -201,6 +225,7 @@ export class OwnerClaimComponent implements AfterViewChecked, OnDestroy {
         this.otp.trim(),
         this.credentialSetupRequired ? this.newPassword : undefined,
       )
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (redemption) => {
           this.stopCountdown();
@@ -235,7 +260,7 @@ export class OwnerClaimComponent implements AfterViewChecked, OnDestroy {
     if (this.busy || this.resendCountdown > 0 || !this.claimToken) return;
     this.beginRequest();
     this.resendNotice = null;
-    this.claim.challenge(this.claimToken).subscribe({
+    this.claim.challenge(this.claimToken).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.busy = false;
         // Re-read rather than assumed: a reissue between the two challenges could
@@ -263,9 +288,42 @@ export class OwnerClaimComponent implements AfterViewChecked, OnDestroy {
     this.runBootstrap(this.redemption);
   }
 
+  /**
+   * Whether some session is currently open on this device.
+   *
+   * Only used to tell the truth in the recovery copy below — never to decide who is
+   * claiming, which is settled by the claim token alone.
+   */
+  get hasOpenSession(): boolean {
+    return !!this.auth.userValue;
+  }
+
+  /**
+   * The recovery escape hatch: get the claimant to the sign-in FORM.
+   *
+   * IT GOES THROUGH LOGOUT RATHER THAN A `routerLink` TO `/login`, and that is the
+   * whole point. `/login` carries `loginRedirectGuard`, which forwards anyone who
+   * already has a session AND a selected membership straight to their existing
+   * landing. This panel deliberately leaves an ambient operator's session intact
+   * when a claim's bootstrap fails — so on exactly the screen that promises "just
+   * sign in normally", a plain link to `/login` would bounce the claimant to
+   * somebody else's dashboard and give them no way to reach the form.
+   *
+   * `logout()` ends the ambient session properly (server-side refresh revocation,
+   * storage cleared, hard redirect), so `/login` then renders for an unauthenticated
+   * browser and the guard has nothing to redirect. With NO session open it is a
+   * no-op that simply lands on `/login`.
+   *
+   * The claim itself is unaffected either way: it committed server-side before this
+   * panel could appear.
+   */
+  signInInstead(): void {
+    this.auth.logout();
+  }
+
   private runBootstrap(redemption: OwnerClaimRedemption): void {
     this.beginRequest();
-    this.claim.bootstrapProfile(redemption.token).subscribe({
+    this.claim.bootstrapProfile(redemption.token).pipe(takeUntil(this.destroy$)).subscribe({
       next: (profile) => {
         this.busy = false;
         this.completeWith(profile, redemption);

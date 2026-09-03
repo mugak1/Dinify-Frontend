@@ -78,6 +78,13 @@ describe('OwnerClaimComponent', () => {
   let httpMock: HttpTestingController;
   let auth: AuthenticationService;
   let navigate: jasmine.Spy;
+  /**
+   * Opt-in, per test. The teardown specs deliberately leave a CANCELLED request
+   * open, and `verify()` counts a cancelled-but-open request by default. Flipping
+   * this globally would make the assertion vacuous for every other spec here, which
+   * is exactly the kind of test that passes for the wrong reason.
+   */
+  let allowCancelledRequests = false;
 
   function el(): HTMLElement {
     return fixture.nativeElement as HTMLElement;
@@ -121,6 +128,7 @@ describe('OwnerClaimComponent', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    allowCancelledRequests = false;
     // A DIFFERENT operator is already signed in for every test here: the claim route
     // is public, so this is the realistic starting state and the one most able to
     // corrupt the result.
@@ -147,7 +155,7 @@ describe('OwnerClaimComponent', () => {
   });
 
   afterEach(() => {
-    httpMock.verify();
+    httpMock.verify({ ignoreCancelled: allowCancelledRequests });
     // Destroy before clearing storage so the component's resend interval is cleared.
     fixture.destroy();
     localStorage.clear();
@@ -598,6 +606,126 @@ describe('OwnerClaimComponent', () => {
       httpMock.expectOne(PROFILE_URL).flush(profileBody([CLAIMED_MEMBERSHIP]));
       expect(auth.userValue?.token).toBe('n');
       expect(auth.userValue?.profile.id).toBe('owner-1');
+    });
+  });
+
+  // ── Teardown ──────────────────────────────────────────────────────────────────
+
+  describe('leaving the screen mid-request', () => {
+    // Angular does not cancel an HTTP request when a component is destroyed — only
+    // unsubscribing does. Without the takeUntil, a late profile response would still
+    // install the claimed session, replace whoever was signed in, and redirect them
+    // off whatever page they had navigated to.
+
+    it('cancels an in-flight profile bootstrap and installs no session', async () => {
+      allowCancelledRequests = true;
+      await passChallenge(false);
+      await typeInto('#claim-otp', '1234');
+      await submitForm();
+      httpMock.expectOne(REDEEM_URL).flush({
+        data: { token: 'NEW-CLAIM-TOKEN', refresh: 'r', restaurant_id: CLAIMED_RESTAURANT },
+      });
+      await settle();
+
+      const pending = httpMock.expectOne(PROFILE_URL);
+      fixture.destroy();
+
+      expect(pending.cancelled)
+        .withContext('the bootstrap subscription outlived the component')
+        .toBeTrue();
+      // The ambient operator is untouched and nobody was redirected.
+      expect(localStorage.getItem('user')).toBe(JSON.stringify(AMBIENT_SESSION));
+      expect(localStorage.getItem('rest_role')).toBeNull();
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('cancels an in-flight redemption and never starts the bootstrap from a dead component', async () => {
+      allowCancelledRequests = true;
+      await passChallenge(false);
+      await typeInto('#claim-otp', '1234');
+      await submitForm();
+
+      const pending = httpMock.expectOne(REDEEM_URL);
+      fixture.destroy();
+
+      expect(pending.cancelled).toBeTrue();
+      // redeem's `next` is what STARTS the bootstrap, so an unbound subscription
+      // here would have a destroyed component issue a fresh request.
+      httpMock.expectNone(PROFILE_URL);
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('cancels an in-flight challenge', async () => {
+      allowCancelledRequests = true;
+      await typeInto('#claim-code', CLAIM_CODE);
+      await submitForm();
+
+      const pending = httpMock.expectOne(CHALLENGE_URL);
+      fixture.destroy();
+      expect(pending.cancelled).toBeTrue();
+    });
+  });
+
+  // ── Recovery sign-in ──────────────────────────────────────────────────────────
+
+  describe('the bootstrap-failure sign-in escape hatch', () => {
+    async function reachBootstrapFailure(): Promise<void> {
+      await passChallenge(false);
+      await typeInto('#claim-otp', '1234');
+      await submitForm();
+      httpMock.expectOne(REDEEM_URL)
+        .flush({ data: { token: 'n', refresh: 'r', restaurant_id: CLAIMED_RESTAURANT } });
+      await settle();
+      httpMock.expectOne(PROFILE_URL)
+        .flush({ detail: 'boom' }, { status: 500, statusText: 'Server Error' });
+      await settle();
+      expect(component.stage).toBe('bootstrap-failed');
+    }
+
+    function signInControl(): HTMLElement {
+      const controls = Array.from(el().querySelectorAll<HTMLElement>('a, button'));
+      return controls.find((c) => c.textContent?.includes('Go to sign in'))!;
+    }
+
+    it('is a button, NOT a routerLink to /login', async () => {
+      // /login carries loginRedirectGuard, which forwards anyone holding a session
+      // AND a selected membership to their existing landing. Since this panel
+      // deliberately preserves an ambient operator's session, a plain link here
+      // would bounce the claimant to somebody else's dashboard and never show the
+      // form this panel promises.
+      await reachBootstrapFailure();
+
+      const control = signInControl();
+      expect(control).toBeTruthy();
+      expect(control.tagName).toBe('BUTTON');
+      expect(el().querySelector('a[href="/login"]')).toBeNull();
+    });
+
+    it('ends the ambient session so the sign-in form can actually render', async () => {
+      const logout = spyOn(auth, 'logout');
+      await reachBootstrapFailure();
+
+      signInControl().click();
+      await settle();
+
+      expect(logout).toHaveBeenCalled();
+    });
+
+    it('says a session will be ended only when one is actually open', async () => {
+      await reachBootstrapFailure();
+      expect(el().textContent).toContain('end the session already open on this device');
+    });
+
+    it('says nothing about ending a session when nobody is signed in', async () => {
+      // The brand-new-owner case: no ambient session, so the sentence would be a
+      // false statement about the user's own device.
+      localStorage.removeItem('user');
+      (auth as unknown as { userSubject: { next: (v: null) => void } })
+        .userSubject.next(null);
+      await reachBootstrapFailure();
+
+      expect(el().textContent).not.toContain('end the session already open');
+      expect(signInControl()).toBeTruthy();
     });
   });
 

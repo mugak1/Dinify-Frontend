@@ -498,6 +498,27 @@ so keep it current when conventions change.
     consumed invitation would return the generic refusal and read as "your claim
     failed" about a claim that succeeded. The panel says the claim is complete and
     points at ordinary sign-in if the page is closed
+  - **EVERY CLAIM REQUEST IS BOUND TO THE COMPONENT'S LIFETIME** (`takeUntil(destroy$)`
+    on all four: challenge, resend, redeem, bootstrap). Angular does NOT cancel an HTTP
+    request when a component is destroyed — only unsubscribing does — and clearing the
+    fields in `ngOnDestroy` does not help, because `runBootstrap` closes over its
+    `redemption` ARGUMENT rather than reading the field. An unbound profile response
+    arriving after the user navigated away would still call `completeWith`: installing
+    the claimed session, replacing whoever was signed in, and redirecting them off
+    whatever page they had moved to. Redeem is worse — its `next` STARTS the bootstrap,
+    so a dead component would issue a fresh request. All four are bound rather than only
+    the bootstrap: they are one defect, not four
+  - **THE BOOTSTRAP-FAILURE "Go to sign in" IS A BUTTON THROUGH `logout()`, NEVER A
+    `routerLink` TO `/login`.** `/login` carries `loginRedirectGuard`, which forwards
+    anyone holding a session AND a selected membership straight to their existing
+    landing — and this panel deliberately PRESERVES an ambient operator's session, so a
+    plain link would bounce the claimant to somebody else's dashboard on the very screen
+    that promises "just sign in normally". `logout()` ends that session properly
+    (server-side revoke, storage cleared, hard redirect), so the form renders and the
+    guard has nothing to redirect; with no session open it is a no-op landing on
+    `/login`. The stage-1 "Already set up? Sign in" link is deliberately left a plain
+    `routerLink` — there, forwarding an already-signed-in operator to their landing is
+    the guard doing its job
   Two smaller contracts worth keeping: `credential_setup_required` comes STRAIGHT from
   the challenge response and is never inferred (it decides whether `new_password` is
   sent, and the backend refuses an unwanted one rather than ignoring it); and "Send
