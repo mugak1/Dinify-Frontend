@@ -2,7 +2,7 @@ import {
   AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, OnDestroy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { AuthShellComponent } from '../auth-shell/auth-shell.component';
 import { AuthenticationService } from '../../_services/authentication.service';
@@ -41,7 +41,10 @@ import { firstAccessibleRoute } from '../../_helpers/module-access';
  * (see its docstring), so the ambient token can neither ride along with the claim nor
  * displace the redemption token during bootstrap. And nothing local is cleared while
  * the claim is in flight: a failed claim leaves the existing session exactly as it
- * was. Only a fully bootstrapped principal replaces it, in one `installAuthenticatedSession`.
+ * was. Only a fully bootstrapped principal replaces it, in one
+ * `installAuthenticatedSessionAndReload` — which ends in a FULL PAGE LOAD, because
+ * clearing storage does not evict the outgoing operator's data from the root
+ * services that survive a soft navigation.
  *
  * ═══ NOTHING IS PERSISTED BEFORE THE PROFILE ARRIVES ═══════════════════════════
  *
@@ -137,7 +140,6 @@ export class OwnerClaimComponent implements AfterViewChecked, OnDestroy {
   constructor(
     private readonly claim: OwnerClaimService,
     private readonly auth: AuthenticationService,
-    private readonly router: Router,
     private readonly host: ElementRef<HTMLElement>,
   ) {}
 
@@ -377,14 +379,24 @@ export class OwnerClaimComponent implements AfterViewChecked, OnDestroy {
       prompt_password_change: profile.prompt_password_change === true,
     };
 
-    this.auth.installAuthenticatedSession(completeSession, membership);
+    // The SAME landing authority ordinary login uses. Never a hard-coded /dashboard:
+    // if a role's module defaults change, this must move with them. Computed BEFORE
+    // the install, because it is the reload target and must not be re-derived from
+    // storage afterwards. Note we do not divert to the password-change screen on
+    // `prompt_password_change` the way login does — that screen needs the user's OLD
+    // password, which a claim never collects.
+    const landing = firstAccessibleRoute(membership.permissions, membership.roles);
+
     this.redemption = null;
 
-    // The SAME landing authority ordinary login uses. Never a hard-coded /dashboard:
-    // if a role's module defaults change, this must move with them. Note we do not
-    // divert to the password-change screen on `prompt_password_change` the way login
-    // does — that screen needs the user's OLD password, which a claim never collects.
-    this.router.navigateByUrl(firstAccessibleRoute(membership.permissions, membership.roles));
+    // A FULL PAGE LOAD, not `router.navigateByUrl`. This is the only place in the
+    // flow where one operator replaces another, and a soft navigation would leave
+    // every `providedIn: 'root'` service alive holding the OUTGOING tenant's data
+    // (see the method's own docstring for the MenuService case). Reached only here:
+    // an invalid claim, a wrong OTP, a rejected password, a pending redemption, a
+    // failed bootstrap and a claimed restaurant missing from the profile all return
+    // earlier and leave the ambient session exactly as it was.
+    this.auth.installAuthenticatedSessionAndReload(completeSession, membership, landing);
   }
 
   // ── Shared plumbing ───────────────────────────────────────────────────────────

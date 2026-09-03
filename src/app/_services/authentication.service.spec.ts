@@ -475,10 +475,10 @@ describe('AuthenticationService', () => {
     });
   });
 
-  describe('installAuthenticatedSession', () => {
+  describe('installAuthenticatedSessionAndReload', () => {
     // The owner-claim flow's session seat. Everything asserted here is about it
-    // being ATOMIC and MINTING NOTHING: the credentials arrive already established
-    // from the redemption transaction.
+    // being ATOMIC, MINTING NOTHING, and ending in a FULL PAGE LOAD — the last of
+    // which is the whole reason the operation is named the way it is.
 
     const membership = {
       restaurant_id: 'claimed-1',
@@ -499,8 +499,19 @@ describe('AuthenticationService', () => {
       prompt_password_change: false,
     };
 
+    let redirectSpy: jasmine.Spy;
+
+    beforeEach(() => {
+      // `hardRedirect` is the `window.location.href = url` boundary. Spying on it is
+      // what lets this run at all: executing it for real would unload the Karma host
+      // page — which is precisely the property the production code depends on, since
+      // that unload is what destroys the Angular injector and every
+      // providedIn:'root' service along with it.
+      redirectSpy = spyOn<any>(service, 'hardRedirect');
+    });
+
     it('persists the COMPLETE LoginResponse and publishes it through userSubject', (done) => {
-      service.installAuthenticatedSession(session, membership as any);
+      service.installAuthenticatedSessionAndReload(session, membership as any, '/dashboard');
 
       expect(JSON.parse(localStorage.getItem('user')!)).toEqual(session);
       expect(service.userValue).toEqual(session);
@@ -512,7 +523,7 @@ describe('AuthenticationService', () => {
     });
 
     it('persists the given membership as the selected rest_role', () => {
-      service.installAuthenticatedSession(session, membership as any);
+      service.installAuthenticatedSessionAndReload(session, membership as any, '/dashboard');
       expect(JSON.parse(localStorage.getItem('rest_role')!)).toEqual(membership);
       expect(service.currentRestaurantRole).toEqual(membership as any);
     });
@@ -525,26 +536,82 @@ describe('AuthenticationService', () => {
       localStorage.setItem('rest_role', JSON.stringify({ restaurant_id: 'old-restaurant' }));
       localStorage.setItem('[dinify]tables.activeArea:old-restaurant', '"area-9"');
 
-      service.installAuthenticatedSession(session, membership as any);
+      service.installAuthenticatedSessionAndReload(session, membership as any, '/dashboard');
 
       expect(localStorage.getItem('current_resta')).toBeNull();
       expect(localStorage.getItem('[dinify]tables.activeArea:old-restaurant')).toBeNull();
       expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id).toBe('claimed-1');
     });
 
+    it('HARD-navigates to the landing path it was given, REPLACING the history entry', () => {
+      // A full page load, never a router navigation: replacing one operator with
+      // another has to destroy the root services holding the outgoing tenant's data.
+      //
+      // And it must REPLACE rather than push. Destroying the document achieves
+      // nothing if Back can hand it back: the browser's back-forward cache restores
+      // a whole JS heap rather than re-executing the page, and the pre-claim
+      // document is a hybrid — this service has already published the INCOMING
+      // principal while every other root service still holds the OUTGOING tenant's
+      // data. `location.replace` leaves no history entry pointing at it.
+      service.installAuthenticatedSessionAndReload(session, membership as any, '/dining-tables');
+      expect(redirectSpy).toHaveBeenCalledOnceWith('/dining-tables', 'replace');
+    });
+
+    it('does not re-derive the target — it reloads onto exactly the path passed in', () => {
+      // The caller resolves the landing from the membership's permissions BEFORE the
+      // install. If this method recomputed it from storage the two could disagree.
+      service.installAuthenticatedSessionAndReload(
+        session,
+        { ...membership, permissions: { dashboard: false, menu: true } } as any,
+        '/some/caller/resolved/path',
+      );
+      expect(redirectSpy).toHaveBeenCalledOnceWith('/some/caller/resolved/path', 'replace');
+    });
+
+    it('leaves LOGOUT on the default push navigation — its history behaviour is unchanged', () => {
+      // Scope guard. Logout's outgoing document is internally consistent (one
+      // operator's services beside a userSubject this service set to null), so it
+      // does not need the replace treatment and this change does not give it one.
+      redirectSpy.and.stub();
+      service.logout(false);
+      // Called with the URL only — no mode argument, so hardRedirect's 'push'
+      // default applies exactly as before.
+      expect(redirectSpy).toHaveBeenCalledOnceWith('/login');
+    });
+
+    it('completes every write BEFORE triggering the reload', () => {
+      // If the reload fired first, the restarting application could race the writes
+      // and boot on the OLD principal — or on none at all.
+      const seen: Record<string, string | null> = {};
+      redirectSpy.and.callFake(() => {
+        seen['user'] = localStorage.getItem('user');
+        seen['rest_role'] = localStorage.getItem('rest_role');
+      });
+
+      service.installAuthenticatedSessionAndReload(session, membership as any, '/dashboard');
+
+      expect(redirectSpy).toHaveBeenCalled();
+      expect(JSON.parse(seen['user']!)).toEqual(session);
+      expect(JSON.parse(seen['rest_role']!)).toEqual(membership);
+    });
+
     it('issues NO http request — it mints nothing and calls neither login nor verify-otp', () => {
-      service.installAuthenticatedSession(session, membership as any);
+      service.installAuthenticatedSessionAndReload(session, membership as any, '/dashboard');
       // httpMock.verify() in afterEach would fail on any stray request; this is the
       // explicit statement of the same fact.
       httpMock.expectNone(`${base}/users/auth/login/`);
       httpMock.expectNone(`${base}/users/auth/verify-otp/`);
       httpMock.expectNone(`${base}/users/auth/token/refresh/`);
+      // In particular it does NOT revoke anything: this replaces a principal, it is
+      // not a logout.
+      httpMock.expectNone(`${base}/users/auth/logout/`);
     });
 
     it('drives the RBAC read-throughs off the newly selected membership', () => {
-      service.installAuthenticatedSession(
+      service.installAuthenticatedSessionAndReload(
         session,
         { ...membership, permissions: { dashboard: false, menu: true } } as any,
+        '/menu',
       );
       expect(service.canAccess('dashboard')).toBeFalse();
       expect(service.canAccess('menu')).toBeTrue();

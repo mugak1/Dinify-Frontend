@@ -130,18 +130,51 @@ this.userSubject.next(u as any)
   }
  
   /**
-   * Install an ALREADY-AUTHENTICATED, COMPLETE principal, atomically.
+   * Install an ALREADY-AUTHENTICATED, COMPLETE principal and RELOAD THE PAGE onto
+   * `landingPath`.
    *
-   * The one sanctioned way to seat a session this service did not itself mint.
-   * Its only caller today is owner-claim redemption (backend Step 2F.2 + 2F.3),
-   * which authenticates out-of-band against `users/owner-claim/redeem/` and then
-   * hydrates the canonical profile from `GET users/user-profile/` — a flow that
-   * cannot go through `login()` at all, because an owner membership sets
-   * `require_otp` and would demand a SECOND verification code moments after the
-   * claim transaction consumed its own.
+   * The one sanctioned way to seat a session this service did not itself mint. Its
+   * only caller is owner-claim redemption (backend Step 2F.2 + 2F.3), which
+   * authenticates out-of-band against `users/owner-claim/redeem/` and then hydrates
+   * the canonical profile from `GET users/user-profile/` — a flow that cannot go
+   * through `login()` at all, because an owner membership sets `require_otp` and
+   * would demand a SECOND verification code moments after the claim transaction
+   * consumed its own.
    *
-   * It is deliberately NOT a generic `setUser(any)`. Both arguments are typed and
-   * both are required, so a caller cannot seat a half-built principal:
+   * ═══ THE RELOAD IS PART OF THE OPERATION, NOT A NAVIGATION DETAIL ═════════════
+   *
+   * It is named `…AndReload` because a caller must not be able to treat the full-page
+   * boundary as optional. CLEARING STORAGE IS NOT ENOUGH TO REPLACE AN OPERATOR.
+   * `resetStorage()` empties localStorage, but every `providedIn: 'root'` service is
+   * still the SAME INSTANCE afterwards, still holding the PREVIOUS tenant's data in
+   * its in-memory subjects. `MenuService._rawSections$` / `_allItems$` are the
+   * concrete example: they are BehaviorSubjects, so `sections$` KEEPS EMITTING the
+   * outgoing restaurant's menu from the moment the principal changes until a
+   * replacement read for the incoming one settles — and anything rendering off that
+   * subject in the meantime paints one tenant's data inside another tenant's
+   * session.
+   *
+   * Owner claim can begin while a DIFFERENT operator is signed in — that is a
+   * supported entry, since the route is public — so a soft `router.navigateByUrl`
+   * here would carry one tenant's cached data into another tenant's session. The
+   * hard navigation is what destroys the Angular injector and forces every root
+   * service to be reconstructed under the new principal. This is the same reasoning
+   * `revokeAndExit` already relies on for ordinary logout; here it matters more,
+   * because the outgoing and incoming principals can differ.
+   *
+   * Do NOT "optimise" this into a router navigation, and do NOT try to substitute a
+   * hand-maintained list of root caches to clear — that list drifts the moment
+   * another root service starts holding tenant data.
+   *
+   * The navigation REPLACES the current history entry rather than pushing onto it,
+   * so the pre-claim document cannot be restored by Back (see `hardRedirect`'s
+   * `mode`). Destroying a document achieves nothing if the browser can return it
+   * intact from the back-forward cache.
+   *
+   * ═══ WHAT THE ARGUMENTS GUARANTEE ════════════════════════════════════════════
+   *
+   * Deliberately NOT a generic `setUser(any)`. All three arguments are typed and
+   * required, so a caller cannot seat a half-built principal:
    *  - `session` must be a COMPLETE LoginResponse (tokens AND the canonical
    *    profile). AuthGuard reads `profile.restaurant_roles`, so persisting a
    *    session whose profile has not arrived yet creates a browser that believes
@@ -152,20 +185,39 @@ this.userSubject.next(u as any)
    *    Never a hand-built `{restaurant_id, roles:['owner']}`: the frontend cannot
    *    compute a permissions map, and inventing one puts a second, wrong source of
    *    truth in front of the real one.
+   *  - `landingPath` must already be resolved (the caller runs the same
+   *    `firstAccessibleRoute` login uses). It is the reload TARGET, so it is read
+   *    before anything is written and never re-derived from storage afterwards.
    *
-   * MINTS NOTHING. No token request, no refresh, no `login()`, no `verify-otp`,
-   * no OTP of any kind — the credentials are handed in, already established.
+   * MINTS NOTHING. No token request, no refresh, no `login()`, no `verify-otp`, no
+   * OTP of any kind — the credentials are handed in, already established.
    *
-   * Ordering matches the storage semantics logout already uses: `resetStorage()`
-   * first, so a PREVIOUS operator's `rest_role`, `current_resta` and per-module
-   * persisted nav state cannot survive underneath the new principal, then the
-   * complete response, then the publish, then the selected membership.
+   * ORDER IS LOAD-BEARING: every write lands BEFORE the reload is triggered, so the
+   * restarted application reads the new principal rather than racing it.
+   * `resetStorage()` goes first, so a PREVIOUS operator's `rest_role`,
+   * `current_resta` and per-module persisted nav state cannot survive underneath the
+   * new principal.
    */
-  installAuthenticatedSession(session: LoginResponse, membership: RestaurantRole): void {
+  installAuthenticatedSessionAndReload(
+    session: LoginResponse,
+    membership: RestaurantRole,
+    landingPath: string,
+  ): void {
     this.resetStorage();
     localStorage.setItem('user', JSON.stringify(session));
     this.userSubject.next(session);
     this.setCurrentRestaurantRole(membership);
+    // LAST. Full page load: the Angular injector and every providedIn:'root'
+    // service go with it, which is the only thing that clears the outgoing
+    // operator's in-memory tenant data.
+    //
+    // REPLACE, not push. Destroying the document is not enough if the browser can
+    // hand it straight back: `location.href` would leave the pre-claim document in
+    // history, and a bfcache restore returns its whole JS heap — the hybrid state
+    // where this service has published the INCOMING principal while the other root
+    // services still hold the OUTGOING tenant's data. `location.replace` leaves no
+    // history entry pointing at it.
+    this.hardRedirect(landingPath, 'replace');
   }
 
   setCurrentRestaurantRole(role:any){
@@ -175,6 +227,17 @@ this.userSubject.next(u as any)
     localStorage.setItem('current_resta', JSON.stringify((restaurant)));    
   }
 
+  /**
+   * Clear the persisted principal and the per-module nav state.
+   *
+   * STORAGE ONLY. This does NOT end a session on its own: every
+   * `providedIn: 'root'` service survives it as the same instance, still holding
+   * whatever tenant data it had in memory. Both callers pair it with a full page
+   * load for exactly that reason — `revokeAndExit` on logout, and
+   * `installAuthenticatedSessionAndReload` when one operator replaces another. A new
+   * caller that clears storage and then SOFT-navigates is carrying the old tenant's
+   * cached data into the next session.
+   */
   resetStorage() {
     localStorage.removeItem('rest_role');
     localStorage.removeItem('current_resta');
@@ -326,9 +389,46 @@ this.userSubject.next(u as any)
       .subscribe({ next: () => finish(), error: () => finish() });
   }
 
-  // Indirection over `window.location.href = url` so unit tests can spy on
-  // navigation without actually unloading the Karma host page.
-  protected hardRedirect(url: string): void {
+  /**
+   * The full-page navigation primitive.
+   *
+   * Deliberately PROTECTED. It is reachable only through an operation that has
+   * already put storage in a consistent state — `revokeAndExit` (logout) or
+   * `installAuthenticatedSessionAndReload` (owner claim) — so no caller can trigger
+   * a reload without having decided what the reloaded app should find. A public
+   * `hardRedirect(url)` would be a bare `window.location` with extra steps.
+   *
+   * Its real execution destroys the Angular injector and with it every
+   * `providedIn: 'root'` service, which is the property both callers depend on. The
+   * indirection exists so unit tests can spy on that boundary without unloading the
+   * Karma host page.
+   *
+   * ═══ `mode` — WHETHER THE OUTGOING DOCUMENT STAYS REACHABLE ══════════════════
+   *
+   * `'push'` (`location.href`, the default) leaves the outgoing document as a
+   * history entry, so Back can return to it — and the browser's back-forward cache
+   * may restore its ENTIRE JS heap rather than re-executing the page, injector and
+   * root services included.
+   *
+   * `'replace'` (`location.replace`) replaces the current history entry instead, so
+   * nothing points at the outgoing document and Back cannot restore it.
+   *
+   * WHICH ONE A CALLER NEEDS DEPENDS ON WHAT ITS OUTGOING DOCUMENT CONTAINS.
+   * `installAuthenticatedSessionAndReload` requires `'replace'`: by the time it
+   * navigates, that document is a HYBRID — this service has already published the
+   * INCOMING principal while every other root service still holds the OUTGOING
+   * tenant's data. Restoring one document holding both is the exact condition the
+   * reload exists to destroy, so it must not remain reachable. (It also has no
+   * legitimate use: the claim code is spent, so going Back to the claim screen can
+   * only show a stale spinner.) Logout keeps `'push'`: its outgoing document is
+   * internally consistent — one operator's services beside a `userSubject` this
+   * service set to null — and its history behaviour is deliberately unchanged here.
+   */
+  protected hardRedirect(url: string, mode: 'push' | 'replace' = 'push'): void {
+    if (mode === 'replace') {
+      window.location.replace(url);
+      return;
+    }
     window.location.href = url;
   }
 }
