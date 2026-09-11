@@ -494,13 +494,48 @@ describe('BasketBodyComponent', () => {
   // make checkout truthful. The diner still reviews and confirms the SERVER's
   // total; only the acknowledgement, which that server never issued and does
   // not ask for, is absent.
+  // The payload is the REAL pre-D02 shape, field for field — none of `quote`,
+  // `quote_ref`, `pricing_version` or `reference_total_cost` existed — so this
+  // also pins that the reference is the ONLY thing the sheet needed from the
+  // new response. Everything else it reads (`id`, `actual_cost`,
+  // `no_available_items`, the two unavailable lists) predates the change.
+  const legacyInitiated = () => ({
+    status: 200,
+    data: {
+      order_details: {
+        id: 'o1',
+        order_number: 'R1',
+        no_items: 1,
+        no_unavailable_items: 0,
+        no_available_items: 1,
+        no_available_extras: 0,
+        no_unavailable_extras: 0,
+        total_cost: 4321,
+        discounted_cost: 4321,
+        savings: 0,
+        actual_cost: 4321,
+        order_status: 'initiated',
+        payment_status: 'pending',
+      },
+      order_items: [] as unknown[],
+      available_items: [] as unknown[],
+      unavailable_items: [] as unknown[],
+      extras: [] as unknown[],
+      available_extras: [] as unknown[],
+      unavailable_extras: [] as unknown[],
+    },
+  });
+
   it('still reviews the server total when the server names no quote', () => {
     basket.items = [lineItem()];
-    api.postPatch.and.returnValue(
-      of(initiated({ quote: undefined }, { quote_ref: undefined, actual_cost: 4321 })) as any,
-    );
+    api.postPatch.and.returnValue(of(legacyInitiated()) as any);
 
     component.initiateOrder();
+
+    // Placeable: nothing about the legacy shape reads as "nothing to prepare".
+    expect(component.quoteHasNothingToPlace).toBeFalse();
+    expect(component.quoteHasLosses).toBeFalse();
+    expect(component.quoteLines).toEqual([]);
 
     expect(component.showQuoteSheet).toBeTrue();
     expect(component.orderError).toBeFalse();
@@ -513,9 +548,7 @@ describe('BasketBodyComponent', () => {
 
   it('OMITS quote_ref entirely rather than sending a null one', () => {
     basket.items = [lineItem()];
-    api.postPatch.and.returnValue(
-      of(initiated({ quote: undefined }, { quote_ref: undefined })) as any,
-    );
+    api.postPatch.and.returnValue(of(legacyInitiated()) as any);
     component.initiateOrder();
 
     api.postPatch.calls.reset();
