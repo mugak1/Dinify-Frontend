@@ -67,6 +67,66 @@ so keep it current when conventions change.
   `app-savings-indicator`, see Shared UI Component Library) fed from the canonical
   server-truth `discount_details`, replacing the per-surface hand-rolled
   strikethrough / badge markup
+- Checkout confirmation is the SERVER's quote (D02/D03): ✅ **the diner now confirms
+  the amount the server saved, never one this browser computed.** The pre-pricing
+  "are you sure?" dialog is GONE — it asked about a number the client produced, and
+  placement then auto-submitted whenever nothing happened to be sold out, so the
+  server's amount was never shown before the order was accepted. Every order now gets
+  exactly ONE confirmation and it is always the server's: `initiateOrder()` prices,
+  and the review sheet (`showQuoteSheet`) renders `data.quote` — one row per parent
+  line with its extras nested — plus `order_details.actual_cost`. **This replaces a
+  dialog rather than adding a second one.** `confirmQuote()` then submits
+  `{order, quote_ref}`; the basket is never trimmed, and a rejected line is never
+  re-POSTed. Four things are load-bearing:
+  - **THE REVIEWED TOTAL IS NEVER RECOMPUTED.** `reviewedTotal` reads the server's
+    `actual_cost` verbatim. Where a client figure IS compared against a server one
+    (`quoteDiffersFromBasket`), it goes through `_shared/utils/decimal-money.ts`:
+    exact decimal parsing from the canonical string, integer comparison, **no
+    epsilon** and never `Math.round(Number(v) * 100)` — that pair is neither an exact
+    decimal parser (`Number('1.005') * 100` is `100.49999999999999`) nor the backend's
+    ROUND_HALF_EVEN rule, and the usual "fix" for the disagreement it causes is an
+    epsilon, which is a decision to stop noticing. `null` means CANNOT COMPARE and is
+    never `0`
+  - **A QUOTE IS BOUND TO THE BASKET AND THE TABLE IT WAS PRICED FOR.** Each attempt
+    is stamped with `basketService.revision()` and the checkout context; a response
+    that no longer matches BOTH is discarded — neither rendered nor submitted — and
+    the draft it created is left alone, because this client cannot know the draft was
+    not something else's. Editing the basket while the sheet is open marks the quote
+    stale rather than silently submitting the older amount
+  - **THE IDEMPOTENCY KEY IS NEVER RE-MINTED ON FAILURE.** Not on a lost response, a
+    timeout, or a failed comparison — a new key turns one attempt into two orders,
+    which is exactly what the key exists to prevent. There is ONE exception and it is
+    narrow: `reviewUpdatedOrder()`, reached only after the server has authoritatively
+    said the draft is LEGACY-priced and its acceptance path refuses it, so it can
+    never be accepted and a fresh attempt cannot duplicate it
+  - **LINE IDENTITY IS ID-ONLY AND ORDER-INDEPENDENT** (`lineIdentity` in
+    `basket.service.ts`). `JSON.stringify` used to decide it, so identity depended on
+    the order the diner tapped the choices in: "Cheese then Bacon" produced a
+    different basket line from "Bacon then Cheese", the server merged the two into one
+    row, and the basket, the confirmation and the kitchen ticket all disagreed about
+    how many lines there were. Groups and choices are sorted, choices de-duplicated,
+    and labels and prices are excluded — they are display values. `removeItem` matches
+    the FULL variant (`itemId` + modifiers + extras); it ignored extras entirely
+    before, so removing from a basket holding two variants of one dish removed
+    whichever came first
+  The D01 request ceilings are surfaced BEFORE the round trip via
+  `_shared/order/checkout-limits.ts`, whose numbers are the BACKEND's — pinned against
+  `checkout-limits.contract.json`, which the backend asserts from its own suite
+  (`orders_app/tests_order_input.py`), so either side drifting fails its own tests
+  rather than reaching a diner as an unexplained refusal. An over-ceiling line is
+  MARKED IN PLACE and stays REDUCIBLE: a restored basket can legitimately hold a line
+  above the submit ceiling (the server merges valid lines into one stored row above
+  it), so it is never clamped or dropped.
+  **`ErrorInterceptor` forwards an `orders/submit/` 400 carrying a `reason` as the
+  STRUCTURED BODY**, exactly as it already does for the `orders/initiate/`
+  ongoing-order block, and does not toast it — the basket branches on the machine code
+  (`legacy_pricing_version` / `quote_ref_stale`) and renders the sentence inline at the
+  checkout footer. Without that forward the interceptor flattens every failure to a
+  string and the recoveries cannot fire; matching on the human sentence instead is
+  exactly the brittleness the code exists to remove.
+  A repeatable real-browser check of the whole path lives in `e2e/checkout-journey/`
+  (NOT wired into CI — it needs a disposable PostgreSQL and two running servers); its
+  README records the two defects it found that the unit suites did not
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
@@ -935,6 +995,17 @@ writing new tag, price/menu or date-range logic:
   `CATEGORY_OPTIONS`/`IMPACT_OPTIONS`. Its only consumer since the admin plane
   left is the restaurant Support page — still reuse it before hand-rolling status
   badges or category labels
+- `src/app/_shared/order/` (per-file imports, no barrel) — the D01 request ceilings
+  (`checkout-limits.ts`) and the backend-authored fixture they are pinned against
+  (`checkout-limits.contract.json`). The numbers are the BACKEND's; both repositories
+  assert their own constants against that file. Deliberately a static file rather than
+  a runtime fetch: eight integers do not need a round trip, and a fetched limit would
+  be unavailable exactly when the diner is offline and the basket most needs to behave
+- `src/app/_shared/utils/decimal-money.ts` — exact decimal money for the checkout
+  comparison. Parses the digits of a canonical decimal string directly, compares as
+  integers with NO epsilon, and returns `null` (never `0`) for anything it cannot
+  represent exactly. Reach for it before comparing any client figure against a server
+  amount; never `Math.round(Number(v) * 100)`
 - `src/app/_shared/reviews/` (per-file imports, no barrel) — the diner
   quick-feedback chip taxonomy: `ReviewTagChip`, the canonical `REVIEW_TAG_CHIPS`
   set, and the `reviewTagLabel` key→label helper (unknown keys are humanized so

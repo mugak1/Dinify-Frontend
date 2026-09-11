@@ -96,6 +96,21 @@ export class ErrorInterceptor implements HttpInterceptor {
                     return throwError(() => err.error);
                 }
 
+                // Acceptance refusal: orders/submit/ returns HTTP 400
+                // { status, message, reason } when the saved quote cannot be
+                // accepted — it was priced under the superseded rules, the
+                // acknowledgement is missing or stale, or nothing on it is
+                // still deliverable. Forward the structured body untouched so
+                // the basket can branch on the machine-readable `reason` and
+                // re-review, rather than matching on a human sentence (which is
+                // exactly the brittleness the reason code exists to remove).
+                // The message is still surfaced — by the component, inline at
+                // the checkout footer, so the diner sees one message, not two.
+                if (request.url.includes('orders/submit') && err.status === 400
+                    && typeof err.error?.reason === 'string') {
+                    return throwError(() => err.error);
+                }
+
                 const error = err.error?.message || err.statusText;
                 if (error) {
                     this.toast.error(error);

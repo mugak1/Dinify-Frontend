@@ -264,10 +264,6 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  removeItem(Id: string) {
-    this.basketService.removeItem(Id);
-  }
-
   get QuantitySum() {
     return this.basketItems.reduce((a, b) => a + b.quantity, 0);
   }

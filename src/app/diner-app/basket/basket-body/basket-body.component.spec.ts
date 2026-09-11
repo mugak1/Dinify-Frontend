@@ -3,7 +3,7 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
-import { NEVER, of, throwError } from 'rxjs';
+import { NEVER, Subject, of, throwError } from 'rxjs';
 import { WINDOW } from '../../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../../_services/storage/storage-key-prefix.token';
 import { BasketService } from '../../../_services/basket.service';
@@ -29,7 +29,15 @@ describe('BasketBodyComponent', () => {
     Basket: () => { items: BasketItem[]; totalAmount: number };
     getOrCreateClientOrderId: jasmine.Spy;
     clearBasket: jasmine.Spy;
+    revision: () => number;
+    resetClientOrderId: jasmine.Spy;
+    incrementItem: (index: number) => void;
+    decrementItem: (index: number) => void;
   };
+  // The basket's own change counter. A quote is bound to the revision it was
+  // priced for, so a test that edits the basket must bump it exactly as
+  // BasketService does on a real mutation.
+  let revision: number;
   let connectivity: { isOffline: () => boolean };
   let router: Router;
 
@@ -51,8 +59,40 @@ describe('BasketBodyComponent', () => {
     } as BasketItem;
   }
 
+  const quoteLine = (over: Record<string, unknown> = {}) => ({
+    id: 'l1', item: 'i1', item_name: 'Burger', quantity: 1,
+    available: true, status: 'available',
+    selected_modifiers: {}, modifiers: [], options: [],
+    unit_price: 5000, reference_unit_price: 5000, discounted_price: 5000,
+    unit_cost_of_options: 0, discounted: false,
+    total_cost: 5000, reference_total_cost: 5000, discounted_cost: 5000,
+    savings: 0, line_actual_cost: 5000, line_total_with_extras: 5000,
+    extras: [] as unknown[], ...over,
+  });
+
+  const initiated = (over: Record<string, unknown> = {}, details: Record<string, unknown> = {}) => ({
+    status: 200,
+    data: {
+      order_details: {
+        id: 'o1',
+        no_unavailable_items: 0,
+        no_unavailable_extras: 0,
+        actual_cost: 5000,
+        reference_total_cost: 5000,
+        pricing_version: 1,
+        quote_ref: 'qref-1',
+        ...details,
+      },
+      unavailable_items: [] as unknown[],
+      unavailable_extras: [] as unknown[],
+      quote: [quoteLine()],
+      ...over,
+    },
+  });
+
   beforeEach(async () => {
     basket = { items: [], totalAmount: 0 };
+    revision = 0;
 
     api = jasmine.createSpyObj<ApiService>('ApiService', ['postPatch']);
     api.postPatch.and.returnValue(of() as any); // inert default; order tests override
@@ -68,6 +108,19 @@ describe('BasketBodyComponent', () => {
       Basket: () => basket,
       getOrCreateClientOrderId: jasmine.createSpy('getOrCreateClientOrderId').and.returnValue(CLIENT_ID),
       clearBasket: jasmine.createSpy('clearBasket'),
+      revision: () => revision,
+      resetClientOrderId: jasmine.createSpy('resetClientOrderId'),
+      incrementItem: (index: number) => {
+        const line = basket.items[index];
+        if (line) { line.quantity += 1; revision += 1; }
+      },
+      decrementItem: (index: number) => {
+        const line = basket.items[index];
+        if (!line) return;
+        revision += 1;
+        if (line.quantity === 1) basket.items = basket.items.filter((l) => l !== line);
+        else line.quantity -= 1;
+      },
     };
 
     await TestBed.configureTestingModule({
@@ -133,13 +186,15 @@ describe('BasketBodyComponent', () => {
   });
 
   // ── inline placement error + retry ───────────────────────────────────────
-  it('shows an inline error on a genuine placement failure, and Retry re-attempts idempotently without re-opening the dialog', () => {
+  it('shows an inline error on a genuine placement failure, and Retry re-attempts idempotently', () => {
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(throwError(() => 'no network') as any);
 
     component.initiateOrder();
 
-    expect(dialog.openModal).toHaveBeenCalledTimes(1);
+    // NO pre-pricing confirm dialog: it asked "are you sure?" about a number
+    // this browser computed. The only confirmation is the server's quote.
+    expect(dialog.openModal).not.toHaveBeenCalled();
     expect(api.postPatch).toHaveBeenCalledTimes(1);
     expect(component.orderError).toBeTrue();
     expect(toast.clear).toHaveBeenCalled();
@@ -147,9 +202,9 @@ describe('BasketBodyComponent', () => {
 
     component.retryOrder();
 
-    // Retry re-attempts placement reusing the same id, with NO second dialog.
+    // Retry re-attempts placement reusing the same id, and still no dialog.
     expect(api.postPatch).toHaveBeenCalledTimes(2);
-    expect(dialog.openModal).toHaveBeenCalledTimes(1);
+    expect(dialog.openModal).not.toHaveBeenCalled();
     expect((api.postPatch.calls.argsFor(1)[1] as any).client_order_id).toBe(CLIENT_ID);
   });
 
@@ -218,7 +273,7 @@ describe('BasketBodyComponent', () => {
     // cross-table body-id override vector.
     component.table = { id: 'some-table', number: 9 } as any;
     component.restaurant = { id: 'some-restaurant' } as any;
-    api.postPatch.and.returnValue(of(initiateWith({})) as any);
+    api.postPatch.and.returnValue(of(initiated()) as any);
 
     component.initiateOrder();
 
@@ -299,122 +354,210 @@ describe('BasketBodyComponent', () => {
     expect(component.orderErrorMessage.toLowerCase()).toContain('offline');
   });
 
-  // ── unavailable-item reconciliation at checkout ───────────────────────────
-  // The backend is the availability/publication authority: orders/initiate/
-  // returns the lines it dropped (sold out, pulled, or now unpublished) and zeros
-  // them server-side. The diner reviews the trimmed order and either confirms the
-  // reduced total or backs out — the local basket is never silently mutated, and
-  // a rejected line is never re-POSTed. This is the defensive path the tenant-
-  // isolation contract leans on, so pin it.
-  const initiateWith = (overrides: Record<string, unknown>) => ({
-    status: 200,
-    data: {
-      order_details: {
-        id: 'o1',
-        no_unavailable_items: 0,
-        no_unavailable_extras: 0,
-        actual_cost: 5000,
-        ...overrides,
-      },
-      unavailable_items: [] as unknown[],
-      unavailable_extras: [] as unknown[],
-    },
-  });
-
-  it('submits straight away when every line is still available (published-item flow unchanged)', () => {
+  // ── the authoritative quote review at checkout ────────────────────────────
+  // The server prices the order and the diner confirms THAT — not a browser
+  // estimate. The review sheet is shown for EVERY order, not only when a line
+  // dropped: correct calculation is not agreement to an amount, and the old
+  // flow auto-submitted whenever nothing happened to be sold out. The local
+  // basket is never silently mutated and a rejected line is never re-POSTed.
+  it('reviews the SERVER quote before submitting, even when nothing dropped', () => {
     basket.items = [lineItem()];
-    api.postPatch.and.returnValues(
-      of(initiateWith({ no_unavailable_items: 0 })) as any, // initiate → all available
-      of({}) as any, // submit
-    );
+    api.postPatch.and.returnValue(of(initiated()) as any);
 
     component.initiateOrder();
 
-    expect(component.showUnavailableSheet).toBeFalse();
-    expect(api.postPatch).toHaveBeenCalledTimes(2);
+    // Initiate ran; submit did NOT — the diner has not agreed to anything yet.
+    expect(component.showQuoteSheet).toBeTrue();
+    expect(api.postPatch).toHaveBeenCalledTimes(1);
     expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
-    expect(api.postPatch.calls.argsFor(1)[0]).toContain('orders/submit');
+    expect(component.placingOrder).toBeFalse();
+    expect(component.quoteHasLosses).toBeFalse();
+    expect(component.quoteLines.length).toBe(1);
     // The initiate payload carries the basket items unchanged.
     expect((api.postPatch.calls.argsFor(0)[1] as any).items.length).toBe(1);
     expect((api.postPatch.calls.argsFor(0)[1] as any).items[0].item).toBe('i1');
   });
 
-  it('shows the review sheet without trimming the basket or submitting when a line dropped', () => {
-    basket.items = [lineItem(), lineItem({ itemId: 'i2', itemName: 'Fries' })];
-    api.postPatch.and.returnValue(
-      of({
-        status: 200,
-        data: {
-          order_details: { id: 'o1', no_unavailable_items: 1, no_unavailable_extras: 0, actual_cost: 5000 },
-          unavailable_items: [{ id: 'i2', name: 'Fries' }],
-          unavailable_extras: [],
-        },
-      }) as any,
-    );
-
-    component.initiateOrder();
-
-    expect(component.showUnavailableSheet).toBeTrue();
-    expect(dialog.closeModal).toHaveBeenCalled();
-    expect(component.placingOrder).toBeFalse();
-    // Only initiate ran — never submit — and the local basket is left intact.
-    expect(api.postPatch).toHaveBeenCalledTimes(1);
-    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
-    expect(basket.items.length).toBe(2);
-    expect(component.unavailableItems).toEqual([{ id: 'i2', name: 'Fries' }]);
-    expect(component.reviewedTotal).toBe(5000);
-  });
-
-  it('confirmPartialOrder submits the already-initiated order id — never re-POSTs the rejected payload', () => {
+  it('renders the SERVER total, never a recomputed one', () => {
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(
-      of({
-        status: 200,
-        data: {
-          order_details: { id: 'o1', no_unavailable_items: 1, no_unavailable_extras: 0, actual_cost: 5000 },
-          unavailable_items: [{ id: 'i2', name: 'Fries' }],
-          unavailable_extras: [],
-        },
-      }) as any,
+      of(initiated({}, { actual_cost: 4321 })) as any,
     );
 
     component.initiateOrder();
-    expect(component.showUnavailableSheet).toBeTrue();
+
+    expect(component.reviewedTotal).toBe(4321);
+  });
+
+  it('shows the review without trimming the basket when a line dropped', () => {
+    basket.items = [lineItem(), lineItem({ itemId: 'i2', itemName: 'Fries' })];
+    api.postPatch.and.returnValue(
+      of(initiated(
+        { unavailable_items: [{ id: 'i2', name: 'Fries' }] },
+        { no_unavailable_items: 1 },
+      )) as any,
+    );
+
+    component.initiateOrder();
+
+    expect(component.showQuoteSheet).toBeTrue();
+    expect(component.quoteHasLosses).toBeTrue();
+    expect(api.postPatch).toHaveBeenCalledTimes(1);
+    expect(basket.items.length).toBe(2);
+    expect(component.unavailableItems).toEqual([{ id: 'i2', name: 'Fries' }]);
+  });
+
+  it('confirmQuote submits the initiated order id plus the quote it reviewed', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.initiateOrder();
+    expect(component.showQuoteSheet).toBeTrue();
 
     api.postPatch.calls.reset();
     api.postPatch.and.returnValue(of({}) as any);
 
-    component.confirmPartialOrder();
+    component.confirmQuote();
 
-    expect(component.showUnavailableSheet).toBeFalse();
-    // Exactly one follow-up call, to submit/ with the initiated order id — NOT
-    // another initiate/ with the rejected item payload.
+    expect(component.showQuoteSheet).toBeFalse();
+    // Exactly one follow-up call, to submit/ with the order id AND the
+    // acknowledgement — NOT another initiate/ with the item payload.
     expect(api.postPatch).toHaveBeenCalledTimes(1);
     expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/submit');
     expect(api.postPatch.calls.argsFor(0)[0]).not.toContain('orders/initiate');
-    expect(api.postPatch.calls.argsFor(0)[1]).toEqual({ order: 'o1' });
+    expect(api.postPatch.calls.argsFor(0)[1]).toEqual({
+      order: 'o1', quote_ref: 'qref-1',
+    });
   });
 
-  it('cancelPartialOrder closes the sheet and submits nothing', () => {
+  it('cancelQuote closes the sheet and submits nothing', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.initiateOrder();
+    expect(component.showQuoteSheet).toBeTrue();
+
+    api.postPatch.calls.reset();
+    component.cancelQuote();
+
+    expect(component.showQuoteSheet).toBeFalse();
+    expect(api.postPatch).not.toHaveBeenCalled();
+    expect(basket.items.length).toBe(1);
+  });
+
+  // A server that cannot name the quote it priced cannot be acknowledged.
+  // Submitting anyway would accept an amount nothing bound the diner to.
+  it('refuses to review a quote the server did not name', () => {
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(
-      of({
-        status: 200,
-        data: {
-          order_details: { id: 'o1', no_unavailable_items: 1, no_unavailable_extras: 0, actual_cost: 5000 },
-          unavailable_items: [{ id: 'i2', name: 'Fries' }],
-          unavailable_extras: [],
-        },
-      }) as any,
+      of(initiated({}, { quote_ref: undefined })) as any,
     );
 
     component.initiateOrder();
-    expect(component.showUnavailableSheet).toBeTrue();
+
+    expect(component.showQuoteSheet).toBeFalse();
+    expect(component.orderError).toBeTrue();
+    expect(api.postPatch).toHaveBeenCalledTimes(1);
+  });
+
+  // A LATE response priced a basket the diner has moved on from. It is neither
+  // rendered nor submitted, and the draft it created is left alone — this
+  // client cannot know the draft was not something else's.
+  it('discards a response for a basket that changed while it was in flight', () => {
+    basket.items = [lineItem()];
+    const late = new Subject<any>();
+    api.postPatch.and.returnValue(late as any);
+
+    component.initiateOrder();
+    basket.items = [lineItem({ quantity: 4 })];
+    revision += 1;
+    late.next(initiated());
+    late.complete();
+
+    expect(component.showQuoteSheet).toBeFalse();
+    expect(api.postPatch).toHaveBeenCalledTimes(1);
+  });
+
+  // The reviewed quote is bound to the basket it was priced for. Editing the
+  // basket while the sheet is open invalidates it rather than silently
+  // submitting the older amount.
+  it('marks a reviewed quote stale once the basket changes underneath it', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.initiateOrder();
+    expect(component.quoteIsStale).toBeFalse();
+
+    basket.items = [lineItem({ quantity: 2 })];
+    revision += 1;
+
+    expect(component.quoteIsStale).toBeTrue();
+  });
+
+  // A draft this device started BEFORE the corrected pricing shipped. The
+  // basket is KEPT — only the stale draft is discarded — so the diner
+  // re-reviews the same selections at today's prices.
+  it('offers recovery for a legacy draft instead of submitting it', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.initiateOrder();
+    api.postPatch.calls.reset();
+    api.postPatch.and.returnValue(
+      throwError(() => ({ status: 400, message: 'Prices have changed.', reason: 'legacy_pricing_version' })) as any,
+    );
+
+    component.confirmQuote();
+
+    expect(component.legacyDraft).toBeTrue();
+    expect(basket.items.length).toBe(1);
 
     api.postPatch.calls.reset();
-    component.cancelPartialOrder();
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.reviewUpdatedOrder();
 
-    expect(component.showUnavailableSheet).toBeFalse();
+    expect(component.legacyDraft).toBeFalse();
+    // Re-prices from scratch rather than re-submitting the stale draft.
+    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
+  });
+
+  // The server refused the acknowledgement because the saved quote moved. The
+  // diner must see the new one, never have the new amount accepted silently.
+  it('re-reviews rather than retrying when the server calls the quote stale', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.initiateOrder();
+    api.postPatch.calls.reset();
+    api.postPatch.and.returnValue(
+      throwError(() => ({ status: 400, message: 'Your order total changed.', reason: 'quote_ref_stale' })) as any,
+    );
+
+    component.confirmQuote();
+
+    expect(component.showQuoteSheet).toBeFalse();
+    expect(component.orderError).toBeTrue();
+    expect(basket.items.length).toBe(1);
+  });
+
+  // ── D01 request ceilings, said before the round trip ──────────────────────
+  it('refuses to place an order over the per-line ceiling, keeping the basket', () => {
+    basket.items = [lineItem({ quantity: 120 })];
+    api.postPatch.calls.reset();
+
+    component.initiateOrder();
+
     expect(api.postPatch).not.toHaveBeenCalled();
+    expect(component.orderError).toBeTrue();
+    expect(component.limitState.breach).toBe('line_quantity');
+    expect(component.isOverLineLimit(0)).toBeTrue();
+    // The basket is RETAINED and stays reducible.
+    expect(basket.items.length).toBe(1);
+  });
+
+  it('stops the stepper at the ceiling but still allows reduction', () => {
+    basket.items = [lineItem({ quantity: 99 })];
+    expect(component.atLineCeiling(0)).toBeTrue();
+
+    component.incrementItem(0);
+    expect(basket.items[0].quantity).toBe(99);
+
+    component.decrementItem(0);
+    expect(basket.items[0].quantity).toBe(98);
   });
 });

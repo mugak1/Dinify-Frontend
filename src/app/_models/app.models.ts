@@ -416,6 +416,60 @@ export interface OrderInitiated {
   unavailable_items: any[]
   available_items: AvailableItem[]
   unavailable_extras: any[]
+  // THE authoritative priced order (D02). One entry per PARENT line, each
+  // carrying its own extras, exactly as the server saved and will charge them.
+  // Absent on a legacy (pricing_version 0) draft, which is why it is optional
+  // and why the diner app refuses to review one rather than guessing.
+  quote?: OrderQuoteLine[]
+}
+
+/**
+ * One parent line of the server's quote, with its extras nested.
+ *
+ * TWO TOTALS, DELIBERATELY DISTINCT — conflating them double-counts or drops the
+ * extras, which is the D02 defect in miniature:
+ *   `line_actual_cost`       the PARENT alone, after its own discount
+ *   `line_total_with_extras` the parent PLUS every extra on it — what this row
+ *                            contributes to the order's payable
+ * `reference_unit_price` / `reference_total_cost` are the pre-discount figures
+ * the strikethrough is drawn from; they are never what is charged.
+ */
+export interface OrderQuoteLine {
+  id: string
+  item: string
+  item_name: string
+  quantity: number
+  available: boolean
+  status: string
+  selected_modifiers: Record<string, string[]>
+  modifiers: any[]
+  options: any[]
+  unit_price: number
+  reference_unit_price: number
+  discounted_price: number
+  unit_cost_of_options: number
+  discounted: boolean
+  total_cost: number
+  reference_total_cost: number
+  discounted_cost: number
+  savings: number
+  line_actual_cost: number
+  line_total_with_extras: number
+  extras: OrderQuoteExtra[]
+}
+
+export interface OrderQuoteExtra {
+  id: string
+  item: string
+  item_name: string
+  quantity: number
+  available: boolean
+  status: string
+  unit_price: number
+  discounted_price: number
+  actual_cost: number
+  discounted?: boolean
+  savings?: number
 }
 
 export interface OrderDetails {
@@ -437,6 +491,15 @@ export interface OrderDetails {
   no_unavailable_extras: number
   order_status: string
   payment_status: string
+  // Pre-discount order value, beside the payable `actual_cost`. Additive: a
+  // legacy draft omits it rather than reporting a wrong one.
+  reference_total_cost?: number
+  // 0 = LEGACY (priced before the D02 correction), 1 = CORRECTED. The diner app
+  // never submits a legacy draft — it discards it and re-reviews the basket.
+  pricing_version?: number
+  // Opaque acknowledgement of THIS saved quote, echoed back on submit. Derived
+  // from the persisted lines and totals, so it changes the moment they do.
+  quote_ref?: string
 }
 
 export interface OrderItem {

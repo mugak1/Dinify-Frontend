@@ -447,6 +447,45 @@ describe('ErrorInterceptor', () => {
         { status: 400, statusText: 'Bad Request' }
       );
     });
+
+    // An acceptance refusal carries a machine-readable `reason` beside the
+    // sentence. The basket branches on that code to re-review the order; making
+    // it match on the sentence instead is exactly the brittleness the code
+    // exists to remove. It is not toasted here — the component renders it
+    // inline at the checkout footer, so the diner sees one message, not two.
+    it('forwards the structured body and shows no toast for an orders/submit 400 acceptance refusal', (done) => {
+      httpClient.put('/api/v1/orders/submit/', {}).subscribe({
+        error: (err) => {
+          expect(err).toEqual(
+            jasmine.objectContaining({ reason: 'quote_ref_stale', message: 'Your order total changed.' })
+          );
+          expect(toast.error).not.toHaveBeenCalled();
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/v1/orders/submit/');
+      req.flush(
+        { status: 400, message: 'Your order total changed.', reason: 'quote_ref_stale' },
+        { status: 400, statusText: 'Bad Request' }
+      );
+    });
+
+    it('still flattens an orders/submit 400 that carries no reason code', (done) => {
+      httpClient.put('/api/v1/orders/submit/', {}).subscribe({
+        error: (err) => {
+          expect(err).toBe('Something went wrong');
+          expect(toast.error).toHaveBeenCalledWith('Something went wrong');
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne('/api/v1/orders/submit/');
+      req.flush(
+        { status: 400, message: 'Something went wrong' },
+        { status: 400, statusText: 'Bad Request' }
+      );
+    });
   });
 
   describe('concurrent 401 handling', () => {

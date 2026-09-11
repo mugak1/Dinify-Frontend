@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, AfterViewInit, Component, ViewChild, ElementRe
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
-import { BasketItem, OrderInitiated, Restaurant, TableScan } from 'src/app/_models/app.models';
+import { BasketItem, OrderInitiated, OrderQuoteLine, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
@@ -16,6 +16,11 @@ import { PriceDisplayComponent } from '../../../_shared/ui/price-display/price-d
 import { OngoingOrderBannerComponent } from '../../ongoing-order-banner/ongoing-order-banner.component';
 import { MenuNavStateService } from '../../menu/menu-nav-state.service';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
+import { sameAmount, toMinorUnits } from '../../../_shared/utils/decimal-money';
+import {
+  CheckoutLimitState, MAX_QUANTITY_PER_LINE, atLineQuantityCeiling,
+  checkCheckoutLimits,
+} from '../../../_shared/order/checkout-limits';
 
 @Component({
     changeDetection: ChangeDetectionStrategy.Eager,
@@ -32,7 +37,25 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *  but in the always-mounted sidebar it's the only table indicator. */
   @Input() sidebar = false;
   order_initiated?: OrderInitiated;
-  showUnavailableSheet = false;
+  /** The ONE authoritative review: the server's priced lines and total. */
+  showQuoteSheet = false;
+
+  /**
+   * Which placement attempt is in flight, and what it was priced for.
+   *
+   * A LATE RESPONSE MUST NOT RENDER OR SUBMIT THE WRONG QUOTE. A basket
+   * revision alone is not enough — the checkout CONTEXT (restaurant and table)
+   * can change without the basket doing so, and two taps can overlap — so an
+   * attempt carries its own sequence number alongside both.
+   */
+  private attemptSeq = 0;
+  private activeAttempt: {
+    seq: number; revision: number; context: string;
+  } | null = null;
+  /** The quote the diner is actually looking at, if any. */
+  private reviewedQuote: { ref: string; revision: number; context: string } | null = null;
+  /** Set when the server refused a draft priced before the pricing correction. */
+  legacyDraft = false;
 
   /** Inline placement-error state, shown with a Retry at the checkout footer. */
   orderError = false;
@@ -212,6 +235,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Increments the quantity of the basket line at `index` (by index, not identity).
   incrementItem(index: number): void {
+    // The per-line ceiling is the SUBMITTED maximum: stop here rather than let
+    // the whole order be refused at the server. Decrement is never blocked, so
+    // a restored over-limit basket can always be brought back down.
+    if (this.atLineCeiling(index)) return;
     this.basketService.incrementItem(index);
     this.updateCart();
   }
@@ -255,23 +282,29 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   // diner is already offline we skip the doomed round-trip (and the doomed
   // confirm dialog) and surface the inline error straight away — the ambient
   // offline strip already explains why.
+  /**
+   * Ask the server to price this basket, then show the diner THAT.
+   *
+   * THERE IS NO LONGER A PRE-PRICING CONFIRM DIALOG. It asked "are you sure?"
+   * about a number this browser had computed, and placement then auto-submitted
+   * whenever nothing happened to be sold out — so the server's amount was never
+   * shown before the order was accepted. Correct calculation is not agreement to
+   * an amount. Every order now gets exactly ONE confirmation and it is always
+   * the server's: this replaces a dialog rather than adding a second one.
+   */
   initiateOrder() {
     // Hard stop: the table already has an order in the kitchen. The CTA is
     // disabled in this state, so this is just defense in depth.
     if (this.tableHasOngoingOrder) return;
+    if (this.limitState.breach) {
+      this.failOrder(this.limitState.message);
+      return;
+    }
     if (this.connectivity.isOffline()) {
       this.failOrder("You're offline — reconnect to place your order.");
       return;
     }
-    this.dialog.openModal({
-      title: 'Checkout',
-      message: 'Are you sure you want to place this order?',
-      submitButtonText: 'Order',
-    }).subscribe((response: any) => {
-      if (response?.action === 'yes') {
-        this.placeOrder();
-      }
-    });
+    this.placeOrder();
   }
 
   // Re-attempts a failed placement without re-opening the confirm dialog.
@@ -290,7 +323,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   // commits straight away; otherwise it hands off to the unavailable-items sheet.
   private placeOrder() {
     this.orderError = false;
+    this.legacyDraft = false;
     this.placingOrder = true;
+    // Stamp this attempt with the basket revision AND the checkout context it
+    // was priced for. A response that no longer matches both is discarded.
+    this.attemptSeq += 1;
+    const attempt = {
+      seq: this.attemptSeq,
+      revision: this.basketService.revision(),
+      context: this.checkoutContext(),
+    };
+    this.activeAttempt = attempt;
     const orderPayload = {
       // Idempotency key — reused across retries of an unchanged basket so a
       // retried submit returns the existing order instead of duplicating it.
@@ -314,27 +357,44 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // API call to initiate the order
     this.api.postPatch('orders/initiate/', orderPayload, 'post',null,{},false,'v2').subscribe(
       (response: any) => {
+        if (!this.isCurrent(attempt)) {
+          // A LATE RESPONSE for a basket or a table the diner has moved on
+          // from. It priced something they are no longer looking at, so it is
+          // neither rendered nor submitted — and the draft it created is left
+          // alone rather than cancelled, because this client cannot know it was
+          // not something else's.
+          return;
+        }
         if (response.status === 200) {
           this.order_initiated = response.data;
           const od = this.order_initiated?.order_details;
-          const unavailableCount =
-            (od?.no_unavailable_items ?? 0) + (od?.no_unavailable_extras ?? 0);
-          if (unavailableCount === 0) {
-            this.submitOrder(); // everything available — commit straight away
-          } else {
-            // One or more items/extras sold out or were pulled since they were added.
-            // Close the confirm dialog and let the diner review what dropped and the new
-            // total, instead of dead-ending or silently trimming the order.
-            this.dialog.closeModal();
-            this.showUnavailableSheet = true;
-            this.placingOrder = false;
+          const quoteReference = od?.quote_ref ?? null;
+          if (!quoteReference) {
+            // A backend that cannot name the quote it priced cannot be
+            // acknowledged, and submitting anyway would accept an unreviewed
+            // amount. Fail clearly instead.
+            this.failOrder(
+              'We could not confirm your order total. Please try again.',
+            );
+            return;
           }
+          this.reviewedQuote = {
+            ref: quoteReference,
+            revision: attempt.revision,
+            context: attempt.context,
+          };
+          // ALWAYS review — whether or not anything dropped. The diner sees the
+          // server's lines and the server's total, and nothing is accepted
+          // until they say so.
+          this.showQuoteSheet = true;
+          this.placingOrder = false;
         } else {
           this.toast.success(response.message);
           this.placingOrder = false;
         }
       },
       (error) => {
+        if (!this.isCurrent(attempt)) return;
         this.dialog.closeModal();
 
         // The table already has an order working through the kitchen. The backend
@@ -380,8 +440,41 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *  failOrder() shows its generic fallback. Guards the non-message tokens the
    *  interceptor throws (the 'no network' sentinel, non-strings). */
   private placementErrorMessage(error: unknown): string | undefined {
-    return typeof error === 'string' && error && error !== 'no network' ? error : undefined;
+    if (typeof error === 'string') {
+      return error && error !== 'no network' ? error : undefined;
+    }
+    // A structured refusal the interceptor forwarded whole (see
+    // error.interceptor.ts): it carries the sentence beside the machine code,
+    // and is NOT toasted there, so the message has to be read off it here.
+    const message = (error as { message?: unknown } | null)?.message;
+    return typeof message === 'string' && message ? message : undefined;
   }
+
+  /** The backend's stable refusal code, when it sent one. */
+  private refusalReason(error: any): string | null {
+    const reason = error?.reason ?? error?.error?.reason;
+    return typeof reason === 'string' ? reason : null;
+  }
+
+  // --- D01 request ceilings, surfaced before the round trip --------------
+
+  /** Whether this basket can be submitted as it stands, and why not. */
+  get limitState(): CheckoutLimitState {
+    return checkCheckoutLimits(this.basketItems);
+  }
+
+  /** Mark the individual lines a diner has to reduce. */
+  isOverLineLimit(index: number): boolean {
+    return this.limitState.overLimitLineIndexes.includes(index);
+  }
+
+  /** One more unit on this line would exceed the per-line ceiling. */
+  atLineCeiling(index: number): boolean {
+    return atLineQuantityCeiling(this.basketItems[index]?.quantity ?? 0);
+  }
+
+  /** The ceiling itself, so the inline message states a number rather than a rule. */
+  readonly maxQuantityPerLine = MAX_QUANTITY_PER_LINE;
 
   // Surfaces a friendly inline placement error + Retry at the checkout footer,
   // clearing the global toast first so the diner sees one message, not two.
@@ -421,37 +514,130 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
 
+  // --- the authoritative review ----------------------------------------
+
+  /** Identity of the checkout CONTEXT this basket would be priced against. */
+  private checkoutContext(): string {
+    return `${this.restaurant?.id ?? ''}:${this.table?.id ?? ''}`;
+  }
+
+  /** Is this attempt still the one the diner is waiting on? */
+  private isCurrent(attempt: { seq: number; revision: number; context: string }):
+    boolean {
+    return (
+      this.activeAttempt?.seq === attempt.seq &&
+      this.basketService.revision() === attempt.revision &&
+      this.checkoutContext() === attempt.context
+    );
+  }
+
+  /** True once the basket or the table has moved on from the shown quote. */
+  get quoteIsStale(): boolean {
+    if (!this.reviewedQuote) return true;
+    return (
+      this.basketService.revision() !== this.reviewedQuote.revision ||
+      this.checkoutContext() !== this.reviewedQuote.context
+    );
+  }
+
+  /** The server's priced lines, each with its extras nested underneath. */
+  get quoteLines(): OrderQuoteLine[] {
+    return this.order_initiated?.order_details ? this.order_initiated.quote ?? [] : [];
+  }
+
   /** Whole dishes that became unavailable at checkout. */
   get unavailableItems(): any[] {
     return this.order_initiated?.unavailable_items ?? [];
   }
 
-  /** Extras that became unavailable (their parent dish is still orderable). */
+  /** Extras that became unavailable (their parent dish is still orderable).
+   *  An extra dropped only BECAUSE its dish was dropped is not listed here —
+   *  the server reports that as one loss, not two. */
   get unavailableExtras(): any[] {
     return this.order_initiated?.unavailable_extras ?? [];
   }
 
-  /** Recalculated amount payable for the remaining items. Unavailable lines are
-   *  zeroed server-side, so actual_cost already excludes them. */
+  /** True when anything the diner chose is not deliverable. */
+  get quoteHasLosses(): boolean {
+    return this.unavailableItems.length > 0 || this.unavailableExtras.length > 0;
+  }
+
+  /** THE SERVER'S amount payable. Never recomputed here. */
   get reviewedTotal(): number {
     return Number(this.order_initiated?.order_details?.actual_cost) || 0;
   }
 
-  /** Diner accepted the trimmed order — commit the already-initiated order. */
-  confirmPartialOrder(): void {
-    this.showUnavailableSheet = false;
+  /**
+   * Does the server's total match what this basket was showing?
+   *
+   * EXACT, through the decimal-string parser — no epsilon, no whole-shilling
+   * rounding. Used only to LABEL the review ("the total changed"), never to
+   * decide whether to submit: the diner confirms the server's number either
+   * way.
+   */
+  get quoteDiffersFromBasket(): boolean {
+    const server = this.order_initiated?.order_details?.actual_cost;
+    if (toMinorUnits(server) === null) return true;
+    return !sameAmount(server, this.totalAmount);
+  }
+
+  /** Nothing survived — there is no order to place. */
+  get quoteHasNothingToPlace(): boolean {
+    const details = this.order_initiated?.order_details;
+    if (!details) return true;
+    return (details.no_available_items ?? 0) < 1;
+  }
+
+  /** Diner accepted the server's quote — commit that exact draft. */
+  confirmQuote(): void {
+    if (this.quoteIsStale) {
+      // The basket changed while the review was open. The old quote can no
+      // longer be accepted; the basket is left exactly as it is.
+      this.showQuoteSheet = false;
+      this.failOrder('Your basket changed. Please review your order again.');
+      return;
+    }
+    this.showQuoteSheet = false;
     this.submitOrder();
   }
 
   /** Diner backed out — return to the basket unchanged (no submit, no basket mutation). */
-  cancelPartialOrder(): void {
-    this.showUnavailableSheet = false;
+  cancelQuote(): void {
+    this.showQuoteSheet = false;
+    this.placingOrder = false;
+  }
+
+  /**
+   * The server refused a draft priced before the pricing correction. Re-price
+   * the unchanged basket so the diner reviews and accepts a corrected quote.
+   *
+   * A FRESH IDEMPOTENCY KEY IS MINTED HERE, and only here: the backend has
+   * authoritatively established that the old order is still a DRAFT its
+   * acceptance path refuses, so it can never be accepted and a new attempt
+   * cannot duplicate it. This is the one case — never a timeout, never an
+   * ambiguous failure, never a lost response.
+   */
+  reviewUpdatedOrder(): void {
+    this.legacyDraft = false;
+    this.orderError = false;
+    this.order_initiated = undefined;
+    this.reviewedQuote = null;
+    this.basketService.resetClientOrderId();
+    this.placeOrder();
   }
 
   // Submits the order to the server
+  /**
+   * Accept the exact quote the diner reviewed.
+   *
+   * `quote_ref` names THAT saved draft. The server validates it under the order
+   * lock and refuses anything else — a stale acknowledgement is a controlled
+   * refusal, never a silent reprice and never a second order.
+   */
   submitOrder() {
     const payload = {
       order: this.order_initiated?.order_details?.id,
+      quote_ref: this.reviewedQuote?.ref,
     };
 
     this.api.postPatch('orders/submit/', payload, 'put').subscribe(
@@ -474,6 +660,8 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           },
         });
 
+        this.reviewedQuote = null;
+        this.activeAttempt = null;
         this.basketService.clearBasket(); // Clear the basket
         // Reset the diner's order/menu context, but KEEP the table-session
         // capability alive across the wipe — the order-complete review submission
@@ -500,6 +688,23 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         if (this.dinerSession.isSessionExpired(error)) {
           this.dinerSession.expireSession();
+        }
+        // The server refused the draft because it was priced by the previous
+        // calculation. Offer an explicit re-review rather than retrying the
+        // same acceptance, which can only fail the same way.
+        if (this.refusalReason(error) === 'legacy_pricing_version') {
+          this.legacyDraft = true;
+          this.toast.clear();
+          this.placingOrder = false;
+          return;
+        }
+        // The saved quote moved under us. Re-price and review again; the basket
+        // is untouched and the idempotency key is deliberately NOT re-minted.
+        if (this.refusalReason(error) === 'quote_ref_stale') {
+          this.toast.clear();
+          this.reviewedQuote = null;
+          this.placeOrder();
+          return;
         }
         // submit/ otherwise only runs after a successful initiate/, which already
         // passed the table-gate — so it can't carry the ongoing-order 400 (that's

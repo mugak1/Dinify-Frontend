@@ -3,6 +3,38 @@ import { BasketItem, ShoppingBasket, SelectedModifier } from '../_models/app.mod
 import { SessionStorageService } from './storage/session-storage.service';
 import { persistedSignal } from './storage/persisted-state';
 
+/**
+ * Canonical identity of a basket line (D03, the client half).
+ *
+ * `JSON.stringify` was the old comparison, and it made identity depend on
+ * INSERTION ORDER: a diner who picked "Cheese then Bacon" got a different basket
+ * line from one who picked "Bacon then Cheese", the server then merged the two
+ * into one row, and the basket, the confirmation and the kitchen ticket all
+ * disagreed about how many lines there were.
+ *
+ * This mirrors the server's rule exactly — same dish, same complete modifier
+ * selection, same complete extras — with every collection sorted so order cannot
+ * decide it, and it is built from IDs alone. Labels and prices are display
+ * values and must never be part of identity.
+ */
+function lineIdentity(item: {
+  itemId: string;
+  selectedModifiers?: SelectedModifier[] | null;
+  extras?: { id: string }[] | null;
+}): string {
+  const modifiers = (item.selectedModifiers ?? [])
+    .map((group) => ({
+      g: String(group.groupId),
+      // De-duplicated and sorted, matching the server's canonical form: a
+      // repeated choice is one selection there, so it must be here too.
+      c: Array.from(new Set((group.choices ?? []).map((choice) => String(choice.id)))).sort(),
+    }))
+    .filter((group) => group.c.length > 0)
+    .sort((a, b) => (a.g < b.g ? -1 : a.g > b.g ? 1 : 0));
+  const extras = (item.extras ?? []).map((extra) => String(extra.id)).sort();
+  return JSON.stringify({ i: String(item.itemId), m: modifiers, e: extras });
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -14,8 +46,24 @@ export class BasketService {
    * retries of the same basket, and reset whenever the basket changes (every
    * mutator below) or is cleared — so a changed cart starts a fresh order while
    * a retried submit of an unchanged cart is deduped by the backend.
+   *
+   * It is NEVER re-minted because a response was lost, a quote comparison
+   * failed, or a request timed out: a new key would turn one attempt into two
+   * orders, which is precisely the failure the key exists to prevent.
    */
   private clientOrderId: string | null = null;
+
+  /**
+   * Monotonic revision of the basket's CONTENTS. Every mutator bumps it, so a
+   * server quote can be tied to the basket it was priced for and a response
+   * that arrives after an edit can be recognised as describing something the
+   * diner is no longer looking at.
+   *
+   * A revision is necessary but NOT sufficient on its own — the checkout
+   * context (restaurant and table) can change without the basket doing so, and
+   * the component guards that separately.
+   */
+  private revisionCounter = 0;
 
   constructor(private sessionStorage: SessionStorageService) {
     this.Basket = persistedSignal<ShoppingBasket>(
@@ -32,6 +80,16 @@ export class BasketService {
     );
   }
 
+  /** The current basket revision. Bumped by every content change. */
+  public revision(): number {
+    return this.revisionCounter;
+  }
+
+  private changed(): void {
+    this.revisionCounter += 1;
+    this.resetClientOrderId();
+  }
+
   // Calculates the total amount of the basket
   public calculateTotalAmount(items: BasketItem[]): number {
     return items.reduce((total, item) => total + item.totalPrice * item.quantity, 0);
@@ -39,13 +97,11 @@ export class BasketService {
 
   // Adds an item to the basket with support for modifiers and extras
   public addItem(item: BasketItem) {
-    this.resetClientOrderId();
+    this.changed();
     this.Basket.update((currentBasket) => {
+      const identity = lineIdentity(item);
       const existingItem = currentBasket.items.find(
-        (i) =>
-          i.itemId === item.itemId &&
-          JSON.stringify(i.selectedModifiers) === JSON.stringify(item.selectedModifiers) &&
-          JSON.stringify(i.extras) === JSON.stringify(item.extras)
+        (i) => lineIdentity(i) === identity,
       );
 
       if (existingItem) {
@@ -60,15 +116,24 @@ export class BasketService {
     });
   }
 
-  // Removes an item or decreases its quantity
-  public removeItem(itemId: string, selectedModifiers: SelectedModifier[] = []) {
-    this.resetClientOrderId();
+  /**
+   * Removes one unit of the line matching this FULL variant, or the whole line
+   * when it would reach 0.
+   *
+   * `extras` is part of the match. It used to be ignored entirely, so removing
+   * from a basket holding two variants of one dish that differ only by their
+   * extras removed whichever happened to come first — a different dish from the
+   * one the diner pointed at.
+   */
+  public removeItem(
+    itemId: string,
+    selectedModifiers: SelectedModifier[] = [],
+    extras: { id: string }[] = [],
+  ) {
+    this.changed();
     this.Basket.update((currentBasket) => {
-      const item = currentBasket.items.find(
-        (i) =>
-          i.itemId === itemId &&
-          JSON.stringify(i.selectedModifiers) === JSON.stringify(selectedModifiers)
-      );
+      const identity = lineIdentity({ itemId, selectedModifiers, extras });
+      const item = currentBasket.items.find((i) => lineIdentity(i) === identity);
 
       if (item) {
         if (item.quantity === 1) {
@@ -88,7 +153,7 @@ export class BasketService {
    *  index (not identity) so it is unambiguous when two lines share the same
    *  item and modifiers but differ only by extras. */
   public incrementItem(index: number): void {
-    this.resetClientOrderId();
+    this.changed();
     this.Basket.update((currentBasket) => {
       const item = currentBasket.items[index];
       if (item) {
@@ -101,9 +166,13 @@ export class BasketService {
 
   /** Decrements the quantity of the basket line at `index` by 1, removing the
    *  line entirely when it would reach 0. Index-based for the same reason as
-   *  incrementItem. */
+   *  incrementItem.
+   *
+   *  DECREMENT IS ALWAYS ALLOWED, even from a state the server would refuse: a
+   *  restored basket can hold a line above the per-line ceiling, and the diner
+   *  must be able to bring it back down. */
   public decrementItem(index: number): void {
-    this.resetClientOrderId();
+    this.changed();
     this.Basket.update((currentBasket) => {
       const item = currentBasket.items[index];
       if (!item) return currentBasket;
@@ -120,7 +189,7 @@ export class BasketService {
   // Replaces a basket item at the given index with a new item.
   // Used when editing an existing basket item's selections.
   public updateItem(index: number, item: BasketItem): void {
-    this.resetClientOrderId();
+    this.changed();
     this.Basket.update((currentBasket) => {
       if (index >= 0 && index < currentBasket.items.length) {
         currentBasket.items[index] = item;
@@ -132,7 +201,7 @@ export class BasketService {
 
   // Clears the basket
   public clearBasket() {
-    this.resetClientOrderId();
+    this.changed();
     this.Basket.update(() => ({
       items: [],
       totalAmount: 0,
@@ -144,7 +213,13 @@ export class BasketService {
     return (this.clientOrderId ??= crypto.randomUUID());
   }
 
-  /** Drop the idempotency key (basket changed or order completed). */
+  /**
+   * Drop the idempotency key (basket changed or order completed).
+   *
+   * Deliberately NOT called on a lost response, a timeout or a failed quote
+   * comparison: the whole point of the key is that an attempt whose outcome is
+   * unknown retries as the SAME attempt.
+   */
   public resetClientOrderId(): void {
     this.clientOrderId = null;
   }

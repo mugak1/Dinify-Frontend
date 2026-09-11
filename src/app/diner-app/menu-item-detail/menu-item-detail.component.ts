@@ -18,8 +18,10 @@ import {
   getCurrentPriceFromDetails,
   discountIsLive as discountIsLiveFn,
   serverEffectivePrice,
+  serverPriceUnreadable,
   serverSavings,
 } from 'src/app/_shared/utils/price-utils';
+import { MAX_QUANTITY_PER_LINE } from 'src/app/_shared/order/checkout-limits';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from '../menu/menu-nav-state.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -497,7 +499,7 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
       return;
     }
     const item = this.item();
-    if (!item || this.isOutOfStock(item)) return;
+    if (!item || this.isOutOfStock(item) || this.priceUnreadable(item)) return;
 
     this.formSubmitted.set(false);
 
@@ -581,6 +583,26 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
   }
 
   incrementQuantity(): void {
+    if (this.atQuantityCeiling) return;
     this.quantity.set(this.quantity() + 1);
+  }
+
+  /** The D01 per-line ceiling, so the stepper stops where the server would refuse. */
+  readonly maxQuantityPerLine = MAX_QUANTITY_PER_LINE;
+
+  get atQuantityCeiling(): boolean {
+    return this.quantity() >= MAX_QUANTITY_PER_LINE;
+  }
+
+  /**
+   * The server cannot read this item's price, so it will not sell it.
+   *
+   * Such an item is already absent from the public menu (`item_priceable` gates
+   * `item_visible_in_menu` server-side), so this only catches a stale screen or
+   * a direct navigation. It refuses the ADD rather than showing `primary_price`,
+   * which is a figure the server would decline to charge.
+   */
+  priceUnreadable(item: MenuItem | null): boolean {
+    return serverPriceUnreadable(item);
   }
 }
