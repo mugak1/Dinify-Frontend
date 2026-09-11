@@ -1,0 +1,11 @@
+{
+  "_source": "Dinify-Backend orders_app/controllers/services/order_input.py",
+  "_note": "Backend-authored request ceilings. Both repositories assert their own constants against this file; either drifting fails its own suite.",
+  "MAX_QUANTITY_PER_LINE": 99,
+  "MAX_LINES_PER_ORDER": 100,
+  "MAX_TOTAL_UNITS": 500,
+  "MAX_MODIFIER_GROUPS_PER_LINE": 32,
+  "MAX_CHOICES_PER_GROUP": 64,
+  "MAX_EXTRAS_PER_LINE": 64,
+  "MAX_SELECTION_ENTRIES_PER_REQUEST": 2048
+}

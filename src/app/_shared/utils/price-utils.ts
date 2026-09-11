@@ -107,6 +107,27 @@ export function serverEffectivePrice(item: MenuItem | null | undefined): number 
   return Number(item?.primary_price ?? 0) || 0;
 }
 
+/**
+ * Does the server report this item's price as UNREADABLE?
+ *
+ * `current_price` is the server's own effective price. Since D02 the serializer
+ * emits an explicit `null` there when the stored figures cannot be read as
+ * money at all — a malformed `primary_price`, or a currently-scheduled discount
+ * whose magnitude is unusable. That is a DIFFERENT fact from "no discount", and
+ * the difference matters: `serverEffectivePrice` falls back to `primary_price`,
+ * which for an unreadable item is a number the server would refuse to charge.
+ *
+ * The test is deliberately narrow — the key must be PRESENT and exactly `null`.
+ * An ABSENT key means a payload that never carried the field, where the
+ * pre-existing fallback is still the right answer. An item in this state is
+ * already filtered out of the public menu server-side (`item_priceable` gates
+ * `item_visible_in_menu`), so this is defence in depth against a stale or
+ * directly-navigated screen, not the primary control.
+ */
+export function serverPriceUnreadable(item: MenuItem | null | undefined): boolean {
+  return !!item && 'current_price' in item && (item as { current_price?: unknown }).current_price === null;
+}
+
 // Savings implied by the SERVER's effective price (primary_price − serverEffectivePrice),
 // floored at 0. The server-truth counterpart to the device-clock calculateSavings above —
 // shared by the diner surfaces that render a save amount off serverEffectivePrice (item-detail
