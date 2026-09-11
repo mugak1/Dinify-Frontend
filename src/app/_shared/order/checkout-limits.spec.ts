@@ -77,6 +77,74 @@ describe('checkout-limits', () => {
     });
   });
 
+  // Published ceilings that the whole-request total cannot stand in for: each of
+  // these baskets sits far below 2,048 entries and the server still refuses it,
+  // so a preflight that only counted the total would send the diner on a round
+  // trip to be told what it already knew.
+  describe('per-line selection dimensions', () => {
+    const groups = (count: number, choicesEach = 1) => ({
+      quantity: 1,
+      selectedModifiers: Array.from({ length: count }, (_, g) => ({
+        choices: Array.from({ length: choicesEach }, (_, c) => `g${g}c${c}`),
+      })),
+      extras: [],
+    });
+
+    it('accepts a line EXACTLY at each per-line ceiling', () => {
+      expect(checkCheckoutLimits([groups(MAX_MODIFIER_GROUPS_PER_LINE)]).breach)
+        .toBeNull();
+      expect(checkCheckoutLimits([line(1, MAX_CHOICES_PER_GROUP)]).breach)
+        .toBeNull();
+      expect(checkCheckoutLimits([line(1, 0, MAX_EXTRAS_PER_LINE)]).breach)
+        .toBeNull();
+    });
+
+    it('refuses one modifier group too many, and names the line', () => {
+      const state = checkCheckoutLimits([
+        line(1),
+        groups(MAX_MODIFIER_GROUPS_PER_LINE + 1),
+      ]);
+      expect(state.breach).toBe('line_selections');
+      expect(state.overLimitLineIndexes).toEqual([1]);
+      expect(state.message).toContain(`${MAX_MODIFIER_GROUPS_PER_LINE}`);
+    });
+
+    it('refuses one choice too many in a single group', () => {
+      const state = checkCheckoutLimits([line(1, MAX_CHOICES_PER_GROUP + 1)]);
+      expect(state.breach).toBe('line_selections');
+      expect(state.overLimitLineIndexes).toEqual([0]);
+    });
+
+    it('refuses one extra too many on a single line', () => {
+      const state = checkCheckoutLimits([line(1, 0, MAX_EXTRAS_PER_LINE + 1)]);
+      expect(state.breach).toBe('line_selections');
+      expect(state.overLimitLineIndexes).toEqual([0]);
+    });
+
+    // The widest group is what the server measures — spreading the same total
+    // across several groups is perfectly legal.
+    it('measures choices per GROUP, not per line', () => {
+      const spread = {
+        quantity: 1,
+        selectedModifiers: [
+          { choices: Array.from({ length: MAX_CHOICES_PER_GROUP }, (_, i) => `a${i}`) },
+          { choices: Array.from({ length: MAX_CHOICES_PER_GROUP }, (_, i) => `b${i}`) },
+        ],
+        extras: [],
+      };
+      expect(checkCheckoutLimits([spread]).breach).toBeNull();
+    });
+
+    // Quantity is the one a diner can actually act on with the stepper, so it
+    // keeps precedence over a dimension the menu itself decided.
+    it('still reports an over-quantity line first', () => {
+      const state = checkCheckoutLimits([
+        { ...groups(MAX_MODIFIER_GROUPS_PER_LINE + 1), quantity: MAX_QUANTITY_PER_LINE + 1 },
+      ]);
+      expect(state.breach).toBe('line_quantity');
+    });
+  });
+
   describe('the whole-order ceilings', () => {
     it('refuses more lines than an order may carry', () => {
       const lines = Array.from({ length: MAX_LINES_PER_ORDER + 1 }, () => line(1));

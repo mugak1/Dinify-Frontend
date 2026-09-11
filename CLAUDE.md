@@ -77,7 +77,27 @@ so keep it current when conventions change.
   line with its extras nested — plus `order_details.actual_cost`. **This replaces a
   dialog rather than adding a second one.** `confirmQuote()` then submits
   `{order, quote_ref}`; the basket is never trimmed, and a rejected line is never
-  re-POSTed. Four things are load-bearing:
+  re-POSTed. **THE REVIEW SHEET IS THE LOCK on the basket from confirm until submit
+  resolves** — it stays up in a loading state, and `cancelQuote()` is inert while
+  `placingOrder`. Closing it on confirm handed the live basket straight back (the
+  quantity steppers carry no `placingOrder` binding and the CTA had been released
+  when the sheet opened), so a slow submission let the diner edit the basket or start
+  a second checkout, and the success handler then cleared the basket and navigated
+  away with those edits. A DISCARDED attempt also gives the button back
+  (`releaseIfLatest`) — but only when no newer attempt is in flight, since that one
+  owns the loading state. Five things are load-bearing:
+  - **A SERVER THAT NAMES NO QUOTE IS TOLERATED, AND THAT IS THE RELEASE ORDER.**
+    `quote_ref` absent from the initiate response means a pre-D02 backend: the sheet
+    still renders and still confirms the SERVER's `actual_cost` (only the itemised
+    `data.quote` is missing, and the sheet says so), and submit OMITS the key rather
+    than sending a null. This client ships BEFORE the paired backend — refusing an
+    unnamed quote made every otherwise-successful checkout fail for the whole window,
+    an outage produced by the change meant to make checkout truthful. It is not a
+    weakening: the corrected backend always names a quote and its acceptance path
+    REQUIRES one, so there is no client switch that can turn the guarantee off. It is
+    TRANSITIONAL — removable once the corrected backend is deployed everywhere this
+    client talks to — but removing it is its own deliberate change, never a tidy-up:
+    deleting it re-creates the outage against any server that has not caught up
   - **THE REVIEWED TOTAL IS NEVER RECOMPUTED.** `reviewedTotal` reads the server's
     `actual_cost` verbatim. Where a client figure IS compared against a server one
     (`quoteDiffersFromBasket`), it goes through `_shared/utils/decimal-money.ts`:
@@ -116,7 +136,11 @@ so keep it current when conventions change.
   rather than reaching a diner as an unexplained refusal. An over-ceiling line is
   MARKED IN PLACE and stays REDUCIBLE: a restored basket can legitimately hold a line
   above the submit ceiling (the server merges valid lines into one stored row above
-  it), so it is never clamped or dropped.
+  it), so it is never clamped or dropped. **EVERY published ceiling is CHECKED, and
+  the whole-request total cannot stand in for the per-line ones** — 33 modifier
+  groups, 65 choices in one group or 65 extras all sit far below the 2,048-entry
+  aggregate and are still refused by the server, so counting only the total would
+  publish three limits the preflight never applied.
   **`ErrorInterceptor` forwards an `orders/submit/` 400 carrying a `reason` as the
   STRUCTURED BODY**, exactly as it already does for the `orders/initiate/`
   ongoing-order block, and does not toast it — the basket branches on the machine code

@@ -37,6 +37,7 @@ export type CheckoutLimitBreach =
   | 'line_quantity'
   | 'too_many_lines'
   | 'too_many_units'
+  | 'line_selections'
   | 'too_many_selections';
 
 export interface CheckoutLimitState {
@@ -57,6 +58,17 @@ const OK: CheckoutLimitState = {
   message: '',
   overLimitLineIndexes: [],
 };
+
+/** One line carries more options or extras than the server will accept. The
+ *  offending line is named so it can be marked in place, exactly as an
+ *  over-quantity line is — never cleared or trimmed on the diner's behalf. */
+function lineSelectionBreach(index: number, rule: string): CheckoutLimitState {
+  return {
+    breach: 'line_selections',
+    message: `${rule} Please simplify the highlighted item.`,
+    overLimitLineIndexes: [index],
+  };
+}
 
 /**
  * Can this basket be submitted? Reports the FIRST breach with a message the
@@ -107,6 +119,40 @@ export function checkCheckoutLimits(
         'Please place the rest as a second order.',
       overLimitLineIndexes: [],
     };
+  }
+
+  // PER-LINE DIMENSION CEILINGS, checked before the whole-request total.
+  //
+  // The aggregate below cannot stand in for these and it is tempting to think it
+  // can: a line carrying 65 extras, or a group carrying 65 choices, is nowhere
+  // near 2,048 entries, so a preflight that only counted the total would publish
+  // three limits it never checked and let the server do the refusing — exactly
+  // the round trip this module exists to spare the diner.
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const groups = line.selectedModifiers ?? [];
+    if (groups.length > MAX_MODIFIER_GROUPS_PER_LINE) {
+      return lineSelectionBreach(
+        index,
+        `An item can carry at most ${MAX_MODIFIER_GROUPS_PER_LINE} option groups.`,
+      );
+    }
+    const widestGroup = groups.reduce(
+      (widest, group) => Math.max(widest, group?.choices?.length ?? 0),
+      0,
+    );
+    if (widestGroup > MAX_CHOICES_PER_GROUP) {
+      return lineSelectionBreach(
+        index,
+        `An option group can carry at most ${MAX_CHOICES_PER_GROUP} choices.`,
+      );
+    }
+    if ((line.extras?.length ?? 0) > MAX_EXTRAS_PER_LINE) {
+      return lineSelectionBreach(
+        index,
+        `An item can carry at most ${MAX_EXTRAS_PER_LINE} extras.`,
+      );
+    }
   }
 
   // RAW entries, before de-duplication — the same basis the backend counts on.

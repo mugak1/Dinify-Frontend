@@ -52,8 +52,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   private activeAttempt: {
     seq: number; revision: number; context: string;
   } | null = null;
-  /** The quote the diner is actually looking at, if any. */
-  private reviewedQuote: { ref: string; revision: number; context: string } | null = null;
+  /** The quote the diner is actually looking at, if any.
+   *
+   *  `ref` is NULL against a server that prices the old way and therefore names
+   *  no quote — see the tolerance in placeOrder(). Everything else about the
+   *  binding (revision + checkout context) applies identically either way. */
+  private reviewedQuote:
+    { ref: string | null; revision: number; context: string } | null = null;
   /** Set when the server refused a draft priced before the pricing correction. */
   legacyDraft = false;
 
@@ -363,21 +368,26 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // neither rendered nor submitted — and the draft it created is left
           // alone rather than cancelled, because this client cannot know it was
           // not something else's.
+          this.releaseIfLatest(attempt);
           return;
         }
         if (response.status === 200) {
           this.order_initiated = response.data;
           const od = this.order_initiated?.order_details;
+          // A SERVER THAT PRICES THE OLD WAY NAMES NO QUOTE, and that is not an
+          // error. This client ships BEFORE the paired backend (see the release
+          // order), so treating a missing reference as a failure would turn
+          // every otherwise-successful checkout into one for the whole window —
+          // an outage, from the change meant to make checkout truthful.
+          //
+          // What a legacy response cannot give is a NAME for the quote. It
+          // still carries the server's own total, so the diner still reviews
+          // and confirms the server's amount rather than this browser's, and
+          // submit simply omits an acknowledgement that server never issued and
+          // does not ask for. Once the corrected backend is live the reference
+          // is always present, always sent, and its acceptance path requires it
+          // — there is no client-side switch that can turn that off.
           const quoteReference = od?.quote_ref ?? null;
-          if (!quoteReference) {
-            // A backend that cannot name the quote it priced cannot be
-            // acknowledged, and submitting anyway would accept an unreviewed
-            // amount. Fail clearly instead.
-            this.failOrder(
-              'We could not confirm your order total. Please try again.',
-            );
-            return;
-          }
           this.reviewedQuote = {
             ref: quoteReference,
             revision: attempt.revision,
@@ -394,7 +404,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       },
       (error) => {
-        if (!this.isCurrent(attempt)) return;
+        if (!this.isCurrent(attempt)) {
+          this.releaseIfLatest(attempt);
+          return;
+        }
         this.dialog.closeModal();
 
         // The table already has an order working through the kitchen. The backend
@@ -521,6 +534,24 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${this.restaurant?.id ?? ''}:${this.table?.id ?? ''}`;
   }
 
+  /**
+   * Give the checkout button back after a DISCARDED attempt.
+   *
+   * Discarding a late response is correct — it priced a basket the diner has
+   * moved on from — but the button was put into its loading state when that
+   * attempt started, and nothing else clears it: editing the basket mid-flight
+   * left the CTA disabled with no way back except reloading, which on the
+   * desktop sidebar (never destroyed, it lives in the shell) means the whole
+   * page.
+   *
+   * ONLY when this was the LATEST attempt started. A newer attempt still in
+   * flight owns the loading state, and re-enabling the button underneath it
+   * would invite a second checkout for a basket already being priced.
+   */
+  private releaseIfLatest(attempt: { seq: number }): void {
+    if (attempt.seq === this.attemptSeq) this.placingOrder = false;
+  }
+
   /** Is this attempt still the one the diner is waiting on? */
   private isCurrent(attempt: { seq: number; revision: number; context: string }):
     boolean {
@@ -588,7 +619,18 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     return (details.no_available_items ?? 0) < 1;
   }
 
-  /** Diner accepted the server's quote — commit that exact draft. */
+  /**
+   * Diner accepted the server's quote — commit that exact draft.
+   *
+   * THE SHEET STAYS UP UNTIL SUBMIT RESOLVES, in a loading state. Closing it
+   * first handed the live basket straight back: the quantity controls are not
+   * disabled during a submit, and the checkout CTA had already been released
+   * when the sheet opened — so a slow submission left the diner free to edit
+   * the basket or start a second checkout, and the success handler then cleared
+   * the basket and navigated away, taking those edits with it. Keeping the
+   * modal up locks every mutation behind it without a single new disabled
+   * binding.
+   */
   confirmQuote(): void {
     if (this.quoteIsStale) {
       // The basket changed while the review was open. The old quote can no
@@ -597,12 +639,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.failOrder('Your basket changed. Please review your order again.');
       return;
     }
-    this.showQuoteSheet = false;
+    this.placingOrder = true;
     this.submitOrder();
   }
 
-  /** Diner backed out — return to the basket unchanged (no submit, no basket mutation). */
+  /** Diner backed out — return to the basket unchanged (no submit, no basket mutation).
+   *
+   *  Inert while a submission is in flight: the sheet is the lock, so dismissing
+   *  it (backdrop or "Back to basket") must not release the basket under an
+   *  acceptance the server may already have committed. */
   cancelQuote(): void {
+    if (this.placingOrder) return;
     this.showQuoteSheet = false;
     this.placingOrder = false;
   }
@@ -635,13 +682,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * refusal, never a silent reprice and never a second order.
    */
   submitOrder() {
-    const payload = {
+    const payload: { order: unknown; quote_ref?: string } = {
       order: this.order_initiated?.order_details?.id,
-      quote_ref: this.reviewedQuote?.ref,
     };
+    // OMITTED, not sent as null, when the server named no quote: there is
+    // nothing to acknowledge, and a null would be an assertion about a quote
+    // rather than the absence of one. A corrected server always names one, and
+    // refuses a submission that arrives without it.
+    const quoteReference = this.reviewedQuote?.ref ?? null;
+    if (quoteReference) payload.quote_ref = quoteReference;
 
     this.api.postPatch('orders/submit/', payload, 'put').subscribe(
       (_response: any) => {
+        this.showQuoteSheet = false;
         this.dialog.closeModal();
         // Forward the table for the confirmation page (captured before the
         // sessionStorage clear below), and replaceUrl so Back doesn't return to
@@ -677,6 +730,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.order_initiated = undefined;
       },
       (error) => {
+        // The acceptance resolved, so the review sheet stops being the lock:
+        // every branch below either explains itself at the checkout footer or
+        // re-prices, and both need the basket back.
+        this.showQuoteSheet = false;
         this.dialog.closeModal();
         // A table-session failure can still surface here if the session lapsed
         // between initiate and submit — route it the same way as placeOrder().

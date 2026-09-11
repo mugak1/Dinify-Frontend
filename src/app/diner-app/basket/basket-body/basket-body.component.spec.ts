@@ -429,6 +429,50 @@ describe('BasketBodyComponent', () => {
     });
   });
 
+  // The review sheet is the LOCK on the basket while an acceptance is in
+  // flight. Closing it on confirm handed the live basket straight back: the
+  // quantity steppers are not disabled during a submit and the checkout CTA had
+  // already been released when the sheet opened, so a slow submission let the
+  // diner edit the basket or start a second checkout — and the success handler
+  // then cleared the basket and navigated away, taking those edits with it.
+  it('keeps the review up, in a loading state, until the submit resolves', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.initiateOrder();
+
+    const pending = new Subject<any>();
+    api.postPatch.calls.reset();
+    api.postPatch.and.returnValue(pending as any);
+    component.confirmQuote();
+
+    expect(component.showQuoteSheet).toBeTrue();
+    expect(component.placingOrder).toBeTrue();
+
+    // And dismissing it is inert while the acceptance may already have
+    // committed server-side.
+    component.cancelQuote();
+    expect(component.showQuoteSheet).toBeTrue();
+
+    pending.next({});
+    pending.complete();
+    expect(component.showQuoteSheet).toBeFalse();
+  });
+
+  it('gives the basket back when the submit fails, with the error at the footer', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.initiateOrder();
+
+    api.postPatch.calls.reset();
+    api.postPatch.and.returnValue(throwError(() => 'Something went wrong.') as any);
+    component.confirmQuote();
+
+    expect(component.showQuoteSheet).toBeFalse();
+    expect(component.placingOrder).toBeFalse();
+    expect(component.orderError).toBeTrue();
+    expect(basket.items.length).toBe(1);
+  });
+
   it('cancelQuote closes the sheet and submits nothing', () => {
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(of(initiated()) as any);
@@ -443,19 +487,45 @@ describe('BasketBodyComponent', () => {
     expect(basket.items.length).toBe(1);
   });
 
-  // A server that cannot name the quote it priced cannot be acknowledged.
-  // Submitting anyway would accept an amount nothing bound the diner to.
-  it('refuses to review a quote the server did not name', () => {
+  // ── compatibility with a server that prices the old way ───────────────────
+  // This client ships BEFORE the paired backend, so for that window the
+  // initiate response carries no quote_ref. Treating that as a failure would
+  // take checkout down entirely — an outage produced by the change meant to
+  // make checkout truthful. The diner still reviews and confirms the SERVER's
+  // total; only the acknowledgement, which that server never issued and does
+  // not ask for, is absent.
+  it('still reviews the server total when the server names no quote', () => {
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(
-      of(initiated({}, { quote_ref: undefined })) as any,
+      of(initiated({ quote: undefined }, { quote_ref: undefined, actual_cost: 4321 })) as any,
     );
 
     component.initiateOrder();
 
-    expect(component.showQuoteSheet).toBeFalse();
-    expect(component.orderError).toBeTrue();
+    expect(component.showQuoteSheet).toBeTrue();
+    expect(component.orderError).toBeFalse();
+    expect(component.reviewedTotal).toBe(4321);
+    expect(component.placingOrder).toBeFalse();
+    // Reviewed, not submitted — the diner has still agreed to nothing.
     expect(api.postPatch).toHaveBeenCalledTimes(1);
+    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
+  });
+
+  it('OMITS quote_ref entirely rather than sending a null one', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(
+      of(initiated({ quote: undefined }, { quote_ref: undefined })) as any,
+    );
+    component.initiateOrder();
+
+    api.postPatch.calls.reset();
+    api.postPatch.and.returnValue(of({}) as any);
+    component.confirmQuote();
+
+    expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/submit');
+    // Exactly `{order}` — no key at all, so nothing asserts about a quote that
+    // was never issued.
+    expect(api.postPatch.calls.argsFor(0)[1]).toEqual({ order: 'o1' });
   });
 
   // A LATE response priced a basket the diner has moved on from. It is neither
@@ -474,6 +544,32 @@ describe('BasketBodyComponent', () => {
 
     expect(component.showQuoteSheet).toBeFalse();
     expect(api.postPatch).toHaveBeenCalledTimes(1);
+    // ...AND the checkout button is given back. Discarding is correct, but the
+    // button was put into its loading state when the attempt started and
+    // nothing else clears it — the diner would be left unable to check out the
+    // basket they had just edited, with no way back but a reload.
+    expect(component.placingOrder).toBeFalse();
+  });
+
+  // ...unless a NEWER attempt is still in flight: that one owns the loading
+  // state, and re-enabling the button underneath it invites a second checkout
+  // for a basket already being priced.
+  it('leaves the button loading when a newer attempt is still in flight', () => {
+    basket.items = [lineItem()];
+    const first = new Subject<any>();
+    const second = new Subject<any>();
+    api.postPatch.and.returnValue(first as any);
+    component.initiateOrder();
+
+    api.postPatch.and.returnValue(second as any);
+    component.initiateOrder();
+
+    // The FIRST response lands late, for a superseded attempt.
+    first.next(initiated());
+    first.complete();
+
+    expect(component.showQuoteSheet).toBeFalse();
+    expect(component.placingOrder).toBeTrue();
   });
 
   // The reviewed quote is bound to the basket it was priced for. Editing the
