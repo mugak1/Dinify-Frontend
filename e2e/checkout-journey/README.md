@@ -46,6 +46,42 @@ pricing or confirmation path**, run by hand.
 | the kitchen is told to cook what was configured | quantity 2, the nested extra AT quantity 2, and the `Large` modifier — read from the ticket's `modifiers` key, which is what `serializers_kitchen.py::_line` renames `modifiers_snapshot` to on the wire |
 | the page raised no uncaught errors | a screen that throws on every render fails the run |
 
+### What the first real run of this revision found (D04 Stage A)
+
+**The strengthened revision above had never been executed.** PR #662 said so; it
+was then run for the first time at `f426eba` / backend `d5d886e` and scored
+**40/42**. The two failures were its own closing assertions:
+
+```
+FAIL  the accepted order stores the amount the diner agreed to  — saved=undefined
+FAIL  the accepted order still reconciles across its own lines  — quote_complete=undefined
+```
+
+**That was a DISAGREEMENT ABOUT AVAILABLE FIELDS, not a wrong amount**, and the
+distinction is worth keeping: `quote_total` / `quote_complete` were produced only
+by `serialize_order_details`, which assembles the **initiate** response, while
+this assertion reads `orders/journey/order-details/` — a different serializer
+that had never carried either key. Nothing showed the stored payable was wrong,
+and the saved amount was not changed to make the run green.
+
+Two things were fixed, and neither was the assertion's standard:
+
+1. **The read now publishes them** (D04/U1) — `quote`, `quote_total` and
+   `quote_complete`, through the same `format_money` and the same
+   `group_live_children` rule the initiate response uses, at no extra query.
+2. **The harness was reading the wrong level.** It looked for `body.quote`,
+   a key no response has ever carried, and `|| []` then summed that absence to
+   zero — reporting a missing field as a reconciliation failure. It reads
+   `body.data.quote` now and requires the array to be non-empty.
+
+The `Math.round(Number(v) * 100)` oracles went at the same time. That expression
+cannot be the oracle for an exactness claim — it is neither an exact decimal
+parser (`Number('1.005') * 100` is `100.49999999999999`) nor the backend's
+ROUND_HALF_EVEN rule — so `minor()` parses the canonical string with `BigInt` and
+**throws** on anything that is not `-?\d+\.\d{2}` rather than coercing it. It is
+deliberately test-local: an oracle that imported the production parser could not
+detect the production parser being wrong.
+
 ### No `actual_cost` fallback here, deliberately
 
 The client applies a bounded compatibility path when a CORRECTED response omits
@@ -114,8 +150,15 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **28/28 checks passed** against a disposable local PostgreSQL, a local
-Django on `test_settings`, and a development `ng serve`.
+Last run: **42/42 checks passed** against a disposable local PostgreSQL 16.13, a
+local Django on `test_settings` (Python 3.11.15), and a **development**
+`ng serve` on Node 24.21.0 with Chromium 141.
+
+Two things about that line are deliberate. It records the **development** server,
+because that is what was exercised — a successful `build:prod` is not a browser
+run, and the two are reported separately. And the previous revision of this file
+claimed 28/28 for a harness that had since grown to 42 checks; a count here means
+nothing unless the run that produced it is the run the file describes.
 
 **Re-running needs a fresh database or a freed table.** The run leaves a real
 accepted order occupying table 1, and the next run's `initiate` is refused with
