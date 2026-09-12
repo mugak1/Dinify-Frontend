@@ -822,6 +822,62 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
       expect(cleared).toHaveBeenCalled();
     });
 
+    it('REPRICES after a stale-quote refusal instead of dead-ending', () => {
+      // THE FIFTH P1, and the one my own draft-replay fix made WORSE rather
+      // than better. `quote_ref_stale` is a DEFINITIVE refusal — the server
+      // re-read the order under its lock and the reference does not match, so
+      // this command can never be accepted — and the branch promises a
+      // reprice. But the record still said `accepting` with a command, so
+      // `reserveIntent` answered `outstanding` and refused to start one.
+      //
+      // The loop that follows: Checkout refused as outstanding → Retry →
+      // `replayIssuedCommand` → the order is still a draft → (since the draft
+      // fix) re-send the SAME permanently-refused command → stale again.
+      // Before that fix it no-opped instead. Either way the diner can never
+      // see the new quote.
+      //
+      // THE KEY IS RETAINED. The basket has not changed, so this is the same
+      // purchase and must keep its idempotency key; only the COMMAND is
+      // settled. `sameCommand` then hands the same key straight back.
+      reviewed();
+      const keyBefore = coordinator.record()?.key;
+      api.postPatch.and.callFake((url: string) => (
+        url.includes('orders/submit')
+          ? throwError(() => ({ status: 400, reason: 'quote_ref_stale',
+                                message: 'Your order total changed.' }))
+          : of(initiated())
+      ) as any);
+
+      component.confirmQuote();
+
+      const urls = api.postPatch.calls.allArgs().map((a: any[]) => a[0]);
+      expect(urls.some((u: string) => u.includes('orders/initiate')))
+        .withContext('the promised reprice must actually be issued').toBeTrue();
+      expect(coordinator.record()?.key).toBe(keyBefore!);
+      expect(coordinator.isOutstanding(coordinator.record()!)).toBeFalse();
+    });
+
+    it('does NOT reprice when the settle cannot be recorded', () => {
+      // The durable-write rule, applied to this transition too: if the
+      // refused command cannot be written down as settled, starting a fresh
+      // priced attempt would leave a record still naming a command nobody
+      // will resolve. Nothing is sent.
+      reviewed();
+      api.postPatch.and.callFake((url: string) => (
+        url.includes('orders/submit')
+          ? throwError(() => ({ status: 400, reason: 'quote_ref_stale',
+                                message: 'Your order total changed.' }))
+          : of(initiated())
+      ) as any);
+      spyOn(coordinator, 'settleRefusedCommand').and.returnValue(false);
+
+      component.confirmQuote();
+
+      const urls = api.postPatch.calls.allArgs().map((a: any[]) => a[0]);
+      expect(urls.some((u: string) => u.includes('orders/initiate'))).toBeFalse();
+      expect(component.orderError).toBeTrue();
+    });
+
     it('will not send an acceptance it cannot record durably', () => {
       // A command held only in memory cannot be replayed after the reload
       // that is the most likely response to a stuck checkout, so nothing is

@@ -1465,9 +1465,29 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         // The saved quote moved under us. Re-price and review again; the basket
         // is untouched and the idempotency key is deliberately NOT re-minted.
+        //
+        // THE REFUSED COMMAND IS SETTLED FIRST, AND WITHOUT THAT THE REPRICE
+        // NEVER HAPPENS. `noteCommand` has already recorded this checkout as
+        // `accepting`, so `reserveIntent` answers `outstanding` and
+        // `placeOrder` refuses to start anything — the branch promised a new
+        // quote and delivered a dead end, with Retry re-sending the very
+        // command the server has just refused. `quote_ref_stale` is
+        // DEFINITIVE (the server re-read the order under its lock and the
+        // reference does not match), so there is no outstanding acceptance to
+        // protect; the KEY is kept, because the basket is unchanged and this
+        // is the same purchase.
         if (this.refusalReason(error) === 'quote_ref_stale') {
           this.toast.clear();
           this.reviewedQuote = null;
+          if (!this.checkout.settleRefusedCommand()) {
+            // The settle is a required durable write: repricing on top of a
+            // record that still names an unsettled command would leave one
+            // nobody resolves. Nothing is sent.
+            this.failOrder(
+              "We couldn't save your checkout on this device, so we haven't "
+              + 'placed the order. Please try again.');
+            return;
+          }
           this.placeOrder();
           return;
         }

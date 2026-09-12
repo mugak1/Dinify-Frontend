@@ -498,6 +498,30 @@ so keep it current when conventions change.
   review it again", which would point at a button that is refused. **RECOVERY
   STILL NEVER AUTO-SUBMITS ON LOAD**: a reload may be how somebody abandons a
   checkout, so the resume path reports and the diner taps.
+  **A DEFINITIVE REFUSAL IS SETTLED, NOT LEFT OUTSTANDING** (Codex P1 on PR
+  #664, valid — and it arrived in the review BODY rather than as an inline
+  thread, which is how it was missed on the first pass; read both). The
+  `quote_ref_stale` branch promises a reprice and could not start one:
+  `noteCommand` has already recorded the checkout as `accepting`, so
+  `reserveIntent` answers `outstanding` and `placeOrder` refuses. The diner
+  then loops — Checkout refused, Retry replaying a command the server has
+  already refused (BEFORE the draft-replay fix above it merely no-opped, so
+  that fix made this WORSE rather than better, which is worth knowing when
+  reading the two together). **THE OUTSTANDING STATE IS FOR AN UNKNOWN
+  OUTCOME, AND THIS ONE IS KNOWN**: the server re-read the order under its own
+  lock and the reference does not match, so this command can never be accepted
+  and there is nothing left to recover. `settleRefusedCommand()` clears the
+  COMMAND and moves the stage to `refused` — a value the vocabulary already
+  carried and nothing had ever written — **keeping the key**, because the
+  basket is unchanged and this is the same purchase, so `sameCommand` hands
+  that key straight back. That is what separates it from `clearIntent`, which
+  forgets the intent entirely and stays reserved for a terminal outcome or the
+  LEGACY draft `reviewUpdatedOrder` refuses. **IT IS NOT A WAY AROUND THE
+  NOT-FOUND RULE** — it requires a refusal the server actually stated about
+  this exact command, and must never be called on a timeout, a lost response
+  or anything the client merely failed to observe. The settle is a REQUIRED
+  durable write: if it fails nothing is sent, since repricing on top of a
+  record still naming an unsettled command would leave one nobody resolves.
   **AND A FAILED DURABLE WRITE IS HONOURED AT THE END, NOT ONLY AT THE START**
   (Codex P1 on PR #664, valid). `recordOutcome` returns false when its
   read-back verification fails, and both success paths ignored it and called

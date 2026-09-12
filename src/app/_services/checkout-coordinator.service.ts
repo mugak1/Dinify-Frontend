@@ -381,6 +381,37 @@ export class CheckoutCoordinatorService {
    * caller asking to record progress on a checkout that is not there has lost
    * track of it, and treating that as success hides the fact.
    */
+  /**
+   * Settle a command the server has DEFINITIVELY refused, keeping the key.
+   *
+   * The outstanding state exists because an issued acceptance whose outcome
+   * is UNKNOWN must be resolved before anything else is sent. A refusal the
+   * server stated under its own lock is not unknown: `quote_ref_stale` means
+   * it re-read the order and the reference does not match, so THIS command
+   * can never be accepted and nothing is left to recover. Holding the
+   * reservation open for it dead-ends the diner — the branch that promises a
+   * reprice cannot start one, and a retry only re-sends a command that will
+   * be refused again.
+   *
+   * **THE KEY AND THE PURCHASE ARE KEPT; ONLY THE COMMAND IS CLEARED.** The
+   * basket has not changed, so this is the same purchase and must reuse its
+   * idempotency key — `sameCommand` hands that key straight back on the next
+   * `reserveIntent`. That is what separates this from `clearIntent`, which
+   * forgets the intent entirely and is reserved for a terminal outcome or a
+   * draft the server has refused OUTRIGHT (`reviewUpdatedOrder`, where the
+   * draft is LEGACY-priced and a fresh key cannot duplicate anything).
+   *
+   * THIS IS NOT A WAY AROUND THE NOT-FOUND RULE. It requires a refusal the
+   * server actually stated about this exact command; it must never be called
+   * on a timeout, a lost response, an unreachable server or any outcome the
+   * client merely failed to observe.
+   */
+  settleRefusedCommand(): boolean {
+    const current = this.record();
+    if (!current) return false;
+    return this.persist({ ...current, stage: 'refused', command: null });
+  }
+
   noteStage(stage: CheckoutStage): boolean {
     const current = this.record();
     if (!current) return false;
