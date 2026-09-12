@@ -649,6 +649,28 @@ so keep it current when conventions change.
   issued an acceptance it believed was written down. Read-back now compares a
   FINGERPRINT of everything a later recovery reads; `startedAt` is excluded
   deliberately, being written once and never re-asserted.
+  **AND GATE C's WIDER `isOutstanding` REACHED GATE B's RETRY PATH — twice**
+  (both Codex P2 on PR #665, both valid, both real regressions of this change).
+  `replayIssuedCommand`'s draft/absent branch dereferenced `record.command!`
+  under a comment asserting that a commandless record "cannot arrive here",
+  which was TRUE only while `isOutstanding` required a non-null command — the
+  very requirement Gate C removed so a record whose HANDLE was lost stays
+  protected. Such a record now reaches it, and the result was
+  `TypeError: Cannot read properties of null` thrown from inside an RxJS
+  subscriber: an uncaught error that kills the page rather than preserving the
+  checkout. **A synchronous `expect(...).not.toThrow()` CANNOT see it** — RxJS
+  reports a subscriber error asynchronously, so the spec passes while the
+  runner disconnects; the spec drains the queue inside `fakeAsync` instead,
+  which is what turns a disconnect into an assertion. The recovery READ is
+  still worth making there (it can resolve an `accepted` outcome properly);
+  only the re-send is withheld, and the notice stops promising a retry that
+  cannot fire. Separately, `retryOrder` classified a replayable initiation as
+  "the record has items", so a record `reserveIntent` had just refused —
+  degraded, `accepted` with no outcome, or an unknown canonicalisation — could
+  issue a mutation through Retry, defeating the protection this change added.
+  `isReplayableInitiation` is a POSITIVE classification instead, and excludes
+  a record carrying a command on purpose: that one is resolved by replaying the
+  COMMAND, never by re-initiating.
   Each gate has its own spec file and each was REPRODUCED against unmodified
   `607f635` before being fixed (7 / 10 / 6 real failures, the rest of each file
   passing as controls), then re-proved by reintroducing the defect one gate at a

@@ -436,6 +436,34 @@ export class CheckoutCoordinatorService {
     return record.request.canon !== request.canon;
   }
 
+  /**
+   * May this build re-issue the INITIATION recorded here?
+   *
+   * A POSITIVE CLASSIFICATION, never the absence of a reason to refuse — the
+   * first cut asked only whether `request.items` was non-empty, and a record
+   * can carry perfectly readable lines and still be one nothing may be issued
+   * from: a `degraded` parse, a terminal `accepted` claim with no outcome
+   * behind it, or an identity produced by a canonicalisation this build does
+   * not know. `reserveIntent` already refuses all three (`isProtected`), so a
+   * retry path that bypassed reservation defeated exactly the protection this
+   * change added (Codex P2 on PR #665, valid).
+   *
+   * AN ISSUED COMMAND IS A DIFFERENT CASE and is deliberately excluded: that
+   * one is resolved by replaying the COMMAND, never by re-initiating. What is
+   * left is the lost-INITIATE case the stored lines exist for — a reserved key
+   * at `pricing` or `reviewing` with nothing issued against it.
+   */
+  isReplayableInitiation(record: CheckoutRecord): boolean {
+    if (record.degraded) return false;
+    if (record.request.canon !== PURCHASE_CANON) return false;
+    if (record.command !== null || record.outcome !== null) return false;
+    if (record.stage !== 'pricing' && record.stage !== 'reviewing') {
+      return false;
+    }
+    const items = record.request.items;
+    return Array.isArray(items) && items.length > 0;
+  }
+
   /** The highest level any server has stated for the live attempt, or 0. */
   establishedProtocol(): number {
     return this.record()?.protocol ?? 0;

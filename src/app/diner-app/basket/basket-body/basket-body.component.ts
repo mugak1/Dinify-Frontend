@@ -371,10 +371,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // observed at one instant does not establish that. The honest
         // statement is that it is UNCONFIRMED and that retry re-sends the
         // same request under the same key, which is what actually happens.
-        return this.outstandingCheckout()
+        if (!this.outstandingCheckout()) {
+          return 'We found your unfinished order. Please review it again.';
+        }
+        // AND A RETRY THAT CANNOT FIRE MUST NOT BE PROMISED. An outstanding
+        // record whose command handle did not survive has nothing to re-send;
+        // telling the diner to tap retry would point at a button that does
+        // nothing, which is the dead end this notice exists to replace.
+        return this.checkout.record()?.command
           ? 'We have not been able to confirm your order. Tap retry to send '
             + 'the same order again.'
-          : 'We found your unfinished order. Please review it again.';
+          : 'We have not been able to confirm your order, and we cannot '
+            + 'resend it from this device. Please check with staff before '
+            + 'ordering the same items again.';
       case 'absent':
         // Same rule as `draft`: the server found no row for this key AT THIS
         // INSTANT. That licenses a same-key, same-request replay; it is not
@@ -721,7 +730,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // The approved distinction is preserved: a deliberate edit followed by
     // CHECKOUT still begins a new purchase, because that path goes through
     // `placeOrder`. Only Retry is bound to what was issued.
-    if (record?.request.items && record.request.items.length > 0) {
+    if (record && this.checkout.isReplayableInitiation(record)) {
       this.replayInitiation(record);
       return;
     }
@@ -829,11 +838,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // here to no-op again, leaving the diner permanently unable to
           // submit that order.
           //
-          // A `draft` reached WITHOUT a command cannot arrive here —
-          // `replayIssuedCommand` only runs for an outstanding record, and
-          // `classify` reads that same record, so the commandless draft
-          // branch cannot have produced this.
-          this.resendIssuedCommand(record.command!);
+          // BUT ONLY WHERE THE HANDLE SURVIVED. This used to dereference
+          // `record.command!` on the strength of an invariant that no longer
+          // holds: `isOutstanding` required a non-null command until the
+          // durability gate made it stage-based, precisely so that a record
+          // whose handle was LOST stays protected. Such a record now reaches
+          // here, and re-sending is not something it can do — there is no
+          // order id to name. The recovery read above was still worth making
+          // (it resolves an `accepted` outcome properly); what must not
+          // happen is a mutation invented from a handle this build does not
+          // have, or a crash instead of a preserved checkout (Codex P2 on
+          // PR #665, valid).
+          if (!record.command) return;
+          this.resendIssuedCommand(record.command);
           return;
         default:
           // Draft, unreachable, unsupported, unauthorised or uncorrelated:
