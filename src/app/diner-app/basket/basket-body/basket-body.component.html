@@ -269,11 +269,22 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
         }
         <div class="flex items-end justify-between pt-3 mt-1 border-t border-gray-300">
           <div class="flex flex-col leading-tight">
-            <span class="text-base font-bold text-gray-900">Total to pay</span>
+            <span class="text-base font-bold text-gray-900">{{ totalIsExact ? 'Total to pay' : 'Estimated total' }}</span>
             <span class="text-xs text-gray-500">UGX</span>
           </div>
           <span class="text-2xl font-extrabold text-d-red leading-none">{{ totalAmount | number }}</span>
         </div>
+        <!-- An EXPLICIT estimate state. The exact helper could not represent
+        one of this basket's components, so the figure above is the old
+        approximate arithmetic and is labelled as such. It is never described as
+        the amount payable: the restaurant prices the order and the review sheet
+        states the server's amount, which is what the diner confirms. -->
+        @if (!totalIsExact) {
+          <p class="mt-1 text-xs text-gray-500">
+            Estimated from your basket — the restaurant confirms the exact price
+            at checkout.
+          </p>
+        }
       </div>
       <!-- Allergy & special-request notice -->
       <div class="mt-3 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-amber-900">
@@ -336,7 +347,7 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
       @if (!orderError) {
         <button app-dn-button variant="cta" (click)="initiateOrder()"
           [loading]="placingOrder" [disabled]="!!limitState.breach" class="w-full">
-          Checkout — UGX {{ totalAmount | number }}
+          Checkout — {{ totalIsExact ? '' : 'about ' }}UGX {{ totalAmount | number }}
         </button>
       }
       @if (orderError) {
@@ -376,7 +387,11 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
       @if (quoteLines.length > 0) {
         <ul class="mt-4 space-y-3">
           @for (line of quoteLines; track line.id) {
-            <li class="text-sm" [class.opacity-50]="!line.available">
+            <!-- `data-testid` so the real-browser journey can assert the EXACT
+            elements a diner reads rather than searching the panel's text for a
+            substring, which a figure elsewhere on the sheet could satisfy. -->
+            <li class="text-sm" data-testid="quote-line" [attr.data-line-item]="line.item"
+              [class.opacity-50]="!line.available">
               <div class="flex items-start justify-between gap-2">
                 <span class="text-gray-900">
                   {{ line.item_name }}@if (line.quantity > 1) {
@@ -387,7 +402,8 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
                   <!-- The server's saved amount, rendered from its canonical
                   decimal string. NOT `| number`, which formats a double and
                   drops the scale: 899.10 rendered as "899.1". -->
-                  <span class="text-gray-900 flex-shrink-0 tabular-nums">
+                  <span class="text-gray-900 flex-shrink-0 tabular-nums"
+                    data-testid="quote-line-amount">
                     UGX {{ lineTotalDisplay(line) ?? '—' }}
                   </span>
                 } @else {
@@ -395,10 +411,11 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
                 }
               </div>
               @if (line.modifiers?.length) {
-                <p class="text-xs text-gray-500 mt-0.5">{{ line.modifiers.join(' · ') }}</p>
+                <p class="text-xs text-gray-500 mt-0.5"
+                  data-testid="quote-line-modifiers">{{ line.modifiers.join(' · ') }}</p>
               }
               @for (extra of line.extras; track extra.id) {
-                <p class="text-xs text-gray-500 mt-0.5"
+                <p class="text-xs text-gray-500 mt-0.5" data-testid="quote-line-extra"
                    [class.line-through]="!extra.available">
                   + {{ extra.item_name }}@if (extra.quantity > 1) {
                     <span> × {{ extra.quantity }}</span>
@@ -421,7 +438,7 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
       <div class="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
         <span class="font-bold text-gray-900">Total to pay</span>
         @if (reviewedTotalDisplay !== null) {
-          <span class="font-bold text-d-red tabular-nums">
+          <span class="font-bold text-d-red tabular-nums" data-testid="quote-total">
             UGX {{ reviewedTotalDisplay }}
           </span>
         } @else {

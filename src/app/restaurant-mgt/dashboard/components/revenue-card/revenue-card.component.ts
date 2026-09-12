@@ -120,6 +120,21 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
             }
           </div>
 
+          <!-- The server's mixed-pricing-convention notice, beside the figures
+          it is about. Gross and Discounts are the two affected pills, so it
+          sits immediately under them rather than at the foot of the card. -->
+          @if (pricingNotice) {
+            <div
+              role="note"
+              class="-mt-2 mb-4 sm:mb-6 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-caption text-muted-foreground"
+            >
+              <svg aria-hidden="true" class="w-4 h-4 shrink-0 mt-px text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+              </svg>
+              <span>{{ pricingNotice }}</span>
+            </div>
+          }
+
           <!-- Chart -->
           <div class="h-48 sm:h-64">
             <canvas
@@ -164,6 +179,31 @@ export class RevenueCardComponent implements OnChanges {
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly currencyFormatter = (v: number) => formatCurrency(v);
+
+  /**
+   * The server's mixed-pricing-convention sentence, or `null`.
+   *
+   * READ FROM THE RESPONSE FOR THE WINDOW ACTUALLY DISPLAYED, never from a
+   * locally inferred deployment date — the server counts the orders on each
+   * side of the boundary and decides; the client only renders what it said.
+   * Because it is a getter over `revenueData`, changing the period replaces the
+   * input and a stale notice disappears with it.
+   *
+   * THREE THINGS IT IS NOT. It is not a claim that any figure is wrong (the
+   * payable each diner paid is unaffected, no order is repriced or excluded);
+   * it is not derived from the counts (only a notice the server issued is
+   * shown); and its ABSENCE is not evidence of a uniform convention — a
+   * response that predates the field simply said nothing.
+   *
+   * This card is fed the PRIMARY window's response. The Dashboard's separate
+   * comparison-window call supplies only a baseline total and is never read
+   * here, so a notice can never describe a period the card is not showing.
+   */
+  get pricingNotice(): string | null {
+    const conventions = this.revenueData?.pricing_conventions;
+    if (!conventions?.mixed) return null;
+    return conventions.notice ?? null;
+  }
 
   /** Signed % change, or `null` when the baseline cannot support one — see
    *  `_shared/utils/percent-change.ts` for which baselines qualify and why. */

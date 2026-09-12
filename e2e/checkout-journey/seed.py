@@ -113,6 +113,13 @@ ROUNDING_OPTIONS = {
     }],
 }
 
+# THE NONZERO-FRACTION GOLDEN is produced by the MID-RUN reprice rather than by
+# a seeded price: the journey raises the burger to 12000.15 through the real
+# operator API, so the parent unit is 12000.15 + 3500.00 = 15500.15 and the line
+# is exactly 2 x that, 31000.30. It is a DIFFERENT control from the sub-cent one
+# below — that proves half-even ties, this proves a real fractional amount
+# survives extension, formatting and the wire without becoming 31000.299999.
+
 rounding, _ = MenuItem.objects.get_or_create(
     section=sec, name='Rounding Test',
     defaults=dict(section=sec, primary_price=Decimal('10.00')),

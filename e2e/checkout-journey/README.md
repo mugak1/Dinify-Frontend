@@ -25,8 +25,13 @@ pricing or confirmation path**, run by hand.
 | **no submission has been issued at review time** | asserted on the network, and again on the saved `order_status` |
 | the reviewed amount IS the server amount | read from the very response the page rendered, matched **inside the review panel** |
 | **the review shows the CURRENT server price** | not the figure the browser cached before the reprice |
-| the quote carries each extra beneath its parent line | `line_total_with_extras`, not a flattened sum |
-| **a sub-cent adjustment rounds ROUND_HALF_EVEN, once, per unit** | `1.005` → `1.00`; half-up gives `1.01` and the run fails by a cent |
+| **every quote amount is a canonical decimal string** | `quote_total` and all ten line keys and three extra keys, checked against `/^-?\d+\.\d{2}$/` — the wire contract, not a value that merely parses |
+| **the visible total and line elements match EXACTLY** | located by `data-testid` and compared whole (`UGX 35,011.30`), never searched for as a substring of the panel |
+| **the review shows the modifier instructions and the child quantity** | `Large`, `× 2` on the parent AND `× 2` on the extra — a diner confirming an amount must see what it is for |
+| the quote carries each extra beneath its parent line | `line_total_with_extras`, composed in integer cents from `line_actual_cost` + the child's own amount |
+| **the quoted lines reconcile to the payable, to the cent** | each child counted once, against a real server |
+| **a NONZERO FRACTION survives extension and the wire** | the mid-run reprice to `12000.15` makes the line exactly `35000.30`; `15500.15 × 2` in doubles is `31000.299999999996` |
+| **a sub-cent adjustment rounds ROUND_HALF_EVEN, once, per unit** | `1.005` → `1.00`; half-up gives `1.01` and the run fails by a cent. A SEPARATE control from the fraction above — that one proves extension, this one proves ties |
 | the saved draft is CORRECTED-priced and named | `pricing_version` + `quote_ref` |
 | an unrecognised `quote_ref` is refused | `quote_ref_stale` |
 | an ABSENT `quote_ref` is refused | `quote_ref_required` — never treated as agreement |
@@ -35,10 +40,24 @@ pricing or confirmation path**, run by hand.
 | the submission echoes the reviewed quote reference | the app sends what it rendered |
 | a definitive success navigates to the confirmation | `/diner/basket/order-complete` |
 | the basket is cleared **only** after acceptance | it held both lines through the review and both refusals |
-| the accepted order stores the agreed amount | read back over the diner channel |
+| the accepted order stores the agreed amount | read back over the diner channel, from the CANONICAL `quote_total` — not the legacy numeric field beside it |
+| the saved order still reconciles across its own lines | and declares `quote_complete` |
 | exactly ONE accepted order reaches the kitchen | read back as the authenticated fixture operator |
-| the kitchen is told to cook what was configured | quantity 2, one nested extra |
+| the kitchen is told to cook what was configured | quantity 2, the nested extra AT quantity 2, and the `Large` modifier — read from the ticket's `modifiers` key, which is what `serializers_kitchen.py::_line` renames `modifiers_snapshot` to on the wire |
 | the page raised no uncaught errors | a screen that throws on every render fails the run |
+
+### No `actual_cost` fallback here, deliberately
+
+The client applies a bounded compatibility path when a CORRECTED response omits
+`quote_total` — backend #314 shipped the itemised quote before that field
+existed, and refusing it would block checkout for the width of a deploy. That
+tolerance belongs to the CLIENT, against an OLDER server. **This journey runs
+against the current backend and holds it to the current contract**, so it reads
+`quote_total` directly: reading through the fallback would let a real wire
+regression pass silently on the lossy numeric field.
+
+One consequence: this run asserts `quote_complete`, which the backend publishes
+only from R2 onward. Run it against a backend that carries that change.
 
 ### Two things it deliberately does NOT cover
 

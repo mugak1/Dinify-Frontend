@@ -95,6 +95,69 @@ describe('dashboard-adapter', () => {
     });
   });
 
+  // R4 — the server's mixed-pricing-convention disclosure reaches the client.
+  //
+  // The four shapes are the four real states of the D02/C backend plus the one
+  // that predates it. None of the numbers moves in any of them: this is a
+  // disclosure about COMPARABILITY, never a change to a total.
+  describe('adaptDashboardResponse — pricing conventions', () => {
+    const NOTICE = 'This period contains orders priced under two different conventions.';
+
+    const withConventions = (conventions: unknown) => {
+      const raw = rawDashboard() as any;
+      raw.revenue.pricing_conventions = conventions;
+      return adaptDashboardResponse(raw);
+    };
+
+    it('carries a MIXED window through, notice and all', () => {
+      const out = withConventions({
+        mixed: true, legacy_orders: 4, corrected_orders: 9, notice: NOTICE,
+      });
+      expect(out.revenue.pricing_conventions).toEqual({
+        mixed: true, legacy_orders: 4, corrected_orders: 9, notice: NOTICE,
+      });
+      // The figures are untouched — nothing is repriced or excluded.
+      expect(out.revenue.totals).toEqual({
+        gross: 1000, net: 850, discounts: 100, refunds: 50,
+      });
+    });
+
+    it('carries a LEGACY-only window as not mixed, with no notice', () => {
+      expect(withConventions({
+        mixed: false, legacy_orders: 12, corrected_orders: 0, notice: null,
+      }).revenue.pricing_conventions).toEqual({
+        mixed: false, legacy_orders: 12, corrected_orders: 0, notice: null,
+      });
+    });
+
+    it('carries a CORRECTED-only window as not mixed, with no notice', () => {
+      expect(withConventions({
+        mixed: false, legacy_orders: 0, corrected_orders: 12, notice: null,
+      }).revenue.pricing_conventions!.mixed).toBeFalse();
+    });
+
+    it('leaves the field undefined for a response that predates it', () => {
+      // BACKWARD COMPATIBLE: an older response must not break the card, and its
+      // silence must not be relabelled as proof of a uniform convention.
+      const out = adaptDashboardResponse(rawDashboard());
+      expect(out.revenue.pricing_conventions).toBeUndefined();
+      expect(out.revenue.totals.net).toBe(850);
+    });
+
+    it('refuses to invent the field from a malformed value', () => {
+      expect(withConventions('mixed').revenue.pricing_conventions).toBeUndefined();
+      expect(withConventions({ legacy_orders: 4 }).revenue.pricing_conventions)
+        .toBeUndefined();
+    });
+
+    it('never manufactures a notice from the counts alone', () => {
+      const out = withConventions({
+        mixed: true, legacy_orders: 4, corrected_orders: 9, notice: '   ',
+      });
+      expect(out.revenue.pricing_conventions!.notice).toBeNull();
+    });
+  });
+
   describe('adaptReviewsResponse', () => {
     it('converts the string average_rating to a number', () => {
       const out = adaptReviewsResponse(rawSummary());

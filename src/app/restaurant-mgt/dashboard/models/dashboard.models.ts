@@ -20,9 +20,34 @@ export interface RevenueTotals {
   refunds: number;
 }
 
+/**
+ * WHICH PRICING CONVENTION PRODUCED `gross` AND `discounts` (D02/C, backend).
+ *
+ * D02 changed what two persisted columns MEAN: a CORRECTED order's `total_cost`
+ * includes paid modifier costs and its `savings` can never be negative, while a
+ * LEGACY order's excluded them and could be. A window spanning the deployment
+ * therefore sums two measurements, and `net` is derived from both.
+ *
+ * NOTHING HERE REPRICES, EXCLUDES OR RECLASSIFIES AN ORDER — it is a disclosure
+ * about COMPARABILITY, not about correctness, and the amount each diner paid is
+ * unaffected. `notice` is present only when the window actually straddles the
+ * boundary; one that appeared on every response would be ignored on the one
+ * that mattered.
+ *
+ * OPTIONAL, deliberately: a response that predates the field says nothing, and
+ * its absence must never be rendered as proof of a uniform convention.
+ */
+export interface PricingConventions {
+  mixed: boolean;
+  legacy_orders: number;
+  corrected_orders: number;
+  notice: string | null;
+}
+
 export interface RevenueData {
   series: RevenueSeriesPoint[];
   totals: RevenueTotals;
+  pricing_conventions?: PricingConventions;
 }
 
 // ── Payment methods ───────────────────────────────────────
