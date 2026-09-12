@@ -11,7 +11,8 @@ import {
   IssuedCommand, PURCHASE_CANON, RecoveryOutcome,
 } from 'src/app/_services/checkout-coordinator.service';
 import {
-  correlationMatches, correlationPromised, readCorrelation,
+  CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, acceptanceVerdict,
+  correlationPromised, currentDisposition, protocolLevel, readCorrelation,
 } from 'src/app/_shared/order/checkout-correlation';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -272,19 +273,29 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // GATE B — WHAT THIS RECOVERY BELONGS TO, captured before it is sent.
+    // A held answer landing after the diner has edited, moved table or
+    // started a permitted new attempt must not clear the newer state.
+    const owner = this.recoveryOwner();
     this.checkout.recover().subscribe((outcome) => {
+      if (!this.ownsRecovery(owner)) return;
       this.recovered = outcome;
       switch (outcome.kind) {
         case 'accepted':
+          // DEFINITIVE, and the only outcome that finishes anything.
+          this.finishAcceptedCheckout(outcome.correlation);
+          return;
         case 'accepted-unrecorded':
-          // ONE ACTION, TWO DIFFERENT CERTAINTIES. `accepted` is definitive.
-          // `accepted-unrecorded` is the server stating it cannot determine
-          // whether the submission landed — and the conservative action is
-          // the same one, BECAUSE it cannot: clearing the basket and
-          // declining to offer another checkout is what stops a possible
-          // duplicate meal. `recoveryNotice` is where the two part company,
-          // since only one of them may be stated as fact to the diner.
-          this.finishAcceptedCheckout();
+          // GATE B — UNKNOWN EVIDENCE STAYS UNRESOLVED. `evidence_unavailable`
+          // is the server stating it CANNOT DETERMINE whether the submission
+          // landed. This used to share the accepted branch, which clears the
+          // basket AND DELETES THE RECORD — so the one outcome that most
+          // needs a durable handle was the one that destroyed it, and the
+          // next reload started clean with permission to order again.
+          //
+          // Nothing is cleared now. A second checkout is still refused
+          // (`checkoutBlocked`), which is the actual protection; deleting the
+          // basket was a SUBSTITUTE for blocking, not a form of it.
           return;
         default:
           // EVERY OTHER OUTCOME KEEPS THE RECORD. `absent` included, and that
@@ -309,8 +320,28 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   get recoveryNotice(): string | null {
     switch (this.recovered?.kind) {
-      case 'accepted':
-        return 'Your order was already placed — it is with the kitchen.';
+      case 'accepted': {
+        // GATE B — AN ACCEPTANCE AND WHAT HAPPENED AFTERWARDS ARE SEPARATE
+        // FACTS. This said "it is with the kitchen" for every accepted
+        // recovery, including one the kitchen had already cancelled — which
+        // leaves a diner waiting for food nobody is cooking — and one
+        // already served. The projection labels `current` apart from
+        // `acceptance` precisely so the two need not be collapsed.
+        switch (currentDisposition(this.recovered.correlation)) {
+          case 'cancelled':
+            return 'Your order was placed, but it has since been cancelled. '
+              + 'Please check with staff.';
+          case 'served':
+            return 'Your order was placed and has already been served.';
+          case 'live':
+            return 'Your order was already placed — it is with the kitchen.';
+          default:
+            // No current state to read (a legacy acceptance, or a restored
+            // local record). Say what IS known and claim nothing more.
+            return 'Your order was already placed. Please check with staff '
+              + 'if you have not received it.';
+        }
+      }
       case 'accepted-unrecorded':
         // NOT THE SAME SENTENCE, and the difference matters in the
         // dangerous direction. `evidence_unavailable` is the server saying
@@ -336,11 +367,29 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // acceptance did not reach the server — "review it again" would
         // point them at a button that is refused, so say what happened and
         // name the action that works.
-        return this.outstandingCheckout()
-          ? 'Your order did not reach us. Tap retry to send it again.'
-          : 'We found your unfinished order. Please review it again.';
+        // GATE B — "DID NOT REACH US" ASSERTS NON-EXECUTION, and a draft
+        // observed at one instant does not establish that. The honest
+        // statement is that it is UNCONFIRMED and that retry re-sends the
+        // same request under the same key, which is what actually happens.
+        if (!this.outstandingCheckout()) {
+          return 'We found your unfinished order. Please review it again.';
+        }
+        // AND A RETRY THAT CANNOT FIRE MUST NOT BE PROMISED. An outstanding
+        // record whose command handle did not survive has nothing to re-send;
+        // telling the diner to tap retry would point at a button that does
+        // nothing, which is the dead end this notice exists to replace.
+        return this.checkout.record()?.command
+          ? 'We have not been able to confirm your order. Tap retry to send '
+            + 'the same order again.'
+          : 'We have not been able to confirm your order, and we cannot '
+            + 'resend it from this device. Please check with staff before '
+            + 'ordering the same items again.';
       case 'absent':
-        return 'Your last checkout did not reach us. You can place it again.';
+        // Same rule as `draft`: the server found no row for this key AT THIS
+        // INSTANT. That licenses a same-key, same-request replay; it is not
+        // a statement that nothing was received.
+        return 'We could not confirm your last checkout. You can send the '
+          + 'same order again.';
       case 'unauthorized':
         return 'We could not confirm your last order on this table. '
           + 'Please rescan the QR code.';
@@ -365,6 +414,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'unsupported':
       case 'unknown':
       case 'blocked':
+        return true;
+      case 'accepted-unrecorded':
+        // GATE B — the basket is no longer cleared for this outcome, so the
+        // CTA is what keeps a second checkout from being offered. That is
+        // the actual protection; clearing the basket never was.
         return true;
       case 'draft':
         // A DRAFT IS ORDINARILY REVIEWABLE — unless this client already
@@ -393,9 +447,74 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * reload reads correctly — the other order leaves a diner being asked about
    * an order that is already cooking.
    */
-  private finishAcceptedCheckout(): void {
+  private finishAcceptedCheckout(
+    correlation: CheckoutCorrelation | null = null,
+  ): void {
+    // GATE B — THE RESULT IS RECORDED BEFORE ANY CLEANUP, on this path too.
+    // The submit handler already did this; a recovery-DISCOVERED acceptance
+    // went straight to clearing, so a process dying mid-teardown came back
+    // with no record and re-enquired about an order already in the kitchen.
+    //
+    // THE ORDER ID COMES FROM WHICHEVER SOURCE ACTUALLY HAS ONE. A level-3
+    // answer names it; a LEVEL-2 server says only `accepted: true`, which is
+    // still definitive (it is set from a durable evidence row) — so the id
+    // is the one this client issued. What is NOT carried across is the
+    // reference and the moment: a level-2 server states neither, and
+    // substituting the reference we SENT for the one the server CONFIRMED
+    // would conflate an issued command with an accepted one. Null is the
+    // honest value, and `TerminalOutcome` allows it.
+    const record = this.checkout.record();
+    const orderId = correlation?.orderId ?? record?.command?.orderId ?? null;
+    let recorded: boolean;
+    if (record?.outcome != null) {
+      recorded = true;                     // already durable; nothing to add
+    } else if (orderId) {
+      recorded = this.checkout.recordOutcome({
+        kind: 'accepted',
+        orderId,
+        orderNumber: null,
+        quoteRef: correlation?.acceptance.quoteRef ?? null,
+        acceptedAt: correlation?.acceptance.acceptedAt ?? null,
+        at: Date.now(),
+      });
+    } else {
+      // NO LOCALLY ISSUED COMMAND AND NO NAMED ORDER. The server may have
+      // established that the order was accepted elsewhere — a copied tab —
+      // and that fact is presented without inventing a local acceptance
+      // action for it. There is no outstanding command to protect, so the
+      // attempt may be forgotten.
+      recorded = !record || !this.checkout.isOutstanding(record);
+    }
+
     this.basketService.clearBasket();
-    this.checkout.clearIntent();
+    // CLEANUP ONLY ON A RECORDED OUTCOME — the same rule the submit path
+    // applies. A store that silently drops writes must not lose the accepted
+    // outcome while the REMOVAL succeeds, which would leave a reload free to
+    // start a second checkout for an order already being cooked.
+    if (recorded) this.checkout.clearIntent();
+  }
+
+  /**
+   * A snapshot of what an in-flight recovery is ABOUT.
+   *
+   * GATE B — DELAYED CALLBACKS CARRY IMMUTABLE OPERATION OWNERSHIP. The
+   * recovery paths performed destructive cleanup without checking that the
+   * record and scope they captured were still the current ones, so an answer
+   * held open across an edit or a table move cleared state it never owned.
+   * Deliberately not a re-read of the CURRENT record: comparing a response
+   * against whatever storage says now is what makes a stale answer look
+   * authoritative.
+   */
+  private recoveryOwner(): { key: string; scope: string } | null {
+    const record = this.checkout.record();
+    return record ? { key: record.key, scope: record.scope } : null;
+  }
+
+  private ownsRecovery(owner: { key: string; scope: string } | null): boolean {
+    if (!owner) return false;
+    const now = this.checkout.record();
+    return !!now && now.key === owner.key && now.scope === owner.scope
+      && owner.scope === this.checkoutContext();
   }
 
   ngAfterViewInit(): void {
@@ -602,7 +721,76 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.replayIssuedCommand(record);
       return;
     }
+    // GATE B — A RETRY IS NOT AN EDIT. A reserved purchase whose INITIATE
+    // response was lost still holds the lines that were sent, so re-send
+    // THOSE under the SAME key. `placeOrder` would rebuild the body from the
+    // live basket, which after any edit asks the server a different question
+    // from the one whose answer was lost — and mints a different key for it.
+    //
+    // The approved distinction is preserved: a deliberate edit followed by
+    // CHECKOUT still begins a new purchase, because that path goes through
+    // `placeOrder`. Only Retry is bound to what was issued.
+    if (record && this.checkout.isReplayableInitiation(record)) {
+      this.replayInitiation(record);
+      return;
+    }
     this.placeOrder();
+  }
+
+  /**
+   * Re-send the initiation that was already issued under this key.
+   *
+   * Deliberately NOT `placeOrder`: no re-reservation, no rebuild, no new
+   * attempt identity beyond the sequence guard. The key and the body both
+   * come from the record, so the server sees the same request twice and its
+   * idempotency binding does the rest.
+   */
+  private replayInitiation(record: CheckoutRecord): void {
+    if (!this.holdCheckout()) return;
+    this.orderError = false;
+    this.recovered = null;
+    this.attemptSeq += 1;
+    const attempt = {
+      seq: this.attemptSeq,
+      revision: this.basketService.revision(),
+      context: record.scope,
+    };
+    this.activeAttempt = attempt;
+
+    this.checkout.bounded(
+      this.api.postPatch(
+        'orders/initiate/',
+        { client_order_id: record.key, items: record.request.items },
+        'post', null, {}, false, 'v2'),
+    ).subscribe(
+      (response: any) => {
+        if (!this.isCurrent(attempt)) {
+          this.releaseIfLatest(attempt);
+          return;
+        }
+        if (response?.status === 200) {
+          this.order_initiated = response.data;
+          const od = this.order_initiated?.order_details;
+          this.checkout.noteProtocol(protocolLevel(od));
+          this.reviewedQuote = {
+            ref: od?.quote_ref ?? null,
+            revision: attempt.revision,
+            context: attempt.context,
+          };
+          this.checkout.noteStage('reviewing');
+          this.showQuoteSheet = true;
+        }
+        this.releaseCheckout();
+      },
+      (error) => {
+        if (!this.isCurrent(attempt)) {
+          this.releaseIfLatest(attempt);
+          return;
+        }
+        this.releaseCheckout();
+        this.failOrder(this.placementErrorMessage(error));
+      },
+    );
   }
 
   /**
@@ -622,8 +810,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.releaseCheckout();
       switch (outcome.kind) {
         case 'accepted':
+          this.finishAcceptedCheckout(outcome.correlation);
+          return;
         case 'accepted-unrecorded':
-          this.finishAcceptedCheckout();
+          // Gate B, exactly as in the resume path: the server cannot
+          // determine whether it landed, so nothing is cleared.
           return;
         case 'absent':
         case 'draft':
@@ -647,11 +838,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // here to no-op again, leaving the diner permanently unable to
           // submit that order.
           //
-          // A `draft` reached WITHOUT a command cannot arrive here —
-          // `replayIssuedCommand` only runs for an outstanding record, and
-          // `classify` reads that same record, so the commandless draft
-          // branch cannot have produced this.
-          this.resendIssuedCommand(record.command!);
+          // BUT ONLY WHERE THE HANDLE SURVIVED. This used to dereference
+          // `record.command!` on the strength of an invariant that no longer
+          // holds: `isOutstanding` required a non-null command until the
+          // durability gate made it stage-based, precisely so that a record
+          // whose handle was LOST stays protected. Such a record now reaches
+          // here, and re-sending is not something it can do — there is no
+          // order id to name. The recovery read above was still worth making
+          // (it resolves an `accepted` outcome properly); what must not
+          // happen is a mutation invented from a handle this build does not
+          // have, or a crash instead of a preserved checkout (Codex P2 on
+          // PR #665, valid).
+          if (!record.command) return;
+          this.resendIssuedCommand(record.command);
           return;
         default:
           // Draft, unreachable, unsupported, unauthorised or uncorrelated:
@@ -696,9 +895,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // overwritten: the record of a command whose outcome is unsettled is the
     // only thing that can resolve it, and the old path destroyed it whenever
     // the basket or the table changed.
+    // GATE B — THE LINES ARE BUILT ONCE AND STORED WITH THE RESERVATION, so
+    // a later replay re-sends what was issued instead of rebuilding from a
+    // basket that has moved on. Built before reserving for exactly that
+    // reason: the record must carry the body it is the key for.
+    const lines = this.buildOrderLines();
     const reservation = this.checkout.reserveIntent(
       { identity: this.basketService.contentIdentity(),
-        canon: PURCHASE_CANON },
+        canon: PURCHASE_CANON, items: lines },
       attempt.context,
     );
     if (reservation.kind !== 'ready') {
@@ -727,18 +931,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       // No raw restaurant/table UUIDs: the backend derives both from the diner
       // table session (X-Diner-Session), so a foreign body id can't override the
       // scope of the order. The session is the sole authority.
-      items: this.basketItems.map((item) => ({
-        item: item.itemId,
-        quantity: item.quantity,
-        selected_modifiers: (item.selectedModifiers || []).reduce(
-          (acc, mod) => {
-            acc[mod.groupId] = mod.choices.map(c => c.id);
-            return acc;
-          },
-          {} as Record<string, string[]>
-        ),
-        extras: item.extras.map(extra => extra.id)
-      })),
+      //
+      // THE RESERVED LINES, not a second build. `reserveIntent` returns the
+      // record this key belongs to — which for a reused key is the ORIGINAL
+      // purchase — so the body and the key can never describe different
+      // things.
+      items: reservation.record.request.items ?? lines,
     };
     // API call to initiate the order
     // BOUNDED (D04/D). Without a ceiling, a connection that is open but dead
@@ -782,6 +980,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             revision: attempt.revision,
             context: attempt.context,
           };
+          // GATE A — REMEMBER WHAT THIS SERVER SAYS IT CAN DO. The backend
+          // publishes `order_details.checkout_protocol` (D04/B), and a level
+          // demonstrated on the initiate is what makes a later submit reply
+          // carrying NO projection readable as broken rather than old.
+          this.checkout.noteProtocol(protocolLevel(od));
           // The stage a reload should ask about. NOT the command — nothing
           // has been accepted yet, and recording one here would make a draft
           // the diner is still reading look like an outstanding acceptance.
@@ -926,6 +1129,28 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * The initiation lines, built from the basket as it stands RIGHT NOW.
+   *
+   * Called in exactly one place — when a purchase is first reserved. A replay
+   * must never call it: that is the whole point of storing the result on the
+   * record (Gate B).
+   */
+  private buildOrderLines(): readonly unknown[] {
+    return this.basketItems.map((item) => ({
+      item: item.itemId,
+      quantity: item.quantity,
+      selected_modifiers: (item.selectedModifiers || []).reduce(
+        (acc, mod) => {
+          acc[mod.groupId] = mod.choices.map(c => c.id);
+          return acc;
+        },
+        {} as Record<string, string[]>,
+      ),
+      extras: item.extras.map(extra => extra.id),
+    }));
+  }
+
+  /**
    * Re-send an acceptance the server has proved it never received.
    *
    * IT SENDS THE RECORDED COMMAND, NOT A REBUILT ONE. The order id and the
@@ -950,25 +1175,23 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         this.releaseCheckout();
-        // The same rule as `submitOrder` — see the note there.
-        const correlation = readCorrelation(response);
-        const unverifiable = correlation
-          ? !correlationMatches(correlation, {
-            key: this.checkout.record()?.key ?? '',
-            scope: this.checkoutContext(),
-            orderId: command.orderId,
-          })
-          : correlationPromised(response);
-        if (unverifiable) {
-          this.recovered = { kind: 'uncorrelated', order: response };
+        // The same single decision as `submitOrder` — see `submitVerdict`.
+        const { correlation, verdict } =
+          this.submitVerdict(response, command.orderId, command.quoteRef);
+        if (verdict && verdict.kind !== 'accepted') {
+          this.recovered = verdict.kind === 'not-accepted'
+            ? { kind: 'draft', order: response, correlation }
+            : { kind: 'uncorrelated', order: response };
           return;
         }
         const recorded = this.checkout.recordOutcome({
           kind: 'accepted',
           orderId: command.orderId,
           orderNumber: null,
-          quoteRef: correlation?.acceptance.quoteRef ?? command.quoteRef,
-          acceptedAt: correlation?.acceptance.acceptedAt ?? null,
+          quoteRef: verdict?.kind === 'accepted'
+            ? verdict.quoteRef : command.quoteRef,
+          acceptedAt: verdict?.kind === 'accepted'
+            ? verdict.acceptedAt : null,
           at: Date.now(),
         });
         this.recovered = { kind: 'accepted', order: response, correlation };
@@ -990,6 +1213,48 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.failOrder(this.placementErrorMessage(error));
       },
     );
+  }
+
+  /**
+   * GATE A — THE ONE PLACE EITHER SUBMIT SURFACE DECIDES IT SUCCEEDED.
+   *
+   * It used to be `correlationMatches()` alone, which answers a DIFFERENT
+   * question: *is this answer about my command?* A projection can name this
+   * key, this order and this scope and still report that the acceptance did
+   * not happen, or name a quote the diner never confirmed, or carry no
+   * evidence at all. Using resource identity as the success decision
+   * announced orders the server had just declined to accept.
+   *
+   * Returns the verdict; the caller renders it. Both callers go through here
+   * so they cannot form different opinions about one reply.
+   */
+  private submitVerdict(response: unknown, orderId: string,
+                        quoteRef: string | null) {
+    const correlation = readCorrelation(response);
+    if (correlation) {
+      // A LEVEL ONCE STATED IS REMEMBERED — see `noteProtocol`.
+      this.checkout.noteProtocol(correlation.protocol);
+      return {
+        correlation,
+        verdict: acceptanceVerdict(correlation, {
+          key: this.checkout.record()?.key ?? '',
+          scope: this.checkoutContext(),
+          orderId,
+          quoteRef,
+        }, { mutation: true }),
+      };
+    }
+    // NO PROJECTION. Broken or simply old? `correlationPromised` reads the
+    // PAYLOAD; the record remembers what this server already demonstrated
+    // for THIS attempt, and a capability does not un-demonstrate itself.
+    const promised = correlationPromised(response)
+      || this.checkout.establishedProtocol() >= CHECKOUT_PROTOCOL_CORRELATED;
+    return {
+      correlation: null,
+      verdict: promised
+        ? { kind: 'incomplete' as const, missing: 'checkout' }
+        : null,                                   // a genuinely older server
+    };
   }
 
   /** Say what a refused reservation means, without starting a checkout. */
@@ -1356,18 +1621,20 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // clear the basket and navigate away having validated nothing —
         // while a reply that promised NOTHING is an older server and is
         // still taken as before.
-        const correlation = readCorrelation(response);
-        const unverifiable = correlation
-          ? !correlationMatches(correlation, {
-            key: this.checkout.record()?.key ?? '',
-            scope: this.checkoutContext(),
-            orderId: issued.orderId,
-          })
-          : correlationPromised(response);
-        if (unverifiable) {
+        const { correlation, verdict } =
+          this.submitVerdict(response, issued.orderId, quoteReference);
+        if (verdict && verdict.kind !== 'accepted') {
+          // NOT A SUCCESS, AND THE RECORD SURVIVES. Every non-accepted
+          // verdict here leaves the intent, the command and the basket
+          // exactly as they are: a projection saying the order is still a
+          // draft, or naming a quote the diner never confirmed, or carrying
+          // no evidence, is something to resolve — never something to
+          // announce and tidy away.
           this.showQuoteSheet = false;
           this.releaseCheckout();
-          this.recovered = { kind: 'uncorrelated', order: response };
+          this.recovered = verdict.kind === 'not-accepted'
+            ? { kind: 'draft', order: response, correlation }
+            : { kind: 'uncorrelated', order: response };
           this.failOrder(
             "We couldn't confirm this is your order. Please check with staff "
             + 'before ordering again.');
@@ -1381,8 +1648,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           orderId: issued.orderId,
           orderNumber: this.order_initiated?.order_details?.order_number != null
             ? String(this.order_initiated.order_details.order_number) : null,
-          quoteRef: correlation?.acceptance.quoteRef ?? quoteReference,
-          acceptedAt: correlation?.acceptance.acceptedAt ?? null,
+          quoteRef: verdict?.kind === 'accepted'
+            ? verdict.quoteRef : quoteReference,
+          acceptedAt: verdict?.kind === 'accepted'
+            ? verdict.acceptedAt : null,
           at: Date.now(),
         });
         this.showQuoteSheet = false;

@@ -103,6 +103,22 @@ export interface IssuedCommand {
 export interface PurchaseRequest {
   readonly identity: string;
   readonly canon: string;
+  /**
+   * GATE B — THE VALIDATED INITIATION LINES, STORED VERBATIM.
+   *
+   * A replay must re-send what was ISSUED. Before this the record carried
+   * identity and canon only, so `retryOrder` fell through to `placeOrder`,
+   * which rebuilds the body from the LIVE basket — a retry after a lost
+   * initiate therefore asked a different question from the one whose answer
+   * was lost, and any edit in between silently changed what was retried.
+   *
+   * It is the request body's `items` array exactly as it was validated and
+   * sent, not a reconstruction: nothing here is derived from priced rows or
+   * from the basket as it stands. Bounded by the D01 request ceilings
+   * (<= 100 lines), and carries only item/modifier/extra identifiers and
+   * quantities — no amounts, no credentials.
+   */
+  readonly items?: readonly unknown[] | null;
 }
 
 /** The current canonicalisation rule — `BasketService.contentIdentity`, which
@@ -148,6 +164,24 @@ export interface CheckoutRecord {
   readonly command: IssuedCommand | null;
   readonly outcome: TerminalOutcome | null;
   readonly startedAt: number;
+  /**
+   * GATE A — THE HIGHEST PROTOCOL LEVEL THIS SERVER HAS STATED FOR THIS
+   * ATTEMPT. Monotonic and remembered, because a capability once
+   * demonstrated does not un-demonstrate itself: a submit reply carrying no
+   * projection from a server that advertised level 3 on the initiate is
+   * BROKEN, not an older server, and falling back to the legacy reading
+   * there announces an order having validated nothing.
+   */
+  readonly protocol: number;
+  /**
+   * GATE C — SOMETHING IN THIS RECORD WAS PRESENT BUT UNREADABLE.
+   *
+   * Distinct from a field that is simply absent. A `command` key holding a
+   * malformed object means an acceptance MAY have been issued and its
+   * handle did not survive; nulling it silently turns that into "no command
+   * was ever issued", which is the inference the not-found rule forbids.
+   */
+  readonly degraded: boolean;
 }
 
 /**
@@ -331,11 +365,12 @@ export class CheckoutCoordinatorService {
 
     if (stored.kind === 'record') {
       const existing = stored.record;
-      if (this.isOutstanding(existing)) {
-        return { kind: 'outstanding', record: existing };
-      }
-      if (this.sameCommand(existing, request, scope)) {
+      if (this.sameCommand(existing, request, scope)
+          && !this.isProtected(existing, request)) {
         return { kind: 'ready', key: existing.key, record: existing };
+      }
+      if (this.isProtected(existing, request)) {
+        return { kind: 'outstanding', record: existing };
       }
     }
 
@@ -352,17 +387,99 @@ export class CheckoutCoordinatorService {
       command: null,
       outcome: null,
       startedAt: Date.now(),
+      protocol: 0,
+      degraded: false,
     };
     return this.persist(record)
       ? { kind: 'ready', key: record.key, record }
       : { kind: 'storage-error' };
   }
 
-  /** Is an acceptance outstanding for this record — i.e. was a command issued
-   *  whose outcome is not settled? */
+  /**
+   * Is an acceptance outstanding — i.e. MAY a command have been issued whose
+   * outcome is not settled?
+   *
+   * GATE C — THE TEST IS THE STAGE, NOT WHETHER THE HANDLE SURVIVED. It used
+   * to require `command !== null`, and that is what lost the protection in
+   * the one case it was written for: `upgradeV1` turns a D04/D `submitting`
+   * record with no usable order id into `unresolved` with a null command —
+   * honestly, since nothing may be manufactured — and the record it produced
+   * then read as NOT outstanding, so a changed basket replaced it with a
+   * fresh key.
+   *
+   * Protection follows the fact that a command MAY HAVE BEEN ISSUED. Missing
+   * handles reduce the ability to RECOVER; they never establish that no
+   * operation ran. `accepting` and `unresolved` are both reached only after
+   * an acceptance was about to be or had been sent.
+   */
   isOutstanding(record: CheckoutRecord): boolean {
-    return record.command !== null
-      && (record.stage === 'accepting' || record.stage === 'unresolved');
+    return record.stage === 'accepting' || record.stage === 'unresolved';
+  }
+
+  /**
+   * Can this record safely be REPLACED by a fresh key for a new purchase?
+   *
+   * Separate from `isOutstanding` because the reasons differ: an outstanding
+   * acceptance must be resolved, while a record this build cannot fully read
+   * must not be reasoned about at all. Both refuse a replacement; only the
+   * first is recoverable by asking the server.
+   */
+  private isProtected(record: CheckoutRecord, request: PurchaseRequest):
+      boolean {
+    if (this.isOutstanding(record)) return true;
+    // A terminal claim with no evidence behind it is not a settled checkout.
+    if (record.stage === 'accepted' && !record.outcome) return true;
+    if (record.degraded) return true;
+    // AN IDENTITY PRODUCED BY A RULE THIS BUILD DOES NOT KNOW cannot be
+    // compared against one produced by the current rule, so "a different
+    // purchase" is not a conclusion available here.
+    return record.request.canon !== request.canon;
+  }
+
+  /**
+   * May this build re-issue the INITIATION recorded here?
+   *
+   * A POSITIVE CLASSIFICATION, never the absence of a reason to refuse — the
+   * first cut asked only whether `request.items` was non-empty, and a record
+   * can carry perfectly readable lines and still be one nothing may be issued
+   * from: a `degraded` parse, a terminal `accepted` claim with no outcome
+   * behind it, or an identity produced by a canonicalisation this build does
+   * not know. `reserveIntent` already refuses all three (`isProtected`), so a
+   * retry path that bypassed reservation defeated exactly the protection this
+   * change added (Codex P2 on PR #665, valid).
+   *
+   * AN ISSUED COMMAND IS A DIFFERENT CASE and is deliberately excluded: that
+   * one is resolved by replaying the COMMAND, never by re-initiating. What is
+   * left is the lost-INITIATE case the stored lines exist for — a reserved key
+   * at `pricing` or `reviewing` with nothing issued against it.
+   */
+  isReplayableInitiation(record: CheckoutRecord): boolean {
+    if (record.degraded) return false;
+    if (record.request.canon !== PURCHASE_CANON) return false;
+    if (record.command !== null || record.outcome !== null) return false;
+    if (record.stage !== 'pricing' && record.stage !== 'reviewing') {
+      return false;
+    }
+    const items = record.request.items;
+    return Array.isArray(items) && items.length > 0;
+  }
+
+  /** The highest level any server has stated for the live attempt, or 0. */
+  establishedProtocol(): number {
+    return this.record()?.protocol ?? 0;
+  }
+
+  /**
+   * Remember a stated capability level. MONOTONIC — a level once stated is
+   * never lowered by a later response that happens to omit it, because that
+   * omission is exactly the broken case the memory exists to catch.
+   */
+  noteProtocol(level: number): boolean {
+    const current = this.record();
+    if (!current || !Number.isInteger(level) || level <= current.protocol) {
+      return false;
+    }
+    return this.persist({ ...current, protocol: level });
   }
 
   private sameCommand(
@@ -639,6 +756,19 @@ export class CheckoutCoordinatorService {
     const scope = value['scope'];
     if (typeof scope !== 'string') return null;
 
+    // PRESENT-BUT-UNREADABLE IS NOT ABSENT (Gate C). A `command` or `outcome`
+    // key that is there and cannot be parsed means a handle did not survive,
+    // which is a REDUCED ability to recover — never evidence that no
+    // operation ran. Nulling it silently is what let `reserveIntent` treat
+    // such a record as an ordinary replaceable one.
+    const rawCommand = value['command'];
+    const command = this.parseCommand(rawCommand);
+    const rawOutcome = value['outcome'];
+    const outcome = this.parseOutcome(rawOutcome);
+    const degraded =
+      (rawCommand !== undefined && rawCommand !== null && command === null)
+      || (rawOutcome !== undefined && rawOutcome !== null && outcome === null);
+
     return {
       v: CHECKOUT_RECORD_VERSION,
       key,
@@ -646,12 +776,18 @@ export class CheckoutCoordinatorService {
       request: {
         identity: request['identity'] as string,
         canon: request['canon'] as string,
+        items: Array.isArray(request['items'])
+          ? (request['items'] as readonly unknown[]) : null,
       },
       stage,
-      command: this.parseCommand(value['command']),
-      outcome: this.parseOutcome(value['outcome']),
+      command,
+      outcome,
       startedAt: typeof value['startedAt'] === 'number'
         ? (value['startedAt'] as number) : 0,
+      protocol: typeof value['protocol'] === 'number'
+        && Number.isInteger(value['protocol']) && value['protocol'] > 0
+        ? (value['protocol'] as number) : 0,
+      degraded,
     };
   }
 
@@ -697,6 +833,13 @@ export class CheckoutCoordinatorService {
       outcome: null,
       startedAt: typeof value['startedAt'] === 'number'
         ? (value['startedAt'] as number) : 0,
+      // A D04/D record predates the level memory, so nothing is claimed.
+      protocol: 0,
+      // A `submitting` record that could not name its order is DEGRADED, not
+      // merely commandless: an acceptance may have gone out and the handle
+      // did not survive. `isOutstanding` already protects `unresolved`; this
+      // says WHY, and keeps it protected if the stage vocabulary ever moves.
+      degraded: phase === 'submitting' && !issued,
     };
   }
 
@@ -754,8 +897,36 @@ export class CheckoutCoordinatorService {
     }
     const stored = this.read();
     return stored.kind === 'record'
-      && stored.record.key === record.key
-      && stored.record.stage === record.stage;
+      && this.fingerprint(stored.record) === this.fingerprint(record);
+  }
+
+  /**
+   * A deterministic digest of everything a caller acts on.
+   *
+   * GATE C — KEY AND STAGE WERE NOT ENOUGH. `noteCommand` moves a record from
+   * `accepting` to `accepting` when a previous attempt already set the stage,
+   * and `recordOutcome` writes an outcome onto a record whose key never
+   * changes — so a store that accepted `setItem` and kept the PREVIOUS value
+   * satisfied both old checks and reported success. The caller then issued an
+   * acceptance believing its command was written down.
+   *
+   * `startedAt` is excluded deliberately (written once, never re-asserted);
+   * everything a later recovery reads is included. Bounded by the D01
+   * ceilings, and built from data already being serialised to this store.
+   */
+  private fingerprint(record: CheckoutRecord): string {
+    return JSON.stringify([
+      record.v, record.key, record.scope,
+      record.request.identity, record.request.canon,
+      record.request.items ?? null,
+      record.stage,
+      record.command
+        ? [record.command.orderId, record.command.quoteRef] : null,
+      record.outcome
+        ? [record.outcome.orderId, record.outcome.orderNumber,
+           record.outcome.quoteRef, record.outcome.acceptedAt] : null,
+      record.protocol,
+    ]);
   }
 
   private mintKey(): string {

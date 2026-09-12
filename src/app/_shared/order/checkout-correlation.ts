@@ -204,6 +204,10 @@ export interface ExpectedCommand {
   readonly scope: string;
   /** The order the acceptance named, when one had been issued. */
   readonly orderId?: string | null;
+  /** The reference the diner actually confirmed, when one was issued. An
+   *  acceptance bound to a DIFFERENT quote is a conflict about what was
+   *  agreed, not a completion of this command. */
+  readonly quoteRef?: string | null;
 }
 
 /**
@@ -229,4 +233,99 @@ export function correlationMatches(
   const scope =
     `${correlation.scope.restaurant ?? ''}:${correlation.scope.table ?? ''}`;
   return scope === expected.scope;
+}
+
+/**
+ * GATE A — WHETHER A PARTICULAR ACCEPTANCE COMMAND SUCCEEDED.
+ *
+ * THIS IS NOT `correlationMatches`, AND CONFLATING THEM WAS THE DEFECT.
+ * `correlationMatches` answers *is this answer about my command?* — a
+ * question about resource identity. Whether the acceptance HAPPENED is a
+ * different question with a different answer, and a projection can name this
+ * key, this order and this scope while saying the order is still a draft.
+ * Using the identity match as the success decision announced an order the
+ * server had just declined to accept.
+ *
+ * Deliberately NOT a generic schema framework: it validates the specific
+ * fields this client displays and correlates on, and nothing else.
+ */
+export type AcceptanceVerdict =
+  /** The server states THIS command was accepted, with usable evidence. */
+  | { readonly kind: 'accepted';
+      readonly quoteRef: string; readonly acceptedAt: string }
+  /** DEFINITIVE: still a draft. Safe to re-send the SAME command. */
+  | { readonly kind: 'not-accepted' }
+  /** The server cannot determine whether the submission landed. */
+  | { readonly kind: 'indeterminate' }
+  /** The answer is about some other key, order or scope. */
+  | { readonly kind: 'mismatched-identity' }
+  /** Accepted — but bound to a quote the diner never confirmed. */
+  | { readonly kind: 'mismatched-reference'; readonly reported: string }
+  /** Claims acceptance without the evidence that would make it checkable. */
+  | { readonly kind: 'incomplete'; readonly missing: string };
+
+/**
+ * Read a projection as evidence about ONE issued command.
+ *
+ * `mutation` distinguishes the two surfaces, and the difference is real
+ * rather than pedantic: a READ legitimately carries `outcome: null` (an
+ * observation is not the result of an attempt), while the reply to an
+ * acceptance command must say which attempt it was. A mutation reply
+ * claiming `accepted` while naming no outcome is contradicting itself.
+ */
+export function acceptanceVerdict(
+  correlation: CheckoutCorrelation,
+  expected: ExpectedCommand,
+  options: { readonly mutation: boolean },
+): AcceptanceVerdict {
+  if (!correlationMatches(correlation, expected)) {
+    return { kind: 'mismatched-identity' };
+  }
+
+  const { state, outcome, quoteRef, acceptedAt } = correlation.acceptance;
+  if (state === 'not_accepted') return { kind: 'not-accepted' };
+  if (state === 'evidence_unavailable') return { kind: 'indeterminate' };
+
+  // state === 'accepted' from here. EVERY FIELD THIS CLIENT WILL GO ON TO
+  // SHOW OR RECORD MUST ACTUALLY BE THERE — a success recorded with nulls is
+  // one a later recovery cannot check anything against.
+  if (options.mutation && outcome === null) {
+    return { kind: 'incomplete', missing: 'outcome' };
+  }
+  if (!quoteRef) return { kind: 'incomplete', missing: 'quote_ref' };
+  if (!acceptedAt) return { kind: 'incomplete', missing: 'accepted_at' };
+
+  // THE REFERENCE THE DINER CONFIRMED. Checked only when this client issued
+  // one: an authorized recovery with no local command can legitimately learn
+  // that the order was accepted elsewhere (a copied tab), and there is no
+  // local reference to compare that against.
+  if (expected.quoteRef && quoteRef !== expected.quoteRef) {
+    return { kind: 'mismatched-reference', reported: quoteRef };
+  }
+
+  return { kind: 'accepted', quoteRef, acceptedAt };
+}
+
+/**
+ * Is the order, as the server currently sees it, still on its way to the
+ * diner?
+ *
+ * AN ACCEPTANCE AND WHAT HAPPENED AFTERWARDS ARE SEPARATE FACTS. The
+ * projection labels them apart for exactly this reason, and collapsing them
+ * is how a cancelled order gets announced as "with the kitchen" — leaving a
+ * diner waiting for food nobody is cooking.
+ */
+export type CurrentDisposition = 'live' | 'cancelled' | 'served' | 'unknown';
+
+export function currentDisposition(
+  correlation: CheckoutCorrelation | null,
+): CurrentDisposition {
+  if (!correlation) return 'unknown';
+  const { orderStatus, fulfilmentStatus, cancelledAt, servedAt } =
+    correlation.current;
+  if (cancelledAt || orderStatus === 'cancelled') return 'cancelled';
+  if (servedAt || orderStatus === 'served' || fulfilmentStatus === 'served') {
+    return 'served';
+  }
+  return orderStatus ? 'live' : 'unknown';
 }

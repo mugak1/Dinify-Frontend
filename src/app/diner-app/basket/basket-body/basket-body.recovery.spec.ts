@@ -249,9 +249,17 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
     // dangerous direction: a diner told that about a cancelled draft waits
     // for food nobody is cooking.
     //
-    // THE ACTION IS UNCHANGED AND STAYS CONSERVATIVE — the basket is still
-    // cleared and no second checkout is offered, because one of the two
-    // producers really is an order in the kitchen. Only the CLAIM changes.
+    // THE ACTION HAS SINCE CHANGED, and this spec's original expectation is
+    // now the WRONG contract. It asserted the basket was cleared — but
+    // `finishAcceptedCheckout` also DELETES the recovery record, so the one
+    // outcome the server says it CANNOT DETERMINE was the one that
+    // destroyed the handle needed to resolve it, and the next reload
+    // started clean with permission to order again.
+    //
+    // The conservative intent is preserved and strengthened: nothing is
+    // retired, and a second checkout is refused by `checkoutBlocked` — the
+    // protection that was actually doing the work. The CLAIM assertions
+    // below are unchanged.
     interruptMidSubmission();
     api.get.and.returnValue(of({ data: {
       id: 'o1',
@@ -272,9 +280,12 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
     fixture.detectChanges();
 
     expect(component.recovered?.kind).toBe('accepted-unrecorded');
-    // conservative action, unchanged
-    expect(basketService.clearBasket).toHaveBeenCalled();
-    // but the sentence must not assert what the server could not
+    // NOTHING IS RETIRED on an outcome the server could not determine.
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(coordinator.record()).not.toBeNull();
+    // and the CTA, not an emptied basket, is what refuses a second checkout
+    expect(component.checkoutBlocked).toBeTrue();
+    // the sentence must still not assert what the server could not
     const said = notice() || '';
     expect(said).not.toContain('is with the kitchen');
     expect(said.toLowerCase()).toContain('may');
@@ -468,7 +479,14 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
     expect(basketService.clearBasket).not.toHaveBeenCalled();
     // AND THE DINER IS TOLD. Silence used to be the answer here, beside a
     // basket they might be about to re-order.
-    expect(notice()).toContain('did not reach us');
+    //
+    // THE WORDING MOVED with the same reasoning this spec's own header
+    // gives: "did not reach us" ASSERTS non-execution, which a not-found at
+    // one instant does not establish. What it licenses is a same-key,
+    // same-request replay — so that is what the sentence now offers, and
+    // the old phrasing is pinned ABSENT so it cannot drift back.
+    expect(notice()).not.toContain('did not reach us');
+    expect((notice() || '').toLowerCase()).toContain('same order again');
   });
 
   it('CHANGES NOTHING when the server could not be asked', () => {
