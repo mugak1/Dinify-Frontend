@@ -214,3 +214,116 @@ describe('BasketService (line identity, D03 client half)', () => {
     });
   });
 });
+
+describe('BasketService total exactness (R3b)', () => {
+  let service: BasketService;
+
+  const item = (over: Partial<BasketItem> = {}): BasketItem =>
+    ({
+      itemId: 'i1', itemName: 'Burger', basePrice: 5000, totalPrice: 5000,
+      quantity: 1, selectedModifiers: [], extras: [], isDiscounted: false,
+      ...over,
+    }) as BasketItem;
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    TestBed.configureTestingModule({
+      providers: [
+        BasketService,
+        SessionStorageService,
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: 'spec-total:' },
+      ],
+    });
+    service = TestBed.inject(BasketService);
+  });
+
+  afterEach(() => sessionStorage.clear());
+
+  it('reports an ordinary basket as EXACT', () => {
+    const state = service.totalState([item({ quantity: 3 })]);
+    expect(state).toEqual({ amount: 15000, exact: true });
+  });
+
+  it('applies the server rounding rule rather than double arithmetic', () => {
+    // Two sub-cent adjustments on a 1000 base: the server quantizes each
+    // component half-even to 1.00, so the unit is exactly 1002.00. In doubles
+    // the same sum is 1002.0099999999999.
+    const state = service.totalState([item({
+      basePrice: 1000, totalPrice: 1000,
+      selectedModifiers: [{
+        groupId: 'g', groupName: 'g',
+        choices: [
+          { id: 'a', name: 'a', additionalCost: 1.005 },
+          { id: 'b', name: 'b', additionalCost: 1.005 },
+        ],
+      }],
+    })]);
+    expect(state).toEqual({ amount: 1002, exact: true });
+  });
+
+  it('reads an ABSENT optional adjustment as zero, not as malformed', () => {
+    // `additionalCost` and an extra's `cost` have an established meaning of
+    // zero when absent. That is not the same fact as an explicitly malformed
+    // monetary value, and conflating them would make ordinary legacy baskets
+    // inexact for no reason.
+    const state = service.totalState([item({
+      selectedModifiers: [{
+        groupId: 'g', groupName: 'g',
+        choices: [{ id: 'a', name: 'a' } as any],
+      }],
+      extras: [{ id: 'x' } as any],
+    })]);
+    expect(state).toEqual({ amount: 5000, exact: true });
+  });
+
+  it('parses a legacy decimal-STRING component rather than refusing it', () => {
+    const state = service.totalState([item({ basePrice: '4500.50' as any })]);
+    expect(state).toEqual({ amount: 4500.5, exact: true });
+  });
+
+  it('reports a genuinely unreadable component as an ESTIMATE, not as exact', () => {
+    // THE DEFECT THIS CLOSES. The exact helper returns `null` here, and the
+    // service used to hand the old double arithmetic back as an ordinary
+    // total — a figure it had just established it could not represent,
+    // presented with the same confidence as one it could.
+    const state = service.totalState([item({
+      basePrice: 'not-a-price' as any, totalPrice: 5000, quantity: 2,
+    })]);
+    expect(state.exact).toBeFalse();
+    // The estimate is the SAME arithmetic as before, so a stored basket keeps
+    // behaving exactly as it did; only the claim about the number changes.
+    expect(state.amount).toBe(10000);
+  });
+
+  it('reports an out-of-range basket as an ESTIMATE', () => {
+    const state = service.totalState([item({
+      basePrice: 1e13, totalPrice: 1e13,
+    })]);
+    expect(state.exact).toBeFalse();
+  });
+
+  it('reports a fractional quantity as an ESTIMATE', () => {
+    const state = service.totalState([item({ quantity: 1.5 })]);
+    expect(state.exact).toBeFalse();
+  });
+
+  it('keeps calculateTotalAmount returning the same number it always did', () => {
+    // The persisted `totalAmount` shape is unchanged — no storage migration.
+    expect(service.calculateTotalAmount([item({ quantity: 2 })])).toBe(10000);
+    expect(service.calculateTotalAmount([
+      item({ basePrice: 'not-a-price' as any, totalPrice: 5000, quantity: 2 }),
+    ])).toBe(10000);
+  });
+
+  it('leaves the basket itself untouched when a total cannot be stated exactly', () => {
+    const broken = item({ basePrice: 'not-a-price' as any });
+    service.addItem(broken);
+    expect(service.Basket().items.length).toBe(1);
+    expect(service.Basket().items[0].basePrice).toBe('not-a-price' as any);
+  });
+
+  it('is empty-safe', () => {
+    expect(service.totalState([])).toEqual({ amount: 0, exact: true });
+  });
+});

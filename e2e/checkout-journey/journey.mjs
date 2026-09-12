@@ -42,20 +42,45 @@ const F = JSON.parse(readFileSync(process.env.JOURNEY_FIXTURE || '/tmp/journey-f
 const WEB = process.env.JOURNEY_WEB || 'http://127.0.0.1:4299';
 const API = process.env.JOURNEY_API || 'http://127.0.0.1:8099';
 
-// ── the fixture's arithmetic, stated once ───────────────────────────────────
+// ── the fixture's arithmetic, stated once, AS CANONICAL DECIMAL STRINGS ─────
+//
+// The goldens are strings because the WIRE is strings. `35000.3` and
+// '35000.30' are the same number and only one of them is the contract, so a
+// journey that compares through `Number` cannot tell a correct payload from one
+// that lost its scale — which is the exact class of defect the canonical-string
+// quote was introduced to close.
+//
 // Burger 10 000 + Large 3 500 + Extra Cheese 2 000, at quantity 2 = 31 000.
 const ADD_BUTTON_TOTAL = 31000;
-// The operator raises the burger to 12 000 AFTER the basket is built, so the
-// server prices 2 × (12 000 + 3 500 + 2 000) = 35 000.
-const REPRICED_BURGER = '12000.00';
-const REVIEW_BURGER_LINE = 35000;
-// THE SUB-CENT GOLDEN. `additionalCost` is '1.005' in an unvalidated JSON blob.
-// Each unit component is quantized ONCE at 2dp with ROUND_HALF_EVEN, and 1.005
-// ties to EVEN — so the adjustment is 1.00 and the line is 10.00 + 1.00 = 11.00.
-// Round-half-up anywhere in the chain gives 1.01 and 11.01, and this run fails
-// by exactly one cent rather than passing with a plausible number.
-const ROUNDING_LINE = 11.0;
-const ORDER_TOTAL = REVIEW_BURGER_LINE + ROUNDING_LINE;   // 35 011.00
+// TWO INDEPENDENT MONETARY GOLDENS, and neither substitutes for the other.
+//
+// 1. THE NONZERO FRACTION. The operator raises the burger to 12 000.15 AFTER
+//    the basket is built, so the parent unit is 12 000.15 + 3 500.00 =
+//    15 500.15 and the line is exactly 2 × that plus the 4 000.00 of extras:
+//    35 000.30. It proves a real fractional amount survives ROUND-THEN-MULTIPLY
+//    extension, formatting and the wire — 15 500.15 × 2 in doubles is
+//    31000.299999999996, and `| number` would render the total '35,000.3'.
+const REPRICED_BURGER = '12000.15';
+const REVIEW_BURGER_LINE = '35000.30';
+// 2. THE SUB-CENT ROUNDING CONTROL. `additionalCost` is '1.005' in an
+//    unvalidated JSON blob. Each unit component is quantized ONCE at 2dp with
+//    ROUND_HALF_EVEN, and 1.005 ties to EVEN — so the adjustment is 1.00 and
+//    the line is 10.00 + 1.00 = 11.00. Round-half-up anywhere in the chain
+//    gives 1.01 and 11.01, and this run fails by exactly one cent rather than
+//    passing with a plausible number.
+const ROUNDING_LINE = '11.00';
+const ORDER_TOTAL = '35011.30';          // 35 000.30 + 11.00
+const ORDER_TOTAL_DISPLAY = '35,011.30'; // as the diner reads it
+
+/** A canonical wire amount: digits, a point, EXACTLY two decimals. */
+const CANONICAL_MONEY = /^-?\d+\.\d{2}$/;
+/** Every monetary key the quote publishes, at each of its two levels. */
+const LINE_MONEY_KEYS = [
+  'unit_price', 'reference_unit_price', 'discounted_price',
+  'unit_cost_of_options', 'total_cost', 'reference_total_cost',
+  'discounted_cost', 'savings', 'line_actual_cost', 'line_total_with_extras',
+];
+const EXTRA_MONEY_KEYS = ['unit_price', 'discounted_price', 'actual_cost'];
 
 const results = [];
 const pageErrors = [];
@@ -270,32 +295,122 @@ const main = async () => {
 
   check('the review prices the extra as its own row', /Extra Cheese/.test(reviewText));
 
-  // The reviewed amount is the SERVER's — taken from the very response the app
-  // rendered, so the two cannot be different numbers that merely agree.
-  const serverTotal = Number(od?.quote_total ?? od?.actual_cost);
-  check('the reviewed amount is the server amount, shown in the review',
-        Number.isFinite(serverTotal) && new RegExp(
-          serverTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })
-            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-        ).test(reviewText),
-        `server=${serverTotal}`);
-  check('the review shows the CURRENT server price, not the browser\'s',
-        serverTotal === ORDER_TOTAL, `server=${serverTotal} browser-basket=${ADD_BUTTON_TOTAL + ROUNDING_LINE}`);
+  // ── THE WIRE CARRIES CANONICAL DECIMAL STRINGS ───────────────────────────
+  //
+  // ASSERTED ON THE CURRENT BACKEND'S OWN SHAPE, with NO `?? actual_cost`
+  // FALLBACK. That fallback is a real and deliberate compatibility path for
+  // backend #314, which shipped the itemised quote before `quote_total` existed
+  // — but reading through it HERE would let a current-backend regression that
+  // drops or mangles `quote_total` pass this run silently on the lossy numeric
+  // field. The compatibility is the CLIENT's to apply against an older server;
+  // this journey runs against the current one and holds it to the contract.
+  check('the payable is published as a canonical decimal string',
+        typeof od?.quote_total === 'string'
+        && CANONICAL_MONEY.test(od.quote_total),
+        `quote_total=${JSON.stringify(od?.quote_total)}`);
+  check('the reviewed payable is exactly the expected amount',
+        od?.quote_total === ORDER_TOTAL,
+        `quote_total=${od?.quote_total} expected=${ORDER_TOTAL}`);
 
-  const burgerLine = (initiateBody?.data?.quote || []).find((l) => l.item === F.burger);
+  const quoteLines = initiateBody?.data?.quote || [];
+  const badMoney = [];
+  for (const l of quoteLines) {
+    for (const k of LINE_MONEY_KEYS) {
+      if (typeof l[k] !== 'string' || !CANONICAL_MONEY.test(l[k])) {
+        badMoney.push(`${l.item_name}.${k}=${JSON.stringify(l[k])}`);
+      }
+    }
+    for (const x of l.extras || []) {
+      for (const k of EXTRA_MONEY_KEYS) {
+        if (typeof x[k] !== 'string' || !CANONICAL_MONEY.test(x[k])) {
+          badMoney.push(`${l.item_name}/${x.item_name}.${k}=${JSON.stringify(x[k])}`);
+        }
+      }
+    }
+  }
+  check('every quote amount, at both levels, is a canonical decimal string',
+        quoteLines.length === 2 && badMoney.length === 0, badMoney.join(' '));
+
+  // ── THE EXACT ELEMENTS THE DINER READS ───────────────────────────────────
+  //
+  // Located by test id and compared WHOLE, rather than searched for as a
+  // substring of the panel's text: a substring match is satisfied by any
+  // figure anywhere on the sheet, which is precisely what an assertion about
+  // "the amount being confirmed" must not accept.
+  const shownTotal = ((await panel.locator('[data-testid="quote-total"]')
+    .textContent().catch(() => '')) || '').trim();
+  check('the review states the server amount, exactly, in the total element',
+        shownTotal === `UGX ${ORDER_TOTAL_DISPLAY}`, `shown=${JSON.stringify(shownTotal)}`);
+  // The basket's own figure was built from the PRE-reprice menu, so the two
+  // genuinely differ — which is what makes this an assertion rather than a
+  // coincidence that would also hold if the price had never moved.
+  const basketFigure = ADD_BUTTON_TOTAL + 11;   // 31 000 + 11.00, the browser's
+  check('the review shows the CURRENT server price, not the browser\'s',
+        od?.quote_total === ORDER_TOTAL
+        && Math.round(Number(ORDER_TOTAL) * 100) !== basketFigure * 100,
+        `server=${od?.quote_total} browser-basket=${basketFigure}`);
+
+  const burgerRow = panel.locator(`[data-testid="quote-line"][data-line-item="${F.burger}"]`);
+  const shownBurger = ((await burgerRow.locator('[data-testid="quote-line-amount"]')
+    .textContent().catch(() => '')) || '').trim();
+  check('the burger line states its own amount exactly, fraction and all',
+        shownBurger === `UGX 35,000.30`, `shown=${JSON.stringify(shownBurger)}`);
+
+  // THE MODIFIER INSTRUCTIONS ARE ON THE SCREEN. The diner chose Large; the
+  // review must say so, or they are confirming an amount without seeing what
+  // it is for.
+  const shownModifiers = ((await burgerRow.locator('[data-testid="quote-line-modifiers"]')
+    .textContent().catch(() => '')) || '').trim();
+  check('the review shows the modifier instructions the diner selected',
+        /Large/.test(shownModifiers), `modifiers=${JSON.stringify(shownModifiers)}`);
+  check('the review shows the parent quantity',
+        /× 2/.test((await burgerRow.textContent().catch(() => '')) || ''));
+  const shownExtra = ((await burgerRow.locator('[data-testid="quote-line-extra"]')
+    .textContent().catch(() => '')) || '').trim();
+  check('the review shows the extra AND its own quantity, not just the parent\'s',
+        /Extra Cheese/.test(shownExtra) && /× 2/.test(shownExtra),
+        `extra=${JSON.stringify(shownExtra)}`);
+
+  const burgerLine = quoteLines.find((l) => l.item === F.burger);
+  // THE NONZERO-FRACTION GOLDEN, on the canonical string: 15 500.15 × 2 in
+  // doubles is 31000.299999999996, so a float anywhere in extension or
+  // rendering misses by a hundredth rather than passing with a plausible number.
   check('the server quote carries the extra as a child of its parent line',
         (burgerLine?.extras || []).length === 1
-        && Number(burgerLine?.line_total_with_extras) === REVIEW_BURGER_LINE,
+        && burgerLine?.line_total_with_extras === REVIEW_BURGER_LINE,
         `line_total_with_extras=${burgerLine?.line_total_with_extras}`);
+  check('the extra child carries the parent\'s quantity',
+        burgerLine?.quantity === 2 && burgerLine?.extras?.[0]?.quantity === 2,
+        `parent=${burgerLine?.quantity} extra=${burgerLine?.extras?.[0]?.quantity}`);
+  // Composed in integer CENTS, not in doubles: the whole point of the
+  // fractional golden is that `31000.30 + 4000.00` is where a float loses it.
+  const cents = (v) => Math.round(Number(v) * 100);
+  check('the parent-plus-extras aggregate composes from its own parts, exactly',
+        cents(burgerLine?.line_actual_cost) + cents(burgerLine?.extras?.[0]?.actual_cost)
+          === cents(REVIEW_BURGER_LINE),
+        `${burgerLine?.line_actual_cost} + ${burgerLine?.extras?.[0]?.actual_cost}`);
+  check('the canonical selections reached the saved line',
+        JSON.stringify(burgerLine?.selected_modifiers) === JSON.stringify({ 'g-size': ['c-large'] }),
+        JSON.stringify(burgerLine?.selected_modifiers));
 
-  // THE SUB-CENT GOLDEN, asserted on the canonical decimal STRING rather than a
-  // number: '11.00' and 11 are the same value and only one of them is the wire
-  // contract the review is rendered from.
-  const roundingLine = (initiateBody?.data?.quote || []).find((l) => l.item === F.rounding);
+  // THE SUB-CENT GOLDEN, a DIFFERENT control from the fraction above: this one
+  // proves half-even TIES, asserted on the canonical decimal string rather than
+  // a number — '11.00' and 11 are the same value and only one is the contract.
+  const roundingLine = quoteLines.find((l) => l.item === F.rounding);
   check('a sub-cent adjustment is quantized ROUND_HALF_EVEN, once, per unit',
-        roundingLine?.line_total_with_extras === '11.00'
+        roundingLine?.line_total_with_extras === ROUNDING_LINE
         && roundingLine?.unit_cost_of_options === '1.00',
         `line=${roundingLine?.line_total_with_extras} modifier=${roundingLine?.unit_cost_of_options}`);
+
+  // THE LINES ADD UP TO THE PAYABLE, exactly, counting each child once —
+  // the reconciliation the client now enforces, proved against a real server.
+  const summed = quoteLines.reduce(
+    (cents, l) => cents + Math.round(Number(l.line_total_with_extras) * 100), 0);
+  check('the quoted lines reconcile to the payable, to the cent',
+        summed === Math.round(Number(ORDER_TOTAL) * 100),
+        `lines=${summed} payable=${Math.round(Number(ORDER_TOTAL) * 100)}`);
+  check('the server declares its quote complete',
+        od?.quote_complete === true, `quote_complete=${od?.quote_complete}`);
 
   const quoteRef = od?.quote_ref;
   const version = od?.pricing_version;
@@ -332,9 +447,12 @@ const main = async () => {
 
   // ── 7. THE DINER PLACES THE ORDER, through the real button ───────────────
   const placeBtn = panel.getByRole('button', { name: /^Place order/ });
-  const placeLabel = (await placeBtn.textContent().catch(() => '')) || '';
-  check('the Place order button states the reviewed amount',
-        money(placeLabel) === ORDER_TOTAL, placeLabel.trim());
+  const placeLabel = ((await placeBtn.textContent().catch(() => '')) || '').trim();
+  // The WHOLE label, not a number parsed out of it: `money()` would accept
+  // '35,011.3' — the shape `| number` produces and the canonical string does not.
+  check('the Place order button states the reviewed amount exactly',
+        placeLabel === `Place order — UGX ${ORDER_TOTAL_DISPLAY}`,
+        JSON.stringify(placeLabel));
 
   const accepted = page.waitForResponse(
     (r) => r.url().includes('orders/submit') && r.request().method() === 'PUT'
@@ -371,9 +489,18 @@ const main = async () => {
   // amount at all (it carries what to COOK), so asserting a total against it
   // would be asserting against a field that does not exist.
   const saved = await asDiner(page, `/api/v1/orders/journey/order-details/?order=${orderId}`, {});
+  // THE CANONICAL FIELD, compared as the string it is. The legacy numeric
+  // `actual_cost` beside it is what `float()` produced and is deliberately not
+  // what this assertion reads.
   check('the accepted order stores the amount the diner agreed to',
-        Number(saved.body?.data?.actual_cost) === ORDER_TOTAL,
-        `saved=${saved.body?.data?.actual_cost} agreed=${ORDER_TOTAL}`);
+        saved.body?.data?.quote_total === ORDER_TOTAL,
+        `saved=${saved.body?.data?.quote_total} agreed=${ORDER_TOTAL}`);
+  check('the accepted order still reconciles across its own lines',
+        saved.body?.data?.quote_complete === true
+        && (saved.body?.quote || []).reduce(
+             (c, l) => c + Math.round(Number(l.line_total_with_extras) * 100), 0)
+           === Math.round(Number(ORDER_TOTAL) * 100),
+        `quote_complete=${saved.body?.data?.quote_complete}`);
   check('the accepted order is no longer a draft',
         saved.body?.data?.order_status === 'pending',
         `order_status=${saved.body?.data?.order_status}`);
@@ -388,8 +515,15 @@ const main = async () => {
   check('the kitchen is told to cook what the diner configured',
         burgerTicketLine?.quantity === 2
         && (burgerTicketLine?.extras || []).length === 1
-        && burgerTicketLine.extras[0].item_name_snapshot === 'Extra Cheese',
-        `qty=${burgerTicketLine?.quantity} extras=${(burgerTicketLine?.extras || []).length}`);
+        && burgerTicketLine.extras[0].item_name_snapshot === 'Extra Cheese'
+        // THE CHILD QUANTITY, not only the parent's: an extra that scaled
+        // wrongly produces a ticket the kitchen works from incorrectly while
+        // every money assertion above still passes.
+        && burgerTicketLine.extras[0].quantity === 2,
+        `qty=${burgerTicketLine?.quantity} extraQty=${burgerTicketLine?.extras?.[0]?.quantity}`);
+  check('the kitchen is told which modifier to prepare',
+        (burgerTicketLine?.modifiers_snapshot || []).some((m) => /Large/.test(String(m))),
+        JSON.stringify(burgerTicketLine?.modifiers_snapshot));
 
   check('the page raised no uncaught errors', pageErrors.length === 0,
         pageErrors.join(' | '));

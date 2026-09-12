@@ -1,6 +1,7 @@
 import {
   DashboardV2Response,
   RevenueSeriesPoint,
+  PricingConventions,
   RevenueTotals,
   RevenueData,
   PaymentMethodData,
@@ -55,6 +56,32 @@ function adaptRevenueTotals(raw: any): RevenueTotals {
   };
 }
 
+/**
+ * The mixed-pricing-convention disclosure, or `undefined`.
+ *
+ * STRICTLY TYPED AND BACKWARD-COMPATIBLE. A response that does not carry the
+ * key — anything before the D02/C backend — yields `undefined`, which the card
+ * renders as nothing. That absence is NOT evidence of a uniform convention and
+ * is never presented as such; it means the server did not say.
+ *
+ * `mixed` must be a real boolean and `notice` a real non-empty string: a notice
+ * is only ever shown when the server actually issued one, never manufactured
+ * from the counts.
+ */
+function adaptPricingConventions(raw: any): PricingConventions | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  if (typeof raw.mixed !== 'boolean') return undefined;
+  return {
+    mixed: raw.mixed,
+    legacy_orders: typeof raw.legacy_orders === 'number' ? raw.legacy_orders : 0,
+    corrected_orders:
+      typeof raw.corrected_orders === 'number' ? raw.corrected_orders : 0,
+    notice: typeof raw.notice === 'string' && raw.notice.trim().length > 0
+      ? raw.notice
+      : null,
+  };
+}
+
 function adaptRevenue(raw: any): RevenueData {
   if (!raw) {
     return { series: [], totals: { gross: 0, net: 0, discounts: 0, refunds: 0 } };
@@ -62,6 +89,7 @@ function adaptRevenue(raw: any): RevenueData {
   return {
     series: adaptRevenueSeries(raw.series),
     totals: adaptRevenueTotals(raw.totals),
+    pricing_conventions: adaptPricingConventions(raw.pricing_conventions),
   };
 }
 

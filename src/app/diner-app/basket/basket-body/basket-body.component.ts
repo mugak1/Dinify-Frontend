@@ -21,12 +21,16 @@ import {
   toMinorUnits,
 } from '../../../_shared/utils/decimal-money';
 import {
+  QuoteRefusal,
+  QuoteReview,
+  reviewQuote,
+} from '../../../_shared/order/quote-review';
+import {
   PricedLineParts, lineOriginalSubtotalMinor, lineSubtotalMinor,
 } from '../../../_shared/order/line-money';
 import {
   CheckoutLimitState, MAX_QUANTITY_PER_LINE, atLineQuantityCeiling,
   checkCheckoutLimits,
-  PRICING_VERSION_CORRECTED,
 } from '../../../_shared/order/checkout-limits';
 
 @Component({
@@ -93,6 +97,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get totalAmount(): number {
     return this.basketService.Basket()?.totalAmount ?? 0;
+  }
+
+  /**
+   * Can this basket's own total be stated exactly, before the server prices it?
+   *
+   * FALSE MEANS ESTIMATE, NOT ERROR. Checkout is deliberately not blocked: the
+   * server prices the order and the review sheet states the SERVER's amount,
+   * which is the only figure the diner ever confirms. What changes is what the
+   * screen claims — an amount the client has established it cannot represent
+   * is labelled an estimate rather than presented as the amount payable.
+   */
+  get totalIsExact(): boolean {
+    return this.basketService.totalState(this.basketItems).exact;
   }
 
   /** Pre-discount subtotal for the honest summary: the current total plus the savings
@@ -576,9 +593,36 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  /** The server's priced lines, each with its extras nested underneath. */
+  /**
+   * ONE VALIDATION PER PAYLOAD, SHARED BY THE SHEET AND BY `confirmQuote`.
+   *
+   * Memoised on the payload's own identity, so the markup, the total, the
+   * refusal state and the handler that places the order can never disagree
+   * about the same response — and so a getter read repeatedly during change
+   * detection costs one pass, not one per read.
+   */
+  private reviewCacheFor: OrderInitiated | null = null;
+  private reviewCache: QuoteReview | null = null;
+
+  private get review(): QuoteReview {
+    const payload = this.order_initiated ?? null;
+    if (this.reviewCache === null || this.reviewCacheFor !== payload) {
+      this.reviewCacheFor = payload;
+      this.reviewCache = reviewQuote(payload);
+    }
+    return this.reviewCache;
+  }
+
+  /** Which rule refused the quote — diagnostic; the diner sees one sentence. */
+  get quoteRefusalReason(): QuoteRefusal | null {
+    return this.review.reason;
+  }
+
+  /** The server's priced lines, each with its extras nested underneath.
+   *  A refused quote still returns whatever arrived, so the sheet can show what
+   *  it was asked to confirm beside the refusal rather than going blank. */
   get quoteLines(): OrderQuoteLine[] {
-    return this.order_initiated?.order_details ? this.order_initiated.quote ?? [] : [];
+    return this.review.lines;
   }
 
   /** Whole dishes that became unavailable at checkout. */
@@ -600,59 +644,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * THE SERVER'S amount payable, in exact minor units. Never recomputed here,
-   * and `null` when it cannot be read exactly.
+   * and `null` when the quote cannot be confirmed at all.
    *
-   * IT READS `quote_total` — the canonical decimal string — IN PREFERENCE TO
-   * `actual_cost`, which DRF renders through `float()` and therefore delivers as
-   * `899.1` rather than `899.10` (and loses digits outright on a large amount).
-   *
-   * **THE `actual_cost` FALLBACK IS FOR A SERVER THAT PREDATES `quote_total`,
-   * AND ONLY THAT.** A response declaring itself CORRECTED has promised a
-   * canonical decimal total; reading the lossy numeric field when it fails to
-   * produce one would hand back the exact-money guarantee silently, in precisely
-   * the case the guarantee exists for — a large amount arrives from `float()`
-   * with digits already gone and would be confirmed as though exact. So a
-   * CORRECTED response with an unreadable `quote_total` yields `null` here,
-   * which `quoteIsUnreadable` turns into the refusal panel rather than a
-   * confirmable number. A LEGACY or unversioned response is unaffected: the
-   * established tolerance is the whole reason this client can ship before the
-   * paired backend.
-   *
-   * `Number(...) || 0` is gone. It turned a missing, null or malformed
-   * authoritative amount into a displayed ZERO — a free-looking confirmation for
-   * an order nobody had priced — and `0` is also a legitimate total (a fully
-   * waived order), so the two were indistinguishable.
+   * The version discrimination and the bounded `actual_cost` compatibility
+   * path now live with every structural rule in ONE place —
+   * `_shared/order/quote-review.ts` — because the total and the lines are the
+   * same judgement. Reading the total under one rule while the lines were
+   * checked by another is what let a payload state a payable above lines that
+   * summed to something else and still be confirmed.
    */
   private get reviewedTotalMinor(): number | null {
-    const details = this.order_initiated?.order_details;
-    if (!details) return null;
-    const exact = toMinorUnits(details.quote_total);
-    if (exact !== null) return exact;
-    // ABSENT AND UNREADABLE ARE DIFFERENT FACTS, and collapsing them is what
-    // turned a truthfulness fix into a checkout outage. A CORRECTED server that
-    // SENT a total it cannot express is broken and must be refused — that is
-    // the finding this guard exists for. One that sent NO total simply predates
-    // the field: `quote_total` landed in backend #315, while `pricing_version`
-    // (and CORRECTED on every new order) landed in #314, so there is a real,
-    // deployable server that declares itself corrected and has never heard of
-    // it. Refusing that one blocks every checkout for the width of a deploy or
-    // any rollback between the two — the exact failure the transitional
-    // tolerance above was written for, in a narrower disguise.
-    // ONLY AN ABSENT PROPERTY IS THE COMPATIBILITY CASE — `undefined`, never
-    // `null`. A pre-field backend omits `quote_total` from the payload
-    // altogether (verified at 3c32ef5: the key does not appear in `orders_app`
-    // at all), so absence is the ONLY shape an older server can produce. An
-    // explicit `null` can therefore come from just one place: a CORRECTED
-    // server that SENT the key and failed to express a value — the broken
-    // promise this guard exists to refuse. Being strict here costs no
-    // availability, because no deployed server emits it: the corrected
-    // serializer builds the key with `format_money`, which returns a canonical
-    // string or raises.
-    const promisedATotal = details.quote_total !== undefined;
-    if (promisedATotal && details.pricing_version === PRICING_VERSION_CORRECTED) {
-      return null;
-    }
-    return toMinorUnits(details.actual_cost);
+    return this.review.totalMinor;
   }
 
   /** The reviewed payable as a display string (`'2,697.30'`), or `null`.
@@ -663,32 +665,20 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * IS THE SERVER'S QUOTE READABLE AT ALL? An EXPLICIT STATE, not an absence.
+   * IS THE SERVER'S QUOTE CONFIRMABLE AT ALL? An EXPLICIT STATE, not an absence.
    *
-   * A response that declares itself CORRECTED and then cannot produce a
-   * reference or a readable payable is an anomaly, and treating it as "an old
-   * server" — which the tolerance below deliberately does for a LEGACY response
-   * — would confirm an amount nobody can verify. `pricing_version` is the
-   * discriminator: the server publishes it, so the client never has to guess
-   * which case it is in.
+   * Delegates to the shared boundary, so the markup and `confirmQuote` reach
+   * the same verdict for the same payload BY CONSTRUCTION rather than by two
+   * pieces of code agreeing. It is no longer only "can the payable be read":
+   * a CORRECTED response must also name its quote, send lines carrying usable
+   * identities, quantities and exact amounts, nest each extra under exactly one
+   * parent, agree with its own availability counts, and add up to the amount
+   * the diner is being asked to confirm.
    *
-   * A legitimate `0.00` is readable and is NOT this state.
+   * A legitimate `0.00` is confirmable and is NOT this state.
    */
   get quoteIsUnreadable(): boolean {
-    const details = this.order_initiated?.order_details;
-    if (!details) return true;
-    // `reviewedTotalMinor` already applies the version discrimination to the
-    // TOTAL: a CORRECTED response that cannot produce a readable `quote_total`
-    // is null here even when a legacy `actual_cost` sits beside it.
-    if (this.reviewedTotalMinor === null) return true;
-    if (details.pricing_version === PRICING_VERSION_CORRECTED) {
-      // A corrected draft must name its quote and price every line it renders.
-      if (!details.quote_ref) return true;
-      for (const line of this.quoteLines) {
-        if (toMinorUnits(line.line_total_with_extras) === null) return true;
-      }
-    }
-    return false;
+    return !this.review.readable;
   }
 
   /** One actionable sentence for the invalid-quote state. */

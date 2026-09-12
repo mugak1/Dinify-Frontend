@@ -198,21 +198,88 @@ so keep it current when conventions change.
   spec, and the unconditional form fails both that and the original refusal spec —
   so no variant can return as a "simplification". The same distinction protects any
   documented rollback across those two backend commits.
+  **THE WHOLE CORRECTED QUOTE IS VALIDATED, NOT JUST ITS TOTAL** (residual R1), and
+  the rules live in ONE boundary, `_shared/order/quote-review.ts::reviewQuote`, which
+  the sheet, `reviewedTotalMinor`, `quoteIsUnreadable` and `confirmQuote` all read
+  through — memoised on the payload's identity, so the markup and the handler that
+  places an order cannot reach different verdicts for the same response. Before it,
+  the client checked that the payable could be READ and that each line it HAPPENED to
+  receive carried a readable amount; it never required a corrected server to send any
+  lines, and never asked whether the lines added up. Both gaps are silent and the
+  second is the dangerous one — a payload asserting `quote_total: "25.00"` above lines
+  totalling `"10.00"` rendered an itemised-looking review, reconciled nothing and
+  submitted. What is now required of a CORRECTED payload: a non-empty `quote_ref`; an
+  ARRAY `quote` within bounds DERIVED from the D01 request ceilings (the server merges
+  identical configurations, so merging can only REDUCE counts — per-line QUANTITY is
+  deliberately NOT bounded, a merged row may legitimately exceed the submit ceiling);
+  a usable, UNIQUE row identity across parents and extras alike; whole non-negative
+  quantities with `available ⇒ quantity ≥ 1`; every monetary key exact, and
+  NON-NEGATIVE on payables and references while `unit_cost_of_options` stays
+  LEGITIMATELY SIGNED ("no cheese, −500" is legal end to end); each child counted
+  EXACTLY ONCE into its parent's `line_total_with_extras`; agreement with the
+  response's own `no_available_items` / `no_unavailable_items`; and Σ of the parent
+  aggregates equalling the payable, as integers, no epsilon. **THE THREE VERSION CASES
+  ARE DIFFERENT SERVERS, NOT DEGREES OF STRICTNESS.** LEGACY (0 or absent) never
+  promised an itemised quote, so none is required — the pre-D02 tolerance, unchanged.
+  CORRECTED WITHOUT `quote_total` is backend #314, which shipped `pricing_version`,
+  `quote_ref` AND `quote` in ONE COMMIT (`bd393de`) and only gained the canonical
+  total in #315 — so its LINES are fully validated and only the total falls back to
+  `actual_cost`. **A CORRECTED payload with missing LINES is therefore NOT the same
+  fact as #314's missing total**: no deployed server has ever produced one.
+  CORRECTED WITH `quote_total` is the current contract, and a total the server SENT
+  but cannot express is refused with no fallback. The refusal REASON
+  (`quoteRefusalReason`) is diagnostic only — the diner still sees one sentence,
+  because a per-reason message would be an oracle over the response. A refused quote
+  still RENDERS the server's own lines (never rebuilt, never filtered) beside the
+  refusal, never calls submit, and leaves the basket and the idempotency key
+  untouched. It also refuses an explicit `order_details.quote_complete === false` —
+  the backend's own signal that a live row contributing to the payable belongs under
+  no quoted line — while absence of that key says nothing.
+  **THE BASKET'S OWN TOTAL NOW HAS AN EXPLICIT ESTIMATE STATE** (residual R3).
+  `BasketService.calculateTotalAmount` fell straight back to the old
+  `Σ totalPrice × quantity` double arithmetic when the exact helper returned `null`,
+  and handed the result back as an ordinary total — a figure the client had just
+  established it could not represent, displayed with the same confidence as one it
+  could. `totalState(items)` now returns `{amount, exact}`; `calculateTotalAmount`
+  delegates to it so the persisted `totalAmount` shape and every stored basket are
+  unchanged (NO storage migration). When `exact` is false the basket still shows the
+  SAME number — replacing it with `0` or a blank would each be worse — but the label
+  reads "Estimated total" with a one-line note, and the CTA says "about UGX …".
+  Checkout is deliberately NOT blocked: the server prices the order and the review
+  sheet states the server's amount, which is the only figure a diner ever confirms.
+  A LEGACY BASKET IS NOT AN INEXACT ONE — `line-money` parses the existing stored
+  shapes (finite numbers, decimal strings) and reads an ABSENT optional adjustment
+  whose established meaning is zero (`additionalCost`, an extra's `cost`) as zero
+  rather than as malformed; `exact` goes false only for a component that genuinely
+  cannot be represented.
   **The diner item-detail no longer applies the DEVICE CLOCK to an extra's discount**:
   `serverEffectiveExtraPrice` / `serverExtraDiscountIsLive` read the server-resolved
   `current_price` / `is_discount_active` the public serializer now publishes, and fall
   back to the LIST price — never to a locally-recomputed discount.
   A repeatable real-browser check of the whole path lives in `e2e/checkout-journey/`
   (NOT wired into CI — it needs a disposable PostgreSQL and two running servers). It
-  now **presses the app's own Place order button** rather than submitting by fetch
+  **presses the app's own Place order button** rather than submitting by fetch
   (raw fetch is KEPT for the two negative reference cases, which the UI cannot
   produce), scopes its review assertions to the review PANEL, changes the dish price
   MID-RUN through the real operator API so the review is proved to show the CURRENT
-  server price rather than the browser's cached one, carries a sub-cent
-  ROUND_HALF_EVEN golden, asserts the basket is cleared ONLY after a definitive
-  success, and reads the accepted order back off the kitchen board as an
-  authenticated fixture operator. Its README records what it found, what it
-  deliberately does NOT cover, and that it is a manual run rather than a gate
+  server price rather than the browser's cached one, asserts the basket is cleared
+  ONLY after a definitive success, and reads the accepted order back off the kitchen
+  board as an authenticated fixture operator. **Its money assertions are on CANONICAL
+  DECIMAL STRINGS and on the EXACT visible elements** (`data-testid="quote-total"` /
+  `quote-line-amount` / `quote-line-modifiers` / `quote-line-extra` on the review
+  sheet, compared WHOLE) rather than on values passed through `Number` and searched
+  for as a substring — `35011.3` and `'35011.30'` are the same number and only one is
+  the contract. It carries **TWO independent monetary goldens**: a NONZERO FRACTION
+  (the mid-run reprice to `12000.15` makes the line exactly `35000.30`, where
+  `15500.15 × 2` in doubles is `31000.299999999996`) and the sub-cent ROUND_HALF_EVEN
+  tie (`1.005 → 1.00`). It asserts the modifier INSTRUCTIONS and the CHILD quantity,
+  not only the parent's, on both the review and the kitchen ticket, and that the
+  quoted lines reconcile to the payable to the cent. **It deliberately does NOT read
+  through the `actual_cost` compatibility fallback** — that tolerance is the client's,
+  against an OLDER server, and reading through it here would let a current-backend
+  wire regression pass silently on the lossy numeric field. Its README records what it
+  found, what it deliberately does NOT cover, that it needs a backend carrying
+  `quote_complete`, and that it is a manual run rather than a gate
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
@@ -221,6 +288,34 @@ so keep it current when conventions change.
   first-party route allowlist owned by `_security/diner-capability-contract.ts`;
   a denied credential drives a rescan panel on the diner shell. See Key Domain
   Concepts for the two-token model and its invariants
+- The Revenue card SURFACES the server's mixed-pricing-convention notice (residual
+  R4): ✅ `dashboard-v2` has published `revenue.pricing_conventions`
+  (`{mixed, legacy_orders, corrected_orders, notice}`) since backend D02/C, and the
+  frontend passed `revenue` straight into `RevenueCardComponent`, rendered gross,
+  discounts, net and the chart from it, and never consumed the disclosure — so the
+  one screen an operator reads those figures on was the one place the statement
+  about them did not appear. D02 changed what two persisted columns MEAN (a
+  CORRECTED order's `total_cost` includes paid modifier costs and its `savings` can
+  never be negative; a LEGACY one's excluded them and could be), so a window
+  spanning the deployment sums two measurements. **NOTHING IS REPRICED, EXCLUDED OR
+  RECALCULATED** — this is a disclosure about COMPARABILITY, never about
+  correctness, and the amount each diner paid is unaffected. The smallest possible
+  consumer: an optional `PricingConventions` on `RevenueData`, an
+  `adaptPricingConventions` that yields `undefined` for anything malformed or
+  absent, and a `pricingNotice` GETTER on the card rendering a `role="note"` block
+  immediately under the Gross/Discounts pills. Four things are load-bearing.
+  **IT READS THE RESPONSE FOR THE WINDOW ACTUALLY DISPLAYED**, never a locally
+  inferred deployment date — the server counts the orders on each side and decides.
+  **ABSENCE IS NOT PROOF OF A UNIFORM CONVENTION**: an older response says nothing
+  and renders nothing, and the card must not break on it. **NO NOTICE IS EVER
+  MANUFACTURED** from the counts — only a non-empty sentence the server issued is
+  shown. And because it is a getter over the `revenueData` INPUT, changing the
+  period replaces the input and a stale notice disappears with it. The card is fed
+  the PRIMARY window's response; the Dashboard's separate comparison-window call
+  supplies only a baseline total and is never read here. Note the Dashboard's
+  `USE_MOCK_DATA` is still `true` for core metrics and the mock does not model a
+  convention split, so the notice is UNREACHABLE in the running app until that flag
+  flips — inventing one in the mock would be inventing data
 - Dashboard responsiveness: ✅ Complete
 - Phase 3 (Tables module): 🔄 MVP ships Setup View only (route `dining-tables`)
   - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`);
@@ -1082,8 +1177,14 @@ writing new tag, price/menu or date-range logic:
   left is the restaurant Support page — still reuse it before hand-rolling status
   badges or category labels
 - `src/app/_shared/order/` (per-file imports, no barrel) — the D01 request ceilings
-  (`checkout-limits.ts`) and the backend-authored fixture they are pinned against
-  (`checkout-limits.contract.json`). The numbers are the BACKEND's; both repositories
+  (`checkout-limits.ts`), the backend-authored fixture they are pinned against
+  (`checkout-limits.contract.json`), `line-money.ts` (the ONE place a basket line is
+  composed from its components) and `quote-review.ts` — THE single reading of a
+  server quote, shared by the review sheet and by `confirmQuote` (see the checkout
+  bullet in Current Implementation Status for its rules and the three version cases).
+  Reach for `reviewQuote` before adding any second opinion about whether a quote may
+  be confirmed; it is a specific contract, deliberately not a generic schema
+  framework. The numbers are the BACKEND's; both repositories
   assert their own constants against that file. Deliberately a static file rather than
   a runtime fetch: eight integers do not need a round trip, and a fetched limit would
   be unavailable exactly when the diner is offline and the basket most needs to behave

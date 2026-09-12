@@ -520,6 +520,10 @@ export interface OrderDetails {
   // Opaque acknowledgement of THIS saved quote, echoed back on submit. Derived
   // from the persisted lines and totals, so it changes the moment they do.
   quote_ref?: string
+  // Does `quote` represent every live row the payable includes? Additive (R2);
+  // a server that does not publish it says nothing, so ONLY an explicit `false`
+  // means the record could not supply a coherent quote.
+  quote_complete?: boolean
   // THE EXACT PAYABLE, as a canonical decimal string (D02 completion A).
   // `actual_cost` above keeps its established numeric form for older clients
   // and is NOT the same thing on the wire: DRF renders a `Decimal` through

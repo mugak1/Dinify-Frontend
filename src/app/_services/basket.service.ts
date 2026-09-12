@@ -109,16 +109,49 @@ export class BasketService {
    * It recomputes from the line's COMPONENTS rather than trusting the stored
    * `totalPrice`, so a basket persisted by an older build is re-derived exactly
    * rather than having its rounding carried forward.
-   *
-   * `null` (an unreadable component) falls back to the stored figure rather than
-   * to 0: a basket restored from browser storage is not the place to start
-   * refusing to show a total, and the SERVER's quote is what the diner actually
-   * confirms.
    */
   public calculateTotalAmount(items: BasketItem[]): number {
+    return this.totalState(items).amount;
+  }
+
+  /**
+   * THE BASKET TOTAL AND WHETHER IT IS EXACT — an explicit state, not a silent
+   * fallback.
+   *
+   * The exact helper returning `null` used to drop straight back to the old
+   * `Σ totalPrice * quantity` double arithmetic and hand the result back as an
+   * ordinary total, so a figure the client had just established it could not
+   * represent was displayed with the same confidence as one it could.
+   *
+   * WHAT THE DINER SEES BEFORE A SERVER QUOTE. When `exact` is false the basket
+   * still shows a number — a basket restored from browser storage is not the
+   * place to start refusing to show anything — but it is labelled an ESTIMATE
+   * and says the restaurant's price is confirmed at checkout. It is never
+   * described as the amount payable, and checkout is NOT blocked: the server
+   * prices the order and the review sheet states the server's amount, which is
+   * the only figure the diner is ever asked to confirm.
+   *
+   * THE ESTIMATE IS THE SAME ARITHMETIC AS BEFORE, deliberately. Replacing it
+   * with `0`, a blank or a stored `totalAmount` would each be a worse answer;
+   * this keeps a legacy basket behaving exactly as it did and only changes what
+   * the screen CLAIMS about the number.
+   *
+   * A LEGACY BASKET IS NOT AN INEXACT ONE. `line-money` parses the existing
+   * stored numeric shapes deliberately — finite numbers and decimal strings —
+   * and an absent optional adjustment whose established meaning is zero
+   * (`additionalCost`, an extra's `cost`) is read as zero rather than as
+   * malformed. `exact` goes false only for a component that genuinely cannot be
+   * represented: missing, non-numeric, non-finite, out of range, or a
+   * fractional or negative quantity. No stored basket is migrated.
+   */
+  public totalState(items: BasketItem[]): { amount: number; exact: boolean } {
     const exact = fromMinorUnits(basketTotalMinor(items as PricedLineParts[]));
-    if (exact !== null) return exact;
-    return items.reduce((total, item) => total + item.totalPrice * item.quantity, 0);
+    if (exact !== null) return { amount: exact, exact: true };
+    return {
+      amount: (items || []).reduce(
+        (total, item) => total + item.totalPrice * item.quantity, 0),
+      exact: false,
+    };
   }
 
   // Adds an item to the basket with support for modifiers and extras

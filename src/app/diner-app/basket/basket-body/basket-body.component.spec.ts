@@ -59,27 +59,49 @@ describe('BasketBodyComponent', () => {
     } as BasketItem;
   }
 
-  const quoteLine = (over: Record<string, unknown> = {}) => ({
-    id: 'l1', item: 'i1', item_name: 'Burger', quantity: 1,
-    available: true, status: 'available',
-    selected_modifiers: {}, modifiers: [], options: [],
-    // CANONICAL DECIMAL STRINGS, exactly as the wire now carries them.
-    unit_price: '5000.00', reference_unit_price: '5000.00',
-    discounted_price: '5000.00',
-    unit_cost_of_options: '0.00', discounted: false,
-    total_cost: '5000.00', reference_total_cost: '5000.00',
-    discounted_cost: '5000.00',
-    savings: '0.00', line_actual_cost: '5000.00',
-    line_total_with_extras: '5000.00',
-    extras: [] as unknown[], ...over,
-  });
+  /**
+   * ONE canonical line, PRICED COHERENTLY FROM ONE AMOUNT.
+   *
+   * It used to spell the same '5000.00' into every monetary key and let each
+   * spec override whichever one it cared about, which produced fixtures the
+   * real backend can never emit — a line whose parent-only figure disagreed
+   * with its own parent-plus-extras figure, under a payable equal to neither.
+   * Nothing noticed, because nothing reconciled. Now the client does, so the
+   * fixture has to be as coherent as the server is.
+   */
+  const quoteLine = (over: Record<string, unknown> = {}) => {
+    const amount = (over['amount'] as string) ?? '5000.00';
+    const { amount: _ignored, ...rest } = over as Record<string, unknown>;
+    return {
+      id: 'l1', item: 'i1', item_name: 'Burger', quantity: 1,
+      available: true, status: 'available',
+      selected_modifiers: {}, modifiers: [], options: [],
+      // CANONICAL DECIMAL STRINGS, exactly as the wire now carries them.
+      unit_price: amount, reference_unit_price: amount,
+      discounted_price: amount,
+      unit_cost_of_options: '0.00', discounted: false,
+      total_cost: amount, reference_total_cost: amount,
+      discounted_cost: amount,
+      savings: '0.00', line_actual_cost: amount,
+      line_total_with_extras: amount,
+      extras: [] as unknown[], ...rest,
+    };
+  };
+
+  /** A whole coherent response for ONE line at `amount`. */
+  const pricedAt = (amount: string, details: Record<string, unknown> = {}) =>
+    initiated({ quote: [quoteLine({ amount })] },
+              { quote_total: amount, actual_cost: Number(amount), ...details });
 
   const initiated = (over: Record<string, unknown> = {}, details: Record<string, unknown> = {}) => ({
     status: 200,
     data: {
       order_details: {
         id: 'o1',
+        no_items: 1,
+        no_available_items: 1,
         no_unavailable_items: 0,
+        no_available_extras: 0,
         no_unavailable_extras: 0,
         actual_cost: 5000,
         quote_total: '5000.00',
@@ -385,9 +407,7 @@ describe('BasketBodyComponent', () => {
 
   it('renders the SERVER total, never a recomputed one', () => {
     basket.items = [lineItem()];
-    api.postPatch.and.returnValue(
-      of(initiated({}, { actual_cost: 4321, quote_total: '4321.00' })) as any,
-    );
+    api.postPatch.and.returnValue(of(pricedAt('4321.00')) as any);
 
     component.initiateOrder();
 
@@ -398,7 +418,7 @@ describe('BasketBodyComponent', () => {
   it('states the exact scale the server sent, not a rounded double', () => {
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(
-      of(initiated({}, { actual_cost: 899.1, quote_total: '899.10' })) as any,
+      of(pricedAt('899.10', { actual_cost: 899.1 })) as any,
     );
 
     component.initiateOrder();
@@ -413,7 +433,16 @@ describe('BasketBodyComponent', () => {
     basket.items = [lineItem(), lineItem({ itemId: 'i2', itemName: 'Fries' })];
     api.postPatch.and.returnValue(
       of(initiated(
-        { unavailable_items: [{ id: 'i2', name: 'Fries' }] },
+        {
+          unavailable_items: [{ id: 'i2', name: 'Fries' }],
+          // The quote carries the dropped row too, at its saved zero — the
+          // counts and the lines describe the same population.
+          quote: [
+            quoteLine(),
+            quoteLine({ id: 'l2', item: 'i2', item_name: 'Fries',
+                        amount: '0.00', available: false, quantity: 0 }),
+          ],
+        },
         { no_unavailable_items: 1 },
       )) as any,
     );
@@ -611,8 +640,8 @@ describe('BasketBodyComponent', () => {
     // tolerance exists to prevent. The server never promised a canonical total
     // here, so the legacy numeric one is still the best available truth.
     basket.items = [lineItem()];
-    api.postPatch.and.returnValue(of(initiated({}, {
-      quote_total: undefined, actual_cost: 4321, pricing_version: 1,
+    api.postPatch.and.returnValue(of(pricedAt('4321.00', {
+      quote_total: undefined, pricing_version: 1,
     })) as any);
 
     component.initiateOrder();
@@ -635,6 +664,125 @@ describe('BasketBodyComponent', () => {
 
     expect(component.quoteIsUnreadable).toBeFalse();
     expect(component.reviewedTotalDisplay).toBe('4,321.00');
+  });
+
+  // --- R1: the WHOLE corrected quote is validated, not just its total ------
+  //
+  // SYNTHETIC PAYLOADS. Neither of these is claimed to have been observed from
+  // a Dinify server; they are the two shapes source inspection showed the
+  // client would confirm, and the reason it now refuses them. The rules
+  // themselves are unit-tested in `_shared/order/quote-review.spec.ts`; what is
+  // pinned here is that the COMPONENT — the sheet and the handler that places
+  // the order — reaches the same verdict.
+
+  it('refuses a CORRECTED quote that claims an available dish above no lines', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({ quote: [] }, {
+      quote_total: '25.00', actual_cost: 25, no_available_items: 1,
+    })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.quoteRefusalReason).toBe('availability_counts');
+    expect(component.reviewedTotalDisplay).toBeNull();
+  });
+
+  it('refuses a complete-looking quote whose lines do not add up to the payable', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({
+      quote: [quoteLine({ amount: '10.00' })],
+    }, { quote_total: '25.00', actual_cost: 25 })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.quoteRefusalReason).toBe('order_reconciliation');
+    expect(component.reviewedTotalDisplay).toBeNull();
+  });
+
+  it('does not submit a non-reconciling quote, and keeps the basket and key', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({
+      quote: [quoteLine({ amount: '10.00' })],
+    }, { quote_total: '25.00', actual_cost: 25 })) as any);
+    component.initiateOrder();
+    api.postPatch.calls.reset();
+
+    component.confirmQuote();
+
+    expect(api.postPatch).not.toHaveBeenCalled();
+    expect(component.orderError).toBeTrue();
+    // The basket is never trimmed, and the idempotency key is never re-minted
+    // on a failure — a new key would turn one attempt into two orders.
+    expect(component.basketItems.length).toBe(1);
+    expect(basketService.resetClientOrderId).not.toHaveBeenCalled();
+  });
+
+  it('renders and confirms from ONE verdict for the same payload', () => {
+    // The markup state and the handler must not be able to disagree: a
+    // refusal the sheet shows is the same refusal `confirmQuote` enforces.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({
+      quote: [quoteLine({ extras: [{
+        id: 'x1', item: 'xi1', item_name: 'Cheese', quantity: 1,
+        available: true, status: 'available',
+        unit_price: '2000.00', discounted_price: '2000.00',
+        actual_cost: '2000.00',
+      }] })],
+    })) as any);
+
+    component.initiateOrder();
+
+    // The extra is not folded into the line aggregate, so the line does not
+    // compose — refused by the same rule the template reads.
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.quoteRefusalReason).toBe('line_reconciliation');
+    api.postPatch.calls.reset();
+    component.confirmQuote();
+    expect(api.postPatch).not.toHaveBeenCalled();
+  });
+
+  it('confirms a line whose extras DO compose it, counting the child once', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({
+      quote: [quoteLine({
+        line_total_with_extras: '7000.00',
+        extras: [{
+          id: 'x1', item: 'xi1', item_name: 'Cheese', quantity: 1,
+          available: true, status: 'available',
+          unit_price: '2000.00', discounted_price: '2000.00',
+          actual_cost: '2000.00',
+        }],
+      })],
+    }, { quote_total: '7000.00', actual_cost: 7000 })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeFalse();
+    expect(component.reviewedTotalDisplay).toBe('7,000.00');
+  });
+
+  it('refuses a quote the SERVER itself says does not cover the payable', () => {
+    // The backend sets `quote_complete: false` when a live row contributing to
+    // the payable belongs under no quoted line. Two independent mechanisms
+    // then refuse it: this flag, and the reconciliation that would fail anyway.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(
+      of(initiated({}, { quote_complete: false })) as any,
+    );
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.quoteRefusalReason).toBe('quote_incomplete');
+  });
+
+  it('is unaffected by a server that does not publish quote_complete', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated()) as any);
+    component.initiateOrder();
+    expect(component.quoteIsUnreadable).toBeFalse();
   });
 
   it('refuses a CORRECTED quote with an unreadable line amount', () => {
@@ -670,9 +818,7 @@ describe('BasketBodyComponent', () => {
 
   it('treats a legitimately FREE order as readable and placeable', () => {
     basket.items = [lineItem()];
-    api.postPatch.and.returnValue(of(initiated({
-      quote: [quoteLine({ line_total_with_extras: '0.00' })],
-    }, { quote_total: '0.00', actual_cost: 0, no_available_items: 1 })) as any);
+    api.postPatch.and.returnValue(of(pricedAt('0.00')) as any);
 
     component.initiateOrder();
 
@@ -683,9 +829,7 @@ describe('BasketBodyComponent', () => {
 
   it('states each line amount at the exact scale the server sent', () => {
     basket.items = [lineItem()];
-    api.postPatch.and.returnValue(of(initiated({
-      quote: [quoteLine({ line_total_with_extras: '2697.30' })],
-    }, { quote_total: '2697.30' })) as any);
+    api.postPatch.and.returnValue(of(pricedAt('2697.30')) as any);
 
     component.initiateOrder();
 
