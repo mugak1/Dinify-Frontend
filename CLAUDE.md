@@ -175,6 +175,20 @@ so keep it current when conventions change.
   its fixture left `actual_cost` undefined, so it never exercised a fallback at all;
   the spec beside it now supplies one, and a LEGACY-versioned companion proves the
   tolerance was narrowed rather than deleted.
+  **BUT ABSENT AND UNREADABLE ARE DIFFERENT FACTS, and the first cut of that fix
+  collapsed them — turning a truthfulness fix into a checkout outage for the width of
+  a deploy.** `quote_total` landed in backend #315 while `pricing_version` (and
+  CORRECTED on every new order) landed in #314, so a REAL DEPLOYABLE SERVER declares
+  itself corrected and has never heard of the field. Refusing it blocked every
+  checkout, which is precisely what the transitional tolerance three bullets above
+  exists to prevent; it went live because BOTH specs written for the Codex fix pinned
+  the NEW backend's shape, so nothing exercised the intermediate one. The rule is
+  therefore: a CORRECTED response that SENT a `quote_total` it cannot express is
+  BROKEN and refused (Codex's finding, intact), while one that sent NONE simply
+  predates it and still reviews through `actual_cost`. Pinned from BOTH sides — the
+  over-strict form fails the deploy-window spec, the unconditional form fails the
+  refusal spec — so neither error can return as a "simplification". The same
+  distinction protects any documented rollback across those two backend commits.
   **The diner item-detail no longer applies the DEVICE CLOCK to an extra's discount**:
   `serverEffectiveExtraPrice` / `serverExtraDiscountIsLive` read the server-resolved
   `current_price` / `is_discount_active` the public serializer now publishes, and fall

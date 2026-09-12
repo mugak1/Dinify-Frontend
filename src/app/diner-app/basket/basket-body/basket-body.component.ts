@@ -628,7 +628,21 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!details) return null;
     const exact = toMinorUnits(details.quote_total);
     if (exact !== null) return exact;
-    if (details.pricing_version === PRICING_VERSION_CORRECTED) return null;
+    // ABSENT AND UNREADABLE ARE DIFFERENT FACTS, and collapsing them is what
+    // turned a truthfulness fix into a checkout outage. A CORRECTED server that
+    // SENT a total it cannot express is broken and must be refused — that is
+    // the finding this guard exists for. One that sent NO total simply predates
+    // the field: `quote_total` landed in backend #315, while `pricing_version`
+    // (and CORRECTED on every new order) landed in #314, so there is a real,
+    // deployable server that declares itself corrected and has never heard of
+    // it. Refusing that one blocks every checkout for the width of a deploy or
+    // any rollback between the two — the exact failure the transitional
+    // tolerance above was written for, in a narrower disguise.
+    const promisedATotal =
+      details.quote_total !== undefined && details.quote_total !== null;
+    if (promisedATotal && details.pricing_version === PRICING_VERSION_CORRECTED) {
+      return null;
+    }
     return toMinorUnits(details.actual_cost);
   }
 
