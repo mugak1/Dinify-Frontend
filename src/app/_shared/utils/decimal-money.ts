@@ -46,6 +46,75 @@ const MAX_DECIMAL_TEXT_LENGTH = 32;
  * module exists to prevent.
  */
 export function toMinorUnits(value: unknown): number | null {
+  const parsed = parseDecimal(value);
+  if (parsed === null) return null;
+  // More precision than the contract carries cannot be compared exactly, and
+  // rounding it here would invent a value the server never sent.
+  if (parsed.fraction.length > MONEY_SCALE) return null;
+  return scaledOrNull(parsed.negative, parsed.whole,
+                      (parsed.fraction + '00').slice(0, MONEY_SCALE));
+}
+
+/**
+ * Parse a monetary value the way the SERVER parses a stored CATALOGUE
+ * component: two decimal places, ROUND_HALF_EVEN, applied once.
+ *
+ * THE DISTINCTION FROM `toMinorUnits` IS THE POINT, and getting it backwards
+ * breaks something either way:
+ *
+ *   * A SERVER AMOUNT is parsed EXACTLY. It is already canonical, so extra
+ *     precision means the contract was violated, and rounding it would silently
+ *     agree with a number the server never sent — which is what a comparison
+ *     exists to catch.
+ *   * A CATALOGUE COMPONENT (a modifier's `additionalCost`, an operator-entered
+ *     price) is an UNVALIDATED stored value that may legitimately carry more
+ *     precision. `parse_money` quantizes every one of them half-even before
+ *     using it, so a client that REFUSED `1.005` would refuse a line the server
+ *     prices perfectly well, and a client that TRUNCATED it would disagree with
+ *     the server by a cent.
+ *
+ * Half-even is applied to the digits, never through a float: `Number('1.005')`
+ * is already 1.00499999999999989 before any rounding could happen.
+ */
+export function toMinorUnitsRounded(value: unknown): number | null {
+  const parsed = parseDecimal(value);
+  if (parsed === null) return null;
+  const { negative, whole, fraction } = parsed;
+  if (fraction.length <= MONEY_SCALE) {
+    return scaledOrNull(negative, whole, (fraction + '00').slice(0, MONEY_SCALE));
+  }
+
+  const kept = fraction.slice(0, MONEY_SCALE);
+  const rest = fraction.slice(MONEY_SCALE);
+  const base = scaledOrNull(false, whole, kept);
+  if (base === null) return null;
+
+  const first = rest[0];
+  const restIsExactlyHalf = first === '5' && /^0*$/.test(rest.slice(1));
+  let rounded = base;
+  if (first > '5') {
+    rounded = base + 1;
+  } else if (restIsExactlyHalf) {
+    // TIE: to the EVEN cent, which is the server's rule. 1.005 -> 1.00,
+    // 1.015 -> 1.02. Rounding half-UP here would put the client a cent above
+    // the server on exactly the values a diner would notice.
+    if (base % 2 !== 0) rounded = base + 1;
+  } else if (first === '5') {
+    // '5' followed by something non-zero is strictly more than half.
+    rounded = base + 1;
+  }
+
+  if (!Number.isSafeInteger(rounded) || rounded > MAX_SAFE_MINOR_UNITS) return null;
+  return negative ? -rounded : rounded;
+}
+
+interface ParsedDecimal {
+  negative: boolean;
+  whole: string;
+  fraction: string;
+}
+
+function parseDecimal(value: unknown): ParsedDecimal | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'boolean') return null;
 
@@ -64,16 +133,18 @@ export function toMinorUnits(value: unknown): number | null {
   const match = DECIMAL_PATTERN.exec(text);
   if (!match) return null;
 
-  const negative = text.startsWith('-');
-  const whole = match[1];
-  const fraction = match[2] ?? '';
-  // More precision than the contract carries cannot be compared exactly, and
-  // rounding it here would invent a value the server never sent.
-  if (fraction.length > MONEY_SCALE) return null;
+  return {
+    negative: text.startsWith('-'),
+    whole: match[1],
+    fraction: match[2] ?? '',
+  };
+}
 
-  const padded = (fraction + '00').slice(0, MONEY_SCALE);
+function scaledOrNull(
+  negative: boolean, whole: string, cents: string,
+): number | null {
   // Read the digits directly: no float multiplication anywhere on this path.
-  const scaled = Number(whole + padded);
+  const scaled = Number(whole + cents);
   if (!Number.isSafeInteger(scaled) || scaled > MAX_SAFE_MINOR_UNITS) return null;
   return negative ? -scaled : scaled;
 }
@@ -124,4 +195,35 @@ export function sameAmount(a: unknown, b: unknown): boolean {
   const right = toMinorUnits(b);
   if (left === null || right === null) return false;
   return left === right;
+}
+
+/**
+ * Render scaled minor units as a canonical display amount: grouped thousands,
+ * EXACTLY two decimals, no exponent. `null` in, `null` out — an unreadable
+ * amount has no display form, and inventing one is the failure this module
+ * exists to prevent.
+ *
+ * NOT `| number`. Angular's number pipe formats a binary double and defaults to
+ * at most three fraction digits with no minimum, so the server's `899.10`
+ * renders `899.1` and `0.00` renders `0` — the diner is shown an amount that is
+ * not the one they are agreeing to. Formatting from the integer keeps the scale
+ * the contract carries.
+ */
+export function formatMinorUnits(minor: number | null): string | null {
+  if (minor === null || !Number.isSafeInteger(minor)) return null;
+  const negative = minor < 0;
+  const absolute = Math.abs(minor);
+  const whole = Math.floor(absolute / SCALE_FACTOR);
+  const fraction = absolute - whole * SCALE_FACTOR;
+  const grouped = whole.toLocaleString('en-US');
+  const cents = String(fraction).padStart(MONEY_SCALE, '0');
+  return `${negative ? '-' : ''}${grouped}.${cents}`;
+}
+
+/**
+ * Format any canonical decimal string (or finite number) for display, or
+ * `null` when it cannot be represented exactly.
+ */
+export function formatAmount(value: unknown): string | null {
+  return formatMinorUnits(toMinorUnits(value));
 }

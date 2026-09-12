@@ -50,6 +50,19 @@ function extraRef(primary: number, dd: DiscountDetails | null = null): MenuItemE
   return { id: 'e1', name: 'Cheese', primary_price: String(primary), discount_details: dd };
 }
 
+/** An extra as the PUBLIC menu read now publishes it: the server's own verdict
+ *  beside the raw configuration. `current_price` is a canonical decimal string. */
+function servedExtra(
+  primary: number, currentPrice: string | null, discountActive = false,
+): MenuItemExtraRef {
+  return {
+    id: 'e1', name: 'Cheese', primary_price: String(primary),
+    discount_details: null,
+    is_discount_active: discountActive,
+    current_price: currentPrice,
+  };
+}
+
 describe('MenuItemDetailComponent', () => {
   let component: MenuItemDetailComponent;
   let fixture: ComponentFixture<MenuItemDetailComponent>;
@@ -96,30 +109,62 @@ describe('MenuItemDetailComponent', () => {
     expect(successSpy).toHaveBeenCalledWith('Changes saved');
   });
 
-  describe('extra discount pricing', () => {
-    it('prices an active percentage discount below base', () => {
-      const o = extraRef(1000, pct(20));
-      expect(component.extraEffectivePrice(o)).toBe(800);
+  describe('extra pricing comes from the SERVER (D02 completion A)', () => {
+    // THESE SPECS CHANGED DELIBERATELY. They used to pin the client's own
+    // device-clock rule: `getCurrentPriceFromDetails`, which applied a
+    // percentage with `Math.round` to WHOLE units. That rule priced a 999 extra
+    // at 10% off as 899 while the server charged 899.10 — a second pricing
+    // opinion on the one surface that has to agree with the server — and it
+    // read the DEVICE clock to decide whether the window was open. The public
+    // menu read now publishes the server's own verdict for extras, exactly as
+    // it always has for the parent dish.
+
+    it('uses the server effective price, cents and all', () => {
+      // THE SHARED GOLDEN: 999 at 10% off is 899.10, not 899.
+      const o = servedExtra(999, '899.10', true);
+      expect(component.extraEffectivePrice(o)).toBe(899.1);
       expect(component.extraIsDiscounted(o)).toBe(true);
     });
 
-    it('prices an active fixed-amount discount below base', () => {
-      const o = extraRef(1000, fixed(200));
-      expect(component.extraEffectivePrice(o)).toBe(800);
-      expect(component.extraIsDiscounted(o)).toBe(true);
-    });
-
-    it('falls back to base when there is no discount', () => {
-      expect(component.extraEffectivePrice(extraRef(1000, null))).toBe(1000);
-      expect(component.extraIsDiscounted(extraRef(1000, null))).toBe(false);
-      // An empty object is the backend default for a non-discounted extra.
-      expect(component.extraIsDiscounted(extraRef(1000, {} as DiscountDetails))).toBe(false);
-    });
-
-    it('falls back to base for an out-of-window discount', () => {
-      const o = extraRef(1000, expiredPct(20));
+    it('reports no discount when the server reports none', () => {
+      const o = servedExtra(1000, '1000.00', false);
       expect(component.extraEffectivePrice(o)).toBe(1000);
       expect(component.extraIsDiscounted(o)).toBe(false);
+    });
+
+    it('IGNORES discount_details entirely, in-window or not', () => {
+      // The strongest form: a live-looking client-side discount beside a server
+      // verdict that says full price. The server wins, and the device clock is
+      // never consulted.
+      const o: MenuItemExtraRef = {
+        ...servedExtra(1000, '1000.00', false),
+        discount_details: pct(20),
+      };
+      expect(component.extraEffectivePrice(o)).toBe(1000);
+      expect(component.extraIsDiscounted(o)).toBe(false);
+
+      const expired: MenuItemExtraRef = {
+        ...servedExtra(1000, '800.00', true),
+        discount_details: expiredPct(20),
+      };
+      expect(component.extraEffectivePrice(expired)).toBe(800);
+      expect(component.extraIsDiscounted(expired)).toBe(true);
+    });
+
+    it('falls back to the LIST price when the server sent no verdict', () => {
+      // An operator-branch payload, or one cached before the fields shipped.
+      // The fallback is the un-discounted list price — never the old
+      // device-clock rule, which is the competing opinion being removed. At
+      // worst this over-estimates, and the server's review sheet corrects it.
+      expect(component.extraEffectivePrice(extraRef(1000, pct(20)))).toBe(1000);
+      expect(component.extraIsDiscounted(extraRef(1000, pct(20)))).toBe(false);
+    });
+
+    it('does not render an unreadable server price as free', () => {
+      // An explicit `null` means the server cannot price this extra. It is
+      // filtered off the published menu, so this is defence in depth — and it
+      // must not become 0.
+      expect(component.extraEffectivePrice(servedExtra(1000, null))).toBe(1000);
     });
   });
 

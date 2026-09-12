@@ -63,10 +63,14 @@ describe('BasketBodyComponent', () => {
     id: 'l1', item: 'i1', item_name: 'Burger', quantity: 1,
     available: true, status: 'available',
     selected_modifiers: {}, modifiers: [], options: [],
-    unit_price: 5000, reference_unit_price: 5000, discounted_price: 5000,
-    unit_cost_of_options: 0, discounted: false,
-    total_cost: 5000, reference_total_cost: 5000, discounted_cost: 5000,
-    savings: 0, line_actual_cost: 5000, line_total_with_extras: 5000,
+    // CANONICAL DECIMAL STRINGS, exactly as the wire now carries them.
+    unit_price: '5000.00', reference_unit_price: '5000.00',
+    discounted_price: '5000.00',
+    unit_cost_of_options: '0.00', discounted: false,
+    total_cost: '5000.00', reference_total_cost: '5000.00',
+    discounted_cost: '5000.00',
+    savings: '0.00', line_actual_cost: '5000.00',
+    line_total_with_extras: '5000.00',
     extras: [] as unknown[], ...over,
   });
 
@@ -78,6 +82,7 @@ describe('BasketBodyComponent', () => {
         no_unavailable_items: 0,
         no_unavailable_extras: 0,
         actual_cost: 5000,
+        quote_total: '5000.00',
         reference_total_cost: 5000,
         pricing_version: 1,
         quote_ref: 'qref-1',
@@ -381,12 +386,27 @@ describe('BasketBodyComponent', () => {
   it('renders the SERVER total, never a recomputed one', () => {
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(
-      of(initiated({}, { actual_cost: 4321 })) as any,
+      of(initiated({}, { actual_cost: 4321, quote_total: '4321.00' })) as any,
     );
 
     component.initiateOrder();
 
-    expect(component.reviewedTotal).toBe(4321);
+    // The canonical string, formatted from the integer: the scale survives.
+    expect(component.reviewedTotalDisplay).toBe('4,321.00');
+  });
+
+  it('states the exact scale the server sent, not a rounded double', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(
+      of(initiated({}, { actual_cost: 899.1, quote_total: '899.10' })) as any,
+    );
+
+    component.initiateOrder();
+
+    // `| number` would render this `899.1`; `Number(actual_cost)` cannot even
+    // carry the distinction.
+    expect(component.reviewedTotalDisplay).toBe('899.10');
+    expect(component.quoteIsUnreadable).toBeFalse();
   });
 
   it('shows the review without trimming the basket when a line dropped', () => {
@@ -499,6 +519,97 @@ describe('BasketBodyComponent', () => {
   // also pins that the reference is the ONLY thing the sheet needed from the
   // new response. Everything else it reads (`id`, `actual_cost`,
   // `no_available_items`, the two unavailable lists) predates the change.
+  // --- the explicit invalid-quote state (D02 completion A) ----------------
+  //
+  // A CORRECTED response that cannot produce a reference or a readable amount is
+  // an ANOMALY, not "an old server". The transitional tolerance for a genuinely
+  // LEGACY response is deliberately preserved and tested separately below; this
+  // block is about the case that must NOT be tolerated. None of these payloads
+  // is claimed to have occurred in production — they are the states the client
+  // has to refuse rather than confirm.
+
+  it('refuses a CORRECTED quote that names no reference', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(
+      of(initiated({}, { pricing_version: 1, quote_ref: undefined })) as any,
+    );
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    // A legacy response in the same shape IS tolerated — the discriminator is
+    // `pricing_version`, which the server publishes, so the client never guesses.
+    expect(component.basketItems.length).toBe(1);
+  });
+
+  it('refuses a CORRECTED quote whose payable cannot be read', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({}, {
+      quote_total: 'not-a-number', actual_cost: undefined,
+    })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.reviewedTotalDisplay).toBeNull();
+  });
+
+  it('refuses a CORRECTED quote with an unreadable line amount', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({
+      quote: [quoteLine({ line_total_with_extras: null })],
+    })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.lineTotalDisplay(component.quoteLines[0])).toBeNull();
+  });
+
+  it('does not submit an unreadable quote even if confirm is invoked directly', () => {
+    // GUARDED IN THE HANDLER, not only by a disabled button: the template state
+    // is a display decision and this one places an order.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(
+      of(initiated({}, { quote_total: 'nonsense', actual_cost: undefined })) as any,
+    );
+    component.initiateOrder();
+    api.postPatch.calls.reset();
+
+    component.confirmQuote();
+
+    expect(api.postPatch).not.toHaveBeenCalled();
+    expect(component.orderError).toBeTrue();
+    expect(component.showQuoteSheet).toBeFalse();
+    // The basket and its idempotency key are retained for a retry.
+    expect(component.basketItems.length).toBe(1);
+  });
+
+  it('treats a legitimately FREE order as readable and placeable', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({
+      quote: [quoteLine({ line_total_with_extras: '0.00' })],
+    }, { quote_total: '0.00', actual_cost: 0, no_available_items: 1 })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeFalse();
+    expect(component.reviewedTotalDisplay).toBe('0.00');
+    expect(component.quoteHasNothingToPlace).toBeFalse();
+  });
+
+  it('states each line amount at the exact scale the server sent', () => {
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({
+      quote: [quoteLine({ line_total_with_extras: '2697.30' })],
+    }, { quote_total: '2697.30' })) as any);
+
+    component.initiateOrder();
+
+    expect(component.lineTotalDisplay(component.quoteLines[0])).toBe('2,697.30');
+    expect(component.reviewedTotalDisplay).toBe('2,697.30');
+  });
+
   const legacyInitiated = () => ({
     status: 200,
     data: {
@@ -539,7 +650,10 @@ describe('BasketBodyComponent', () => {
 
     expect(component.showQuoteSheet).toBeTrue();
     expect(component.orderError).toBeFalse();
-    expect(component.reviewedTotal).toBe(4321);
+    // A LEGACY payload has no `quote_total`; the established numeric
+    // `actual_cost` is still read, so the tolerance is unchanged.
+    expect(component.reviewedTotalDisplay).toBe('4,321.00');
+    expect(component.quoteIsUnreadable).toBeFalse();
     expect(component.placingOrder).toBeFalse();
     // Reviewed, not submitted — the diner has still agreed to nothing.
     expect(api.postPatch).toHaveBeenCalledTimes(1);

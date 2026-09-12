@@ -148,9 +148,37 @@ so keep it current when conventions change.
   checkout footer. Without that forward the interceptor flattens every failure to a
   string and the recoveries cannot fire; matching on the human sentence instead is
   exactly the brittleness the code exists to remove.
+  **EXACT MONEY REACHES THE BASKET AND THE REVIEW, and the helpers are split on
+  purpose.** `_shared/utils/decimal-money.ts` now carries TWO parsers and confusing
+  them is the defect: `toMinorUnits` is EXACT and REFUSES more than two decimals — it
+  is for a SERVER amount, where a third decimal means the wire is wrong — while
+  `toMinorUnitsRounded` applies the backend's ROUND_HALF_EVEN to the digit STRING and
+  is for a CATALOGUE COMPONENT, where `additionalCost: 1.005` is a legal stored value
+  the server itself quantizes to `1.00`. Using the exact one there would make this
+  client refuse a line the server prices perfectly well. `_shared/order/line-money.ts`
+  is the ONE place a line is composed from its components (`lineUnitMinor` /
+  `lineSubtotalMinor` / `basketTotalMinor`), and `null` PROPAGATES rather than
+  becoming `0` at every step. The reviewed total prefers the server's canonical
+  `quote_total` string over the legacy numeric `actual_cost`, and where it cannot be
+  read the Place order button is REPLACED by an explicit `role="alert"` message —
+  `quoteIsUnreadable` is a STATE, not an absence, discriminated by `pricing_version`
+  so a pre-D02 server stays tolerated while a CORRECTED one that cannot produce a
+  readable payable is an anomaly the diner is told about rather than asked to confirm.
+  **The diner item-detail no longer applies the DEVICE CLOCK to an extra's discount**:
+  `serverEffectiveExtraPrice` / `serverExtraDiscountIsLive` read the server-resolved
+  `current_price` / `is_discount_active` the public serializer now publishes, and fall
+  back to the LIST price — never to a locally-recomputed discount.
   A repeatable real-browser check of the whole path lives in `e2e/checkout-journey/`
-  (NOT wired into CI — it needs a disposable PostgreSQL and two running servers); its
-  README records the two defects it found that the unit suites did not
+  (NOT wired into CI — it needs a disposable PostgreSQL and two running servers). It
+  now **presses the app's own Place order button** rather than submitting by fetch
+  (raw fetch is KEPT for the two negative reference cases, which the UI cannot
+  produce), scopes its review assertions to the review PANEL, changes the dish price
+  MID-RUN through the real operator API so the review is proved to show the CURRENT
+  server price rather than the browser's cached one, carries a sub-cent
+  ROUND_HALF_EVEN golden, asserts the basket is cleared ONLY after a definitive
+  success, and reads the accepted order back off the kitchen board as an
+  authenticated fixture operator. Its README records what it found, what it
+  deliberately does NOT cover, and that it is a manual run rather than a gate
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

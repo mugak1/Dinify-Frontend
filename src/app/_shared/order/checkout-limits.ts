@@ -178,3 +178,16 @@ export function checkCheckoutLimits(
 export function atLineQuantityCeiling(quantity: number): boolean {
   return (quantity ?? 0) >= MAX_QUANTITY_PER_LINE;
 }
+
+/**
+ * `Order.pricing_version` on the wire: 0 = LEGACY (priced before the D02
+ * correction), 1 = CORRECTED.
+ *
+ * THE CLIENT'S ONE DISCRIMINATOR between "this server predates the corrected
+ * pricing contract" and "this server claims the corrected contract and then
+ * failed to honour it". Without it the two are the same absence, and the
+ * transitional tolerance that makes the first case survivable would silently
+ * swallow the second.
+ */
+export const PRICING_VERSION_LEGACY = 0;
+export const PRICING_VERSION_CORRECTED = 1;

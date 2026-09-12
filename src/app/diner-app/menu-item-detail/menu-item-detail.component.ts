@@ -15,7 +15,8 @@ import { BasketService } from 'src/app/_services/basket.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
 import { parseModifierGroups, selectionConstraintPhrase } from 'src/app/_common/utils/modifier-utils';
 import {
-  getCurrentPriceFromDetails,
+  serverEffectiveExtraPrice,
+  serverExtraDiscountIsLive,
   discountIsLive as discountIsLiveFn,
   serverEffectivePrice,
   serverPriceUnreadable,
@@ -25,6 +26,10 @@ import { MAX_QUANTITY_PER_LINE } from 'src/app/_shared/order/checkout-limits';
 import { environment } from 'src/environments/environment';
 import { MenuNavStateService } from '../menu/menu-nav-state.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
+import { fromMinorUnits } from '../../_shared/utils/decimal-money';
+import {
+  lineSubtotalMinor, lineUnitMinor,
+} from '../../_shared/order/line-money';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -224,13 +229,19 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
   /** Effective (discount-aware) price of an extra, recomputed client-side
    *  from its discount_details — mirrors the parent item's price path so an
    *  extra shows the same figure whether viewed standalone or as an extra. */
+  /** THE SERVER'S effective price for this extra. Never the device clock. */
   extraEffectivePrice(extra: MenuItemExtraRef): number {
-    return getCurrentPriceFromDetails(Number(extra.primary_price) || 0, extra.discount_details);
+    return serverEffectiveExtraPrice(extra);
   }
 
-  /** True when the extra has an active discount right now (effective < base). */
+  /** True when the SERVER reports a live discount on this extra.
+   *
+   *  It used to be derived — `effective < base` from the client's own
+   *  recomputation — which made the badge a consequence of the very arithmetic
+   *  that disagreed with the server. */
   extraIsDiscounted(extra: MenuItemExtraRef): boolean {
-    return this.extraEffectivePrice(extra) < (Number(extra.primary_price) || 0);
+    return serverExtraDiscountIsLive(extra)
+      && this.extraEffectivePrice(extra) < (Number(extra.primary_price) || 0);
   }
 
   /** Normalises the tags payload to MenuItemTagRef[]. Tolerates legacy
@@ -452,12 +463,45 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
     this.validateForm();
   }
 
+  /** The selected modifier choices in the shape `line-money` reads — the same
+   *  projection `addToBasket` persists, so the amount shown on the button and
+   *  the amount stored on the line are derived from one structure. */
+  private selectedModifierGroupsForPricing(): {
+    choices: { additionalCost: number }[];
+  }[] {
+    const selected = this.selectedModifiers();
+    return this.modifierGroups().map((group) => ({
+      choices: (selected[group.id] || [])
+        .map((choiceId) => group.choices.find((c) => c.id === choiceId))
+        .filter((c): c is NonNullable<typeof c> => !!c)
+        .map((c) => ({ additionalCost: c.additionalCost })),
+    }));
+  }
+
+  /** The figure the "Add to basket" button states.
+   *
+   *  THROUGH THE SHARED EXACT HELPER, in minor units. It was
+   *  `(base + modifiers + extras) * quantity` in doubles, so two sub-cent
+   *  modifier adjustments on a 1000 base gave 1002.0099999999999 where the
+   *  server prices 1002.00 — the server rounds each component ONCE, half-even,
+   *  and then multiplies exactly. */
   get computedItemTotal(): number {
     const item = this.item();
     if (!item) return 0;
     const basePrice = discountIsLiveFn(item)
       ? serverEffectivePrice(item)
       : Number(item.primary_price) || 0;
+    const exact = fromMinorUnits(lineSubtotalMinor({
+      basePrice,
+      selectedModifiers: this.selectedModifierGroupsForPricing(),
+      extras: this.selectedExtras().map((e) => ({
+        cost: this.extraEffectivePrice(e),
+      })),
+      quantity: this.quantity(),
+    }));
+    if (exact !== null) return exact;
+    // Unreadable component: fall back to the previous arithmetic rather than
+    // showing nothing on a screen whose amount is only an estimate anyway.
     let modifiersCost = 0;
     const selected = this.selectedModifiers();
     for (const group of this.modifierGroups()) {
@@ -531,12 +575,20 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
     const originalBasePrice = Number(item.primary_price) || 0;
     const basePrice = isDiscounted ? serverEffectivePrice(item) : originalBasePrice;
 
+    // THE UNIT PRICE STORED ON THE BASKET LINE, through the shared exact
+    // helper. This is the value `calculateTotalAmount` then extends, so an
+    // inexact figure here would be multiplied by the quantity before anyone saw
+    // it. `null` (an unreadable component) falls back to the previous sum — the
+    // server's review sheet is what the diner ultimately confirms.
+    const exactUnit = fromMinorUnits(lineUnitMinor(
+      { basePrice, selectedModifiers: selectedModifiersList, extras: selectedExtras },
+    ));
     const modifiersCost = selectedModifiersList.reduce(
       (acc, mod) => acc + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
       0,
     );
     const extrasCost = selectedExtras.reduce((acc, extra) => acc + extra.cost, 0);
-    const totalPrice = basePrice + modifiersCost + extrasCost;
+    const totalPrice = exactUnit ?? (basePrice + modifiersCost + extrasCost);
 
     const basketItem: BasketItem = {
       itemId: item.id,
