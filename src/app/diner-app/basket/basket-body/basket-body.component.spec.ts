@@ -555,6 +555,9 @@ describe('BasketBodyComponent', () => {
   });
 
   it('refuses a CORRECTED quote whose payable is unreadable BESIDE a usable actual_cost', () => {
+    // Note the difference from the tolerance spec below: here the server SENT a
+    // `quote_total` and it is malformed — a promise it broke — rather than
+    // having never sent one at all.
     // THE FALLBACK IS LEGACY-ONLY. The test above passes with `actual_cost`
     // absent, so it could not tell a version-discriminated refusal from an
     // absence of anything to fall back to. Here the legacy numeric field is
@@ -577,6 +580,45 @@ describe('BasketBodyComponent', () => {
     component.confirmQuote();
     expect(api.postPatch).not.toHaveBeenCalled();
     expect(component.basketItems.length).toBe(1);
+  });
+
+  it('refuses a CORRECTED quote whose total is explicitly null', () => {
+    // ABSENT AND NULL ARE NOT THE SAME SHAPE, and only absence means "older
+    // server". A pre-field backend omits the key entirely (3c32ef5 does not
+    // contain the string at all), so a JSON `null` can only come from a
+    // CORRECTED server that sent the key and failed to express a value — a
+    // broken promise, which must reach the refusal panel rather than fall back
+    // to the lossy numeric field beside it.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({}, {
+      quote_total: null, actual_cost: 4321, pricing_version: 1,
+    })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.reviewedTotalDisplay).toBeNull();
+  });
+
+  it('still reviews a CORRECTED server that predates quote_total', () => {
+    // THE DEPLOY WINDOW, as a test. Backend #314 shipped `pricing_version` and
+    // stamps CORRECTED on every new order; `quote_total` only arrived in #315.
+    // So this exact payload — corrected, quote_ref present, itemised lines, no
+    // `quote_total` — is what a real deployed server returns between the two,
+    // and in either direction of a rollback across them.
+    //
+    // Refusing it blocked checkout outright, which is what the transitional
+    // tolerance exists to prevent. The server never promised a canonical total
+    // here, so the legacy numeric one is still the best available truth.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({}, {
+      quote_total: undefined, actual_cost: 4321, pricing_version: 1,
+    })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeFalse();
+    expect(component.reviewedTotalDisplay).toBe('4,321.00');
   });
 
   it('still reads actual_cost when the server declares itself LEGACY', () => {
