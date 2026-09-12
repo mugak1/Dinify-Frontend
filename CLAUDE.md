@@ -441,8 +441,22 @@ so keep it current when conventions change.
   is why the level gate matters. The backend concedes it: false means a genuine
   DRAFT and an order accepted BEFORE the evidence table existed, alike. At level 3
   `acceptance.state` separates them (`accepted` / `not_accepted` /
-  `evidence_unavailable`, the last mapping to `accepted-unrecorded` — treat as
-  accepted, never accept again). BELOW level 3 the client falls back, and the
+  `evidence_unavailable`, the last mapping to `accepted-unrecorded`).
+  **ONLY TWO OF THE THREE ARE VERDICTS, AND THE CLIENT MUST NOT RESTATE THE THIRD
+  AS ONE** (the same over-claim the backend carried, Codex P2 on backend #318).
+  `evidence_unavailable` is the server saying it CANNOT DETERMINE whether the
+  submission landed: two producers reach it — an acceptance predating the evidence
+  table, and a DRAFT a kitchen write cancelled or advanced — and nothing on the row
+  separates them. **THE ACTION AND THE CLAIM PART COMPANY HERE.** The action is
+  identical to `accepted` and stays conservative — clear the basket, offer no second
+  checkout — precisely BECAUSE the server does not know, since one producer really
+  is an order in the kitchen. The SENTENCE is not: `accepted` says "it is with the
+  kitchen", `accepted-unrecorded` says the order MAY already have been placed and
+  points at staff, because telling a diner their cancelled draft is cooking leaves
+  them waiting for food nobody is making. Pinned by a spec pair — one asserting the
+  unrecorded notice omits the kitchen claim, one asserting the confirmed notice
+  still states it plainly, so narrowing one cannot hedge the other.
+  BELOW level 3 the client falls back, and the
   fallback is resolved from ITS OWN RECORD rather than from the server: with no
   command issued for this key an unaccepted order can only be the draft that
   initiate created, so it is a `draft`; with a command outstanding the server

@@ -277,7 +277,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       switch (outcome.kind) {
         case 'accepted':
         case 'accepted-unrecorded':
-          // DEFINITIVE. The submission landed; the basket is finished.
+          // ONE ACTION, TWO DIFFERENT CERTAINTIES. `accepted` is definitive.
+          // `accepted-unrecorded` is the server stating it cannot determine
+          // whether the submission landed — and the conservative action is
+          // the same one, BECAUSE it cannot: clearing the basket and
+          // declining to offer another checkout is what stops a possible
+          // duplicate meal. `recoveryNotice` is where the two part company,
+          // since only one of them may be stated as fact to the diner.
           this.finishAcceptedCheckout();
           return;
         default:
@@ -304,8 +310,25 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   get recoveryNotice(): string | null {
     switch (this.recovered?.kind) {
       case 'accepted':
-      case 'accepted-unrecorded':
         return 'Your order was already placed — it is with the kitchen.';
+      case 'accepted-unrecorded':
+        // NOT THE SAME SENTENCE, and the difference matters in the
+        // dangerous direction. `evidence_unavailable` is the server saying
+        // it CANNOT DETERMINE whether the submission landed: two producers
+        // reach it — an acceptance predating the evidence table, and a
+        // draft a kitchen write cancelled or advanced — and nothing on the
+        // row separates them. Telling a diner their order is with the
+        // kitchen when it was a cancelled draft leaves them waiting for
+        // food nobody is cooking.
+        //
+        // THE ACTION ABOVE IS UNCHANGED AND STAYS CONSERVATIVE (the basket
+        // is cleared, no second checkout is offered) precisely BECAUSE the
+        // server does not know — one producer really is an order in the
+        // kitchen. Only the claim is narrowed to what was actually
+        // established, and the diner is pointed at the one party who can
+        // resolve it.
+        return 'Your order may already have been placed. Please check with '
+          + 'staff before ordering the same items again.';
       case 'draft':
         return 'We found your unfinished order. Please review it again.';
       case 'absent':

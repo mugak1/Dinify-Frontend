@@ -238,6 +238,76 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
     expect(notice()).toContain('already placed');
   });
 
+  it('does NOT tell the diner an UNRECORDED acceptance is with the kitchen',
+     () => {
+    // THE SAME OVER-CLAIM THE BACKEND CARRIED (Codex P2 on backend #318).
+    // `evidence_unavailable` means the server CANNOT DETERMINE whether the
+    // submission landed — two producers reach it (an acceptance predating
+    // the evidence table, and a draft a kitchen write cancelled or
+    // advanced) and nothing on the row separates them. Saying "it is with
+    // the kitchen" is a claim the server did not make, and it is the
+    // dangerous direction: a diner told that about a cancelled draft waits
+    // for food nobody is cooking.
+    //
+    // THE ACTION IS UNCHANGED AND STAYS CONSERVATIVE — the basket is still
+    // cleared and no second checkout is offered, because one of the two
+    // producers really is an order in the kitchen. Only the CLAIM changes.
+    interruptMidSubmission();
+    api.get.and.returnValue(of({ data: {
+      id: 'o1',
+      accepted: false,
+      checkout: {
+        order_id: 'o1',
+        intent_key: coordinator.record()?.key ?? null,
+        scope: { restaurant: '', table: '' },
+        acceptance: { state: 'evidence_unavailable', outcome: null,
+                      quote_ref: null, accepted_at: null },
+        current: { order_status: 'cancelled', fulfilment_status: 'new',
+                   cancelled_at: '2026-09-12T10:00:00+00:00',
+                   served_at: null },
+        checkout_protocol: 3,
+      },
+    } }) as any);
+
+    fixture.detectChanges();
+
+    expect(component.recovered?.kind).toBe('accepted-unrecorded');
+    // conservative action, unchanged
+    expect(basketService.clearBasket).toHaveBeenCalled();
+    // but the sentence must not assert what the server could not
+    const said = notice() || '';
+    expect(said).not.toContain('is with the kitchen');
+    expect(said.toLowerCase()).toContain('may');
+    expect(said.toLowerCase()).toContain('staff');
+  });
+
+  it('still states a CONFIRMED acceptance plainly', () => {
+    // The negative control for the spec above: narrowing the unrecorded
+    // case must not hedge the one the server really did confirm.
+    interruptMidSubmission();
+    api.get.and.returnValue(of({ data: {
+      id: 'o1',
+      accepted: true,
+      checkout: {
+        order_id: 'o1',
+        intent_key: coordinator.record()?.key ?? null,
+        scope: { restaurant: '', table: '' },
+        acceptance: { state: 'accepted', outcome: null,
+                      quote_ref: 'q1',
+                      accepted_at: '2026-09-12T10:00:00+00:00' },
+        current: { order_status: 'pending', fulfilment_status: 'new',
+                   cancelled_at: null, served_at: null },
+        checkout_protocol: 3,
+      },
+    } }) as any);
+
+    fixture.detectChanges();
+
+    expect(component.recovered?.kind).toBe('accepted');
+    expect(notice()).toContain('already placed');
+    expect(notice()).toContain('with the kitchen');
+  });
+
   it('leaves an unaccepted draft exactly as it is, for the diner to review', () => {
     // NO ACCEPTANCE WAS ISSUED for this key, so an unaccepted order can only
     // be the draft that initiate created — and this client knows that from
