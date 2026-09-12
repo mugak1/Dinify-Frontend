@@ -2,6 +2,11 @@ import { Injectable, WritableSignal } from '@angular/core';
 import { BasketItem, ShoppingBasket, SelectedModifier } from '../_models/app.models';
 import { SessionStorageService } from './storage/session-storage.service';
 import { persistedSignal } from './storage/persisted-state';
+import { fromMinorUnits } from '../_shared/utils/decimal-money';
+import {
+  PricedLineParts,
+  basketTotalMinor,
+} from '../_shared/order/line-money';
 
 /**
  * Canonical identity of a basket line (D03, the client half).
@@ -91,7 +96,28 @@ export class BasketService {
   }
 
   // Calculates the total amount of the basket
+  /**
+   * The basket's payable total, through the SHARED EXACT HELPER.
+   *
+   * It was `Σ totalPrice * quantity` in ordinary doubles. That is the figure the
+   * checkout button states and the figure `quoteDiffersFromBasket` compares
+   * against the server's, so the one number most likely to disagree with the
+   * server was produced by the one arithmetic that cannot represent it: two
+   * sub-cent modifier adjustments on a 1000 base give 1002.0099999999999, not
+   * the server's 1002.00.
+   *
+   * It recomputes from the line's COMPONENTS rather than trusting the stored
+   * `totalPrice`, so a basket persisted by an older build is re-derived exactly
+   * rather than having its rounding carried forward.
+   *
+   * `null` (an unreadable component) falls back to the stored figure rather than
+   * to 0: a basket restored from browser storage is not the place to start
+   * refusing to show a total, and the SERVER's quote is what the diner actually
+   * confirms.
+   */
   public calculateTotalAmount(items: BasketItem[]): number {
+    const exact = fromMinorUnits(basketTotalMinor(items as PricedLineParts[]));
+    if (exact !== null) return exact;
     return items.reduce((total, item) => total + item.totalPrice * item.quantity, 0);
   }
 

@@ -384,8 +384,11 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
                   }
                 </span>
                 @if (line.available) {
+                  <!-- The server's saved amount, rendered from its canonical
+                  decimal string. NOT `| number`, which formats a double and
+                  drops the scale: 899.10 rendered as "899.1". -->
                   <span class="text-gray-900 flex-shrink-0 tabular-nums">
-                    UGX {{ line.line_total_with_extras | number }}
+                    UGX {{ lineTotalDisplay(line) ?? '—' }}
                   </span>
                 } @else {
                   <span class="text-xs text-gray-400 flex-shrink-0">Unavailable</span>
@@ -417,11 +420,25 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
 
       <div class="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
         <span class="font-bold text-gray-900">Total to pay</span>
-        <span class="font-bold text-d-red tabular-nums">UGX {{ reviewedTotal | number }}</span>
+        @if (reviewedTotalDisplay !== null) {
+          <span class="font-bold text-d-red tabular-nums">
+            UGX {{ reviewedTotalDisplay }}
+          </span>
+        } @else {
+          <!-- NEVER a fallback figure here. An unreadable authoritative amount
+          used to render as 0 through `Number(...) || 0`, which is a free-looking
+          confirmation for an order nobody priced — and indistinguishable from a
+          genuinely waived order. -->
+          <span class="font-bold text-gray-500">Unavailable</span>
+        }
       </div>
 
       <div class="mt-4 space-y-2">
-        @if (quoteHasNothingToPlace) {
+        @if (quoteIsUnreadable) {
+          <p class="text-sm text-red-600" role="alert">
+            {{ quoteUnreadableMessage }}
+          </p>
+        } @else if (quoteHasNothingToPlace) {
           <p class="text-sm text-gray-600">
             None of these are available right now, so there is nothing to send to
             the kitchen.
@@ -429,7 +446,7 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
         } @else {
           <button type="button" app-dn-button variant="cta" (click)="confirmQuote()"
             [loading]="placingOrder" class="w-full">
-            Place order — UGX {{ reviewedTotal | number }}
+            Place order — UGX {{ reviewedTotalDisplay }}
           </button>
         }
         <button type="button" (click)="cancelQuote()" [disabled]="placingOrder"

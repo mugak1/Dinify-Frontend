@@ -159,9 +159,22 @@ export interface MenuItemExtraRef {
   primary_price: string;
   // Discount rules for this extra — same shape as MenuItem.discount_details.
   // Optional: legacy/cached payloads predate it; absent or {} ⇒ no discount.
-  // The effective price is recomputed client-side via getCurrentPriceFromDetails,
-  // mirroring how the parent item's price is derived.
+  // RETAINED FOR THE OPERATOR PREVIEW, which prices an item that may not be
+  // published yet and so has no server verdict. The DINER path must not price
+  // from it: see the two fields below.
   discount_details?: DiscountDetails | null;
+  // THE SERVER'S OWN VERDICT, published on the public menu read since D02
+  // completion A — the same two keys the parent item has always carried.
+  // The diner app prices an extra from THESE, never from `discount_details`
+  // against the device clock: that rule rounded a percentage discount to whole
+  // units, so a 999 extra at 10% off displayed 899 while the server charged
+  // 899.10. Optional because the OPERATOR branch of the same serializer does
+  // not compute a verdict.
+  is_discount_active?: boolean;
+  // Effective BASE price as a canonical decimal string, or `null` when the
+  // server cannot read this extra's price at all (never a fallback, never
+  // rendered as free).
+  current_price?: string | null;
 }
 
 /**
@@ -444,17 +457,23 @@ export interface OrderQuoteLine {
   selected_modifiers: Record<string, string[]>
   modifiers: any[]
   options: any[]
-  unit_price: number
-  reference_unit_price: number
-  discounted_price: number
-  unit_cost_of_options: number
+  // EVERY AMOUNT ON THE QUOTE IS A CANONICAL DECIMAL STRING, not a number
+  // (D02 completion A). DRF encodes a `Decimal` through `float()`, so these
+  // reached the browser as JSON floats: `899.10` arrived as `899.1` and a large
+  // exact amount as `1e+28`. This is the one payload a diner is asked to agree
+  // to, so it carries values a JSON number cannot misrepresent — parse them
+  // with `toMinorUnits`, render them with `formatAmount`, never with `Number`.
+  unit_price: string
+  reference_unit_price: string
+  discounted_price: string
+  unit_cost_of_options: string
   discounted: boolean
-  total_cost: number
-  reference_total_cost: number
-  discounted_cost: number
-  savings: number
-  line_actual_cost: number
-  line_total_with_extras: number
+  total_cost: string
+  reference_total_cost: string
+  discounted_cost: string
+  savings: string
+  line_actual_cost: string
+  line_total_with_extras: string
   extras: OrderQuoteExtra[]
 }
 
@@ -465,11 +484,12 @@ export interface OrderQuoteExtra {
   quantity: number
   available: boolean
   status: string
-  unit_price: number
-  discounted_price: number
-  actual_cost: number
+  // Canonical decimal strings, for the same reason as the parent line above.
+  unit_price: string
+  discounted_price: string
+  actual_cost: string
   discounted?: boolean
-  savings?: number
+  savings?: string
 }
 
 export interface OrderDetails {
@@ -500,6 +520,13 @@ export interface OrderDetails {
   // Opaque acknowledgement of THIS saved quote, echoed back on submit. Derived
   // from the persisted lines and totals, so it changes the moment they do.
   quote_ref?: string
+  // THE EXACT PAYABLE, as a canonical decimal string (D02 completion A).
+  // `actual_cost` above keeps its established numeric form for older clients
+  // and is NOT the same thing on the wire: DRF renders a `Decimal` through
+  // `float()`, so it arrives as `899.1` rather than `899.10` and loses digits
+  // entirely on a large amount. The review sheet states THIS value; a corrected
+  // draft that omits it is an explicit invalid-quote state, not an old server.
+  quote_total?: string
 }
 
 export interface OrderItem {

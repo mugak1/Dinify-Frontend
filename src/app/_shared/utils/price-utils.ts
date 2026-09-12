@@ -108,6 +108,47 @@ export function serverEffectivePrice(item: MenuItem | null | undefined): number 
 }
 
 /**
+ * The SERVER's effective price for an EXTRA, from its own published verdict.
+ *
+ * The diner checkout used `getCurrentPriceFromDetails` here — the device-clock
+ * rule below, which applies a percentage with `Math.round` to WHOLE units. So a
+ * 999 extra at 10% off was shown at 899 while the server charged 899.10, and the
+ * discrepancy grew with quantity. Two pricing rules on the one surface that has
+ * to agree with the server.
+ *
+ * `current_price` is a canonical decimal string; it is parsed as a number here
+ * because the basket's stored shape is numeric (see `line-money.ts` on why that
+ * adapter is deliberate). An explicit `null` means the server cannot price this
+ * extra — it is filtered out of the published menu, so this is defence in depth
+ * — and yields 0 only after `extraPriceUnreadable` has had the chance to refuse
+ * the selection.
+ *
+ * When the two keys are ABSENT (an operator-branch payload, or a response cached
+ * before they shipped) it falls back to `primary_price`, the LIST price. It does
+ * NOT fall back to the device-clock rule: that would keep the competing rule
+ * alive on exactly the path this exists to clean up, and an un-discounted list
+ * price is at worst an over-estimate the server's own review sheet corrects.
+ */
+export function serverEffectiveExtraPrice(
+  extra: { primary_price?: unknown; current_price?: string | null } | null | undefined,
+): number {
+  const listPrice = Number(extra?.primary_price ?? 0) || 0;
+  if (!extra || !('current_price' in extra)) return listPrice;
+  const current = extra.current_price;
+  if (current === null || current === undefined || current === '') return listPrice;
+  const parsed = Number(current);
+  return Number.isFinite(parsed) ? parsed : listPrice;
+}
+
+/** Does the SERVER report a live discount on this extra? Never inferred from
+ *  `discount_details` and never from the device clock. */
+export function serverExtraDiscountIsLive(
+  extra: { is_discount_active?: boolean } | null | undefined,
+): boolean {
+  return !!extra?.is_discount_active;
+}
+
+/**
  * Does the server report this item's price as UNREADABLE?
  *
  * `current_price` is the server's own effective price. Since D02 the serializer

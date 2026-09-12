@@ -16,10 +16,17 @@ import { PriceDisplayComponent } from '../../../_shared/ui/price-display/price-d
 import { OngoingOrderBannerComponent } from '../../ongoing-order-banner/ongoing-order-banner.component';
 import { MenuNavStateService } from '../../menu/menu-nav-state.service';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
-import { sameAmount, toMinorUnits } from '../../../_shared/utils/decimal-money';
+import {
+  addMinorUnits, formatAmount, formatMinorUnits, fromMinorUnits, sameAmount,
+  toMinorUnits,
+} from '../../../_shared/utils/decimal-money';
+import {
+  PricedLineParts, lineOriginalSubtotalMinor, lineSubtotalMinor,
+} from '../../../_shared/order/line-money';
 import {
   CheckoutLimitState, MAX_QUANTITY_PER_LINE, atLineQuantityCeiling,
   checkCheckoutLimits,
+  PRICING_VERSION_CORRECTED,
 } from '../../../_shared/order/checkout-limits';
 
 @Component({
@@ -497,32 +504,30 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.orderErrorMessage = message;
     this.placingOrder = false;
   }
+  /** The same line priced WITHOUT its discounts, or `null` when it carries
+   *  none. Through the shared exact helper, like every other figure here. */
   getOriginalSubtotal(item: BasketItem): number | null {
-    const parentDiscounted = !!item.isDiscounted && item.originalBasePrice != null;
-    const extrasDiscounted = this.hasDiscountedExtra(item);
-    if (!parentDiscounted && !extrasDiscounted) return null;
-
-    const modifiersCost = (item.selectedModifiers || []).reduce(
-      (sum, mod) => sum + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
-      0
-    );
-    const extrasOriginal = item.extras?.reduce(
-      (sum: number, ex: any) => sum + (Number(ex.originalCost ?? ex.cost) || 0),
-      0
-    ) || 0;
-    const baseOriginal = parentDiscounted
-      ? Number(item.originalBasePrice)
-      : Number(item.basePrice) || 0;
-
-    return (baseOriginal + modifiersCost + extrasOriginal) * item.quantity;
+    return fromMinorUnits(lineOriginalSubtotalMinor(
+      item as PricedLineParts & { isDiscounted?: boolean; originalBasePrice?: unknown },
+      this.hasDiscountedExtra(item),
+    ));
   }
+
+  /** Total deal savings — summed in MINOR UNITS, so the subtraction that
+   *  produces it cannot drift from the two figures it is derived from. */
   getTotalSavings(): number {
-    return this.basketItems.reduce((total, item) => {
-      const originalSubtotal = this.getOriginalSubtotal(item);
-      if (originalSubtotal == null) return total;
-      const discountedSubtotal = this.getSubtotal(item);
-      return total + (originalSubtotal - discountedSubtotal);
-    }, 0);
+    const parts: (number | null)[] = [];
+    for (const item of this.basketItems) {
+      const original = lineOriginalSubtotalMinor(
+        item as PricedLineParts & { isDiscounted?: boolean; originalBasePrice?: unknown },
+        this.hasDiscountedExtra(item),
+      );
+      if (original === null) continue;
+      const discounted = lineSubtotalMinor(item as PricedLineParts);
+      if (discounted === null) continue;
+      parts.push(original - discounted);
+    }
+    return fromMinorUnits(addMinorUnits(...parts)) ?? 0;
   }
 
 
@@ -593,9 +598,85 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.unavailableItems.length > 0 || this.unavailableExtras.length > 0;
   }
 
-  /** THE SERVER'S amount payable. Never recomputed here. */
-  get reviewedTotal(): number {
-    return Number(this.order_initiated?.order_details?.actual_cost) || 0;
+  /**
+   * THE SERVER'S amount payable, in exact minor units. Never recomputed here,
+   * and `null` when it cannot be read exactly.
+   *
+   * IT READS `quote_total` — the canonical decimal string — IN PREFERENCE TO
+   * `actual_cost`, which DRF renders through `float()` and therefore delivers as
+   * `899.1` rather than `899.10` (and loses digits outright on a large amount).
+   *
+   * **THE `actual_cost` FALLBACK IS FOR A SERVER THAT PREDATES `quote_total`,
+   * AND ONLY THAT.** A response declaring itself CORRECTED has promised a
+   * canonical decimal total; reading the lossy numeric field when it fails to
+   * produce one would hand back the exact-money guarantee silently, in precisely
+   * the case the guarantee exists for — a large amount arrives from `float()`
+   * with digits already gone and would be confirmed as though exact. So a
+   * CORRECTED response with an unreadable `quote_total` yields `null` here,
+   * which `quoteIsUnreadable` turns into the refusal panel rather than a
+   * confirmable number. A LEGACY or unversioned response is unaffected: the
+   * established tolerance is the whole reason this client can ship before the
+   * paired backend.
+   *
+   * `Number(...) || 0` is gone. It turned a missing, null or malformed
+   * authoritative amount into a displayed ZERO — a free-looking confirmation for
+   * an order nobody had priced — and `0` is also a legitimate total (a fully
+   * waived order), so the two were indistinguishable.
+   */
+  private get reviewedTotalMinor(): number | null {
+    const details = this.order_initiated?.order_details;
+    if (!details) return null;
+    const exact = toMinorUnits(details.quote_total);
+    if (exact !== null) return exact;
+    if (details.pricing_version === PRICING_VERSION_CORRECTED) return null;
+    return toMinorUnits(details.actual_cost);
+  }
+
+  /** The reviewed payable as a display string (`'2,697.30'`), or `null`.
+   *  Formatted from the integer, so the scale the server sent survives —
+   *  Angular's number pipe would render `899.10` as `899.1`. */
+  get reviewedTotalDisplay(): string | null {
+    return formatMinorUnits(this.reviewedTotalMinor);
+  }
+
+  /**
+   * IS THE SERVER'S QUOTE READABLE AT ALL? An EXPLICIT STATE, not an absence.
+   *
+   * A response that declares itself CORRECTED and then cannot produce a
+   * reference or a readable payable is an anomaly, and treating it as "an old
+   * server" — which the tolerance below deliberately does for a LEGACY response
+   * — would confirm an amount nobody can verify. `pricing_version` is the
+   * discriminator: the server publishes it, so the client never has to guess
+   * which case it is in.
+   *
+   * A legitimate `0.00` is readable and is NOT this state.
+   */
+  get quoteIsUnreadable(): boolean {
+    const details = this.order_initiated?.order_details;
+    if (!details) return true;
+    // `reviewedTotalMinor` already applies the version discrimination to the
+    // TOTAL: a CORRECTED response that cannot produce a readable `quote_total`
+    // is null here even when a legacy `actual_cost` sits beside it.
+    if (this.reviewedTotalMinor === null) return true;
+    if (details.pricing_version === PRICING_VERSION_CORRECTED) {
+      // A corrected draft must name its quote and price every line it renders.
+      if (!details.quote_ref) return true;
+      for (const line of this.quoteLines) {
+        if (toMinorUnits(line.line_total_with_extras) === null) return true;
+      }
+    }
+    return false;
+  }
+
+  /** One actionable sentence for the invalid-quote state. */
+  readonly quoteUnreadableMessage =
+    "We couldn't read the restaurant's price for this order. Your basket is "
+    + 'unchanged — please try again.';
+
+  /** A line's payable, exactly as the server saved it. `null` renders as a
+   *  refusal rather than a number the server never sent. */
+  lineTotalDisplay(line: OrderQuoteLine): string | null {
+    return formatAmount(line.line_total_with_extras);
   }
 
   /**
@@ -607,7 +688,8 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * way.
    */
   get quoteDiffersFromBasket(): boolean {
-    const server = this.order_initiated?.order_details?.actual_cost;
+    const server = this.order_initiated?.order_details?.quote_total
+      ?? this.order_initiated?.order_details?.actual_cost;
     if (toMinorUnits(server) === null) return true;
     return !sameAmount(server, this.totalAmount);
   }
@@ -632,6 +714,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * binding.
    */
   confirmQuote(): void {
+    if (this.quoteIsUnreadable) {
+      // GUARDED IN THE HANDLER AS WELL AS THE TEMPLATE. A disabled button is a
+      // display state; this is the one that decides whether an order is placed,
+      // and it must refuse independently of what the markup rendered.
+      this.showQuoteSheet = false;
+      this.failOrder(this.quoteUnreadableMessage);
+      return;
+    }
     if (this.quoteIsStale) {
       // The basket changed while the review was open. The old quote can no
       // longer be accepted; the basket is left exactly as it is.
@@ -803,15 +893,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     return (item.extras || []).some((ex: any) => this.isExtraDiscounted(ex));
   }
 
+  /** One line's payable subtotal, through the shared exact helper.
+   *  `null` (an unreadable component) shows 0 here rather than NaN — this is a
+   *  pre-quote estimate, and the SERVER's review is what gets confirmed. */
   getSubtotal(item: BasketItem): number {
-    const modifiersCost = (item.selectedModifiers || []).reduce(
-      (sum, mod) => sum + mod.choices.reduce((s, c) => s + c.additionalCost, 0),
-      0
-    );
-    const extrasCost = item.extras?.reduce((sum: number, ex: any) => sum + (ex.cost || 0), 0) || 0;
-    const effectiveBasePrice = Number(item.basePrice) || 0;
-
-    return (effectiveBasePrice + modifiersCost + extrasCost) * item.quantity;
+    return fromMinorUnits(lineSubtotalMinor(item as PricedLineParts)) ?? 0;
   }
 
   shouldShowSubtotal(item: BasketItem): boolean {
