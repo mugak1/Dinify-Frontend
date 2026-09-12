@@ -10,6 +10,8 @@ import { WINDOW } from '../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../_services/storage/storage-key-prefix.token';
 import { DinersMenuComponent } from './menu.component';
 import { ConnectivityService } from '../../_services/connectivity.service';
+import { BasketService } from '../../_services/basket.service';
+import { BasketItem } from '../../_models/app.models';
 
 describe('DinersMenuComponent', () => {
   let component: DinersMenuComponent;
@@ -170,6 +172,32 @@ describe('DinersMenuComponent', () => {
       expect(component.calculateDiscount(activeItem)).toBe(20);
       expect(component.priceSaved(activeItem)).toBe(2000);
       expect(component.getDisplayPrice(activeItem)).toBe(8000);
+    });
+  });
+
+  describe('the basket pill shows the same figure as the basket screen', () => {
+    // It used to read the PERSISTED `Basket().totalAmount`. Every total
+    // persisted before the exact helper landed is plain double arithmetic, so
+    // a returning diner could see the pill say one number and the basket
+    // screen — which derives its figure — say another for one basket.
+    it('derives the pill total rather than reading the stored one', () => {
+      const basketService = TestBed.inject(BasketService);
+      basketService.addItem({
+        itemId: 'i1', itemName: 'Burger', basePrice: 1000, totalPrice: 1000,
+        quantity: 1, isDiscounted: false, extras: [],
+        selectedModifiers: [{
+          groupId: 'g', groupName: 'g',
+          choices: [
+            { id: 'a', name: 'a', additionalCost: 1.005 },
+            { id: 'b', name: 'b', additionalCost: 1.005 },
+          ],
+        }],
+      } as unknown as BasketItem);
+      // Whatever the basket happens to have persisted, the pill states the
+      // half-even figure the server would price: 1000 + 1.00 + 1.00.
+      basketService.Basket().totalAmount = 1002.0099999999999;
+
+      expect(component.totalAmount).toBe(1002);
     });
   });
 });

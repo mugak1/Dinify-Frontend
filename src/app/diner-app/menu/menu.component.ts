@@ -82,8 +82,13 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   get basketItems(): BasketItem[] {
     return this.basketService.Basket()?.items ?? [];
   }
+  /** The basket pill's figure, through the SAME helper the basket screen reads.
+   *  Not the persisted `Basket().totalAmount`: a basket restored from storage
+   *  can still carry a pre-exact-helper double-arithmetic total, and the two
+   *  screens showing one basket two different numbers is worse than either. No
+   *  stored basket is migrated — this only changes what is displayed. */
   get totalAmount(): number {
-    return this.basketService.Basket()?.totalAmount ?? 0;
+    return this.basketService.totalState(this.basketItems).amount;
   }
 
   /** Sticky-top offset for the single menu banner (diner shell). Flush to the

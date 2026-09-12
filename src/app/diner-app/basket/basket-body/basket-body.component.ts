@@ -95,8 +95,48 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.basketService.Basket()?.items ?? [];
   }
 
+  /**
+   * THE DISPLAYED TOTAL AND ITS LABEL COME FROM ONE COMPUTATION.
+   *
+   * `totalAmount` used to read the PERSISTED `Basket().totalAmount` while
+   * `totalIsExact` recomputed from the items, so the two described different
+   * numbers for a basket restored from storage and not yet edited. Every
+   * persisted total written before the exact helper landed is plain
+   * `Σ totalPrice × quantity` double arithmetic, so a stored `1002.0099999…`
+   * whose items recompute to exactly `1002.00` was shown as `1,002.01` under
+   * the word "Total to pay" — an old estimate presented as authoritative,
+   * beside a label that was describing some other number. Both now read the
+   * same `totalState` call, so the label cannot disagree with the figure.
+   *
+   * NO STORED BASKET IS MIGRATED. The persisted value is simply not what the
+   * screen reads; the first mutation rewrites it through the same helper
+   * anyway. The estimate branch is the same arithmetic the legacy total used,
+   * so a legacy basket still shows the number it showed — only the claim made
+   * about it changes.
+   *
+   * Memoised on the basket's identity and revision for the same reason
+   * `review` is: four template reads should cost one pass, not four.
+   */
+  private totalCacheFor: { basket: unknown; revision: number } | null = null;
+  private totalCache: { amount: number; exact: boolean } | null = null;
+
+  private get total(): { amount: number; exact: boolean } {
+    const basket: unknown = this.basketService.Basket() ?? null;
+    const revision = this.basketService.revision();
+    if (
+      this.totalCache === null ||
+      this.totalCacheFor === null ||
+      this.totalCacheFor.basket !== basket ||
+      this.totalCacheFor.revision !== revision
+    ) {
+      this.totalCacheFor = { basket, revision };
+      this.totalCache = this.basketService.totalState(this.basketItems);
+    }
+    return this.totalCache;
+  }
+
   get totalAmount(): number {
-    return this.basketService.Basket()?.totalAmount ?? 0;
+    return this.total.amount;
   }
 
   /**
@@ -109,7 +149,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * is labelled an estimate rather than presented as the amount payable.
    */
   get totalIsExact(): boolean {
-    return this.basketService.totalState(this.basketItems).exact;
+    return this.total.exact;
   }
 
   /** Pre-discount subtotal for the honest summary: the current total plus the savings

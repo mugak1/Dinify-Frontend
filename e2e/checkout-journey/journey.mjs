@@ -521,9 +521,12 @@ const main = async () => {
         // every money assertion above still passes.
         && burgerTicketLine.extras[0].quantity === 2,
         `qty=${burgerTicketLine?.quantity} extraQty=${burgerTicketLine?.extras?.[0]?.quantity}`);
+  // `modifiers`, NOT `modifiers_snapshot`: the kitchen serializer renames the
+  // column on the wire (`serializers_kitchen.py::_line`), and reading the model
+  // field name here made the assertion inspect `undefined` and fail every run.
   check('the kitchen is told which modifier to prepare',
-        (burgerTicketLine?.modifiers_snapshot || []).some((m) => /Large/.test(String(m))),
-        JSON.stringify(burgerTicketLine?.modifiers_snapshot));
+        (burgerTicketLine?.modifiers || []).some((m) => /Large/.test(String(m))),
+        JSON.stringify(burgerTicketLine?.modifiers));
 
   check('the page raised no uncaught errors', pageErrors.length === 0,
         pageErrors.join(' | '));

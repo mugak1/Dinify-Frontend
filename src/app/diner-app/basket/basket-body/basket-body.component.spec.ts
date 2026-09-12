@@ -31,6 +31,7 @@ describe('BasketBodyComponent', () => {
     clearBasket: jasmine.Spy;
     revision: () => number;
     resetClientOrderId: jasmine.Spy;
+    totalState: (items: BasketItem[]) => { amount: number; exact: boolean };
     incrementItem: (index: number) => void;
     decrementItem: (index: number) => void;
   };
@@ -137,6 +138,12 @@ describe('BasketBodyComponent', () => {
       clearBasket: jasmine.createSpy('clearBasket'),
       revision: () => revision,
       resetClientOrderId: jasmine.createSpy('resetClientOrderId'),
+      // THE REAL IMPLEMENTATION, not a stub of it. What the component displays
+      // and what it claims about that number both come from here, so a hand
+      // -written substitute would be a second opinion about exactly the thing
+      // these specs exist to pin.
+      totalState: (items: BasketItem[]) =>
+        BasketService.prototype.totalState.call(basketService, items),
       incrementItem: (index: number) => {
         const line = basket.items[index];
         if (line) { line.quantity += 1; revision += 1; }
@@ -1029,5 +1036,76 @@ describe('BasketBodyComponent', () => {
 
     component.decrementItem(0);
     expect(basket.items[0].quantity).toBe(98);
+  });
+
+  // ── the displayed total and its label are ONE computation ────────────────
+  //
+  // `totalAmount` used to read the PERSISTED `Basket().totalAmount` while
+  // `totalIsExact` recomputed from the items, so for a basket restored from
+  // storage and not yet edited the label described a different number from the
+  // one on screen. Every total persisted before the exact helper landed is
+  // plain double arithmetic, so this is the ordinary case for a returning
+  // diner, not an exotic one.
+  describe('the basket total and its exactness label describe one number', () => {
+    /** Two sub-cent modifiers on a 1000 base. The server's rule quantizes each
+     *  component half-even and reaches exactly 1002.00; the double arithmetic
+     *  every pre-helper build persisted reaches 1002.0099999999999. */
+    function subCentLine(): BasketItem {
+      return lineItem({
+        basePrice: 1000,
+        totalPrice: 1000,
+        selectedModifiers: [{
+          groupId: 'g', groupName: 'g',
+          choices: [
+            { id: 'a', name: 'a', additionalCost: 1.005 },
+            { id: 'b', name: 'b', additionalCost: 1.005 },
+          ],
+        }],
+      } as Partial<BasketItem>);
+    }
+
+    it('shows the recomputed figure, never a stale persisted total', () => {
+      basket.items = [subCentLine()];
+      basket.totalAmount = 1002.0099999999999;   // what an older build wrote
+
+      expect(component.totalIsExact).toBeTrue();
+      expect(component.totalAmount).toBe(1002);
+    });
+
+    it('keeps the estimate label over the number it is actually showing', () => {
+      basket.items = [lineItem({
+        basePrice: 'not-a-price' as any, totalPrice: 5000, quantity: 2,
+      })];
+      basket.totalAmount = 99;   // the persisted value is not what is shown
+
+      expect(component.totalIsExact).toBeFalse();
+      // The estimate is the same arithmetic the legacy total used, so a legacy
+      // basket keeps behaving as it did — only the claim about it changes.
+      expect(component.totalAmount).toBe(10000);
+    });
+
+    it('leaves the stored total alone — nothing is migrated on read', () => {
+      basket.items = [subCentLine()];
+      basket.totalAmount = 1002.0099999999999;
+
+      expect(component.totalAmount).toBe(1002);
+      expect(basket.totalAmount).toBe(1002.0099999999999);
+    });
+
+    it('re-reads the total after a basket mutation', () => {
+      basket.items = [lineItem({ basePrice: 1000, totalPrice: 1000 })];
+      expect(component.totalAmount).toBe(1000);
+
+      component.incrementItem(0);
+
+      expect(component.totalAmount).toBe(2000);
+    });
+
+    it('states the subtotal against the figure on screen', () => {
+      basket.items = [subCentLine()];
+      basket.totalAmount = 1002.0099999999999;
+      // No discount on this line, so subtotal == total exactly.
+      expect(component.cartSubtotal).toBe(1002);
+    });
   });
 });

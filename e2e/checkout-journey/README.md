@@ -43,7 +43,7 @@ pricing or confirmation path**, run by hand.
 | the accepted order stores the agreed amount | read back over the diner channel, from the CANONICAL `quote_total` — not the legacy numeric field beside it |
 | the saved order still reconciles across its own lines | and declares `quote_complete` |
 | exactly ONE accepted order reaches the kitchen | read back as the authenticated fixture operator |
-| the kitchen is told to cook what was configured | quantity 2, the nested extra AT quantity 2, and the `Large` modifier snapshot |
+| the kitchen is told to cook what was configured | quantity 2, the nested extra AT quantity 2, and the `Large` modifier — read from the ticket's `modifiers` key, which is what `serializers_kitchen.py::_line` renames `modifiers_snapshot` to on the wire |
 | the page raised no uncaught errors | a screen that throws on every render fails the run |
 
 ### No `actual_cost` fallback here, deliberately

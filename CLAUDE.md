@@ -252,6 +252,20 @@ so keep it current when conventions change.
   whose established meaning is zero (`additionalCost`, an extra's `cost`) as zero
   rather than as malformed; `exact` goes false only for a component that genuinely
   cannot be represented.
+  **AND THE DISPLAYED FIGURE COMES FROM THE SAME CALL AS THE LABEL** (Codex P2 on
+  PR #662, valid). `totalAmount` read the PERSISTED `Basket().totalAmount` while
+  `totalIsExact` recomputed from the items, so for a basket restored from storage
+  and not yet edited the label described a DIFFERENT number from the one on screen —
+  and since every total persisted before the exact helper landed is plain double
+  arithmetic, that is the ordinary returning-diner case, not an exotic one: a stored
+  `1002.0099999999999` whose items recompute to exactly `1002.00` rendered as
+  `1,002.01` under the words "Total to pay". Both getters now read ONE memoised
+  `totalState` call (keyed on the basket's identity and revision, the same pattern
+  `review` uses), so the claim and the figure cannot disagree. **THE MENU'S BASKET
+  PILL WENT WITH IT** — it read the same persisted value, and fixing only the basket
+  screen would have made two screens show one basket two different numbers. **STILL
+  NO STORAGE MIGRATION**: the persisted value is simply not what either screen
+  reads, and the first mutation rewrites it through the same helper anyway.
   **The diner item-detail no longer applies the DEVICE CLOCK to an extra's discount**:
   `serverEffectiveExtraPrice` / `serverExtraDiscountIsLive` read the server-resolved
   `current_price` / `is_discount_active` the public serializer now publishes, and fall
@@ -274,8 +288,12 @@ so keep it current when conventions change.
   `15500.15 × 2` in doubles is `31000.299999999996`) and the sub-cent ROUND_HALF_EVEN
   tie (`1.005 → 1.00`). It asserts the modifier INSTRUCTIONS and the CHILD quantity,
   not only the parent's, on both the review and the kitchen ticket, and that the
-  quoted lines reconcile to the payable to the cent. **It deliberately does NOT read
-  through the `actual_cost` compatibility fallback** — that tolerance is the client's,
+  quoted lines reconcile to the payable to the cent. It reads the kitchen ticket's
+  modifier instructions from **`modifiers`**, the key `serializers_kitchen.py::_line`
+  renames `modifiers_snapshot` to on the wire — reading the model field name made
+  that assertion inspect `undefined` and fail every run (Codex P2 on PR #662, valid;
+  corrected by source inspection, not by a journey run). **It deliberately does NOT
+  read through the `actual_cost` compatibility fallback** — that tolerance is the client's,
   against an OLDER server, and reading through it here would let a current-backend
   wire regression pass silently on the lossy numeric field. Its README records what it
   found, what it deliberately does NOT cover, that it needs a backend carrying
