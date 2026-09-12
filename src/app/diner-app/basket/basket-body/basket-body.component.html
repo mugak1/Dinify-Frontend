@@ -7,6 +7,23 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
 }
 
 <div class="flex-1 overflow-y-auto pb-4">
+  <!-- D04/D: what a reload found.
+  ABOVE THE EMPTY-STATE GATE, DELIBERATELY. This lived in the checkout footer
+  first, which is inside `@if (basketItems.length > 0)` — and an ACCEPTED
+  recovery clears the basket, so the one outcome the diner most needs to hear
+  was the one that hid the message. The real-browser check
+  (`e2e/checkout-journey/recovery.mjs`) is what caught it: the tab reloaded,
+  the basket silently emptied, and the diner was told nothing. -->
+  @if (recoveryNotice) {
+    <div class="mt-4 px-4">
+      <p class="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2
+        text-sm text-gray-700 text-center"
+        data-testid="checkout-recovery" role="status">
+        {{ recoveryNotice }}
+      </p>
+    </div>
+  }
+
   <!-- Empty state -->
   @if (basketItems.length === 0) {
     <div class="text-center py-6 px-4">
@@ -370,6 +387,29 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
     <div class="w-full max-w-md bg-white rounded-xl shadow-xl p-5 max-h-[85vh] overflow-y-auto"
       (click)="$event.stopPropagation()">
       <h3 class="font-display text-lg font-bold text-gray-900">Review your order</h3>
+
+      <!-- AN UNCONFIRMABLE QUOTE IS AN ERROR-ONLY PANEL, and the whole body is
+      the branch rather than the footer. The refusal message used to sit BELOW
+      the line list, so a row the sheet could not draw threw while rendering and
+      the diner never reached the sentence explaining why — `track line.id` on a
+      null row, and `modifiers.join` on a value whose `?.length` merely happened
+      to be truthy, both fire before any guard further down the template. Lines,
+      the total and the confirm button are therefore not reachable at all here:
+      there is nothing safe to say about a quote that cannot be read, and every
+      figure on this panel would be one the diner might act on. The basket, the
+      idempotency key and the saved draft are untouched — only the review is
+      refused. -->
+      @if (quoteIsUnreadable) {
+        <p class="mt-3 text-sm text-red-600" role="alert" data-testid="quote-unreadable">
+          {{ quoteUnreadableMessage }}
+        </p>
+        <div class="mt-4">
+          <button type="button" (click)="cancelQuote()" [disabled]="placingOrder"
+            class="w-full inline-flex items-center justify-center rounded-xl border border-gray-300 py-3 px-4 font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+            Back to basket
+          </button>
+        </div>
+      } @else {
       @if (quoteHasLosses) {
         <p class="text-sm text-gray-500 mt-1">
           Some items are no longer available. Place your order without them, or go back.
@@ -451,11 +491,7 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
       </div>
 
       <div class="mt-4 space-y-2">
-        @if (quoteIsUnreadable) {
-          <p class="text-sm text-red-600" role="alert">
-            {{ quoteUnreadableMessage }}
-          </p>
-        } @else if (quoteHasNothingToPlace) {
+        @if (quoteHasNothingToPlace) {
           <p class="text-sm text-gray-600">
             None of these are available right now, so there is nothing to send to
             the kitchen.
@@ -471,6 +507,7 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
           Back to basket
         </button>
       </div>
+      }
     </div>
   </div>
 }

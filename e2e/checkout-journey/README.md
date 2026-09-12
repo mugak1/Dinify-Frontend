@@ -1,4 +1,4 @@
-# Checkout journey (D02/D03)
+# Checkout journey (D02/D03) and induced loss (D04)
 
 A **manual, repeatable real-browser** check of the one thing no unit suite can
 observe: that the diner is shown the **server's** amount before agreeing to it,
@@ -11,6 +11,13 @@ It is deliberately **NOT wired into CI**, and it prints that at the end of every
 run. It needs a disposable PostgreSQL, a running Django and a running dev server,
 and CI has none of those. It is a **pre-merge gate for changes to the checkout
 pricing or confirmation path**, run by hand.
+
+Two scripts share one fixture and one setup:
+
+| | |
+|---|---|
+| `journey.mjs` | the CLEAN path — 42 checks, below |
+| `recovery.mjs` | INDUCED LOSS — 22 checks, the D04 section near the bottom |
 
 ## What it asserts
 
@@ -45,6 +52,42 @@ pricing or confirmation path**, run by hand.
 | exactly ONE accepted order reaches the kitchen | read back as the authenticated fixture operator |
 | the kitchen is told to cook what was configured | quantity 2, the nested extra AT quantity 2, and the `Large` modifier — read from the ticket's `modifiers` key, which is what `serializers_kitchen.py::_line` renames `modifiers_snapshot` to on the wire |
 | the page raised no uncaught errors | a screen that throws on every render fails the run |
+
+### What the first real run of this revision found (D04 Stage A)
+
+**The strengthened revision above had never been executed.** PR #662 said so; it
+was then run for the first time at `f426eba` / backend `d5d886e` and scored
+**40/42**. The two failures were its own closing assertions:
+
+```
+FAIL  the accepted order stores the amount the diner agreed to  — saved=undefined
+FAIL  the accepted order still reconciles across its own lines  — quote_complete=undefined
+```
+
+**That was a DISAGREEMENT ABOUT AVAILABLE FIELDS, not a wrong amount**, and the
+distinction is worth keeping: `quote_total` / `quote_complete` were produced only
+by `serialize_order_details`, which assembles the **initiate** response, while
+this assertion reads `orders/journey/order-details/` — a different serializer
+that had never carried either key. Nothing showed the stored payable was wrong,
+and the saved amount was not changed to make the run green.
+
+Two things were fixed, and neither was the assertion's standard:
+
+1. **The read now publishes them** (D04/U1) — `quote`, `quote_total` and
+   `quote_complete`, through the same `format_money` and the same
+   `group_live_children` rule the initiate response uses, at no extra query.
+2. **The harness was reading the wrong level.** It looked for `body.quote`,
+   a key no response has ever carried, and `|| []` then summed that absence to
+   zero — reporting a missing field as a reconciliation failure. It reads
+   `body.data.quote` now and requires the array to be non-empty.
+
+The `Math.round(Number(v) * 100)` oracles went at the same time. That expression
+cannot be the oracle for an exactness claim — it is neither an exact decimal
+parser (`Number('1.005') * 100` is `100.49999999999999`) nor the backend's
+ROUND_HALF_EVEN rule — so `minor()` parses the canonical string with `BigInt` and
+**throws** on anything that is not `-?\d+\.\d{2}` rather than coercing it. It is
+deliberately test-local: an oracle that imported the production parser could not
+detect the production parser being wrong.
 
 ### No `actual_cost` fallback here, deliberately
 
@@ -114,12 +157,27 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **28/28 checks passed** against a disposable local PostgreSQL, a local
-Django on `test_settings`, and a development `ng serve`.
+Last run: **42/42 (`journey.mjs`) and 22/22 (`recovery.mjs`)** against a
+disposable local PostgreSQL 16.13, a local Django on `test_settings`
+(Python 3.11.15), and a **development** `ng serve` on Node 24.21.0 with
+Chromium 141.
+
+Two things about that line are deliberate. It records the **development** server,
+because that is what was exercised — a successful `build:prod` is not a browser
+run, and the two are reported separately. And the previous revision of this file
+claimed 28/28 for a harness that had since grown to 42 checks; a count here means
+nothing unless the run that produced it is the run the file describes.
 
 **Re-running needs a fresh database or a freed table.** The run leaves a real
 accepted order occupying table 1, and the next run's `initiate` is refused with
-the ongoing-order block — which is correct behaviour, not a flake.
+the ongoing-order block — which is correct behaviour, not a flake. **The seed is
+IDEMPOTENT and reuses an existing restaurant**, so re-seeding does NOT free the
+table; drop and recreate the database. That is not a hypothetical — it cost a
+confusing half-hour during D04, where the symptom was a disabled Checkout button
+and two unrelated-looking failures (`Add — UGX 35,000.3`, and a reprice returning
+400) that were really one earlier run's leftovers. `recovery.mjs` frees the table
+BETWEEN its own scenarios through the real kitchen API, but it still needs a clean
+database to start from.
 
 ## Two things it found that the unit suites did not — and one it was not doing
 
@@ -140,3 +198,58 @@ accepts a quote and nothing at all about the button the diner uses, the payload
 it builds, the navigation it triggers, or the basket clearing that must follow
 only a definitive success. A journey that never presses the button is a server
 test wearing a browser.
+
+---
+
+# `recovery.mjs` — INDUCED LOSS (D04)
+
+The sibling script, and it tests what `journey.mjs` deliberately cannot: what
+happens when the checkout does **not** go cleanly. Three scenarios, each of
+which reproduced a real defect before D04.
+
+**The seam is `route.fetch()` then `route.abort()`**, and the distinction is the
+whole point: the backend really processes the request, and only the browser's
+view of the reply is destroyed. Aborting *before* the fetch would test nothing,
+because the server would never have seen it.
+
+| scenario | what it proves |
+|---|---|
+| **1. the diner reloads mid-checkout** | the SAME idempotency key is sent afterwards, the server answers with the SAME draft, and exactly ONE order reaches the kitchen. The key used to live in an in-memory field on `BasketService`, so the reload dropped it and the next attempt minted a new one — the server's whole guarantee bypassed by the single most likely thing a person does when a checkout looks stuck. It **edits the basket on the page before checking out**, which is what makes the scenario able to fail at all — see *What this script found* |
+| **2. the acceptance commits and the reply is lost** | the retry produces NO second accepted order, and the diner is **not** told `This order cannot be submitted.` — a failure reported for an operation that succeeded, with the kitchen already cooking it |
+| **3. the tab is reloaded after a lost acceptance** | the key is in durable storage at the moment the connection dies; the reloaded page resolves it, **tells the diner the order was already placed**, clears the finished basket and forgets the attempt. The direct reads beside it pin the server half: an unknown key and a malformed one are the same non-disclosing 404, and the recovery read still requires a diner session |
+
+### What this script found
+
+**Scenario 1 could not fail, and that was the more serious finding.** It reached
+the basket with `page.goto` and clicked Checkout immediately, so the key was
+minted at `BasketService.revision() === 0` both before the reload and after it —
+and a key scoped to the REVISION rather than to the basket's CONTENTS therefore
+produced two identical keys and a green run against the exact defect the
+scenario exists to catch (Codex P1 on PR #663). It now clicks the quantity
+stepper once before checking out, which is what a diner does anyway and is the
+only version of the scenario that discriminates: the counter is 1 before the
+reload and 0 after it, while the contents come back identical. With the
+revision-scoped key restored in the served app the run is **20/22**, and the two
+failures show the real consequence — two DIFFERENT drafts for one checkout.
+
+**An accepted recovery cleared the basket, which hid the notice.** The message
+first lived in the checkout footer, which is inside `@if (basketItems.length >
+0)` — so the one outcome a diner most needs to hear was the one that hid it: the
+tab reloaded, the basket silently emptied, and they were told nothing. No unit
+spec could see it, because the existing component spec never calls
+`detectChanges()` and so never runs `ngOnInit`. It is now pinned by
+`basket-body.recovery.spec.ts` (*"SHOWS the accepted notice even though the
+basket is now empty"*) as well as by scenario 3 here.
+
+### What it deliberately does NOT cover
+
+- **A lost response on `initiate` rather than `submit`.** The recovery is the
+  same shape (the same key retries), and scenario 1 already exercises it through
+  the more demanding route — a reload, which destroys strictly more than a lost
+  reply does.
+- **Two tabs racing.** The coordinator's single flight is per-tab by design
+  (`sessionStorage`), and the cross-tab case is the SERVER's guarantee, proved
+  against real connections in
+  `orders_app/tests_order_intent_concurrency.py`.
+- **Anything about payment.** As with the journey: there is no payment execution
+  in either repository.

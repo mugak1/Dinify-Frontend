@@ -415,6 +415,67 @@ describe('ErrorInterceptor', () => {
     });
   });
 
+  describe('checkout recovery reads (D04/D)', () => {
+    // The recovery read resolves a persisted INTENT KEY. Its 404 is the ONLY
+    // reply meaning "no such order on this table", and that is what lets the
+    // coordinator drop a dead key rather than retain it forever. Collapsed to
+    // a string it became indistinguishable from a timeout, so a definitive
+    // absence was classified "the server could not be asked" — the one
+    // distinction the mechanism turns on. (Codex P2 on PR #663.)
+    const RECOVERY_URL =
+      '/api/v1/orders/journey/order-details/?intent=abc-123';
+    const ORDINARY_URL = '/api/v1/orders/journey/order-details/?order=o1';
+
+    it('forwards the 404 with its status intact', () => {
+      let caught: any = null;
+      httpClient.get(RECOVERY_URL).subscribe({ error: (e) => (caught = e) });
+      httpMock.expectOne(RECOVERY_URL).flush(
+        { status: 404, message: 'Order not found' },
+        { status: 404, statusText: 'Not Found' },
+      );
+      expect(caught?.status).toBe(404);
+    });
+
+    it('does not toast it — nobody asked for that read', () => {
+      // It runs by itself on a basket page load, so a toast reports a
+      // background enquiry as a failure the diner did nothing to cause, and
+      // repeats on every load while the attempt is unresolved.
+      httpClient.get(RECOVERY_URL).subscribe({ error: () => {} });
+      httpMock.expectOne(RECOVERY_URL).flush(
+        { status: 404, message: 'Order not found' },
+        { status: 404, statusText: 'Not Found' },
+      );
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it('forwards a non-404 failure structurally too, so it reads as unknown', () => {
+      // An older backend that does not know `intent` answers 400 "Please
+      // provide the order id". That is NOT absence, and must not be
+      // classified as one.
+      let caught: any = null;
+      httpClient.get(RECOVERY_URL).subscribe({ error: (e) => (caught = e) });
+      httpMock.expectOne(RECOVERY_URL).flush(
+        { status: 400, message: 'Please provide the order id' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+      expect(caught?.status).toBe(400);
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it('leaves the ordinary order-id read exactly as it was', () => {
+      // The carve-out is scoped to the `intent=` form; every other read keeps
+      // its string + toast behaviour.
+      let caught: any = null;
+      httpClient.get(ORDINARY_URL).subscribe({ error: (e) => (caught = e) });
+      httpMock.expectOne(ORDINARY_URL).flush(
+        { status: 404, message: 'Order not found' },
+        { status: 404, statusText: 'Not Found' },
+      );
+      expect(caught).toBe('Order not found');
+      expect(toast.error).toHaveBeenCalledWith('Order not found');
+    });
+  });
+
   describe('toast behaviour', () => {
     it('does not clear existing toasts on a new request', (done) => {
       httpClient.get('/api/test').subscribe({

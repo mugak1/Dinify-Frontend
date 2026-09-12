@@ -6,6 +6,9 @@ import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
 import { BasketItem, OrderInitiated, OrderQuoteLine, Restaurant, TableScan } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
+import {
+  CheckoutCoordinatorService, FlightToken, RecoveryOutcome,
+} from 'src/app/_services/checkout-coordinator.service';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -76,8 +79,27 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Inline placement-error state, shown with a Retry at the checkout footer. */
   orderError = false;
   orderErrorMessage = '';
-  /** True while a placement round-trip is in flight — disables the CTA. */
-  placingOrder = false;
+  /**
+   * True while a placement round-trip is in flight — disables the CTA.
+   *
+   * SHARED, NOT LOCAL (D04/D). This component is mounted TWICE on desktop —
+   * the routed basket page and the sidebar that lives beside the router
+   * outlet — and this used to be a field on each instance, so one could start
+   * a checkout while the other still showed a live button. It now reads the
+   * coordinator's single flight, so the two cannot disagree about whether a
+   * checkout is running.
+   */
+  get placingOrder(): boolean {
+    return this.checkout.inFlight();
+  }
+
+  /** This instance's claim on that flight, if it holds it. */
+  private flight: FlightToken | null = null;
+
+  /** What a reload found, when it found anything. Rendered as a one-line
+   *  notice; never as a silent redirect, because a diner who does not know
+   *  what happened is the problem being solved. */
+  recovered: RecoveryOutcome | null = null;
 
   restaurant: any;
   url = environment.apiUrl;
@@ -177,7 +199,8 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private toast: ToastService,
     private connectivity: ConnectivityService,
-    private navState: MenuNavStateService
+    private navState: MenuNavStateService,
+    private checkout: CheckoutCoordinatorService
   ) {
     this.table = this.sessionStorage.getItem<TableScan>('Table');
     this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
@@ -192,6 +215,58 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       if (typeof key !== 'string' || !key.includes('upsellConfig')) return;
       this.loadUpsellFromStorage();
     });
+    this.resumeInterruptedCheckout();
+  }
+
+  /**
+   * WHAT HAPPENED TO THE CHECKOUT THIS TAB WAS IN THE MIDDLE OF? (D04/D)
+   *
+   * A reload during a submission used to end at nothing: the key was in
+   * memory, so it went with the page, and the diner's only option was to
+   * place the order again and hope. The persisted attempt is resolved against
+   * the server's own read, which is scoped to the table session — so this can
+   * only ever surface an order on the table the diner is sitting at.
+   *
+   * IT ONLY RUNS ON THE ROUTED PAGE. The desktop sidebar is mounted on every
+   * diner screen, so recovering there too would issue the same read twice per
+   * load and let two instances narrate one outcome.
+   *
+   * NOTHING IS DECIDED SILENTLY. An accepted order is announced and the
+   * finished basket cleared; a draft is left exactly as it is, for the diner
+   * to review again; `absent` means the attempt never reached the server and
+   * the key is dropped so the next checkout starts clean. `unknown` — an
+   * unreachable server — changes NOTHING and keeps the key, because a server
+   * that could not be asked is not evidence that nothing happened, and
+   * treating it as such is how a recovery mechanism creates the duplicate it
+   * exists to prevent.
+   */
+  private resumeInterruptedCheckout(): void {
+    if (this.sidebar) return;
+    if (!this.checkout.attempt()) return;
+    this.checkout.recover().subscribe((outcome) => {
+      this.recovered = outcome;
+      if (outcome.kind === 'accepted') {
+        this.checkout.clearIntent();
+        this.basketService.clearBasket();
+        return;
+      }
+      if (outcome.kind === 'absent') {
+        this.checkout.clearIntent();
+      }
+    });
+  }
+
+  /** The one line a recovering diner reads. Deliberately not a redirect: a
+   *  diner who does not know what happened is the problem being solved. */
+  get recoveryNotice(): string | null {
+    switch (this.recovered?.kind) {
+      case 'accepted':
+        return 'Your order was already placed — it is with the kitchen.';
+      case 'draft':
+        return 'We found your unfinished order. Please review it again.';
+      default:
+        return null;
+    }
   }
 
   ngAfterViewInit(): void {
@@ -391,9 +466,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   // current basket to orders/initiate/ and, when everything is still available,
   // commits straight away; otherwise it hands off to the unavailable-items sheet.
   private placeOrder() {
+    // SINGLE FLIGHT (D04/D). The desktop sidebar and the routed basket page
+    // are two instances of this component; before the coordinator each had
+    // its own `placingOrder`, so both could start a checkout at once. The
+    // server refuses the second — same key and purchase returns the first
+    // order, a different purchase is a conflict — so this is not the last
+    // line of defence, but a client that cannot tell it is already checking
+    // out shows two live buttons and can present no coherent outcome.
+    if (!this.holdCheckout()) return;
     this.orderError = false;
     this.legacyDraft = false;
-    this.placingOrder = true;
+    this.recovered = null;
     // Stamp this attempt with the basket revision AND the checkout context it
     // was priced for. A response that no longer matches both is discarded.
     this.attemptSeq += 1;
@@ -404,9 +487,22 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     };
     this.activeAttempt = attempt;
     const orderPayload = {
-      // Idempotency key — reused across retries of an unchanged basket so a
-      // retried submit returns the existing order instead of duplicating it.
-      client_order_id: this.basketService.getOrCreateClientOrderId(),
+      // THE IDEMPOTENCY KEY, PERSISTED BEFORE THIS REQUEST IS SENT (D04/D).
+      // Reused across retries of an unchanged basket at an unchanged table,
+      // so a retried attempt returns the existing order instead of
+      // duplicating it — and it now survives a reload, which is the single
+      // most likely thing a diner does when a checkout appears stuck. The
+      // coordinator mints a fresh one when the revision or the context
+      // differs, so a changed basket is a new purchase by derivation rather
+      // than by somebody remembering to reset it.
+      // BOUND TO THE BASKET'S CONTENTS, not to `attempt.revision`. That
+      // counter is a field on `BasketService` and restarts at 0 on every
+      // page load while the basket itself is restored from storage — so a
+      // reload made the persisted attempt look like a different basket and
+      // minted a fresh key, defeating the persistence in exactly the case it
+      // was added for.
+      client_order_id: this.checkout.intentKey(
+        this.basketService.contentIdentity(), attempt.context),
       // No raw restaurant/table UUIDs: the backend derives both from the diner
       // table session (X-Diner-Session), so a foreign body id can't override the
       // scope of the order. The session is the sole authority.
@@ -424,7 +520,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       })),
     };
     // API call to initiate the order
-    this.api.postPatch('orders/initiate/', orderPayload, 'post',null,{},false,'v2').subscribe(
+    // BOUNDED (D04/D). Without a ceiling, a connection that is open but dead
+    // leaves the CTA spinning for as long as the browser keeps the socket —
+    // indefinitely on a mobile network that has quietly gone away — and the
+    // diner's only escape used to be the reload that lost the key. A timeout
+    // is handled as any other lost response: the SAME key retries.
+    this.checkout.bounded(
+      this.api.postPatch(
+        'orders/initiate/', orderPayload, 'post', null, {}, false, 'v2'),
+    ).subscribe(
       (response: any) => {
         if (!this.isCurrent(attempt)) {
           // A LATE RESPONSE for a basket or a table the diner has moved on
@@ -457,14 +561,20 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             revision: attempt.revision,
             context: attempt.context,
           };
+          // What a reload should ask about. The order id is what the server
+          // priced; the reference is what a resumed review would accept.
+          this.checkout.notePhase('reviewing', {
+            orderId: od?.id != null ? String(od.id) : null,
+            quoteRef: quoteReference,
+          });
           // ALWAYS review — whether or not anything dropped. The diner sees the
           // server's lines and the server's total, and nothing is accepted
           // until they say so.
           this.showQuoteSheet = true;
-          this.placingOrder = false;
+          this.releaseCheckout();
         } else {
           this.toast.success(response.message);
-          this.placingOrder = false;
+          this.releaseCheckout();
         }
       },
       (error) => {
@@ -484,7 +594,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (error?.status === 400 && typeof error?.data?.order_id === 'string') {
           this.navState.setTableOngoingOrder(true);
           this.toast.clear();
-          this.placingOrder = false;
+          this.releaseCheckout();
           return;
         }
 
@@ -496,7 +606,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.dinerSession.isCredentialDenied(error)) {
           this.dinerSession.invalidateCredential();
           this.toast.clear();
-          this.placingOrder = false;
+          this.releaseCheckout();
           return;
         }
         if (this.dinerSession.isSessionExpired(error)) {
@@ -559,7 +669,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.toast.clear();
     this.orderError = true;
     this.orderErrorMessage = message;
-    this.placingOrder = false;
+    this.releaseCheckout();
   }
   /** The same line priced WITHOUT its discounts, or `null` when it carries
    *  none. Through the shared exact helper, like every other figure here. */
@@ -610,8 +720,25 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * flight owns the loading state, and re-enabling the button underneath it
    * would invite a second checkout for a basket already being priced.
    */
+  /** Take the app-wide checkout flight, or report that another surface has
+   *  it. Idempotent for THIS instance: a surface that already holds it
+   *  (pricing then submitting) keeps the same claim rather than deadlocking
+   *  against itself. */
+  private holdCheckout(): boolean {
+    this.flight ??= this.checkout.claimFlight();
+    return this.flight !== null;
+  }
+
+  /** Give it back. Safe to call when this instance does not hold it — the
+   *  coordinator ignores a token that is no longer current, so a late release
+   *  from a superseded attempt cannot free a live one. */
+  private releaseCheckout(): void {
+    this.checkout.releaseFlight(this.flight);
+    this.flight = null;
+  }
+
   private releaseIfLatest(attempt: { seq: number }): void {
-    if (attempt.seq === this.attemptSeq) this.placingOrder = false;
+    if (attempt.seq === this.attemptSeq) this.releaseCheckout();
   }
 
   /** Is this attempt still the one the diner is waiting on? */
@@ -782,7 +909,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.failOrder('Your basket changed. Please review your order again.');
       return;
     }
-    this.placingOrder = true;
+    // The pricing round trip released the flight when the sheet opened, so
+    // the submission claims it again. A second surface that grabbed it in
+    // between owns the checkout, and this confirmation waits rather than
+    // racing it.
+    if (!this.holdCheckout()) return;
     this.submitOrder();
   }
 
@@ -794,7 +925,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   cancelQuote(): void {
     if (this.placingOrder) return;
     this.showQuoteSheet = false;
-    this.placingOrder = false;
+    this.releaseCheckout();
   }
 
   /**
@@ -812,7 +943,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.orderError = false;
     this.order_initiated = undefined;
     this.reviewedQuote = null;
-    this.basketService.resetClientOrderId();
+    this.checkout.clearIntent();
     this.placeOrder();
   }
 
@@ -834,8 +965,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // refuses a submission that arrives without it.
     const quoteReference = this.reviewedQuote?.ref ?? null;
     if (quoteReference) payload.quote_ref = quoteReference;
+    // From here the outcome is genuinely uncertain until the response lands:
+    // the acceptance may commit and the response be lost. A reload during
+    // this window is what `recover()` exists for.
+    this.checkout.notePhase('submitting');
 
-    this.api.postPatch('orders/submit/', payload, 'put').subscribe(
+    this.checkout.bounded(
+      this.api.postPatch('orders/submit/', payload, 'put'),
+    ).subscribe(
       (_response: any) => {
         this.showQuoteSheet = false;
         this.dialog.closeModal();
@@ -858,6 +995,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.reviewedQuote = null;
         this.activeAttempt = null;
+        // DEFINITIVE OUTCOME, so the attempt is forgotten — and forgotten
+        // TARGETEDLY: `clearIntent` removes one key and never clears storage,
+        // because the diner session capability lives in the same store and a
+        // blanket wipe here would sign the diner out of their own table to
+        // tidy up a finished checkout. This is the ONLY place besides an
+        // explicit re-review that drops it; never a timeout, a lost response
+        // or an ambiguous failure.
+        this.checkout.clearIntent();
         this.basketService.clearBasket(); // Clear the basket
         // Reset the diner's order/menu context, but KEEP the table-session
         // capability alive across the wipe — the order-complete review submission
@@ -869,7 +1014,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // button disabled after the table later frees — until a manual refresh.
         // (The navigation `state` above was built synchronously, so clearing
         // `order_initiated` here is safe.)
-        this.placingOrder = false;
+        this.releaseCheckout();
         this.order_initiated = undefined;
       },
       (error) => {
@@ -883,7 +1028,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.dinerSession.isCredentialDenied(error)) {
           this.dinerSession.invalidateCredential();
           this.toast.clear();
-          this.placingOrder = false;
+          this.releaseCheckout();
           return;
         }
         if (this.dinerSession.isSessionExpired(error)) {
@@ -895,7 +1040,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.refusalReason(error) === 'legacy_pricing_version') {
           this.legacyDraft = true;
           this.toast.clear();
-          this.placingOrder = false;
+          this.releaseCheckout();
           return;
         }
         // The saved quote moved under us. Re-price and review again; the basket

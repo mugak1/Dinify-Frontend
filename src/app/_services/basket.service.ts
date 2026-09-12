@@ -47,16 +47,19 @@ export class BasketService {
   readonly Basket!: WritableSignal<ShoppingBasket>;
 
   /**
-   * Idempotency key for the in-progress checkout. Lazily minted, reused across
-   * retries of the same basket, and reset whenever the basket changes (every
-   * mutator below) or is cleared — so a changed cart starts a fresh order while
-   * a retried submit of an unchanged cart is deduped by the backend.
+   * THE IDEMPOTENCY KEY LIVES IN `CheckoutCoordinatorService` (D04/D), not
+   * here, and the move is the fix rather than tidying.
    *
-   * It is NEVER re-minted because a response was lost, a quote comparison
-   * failed, or a request timed out: a new key would turn one attempt into two
-   * orders, which is precisely the failure the key exists to prevent.
+   * It used to be a private in-memory field on this service, so a page reload
+   * dropped it and the next attempt minted a NEW one — the server's entire
+   * idempotency guarantee bypassed by the single most likely thing a diner
+   * does when a checkout appears stuck. The coordinator persists it BEFORE the
+   * request is sent.
+   *
+   * What stays here is the REVISION below, which is what tells the coordinator
+   * a basket change has made this a different purchase. That is a derived
+   * rule rather than a push: nothing has to remember to reset a key.
    */
-  private clientOrderId: string | null = null;
 
   /**
    * Monotonic revision of the basket's CONTENTS. Every mutator bumps it, so a
@@ -85,14 +88,50 @@ export class BasketService {
     );
   }
 
-  /** The current basket revision. Bumped by every content change. */
+  /** The current basket revision. Bumped by every content change.
+   *
+   *  IN-SESSION ONLY, and deliberately so: it is a counter on this service
+   *  instance, so a page reload restarts it at 0 while the basket CONTENTS
+   *  are restored from storage. That is correct for what it is used for —
+   *  recognising a response that describes a basket the diner has since
+   *  edited, and a quote that went stale while its review sheet was open,
+   *  neither of which can outlive the page. It is NOT usable for deciding
+   *  whether a persisted checkout attempt still describes this basket; use
+   *  `contentIdentity()` for that.
+   */
   public revision(): number {
     return this.revisionCounter;
   }
 
+  /**
+   * WHAT THIS BASKET IS, derived from its contents rather than counted.
+   *
+   * The client-side analogue of the server's request fingerprint, and it
+   * exists for the same reason: a checkout attempt persisted before a reload
+   * has to be recognisable as describing the SAME purchase afterwards. The
+   * coordinator used `revision()` for that, which is a field on this service
+   * and restarts at 0 on every page load — so a diner who added an item,
+   * checked out and then reloaded had their attempt judged "a different
+   * basket" and a FRESH idempotency key minted. If the lost response had in
+   * fact succeeded, the retry could then place a second order: precisely the
+   * failure the key exists to prevent, reached through the reload the key
+   * was persisted to survive. (Codex P1 on PR #663, valid.)
+   *
+   * Built from `lineIdentity` — the same canonical, order-independent rule
+   * the server's own line identity uses — plus each line's quantity, with
+   * the lines sorted so the order they were added in cannot decide it.
+   * Labels and prices are excluded: they are display values, and a menu edit
+   * between two attempts must not make them different purchases.
+   */
+  public contentIdentity(): string {
+    const lines = (this.Basket()?.items ?? [])
+      .map((item) => `${lineIdentity(item)}x${item.quantity}`)
+      .sort();
+    return JSON.stringify(lines);
+  }
+
   private changed(): void {
     this.revisionCounter += 1;
-    this.resetClientOrderId();
   }
 
   // Calculates the total amount of the basket
@@ -267,19 +306,4 @@ export class BasketService {
     }));
   }
 
-  /** Mint-once / reuse the current checkout idempotency key. */
-  public getOrCreateClientOrderId(): string {
-    return (this.clientOrderId ??= crypto.randomUUID());
-  }
-
-  /**
-   * Drop the idempotency key (basket changed or order completed).
-   *
-   * Deliberately NOT called on a lost response, a timeout or a failed quote
-   * comparison: the whole point of the key is that an attempt whose outcome is
-   * unknown retries as the SAME attempt.
-   */
-  public resetClientOrderId(): void {
-    this.clientOrderId = null;
-  }
 }

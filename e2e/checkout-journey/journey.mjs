@@ -82,6 +82,31 @@ const LINE_MONEY_KEYS = [
 ];
 const EXTRA_MONEY_KEYS = ['unit_price', 'discounted_price', 'actual_cost'];
 
+/**
+ * EXACT MINOR UNITS FROM A CANONICAL DECIMAL STRING — the oracle, and it is
+ * deliberately test-local.
+ *
+ * It replaced `Math.round(Number(v) * 100)`, which cannot be the oracle for an
+ * exactness claim: it is neither an exact decimal parser
+ * (`Number('1.005') * 100` is `100.49999999999999`) nor the backend's
+ * ROUND_HALF_EVEN rule, so it agrees with a correct server for ordinary
+ * amounts and quietly disagrees on exactly the values these goldens exist to
+ * pin. `BigInt` means no float is constructed at any point.
+ *
+ * It also REFUSES a non-canonical amount rather than coercing one. A value
+ * that is not `-?\d+\.\d{2}` has already broken the wire contract, and an
+ * oracle that silently parsed it would hide the break it is here to catch.
+ *
+ * It does NOT import the production parser. A test that checked the product
+ * against itself could not detect the product being wrong.
+ */
+const minor = (value) => {
+  const match = /^(-?)(\d+)\.(\d{2})$/.exec(String(value));
+  if (!match) throw new Error(`not a canonical amount: ${JSON.stringify(value)}`);
+  const magnitude = BigInt(match[2]) * 100n + BigInt(match[3]);
+  return match[1] === '-' ? -magnitude : magnitude;
+};
+
 const results = [];
 const pageErrors = [];
 const check = (name, ok, detail = '') => {
@@ -347,7 +372,7 @@ const main = async () => {
   const basketFigure = ADD_BUTTON_TOTAL + 11;   // 31 000 + 11.00, the browser's
   check('the review shows the CURRENT server price, not the browser\'s',
         od?.quote_total === ORDER_TOTAL
-        && Math.round(Number(ORDER_TOTAL) * 100) !== basketFigure * 100,
+        && minor(ORDER_TOTAL) !== BigInt(basketFigure) * 100n,
         `server=${od?.quote_total} browser-basket=${basketFigure}`);
 
   const burgerRow = panel.locator(`[data-testid="quote-line"][data-line-item="${F.burger}"]`);
@@ -384,7 +409,7 @@ const main = async () => {
         `parent=${burgerLine?.quantity} extra=${burgerLine?.extras?.[0]?.quantity}`);
   // Composed in integer CENTS, not in doubles: the whole point of the
   // fractional golden is that `31000.30 + 4000.00` is where a float loses it.
-  const cents = (v) => Math.round(Number(v) * 100);
+  const cents = minor;
   check('the parent-plus-extras aggregate composes from its own parts, exactly',
         cents(burgerLine?.line_actual_cost) + cents(burgerLine?.extras?.[0]?.actual_cost)
           === cents(REVIEW_BURGER_LINE),
@@ -405,10 +430,10 @@ const main = async () => {
   // THE LINES ADD UP TO THE PAYABLE, exactly, counting each child once —
   // the reconciliation the client now enforces, proved against a real server.
   const summed = quoteLines.reduce(
-    (cents, l) => cents + Math.round(Number(l.line_total_with_extras) * 100), 0);
+    (total, l) => total + minor(l.line_total_with_extras), 0n);
   check('the quoted lines reconcile to the payable, to the cent',
-        summed === Math.round(Number(ORDER_TOTAL) * 100),
-        `lines=${summed} payable=${Math.round(Number(ORDER_TOTAL) * 100)}`);
+        summed === minor(ORDER_TOTAL),
+        `lines=${summed} payable=${minor(ORDER_TOTAL)}`);
   check('the server declares its quote complete',
         od?.quote_complete === true, `quote_complete=${od?.quote_complete}`);
 
@@ -495,12 +520,19 @@ const main = async () => {
   check('the accepted order stores the amount the diner agreed to',
         saved.body?.data?.quote_total === ORDER_TOTAL,
         `saved=${saved.body?.data?.quote_total} agreed=${ORDER_TOTAL}`);
+  // THE LINES COME FROM `data.quote`, which is where this read publishes them
+  // (D04/U1). This assertion used to look at `body.quote` — a key no response
+  // has ever carried — and then `|| []` summed the absence to zero, so it was
+  // reporting a missing field as a reconciliation failure. Reading the real
+  // lines is what makes it an assertion about money again.
+  const savedLines = saved.body?.data?.quote;
   check('the accepted order still reconciles across its own lines',
         saved.body?.data?.quote_complete === true
-        && (saved.body?.quote || []).reduce(
-             (c, l) => c + Math.round(Number(l.line_total_with_extras) * 100), 0)
-           === Math.round(Number(ORDER_TOTAL) * 100),
-        `quote_complete=${saved.body?.data?.quote_complete}`);
+        && Array.isArray(savedLines) && savedLines.length > 0
+        && savedLines.reduce((c, l) => c + minor(l.line_total_with_extras), 0n)
+           === minor(ORDER_TOTAL),
+        `quote_complete=${saved.body?.data?.quote_complete} `
+        + `lines=${Array.isArray(savedLines) ? savedLines.length : 'absent'}`);
   check('the accepted order is no longer a draft',
         saved.body?.data?.order_status === 'pending',
         `order_status=${saved.body?.data?.order_status}`);

@@ -164,29 +164,17 @@ describe('BasketService (line identity, D03 client half)', () => {
     });
   });
 
-  describe('the idempotency key and the revision', () => {
-    it('reuses one key while the basket is unchanged', () => {
-      service.addItem(item());
-      const key = service.getOrCreateClientOrderId();
-      expect(service.getOrCreateClientOrderId()).toBe(key);
-    });
-
-    // A new key would turn one attempt into two orders, which is precisely what
-    // the key exists to prevent. A lost response is not a basket change.
-    it('keeps the key across repeated reads — it is never re-minted on failure', () => {
-      service.addItem(item());
-      const key = service.getOrCreateClientOrderId();
-      expect(service.getOrCreateClientOrderId()).toBe(key);
-      expect(service.getOrCreateClientOrderId()).toBe(key);
-    });
-
-    it('starts a fresh key once the basket really changes', () => {
-      service.addItem(item());
-      const key = service.getOrCreateClientOrderId();
-      service.addItem(item({ itemId: 'i2' }));
-      expect(service.getOrCreateClientOrderId()).not.toBe(key);
-    });
-
+  // THE IDEMPOTENCY KEY MOVED OUT OF THIS SERVICE (D04/D). It was a private
+  // in-memory field here, so a page reload dropped it and the next attempt
+  // minted a new one — the server's whole idempotency guarantee bypassed by
+  // the single most likely thing a diner does when a checkout appears stuck.
+  // `CheckoutCoordinatorService` persists it before the request is sent, and
+  // `checkout-coordinator.service.spec.ts` carries the tests that were here.
+  //
+  // The REVISION stayed, and it is what tells the coordinator a basket change
+  // has made this a different purchase — a derived rule rather than a push,
+  // so nothing has to remember to reset a key.
+  describe('the revision', () => {
     it('bumps the revision on every content change', () => {
       const start = service.revision();
       service.addItem(item());
