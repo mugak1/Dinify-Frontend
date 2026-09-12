@@ -157,25 +157,27 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`) and 22/22 (`recovery.mjs`)** against a
+Last run: **42/42 (`journey.mjs`, 7s) and 28/28 (`recovery.mjs`, 66s)** against a
 disposable local PostgreSQL 16.13, a local Django on `test_settings`
-(Python 3.11.15), and a **development** `ng serve` on Node 24.21.0 with
-Chromium 141.
+(Python 3.11.15) at backend `fd190ddc`, and a **development** `ng serve` on
+Node 24.21.0 with Chromium 141 (`/opt/pw-browsers/chromium-1194`), driving the
+D04 acceptance-gates revision of the frontend.
 
-**`recovery.mjs` HAS SINCE GROWN TO 28 CHECKS AND HAS NOT BEEN RE-RUN.** The six
-new ones assert the D04 correlated projection (`data.checkout`) — the intent
-key, order and scope the answer names, the three-state acceptance verdict, the
-original accepted reference, the separately-labelled current state, and the
-protocol level. They need a backend carrying `checkout_protocol` 3. The count
-above is left as the last count that was actually MEASURED rather than being
-edited to match the harness; the previous revision of this file made the
-opposite mistake and it is the reason this paragraph exists.
+**THE ENLARGED `recovery.mjs` HAS NOW BEEN MEASURED.** The six checks added with
+the D04 correlated projection — the intent key, order and scope the answer
+names, the three-state acceptance verdict, the original accepted reference, the
+separately-labelled current state, and the protocol level — were carried here as
+an explicit unmet gate through the D04 completion PR, which shipped with the
+harness at 28 checks and the last measured count at 22. They need a backend
+carrying `checkout_protocol` 3, and `fd190ddc` is the first main that does.
 
-Two things about that line are deliberate. It records the **development** server,
-because that is what was exercised — a successful `build:prod` is not a browser
-run, and the two are reported separately. And the previous revision of this file
-claimed 28/28 for a harness that had since grown to 42 checks; a count here means
-nothing unless the run that produced it is the run the file describes.
+Three things about that line are deliberate. The counts are the ones a run
+actually PRODUCED, never edited to match the harness — a revision of this file
+once claimed 28/28 for a harness that had grown to 42, and the paragraph above
+exists because of it. It records the **development** server, because that is what
+was exercised: a successful `build:prod` is not a browser run and the two are
+reported separately. And it names the backend SHA, because half of what these
+checks assert is the server's projection.
 
 **Re-running needs a fresh database or a freed table.** The run leaves a real
 accepted order occupying table 1, and the next run's `initiate` is refused with

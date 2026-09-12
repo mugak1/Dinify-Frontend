@@ -563,6 +563,98 @@ so keep it current when conventions change.
   (`upsellConfig`, `diner.menu.scrollY`) and KEEPS the diner's table, restaurant and
   capability tokens — which the wipe used to destroy and then partially rebuild, so
   "back to menu" needed a re-scan it now does not.
+- **ACCEPTANCE IS EVIDENCE, ONE OWNER HOLDS THE UNCERTAINTY, AND AN UNREADABLE
+  RECORD IS NOT PERMISSION TO REPLACE IT (D04 acceptance gates).** The D04
+  completion above got the SHAPE of the correlated answer, the durable record and
+  the three-state verdict right and left each of them unchecked AT ITS CONSUMER.
+  No backend change: the contract is #318's, already deployed and unmodified.
+  **GATE A — RESOURCE IDENTITY IS NOT ACCEPTANCE.** `correlationMatches()`
+  answers one question — *is this answer ABOUT my command?*, i.e. key, order and
+  scope — and BOTH submit surfaces used it as their SUCCESS decision, going
+  straight to `recordOutcome({kind: 'accepted'})`. A projection can name this
+  key, this order and this scope and still say the acceptance did NOT happen,
+  or name a DIFFERENT `quote_ref` than the one the diner confirmed, or carry no
+  reference and no moment at all. `acceptanceVerdict` is the second predicate and
+  is deliberately a SEPARATE function rather than a stricter `correlationMatches`:
+  identity is also what a RECOVERY asks, and there a null `outcome` is CORRECT —
+  an observation is not the result of an attempt. On a MUTATION the same null is
+  contradictory (the server performed an attempt and declined to say which) and is
+  refused, which is what the `{mutation}` flag carries. A refused verdict records
+  nothing, clears nothing, and leaves the key and the basket exactly as they were.
+  **THE STATED LEVEL IS REMEMBERED, NOT RE-READ PER RESPONSE.**
+  `correlationPromised` reads the PAYLOAD; `CheckoutRecord.protocol` records what
+  this server already demonstrated for THIS attempt (`noteProtocol`, MONOTONIC —
+  a capability does not un-demonstrate itself). So a submit reply carrying no
+  projection, from a server whose initiate response said `checkout_protocol: 3`,
+  is BROKEN rather than old: before this it fell to the legacy branch and cleared
+  the basket having validated no key, no order and no scope. A genuinely
+  pre-level-3 server promises nothing, is still tolerated, and that compatibility
+  control is pinned beside the refusals — narrowing one must not silently widen
+  the other.
+  **GATE B — `evidence_unavailable` IS NOT AN ACCEPTANCE, AND WAS CLEANED UP LIKE
+  ONE.** It shared the `accepted` branch, which clears the basket AND DELETES THE
+  RECORD — so the one outcome that most needs a durable handle was the one that
+  destroyed it, and the next reload started clean with permission to order again.
+  Nothing is cleared now; `checkoutBlocked` is what refuses a second checkout, and
+  clearing the basket was a SUBSTITUTE for blocking rather than a form of it. The
+  ACTION stays conservative and the CLAIM stays narrow — the split the D04 bullet
+  above already describes — and the two are now independent rather than one
+  implying the other.
+  **NOT FOUND AND DRAFT-OBSERVED ARE NOT PROOF OF NON-EXECUTION, IN THE WORDS
+  TOO.** The draft notice said "your order did not reach us", which asserts
+  non-execution from one instant's observation. It now says the order is
+  UNCONFIRMED and that retry re-sends the same request under the same key, which
+  is what actually happens. The rule was already honoured in the CODE; the
+  sentence contradicted it.
+  **AN ACCEPTANCE AND WHAT HAPPENED AFTERWARDS ARE SEPARATE FACTS.** The accepted
+  notice said "it is with the kitchen" for every accepted recovery, a cancelled
+  one included — leaving a diner waiting for food nobody is cooking — and a served
+  one. `currentDisposition` reads the projection's `current` block, which the
+  backend labels apart from `acceptance` precisely so the two need not be
+  collapsed; with no current state to read it says what IS known and claims
+  nothing more.
+  **A DELAYED RECOVERY CARRIES IMMUTABLE OPERATION OWNERSHIP.** The resume path
+  performed destructive cleanup without checking that the record and scope it
+  captured were still current, so an answer held open across an edit or a table
+  move cleared state it never owned. `recoveryOwner()` is captured BEFORE the
+  request and compared on arrival — deliberately not a re-read of the current
+  record, since comparing a response against whatever storage says now is what
+  makes a stale answer look authoritative.
+  **AND A RETRY IS NOT AN EDIT.** A reserved purchase whose INITIATE response was
+  lost still holds the lines that were sent, so `CheckoutRecord.request.items`
+  stores the D01-VALIDATED lines verbatim and `retryOrder()` re-sends THOSE under
+  the SAME key. `placeOrder()` rebuilt the body from the LIVE basket, which after
+  any edit asks the server a different question from the one whose answer was
+  lost. The approved distinction survives: a deliberate edit followed by CHECKOUT
+  still begins a new purchase, because that path still goes through `placeOrder`.
+  **GATE C — PROTECTION FOLLOWS THE FACT THAT A COMMAND MAY HAVE BEEN ISSUED, NOT
+  WHETHER ITS HANDLE SURVIVED.** `isOutstanding()` required `command !== null`,
+  which lost the protection in the one case it was written for: `upgradeV1` turns
+  a D04/D `submitting` record with no usable order id into `unresolved` with a
+  null command — honestly, since nothing may be manufactured — and the record it
+  had just produced then read as NOT outstanding, so a changed basket replaced it
+  with a fresh key. The existing durability spec checked the upgrade's OUTPUT and
+  stopped there, never following it into reservation, which is where the
+  protection was actually lost. It is stage-based now, and `isProtected` adds the
+  cases that are not outstanding but must still not be REPLACED: a `degraded`
+  record (a present-but-unparseable command or outcome in `parseV2`), an
+  `accepted` record with no outcome, and one written under a canonicalisation this
+  build does not know. **MISSING HANDLES REDUCE THE ABILITY TO RECOVER; THEY NEVER
+  ESTABLISH THAT NO OPERATION RAN.**
+  **AND `persist()` VERIFIED ONLY KEY AND STAGE.** `noteCommand` moves a record
+  from `accepting` to `accepting` when a previous attempt already set the stage,
+  and `recordOutcome` writes an outcome onto a record whose key never changes — so
+  the realistic failing store (accepts `setItem`, throws nothing, keeps the
+  PREVIOUS value) satisfied both checks and reported success, and the caller then
+  issued an acceptance it believed was written down. Read-back now compares a
+  FINGERPRINT of everything a later recovery reads; `startedAt` is excluded
+  deliberately, being written once and never re-asserted.
+  Each gate has its own spec file and each was REPRODUCED against unmodified
+  `607f635` before being fixed (7 / 10 / 6 real failures, the rest of each file
+  passing as controls), then re-proved by reintroducing the defect one gate at a
+  time. **The browser pair was re-run for this revision** — `journey.mjs` 42/42
+  and `recovery.mjs` **28/28**, the latter being the enlarged harness the D04
+  completion PR explicitly recorded as NOT re-run.
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
