@@ -7,6 +7,7 @@ import { NEVER, Subject, of, throwError } from 'rxjs';
 import { WINDOW } from '../../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../../_services/storage/storage-key-prefix.token';
 import { BasketService } from '../../../_services/basket.service';
+import { CheckoutCoordinatorService } from '../../../_services/checkout-coordinator.service';
 import { ApiService } from '../../../_services/api.service';
 import { ToastService } from '../../../_shared/ui/toast/toast.service';
 import { ConfirmDialogService } from '../../../_common/confirm-dialog.service';
@@ -174,6 +175,11 @@ describe('BasketBodyComponent', () => {
       schemas: [NO_ERRORS_SCHEMA],
     }).compileComponents();
 
+    // D04/D: `sessionStorage` is shared across Karma cases, so a persisted
+    // checkout attempt from an earlier one would make a later component
+    // resume a recovery it knows nothing about.
+    window.sessionStorage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
+
     router = TestBed.inject(Router);
     spyOn(router, 'navigate').and.stub();
 
@@ -232,14 +238,21 @@ describe('BasketBodyComponent', () => {
     expect(api.postPatch).toHaveBeenCalledTimes(1);
     expect(component.orderError).toBeTrue();
     expect(toast.clear).toHaveBeenCalled();
-    expect((api.postPatch.calls.argsFor(0)[1] as any).client_order_id).toBe(CLIENT_ID);
+    const firstKey = (api.postPatch.calls.argsFor(0)[1] as any).client_order_id;
+    expect(typeof firstKey).toBe('string');
+    expect(firstKey).toBeTruthy();
 
     component.retryOrder();
 
     // Retry re-attempts placement reusing the same id, and still no dialog.
+    // Asserted as EQUALITY BETWEEN THE TWO CALLS rather than against a fixed
+    // literal: the key comes from the real coordinator since D04/D, and what
+    // matters is that a lost response retries as the SAME attempt — which a
+    // hard-coded stub value could never have shown.
     expect(api.postPatch).toHaveBeenCalledTimes(2);
     expect(dialog.openModal).not.toHaveBeenCalled();
-    expect((api.postPatch.calls.argsFor(1)[1] as any).client_order_id).toBe(CLIENT_ID);
+    expect((api.postPatch.calls.argsFor(1)[1] as any).client_order_id)
+      .toBe(firstKey);
   });
 
   it('surfaces the backend failure message inline on a genuine placement error', () => {
@@ -313,7 +326,8 @@ describe('BasketBodyComponent', () => {
 
     const body = api.postPatch.calls.argsFor(0)[1] as any;
     expect(api.postPatch.calls.argsFor(0)[0]).toContain('orders/initiate');
-    expect(body.client_order_id).toBe(CLIENT_ID);
+    expect(typeof body.client_order_id).toBe('string');
+    expect(body.client_order_id).toBeTruthy();
     expect(body.items.length).toBe(1);
     expect('table' in body).toBeFalse();
     expect('restaurant' in body).toBeFalse();
@@ -347,10 +361,16 @@ describe('BasketBodyComponent', () => {
   });
 
   it('resets transient placement state on a successful submit (persistent sidebar instance)', () => {
-    // The desktop sidebar basket-body is never destroyed, so a stuck placingOrder
-    // would keep the checkout button disabled after the table frees up.
+    // The desktop sidebar basket-body is never destroyed, so a stuck
+    // placingOrder would keep the checkout button disabled after the table
+    // frees up. Since D04/D that flag is the COORDINATOR's single flight
+    // rather than a field on this instance, so the test claims it the way
+    // production does — which is also what makes the release meaningful:
+    // it now frees the checkout for BOTH mounted instances, not one.
     component.order_initiated = { order_details: { id: 'o1' } } as any;
-    component.placingOrder = true;
+    (component as any).flight = TestBed.inject(
+      CheckoutCoordinatorService).claimFlight();
+    expect(component.placingOrder).toBeTrue();
     api.postPatch.and.returnValue(of({}) as any);
 
     component.submitOrder();

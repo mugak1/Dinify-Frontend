@@ -32,6 +32,7 @@ import { WINDOW } from '../../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../../_services/storage/storage-key-prefix.token';
 import { BasketService } from '../../../_services/basket.service';
 import { ApiService } from '../../../_services/api.service';
+import { CheckoutCoordinatorService } from '../../../_services/checkout-coordinator.service';
 import { ToastService } from '../../../_shared/ui/toast/toast.service';
 import { ConfirmDialogService } from '../../../_common/confirm-dialog.service';
 import { ConnectivityService } from '../../../_services/connectivity.service';
@@ -80,8 +81,13 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
 
   beforeEach(async () => {
     basket = { items: [], totalAmount: 0 };
-    api = jasmine.createSpyObj<ApiService>('ApiService', ['postPatch']);
+    api = jasmine.createSpyObj<ApiService>('ApiService', ['postPatch', 'get']);
     api.postPatch.and.returnValue(of() as any);
+    api.get.and.returnValue(of() as any);
+    // D04/D: `sessionStorage` is shared across Karma cases, so a persisted
+    // checkout attempt from an earlier one would make this component resume a
+    // recovery it knows nothing about. Cleared per case, not per file.
+    window.sessionStorage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
     const dialog = jasmine.createSpyObj<ConfirmDialogService>(
       'ConfirmDialogService', ['openModal', 'closeModal']);
     const toast = jasmine.createSpyObj<ToastService>(

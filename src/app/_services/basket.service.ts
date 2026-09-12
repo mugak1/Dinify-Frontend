@@ -47,16 +47,19 @@ export class BasketService {
   readonly Basket!: WritableSignal<ShoppingBasket>;
 
   /**
-   * Idempotency key for the in-progress checkout. Lazily minted, reused across
-   * retries of the same basket, and reset whenever the basket changes (every
-   * mutator below) or is cleared — so a changed cart starts a fresh order while
-   * a retried submit of an unchanged cart is deduped by the backend.
+   * THE IDEMPOTENCY KEY LIVES IN `CheckoutCoordinatorService` (D04/D), not
+   * here, and the move is the fix rather than tidying.
    *
-   * It is NEVER re-minted because a response was lost, a quote comparison
-   * failed, or a request timed out: a new key would turn one attempt into two
-   * orders, which is precisely the failure the key exists to prevent.
+   * It used to be a private in-memory field on this service, so a page reload
+   * dropped it and the next attempt minted a NEW one — the server's entire
+   * idempotency guarantee bypassed by the single most likely thing a diner
+   * does when a checkout appears stuck. The coordinator persists it BEFORE the
+   * request is sent.
+   *
+   * What stays here is the REVISION below, which is what tells the coordinator
+   * a basket change has made this a different purchase. That is a derived
+   * rule rather than a push: nothing has to remember to reset a key.
    */
-  private clientOrderId: string | null = null;
 
   /**
    * Monotonic revision of the basket's CONTENTS. Every mutator bumps it, so a
@@ -92,7 +95,6 @@ export class BasketService {
 
   private changed(): void {
     this.revisionCounter += 1;
-    this.resetClientOrderId();
   }
 
   // Calculates the total amount of the basket
@@ -267,19 +269,4 @@ export class BasketService {
     }));
   }
 
-  /** Mint-once / reuse the current checkout idempotency key. */
-  public getOrCreateClientOrderId(): string {
-    return (this.clientOrderId ??= crypto.randomUUID());
-  }
-
-  /**
-   * Drop the idempotency key (basket changed or order completed).
-   *
-   * Deliberately NOT called on a lost response, a timeout or a failed quote
-   * comparison: the whole point of the key is that an attempt whose outcome is
-   * unknown retries as the SAME attempt.
-   */
-  public resetClientOrderId(): void {
-    this.clientOrderId = null;
-  }
 }

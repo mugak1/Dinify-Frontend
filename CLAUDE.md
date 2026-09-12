@@ -270,6 +270,48 @@ so keep it current when conventions change.
   `serverEffectiveExtraPrice` / `serverExtraDiscountIsLive` read the server-resolved
   `current_price` / `is_discount_active` the public serializer now publishes, and fall
   back to the LIST price — never to a locally-recomputed discount.
+  **THE CHECKOUT NOW SURVIVES THE DINER RELOADING, AND ONE BASKET CANNOT CHECK OUT
+  TWICE (D04/D).** `_services/checkout-coordinator.service.ts` is the ONE owner of an
+  in-progress checkout, and it closes three gaps that no amount of server-side
+  idempotency could reach.
+  **THE IDEMPOTENCY KEY WAS AN IN-MEMORY FIELD ON `BasketService`**, so a page
+  reload dropped it and the next attempt minted a NEW one — the server's entire
+  guarantee bypassed by the single most likely thing a person does when a checkout
+  appears stuck. It is now **PERSISTED BEFORE THE REQUEST IS SENT** (sessionStorage,
+  not localStorage: a checkout belongs to the tab and the table session that started
+  it). The ORDER of those two operations is the contract — minting a key and putting
+  it in a body is a promise to treat the retry as the same attempt, and a promise
+  held only in memory does not survive the thing it protects against. `BasketService`
+  keeps the REVISION, which is what tells the coordinator a basket change has made
+  this a different purchase; a fresh key is therefore DERIVED rather than pushed, so
+  nothing has to remember to reset one. A different TABLE mints one too — the server
+  refuses a key used elsewhere (`checkout_intent_unusable`), so reusing it would turn
+  an ordinary table move into a checkout the diner cannot complete.
+  **THERE WAS NO SINGLE FLIGHT.** `BasketBodyComponent` is mounted TWICE on desktop —
+  the routed page and the sidebar beside the router outlet — and `placingOrder` was a
+  field on EACH, so both could run a checkout at once. It is now a GETTER over the
+  coordinator's one flight. The server refuses the second attempt either way, so this
+  is not the last line of defence; a client that cannot tell it is already checking
+  out shows two live buttons and can present no coherent outcome.
+  **A LOST RESPONSE WAS UNRECOVERABLE IN THE UI.** `recover()` resolves the persisted
+  key through the diner's own read (`order-details/?intent=`, scoped to the table
+  session, so it can only ever surface an order at the diner's own table) and returns
+  a DISCRIMINATED UNION. **`unknown` IS NOT `absent`, and that distinction is the
+  whole thing**: an unreachable server is not evidence that nothing happened, and
+  treating it as such is exactly how a recovery mechanism creates the duplicate it
+  exists to prevent. So `accepted` announces itself and clears the finished basket,
+  `draft` is left alone for the diner to review, `absent` drops the key, and
+  `unknown` changes NOTHING. Recovery runs on the ROUTED page only — the sidebar is
+  mounted on every diner screen and would issue the same read twice per load.
+  **CLEANUP IS TARGETED AND ONLY EVER ON A DEFINITIVE OUTCOME.** `clearIntent()`
+  removes ONE key and never clears storage, because the diner session capability
+  lives in the same store and a blanket wipe would sign the diner out of their own
+  table to tidy up a finished checkout. Never on a timeout, a lost response or an
+  ambiguous failure — those are precisely when the key must survive. Both round trips
+  are BOUNDED (30s): without a ceiling a dead-but-open connection leaves the CTA
+  spinning for as long as the browser keeps the socket, and the diner's only escape
+  was the reload that used to lose the key. A timeout is handled as any other lost
+  response, because it never re-mints the key.
   A repeatable real-browser check of the whole path lives in `e2e/checkout-journey/`
   (NOT wired into CI — it needs a disposable PostgreSQL and two running servers). It
   **presses the app's own Place order button** rather than submitting by fetch

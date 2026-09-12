@@ -338,6 +338,17 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
           {{ limitState.message }}
         </p>
       }
+      <!-- D04/D: what a reload found. A checkout interrupted mid-submission
+      used to end at nothing, so the diner's only option was to place the
+      order again and hope. This says what actually happened; it never
+      redirects, because a diner who does not know is the problem being
+      solved. -->
+      @if (recoveryNotice) {
+        <p class="mb-2 text-sm text-gray-700 text-center"
+          data-testid="checkout-recovery" role="status">
+          {{ recoveryNotice }}
+        </p>
+      }
       <!-- Inline placement error + Retry (offline, or a send that genuinely failed) -->
       @if (orderError) {
         <p class="mb-2 text-sm text-red-600 text-center" role="alert">
