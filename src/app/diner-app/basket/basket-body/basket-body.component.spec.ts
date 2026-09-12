@@ -582,6 +582,24 @@ describe('BasketBodyComponent', () => {
     expect(component.basketItems.length).toBe(1);
   });
 
+  it('refuses a CORRECTED quote whose total is explicitly null', () => {
+    // ABSENT AND NULL ARE NOT THE SAME SHAPE, and only absence means "older
+    // server". A pre-field backend omits the key entirely (3c32ef5 does not
+    // contain the string at all), so a JSON `null` can only come from a
+    // CORRECTED server that sent the key and failed to express a value — a
+    // broken promise, which must reach the refusal panel rather than fall back
+    // to the lossy numeric field beside it.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({}, {
+      quote_total: null, actual_cost: 4321, pricing_version: 1,
+    })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.reviewedTotalDisplay).toBeNull();
+  });
+
   it('still reviews a CORRECTED server that predates quote_total', () => {
     // THE DEPLOY WINDOW, as a test. Backend #314 shipped `pricing_version` and
     // stamps CORRECTED on every new order; `quote_total` only arrived in #315.

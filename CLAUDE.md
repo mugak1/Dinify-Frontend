@@ -185,10 +185,19 @@ so keep it current when conventions change.
   the NEW backend's shape, so nothing exercised the intermediate one. The rule is
   therefore: a CORRECTED response that SENT a `quote_total` it cannot express is
   BROKEN and refused (Codex's finding, intact), while one that sent NONE simply
-  predates it and still reviews through `actual_cost`. Pinned from BOTH sides — the
-  over-strict form fails the deploy-window spec, the unconditional form fails the
-  refusal spec — so neither error can return as a "simplification". The same
-  distinction protects any documented rollback across those two backend commits.
+  predates it and still reviews through `actual_cost`.
+  **"SENT NONE" MEANS AN ABSENT PROPERTY — `undefined`, NEVER `null`** (a second
+  Codex P1, also valid). The pre-field backend omits `quote_total` from the payload
+  altogether, so absence is the ONLY shape an older server can produce; an explicit
+  `null` can come from just one place, a CORRECTED server that sent the key and
+  failed to express a value, which is exactly the broken promise the guard refuses.
+  Strictness there costs NO availability — nothing deployed emits it, since the
+  corrected serializer builds the key with `format_money`, which returns a canonical
+  string or raises. Pinned from THREE sides, each by its own spec: the over-strict
+  form fails the deploy-window spec, the `!== null` form fails the explicit-null
+  spec, and the unconditional form fails both that and the original refusal spec —
+  so no variant can return as a "simplification". The same distinction protects any
+  documented rollback across those two backend commits.
   **The diner item-detail no longer applies the DEVICE CLOCK to an extra's discount**:
   `serverEffectiveExtraPrice` / `serverExtraDiscountIsLive` read the server-resolved
   `current_price` / `is_discount_active` the public serializer now publishes, and fall
