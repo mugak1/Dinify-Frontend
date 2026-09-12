@@ -61,6 +61,7 @@ export type QuoteRefusal =
   | 'line_identity'
   | 'line_quantity'
   | 'line_amount'
+  | 'line_display'
   | 'line_reconciliation'
   | 'order_reconciliation'
   | 'availability_counts'
@@ -133,6 +134,51 @@ function exactNonNegative(value: unknown): number | null {
 }
 
 /**
+ * THE DISPLAY SHAPES THE REVIEW TEMPLATE ACTUALLY DEREFERENCES — and only
+ * those. This is not a second schema layer and it is deliberately not
+ * generalised: it is the exact list of reads the sheet performs on a line it
+ * has been handed, because the amounts being sound says nothing about whether
+ * the row can be drawn.
+ *
+ * WHY IT IS A REFUSAL RATHER THAN A RENDER-TIME GUARD. `modifiers` is a
+ * display field, so the monetary contract never looked at it — yet the sheet
+ * calls `.join()` on it behind an `?.length` test that a STRING satisfies
+ * (`'Large'.length` is 5). The quote validated perfectly, `readable` was true,
+ * the Place order button was live, and the panel threw while rendering the row
+ * the diner was being asked to confirm. A quote whose rows cannot be drawn
+ * cannot be reviewed, and something that cannot be reviewed must not be
+ * confirmable — so it is refused here, once, where the handler and the markup
+ * both read the verdict, rather than patched into the template where only the
+ * markup would be protected.
+ *
+ * NOTHING IS COERCED. A label is used as it arrived or the quote is refused;
+ * an object is never stringified into a line the kitchen never promised.
+ */
+function displayableLabels(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  return Array.isArray(value) && value.every((label) => typeof label === 'string');
+}
+
+/** A name the sheet interpolates. Absent is fine — the row simply has none. */
+function displayableName(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === 'string';
+}
+
+/** Every display read the template performs on ONE parent row and its extras. */
+function displayShapeOk(line: OrderQuoteLine): boolean {
+  if (!displayableLabels(line.modifiers)) return false;
+  if (!displayableName(line.item_name)) return false;
+  // `@for (extra of line.extras; track extra.id)` evaluates the tracking
+  // expression per entry, so a null child throws before any guard in the body
+  // can run. The array-ness itself is checked by the caller.
+  const extras: unknown[] = Array.isArray(line.extras) ? line.extras : [];
+  return extras.every(
+    (extra) => !!extra && typeof extra === 'object'
+      && displayableName((extra as OrderQuoteExtra).item_name),
+  );
+}
+
+/**
  * THE boundary. Give it the whole `initiate` payload; it answers whether the
  * diner may be shown a confirmable amount, and what that amount is.
  */
@@ -164,7 +210,20 @@ export function reviewQuote(
   }
 
   if (!corrected) {
-    // The pre-D02 tolerance, unchanged and deliberately bounded to the total.
+    // The pre-D02 tolerance, unchanged and deliberately bounded to the TOTAL.
+    //
+    // AN OLD SERVER IS EXCUSED FROM SENDING AN ITEMISED QUOTE — it never
+    // promised one — but it is NOT excused from the shape of one it did send.
+    // A pre-D02 payload carries no `quote` key at all, so `rawLines` is empty
+    // here and this loop does not run; #661's absent-total compatibility is
+    // untouched. What it refuses is the different fact of a payload that SENT
+    // rows the sheet cannot draw, which is malformed content rather than an
+    // older contract.
+    for (const line of rawLines) {
+      if (!line || typeof line !== 'object' || !displayShapeOk(line)) {
+        return refuse('line_display', rawLines);
+      }
+    }
     return {
       readable: true, reason: null, totalMinor, lines: rawLines,
       itemised: false,
@@ -211,6 +270,11 @@ export function reviewQuote(
     if (extras.length > MAX_QUOTE_EXTRAS_PER_LINE) {
       return refuse('quote_shape', rawLines);
     }
+
+    // The display reads, checked for the SAME row whose amounts are checked
+    // below. Sound money on a row that cannot be drawn is not a confirmable
+    // quote — see `displayShapeOk`.
+    if (!displayShapeOk(line)) return refuse('line_display', rawLines);
 
     const childAmounts: (number | null)[] = [];
     for (const extra of extras) {
