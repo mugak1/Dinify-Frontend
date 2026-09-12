@@ -164,6 +164,17 @@ so keep it current when conventions change.
   `quoteIsUnreadable` is a STATE, not an absence, discriminated by `pricing_version`
   so a pre-D02 server stays tolerated while a CORRECTED one that cannot produce a
   readable payable is an anomaly the diner is told about rather than asked to confirm.
+  **THE `actual_cost` FALLBACK IS LEGACY-ONLY, and that is where the discrimination
+  has to live** — in `reviewedTotalMinor`, not merely in `quoteIsUnreadable`'s later
+  checks. It was unconditional until the Codex review of PR #660: a CORRECTED response
+  with a missing or malformed `quote_total` but a parseable `actual_cost` beside it
+  produced a non-null total, so `quoteIsUnreadable` stayed false and the diner
+  confirmed a figure read from the lossy numeric field — the exact-money guarantee
+  reverting silently in the one case it exists for (`float()` has already dropped
+  digits from a large amount). The pre-existing refusal spec could not see it because
+  its fixture left `actual_cost` undefined, so it never exercised a fallback at all;
+  the spec beside it now supplies one, and a LEGACY-versioned companion proves the
+  tolerance was narrowed rather than deleted.
   **The diner item-detail no longer applies the DEVICE CLOCK to an extra's discount**:
   `serverEffectiveExtraPrice` / `serverExtraDiscountIsLive` read the server-resolved
   `current_price` / `is_discount_active` the public serializer now publishes, and fall

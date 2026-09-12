@@ -554,6 +554,47 @@ describe('BasketBodyComponent', () => {
     expect(component.reviewedTotalDisplay).toBeNull();
   });
 
+  it('refuses a CORRECTED quote whose payable is unreadable BESIDE a usable actual_cost', () => {
+    // THE FALLBACK IS LEGACY-ONLY. The test above passes with `actual_cost`
+    // absent, so it could not tell a version-discriminated refusal from an
+    // absence of anything to fall back to. Here the legacy numeric field is
+    // present and perfectly parseable — and must NOT be used, because a
+    // response declaring itself CORRECTED promised a canonical decimal total.
+    // Reading `actual_cost` instead would revert the exact-money guarantee in
+    // the one case it exists for, and do it silently.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({}, {
+      quote_total: 'not-a-number', actual_cost: 4321, pricing_version: 1,
+    })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeTrue();
+    expect(component.reviewedTotalDisplay).toBeNull();
+
+    // And the refusal is enforced in the handler, not only by a hidden button.
+    api.postPatch.calls.reset();
+    component.confirmQuote();
+    expect(api.postPatch).not.toHaveBeenCalled();
+    expect(component.basketItems.length).toBe(1);
+  });
+
+  it('still reads actual_cost when the server declares itself LEGACY', () => {
+    // The other half of the discrimination: an EXPLICIT legacy version keeps the
+    // established tolerance, so the narrowing above cannot have been achieved by
+    // simply deleting the fallback.
+    basket.items = [lineItem()];
+    api.postPatch.and.returnValue(of(initiated({ quote: [] }, {
+      quote_total: undefined, actual_cost: 4321,
+      pricing_version: 0, quote_ref: undefined,
+    })) as any);
+
+    component.initiateOrder();
+
+    expect(component.quoteIsUnreadable).toBeFalse();
+    expect(component.reviewedTotalDisplay).toBe('4,321.00');
+  });
+
   it('refuses a CORRECTED quote with an unreadable line amount', () => {
     basket.items = [lineItem()];
     api.postPatch.and.returnValue(of(initiated({

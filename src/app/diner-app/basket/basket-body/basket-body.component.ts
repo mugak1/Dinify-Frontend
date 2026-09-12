@@ -605,7 +605,18 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * IT READS `quote_total` — the canonical decimal string — IN PREFERENCE TO
    * `actual_cost`, which DRF renders through `float()` and therefore delivers as
    * `899.1` rather than `899.10` (and loses digits outright on a large amount).
-   * `actual_cost` remains the fallback for a server that predates `quote_total`.
+   *
+   * **THE `actual_cost` FALLBACK IS FOR A SERVER THAT PREDATES `quote_total`,
+   * AND ONLY THAT.** A response declaring itself CORRECTED has promised a
+   * canonical decimal total; reading the lossy numeric field when it fails to
+   * produce one would hand back the exact-money guarantee silently, in precisely
+   * the case the guarantee exists for — a large amount arrives from `float()`
+   * with digits already gone and would be confirmed as though exact. So a
+   * CORRECTED response with an unreadable `quote_total` yields `null` here,
+   * which `quoteIsUnreadable` turns into the refusal panel rather than a
+   * confirmable number. A LEGACY or unversioned response is unaffected: the
+   * established tolerance is the whole reason this client can ship before the
+   * paired backend.
    *
    * `Number(...) || 0` is gone. It turned a missing, null or malformed
    * authoritative amount into a displayed ZERO — a free-looking confirmation for
@@ -617,6 +628,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!details) return null;
     const exact = toMinorUnits(details.quote_total);
     if (exact !== null) return exact;
+    if (details.pricing_version === PRICING_VERSION_CORRECTED) return null;
     return toMinorUnits(details.actual_cost);
   }
 
@@ -642,6 +654,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   get quoteIsUnreadable(): boolean {
     const details = this.order_initiated?.order_details;
     if (!details) return true;
+    // `reviewedTotalMinor` already applies the version discrimination to the
+    // TOTAL: a CORRECTED response that cannot produce a readable `quote_total`
+    // is null here even when a legacy `actual_cost` sits beside it.
     if (this.reviewedTotalMinor === null) return true;
     if (details.pricing_version === PRICING_VERSION_CORRECTED) {
       // A corrected draft must name its quote and price every line it renders.
