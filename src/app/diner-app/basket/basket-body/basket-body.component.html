@@ -7,6 +7,23 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
 }
 
 <div class="flex-1 overflow-y-auto pb-4">
+  <!-- D04/D: what a reload found.
+  ABOVE THE EMPTY-STATE GATE, DELIBERATELY. This lived in the checkout footer
+  first, which is inside `@if (basketItems.length > 0)` — and an ACCEPTED
+  recovery clears the basket, so the one outcome the diner most needs to hear
+  was the one that hid the message. The real-browser check
+  (`e2e/checkout-journey/recovery.mjs`) is what caught it: the tab reloaded,
+  the basket silently emptied, and the diner was told nothing. -->
+  @if (recoveryNotice) {
+    <div class="mt-4 px-4">
+      <p class="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2
+        text-sm text-gray-700 text-center"
+        data-testid="checkout-recovery" role="status">
+        {{ recoveryNotice }}
+      </p>
+    </div>
+  }
+
   <!-- Empty state -->
   @if (basketItems.length === 0) {
     <div class="text-center py-6 px-4">
@@ -336,17 +353,6 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
       @if (limitState.breach) {
         <p class="mb-2 text-sm text-amber-700 text-center" role="alert">
           {{ limitState.message }}
-        </p>
-      }
-      <!-- D04/D: what a reload found. A checkout interrupted mid-submission
-      used to end at nothing, so the diner's only option was to place the
-      order again and hope. This says what actually happened; it never
-      redirects, because a diner who does not know is the problem being
-      solved. -->
-      @if (recoveryNotice) {
-        <p class="mb-2 text-sm text-gray-700 text-center"
-          data-testid="checkout-recovery" role="status">
-          {{ recoveryNotice }}
         </p>
       }
       <!-- Inline placement error + Retry (offline, or a send that genuinely failed) -->

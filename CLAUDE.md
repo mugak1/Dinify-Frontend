@@ -312,6 +312,17 @@ so keep it current when conventions change.
   spinning for as long as the browser keeps the socket, and the diner's only escape
   was the reload that used to lose the key. A timeout is handled as any other lost
   response, because it never re-mints the key.
+  **AND THE INTERRUPTED PATHS ARE CHECKED IN A REAL BROWSER TOO**:
+  `e2e/checkout-journey/recovery.mjs` is the journey's sibling and induces the loss
+  the clean run cannot — a reload mid-checkout, an acceptance that commits while the
+  browser's view of the reply is destroyed (`route.fetch()` THEN `route.abort()`, so
+  the SERVER really processes it), and a reload after that loss. 22 checks, manual
+  like the journey. It found a defect in D04/D itself that no unit spec could see:
+  the recovery notice first lived in the checkout footer, inside
+  `@if (basketItems.length > 0)`, and an ACCEPTED recovery clears the basket — so the
+  one outcome a diner most needs to hear was the one that hid the message. The
+  existing component spec never calls `detectChanges()`, so it never runs `ngOnInit`
+  and could not have caught it; `basket-body.recovery.spec.ts` now pins it.
   A repeatable real-browser check of the whole path lives in `e2e/checkout-journey/`
   (NOT wired into CI — it needs a disposable PostgreSQL and two running servers). It
   **presses the app's own Place order button** rather than submitting by fetch

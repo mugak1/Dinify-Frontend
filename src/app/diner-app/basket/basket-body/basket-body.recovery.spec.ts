@@ -172,6 +172,25 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
     expect(coordinator.attempt()).toBeNull();
   });
 
+  it('SHOWS the accepted notice even though the basket is now empty', () => {
+    // THE REAL-BROWSER CHECK FOUND THIS, and a unit spec is what stops it
+    // coming back. The notice first lived in the checkout footer, which is
+    // inside `@if (basketItems.length > 0)` — and an ACCEPTED recovery
+    // clears the basket, so the one outcome a diner most needs to hear was
+    // the one that hid the message: the tab reloaded, the basket silently
+    // emptied, and they were told nothing.
+    interruptMidSubmission();
+    api.get.and.returnValue(
+      of({ data: { id: 'o1', accepted: true } }) as any);
+    basketService.clearBasket.and.callFake(() => { basket.items = []; });
+
+    fixture.detectChanges();
+    fixture.detectChanges();                       // re-render after the clear
+
+    expect(basket.items.length).toBe(0);
+    expect(notice()).toContain('already placed');
+  });
+
   it('leaves an unaccepted draft exactly as it is, for the diner to review', () => {
     interruptMidSubmission();
     api.get.and.returnValue(
