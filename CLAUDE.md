@@ -315,8 +315,11 @@ so keep it current when conventions change.
   whole thing**: an unreachable server is not evidence that nothing happened, and
   treating it as such is exactly how a recovery mechanism creates the duplicate it
   exists to prevent. So `accepted` announces itself and clears the finished basket,
-  `draft` is left alone for the diner to review, `absent` drops the key, and
-  `unknown` changes NOTHING. Recovery runs on the ROUTED page only — the sidebar is
+  `draft` is left alone for the diner to review, and
+  `unknown` changes NOTHING. (`absent` USED to drop the key. The D04 completion
+  below stopped it — see "NOT FOUND IS NOT PROOF OF NON-EXECUTION" — so the record
+  now survives every outcome except a recorded terminal one.) Recovery runs on the
+  ROUTED page only — the sidebar is
   mounted on every diner screen and would issue the same read twice per load.
   **THAT DISTINCTION NEEDED A CARVE-OUT IN `ErrorInterceptor`, AND WITHOUT IT THE
   UNION COLLAPSED** (Codex P2 on PR #663, valid). The interceptor flattens every
@@ -391,6 +394,175 @@ so keep it current when conventions change.
   wire regression pass silently on the lossy numeric field. Its README records what it
   found, what it deliberately does NOT cover, that it needs a backend carrying
   `quote_complete`, and that it is a manual run rather than a gate
+- **THE CHECKOUT IS DURABLE, THE ANSWER IS VALIDATED, AND AN UNRESOLVED INTENT IS
+  NEVER RETIRED (D04 completion).** D04/D got the SHAPE of all three right and left
+  each of them unchecked. Four gaps, and the paired backend contract is PR #318
+  (`checkout_protocol` 3, `data.checkout`).
+  **THE DURABLE WRITE WAS NOT CHECKED, AND THE COMMENT SAYING SO WAS WRONG.**
+  `write()` swallowed every storage failure and `intentKey()` returned the key
+  regardless, under a comment calling the result "a WEAKER guarantee, not a
+  failure". It was not weaker, it was ABSENT: the next call read nothing back,
+  minted a SECOND key and sent it — a storage that refuses writes turned the
+  idempotency mechanism into a duplicate generator, silently. `persist()` now
+  CHECKS BY READ-BACK, because a try/catch cannot see the realistic case (a store
+  that accepts `setItem`, throws nothing and returns nothing), and a failed
+  required write means **THE MUTATION IS NOT SENT** — `reserveIntent` answers
+  `storage-error`, `noteCommand` returns false and the acceptance is never issued.
+  That is a deliberate availability trade: a checkout whose key cannot be written
+  down is one whose retry can duplicate.
+  **NOT FOUND IS NOT PROOF OF NON-EXECUTION.** `absent` used to call
+  `clearIntent()`, so ONE momentary observation discarded the identity of a
+  checkout whose outcome was still open. Even where a not-found IS proof — a
+  supported server, a proven scope, no matching row — what it licenses is a
+  SAME-KEY, SAME-REQUEST REPLAY, never a different key. Nothing retires an
+  unresolved intent now; the record is dropped only on a recorded terminal outcome
+  or on a draft the server has authoritatively refused (`reviewUpdatedOrder`).
+  **There is deliberately NO cancel/abandon fence and no cleanup job** — adding one
+  would be a way around this rule rather than a way of honouring it.
+  **THE ISSUED COMMAND IS PROTECTED.** `intentKey()` overwrote the record whenever
+  the basket or the table changed, with no regard for whether an acceptance had
+  already been sent, so a diner editing their basket during an uncertain submit
+  destroyed the only record of what was being recovered. `reserveIntent` now
+  answers `outstanding` instead, and `retryOrder()` REPLAYS the recorded command
+  (same order id, same reference, same key) rather than calling `placeOrder()`,
+  which rebuilt the request from the live basket and re-ran `initiate` — a
+  different question from the one whose answer was lost. The CTA follows: an
+  unresolved checkout offers **Retry**, not Checkout.
+  **THE ANSWER IS VALIDATED BEFORE IT IS ANNOUNCED.**
+  `_shared/order/checkout-correlation.ts` is THE reading of the server's
+  projection, shared by the coordinator's recovery and by the submit handler so
+  the two cannot form different opinions about whether an order was accepted. It
+  GATES ON THE STATED LEVEL (`checkout_protocol >= 3`; absent means 0 and promises
+  nothing) and requires the answer to NAME this intent key, this order and this
+  scope. **It never reconstructs a projection from the legacy keys beside it** —
+  one assembled from `accepted` / `id` would carry exactly the conflation the
+  projection exists to remove, wearing the shape that says it does not.
+  **`accepted` IS TWO-VALUED AND ITS FALSE COVERS TWO OPPOSITE INSTRUCTIONS**, which
+  is why the level gate matters. The backend concedes it: false means a genuine
+  DRAFT and an order accepted BEFORE the evidence table existed, alike. At level 3
+  `acceptance.state` separates them (`accepted` / `not_accepted` /
+  `evidence_unavailable`, the last mapping to `accepted-unrecorded`).
+  **ONLY TWO OF THE THREE ARE VERDICTS, AND THE CLIENT MUST NOT RESTATE THE THIRD
+  AS ONE** (the same over-claim the backend carried, Codex P2 on backend #318).
+  `evidence_unavailable` is the server saying it CANNOT DETERMINE whether the
+  submission landed: two producers reach it — an acceptance predating the evidence
+  table, and a DRAFT a kitchen write cancelled or advanced — and nothing on the row
+  separates them. **THE ACTION AND THE CLAIM PART COMPANY HERE.** The action is
+  identical to `accepted` and stays conservative — clear the basket, offer no second
+  checkout — precisely BECAUSE the server does not know, since one producer really
+  is an order in the kitchen. The SENTENCE is not: `accepted` says "it is with the
+  kitchen", `accepted-unrecorded` says the order MAY already have been placed and
+  points at staff, because telling a diner their cancelled draft is cooking leaves
+  them waiting for food nobody is making. Pinned by a spec pair — one asserting the
+  unrecorded notice omits the kitchen claim, one asserting the confirmed notice
+  still states it plainly, so narrowing one cannot hedge the other.
+  **A PROMISE IT COULD NOT KEEP IS REFUSED, NEVER DOWNGRADED** (Codex P1 on
+  PR #664, valid). `readCorrelation` returns `null` both for a payload that
+  carries no projection and for one whose projection cannot be READ, and all
+  three call sites treated those the same: fall back to the legacy branch and
+  trust `accepted: true` — clearing the basket having checked no key, no order
+  and no scope, which is the exact unvalidated announcement the projection
+  exists to prevent. **ABSENT AND UNREADABLE ARE DIFFERENT FACTS**, the same
+  distinction this repo already draws for `quote_total`, and
+  `correlationPromised` is the one predicate that separates them so the three
+  sites cannot disagree. **IT READS TWO SIGNALS BECAUSE THE TWO SURFACES CARRY
+  DIFFERENT ONES**: the order read publishes `checkout_protocol` at the top
+  level beside `data.checkout`, so an advertised level ≥ 3 is a promise even
+  with the projection missing entirely, while the submit reply carries the
+  projection top-level beside `status`/`message`/`idempotent` and NO separate
+  level field, so there the presence of a `checkout` key IS the promise. A
+  non-object `checkout` counts as a promise too — sending the key at all
+  claims the contract.
+  BELOW level 3 the client falls back, and the
+  fallback is resolved from ITS OWN RECORD rather than from the server: with no
+  command issued for this key an unaccepted order can only be the draft that
+  initiate created, so it is a `draft`; with a command outstanding the server
+  cannot say whether it landed, so the outcome is `unsupported` and the diner is
+  told the checkout is still being confirmed.
+  **A DEFINITIVE DRAFT REPLAYS THE COMMAND, AND NOT DOING SO WAS A DEAD END**
+  (Codex P1 on PR #664, valid — and the likeliest interruption of all). An
+  acceptance that never reaches the server leaves behind the draft `initiate`
+  already created, so recovery reads a level-3 `not_accepted` rather than a
+  404. `replayIssuedCommand` no-opped on that, `checkoutBlocked` did not cover
+  `draft` so the CTA said **Checkout**, `reserveIntent` refused every press as
+  `outstanding`, and Retry came back to the same no-op: the diner could never
+  submit that order again. `not_accepted` is PROOF OF NON-EXECUTION — the
+  backend writes its evidence row in the SAME transaction as the transition, so
+  "still initiated, no evidence" means the acceptance did not commit — and it
+  is the STRONGER evidence of the two, since the server names the order rather
+  than merely failing to find one. It therefore takes the `absent` path: the
+  SAME command re-sent under the SAME key. Two consequences follow. `draft`
+  BLOCKS only when a command is outstanding (a commandless draft is an ordinary
+  reviewable order and Checkout must still work), and its notice splits the
+  same way — "your order did not reach us, tap retry" rather than "please
+  review it again", which would point at a button that is refused. **RECOVERY
+  STILL NEVER AUTO-SUBMITS ON LOAD**: a reload may be how somebody abandons a
+  checkout, so the resume path reports and the diner taps.
+  **A DEFINITIVE REFUSAL IS SETTLED, NOT LEFT OUTSTANDING** (Codex P1 on PR
+  #664, valid — and it arrived in the review BODY rather than as an inline
+  thread, which is how it was missed on the first pass; read both). The
+  `quote_ref_stale` branch promises a reprice and could not start one:
+  `noteCommand` has already recorded the checkout as `accepting`, so
+  `reserveIntent` answers `outstanding` and `placeOrder` refuses. The diner
+  then loops — Checkout refused, Retry replaying a command the server has
+  already refused (BEFORE the draft-replay fix above it merely no-opped, so
+  that fix made this WORSE rather than better, which is worth knowing when
+  reading the two together). **THE OUTSTANDING STATE IS FOR AN UNKNOWN
+  OUTCOME, AND THIS ONE IS KNOWN**: the server re-read the order under its own
+  lock and the reference does not match, so this command can never be accepted
+  and there is nothing left to recover. `settleRefusedCommand()` clears the
+  COMMAND and moves the stage to `refused` — a value the vocabulary already
+  carried and nothing had ever written — **keeping the key**, because the
+  basket is unchanged and this is the same purchase, so `sameCommand` hands
+  that key straight back. That is what separates it from `clearIntent`, which
+  forgets the intent entirely and stays reserved for a terminal outcome or the
+  LEGACY draft `reviewUpdatedOrder` refuses. **IT IS NOT A WAY AROUND THE
+  NOT-FOUND RULE** — it requires a refusal the server actually stated about
+  this exact command, and must never be called on a timeout, a lost response
+  or anything the client merely failed to observe. The settle is a REQUIRED
+  durable write: if it fails nothing is sent, since repricing on top of a
+  record still naming an unsettled command would leave one nobody resolves.
+  **AND A FAILED DURABLE WRITE IS HONOURED AT THE END, NOT ONLY AT THE START**
+  (Codex P1 on PR #664, valid). `recordOutcome` returns false when its
+  read-back verification fails, and both success paths ignored it and called
+  `clearIntent` regardless — so a store that silently drops writes loses the
+  accepted outcome while the REMOVAL still succeeds, leaving a reload with no
+  record at all and free to start a second checkout for an order already in the
+  kitchen. That is the same defect this PR closed at the other end of the
+  checkout, reopened at the last step. Cleanup is now conditional on the
+  record: the order DID land, so success is still announced and the basket
+  still cleared — withholding either would report a failure for something that
+  succeeded — and only the FORGETTING is withheld, so a later reload recovers
+  `accepted` and tidies up then. **This client is safe against a
+  pre-D04, a level-1, a level-2 and a level-3 server, and the backend lands first.**
+  **THE TERMINAL RESULT IS RECORDED BEFORE ANY CLEANUP** (`recordOutcome` then
+  `clearIntent`), so a process that dies mid-teardown resumes announcing a completed
+  order instead of re-enquiring about one in the kitchen. A delayed submit callback
+  is guarded by the same attempt sequence `placeOrder` has always used — the
+  acceptance path never was, so a slow submit landing after a re-price could clear a
+  basket and navigate away on the strength of an older attempt.
+  **THE RECORD IS VERSIONED AND ITS FIVE STORAGE STATES ARE DISTINGUISHED**
+  (`none` / `unreadable` / `malformed` / `unsupported` / `record`). Collapsing any
+  of them into "no record" is how an unresolved checkout gets retired by accident.
+  A D04/D (#663) record is UPGRADED, never discarded — its key, scope, basket
+  identity and (for a `submitting` record with an order id) its issued command
+  carry forward, and nothing is manufactured where the old shape said nothing. A
+  malformed or newer-format record BLOCKS rather than being overwritten, and is
+  never deleted. **Known, deliberate dead-end:** a record this build cannot parse
+  and cannot resolve leaves the diner told to check with staff, with no in-app
+  discard. Only this app writes that key, so the realistic source is our own record
+  — and an informed-discard affordance is its own decision, not something to smuggle
+  in as a fence around the not-found rule.
+  **AND THE BLANKET `sessionStorage.clear()` IS GONE.** `retainSessionThrough(() =>
+  this.sessionStorage.clear())` called `clear()` on the RAW store, so it emptied
+  EVERY key on the origin — prefixed or not, this app's or not — and then put two
+  diner tokens back by hand. That is a restore list maintained against a wipe that
+  keeps widening, and it was already wrong for the portal-embedded diner mount
+  (`rest-app-ordering`), where an operator's own session keys sit in the same store.
+  `resetDinerOrderContext()` removes exactly what a finished order makes stale
+  (`upsellConfig`, `diner.menu.scrollY`) and KEEPS the diner's table, restaurant and
+  capability tokens — which the wipe used to destroy and then partially rebuild, so
+  "back to menu" needed a re-scan it now does not.
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

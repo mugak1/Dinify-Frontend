@@ -15,8 +15,9 @@ import { ToastService } from '../_shared/ui/toast/toast.service';
 
 import { ApiService } from './api.service';
 import {
-  CheckoutCoordinatorService, RecoveryOutcome,
+  CheckoutCoordinatorService, PURCHASE_CANON, RecoveryOutcome,
 } from './checkout-coordinator.service';
+import { DinerSessionService } from './diner-session.service';
 import { SessionStorageService } from './storage/session-storage.service';
 import { STORAGE_KEY_PREFIX } from './storage/storage-key-prefix.token';
 import { WINDOW } from './storage/window.token';
@@ -29,7 +30,7 @@ import { WINDOW } from './storage/window.token';
  *   THE KEY LIVED ONLY IN MEMORY. A reload dropped it and the next attempt
  *   minted a NEW one, so the server's whole idempotency guarantee was
  *   bypassed by the single most likely thing a diner does when a checkout
- *   appears stuck. The `intentKey` specs are that.
+ *   appears stuck. The `reserveIntent` specs are that.
  *
  *   THERE WAS NO SINGLE FLIGHT. `BasketBodyComponent` is mounted twice on
  *   desktop and `placingOrder` was a field on each instance.
@@ -42,6 +43,7 @@ import { WINDOW } from './storage/window.token';
 describe('CheckoutCoordinatorService', () => {
   let service: CheckoutCoordinatorService;
   let storage: SessionStorageService;
+  let session: DinerSessionService;
   let api: jasmine.SpyObj<ApiService>;
 
   /** A basket identity, in the shape `BasketService.contentIdentity()`
@@ -50,6 +52,28 @@ describe('CheckoutCoordinatorService', () => {
    *  stay about the coordinator's own rules. */
   const BASKET = JSON.stringify(['{"i":"i1","m":[],"e":[]}x2']);
   const CONTEXT = 'r1:t1';
+
+  /** `reserveIntent`'s reply is a union — these specs are about the KEY, so
+   *  they assert readiness once here rather than at every call site. */
+  function key(basket = BASKET, context = CONTEXT): string {
+    const reservation = service.reserveIntent(
+      { identity: basket, canon: PURCHASE_CANON }, context);
+    expect(reservation.kind).toBe('ready');
+    return reservation.kind === 'ready' ? reservation.key : '';
+  }
+
+  /** A fresh service over the SAME storage: what a page reload produces. */
+  function reload(): CheckoutCoordinatorService {
+    return new CheckoutCoordinatorService(api, storage, session);
+  }
+
+  function keyOn(
+    instance: CheckoutCoordinatorService, basket = BASKET, context = CONTEXT,
+  ): string | null {
+    const reservation = instance.reserveIntent(
+      { identity: basket, canon: PURCHASE_CANON }, context);
+    return reservation.kind === 'ready' ? reservation.key : null;
+  }
 
   beforeEach(() => {
     api = jasmine.createSpyObj<ApiService>('ApiService', ['get', 'postPatch']);
@@ -64,6 +88,7 @@ describe('CheckoutCoordinatorService', () => {
     });
     service = TestBed.inject(CheckoutCoordinatorService);
     storage = TestBed.inject(SessionStorageService);
+    session = TestBed.inject(DinerSessionService);
     storage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
   });
 
@@ -79,18 +104,17 @@ describe('CheckoutCoordinatorService', () => {
       // and putting it in a request body is a promise to treat the retry as
       // the same attempt, and a promise held only in memory does not survive
       // the thing it protects against.
-      const key = service.intentKey(BASKET, CONTEXT);
-      const stored = service.attempt();
+      const reserved = key();
+      const stored = service.record();
       expect(stored).not.toBeNull();
-      expect(stored!.key).toBe(key);
+      expect(stored!.key).toBe(reserved);
     });
 
     it('survives a reload — a fresh service reads the same key', () => {
       // THE DEFECT, stated directly. This is what the in-memory field could
       // not do, and what made every reload mint a second order's worth of key.
-      const key = service.intentKey(BASKET, CONTEXT);
-      const reloaded = new CheckoutCoordinatorService(api, storage);
-      expect(reloaded.intentKey(BASKET, CONTEXT)).toBe(key);
+      const reserved = key();
+      expect(keyOn(reload())).toBe(reserved);
     });
 
     it('is bound to the basket CONTENTS, so a reload cannot change the answer', () => {
@@ -103,23 +127,23 @@ describe('CheckoutCoordinatorService', () => {
       // retry could place a SECOND order, through the very reload the key
       // was persisted to survive. A content identity is derived from what
       // survives, so there is nothing to reset. (Codex P1 on PR #663.)
-      const key = service.intentKey(BASKET, CONTEXT);
+      const reserved = key();
       // a reload: a brand-new service, the same restored basket
-      const afterReload = new CheckoutCoordinatorService(api, storage);
-      expect(afterReload.intentKey(BASKET, CONTEXT)).toBe(key);
+      const afterReload = reload();
+      expect(keyOn(afterReload)).toBe(reserved);
       // and a genuinely different basket still mints afresh
-      expect(afterReload.intentKey(BASKET + 'x', CONTEXT)).not.toBe(key);
+      expect(keyOn(afterReload, BASKET + 'x')).not.toBe(reserved);
     });
 
     it('reuses one key while the basket and the table are unchanged', () => {
-      const key = service.intentKey(BASKET, CONTEXT);
-      expect(service.intentKey(BASKET, CONTEXT)).toBe(key);
-      expect(service.intentKey(BASKET, CONTEXT)).toBe(key);
+      const reserved = key();
+      expect(key()).toBe(reserved);
+      expect(key()).toBe(reserved);
     });
 
     it('mints a fresh key once the basket really changes', () => {
-      const key = service.intentKey(BASKET, CONTEXT);
-      expect(service.intentKey(BASKET + 'more', CONTEXT)).not.toBe(key);
+      const reserved = key();
+      expect(key(BASKET + 'more')).not.toBe(reserved);
     });
 
     it('mints a fresh key at a different table', () => {
@@ -127,35 +151,39 @@ describe('CheckoutCoordinatorService', () => {
       // (`checkout_intent_unusable`), so reusing one across a context change
       // would turn an ordinary table move into a checkout the diner cannot
       // complete. A different table is a different purchase.
-      const key = service.intentKey(BASKET, CONTEXT);
-      expect(service.intentKey(BASKET, 'r1:t2')).not.toBe(key);
+      const reserved = key();
+      expect(key(BASKET, 'r1:t2')).not.toBe(reserved);
     });
 
     it('mints a key that is a plausible UUID', () => {
-      expect(service.intentKey(BASKET, CONTEXT)).toMatch(
+      expect(key()).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
-    it('records the phase so a reload knows what to ask about', () => {
-      service.intentKey(BASKET, CONTEXT);
-      service.notePhase('reviewing', { orderId: 'o1', quoteRef: 'q1' });
-      const stored = service.attempt()!;
-      expect(stored.phase).toBe('reviewing');
-      expect(stored.orderId).toBe('o1');
-      expect(stored.quoteRef).toBe('q1');
+    it('records the stage and the command so a reload knows what to ask', () => {
+      key();
+      expect(service.noteStage('reviewing')).toBeTrue();
+      expect(service.record()!.stage).toBe('reviewing');
+      expect(service.noteCommand({ orderId: 'o1', quoteRef: 'q1' })).toBeTrue();
+      const stored = service.record()!;
+      expect(stored.stage).toBe('accepting');
+      expect(stored.command).toEqual({ orderId: 'o1', quoteRef: 'q1' });
     });
 
     it('never resurrects an attempt the caller has already finished', () => {
-      service.intentKey(BASKET, CONTEXT);
+      key();
       service.clearIntent();
-      service.notePhase('submitting');
-      expect(service.attempt()).toBeNull();
+      // AND IT REPORTS THE FAILURE. A caller recording progress on a
+      // checkout that is not there has lost track of it; returning success
+      // would hide that, and the callers now act on the boolean.
+      expect(service.noteStage('accepting')).toBeFalse();
+      expect(service.record()).toBeNull();
     });
 
-    it('keeps the key across a phase note', () => {
-      const key = service.intentKey(BASKET, CONTEXT);
-      service.notePhase('submitting');
-      expect(service.attempt()!.key).toBe(key);
+    it('keeps the key across a stage note', () => {
+      const reserved = key();
+      service.noteStage('reviewing');
+      expect(service.record()!.key).toBe(reserved);
     });
   });
 
@@ -165,11 +193,11 @@ describe('CheckoutCoordinatorService', () => {
       // so a blanket wipe here would sign the diner out of their own table to
       // tidy up a finished checkout.
       storage.setItem('somethingElse', { keep: true });
-      service.intentKey(BASKET, CONTEXT);
+      key();
 
       service.clearIntent();
 
-      expect(service.attempt()).toBeNull();
+      expect(service.record()).toBeNull();
       expect(storage.getItem<any>('somethingElse')).toEqual({ keep: true });
     });
   });
@@ -177,27 +205,38 @@ describe('CheckoutCoordinatorService', () => {
   describe('a malformed or foreign record', () => {
     // Storage is shared with the whole origin. A checkout must not be blocked
     // by something else's bad write, and must not act on one either.
-    it('is treated as no attempt at all', () => {
+    it('yields no usable record', () => {
       for (const junk of [null, 'a string', 42, [], {}, { key: '' },
                           { key: 'k' }, { key: 'k', phase: 'nonsense' }]) {
         storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, junk);
-        expect(service.attempt()).withContext(JSON.stringify(junk)).toBeNull();
+        expect(service.record()).withContext(JSON.stringify(junk)).toBeNull();
       }
     });
 
-    it('does not stop a fresh key being minted', () => {
+    it('BLOCKS a fresh key rather than being overwritten', () => {
+      // THIS CONTRACT DELIBERATELY MOVED. It used to mint straight over the
+      // junk, on the reasoning that a checkout must not be blocked by
+      // somebody else's bad write. But only this app writes this key, so the
+      // realistic source of an unparseable value is OUR OWN record — and
+      // overwriting one is exactly how the identity of a checkout whose
+      // outcome is unsettled disappears. It is reported instead, and the
+      // caller says so rather than starting a second checkout.
       storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, { key: 42 });
-      expect(service.intentKey(BASKET, CONTEXT)).toBeTruthy();
-      expect(service.attempt()).not.toBeNull();
+      const reservation = service.reserveIntent(
+        { identity: BASKET, canon: PURCHASE_CANON }, CONTEXT);
+      expect(reservation.kind).toBe('blocked');
+      expect(service.read().kind).toBe('malformed');
     });
 
     it('is never ADOPTED when its basket identity is unreadable', () => {
       // The conservative direction: a record nobody can tie to this basket
-      // is not this basket's, so it mints rather than reuses.
+      // is not this basket's, so it mints rather than reuses. (A D04/D
+      // record with no `basket` field is UPGRADED — not discarded — and its
+      // identity is set to a value nothing can equal.)
       storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, {
         key: 'someone-elses', phase: 'pricing', context: CONTEXT,
       });
-      expect(service.intentKey(BASKET, CONTEXT)).not.toBe('someone-elses');
+      expect(key()).not.toBe('someone-elses');
     });
   });
 
@@ -261,23 +300,28 @@ describe('CheckoutCoordinatorService', () => {
     });
 
     it('asks the diner read by intent key', () => {
-      const key = service.intentKey(BASKET, CONTEXT);
+      const reserved = key();
       resolve();
       const [, url, params] = api.get.calls.argsFor(0);
       expect(url).toBe('orders/journey/order-details/');
-      expect(params).toEqual({ intent: key });
+      expect(params).toEqual({ intent: reserved });
     });
 
     it('reports an accepted order as accepted', () => {
-      service.intentKey(BASKET, CONTEXT);
+      key();
       api.get.and.returnValue(
         of({ data: { id: 'o1', accepted: true } }) as any);
-      expect(resolve()).toEqual(
-        { kind: 'accepted', order: { id: 'o1', accepted: true } } as any);
+      const outcome = resolve();
+      expect(outcome.kind).toBe('accepted');
+      expect((outcome as any).order).toEqual({ id: 'o1', accepted: true });
     });
 
     it('reports an unaccepted order as a draft', () => {
-      service.intentKey(BASKET, CONTEXT);
+      // Against a pre-correlation server, and only because THIS CLIENT'S OWN
+      // record says it never issued an acceptance for this key — see the
+      // level-2 specs, where the same payload after a command was issued is
+      // deliberately NOT called a draft.
+      key();
       api.get.and.returnValue(
         of({ data: { id: 'o1', accepted: false } }) as any);
       expect(resolve().kind).toBe('draft');
@@ -287,7 +331,7 @@ describe('CheckoutCoordinatorService', () => {
       // The read is non-disclosing by design: a foreign, unknown and
       // malformed key are indistinguishable, and all three mean the same
       // thing to a diner at this table — nothing to recover.
-      service.intentKey(BASKET, CONTEXT);
+      key();
       api.get.and.returnValue(throwError(() => ({ status: 404 })) as any);
       expect(resolve()).toEqual({ kind: 'absent' });
     });
@@ -296,7 +340,7 @@ describe('CheckoutCoordinatorService', () => {
       // THE MOST IMPORTANT DISTINCTION IN THIS FILE. An unreachable server is
       // not evidence that nothing happened, and treating it as such is how a
       // recovery mechanism creates the duplicate order it exists to prevent.
-      service.intentKey(BASKET, CONTEXT);
+      key();
       for (const failure of [
         { status: 0 }, { status: 500 }, { status: 401 },
         'no network', null, undefined, new Error('boom'),
@@ -308,7 +352,7 @@ describe('CheckoutCoordinatorService', () => {
     });
 
     it('treats a response with no order as unknown rather than absent', () => {
-      service.intentKey(BASKET, CONTEXT);
+      key();
       api.get.and.returnValue(of({ data: null }) as any);
       expect(resolve()).toEqual({ kind: 'unknown' });
     });
@@ -317,10 +361,10 @@ describe('CheckoutCoordinatorService', () => {
       // The coordinator reports; the caller decides what to drop. Clearing
       // here would silently discard a key on a `unknown` outcome, which is
       // exactly the case where it must survive.
-      const key = service.intentKey(BASKET, CONTEXT);
+      const reserved = key();
       api.get.and.returnValue(throwError(() => ({ status: 500 })) as any);
       resolve();
-      expect(service.attempt()!.key).toBe(key);
+      expect(service.record()!.key).toBe(reserved);
     });
   });
 
@@ -348,7 +392,7 @@ describe('CheckoutCoordinatorService', () => {
       const never = new Observable<never>(() => {});
       const original = CheckoutCoordinatorService.REQUEST_TIMEOUT_MS;
       (CheckoutCoordinatorService as any).REQUEST_TIMEOUT_MS = 5;
-      const bounded = new CheckoutCoordinatorService(api, storage)
+      const bounded = new CheckoutCoordinatorService(api, storage, session)
         .bounded(never);
       (CheckoutCoordinatorService as any).REQUEST_TIMEOUT_MS = original;
 
@@ -387,6 +431,7 @@ describe('CheckoutCoordinatorService through the real interceptor', () => {
   let storage: SessionStorageService;
   let httpMock: HttpTestingController;
   let toast: jasmine.SpyObj<ToastService>;
+  let session: DinerSessionService;
 
   const BASKET = '["one-line"]';
   const CONTEXT = 'r1:t1';
@@ -415,6 +460,7 @@ describe('CheckoutCoordinatorService through the real interceptor', () => {
     });
     service = TestBed.inject(CheckoutCoordinatorService);
     storage = TestBed.inject(SessionStorageService);
+    session = TestBed.inject(DinerSessionService);
     httpMock = TestBed.inject(HttpTestingController);
     storage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
   });
@@ -427,7 +473,8 @@ describe('CheckoutCoordinatorService through the real interceptor', () => {
   function resolveWith(body: Record<string, unknown>,
                        options: { status: number;
                                   statusText: string } | null) {
-    service.intentKey(BASKET, CONTEXT);
+    service.reserveIntent({ identity: BASKET, canon: PURCHASE_CANON },
+                          CONTEXT);
     let outcome!: RecoveryOutcome;
     service.recover().subscribe((value) => (outcome = value));
     const request = httpMock.expectOne(
@@ -437,11 +484,14 @@ describe('CheckoutCoordinatorService through the real interceptor', () => {
     return outcome;
   }
 
-  it('classifies a real 404 as ABSENT and drops the dead key', () => {
+  it('classifies a real 404 as ABSENT and KEEPS the record', () => {
     const outcome = resolveWith(
       { status: 404, message: 'Order not found' },
       { status: 404, statusText: 'Not Found' });
     expect(outcome).toEqual({ kind: 'absent' });
+    // AND IT DOES NOT RETIRE THE INTENT. A proven absence licenses a
+    // SAME-KEY, SAME-REQUEST replay; it is not a reason to forget which key.
+    expect(service.record()).not.toBeNull();
   });
 
   it('classifies a real 500 as UNKNOWN and keeps the key', () => {
@@ -449,7 +499,7 @@ describe('CheckoutCoordinatorService through the real interceptor', () => {
       { status: 500, message: 'boom' },
       { status: 500, statusText: 'Server Error' });
     expect(outcome).toEqual({ kind: 'unknown' });
-    expect(service.attempt()).not.toBeNull();
+    expect(service.record()).not.toBeNull();
   });
 
   it('classifies an older backend that does not know the key as UNKNOWN', () => {
@@ -459,7 +509,7 @@ describe('CheckoutCoordinatorService through the real interceptor', () => {
       { status: 400, message: 'Please provide the order id' },
       { status: 400, statusText: 'Bad Request' });
     expect(outcome).toEqual({ kind: 'unknown' });
-    expect(service.attempt()).not.toBeNull();
+    expect(service.record()).not.toBeNull();
   });
 
   it('raises no toast for a background read nobody asked for', () => {

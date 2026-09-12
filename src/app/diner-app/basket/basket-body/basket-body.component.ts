@@ -7,8 +7,12 @@ import { BasketItem, OrderInitiated, OrderQuoteLine, Restaurant, TableScan } fro
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import {
-  CheckoutCoordinatorService, FlightToken, RecoveryOutcome,
+  CheckoutCoordinatorService, CheckoutRecord, FlightToken, IntentReservation,
+  IssuedCommand, PURCHASE_CANON, RecoveryOutcome,
 } from 'src/app/_services/checkout-coordinator.service';
+import {
+  correlationMatches, correlationPromised, readCorrelation,
+} from 'src/app/_shared/order/checkout-correlation';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -95,6 +99,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** This instance's claim on that flight, if it holds it. */
   private flight: FlightToken | null = null;
+
+  /**
+   * The session keys a COMPLETED order makes stale, and only those.
+   *
+   * Deliberately NOT the diner's table, restaurant or capability tokens: the
+   * order is finished, the diner is still at the table, and destroying their
+   * context in order to rebuild part of it is what the blanket wipe this
+   * replaces did. See `resetDinerOrderContext`.
+   */
+  private static readonly PER_ORDER_SESSION_KEYS = [
+    'upsellConfig',
+    'diner.menu.scrollY',
+  ];
 
   /** What a reload found, when it found anything. Rendered as a one-line
    *  notice; never as a silent redirect, because a diner who does not know
@@ -242,31 +259,143 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private resumeInterruptedCheckout(): void {
     if (this.sidebar) return;
-    if (!this.checkout.attempt()) return;
+    const stored = this.checkout.read();
+    if (stored.kind === 'none') return;
+
+    // A COMPLETED CHECKOUT THAT DID NOT FINISH TIDYING UP. The outcome was
+    // recorded durably before any cleanup, precisely so this case announces
+    // the order rather than re-enquiring about one already in the kitchen.
+    if (stored.kind === 'record' && stored.record.stage === 'accepted'
+        && stored.record.outcome) {
+      this.recovered = { kind: 'accepted', order: null, correlation: null };
+      this.finishAcceptedCheckout();
+      return;
+    }
+
     this.checkout.recover().subscribe((outcome) => {
       this.recovered = outcome;
-      if (outcome.kind === 'accepted') {
-        this.checkout.clearIntent();
-        this.basketService.clearBasket();
-        return;
-      }
-      if (outcome.kind === 'absent') {
-        this.checkout.clearIntent();
+      switch (outcome.kind) {
+        case 'accepted':
+        case 'accepted-unrecorded':
+          // ONE ACTION, TWO DIFFERENT CERTAINTIES. `accepted` is definitive.
+          // `accepted-unrecorded` is the server stating it cannot determine
+          // whether the submission landed — and the conservative action is
+          // the same one, BECAUSE it cannot: clearing the basket and
+          // declining to offer another checkout is what stops a possible
+          // duplicate meal. `recoveryNotice` is where the two part company,
+          // since only one of them may be stated as fact to the diner.
+          this.finishAcceptedCheckout();
+          return;
+        default:
+          // EVERY OTHER OUTCOME KEEPS THE RECORD. `absent` included, and that
+          // is the change: one momentary observation must not discard the
+          // identity of a checkout whose outcome is still open, and even a
+          // proven absence licenses a SAME-KEY, SAME-REQUEST replay rather
+          // than a new key. `draft`, `unknown`, `unsupported`, `unauthorized`,
+          // `uncorrelated` and `blocked` all leave it exactly as it is.
+          return;
       }
     });
   }
 
-  /** The one line a recovering diner reads. Deliberately not a redirect: a
-   *  diner who does not know what happened is the problem being solved. */
+  /**
+   * The one line a recovering diner reads. Deliberately not a redirect: a
+   * diner who does not know what happened is the problem being solved.
+   *
+   * EVERY UNRESOLVED OUTCOME SAYS SO RATHER THAN SAYING NOTHING. Silence is
+   * what the previous version gave for a server it could not reach, and a
+   * blank screen beside a basket the diner may be about to re-order is the
+   * worst of the available answers.
+   */
   get recoveryNotice(): string | null {
     switch (this.recovered?.kind) {
       case 'accepted':
         return 'Your order was already placed — it is with the kitchen.';
+      case 'accepted-unrecorded':
+        // NOT THE SAME SENTENCE, and the difference matters in the
+        // dangerous direction. `evidence_unavailable` is the server saying
+        // it CANNOT DETERMINE whether the submission landed: two producers
+        // reach it — an acceptance predating the evidence table, and a
+        // draft a kitchen write cancelled or advanced — and nothing on the
+        // row separates them. Telling a diner their order is with the
+        // kitchen when it was a cancelled draft leaves them waiting for
+        // food nobody is cooking.
+        //
+        // THE ACTION ABOVE IS UNCHANGED AND STAYS CONSERVATIVE (the basket
+        // is cleared, no second checkout is offered) precisely BECAUSE the
+        // server does not know — one producer really is an order in the
+        // kitchen. Only the claim is narrowed to what was actually
+        // established, and the diner is pointed at the one party who can
+        // resolve it.
+        return 'Your order may already have been placed. Please check with '
+          + 'staff before ordering the same items again.';
       case 'draft':
-        return 'We found your unfinished order. Please review it again.';
+        // TWO DIFFERENT SITUATIONS BEHIND ONE WORD. Without an outstanding
+        // command this is an ordinary unfinished order and reviewing it is
+        // exactly right. WITH one, the diner already confirmed and the
+        // acceptance did not reach the server — "review it again" would
+        // point them at a button that is refused, so say what happened and
+        // name the action that works.
+        return this.outstandingCheckout()
+          ? 'Your order did not reach us. Tap retry to send it again.'
+          : 'We found your unfinished order. Please review it again.';
+      case 'absent':
+        return 'Your last checkout did not reach us. You can place it again.';
+      case 'unauthorized':
+        return 'We could not confirm your last order on this table. '
+          + 'Please rescan the QR code.';
+      case 'uncorrelated':
+      case 'unsupported':
+      case 'unknown':
+        return "We're still confirming your last order. Please check with "
+          + 'staff before ordering the same items again.';
+      case 'blocked':
+        return 'We could not read your last checkout on this device. '
+          + 'Please check with staff before ordering again.';
       default:
         return null;
     }
+  }
+
+  /** True while an outcome the diner must resolve is outstanding — the CTA is
+   *  suppressed rather than silently starting a second checkout. */
+  get checkoutBlocked(): boolean {
+    switch (this.recovered?.kind) {
+      case 'uncorrelated':
+      case 'unsupported':
+      case 'unknown':
+      case 'blocked':
+        return true;
+      case 'draft':
+        // A DRAFT IS ORDINARILY REVIEWABLE — unless this client already
+        // issued an acceptance for it, in which case `reserveIntent` will
+        // refuse a fresh checkout as `outstanding` and the only correct
+        // next step is to replay the command that is already out there.
+        // Offering Checkout there was a button whose every press was
+        // rejected; Retry is the one that resolves it.
+        return this.outstandingCheckout();
+      default:
+        return false;
+    }
+  }
+
+  /** Does this device hold an acceptance it has not resolved? */
+  private outstandingCheckout(): boolean {
+    const record = this.checkout.record();
+    return !!record && this.checkout.isOutstanding(record);
+  }
+
+  /**
+   * Finish a checkout the server has confirmed landed.
+   *
+   * THE RECORD IS DROPPED LAST. Announcing first and clearing after means a
+   * failure in between leaves a record that still says "accepted", which a
+   * reload reads correctly — the other order leaves a diner being asked about
+   * an order that is already cooking.
+   */
+  private finishAcceptedCheckout(): void {
+    this.basketService.clearBasket();
+    this.checkout.clearIntent();
   }
 
   ngAfterViewInit(): void {
@@ -451,15 +580,85 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.placeOrder();
   }
 
-  // Re-attempts a failed placement without re-opening the confirm dialog.
-  // BasketService hands back the same client_order_id while the basket is
-  // unchanged, so the backend dedups rather than creating a second order.
+  /**
+   * Re-attempt a failed placement without re-opening the confirm dialog.
+   *
+   * IT REPLAYS THE COMMAND THAT WAS ISSUED, IT DOES NOT PLACE A NEW ONE. The
+   * previous version called `placeOrder()` unconditionally, which rebuilds
+   * the request from the LIVE basket and re-runs `initiate` — so a retry
+   * after an uncertain ACCEPTANCE asked the server a different question from
+   * the one whose answer was lost, and any basket edit in between silently
+   * changed what was being retried. Where the record carries an issued
+   * command, this resolves THAT: the same order id and the same reference,
+   * under the same key.
+   */
   retryOrder() {
     if (this.connectivity.isOffline()) {
       this.failOrder("You're offline — reconnect to place your order.");
       return;
     }
+    const record = this.checkout.record();
+    if (record && this.checkout.isOutstanding(record)) {
+      this.replayIssuedCommand(record);
+      return;
+    }
     this.placeOrder();
+  }
+
+  /**
+   * Resolve an acceptance that was issued and never settled.
+   *
+   * ASK FIRST, RE-SEND ONLY ON A PROVEN ABSENCE. Reading the key is cheap and
+   * cannot duplicate anything; re-sending is safe too (the server binds the
+   * key), but asking first means the common case — the acceptance DID land —
+   * is answered without another write, and the diner is told what happened
+   * rather than watching a second attempt.
+   */
+  private replayIssuedCommand(record: CheckoutRecord): void {
+    if (!this.holdCheckout()) return;
+    this.orderError = false;
+    this.checkout.recover().subscribe((outcome) => {
+      this.recovered = outcome;
+      this.releaseCheckout();
+      switch (outcome.kind) {
+        case 'accepted':
+        case 'accepted-unrecorded':
+          this.finishAcceptedCheckout();
+          return;
+        case 'absent':
+        case 'draft':
+          // BOTH ARE PROOF THE ACCEPTANCE DID NOT LAND, so both re-send the
+          // SAME command under the SAME key — never a fresh one, which is
+          // the whole point of having recorded it.
+          //
+          // `absent`: no row for this key at a scope the server resolved
+          // itself. `draft`: a level-3 `not_accepted`, which is DEFINITIVE
+          // and in fact the stronger evidence — the server names the order
+          // and says it is still `initiated`, and the backend writes its
+          // acceptance row in the SAME transaction as the transition, so
+          // "still a draft, no evidence" means the acceptance did not
+          // commit. It is also the LIKELIER case: a request that never
+          // arrives leaves behind the draft `initiate` already created, so
+          // recovery finds that draft rather than nothing.
+          //
+          // This branch previously did nothing, and doing nothing was a
+          // DEAD END rather than a pause: the record still held a command,
+          // so Checkout was refused as `outstanding` and Retry returned
+          // here to no-op again, leaving the diner permanently unable to
+          // submit that order.
+          //
+          // A `draft` reached WITHOUT a command cannot arrive here —
+          // `replayIssuedCommand` only runs for an outstanding record, and
+          // `classify` reads that same record, so the commandless draft
+          // branch cannot have produced this.
+          this.resendIssuedCommand(record.command!);
+          return;
+        default:
+          // Draft, unreachable, unsupported, unauthorised or uncorrelated:
+          // all unresolved. The record stands and the notice says so.
+          return;
+      }
+    });
   }
 
   // Shared placement body for both the dialog-"yes" path and Retry. Posts the
@@ -486,6 +685,29 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       context: this.checkoutContext(),
     };
     this.activeAttempt = attempt;
+
+    // RESERVE THE KEY, AND DO NOT SEND ANYTHING IF THAT FAILS.
+    //
+    // Two things changed here. The reservation is CHECKED: a storage that
+    // refuses the write used to be swallowed and the key returned anyway, so
+    // the next attempt read nothing back and minted a second key — the exact
+    // duplicate the key exists to prevent, produced silently by the safety
+    // mechanism. And an OUTSTANDING ACCEPTANCE is refused rather than
+    // overwritten: the record of a command whose outcome is unsettled is the
+    // only thing that can resolve it, and the old path destroyed it whenever
+    // the basket or the table changed.
+    const reservation = this.checkout.reserveIntent(
+      { identity: this.basketService.contentIdentity(),
+        canon: PURCHASE_CANON },
+      attempt.context,
+    );
+    if (reservation.kind !== 'ready') {
+      this.activeAttempt = null;
+      this.releaseCheckout();
+      this.onReservationRefused(reservation);
+      return;
+    }
+
     const orderPayload = {
       // THE IDEMPOTENCY KEY, PERSISTED BEFORE THIS REQUEST IS SENT (D04/D).
       // Reused across retries of an unchanged basket at an unchanged table,
@@ -501,8 +723,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       // reload made the persisted attempt look like a different basket and
       // minted a fresh key, defeating the persistence in exactly the case it
       // was added for.
-      client_order_id: this.checkout.intentKey(
-        this.basketService.contentIdentity(), attempt.context),
+      client_order_id: reservation.key,
       // No raw restaurant/table UUIDs: the backend derives both from the diner
       // table session (X-Diner-Session), so a foreign body id can't override the
       // scope of the order. The session is the sole authority.
@@ -561,12 +782,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             revision: attempt.revision,
             context: attempt.context,
           };
-          // What a reload should ask about. The order id is what the server
-          // priced; the reference is what a resumed review would accept.
-          this.checkout.notePhase('reviewing', {
-            orderId: od?.id != null ? String(od.id) : null,
-            quoteRef: quoteReference,
-          });
+          // The stage a reload should ask about. NOT the command — nothing
+          // has been accepted yet, and recording one here would make a draft
+          // the diner is still reading look like an outstanding acceptance.
+          this.checkout.noteStage('reviewing');
           // ALWAYS review — whether or not anything dropped. The diner sees the
           // server's lines and the server's total, and nothing is accepted
           // until they say so.
@@ -704,6 +923,134 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Identity of the checkout CONTEXT this basket would be priced against. */
   private checkoutContext(): string {
     return `${this.restaurant?.id ?? ''}:${this.table?.id ?? ''}`;
+  }
+
+  /**
+   * Re-send an acceptance the server has proved it never received.
+   *
+   * IT SENDS THE RECORDED COMMAND, NOT A REBUILT ONE. The order id and the
+   * reference come from the record written before the original send, so a
+   * basket edited in the meantime cannot change what is being retried — and
+   * the key is unchanged, so even if this arrives twice the server binds both
+   * to one acceptance.
+   */
+  private resendIssuedCommand(command: IssuedCommand): void {
+    if (!this.holdCheckout()) return;
+    const payload: { order: unknown; quote_ref?: string } =
+      { order: command.orderId };
+    if (command.quoteRef) payload.quote_ref = command.quoteRef;
+    const issued = { seq: ++this.attemptSeq, orderId: command.orderId };
+
+    this.checkout.bounded(
+      this.api.postPatch('orders/submit/', payload, 'put'),
+    ).subscribe(
+      (response: any) => {
+        if (issued.seq !== this.attemptSeq) {
+          this.releaseIfLatest(issued);
+          return;
+        }
+        this.releaseCheckout();
+        // The same rule as `submitOrder` — see the note there.
+        const correlation = readCorrelation(response);
+        const unverifiable = correlation
+          ? !correlationMatches(correlation, {
+            key: this.checkout.record()?.key ?? '',
+            scope: this.checkoutContext(),
+            orderId: command.orderId,
+          })
+          : correlationPromised(response);
+        if (unverifiable) {
+          this.recovered = { kind: 'uncorrelated', order: response };
+          return;
+        }
+        const recorded = this.checkout.recordOutcome({
+          kind: 'accepted',
+          orderId: command.orderId,
+          orderNumber: null,
+          quoteRef: correlation?.acceptance.quoteRef ?? command.quoteRef,
+          acceptedAt: correlation?.acceptance.acceptedAt ?? null,
+          at: Date.now(),
+        });
+        this.recovered = { kind: 'accepted', order: response, correlation };
+        // Same rule as `submitOrder` — the basket is finished either way,
+        // but the record is only dropped once the outcome is durable.
+        this.basketService.clearBasket();
+        if (recorded) this.checkout.clearIntent();
+      },
+      (error) => {
+        if (issued.seq !== this.attemptSeq) {
+          this.releaseIfLatest(issued);
+          return;
+        }
+        this.releaseCheckout();
+        // THE RECORD SURVIVES EVERY FAILURE HERE. The command was issued; a
+        // failure to re-send it says nothing about whether the first one
+        // landed, so the checkout stays unresolved and recoverable.
+        this.recovered = { kind: 'unknown' };
+        this.failOrder(this.placementErrorMessage(error));
+      },
+    );
+  }
+
+  /** Say what a refused reservation means, without starting a checkout. */
+  private onReservationRefused(
+    reservation: Exclude<IntentReservation, { kind: 'ready' }>,
+  ): void {
+    switch (reservation.kind) {
+      case 'outstanding':
+        // An acceptance is already out there. Resolving THAT is the only
+        // correct next step; starting another is what the record exists to
+        // prevent.
+        this.recovered = { kind: 'unknown' };
+        this.failOrder(
+          "Your last order is still being confirmed. Tap retry and we'll "
+          + 'check what happened before placing anything else.');
+        return;
+      case 'storage-error':
+        // NOTHING WAS SENT. A checkout whose key cannot be written down is a
+        // checkout whose retry can duplicate, so it is refused rather than
+        // attempted — which is the opposite of the previous behaviour.
+        this.failOrder(
+          "We couldn't save your checkout on this device, so we haven't "
+          + 'placed the order. Please try again.');
+        return;
+      default:
+        this.recovered = { kind: 'blocked', stored: reservation.stored };
+        this.failOrder(
+          'We could not read your last checkout on this device. Please check '
+          + 'with staff before ordering again.');
+        return;
+    }
+  }
+
+  /**
+   * Clear the per-order browse state a completed order makes stale.
+   *
+   * THIS REPLACES A BLANKET `sessionStorage.clear()`, and the blanket wipe was
+   * the problem rather than the mechanism around it. `StorageService.clear()`
+   * calls `sessionStorage.clear()` on the RAW store, so it emptied every key
+   * on the origin — prefixed or not, this app's or not — and then put two
+   * diner tokens back through `retainSessionThrough`. That is a restore list
+   * that has to be maintained by hand against a wipe that keeps widening, and
+   * it was already wrong for the portal-embedded diner mount
+   * (`rest-app-ordering`), where an operator's own session keys sit in the
+   * same store.
+   *
+   * WHAT IS REMOVED is exactly what a finished order makes stale: the menu's
+   * upsell configuration and the menu scroll position. WHAT IS KEPT is the
+   * diner's own context — the table, the restaurant and the capability
+   * tokens — which the wipe used to destroy and then partially rebuild. The
+   * diner shell treats missing context as a reason to re-scan, so keeping it
+   * is what lets "back to menu" work without one.
+   */
+  private resetDinerOrderContext(): void {
+    for (const key of BasketBodyComponent.PER_ORDER_SESSION_KEYS) {
+      try {
+        this.sessionStorage.removeItem(key);
+      } catch {
+        /* a store that refuses to erase is not a reason to fail an order */
+      }
+    }
   }
 
   /**
@@ -956,24 +1303,88 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * refusal, never a silent reprice and never a second order.
    */
   submitOrder() {
-    const payload: { order: unknown; quote_ref?: string } = {
-      order: this.order_initiated?.order_details?.id,
-    };
+    const orderId = this.order_initiated?.order_details?.id;
     // OMITTED, not sent as null, when the server named no quote: there is
     // nothing to acknowledge, and a null would be an assertion about a quote
     // rather than the absence of one. A corrected server always names one, and
     // refuses a submission that arrives without it.
     const quoteReference = this.reviewedQuote?.ref ?? null;
+
+    // RECORD THE EXACT COMMAND BEFORE ISSUING IT, AND DO NOT ISSUE IT IF THAT
+    // FAILS. From here the outcome is genuinely uncertain until the response
+    // lands — the acceptance may commit and the reply be lost — so the only
+    // thing that can resolve it afterwards is a durable note of what was
+    // sent. A command held only in memory does not survive the reload that is
+    // the most likely response to a stuck checkout.
+    if (orderId == null
+        || !this.checkout.noteCommand({
+          orderId: String(orderId), quoteRef: quoteReference,
+        })) {
+      this.showQuoteSheet = false;
+      this.releaseCheckout();
+      this.failOrder(
+        "We couldn't save your checkout on this device, so we haven't placed "
+        + 'the order. Please try again.');
+      return;
+    }
+
+    const payload: { order: unknown; quote_ref?: string } = { order: orderId };
     if (quoteReference) payload.quote_ref = quoteReference;
-    // From here the outcome is genuinely uncertain until the response lands:
-    // the acceptance may commit and the response be lost. A reload during
-    // this window is what `recover()` exists for.
-    this.checkout.notePhase('submitting');
+    const issued = { seq: this.attemptSeq, orderId: String(orderId) };
 
     this.checkout.bounded(
       this.api.postPatch('orders/submit/', payload, 'put'),
     ).subscribe(
-      (_response: any) => {
+      (response: any) => {
+        // A DELAYED REPLY MUST NOT FINISH A CHECKOUT THE DINER HAS MOVED ON
+        // FROM. `placeOrder` has always guarded its own late responses this
+        // way; the acceptance path never did, so a slow submit landing after
+        // a re-price could clear a basket and navigate away on the strength
+        // of an older attempt.
+        if (issued.seq !== this.attemptSeq) {
+          this.releaseIfLatest(issued);
+          return;
+        }
+        // VALIDATE THE ANSWER IS ABOUT THIS COMMAND BEFORE ANNOUNCING IT.
+        // Where the server publishes the correlated projection the key, the
+        // order and the scope must all agree; below that level there is
+        // nothing to check and the reply is taken as before.
+        // A PROMISE IT COULD NOT KEEP IS REFUSED, NEVER DOWNGRADED. The two
+        // refusals below are one rule: the answer must be about THIS
+        // command, and a projection this client cannot read cannot say that
+        // it is. Taking such a reply as success would announce an order,
+        // clear the basket and navigate away having validated nothing —
+        // while a reply that promised NOTHING is an older server and is
+        // still taken as before.
+        const correlation = readCorrelation(response);
+        const unverifiable = correlation
+          ? !correlationMatches(correlation, {
+            key: this.checkout.record()?.key ?? '',
+            scope: this.checkoutContext(),
+            orderId: issued.orderId,
+          })
+          : correlationPromised(response);
+        if (unverifiable) {
+          this.showQuoteSheet = false;
+          this.releaseCheckout();
+          this.recovered = { kind: 'uncorrelated', order: response };
+          this.failOrder(
+            "We couldn't confirm this is your order. Please check with staff "
+            + 'before ordering again.');
+          return;
+        }
+        // THE TERMINAL RESULT IS RECORDED BEFORE ANY CLEANUP. A process that
+        // dies between here and the teardown below resumes announcing a
+        // completed order instead of re-enquiring about one.
+        const recorded = this.checkout.recordOutcome({
+          kind: 'accepted',
+          orderId: issued.orderId,
+          orderNumber: this.order_initiated?.order_details?.order_number != null
+            ? String(this.order_initiated.order_details.order_number) : null,
+          quoteRef: correlation?.acceptance.quoteRef ?? quoteReference,
+          acceptedAt: correlation?.acceptance.acceptedAt ?? null,
+          at: Date.now(),
+        });
         this.showQuoteSheet = false;
         this.dialog.closeModal();
         // Forward the table for the confirmation page (captured before the
@@ -1002,12 +1413,21 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // tidy up a finished checkout. This is the ONLY place besides an
         // explicit re-review that drops it; never a timeout, a lost response
         // or an ambiguous failure.
-        this.checkout.clearIntent();
         this.basketService.clearBasket(); // Clear the basket
-        // Reset the diner's order/menu context, but KEEP the table-session
-        // capability alive across the wipe — the order-complete review submission
-        // and the back-to-menu re-scan both still authorise off X-Diner-Session.
-        this.dinerSession.retainSessionThrough(() => this.sessionStorage.clear());
+        // CLEANUP ONLY ON A RECORDED OUTCOME. `recordOutcome` exists to
+        // report a failed durable write, and ignoring its answer reopens
+        // the defect this whole mechanism closes: a store that silently
+        // drops writes loses the accepted outcome while the REMOVAL below
+        // still succeeds, so a reload finds no record at all and can start
+        // a second checkout for an order already in the kitchen.
+        //
+        // The order DID land, so success is still announced and the basket
+        // is still cleared — withholding either would report a failure for
+        // something that succeeded. Only the forgetting is withheld, and
+        // the surviving record is what makes a later reload recover
+        // `accepted` and tidy up then.
+        if (recorded) this.checkout.clearIntent();
+        this.resetDinerOrderContext();
         // Reset transient placement state. The desktop basket sidebar is never
         // destroyed (it lives in the shell beside the router-outlet), so without
         // this `placingOrder` stays true on that instance and keeps the checkout
@@ -1045,9 +1465,29 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         // The saved quote moved under us. Re-price and review again; the basket
         // is untouched and the idempotency key is deliberately NOT re-minted.
+        //
+        // THE REFUSED COMMAND IS SETTLED FIRST, AND WITHOUT THAT THE REPRICE
+        // NEVER HAPPENS. `noteCommand` has already recorded this checkout as
+        // `accepting`, so `reserveIntent` answers `outstanding` and
+        // `placeOrder` refuses to start anything — the branch promised a new
+        // quote and delivered a dead end, with Retry re-sending the very
+        // command the server has just refused. `quote_ref_stale` is
+        // DEFINITIVE (the server re-read the order under its lock and the
+        // reference does not match), so there is no outstanding acceptance to
+        // protect; the KEY is kept, because the basket is unchanged and this
+        // is the same purchase.
         if (this.refusalReason(error) === 'quote_ref_stale') {
           this.toast.clear();
           this.reviewedQuote = null;
+          if (!this.checkout.settleRefusedCommand()) {
+            // The settle is a required durable write: repricing on top of a
+            // record that still names an unsettled command would leave one
+            // nobody resolves. Nothing is sent.
+            this.failOrder(
+              "We couldn't save your checkout on this device, so we haven't "
+              + 'placed the order. Please try again.');
+            return;
+          }
           this.placeOrder();
           return;
         }

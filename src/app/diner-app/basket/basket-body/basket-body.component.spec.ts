@@ -7,7 +7,9 @@ import { NEVER, Subject, of, throwError } from 'rxjs';
 import { WINDOW } from '../../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../../_services/storage/storage-key-prefix.token';
 import { BasketService } from '../../../_services/basket.service';
-import { CheckoutCoordinatorService } from '../../../_services/checkout-coordinator.service';
+import {
+  CheckoutCoordinatorService, PURCHASE_CANON,
+} from '../../../_services/checkout-coordinator.service';
 import { ApiService } from '../../../_services/api.service';
 import { ToastService } from '../../../_shared/ui/toast/toast.service';
 import { ConfirmDialogService } from '../../../_common/confirm-dialog.service';
@@ -351,9 +353,27 @@ describe('BasketBodyComponent', () => {
     expect(api.postPatch).not.toHaveBeenCalled();
   });
 
+
+  /**
+   * A reserved checkout, the way `placeOrder` leaves one.
+   *
+   * `submitOrder` now refuses to issue an acceptance it cannot record
+   * durably, so a spec that calls it directly has to establish the record
+   * production would already have written. That refusal is the point of the
+   * change, not an inconvenience: an acceptance whose command is held only
+   * in memory is one a lost response cannot recover.
+   */
+  function reserveCheckout(): void {
+    TestBed.inject(CheckoutCoordinatorService).reserveIntent(
+      { identity: 'spec-basket', canon: PURCHASE_CANON },
+      (component as any).checkoutContext(),
+    );
+  }
+
   it('forwards the real order id to order-complete on a successful submit', () => {
     component.order_initiated = { order_details: { id: 'o1' } } as any;
     component.table = { number: 3, id: 't1' };
+    reserveCheckout();
     api.postPatch.and.returnValue(of({}) as any);
 
     component.submitOrder();
@@ -373,6 +393,7 @@ describe('BasketBodyComponent', () => {
     // production does — which is also what makes the release meaningful:
     // it now frees the checkout for BOTH mounted instances, not one.
     component.order_initiated = { order_details: { id: 'o1' } } as any;
+    reserveCheckout();
     (component as any).flight = TestBed.inject(
       CheckoutCoordinatorService).claimFlight();
     expect(component.placingOrder).toBeTrue();
