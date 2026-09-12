@@ -17,7 +17,7 @@ Two scripts share one fixture and one setup:
 | | |
 |---|---|
 | `journey.mjs` | the CLEAN path — 42 checks, below |
-| `recovery.mjs` | INDUCED LOSS — 22 checks, the D04 section near the bottom |
+| `recovery.mjs` | INDUCED LOSS — 28 checks, the D04 section near the bottom |
 
 ## What it asserts
 
@@ -161,6 +161,15 @@ Last run: **42/42 (`journey.mjs`) and 22/22 (`recovery.mjs`)** against a
 disposable local PostgreSQL 16.13, a local Django on `test_settings`
 (Python 3.11.15), and a **development** `ng serve` on Node 24.21.0 with
 Chromium 141.
+
+**`recovery.mjs` HAS SINCE GROWN TO 28 CHECKS AND HAS NOT BEEN RE-RUN.** The six
+new ones assert the D04 correlated projection (`data.checkout`) — the intent
+key, order and scope the answer names, the three-state acceptance verdict, the
+original accepted reference, the separately-labelled current state, and the
+protocol level. They need a backend carrying `checkout_protocol` 3. The count
+above is left as the last count that was actually MEASURED rather than being
+edited to match the harness; the previous revision of this file made the
+opposite mistake and it is the reason this paragraph exists.
 
 Two things about that line are deliberate. It records the **development** server,
 because that is what was exercised — a successful `build:prod` is not a browser

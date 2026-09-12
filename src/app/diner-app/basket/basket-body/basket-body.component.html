@@ -361,13 +361,20 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
           {{ orderErrorMessage }}
         </p>
       }
-      @if (!orderError) {
+      <!-- AN UNRESOLVED CHECKOUT OFFERS RETRY, NOT CHECKOUT. Tapping
+           Checkout with an acceptance outstanding is refused anyway (the
+           record of the issued command is the only thing that can resolve
+           it, so it must not be overwritten), and offering the button that
+           does the right thing is better than offering one that explains
+           why it will not. The notice at the top of the basket says what
+           is being resolved. -->
+      @if (!orderError && !checkoutBlocked) {
         <button app-dn-button variant="cta" (click)="initiateOrder()"
           [loading]="placingOrder" [disabled]="!!limitState.breach" class="w-full">
           Checkout — {{ totalIsExact ? '' : 'about ' }}UGX {{ totalAmount | number }}
         </button>
       }
-      @if (orderError) {
+      @if (orderError || checkoutBlocked) {
         <button app-dn-button variant="cta" (click)="retryOrder()"
           [loading]="placingOrder" [disabled]="!!limitState.breach" class="w-full">
           Retry

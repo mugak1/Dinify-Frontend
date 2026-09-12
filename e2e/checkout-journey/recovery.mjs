@@ -361,6 +361,34 @@ const main = async () => {
             recovered.body?.data?.checkout_protocol >= 2,
             `checkout_protocol=${recovered.body?.data?.checkout_protocol}`);
 
+      // THE CORRELATED PROJECTION (protocol 3). A client that lost its
+      // response has to be able to prove the answer is about ITS command,
+      // and to tell a draft from an acceptance the server cannot date.
+      const co = recovered.body?.data?.checkout;
+      check('the answer names this key, this order and this table',
+            co?.intent_key === key && co?.order_id === lostOrderIdLocal
+            && typeof co?.scope?.table === 'string',
+            `intent_key=${co?.intent_key} order_id=${co?.order_id} `
+            + `table=${co?.scope?.table}`);
+      check('the acceptance verdict is the three-state one, not a boolean',
+            co?.acceptance?.state === 'accepted',
+            `state=${co?.acceptance?.state}`);
+      check('a READ carries no outcome — it is not an acceptance attempt',
+            co?.acceptance?.outcome === null,
+            `outcome=${co?.acceptance?.outcome}`);
+      check('the ORIGINAL accepted reference is published, not recomputed',
+            typeof co?.acceptance?.quote_ref === 'string'
+            && co.acceptance.quote_ref.length > 0,
+            `quote_ref=${co?.acceptance?.quote_ref}`);
+      check('current order state is labelled apart from the acceptance',
+            typeof co?.current?.order_status === 'string'
+            && typeof co?.current?.fulfilment_status === 'string',
+            `order_status=${co?.current?.order_status} `
+            + `fulfilment_status=${co?.current?.fulfilment_status}`);
+      check('and the level is stated explicitly, not inferred',
+            co?.checkout_protocol >= 3,
+            `checkout.checkout_protocol=${co?.checkout_protocol}`);
+
       // A key from nowhere must not resolve to somebody's order.
       const foreign = await api(
         '/api/v1/orders/journey/order-details/'
