@@ -308,6 +308,113 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
     expect(notice()).toContain('with the kitchen');
   });
 
+  // -- the three P1s from the Codex review of #664 -----------------------
+
+  /** A level-3 order-details payload, as the diner's recovery read sees it. */
+  const recovered = (acceptance: any, over: any = {}) => ({ data: {
+    id: 'o1',
+    accepted: acceptance.state === 'accepted',
+    checkout_protocol: 3,
+    checkout: {
+      order_id: 'o1',
+      intent_key: coordinator.record()?.key ?? null,
+      scope: { restaurant: '', table: '' },
+      acceptance: { outcome: null, quote_ref: null, accepted_at: null,
+                    ...acceptance },
+      current: { order_status: 'initiated', fulfilment_status: 'new',
+                 cancelled_at: null, served_at: null },
+      checkout_protocol: 3,
+      ...over,
+    },
+  } });
+
+  it('REPLAYS the issued command when the server proves the draft is intact',
+     () => {
+    // THE DEADLOCK. An acceptance that never reached the server leaves the
+    // draft `initiate` created, so recovery reads a DEFINITIVE level-3
+    // `not_accepted` — not a 404. The record still holds a command, so
+    // Checkout is refused as `outstanding`; if Retry then no-ops on the
+    // draft, the diner can never submit that order at all.
+    //
+    // `not_accepted` is proof of non-execution: the backend writes the
+    // evidence row in the SAME transaction as the transition, so "still
+    // initiated, no evidence" means the acceptance did not commit. The same
+    // command is therefore re-sent under the SAME key — never a fresh one.
+    interruptMidSubmission();
+    api.get.and.returnValue(of(recovered({ state: 'not_accepted' })) as any);
+    fixture.detectChanges();
+    expect(component.recovered?.kind).toBe('draft');
+
+    api.postPatch.and.returnValue(of({ status: 200 }) as any);
+    component.retryOrder();
+
+    expect(api.postPatch).toHaveBeenCalled();
+    const [url, payload] = api.postPatch.calls.mostRecent().args as any[];
+    expect(url).toBe('orders/submit/');
+    expect(payload.order).toBe('o1');
+  });
+
+  it('offers RETRY, not Checkout, on a draft it already has a command for',
+     () => {
+    // The CTA half of the same defect: `draft` did not block, so the button
+    // said Checkout and every press was refused as `outstanding`.
+    interruptMidSubmission();
+    api.get.and.returnValue(of(recovered({ state: 'not_accepted' })) as any);
+
+    fixture.detectChanges();
+
+    expect(component.checkoutBlocked).toBeTrue();
+    const labels = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ).map((b) => (b.textContent || '').trim());
+    expect(labels).toContain('Retry');
+  });
+
+  it('does NOT auto-submit on load — the diner taps retry', () => {
+    // A reload may be how somebody abandons a checkout. Recovery reports;
+    // it never places an order on its own.
+    interruptMidSubmission();
+    api.get.and.returnValue(of(recovered({ state: 'not_accepted' })) as any);
+
+    fixture.detectChanges();
+
+    expect(api.postPatch).not.toHaveBeenCalled();
+  });
+
+  it('REFUSES a payload that promised a projection it cannot express', () => {
+    // ABSENT AND UNREADABLE ARE DIFFERENT FACTS — the same distinction this
+    // repo already draws for `quote_total`. A payload advertising level 3
+    // whose projection cannot be read is BROKEN, and trusting the legacy
+    // `accepted: true` beside it clears the basket with no key, order or
+    // scope ever checked.
+    interruptMidSubmission();
+    api.get.and.returnValue(of({ data: {
+      id: 'o1',
+      accepted: true,
+      checkout_protocol: 3,
+      checkout: { order_id: 'o1', acceptance: { state: 'nonsense' } },
+    } }) as any);
+
+    fixture.detectChanges();
+
+    expect(component.recovered?.kind).toBe('uncorrelated');
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+  });
+
+  it('still falls back when the payload promised NOTHING', () => {
+    // The negative control. A pre-level-3 server carries no projection at
+    // all, and its `accepted: true` is still definitive — narrowing the
+    // broken case must not break compatibility with an older one.
+    interruptMidSubmission();
+    api.get.and.returnValue(
+      of({ data: { id: 'o1', accepted: true } }) as any);
+
+    fixture.detectChanges();
+
+    expect(component.recovered?.kind).toBe('accepted');
+    expect(basketService.clearBasket).toHaveBeenCalled();
+  });
+
   it('leaves an unaccepted draft exactly as it is, for the diner to review', () => {
     // NO ACCEPTANCE WAS ISSUED for this key, so an unaccepted order can only
     // be the draft that initiate created — and this client knows that from
@@ -659,6 +766,60 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
       component.confirmQuote();
 
       expect(basketService.clearBasket).toHaveBeenCalled();
+    });
+
+    it('REFUSES a submit reply that promised a projection it cannot express',
+       () => {
+      // The submit surface has the same hole as the recovery read, and the
+      // available signal here is the `checkout` key itself: the backend
+      // publishes it TOP-LEVEL on this response (beside status / message /
+      // idempotent), so present-but-unreadable is a broken promise while
+      // absent is simply an older server.
+      reviewed();
+      api.postPatch.and.returnValue(of({
+        status: 200,
+        checkout: { order_id: 'o9', acceptance: { state: 'nonsense' } },
+      }) as any);
+
+      component.confirmQuote();
+
+      expect(basketService.clearBasket).not.toHaveBeenCalled();
+      expect(component.orderError).toBeTrue();
+      expect(component.recovered?.kind).toBe('uncorrelated');
+    });
+
+    it('KEEPS the intent when the terminal outcome cannot be recorded', () => {
+      // `recordOutcome` exists to report a failed durable write, and
+      // ignoring its answer reopens the very defect this PR closed: a store
+      // that silently drops writes loses the accepted outcome while the
+      // REMOVAL still succeeds, so a reload finds no record at all and can
+      // start a second checkout for an order already in the kitchen.
+      //
+      // The order DID land, so success is still announced — only the
+      // cleanup is withheld, and the surviving record is what makes a later
+      // reload recover `accepted` and tidy up then.
+      reviewed();
+      api.postPatch.and.returnValue(of(accepted()) as any);
+      spyOn(coordinator, 'recordOutcome').and.returnValue(false);
+      const cleared = spyOn(coordinator, 'clearIntent').and.callThrough();
+
+      component.confirmQuote();
+
+      expect(cleared).not.toHaveBeenCalled();
+      // the diner is still told their order was placed
+      expect(basketService.clearBasket).toHaveBeenCalled();
+      expect(component.orderError).toBeFalse();
+    });
+
+    it('clears the intent when the outcome WAS recorded', () => {
+      // The negative control for the spec above.
+      reviewed();
+      api.postPatch.and.returnValue(of(accepted()) as any);
+      const cleared = spyOn(coordinator, 'clearIntent').and.callThrough();
+
+      component.confirmQuote();
+
+      expect(cleared).toHaveBeenCalled();
     });
 
     it('will not send an acceptance it cannot record durably', () => {

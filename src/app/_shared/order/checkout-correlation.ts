@@ -41,13 +41,21 @@ export const CHECKOUT_PROTOCOL_CORRELATED = 3;
  *                         evidence: when, and against which quote.
  *  `not_accepted`         the order is still a DRAFT. Definitive. It may be
  *                         reviewed and it may be accepted.
- *  `evidence_unavailable` the order is NOT a draft, so a submission did land,
- *                         but nothing records it — an order accepted before
- *                         the evidence table existed. IT MUST NEVER BE
- *                         ACCEPTED AGAIN. At protocol 2 this case and a
- *                         genuine draft both read `accepted: false`, which is
- *                         precisely why that boolean cannot be trusted to
- *                         decide whether to submit.
+ *  `evidence_unavailable` the order is NOT a draft and nothing records an
+ *                         acceptance, so the server CANNOT DETERMINE whether
+ *                         the submission landed. A NON-ANSWER, not a verdict:
+ *                         two producers reach it — an acceptance predating
+ *                         the evidence table, and a DRAFT a kitchen write
+ *                         cancelled or advanced — and nothing on the row
+ *                         separates them. IT MUST NEVER BE ACCEPTED AGAIN,
+ *                         precisely BECAUSE the server does not know: one of
+ *                         those producers really is an order in the kitchen.
+ *                         What the diner is TOLD is narrower than what is
+ *                         DONE — see `recoveryNotice`. At protocol 2 this
+ *                         case and a genuine draft both read
+ *                         `accepted: false`, which is precisely why that
+ *                         boolean cannot be trusted to decide whether to
+ *                         submit.
  */
 export type AcceptanceState =
   | 'accepted' | 'not_accepted' | 'evidence_unavailable';
@@ -97,15 +105,46 @@ export function protocolLevel(payload: unknown): number {
 }
 
 /**
+ * Did this payload PROMISE a correlated projection?
+ *
+ * ABSENT AND UNREADABLE ARE DIFFERENT FACTS, and collapsing them is how a
+ * broken server gets trusted. This repo already draws the same distinction
+ * for `quote_total`: a CORRECTED response that sent a total it cannot express
+ * is broken and refused, while one that sent none simply predates the field.
+ * The identical rule applies here — so `readCorrelation` returning `null`
+ * means "fall back" only when the payload promised nothing, and means
+ * "refuse" when it promised something it could not express.
+ *
+ * TWO SIGNALS, BECAUSE THE TWO SURFACES CARRY DIFFERENT ONES. The diner's
+ * order read publishes `checkout_protocol` at the top level beside
+ * `data.checkout`, so an advertised level >= 3 is a promise on its own even
+ * if the projection is missing entirely. The submit reply carries the
+ * projection TOP-LEVEL beside `status` / `message` / `idempotent` and no
+ * separate level field, so there the presence of a `checkout` object IS the
+ * promise. Either is enough.
+ *
+ * A NON-OBJECT `checkout` COUNTS AS A PROMISE TOO. A server that sent the key
+ * at all is claiming the contract; sending a string or a number for it is a
+ * broken claim, not an absent one.
+ */
+export function correlationPromised(payload: unknown): boolean {
+  const root = payload as { checkout?: unknown } | null;
+  if (root?.checkout !== undefined && root?.checkout !== null) return true;
+  return protocolLevel(payload) >= CHECKOUT_PROTOCOL_CORRELATED;
+}
+
+/**
  * Read the correlated projection, or `null`.
  *
  * `null` is returned for a payload that does not carry one AND for one that
- * carries a malformed one — deliberately the same answer, because the caller's
- * response to both is identical: fall back to the level-2 reading, which is
- * conservative. It is NOT reconstructed from the surrounding legacy keys: a
- * projection assembled here out of `accepted` / `id` would carry exactly the
- * draft/legacy conflation the projection exists to remove, wearing the shape
- * that says it does not.
+ * carries a malformed one — deliberately the same answer HERE, because this
+ * function reports only what it could read. **What a caller does about the
+ * two differs**, and `correlationPromised` above is how it tells them apart:
+ * an absent projection falls back to the level-2 reading, a promised-but-
+ * unreadable one is refused. It is NOT reconstructed from the surrounding
+ * legacy keys: a projection assembled here out of `accepted` / `id` would
+ * carry exactly the draft/legacy conflation the projection exists to remove,
+ * wearing the shape that says it does not.
  */
 export function readCorrelation(payload: unknown): CheckoutCorrelation | null {
   const root = payload as { checkout?: unknown } | null;

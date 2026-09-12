@@ -456,12 +456,60 @@ so keep it current when conventions change.
   them waiting for food nobody is making. Pinned by a spec pair — one asserting the
   unrecorded notice omits the kitchen claim, one asserting the confirmed notice
   still states it plainly, so narrowing one cannot hedge the other.
+  **A PROMISE IT COULD NOT KEEP IS REFUSED, NEVER DOWNGRADED** (Codex P1 on
+  PR #664, valid). `readCorrelation` returns `null` both for a payload that
+  carries no projection and for one whose projection cannot be READ, and all
+  three call sites treated those the same: fall back to the legacy branch and
+  trust `accepted: true` — clearing the basket having checked no key, no order
+  and no scope, which is the exact unvalidated announcement the projection
+  exists to prevent. **ABSENT AND UNREADABLE ARE DIFFERENT FACTS**, the same
+  distinction this repo already draws for `quote_total`, and
+  `correlationPromised` is the one predicate that separates them so the three
+  sites cannot disagree. **IT READS TWO SIGNALS BECAUSE THE TWO SURFACES CARRY
+  DIFFERENT ONES**: the order read publishes `checkout_protocol` at the top
+  level beside `data.checkout`, so an advertised level ≥ 3 is a promise even
+  with the projection missing entirely, while the submit reply carries the
+  projection top-level beside `status`/`message`/`idempotent` and NO separate
+  level field, so there the presence of a `checkout` key IS the promise. A
+  non-object `checkout` counts as a promise too — sending the key at all
+  claims the contract.
   BELOW level 3 the client falls back, and the
   fallback is resolved from ITS OWN RECORD rather than from the server: with no
   command issued for this key an unaccepted order can only be the draft that
   initiate created, so it is a `draft`; with a command outstanding the server
   cannot say whether it landed, so the outcome is `unsupported` and the diner is
-  told the checkout is still being confirmed. **This client is safe against a
+  told the checkout is still being confirmed.
+  **A DEFINITIVE DRAFT REPLAYS THE COMMAND, AND NOT DOING SO WAS A DEAD END**
+  (Codex P1 on PR #664, valid — and the likeliest interruption of all). An
+  acceptance that never reaches the server leaves behind the draft `initiate`
+  already created, so recovery reads a level-3 `not_accepted` rather than a
+  404. `replayIssuedCommand` no-opped on that, `checkoutBlocked` did not cover
+  `draft` so the CTA said **Checkout**, `reserveIntent` refused every press as
+  `outstanding`, and Retry came back to the same no-op: the diner could never
+  submit that order again. `not_accepted` is PROOF OF NON-EXECUTION — the
+  backend writes its evidence row in the SAME transaction as the transition, so
+  "still initiated, no evidence" means the acceptance did not commit — and it
+  is the STRONGER evidence of the two, since the server names the order rather
+  than merely failing to find one. It therefore takes the `absent` path: the
+  SAME command re-sent under the SAME key. Two consequences follow. `draft`
+  BLOCKS only when a command is outstanding (a commandless draft is an ordinary
+  reviewable order and Checkout must still work), and its notice splits the
+  same way — "your order did not reach us, tap retry" rather than "please
+  review it again", which would point at a button that is refused. **RECOVERY
+  STILL NEVER AUTO-SUBMITS ON LOAD**: a reload may be how somebody abandons a
+  checkout, so the resume path reports and the diner taps.
+  **AND A FAILED DURABLE WRITE IS HONOURED AT THE END, NOT ONLY AT THE START**
+  (Codex P1 on PR #664, valid). `recordOutcome` returns false when its
+  read-back verification fails, and both success paths ignored it and called
+  `clearIntent` regardless — so a store that silently drops writes loses the
+  accepted outcome while the REMOVAL still succeeds, leaving a reload with no
+  record at all and free to start a second checkout for an order already in the
+  kitchen. That is the same defect this PR closed at the other end of the
+  checkout, reopened at the last step. Cleanup is now conditional on the
+  record: the order DID land, so success is still announced and the basket
+  still cleared — withholding either would report a failure for something that
+  succeeded — and only the FORGETTING is withheld, so a later reload recovers
+  `accepted` and tidies up then. **This client is safe against a
   pre-D04, a level-1, a level-2 and a level-3 server, and the backend lands first.**
   **THE TERMINAL RESULT IS RECORDED BEFORE ANY CLEANUP** (`recordOutcome` then
   `clearIntent`), so a process that dies mid-teardown resumes announcing a completed

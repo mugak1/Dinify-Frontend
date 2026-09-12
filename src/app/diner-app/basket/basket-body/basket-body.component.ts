@@ -11,7 +11,7 @@ import {
   IssuedCommand, PURCHASE_CANON, RecoveryOutcome,
 } from 'src/app/_services/checkout-coordinator.service';
 import {
-  correlationMatches, readCorrelation,
+  correlationMatches, correlationPromised, readCorrelation,
 } from 'src/app/_shared/order/checkout-correlation';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -330,7 +330,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         return 'Your order may already have been placed. Please check with '
           + 'staff before ordering the same items again.';
       case 'draft':
-        return 'We found your unfinished order. Please review it again.';
+        // TWO DIFFERENT SITUATIONS BEHIND ONE WORD. Without an outstanding
+        // command this is an ordinary unfinished order and reviewing it is
+        // exactly right. WITH one, the diner already confirmed and the
+        // acceptance did not reach the server — "review it again" would
+        // point them at a button that is refused, so say what happened and
+        // name the action that works.
+        return this.outstandingCheckout()
+          ? 'Your order did not reach us. Tap retry to send it again.'
+          : 'We found your unfinished order. Please review it again.';
       case 'absent':
         return 'Your last checkout did not reach us. You can place it again.';
       case 'unauthorized':
@@ -358,9 +366,23 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'unknown':
       case 'blocked':
         return true;
+      case 'draft':
+        // A DRAFT IS ORDINARILY REVIEWABLE — unless this client already
+        // issued an acceptance for it, in which case `reserveIntent` will
+        // refuse a fresh checkout as `outstanding` and the only correct
+        // next step is to replay the command that is already out there.
+        // Offering Checkout there was a button whose every press was
+        // rejected; Retry is the one that resolves it.
+        return this.outstandingCheckout();
       default:
         return false;
     }
+  }
+
+  /** Does this device hold an acceptance it has not resolved? */
+  private outstandingCheckout(): boolean {
+    const record = this.checkout.record();
+    return !!record && this.checkout.isOutstanding(record);
   }
 
   /**
@@ -604,10 +626,31 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.finishAcceptedCheckout();
           return;
         case 'absent':
-          // THE SERVER HAS NO ROW FOR THIS KEY at a scope it resolved itself,
-          // so the acceptance never landed. The SAME command is re-sent under
-          // the SAME key — never a fresh one, which is the whole point of
-          // having recorded it.
+        case 'draft':
+          // BOTH ARE PROOF THE ACCEPTANCE DID NOT LAND, so both re-send the
+          // SAME command under the SAME key — never a fresh one, which is
+          // the whole point of having recorded it.
+          //
+          // `absent`: no row for this key at a scope the server resolved
+          // itself. `draft`: a level-3 `not_accepted`, which is DEFINITIVE
+          // and in fact the stronger evidence — the server names the order
+          // and says it is still `initiated`, and the backend writes its
+          // acceptance row in the SAME transaction as the transition, so
+          // "still a draft, no evidence" means the acceptance did not
+          // commit. It is also the LIKELIER case: a request that never
+          // arrives leaves behind the draft `initiate` already created, so
+          // recovery finds that draft rather than nothing.
+          //
+          // This branch previously did nothing, and doing nothing was a
+          // DEAD END rather than a pause: the record still held a command,
+          // so Checkout was refused as `outstanding` and Retry returned
+          // here to no-op again, leaving the diner permanently unable to
+          // submit that order.
+          //
+          // A `draft` reached WITHOUT a command cannot arrive here —
+          // `replayIssuedCommand` only runs for an outstanding record, and
+          // `classify` reads that same record, so the commandless draft
+          // branch cannot have produced this.
           this.resendIssuedCommand(record.command!);
           return;
         default:
@@ -907,16 +950,20 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         this.releaseCheckout();
+        // The same rule as `submitOrder` — see the note there.
         const correlation = readCorrelation(response);
-        if (correlation && !correlationMatches(correlation, {
-          key: this.checkout.record()?.key ?? '',
-          scope: this.checkoutContext(),
-          orderId: command.orderId,
-        })) {
+        const unverifiable = correlation
+          ? !correlationMatches(correlation, {
+            key: this.checkout.record()?.key ?? '',
+            scope: this.checkoutContext(),
+            orderId: command.orderId,
+          })
+          : correlationPromised(response);
+        if (unverifiable) {
           this.recovered = { kind: 'uncorrelated', order: response };
           return;
         }
-        this.checkout.recordOutcome({
+        const recorded = this.checkout.recordOutcome({
           kind: 'accepted',
           orderId: command.orderId,
           orderNumber: null,
@@ -925,7 +972,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           at: Date.now(),
         });
         this.recovered = { kind: 'accepted', order: response, correlation };
-        this.finishAcceptedCheckout();
+        // Same rule as `submitOrder` — the basket is finished either way,
+        // but the record is only dropped once the outcome is durable.
+        this.basketService.clearBasket();
+        if (recorded) this.checkout.clearIntent();
       },
       (error) => {
         if (issued.seq !== this.attemptSeq) {
@@ -1299,12 +1349,22 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // Where the server publishes the correlated projection the key, the
         // order and the scope must all agree; below that level there is
         // nothing to check and the reply is taken as before.
+        // A PROMISE IT COULD NOT KEEP IS REFUSED, NEVER DOWNGRADED. The two
+        // refusals below are one rule: the answer must be about THIS
+        // command, and a projection this client cannot read cannot say that
+        // it is. Taking such a reply as success would announce an order,
+        // clear the basket and navigate away having validated nothing —
+        // while a reply that promised NOTHING is an older server and is
+        // still taken as before.
         const correlation = readCorrelation(response);
-        if (correlation && !correlationMatches(correlation, {
-          key: this.checkout.record()?.key ?? '',
-          scope: this.checkoutContext(),
-          orderId: issued.orderId,
-        })) {
+        const unverifiable = correlation
+          ? !correlationMatches(correlation, {
+            key: this.checkout.record()?.key ?? '',
+            scope: this.checkoutContext(),
+            orderId: issued.orderId,
+          })
+          : correlationPromised(response);
+        if (unverifiable) {
           this.showQuoteSheet = false;
           this.releaseCheckout();
           this.recovered = { kind: 'uncorrelated', order: response };
@@ -1316,7 +1376,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // THE TERMINAL RESULT IS RECORDED BEFORE ANY CLEANUP. A process that
         // dies between here and the teardown below resumes announcing a
         // completed order instead of re-enquiring about one.
-        this.checkout.recordOutcome({
+        const recorded = this.checkout.recordOutcome({
           kind: 'accepted',
           orderId: issued.orderId,
           orderNumber: this.order_initiated?.order_details?.order_number != null
@@ -1354,7 +1414,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // explicit re-review that drops it; never a timeout, a lost response
         // or an ambiguous failure.
         this.basketService.clearBasket(); // Clear the basket
-        this.checkout.clearIntent();
+        // CLEANUP ONLY ON A RECORDED OUTCOME. `recordOutcome` exists to
+        // report a failed durable write, and ignoring its answer reopens
+        // the defect this whole mechanism closes: a store that silently
+        // drops writes loses the accepted outcome while the REMOVAL below
+        // still succeeds, so a reload finds no record at all and can start
+        // a second checkout for an order already in the kitchen.
+        //
+        // The order DID land, so success is still announced and the basket
+        // is still cleared — withholding either would report a failure for
+        // something that succeeded. Only the forgetting is withheld, and
+        // the surviving record is what makes a later reload recover
+        // `accepted` and tidy up then.
+        if (recorded) this.checkout.clearIntent();
         this.resetDinerOrderContext();
         // Reset transient placement state. The desktop basket sidebar is never
         // destroyed (it lives in the shell beside the router-outlet), so without

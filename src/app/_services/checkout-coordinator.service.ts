@@ -7,7 +7,7 @@ import { DinerSessionService } from './diner-session.service';
 import { SessionStorageService } from './storage/session-storage.service';
 import {
   CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, correlationMatches,
-  protocolLevel, readCorrelation,
+  correlationPromised, protocolLevel, readCorrelation,
 } from 'src/app/_shared/order/checkout-correlation';
 
 /**
@@ -527,6 +527,18 @@ export class CheckoutCoordinatorService {
         default:
           return { kind: 'draft', order, correlation };
       }
+    }
+
+    // A PROMISE IT COULD NOT KEEP IS REFUSED, NEVER DOWNGRADED. Falling back
+    // here is correct only for a payload that advertised NO projection — an
+    // older server, whose `accepted` boolean is the best it has. A payload
+    // that promised one and could not express it is BROKEN, and trusting the
+    // legacy boolean beside it would clear the basket having checked no key,
+    // no order and no scope: exactly the unvalidated announcement the
+    // projection exists to prevent. Same distinction this repo already draws
+    // for `quote_total`.
+    if (correlationPromised(order)) {
+      return { kind: 'uncorrelated', order };
     }
 
     // BELOW LEVEL 3. `accepted: true` is still definitive — the server only
