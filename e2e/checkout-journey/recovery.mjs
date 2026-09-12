@@ -149,8 +149,27 @@ const main = async () => {
     await add.click();
   };
 
+  /**
+   * THE BASKET IS EDITED ON THE PAGE BEFORE CHECKOUT, and that is not
+   * decoration — it is what makes scenario 1 able to fail.
+   *
+   * `BasketService.revision()` is a counter on a `providedIn: 'root'`
+   * service, so it restarts at 0 on every page load. Arriving here by
+   * `page.goto` and clicking Checkout immediately mints the key at
+   * revision 0 — and the reload mints the next one at revision 0 too. So
+   * a key scoped to the REVISION rather than to the basket's CONTENTS
+   * produced two identical keys here and the scenario passed against the
+   * exact defect it exists to catch (Codex P1 on PR #663). One stepper
+   * click leaves the counter at 1 before the reload and 0 after it, while
+   * the contents are restored identical — which is the real diner's
+   * situation and the only version of it that discriminates.
+   */
   const openReview = async (page) => {
     await page.goto(`${WEB}/diner/basket`, { waitUntil: 'domcontentloaded' });
+    const more = page.getByRole('button', { name: 'Increase quantity' })
+      .first();
+    await more.waitFor({ state: 'visible', timeout: 20000 });
+    await more.click();
     const checkout = page.getByRole('button', { name: /Checkout —/ }).first();
     await checkout.waitFor({ state: 'visible', timeout: 20000 });
     await checkout.click();

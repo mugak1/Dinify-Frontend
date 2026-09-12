@@ -99,6 +99,10 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
       clearBasket: jasmine.createSpy('clearBasket'),
       revision: () => 0,
       resetClientOrderId: jasmine.createSpy('resetClientOrderId'),
+      // The REAL derivation, so these fakes bind to the identity
+      // production computes rather than a literal that could drift.
+      contentIdentity: () =>
+        BasketService.prototype.contentIdentity.call(basketService),
       totalState: (items: BasketItem[]) =>
         BasketService.prototype.totalState.call(basketService, items),
     };

@@ -57,7 +57,11 @@ export interface CheckoutAttempt {
   readonly phase: CheckoutPhase;
   readonly orderId: string | null;
   readonly quoteRef: string | null;
-  readonly revision: number;
+  /** WHAT the attempt was for, derived from the basket's CONTENTS — never a
+   *  process-local counter, which a reload resets while the contents
+   *  survive. See `BasketService.contentIdentity`. */
+  readonly basket: string;
+  /** WHERE it was for: the restaurant and table it was priced against. */
   readonly context: string;
   readonly startedAt: number;
 }
@@ -130,10 +134,9 @@ export class CheckoutCoordinatorService {
    * attempt, and a promise held only in memory does not survive the thing it
    * is supposed to protect against.
    */
-  intentKey(revision: number, context: string): string {
+  intentKey(basket: string, context: string): string {
     const existing = this.attempt();
-    if (existing && existing.context === context
-        && existing.revision === revision) {
+    if (existing && existing.context === context && existing.basket === basket) {
       return existing.key;
     }
     const key = this.mintKey();
@@ -142,7 +145,7 @@ export class CheckoutCoordinatorService {
       phase: 'pricing',
       orderId: null,
       quoteRef: null,
-      revision,
+      basket,
       context,
       startedAt: Date.now(),
     });
@@ -171,8 +174,11 @@ export class CheckoutCoordinatorService {
       phase: value.phase,
       orderId: typeof value.orderId === 'string' ? value.orderId : null,
       quoteRef: typeof value.quoteRef === 'string' ? value.quoteRef : null,
-      revision: typeof value.revision === 'number' ? value.revision : -1,
-      context: typeof value.context === 'string' ? value.context : '',
+      // A record whose basket identity is unreadable can never MATCH, so it
+      // mints a fresh key rather than being adopted — the conservative
+      // direction: a key nobody can tie to this basket is not this basket's.
+      basket: typeof value.basket === 'string' ? value.basket : '\u0000',
+      context: typeof value.context === 'string' ? value.context : '\u0000',
       startedAt: typeof value.startedAt === 'number' ? value.startedAt : 0,
     };
   }
@@ -293,6 +299,19 @@ export class CheckoutCoordinatorService {
     if (!error || typeof error !== 'object') return false;
     return (error as { status?: number }).status === 404;
   }
+
+  //
+  // WHY THAT READS A STATUS AND NOT A MESSAGE. `ErrorInterceptor` collapses
+  // an ordinary failure to `err.error.message || err.statusText`, a bare
+  // string — so without the narrow carve-out it now makes for this exact
+  // request, a definitive 404 arrived here indistinguishable from a timeout
+  // and was classified `unknown`, retaining a key the server had just said
+  // resolves to nothing. Matching on the human sentence instead would be the
+  // brittleness the reason codes elsewhere in this repo exist to remove.
+  // A non-object still falls through to `unknown`, which is the safe
+  // direction: an unreachable server is never evidence that nothing
+  // happened.
+  //
 
   private mintKey(): string {
     const api = (globalThis as { crypto?: Crypto }).crypto;

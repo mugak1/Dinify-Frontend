@@ -1,5 +1,17 @@
 import { TestBed } from '@angular/core/testing';
+import {
+  HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi, withXhr,
+} from '@angular/common/http';
+import {
+  HttpTestingController, provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { Router } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
+
+import { AuthenticationService } from './authentication.service';
+import { ConnectivityService } from './connectivity.service';
+import { ErrorInterceptor } from '../_helpers/error.interceptor';
+import { ToastService } from '../_shared/ui/toast/toast.service';
 
 import { ApiService } from './api.service';
 import {
@@ -32,7 +44,11 @@ describe('CheckoutCoordinatorService', () => {
   let storage: SessionStorageService;
   let api: jasmine.SpyObj<ApiService>;
 
-  const REV = 7;
+  /** A basket identity, in the shape `BasketService.contentIdentity()`
+   *  produces: one sorted `<lineIdentity>x<quantity>` entry per line. It is
+   *  OPAQUE to this service — built here rather than imported so these specs
+   *  stay about the coordinator's own rules. */
+  const BASKET = JSON.stringify(['{"i":"i1","m":[],"e":[]}x2']);
   const CONTEXT = 'r1:t1';
 
   beforeEach(() => {
@@ -63,7 +79,7 @@ describe('CheckoutCoordinatorService', () => {
       // and putting it in a request body is a promise to treat the retry as
       // the same attempt, and a promise held only in memory does not survive
       // the thing it protects against.
-      const key = service.intentKey(REV, CONTEXT);
+      const key = service.intentKey(BASKET, CONTEXT);
       const stored = service.attempt();
       expect(stored).not.toBeNull();
       expect(stored!.key).toBe(key);
@@ -72,20 +88,38 @@ describe('CheckoutCoordinatorService', () => {
     it('survives a reload — a fresh service reads the same key', () => {
       // THE DEFECT, stated directly. This is what the in-memory field could
       // not do, and what made every reload mint a second order's worth of key.
-      const key = service.intentKey(REV, CONTEXT);
+      const key = service.intentKey(BASKET, CONTEXT);
       const reloaded = new CheckoutCoordinatorService(api, storage);
-      expect(reloaded.intentKey(REV, CONTEXT)).toBe(key);
+      expect(reloaded.intentKey(BASKET, CONTEXT)).toBe(key);
+    });
+
+    it('is bound to the basket CONTENTS, so a reload cannot change the answer', () => {
+      // THE SECOND DEFECT, and the subtler one. This used to compare
+      // `BasketService.revision()` — a counter on a service instance, which
+      // restarts at 0 on a page load while the basket itself is RESTORED
+      // from storage. So a diner who added an item, checked out and then
+      // reloaded had their persisted attempt judged "a different basket" and
+      // a fresh key minted: if the lost response had in fact succeeded, the
+      // retry could place a SECOND order, through the very reload the key
+      // was persisted to survive. A content identity is derived from what
+      // survives, so there is nothing to reset. (Codex P1 on PR #663.)
+      const key = service.intentKey(BASKET, CONTEXT);
+      // a reload: a brand-new service, the same restored basket
+      const afterReload = new CheckoutCoordinatorService(api, storage);
+      expect(afterReload.intentKey(BASKET, CONTEXT)).toBe(key);
+      // and a genuinely different basket still mints afresh
+      expect(afterReload.intentKey(BASKET + 'x', CONTEXT)).not.toBe(key);
     });
 
     it('reuses one key while the basket and the table are unchanged', () => {
-      const key = service.intentKey(REV, CONTEXT);
-      expect(service.intentKey(REV, CONTEXT)).toBe(key);
-      expect(service.intentKey(REV, CONTEXT)).toBe(key);
+      const key = service.intentKey(BASKET, CONTEXT);
+      expect(service.intentKey(BASKET, CONTEXT)).toBe(key);
+      expect(service.intentKey(BASKET, CONTEXT)).toBe(key);
     });
 
     it('mints a fresh key once the basket really changes', () => {
-      const key = service.intentKey(REV, CONTEXT);
-      expect(service.intentKey(REV + 1, CONTEXT)).not.toBe(key);
+      const key = service.intentKey(BASKET, CONTEXT);
+      expect(service.intentKey(BASKET + 'more', CONTEXT)).not.toBe(key);
     });
 
     it('mints a fresh key at a different table', () => {
@@ -93,17 +127,17 @@ describe('CheckoutCoordinatorService', () => {
       // (`checkout_intent_unusable`), so reusing one across a context change
       // would turn an ordinary table move into a checkout the diner cannot
       // complete. A different table is a different purchase.
-      const key = service.intentKey(REV, CONTEXT);
-      expect(service.intentKey(REV, 'r1:t2')).not.toBe(key);
+      const key = service.intentKey(BASKET, CONTEXT);
+      expect(service.intentKey(BASKET, 'r1:t2')).not.toBe(key);
     });
 
     it('mints a key that is a plausible UUID', () => {
-      expect(service.intentKey(REV, CONTEXT)).toMatch(
+      expect(service.intentKey(BASKET, CONTEXT)).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it('records the phase so a reload knows what to ask about', () => {
-      service.intentKey(REV, CONTEXT);
+      service.intentKey(BASKET, CONTEXT);
       service.notePhase('reviewing', { orderId: 'o1', quoteRef: 'q1' });
       const stored = service.attempt()!;
       expect(stored.phase).toBe('reviewing');
@@ -112,14 +146,14 @@ describe('CheckoutCoordinatorService', () => {
     });
 
     it('never resurrects an attempt the caller has already finished', () => {
-      service.intentKey(REV, CONTEXT);
+      service.intentKey(BASKET, CONTEXT);
       service.clearIntent();
       service.notePhase('submitting');
       expect(service.attempt()).toBeNull();
     });
 
     it('keeps the key across a phase note', () => {
-      const key = service.intentKey(REV, CONTEXT);
+      const key = service.intentKey(BASKET, CONTEXT);
       service.notePhase('submitting');
       expect(service.attempt()!.key).toBe(key);
     });
@@ -131,7 +165,7 @@ describe('CheckoutCoordinatorService', () => {
       // so a blanket wipe here would sign the diner out of their own table to
       // tidy up a finished checkout.
       storage.setItem('somethingElse', { keep: true });
-      service.intentKey(REV, CONTEXT);
+      service.intentKey(BASKET, CONTEXT);
 
       service.clearIntent();
 
@@ -153,8 +187,17 @@ describe('CheckoutCoordinatorService', () => {
 
     it('does not stop a fresh key being minted', () => {
       storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, { key: 42 });
-      expect(service.intentKey(REV, CONTEXT)).toBeTruthy();
+      expect(service.intentKey(BASKET, CONTEXT)).toBeTruthy();
       expect(service.attempt()).not.toBeNull();
+    });
+
+    it('is never ADOPTED when its basket identity is unreadable', () => {
+      // The conservative direction: a record nobody can tie to this basket
+      // is not this basket's, so it mints rather than reuses.
+      storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, {
+        key: 'someone-elses', phase: 'pricing', context: CONTEXT,
+      });
+      expect(service.intentKey(BASKET, CONTEXT)).not.toBe('someone-elses');
     });
   });
 
@@ -218,7 +261,7 @@ describe('CheckoutCoordinatorService', () => {
     });
 
     it('asks the diner read by intent key', () => {
-      const key = service.intentKey(REV, CONTEXT);
+      const key = service.intentKey(BASKET, CONTEXT);
       resolve();
       const [, url, params] = api.get.calls.argsFor(0);
       expect(url).toBe('orders/journey/order-details/');
@@ -226,7 +269,7 @@ describe('CheckoutCoordinatorService', () => {
     });
 
     it('reports an accepted order as accepted', () => {
-      service.intentKey(REV, CONTEXT);
+      service.intentKey(BASKET, CONTEXT);
       api.get.and.returnValue(
         of({ data: { id: 'o1', accepted: true } }) as any);
       expect(resolve()).toEqual(
@@ -234,7 +277,7 @@ describe('CheckoutCoordinatorService', () => {
     });
 
     it('reports an unaccepted order as a draft', () => {
-      service.intentKey(REV, CONTEXT);
+      service.intentKey(BASKET, CONTEXT);
       api.get.and.returnValue(
         of({ data: { id: 'o1', accepted: false } }) as any);
       expect(resolve().kind).toBe('draft');
@@ -244,7 +287,7 @@ describe('CheckoutCoordinatorService', () => {
       // The read is non-disclosing by design: a foreign, unknown and
       // malformed key are indistinguishable, and all three mean the same
       // thing to a diner at this table — nothing to recover.
-      service.intentKey(REV, CONTEXT);
+      service.intentKey(BASKET, CONTEXT);
       api.get.and.returnValue(throwError(() => ({ status: 404 })) as any);
       expect(resolve()).toEqual({ kind: 'absent' });
     });
@@ -253,7 +296,7 @@ describe('CheckoutCoordinatorService', () => {
       // THE MOST IMPORTANT DISTINCTION IN THIS FILE. An unreachable server is
       // not evidence that nothing happened, and treating it as such is how a
       // recovery mechanism creates the duplicate order it exists to prevent.
-      service.intentKey(REV, CONTEXT);
+      service.intentKey(BASKET, CONTEXT);
       for (const failure of [
         { status: 0 }, { status: 500 }, { status: 401 },
         'no network', null, undefined, new Error('boom'),
@@ -265,7 +308,7 @@ describe('CheckoutCoordinatorService', () => {
     });
 
     it('treats a response with no order as unknown rather than absent', () => {
-      service.intentKey(REV, CONTEXT);
+      service.intentKey(BASKET, CONTEXT);
       api.get.and.returnValue(of({ data: null }) as any);
       expect(resolve()).toEqual({ kind: 'unknown' });
     });
@@ -274,7 +317,7 @@ describe('CheckoutCoordinatorService', () => {
       // The coordinator reports; the caller decides what to drop. Clearing
       // here would silently discard a key on a `unknown` outcome, which is
       // exactly the case where it must survive.
-      const key = service.intentKey(REV, CONTEXT);
+      const key = service.intentKey(BASKET, CONTEXT);
       api.get.and.returnValue(throwError(() => ({ status: 500 })) as any);
       resolve();
       expect(service.attempt()!.key).toBe(key);
@@ -321,5 +364,113 @@ describe('CheckoutCoordinatorService', () => {
       expect(CheckoutCoordinatorService.REQUEST_TIMEOUT_MS)
         .toBeGreaterThanOrEqual(15_000);
     });
+  });
+});
+
+
+/**
+ * THE PRODUCTION PATH, not a hand-built error shape.
+ *
+ * The suite above stubs `ApiService` and hands `recover()` a
+ * `{status: 404}` object. That is the shape a raw `HttpErrorResponse` has —
+ * and NOT the shape the deployed app produces, because `ErrorInterceptor`
+ * collapses an ordinary failure to `err.error.message || err.statusText`, a
+ * bare string. So a definitive 404 arrived as "the server could not be
+ * asked", the dead key was retained, and every basket page load repeated the
+ * failed recovery with another error toast. (Codex P2 on PR #663, valid.)
+ *
+ * These specs run the real `HttpClient`, the real interceptor and the real
+ * `ApiService`, so nothing here can pass on a shape production never emits.
+ */
+describe('CheckoutCoordinatorService through the real interceptor', () => {
+  let service: CheckoutCoordinatorService;
+  let storage: SessionStorageService;
+  let httpMock: HttpTestingController;
+  let toast: jasmine.SpyObj<ToastService>;
+
+  const BASKET = '["one-line"]';
+  const CONTEXT = 'r1:t1';
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj<ToastService>(
+      'ToastService', ['success', 'error', 'warning', 'info', 'clear',
+                       'dismiss']);
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: 'coord-http-spec' },
+        { provide: ToastService, useValue: toast },
+        {
+          provide: AuthenticationService,
+          useValue: jasmine.createSpyObj(
+            'AuthenticationService', ['logout', 'attemptTokenRefresh'],
+            { userValue: null }),
+        },
+        { provide: Router, useValue: { url: '/diner/basket' } },
+        { provide: ConnectivityService, useValue: { isOffline: () => false } },
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+        provideHttpClient(withXhr(), withInterceptorsFromDi()),
+        provideHttpClientTesting(),
+      ],
+    });
+    service = TestBed.inject(CheckoutCoordinatorService);
+    storage = TestBed.inject(SessionStorageService);
+    httpMock = TestBed.inject(HttpTestingController);
+    storage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    storage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
+  });
+
+  function resolveWith(body: Record<string, unknown>,
+                       options: { status: number;
+                                  statusText: string } | null) {
+    service.intentKey(BASKET, CONTEXT);
+    let outcome!: RecoveryOutcome;
+    service.recover().subscribe((value) => (outcome = value));
+    const request = httpMock.expectOne(
+      (r) => r.url.includes('orders/journey/order-details/'));
+    if (options) request.flush(body, options);
+    else request.flush(body);
+    return outcome;
+  }
+
+  it('classifies a real 404 as ABSENT and drops the dead key', () => {
+    const outcome = resolveWith(
+      { status: 404, message: 'Order not found' },
+      { status: 404, statusText: 'Not Found' });
+    expect(outcome).toEqual({ kind: 'absent' });
+  });
+
+  it('classifies a real 500 as UNKNOWN and keeps the key', () => {
+    const outcome = resolveWith(
+      { status: 500, message: 'boom' },
+      { status: 500, statusText: 'Server Error' });
+    expect(outcome).toEqual({ kind: 'unknown' });
+    expect(service.attempt()).not.toBeNull();
+  });
+
+  it('classifies an older backend that does not know the key as UNKNOWN', () => {
+    // Deployed before the recovery endpoint, `?intent=` is ignored and the
+    // missing `?order=` is a 400. Not absence — the server never looked.
+    const outcome = resolveWith(
+      { status: 400, message: 'Please provide the order id' },
+      { status: 400, statusText: 'Bad Request' });
+    expect(outcome).toEqual({ kind: 'unknown' });
+    expect(service.attempt()).not.toBeNull();
+  });
+
+  it('raises no toast for a background read nobody asked for', () => {
+    resolveWith({ status: 404, message: 'Order not found' },
+                { status: 404, statusText: 'Not Found' });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('still reads an accepted order off a real success', () => {
+    const outcome = resolveWith(
+      { status: 200, message: 'ok', data: { id: 'o1', accepted: true } }, null);
+    expect(outcome.kind).toBe('accepted');
   });
 });

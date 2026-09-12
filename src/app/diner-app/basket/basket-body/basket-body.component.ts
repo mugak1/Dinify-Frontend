@@ -495,8 +495,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       // coordinator mints a fresh one when the revision or the context
       // differs, so a changed basket is a new purchase by derivation rather
       // than by somebody remembering to reset it.
+      // BOUND TO THE BASKET'S CONTENTS, not to `attempt.revision`. That
+      // counter is a field on `BasketService` and restarts at 0 on every
+      // page load while the basket itself is restored from storage — so a
+      // reload made the persisted attempt look like a different basket and
+      // minted a fresh key, defeating the persistence in exactly the case it
+      // was added for.
       client_order_id: this.checkout.intentKey(
-        attempt.revision, attempt.context),
+        this.basketService.contentIdentity(), attempt.context),
       // No raw restaurant/table UUIDs: the backend derives both from the diner
       // table session (X-Diner-Session), so a foreign body id can't override the
       // scope of the order. The session is the sole authority.

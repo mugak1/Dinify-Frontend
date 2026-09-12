@@ -111,6 +111,33 @@ export class ErrorInterceptor implements HttpInterceptor {
                     return throwError(() => err.error);
                 }
 
+                // Checkout recovery: the diner's order read resolved by INTENT
+                // KEY (orders/journey/order-details/?intent=…, D04/D). Forward
+                // the response untouched and do NOT toast it, for two reasons
+                // the generic branch below gets wrong.
+                //
+                // FIRST, THE STATUS IS THE ANSWER. That read is non-disclosing
+                // by design — a foreign, unknown and malformed key are one
+                // 404 — and 404 is the ONLY reply meaning "no such order on
+                // this table", which is what lets the coordinator drop a dead
+                // key instead of retaining it forever. Collapsed to
+                // `err.error.message` it became an ordinary string, so a
+                // definitive absence was classified as "the server could not
+                // be asked" — the one distinction that whole mechanism turns
+                // on. (Codex P2 on PR #663, valid.)
+                //
+                // SECOND, NOBODY ASKED FOR IT. This read runs by itself on a
+                // basket page load; a toast about it reports a background
+                // enquiry as a failure the diner did nothing to cause, and
+                // repeats on every load while the attempt is unresolved.
+                //
+                // Scoped to the `intent=` form: the ordinary `?order=` read
+                // keeps its existing string + toast behaviour exactly.
+                if (request.url.includes('orders/journey/order-details/')
+                    && request.url.includes('intent=')) {
+                    return throwError(() => err);
+                }
+
                 const error = err.error?.message || err.statusText;
                 if (error) {
                     this.toast.error(error);

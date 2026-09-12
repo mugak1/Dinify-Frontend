@@ -88,9 +88,46 @@ export class BasketService {
     );
   }
 
-  /** The current basket revision. Bumped by every content change. */
+  /** The current basket revision. Bumped by every content change.
+   *
+   *  IN-SESSION ONLY, and deliberately so: it is a counter on this service
+   *  instance, so a page reload restarts it at 0 while the basket CONTENTS
+   *  are restored from storage. That is correct for what it is used for —
+   *  recognising a response that describes a basket the diner has since
+   *  edited, and a quote that went stale while its review sheet was open,
+   *  neither of which can outlive the page. It is NOT usable for deciding
+   *  whether a persisted checkout attempt still describes this basket; use
+   *  `contentIdentity()` for that.
+   */
   public revision(): number {
     return this.revisionCounter;
+  }
+
+  /**
+   * WHAT THIS BASKET IS, derived from its contents rather than counted.
+   *
+   * The client-side analogue of the server's request fingerprint, and it
+   * exists for the same reason: a checkout attempt persisted before a reload
+   * has to be recognisable as describing the SAME purchase afterwards. The
+   * coordinator used `revision()` for that, which is a field on this service
+   * and restarts at 0 on every page load — so a diner who added an item,
+   * checked out and then reloaded had their attempt judged "a different
+   * basket" and a FRESH idempotency key minted. If the lost response had in
+   * fact succeeded, the retry could then place a second order: precisely the
+   * failure the key exists to prevent, reached through the reload the key
+   * was persisted to survive. (Codex P1 on PR #663, valid.)
+   *
+   * Built from `lineIdentity` — the same canonical, order-independent rule
+   * the server's own line identity uses — plus each line's quantity, with
+   * the lines sorted so the order they were added in cannot decide it.
+   * Labels and prices are excluded: they are display values, and a menu edit
+   * between two attempts must not make them different purchases.
+   */
+  public contentIdentity(): string {
+    const lines = (this.Basket()?.items ?? [])
+      .map((item) => `${lineIdentity(item)}x${item.quantity}`)
+      .sort();
+    return JSON.stringify(lines);
   }
 
   private changed(): void {

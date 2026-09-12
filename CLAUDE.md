@@ -281,12 +281,27 @@ so keep it current when conventions change.
   not localStorage: a checkout belongs to the tab and the table session that started
   it). The ORDER of those two operations is the contract — minting a key and putting
   it in a body is a promise to treat the retry as the same attempt, and a promise
-  held only in memory does not survive the thing it protects against. `BasketService`
-  keeps the REVISION, which is what tells the coordinator a basket change has made
-  this a different purchase; a fresh key is therefore DERIVED rather than pushed, so
-  nothing has to remember to reset one. A different TABLE mints one too — the server
-  refuses a key used elsewhere (`checkout_intent_unusable`), so reusing it would turn
-  an ordinary table move into a checkout the diner cannot complete.
+  held only in memory does not survive the thing it protects against. **AND IT IS SCOPED TO THE
+  BASKET'S CONTENTS, NEVER TO `BasketService.revision()`** — a fresh key is DERIVED
+  when the scope changes rather than pushed, so nothing has to remember to reset one,
+  but WHICH scope is load-bearing and the first cut got it wrong (Codex P1 on PR
+  #663, valid). `revision()` is a counter on a `providedIn: 'root'` service, so it
+  restarts at 0 on every page load while the basket itself comes back from
+  `persistedSignal` storage unchanged: the stored attempt therefore read as belonging
+  to a different basket and a fresh key was minted anyway — the defect fully intact
+  behind a mechanism that looked like it had fixed it. `BasketService.contentIdentity()`
+  is the scope instead: the sorted `lineIdentity(item)x<quantity>` of every line, so
+  it is a property of what the diner is buying and survives anything that does not
+  change it. It reuses `lineIdentity` — already id-only, order-independent and
+  de-duplicated to match the server — rather than a second opinion about what makes
+  two baskets the same. `revision()` STAYS for its in-session uses (the quote
+  staleness stamp), with a docstring now saying it is in-session only. A different
+  TABLE mints a key too — the server refuses a key used elsewhere
+  (`checkout_intent_unusable`), so reusing it would turn an ordinary table move into
+  a checkout the diner cannot complete. An attempt record whose `basket` or `context`
+  cannot be READ is never adopted: `attempt()` parses them through a `'\u0000'`
+  sentinel that no real identity can equal, so a corrupt record mints a fresh key
+  rather than matching one.
   **THERE WAS NO SINGLE FLIGHT.** `BasketBodyComponent` is mounted TWICE on desktop —
   the routed page and the sidebar beside the router outlet — and `placingOrder` was a
   field on EACH, so both could run a checkout at once. It is now a GETTER over the
@@ -303,6 +318,21 @@ so keep it current when conventions change.
   `draft` is left alone for the diner to review, `absent` drops the key, and
   `unknown` changes NOTHING. Recovery runs on the ROUTED page only — the sidebar is
   mounted on every diner screen and would issue the same read twice per load.
+  **THAT DISTINCTION NEEDED A CARVE-OUT IN `ErrorInterceptor`, AND WITHOUT IT THE
+  UNION COLLAPSED** (Codex P2 on PR #663, valid). The interceptor flattens every
+  failure to `err.error?.message || err.statusText` — a STRING with no status — so
+  the definitive 404 that means "no such order on this table" arrived as an
+  unreadable object, `isNotFound()` was false, and every absence was classified
+  `unknown`: the dead key retained forever and a toast about a background enquiry on
+  every load. An `intent=` read now forwards the `HttpErrorResponse` UNTOUCHED and
+  raises no toast, for two reasons the generic branch gets wrong — **the status IS
+  the answer** on a read whose whole design is non-disclosing, and **nobody asked for
+  it**, so reporting it as a failure blames the diner for something they did not do.
+  Scoped to the `intent=` form; the ordinary `?order=` read keeps its string + toast
+  behaviour exactly. The specs that pin it run the REAL `HttpClient`, interceptor and
+  `ApiService` — the original suite stubbed `ApiService` and handed `recover()` a
+  hand-built `{status: 404}`, which is the shape a raw `HttpErrorResponse` has and
+  NOT the shape the deployed app produces, so it passed against the defect.
   **CLEANUP IS TARGETED AND ONLY EVER ON A DEFINITIVE OUTCOME.** `clearIntent()`
   removes ONE key and never clears storage, because the diner session capability
   lives in the same store and a blanket wipe would sign the diner out of their own
@@ -323,6 +353,16 @@ so keep it current when conventions change.
   one outcome a diner most needs to hear was the one that hid the message. The
   existing component spec never calls `detectChanges()`, so it never runs `ngOnInit`
   and could not have caught it; `basket-body.recovery.spec.ts` now pins it.
+  **ITS RELOAD SCENARIO COULD NOT FAIL UNTIL THE P1 FIX, AND THAT IS WORTH KNOWING
+  BEFORE TRUSTING A GREEN RUN.** It reached the basket with `page.goto` and checked
+  out at once, so the key was minted at `revision() === 0` on BOTH sides of the
+  reload and the revision-scoped key produced two identical ones. It now clicks the
+  quantity stepper once first — the counter is 1 before the reload and 0 after it
+  while the contents are restored identical, which is the real diner's situation and
+  the only version that discriminates. Verified by reintroducing the defect in the
+  served app: **20/22**, the two failures showing two DIFFERENT drafts for one
+  checkout. The matching unit spec needed the same treatment — its `BasketService`
+  fake had `revision: () => 3`, a literal, and now models the process-local counter.
   A repeatable real-browser check of the whole path lives in `e2e/checkout-journey/`
   (NOT wired into CI — it needs a disposable PostgreSQL and two running servers). It
   **presses the app's own Place order button** rather than submitting by fetch

@@ -32,6 +32,7 @@ describe('BasketBodyComponent', () => {
     clearBasket: jasmine.Spy;
     revision: () => number;
     resetClientOrderId: jasmine.Spy;
+    contentIdentity: () => string;
     totalState: (items: BasketItem[]) => { amount: number; exact: boolean };
     incrementItem: (index: number) => void;
     decrementItem: (index: number) => void;
@@ -143,6 +144,10 @@ describe('BasketBodyComponent', () => {
       // and what it claims about that number both come from here, so a hand
       // -written substitute would be a second opinion about exactly the thing
       // these specs exist to pin.
+      // The REAL derivation, so these fakes bind to the identity
+      // production computes rather than a literal that could drift.
+      contentIdentity: () =>
+        BasketService.prototype.contentIdentity.call(basketService),
       totalState: (items: BasketItem[]) =>
         BasketService.prototype.totalState.call(basketService, items),
       incrementItem: (index: number) => {

@@ -214,11 +214,23 @@ because the server would never have seen it.
 
 | scenario | what it proves |
 |---|---|
-| **1. the diner reloads mid-checkout** | the SAME idempotency key is sent afterwards, the server answers with the SAME draft, and exactly ONE order reaches the kitchen. The key used to live in an in-memory field on `BasketService`, so the reload dropped it and the next attempt minted a new one — the server's whole guarantee bypassed by the single most likely thing a person does when a checkout looks stuck |
+| **1. the diner reloads mid-checkout** | the SAME idempotency key is sent afterwards, the server answers with the SAME draft, and exactly ONE order reaches the kitchen. The key used to live in an in-memory field on `BasketService`, so the reload dropped it and the next attempt minted a new one — the server's whole guarantee bypassed by the single most likely thing a person does when a checkout looks stuck. It **edits the basket on the page before checking out**, which is what makes the scenario able to fail at all — see *What this script found* |
 | **2. the acceptance commits and the reply is lost** | the retry produces NO second accepted order, and the diner is **not** told `This order cannot be submitted.` — a failure reported for an operation that succeeded, with the kitchen already cooking it |
 | **3. the tab is reloaded after a lost acceptance** | the key is in durable storage at the moment the connection dies; the reloaded page resolves it, **tells the diner the order was already placed**, clears the finished basket and forgets the attempt. The direct reads beside it pin the server half: an unknown key and a malformed one are the same non-disclosing 404, and the recovery read still requires a diner session |
 
 ### What this script found
+
+**Scenario 1 could not fail, and that was the more serious finding.** It reached
+the basket with `page.goto` and clicked Checkout immediately, so the key was
+minted at `BasketService.revision() === 0` both before the reload and after it —
+and a key scoped to the REVISION rather than to the basket's CONTENTS therefore
+produced two identical keys and a green run against the exact defect the
+scenario exists to catch (Codex P1 on PR #663). It now clicks the quantity
+stepper once before checking out, which is what a diner does anyway and is the
+only version of the scenario that discriminates: the counter is 1 before the
+reload and 0 after it, while the contents come back identical. With the
+revision-scoped key restored in the served app the run is **20/22**, and the two
+failures show the real consequence — two DIFFERENT drafts for one checkout.
 
 **An accepted recovery cleared the basket, which hid the notice.** The message
 first lived in the checkout footer, which is inside `@if (basketItems.length >

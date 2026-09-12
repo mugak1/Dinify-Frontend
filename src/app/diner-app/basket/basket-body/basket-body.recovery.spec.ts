@@ -45,6 +45,7 @@ import { BasketBodyComponent } from './basket-body.component';
 
 describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
   let basket: { items: BasketItem[]; totalAmount: number };
+  let revision: number;
   let api: jasmine.SpyObj<ApiService>;
   let basketService: any;
   let coordinator: CheckoutCoordinatorService;
@@ -58,6 +59,7 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
 
   beforeEach(async () => {
     basket = { items: [line()], totalAmount: 5000 };
+    revision = 3;
     api = jasmine.createSpyObj<ApiService>('ApiService', ['postPatch', 'get']);
     api.postPatch.and.returnValue(of() as any);
     api.get.and.returnValue(of({ data: null }) as any);
@@ -66,7 +68,17 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
     basketService = {
       Basket: () => basket,
       clearBasket: jasmine.createSpy('clearBasket'),
-      revision: () => 3,
+      // A PROCESS-LOCAL counter, like the real one: `BasketService` is
+      // `providedIn: 'root'`, so a page load reconstructs it at zero while
+      // the basket CONTENTS come back from storage unchanged. A fixed
+      // literal here would make the reload test below pass against the
+      // very defect it exists to catch (Codex P1 on PR #663).
+      revision: () => revision,
+      // The REAL derivation, over this spec's basket — so the identity these
+      // tests bind to is the one production computes, not a literal that
+      // could drift from it.
+      contentIdentity: () =>
+        BasketService.prototype.contentIdentity.call(basketService),
       totalState: (items: BasketItem[]) =>
         BasketService.prototype.totalState.call(basketService, items),
     };
@@ -108,7 +120,8 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
 
   /** The state a tab is left in when a submission is interrupted. */
   function interruptMidSubmission(): string {
-    const key = coordinator.intentKey(3, ':');
+    const key = coordinator.intentKey(
+      basketService.contentIdentity(), ':');
     coordinator.notePhase('submitting', { orderId: 'o1', quoteRef: 'q1' });
     return key;
   }
@@ -141,13 +154,25 @@ describe('BasketBodyComponent — interrupted checkout (D04/D)', () => {
   // -- the key survives the reload ---------------------------------------
 
   it('sends the SAME key after a reload, not a fresh one', () => {
-    // THE DEFECT, end to end. The key used to live in a private field on
-    // `BasketService`, so this second component — standing in for the page
-    // after a refresh — would have minted a new one and the server would
-    // have had no way to recognise the retry.
+    // THE DEFECT, end to end, IN BOTH ITS FORMS.
+    //
+    // First the key lived in a private field on `BasketService`, so this
+    // second component — standing in for the page after a refresh — minted
+    // a new one and the server had no way to recognise the retry.
+    //
+    // Then the key was persisted but SCOPED TO `revision()`, a counter on
+    // the same root service. Storage survives a reload; the counter does
+    // not. So the stored attempt read as belonging to a different basket
+    // and a fresh key was minted anyway — the defect intact behind a
+    // mechanism that looked like it had fixed it (Codex P1 on PR #663).
+    // The counter moving here is what makes this test discriminate: with
+    // the key bound to `revision()` it fails, and it is why the fake's
+    // `revision` is a variable rather than a literal.
+    revision = 7;                                  // the diner had edited
     const before = interruptMidSubmission();
     api.postPatch.and.returnValue(of(initiated()) as any);
 
+    revision = 0;                                  // a fresh root service
     fixture.detectChanges();                       // the "reloaded" page
     component.initiateOrder();
 
