@@ -791,6 +791,43 @@ so keep it current when conventions change.
   specs that hold the CONTENTS EQUAL so scope is the only discriminator (one
   moving the table, one the restaurant) — reverting the condition alone fails
   exactly those two out of 209.
+  **AND THE SCOPE A MOUNTED COMPONENT REPORTS NOW FOLLOWS THE DINER** (Codex P2
+  on PR #667, valid — a PRE-EXISTING gap the condition above does not reach
+  rather than a regression of it). `BasketBodyComponent.table` / `.restaurant`
+  were read ONCE, in the constructor, and are not `@Input`s. The desktop
+  sidebar is mounted inside `@if (table)` on the diner shell, so an in-app
+  rescan from table A to table B moves that value from truthy to truthy, the
+  block never tears down, the constructor never re-runs — and the sidebar went
+  on reporting table A. `DinerAppComponent.getTableDetails` updates its own
+  field and session storage and propagates nothing to the child. Measured
+  through the real component: `before='r1:tA' after='r1:tA' live='r1:tB'`.
+  **IT IS NOT A REGRESSION OF THE SCOPE CONDITION, and the reason matters:**
+  `reserveIntent` mints the record's scope from the SAME helper on the SAME
+  instance, so both sides of that comparison were stale in the same direction
+  (`recordScope='r1:tA' ctxNow='r1:tA' equal=true`) and the guard behaved
+  exactly as the unguarded predicate had. **THAT ALSO RULES OUT THE NARROW
+  FIX**: reading the scope live in `ownsDisplayedCart` ALONE would compare the
+  new table against a record minted under the old one and refuse to clear a
+  basket the operation genuinely owns — a stale-scope gap turned into a broken
+  checkout, which is why a control pins that direction.
+  **FIVE CONSUMERS READ THOSE TWO FIELDS, so the fix belongs on the FIELDS**:
+  the header the diner reads (`Table {{ table?.number }}`), `editItem`'s link
+  back to the menu, `checkoutContext()` — itself the reservation scope, the
+  quote-staleness stamp, `ownsRecovery` and `ownsDisplayedCart` — and the table
+  and socials carried to the confirmation screen. A sidebar that survived a
+  rescan therefore also SHOWED the wrong table number and named the wrong table
+  on the receipt; fixing only the authority half would have left those lying.
+  The mechanism is the one the component ALREADY had: `StorageValue` emits on
+  every `setItem`, `getTableDetails` writes both keys through that service, and
+  the existing subscription now calls `refreshTableContext()` on an EXACT key
+  match (`storageKeyIs`, prefix-tolerant — `includes()` is deliberately kept for
+  the pre-existing `upsellConfig` test and deliberately NOT used for these two,
+  which must not re-read because some future key merely contains the word).
+  No `@Input`, no getter re-reading storage on every change-detection tick, and
+  ONE source of truth — the store the shell writes — so reserve, stamp and guard
+  cannot disagree. Pinned by 8 specs that change session storage UNDERNEATH a
+  mounted instance rather than assigning `component.table`, which is exactly what
+  hid this: 7 fail on `06a7559` and the 8th is the control that must not.
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
