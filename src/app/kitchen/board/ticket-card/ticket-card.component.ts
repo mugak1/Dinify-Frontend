@@ -83,8 +83,13 @@ export class TicketCardComponent {
   @Output() togglePriority = new EventEmitter<KitchenTicket>();
   // Not `cancel`: that's a native DOM event (@angular-eslint/no-output-native).
   @Output() cancelRequested = new EventEmitter<KitchenTicket>();
-  /** The operator has read a conflict/unknown notice and dismissed it. */
+  /** The operator has read a SETTLED notice (a refusal, or a reconciled state)
+   *  and dismissed it. An open question is not dismissible — see `canDismiss`. */
   @Output() acknowledge = new EventEmitter<KitchenTicket>();
+  /** Ask the server what this order is now, to settle an unknown outcome. */
+  @Output() checkRequested = new EventEmitter<KitchenTicket>();
+  /** Re-send the SAME command under its ORIGINAL precondition. */
+  @Output() retryRequested = new EventEmitter<KitchenTicket>();
 
   // ── D05 command state ───────────────────────────────────────────────
   /** A command is in flight: the controls are inert and the card says so. */
@@ -102,23 +107,63 @@ export class TicketCardComponent {
     return this.operation?.phase === 'unknown';
   }
 
+  /** A reconciliation read is in flight against an unknown outcome. */
+  get isChecking(): boolean {
+    return this.operation?.phase === 'checking';
+  }
+
+  /** Reconciled: the order's CURRENT state is known. Deliberately not a claim
+   *  that this command caused it — see the service's `describeState`. */
+  get isResolved(): boolean {
+    return this.operation?.phase === 'resolved';
+  }
+
+  /** The server may still have acted, so the operator is offered recovery
+   *  rather than a dismissal. */
+  get isOpenQuestion(): boolean {
+    return this.isUnknown || this.isChecking;
+  }
+
+  /**
+   * ONLY A SETTLED NOTICE MAY BE DISMISSED. A refusal the server stated, and a
+   * reconciled current state, are both finished. An `unknown` is not: OK on it
+   * used to DELETE the operation, which quietly meant "abandon whatever the
+   * server did with this command".
+   */
+  get canDismiss(): boolean {
+    return this.isConflict || this.isResolved;
+  }
+
   /** One sentence for whichever unresolved state this card is in. */
   get operationNotice(): string | null {
     const op = this.operation;
     if (!op) return null;
     if (op.phase === 'pending') return `${op.label}…`;
+    if (op.phase === 'checking') return op.message ?? 'Checking with the kitchen server…';
     return op.message
       ?? 'This ticket changed. The board is showing its current state.';
   }
 
-  /** Commands are withheld while one is unresolved, and when the server has not
-   *  declared a protocol this client can command over. */
+  /**
+   * Commands are withheld while THE ANSWER IS OUTSTANDING — not merely while a
+   * request is in flight. `!isPending` was the old test, so a lost reply left
+   * the card open to a fresh command at a refreshed revision: a different
+   * question asked as though it were the same one.
+   */
   get commandsEnabled(): boolean {
-    return this.canCommand && !this.isPending;
+    return this.canCommand && !this.isPending && !this.isOpenQuestion;
   }
 
   onAcknowledge(): void {
     this.acknowledge.emit(this.ticket);
+  }
+
+  onCheck(): void {
+    this.checkRequested.emit(this.ticket);
+  }
+
+  onRetry(): void {
+    this.retryRequested.emit(this.ticket);
   }
 
   get orderNumber(): string {

@@ -11,7 +11,9 @@ import {
   signal,
 } from '@angular/core';
 
-import { FulfilmentStatus, KitchenTicket } from '../models/kitchen.models';
+import {
+  FulfilmentStatus, KitchenTicket, TicketOperation,
+} from '../models/kitchen.models';
 import { classifyEscalation } from '../services/kitchen-logic';
 import { KitchenOrderService } from '../services/kitchen-order.service';
 import { KitchenStockService } from '../services/kitchen-stock.service';
@@ -227,12 +229,36 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
   /** Completed-view recall: served → ready, back onto the active board. */
   onRecallCompleted(t: KitchenTicket): void { this.service.recallCompleted(t.id); }
-  /** The operator dismissed a conflict/unknown notice. */
+  /** The operator dismissed a SETTLED notice (a refusal, or a reconciled
+   *  state). The service refuses to drop an open question. */
   onAcknowledge(t: KitchenTicket): void { this.service.acknowledge(t.id); }
+  /** Ask the server what this order is now. */
+  onCheck(t: KitchenTicket): void { this.service.reconcile(t.id); }
+  /** Re-send the SAME command under its ORIGINAL precondition. */
+  onRetry(t: KitchenTicket): void { this.service.retry(t.id); }
 
   // ── D05 command state, read straight from the service ─────────────────
   /** The unresolved command against one ticket, if any. */
   operationFor(t: KitchenTicket) { return this.service.operationFor(t.id); }
+
+  /**
+   * Unresolved commands whose ticket is on NEITHER board.
+   *
+   * THIS STRIP IS THE WHOLE POINT OF THE DETACHED FLAG. The per-ticket notice
+   * renders inside a card, so a lost CANCELLATION — which removes the order
+   * from both feeds — took its own warning off the screen with it: the one
+   * command whose uncertainty matters most became the one nobody was told
+   * about. These render here instead, with the same recovery affordances.
+   */
+  get detachedOperations(): TicketOperation[] {
+    return this.service.unresolvedOperations().filter(op => op.detached);
+  }
+  /** Dismissible only once settled — an open question is not dismissed. */
+  isSettled(op: TicketOperation): boolean { return op.phase === 'resolved'; }
+  isChecking(op: TicketOperation): boolean { return op.phase === 'checking'; }
+  onCheckId(id: string): void { this.service.reconcile(id); }
+  onRetryId(id: string): void { this.service.retry(id); }
+  onAcknowledgeId(id: string): void { this.service.acknowledge(id); }
   /** False when the server has not declared a protocol this client can command
    *  over — the board goes read-only rather than guessing. */
   get canCommand(): boolean { return this.service.canCommand(); }

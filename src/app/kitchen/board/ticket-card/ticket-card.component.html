@@ -227,20 +227,40 @@ the red advance button — the red wash over the white card reads clearly.
       [class.bg-gray-100]="isPending"
       [class.text-gray-700]="isPending"
       [class.border-gray-200]="isPending"
-      [class.bg-amber-50]="isConflict || isUnknown"
-      [class.text-amber-900]="isConflict || isUnknown"
-      [class.border-amber-300]="isConflict || isUnknown"
-      [attr.role]="isPending ? 'status' : 'alert'"
-      [attr.aria-live]="isPending ? 'polite' : 'assertive'"
+      [class.bg-amber-50]="!isPending"
+      [class.text-amber-900]="!isPending"
+      [class.border-amber-300]="!isPending"
+      [attr.role]="isPending || isChecking ? 'status' : 'alert'"
+      [attr.aria-live]="isPending || isChecking ? 'polite' : 'assertive'"
       [attr.data-testid]="'ticket-operation'"
       [attr.data-phase]="operation?.phase"
       [attr.data-reason]="operation?.reason ?? null">
       <span class="flex-1" data-testid="ticket-operation-message">{{ operationNotice }}</span>
-      @if (!isPending) {
+      <!-- AN OPEN QUESTION OFFERS RECOVERY, NOT A DISMISSAL. The server may
+      have acted, so the operator can ask what the order is now, or re-send the
+      SAME command under its original precondition. -->
+      @if (isOpenQuestion) {
+        <button
+          type="button"
+          (click)="onCheck()"
+          [disabled]="isChecking"
+          class="shrink-0 underline font-bold disabled:opacity-50"
+          data-testid="ticket-operation-check"
+          aria-label="Check this order with the kitchen server">Check</button>
+        <button
+          type="button"
+          (click)="onRetry()"
+          [disabled]="isChecking"
+          class="shrink-0 underline font-bold disabled:opacity-50"
+          data-testid="ticket-operation-retry"
+          aria-label="Send this command again">Try again</button>
+      }
+      @if (canDismiss) {
         <button
           type="button"
           (click)="onAcknowledge()"
           class="shrink-0 underline font-bold"
+          data-testid="ticket-operation-ok"
           aria-label="Dismiss this notice">OK</button>
       }
     </div>

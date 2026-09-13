@@ -372,7 +372,21 @@ describe('KitchenOrderService', () => {
       expect(apiStub.postPatch).not.toHaveBeenCalled();
     });
 
-    it('withholds a command for a ticket carrying no revision', () => {
+    it('refuses a DECLARED feed whose rows omit the revision, and commands '
+       + 'nothing from it', () => {
+      // CHANGED BY A CODEX P2 ON #669, and the change is the finding.
+      //
+      // This used to assert the middle state that was actually reachable: the
+      // feed was ACCEPTED, `canCommand()` was TRUE on the strength of the
+      // declaration, and every click was then silently refused because no
+      // ticket carried a precondition. That is the worst outcome available — an
+      // operator presses Start and nothing happens, with no notice of any kind.
+      // From `kitchen_protocol: 1` up, the declaration is a promise about the
+      // ROWS too, so such a feed is a CONTRACT ERROR.
+      //
+      // THE ORIGINAL INTENT IS UNCHANGED AND STILL PINNED: a revision is never
+      // invented. `kitchen-wire-contract.spec.ts` asserts that on the predicate
+      // itself, where it does not depend on how a feed happened to be shaped.
       apiStub.get.and.returnValue(of({
         status: 200, kitchen_protocol: 1,
         data: { records: getMockTickets().map(t => {
@@ -382,8 +396,9 @@ describe('KitchenOrderService', () => {
         }) },
       }));
       service.loadActive().subscribe();
-      expect(service.canCommand()).toBe(true);
-      // A revision must never be invented: that would defeat the check.
+
+      expect(service.feedUnreadable()).toBe(true);
+      expect(service.canCommand()).toBe(false);
       expect(service.advanceStatus('k-01', 'preparing')).toBe(false);
       expect(apiStub.postPatch).not.toHaveBeenCalled();
     });

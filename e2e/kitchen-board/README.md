@@ -31,7 +31,29 @@ not a new end-to-end platform.
 | a stale recall is refused with a reason **and** current state | the projection a client reconciles against |
 | **the retired target-only form is refused, not reinterpreted** | `400 kitchen_action_required` |
 | **an omitted precondition is refused** | `400 kitchen_precondition_required` — there is no grace period |
+| **an ordinary read SETTLES the uncertain command it answered** | K2 — a warning nothing can clear is its own defect |
+| **a feed captured BEFORE a serve does not put the ticket back** | K1 — the board is FROZEN while the check runs, so a fresh poll cannot repair the case under test |
+| **and the ticket is on Completed exactly once, not on both boards** | one id in two authoritative places was the reachable shape of it |
+| **a LOST CANCELLATION keeps an actionable warning after its card has gone** | K2 — the notice used to render only inside a card, so the command whose outcome matters most took its own warning off the screen |
+| **the per-order state read answers for an order in NEITHER feed** | the one thing the two feeds cannot do, which is why the route exists |
+| **the board issues NO per-order read on an ordinary poll** | reconciliation is on demand, never an N+1 sweep |
+| **Check issues exactly one read, for THIS order, and settles it** | driven through the real strip control |
 | neither board raised an uncaught error | |
+
+### Every wait is a barrier, not a sleep
+
+There is no `waitForTimeout` in the run. Each wait is anchored to an outcome — a
+response, a DOM condition, or a request the app could only issue after handling
+the previous one. A fixed delay fails in the direction that **hides** a defect:
+a check that runs before the thing it checks for has happened reads the PREVIOUS
+state and, on a slow machine, reads it as a pass.
+
+The staleness scenario needed one more thing than a barrier. The board's poll
+loop is serial — `pollOnce` schedules the next read only once the current one
+settles — so releasing a held stale response immediately starts a FRESH poll
+that repairs whatever the stale one did. `gateFeed` therefore **holds every
+later poll**, and uses the next REQUEST as the positive barrier for a negative
+assertion: it cannot be issued until the held response was fully handled.
 
 ## Running it
 
@@ -48,11 +70,32 @@ node e2e/kitchen-board/kitchen.mjs
 same database fails two of its own checks on the second pass — a fixture
 artefact, not a defect. Re-seed between runs.
 
-Last run: **24/24**, alongside **42/42** (`journey.mjs`) and **35/35**
-(`recovery.mjs`), each on its own fresh seed, against a disposable local
-PostgreSQL 16.13 (its own cluster on port 55432, never a shared instance), a
-local Django on `test_settings` (Python 3.11.15), and a **development**
-`ng serve` on Node 24.21.0 with Chromium 141 (`/opt/pw-browsers/chromium-1194`).
+Last run: **38/38**, against a disposable local PostgreSQL 16.13 (its own
+cluster, never a shared instance), a local Django on `test_settings`, and a
+**development** `ng serve` on Node 24.21.0 with Chromium 141
+(`/opt/pw-browsers/chromium-1194`), driving the K1–K3 revision of the frontend
+against the K4 revision of the backend.
+
+**AND BOTH NEW SCENARIOS WERE PROVED TO DISCRIMINATE, IN THE SERVED APP.** A
+green run means nothing until you have seen it go red for the right reason:
+
+| defect reintroduced | result |
+|---|---|
+| `applyFeed` replaces the store unconditionally (pre-K1) | **37/38** — "a read captured before the serve does not put the ticket back" fails with `cards=1` |
+| the board's detached-operation strip removed (pre-K2) | **35/38** — the lost cancellation's warning is gone, and the two recovery checks report themselves unreachable |
+
+The first attempt at that verification is worth recording, because it produced a
+FALSE GREEN twice. Neutralising the per-ticket membership rule alone still
+passed — the per-store watermark independently blocks the same resurrection — and
+neutralising it with `if (false && …)` broke type narrowing, so `ng serve`
+printed "bundle generation failed" and the run silently exercised the PREVIOUS
+bundle. **Check that the dev server actually rebuilt before believing a
+reintroduction result.**
+
+The board-clearing step is state-driven (it reads each ticket's current
+`fulfilment_status` rather than replaying a fixed three commands), so a second
+run against the same database no longer fails on a fixture artefact — but
+re-seeding between runs is still the cleanest thing to do.
 
 ## What it deliberately does NOT cover
 

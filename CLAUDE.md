@@ -945,7 +945,135 @@ so keep it current when conventions change.
   TWO FENCES stop an old answer overwriting a newer one — a SCOPE generation
   (restaurant + operator session, which also clears the stores on a switch) and a
   per-read sequence. An UNREADABLE envelope no longer empties the board: it is a
-  different fact from an empty one and says so. `recallCompleted` now goes
+  different fact from an empty one and says so.
+  **ONE FRESHNESS RULE NOW COVERS EVERY RESPONSE PATH, THE ANSWER IS VALIDATED
+  BEFORE IT IS BELIEVED, AND AN UNCERTAIN COMMAND IS ACTUALLY RECONCILED (K1–K3).**
+  The paragraph above got the SHAPE of all three right and left each of them
+  reaching only part of the code that needed it. No new backend contract beyond
+  the one route named below.
+  **K1 — THE FENCES WERE A FENCE WITH A GAP NEXT TO IT.** `applyFeed` ordered
+  feeds against OTHER READS only and then `store.set(tickets)` unconditionally, so
+  a read issued before a command and answered after it reinstated the pre-command
+  row, revision included; a served or recalled ticket came back onto the board it
+  had just left, because a feed replaced a whole store and the command path had
+  moved the row to the OTHER one; and `syncScope()` ran only when a request
+  STARTED, so a context change with no following read left the generation unmoved
+  and an answer from the previous restaurant passed the check. There is now ONE
+  monotonic clock (`opSeq`): a read takes a stamp when it STARTS, a command result
+  takes one when it is APPLIED, and every ticket remembers the stamp of the write
+  that last set it — so a read can only speak for tickets whose last write it
+  could have seen, **in their FIELDS AND in their MEMBERSHIP**. That second half
+  is the subtle one: a serve or recall MOVES a row between stores, so it is absent
+  from the store being merged and the old copy was pushed back in as though it
+  were new, leaving one id on Active and Completed at once. TOMBSTONES cover an id
+  a command removed from both boards (a cancellation), forgotten once a newer read
+  has settled the question. A PER-STORE WATERMARK on the same clock covers what a
+  per-ticket stamp cannot express — a feed is a statement about a SET, so a read
+  older than the newest one a store has applied may still correct a ticket it
+  holds but may neither ADMIT one the newer read omitted, nor REMOVE one it never
+  mentioned, nor RELOCATE one between the two stores; it also gates the protocol
+  declaration, so a delayed older answer cannot flip a commandable board
+  read-only. Scope is re-read when a request
+  STARTS *and* when an answer LANDS, and the service now observes
+  `AuthenticationService.user` so a PUBLISHED principal change invalidates the
+  board with no read in between. **THE HONEST LIMIT IS STATED RATHER THAN
+  IMPLIED**: a restaurant switch publishes nothing (`currentRestaurantRole` is
+  read from `rest_role` on every access) and sign-out ends in a full page load, so
+  there is no event for either — what is promised is that nothing ACTS on the
+  stale context, because every entry point re-scopes and a command is refused
+  outright, and the 3s poll catches the display up.
+  **K2 — NOTHING EVER RESOLVED AN `unknown`.** `TicketOperation` kept a label and
+  a revision but not the action, route, values or issuing context, so there was
+  nothing to re-send even in principle; `applyFeed` never touched `_operations`,
+  so a later read could show the command plainly landed while its warning sat
+  there forever; `acknowledge()` DELETED an unknown outright, so OK silently meant
+  "forget that the server may have acted"; `issue()` blocked only `pending`, so a
+  fresh command at a refreshed revision quietly replaced an unanswered one — a
+  different question asked as though it were the same; and a lost CANCELLATION was
+  worst of all, because the order leaves both feeds, the card goes with it, and
+  the notice rendered only inside a card. Now: the full command is RETAINED
+  (`RetainedCommand` — route, values and the ORIGINAL `if_revision`, never
+  refreshed on retry), an ordinary read settles what it can (the revision moving
+  past the precondition is evidence; an UNCHANGED row is not), `reconcile(id)`
+  asks `GET kitchen/orders/<id>/state/` for the case the feeds cannot answer,
+  `retry(id)` re-sends the same command byte for byte, recovery is BOUNDED
+  (`MAX_RECONCILE_ATTEMPTS`), and `acknowledge` clears only a SETTLED notice
+  (`conflict` / `resolved`). **THE ONLY INFERENCE DRAWN IS FROM THE REVISION** —
+  at or below the precondition means this command certainly did not land; beyond
+  it means SOME command did, not necessarily this one — so a reconciled notice
+  says what the order IS (`describeState`) and never "your cancellation went
+  through". A read that fails, times out or 404s proves nothing and changes
+  nothing. **THE CONSUMERS WERE HALF THE DEFECT**: the board now renders
+  `unresolvedOperations()` whose ticket is DETACHED in its own strip, with Check
+  and Try again, and the card offers recovery instead of a dismissal while the
+  question is open and withholds its controls while the ANSWER is outstanding
+  rather than merely while the request is in flight.
+  **K3 — THE BOARD BELIEVED ANYTHING ROUGHLY SHAPED RIGHT.**
+  `_shared`-style validation now lives in ONE place, `kitchen/services/kitchen-wire.ts`,
+  read by the feed path, the success path, the conflict path and the
+  reconciliation read. Before it: any array was a ticket list (`[null]` included);
+  any finite number was a protocol level (`1.5` included); eligibility asked only
+  `typeof revision === 'number'`, so `NaN`, `2.5` and `-1` became preconditions the
+  server can never match; and `resolveSuccess` accepted any `data` carrying a
+  numeric revision **without correlating `data.id`**, so a payload describing a
+  DIFFERENT order was applied to the commanded ticket and its pending badge
+  cleared — the board reporting a success the server never stated about that
+  order. `readCommandSuccess` also refuses an error envelope delivered on a 2xx
+  transport (a body carrying `reason`, or a `status` of 400 and up) and an unknown
+  `outcome` word. **TWO FAILURES ARE KEPT APART because they call for opposite
+  behaviour**: a server that declares NO protocol is an OLDER server — its feed is
+  perfectly readable and the board simply may not command it — while one that
+  claims the protocol and then sends something undefined is a CONTRACT ERROR, so
+  the last valid board is retained, the operator is told, and no command is
+  issued. It computes no business state: it checks that the server said something
+  well-formed about the right order, never what the answer should have been.
+  **AND THE DECLARATION IS A PROMISE ABOUT THE ROWS, NOT ONLY THE ROUTES** (Codex
+  P2 on PR #669, valid). `isTicket` validated `fulfilment_revision` only when
+  present, so a feed CLAIMING `kitchen_protocol: 1` was accepted with the field
+  missing — the board then enabled itself on the declaration while `isCommandable`
+  refused every single click, which is the worst outcome available: an operator
+  presses Start and nothing happens, with no notice of any kind. `readFeed` now
+  reads the declaration BEFORE the rows and requires the field from
+  `REQUIRED_KITCHEN_PROTOCOL` up; an UNDECLARED feed keeps the pre-D05 tolerance
+  exactly, and that control is pinned beside the refusal. The constant MOVED to
+  `kitchen-wire.ts` and is re-exported from the service — the row rule has to read
+  it, and two constants with one value is how a promise and the thing that checks
+  it drift apart.
+  **THREE MORE THINGS THE FIRST CUT LEFT ONE STEP SHORT** (the rest of that Codex
+  round, all valid, each a case of the right rule reaching only part of what it
+  governs):
+  **THE PROTOCOL IS FENCED GLOBALLY, THE MEMBERSHIP PER STORE**, and conflating
+  them was not a fence at all. A feed is a statement about one store's SET, so the
+  watermark is per store; the declaration is a statement about the SERVER. Gating
+  it on the per-store watermark meant a Completed read that STARTED before an
+  Active read was still "the newest read" for its own store, so it republished a
+  capability the Active read had already withdrawn — re-enabling commands from
+  stale information during exactly the situation the gate exists for, a rollout or
+  a mixed-version fleet. `protocolSeq` is one number on the one clock. The control
+  — a genuinely later read still publishes — is pinned, because the wrong fix here
+  is "whoever spoke first wins", which strands a board read-only after a rollout.
+  **AN ANSWER THE BOARD DISCARDED CANNOT CLOSE THE QUESTION.** `mergeState` already
+  refuses a projection older than the stored ticket, and `settleFromObservation`
+  then called `settleAgainst` on that same projection anyway — so a poll landing
+  first with revision 7 left the reconciliation read's revision 6 both REJECTED as
+  state and ACCEPTED as evidence, free to clear an uncertainty or display a
+  resolution contradicting the visible board. That is the defect this whole change
+  is about, reappearing on the path added to fix it. `mergeState` now REPORTS
+  whether it applied, and an overtaken observation leaves the question open for the
+  next ordinary read to settle from state the board actually holds.
+  **AND A FULFILMENT COMMAND IS SETTLED BY ITS OWN TARGET, never by "some forward
+  state"** — the sharpest of the four. `matchesRequest` accepted `preparing` OR
+  `ready` for an `advance`, but an ACTION does not identify a target: `advance`
+  from `new` means `preparing` and from `preparing` means `ready`. So an advance
+  to `ready` was "matched" by a ticket still sitting in `preparing`, and another
+  device bumping the revision with an unrelated PRIORITY change — which moves the
+  revision and nothing else — was enough to clear the operation and report a
+  command that never landed as having succeeded. `RetainedCommand.target` records
+  the exact state asked for (client-side only; the SERVER derives the edge from the
+  action and the row it locks), and a command with no recorded target matches
+  nothing, which is the safe direction. The revision moving is evidence that SOME
+  command applied; it was never evidence that this one did, which is the rule
+  `settleAgainst` states and this predicate quietly broke. `recallCompleted` now goes
   through the SAME eligibility check as every other command — it used to skip it
   entirely, which is why the 10-minute window existed only in a helper nothing
   on the Completed view called; the window is the SERVER's rule and the client
@@ -2122,8 +2250,16 @@ writing new tag, price/menu or date-range logic:
   `restaurant-setup/table-actions/regenerate-qr/` (one `{ table_id }` per call,
   server-signed response). The Service-View endpoints (reservations, waitlist,
   seated-party/table actions) exist in the backend already and remain to be wired
-- Kitchen real endpoints: GET `kitchen/orders/active/` (polled), PATCH
-  `kitchen/orders/{id}/fulfilment-status/` and `kitchen/orders/{id}/priority/`
+- Kitchen real endpoints: GET `kitchen/orders/active/` + `kitchen/orders/completed/`
+  (polled), PUT `kitchen/orders/{id}/fulfilment-status/`,
+  `kitchen/orders/{id}/priority/` and `kitchen/orders/{id}/cancel/` (each naming an
+  explicit action and a REQUIRED `if_revision`), and GET
+  `kitchen/orders/{id}/state/` — the per-order OBSERVATION that settles an
+  uncertain command. That last one is the ONLY thing the two feeds cannot replace:
+  a cancellation removes the order from both of them, so "it is not on the board"
+  is not an answer about whether the command ran. It is issued ON DEMAND from a
+  `reconcile(id)` / Check tap, never as a sweep — a spec pins that an ordinary poll
+  reads no per-order state at all
 - Reviews real endpoints: GET `reviews/analytics/` (Overview) and `reviews/`
   (paginated Feed via `ApiService.loadAllPages`), PATCH
   `reviews/{id}/resolution/` (resolve/reopen + optional note), POST
