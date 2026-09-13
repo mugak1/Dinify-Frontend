@@ -346,6 +346,64 @@ describe('Kitchen freshness and ownership (K1)', () => {
       .toBeTrue();
   });
 
+  /**
+   * REPRODUCTION (Codex P2 on PR #669, valid). THE WATERMARK IS PER STORE AND
+   * THE PROTOCOL IS GLOBAL, and gating a global signal on a per-store fence is
+   * not a fence at all: a Completed read that STARTED before an Active read is
+   * still "the newest read" for its own store, so it republished a capability
+   * the Active read had already withdrawn.
+   *
+   * Reachable during exactly the situation the protocol gate exists for — a
+   * backend rollout, or a mixed-version fleet behind a load balancer — with the
+   * Completed view open.
+   */
+  it('does not let an older read from the OTHER feed republish a withdrawn '
+     + 'protocol', () => {
+    settleActive([ticket()]);
+    expect(service.canCommand())
+      .withContext('the server declared it')
+      .toBeTrue();
+
+    // A Completed read begins…
+    service.loadCompleted().subscribe({ error: () => undefined });
+    const staleCompleted = completedFeeds[completedFeeds.length - 1];
+
+    // …then a LATER Active read answers from a node that declares nothing.
+    service.loadActive().subscribe({ error: () => undefined });
+    const activeNow = activeFeeds[activeFeeds.length - 1];
+    activeNow.next({ status: 200, data: { records: [ticket()] } });
+    activeNow.complete();
+    expect(service.canCommand())
+      .withContext('a server that says nothing promises nothing')
+      .toBeFalse();
+
+    // …and only now does the older Completed read land, still declaring 1.
+    staleCompleted.next(feed([]));
+    staleCompleted.complete();
+
+    expect(service.canCommand())
+      .withContext('an older answer cannot re-enable a capability a newer one '
+                 + 'withdrew, whichever feed it came from')
+      .toBeFalse();
+  });
+
+  it('still publishes a protocol a genuinely later read declares', () => {
+    // CONTROL for the fix above: the ordering must not become "whoever spoke
+    // first wins", which would leave a board read-only after a rollout landed.
+    settleActive([ticket()]);
+    service.loadActive().subscribe({ error: () => undefined });
+    const undeclared = activeFeeds[activeFeeds.length - 1];
+    undeclared.next({ status: 200, data: { records: [ticket()] } });
+    undeclared.complete();
+    expect(service.canCommand()).toBeFalse();
+
+    settleCompleted([]);          // a LATER read, declaring the protocol
+
+    expect(service.canCommand())
+      .withContext('the newest answer is what the board follows')
+      .toBeTrue();
+  });
+
   // ── Ownership: the live context, not the last one a read observed ────
 
   it('discards a feed captured before the restaurant changed, with no read between',

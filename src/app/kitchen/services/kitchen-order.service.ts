@@ -76,6 +76,7 @@ import {
   sortTickets,
 } from './kitchen-logic';
 import {
+  REQUIRED_KITCHEN_PROTOCOL,
   isCommandable,
   readCommandSuccess,
   readConflict,
@@ -102,8 +103,13 @@ const COMMAND_TIMEOUT_MS = 15000;
  * precondition, and inventing a revision to send it would be worse than not
  * trying. The board goes READ-ONLY in that case — it never falls back to the
  * retired target-only form.
+ *
+ * DEFINED IN `kitchen-wire.ts` and re-exported here. The row rule has to read
+ * it — from this level up the declaration promises a `fulfilment_revision` on
+ * every ticket — so the wire contract is where it belongs, and two constants
+ * with one value is how a promise and the thing that checks it drift apart.
  */
-export const REQUIRED_KITCHEN_PROTOCOL = 1;
+export { REQUIRED_KITCHEN_PROTOCOL };
 
 /**
  * The protocol level a feed response declares. ABSENT MEANS 0 — a server that
@@ -222,6 +228,20 @@ export class KitchenOrderService {
   private feedSeq: Record<'active' | 'completed', number> = { active: 0, completed: 0 };
 
   /**
+   * The newest read, on that same clock, whose PROTOCOL DECLARATION has been
+   * published — and it is deliberately NOT per store.
+   *
+   * A feed is a statement about one store's set, so membership is fenced per
+   * store. The declaration is a statement about THE SERVER, so fencing it the
+   * same way was not a fence at all: a Completed read that started before an
+   * Active read is still the newest read for its own store, so it republished a
+   * capability the Active read had already withdrawn — re-enabling commands
+   * from stale information during exactly the situation the gate exists for, a
+   * rollout or a mixed-version fleet.
+   */
+  private protocolSeq = 0;
+
+  /**
    * Ids a command removed from the board, with the stamp of the removal. A read
    * older than that stamp must not bring them back — that is the resurrection
    * defect, reached through the feed rather than through the failure path.
@@ -288,6 +308,7 @@ export class KitchenOrderService {
       this.stampById.clear();
       this.tombstones.clear();
       this.feedSeq = { active: 0, completed: 0 };
+      this.protocolSeq = 0;
     }
     return this.scopeGeneration;
   }
@@ -433,14 +454,19 @@ export class KitchenOrderService {
     }
     this.feedUnreadable.set(false);
 
-    // IS THIS THE NEWEST READ THIS STORE HAS SEEN? The protocol declaration is a
-    // claim about what the server can do NOW, so only the newest read publishes
-    // it — a delayed older answer must not flip a commandable board read-only.
-    // (`feedUnreadable` is deliberately NOT gated: an unreadable answer really
-    // did arrive, whenever it was asked for.)
+    // IS THIS THE NEWEST READ THIS STORE HAS SEEN? That decides MEMBERSHIP, which
+    // is a per-store question.
     const isNewestRead = seq >= this.feedSeq[which];
-    if (isNewestRead) {
-      this.feedSeq[which] = seq;
+    if (isNewestRead) this.feedSeq[which] = seq;
+
+    // THE DECLARATION IS ORDERED GLOBALLY, across both feeds, because it is a
+    // claim about the SERVER rather than about either set. A delayed older
+    // answer must not flip a commandable board read-only — nor, which the
+    // per-store fence allowed, re-enable one a newer answer disabled.
+    // (`feedUnreadable` is deliberately NOT gated either way: an unreadable
+    // answer really did arrive, whenever it was asked for.)
+    if (seq >= this.protocolSeq) {
+      this.protocolSeq = seq;
       this.serverProtocol.set(verdict.protocol);
     }
 
@@ -614,6 +640,7 @@ export class KitchenOrderService {
       ticket,
       next === 'served' ? 'serve' : 'advance',
       next === 'served' ? 'Serving' : `Moving to ${next}`,
+      next,
     );
   }
 
@@ -632,6 +659,7 @@ export class KitchenOrderService {
       ticket,
       ticket.fulfilment_status === 'served' ? 'recall' : 'correct',
       ticket.fulfilment_status === 'served' ? 'Recalling' : 'Sending back',
+      target,
     );
   }
 
@@ -647,7 +675,7 @@ export class KitchenOrderService {
     this.syncScope();
     const ticket = this._completed().find(t => t.id === id);
     if (!ticket || !isRecallEligible(ticket, Date.now())) return false;
-    return this.command(ticket, 'recall', 'Recalling', 'completed');
+    return this.command(ticket, 'recall', 'Recalling', 'ready', 'completed');
   }
 
   /**
@@ -686,11 +714,11 @@ export class KitchenOrderService {
 
   private command(
     ticket: KitchenTicket, action: KitchenAction, label: string,
-    from: 'active' | 'completed' = 'active',
+    target: FulfilmentStatus, from: 'active' | 'completed' = 'active',
   ): boolean {
     return this.issue(
       ticket, `kitchen/orders/${ticket.id}/fulfilment-status/`,
-      { action }, label, from, action);
+      { action }, label, from, action, target);
   }
 
   /**
@@ -703,7 +731,7 @@ export class KitchenOrderService {
   private issue(
     ticket: KitchenTicket, url: string, body: Record<string, unknown>,
     label: string, from: 'active' | 'completed' = 'active',
-    action?: KitchenAction,
+    action?: KitchenAction, target?: FulfilmentStatus,
   ): boolean {
     // RE-READ THE LIVE CONTEXT BEFORE COMMANDING. The caller resolved the
     // ticket from the store, which may belong to a restaurant the operator has
@@ -724,7 +752,7 @@ export class KitchenOrderService {
     if (this.isUnresolved(live.id)) return false;
 
     const command: RetainedCommand = {
-      url, body: { ...body, if_revision: ifRevision }, action, from,
+      url, body: { ...body, if_revision: ifRevision }, action, target, from,
     };
     const owner: OperationOwner = { scopeKey: this.scopeKey ?? '', generation };
     this.setOperation({
@@ -857,7 +885,7 @@ export class KitchenOrderService {
   private mergeState(
     id: string, state: KitchenOrderState, from: 'active' | 'completed',
     allowMove = true,
-  ): void {
+  ): boolean {
     // A PROJECTION OLDER THAN THE STORED TICKET IS DISCARDED.
     //
     // The revision only ever increases on the server, so a lower one is
@@ -875,7 +903,10 @@ export class KitchenOrderService {
     if (typeof known === 'number'
         && typeof state.fulfilment_revision === 'number'
         && state.fulfilment_revision < known) {
-      return;
+      // REPORTED, not merely skipped. A caller that goes on to draw a
+      // CONCLUSION from this projection needs to know the board refused it —
+      // see `settleFromObservation`.
+      return false;
     }
     // This write takes a stamp on the ONE clock reads are ordered by, so a read
     // that started before it cannot undo it — in its fields OR its membership.
@@ -893,7 +924,7 @@ export class KitchenOrderService {
     const existing = this.find(id);
     this._tickets.update(list => list.map(t => (t.id === id ? patch(t) : t)));
     this._completed.update(list => list.map(t => (t.id === id ? patch(t) : t)));
-    if (!allowMove || !existing) return;
+    if (!allowMove || !existing) return true;
 
     const moved = patch(existing);
     const leavesTheBoard = moved.fulfilment_status === 'served'
@@ -914,6 +945,7 @@ export class KitchenOrderService {
       this._tickets.update(list =>
         list.some(t => t.id === id) ? list : [...list, moved]);
     }
+    return true;
   }
 
   // ── Reconciling an uncertain command (K2) ─────────────────────────────
@@ -994,7 +1026,26 @@ export class KitchenOrderService {
 
     const op = this._operations()[id];
     if (!op) return;
-    this.mergeState(id, verdict.state, op.command?.from ?? 'active');
+
+    // AN ANSWER THE BOARD DISCARDED CANNOT CLOSE THE QUESTION. `mergeState`
+    // refuses a projection older than the stored ticket — the revision only ever
+    // increases — and settling from that same projection afterwards was the
+    // defect this whole change is about, reappearing on the path added to fix
+    // it: a poll landing first with revision 7 left this read's revision 6 both
+    // rejected as state AND accepted as evidence, so it could clear an
+    // uncertainty or display a resolution contradicting the visible board.
+    // The question stays open; the next ordinary read settles it from state the
+    // board actually holds.
+    const applied = this.mergeState(id, verdict.state,
+                                    op.command?.from ?? 'active');
+    if (!applied) {
+      this.setOperation({
+        ...this._operations()[id]!, phase: 'unknown',
+        message: 'This ticket changed while we were checking. '
+               + 'We still could not confirm your command.',
+      });
+      return;
+    }
     this.settleAgainst(id, verdict.state);
   }
 
@@ -1034,21 +1085,30 @@ export class KitchenOrderService {
     });
   }
 
-  /** Did the order end up in the state this command asked for? */
+  /**
+   * Did the order end up in the state THIS command asked for?
+   *
+   * A FULFILMENT COMMAND IS SETTLED BY ITS OWN TARGET, never by "some forward
+   * state". The action alone does not identify one — `advance` from `new`
+   * targets `preparing` and from `preparing` targets `ready` — so accepting
+   * either let a ticket still sitting in `preparing` match an advance TO
+   * `ready`. Another device bumping the revision with an unrelated priority
+   * change was then enough to clear the operation, and the board reported a
+   * command that never landed as having succeeded. The revision moving is
+   * evidence that SOME command applied; it was never evidence that this one did.
+   *
+   * A command with no recorded target matches nothing, which is the safe
+   * direction: the operator is told what the order is rather than that their
+   * command worked.
+   */
   private matchesRequest(op: TicketOperation, state: KitchenOrderState): boolean {
     const body: any = op.command?.body ?? {};
     if (body.cancellation_reason !== undefined) {
       return state.order_status === 'cancelled';
     }
     if (body.priority !== undefined) return state.priority === body.priority;
-    switch (op.command?.action) {
-      case 'serve':   return state.fulfilment_status === 'served';
-      case 'advance': return state.fulfilment_status === 'preparing'
-                          || state.fulfilment_status === 'ready';
-      case 'recall':  return state.fulfilment_status === 'ready';
-      case 'correct': return state.fulfilment_status === 'preparing';
-      default:        return false;
-    }
+    const target = op.command?.target;
+    return target !== undefined && state.fulfilment_status === target;
   }
 
   /**

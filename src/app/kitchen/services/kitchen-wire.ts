@@ -56,6 +56,15 @@ const COMMAND_OUTCOMES: ReadonlySet<string> = new Set(['applied', 'unchanged']);
  */
 const MAX_REVISION = 2147483647;
 
+/**
+ * The kitchen command protocol this client speaks — and, from this level up,
+ * **a promise about the ROWS as well as about the routes**: a server declaring
+ * it will publish a `fulfilment_revision` on every ticket. It lives here rather
+ * than with the service because it is a fact about the wire, and because the
+ * row rule below has to read it.
+ */
+export const REQUIRED_KITCHEN_PROTOCOL = 1;
+
 export function isValidRevision(value: unknown): value is number {
   return typeof value === 'number'
     && Number.isInteger(value)
@@ -111,7 +120,7 @@ function isItem(value: unknown): value is KitchenTicketItem {
  * one correctly makes the ticket non-commandable while a malformed one used to
  * sail through `typeof … === 'number'` and become a precondition.
  */
-function isTicket(value: unknown): value is KitchenTicket {
+function isTicket(value: unknown, revisionRequired: boolean): value is KitchenTicket {
   if (!value || typeof value !== 'object') return false;
   const t = value as any;
   if (!isNonEmptyString(t.id)) return false;
@@ -123,8 +132,18 @@ function isTicket(value: unknown): value is KitchenTicket {
   if (!isNonEmptyString(t.created_at)) return false;
   if (!isStringOrNull(t.served_at)) return false;
   if (!Array.isArray(t.items) || !t.items.every(isItem)) return false;
-  if (t.fulfilment_revision !== undefined
-      && !isValidRevision(t.fulfilment_revision)) return false;
+  // THE DECLARATION IS A PROMISE ABOUT THE ROWS. An absent revision is fine from
+  // a server that declares nothing — that is the pre-D05 shape, and its board is
+  // simply read-only. From one that CLAIMS the protocol it is a contract error,
+  // and treating it as tolerable produced the worst available outcome: the board
+  // enabled itself on the declaration while `isCommandable` refused every single
+  // click, so an operator pressed Start and nothing happened, with no notice.
+  if (revisionRequired) {
+    if (!isValidRevision(t.fulfilment_revision)) return false;
+  } else if (t.fulfilment_revision !== undefined
+             && !isValidRevision(t.fulfilment_revision)) {
+    return false;
+  }
   if (t.order_status !== undefined && !ORDER_STATUSES.has(t.order_status)) return false;
   return true;
 }
@@ -163,14 +182,22 @@ export function readFeed(res: unknown): FeedVerdict {
     Array.isArray(data) ? data : Array.isArray(data?.records) ? data.records : null;
   if (rows === null) return { kind: 'unreadable', why: 'envelope' };
 
+  // Read the declaration BEFORE the rows, because it decides how strict the row
+  // rule is. The refusal is about the WHOLE answer, as every refusal here is: a
+  // feed this client cannot represent is not a board it can render half of.
+  const protocol = readProtocol(res);
+  const revisionRequired = protocol >= REQUIRED_KITCHEN_PROTOCOL;
+
   const list = rows as unknown[];
-  if (!list.every(isTicket)) return { kind: 'unreadable', why: 'ticket' };
+  if (!list.every(row => isTicket(row, revisionRequired))) {
+    return { kind: 'unreadable', why: 'ticket' };
+  }
 
   const tickets = list as KitchenTicket[];
   const ids = new Set(tickets.map(t => t.id));
   if (ids.size !== tickets.length) return { kind: 'unreadable', why: 'duplicate' };
 
-  return { kind: 'ok', tickets, protocol: readProtocol(res) };
+  return { kind: 'ok', tickets, protocol };
 }
 
 function isState(value: unknown): value is KitchenOrderState {

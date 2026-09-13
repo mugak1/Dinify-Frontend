@@ -1026,7 +1026,54 @@ so keep it current when conventions change.
   claims the protocol and then sends something undefined is a CONTRACT ERROR, so
   the last valid board is retained, the operator is told, and no command is
   issued. It computes no business state: it checks that the server said something
-  well-formed about the right order, never what the answer should have been. `recallCompleted` now goes
+  well-formed about the right order, never what the answer should have been.
+  **AND THE DECLARATION IS A PROMISE ABOUT THE ROWS, NOT ONLY THE ROUTES** (Codex
+  P2 on PR #669, valid). `isTicket` validated `fulfilment_revision` only when
+  present, so a feed CLAIMING `kitchen_protocol: 1` was accepted with the field
+  missing — the board then enabled itself on the declaration while `isCommandable`
+  refused every single click, which is the worst outcome available: an operator
+  presses Start and nothing happens, with no notice of any kind. `readFeed` now
+  reads the declaration BEFORE the rows and requires the field from
+  `REQUIRED_KITCHEN_PROTOCOL` up; an UNDECLARED feed keeps the pre-D05 tolerance
+  exactly, and that control is pinned beside the refusal. The constant MOVED to
+  `kitchen-wire.ts` and is re-exported from the service — the row rule has to read
+  it, and two constants with one value is how a promise and the thing that checks
+  it drift apart.
+  **THREE MORE THINGS THE FIRST CUT LEFT ONE STEP SHORT** (the rest of that Codex
+  round, all valid, each a case of the right rule reaching only part of what it
+  governs):
+  **THE PROTOCOL IS FENCED GLOBALLY, THE MEMBERSHIP PER STORE**, and conflating
+  them was not a fence at all. A feed is a statement about one store's SET, so the
+  watermark is per store; the declaration is a statement about the SERVER. Gating
+  it on the per-store watermark meant a Completed read that STARTED before an
+  Active read was still "the newest read" for its own store, so it republished a
+  capability the Active read had already withdrawn — re-enabling commands from
+  stale information during exactly the situation the gate exists for, a rollout or
+  a mixed-version fleet. `protocolSeq` is one number on the one clock. The control
+  — a genuinely later read still publishes — is pinned, because the wrong fix here
+  is "whoever spoke first wins", which strands a board read-only after a rollout.
+  **AN ANSWER THE BOARD DISCARDED CANNOT CLOSE THE QUESTION.** `mergeState` already
+  refuses a projection older than the stored ticket, and `settleFromObservation`
+  then called `settleAgainst` on that same projection anyway — so a poll landing
+  first with revision 7 left the reconciliation read's revision 6 both REJECTED as
+  state and ACCEPTED as evidence, free to clear an uncertainty or display a
+  resolution contradicting the visible board. That is the defect this whole change
+  is about, reappearing on the path added to fix it. `mergeState` now REPORTS
+  whether it applied, and an overtaken observation leaves the question open for the
+  next ordinary read to settle from state the board actually holds.
+  **AND A FULFILMENT COMMAND IS SETTLED BY ITS OWN TARGET, never by "some forward
+  state"** — the sharpest of the four. `matchesRequest` accepted `preparing` OR
+  `ready` for an `advance`, but an ACTION does not identify a target: `advance`
+  from `new` means `preparing` and from `preparing` means `ready`. So an advance
+  to `ready` was "matched" by a ticket still sitting in `preparing`, and another
+  device bumping the revision with an unrelated PRIORITY change — which moves the
+  revision and nothing else — was enough to clear the operation and report a
+  command that never landed as having succeeded. `RetainedCommand.target` records
+  the exact state asked for (client-side only; the SERVER derives the edge from the
+  action and the row it locks), and a command with no recorded target matches
+  nothing, which is the safe direction. The revision moving is evidence that SOME
+  command applied; it was never evidence that this one did, which is the rule
+  `settleAgainst` states and this predicate quietly broke. `recallCompleted` now goes
   through the SAME eligibility check as every other command — it used to skip it
   entirely, which is why the 10-minute window existed only in a helper nothing
   on the Completed view called; the window is the SERVER's rule and the client

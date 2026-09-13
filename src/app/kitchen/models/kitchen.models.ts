@@ -109,6 +109,16 @@ export interface RetainedCommand {
   body: Record<string, unknown>;
   /** The kitchen action, where the command names one. */
   action?: KitchenAction;
+  /**
+   * THE EXACT fulfilment state this command asked for. An ACTION does not
+   * identify one on its own: `advance` from `new` targets `preparing` and from
+   * `preparing` targets `ready`, so settling an advance against "preparing or
+   * ready" let another device's unrelated change — a priority flag, which moves
+   * the revision and nothing else — read as this command having landed.
+   * Client-side only: it is never sent, because the SERVER derives the edge
+   * from the action and the row it locks.
+   */
+  target?: KitchenTicket['fulfilment_status'];
   /** Which store the ticket was acted on from, so a move can be applied. */
   from: 'active' | 'completed';
 }

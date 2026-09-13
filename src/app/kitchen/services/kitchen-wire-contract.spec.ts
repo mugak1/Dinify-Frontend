@@ -253,6 +253,40 @@ describe('Kitchen wire contract (K3)', () => {
       .toBeTrue();
   });
 
+  /**
+   * REPRODUCTION (Codex P2 on PR #669, valid). THE PROTOCOL DECLARATION IS A
+   * PROMISE ABOUT THE ROWS, and the row rule did not read it. A feed claiming
+   * `kitchen_protocol: 1` was accepted with `fulfilment_revision` missing,
+   * because the field is validated only when present — so the board enabled
+   * itself globally while every single click was refused by `isCommandable`,
+   * with no notice of any kind. An operator presses Start and nothing happens.
+   *
+   * This is the file's own stated rule applied where it had not been: a server
+   * that CLAIMS the protocol and then sends something the contract does not
+   * define is a CONTRACT ERROR, not an older server.
+   */
+  it('refuses a declared-protocol feed whose rows omit the revision', () => {
+    settle(feed([ticket({ fulfilment_revision: undefined })]));
+
+    expect(service.feedUnreadable())
+      .withContext('it promised a precondition and did not send one')
+      .toBeTrue();
+    expect(service.canCommand())
+      .withContext('and nothing from that answer may enable the board')
+      .toBeFalse();
+  });
+
+  it('keeps the board usable when SOME rows carry a revision', () => {
+    // The refusal is about the whole answer, as every readFeed refusal is —
+    // a feed this client cannot represent is not a board it can render half of.
+    settle(feed([ticket(), ticket({ id: 'k-02', order_number: 2,
+                                    fulfilment_revision: undefined })]));
+    expect(service.feedUnreadable()).toBeTrue();
+    expect(activeIds())
+      .withContext('the last valid content is kept, not half the new one')
+      .toEqual([]);
+  });
+
   // ── Mutation outcome correlation ──────────────────────────────────
 
   it('refuses a success payload that names a DIFFERENT order', () => {

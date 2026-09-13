@@ -377,6 +377,121 @@ describe('Kitchen uncertain-command reconciliation (K2)', () => {
       .toBeUndefined();
   });
 
+  // ── An observation the board REFUSED settles nothing ───────────────
+
+  /**
+   * REPRODUCTION (Codex P1 on PR #669, valid). `mergeState` already refuses a
+   * projection older than the stored ticket — the revision only ever increases,
+   * so a lower one is definitionally stale. But `settleFromObservation` called
+   * `settleAgainst` on that same projection regardless, so an answer the board
+   * had just discarded as out of date was still allowed to close the question.
+   *
+   * It is the defect this whole change is about, reappearing on the one path
+   * added to fix it.
+   */
+  it('does not settle an operation from a projection it refused as stale', () => {
+    settle([ticket({ fulfilment_revision: 3 })]);
+    expect(service.advanceStatus('k-01', 'preparing')).toBeTrue();
+    loseTheReply();
+    expect(service.operationFor('k-01')?.phase).toBe('unknown');
+
+    service.reconcile('k-01');            // a state read is in flight…
+
+    // …and a poll lands FIRST, carrying newer state.
+    settle([ticket({ fulfilment_status: 'ready', fulfilment_revision: 7 })]);
+
+    // Now the overtaken read arrives, describing the world at revision 6.
+    stateReads[0].subject.next({ status: 200, data: state({
+      fulfilment_revision: 6, fulfilment_status: 'preparing',
+    }) });
+    stateReads[0].subject.complete();
+
+    expect(service.activeTickets()[0].fulfilment_revision)
+      .withContext('the board keeps the newer state, as it already did')
+      .toBe(7);
+    expect(service.operationFor('k-01'))
+      .withContext('an answer the board discarded cannot close the question')
+      .toBeDefined();
+  });
+
+  it('still settles from an observation the board accepts', () => {
+    // CONTROL: the fix must not make reconciliation inert.
+    settle([ticket({ fulfilment_revision: 3 })]);
+    expect(service.advanceStatus('k-01', 'preparing')).toBeTrue();
+    loseTheReply();
+
+    service.reconcile('k-01');
+    stateReads[0].subject.next({ status: 200, data: state({
+      fulfilment_revision: 4, fulfilment_status: 'preparing',
+    }) });
+    stateReads[0].subject.complete();
+
+    expect(service.operationFor('k-01'))
+      .withContext('the order reached what was asked for')
+      .toBeUndefined();
+  });
+
+  // ── An advance is settled by ITS target, not by any forward state ──
+
+  /**
+   * REPRODUCTION (Codex P1 on PR #669, valid, and the sharpest of the four).
+   * `matchesRequest` accepted `preparing` OR `ready` for an `advance`, so an
+   * advance issued FROM `preparing` — whose target was specifically `ready` —
+   * was "matched" by a ticket still sitting in `preparing`. Another device
+   * bumping the revision with an unrelated PRIORITY change was then enough to
+   * clear the operation, and the board reported a command that never landed as
+   * having succeeded.
+   *
+   * The revision moving is evidence that SOME command applied. It was never
+   * evidence that THIS one did — which is the rule `settleAgainst` states and
+   * this predicate quietly broke.
+   */
+  it('does not treat another device\'s change as this advance landing', () => {
+    settle([ticket({ fulfilment_status: 'preparing', fulfilment_revision: 3 })]);
+    expect(service.advanceStatus('k-01', 'ready')).toBeTrue();
+    loseTheReply();
+    expect(service.operationFor('k-01')?.phase).toBe('unknown');
+
+    // Somebody else prioritises it. The revision moves; the ticket does not.
+    settle([ticket({
+      fulfilment_status: 'preparing', fulfilment_revision: 4, priority: true,
+    })]);
+
+    const op = service.operationFor('k-01');
+    expect(op)
+      .withContext('the advance to ready plainly did not happen')
+      .toBeDefined();
+    expect(op!.phase)
+      .withContext('the state is known, the cause is not')
+      .toBe('resolved');
+    expect(service.resolvedNoticeFor('k-01')!.toLowerCase())
+      .toContain('preparation');
+  });
+
+  it('clears an advance that reached its OWN target', () => {
+    // CONTROL: exactness must not cost the ordinary case.
+    settle([ticket({ fulfilment_status: 'preparing', fulfilment_revision: 3 })]);
+    expect(service.advanceStatus('k-01', 'ready')).toBeTrue();
+    loseTheReply();
+
+    settle([ticket({ fulfilment_status: 'ready', fulfilment_revision: 4 })]);
+
+    expect(service.operationFor('k-01'))
+      .withContext('it reached exactly what was asked for')
+      .toBeUndefined();
+  });
+
+  it('clears a first advance that reached ITS target', () => {
+    // CONTROL: new -> preparing, the other advance edge.
+    settle([ticket({ fulfilment_status: 'new', fulfilment_revision: 3 })]);
+    expect(service.advanceStatus('k-01', 'preparing')).toBeTrue();
+    loseTheReply();
+
+    settle([ticket({ fulfilment_status: 'preparing', fulfilment_revision: 4 })]);
+
+    expect(service.operationFor('k-01')).toBeUndefined();
+  });
+
   // ── Bounded work ───────────────────────────────────────────────────
 
   it('bounds automatic reconciliation attempts', () => {
