@@ -626,6 +626,45 @@ describe('ErrorInterceptor', () => {
       expect(caught?.error?.reason).toBe('kitchen_manage_required');
     });
 
+    it('forwards a 403 for a SIGNED-IN operator, which is the real case', () => {
+      // REGRESSION (Codex P2 on PR #668). The generic authenticated-403 branch
+      // sits earlier in the chain and flattens the body, so the kitchen
+      // carve-out was never reached for the only caller that exists in
+      // production — a signed-in operator. The spec above missed it precisely
+      // because it leaves `userValue` null, which no real kitchen request does.
+      (Object.getOwnPropertyDescriptor(
+        Object.getPrototypeOf(authService), 'userValue') as any);
+      Object.defineProperty(authService, 'userValue', {
+        value: mockUser, configurable: true,
+      });
+      let caught: any;
+      const url = '/api/v1/kitchen/orders/o1/cancel/';
+      httpClient.put(url, {}).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).flush(
+        { status: 403, message: 'Only a manager can cancel an order once '
+                              + 'preparation has started',
+          reason: 'kitchen_manage_required' },
+        { status: 403, statusText: 'Forbidden' });
+      expect(caught?.status).toBe(403);
+      expect(caught?.error?.reason).toBe('kitchen_manage_required');
+      expect(authService.logout).not.toHaveBeenCalled();
+    });
+
+    it('leaves a NON-kitchen 403 on the generic authenticated branch', () => {
+      // CONTROL: the carve-out is narrow. A module-denial 403 elsewhere keeps
+      // its existing flattened + toast behaviour.
+      Object.defineProperty(authService, 'userValue', {
+        value: mockUser, configurable: true,
+      });
+      let caught: any;
+      const url = '/api/v1/restaurant-setup/menuitems/';
+      httpClient.put(url, {}).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).flush(
+        { message: 'You do not have permission' },
+        { status: 403, statusText: 'Forbidden' });
+      expect(typeof caught).toBe('string');
+    });
+
     it('leaves the kitchen READS on the ordinary string + toast path', () => {
       // Only the three command routes are carved out; a failed feed read is an
       // ordinary error the operator should be told about.

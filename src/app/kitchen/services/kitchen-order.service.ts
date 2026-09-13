@@ -587,6 +587,25 @@ export class KitchenOrderService {
     id: string, state: KitchenOrderState, from: 'active' | 'completed',
     allowMove = true,
   ): void {
+    // A PROJECTION OLDER THAN THE STORED TICKET IS DISCARDED.
+    //
+    // The revision only ever increases on the server, so a lower one is
+    // definitionally stale — and applying it does two harms at once: it restores
+    // an older status over a newer poll, and it moves the STORED revision
+    // BACKWARDS, so the operator's next command would carry a precondition the
+    // server has already passed and earn a conflict nobody caused.
+    //
+    // It is the same rule the read path already applies through its sequence
+    // fence; a command answer needs its own because it races the poll rather
+    // than other reads. A ticket with no stored revision (a pre-D05 shape) is
+    // overwritten: anything the server states is better than nothing.
+    const current = this.find(id);
+    const known = current?.fulfilment_revision;
+    if (typeof known === 'number'
+        && typeof state.fulfilment_revision === 'number'
+        && state.fulfilment_revision < known) {
+      return;
+    }
     const patch = (t: KitchenTicket): KitchenTicket => ({
       ...t,
       fulfilment_status: state.fulfilment_status,

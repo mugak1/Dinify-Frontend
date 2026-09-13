@@ -649,4 +649,77 @@ describe('KitchenOrderService', () => {
       expect(service.activeTickets().some(t => t.id === 'k-14')).toBe(true);  // 3 min → kept
     });
   });
+
+  describe('a delayed command answer never moves the board backwards', () => {
+    it('does not apply a projection older than the stored ticket', () => {
+      // REGRESSION (Codex P1 on PR #668). `mergeState` applied the server's
+      // projection unconditionally, so device A's revision-1 answer, delayed
+      // past device B's revision-2 advance and A's own poll, restored the older
+      // status AND moved the stored revision BACKWARDS — which would then make
+      // A's next command send a stale precondition and earn a spurious conflict.
+      load();
+      const held = new Subject<any>();
+      apiStub.postPatch.and.returnValue(held.asObservable());
+      service.advanceStatus('k-01', 'preparing');
+
+      // Another device advances again; a poll brings revision 2 back.
+      apiStub.get.and.callFake((_: any, url: string) =>
+        url === 'kitchen/orders/completed/'
+          ? of(completedEnvelope())
+          : of({ status: 200, kitchen_protocol: 1, data: { records:
+              getMockTickets().map(t => t.id === 'k-01'
+                ? { ...t, fulfilment_status: 'ready', fulfilment_revision: 2 }
+                : t) } }));
+      service.loadActive().subscribe();
+      expect(service.activeTickets().find(t => t.id === 'k-01')!.fulfilment_revision)
+        .toBe(2);
+
+      // A's delayed answer finally lands, describing revision 1.
+      held.next(projection({
+        id: 'k-01', fulfilment_status: 'preparing', fulfilment_revision: 1,
+      }));
+      held.complete();
+
+      const t = service.activeTickets().find(x => x.id === 'k-01')!;
+      expect(t.fulfilment_revision).toBe(2);
+      expect(t.fulfilment_status).toBe('ready');
+    });
+
+    it('does not apply a stale CONFLICT projection either', () => {
+      load();
+      const held = new Subject<any>();
+      apiStub.postPatch.and.returnValue(held.asObservable());
+      service.advanceStatus('k-01', 'preparing');
+
+      apiStub.get.and.callFake((_: any, url: string) =>
+        url === 'kitchen/orders/completed/'
+          ? of(completedEnvelope())
+          : of({ status: 200, kitchen_protocol: 1, data: { records:
+              getMockTickets().map(t => t.id === 'k-01'
+                ? { ...t, fulfilment_status: 'ready', fulfilment_revision: 5 }
+                : t) } }));
+      service.loadActive().subscribe();
+
+      held.error(conflict('kitchen_precondition_stale',
+                          { id: 'k-01', fulfilment_status: 'new',
+                            fulfilment_revision: 1 }));
+
+      const t = service.activeTickets().find(x => x.id === 'k-01')!;
+      expect(t.fulfilment_revision).toBe(5);
+      expect(t.fulfilment_status).toBe('ready');
+      // The operator is still told the command was refused.
+      expect(service.operationFor('k-01')!.phase).toBe('conflict');
+    });
+
+    it('CONTROL: a newer projection is applied', () => {
+      load();
+      apiStub.postPatch.and.returnValue(of(projection({
+        id: 'k-01', fulfilment_status: 'preparing', fulfilment_revision: 1,
+      })));
+      service.advanceStatus('k-01', 'preparing');
+      const t = service.activeTickets().find(x => x.id === 'k-01')!;
+      expect(t.fulfilment_revision).toBe(1);
+      expect(t.fulfilment_status).toBe('preparing');
+    });
+  });
 });
