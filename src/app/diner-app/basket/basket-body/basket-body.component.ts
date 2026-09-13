@@ -222,8 +222,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     private navState: MenuNavStateService,
     private checkout: CheckoutCoordinatorService
   ) {
-    this.table = this.sessionStorage.getItem<TableScan>('Table');
-    this.restaurant=this.sessionStorage.getItem<Restaurant>('restaurant') as any;
+    this.refreshTableContext();
 
     this.loadUpsellFromStorage();
   }
@@ -232,10 +231,64 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.upsellStorageSub = this.sessionStorage.StorageValue.subscribe((key: any) => {
       // StorageValue emits the prefixed key (e.g. "[dinify-diner-app]upsellConfig").
       // Use includes() for prefix-agnostic matching — mirrors menu.component.ts:63.
-      if (typeof key !== 'string' || !key.includes('upsellConfig')) return;
+      if (typeof key !== 'string') return;
+      // THE TABLE THE DINER IS AT CAN CHANGE UNDER A MOUNTED INSTANCE, and
+      // this is the notification that says so — `getTableDetails` writes both
+      // keys through the same service on every scan. See
+      // `refreshTableContext` for why a constructor snapshot was not enough.
+      if (this.storageKeyIs(key, 'Table')
+          || this.storageKeyIs(key, 'restaurant')) {
+        this.refreshTableContext();
+      }
+      if (!key.includes('upsellConfig')) return;
       this.loadUpsellFromStorage();
     });
     this.resumeInterruptedCheckout();
+  }
+
+  /**
+   * Does this `StorageValue` emission name exactly `key`?
+   *
+   * The subject emits the PREFIXED key, so the prefix has to be tolerated —
+   * but `includes()` is too loose for the two keys below: it would also fire
+   * on any future key that merely CONTAINS `Table` or `restaurant`, and
+   * re-reading the diner's table because something unrelated was written is
+   * not a behaviour worth inheriting. (The `upsellConfig` test above keeps
+   * `includes()` deliberately: it is pre-existing, has no such neighbour, and
+   * widening this change to it would put an untested edit in a path this fix
+   * is not about.)
+   */
+  private storageKeyIs(emitted: string, key: string): boolean {
+    return emitted === key || emitted.endsWith(`]${key}`);
+  }
+
+  /**
+   * Re-read the table and restaurant this component is acting for.
+   *
+   * THE CONSTRUCTOR SNAPSHOT WAS NOT ENOUGH, and the desktop sidebar is where
+   * that showed. It is mounted inside `@if (table)` on the diner shell, so an
+   * in-app rescan from table A to table B moves that value from truthy to
+   * truthy and the block never tears down — the sidebar is never
+   * re-instantiated, its constructor never re-runs, and it went on reporting
+   * table A while the diner sat at table B.
+   *
+   * FIVE consumers read these two fields, which is why the fix belongs on the
+   * fields rather than on any one of them: the header the diner reads
+   * (`Table {{ table?.number }}`), `editItem`'s link back to the menu,
+   * `checkoutContext()` — itself the reservation scope, the quote-staleness
+   * stamp, `ownsRecovery` and `ownsDisplayedCart` — and the table and socials
+   * carried to the confirmation screen.
+   *
+   * **THEY MUST MOVE TOGETHER.** Refreshing only the cleanup guard would
+   * compare a live table against a record reserved under the stale one and
+   * refuse to clear a basket the operation genuinely owns — a stale-scope gap
+   * turned into a broken checkout. One source of truth (the store the shell
+   * writes) is what keeps reserve, stamp and guard agreeing.
+   */
+  private refreshTableContext(): void {
+    this.table = this.sessionStorage.getItem<TableScan>('Table');
+    this.restaurant =
+      this.sessionStorage.getItem<Restaurant>('restaurant') as any;
   }
 
   /**
@@ -527,11 +580,33 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *  same way: does this operation own the cart on screen? Nothing else is
    *  a licence to clear it — an edit re-reserves nothing, so the key and the
    *  scope are both unchanged while the cart is no longer the purchase that
-   *  was accepted. */
+   *  was accepted.
+   *
+   *  OWNERSHIP IS SCOPE **AND** CONTENTS, and the two conditions catch
+   *  opposite mistakes. Contents alone cleared an identical-looking basket at
+   *  another table: the receipt said one dish in one configuration, the cart
+   *  in front of the diner said the same, and on a single restaurant's menu
+   *  that coincidence is ordinary rather than rare. The scope comparison
+   *  existed but lived in `ownsRecovery`, which the cached-terminal branch
+   *  does not go through — so this is the missing intersection of two
+   *  protections that were each already correct, not a new product rule.
+   *
+   *  It belongs HERE rather than at that one branch, because this is the
+   *  common predicate guarding every destructive cleanup in this file
+   *  (startup recovery, Retry, the restored terminal record, resend and the
+   *  direct submit); fixing the caller would leave the shared answer wrong
+   *  for whichever consumer is added next.
+   *
+   *  NO SERVER READ IS NEEDED to decide it. Unequal scopes cannot share cart
+   *  ownership whatever any response says, and settlement is a SEPARATE
+   *  question (`settles`) that is deliberately left alone: an acceptance for
+   *  another table stays recorded and still announces itself — losing a real
+   *  acceptance would be as wrong as erasing a cart it never contained. */
   private ownsDisplayedCart(owner: CheckoutOwner | null): boolean {
     if (!owner || this.destroyed) return false;
-    return this.checkout.ownsPurchase(
-      owner, this.basketService.contentIdentity());
+    return owner.scope === this.checkoutContext()
+      && this.checkout.ownsPurchase(
+        owner, this.basketService.contentIdentity());
   }
 
   private ownsRecovery(owner: CheckoutOwner | null): boolean {

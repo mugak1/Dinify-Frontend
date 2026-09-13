@@ -738,6 +738,84 @@ describe('BasketBodyComponent — cart ownership of completion (D04 R2)', () => 
     expect(coordinator.record()).toBeNull();
   });
 
+  /**
+   * A complete, internally coherent terminal receipt for `scope`, recording
+   * EXACTLY the purchase the displayed basket currently holds.
+   *
+   * Content equality is the whole point: it is what makes scope the only
+   * thing left that can discriminate, so a fixture that also moved the items
+   * would pass for the wrong reason.
+   */
+  function settledReceiptAt(scope: string): void {
+    storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, {
+      v: 2, key: 'k-done', scope,
+      request: { identity: basketService.contentIdentity(),
+                 canon: PURCHASE_CANON },
+      stage: 'accepted', command: { orderId: 'o1', quoteRef: 'q1' },
+      outcome: { kind: 'accepted', orderId: 'o1', orderNumber: '7',
+                 quoteRef: 'q1', acceptedAt: '2026-09-13T10:00:00+00:00',
+                 at: 2 },
+      startedAt: 1, protocol: 3, degraded: false,
+    });
+  }
+
+  it('does not clear an identical-looking basket at a DIFFERENT TABLE from a '
+     + 'restored terminal record', () => {
+    // THE REMAINING INTERSECTION. Two protections existed and never met: the
+    // scope comparison lived in `ownsRecovery`, which this branch does not go
+    // through, and `ownsDisplayedCart` asked only about CONTENT. So a receipt
+    // for table A cleared table B's basket whenever the two happened to hold
+    // the same dish in the same configuration — which, on one restaurant's
+    // menu, is an ordinary coincidence rather than a rare one.
+    //
+    // Nothing here is malformed: an internally coherent old receipt beside an
+    // ordinary current cart is all it takes.
+    settledReceiptAt('r1:tA');
+    component.restaurant = { id: 'r1' } as any;
+    component.table = { id: 'tB' } as any;
+
+    fixture.detectChanges();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(basket.items.length).toBe(1);
+    expect(basket.items[0].quantity).toBe(1);
+    // AND NOTHING WAS PLACED. A historical receipt is not a new purchase at
+    // the table the diner is standing at now.
+    expect(api.postPatch).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it('does not clear an identical-looking basket at a DIFFERENT RESTAURANT '
+     + 'from a restored terminal record', () => {
+    // The scope is `restaurant:table`, so the same gap is reachable with the
+    // table held constant. Worth its own case: a diner who rescans in a
+    // second venue is the likelier way to arrive here with a retained record.
+    settledReceiptAt('r1:tA');
+    component.restaurant = { id: 'r2' } as any;
+    component.table = { id: 'tA' } as any;
+
+    fixture.detectChanges();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(basket.items.length).toBe(1);
+    expect(api.postPatch).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it('still ANNOUNCES the acceptance whose receipt owns neither the table nor '
+     + 'the cart', () => {
+    // SETTLEMENT AND CART CLEANUP ARE SEPARATE, and narrowing the second must
+    // not quietly narrow the first: a real acceptance stays known, because
+    // losing it would be as wrong as erasing a cart it never contained.
+    settledReceiptAt('r1:tA');
+    component.restaurant = { id: 'r1' } as any;
+    component.table = { id: 'tB' } as any;
+
+    fixture.detectChanges();
+
+    expect(component.recovered?.kind).toBe('accepted');
+  });
+
   // -- D. a resend response held across a context change ------------------
 
   it('CONTROL: a resend into a table the diner has since left is already '
@@ -940,5 +1018,208 @@ describe('BasketBodyComponent — cart ownership of completion (D04 R2)', () => 
     expect(component.recovered?.kind).toBe('accepted');
     expect(component.orderError).toBeFalse();
     expect(coordinator.record()).not.toBeNull();
+  });
+});
+
+/**
+ * THE SCOPE A MOUNTED COMPONENT REPORTS MUST TRACK THE TABLE THE DINER IS AT.
+ *
+ * `table` / `restaurant` were read ONCE, in the constructor. The desktop
+ * sidebar is mounted inside `@if (table)` on the diner shell, and an in-app
+ * rescan moves that value from truthy-A to truthy-B without passing through
+ * falsy — so the block never tears down, the sidebar is never re-instantiated,
+ * and every one of its five consumers of those fields kept reporting table A.
+ *
+ * These specs change session storage UNDERNEATH a mounted instance, which is
+ * what the shell's `getTableDetails` actually does. Assigning `component.table`
+ * directly is precisely what hides this defect.
+ */
+describe('BasketBodyComponent — scope follows the diner (D04 closeout)', () => {
+  let basket: { items: BasketItem[]; totalAmount: number };
+  let api: jasmine.SpyObj<ApiService>;
+  let basketService: any;
+  let revisionCounter: number;
+  let coordinator: CheckoutCoordinatorService;
+  let storage: SessionStorageService;
+  let fixture: ComponentFixture<BasketBodyComponent>;
+  let component: any;
+
+  const line = (itemId = 'i1', quantity = 1) => ({
+    itemId, itemName: 'Burger', basePrice: 5000, totalPrice: 5000,
+    quantity, selectedModifiers: [], extras: [], isDiscounted: false,
+  } as unknown as BasketItem);
+
+  beforeEach(async () => {
+    basket = { items: [line()], totalAmount: 5000 };
+    revisionCounter = 0;
+    api = jasmine.createSpyObj<ApiService>('ApiService', ['postPatch', 'get']);
+    api.postPatch.and.returnValue(of() as any);
+    api.get.and.returnValue(of({ data: null }) as any);
+    window.sessionStorage.clear();
+
+    basketService = {
+      Basket: () => basket,
+      clearBasket: jasmine.createSpy('clearBasket').and.callFake(() => {
+        basket.items = [];
+        revisionCounter += 1;
+      }),
+      revision: () => revisionCounter,
+      contentIdentity: () =>
+        BasketService.prototype.contentIdentity.call(basketService),
+      totalState: (items: BasketItem[]) =>
+        BasketService.prototype.totalState.call(basketService, items),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [BasketBodyComponent],
+      providers: [
+        provideHttpClient(withXhr()), provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: 'dinify-diner-app' },
+        { provide: BasketService, useValue: basketService },
+        { provide: ApiService, useValue: api },
+        {
+          provide: ConfirmDialogService,
+          useValue: jasmine.createSpyObj<ConfirmDialogService>(
+            'ConfirmDialogService', ['openModal', 'closeModal']),
+        },
+        {
+          provide: ToastService,
+          useValue: jasmine.createSpyObj<ToastService>(
+            'ToastService',
+            ['success', 'error', 'info', 'warning', 'clear', 'dismiss']),
+        },
+        { provide: ConnectivityService, useValue: { isOffline: () => false } },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
+    }).compileComponents();
+
+    spyOn(TestBed.inject(Router), 'navigate').and.stub();
+    coordinator = TestBed.inject(CheckoutCoordinatorService);
+    storage = TestBed.inject(SessionStorageService);
+  });
+
+  afterEach(() => window.sessionStorage.clear());
+
+  /** What the shell's `getTableDetails` writes on a scan. */
+  function scannedTo(restaurantId: string, tableId: string,
+                     tableNumber = 7): void {
+    storage.setItem('Table',
+      { id: tableId, number: tableNumber } as any);
+    storage.setItem('restaurant',
+      { id: restaurantId, socials: { x: restaurantId } } as any);
+  }
+
+  /** The desktop sidebar, mounted while the diner is at table A. */
+  function mountSidebarAtTableA(): void {
+    scannedTo('r1', 'tA', 4);
+    fixture = TestBed.createComponent(BasketBodyComponent);
+    component = fixture.componentInstance;
+    component.sidebar = true;
+    fixture.detectChanges();
+  }
+
+  it('reports the NEW table after an in-app rescan, without being '
+     + 're-instantiated', () => {
+    mountSidebarAtTableA();
+    expect(component.checkoutContext()).toBe('r1:tA');
+
+    scannedTo('r1', 'tB', 9);        // the shell rescans; the sidebar survives
+
+    expect(component.checkoutContext()).toBe('r1:tB');
+  });
+
+  it('follows a rescan into a DIFFERENT RESTAURANT too', () => {
+    mountSidebarAtTableA();
+    scannedTo('r2', 'tA', 4);
+
+    expect(component.checkoutContext()).toBe('r2:tA');
+  });
+
+  it('RESERVES a purchase at the table the diner is actually at', () => {
+    // The consumer that decides what scope a new checkout is bound to. A stale
+    // value here reserves at the old table, and the server then refuses the
+    // key as used elsewhere.
+    mountSidebarAtTableA();
+    scannedTo('r1', 'tB');
+
+    const reservation = coordinator.reserveIntent(
+      { identity: basketService.contentIdentity(), canon: PURCHASE_CANON },
+      component.checkoutContext());
+
+    expect(reservation.kind).toBe('ready');
+    expect(coordinator.record()?.scope).toBe('r1:tB');
+  });
+
+  it('marks a quote priced at the OLD table stale at the new one', () => {
+    // The staleness stamp is the same helper. A quote priced for table A must
+    // not read as current once the diner is at table B.
+    mountSidebarAtTableA();
+    const pricedAt = component.checkoutContext();
+
+    scannedTo('r1', 'tB');
+
+    expect(component.checkoutContext()).not.toBe(pricedAt);
+  });
+
+  it('STILL clears its own basket when its own checkout completes at the new '
+     + 'table', () => {
+    // THE CONTROL THE NAIVE FIX BREAKS. Reading the scope live in the cleanup
+    // guard alone — while the reservation kept using the stale field — would
+    // compare the new table against a record minted at the old one and refuse
+    // to clear a basket the operation genuinely owns. Both must move together.
+    mountSidebarAtTableA();
+    scannedTo('r1', 'tB');
+
+    const owner = coordinator.ownerOf({
+      v: 2, key: 'k1', scope: component.checkoutContext(),
+      request: { identity: basketService.contentIdentity(),
+                 canon: PURCHASE_CANON },
+      stage: 'accepted', command: { orderId: 'o1', quoteRef: 'q1' },
+      outcome: null, startedAt: 1, protocol: 3, degraded: false,
+    } as any);
+
+    expect(component.ownsDisplayedCart(owner)).toBeTrue();
+  });
+
+  it('does NOT let an acceptance for the OLD table clear the new table\'s '
+     + 'cart', () => {
+    // The other direction, and the reason the scope condition exists at all.
+    mountSidebarAtTableA();
+    const ownerAtA = coordinator.ownerOf({
+      v: 2, key: 'k1', scope: component.checkoutContext(),
+      request: { identity: basketService.contentIdentity(),
+                 canon: PURCHASE_CANON },
+      stage: 'accepted', command: { orderId: 'o1', quoteRef: 'q1' },
+      outcome: null, startedAt: 1, protocol: 3, degraded: false,
+    } as any);
+
+    scannedTo('r1', 'tB');           // contents deliberately unchanged
+
+    expect(component.ownsDisplayedCart(ownerAtA)).toBeFalse();
+  });
+
+  it('shows the diner the table they are actually sitting at', () => {
+    // Not an authority consumer, but the same stale field: the sidebar header
+    // renders `Table {{ table?.number }}`, so it announced the old table.
+    mountSidebarAtTableA();
+    expect(component.table?.number).toBe(4);
+
+    scannedTo('r1', 'tB', 9);
+
+    expect(component.table?.number).toBe(9);
+  });
+
+  it('carries the CURRENT table and restaurant to the confirmation screen',
+     () => {
+    // The order-complete navigation state reads the same two fields, so a
+    // stale sidebar named the previous table on the receipt.
+    mountSidebarAtTableA();
+    scannedTo('r2', 'tB', 9);
+
+    expect(component.table?.id).toBe('tB');
+    expect(component.restaurant?.id).toBe('r2');
+    expect(component.restaurant?.socials).toEqual({ x: 'r2' } as any);
   });
 });
