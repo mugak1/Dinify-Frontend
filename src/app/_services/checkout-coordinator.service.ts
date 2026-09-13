@@ -531,6 +531,33 @@ export class CheckoutCoordinatorService {
     return owner.purchase === purchase;
   }
 
+  /**
+   * The highest level this server has demonstrated for the attempt an answer
+   * is about, read AT THE MOMENT THE ANSWER LANDS.
+   *
+   * `recover()` snapshots `pending` BEFORE the request, and startup recovery
+   * deliberately does not claim the checkout flight — so a diner can initiate
+   * against a level-3 node while an earlier read is still open, and the
+   * snapshot then says 0 for a server that has since proved it can do better.
+   * Reading only the snapshot let the legacy branch trust `accepted: true`
+   * from exactly the case the memory exists to refuse (Codex P1 on PR #666).
+   *
+   * THE SNAPSHOT'S IDENTITY HALF IS UNTOUCHED, and that split is the point:
+   * key, scope and the issued command must stay as captured, or a held answer
+   * starts being measured against whatever storage says now — which is what
+   * makes a stale answer look authoritative. Only the CAPABILITY is read
+   * live, because it is monotonic: a server does not un-demonstrate a level.
+   * The live value is consulted ONLY for the same attempt; a record replaced
+   * by a different key describes a different operation and says nothing about
+   * this one.
+   */
+  private demonstratedProtocol(pending: CheckoutRecord): number {
+    const now = this.record();
+    return now && now.key === pending.key
+      ? Math.max(pending.protocol, now.protocol)
+      : pending.protocol;
+  }
+
   /** The highest level any server has stated for the live attempt, or 0. */
   establishedProtocol(): number {
     return this.record()?.protocol ?? 0;
@@ -778,7 +805,7 @@ export class CheckoutCoordinatorService {
     // initiate declared level 3 is BROKEN, not old — and trusting the legacy
     // boolean beside it would announce an order having checked nothing.
     if (correlationPromised(order)
-        || pending.protocol >= CHECKOUT_PROTOCOL_CORRELATED) {
+        || this.demonstratedProtocol(pending) >= CHECKOUT_PROTOCOL_CORRELATED) {
       return { kind: 'uncorrelated', order };
     }
 

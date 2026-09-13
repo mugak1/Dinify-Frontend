@@ -747,6 +747,21 @@ so keep it current when conventions change.
   where `placeOrder` reserves with `basketService.contentIdentity()`, and the
   Gate B fake's `revision` was the literal `3` with a `clearBasket` that never
   cleared anything. A fake that cannot express a cart edit cannot test one.
+  **AND THE LEVEL IS READ WHEN THE ANSWER LANDS, NOT WHEN THE READ WAS SENT**
+  (Codex P1 on PR #666, valid). `recover()` snapshots `pending` BEFORE the
+  request and startup recovery deliberately does NOT claim the checkout flight,
+  so a diner can initiate against a level-3 node while an earlier read is still
+  open: the snapshot then says 0 for a server that has since proved it can do
+  better, and the legacy branch trusted `accepted: true` from exactly the case
+  the memory exists to refuse — announcing an order and clearing the basket.
+  `demonstratedProtocol` takes the MAX of the snapshot and the live record, and
+  only for the SAME KEY. **THE SNAPSHOT'S IDENTITY HALF STAYS FROZEN, and that
+  split is the whole point**: key, scope and the issued command must remain as
+  captured, or a held answer starts being measured against whatever storage
+  says now — which is precisely what makes a stale answer look authoritative.
+  Only the CAPABILITY is read live, because it is monotonic; a record replaced
+  by a different key describes a different operation and says nothing about
+  this one.
   **The browser harness gained the interleaving no unit spec can produce** —
   `recovery.mjs` scenario 4, a real commit-then-drop acceptance followed by a
   real stepper click, now 35 checks. Verified by reintroducing the defect in

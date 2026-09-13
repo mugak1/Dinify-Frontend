@@ -735,6 +735,33 @@ describe('CheckoutCoordinatorService — recovery evidence (D04 R1)', () => {
     expect(outcome.kind).toBe('accepted');
   });
 
+  it('reads the level ESTABLISHED BY THE TIME THE ANSWER LANDS, not the one '
+     + 'captured when the read was sent', () => {
+    // `recover()` snapshots `pending` BEFORE the request and startup recovery
+    // does not claim the checkout flight, so a diner can initiate against a
+    // level-3 node while an earlier read is still open. The snapshot then says
+    // 0 and the legacy branch trusts `accepted: true` from a node that has
+    // since demonstrated it can do better — exactly the unvalidated
+    // announcement the memory exists to prevent (Codex P1 on PR #666).
+    //
+    // The IDENTITY half of the snapshot is deliberately untouched: key, scope
+    // and the issued command must stay as captured, or a held answer starts
+    // being measured against whatever storage says now.
+    service.reserveIntent({ identity: BASKET, canon: PURCHASE_CANON },
+                          CONTEXT);
+    let outcome!: RecoveryOutcome;
+    service.recover().subscribe((value) => (outcome = value));
+    const request = httpMock.expectOne(
+      (r) => r.url.includes('orders/journey/order-details/'));
+
+    // The concurrent initiate lands first and records what this server can do.
+    service.noteProtocol(3);
+    request.flush({ status: 200, data: { id: ORDER, accepted: true } });
+
+    expect(outcome.kind).not.toBe('accepted');
+    expect(service.record()).not.toBeNull();
+  });
+
   it('still refuses an answer resolved at a different scope', () => {
     const key = issued();
     const body = projection(key, {});

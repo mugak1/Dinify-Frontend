@@ -24,7 +24,7 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 
 import { WINDOW } from '../../../_services/storage/window.token';
 import { STORAGE_KEY_PREFIX } from '../../../_services/storage/storage-key-prefix.token';
@@ -380,6 +380,27 @@ describe('BasketBodyComponent — acceptance evidence (D04 Gate A)', () => {
     api.get.and.returnValue(of({ data: { id: 'o9', accepted: true } }) as any);
 
     component.retryOrder();
+
+    assertRecoveryRefused();
+  });
+
+  it('STARTUP recovery does not downgrade on a level established WHILE the '
+     + 'read was open', () => {
+    // The interleaving the snapshot cannot see: startup recovery does not
+    // claim the checkout flight, so an initiate can run and record level 3
+    // while the read is still in flight. Reading `pending.protocol` alone
+    // then announces an order off the legacy boolean and clears the basket
+    // (Codex P1 on PR #666).
+    coordinator.reserveIntent(
+      { identity: basketService.contentIdentity(), canon: PURCHASE_CANON },
+      ':');
+    const held = new Subject<any>();
+    api.get.and.returnValue(held.asObservable() as any);
+    fixture.detectChanges();                       // recovery is now open
+
+    coordinator.noteProtocol(3);                   // the concurrent initiate
+    held.next({ data: { id: 'o9', accepted: true } });
+    held.complete();
 
     assertRecoveryRefused();
   });
