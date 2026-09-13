@@ -157,7 +157,7 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`, 8s) and 35/35 (`recovery.mjs`, 67s)** against a
+Last run: **42/42 (`journey.mjs`, 4s) and 35/35 (`recovery.mjs`, 67s)** against a
 disposable local PostgreSQL 16.13 (its own cluster on port 55432, never a shared
 instance), a local Django on `test_settings` (Python 3.11.15) at backend
 `fd190ddc`, and a **development** `ng serve` on Node 24.21.0 with Chromium 141
