@@ -29,6 +29,8 @@
  */
 
 import {
+  FulfilmentStatus,
+  KitchenAction,
   KitchenOrderState,
   KitchenTicket,
   KitchenTicketExtra,
@@ -254,9 +256,104 @@ export function readCommandSuccess(res: unknown, expectedId: string): StateVerdi
 }
 
 /**
+ * The command as it was ISSUED — the thing a result has to be consistent with.
+ *
+ * `readCommandSuccess` above answers "is this a readable answer about the right
+ * order". That is not the same question as "could this be the result of the
+ * command I sent", and treating the first as the second is how an impossible
+ * result cleared a pending badge.
+ */
+export interface IssuedCommand {
+  /** The precondition the command carried. */
+  ifRevision: number;
+  action?: KitchenAction;
+  /** The exact fulfilment state asked for, where the command names one. */
+  target?: FulfilmentStatus;
+  /** The request body, so an explicit value (priority, cancellation) is checked
+   *  against what the server reports rather than against the action alone. */
+  body: Record<string, unknown>;
+}
+
+/**
+ * Does this state show WHAT THE COMMAND ASKED FOR?
+ *
+ * Deliberately says nothing about revisions — it is the "did it end up as
+ * asked" half, shared by the result validator and by the reconciliation path so
+ * the two cannot form different opinions about one command.
+ *
+ * A command with no recorded target matches nothing, which is the safe
+ * direction: the operator is told what the order IS rather than that their
+ * command worked.
+ */
+export function stateSatisfies(
+  cmd: IssuedCommand, state: KitchenOrderState,
+): boolean {
+  const body: any = cmd.body ?? {};
+  if (body.cancellation_reason !== undefined) {
+    return state.order_status === 'cancelled';
+  }
+  if (body.priority !== undefined) return state.priority === body.priority;
+  return cmd.target !== undefined && state.fulfilment_status === cmd.target;
+}
+
+/**
+ * Read a mutation result AGAINST THE COMMAND THAT PRODUCED IT.
+ *
+ * The server builds a success from the locked row immediately after this
+ * command's write, and `_assert_revision` guarantees the row was at
+ * `if_revision` when it did. That fixes exactly two shapes:
+ *
+ *   * `applied` — the row was written, so the revision is the precondition plus
+ *     ONE. Every applied path goes through the one `_bump`, which increments
+ *     once; nothing in the contract increments twice or not at all.
+ *   * `unchanged` — the single no-write result, emitted from ONE place: setting
+ *     priority to the value it already holds. It reports the ORIGINAL revision
+ *     and the requested boolean already in place. It is not an available result
+ *     for a cancel, serve, advance, correct or recall, and accepting one there
+ *     cleared a command that had demonstrably not been performed.
+ *
+ * And in both shapes the state must show what was asked for.
+ *
+ * THIS VALIDATES THE DEFINED PROTOCOL. It does not compute business state, and
+ * it never decides what the server should have done — only whether what came
+ * back is a result the contract permits for this command.
+ */
+export function readCommandResult(
+  res: unknown, expectedId: string, cmd: IssuedCommand,
+): StateVerdict {
+  const verdict = readCommandSuccess(res, expectedId);
+  if (verdict.kind !== 'ok') return verdict;
+
+  const { state, outcome } = verdict;
+  if (outcome === 'unchanged') {
+    // The no-write result exists for priority alone.
+    if ((cmd.body ?? {})['priority'] === undefined) {
+      return { kind: 'invalid', why: 'unchanged-not-available' };
+    }
+    if (state.fulfilment_revision !== cmd.ifRevision) {
+      return { kind: 'invalid', why: 'unchanged-revision' };
+    }
+  } else if (state.fulfilment_revision !== cmd.ifRevision + 1) {
+    return { kind: 'invalid', why: 'applied-revision' };
+  }
+
+  if (!stateSatisfies(cmd, state)) {
+    return { kind: 'invalid', why: 'result-mismatch' };
+  }
+  return verdict;
+}
+
+/**
  * Read an AUTHORISED CONFLICT body. The reason is what the operator is shown,
  * so it must be present; the projection is still correlated, because a conflict
  * about somebody else's order is no more applicable than a success about one.
+ *
+ * ABSENT STATE AND PRESENT-BUT-INVALID STATE ARE DIFFERENT FACTS. A genuine
+ * policy denial carries none (a 403 deliberately does), and that must stay an
+ * interpretable refusal. But a projection the server DID send and this contract
+ * cannot correlate — naming another order, or malformed — used to be dropped
+ * silently and the refusal reported as clean, which discarded the retained
+ * command on the strength of a body we had just failed to read.
  */
 export function readConflict(
   body: unknown, expectedId: string,
@@ -271,19 +368,27 @@ export function readConflict(
     return { kind: 'ok', reason: b.reason, message: b.message };
   }
   const verdict = readProjection(b.data, expectedId);
-  if (verdict.kind !== 'ok') {
-    return { kind: 'ok', reason: b.reason, message: b.message };
-  }
+  if (verdict.kind !== 'ok') return { kind: 'invalid', why: verdict.why };
   return { kind: 'ok', reason: b.reason, message: b.message, state: verdict.state };
 }
 
 /**
  * Read the per-order reconciliation response. It is an OBSERVATION, so there is
- * no outcome word to check — only that the server described the order asked
- * about, in the shape the contract defines.
+ * no outcome word to check — and requiring one would be wrong, because a read
+ * is not the result of an attempt.
+ *
+ * It still refuses an ERROR ENVELOPE delivered on a 2xx transport. A body
+ * carrying `reason`, or a `status` of 400 and up, is the server declining;
+ * a parseable `data` object beside it does not make it authoritative state.
  */
 export function readObservedState(res: unknown, expectedId: string): StateVerdict {
-  return readProjection((res as any)?.data, expectedId);
+  const body: any = res;
+  if (!body || typeof body !== 'object') return { kind: 'invalid', why: 'envelope' };
+  if (body.reason !== undefined) return { kind: 'invalid', why: 'refusal-envelope' };
+  if (typeof body.status === 'number' && body.status >= 400) {
+    return { kind: 'invalid', why: 'refusal-envelope' };
+  }
+  return readProjection(body.data, expectedId);
 }
 
 /** Vocabulary re-exported for the few places that legitimately branch on it. */

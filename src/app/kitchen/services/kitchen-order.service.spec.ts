@@ -172,15 +172,20 @@ describe('KitchenOrderService', () => {
 
     it('applies the SERVER projection on success, never a locally computed state', () => {
       load();
+      // k-01 loads at revision 0, so an APPLIED result is revision 1 and
+      // nothing else: every applied path goes through the server's single
+      // `_bump`, which increments exactly once. This fixture used to say 4 —
+      // a response the contract cannot produce — and the client took it,
+      // which is the gap the result validator closes. The point the spec is
+      // making is unchanged: the number comes from the SERVER, and a client
+      // that guessed would send a precondition the server never issued.
       apiStub.postPatch.and.returnValue(of(projection({
-        id: 'k-01', fulfilment_status: 'preparing', fulfilment_revision: 4,
+        id: 'k-01', fulfilment_status: 'preparing', fulfilment_revision: 1,
       })));
       service.advanceStatus('k-01', 'preparing');
       const t = service.activeTickets().find(x => x.id === 'k-01')!;
       expect(t.fulfilment_status).toBe('preparing');
-      // The revision is the SERVER's — a client that guessed would send a
-      // precondition the server never issued.
-      expect(t.fulfilment_revision).toBe(4);
+      expect(t.fulfilment_revision).toBe(1);
       expect(service.operationFor('k-01')).toBeUndefined();
     });
 
@@ -296,13 +301,16 @@ describe('KitchenOrderService', () => {
 
     it('applies the server projection rather than the requested value', () => {
       load();
+      // k-01 loads at revision 0 with priority false, so setting it true is a
+      // real write and the applied result is revision 1. (Was 2: an increment
+      // the server has no path to.)
       apiStub.postPatch.and.returnValue(of(projection({
-        id: 'k-01', priority: true, fulfilment_revision: 2,
+        id: 'k-01', priority: true, fulfilment_revision: 1,
       })));
       service.setPriority('k-01', true);
       const t = service.activeTickets().find(x => x.id === 'k-01')!;
       expect(t.priority).toBe(true);
-      expect(t.fulfilment_revision).toBe(2);
+      expect(t.fulfilment_revision).toBe(1);
     });
 
     it('shows a conflict instead of reverting when the command is refused', () => {

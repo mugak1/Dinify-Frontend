@@ -253,8 +253,16 @@ export class BoardComponent implements OnInit, OnDestroy {
   get detachedOperations(): TicketOperation[] {
     return this.service.unresolvedOperations().filter(op => op.detached);
   }
-  /** Dismissible only once settled — an open question is not dismissed. */
-  isSettled(op: TicketOperation): boolean { return op.phase === 'resolved'; }
+  /**
+   * Dismissible only once settled — an open question is not dismissed.
+   *
+   * A CONFLICT IS SETTLED. The server stated its refusal, so there is nothing
+   * to check and nothing to re-send; offering Check and Try again on one would
+   * invite an operator to re-ask a question that has already been answered no.
+   */
+  isSettled(op: TicketOperation): boolean {
+    return op.phase === 'resolved' || op.phase === 'conflict';
+  }
   isChecking(op: TicketOperation): boolean { return op.phase === 'checking'; }
   onCheckId(id: string): void { this.service.reconcile(id); }
   onRetryId(id: string): void { this.service.retry(id); }

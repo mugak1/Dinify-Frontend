@@ -38,7 +38,24 @@ not a new end-to-end platform.
 | **the per-order state read answers for an order in NEITHER feed** | the one thing the two feeds cannot do, which is why the route exists |
 | **the board issues NO per-order read on an ordinary poll** | reconciliation is on demand, never an N+1 sweep |
 | **Check issues exactly one read, for THIS order, and settles it** | driven through the real strip control |
+| **a read that STARTS LATER carrying an EARLIER server snapshot cannot reopen a served ticket** | R1a — the sibling of the scenario above, and the case the client clock cannot order |
+| **and it stays on Completed exactly once** | one id in two authoritative places, reached the other way round |
 | neither board raised an uncaught error | |
+
+### Scenario 8 is the one a local clock cannot see
+
+Scenario 5 holds a request that **started early** and delivers it late. Scenario 8
+lets a request start **late** and answers it with an **earlier** snapshot — which
+is what a real server does when two reads are answered from snapshots it took in
+the other order. Both responses are valid, neither is malformed, neither is out of
+scope, and by every measure the client has, the second one is the newest thing the
+board has seen. Only the server's own `fulfilment_revision` can refuse it.
+
+The replayed body is a **real earlier response from the real server**, captured
+through the operator API while the ticket was still `ready`, so what is replayed
+is a state the server genuinely reported. `replayFeed` holds every later poll for
+the same reason `gateFeed` does: the board's poll loop is serial, so an
+unheld next poll repairs the case under test before the assertion runs.
 
 ### Every wait is a barrier, not a sleep
 
@@ -70,19 +87,22 @@ node e2e/kitchen-board/kitchen.mjs
 same database fails two of its own checks on the second pass — a fixture
 artefact, not a defect. Re-seed between runs.
 
-Last run: **38/38**, against a disposable local PostgreSQL 16.13 (its own
-cluster, never a shared instance), a local Django on `test_settings`, and a
-**development** `ng serve` on Node 24.21.0 with Chromium 141
-(`/opt/pw-browsers/chromium-1194`), driving the K1–K3 revision of the frontend
-against the K4 revision of the backend.
+Last run: **44/44**, against a disposable local PostgreSQL 16.13 (its own
+cluster on port 55432, never a shared instance), a local Django on
+`test_settings` at backend `b378fa90` (unmodified), and a **development**
+`ng serve` on Node 24.21.0 with Chromium 141
+(`/opt/pw-browsers/chromium-1194`), driving the R1–R3 consumer revision of the
+frontend. The two diner harnesses were run on the same stack as regression
+evidence: `journey.mjs` **42/42** and `recovery.mjs` **35/35**.
 
-**AND BOTH NEW SCENARIOS WERE PROVED TO DISCRIMINATE, IN THE SERVED APP.** A
+**AND EVERY NEW SCENARIO WAS PROVED TO DISCRIMINATE, IN THE SERVED APP.** A
 green run means nothing until you have seen it go red for the right reason:
 
 | defect reintroduced | result |
 |---|---|
 | `applyFeed` replaces the store unconditionally (pre-K1) | **37/38** — "a read captured before the serve does not put the ticket back" fails with `cards=1` |
 | the board's detached-operation strip removed (pre-K2) | **35/38** — the lost cancellation's warning is gone, and the two recovery checks report themselves unreachable |
+| `behindKnownRevision` returns false (pre-R1a) | **43/44** — "a later read carrying an earlier snapshot does not reopen the ticket" fails with `cards=1` |
 
 The first attempt at that verification is worth recording, because it produced a
 FALSE GREEN twice. Neutralising the per-ticket membership rule alone still
@@ -91,6 +111,23 @@ neutralising it with `if (false && …)` broke type narrowing, so `ng serve`
 printed "bundle generation failed" and the run silently exercised the PREVIOUS
 bundle. **Check that the dev server actually rebuilt before believing a
 reintroduction result.**
+
+**THE SAME TRAP BIT THE R1a REINTRODUCTION, TWICE, IN TWO DIFFERENT WAYS**, so
+here is what works. `if (false && this.behindKnownRevision(fresh))` makes the
+block unreachable and `held` loses its narrowing (TS2345); `if (fresh) return
+false;` narrows `fresh` to `never` on the next line (TS2339). Both printed
+"bundle generation failed" and left the previous bundle serving. A
+non-narrowable guard — `const MUTATION = true as boolean; if (MUTATION) return
+false;` — compiles and rebuilds.
+
+**AND "IT REBUILT" IS ITSELF WORTH CHECKING DIRECTLY.** Two proofs were taken:
+the dev server's own `Application bundle generation complete` count incremented
+after each edit, and the SERVED lazy chunk's content hash round-tripped
+(`kitchen.module-LKAMPJU6.js` → `WGD7CLXV` → `LKAMPJU6`), observed by recording
+JS responses from a real browser load of `/kitchen`. Do NOT try to grep the
+served chunk for a comment marker: the bundler strips comments and folds the
+guard, so the marker is absent from the output **whether or not the mutation is
+present** — a check that answers the same way both times is not a check.
 
 The board-clearing step is state-driven (it reads each ticket's current
 `fulfilment_status` rather than replaying a fixed three commands), so a second
