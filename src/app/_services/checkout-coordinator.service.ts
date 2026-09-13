@@ -6,7 +6,7 @@ import { ApiService } from './api.service';
 import { DinerSessionService } from './diner-session.service';
 import { SessionStorageService } from './storage/session-storage.service';
 import {
-  CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, correlationMatches,
+  CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, acceptanceVerdict,
   correlationPromised, protocolLevel, readCorrelation,
 } from 'src/app/_shared/order/checkout-correlation';
 
@@ -153,6 +153,19 @@ export interface TerminalOutcome {
  * readable by any script on the origin, so it carries nothing that is not
  * already an opaque handle the server scopes on its own.
  */
+/**
+ * R2 — what ONE checkout operation is, captured immutably at the moment a
+ * request is issued. See `ownerOf`.
+ */
+export interface CheckoutOwner {
+  readonly key: string;
+  readonly scope: string;
+  /** The basket CONTENT identity this operation is buying. Durable. */
+  readonly purchase: string;
+  /** The order the issued acceptance named, when one was issued. */
+  readonly orderId: string | null;
+}
+
 export interface CheckoutRecord {
   readonly v: number;
   readonly key: string;
@@ -464,6 +477,87 @@ export class CheckoutCoordinatorService {
     return Array.isArray(items) && items.length > 0;
   }
 
+  /**
+   * R2 — THE IMMUTABLE IDENTITY OF ONE CHECKOUT OPERATION.
+   *
+   * Captured BEFORE a request goes out and compared when its answer lands,
+   * so a reply held open across an edit, a table move or a navigation is
+   * measured against what it was actually about. Deliberately not a re-read
+   * of whatever storage says on arrival: comparing a response against the
+   * present is what makes a stale answer look authoritative.
+   *
+   * WHAT IS IN IT AND WHY. `key` and `scope` identify the attempt; `orderId`
+   * is the command that was issued, when one was. `purchase` is the basket
+   * CONTENT identity — durable, because it is a property of what the diner is
+   * buying and comes back from storage unchanged. The process-local
+   * `revision()` is deliberately NOT here: it restarts at 0 on every page
+   * load, and using it as durable intent identity is the exact defect
+   * Codex found on #663.
+   */
+  ownerOf(record: CheckoutRecord): CheckoutOwner {
+    return {
+      key: record.key,
+      scope: record.scope,
+      purchase: record.request.identity,
+      orderId: record.command?.orderId ?? null,
+    };
+  }
+
+  /**
+   * QUESTION ONE: may an authoritative answer still SETTLE this operation?
+   *
+   * Separate from `ownsPurchase` on purpose. A legitimate acceptance for an
+   * earlier purchase must still be recorded and announced even when the cart
+   * has moved on — losing it would be as wrong as erasing the cart.
+   */
+  settles(owner: CheckoutOwner): boolean {
+    const now = this.record();
+    if (!now) return false;
+    if (now.key !== owner.key || now.scope !== owner.scope) return false;
+    // A command, once issued, is part of the operation's identity. A record
+    // that has since settled or been reissued is a different operation.
+    return owner.orderId === null
+      || (now.command?.orderId ?? null) === owner.orderId;
+  }
+
+  /**
+   * QUESTION TWO: does this operation own the cart currently on screen?
+   *
+   * The ONLY licence to clear it. `key` and `scope` cannot answer this — an
+   * edit re-reserves nothing, so both are unchanged while the cart is no
+   * longer the purchase that was accepted.
+   */
+  ownsPurchase(owner: CheckoutOwner, purchase: string): boolean {
+    return owner.purchase === purchase;
+  }
+
+  /**
+   * The highest level this server has demonstrated for the attempt an answer
+   * is about, read AT THE MOMENT THE ANSWER LANDS.
+   *
+   * `recover()` snapshots `pending` BEFORE the request, and startup recovery
+   * deliberately does not claim the checkout flight — so a diner can initiate
+   * against a level-3 node while an earlier read is still open, and the
+   * snapshot then says 0 for a server that has since proved it can do better.
+   * Reading only the snapshot let the legacy branch trust `accepted: true`
+   * from exactly the case the memory exists to refuse (Codex P1 on PR #666).
+   *
+   * THE SNAPSHOT'S IDENTITY HALF IS UNTOUCHED, and that split is the point:
+   * key, scope and the issued command must stay as captured, or a held answer
+   * starts being measured against whatever storage says now — which is what
+   * makes a stale answer look authoritative. Only the CAPABILITY is read
+   * live, because it is monotonic: a server does not un-demonstrate a level.
+   * The live value is consulted ONLY for the same attempt; a record replaced
+   * by a different key describes a different operation and says nothing about
+   * this one.
+   */
+  private demonstratedProtocol(pending: CheckoutRecord): number {
+    const now = this.record();
+    return now && now.key === pending.key
+      ? Math.max(pending.protocol, now.protocol)
+      : pending.protocol;
+  }
+
   /** The highest level any server has stated for the live attempt, or 0. */
   establishedProtocol(): number {
     return this.record()?.protocol ?? 0;
@@ -660,20 +754,39 @@ export class CheckoutCoordinatorService {
 
     const correlation = readCorrelation(order);
     if (correlation) {
-      if (!correlationMatches(correlation, {
+      // R1 — THE SAME EVIDENCE DECISION THE SUBMIT GATE MAKES. This asked
+      // `correlationMatches` alone — *is this answer ABOUT my command?* — and
+      // then switched on `acceptance.state`. Those are different questions: a
+      // projection can name this key, this order and this scope and still
+      // report an acceptance of a quote the diner never confirmed, or carry
+      // no reference and no moment at all. The recovery consumers could
+      // therefore complete exactly what `submitVerdict` refuses.
+      //
+      // `{mutation: false}` IS THE ONE DIFFERENCE, and it is load-bearing
+      // rather than a relaxation: a READ is an OBSERVATION, so a null attempt
+      // `outcome` is correct here and contradictory on a mutation reply. The
+      // expected reference comes from the IMMUTABLE issued command — absent
+      // when this client issued none, which is how an authorized read may
+      // still surface an acceptance made elsewhere (a copied tab) without
+      // requiring a reference to match itself.
+      const verdict = acceptanceVerdict(correlation, {
         key: pending.key,
         scope: pending.scope,
         orderId: pending.command?.orderId ?? null,
-      })) {
-        return { kind: 'uncorrelated', order };
-      }
-      switch (correlation.acceptance.state) {
+        quoteRef: pending.command?.quoteRef ?? null,
+      }, { mutation: false });
+      switch (verdict.kind) {
         case 'accepted':
           return { kind: 'accepted', order, correlation };
-        case 'evidence_unavailable':
+        case 'not-accepted':
+          return { kind: 'draft', order, correlation };
+        case 'indeterminate':
           return { kind: 'accepted-unrecorded', order, correlation };
         default:
-          return { kind: 'draft', order, correlation };
+          // Wrong command, a reference the diner never agreed to, or
+          // evidence that cannot be read. All unresolved, none announced,
+          // and the record survives every one of them.
+          return { kind: 'uncorrelated', order };
       }
     }
 
@@ -685,7 +798,14 @@ export class CheckoutCoordinatorService {
     // no order and no scope: exactly the unvalidated announcement the
     // projection exists to prevent. Same distinction this repo already draws
     // for `quote_total`.
-    if (correlationPromised(order)) {
+    // R1 — AND THE PROMISE IS REMEMBERED, NOT RE-READ PER RESPONSE.
+    // `correlationPromised` reads the PAYLOAD; the record remembers what this
+    // server already demonstrated for THIS attempt, and a capability does not
+    // un-demonstrate itself. A read carrying no projection from a server whose
+    // initiate declared level 3 is BROKEN, not old — and trusting the legacy
+    // boolean beside it would announce an order having checked nothing.
+    if (correlationPromised(order)
+        || this.demonstratedProtocol(pending) >= CHECKOUT_PROTOCOL_CORRELATED) {
       return { kind: 'uncorrelated', order };
     }
 

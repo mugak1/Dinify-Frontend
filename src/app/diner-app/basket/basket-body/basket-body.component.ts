@@ -7,8 +7,8 @@ import { BasketItem, OrderInitiated, OrderQuoteLine, Restaurant, TableScan } fro
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import {
-  CheckoutCoordinatorService, CheckoutRecord, FlightToken, IntentReservation,
-  IssuedCommand, PURCHASE_CANON, RecoveryOutcome,
+  CheckoutCoordinatorService, CheckoutOwner, CheckoutRecord, FlightToken,
+  IntentReservation, IssuedCommand, PURCHASE_CANON, RecoveryOutcome,
 } from 'src/app/_services/checkout-coordinator.service';
 import {
   CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, acceptanceVerdict,
@@ -67,6 +67,8 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * can change without the basket doing so, and two taps can overlap — so an
    * attempt carries its own sequence number alongside both.
    */
+  /** R2 — set in `ngOnDestroy`; see `ownsRecovery`. */
+  private destroyed = false;
   private attemptSeq = 0;
   private activeAttempt: {
     seq: number; revision: number; context: string;
@@ -268,8 +270,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // the order rather than re-enquiring about one already in the kitchen.
     if (stored.kind === 'record' && stored.record.stage === 'accepted'
         && stored.record.outcome) {
+      // R2 — AND IT IS STILL ONLY THE OWNER OF THIS CART. A restored terminal
+      // record is evidence about a PAST purchase; it is not permission to
+      // erase whatever is on screen now. This branch went straight to
+      // `finishAcceptedCheckout()` with no owner at all.
       this.recovered = { kind: 'accepted', order: null, correlation: null };
-      this.finishAcceptedCheckout();
+      this.finishAcceptedCheckout(null, this.checkout.ownerOf(stored.record));
       return;
     }
 
@@ -283,7 +289,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       switch (outcome.kind) {
         case 'accepted':
           // DEFINITIVE, and the only outcome that finishes anything.
-          this.finishAcceptedCheckout(outcome.correlation);
+          this.finishAcceptedCheckout(outcome.correlation, owner);
           return;
         case 'accepted-unrecorded':
           // GATE B — UNKNOWN EVIDENCE STAYS UNRESOLVED. `evidence_unavailable`
@@ -449,6 +455,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private finishAcceptedCheckout(
     correlation: CheckoutCorrelation | null = null,
+    owner: CheckoutOwner | null = null,
   ): void {
     // GATE B — THE RESULT IS RECORDED BEFORE ANY CLEANUP, on this path too.
     // The submit handler already did this; a recovery-DISCOVERED acceptance
@@ -486,7 +493,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       recorded = !record || !this.checkout.isOutstanding(record);
     }
 
-    this.basketService.clearBasket();
+    // R2 — THE CART IS CLEARED ONLY BY THE OPERATION THAT OWNS IT. An
+    // acceptance is authoritative about the purchase it accepted, never about
+    // whatever the diner has put in the basket since. The two facts are kept
+    // apart: the outcome is still recorded and still announced above, because
+    // losing a real acceptance would be as wrong as erasing a cart that was
+    // never part of it.
+    if (this.ownsDisplayedCart(owner)) this.basketService.clearBasket();
     // CLEANUP ONLY ON A RECORDED OUTCOME — the same rule the submit path
     // applies. A store that silently drops writes must not lose the accepted
     // outcome while the REMOVAL succeeds, which would leave a reload free to
@@ -505,15 +518,29 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * against whatever storage says now is what makes a stale answer look
    * authoritative.
    */
-  private recoveryOwner(): { key: string; scope: string } | null {
+  private recoveryOwner(): CheckoutOwner | null {
     const record = this.checkout.record();
-    return record ? { key: record.key, scope: record.scope } : null;
+    return record ? this.checkout.ownerOf(record) : null;
   }
 
-  private ownsRecovery(owner: { key: string; scope: string } | null): boolean {
-    if (!owner) return false;
-    const now = this.checkout.record();
-    return !!now && now.key === owner.key && now.scope === owner.scope
+  /** R2 — QUESTION TWO, asked in ONE place so every consumer asks it the
+   *  same way: does this operation own the cart on screen? Nothing else is
+   *  a licence to clear it — an edit re-reserves nothing, so the key and the
+   *  scope are both unchanged while the cart is no longer the purchase that
+   *  was accepted. */
+  private ownsDisplayedCart(owner: CheckoutOwner | null): boolean {
+    if (!owner || this.destroyed) return false;
+    return this.checkout.ownsPurchase(
+      owner, this.basketService.contentIdentity());
+  }
+
+  private ownsRecovery(owner: CheckoutOwner | null): boolean {
+    if (!owner || this.destroyed) return false;
+    // R2 — MAY THIS ANSWER SETTLE THE OPERATION IT WAS ABOUT? Deliberately
+    // NOT "and may it clear the cart": that is a second question with a
+    // second answer (`ownsDisplayedCart`), and collapsing the two is what let
+    // a cart-only edit lose its own contents.
+    return this.checkout.settles(owner)
       && owner.scope === this.checkoutContext();
   }
 
@@ -523,6 +550,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // R2 — A DESTROYED INSTANCE OWNS NOTHING. Angular does not cancel an HTTP
+    // request when a component is destroyed, so a recovery or resend opened by
+    // a routed instance the diner has navigated away from still lands — and
+    // used to run its own completion beside the live instance's. Both guards
+    // below read this.
+    this.destroyed = true;
     this.upsellStorageSub?.unsubscribe();
     window.removeEventListener('resize', this.onResize);
   }
@@ -730,7 +763,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // The approved distinction is preserved: a deliberate edit followed by
     // CHECKOUT still begins a new purchase, because that path goes through
     // `placeOrder`. Only Retry is bound to what was issued.
-    if (record && this.checkout.isReplayableInitiation(record)) {
+    // R2 — AND ONLY INTO THE SCOPE IT WAS PRICED FOR. `isReplayableInitiation`
+    // classifies the RECORD; it knows nothing about the table the diner is at
+    // now. Issuing the old purchase here and discovering the mismatch from the
+    // response is a mutation made in the wrong scope — and there is nothing to
+    // recover by doing so, since `reserveIntent` mints a fresh key for the new
+    // scope and `placeOrder` below starts a clean purchase at this table.
+    if (record && record.scope === this.checkoutContext()
+        && this.checkout.isReplayableInitiation(record)) {
       this.replayInitiation(record);
       return;
     }
@@ -805,12 +845,20 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   private replayIssuedCommand(record: CheckoutRecord): void {
     if (!this.holdCheckout()) return;
     this.orderError = false;
+    // R2 — RETRY IS A CONSUMER OF THE SAME RULE, and had no guard at all:
+    // only the startup path captured an owner, so a Retry answer held across
+    // an edit or a table move completed unconditionally.
+    const owner = this.checkout.ownerOf(record);
     this.checkout.recover().subscribe((outcome) => {
+      if (!this.ownsRecovery(owner)) {
+        this.releaseCheckout();
+        return;
+      }
       this.recovered = outcome;
       this.releaseCheckout();
       switch (outcome.kind) {
         case 'accepted':
-          this.finishAcceptedCheckout(outcome.correlation);
+          this.finishAcceptedCheckout(outcome.correlation, owner);
           return;
         case 'accepted-unrecorded':
           // Gate B, exactly as in the resume path: the server cannot
@@ -1161,6 +1209,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private resendIssuedCommand(command: IssuedCommand): void {
     if (!this.holdCheckout()) return;
+    // R2 — CAPTURED BEFORE THE SEND. `issued.seq` below is a component
+    // counter: a cart edit does not move it, so it cannot say whether this
+    // answer still owns what is on screen.
+    const owner = this.recoveryOwner();
     const payload: { order: unknown; quote_ref?: string } =
       { order: command.orderId };
     if (command.quoteRef) payload.quote_ref = command.quoteRef;
@@ -1195,9 +1247,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           at: Date.now(),
         });
         this.recovered = { kind: 'accepted', order: response, correlation };
-        // Same rule as `submitOrder` — the basket is finished either way,
-        // but the record is only dropped once the outcome is durable.
-        this.basketService.clearBasket();
+        // R2 — AND ONLY THE OWNER OF THE DISPLAYED CART MAY CLEAR IT. The
+        // scope half of this is already caught by `submitVerdict` (the reply
+        // names the scope it was resolved at); a cart edit is invisible to
+        // that check and to `issued.seq` alike.
+        if (this.ownsDisplayedCart(owner)) this.basketService.clearBasket();
         if (recorded) this.checkout.clearIntent();
       },
       (error) => {
@@ -1596,6 +1650,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     const payload: { order: unknown; quote_ref?: string } = { order: orderId };
     if (quoteReference) payload.quote_ref = quoteReference;
     const issued = { seq: this.attemptSeq, orderId: String(orderId) };
+    // R2 — CAPTURED AFTER `noteCommand`, so the owner names the command that
+    // is about to be issued rather than the reservation before it.
+    const submitOwner = this.recoveryOwner();
 
     this.checkout.bounded(
       this.api.postPatch('orders/submit/', payload, 'put'),
@@ -1682,7 +1739,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // tidy up a finished checkout. This is the ONLY place besides an
         // explicit re-review that drops it; never a timeout, a lost response
         // or an ambiguous failure.
-        this.basketService.clearBasket(); // Clear the basket
+        // R2 — THE SAME OWNERSHIP RULE, on the path that normally owns the
+        // cart outright. The review sheet locks the basket from confirm until
+        // submit resolves, so this is defence in depth rather than a hole
+        // being closed — but a component sequence is not cart ownership, and
+        // every terminal write in this file now asks the same question.
+        if (this.ownsDisplayedCart(submitOwner)) {
+          this.basketService.clearBasket();
+        }
         // CLEANUP ONLY ON A RECORDED OUTCOME. `recordOutcome` exists to
         // report a failed durable write, and ignoring its answer reopens
         // the defect this whole mechanism closes: a store that silently

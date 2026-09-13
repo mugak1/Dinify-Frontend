@@ -17,7 +17,7 @@ Two scripts share one fixture and one setup:
 | | |
 |---|---|
 | `journey.mjs` | the CLEAN path — 42 checks, below |
-| `recovery.mjs` | INDUCED LOSS — 28 checks, the D04 section near the bottom |
+| `recovery.mjs` | INDUCED LOSS — 35 checks, the D04 section near the bottom |
 
 ## What it asserts
 
@@ -157,11 +157,25 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`, 4s) and 28/28 (`recovery.mjs`, 65s)** against a
-disposable local PostgreSQL 16.13, a local Django on `test_settings`
-(Python 3.11.15) at backend `fd190ddc`, and a **development** `ng serve` on
-Node 24.21.0 with Chromium 141 (`/opt/pw-browsers/chromium-1194`), driving the
-D04 acceptance-gates revision of the frontend.
+Last run: **42/42 (`journey.mjs`, 4s) and 35/35 (`recovery.mjs`, 67s)** against a
+disposable local PostgreSQL 16.13 (its own cluster on port 55432, never a shared
+instance), a local Django on `test_settings` (Python 3.11.15) at backend
+`fd190ddc`, and a **development** `ng serve` on Node 24.21.0 with Chromium 141
+(`/opt/pw-browsers/chromium-1194`), driving the D04 Stage-B consumer-gates
+revision of the frontend.
+
+**SCENARIO 4 IS NEW, AND IT IS THE ONE THIS HARNESS COULD NOT DO BEFORE.**
+Scenario 3 reloads with the cart UNTOUCHED, so the accepted purchase is still
+the one on screen and clearing it is right. Scenario 4 loses an acceptance the
+server really committed and then EDITS THE CART through the real stepper — which
+re-reserves nothing, so the intent key and the table are both unchanged. The
+completion guard compared exactly those two, so a valid acceptance for the OLD
+purchase erased a basket it had never contained. It asserts BOTH halves, because
+either alone is satisfiable by being wrong in the other direction: the
+acceptance is still announced, and the newer cart is still there.
+**Verified by reintroducing the defect in the served app: 33/35**, the two
+failures reading `lines=0` — the diner's edited basket gone. Its waits are on
+the stored-quantity barrier and the recovery-notice locator, not a sleep.
 
 **THE ENLARGED `recovery.mjs` HAS NOW BEEN MEASURED.** The six checks added with
 the D04 correlated projection — the intent key, order and scope the answer

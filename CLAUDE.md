@@ -677,6 +677,95 @@ so keep it current when conventions change.
   time. **The browser pair was re-run for this revision** — `journey.mjs` 42/42
   and `recovery.mjs` **28/28**, the latter being the enlarged harness the D04
   completion PR explicitly recorded as NOT re-run.
+- **THE SAME TWO GATES, AT EVERY CONSUMER (D04 Stage B).** The acceptance
+  predicate and the completion-ownership rule above were both correct and both
+  reached only SOME of the code that needed them. No backend change; the
+  contract is still #318's.
+  **R1 — RECOVERY ASKED THE IDENTITY QUESTION, NOT THE ACCEPTANCE ONE.**
+  `submitVerdict` learned the difference on PR #665; `CheckoutCoordinator.
+  classify()` did not. It used `correlationMatches` alone and then switched on
+  `acceptance.state`, so the STARTUP and RETRY consumers completed exactly what
+  the submit gate refuses: an acceptance bound to a `quote_ref` the diner never
+  confirmed, or one carrying no reference and no moment at all. It now reads
+  through `acceptanceVerdict` with the issued command, and the mapping is
+  total — `accepted` → accepted, `not-accepted` → draft, `indeterminate` →
+  accepted-unrecorded, everything else → `uncorrelated`, which is unresolved
+  and announces nothing. **`{mutation: false}` IS THE WHOLE DIFFERENCE AND IT
+  IS NOT A RELAXATION**: a read is an OBSERVATION, so a null attempt `outcome`
+  is correct there and contradictory on a mutation reply — pinned by a control,
+  because the wrong fix here is to make recovery as strict as a submit and
+  start refusing ordinary reads. The expected reference comes from the
+  IMMUTABLE issued command and is ABSENT when this client issued none, which is
+  how an authorized read still surfaces an acceptance made elsewhere (a copied
+  tab) without requiring a missing reference to match itself.
+  **AND THE PROMISE IS REMEMBERED, NOT RE-READ PER RESPONSE.**
+  `correlationPromised` reads the PAYLOAD; the missing-projection fallback now
+  also consults `pending.protocol`, the level this server already demonstrated
+  for THIS attempt. A read carrying only the legacy `accepted: true`, from a
+  server whose initiate declared level 3, is BROKEN rather than old. The
+  genuinely pre-level-3 tolerance is unchanged and has its own control.
+  **R2 — COMPLETION OWNERSHIP DID NOT INCLUDE THE CART.** `recoveryOwner()`
+  captured key and scope; a CART EDIT changes neither, because an edit
+  re-reserves nothing — so the guard passed and `finishAcceptedCheckout()`
+  erased a basket the accepted purchase had never contained. The pre-existing
+  "newer basket" spec changed the basket AND the table, so it proved the SCOPE
+  check and said nothing about this.
+  **TWO QUESTIONS, DELIBERATELY SEPARATE, AND THAT SPLIT IS THE DESIGN.**
+  `CheckoutCoordinator.settles(owner)` asks whether an authoritative answer may
+  still SETTLE the retained operation; `ownsPurchase(owner, identity)` asks
+  whether that operation owns the cart on screen. A legitimate acceptance for
+  an earlier purchase answers YES to the first and NO to the second: it is
+  recorded, announced and retired, and the newer cart is left alone. Losing the
+  acceptance would be as wrong as erasing the cart, so both are pinned.
+  **THE OWNER IS IMMUTABLE AND CAPTURED BEFORE THE REQUEST** (`ownerOf`): key,
+  scope, the issued `orderId`, and `purchase` — the basket CONTENT identity,
+  which is DURABLE because it is a property of what the diner is buying.
+  `revision()` is deliberately NOT in it: it restarts at 0 on every page load,
+  and using it as durable intent identity is the exact defect Codex found on
+  #663. Comparing against a re-read of whatever storage says on ARRIVAL is the
+  other wrong answer — that is what makes a stale response look authoritative.
+  **FIVE CONSUMERS NOW APPLY ONE RULE**, where three applied none: startup
+  recovery, RETRY recovery (which had no guard at all), the cached-terminal
+  resume branch (which called `finishAcceptedCheckout()` with no owner
+  whatever), resend, and direct submit. On the last two the scope half was
+  already caught by `submitVerdict` — a cart edit is invisible to that check
+  and to `issued.seq` alike, which is why the control naming the table move
+  passes on the reviewed revision and the cart-edit spec beside it does not.
+  **A REPLAY IS ONLY EVER INTO THE SCOPE IT WAS PRICED FOR.**
+  `isReplayableInitiation` classifies the RECORD and knows nothing about the
+  table the diner is at now, so `retryOrder` compares `record.scope` against the
+  live context BEFORE issuing anything. There is nothing lost by refusing:
+  `reserveIntent` mints a fresh key for the new scope and `placeOrder` starts a
+  clean purchase there.
+  **AND A DESTROYED INSTANCE OWNS NOTHING.** Angular does not cancel an HTTP
+  request when a component is destroyed, so a recovery opened by a routed
+  instance the diner has navigated away from still lands — and used to run its
+  own completion beside the live one's. `ngOnDestroy` sets a flag both
+  ownership predicates read.
+  Two fixtures were corrected rather than worked around, and both mattered:
+  `basket-body.component.spec.ts` reserved with the literal `'spec-basket'`
+  where `placeOrder` reserves with `basketService.contentIdentity()`, and the
+  Gate B fake's `revision` was the literal `3` with a `clearBasket` that never
+  cleared anything. A fake that cannot express a cart edit cannot test one.
+  **AND THE LEVEL IS READ WHEN THE ANSWER LANDS, NOT WHEN THE READ WAS SENT**
+  (Codex P1 on PR #666, valid). `recover()` snapshots `pending` BEFORE the
+  request and startup recovery deliberately does NOT claim the checkout flight,
+  so a diner can initiate against a level-3 node while an earlier read is still
+  open: the snapshot then says 0 for a server that has since proved it can do
+  better, and the legacy branch trusted `accepted: true` from exactly the case
+  the memory exists to refuse — announcing an order and clearing the basket.
+  `demonstratedProtocol` takes the MAX of the snapshot and the live record, and
+  only for the SAME KEY. **THE SNAPSHOT'S IDENTITY HALF STAYS FROZEN, and that
+  split is the whole point**: key, scope and the issued command must remain as
+  captured, or a held answer starts being measured against whatever storage
+  says now — which is precisely what makes a stale answer look authoritative.
+  Only the CAPABILITY is read live, because it is monotonic; a record replaced
+  by a different key describes a different operation and says nothing about
+  this one.
+  **The browser harness gained the interleaving no unit spec can produce** —
+  `recovery.mjs` scenario 4, a real commit-then-drop acceptance followed by a
+  real stepper click, now 35 checks. Verified by reintroducing the defect in
+  the SERVED app: **33/35**, the two failures reading `lines=0`.
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
