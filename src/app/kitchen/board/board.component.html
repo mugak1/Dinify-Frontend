@@ -160,6 +160,53 @@
     </div>
   }
 
+  <!-- D05/K2: unresolved commands whose ticket is on NEITHER board.
+  A lost CANCELLATION removes the order from both feeds, so its warning had
+  nowhere to render and vanished with the card. It lives here instead. -->
+  @if (detachedOperations.length > 0) {
+    <div
+      data-testid="kitchen-detached-operations"
+      role="alert"
+      aria-live="assertive"
+      class="absolute top-0 inset-x-0 z-30 px-3 py-2 bg-amber-100 text-amber-950 border-b border-amber-400 shadow">
+      <p class="font-display text-sm font-bold mb-1">Unconfirmed commands</p>
+      <ul class="space-y-1">
+        @for (op of detachedOperations; track op.orderId) {
+          <li
+            class="flex items-start gap-2 text-sm font-semibold"
+            data-testid="detached-operation"
+            [attr.data-order-id]="op.orderId"
+            [attr.data-phase]="op.phase">
+            <span class="flex-1" data-testid="detached-operation-message">
+              {{ op.label }} — {{ op.message ?? 'We could not confirm this with the kitchen server.' }}
+            </span>
+            @if (!isSettled(op)) {
+              <button
+                type="button"
+                (click)="onCheckId(op.orderId)"
+                [disabled]="isChecking(op)"
+                class="shrink-0 underline font-bold disabled:opacity-50"
+                data-testid="detached-operation-check">Check</button>
+              <button
+                type="button"
+                (click)="onRetryId(op.orderId)"
+                [disabled]="isChecking(op)"
+                class="shrink-0 underline font-bold disabled:opacity-50"
+                data-testid="detached-operation-retry">Try again</button>
+            }
+            @if (isSettled(op)) {
+              <button
+                type="button"
+                (click)="onAcknowledgeId(op.orderId)"
+                class="shrink-0 underline font-bold"
+                data-testid="detached-operation-ok">OK</button>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+  }
+
   <!-- Empty state -->
   @if (tickets().length === 0) {
     <div class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
@@ -182,6 +229,8 @@
         [operation]="operationFor(t) ?? null"
         [canCommand]="canCommand"
         (acknowledge)="onAcknowledge($event)"
+        (checkRequested)="onCheck($event)"
+        (retryRequested)="onRetry($event)"
         (togglePriority)="onTogglePriority($event)"
       (cancelRequested)="onCardCancel($event)"></app-kitchen-ticket-card>
     }
@@ -193,6 +242,8 @@
       [operation]="operationFor(t) ?? null"
       [canCommand]="canCommand"
       (acknowledge)="onAcknowledge($event)"
+      (checkRequested)="onCheck($event)"
+      (retryRequested)="onRetry($event)"
       (recall)="onRecallCompleted($event)"></app-kitchen-ticket-card>
     }
   </ng-template>

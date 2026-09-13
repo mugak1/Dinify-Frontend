@@ -88,7 +88,40 @@ export interface KitchenOrderState {
 }
 
 /** What the UI shows while a command is in flight or after it was refused. */
-export type TicketOperationPhase = 'pending' | 'conflict' | 'unknown';
+export type TicketOperationPhase =
+  | 'pending'    // issued, no answer yet
+  | 'conflict'   // the server refused, and said why — definitive
+  | 'unknown'    // no usable answer: the server MAY have acted
+  | 'checking'   // a reconciliation read is in flight against an unknown
+  | 'resolved';  // reconciled: the current state is known, the cause is not
+
+/**
+ * The command itself, retained so an unresolved operation can be re-sent
+ * EXACTLY as issued. Without this an "unknown" was unrecoverable in principle,
+ * not merely unimplemented: a label and a revision are not a command.
+ */
+export interface RetainedCommand {
+  /** The route the command was issued against. */
+  url: string;
+  /** The request body, INCLUDING the original `if_revision`. Never rebuilt from
+   *  current state — refreshing the precondition would turn a stale command
+   *  into a newly authorised one. */
+  body: Record<string, unknown>;
+  /** The kitchen action, where the command names one. */
+  action?: KitchenAction;
+  /** Which store the ticket was acted on from, so a move can be applied. */
+  from: 'active' | 'completed';
+}
+
+/**
+ * The context a command was issued under. IMMUTABLE and captured before the
+ * request, so a delayed answer is judged against the world that asked the
+ * question rather than whatever the board shows when it lands.
+ */
+export interface OperationOwner {
+  scopeKey: string;
+  generation: number;
+}
 
 /** One in-flight or unresolved command against one ticket. */
 export interface TicketOperation {
@@ -96,13 +129,21 @@ export interface TicketOperation {
   phase: TicketOperationPhase;
   /** What was asked for — used for the message, never to infer an outcome. */
   label: string;
-  /** The precondition the command was issued with. NEVER refreshed on retry:
-   *  doing so would turn a stale command into a newly authorised one. */
+  /** The precondition the command was issued with. NEVER refreshed on retry. */
   ifRevision: number;
+  /** The retained command, so retry re-sends rather than re-decides. */
+  command?: RetainedCommand;
+  /** The context that issued it. */
+  owner?: OperationOwner;
+  /** Reconciliation attempts spent, so recovery is bounded. */
+  attempts?: number;
   /** Present on a conflict: the machine reason and the authoritative state. */
   reason?: string;
   message?: string;
   state?: KitchenOrderState;
+  /** True once the ticket has left both feeds — the notice must then be shown
+   *  somewhere other than on its (now absent) card. */
+  detached?: boolean;
 }
 
 /**
