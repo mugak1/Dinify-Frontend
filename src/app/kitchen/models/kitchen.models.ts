@@ -31,9 +31,14 @@ export interface KitchenTicketItem {
   extras?: KitchenTicketExtra[];
 }
 
+/** The order-level lifecycle axis, as the server reports it (D05). */
+export type OrderStatus =
+  | 'initiated' | 'pending' | 'preparing' | 'served' | 'paid'
+  | 'refunded' | 'cancelled';
+
 /** A kitchen ticket = one order as seen by the kitchen. */
 export interface KitchenTicket {
-  /** Order UUID — the PATCH target in Phase 3. */
+  /** Order UUID — the command target. */
   id: string;
   /** Sequential order number, displayed as #NNN. */
   order_number: number;
@@ -47,6 +52,57 @@ export interface KitchenTicket {
   /** ISO timestamp — set when served; drives the recall window. */
   served_at: string | null;
   items: KitchenTicketItem[];
+
+  // ── D05: what a command needs, and what a conflict is explained with ──
+  /**
+   * THE PRECONDITION. Every kitchen command names the revision it believes it
+   * is acting on; the server refuses when that no longer matches the row it
+   * locked. Optional ONLY so a pre-D05 server's payload still parses — a client
+   * must never invent one (see `kitchenProtocolOf`).
+   */
+  fulfilment_revision?: number;
+  /**
+   * The order-level axis. Without it the board could not tell a cancelled or
+   * draft order from a live one, so it could neither explain a conflict nor
+   * explain a disappearance.
+   */
+  order_status?: OrderStatus;
+}
+
+/** The commands a kitchen client may issue. One action names ONE edge. */
+export type KitchenAction = 'advance' | 'serve' | 'correct' | 'recall';
+
+/**
+ * The server's current-state projection, returned by every success and every
+ * authorised conflict. ONE shape, so there is one thing to reconcile against.
+ */
+export interface KitchenOrderState {
+  id: string;
+  fulfilment_revision: number;
+  order_status: OrderStatus;
+  fulfilment_status: KitchenTicket['fulfilment_status'];
+  priority: boolean;
+  served_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+}
+
+/** What the UI shows while a command is in flight or after it was refused. */
+export type TicketOperationPhase = 'pending' | 'conflict' | 'unknown';
+
+/** One in-flight or unresolved command against one ticket. */
+export interface TicketOperation {
+  orderId: string;
+  phase: TicketOperationPhase;
+  /** What was asked for — used for the message, never to infer an outcome. */
+  label: string;
+  /** The precondition the command was issued with. NEVER refreshed on retry:
+   *  doing so would turn a stale command into a newly authorised one. */
+  ifRevision: number;
+  /** Present on a conflict: the machine reason and the authoritative state. */
+  reason?: string;
+  message?: string;
+  state?: KitchenOrderState;
 }
 
 /**

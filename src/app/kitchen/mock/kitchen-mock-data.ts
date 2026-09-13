@@ -51,6 +51,11 @@ function build(
     created_at: minsAgo(createdMinsAgo),
     served_at: servedMinsAgo === null ? null : minsAgo(servedMinsAgo),
     items,
+    // D05: the dormant mock path stays contract-coherent. A served ticket is
+    // reported on the order axis as served, a cancelled one never appears here,
+    // and every ticket carries the revision a command would have to name.
+    order_status: status === 'served' ? 'served' : 'pending',
+    fulfilment_revision: 0,
   };
 }
 
@@ -169,6 +174,8 @@ export function buildInjectedTicket(): KitchenTicket {
     priority: injectCounter % 3 === 0,
     created_at: new Date().toISOString(),
     served_at: null,
+    order_status: 'pending',
+    fulfilment_revision: 0,
     items: [
       {
         item_name_snapshot: 'Cheeseburger',

@@ -220,9 +220,26 @@ export class BoardComponent implements OnInit, OnDestroy {
     if (next) this.service.advanceStatus(t.id, next);
   }
   onRecall(t: KitchenTicket): void { this.service.recall(t.id); }
-  onTogglePriority(t: KitchenTicket): void { this.service.togglePriority(t.id); }
+  /** An EXPLICIT value, resolved from the ticket the operator is looking at —
+   *  the request never carries "flip whatever you have". */
+  onTogglePriority(t: KitchenTicket): void {
+    this.service.setPriority(t.id, !t.priority);
+  }
   /** Completed-view recall: served → ready, back onto the active board. */
   onRecallCompleted(t: KitchenTicket): void { this.service.recallCompleted(t.id); }
+  /** The operator dismissed a conflict/unknown notice. */
+  onAcknowledge(t: KitchenTicket): void { this.service.acknowledge(t.id); }
+
+  // ── D05 command state, read straight from the service ─────────────────
+  /** The unresolved command against one ticket, if any. */
+  operationFor(t: KitchenTicket) { return this.service.operationFor(t.id); }
+  /** False when the server has not declared a protocol this client can command
+   *  over — the board goes read-only rather than guessing. */
+  get canCommand(): boolean { return this.service.canCommand(); }
+  /** True when a read came back in a shape this client cannot parse. The last
+   *  valid board is KEPT and this says so; an unreadable answer is not an
+   *  empty one. */
+  get feedUnreadable(): boolean { return this.service.feedUnreadable(); }
 
   // ── Cancel/void (board owns the confirm dialog; service does the call) ─
   onCardCancel(t: KitchenTicket): void { this.cancelTarget.set(t); }

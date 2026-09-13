@@ -10,6 +10,7 @@ import {
 import {
   EscalationLevel,
   KitchenTicket,
+  TicketOperation,
 } from '../../models/kitchen.models';
 import {
   ModifierKind,
@@ -63,12 +64,62 @@ export class TicketCardComponent {
    * just a single Recall action. Items render exactly as in the active card.
    */
   @Input() completed = false;
+  /**
+   * The unresolved command against THIS ticket, if any (D05). The card shows
+   * what is happening and disables further commands on it — it does NOT
+   * disappear or roll back, because a command whose outcome is unknown must not
+   * be presented as one that failed.
+   */
+  @Input() operation: TicketOperation | null = null;
+  /**
+   * Whether the server has declared a kitchen command protocol this client can
+   * speak. False means READ-ONLY: the controls are withheld rather than falling
+   * back to a form the server would not enforce.
+   */
+  @Input() canCommand = true;
 
   @Output() advance = new EventEmitter<KitchenTicket>();
   @Output() recall = new EventEmitter<KitchenTicket>();
   @Output() togglePriority = new EventEmitter<KitchenTicket>();
   // Not `cancel`: that's a native DOM event (@angular-eslint/no-output-native).
   @Output() cancelRequested = new EventEmitter<KitchenTicket>();
+  /** The operator has read a conflict/unknown notice and dismissed it. */
+  @Output() acknowledge = new EventEmitter<KitchenTicket>();
+
+  // ── D05 command state ───────────────────────────────────────────────
+  /** A command is in flight: the controls are inert and the card says so. */
+  get isPending(): boolean {
+    return this.operation?.phase === 'pending';
+  }
+
+  /** The server refused, and told us what the ticket actually is. */
+  get isConflict(): boolean {
+    return this.operation?.phase === 'conflict';
+  }
+
+  /** We could not confirm the outcome. NOT the same as "it failed". */
+  get isUnknown(): boolean {
+    return this.operation?.phase === 'unknown';
+  }
+
+  /** One sentence for whichever unresolved state this card is in. */
+  get operationNotice(): string | null {
+    const op = this.operation;
+    if (!op) return null;
+    if (op.phase === 'pending') return `${op.label}…`;
+    return op.message
+      ?? 'This ticket changed. The board is showing its current state.';
+  }
+
+  /** Commands are withheld while one is unresolved, and when the server has not
+   *  declared a protocol this client can command over. */
+  get commandsEnabled(): boolean {
+    return this.canCommand && !this.isPending;
+  }
+
+  onAcknowledge(): void {
+    this.acknowledge.emit(this.ticket);
+  }
 
   get orderNumber(): string {
     return formatOrderNumber(this.ticket.order_number);
@@ -103,7 +154,11 @@ export class TicketCardComponent {
   }
 
   get canRecall(): boolean {
-    return isRecallEligible(this.ticket, this.now);
+    // The SERVER enforces the recall window; this only spares an operator a
+    // round trip they can already see will be refused. It now gates the
+    // Completed card too — that button used to render unconditionally, which is
+    // why the ten-minute rule was dead in the shipped UI.
+    return this.commandsEnabled && isRecallEligible(this.ticket, this.now);
   }
 
   get isServed(): boolean {
@@ -116,6 +171,7 @@ export class TicketCardComponent {
    * (recall it first).
    */
   get canCancel(): boolean {
+    if (!this.commandsEnabled) return false;
     if (this.isServed) return false;
     if (this.ticket.fulfilment_status === 'new') return true;
     return this.isManager;
