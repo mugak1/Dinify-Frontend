@@ -24,6 +24,20 @@ export const NON_BANNER_SHELL_ROOTS: readonly string[] = [
     'owner-claim', 'privacy', 'terms', 'cookies', 'kitchen', 'diner',
 ];
 
+/**
+ * Is this one of the three D05 kitchen ORDER COMMAND routes?
+ *
+ * Matched on the path SHAPE rather than a substring, so a URL that merely
+ * contains the words — a query parameter, another host — cannot borrow the
+ * behaviour. `kitchen/menu-items/<id>/stock/` is deliberately NOT included: it
+ * is a catalogue write with its own delegated audit and its own error handling.
+ */
+export function isKitchenOrderCommand(request: HttpRequest<unknown>): boolean {
+    if (request.method !== 'PUT') return false;
+    return /\/kitchen\/orders\/[^/]+\/(fulfilment-status|priority|cancel)\/?($|\?)/
+        .test(request.url);
+}
+
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
     private isRefreshing = false;
@@ -135,6 +149,27 @@ export class ErrorInterceptor implements HttpInterceptor {
                 // keeps its existing string + toast behaviour exactly.
                 if (request.url.includes('orders/journey/order-details/')
                     && request.url.includes('intent=')) {
+                    return throwError(() => err);
+                }
+
+                // Kitchen command refusal (D05). A kitchen order command
+                // answers a conflict with { status, message, reason, data },
+                // where `data` is the server's authoritative current state.
+                // Forward the HttpErrorResponse UNTOUCHED so the service can
+                // read the STATUS (409 conflict vs anything else, which is
+                // "unknown"), branch on the machine `reason`, and fold the
+                // projection into the board.
+                //
+                // Flattened to `err.error?.message` all three are lost: the
+                // status disappears, so a refusal and a lost answer become the
+                // same thing — and the whole point of D05's client half is that
+                // they are NOT the same thing. The card renders the message
+                // itself, so the toast is suppressed to keep it to one place.
+                //
+                // Scoped to the three ORDER COMMAND routes by path shape. The
+                // kitchen READS and the stock toggle are deliberately excluded
+                // and keep the string + toast behaviour below.
+                if (isKitchenOrderCommand(request)) {
                     return throwError(() => err);
                 }
 

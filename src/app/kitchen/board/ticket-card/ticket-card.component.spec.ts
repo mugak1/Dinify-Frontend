@@ -333,4 +333,109 @@ describe('TicketCardComponent', () => {
       expect(header.className).not.toContain('bg-amber-50');
     });
   });
+
+  // ── D05: the card tells the truth about an unresolved command ────────────
+  describe('command state', () => {
+    function render(ticket: Partial<KitchenTicket>, over: Partial<TicketCardComponent> = {}) {
+      component.ticket = makeTicket(ticket);
+      component.now = Date.now();
+      component.canCommand = true;
+      Object.assign(component, over);
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('shows what is happening and makes the controls inert while pending', () => {
+      const el = render({ fulfilment_status: 'new', fulfilment_revision: 0 }, {
+        operation: {
+          orderId: 't1', phase: 'pending', label: 'Moving to preparing',
+          ifRevision: 0,
+        },
+      });
+      expect(el.textContent).toContain('Moving to preparing');
+      expect(component.commandsEnabled).toBeFalse();
+      const advance = el.querySelector('footer button') as HTMLButtonElement;
+      expect(advance.disabled).toBeTrue();
+    });
+
+    it('shows the SERVER message on a conflict and keeps the card', () => {
+      const el = render({ fulfilment_status: 'new', fulfilment_revision: 0 }, {
+        operation: {
+          orderId: 't1', phase: 'conflict', label: 'Moving to preparing',
+          ifRevision: 0, reason: 'order_cancelled',
+          message: 'This order has been cancelled.',
+        },
+      });
+      expect(el.textContent).toContain('This order has been cancelled.');
+      // The ticket is still rendered — it is not silently removed.
+      expect(el.textContent).toContain('Pad Thai');
+      expect(el.querySelector('[role="alert"]')).toBeTruthy();
+    });
+
+    it('says the outcome is UNKNOWN rather than claiming a failure', () => {
+      const el = render({ fulfilment_status: 'new', fulfilment_revision: 0 }, {
+        operation: {
+          orderId: 't1', phase: 'unknown', label: 'Cancelling', ifRevision: 0,
+          message: 'We could not confirm this with the kitchen server. '
+                 + 'The board will show the current state shortly.',
+        },
+      });
+      expect(el.textContent).toContain('could not confirm');
+      // It must NOT say the command failed or was undone.
+      expect(el.textContent).not.toContain('failed');
+    });
+
+    it('withholds every control when the server declares no protocol', () => {
+      const el = render(
+        { fulfilment_status: 'preparing', fulfilment_revision: 0 },
+        { canCommand: false, isManager: true });
+      expect(component.commandsEnabled).toBeFalse();
+      expect(component.canCancel).toBeFalse();
+      expect(component.canRecall).toBeFalse();
+      const advance = el.querySelector('footer button') as HTMLButtonElement;
+      expect(advance.disabled).toBeTrue();
+    });
+
+    it('gates the COMPLETED recall button on the window, which it never did', () => {
+      // REGRESSION: this button rendered unconditionally and fired the request
+      // at any age, so the ten-minute rule was dead in the shipped UI.
+      const stale = render({
+        fulfilment_status: 'served', fulfilment_revision: 0,
+        served_at: new Date(Date.now() - 45 * 60_000).toISOString(),
+      }, { completed: true });
+      const button = stale.querySelector('footer button') as HTMLButtonElement;
+      expect(component.canRecall).toBeFalse();
+      expect(button.disabled).toBeTrue();
+    });
+
+    it('still offers recall inside the window', () => {
+      const fresh = render({
+        fulfilment_status: 'served', fulfilment_revision: 0,
+        served_at: new Date(Date.now() - 2 * 60_000).toISOString(),
+      }, { completed: true });
+      const button = fresh.querySelector('footer button') as HTMLButtonElement;
+      expect(component.canRecall).toBeTrue();
+      expect(button.disabled).toBeFalse();
+    });
+
+    it('emits acknowledge when a notice is dismissed', () => {
+      const el = render({ fulfilment_revision: 0 }, {
+        operation: {
+          orderId: 't1', phase: 'conflict', label: 'x', ifRevision: 0,
+          message: 'Something changed.',
+        },
+      });
+      const spy = jasmine.createSpy('acknowledge');
+      component.acknowledge.subscribe(spy);
+      (el.querySelector('[aria-label="Dismiss this notice"]') as HTMLButtonElement).click();
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('has no notice at all when nothing is unresolved', () => {
+      const el = render({ fulfilment_revision: 0 });
+      expect(component.operationNotice).toBeNull();
+      expect(el.querySelector('[role="alert"]')).toBeNull();
+      expect(component.commandsEnabled).toBeTrue();
+    });
+  });
 });

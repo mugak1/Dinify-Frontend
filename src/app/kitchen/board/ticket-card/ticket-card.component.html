@@ -220,6 +220,32 @@ the red advance button — the red wash over the white card reads clearly.
     }
   </div>
 
+  <!-- D05: what is happening to this ticket, or why a command was refused. -->
+  @if (operationNotice) {
+    <div
+      class="shrink-0 px-3 py-2 border-t text-sm font-semibold flex items-start gap-2"
+      [class.bg-gray-100]="isPending"
+      [class.text-gray-700]="isPending"
+      [class.border-gray-200]="isPending"
+      [class.bg-amber-50]="isConflict || isUnknown"
+      [class.text-amber-900]="isConflict || isUnknown"
+      [class.border-amber-300]="isConflict || isUnknown"
+      [attr.role]="isPending ? 'status' : 'alert'"
+      [attr.aria-live]="isPending ? 'polite' : 'assertive'"
+      [attr.data-testid]="'ticket-operation'"
+      [attr.data-phase]="operation?.phase"
+      [attr.data-reason]="operation?.reason ?? null">
+      <span class="flex-1" data-testid="ticket-operation-message">{{ operationNotice }}</span>
+      @if (!isPending) {
+        <button
+          type="button"
+          (click)="onAcknowledge()"
+          class="shrink-0 underline font-bold"
+          aria-label="Dismiss this notice">OK</button>
+      }
+    </div>
+  }
+
   <!-- Actions -->
   <footer class="shrink-0 flex items-center gap-2 px-3 py-2 border-t border-gray-200">
     <!-- Active mode: advance / recall / served label. -->
@@ -228,7 +254,8 @@ the red advance button — the red wash over the white card reads clearly.
         <button
           type="button"
           (click)="onAdvance()"
-          class="flex-1 min-h-[44px] rounded-md bg-primary text-primary-foreground font-display text-base font-bold uppercase tracking-wide desktop-hover:bg-primary/90 active:scale-[0.98] transition">
+          [disabled]="!commandsEnabled"
+          class="flex-1 min-h-[44px] rounded-md bg-primary text-primary-foreground font-display text-base font-bold uppercase tracking-wide desktop-hover:bg-primary/90 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed">
           {{ advanceLabel }}
         </button>
       }
@@ -249,10 +276,15 @@ the red advance button — the red wash over the white card reads clearly.
 
     <!-- Completed mode: a single Recall action puts the ticket back on the active board. -->
     @if (completed) {
+      <!-- GATED ON `canRecall`, which it was not before: this button used to
+           render unconditionally and fire the request at any age, so the
+           ten-minute window existed only in a helper nothing called. -->
       <button
         type="button"
         (click)="onRecall()"
-        class="flex-1 min-h-[44px] rounded-md border border-gray-300 text-gray-700 font-semibold desktop-hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center justify-center gap-1.5">
+        [disabled]="!canRecall"
+        [attr.title]="canRecall ? null : 'This order was completed too long ago to recall.'"
+        class="flex-1 min-h-[44px] rounded-md border border-gray-300 text-gray-700 font-semibold desktop-hover:bg-gray-100 active:scale-[0.98] transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
         Recall
       </button>

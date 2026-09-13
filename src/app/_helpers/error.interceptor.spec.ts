@@ -572,4 +572,88 @@ describe('ErrorInterceptor', () => {
       retry.flush({ ok: true });
     });
   });
+
+  // ── D05: kitchen command refusals keep their status, reason and state ────
+  describe('kitchen order commands', () => {
+    const conflictBody = {
+      status: 409, message: 'This ticket changed since you loaded it.',
+      reason: 'kitchen_precondition_stale',
+      data: {
+        id: 'o1', fulfilment_revision: 7, order_status: 'pending',
+        fulfilment_status: 'ready', priority: false, served_at: null,
+        cancelled_at: null, cancellation_reason: null,
+      },
+    };
+
+    function expectForwarded(url: string): void {
+      let caught: any;
+      httpClient.put(url, {}).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).flush(conflictBody, {
+        status: 409, statusText: 'Conflict',
+      });
+      // THE HttpErrorResponse ITSELF, not a flattened string: the service needs
+      // the STATUS to tell a refusal from a lost answer, and the projection to
+      // show what the ticket actually is.
+      expect(caught?.status).toBe(409);
+      expect(caught?.error?.reason).toBe('kitchen_precondition_stale');
+      expect(caught?.error?.data?.fulfilment_revision).toBe(7);
+      // And it does not toast: the card renders the message in one place.
+      expect(toast.error).not.toHaveBeenCalled();
+    }
+
+    it('forwards a fulfilment-status conflict untouched', () => {
+      expectForwarded('/api/v1/kitchen/orders/o1/fulfilment-status/');
+    });
+
+    it('forwards a priority conflict untouched', () => {
+      expectForwarded('/api/v1/kitchen/orders/o1/priority/');
+    });
+
+    it('forwards a cancel conflict untouched', () => {
+      expectForwarded('/api/v1/kitchen/orders/o1/cancel/');
+    });
+
+    it('forwards a 403 with its reason, so an escalation refusal is legible', () => {
+      let caught: any;
+      const url = '/api/v1/kitchen/orders/o1/cancel/';
+      httpClient.put(url, {}).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).flush(
+        { status: 403, message: 'Only a manager can cancel an order once '
+                              + 'preparation has started',
+          reason: 'kitchen_manage_required' },
+        { status: 403, statusText: 'Forbidden' });
+      expect(caught?.status).toBe(403);
+      expect(caught?.error?.reason).toBe('kitchen_manage_required');
+    });
+
+    it('leaves the kitchen READS on the ordinary string + toast path', () => {
+      // Only the three command routes are carved out; a failed feed read is an
+      // ordinary error the operator should be told about.
+      let caught: any;
+      const url = '/api/v1/kitchen/orders/active/';
+      httpClient.get(url).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).flush(
+        { message: 'boom' }, { status: 500, statusText: 'Server Error' });
+      expect(typeof caught).toBe('string');
+      expect(toast.error).toHaveBeenCalled();
+    });
+
+    it('leaves the stock toggle on the ordinary path', () => {
+      let caught: any;
+      const url = '/api/v1/kitchen/menu-items/m1/stock/';
+      httpClient.put(url, {}).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).flush(
+        { message: 'boom' }, { status: 500, statusText: 'Server Error' });
+      expect(typeof caught).toBe('string');
+    });
+
+    it('does not borrow the carve-out for a URL that merely mentions it', () => {
+      let caught: any;
+      const url = '/api/v1/reports/restaurant/x/?q=kitchen/orders/o1/cancel/';
+      httpClient.put(url, {}).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).flush(
+        { message: 'boom' }, { status: 409, statusText: 'Conflict' });
+      expect(typeof caught).toBe('string');
+    });
+  });
 });

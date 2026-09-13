@@ -1,10 +1,36 @@
 /**
  * KitchenOrderService — the swappable seam between the board UI and its data.
  *
- * Phase 3: HTTP polling + PATCH calls run behind the SAME interface the mock used,
- * so the UI is untouched. The board owns the poll lifecycle (startPolling on init,
- * stopPolling on destroy); ticket state lives here in signals — components never
- * own it. The mock dataset + dev controls remain behind USE_MOCK_DATA as dormant
+ * D05 CHANGED HOW A COMMAND IS REPRESENTED HERE, and the change is the point.
+ *
+ * IT USED TO MUTATE THE STORE OPTIMISTICALLY AND RESTORE AN OLD SNAPSHOT ON
+ * ERROR. Every failure mode of that was reachable and none of it was honest:
+ * a failed serve or cancel did `[...tickets, ticket]`, so if a poll had already
+ * re-added the ticket the board showed the SAME CARD TWICE; a cancel whose
+ * RESPONSE was lost (the server having applied it) put the cancelled ticket
+ * back on the board; a failed advance wrote a stale snapshot over newer server
+ * state; and a failed command left no trace at all, so staff were shown a
+ * confident wrong answer rather than "we do not know".
+ *
+ * NOW: a command marks its ticket PENDING, and the outcome is decided by the
+ * SERVER. Success applies the server's own projection. A conflict keeps the
+ * ticket visible and attaches the server's reason and authoritative state. A
+ * timeout or transport failure resolves to UNKNOWN — never to a rollback, which
+ * would be a claim that the server did not act.
+ *
+ * TWO FENCES stop an old answer from overwriting a newer one:
+ *   * a SCOPE generation (restaurant + operator session), bumped whenever the
+ *     board's context changes, and
+ *   * a per-read sequence, so a delayed poll cannot replace a newer store.
+ *
+ * THE PRECONDITION IS NEVER REFRESHED ON A RETRY. `if_revision` is captured
+ * when the operator decides, and a retry re-sends THAT — refreshing it would
+ * turn a stale command into a newly authorised one, which is precisely what the
+ * token exists to prevent.
+ *
+ * The board owns the poll lifecycle (startPolling on init, stopPolling on
+ * destroy); ticket state lives here in signals — components never own it. The
+ * mock dataset + dev controls remain behind USE_MOCK_DATA as dormant
  * design-review aids (flip the const to true to use them locally).
  */
 
@@ -18,7 +44,10 @@ import { AuthenticationService } from '../../_services/authentication.service';
 import {
   ConnectionState,
   FulfilmentStatus,
+  KitchenAction,
+  KitchenOrderState,
   KitchenTicket,
+  TicketOperation,
 } from '../models/kitchen.models';
 import {
   isLegalAdvance,
@@ -37,16 +66,40 @@ const POLL_BASE_MS = 3000;
 /** A poll that doesn't answer within this window counts as a failure (covers
  *  silent hangs so connection health can't get stuck on 'connected'). */
 const POLL_TIMEOUT_MS = 8000;
+/** A command that does not answer within this window is UNKNOWN, never failed. */
+const COMMAND_TIMEOUT_MS = 15000;
+
+/**
+ * The kitchen command protocol this client speaks. A server that does not
+ * declare at least this cannot be commanded safely: it would not enforce the
+ * precondition, and inventing a revision to send it would be worse than not
+ * trying. The board goes READ-ONLY in that case — it never falls back to the
+ * retired target-only form.
+ */
+export const REQUIRED_KITCHEN_PROTOCOL = 1;
 
 /**
  * Pull the ticket array out of the API envelope. Active-orders may come back as
  * a bare array or wrapped as `{ data: { records: [...] } }` — handle both.
+ *
+ * Returns `null` for a shape it cannot read, which is DIFFERENT from an empty
+ * board: an unreadable envelope used to be indistinguishable from "no active
+ * orders" and silently emptied the screen.
  */
-function extractTickets(res: ApiResponse<KitchenTicket>): KitchenTicket[] {
+function extractTickets(res: ApiResponse<KitchenTicket>): KitchenTicket[] | null {
   const d: any = res?.data;
   if (Array.isArray(d)) return d as KitchenTicket[];
   if (Array.isArray(d?.records)) return d.records as KitchenTicket[];
-  return [];
+  return null;
+}
+
+/**
+ * The protocol level a feed response declares. ABSENT MEANS 0 — a server that
+ * says nothing promises nothing, and a client must not read silence as support.
+ */
+export function kitchenProtocolOf(res: any): number {
+  const declared = res?.kitchen_protocol;
+  return typeof declared === 'number' && Number.isFinite(declared) ? declared : 0;
 }
 
 /** served_at as epoch ms; null/absent sorts as the oldest possible completion. */
@@ -61,6 +114,28 @@ export class KitchenOrderService {
 
   /** Completed (served) store — mirrors _tickets for the Completed view. */
   private readonly _completed = signal<KitchenTicket[]>([]);
+
+  /**
+   * In-flight or unresolved commands, keyed by order id. A ticket with an entry
+   * here is showing a pending/conflict/unknown badge; it is NOT removed from the
+   * board, because removing it is what made a lost response indistinguishable
+   * from a refusal.
+   */
+  private readonly _operations = signal<Record<string, TicketOperation>>({});
+
+  /**
+   * The protocol the server most recently DECLARED on a feed response. 0 means
+   * it has said nothing, so commands are withheld.
+   */
+  readonly serverProtocol = signal(0);
+
+  /** True when the board may issue commands at all. */
+  readonly canCommand = computed(
+    () => this.serverProtocol() >= REQUIRED_KITCHEN_PROTOCOL);
+
+  /** True when a read returned a shape this client cannot parse. The board keeps
+   *  its last valid content and says so, rather than blanking. */
+  readonly feedUnreadable = signal(false);
 
   /**
    * Board-ordered tickets: priority first, then oldest first. Sorting here is
@@ -89,6 +164,16 @@ export class KitchenOrderService {
   private inFlight: Subscription | null = null;
   private consecutiveFailures = 0;
 
+  // ── Fences ────────────────────────────────────────────────────────────
+  /** Bumped whenever the board's restaurant/operator context changes. Any answer
+   *  captured under an older generation is DISCARDED, never applied. */
+  private scopeGeneration = 0;
+  private scopeKey: string | null = null;
+  /** Monotonic per-read sequence: a delayed poll cannot replace a newer store. */
+  private readSeq = 0;
+  private lastAppliedActive = 0;
+  private lastAppliedCompleted = 0;
+
   constructor(
     private readonly api: ApiService,
     private readonly auth: AuthenticationService,
@@ -101,12 +186,76 @@ export class KitchenOrderService {
     return this.auth.currentRestaurantRole?.restaurant_id;
   }
 
+  /**
+   * The context an answer belongs to. Re-read on every request rather than
+   * cached, so an operator switching restaurant is noticed immediately — the
+   * stale-scope defect this fence closes came from reading it once.
+   */
+  private currentScope(): string {
+    const role = this.auth.currentRestaurantRole;
+    return `${role?.restaurant_id ?? ''}:${(this.auth as any).userValue?.profile?.id ?? ''}`;
+  }
+
+  /** Note the live scope, bumping the generation when it has moved. */
+  private syncScope(): number {
+    const key = this.currentScope();
+    if (this.scopeKey !== key) {
+      this.scopeKey = key;
+      this.scopeGeneration += 1;
+      // A new context owns nothing the previous one produced.
+      this._tickets.set([]);
+      this._completed.set([]);
+      this._operations.set({});
+      this.feedUnreadable.set(false);
+      this.serverProtocol.set(0);
+      this.lastAppliedActive = 0;
+      this.lastAppliedCompleted = 0;
+    }
+    return this.scopeGeneration;
+  }
+
   /** Owner/manager at the active restaurant — the elevated-void gate (mirrors
    *  the backend): they may cancel a ticket past 'new'. Evaluated against the
    *  login-selected membership's roles, matching restaurantId's scope. */
   get isManager(): boolean {
     const roles = this.auth.currentRestaurantRole?.roles ?? [];
     return roles.includes('owner') || roles.includes('manager');
+  }
+
+  // ── Pending / conflict state ──────────────────────────────────────────
+
+  operationFor(id: string): TicketOperation | undefined {
+    return this._operations()[id];
+  }
+
+  /** True while a command against this ticket is unresolved. The UI disables
+   *  further commands on it — and ONLY on it; unrelated tickets stay live. */
+  isBusy(id: string): boolean {
+    return this._operations()[id]?.phase === 'pending';
+  }
+
+  /** Dismiss a conflict/unknown notice once the operator has read it. Never
+   *  clears a PENDING one — that outcome is still open. */
+  acknowledge(id: string): void {
+    const op = this._operations()[id];
+    if (!op || op.phase === 'pending') return;
+    this._operations.update(map => {
+      const next = { ...map };
+      delete next[id];
+      return next;
+    });
+  }
+
+  private setOperation(op: TicketOperation): void {
+    this._operations.update(map => ({ ...map, [op.orderId]: op }));
+  }
+
+  private clearOperation(id: string): void {
+    this._operations.update(map => {
+      const next = { ...map };
+      delete next[id];
+      return next;
+    });
   }
 
   /**
@@ -120,12 +269,13 @@ export class KitchenOrderService {
         tap(tickets => this._tickets.set(tickets)),
       );
     }
+    const generation = this.syncScope();
+    const seq = ++this.readSeq;
     // The backend 400s without a restaurant scope; omit the param entirely when
     // absent so it never serialises as the literal string "undefined".
     const params = this.restaurantId ? { restaurant: this.restaurantId } : {};
     return this.api.get<KitchenTicket>(null, 'kitchen/orders/active/', params).pipe(
-      map(extractTickets),
-      tap(tickets => this._tickets.set(tickets)),
+      map(res => this.applyFeed(res, generation, seq, 'active')),
     );
   }
 
@@ -144,11 +294,44 @@ export class KitchenOrderService {
         tap(tickets => this._completed.set(tickets)),
       );
     }
+    const generation = this.syncScope();
+    const seq = ++this.readSeq;
     const params = this.restaurantId ? { restaurant: this.restaurantId } : {};
     return this.api.get<KitchenTicket>(null, 'kitchen/orders/completed/', params).pipe(
-      map(extractTickets),
-      tap(tickets => this._completed.set(tickets)),
+      map(res => this.applyFeed(res, generation, seq, 'completed')),
     );
+  }
+
+  /**
+   * Apply one feed response, or refuse to.
+   *
+   * THREE REASONS TO DISCARD, and none of them empties the board:
+   *   * the answer belongs to a scope that is no longer current;
+   *   * a NEWER read has already been applied (a delayed poll must never
+   *     overwrite fresher state);
+   *   * the envelope cannot be read — which is a different fact from "there are
+   *     no orders", and used to be silently treated as the latter.
+   */
+  private applyFeed(
+    res: any, generation: number, seq: number, which: 'active' | 'completed',
+  ): KitchenTicket[] {
+    const store = which === 'active' ? this._tickets : this._completed;
+    if (generation !== this.scopeGeneration) return store();
+    const last = which === 'active'
+      ? this.lastAppliedActive : this.lastAppliedCompleted;
+    if (seq < last) return store();
+
+    const tickets = extractTickets(res);
+    if (tickets === null) {
+      this.feedUnreadable.set(true);
+      return store();
+    }
+    this.feedUnreadable.set(false);
+    this.serverProtocol.set(kitchenProtocolOf(res));
+    if (which === 'active') this.lastAppliedActive = seq;
+    else this.lastAppliedCompleted = seq;
+    store.set(tickets);
+    return tickets;
   }
 
   // ── Poll lifecycle (board drives start/stop) ──────────────────────────
@@ -210,97 +393,227 @@ export class KitchenOrderService {
     }
   }
 
-  // ── Mutations (optimistic update → real PATCH → revert on failure) ─────
+  // ── Commands ──────────────────────────────────────────────────────────
 
   /**
-   * Advance one step along new → preparing → ready → served. Illegal jumps are
-   * rejected (returns false, no state change). Optimistic locally; the next poll
-   * reconciles, and a failed PATCH reverts.
-   *
-   * SERVE = REMOVE: advancing to 'served' drops the ticket from the active store
-   * instantly (snapshot → remove → revert-on-error, mirroring cancelOrder) — the
-   * active feed already excludes served, so this just gets there first; it then
-   * surfaces on the Completed feed. All other transitions patch in place.
+   * Advance one step along new → preparing → ready. Serving is its own command
+   * (`serve`) because it is the one fulfilment transition with a commercial
+   * consequence. Returns false when the client can see the request is not
+   * sensible — never as a claim about what the server would have said.
    */
   advanceStatus(id: string, next: FulfilmentStatus): boolean {
-    const ticket = this._tickets().find(t => t.id === id);
+    const ticket = this.find(id);
     if (!ticket || !isLegalAdvance(ticket.fulfilment_status, next)) return false;
-    if (next === 'served') {
-      this._tickets.update(tickets => tickets.filter(t => t.id !== id));
-      if (!USE_MOCK_DATA) {
-        this.api
-          .postPatch(`kitchen/orders/${id}/fulfilment-status/`, { fulfilment_status: 'served' }, 'put')
-          .subscribe({ error: () => this._tickets.update(tickets => [...tickets, ticket]) });
-      }
-      return true;
-    }
-    this.patchTicket(id, { fulfilment_status: next });
-    this.persistFulfilmentStatus(id, next, ticket);
-    return true;
+    return this.command(
+      ticket,
+      next === 'served' ? 'serve' : 'advance',
+      next === 'served' ? 'Serving' : `Moving to ${next}`,
+    );
   }
 
   /**
-   * Step a ticket back: served → ready (within the recall window only) or
-   * ready → preparing (any time). Rejected (returns false) when ineligible.
+   * Step a ticket back: served → ready (the server enforces the recall window)
+   * or ready → preparing. Rejected (returns false) when the client can already
+   * see it makes no sense.
    */
   recall(id: string): boolean {
-    const ticket = this._tickets().find(t => t.id === id);
+    const ticket = this.find(id);
     if (!ticket || !isRecallEligible(ticket, Date.now())) return false;
     const target = recallTarget(ticket.fulfilment_status);
     if (!target) return false;
-    this.patchTicket(id, {
-      fulfilment_status: target,
-      // Leaving 'served' clears the served stamp so age/escalation resume.
-      served_at: target === 'served' ? ticket.served_at : null,
-    });
-    this.persistFulfilmentStatus(id, target, ticket);
-    return true;
-  }
-
-  /** Flip the priority flag (optimistic + PATCH + revert on failure). */
-  togglePriority(id: string): void {
-    const ticket = this._tickets().find(t => t.id === id);
-    if (!ticket) return;
-    const next = !ticket.priority;
-    this.patchTicket(id, { priority: next });
-    if (!USE_MOCK_DATA) {
-      this.api
-        .postPatch(`kitchen/orders/${id}/priority/`, { priority: next }, 'put')
-        .subscribe({ error: () => this.revertTicket(ticket) });
-    }
-  }
-
-  /**
-   * Void/cancel an order with a structured reason. Optimistic: drop the ticket
-   * immediately — the next active-set poll already omits cancelled orders and
-   * frees the table, so this just gets there first. Re-add the snapshot if the
-   * PUT fails (the sort is computed, so board order restores on its own).
-   */
-  cancelOrder(id: string, reason: string): void {
-    const ticket = this._tickets().find(t => t.id === id);
-    if (!ticket) return;
-    this._tickets.update(tickets => tickets.filter(t => t.id !== id));
-    if (!USE_MOCK_DATA) {
-      this.api
-        .postPatch(`kitchen/orders/${id}/cancel/`, { cancellation_reason: reason }, 'put')
-        .subscribe({ error: () => this._tickets.update(tickets => [...tickets, ticket]) });
-    }
+    return this.command(
+      ticket,
+      ticket.fulfilment_status === 'served' ? 'recall' : 'correct',
+      ticket.fulfilment_status === 'served' ? 'Recalling' : 'Sending back',
+    );
   }
 
   /**
    * Recall a completed ticket back onto the active board (served → ready).
-   * Optimistically drop it from the Completed store (snapshot → remove →
-   * revert-on-error); the same fulfilment-status PATCH the active recall uses
-   * does the work, and the running active poll brings the now-ready ticket back.
+   *
+   * IT GOES THROUGH THE SAME CONTRACT AS EVERY OTHER COMMAND. It used to skip
+   * the eligibility helper entirely and fire the request regardless of age,
+   * which is why the ten-minute rule was dead in the shipped UI. The window is
+   * the SERVER's rule; this check only spares an operator a round trip.
    */
-  recallCompleted(id: string): void {
+  recallCompleted(id: string): boolean {
     const ticket = this._completed().find(t => t.id === id);
+    if (!ticket || !isRecallEligible(ticket, Date.now())) return false;
+    return this.command(ticket, 'recall', 'Recalling', 'completed');
+  }
+
+  /**
+   * Set the priority flag to an EXPLICIT value. The old toggle is gone: it sent
+   * the negation of a possibly-stale local snapshot, so a retry undid itself.
+   */
+  setPriority(id: string, priority: boolean): boolean {
+    const ticket = this.find(id);
+    if (!ticket) return false;
+    return this.issue(ticket, 'kitchen/orders/' + id + '/priority/',
+                      { priority }, priority ? 'Prioritising' : 'Clearing priority');
+  }
+
+  /** Kept for callers that still express intent as a flip; it resolves the
+   *  explicit value here so the REQUEST always states one. */
+  togglePriority(id: string): void {
+    const ticket = this.find(id);
     if (!ticket) return;
-    this._completed.update(list => list.filter(t => t.id !== id));
-    if (!USE_MOCK_DATA) {
-      this.api
-        .postPatch(`kitchen/orders/${id}/fulfilment-status/`, { fulfilment_status: 'ready' }, 'put')
-        .subscribe({ error: () => this._completed.update(list => [...list, ticket]) });
+    this.setPriority(id, !ticket.priority);
+  }
+
+  /** Void/cancel an order with a structured reason. */
+  cancelOrder(id: string, reason: string): boolean {
+    const ticket = this.find(id);
+    if (!ticket) return false;
+    return this.issue(ticket, 'kitchen/orders/' + id + '/cancel/',
+                      { cancellation_reason: reason }, 'Cancelling');
+  }
+
+  private find(id: string): KitchenTicket | undefined {
+    return this._tickets().find(t => t.id === id)
+      ?? this._completed().find(t => t.id === id);
+  }
+
+  private command(
+    ticket: KitchenTicket, action: KitchenAction, label: string,
+    from: 'active' | 'completed' = 'active',
+  ): boolean {
+    return this.issue(
+      ticket, `kitchen/orders/${ticket.id}/fulfilment-status/`,
+      { action }, label, from);
+  }
+
+  /**
+   * Issue ONE command and resolve it from the SERVER's answer.
+   *
+   * THE PRECONDITION COMES FROM THE TICKET THE OPERATOR ACTED ON. A ticket with
+   * no revision means the server never published one, so the command is not sent
+   * at all — inventing a zero would defeat the check.
+   */
+  private issue(
+    ticket: KitchenTicket, url: string, body: Record<string, unknown>,
+    label: string, from: 'active' | 'completed' = 'active',
+  ): boolean {
+    if (!this.canCommand()) return false;
+    const ifRevision = ticket.fulfilment_revision;
+    if (typeof ifRevision !== 'number') return false;
+    if (this._operations()[ticket.id]?.phase === 'pending') return false;
+
+    const generation = this.scopeGeneration;
+    this.setOperation({
+      orderId: ticket.id, phase: 'pending', label, ifRevision,
+    });
+    if (USE_MOCK_DATA) {
+      this.clearOperation(ticket.id);
+      return true;
+    }
+
+    this.api
+      .postPatch(url, { ...body, if_revision: ifRevision }, 'put')
+      .pipe(timeout(COMMAND_TIMEOUT_MS))
+      .subscribe({
+        next: (res: any) => this.resolveSuccess(ticket.id, generation, res, from),
+        error: (err: any) => this.resolveFailure(ticket.id, generation, err, label),
+      });
+    return true;
+  }
+
+  /**
+   * The server applied (or explicitly did not change) the command. Its own
+   * projection is the truth — the client never computes the resulting state.
+   */
+  private resolveSuccess(
+    id: string, generation: number, res: any, from: 'active' | 'completed',
+  ): void {
+    if (generation !== this.scopeGeneration) return;
+    const state: KitchenOrderState | undefined = res?.data;
+    this.clearOperation(id);
+    if (!state || typeof state.fulfilment_revision !== 'number') {
+      // A server that claimed the protocol and then sent an unusable body is a
+      // contract error, not an older server. Say we do not know and let the
+      // next poll settle it.
+      this.setOperation({
+        orderId: id, phase: 'unknown', label: 'Checking',
+        ifRevision: -1,
+        message: 'The kitchen server sent an answer this app could not read. '
+               + 'Checking the current state.',
+      });
+      return;
+    }
+    this.mergeState(id, state, from);
+  }
+
+  /**
+   * A refusal or a lost answer.
+   *
+   * A 409 is the server telling us what the ticket actually is: keep the card,
+   * attach the reason and the authoritative state. Anything else — a timeout, a
+   * transport failure, a 5xx — is UNKNOWN. It is never a rollback: the server
+   * may well have acted, and restoring an old snapshot would assert it did not.
+   */
+  private resolveFailure(
+    id: string, generation: number, err: any, label: string,
+  ): void {
+    if (generation !== this.scopeGeneration) return;
+    const status = err?.status;
+    const body = err?.error;
+    if ((status === 409 || status === 403 || status === 400) && body?.reason) {
+      this.setOperation({
+        orderId: id, phase: 'conflict', label,
+        ifRevision: this._operations()[id]?.ifRevision ?? -1,
+        reason: body.reason,
+        message: body.message,
+        state: body.data,
+      });
+      if (body.data) this.mergeState(id, body.data, 'active', false);
+      return;
+    }
+    this.setOperation({
+      orderId: id, phase: 'unknown', label,
+      ifRevision: this._operations()[id]?.ifRevision ?? -1,
+      message: 'We could not confirm this with the kitchen server. '
+             + 'The board will show the current state shortly.',
+    });
+  }
+
+  /**
+   * Fold the server's projection into the stores by KEY — never by appending.
+   *
+   * It also moves the ticket between the active and Completed stores when the
+   * server says the fulfilment axis moved, so the two cannot disagree about
+   * where a ticket lives while the next poll is still pending.
+   */
+  private mergeState(
+    id: string, state: KitchenOrderState, from: 'active' | 'completed',
+    allowMove = true,
+  ): void {
+    const patch = (t: KitchenTicket): KitchenTicket => ({
+      ...t,
+      fulfilment_status: state.fulfilment_status,
+      priority: state.priority,
+      served_at: state.served_at,
+      order_status: state.order_status,
+      fulfilment_revision: state.fulfilment_revision,
+    });
+    const existing = this.find(id);
+    this._tickets.update(list => list.map(t => (t.id === id ? patch(t) : t)));
+    this._completed.update(list => list.map(t => (t.id === id ? patch(t) : t)));
+    if (!allowMove || !existing) return;
+
+    const moved = patch(existing);
+    const leavesTheBoard = moved.fulfilment_status === 'served'
+      || moved.order_status === 'cancelled';
+    if (leavesTheBoard) {
+      this._tickets.update(list => list.filter(t => t.id !== id));
+      if (moved.fulfilment_status === 'served'
+          && moved.order_status !== 'cancelled') {
+        this._completed.update(list =>
+          list.some(t => t.id === id) ? list : [...list, moved]);
+      }
+    } else if (from === 'completed') {
+      this._completed.update(list => list.filter(t => t.id !== id));
+      this._tickets.update(list =>
+        list.some(t => t.id === id) ? list : [...list, moved]);
     }
   }
 
@@ -331,33 +644,5 @@ export class KitchenOrderService {
     const ticket = buildInjectedTicket();
     this._tickets.update(tickets => [...tickets, ticket]);
     return ticket;
-  }
-
-  // ── internal ──────────────────────────────────────────────────────────
-
-  /** Fire the real fulfilment-status PATCH (shared by advance + recall). The
-   *  endpoint derives the restaurant from the order pk, so no scope param. */
-  private persistFulfilmentStatus(
-    id: string,
-    status: FulfilmentStatus,
-    prior: KitchenTicket,
-  ): void {
-    if (USE_MOCK_DATA) return;
-    this.api
-      .postPatch(`kitchen/orders/${id}/fulfilment-status/`, { fulfilment_status: status }, 'put')
-      .subscribe({ error: () => this.revertTicket(prior) });
-  }
-
-  /** Restore a ticket to its pre-mutation snapshot after a failed PATCH. */
-  private revertTicket(prior: KitchenTicket): void {
-    this._tickets.update(tickets =>
-      tickets.map(t => (t.id === prior.id ? prior : t)),
-    );
-  }
-
-  private patchTicket(id: string, changes: Partial<KitchenTicket>): void {
-    this._tickets.update(tickets =>
-      tickets.map(t => (t.id === id ? { ...t, ...changes } : t)),
-    );
   }
 }

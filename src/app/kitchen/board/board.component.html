@@ -179,6 +179,9 @@
         [isManager]="service.isManager"
         (advance)="onAdvance($event)"
         (recall)="onRecall($event)"
+        [operation]="operationFor(t) ?? null"
+        [canCommand]="canCommand"
+        (acknowledge)="onAcknowledge($event)"
         (togglePriority)="onTogglePriority($event)"
       (cancelRequested)="onCardCancel($event)"></app-kitchen-ticket-card>
     }
@@ -187,6 +190,9 @@
         [ticket]="t"
         [now]="now()"
         [completed]="true"
+      [operation]="operationFor(t) ?? null"
+      [canCommand]="canCommand"
+      (acknowledge)="onAcknowledge($event)"
       (recall)="onRecallCompleted($event)"></app-kitchen-ticket-card>
     }
   </ng-template>

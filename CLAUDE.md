@@ -927,6 +927,37 @@ so keep it current when conventions change.
   **Kitchen** entry (route `/kitchen`, gated on the `kitchen` module —
   owner/manager/kitchen see it, `restaurant_staff` does not), so back-office
   staff reach the board from portal nav, not only via the login auto-redirect.
+  **THE COMMAND CONTRACT CHANGED WITH D05, AND THE CLIENT NO LONGER GUESSES AN
+  OUTCOME.** Every kitchen mutation now names an explicit ACTION (`advance` /
+  `serve` / `correct` / `recall`, or the priority/cancel route) and a REQUIRED
+  `if_revision` — the precondition captured from the ticket the operator acted
+  on, and NEVER refreshed on a retry, which would turn a stale command into a
+  newly authorised one. The optimistic-mutation/rollback engine is GONE: a
+  command marks its ticket `pending`, and the SERVER decides. Success applies the
+  server's own projection; a `409` keeps the card and attaches the machine
+  `reason` plus authoritative state; a timeout or transport failure resolves to
+  `unknown` — never a rollback, which would assert the server did not act. What
+  that replaced was reachable and dishonest in four distinct ways: a failed serve
+  or cancel did `[...tickets, ticket]`, so a poll that had re-added the ticket
+  left TWO cards with one id; a cancel whose RESPONSE was lost (the server having
+  applied it) put the cancelled ticket back on the board; a failed advance wrote
+  a stale snapshot over newer server state; and a failure left no trace at all.
+  TWO FENCES stop an old answer overwriting a newer one — a SCOPE generation
+  (restaurant + operator session, which also clears the stores on a switch) and a
+  per-read sequence. An UNREADABLE envelope no longer empties the board: it is a
+  different fact from an empty one and says so. `recallCompleted` now goes
+  through the SAME eligibility check as every other command — it used to skip it
+  entirely, which is why the 10-minute window existed only in a helper nothing
+  on the Completed view called; the window is the SERVER's rule and the client
+  check only spares a round trip. The board goes READ-ONLY unless the feed
+  declares `kitchen_protocol` (`REQUIRED_KITCHEN_PROTOCOL`); it never falls back
+  to the retired target-only form and never invents a revision. `ErrorInterceptor`
+  forwards the raw `HttpErrorResponse` for the three order-command routes (matched
+  on path SHAPE, not a substring) so the status, reason and projection survive —
+  the kitchen READS and the stock toggle keep the string + toast behaviour.
+  **BACKEND FIRST, THEN FRONTEND**, and the window between them is a write outage
+  for the board — see backend `BREAKING_CHANGES.md` §15; there is deliberately no
+  grace period. `e2e/kitchen-board/` is the manual two-device browser check.
   Both logout paths (`logout()` and `logoutDueToInactivity()`) now revoke the
   refresh token server-side before clearing state — a shared `revokeAndExit()`
   POSTs the refresh to `users/auth/logout/` (via `rawHttp` to dodge the error

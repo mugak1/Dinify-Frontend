@@ -90,13 +90,24 @@ const main = async () => {
 
   /** Free the table the way a restaurant does: serve what is on the board.
    *  Never by touching the database — the point of this file is that the
-   *  real system reaches these states. */
+   *  real system reaches these states.
+   *
+   *  D05: each command names an explicit ACTION and the REVISION it acts on.
+   *  The revision comes from the ticket the board is showing and is re-read
+   *  after every step, because every applied command advances it. There is no
+   *  fallback to the retired `{fulfilment_status}` form — the server refuses it,
+   *  which is the point. */
   const clearTheBoard = async () => {
     for (const ticket of await activeTickets()) {
-      for (const to of ['preparing', 'ready', 'served']) {
-        await op(`/api/v1/kitchen/orders/${ticket.id}/fulfilment-status/`, {
-          method: 'PUT', body: JSON.stringify({ fulfilment_status: to }),
-        });
+      let revision = ticket.fulfilment_revision;
+      for (const action of ['advance', 'advance', 'serve']) {
+        const res = await op(
+          `/api/v1/kitchen/orders/${ticket.id}/fulfilment-status/`, {
+            method: 'PUT',
+            body: JSON.stringify({ action, if_revision: revision }),
+          });
+        if (res.status !== 200) break;
+        revision = res.body?.data?.fulfilment_revision ?? revision + 1;
       }
     }
   };
