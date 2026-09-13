@@ -970,9 +970,10 @@ so keep it current when conventions change.
   has settled the question. A PER-STORE WATERMARK on the same clock covers what a
   per-ticket stamp cannot express — a feed is a statement about a SET, so a read
   older than the newest one a store has applied may still correct a ticket it
-  holds but may neither ADMIT one the newer read omitted nor REMOVE one it never
-  mentioned; it also gates the protocol declaration, so a delayed older answer
-  cannot flip a commandable board read-only. Scope is re-read when a request
+  holds but may neither ADMIT one the newer read omitted, nor REMOVE one it never
+  mentioned, nor RELOCATE one between the two stores; it also gates the protocol
+  declaration, so a delayed older answer cannot flip a commandable board
+  read-only. Scope is re-read when a request
   STARTS *and* when an answer LANDS, and the service now observes
   `AuthenticationService.user` so a PUBLISHED principal change invalidates the
   board with no read in between. **THE HONEST LIMIT IS STATED RATHER THAN

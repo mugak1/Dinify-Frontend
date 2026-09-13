@@ -519,16 +519,22 @@ export class KitchenOrderService {
       if (seq > stamp && !incomingIds.has(id)) this.tombstones.delete(id);
     }
 
-    // An id that legitimately moved stores must not linger in the other one.
-    const other = which === 'active' ? this._completed : this._tickets;
-    const otherIds = new Set(out.map(t => t.id));
-    const otherList = other();
-    const pruned = otherList.filter(t => {
-      if (!otherIds.has(t.id)) return true;
-      const stamp = this.stampById.get(t.id) ?? 0;
-      return stamp > seq;   // too new for this read to relocate
-    });
-    if (pruned.length !== otherList.length) other.set(pruned);
+    // An id that legitimately moved stores must not linger in the other one —
+    // but only THE NEWEST READ may say so. Relocating from a stale read is a
+    // membership decision by an answer that is not authoritative about the set,
+    // which is the same mistake the two rules above exist to prevent; the next
+    // poll settles it either way, so there is nothing to gain by being eager.
+    if (isNewestRead) {
+      const other = which === 'active' ? this._completed : this._tickets;
+      const otherIds = new Set(out.map(t => t.id));
+      const otherList = other();
+      const pruned = otherList.filter(t => {
+        if (!otherIds.has(t.id)) return true;
+        const stamp = this.stampById.get(t.id) ?? 0;
+        return stamp > seq;   // too new for this read to relocate
+      });
+      if (pruned.length !== otherList.length) other.set(pruned);
+    }
 
     return out;
   }
