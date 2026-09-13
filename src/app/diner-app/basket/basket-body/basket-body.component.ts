@@ -527,11 +527,33 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *  same way: does this operation own the cart on screen? Nothing else is
    *  a licence to clear it — an edit re-reserves nothing, so the key and the
    *  scope are both unchanged while the cart is no longer the purchase that
-   *  was accepted. */
+   *  was accepted.
+   *
+   *  OWNERSHIP IS SCOPE **AND** CONTENTS, and the two conditions catch
+   *  opposite mistakes. Contents alone cleared an identical-looking basket at
+   *  another table: the receipt said one dish in one configuration, the cart
+   *  in front of the diner said the same, and on a single restaurant's menu
+   *  that coincidence is ordinary rather than rare. The scope comparison
+   *  existed but lived in `ownsRecovery`, which the cached-terminal branch
+   *  does not go through — so this is the missing intersection of two
+   *  protections that were each already correct, not a new product rule.
+   *
+   *  It belongs HERE rather than at that one branch, because this is the
+   *  common predicate guarding every destructive cleanup in this file
+   *  (startup recovery, Retry, the restored terminal record, resend and the
+   *  direct submit); fixing the caller would leave the shared answer wrong
+   *  for whichever consumer is added next.
+   *
+   *  NO SERVER READ IS NEEDED to decide it. Unequal scopes cannot share cart
+   *  ownership whatever any response says, and settlement is a SEPARATE
+   *  question (`settles`) that is deliberately left alone: an acceptance for
+   *  another table stays recorded and still announces itself — losing a real
+   *  acceptance would be as wrong as erasing a cart it never contained. */
   private ownsDisplayedCart(owner: CheckoutOwner | null): boolean {
     if (!owner || this.destroyed) return false;
-    return this.checkout.ownsPurchase(
-      owner, this.basketService.contentIdentity());
+    return owner.scope === this.checkoutContext()
+      && this.checkout.ownsPurchase(
+        owner, this.basketService.contentIdentity());
   }
 
   private ownsRecovery(owner: CheckoutOwner | null): boolean {

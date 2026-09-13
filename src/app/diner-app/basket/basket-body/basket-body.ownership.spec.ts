@@ -738,6 +738,84 @@ describe('BasketBodyComponent — cart ownership of completion (D04 R2)', () => 
     expect(coordinator.record()).toBeNull();
   });
 
+  /**
+   * A complete, internally coherent terminal receipt for `scope`, recording
+   * EXACTLY the purchase the displayed basket currently holds.
+   *
+   * Content equality is the whole point: it is what makes scope the only
+   * thing left that can discriminate, so a fixture that also moved the items
+   * would pass for the wrong reason.
+   */
+  function settledReceiptAt(scope: string): void {
+    storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, {
+      v: 2, key: 'k-done', scope,
+      request: { identity: basketService.contentIdentity(),
+                 canon: PURCHASE_CANON },
+      stage: 'accepted', command: { orderId: 'o1', quoteRef: 'q1' },
+      outcome: { kind: 'accepted', orderId: 'o1', orderNumber: '7',
+                 quoteRef: 'q1', acceptedAt: '2026-09-13T10:00:00+00:00',
+                 at: 2 },
+      startedAt: 1, protocol: 3, degraded: false,
+    });
+  }
+
+  it('does not clear an identical-looking basket at a DIFFERENT TABLE from a '
+     + 'restored terminal record', () => {
+    // THE REMAINING INTERSECTION. Two protections existed and never met: the
+    // scope comparison lived in `ownsRecovery`, which this branch does not go
+    // through, and `ownsDisplayedCart` asked only about CONTENT. So a receipt
+    // for table A cleared table B's basket whenever the two happened to hold
+    // the same dish in the same configuration — which, on one restaurant's
+    // menu, is an ordinary coincidence rather than a rare one.
+    //
+    // Nothing here is malformed: an internally coherent old receipt beside an
+    // ordinary current cart is all it takes.
+    settledReceiptAt('r1:tA');
+    component.restaurant = { id: 'r1' } as any;
+    component.table = { id: 'tB' } as any;
+
+    fixture.detectChanges();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(basket.items.length).toBe(1);
+    expect(basket.items[0].quantity).toBe(1);
+    // AND NOTHING WAS PLACED. A historical receipt is not a new purchase at
+    // the table the diner is standing at now.
+    expect(api.postPatch).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it('does not clear an identical-looking basket at a DIFFERENT RESTAURANT '
+     + 'from a restored terminal record', () => {
+    // The scope is `restaurant:table`, so the same gap is reachable with the
+    // table held constant. Worth its own case: a diner who rescans in a
+    // second venue is the likelier way to arrive here with a retained record.
+    settledReceiptAt('r1:tA');
+    component.restaurant = { id: 'r2' } as any;
+    component.table = { id: 'tA' } as any;
+
+    fixture.detectChanges();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(basket.items.length).toBe(1);
+    expect(api.postPatch).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it('still ANNOUNCES the acceptance whose receipt owns neither the table nor '
+     + 'the cart', () => {
+    // SETTLEMENT AND CART CLEANUP ARE SEPARATE, and narrowing the second must
+    // not quietly narrow the first: a real acceptance stays known, because
+    // losing it would be as wrong as erasing a cart it never contained.
+    settledReceiptAt('r1:tA');
+    component.restaurant = { id: 'r1' } as any;
+    component.table = { id: 'tB' } as any;
+
+    fixture.detectChanges();
+
+    expect(component.recovered?.kind).toBe('accepted');
+  });
+
   // -- D. a resend response held across a context change ------------------
 
   it('CONTROL: a resend into a table the diner has since left is already '

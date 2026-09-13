@@ -766,6 +766,31 @@ so keep it current when conventions change.
   `recovery.mjs` scenario 4, a real commit-then-drop acceptance followed by a
   real stepper click, now 35 checks. Verified by reintroducing the defect in
   the SERVED app: **33/35**, the two failures reading `lines=0`.
+  **AND CART OWNERSHIP IS SCOPE *AND* CONTENTS — the two protections existed
+  and never met (D04 closeout).** `ownsDisplayedCart` asked only whether the
+  CONTENT identity matched; the scope comparison lived in `ownsRecovery`, and
+  the CACHED-TERMINAL branch does not go through it — it calls
+  `finishAcceptedCheckout(null, ownerOf(stored.record))` directly. So a
+  settled receipt for table A cleared table B's basket whenever the two
+  happened to hold the same dish in the same configuration, which on one
+  restaurant's menu is an ordinary coincidence rather than a rare one. **No
+  malformed response is involved**: an internally coherent old receipt beside
+  an ordinary current cart is the whole counterexample. The condition went
+  into the SHARED predicate rather than that one branch, because that is the
+  common guard on every destructive cleanup here (startup recovery, Retry, the
+  restored terminal record, resend, direct submit) and fixing the caller would
+  leave the shared answer wrong for whichever consumer is added next. **IT
+  NEEDS NO SERVER READ** — unequal scopes cannot share cart ownership whatever
+  a response says — and **SETTLEMENT IS UNTOUCHED**: `settles` still admits the
+  answer, the outcome is still recorded and the acceptance still announces
+  itself, because losing a real acceptance would be as wrong as erasing a cart
+  it never contained. The normal table-scan path still clears the basket on a
+  table change; what this protects is a basket populated at the NEW table
+  beside a retained receipt, after an earlier cleanup did not finish. The
+  matrix is: clear only when scope AND contents both match. Pinned by two
+  specs that hold the CONTENTS EQUAL so scope is the only discriminator (one
+  moving the table, one the restaurant) — reverting the condition alone fails
+  exactly those two out of 209.
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
