@@ -238,13 +238,17 @@ describe('D05 R1–R3 at the response consumers', () => {
         .toEqual([]);
     });
 
-    it('eviction never drops a floor a just-removed order still needs', () => {
+    it('eviction never drops the floor of the order it is removing', () => {
       // A SUCCESSFUL cancel leaves no operation and no card — only a tombstone
-      // and a floor. The tombstone is spent by the very next read that omits
-      // the order, so the floor is what has to survive the eviction that the
-      // same read's arrivals trigger.
-      seedActive([ticket({ fulfilment_status: 'preparing',
-                           fulfilment_revision: 3 })]);
+      // and a floor — and the write that removes it can itself trip the sweep.
+      // 500 other live tickets plus this one puts the map one over the cap, so
+      // the order being cancelled is the ONLY candidate the sweep has.
+      const crowd = Array.from({ length: 500 }, (_, i) =>
+        ticket({ id: `x-${i}`, fulfilment_revision: 1 }));
+      seedActive([...crowd, ticket({ fulfilment_status: 'preparing',
+                                     fulfilment_revision: 3 })]);
+      expect(service.activeTickets().length).toBe(501);
+
       expect(service.cancelOrder(ID, 'customer_request')).toBeTrue();
       httpMock.expectOne(`${API}/kitchen/orders/${ID}/cancel/`).flush({
         status: 200, outcome: 'applied',
@@ -253,22 +257,17 @@ describe('D05 R1–R3 at the response consumers', () => {
                       cancelled_at: new Date().toISOString(),
                       cancellation_reason: 'customer_request' }),
       });
+      expect(activeIds()).not.toContain(ID);
       expect(service.operationFor(ID))
-        .withContext('a clean cancel leaves nothing behind to protect it')
+        .withContext('a clean cancel leaves nothing behind but the tombstone')
         .toBeUndefined();
 
-      // 900 arrivals in one read: eviction fires while this order is on no
-      // board and carries no operation.
-      seedActive(Array.from({ length: 900 }, (_, i) =>
-        ticket({ id: `x-${i}`, fulfilment_revision: 1 })));
-
-      // A snapshot the server took before the cancel. The tombstone was spent
-      // by the read above, so only the floor can refuse this.
-      seedActive([ticket({ fulfilment_status: 'preparing',
-                           fulfilment_revision: 3 })]);
+      // A read STARTED AFTER the cancel carrying a snapshot from before it.
+      seedActive([...crowd, ticket({ fulfilment_status: 'preparing',
+                                     fulfilment_revision: 3 })]);
       expect(activeIds())
-        .withContext('a cancelled order is not resurrected by eviction')
-        .toEqual([]);
+        .withContext('a cancelled order is not resurrected by its own sweep')
+        .not.toContain(ID);
     });
 
     it('eviction never drops a floor an open question still needs', () => {
@@ -300,6 +299,30 @@ describe('D05 R1–R3 at the response consumers', () => {
         .withContext('the floor for an open question outlived the pressure')
         .toEqual([]);
       expect(service.operationFor(ID)?.phase).toBe('conflict');
+    });
+
+    it('does not evict the floor of a ticket the SAME feed is admitting', () => {
+      // The eviction sweep reads the stores, and during a merge those stores
+      // are the PRE-merge ones — so a row this very feed is admitting is not
+      // yet "live" and is the one entry the sweep is free to drop. Its floor
+      // then never exists, and the next older snapshot walks it backwards.
+      const crowd = Array.from({ length: 500 }, (_, i) =>
+        ticket({ id: `x-${i}`, fulfilment_revision: 1 }));
+      seedActive(crowd);                       // exactly at the cap, no sweep
+
+      // The same 500 plus one: the 501st write trips the sweep mid-merge.
+      seedActive([...crowd, ticket({ fulfilment_status: 'ready',
+                                     fulfilment_revision: 5 })]);
+      expect(activeIds()).toContain(ID);
+
+      // A later-started read carrying an EARLIER snapshot of that ticket.
+      seedActive([...crowd, ticket({ fulfilment_status: 'new',
+                                     fulfilment_revision: 3 })]);
+      const row = service.activeTickets().find(t => t.id === ID)!;
+      expect(row.fulfilment_revision)
+        .withContext('the floor the admitting feed set must have survived')
+        .toBe(5);
+      expect(row.fulfilment_status).toBe('ready');
     });
 
     it('DOCUMENTS THE BOUND: a settled order is eventually forgotten', () => {

@@ -1108,8 +1108,13 @@ so keep it current when conventions change.
   UNDECLARED feed) is held back by neither, exactly as before. **EVICTION NEVER
   DROPS A FLOOR THAT IS STILL LOAD-BEARING** — board ids, operation ids and
   TOMBSTONED ids are all protected now (the tombstone map was already exactly the
-  removed-order set; it simply was not consulted) — and the bound is STATED rather
-  than implied: a settled order with no operation, on no board and past its
+  removed-order set; it simply was not consulted) — **and it runs AFTER the
+  writer's stores are final, never from `noteWrite`**: the sweep decides liveness
+  by READING the stores, and a write happens before the store it belongs to is
+  installed, so a sweep at write time judged the row being admitted against the
+  PRE-merge board and deleted the floor it had just created. Found by Codex on
+  #670, reproduced (a ticket walked `ready`@5 → `new`@3) and pinned. The bound is
+  STATED rather than implied: a settled order with no operation, on no board and past its
   tombstone is eventually forgotten, which takes hundreds of later orders, by
   which time nothing from before is outstanding (reads time out at 8s, commands at
   15s). A spec pins the protection and a second pins the limit, so neither reads

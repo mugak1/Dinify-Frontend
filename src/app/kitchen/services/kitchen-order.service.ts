@@ -426,6 +426,15 @@ export class KitchenOrderService {
    * THE REVISION ONLY EVER CLIMBS. A row that clears the floor sets a new one;
    * a row without a revision (a pre-D05 shape) advances the stamp and leaves
    * the floor where it was, because it says nothing about server ordering.
+   *
+   * IT DOES NOT EVICT, and that is the point rather than an omission. Eviction
+   * reads the stores to decide what is still live, and a write happens BEFORE
+   * the store it belongs to has been installed — so a sweep fired from here saw
+   * the PRE-merge board and treated the very row being admitted as finished
+   * with. Its floor was deleted the instant it was created, and the next older
+   * snapshot walked that ticket backwards: exactly the regression this map
+   * exists to prevent, produced by the map's own housekeeping. `evictKnown` is
+   * therefore called by the writers AFTER their stores are final.
    */
   private noteWrite(id: string, stamp: number, revision?: number): void {
     const known = this.knownById.get(id);
@@ -438,7 +447,6 @@ export class KitchenOrderService {
     };
     this.knownById.delete(id);      // re-insert so Map order is recency
     this.knownById.set(id, next);
-    if (this.knownById.size > MAX_KNOWN_ORDERS) this.evictKnown();
   }
 
   /**
@@ -455,14 +463,23 @@ export class KitchenOrderService {
    *     still load-bearing. The tombstone was already the map of exactly those
    *     ids; it simply was not consulted here.
    *
+   * IT IS CALLED BY THE WRITERS, AFTER THEIR STORES ARE FINAL, and never from
+   * `noteWrite`. It decides liveness by READING the stores, and a write happens
+   * before the store it belongs to is installed — so a sweep fired at write
+   * time saw the PRE-merge board, found the row being admitted absent from it,
+   * and deleted the floor it had just created. The next older snapshot then
+   * walked that ticket backwards: the regression this map exists to prevent,
+   * caused by its own housekeeping. Both call sites are therefore placed after
+   * the last store update on their path, and there are only two because
+   * `noteWrite` has only two callers.
+   *
    * WHAT IT DOES NOT PROMISE, stated rather than implied: the map is bounded,
    * so a fully settled order with no operation, on no board and past its
    * tombstone is eventually forgotten, and after that a sufficiently delayed
    * snapshot of it would be treated as new. That is bounded memory behaving as
-   * bounded memory. It takes hundreds of subsequent orders at one restaurant,
-   * by which time no request from before is outstanding — every read carries an
-   * 8s timeout and every command a 15s one — so nothing that could still arrive
-   * is being forgotten. `tests` pins both halves: the protection, and the bound.
+   * bounded memory, and the window it leaves is the few seconds a read can be
+   * in flight — every read carries an 8s timeout and every command a 15s one.
+   * Tests pin both halves: the protection, and the bound.
    */
   private evictKnown(): void {
     const live = new Set<string>([
@@ -632,6 +649,10 @@ export class KitchenOrderService {
     const merged = this.mergeFeed(store(), verdict.tickets, seq, which, isNewestRead);
     store.set(merged);
     this.reconcileOperationsAgainstFeed(merged);
+    // THE STORES ARE FINAL HERE, and only here — after the merge is installed
+    // and after operations have settled against it. A sweep any earlier judges
+    // liveness from a board that does not yet include what this read admitted.
+    this.evictKnown();
     return merged;
   }
 
@@ -1191,27 +1212,29 @@ export class KitchenOrderService {
     const existing = this.find(id);
     this._tickets.update(list => list.map(t => (t.id === id ? patch(t) : t)));
     this._completed.update(list => list.map(t => (t.id === id ? patch(t) : t)));
-    if (!existing) return true;
-
-    const moved = patch(existing);
-    const leavesTheBoard = moved.fulfilment_status === 'served'
-      || moved.order_status === 'cancelled';
-    if (leavesTheBoard) {
-      this._tickets.update(list => list.filter(t => t.id !== id));
-      if (moved.fulfilment_status === 'served'
-          && moved.order_status !== 'cancelled') {
-        this._completed.update(list =>
+    if (existing) {
+      const moved = patch(existing);
+      const leavesTheBoard = moved.fulfilment_status === 'served'
+        || moved.order_status === 'cancelled';
+      if (leavesTheBoard) {
+        this._tickets.update(list => list.filter(t => t.id !== id));
+        if (moved.fulfilment_status === 'served'
+            && moved.order_status !== 'cancelled') {
+          this._completed.update(list =>
+            list.some(t => t.id === id) ? list : [...list, moved]);
+        } else {
+          // Gone from both boards: remember that, so a read taken before this
+          // does not put it back.
+          this.rememberTombstone(id, stamp);
+        }
+      } else if (from === 'completed') {
+        this._completed.update(list => list.filter(t => t.id !== id));
+        this._tickets.update(list =>
           list.some(t => t.id === id) ? list : [...list, moved]);
-      } else {
-        // Gone from both boards: remember that, so a read taken before this
-        // does not put it back.
-        this.rememberTombstone(id, stamp);
       }
-    } else if (from === 'completed') {
-      this._completed.update(list => list.filter(t => t.id !== id));
-      this._tickets.update(list =>
-        list.some(t => t.id === id) ? list : [...list, moved]);
     }
+    // Final here too — including the tombstone, which is itself protection.
+    this.evictKnown();
     return true;
   }
 
