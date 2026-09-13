@@ -412,6 +412,100 @@ const main = async () => {
     await page.close();
   }
 
+  // ══ 4. THE CART MOVES ON WHILE THE ACCEPTANCE IS UNRESOLVED ════════════
+  //
+  // D04 R2. Scenario 3 reloads with the cart UNTOUCHED, so the accepted
+  // purchase is still the one on screen and clearing it is right. This one
+  // edits the cart first — through the real stepper, which re-reserves
+  // nothing, so the intent key and the table are both unchanged. The
+  // completion guard compared exactly those two, so a valid acceptance for
+  // the OLD purchase erased a basket it had never contained.
+  //
+  // BOTH HALVES ARE ASSERTED, because either alone is satisfiable by being
+  // wrong in the other direction: the acceptance must still be ANNOUNCED (a
+  // real order was placed) and the newer cart must still be THERE.
+  console.log('\n=== 4. the cart is edited while an acceptance is lost ===');
+  {
+    await clearTheBoard();
+    const { page, state } = await openTab();
+    await buildBasket(page);
+    const place = await openReview(page);
+
+    let swallowed = false;
+    await page.route('**/orders/submit/**', async (route) => {
+      if (route.request().method() !== 'PUT' || swallowed) {
+        return route.continue();
+      }
+      swallowed = true;
+      await route.fetch();                    // the server commits…
+      await route.abort('connectionreset');   // …the browser never learns
+    });
+    await place.click();
+    await page.waitForFunction(
+      () => !!document.body.textContent
+            && !/Placing/.test(document.body.textContent),
+      null, { timeout: 20000 }).catch(() => {});
+
+    const storedBasket = () => page.evaluate(() => {
+      const raw = sessionStorage.getItem('[dinify]diner.basket');
+      if (raw === null) return null;
+      try { return JSON.parse(raw)?.value?.items ?? null; } catch { return null; }
+    });
+    const before = await storedBasket();
+    const beforeQty = before?.[0]?.quantity ?? 0;
+
+    // THE EDIT. Same table, same key, no reservation — the interleaving the
+    // key/scope guard cannot see.
+    const more = page.getByRole('button', { name: 'Increase quantity' })
+      .first();
+    await more.waitFor({ state: 'visible', timeout: 20000 });
+    await more.click();
+    await page.waitForFunction(
+      (was) => {
+        const raw = sessionStorage.getItem('[dinify]diner.basket');
+        if (raw === null) return false;
+        try {
+          return (JSON.parse(raw)?.value?.items?.[0]?.quantity ?? 0) > was;
+        } catch { return false; }
+      }, beforeQty, { timeout: 20000 }).catch(() => {});
+    const edited = await storedBasket();
+    const editedQty = edited?.[0]?.quantity ?? 0;
+    check('the cart really was edited while the checkout was unresolved',
+          editedQty > beforeQty, `${beforeQty} -> ${editedQty}`);
+
+    // The diner reloads. Startup recovery resolves the acceptance the
+    // browser never saw.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const noticeEl = page.locator('[data-testid="checkout-recovery"]').first();
+    await noticeEl.waitFor({ state: 'visible', timeout: 20000 })
+      .catch(() => {});
+    const notice = await noticeEl.innerText().catch(() => '');
+    check('the recovered page still ANNOUNCES the acceptance',
+          /already placed/i.test(notice), JSON.stringify(notice));
+
+    const after = await storedBasket();
+    check('the cart edited after the lost acceptance is NOT erased',
+          Array.isArray(after) && after.length > 0,
+          `lines=${after ? after.length : after}`);
+    check('and it still holds exactly what the diner put in it',
+          (after?.[0]?.quantity ?? 0) === editedQty,
+          `qty=${after?.[0]?.quantity} expected=${editedQty}`);
+
+    // The operation itself IS retired — the acceptance was recorded — so the
+    // diner is free to check the newer cart out rather than being blocked.
+    const settled = await page.evaluate(() =>
+      sessionStorage.getItem('[dinify]diner.checkout.attempt'));
+    check('the resolved attempt is retired, so the newer cart can be ordered',
+          settled === null, `stored=${settled}`);
+
+    const tickets = await activeTickets();
+    check('and exactly ONE order reached the kitchen',
+          tickets.length === 1, `tickets=${tickets.length}`);
+    check('the interleaving raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
   await browser.close();
   console.log(`\n${passed}/${passed + failed} induced-loss checks passed`);
   console.log('This is a MANUAL repeatable run against disposable fixtures '

@@ -524,3 +524,226 @@ describe('CheckoutCoordinatorService through the real interceptor', () => {
     expect(outcome.kind).toBe('accepted');
   });
 });
+
+/**
+ * D04 Stage B / R1 — RECOVERY MUST ASK THE ACCEPTANCE QUESTION, NOT THE
+ * IDENTITY ONE.
+ *
+ * `submitVerdict()` was taught the difference on PR #665: identity
+ * (`correlationMatches` — *is this answer ABOUT my command?*) is not
+ * acceptance (`acceptanceVerdict` — *did MY command succeed, on evidence I
+ * can check?*). `classify()` was not. It still switches on
+ * `acceptance.state` alone, never supplies the issued reference, and resolves
+ * a missing projection from the PAYLOAD only — so the startup and Retry
+ * recovery consumers can complete a result the submit gate would refuse.
+ *
+ * These run the REAL `HttpClient`, the REAL `ErrorInterceptor` and the REAL
+ * `ApiService`, so a body shape production never emits cannot make them pass.
+ * The projections are synthetic — a late reply, a partially-deployed fleet —
+ * but what they are fed to is the deployed path.
+ */
+describe('CheckoutCoordinatorService — recovery evidence (D04 R1)', () => {
+  let service: CheckoutCoordinatorService;
+  let storage: SessionStorageService;
+  let httpMock: HttpTestingController;
+
+  const BASKET = '["one-line"]';
+  const CONTEXT = 'r1:t1';
+  const ORDER = 'o-issued';
+  const REF_A = 'qref-A';                       // what this client confirmed
+  const REF_B = 'qref-B';                       // a DIFFERENT agreement
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: 'coord-r1-spec' },
+        {
+          provide: ToastService,
+          useValue: jasmine.createSpyObj<ToastService>(
+            'ToastService', ['success', 'error', 'warning', 'info', 'clear',
+                             'dismiss']),
+        },
+        {
+          provide: AuthenticationService,
+          useValue: jasmine.createSpyObj(
+            'AuthenticationService', ['logout', 'attemptTokenRefresh'],
+            { userValue: null }),
+        },
+        { provide: Router, useValue: { url: '/diner/basket' } },
+        { provide: ConnectivityService, useValue: { isOffline: () => false } },
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+        provideHttpClient(withXhr(), withInterceptorsFromDi()),
+        provideHttpClientTesting(),
+      ],
+    });
+    service = TestBed.inject(CheckoutCoordinatorService);
+    storage = TestBed.inject(SessionStorageService);
+    httpMock = TestBed.inject(HttpTestingController);
+    storage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    storage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
+  });
+
+  /** A retained keyed intent at scope S with order O / reference A issued,
+   *  and a server that has already demonstrated level 3 for this attempt. */
+  function issued(): string {
+    const reservation = service.reserveIntent(
+      { identity: BASKET, canon: PURCHASE_CANON }, CONTEXT);
+    service.noteProtocol(3);
+    service.noteCommand({ orderId: ORDER, quoteRef: REF_A });
+    return reservation.kind === 'ready' ? reservation.key : '';
+  }
+
+  /** A level-3 order read, overridable field by field. */
+  function projection(key: string, acceptance: Record<string, unknown>,
+                      over: Record<string, unknown> = {}) {
+    return {
+      status: 200,
+      data: {
+        checkout_protocol: 3,
+        checkout: {
+          order_id: ORDER,
+          intent_key: key,
+          scope: { restaurant: 'r1', table: 't1' },
+          acceptance: {
+            state: 'accepted', outcome: null,
+            quote_ref: REF_A, accepted_at: '2026-09-13T10:00:00+00:00',
+            ...acceptance,
+          },
+          current: { order_status: 'pending', fulfilment_status: 'new',
+                     cancelled_at: null, served_at: null },
+          checkout_protocol: 3,
+        },
+        ...over,
+      },
+    };
+  }
+
+  function resolve(body: any): RecoveryOutcome {
+    let outcome!: RecoveryOutcome;
+    service.recover().subscribe((value) => (outcome = value));
+    httpMock.expectOne((r) => r.url.includes('orders/journey/order-details/'))
+      .flush(body);
+    return outcome;
+  }
+
+  it('refuses an acceptance bound to a DIFFERENT reference than the one '
+     + 'issued', () => {
+    // The identity check passes completely — right key, right order, right
+    // scope — and the server reports an acceptance of a quote this diner
+    // never confirmed. That is a conflict about what was agreed, not the
+    // successful completion of command A.
+    const key = issued();
+
+    const outcome = resolve(projection(key, { quote_ref: REF_B }));
+
+    expect(outcome.kind).not.toBe('accepted');
+    expect(service.record()).not.toBeNull();
+    expect(service.record()!.outcome).toBeNull();
+  });
+
+  it('refuses an accepted state carrying no reference', () => {
+    const key = issued();
+    const outcome = resolve(projection(key, { quote_ref: null }));
+    expect(outcome.kind).not.toBe('accepted');
+  });
+
+  it('refuses an accepted state carrying no acceptance time', () => {
+    const key = issued();
+    const outcome = resolve(projection(key, { accepted_at: null }));
+    expect(outcome.kind).not.toBe('accepted');
+  });
+
+  it('does not downgrade to the legacy boolean once level 3 was established '
+     + 'for this attempt', () => {
+    // The record REMEMBERS that this server spoke level 3. A read from it
+    // carrying no projection and only `accepted: true` is BROKEN, not old —
+    // and `correlationPromised` cannot see that, because it reads the
+    // payload rather than what the attempt already established.
+    const key = issued();
+    void key;
+
+    const outcome = resolve({ status: 200, data: { id: ORDER,
+                                                   accepted: true } });
+
+    expect(outcome.kind).not.toBe('accepted');
+    expect(service.record()).not.toBeNull();
+  });
+
+  // -- the cases that MUST still recover (controls) -----------------------
+
+  it('accepts a usable same-command answer whose attempt outcome is null',
+     () => {
+    // A READ is an OBSERVATION, not the result of an attempt, so a null
+    // `outcome` is correct here and must not be treated as missing
+    // evidence. This is the control that stops R1 being fixed by simply
+    // making recovery as strict as a mutation.
+    const key = issued();
+
+    const outcome = resolve(projection(key, { outcome: null }));
+
+    expect(outcome.kind).toBe('accepted');
+  });
+
+  it('accepts an acceptance discovered with NO locally issued command', () => {
+    // A copied tab: this client reserved the key but never issued an
+    // acceptance, and an authorized read finds a complete one. There is no
+    // local reference, so there is nothing for the server's to disagree
+    // with — requiring an absent reference to match itself would refuse a
+    // real, fully evidenced acceptance.
+    const reservation = service.reserveIntent(
+      { identity: BASKET, canon: PURCHASE_CANON }, CONTEXT);
+    const key = reservation.kind === 'ready' ? reservation.key : '';
+
+    const outcome = resolve(projection(key, {}));
+
+    expect(outcome.kind).toBe('accepted');
+  });
+
+  it('still reports evidence_unavailable as the non-answer it is', () => {
+    const key = issued();
+    const outcome = resolve(projection(key, { state: 'evidence_unavailable' }));
+    expect(outcome.kind).toBe('accepted-unrecorded');
+    expect(service.record()).not.toBeNull();
+  });
+
+  it('still reports a definitive not_accepted as a draft', () => {
+    const key = issued();
+    const outcome = resolve(projection(
+      key, { state: 'not_accepted', outcome: null, quote_ref: null,
+             accepted_at: null }));
+    expect(outcome.kind).toBe('draft');
+  });
+
+  it('still tolerates a genuinely pre-level-3 server, which promised '
+     + 'nothing', () => {
+    // THE COMPATIBILITY CONTROL. Nothing established level 3 for this
+    // attempt and the payload advertises none, so the legacy boolean is the
+    // best the server has and is taken as before.
+    const reservation = service.reserveIntent(
+      { identity: BASKET, canon: PURCHASE_CANON }, CONTEXT);
+    void reservation;
+    service.noteCommand({ orderId: ORDER, quoteRef: REF_A });
+
+    const outcome = resolve({ status: 200, data: { id: ORDER,
+                                                   accepted: true } });
+
+    expect(outcome.kind).toBe('accepted');
+  });
+
+  it('still refuses an answer resolved at a different scope', () => {
+    const key = issued();
+    const body = projection(key, {});
+    (body.data.checkout as any).scope = { restaurant: 'other-r',
+                                          table: 'other-t' };
+
+    const outcome = resolve(body);
+
+    expect(outcome.kind).toBe('uncorrelated');
+    expect(service.record()).not.toBeNull();
+  });
+});

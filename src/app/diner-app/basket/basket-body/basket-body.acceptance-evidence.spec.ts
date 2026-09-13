@@ -31,7 +31,7 @@ import { STORAGE_KEY_PREFIX } from '../../../_services/storage/storage-key-prefi
 import { BasketService } from '../../../_services/basket.service';
 import { ApiService } from '../../../_services/api.service';
 import {
-  CheckoutCoordinatorService,
+  CheckoutCoordinatorService, PURCHASE_CANON,
 } from '../../../_services/checkout-coordinator.service';
 import { ToastService } from '../../../_shared/ui/toast/toast.service';
 import { ConfirmDialogService } from '../../../_common/confirm-dialog.service';
@@ -288,6 +288,111 @@ describe('BasketBodyComponent — acceptance evidence (D04 Gate A)', () => {
 
     component.confirmQuote();
 
+    expect(basketService.clearBasket).toHaveBeenCalled();
+  });
+
+  // -- 8. THE SAME EVIDENCE RULE, AT THE RECOVERY CONSUMERS (D04 R1) ------
+  //
+  // `submitVerdict()` learned the difference between identity and acceptance
+  // on PR #665; `classify()` did not, so the startup and Retry consumers
+  // could complete exactly the answers the block above refuses. These drive
+  // the REAL recovery subscription — `ngOnInit` for startup, `retryOrder()`
+  // for Retry — rather than calling the classifier directly.
+
+  /** An order READ carrying a level-3 projection in the `data` envelope. */
+  const readBody = (acceptance: Record<string, unknown>) => ({
+    data: {
+      checkout_protocol: 3,
+      checkout: {
+        order_id: 'o9',
+        intent_key: coordinator.record()?.key ?? null,
+        scope: { restaurant: null, table: null },
+        acceptance: {
+          state: 'accepted', outcome: null,
+          quote_ref: 'qref-9', accepted_at: '2026-09-13T10:00:00+00:00',
+          ...acceptance,
+        },
+        current: { order_status: 'pending', fulfilment_status: 'new',
+                   cancelled_at: null, served_at: null },
+        checkout_protocol: 3,
+      },
+    },
+  });
+
+  /** Leave the tab exactly as an interrupted submission leaves it: a keyed
+   *  intent at this scope with order `o9` / reference `qref-9` issued, and a
+   *  server that has already stated level 3 for the attempt. */
+  function interrupted(): void {
+    coordinator.reserveIntent(
+      { identity: basketService.contentIdentity(), canon: PURCHASE_CANON },
+      ':');
+    coordinator.noteProtocol(3);
+    coordinator.noteCommand({ orderId: 'o9', quoteRef: 'qref-9' });
+  }
+
+  /** Nothing may have been announced, persisted or cleaned up. */
+  function assertRecoveryRefused(): void {
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(component.recovered?.kind).not.toBe('accepted');
+    expect(coordinator.record()).not.toBeNull();
+    expect(coordinator.record()!.outcome).toBeNull();
+  }
+
+  const REFUSED_EVIDENCE: ReadonlyArray<[string, Record<string, unknown>]> = [
+    ['an acceptance bound to a DIFFERENT reference',
+     { quote_ref: 'qref-other' }],
+    ['an accepted state carrying no reference', { quote_ref: null }],
+    ['an accepted state carrying no acceptance time', { accepted_at: null }],
+  ];
+
+  for (const [label, acceptance] of REFUSED_EVIDENCE) {
+    it(`STARTUP recovery refuses ${label}`, () => {
+      interrupted();
+      api.get.and.returnValue(of(readBody(acceptance)) as any);
+
+      fixture.detectChanges();                       // runs ngOnInit
+
+      assertRecoveryRefused();
+    });
+
+    it(`RETRY recovery refuses ${label}`, () => {
+      interrupted();
+      api.get.and.returnValue(of(readBody(acceptance)) as any);
+
+      component.retryOrder();
+
+      assertRecoveryRefused();
+    });
+  }
+
+  it('STARTUP recovery does not downgrade once level 3 was established',
+     () => {
+    interrupted();
+    api.get.and.returnValue(of({ data: { id: 'o9', accepted: true } }) as any);
+
+    fixture.detectChanges();
+
+    assertRecoveryRefused();
+  });
+
+  it('RETRY recovery does not downgrade once level 3 was established', () => {
+    interrupted();
+    api.get.and.returnValue(of({ data: { id: 'o9', accepted: true } }) as any);
+
+    component.retryOrder();
+
+    assertRecoveryRefused();
+  });
+
+  it('STARTUP recovery still completes a usable answer with a null outcome',
+     () => {
+    // The recovery control: an observation is not the result of an attempt.
+    interrupted();
+    api.get.and.returnValue(of(readBody({ outcome: null })) as any);
+
+    fixture.detectChanges();
+
+    expect(component.recovered?.kind).toBe('accepted');
     expect(basketService.clearBasket).toHaveBeenCalled();
   });
 

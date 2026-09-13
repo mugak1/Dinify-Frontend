@@ -362,10 +362,16 @@ describe('BasketBodyComponent', () => {
    * production would already have written. That refusal is the point of the
    * change, not an inconvenience: an acceptance whose command is held only
    * in memory is one a lost response cannot recover.
+   *
+   * THE IDENTITY IS THE BASKET'S OWN, not a literal. `placeOrder` reserves
+   * with `basketService.contentIdentity()`, and since D04 R2 that value is
+   * what decides whether a completed checkout may clear the cart on screen —
+   * so a fixture reserving `'spec-basket'` would describe a purchase this
+   * basket never contained and exercise the wrong branch.
    */
   function reserveCheckout(): void {
     TestBed.inject(CheckoutCoordinatorService).reserveIntent(
-      { identity: 'spec-basket', canon: PURCHASE_CANON },
+      { identity: basketService.contentIdentity(), canon: PURCHASE_CANON },
       (component as any).checkoutContext(),
     );
   }

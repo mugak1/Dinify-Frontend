@@ -53,6 +53,7 @@ describe('BasketBodyComponent — operation ownership (D04 Gate B)', () => {
   let basket: { items: BasketItem[]; totalAmount: number };
   let api: jasmine.SpyObj<ApiService>;
   let basketService: any;
+  let revisionCounter: number;
   let coordinator: CheckoutCoordinatorService;
   let storage: SessionStorageService;
   let fixture: ComponentFixture<BasketBodyComponent>;
@@ -70,10 +71,26 @@ describe('BasketBodyComponent — operation ownership (D04 Gate B)', () => {
     api.get.and.returnValue(of({ data: null }) as any);
     window.sessionStorage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
 
+    // A FAITHFUL FAKE, not a literal. The real service keeps a PROCESS-LOCAL
+    // counter bumped by every mutator, and derives `contentIdentity()` from
+    // the lines themselves — the distinction the whole ownership design rests
+    // on, since one survives a reload and the other does not. `revision: 3`
+    // could not express a cart edit at all.
+    revisionCounter = 0;
     basketService = {
       Basket: () => basket,
-      clearBasket: jasmine.createSpy('clearBasket'),
-      revision: () => 3,
+      clearBasket: jasmine.createSpy('clearBasket').and.callFake(() => {
+        // FAITHFUL: the real service empties the lines, which is what makes
+        // the cart identity move. A bare spy leaves the fake owning a cart it
+        // has just "cleared".
+        basket.items = [];
+        revisionCounter += 1;
+      }),
+      revision: () => revisionCounter,
+      incrementItem: (index: number) => {
+        basket.items[index].quantity += 1;
+        revisionCounter += 1;
+      },
       contentIdentity: () =>
         BasketService.prototype.contentIdentity.call(basketService),
       totalState: (items: BasketItem[]) =>
@@ -470,5 +487,458 @@ describe('BasketBodyComponent — operation ownership (D04 Gate B)', () => {
     fixture.detectChanges();
 
     expect(component.recoveryNotice).not.toContain('did not reach us');
+  });
+});
+
+/**
+ * D04 Stage B / R2 — COMPLETION OWNERSHIP MUST INCLUDE THE CART, AND COVER
+ * EVERY CONSUMER.
+ *
+ * `recoveryOwner()` captures key and scope; `ownsRecovery()` compares those
+ * plus `checkoutContext()`. A CART EDIT changes none of them — the key only
+ * moves at the next reservation — so the guard returns true and
+ * `finishAcceptedCheckout()` erases a basket the accepted purchase never
+ * contained. The pre-existing "newer basket" spec changes the basket AND the
+ * table, so it proves the SCOPE check and says nothing about cart-only.
+ *
+ * The same rule has four more consumers that do not apply it at all: Retry
+ * recovery, the cached-terminal startup branch, resend, and replay
+ * initiation.
+ *
+ * TWO QUESTIONS, DELIBERATELY SEPARATE, and every spec below is one of them:
+ *   1. may this authoritative result SETTLE the retained operation?
+ *   2. does that operation OWN the currently displayed cart?
+ * A legitimate acceptance for an earlier purchase answers yes to the first
+ * and no to the second, and losing it because the cart moved on would be as
+ * wrong as erasing the cart.
+ */
+describe('BasketBodyComponent — cart ownership of completion (D04 R2)', () => {
+  let basket: { items: BasketItem[]; totalAmount: number };
+  let api: jasmine.SpyObj<ApiService>;
+  let basketService: any;
+  let revisionCounter: number;
+  let coordinator: CheckoutCoordinatorService;
+  let storage: SessionStorageService;
+  let fixture: ComponentFixture<BasketBodyComponent>;
+  let component: BasketBodyComponent;
+
+  const line = (itemId = 'i1', quantity = 1) => ({
+    itemId, itemName: 'Burger', basePrice: 5000, totalPrice: 5000,
+    quantity, selectedModifiers: [], extras: [], isDiscounted: false,
+  } as unknown as BasketItem);
+
+  beforeEach(async () => {
+    basket = { items: [line()], totalAmount: 5000 };
+    revisionCounter = 0;
+    api = jasmine.createSpyObj<ApiService>('ApiService', ['postPatch', 'get']);
+    api.postPatch.and.returnValue(of() as any);
+    api.get.and.returnValue(of({ data: null }) as any);
+    window.sessionStorage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
+
+    basketService = {
+      Basket: () => basket,
+      clearBasket: jasmine.createSpy('clearBasket').and.callFake(() => {
+        // FAITHFUL: the real service empties the lines, which is what makes
+        // the cart identity move. A bare spy leaves the fake owning a cart it
+        // has just "cleared".
+        basket.items = [];
+        revisionCounter += 1;
+      }),
+      revision: () => revisionCounter,
+      incrementItem: (index: number) => {
+        basket.items[index].quantity += 1;
+        revisionCounter += 1;
+      },
+      contentIdentity: () =>
+        BasketService.prototype.contentIdentity.call(basketService),
+      totalState: (items: BasketItem[]) =>
+        BasketService.prototype.totalState.call(basketService, items),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [BasketBodyComponent],
+      providers: [
+        provideHttpClient(withXhr()), provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: '' },
+        { provide: BasketService, useValue: basketService },
+        { provide: ApiService, useValue: api },
+        {
+          provide: ConfirmDialogService,
+          useValue: jasmine.createSpyObj<ConfirmDialogService>(
+            'ConfirmDialogService', ['openModal', 'closeModal']),
+        },
+        {
+          provide: ToastService,
+          useValue: jasmine.createSpyObj<ToastService>(
+            'ToastService',
+            ['success', 'error', 'info', 'warning', 'clear', 'dismiss']),
+        },
+        { provide: ConnectivityService, useValue: { isOffline: () => false } },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
+    }).compileComponents();
+
+    spyOn(TestBed.inject(Router), 'navigate').and.stub();
+    coordinator = TestBed.inject(CheckoutCoordinatorService);
+    storage = TestBed.inject(SessionStorageService);
+    fixture = TestBed.createComponent(BasketBodyComponent);
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => {
+    window.sessionStorage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
+  });
+
+  /** A keyed intent at THIS scope with an acceptance issued for the cart as
+   *  it stands now. */
+  function interrupted(): string {
+    const reservation = coordinator.reserveIntent(
+      { identity: basketService.contentIdentity(), canon: PURCHASE_CANON },
+      ':');
+    coordinator.noteProtocol(3);
+    coordinator.noteCommand({ orderId: 'o1', quoteRef: 'q1' });
+    return reservation.kind === 'ready' ? reservation.key : '';
+  }
+
+  /** A complete, valid level-3 acceptance for order o1 / reference q1. */
+  const accepted = () => ({
+    data: {
+      checkout_protocol: 3,
+      checkout: {
+        order_id: 'o1',
+        intent_key: coordinator.record()?.key ?? null,
+        scope: { restaurant: null, table: null },
+        acceptance: {
+          state: 'accepted', outcome: null,
+          quote_ref: 'q1', accepted_at: '2026-09-13T10:00:00+00:00',
+        },
+        current: { order_status: 'pending', fulfilment_status: 'new',
+                   cancelled_at: null, served_at: null },
+        checkout_protocol: 3,
+      },
+    },
+  });
+
+  // -- A. cart-only edit, startup recovery --------------------------------
+
+  it('does not erase a CART-ONLY newer basket when a held startup recovery '
+     + 'lands', () => {
+    interrupted();
+    const held = new Subject<any>();
+    api.get.and.returnValue(held.asObservable() as any);
+    fixture.detectChanges();                  // ngOnInit opens the recovery
+
+    // The diner edits through the real supported path. The key is unchanged
+    // (nothing re-reserves on an edit) and so is the table.
+    component.incrementItem(0);
+    const newer = basketService.contentIdentity();
+    expect(newer).not.toBe(coordinator.record()!.request.identity);
+
+    held.next(accepted());
+    held.complete();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(basketService.contentIdentity()).toBe(newer);
+  });
+
+  it('still ANNOUNCES the acceptance it could not clean up after', () => {
+    // The other half of the same rule: a legitimate accepted result for an
+    // earlier purchase must not be LOST because the cart moved on.
+    interrupted();
+    const held = new Subject<any>();
+    api.get.and.returnValue(held.asObservable() as any);
+    fixture.detectChanges();
+    component.incrementItem(0);
+
+    held.next(accepted());
+    held.complete();
+
+    expect(component.recovered?.kind).toBe('accepted');
+  });
+
+  it('still clears the basket when the cart is the purchase that was '
+     + 'accepted', () => {
+    // THE CONTROL. Cart-ownership must not become "never clean up".
+    interrupted();
+    api.get.and.returnValue(of(accepted()) as any);
+
+    fixture.detectChanges();
+
+    expect(basketService.clearBasket).toHaveBeenCalled();
+  });
+
+  // -- B. the same, through Retry rather than ngOnInit ---------------------
+
+  it('does not erase a CART-ONLY newer basket when a held RETRY recovery '
+     + 'lands', () => {
+    interrupted();
+    const held = new Subject<any>();
+    api.get.and.returnValue(held.asObservable() as any);
+    component.retryOrder();
+
+    component.incrementItem(0);
+    const newer = basketService.contentIdentity();
+
+    held.next(accepted());
+    held.complete();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(basketService.contentIdentity()).toBe(newer);
+  });
+
+  it('still completes a RETRY recovery for the cart it was issued for', () => {
+    interrupted();
+    api.get.and.returnValue(of(accepted()) as any);
+
+    component.retryOrder();
+
+    expect(basketService.clearBasket).toHaveBeenCalled();
+  });
+
+  // -- C. a cached terminal record beside a different cart ----------------
+
+  it('does not clear a DIFFERENT cart from a restored terminal record', () => {
+    // A previously recorded acceptance is evidence about a PAST purchase.
+    // It is not permission to erase whatever happens to be on screen now.
+    storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, {
+      v: 2, key: 'k-done', scope: ':',
+      request: { identity: '["some-other-purchase"]',
+                 canon: PURCHASE_CANON },
+      stage: 'accepted', command: { orderId: 'o1', quoteRef: 'q1' },
+      outcome: { kind: 'accepted', orderId: 'o1', orderNumber: '7',
+                 quoteRef: 'q1', acceptedAt: '2026-09-13T10:00:00+00:00',
+                 at: 2 },
+      startedAt: 1, protocol: 3, degraded: false,
+    });
+
+    fixture.detectChanges();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+  });
+
+  it('still finishes a restored terminal record for the SAME purchase', () => {
+    // THE CRASH-RECOVERY CONTROL: a process that died mid-teardown must
+    // still come back and tidy up its own completed checkout.
+    storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, {
+      v: 2, key: 'k-done', scope: ':',
+      request: { identity: basketService.contentIdentity(),
+                 canon: PURCHASE_CANON },
+      stage: 'accepted', command: { orderId: 'o1', quoteRef: 'q1' },
+      outcome: { kind: 'accepted', orderId: 'o1', orderNumber: '7',
+                 quoteRef: 'q1', acceptedAt: '2026-09-13T10:00:00+00:00',
+                 at: 2 },
+      startedAt: 1, protocol: 3, degraded: false,
+    });
+
+    fixture.detectChanges();
+
+    expect(basketService.clearBasket).toHaveBeenCalled();
+    expect(coordinator.record()).toBeNull();
+  });
+
+  // -- D. a resend response held across a context change ------------------
+
+  it('CONTROL: a resend into a table the diner has since left is already '
+     + 'refused', () => {
+    // Not a defect reproduction — it passes on the reviewed revision, and
+    // knowing WHY matters: `submitVerdict` compares the reply's projection
+    // scope against the CURRENT context, so a table move is caught there.
+    // What that check cannot see is a cart edit, which the spec after this
+    // one is about.
+    interrupted();
+    component.restaurant = { id: null };
+    component.table = { id: null };
+    // Recovery says the acceptance never landed, so Retry re-sends it.
+    api.get.and.returnValue(of({
+      data: {
+        checkout_protocol: 3,
+        checkout: {
+          order_id: 'o1', intent_key: coordinator.record()!.key,
+          scope: { restaurant: null, table: null },
+          acceptance: { state: 'not_accepted', outcome: null,
+                        quote_ref: null, accepted_at: null },
+          current: { order_status: 'initiated', fulfilment_status: 'new',
+                     cancelled_at: null, served_at: null },
+          checkout_protocol: 3,
+        },
+      },
+    }) as any);
+    const submit = new Subject<any>();
+    api.postPatch.and.returnValue(submit.asObservable() as any);
+
+    component.retryOrder();
+    expect(api.postPatch).toHaveBeenCalled();      // the resend went out
+
+    // The diner moves table while it is in flight.
+    component.table = { id: 't-new' };
+    component.restaurant = { id: 'r-new' };
+
+    submit.next({
+      status: 200,
+      checkout: {
+        order_id: 'o1', intent_key: coordinator.record()?.key ?? null,
+        scope: { restaurant: null, table: null },
+        acceptance: { state: 'accepted', outcome: 'newly_accepted',
+                      quote_ref: 'q1',
+                      accepted_at: '2026-09-13T10:00:00+00:00' },
+        current: { order_status: 'pending', fulfilment_status: 'new',
+                   cancelled_at: null, served_at: null },
+        checkout_protocol: 3,
+      },
+    });
+    submit.complete();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+  });
+
+  it('does not erase a CART-ONLY newer basket when a held resend lands', () => {
+    // THE GAP THE CONTROL ABOVE CANNOT REACH. The scope is unchanged, so the
+    // projection check passes and the resend completes — onto a cart that is
+    // no longer the purchase it accepted. `issued.seq` never moved, which is
+    // exactly the point: a component sequence is not cart ownership.
+    interrupted();
+    api.get.and.returnValue(of({
+      data: {
+        checkout_protocol: 3,
+        checkout: {
+          order_id: 'o1', intent_key: coordinator.record()!.key,
+          scope: { restaurant: null, table: null },
+          acceptance: { state: 'not_accepted', outcome: null,
+                        quote_ref: null, accepted_at: null },
+          current: { order_status: 'initiated', fulfilment_status: 'new',
+                     cancelled_at: null, served_at: null },
+          checkout_protocol: 3,
+        },
+      },
+    }) as any);
+    const submit = new Subject<any>();
+    api.postPatch.and.returnValue(submit.asObservable() as any);
+
+    component.retryOrder();
+    expect(api.postPatch).toHaveBeenCalled();
+
+    component.incrementItem(0);
+    const newer = basketService.contentIdentity();
+
+    submit.next({
+      status: 200,
+      checkout: {
+        order_id: 'o1', intent_key: coordinator.record()?.key ?? null,
+        scope: { restaurant: null, table: null },
+        acceptance: { state: 'accepted', outcome: 'newly_accepted',
+                      quote_ref: 'q1',
+                      accepted_at: '2026-09-13T10:00:00+00:00' },
+        current: { order_status: 'pending', fulfilment_status: 'new',
+                   cancelled_at: null, served_at: null },
+        checkout_protocol: 3,
+      },
+    });
+    submit.complete();
+
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(basketService.contentIdentity()).toBe(newer);
+  });
+
+  // -- E. replay initiation must not cross into a new scope ---------------
+
+  it('does not replay an initiation into a table it was not priced for',
+     () => {
+    // The retained purchase belongs to r1:t1; the diner is now at r2:t2.
+    // Issuing it here and discovering the mismatch from the response is a
+    // mutation made in the wrong scope.
+    storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, {
+      v: 2, key: 'k-lost-initiate', scope: 'r1:t1',
+      request: { identity: basketService.contentIdentity(),
+                 canon: PURCHASE_CANON,
+                 items: [{ item: 'i1', quantity: 1 }] },
+      stage: 'pricing', command: null, outcome: null,
+      startedAt: 1, protocol: 0, degraded: false,
+    });
+    expect(coordinator.read().kind).toBe('record');
+    component.restaurant = { id: 'r2' };
+    component.table = { id: 't2' };
+    api.postPatch.calls.reset();
+
+    component.retryOrder();
+
+    const replayed = api.postPatch.calls.all().filter(
+      (c) => (c.args[1] as any)?.client_order_id === 'k-lost-initiate');
+    expect(replayed.length).toBe(0);
+  });
+
+  it('still replays an initiation in the scope it was reserved for', () => {
+    storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, {
+      v: 2, key: 'k-lost-initiate', scope: 'r1:t1',
+      request: { identity: basketService.contentIdentity(),
+                 canon: PURCHASE_CANON,
+                 items: [{ item: 'i1', quantity: 1 }] },
+      stage: 'pricing', command: null, outcome: null,
+      startedAt: 1, protocol: 0, degraded: false,
+    });
+    coordinator.read();
+    component.restaurant = { id: 'r1' };
+    component.table = { id: 't1' };
+    api.postPatch.calls.reset();
+    api.postPatch.and.returnValue(of() as any);
+
+    component.retryOrder();
+
+    const replayed = api.postPatch.calls.all().filter(
+      (c) => (c.args[1] as any)?.client_order_id === 'k-lost-initiate');
+    expect(replayed.length).toBe(1);
+  });
+
+  // -- F. one operation, one completion, across instances ------------------
+
+  it('does not let a destroyed instance complete an operation a live one '
+     + 'already finished', () => {
+    interrupted();
+    const held = new Subject<any>();
+    api.get.and.returnValue(held.asObservable() as any);
+    fixture.detectChanges();                  // instance A opens a recovery
+
+    // The diner navigates away; a fresh routed instance mounts and resolves
+    // the same operation from the durable record. Its terminal write FAILS,
+    // so the record is deliberately retained — which is what makes this the
+    // interleaving the key/scope guard cannot catch, since A's owner still
+    // matches a record that is still there.
+    expect(basketService.clearBasket.calls.count())
+      .withContext('A must not have completed yet').toBe(0);
+    fixture.destroy();
+    spyOn(coordinator, 'recordOutcome').and.returnValue(false);
+    const second = TestBed.createComponent(BasketBodyComponent);
+    api.get.and.returnValue(of(accepted()) as any);
+    const beforeB = basketService.clearBasket.calls.count();
+    second.detectChanges();
+    expect(basketService.clearBasket.calls.count() - beforeB)
+      .withContext('B completions').toBe(1);
+    expect(coordinator.record()).not.toBeNull();
+    const afterFirstCompletion = basketService.clearBasket.calls.count();
+    expect(afterFirstCompletion).toBe(1);
+
+    // A's answer finally lands, for an operation that is already settled.
+    held.next(accepted());
+    held.complete();
+
+    expect(basketService.clearBasket.calls.count()).toBe(afterFirstCompletion);
+  });
+
+  // -- G. a failed durable write is not a failed order --------------------
+
+  it('CONTROL: a failed terminal write keeps the operation recoverable and '
+     + 'does not report the order as failed', () => {
+    interrupted();
+    spyOn(coordinator, 'recordOutcome').and.returnValue(false);
+    api.get.and.returnValue(of(accepted()) as any);
+
+    fixture.detectChanges();
+
+    // The order DID land, so it is still announced and the basket still
+    // cleared — only the FORGETTING is withheld, so a later load recovers it.
+    expect(component.recovered?.kind).toBe('accepted');
+    expect(component.orderError).toBeFalse();
+    expect(coordinator.record()).not.toBeNull();
   });
 });
