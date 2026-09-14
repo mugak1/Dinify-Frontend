@@ -78,11 +78,12 @@ import {
 import {
   REQUIRED_KITCHEN_PROTOCOL,
   isCommandable,
-  readCommandSuccess,
+  readCommandResult,
   readConflict,
   readFeed,
   readObservedState,
   readProtocol,
+  stateSatisfies,
 } from './kitchen-wire';
 import { buildInjectedTicket, getMockTickets } from '../mock/kitchen-mock-data';
 
@@ -128,6 +129,26 @@ const MAX_RECONCILE_ATTEMPTS = 5;
 /** How many removed/moved ids to remember, so a delayed read cannot resurrect
  *  them. Bounded: the board is a live surface, not an audit log. */
 const MAX_TOMBSTONES = 200;
+
+/**
+ * How many orders to remember a stamp and revision floor for.
+ *
+ * Bounded for the same reason the tombstones are, and evicted under a rule that
+ * CANNOT HAND AN OUTSTANDING OLD RESPONSE NEW AUTHORITY: only an id that is on
+ * neither board and carries no operation is ever dropped, so the entry that a
+ * stale row would have to clear is exactly the one that is never evicted. An id
+ * we have genuinely finished with behaves like one never seen, which is what a
+ * board that has moved on should do.
+ */
+const MAX_KNOWN_ORDERS = 500;
+
+/** What the board remembers about one order beyond the visible ticket. */
+interface KnownOrder {
+  /** Local stamp of the write that last set it (see `opSeq`). */
+  stamp: number;
+  /** Highest SERVER revision ever reported for it, or -1 if none was. */
+  revision: number;
+}
 
 /** served_at as epoch ms; null/absent sorts as the oldest possible completion. */
 function servedAtMs(served_at: string | null): number {
@@ -212,7 +233,37 @@ export class KitchenOrderService {
    * answered after it reinstated the pre-command row wholesale.
    */
   private opSeq = 0;
-  private stampById = new Map<string, number>();
+
+  /**
+   * ONE counter for REQUEST identity, deliberately apart from `opSeq`.
+   *
+   * `opSeq` orders WRITES so a read can be told whether it could have seen one.
+   * This one names the QUESTION a given request asked, so a late answer can be
+   * told whether anyone is still waiting for it. They answer different things
+   * and sharing a counter would only make each harder to reason about.
+   */
+  private requestSeq = 0;
+
+  /**
+   * What we know about one order: the local stamp of the write that last set it
+   * AND the highest SERVER revision we have ever been told it reached.
+   *
+   * THEY ARE ONE ENTRY BECAUSE THEY MUST BE EVICTED TOGETHER. Local request
+   * order is not server observation order — a read that STARTED later can carry
+   * an older server snapshot, because the server observed it earlier — so the
+   * stamp alone let a later-started read move a ticket backwards: onto the other
+   * board, at a superseded revision, and even back from a cancellation. The
+   * revision is the server's own ordering and is the floor a row has to clear.
+   *
+   * Neither replaces the other. The stamp still answers "could this read have
+   * seen that write", which is what empty feeds and new membership turn on and
+   * which a revision cannot express; the revision answers "is this row a state
+   * the server has already moved past". A row must satisfy BOTH.
+   *
+   * IT OUTLIVES THE TICKET. A cancelled order is in neither store, so reading
+   * the floor off the visible ticket lost it exactly when it was still needed.
+   */
+  private knownById = new Map<string, KnownOrder>();
 
   /**
    * The newest read each store has APPLIED, on that same clock. It is a
@@ -305,7 +356,7 @@ export class KitchenOrderService {
       this._operations.set({});
       this.feedUnreadable.set(false);
       this.serverProtocol.set(0);
-      this.stampById.clear();
+      this.knownById.clear();
       this.tombstones.clear();
       this.feedSeq = { active: 0, completed: 0 };
       this.protocolSeq = 0;
@@ -316,6 +367,131 @@ export class KitchenOrderService {
   /** The stamp for the next write. See `opSeq`. */
   private nextStamp(): number {
     return ++this.opSeq;
+  }
+
+  /** Local stamp of the last write to this order (0 = never written). */
+  private stampOf(id: string): number {
+    return this.knownById.get(id)?.stamp ?? 0;
+  }
+
+  /** Highest server revision ever reported for this order (-1 = never). */
+  private revisionOf(id: string): number {
+    return this.knownById.get(id)?.revision ?? -1;
+  }
+
+  /**
+   * Which board currently holds this ticket, if either.
+   *
+   * THE ANSWER IS READ, NEVER ASSUMED. Every membership decision outside the
+   * feed merge used to assume Active, which is wrong for anything an operator
+   * acted on from Completed — a recall's refusal, most obviously.
+   */
+  private storeOf(id: string): 'active' | 'completed' | undefined {
+    if (this._tickets().some(t => t.id === id)) return 'active';
+    if (this._completed().some(t => t.id === id)) return 'completed';
+    return undefined;
+  }
+
+  /**
+   * Is this feed row a server state we already know has been superseded?
+   *
+   * LOCAL REQUEST ORDER IS NOT SERVER OBSERVATION ORDER. Two reads issued a
+   * moment apart are answered from two snapshots the server took in whatever
+   * order it got to them, so a read that STARTED later can carry the OLDER
+   * state. The stamp fence cannot see that — by its clock the later read is
+   * newer and therefore authoritative — so a perfectly valid pair of responses,
+   * neither malformed and neither out of scope, walked a ticket backwards
+   * across the two boards at a revision the server had already left behind.
+   *
+   * The server's own revision is the only ordering that survives that, and it
+   * is a FLOOR rather than a replacement: the stamp still answers "could this
+   * read have seen that write", which is what an empty feed and new membership
+   * turn on and which a revision cannot express. A row must clear BOTH.
+   *
+   * A row carrying no revision (a pre-D05 shape, reachable only on an
+   * UNDECLARED feed) says nothing about server ordering, so it is not held
+   * back here — the stamp fence remains its only ordering, exactly as before.
+   */
+  private behindKnownRevision(fresh: KitchenTicket): boolean {
+    const known = this.revisionOf(fresh.id);
+    if (known < 0) return false;
+    const rev = fresh.fulfilment_revision;
+    if (typeof rev !== 'number') return false;
+    return rev < known;
+  }
+
+  /**
+   * Record a write: its local stamp, and the server revision it carried.
+   *
+   * THE REVISION ONLY EVER CLIMBS. A row that clears the floor sets a new one;
+   * a row without a revision (a pre-D05 shape) advances the stamp and leaves
+   * the floor where it was, because it says nothing about server ordering.
+   *
+   * IT DOES NOT EVICT, and that is the point rather than an omission. Eviction
+   * reads the stores to decide what is still live, and a write happens BEFORE
+   * the store it belongs to has been installed — so a sweep fired from here saw
+   * the PRE-merge board and treated the very row being admitted as finished
+   * with. Its floor was deleted the instant it was created, and the next older
+   * snapshot walked that ticket backwards: exactly the regression this map
+   * exists to prevent, produced by the map's own housekeeping. `evictKnown` is
+   * therefore called by the writers AFTER their stores are final.
+   */
+  private noteWrite(id: string, stamp: number, revision?: number): void {
+    const known = this.knownById.get(id);
+    const next: KnownOrder = {
+      stamp,
+      revision: Math.max(
+        known?.revision ?? -1,
+        typeof revision === 'number' ? revision : -1,
+      ),
+    };
+    this.knownById.delete(id);      // re-insert so Map order is recency
+    this.knownById.set(id, next);
+  }
+
+  /**
+   * Forget the oldest orders we are certainly finished with.
+   *
+   * THREE CLASSES ARE NEVER DROPPED, and each is one a delayed answer could
+   * still speak about — evicting any of them would hand that answer exactly the
+   * authority this map exists to deny:
+   *   * an id on either board;
+   *   * an id carrying an operation, resolved or not — the lost cancellation is
+   *     this case, and it is the one that matters most, because the order is on
+   *     no board and its floor has nowhere else to live;
+   *   * an id a command REMOVED from the board, for as long as that removal is
+   *     still load-bearing. The tombstone was already the map of exactly those
+   *     ids; it simply was not consulted here.
+   *
+   * IT IS CALLED BY THE WRITERS, AFTER THEIR STORES ARE FINAL, and never from
+   * `noteWrite`. It decides liveness by READING the stores, and a write happens
+   * before the store it belongs to is installed — so a sweep fired at write
+   * time saw the PRE-merge board, found the row being admitted absent from it,
+   * and deleted the floor it had just created. The next older snapshot then
+   * walked that ticket backwards: the regression this map exists to prevent,
+   * caused by its own housekeeping. Both call sites are therefore placed after
+   * the last store update on their path, and there are only two because
+   * `noteWrite` has only two callers.
+   *
+   * WHAT IT DOES NOT PROMISE, stated rather than implied: the map is bounded,
+   * so a fully settled order with no operation, on no board and past its
+   * tombstone is eventually forgotten, and after that a sufficiently delayed
+   * snapshot of it would be treated as new. That is bounded memory behaving as
+   * bounded memory, and the window it leaves is the few seconds a read can be
+   * in flight — every read carries an 8s timeout and every command a 15s one.
+   * Tests pin both halves: the protection, and the bound.
+   */
+  private evictKnown(): void {
+    const live = new Set<string>([
+      ...this._tickets().map(t => t.id),
+      ...this._completed().map(t => t.id),
+      ...Object.keys(this._operations()),
+      ...this.tombstones.keys(),
+    ]);
+    for (const id of [...this.knownById.keys()]) {
+      if (this.knownById.size <= MAX_KNOWN_ORDERS) return;
+      if (!live.has(id)) this.knownById.delete(id);
+    }
   }
 
   private rememberTombstone(id: string, stamp: number): void {
@@ -472,7 +648,11 @@ export class KitchenOrderService {
 
     const merged = this.mergeFeed(store(), verdict.tickets, seq, which, isNewestRead);
     store.set(merged);
-    this.reconcileOperationsAgainstFeed(merged, which);
+    this.reconcileOperationsAgainstFeed(merged);
+    // THE STORES ARE FINAL HERE, and only here — after the merge is installed
+    // and after operations have settled against it. A sweep any earlier judges
+    // liveness from a board that does not yet include what this read admitted.
+    this.evictKnown();
     return merged;
   }
 
@@ -505,9 +685,24 @@ export class KitchenOrderService {
     const out: KitchenTicket[] = [];
 
     for (const fresh of incoming) {
-      const stamp = this.stampById.get(fresh.id) ?? 0;
+      const stamp = this.stampOf(fresh.id);
       const tomb = this.tombstones.get(fresh.id) ?? 0;
       if (tomb > seq) continue;                  // removed by a newer write
+      if (this.behindKnownRevision(fresh)) {
+        // THE SERVER HAS ALREADY MOVED PAST THIS ROW.
+        //
+        // Local request order is not server observation order: a read that
+        // STARTED later can carry a snapshot the server took EARLIER, so the
+        // sequence fence below cannot see this at all. Left unchecked it moved
+        // a ticket between boards at a superseded revision, and brought a
+        // cancelled order back from a snapshot taken before the cancel.
+        //
+        // Skipping is total — fields, membership AND relocation. The row is not
+        // evidence about this order, so it may not be used to do anything to it.
+        const held = byId.get(fresh.id);
+        if (held) out.push(held);
+        continue;
+      }
       if (stamp > seq) {
         // THIS READ PREDATES THE LAST WRITE TO THIS TICKET, so it is not
         // evidence about it AT ALL — not about its fields, and not about which
@@ -528,7 +723,7 @@ export class KitchenOrderService {
         continue;
       }
       out.push(fresh);
-      this.stampById.set(fresh.id, seq);
+      this.noteWrite(fresh.id, seq, fresh.fulfilment_revision);
     }
 
     // Keep anything this read cannot speak for: a ticket written since it began,
@@ -536,7 +731,7 @@ export class KitchenOrderService {
     // authoritative about the set.
     for (const held of current) {
       if (incomingIds.has(held.id)) continue;
-      const stamp = this.stampById.get(held.id) ?? 0;
+      const stamp = this.stampOf(held.id);
       if (!isNewestRead || stamp > seq) out.push(held);
     }
 
@@ -556,7 +751,7 @@ export class KitchenOrderService {
       const otherList = other();
       const pruned = otherList.filter(t => {
         if (!otherIds.has(t.id)) return true;
-        const stamp = this.stampById.get(t.id) ?? 0;
+        const stamp = this.stampOf(t.id);
         return stamp > seq;   // too new for this read to relocate
       });
       if (pruned.length !== otherList.length) other.set(pruned);
@@ -752,9 +947,10 @@ export class KitchenOrderService {
     if (this.isUnresolved(live.id)) return false;
 
     const command: RetainedCommand = {
-      url, body: { ...body, if_revision: ifRevision }, action, target, from,
+      url, body: { ...body, if_revision: ifRevision }, ifRevision,
+      action, target, from,
     };
-    const owner: OperationOwner = { scopeKey: this.scopeKey ?? '', generation };
+    const owner = this.newOwner(generation);
     this.setOperation({
       orderId: live.id, phase: 'pending', label, ifRevision, command, owner,
       attempts: 0,
@@ -777,9 +973,17 @@ export class KitchenOrderService {
       .postPatch(command.url, command.body, 'put')
       .pipe(timeout(COMMAND_TIMEOUT_MS))
       .subscribe({
-        next: (res: any) => this.resolveSuccess(id, owner, res, command.from),
+        next: (res: any) => this.resolveSuccess(id, owner, res, command),
         error: (err: any) => this.resolveFailure(id, owner, err, label),
       });
+  }
+
+  /** The identity of ONE request: the context it was asked in, and which
+   *  question it is. Captured before the request, never afterwards. */
+  private newOwner(generation: number): OperationOwner {
+    return {
+      scopeKey: this.scopeKey ?? '', generation, opId: ++this.requestSeq,
+    };
   }
 
   /** True while the server's answer to a command against this ticket is still
@@ -797,24 +1001,75 @@ export class KitchenOrderService {
   }
 
   /**
+   * Is this answer the one the OUTSTANDING request is waiting for?
+   *
+   * Context ownership is necessary and not sufficient: it admits every answer
+   * about this board, including one to a question that has since been replaced
+   * by a retry or a reconciliation. Only the request whose identity the
+   * operation still carries may write to that operation.
+   */
+  private ownsOperation(id: string, owner: OperationOwner): boolean {
+    if (!this.ownsAnswer(owner)) return false;
+    return this._operations()[id]?.owner?.opId === owner.opId;
+  }
+
+  /**
+   * Keep an operation's notice where the operator can see it.
+   *
+   * A notice renders inside a ticket card, so an operation whose ticket has
+   * left BOTH boards — a cancellation, a serve past the Completed window — has
+   * nowhere to draw. `detached` moves it to the board-level strip. It is
+   * two-way: a recall that brings the ticket back re-homes the notice on its
+   * card rather than leaving a duplicate in the strip.
+   */
+  private syncDetached(id: string): void {
+    const op = this._operations()[id];
+    if (!op) return;
+    const gone = this.storeOf(id) === undefined;
+    if (gone === !!op.detached) return;
+    this.setOperation({ ...op, detached: gone });
+  }
+
+  /**
    * The server applied (or explicitly did not change) the command. Its own
    * projection is the truth — the client never computes the resulting state.
+   *
+   * IT IS JUDGED AGAINST THE COMMAND THAT PRODUCED IT, and against the one this
+   * REQUEST carried rather than whatever the operation map holds on arrival.
+   * Correlating the order id alone answered "is this a readable answer about
+   * the right ticket", which is not the same question as "could this be the
+   * result of what I sent": a body reporting the ticket unchanged at the
+   * original revision, or two revisions on, or in a state nobody asked for,
+   * cleared the pending badge as a success.
+   *
+   * A VALID RESULT IS SELF-PROVING, and that is deliberately the opposite of
+   * how an OBSERVATION is treated. `readCommandResult` has established that the
+   * server wrote this row at this command's precondition, so the command landed
+   * even when the board has since learned a HIGHER revision from a poll: the
+   * operation is resolved, while `mergeState` independently refuses to paint
+   * the older state. An observation carries no such proof — its revision is its
+   * only evidence — which is why `settleFromObservation` keeps the question
+   * open in exactly that case.
    */
   private resolveSuccess(
-    id: string, owner: OperationOwner, res: any, from: 'active' | 'completed',
+    id: string, owner: OperationOwner, res: any, command: RetainedCommand,
   ): void {
+    // WRONG BOARD ENTIRELY: this answer is not about anything here.
     if (!this.ownsAnswer(owner)) return;
 
-    // THE ANSWER MUST BE ABOUT THIS ORDER. A payload naming a different one
-    // used to be applied here and the pending badge cleared with it, so the
-    // board reported a success the server never stated about this ticket.
-    const verdict = readCommandSuccess(res, id);
+    const verdict = readCommandResult(res, id, command);
+    // A SUPERSEDED REQUEST'S ANSWER MAY NOT WRITE TO THE OPERATION, because
+    // somebody is waiting on a different question. Its STATE is still authentic
+    // server state about this order, validated against the command that
+    // produced it and floored by `mergeState`, so it is not thrown away.
+    const owned = this.ownsOperation(id, owner);
     if (verdict.kind !== 'ok') {
-      this.markUnreadableAnswer(id);
+      if (owned) this.markUnreadableAnswer(id);
       return;
     }
-    this.clearOperation(id);
-    this.mergeState(id, verdict.state, from);
+    if (owned) this.clearOperation(id);
+    this.mergeState(id, verdict.state, this.storeOf(id) ?? command.from);
+    this.syncDetached(id);
   }
 
   /** A server that claimed the protocol and then sent something unusable is a
@@ -843,6 +1098,11 @@ export class KitchenOrderService {
     id: string, owner: OperationOwner, err: any, label: string,
   ): void {
     if (!this.ownsAnswer(owner)) return;
+    // A SUPERSEDED REQUEST'S FAILURE MAY NOT WRITE TO THE OPERATION. A lost
+    // first attempt returning 409 after the operator has already retried must
+    // not overwrite the retry's state with a refusal of a question nobody is
+    // waiting for.
+    if (!this.ownsOperation(id, owner)) return;
     const existing = this._operations()[id];
     const status = err?.status;
 
@@ -859,7 +1119,25 @@ export class KitchenOrderService {
           message: verdict.message,
           state: verdict.state,
         });
-        if (verdict.state) this.mergeState(id, verdict.state, 'active', false);
+        // AN AUTHORISED CONFLICT IS AUTHORITATIVE ABOUT MEMBERSHIP TOO.
+        //
+        // This used to merge with moves DISABLED, so a 409 saying "cancelled"
+        // repainted the card and left it sitting on the active board — false
+        // membership used as the mechanism for displaying a refusal. The same
+        // policy now covers command success, authorised conflict, feeds and the
+        // per-order observation.
+        //
+        // The store is the ticket's ACTUAL one, never the assumption that every
+        // conflict came from Active: a recall conflict answers about a ticket
+        // the operator acted on from Completed, and the server saying it is
+        // `ready` means it belongs back on the active board.
+        if (verdict.state) {
+          this.mergeState(id, verdict.state, this.storeOf(id) ?? 'active');
+          // The refusal outlives the card it was drawn on: a 409 saying
+          // `order_cancelled` removes the ticket from both boards, and the
+          // notice has to move to the board strip rather than vanish with it.
+          this.syncDetached(id);
+        }
         return;
       }
       // A refusal we cannot read is not a refusal we can act on.
@@ -881,10 +1159,17 @@ export class KitchenOrderService {
    * It also moves the ticket between the active and Completed stores when the
    * server says the fulfilment axis moved, so the two cannot disagree about
    * where a ticket lives while the next poll is still pending.
+   *
+   * THERE IS NO WAY TO OPT OUT OF THAT ANY MORE. The `allowMove` parameter is
+   * gone, and with it the one caller that passed `false`: an authorised 409
+   * used to repaint the card and leave the ticket where it was, so a refusal
+   * reading `order_cancelled` displayed a cancelled order sitting on the active
+   * board — false membership used as the mechanism for showing a message. A
+   * server statement about an order is authoritative about WHERE it belongs or
+   * it is not authoritative at all.
    */
   private mergeState(
     id: string, state: KitchenOrderState, from: 'active' | 'completed',
-    allowMove = true,
   ): boolean {
     // A PROJECTION OLDER THAN THE STORED TICKET IS DISCARDED.
     //
@@ -898,9 +1183,12 @@ export class KitchenOrderService {
     // fence; a command answer needs its own because it races the poll rather
     // than other reads. A ticket with no stored revision (a pre-D05 shape) is
     // overwritten: anything the server states is better than nothing.
-    const current = this.find(id);
-    const known = current?.fulfilment_revision;
-    if (typeof known === 'number'
+    // THE FLOOR COMES FROM WHAT WE KNOW, NOT FROM WHAT IS ON SCREEN. Reading it
+    // off `find(id)` lost it precisely when it still mattered: a cancelled order
+    // is in neither store, so every projection about it — however old — was
+    // accepted as current.
+    const known = this.revisionOf(id);
+    if (known >= 0
         && typeof state.fulfilment_revision === 'number'
         && state.fulfilment_revision < known) {
       // REPORTED, not merely skipped. A caller that goes on to draw a
@@ -911,7 +1199,7 @@ export class KitchenOrderService {
     // This write takes a stamp on the ONE clock reads are ordered by, so a read
     // that started before it cannot undo it — in its fields OR its membership.
     const stamp = this.nextStamp();
-    this.stampById.set(id, stamp);
+    this.noteWrite(id, stamp, state.fulfilment_revision);
 
     const patch = (t: KitchenTicket): KitchenTicket => ({
       ...t,
@@ -924,27 +1212,29 @@ export class KitchenOrderService {
     const existing = this.find(id);
     this._tickets.update(list => list.map(t => (t.id === id ? patch(t) : t)));
     this._completed.update(list => list.map(t => (t.id === id ? patch(t) : t)));
-    if (!allowMove || !existing) return true;
-
-    const moved = patch(existing);
-    const leavesTheBoard = moved.fulfilment_status === 'served'
-      || moved.order_status === 'cancelled';
-    if (leavesTheBoard) {
-      this._tickets.update(list => list.filter(t => t.id !== id));
-      if (moved.fulfilment_status === 'served'
-          && moved.order_status !== 'cancelled') {
-        this._completed.update(list =>
+    if (existing) {
+      const moved = patch(existing);
+      const leavesTheBoard = moved.fulfilment_status === 'served'
+        || moved.order_status === 'cancelled';
+      if (leavesTheBoard) {
+        this._tickets.update(list => list.filter(t => t.id !== id));
+        if (moved.fulfilment_status === 'served'
+            && moved.order_status !== 'cancelled') {
+          this._completed.update(list =>
+            list.some(t => t.id === id) ? list : [...list, moved]);
+        } else {
+          // Gone from both boards: remember that, so a read taken before this
+          // does not put it back.
+          this.rememberTombstone(id, stamp);
+        }
+      } else if (from === 'completed') {
+        this._completed.update(list => list.filter(t => t.id !== id));
+        this._tickets.update(list =>
           list.some(t => t.id === id) ? list : [...list, moved]);
-      } else {
-        // Gone from both boards: remember that, so a read taken before this
-        // does not put it back.
-        this.rememberTombstone(id, stamp);
       }
-    } else if (from === 'completed') {
-      this._completed.update(list => list.filter(t => t.id !== id));
-      this._tickets.update(list =>
-        list.some(t => t.id === id) ? list : [...list, moved]);
     }
+    // Final here too — including the tombstone, which is itself protection.
+    this.evictKnown();
     return true;
   }
 
@@ -957,11 +1247,18 @@ export class KitchenOrderService {
    * THE DETACHED CASE IS THE POINT. The notice renders inside a ticket card, so
    * a lost CANCELLATION — which removes the order from both feeds — took its
    * own warning off the screen. The board renders this list separately.
+   *
+   * A SETTLED REFUSAL IS INCLUDED, because it has exactly the same problem: a
+   * 409 reading `order_cancelled` is authoritative about membership, so acting
+   * on it removes the ticket, and the message explaining the removal used to go
+   * with the card. It arrives here already answered, so the strip offers it
+   * dismissal rather than recovery. Only the DETACHED ones are drawn there —
+   * a notice whose ticket is still on a board stays on that card.
    */
   readonly unresolvedOperations = computed<TicketOperation[]>(() =>
     Object.values(this._operations())
       .filter(op => op.phase === 'unknown' || op.phase === 'checking'
-                 || op.phase === 'resolved'));
+                 || op.phase === 'resolved' || op.phase === 'conflict'));
 
   /** The sentence shown for a reconciled operation, or undefined. */
   resolvedNoticeFor(id: string): string | undefined {
@@ -983,19 +1280,26 @@ export class KitchenOrderService {
   reconcile(id: string): boolean {
     const generation = this.syncScope();
     const op = this._operations()[id];
-    if (!op || (op.phase !== 'unknown' && op.phase !== 'checking')) return false;
+    // SINGLE-FLIGHT, ENFORCED HERE RATHER THAN HOPED FOR. `checking` used to be
+    // an accepted entry state, so a second tap fired a second read against the
+    // same order and whichever answered last wrote the outcome. One question at
+    // a time per order: a check in flight is refused, and its own timeout
+    // returns the operation to `unknown` so recovery is never stuck.
+    if (!op || op.phase !== 'unknown') return false;
     if ((op.attempts ?? 0) >= MAX_RECONCILE_ATTEMPTS) return false;
+    if (op.owner && op.owner.scopeKey !== this.scopeKey) return false;
 
-    const owner: OperationOwner =
-      op.owner ?? { scopeKey: this.scopeKey ?? '', generation };
-    this.setOperation({ ...op, phase: 'checking', attempts: (op.attempts ?? 0) + 1 });
+    const owner = this.newOwner(generation);
+    this.setOperation({
+      ...op, phase: 'checking', owner, attempts: (op.attempts ?? 0) + 1,
+    });
 
     this.api
       .get<KitchenTicket>(null, `kitchen/orders/${id}/state/`)
       .pipe(timeout(COMMAND_TIMEOUT_MS))
       .subscribe({
         next: (res: any) => this.settleFromObservation(id, owner, res),
-        error: () => this.leaveUnresolved(id),
+        error: () => this.leaveUnresolved(id, owner),
       });
     return true;
   }
@@ -1009,20 +1313,42 @@ export class KitchenOrderService {
     const generation = this.syncScope();
     const op = this._operations()[id];
     if (!op || !op.command) return false;
-    if (op.phase !== 'unknown' && op.phase !== 'checking') return false;
+    // SINGLE-FLIGHT: a check in flight owns the question until it answers.
+    if (op.phase !== 'unknown') return false;
     if (op.owner && op.owner.scopeKey !== this.scopeKey) return false;
 
-    const owner: OperationOwner =
-      op.owner ?? { scopeKey: this.scopeKey ?? '', generation };
-    this.setOperation({ ...op, phase: 'pending' });
+    // EVERY MUTATION ENTRY GOES THROUGH THE SAME GATE, replay included.
+    //
+    // This one did not. `issue()` refuses to command a server that has not
+    // declared the protocol — it would not enforce the precondition — but a
+    // retry walked straight past that check, so a board that had gone
+    // read-only after a rollback could still put a command on the wire through
+    // the Try again button. The command is KEPT, not discarded: support may
+    // come back, and the retained copy is the only record of what was asked.
+    if (!this.canCommand()) return false;
+    // The precondition is the retained one and is NEVER refreshed, so it is
+    // what has to be usable. A live row is checked too where there is one —
+    // there is not always: the case a retry exists for is a cancellation, which
+    // takes the ticket off both boards.
+    if (!Number.isInteger(op.ifRevision) || op.ifRevision < 0) return false;
+    const live = this.find(id);
+    if (live && !isCommandable(live)) return false;
+
+    const owner = this.newOwner(generation);
+    this.setOperation({ ...op, phase: 'pending', owner });
     this.send(id, op.command, op.label, owner);
     return true;
   }
 
   private settleFromObservation(id: string, owner: OperationOwner, res: any): void {
-    if (!this.ownsAnswer(owner)) return;
+    // AN OBSERVATION CARRIES NO PROOF OF ITS OWN. Unlike a mutation result it
+    // cannot show that any particular command ran — its revision is its only
+    // evidence — so it is worth something ONLY to the question that asked for
+    // it. A superseded read is discarded outright; the next poll re-reads the
+    // same state a moment later anyway.
+    if (!this.ownsOperation(id, owner)) return;
     const verdict = readObservedState(res, id);
-    if (verdict.kind !== 'ok') { this.leaveUnresolved(id); return; }
+    if (verdict.kind !== 'ok') { this.leaveUnresolved(id, owner); return; }
 
     const op = this._operations()[id];
     if (!op) return;
@@ -1036,8 +1362,8 @@ export class KitchenOrderService {
     // uncertainty or display a resolution contradicting the visible board.
     // The question stays open; the next ordinary read settles it from state the
     // board actually holds.
-    const applied = this.mergeState(id, verdict.state,
-                                    op.command?.from ?? 'active');
+    const applied = this.mergeState(
+      id, verdict.state, this.storeOf(id) ?? op.command?.from ?? 'active');
     if (!applied) {
       this.setOperation({
         ...this._operations()[id]!, phase: 'unknown',
@@ -1047,29 +1373,44 @@ export class KitchenOrderService {
       return;
     }
     this.settleAgainst(id, verdict.state);
+    // The observation is authoritative about membership too — a recall seen as
+    // `ready` puts the ticket back on the active board, a cancellation takes it
+    // off both — so the notice follows the ticket.
+    this.syncDetached(id);
   }
 
   /**
    * Decide what an authoritative observation says about one open command.
    *
-   * The ONLY inference drawn is from the revision: the server advances it once
-   * per applied command, so a revision at or below the precondition means this
-   * command has certainly not been applied — while one beyond it means SOME
-   * command has, not necessarily this one. Hence two outcomes and no third:
-   * cleared when the state is what was asked for, otherwise RESOLVED with a
-   * statement of what the order now is.
+   * The ONLY inference drawn is from the revision, and it is drawn in ONE
+   * direction. A revision beyond the precondition means SOME command has been
+   * applied, not necessarily this one — so the state is reported and the
+   * operation cleared only when it is what was asked for.
+   *
+   * A REVISION AT OR BELOW THE PRECONDITION PROVES NOTHING, and saying
+   * otherwise was a false statement dressed as a verdict. This read takes no
+   * lock and opens no transaction: it reports whatever was committed at the
+   * instant it ran. The command may have been received and be waiting behind
+   * the very row lock the transition takes, or be mid-transaction and not yet
+   * visible, or have been lost before it arrived. Those are different
+   * situations with different remedies and this observation cannot separate
+   * them, so the operator is told what is TRUE — nothing has changed yet, and
+   * we could not confirm the command — and the question stays open.
    */
   private settleAgainst(id: string, state: KitchenOrderState): void {
     const op = this._operations()[id];
     if (!op) return;
 
     if (state.fulfilment_revision <= op.ifRevision) {
-      // Nothing has been applied since the command was formed, so it did not
-      // land. The operator may re-send it.
+      // NOT "it did not reach the server". See the note above: an unlocked read
+      // showing no change is equally consistent with a command still waiting to
+      // be applied, and telling an operator to re-send on that basis invites a
+      // second command they were never told might be redundant.
       this.setOperation({
         ...op, phase: 'unknown',
-        message: 'This command did not reach the kitchen server. '
-               + 'You can try again.',
+        message: 'No change is visible yet, so we could not confirm this '
+               + 'command. It may still be in progress — check again, or try '
+               + 'again.',
       });
       return;
     }
@@ -1102,13 +1443,12 @@ export class KitchenOrderService {
    * command worked.
    */
   private matchesRequest(op: TicketOperation, state: KitchenOrderState): boolean {
-    const body: any = op.command?.body ?? {};
-    if (body.cancellation_reason !== undefined) {
-      return state.order_status === 'cancelled';
-    }
-    if (body.priority !== undefined) return state.priority === body.priority;
-    const target = op.command?.target;
-    return target !== undefined && state.fulfilment_status === target;
+    // ONE RULE, SHARED WITH THE RESULT VALIDATOR. It used to be a second copy
+    // here, and a second copy of "did this end up as asked" is exactly the
+    // thing that drifts: the mutation path and the reconciliation path would
+    // then disagree about one command, and which answer an operator saw would
+    // depend on how their answer happened to arrive.
+    return op.command ? stateSatisfies(op.command, state) : false;
   }
 
   /**
@@ -1128,8 +1468,11 @@ export class KitchenOrderService {
     }
   }
 
-  /** A read that did not answer proves nothing — keep the uncertainty. */
-  private leaveUnresolved(id: string): void {
+  /** A read that did not answer proves nothing — keep the uncertainty. It is
+   *  still only the OUTSTANDING request's to say so: a timed-out check must not
+   *  push a retry that replaced it back into `unknown`. */
+  private leaveUnresolved(id: string, owner: OperationOwner): void {
+    if (!this.ownsOperation(id, owner)) return;
     const op = this._operations()[id];
     if (!op) return;
     this.setOperation({
@@ -1148,35 +1491,31 @@ export class KitchenOrderService {
    * one the server is still applying. A ticket that has left the feed is marked
    * DETACHED so its warning keeps a home.
    */
-  private reconcileOperationsAgainstFeed(
-    tickets: KitchenTicket[], which: 'active' | 'completed',
-  ): void {
+  private reconcileOperationsAgainstFeed(tickets: KitchenTicket[]): void {
     const ops = this._operations();
     const present = new Map(tickets.map(t => [t.id, t]));
     for (const op of Object.values(ops)) {
-      if (op.phase !== 'unknown') continue;
       const seen = present.get(op.orderId);
-      if (seen) {
-        if (isCommandable(seen)
-            && (seen.fulfilment_revision as number) > op.ifRevision) {
-          this.settleAgainst(op.orderId, {
-            id: seen.id,
-            fulfilment_revision: seen.fulfilment_revision as number,
-            order_status: seen.order_status ?? 'pending',
-            fulfilment_status: seen.fulfilment_status,
-            priority: seen.priority,
-            served_at: seen.served_at,
-            cancelled_at: null,
-            cancellation_reason: null,
-          });
-        }
-        continue;
+      if (op.phase === 'unknown' && seen
+          && isCommandable(seen)
+          && (seen.fulfilment_revision as number) > op.ifRevision) {
+        this.settleAgainst(op.orderId, {
+          id: seen.id,
+          fulfilment_revision: seen.fulfilment_revision as number,
+          order_status: seen.order_status ?? 'pending',
+          fulfilment_status: seen.fulfilment_status,
+          priority: seen.priority,
+          served_at: seen.served_at,
+          cancelled_at: null,
+          cancellation_reason: null,
+        });
       }
-      // Absent from THIS feed. Only conclude "detached" when it is in neither.
-      const other = which === 'active' ? this._completed() : this._tickets();
-      if (!other.some(t => t.id === op.orderId) && !op.detached) {
-        this.setOperation({ ...op, detached: true });
-      }
+      // Where the notice draws is asked of EVERY operation, not only the
+      // unknown ones — a settled refusal on a ticket the same refusal removed
+      // needs the strip just as much — and it is asked of the board rather than
+      // of this one feed, so a ticket present in the other store is not called
+      // detached. `which` is therefore no longer read here.
+      this.syncDetached(op.orderId);
     }
   }
 

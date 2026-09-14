@@ -107,6 +107,16 @@ export interface RetainedCommand {
    *  current state — refreshing the precondition would turn a stale command
    *  into a newly authorised one. */
   body: Record<string, unknown>;
+  /**
+   * The precondition, beside the body that carries it.
+   *
+   * It is duplicated DELIBERATELY: a result has to be checked against the exact
+   * revision this command was issued with, and digging it back out of an
+   * untyped body at the point of judgement is how that check gets skipped. With
+   * it here, a retained command satisfies the wire contract's `IssuedCommand`
+   * structurally, so the validator cannot be called without one.
+   */
+  ifRevision: number;
   /** The kitchen action, where the command names one. */
   action?: KitchenAction;
   /**
@@ -131,6 +141,22 @@ export interface RetainedCommand {
 export interface OperationOwner {
   scopeKey: string;
   generation: number;
+  /**
+   * THE IDENTITY OF ONE REQUEST, not of the operation across its lifetime.
+   *
+   * A CONTEXT OWNER IS NOT AN OPERATION OWNER. Scope alone says the answer
+   * belongs to this restaurant and this operator; it says nothing about WHICH
+   * outstanding question it answers. Callbacks used to read whichever entry
+   * `_operations[id]` happened to hold when they landed, so a timed-out first
+   * attempt's late answer rewrote the phase and message of the retry that
+   * replaced it — an operator watching "Retrying…" saw it flip back to a
+   * warning about a request nobody was waiting for any more.
+   *
+   * Minted fresh for every issue, retry and reconciliation and captured BEFORE
+   * the request, so a superseded answer is judged against the question it was
+   * actually asked for.
+   */
+  opId: number;
 }
 
 /** One in-flight or unresolved command against one ticket. */

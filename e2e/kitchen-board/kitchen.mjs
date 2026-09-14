@@ -24,6 +24,10 @@
  *   6. a LOST CANCELLATION keeps an actionable warning after its card has gone,
  *      and Check settles it through the per-order state read (K2)
  *   7. the retired command form and an omitted precondition are refused
+ *   8. a read that STARTS LATER and carries an OLDER server snapshot cannot
+ *      walk a ticket back across the boards (R1a — the sibling of 5, and the
+ *      case 5's clock cannot see: there the read began earlier, here it began
+ *      later and the SERVER observed earlier)
  *
  * NOT A SLEEP IN SIGHT. Every wait is a barrier on an outcome — a response, a
  * request the app could only issue after handling the previous one, or a DOM
@@ -126,6 +130,48 @@ const gateFeed = async (page, glob) => {
      *  delayed `fulfill` then dies with "Route is already handled" — a harness
      *  bug wearing the costume of a product failure. */
     release: async () => { release(); await delivered; },
+    awaitNextRequest: (timeout = 20000) =>
+      page.waitForRequest(glob, { timeout }).catch(() => null),
+    drain: async () => {
+      await page.unroute(glob, handler);
+      for (const r of held) { try { await r.continue(); } catch { /* gone */ } }
+    },
+  };
+};
+
+/**
+ * ANSWER THE NEXT MATCHING REQUEST WITH A BODY CAPTURED EARLIER, and freeze the
+ * board afterwards.
+ *
+ * THIS IS THE OTHER HALF OF `gateFeed`, and the difference is the whole point.
+ * `gateFeed` holds a request that STARTED EARLY and delivers it late — the
+ * client-ordering case. This one lets a request start LATE and answers it with
+ * an EARLIER snapshot, which is what a server actually does when two reads are
+ * answered from snapshots it took in the other order. No client clock can see
+ * that: by every local measure the response is the newest thing the board has.
+ *
+ * The body is a real earlier response from the real server, not a hand-built
+ * one, so what is being replayed is a state the server genuinely reported.
+ * Later requests are HELD, exactly as in `gateFeed`, so a fresh poll cannot
+ * repair the board before the assertion runs.
+ */
+const replayFeed = async (page, glob, body) => {
+  let resolveDelivered;
+  const delivered = new Promise((r) => { resolveDelivered = r; });
+  const held = [];
+  let taken = false;
+  const handler = async (route) => {
+    if (taken) { held.push(route); return; }
+    taken = true;
+    try {
+      await route.fulfill({
+        status: 200, contentType: 'application/json', body,
+      });
+    } finally { resolveDelivered(); }
+  };
+  await page.route(glob, handler);
+  return {
+    delivered,
     awaitNextRequest: (timeout = 20000) =>
       page.waitForRequest(glob, { timeout }).catch(() => null),
     drain: async () => {
@@ -573,6 +619,75 @@ async function main() {
         noPrecondition.status === 400
         && noPrecondition.body?.reason === 'kitchen_precondition_required',
         `${noPrecondition.status} ${noPrecondition.body?.reason}`);
+
+  // ── 8. R1a: a LATER read carrying an EARLIER server snapshot ────────────
+  // Scenario 5 covers the read that STARTED first. This is the one the local
+  // clock cannot order: both responses are valid, neither is malformed, neither
+  // is out of scope, and the one that arrives second describes the server as it
+  // was BEFORE the command. Only the server's own revision can refuse it.
+  const fourth = await placeDinerOrder();
+  check('a fourth diner order is accepted for the reordered-snapshot check',
+        fourth.submitted === 200, `status=${fourth.submitted}`);
+
+  const feed4 = await operator(
+    `/api/v1/kitchen/orders/active/?restaurant=${F.restaurant}`);
+  const t4 = (feed4.body?.data ?? []).find((t) => t.id === fourth.id);
+  check('and reaches the board', !!t4);
+
+  let rev4 = t4.fulfilment_revision;
+  for (const action of ['advance', 'advance']) {
+    const r = await operator(`/api/v1/kitchen/orders/${fourth.id}/fulfilment-status/`,
+      { method: 'PUT', body: JSON.stringify({ action, if_revision: rev4 }) });
+    rev4 = r.body?.data?.fulfilment_revision ?? rev4 + 1;
+  }
+
+  // THE SNAPSHOT. A real Active response from the real server, taken while the
+  // ticket is still `ready`. It must carry the protocol declaration, or the
+  // board would go read-only and the assertion below would pass for a reason
+  // that has nothing to do with the floor.
+  const priorFeed = await operator(
+    `/api/v1/kitchen/orders/active/?restaurant=${F.restaurant}`);
+  const priorBody = JSON.stringify(priorFeed.body);
+  check('the captured snapshot declares the kitchen protocol',
+        priorFeed.body?.kitchen_protocol >= 1,
+        `protocol=${priorFeed.body?.kitchen_protocol}`);
+  const priorRow = (priorFeed.body?.data ?? []).find((t) => t.id === fourth.id);
+  check('and shows the ticket as ready, before the serve',
+        priorRow?.fulfilment_status === 'ready',
+        `status=${priorRow?.fulfilment_status} rev=${priorRow?.fulfilment_revision}`);
+
+  const card4 = ticketCard(deviceA.page, t4.order_number);
+  await until('device A to show the fourth ticket as ready', async () =>
+    (await card4.count()) === 1
+    && (await card4.locator('footer button').first().innerText())
+         .trim().toLowerCase() === 'served');
+
+  const serveReply4 = commandReply(deviceA.page);
+  await card4.getByRole('button', { name: 'Served' }).click();
+  await serveReply4;
+  await until('the served ticket to leave the Active board',
+              async () => (await card4.count()) === 0);
+
+  // ONLY NOW is the replay armed, so the request it answers is one the board
+  // issues AFTER the serve: later by every clock the client has.
+  const replay = await replayFeed(
+    deviceA.page, '**/kitchen/orders/active/**', priorBody);
+  const afterReplay = replay.awaitNextRequest();
+  await replay.delivered;
+  await afterReplay;
+
+  check('a later read carrying an earlier snapshot does not reopen the ticket',
+        (await card4.count()) === 0, `cards=${await card4.count()}`);
+  await replay.drain();
+
+  await deviceA.page.getByTestId('view-completed').click();
+  const completed4 = ticketCard(deviceA.page, t4.order_number);
+  const onCompleted4 = await until('the served ticket to be on Completed',
+    async () => (await completed4.count()) === 1,
+  ).then(() => true).catch(() => false);
+  check('and it stays on Completed exactly once', onCompleted4,
+        `completed=${await completed4.count()}`);
+  await deviceA.page.getByTestId('view-active').click();
 
   check('neither board raised an uncaught error',
         deviceA.state.errors.length === 0 && deviceB.state.errors.length === 0,

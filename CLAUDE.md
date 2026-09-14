@@ -1086,6 +1086,93 @@ so keep it current when conventions change.
   **BACKEND FIRST, THEN FRONTEND**, and the window between them is a write outage
   for the board — see backend `BREAKING_CHANGES.md` §15; there is deliberately no
   grace period. `e2e/kitchen-board/` is the manual two-device browser check.
+  **AND THE SAME RULES NOW REACH THE WRITERS AND CALLBACKS THEY NEVER DID (R1–R3).**
+  K1–K4 established the right policies; six consumers still went around them. No
+  backend change: the contract is #320's, read-only and unmodified.
+  **R1a — THE SERVER'S REVISION IS A FLOOR, BESIDE THE LOCAL ORDERING AND NOT
+  INSTEAD OF IT.** `mergeFeed` ordered feeds by local request sequence alone, and
+  LOCAL REQUEST ORDER IS NOT SERVER OBSERVATION ORDER: two reads are answered from
+  snapshots the server took in whatever order it got to them, so a read that
+  STARTED LATER can carry the OLDER state. No client clock can see that — by every
+  local measure it is the newest thing the board has — and it walked a ticket
+  backwards across the two boards at a revision the server had already left
+  behind, and brought a CANCELLED order back from a snapshot taken before the
+  cancel. `knownById` now holds the local stamp AND the highest server revision
+  ever reported, as ONE entry because they must be evicted together, and it
+  OUTLIVES THE TICKET — a cancelled order is in neither store, so reading the
+  floor off the visible row lost it exactly when it was still needed. Neither
+  fence replaces the other: the stamp answers *could this read have seen that
+  write*, which is what an empty feed and new membership turn on; the revision
+  answers *is this a state the server has already moved past*. A row must clear
+  BOTH, and a row carrying no revision (a pre-D05 shape, reachable only on an
+  UNDECLARED feed) is held back by neither, exactly as before. **EVICTION NEVER
+  DROPS A FLOOR THAT IS STILL LOAD-BEARING** — board ids, operation ids and
+  TOMBSTONED ids are all protected now (the tombstone map was already exactly the
+  removed-order set; it simply was not consulted) — **and it runs AFTER the
+  writer's stores are final, never from `noteWrite`**: the sweep decides liveness
+  by READING the stores, and a write happens before the store it belongs to is
+  installed, so a sweep at write time judged the row being admitted against the
+  PRE-merge board and deleted the floor it had just created. Found by Codex on
+  #670, reproduced (a ticket walked `ready`@5 → `new`@3) and pinned. The bound is
+  STATED rather than implied: a settled order with no operation, on no board and past its
+  tombstone is eventually forgotten, which takes hundreds of later orders, by
+  which time nothing from before is outstanding (reads time out at 8s, commands at
+  15s). A spec pins the protection and a second pins the limit, so neither reads
+  as a promise the other contradicts.
+  **R1b — AN AUTHORISED CONFLICT IS AUTHORITATIVE ABOUT MEMBERSHIP TOO.**
+  `resolveFailure` merged with moves DISABLED, so a 409 reading `order_cancelled`
+  repainted the card and left the cancelled order sitting on the active board —
+  false membership used as the mechanism for displaying a message. The
+  `allowMove` escape hatch is GONE, and the store is the ticket's ACTUAL one
+  (`storeOf`), never the assumption that every conflict came from Active: a recall
+  refused from Completed puts the ticket back where the server says it belongs.
+  The notice follows the ticket rather than dying with it — `unresolvedOperations`
+  now includes `conflict`, `syncDetached` is two-way, and the board's `isSettled`
+  covers a conflict so the strip offers dismissal rather than a recovery of
+  something already answered. **ABSENCE FROM A FEED IS STILL NEVER READ AS A
+  CANCELLATION**, and a spec pins it.
+  **R2a — EVERY MUTATION ENTRY CLEARS THE SAME GATE, REPLAY INCLUDED.** `retry()`
+  walked past `canCommand()`, so a board that had gone read-only after a rollback
+  could still put a command on the wire through Try again. The command is KEPT,
+  not discarded — support may come back, and the retained copy is the only record
+  of what was asked — and the ORIGINAL precondition is never refreshed.
+  **R2b — A CONTEXT OWNER IS NOT AN OPERATION OWNER.** Callbacks read whichever
+  `_operations[id]` existed on arrival. `OperationOwner` now carries an `opId`
+  minted per REQUEST (issue, retry and reconcile alike) and captured before it,
+  and every callback verifies context AND operation. The reachable protection is
+  SINGLE FLIGHT, enforced in `reconcile()` and `retry()` themselves — both now
+  require phase `unknown`, where `checking` used to be accepted — so one question
+  at a time per order. The identity check is defence in depth and is labelled as
+  such in the spec: today's production paths that retire a question also
+  unsubscribe, so the interleaving is constructed rather than reached.
+  **R2c — AN UNCHANGED OBSERVATION PROVES NOTHING.** `settleAgainst` claimed "This
+  command did not reach the kitchen server" whenever the revision was at or below
+  the precondition. The state read takes no lock and opens no transaction, so the
+  command may have been received and be waiting behind the row lock the transition
+  takes, or be mid-transaction and not yet visible, or have been lost. It now says
+  what is true — no change is visible yet, we could not confirm it — and leaves the
+  question open.
+  **R3 — A RESULT IS READ AGAINST THE COMMAND THAT PRODUCED IT.**
+  `readCommandResult` (`kitchen-wire.ts`) is the one decision, supplied with the
+  retained command: `applied` must be EXACTLY the precondition plus one (every
+  applied path goes through the server's single `_bump`, which increments once),
+  `unchanged` is the priority-only no-write result AT the original revision (one
+  producer, the priority-equality branch), and in both the state must show what was
+  asked for. `stateSatisfies` is shared with `matchesRequest`, so the mutation and
+  reconciliation paths cannot form different opinions about one command. A valid
+  result is SELF-PROVING and resolves the operation even when the board has since
+  learned a higher revision — deliberately the opposite of an OBSERVATION, whose
+  revision is its only evidence. `readConflict` now keeps ABSENT state (a 403
+  policy denial legitimately carries none) apart from PRESENT-BUT-INVALID, which it
+  used to drop silently and report as a clean refusal; `readObservedState` refuses
+  an error envelope delivered on a 2xx transport. **Two pre-existing fixtures were
+  CORRECTED, not the rule relaxed**: both returned an applied revision the server
+  has no path to (4 and 2 from a precondition of 0).
+  `kitchen-consumers.spec.ts` drives all of it through the real `ApiService`,
+  `HttpClient` and interceptor chain — `HttpTestingController` is what supplies the
+  distinct start / observation / arrival barriers these interleavings need — and
+  `e2e/kitchen-board/` scenario 8 is the browser sibling of scenario 5: there the
+  read began EARLIER, here it begins LATER and the SERVER observed earlier.
   Both logout paths (`logout()` and `logoutDueToInactivity()`) now revoke the
   refresh token server-side before clearing state — a shared `revokeAndExit()`
   POSTs the refresh to `users/auth/logout/` (via `rawHttp` to dodge the error
