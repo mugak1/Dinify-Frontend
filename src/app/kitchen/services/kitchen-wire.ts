@@ -292,6 +292,16 @@ export function stateSatisfies(
   if (body.cancellation_reason !== undefined) {
     return state.order_status === 'cancelled';
   }
+  // A CANCELLED ORDER SATISFIES NO OTHER COMMAND, and the reason is the same
+  // coincidence this predicate was written to refuse. Cancel writes the
+  // `order_status` axis and leaves the FULFILMENT axis exactly where it was —
+  // the server's documented contract — so an order cancelled while it sat at
+  // `ready` reports `ready` forever after. A recall that asked for `ready` then
+  // matched by accident, and an operator who recalled a ticket a manager
+  // cancelled underneath them was told their recall had landed, about an order
+  // that is on no board at all. The revision moving is evidence that SOME
+  // command applied; the retained axis is not evidence that this one did.
+  if (state.order_status === 'cancelled') return false;
   if (body.priority !== undefined) return state.priority === body.priority;
   return cmd.target !== undefined && state.fulfilment_status === cmd.target;
 }

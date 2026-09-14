@@ -300,6 +300,39 @@ export class KitchenOrderService {
    */
   private tombstones = new Map<string, number>();
 
+  /**
+   * THE OLDEST READ THIS BOARD IS STILL WILLING TO BELIEVE.
+   *
+   * Bookkeeping is bounded, so it gets retired — a tombstone is forgotten once
+   * a later read has spoken without the id, and a known-order entry is evicted
+   * once it is on no board, carries no operation and the map is over its cap.
+   * NEITHER OF THOSE ASKED WHETHER AN OLDER READ WAS STILL OUTSTANDING, and
+   * that is the whole of M2: the entry a delayed response would have been
+   * refused by is exactly the entry that gets released, after which the
+   * response looks like news.
+   *
+   * ONE Completed answer is enough to do both at once — it omits the cancelled
+   * id, which forgets the tombstone, and the previously served tickets it
+   * carries supply the eviction pressure. So this is not a claim about order
+   * volume: it is ordinary historical service data arriving while an Active
+   * read is in flight.
+   *
+   * RETIREMENT AND ELIGIBILITY NOW MOVE TOGETHER. An entry written at stamp `w`
+   * protected reads that STARTED BEFORE `w`; releasing it therefore retires
+   * those reads too, and this watermark is how they are refused. Refusing is
+   * the right half to give up: the board keeps what it has and the next poll —
+   * three seconds away, and started after the retirement — is authoritative.
+   * Retaining instead would have to be bounded by something, and there is
+   * nothing honest to bound it by: `loadCompleted` is subscribed bare by the
+   * board, with no timeout at all, so "the oldest read in flight" is not a
+   * quantity this client can put a ceiling on.
+   *
+   * IT ONLY EVER MOVES FORWARD, and only when something is actually released,
+   * so it cannot freeze recovery: every read issued after a retirement carries
+   * a newer stamp than the retirement itself.
+   */
+  private retirementCutoff = 0;
+
   private authSub: Subscription | null = null;
 
   constructor(
@@ -358,6 +391,8 @@ export class KitchenOrderService {
       this.serverProtocol.set(0);
       this.knownById.clear();
       this.tombstones.clear();
+      // A new context owns no reads either, so nothing is retired in it.
+      this.retirementCutoff = 0;
       this.feedSeq = { active: 0, completed: 0 };
       this.protocolSeq = 0;
     }
@@ -490,7 +525,10 @@ export class KitchenOrderService {
     ]);
     for (const id of [...this.knownById.keys()]) {
       if (this.knownById.size <= MAX_KNOWN_ORDERS) return;
-      if (!live.has(id)) this.knownById.delete(id);
+      if (live.has(id)) continue;
+      // Releasing this entry retires every read it would have refused.
+      this.retire(this.knownById.get(id)?.stamp ?? 0);
+      this.knownById.delete(id);
     }
   }
 
@@ -499,8 +537,22 @@ export class KitchenOrderService {
     if (this.tombstones.size > MAX_TOMBSTONES) {
       // Oldest-first: Map preserves insertion order.
       const oldest = this.tombstones.keys().next();
-      if (!oldest.done) this.tombstones.delete(oldest.value);
+      if (!oldest.done) {
+        this.retire(this.tombstones.get(oldest.value) ?? 0);
+        this.tombstones.delete(oldest.value);
+      }
     }
+  }
+
+  /**
+   * Release protection recorded at `stamp`, and retire the reads it protected.
+   *
+   * Every caller is a point where bookkeeping is dropped. Raising the watermark
+   * in the same breath is what keeps the two answers — what we remember, and
+   * whose answers we accept — from drifting apart.
+   */
+  private retire(stamp: number): void {
+    if (stamp > this.retirementCutoff) this.retirementCutoff = stamp;
   }
 
   /** Owner/manager at the active restaurant — the elevated-void gate (mirrors
@@ -620,6 +672,14 @@ export class KitchenOrderService {
     this.syncScope();
     if (generation !== this.scopeGeneration) return store();
 
+    // THIS READ BEGAN BEFORE PROTECTION IT MAY HAVE NEEDED WAS RELEASED.
+    //
+    // Refused WHOLE and refused EARLY: membership, fields, the protocol
+    // declaration and operation settlement all follow from applying a feed, and
+    // an answer that may not be trusted for one of them may not be trusted for
+    // any. The board keeps what it has; the next read is authoritative.
+    if (seq < this.retirementCutoff) return store();
+
     const verdict = readFeed(res);
     if (verdict.kind !== 'ok') {
       // A server declaring the current protocol and sending something this
@@ -736,6 +796,13 @@ export class KitchenOrderService {
     }
 
     // A read newer than a tombstone has settled the question; stop remembering.
+    //
+    // THIS DOES NOT RETIRE ANYTHING, and that distinction is the reason M2 is
+    // closed at `evictKnown` rather than here. Forgetting the tombstone leaves
+    // the order's `knownById` entry standing, and that entry — its stamp and
+    // its revision floor — is what actually refuses an older read. Dropping the
+    // tombstone only makes the id ELIGIBLE for eviction; the release that can
+    // strand an outstanding read is the eviction itself, which retires there.
     for (const [id, stamp] of [...this.tombstones]) {
       if (seq > stamp && !incomingIds.has(id)) this.tombstones.delete(id);
     }
@@ -1217,14 +1284,33 @@ export class KitchenOrderService {
       const leavesTheBoard = moved.fulfilment_status === 'served'
         || moved.order_status === 'cancelled';
       if (leavesTheBoard) {
+        // A COMPLETED TICKET IS ONE THAT WAS SERVED AND NOT CANCELLED. Anything
+        // else that leaves the active board leaves the Completed board too.
+        const staysCompleted = moved.fulfilment_status === 'served'
+          && moved.order_status !== 'cancelled';
         this._tickets.update(list => list.filter(t => t.id !== id));
-        if (moved.fulfilment_status === 'served'
-            && moved.order_status !== 'cancelled') {
+        if (staysCompleted) {
           this._completed.update(list =>
             list.some(t => t.id === id) ? list : [...list, moved]);
         } else {
-          // Gone from both boards: remember that, so a read taken before this
-          // does not put it back.
+          // GONE FROM BOTH BOARDS — and now that is what the code does.
+          //
+          // This used to filter `_tickets` alone, so a cancellation only
+          // removed the card when the order happened to be on Active. The
+          // ordinary two-device sequence puts it on Completed instead: a served
+          // order is recalled by one device, cancelled by a manager, and the
+          // first device's stale recall is refused `order_cancelled` with the
+          // current projection. The row was then PATCHED to cancelled and left
+          // sitting on the Completed board, and `syncDetached` — which asks
+          // where the ticket IS — found it there and left the refusal attached
+          // to a card that should not exist. The comment said "gone from both
+          // boards"; the branch it sat in removed it from one.
+          //
+          // The decision lives here rather than at a caller because every
+          // authoritative statement reaches the stores through this one
+          // function: a command result, an authorised conflict and a per-order
+          // observation must not be able to disagree about it.
+          this._completed.update(list => list.filter(t => t.id !== id));
           this.rememberTombstone(id, stamp);
         }
       } else if (from === 'completed') {
