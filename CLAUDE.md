@@ -1173,6 +1173,54 @@ so keep it current when conventions change.
   distinct start / observation / arrival barriers these interleavings need — and
   `e2e/kitchen-board/` scenario 8 is the browser sibling of scenario 5: there the
   read began EARLIER, here it begins LATER and the SERVER observed earlier.
+  **AND TWO R1 CASES SURVIVED THAT ROUND (M1, M2).** No backend change; the
+  contract is still #320's.
+  **M1 — CANCELLED MEANS ABSENT FROM BOTH FEEDS.** `mergeState`'s terminal branch
+  filtered `_tickets` and then, for a cancellation, wrote a tombstone under a
+  comment reading "Gone from both boards". Nothing ever filtered `_completed`, so
+  the comment did not describe the branch it sat in — and the ORDINARY two-device
+  sequence puts the order there: a served ticket is recalled by one device, a
+  manager cancels it, and the first device's stale recall is refused
+  `order_cancelled` with the current projection. The row was PATCHED to cancelled
+  and left on the Completed board, and `syncDetached` — which asks where the
+  ticket IS — found it there and left the refusal attached to a card that should
+  not exist. The decision now lives ONCE in `mergeState`, so a command result, an
+  authorised conflict and a per-order observation cannot disagree about it: a
+  terminal state that is not `served`-and-not-cancelled clears BOTH stores,
+  keeps the floor and the tombstone, and the notice moves to the detached strip
+  with its own reason intact. `paid`/`refunded` are untouched — only `served` and
+  `cancelled` reach that branch at all — and the legitimate recall-to-ready move
+  is unchanged. **`stateSatisfies` GAINED ONE GUARD WITH IT**: a cancelled order
+  satisfies no command but a cancel. The server's cancel writes `order_status`
+  and LEAVES THE FULFILMENT AXIS WHERE IT WAS, so an order cancelled at `ready`
+  reports `ready` for ever after and a recall that asked for `ready` matched by
+  coincidence — an operator whose ticket a manager cancelled underneath them was
+  told their recall had landed, about an order on no board at all.
+  **M2 — RETIRING PROTECTION MUST RETIRE THE RESPONSE IT PROTECTED AGAINST.**
+  `evictKnown` drops a `knownById` entry once the id is on neither board, carries
+  no operation and is past its tombstone; it never asked whether an OLDER read was
+  still outstanding. ONE Completed response supplies both halves — it omits the
+  cancelled id, which frees the tombstone, and the previously served tickets it
+  carries are the eviction pressure — so this is NOT a claim about order volume,
+  and at `MAX_KNOWN_ORDERS` exactly the entry a delayed Active read would have
+  been refused by is the one released. `retirementCutoff` is the whole mechanism:
+  every release calls `retire(stamp)`, and `applyFeed` refuses a read that STARTED
+  before the highest retired stamp — whole and early, so membership, fields, the
+  protocol declaration and operation settlement all go together. **REFUSING IS THE
+  HALF TO GIVE UP, not retaining**: `loadCompleted` is subscribed bare by the
+  board with NO timeout, so "the oldest read in flight" is not a quantity this
+  client can bound, while the board keeping what it has for one poll cycle costs
+  three seconds. The watermark only moves forward and only on an actual release,
+  so recovery never freezes — a read issued after a retirement always carries a
+  newer stamp. **THE TOMBSTONE-FORGET RULE WAS LEFT EXACTLY AS IT WAS**, having
+  been changed and then reverted: forgetting a tombstone releases nothing an
+  older read needed (the order's stamp and floor still stand), it only makes the
+  id eligible for eviction, and a mutation test showed removing it fails nothing.
+  A change no test can fail does not ship in a bounded correction.
+  `kitchen-membership-retention.spec.ts` drives both through the real HTTP chain
+  and `e2e/kitchen-board/` scenario 9 is M1's browser case — a real recall and a
+  real manager cancellation on one device, both of A's feeds frozen so no later
+  poll can hide the defect, asserted on the card and the strip.
   Both logout paths (`logout()` and `logoutDueToInactivity()`) now revoke the
   refresh token server-side before clearing state — a shared `revokeAndExit()`
   POSTs the refresh to `users/auth/logout/` (via `rawHttp` to dodge the error

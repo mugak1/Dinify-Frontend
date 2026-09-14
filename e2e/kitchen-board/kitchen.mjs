@@ -28,6 +28,9 @@
  *      walk a ticket back across the boards (R1a — the sibling of 5, and the
  *      case 5's clock cannot see: there the read began earlier, here it began
  *      later and the SERVER observed earlier)
+ *   9. a stale recall from the COMPLETED board, refused `order_cancelled`,
+ *      takes the card off BOTH boards and leaves its reason in the strip (M1 —
+ *      an ordinary two-device sequence, not a malformed payload)
  *
  * NOT A SLEEP IN SIGHT. Every wait is a barrier on an outcome — a response, a
  * request the app could only issue after handling the previous one, or a DOM
@@ -688,6 +691,122 @@ async function main() {
   check('and it stays on Completed exactly once', onCompleted4,
         `completed=${await completed4.count()}`);
   await deviceA.page.getByTestId('view-active').click();
+
+  // ── 9. M1: a cancellation clears the COMPLETED board too ────────────────
+  // The ordinary two-device sequence, run through the real API on B's side and
+  // the real buttons on A's: A holds a served card, B recalls it, a manager
+  // cancels it, and A's stale recall is properly refused. Before M1 the refusal
+  // repainted A's card and left a CANCELLED order sitting on Completed, with
+  // its own warning attached to a card that should not have existed.
+  const fifth = await placeDinerOrder();
+  check('a fifth diner order is accepted for the cancelled-membership check',
+        fifth.submitted === 200, `status=${fifth.submitted}`);
+
+  const feed5 = await operator(
+    `/api/v1/kitchen/orders/active/?restaurant=${F.restaurant}`);
+  const t5 = (feed5.body?.data ?? []).find((t) => t.id === fifth.id);
+  check('and reaches the board', !!t5);
+
+  // Walk it to SERVED through the real API so it is on Completed, inside the
+  // server's ten-minute recall window.
+  let rev5 = t5.fulfilment_revision;
+  for (const action of ['advance', 'advance', 'serve']) {
+    const r = await operator(`/api/v1/kitchen/orders/${fifth.id}/fulfilment-status/`,
+      { method: 'PUT', body: JSON.stringify({ action, if_revision: rev5 }) });
+    rev5 = r.body?.data?.fulfilment_revision ?? rev5 + 1;
+  }
+
+  // A opens Completed and sees the served card. THE REVISION IT RENDERS WITH is
+  // the precondition its Recall button will send.
+  await deviceA.page.getByTestId('view-completed').click();
+  const card5 = ticketCard(deviceA.page, t5.order_number);
+  await until('device A to show the served ticket on Completed',
+              async () => (await card5.count()) === 1);
+  const staleRevision = rev5;
+
+  // FREEZE BOTH OF A'S FEEDS BEFORE ANYTHING CHANGES THE SERVER STATE.
+  //
+  // `gateFeed` only intercepts requests issued AFTER it is registered, and the
+  // board refreshes Completed every three seconds — so with the gates installed
+  // after the two mutations below, a refresh already in flight could observe the
+  // recall (which takes the order off the Completed feed) and remove A's card
+  // before its Recall button is ever clicked. The run then aborts at the click
+  // without exercising the refusal path at all: not a false pass, but a scenario
+  // that quietly stops testing what it is named for, and one that gets likelier
+  // the slower the machine. Registering first makes the window structural rather
+  // than a bet on local latency.
+  const frozenActive = await gateFeed(deviceA.page, '**/kitchen/orders/active/**');
+  const frozenCompleted =
+    await gateFeed(deviceA.page, '**/kitchen/orders/completed/**');
+
+  // B recalls it, then a manager cancels it. Both through the real contract.
+  const recalled = await operator(
+    `/api/v1/kitchen/orders/${fifth.id}/fulfilment-status/`,
+    { method: 'PUT', body: JSON.stringify({ action: 'recall', if_revision: rev5 }) });
+  rev5 = recalled.body?.data?.fulfilment_revision ?? rev5 + 1;
+  check('device B recalls the served order', recalled.status === 200,
+        `${recalled.status} rev=${rev5}`);
+
+  const managerCancel = await operator(`/api/v1/kitchen/orders/${fifth.id}/cancel/`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      cancellation_reason: 'customer_changed_mind', if_revision: rev5,
+    }),
+  });
+  check('a manager cancels the recalled order',
+        managerCancel.status === 200
+        && managerCancel.body?.data?.order_status === 'cancelled',
+        `${managerCancel.status} ${managerCancel.body?.data?.order_status}`);
+
+  const refusal = commandReply(deviceA.page);
+  await card5.getByRole('button', { name: 'Recall' }).click();
+  const refusalRes = await refusal;
+  // The server checks OPERABILITY before the precondition, so a cancelled order
+  // answers `order_cancelled` whatever revision was supplied — which is what
+  // makes this an M1 case rather than an ordinary stale-precondition one.
+  const refusalBody = refusalRes ? await refusalRes.json().catch(() => null) : null;
+  check('A\'s stale recall is refused as CANCELLED, with the current state',
+        refusalRes && refusalRes.status() === 409
+        && refusalBody?.reason === 'order_cancelled'
+        && refusalBody?.data?.order_status === 'cancelled',
+        `status=${refusalRes && refusalRes.status()} reason=${refusalBody?.reason} `
+        + `sent if_revision=${staleRevision}`);
+
+  // Reported rather than thrown: when this regresses, the run should still go on
+  // to say what happened to the notice as well as to the card.
+  await until('the cancelled card to leave the Completed board',
+              async () => (await card5.count()) === 0).catch(() => null);
+  check('a cancelled order is removed from COMPLETED, not only from Active',
+        (await card5.count()) === 0, `cards=${await card5.count()}`);
+
+  await deviceA.page.getByTestId('view-active').click();
+  check('and it is not on the active board either',
+        (await ticketCard(deviceA.page, t5.order_number).count()) === 0);
+
+  const cancelStrip = deviceA.page.locator(
+    `[data-testid="detached-operation"][data-order-id="${fifth.id}"]`);
+  const cancelStripCount = await cancelStrip.count();
+  check('the refusal survives its card, in the detached strip', cancelStripCount === 1,
+        `strip entries=${cancelStripCount}`);
+  if (cancelStripCount === 1) {
+    const cancelStripText = await cancelStrip.first()
+      .locator('[data-testid="detached-operation-message"]').innerText();
+    check('and it still states the server\'s own reason',
+          /cancel/i.test(cancelStripText), cancelStripText);
+    check('a settled refusal offers dismissal, not a fresh command',
+          (await cancelStrip.first()
+            .locator('[data-testid="detached-operation-ok"]').count()) === 1
+          && (await cancelStrip.first()
+            .locator('[data-testid="detached-operation-retry"]').count()) === 0);
+  }
+
+  await frozenActive.drain();
+  await frozenCompleted.drain();
+
+  const savedFifth = await operator(`/api/v1/kitchen/orders/${fifth.id}/state/`);
+  check('and the server agrees the order is cancelled',
+        savedFifth.body?.data?.order_status === 'cancelled',
+        `order_status=${savedFifth.body?.data?.order_status}`);
 
   check('neither board raised an uncaught error',
         deviceA.state.errors.length === 0 && deviceB.state.errors.length === 0,

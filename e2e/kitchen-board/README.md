@@ -40,7 +40,25 @@ not a new end-to-end platform.
 | **Check issues exactly one read, for THIS order, and settles it** | driven through the real strip control |
 | **a read that STARTS LATER carrying an EARLIER server snapshot cannot reopen a served ticket** | R1a — the sibling of the scenario above, and the case the client clock cannot order |
 | **and it stays on Completed exactly once** | one id in two authoritative places, reached the other way round |
+| **a stale recall refused `order_cancelled` clears the COMPLETED board too** | M1 — the ordinary two-device sequence: served, recalled by B, cancelled by a manager, A's stale recall refused |
+| **and its reason survives its card, in the detached strip** | read off the strip element, with dismissal offered and no retry |
 | neither board raised an uncaught error | |
+
+### Scenario 9 gates both of A's feeds BEFORE it changes the server state
+
+The board refreshes Completed every three seconds, and `gateFeed` only
+intercepts requests issued after it is registered. Gating after the recall and
+the cancellation therefore left a real window: a refresh already in flight
+observes the recall, the order leaves the Completed feed, A's card goes, and the
+run **aborts at the click** without exercising the refusal at all — likelier the
+slower the machine. Found by Codex on #671 and reproduced by widening that
+window to 4s, where `locator.click` times out on a card that no longer exists.
+With the gates registered first the same 4s window is harmless. Both feeds are
+gated before anything mutates. The
+server checks OPERABILITY before the precondition, so a cancelled order answers
+`order_cancelled` whatever revision was supplied; that is what makes this an M1
+case rather than an ordinary stale-precondition one, and the run asserts the
+reason and the projection rather than just the 409.
 
 ### Scenario 8 is the one a local clock cannot see
 
@@ -87,13 +105,13 @@ node e2e/kitchen-board/kitchen.mjs
 same database fails two of its own checks on the second pass — a fixture
 artefact, not a defect. Re-seed between runs.
 
-Last run: **44/44**, against a disposable local PostgreSQL 16.13 (its own
+Last run: **55/55**, against a disposable local PostgreSQL 16.13 (its own
 cluster on port 55432, never a shared instance), a local Django on
 `test_settings` at backend `b378fa90` (unmodified), and a **development**
 `ng serve` on Node 24.21.0 with Chromium 141
-(`/opt/pw-browsers/chromium-1194`), driving the R1–R3 consumer revision of the
-frontend. The two diner harnesses were run on the same stack as regression
-evidence: `journey.mjs` **42/42** and `recovery.mjs` **35/35**.
+(`/opt/pw-browsers/chromium-1194`), driving the M1/M2 revision of the frontend.
+The two diner harnesses were run on the same stack as regression evidence:
+`journey.mjs` **42/42** and `recovery.mjs` **35/35**.
 
 **AND EVERY NEW SCENARIO WAS PROVED TO DISCRIMINATE, IN THE SERVED APP.** A
 green run means nothing until you have seen it go red for the right reason:
@@ -103,6 +121,7 @@ green run means nothing until you have seen it go red for the right reason:
 | `applyFeed` replaces the store unconditionally (pre-K1) | **37/38** — "a read captured before the serve does not put the ticket back" fails with `cards=1` |
 | the board's detached-operation strip removed (pre-K2) | **35/38** — the lost cancellation's warning is gone, and the two recovery checks report themselves unreachable |
 | `behindKnownRevision` returns false (pre-R1a) | **43/44** — "a later read carrying an earlier snapshot does not reopen the ticket" fails with `cards=1` |
+| `mergeState` stops filtering `_completed` on a terminal non-served state (pre-M1) | **51/53** — the cancelled order stays on Completed (`cards=1`) and its notice stays on that card (`strip entries=0`). The two conditional strip sub-checks do not run, which is why the total moves as well as the count |
 
 The first attempt at that verification is worth recording, because it produced a
 FALSE GREEN twice. Neutralising the per-ticket membership rule alone still
