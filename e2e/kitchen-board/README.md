@@ -44,11 +44,17 @@ not a new end-to-end platform.
 | **and its reason survives its card, in the detached strip** | read off the strip element, with dismissal offered and no retry |
 | neither board raised an uncaught error | |
 
-### Scenario 9 needs both of A's feeds frozen
+### Scenario 9 gates both of A's feeds BEFORE it changes the server state
 
-The board refreshes Completed on its own cadence, so an unheld poll removes the
-card for a reason that has nothing to do with the refusal — and the assertion
-would then pass against the defect. Both feeds are gated before the click. The
+The board refreshes Completed every three seconds, and `gateFeed` only
+intercepts requests issued after it is registered. Gating after the recall and
+the cancellation therefore left a real window: a refresh already in flight
+observes the recall, the order leaves the Completed feed, A's card goes, and the
+run **aborts at the click** without exercising the refusal at all — likelier the
+slower the machine. Found by Codex on #671 and reproduced by widening that
+window to 4s, where `locator.click` times out on a card that no longer exists.
+With the gates registered first the same 4s window is harmless. Both feeds are
+gated before anything mutates. The
 server checks OPERABILITY before the precondition, so a cancelled order answers
 `order_cancelled` whatever revision was supplied; that is what makes this an M1
 case rather than an ordinary stale-precondition one, and the run asserts the

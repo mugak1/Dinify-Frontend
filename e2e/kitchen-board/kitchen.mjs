@@ -724,6 +724,21 @@ async function main() {
               async () => (await card5.count()) === 1);
   const staleRevision = rev5;
 
+  // FREEZE BOTH OF A'S FEEDS BEFORE ANYTHING CHANGES THE SERVER STATE.
+  //
+  // `gateFeed` only intercepts requests issued AFTER it is registered, and the
+  // board refreshes Completed every three seconds — so with the gates installed
+  // after the two mutations below, a refresh already in flight could observe the
+  // recall (which takes the order off the Completed feed) and remove A's card
+  // before its Recall button is ever clicked. The run then aborts at the click
+  // without exercising the refusal path at all: not a false pass, but a scenario
+  // that quietly stops testing what it is named for, and one that gets likelier
+  // the slower the machine. Registering first makes the window structural rather
+  // than a bet on local latency.
+  const frozenActive = await gateFeed(deviceA.page, '**/kitchen/orders/active/**');
+  const frozenCompleted =
+    await gateFeed(deviceA.page, '**/kitchen/orders/completed/**');
+
   // B recalls it, then a manager cancels it. Both through the real contract.
   const recalled = await operator(
     `/api/v1/kitchen/orders/${fifth.id}/fulfilment-status/`,
@@ -742,13 +757,6 @@ async function main() {
         managerCancel.status === 200
         && managerCancel.body?.data?.order_status === 'cancelled',
         `${managerCancel.status} ${managerCancel.body?.data?.order_status}`);
-
-  // FREEZE BOTH OF A'S FEEDS before the click. The board refreshes Completed on
-  // its own cadence, so an unheld poll would remove the card for an unrelated
-  // reason and the assertion would pass without the fix.
-  const frozenActive = await gateFeed(deviceA.page, '**/kitchen/orders/active/**');
-  const frozenCompleted =
-    await gateFeed(deviceA.page, '**/kitchen/orders/completed/**');
 
   const refusal = commandReply(deviceA.page);
   await card5.getByRole('button', { name: 'Recall' }).click();
