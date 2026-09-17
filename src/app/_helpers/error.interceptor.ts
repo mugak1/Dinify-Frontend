@@ -151,7 +151,18 @@ export class ErrorInterceptor implements HttpInterceptor {
                 // exactly the brittleness the reason code exists to remove).
                 // The message is still surfaced — by the component, inline at
                 // the checkout footer, so the diner sees one message, not two.
-                if (request.url.includes('orders/submit') && err.status === 400
+                //
+                // D06 EXTENDED IT TO `orders/retire-quote/` AND TO 409, and
+                // both halves matter. That route answers with the SAME refusal
+                // vocabulary — an already-accepted order above all — and the
+                // coordinator's shared transition branches on exactly those
+                // codes; flattened to a sentence it would classify every one of
+                // them as `unknown` and the client would neither re-price nor
+                // retry. The 409 is the already-accepted conflict, which is the
+                // one answer that must never be re-sent.
+                if ((request.url.includes('orders/submit')
+                     || request.url.includes('orders/retire-quote'))
+                    && (err.status === 400 || err.status === 409)
                     && typeof err.error?.reason === 'string') {
                     return throwError(() => err.error);
                 }
@@ -201,6 +212,7 @@ export class ErrorInterceptor implements HttpInterceptor {
         return request.url.includes('orders/journey/')   // show-menu, table-scan, order-details
             || request.url.includes('orders/initiate/')
             || request.url.includes('orders/submit/')
+            || request.url.includes('orders/retire-quote/')  // D06 quote renewal
             || request.url.includes('reviews/submit/');  // diner order-complete review
     }
 

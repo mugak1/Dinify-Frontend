@@ -47,6 +47,13 @@ export const SESSION_ROUTES: readonly DinerRoute[] = [
   { method: 'GET', path: '/api/v1/orders/journey/payment-details/', capability: 'session' },
   { method: 'POST', path: '/api/v2/orders/initiate/', capability: 'session' },
   { method: 'PUT', path: '/api/v1/orders/submit/', capability: 'session' },
+  // D06. It acts on ONE diner's saved draft, under the same authority as
+  // `submit` — the table session bound to that order's table — so it carries
+  // the same header. Without this entry the classifier fails CLOSED and the
+  // route is called with no session at all, which the backend answers as an
+  // unauthenticated caller rather than as a diner: the feature would look
+  // broken for a reason nothing in the request says.
+  { method: 'PUT', path: '/api/v1/orders/retire-quote/', capability: 'session' },
   { method: 'POST', path: '/api/v1/reviews/submit/', capability: 'session' },
 ];
 

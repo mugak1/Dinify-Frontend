@@ -361,13 +361,16 @@ describe('Closure §14 — cross-repo contract parity', () => {
     expect(CREDENTIAL_ROUTE.path).toBe('/api/v1/orders/journey/table-scan/');
     expect(classifyDinerCapabilityRequest('GET', scanUrl, API)).toBe('credential');
 
-    // Exactly the five agreed session-gated routes, each classified as 'session' by the
+    // Exactly the six agreed session-gated routes, each classified as 'session' by the
     // real first-party classifier (exact origin/base + method + path — no substring match).
+    // `retire-quote` joined them with D06: it acts on one diner's saved draft under the
+    // same authority as `submit`, so it carries the same header and no other.
     expect(SESSION_ROUTES.map(r => `${r.method} ${r.path}`)).toEqual([
       'GET /api/v1/orders/journey/order-details/',
       'GET /api/v1/orders/journey/payment-details/',
       'POST /api/v2/orders/initiate/',
       'PUT /api/v1/orders/submit/',
+      'PUT /api/v1/orders/retire-quote/',
       'POST /api/v1/reviews/submit/',
     ]);
     for (const route of SESSION_ROUTES) {

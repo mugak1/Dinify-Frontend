@@ -9,6 +9,10 @@ import {
   CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, acceptanceVerdict,
   correlationPromised, protocolLevel, readCorrelation,
 } from 'src/app/_shared/order/checkout-correlation';
+import {
+  QuoteRefusal,
+  readQuoteRefusal,
+} from 'src/app/_shared/order/quote-transition';
 
 /**
  * D04 — ONE owner of the in-progress checkout, shared by every surface that
@@ -674,6 +678,62 @@ export class CheckoutCoordinatorService {
     } catch {
       /* a storage that refuses to erase is not a reason to fail a checkout */
     }
+  }
+
+  // -- the D06 quote transition ------------------------------------------
+
+  /**
+   * THE ONE PLACE A QUOTE REFUSAL MOVES CHECKOUT STATE.
+   *
+   * Both basket mounts hand every refusal here rather than each matching
+   * reason codes at the point it arrives, so the routed page and the desktop
+   * sidebar cannot reach different conclusions about the same answer — which
+   * is exactly what "which component am I looking at" bugs are made of.
+   *
+   * WHAT IT DOES, PER DISPOSITION, and why each is what it is:
+   *
+   *   TRANSIENT  nothing. The restaurant paused or the table went out of
+   *              service; the quote survives, the key survives, and the SAME
+   *              attempt may succeed in a minute. Settling the command here
+   *              would let the diner start a second checkout for a purchase
+   *              the server has not refused.
+   *
+   *   TERMINAL   settle the command and KEEP the key. The server has recorded
+   *              that this quote may never be accepted, so the issued command
+   *              is definitively dead and holding it outstanding would strand
+   *              the diner: `reserveIntent` would answer `outstanding` and
+   *              Retry would replay a command the server has already refused.
+   *              The KEY stays because the basket is unchanged and this is
+   *              still the same purchase — a fresh key would turn one attempt
+   *              into two orders, which is what the key exists to prevent.
+   *
+   *   REPRICE    the same, and deliberately so. The server did not retire the
+   *              quote, but it did refuse THIS command definitively, and the
+   *              client's next step is identical. They are separate words
+   *              because what may be SAID differs, not what must be done.
+   *
+   *   UNKNOWN    nothing, and that is the safe direction. A reason this build
+   *              has never heard of must not be guessed into a bucket: a newer
+   *              server is entitled to add one, and settling on it would
+   *              discard a command that may still be live.
+   *
+   * IT IS NOT A WAY AROUND THE NOT-FOUND RULE. Every disposition it acts on
+   * comes from a refusal the server STATED about this exact command; a
+   * timeout, a lost response or an unreachable server produces no refusal
+   * body, so `readQuoteRefusal` returns null and this returns null with it.
+   */
+  applyQuoteRefusal(error: unknown): QuoteRefusal | null {
+    const refusal = readQuoteRefusal(error);
+    if (!refusal) return null;
+    if (refusal.disposition === 'terminal' || refusal.disposition === 'reprice') {
+      // A FAILED DURABLE WRITE IS HONOURED: re-pricing on top of a record that
+      // still names an unsettled command would leave one nobody resolves, so
+      // the caller is told and must not send anything.
+      if (!this.settleRefusedCommand()) {
+        return { ...refusal, disposition: 'unknown' };
+      }
+    }
+    return refusal;
   }
 
   // -- the single flight -------------------------------------------------

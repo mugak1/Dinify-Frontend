@@ -517,6 +517,118 @@ const main = async () => {
     await page.close();
   }
 
+  // ══ D06. THE WORLD CHANGES WHILE THE REVIEW SHEET IS OPEN ══════════════
+  //
+  // The two cases that separate a TRANSIENT refusal from a TERMINAL one, and
+  // the reason no unit spec can settle them: each needs a REAL operator write
+  // landing between the diner pricing an order and confirming it, and then the
+  // real server deciding. What is being checked is not the message — it is
+  // whether the diner's QUOTE SURVIVES, and whether exactly one order reaches
+  // the kitchen either way.
+
+  console.log('\n=== D06a. the restaurant pauses while the diner reads the quote ===');
+  {
+    await clearTheBoard();
+    const { page, state } = await openTab();
+    await buildBasket(page);
+    const place = await openReview(page);
+    const keyBefore = state.keys[0];
+
+    // A REAL pause through the real operator write — the same PUT the owner's
+    // settings screen issues.
+    const paused = await op('/api/v1/restaurant-setup/restaurants/', {
+      method: 'PUT',
+      body: JSON.stringify({ id: F.restaurant, accepting_orders: false }),
+    });
+    check('the pause was really written', paused.status === 200,
+          `status=${paused.status}`);
+
+    await place.click();
+    await page.waitForFunction(
+      () => !!document.body.textContent
+            && !/Placing/.test(document.body.textContent),
+      null, { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(500);
+
+    check('the paused restaurant refuses the acceptance',
+          (await activeTickets()).length === 0,
+          'nothing may reach the kitchen after trading stopped');
+
+    // THE QUOTE MUST SURVIVE. A pause is TRANSIENT: re-pricing here would
+    // discard a perfectly good quote and ask the diner to agree to the same
+    // amount again, while the kitchen is closed.
+    const stored = await page.evaluate(() =>
+      sessionStorage.getItem('[dinify]diner.checkout.attempt'));
+    check('the checkout attempt survives the pause',
+          stored !== null, `stored=${stored}`);
+
+    // The owner resumes, and the diner taps again — the SAME key, and one order.
+    await op('/api/v1/restaurant-setup/restaurants/', {
+      method: 'PUT',
+      body: JSON.stringify({ id: F.restaurant, accepting_orders: true }),
+    });
+    const retry = page.getByRole('button', { name: /Retry|Checkout —/ }).first();
+    await retry.waitFor({ state: 'visible', timeout: 20000 });
+    await retry.click();
+    const place2 = page.getByRole('button', { name: /Place order/ }).first();
+    await place2.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
+    if (await place2.isVisible().catch(() => false)) await place2.click();
+    await page.waitForURL(/order-complete/, { timeout: 20000 }).catch(() => {});
+
+    check('the resumed attempt reuses the SAME idempotency key',
+          state.keys.every((k) => k === keyBefore),
+          `keys=${JSON.stringify(state.keys)}`);
+    check('exactly ONE order reaches the kitchen once trading resumes',
+          (await activeTickets()).length === 1);
+    check('the pause raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
+  console.log('\n=== D06b. the dish sells out while the diner reads the quote ===');
+  {
+    await clearTheBoard();
+    const { page, state } = await openTab();
+    await buildBasket(page);
+    const place = await openReview(page);
+
+    // A REAL sold-out toggle through the kitchen's own "86" panel.
+    const soldOut = await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
+      method: 'PUT', body: JSON.stringify({ in_stock: false }),
+    });
+    check('the dish was really taken off', soldOut.status === 200,
+          `status=${soldOut.status}`);
+
+    await place.click();
+    await page.waitForFunction(
+      () => !!document.body.textContent
+            && !/Placing/.test(document.body.textContent),
+      null, { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(500);
+
+    check('the changed purchase refuses the acceptance',
+          (await activeTickets()).length === 0,
+          'the kitchen must not be sent a dish nobody agreed to');
+
+    // TERMINAL, so the server RECORDED it — and the record is what makes a
+    // replacement quote safe. Bringing the dish back must NOT resurrect the
+    // old quote: a queued acceptance for it can never execute afterwards.
+    await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
+      method: 'PUT', body: JSON.stringify({ in_stock: true }),
+    });
+    await page.waitForTimeout(500);
+    check('the retired quote is not resurrected by the dish coming back',
+          (await activeTickets()).length === 0);
+
+    check('the client re-priced rather than offering a dead Retry',
+          state.keys.length >= 2
+          && state.keys.every((k) => k === state.keys[0]),
+          `keys=${JSON.stringify(state.keys)}`);
+    check('the sold-out interleaving raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
   await browser.close();
   console.log(`\n${passed}/${passed + failed} induced-loss checks passed`);
   console.log('This is a MANUAL repeatable run against disposable fixtures '

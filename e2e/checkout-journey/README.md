@@ -278,3 +278,38 @@ basket is now empty"*) as well as by scenario 3 here.
   `orders_app/tests_order_intent_concurrency.py`.
 - **Anything about payment.** As with the journey: there is no payment execution
   in either repository.
+
+
+## D06 — the world changes while the review sheet is open
+
+`recovery.mjs` carries two more scenarios, and they are here rather than in a
+unit spec because each one needs a REAL operator write landing between the
+diner pricing an order and confirming it, and then the real server deciding.
+
+**D06a — the restaurant pauses.** The owner's own settings PUT sets
+`accepting_orders=false` while the sheet is up. The acceptance is refused,
+nothing reaches the kitchen, and — the assertion that matters — **the diner's
+checkout attempt SURVIVES**: a pause is TRANSIENT, so re-pricing there would
+discard a perfectly good quote and ask the diner to agree to the same amount
+again while the kitchen is closed. The owner resumes, the diner taps again, the
+SAME idempotency key goes out, and exactly one order lands.
+
+**D06b — the dish sells out.** The kitchen's own "86" panel takes the burger
+off while the sheet is up. The acceptance is refused and the client re-prices
+rather than offering a Retry that could never succeed. Then the dish comes
+BACK, and the old quote stays dead — which is the whole reason the refusal is
+recorded rather than merely returned: stock is not monotone, and without the
+durable closure a queued acceptance for the old quote would execute the moment
+the dish returned.
+
+**NOT RUN AS PART OF ANY GATE**, like everything else in this directory: it
+needs a disposable PostgreSQL, a running Django and a running dev server. Run
+it the same way, against a FRESH database.
+
+**These two scenarios have NOT been executed** — they were written alongside the
+D06 change and are recorded here as a repeatable check, not as evidence. The
+unit and integration suites that DID run are `orders_app/tests_quote_lifetime.py`
+(64 tests, each guard mutation-proved), `restaurants_app/tests_admission_writers.py`
+(9 tests, both writer fixes mutation-proved) and the frontend's
+`_shared/order/quote-transition.spec.ts` plus
+`basket-body.quote-lifetime.spec.ts`.
