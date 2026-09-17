@@ -67,6 +67,73 @@ so keep it current when conventions change.
   `app-savings-indicator`, see Shared UI Component Library) fed from the canonical
   server-truth `discount_details`, replacing the per-surface hand-rolled
   strikethrough / badge markup
+- A QUOTE HAS A LIFETIME, AND THE CLIENT NEVER DECIDES IT IS DEAD (D06): ✅ the
+  server now enforces when a saved draft may still become an accepted order, and
+  this client's whole job is to carry that honestly. Paired backend: `orders_app`
+  D06 / `BREAKING_CHANGES.md` §16.
+  **ONE VOCABULARY, IN ONE PLACE** — `_shared/order/quote-transition.ts`. The
+  distinction it exists for is TRANSIENT vs TERMINAL, and it is not a nicety: a
+  restaurant that paused or a table taken out of service leaves the quote ALIVE,
+  so re-pricing there would throw away a perfectly good quote and ask the diner to
+  agree to the same amount again while the kitchen is closed; an expired quote or
+  a changed purchase has been RECORDED by the server as finished, so offering
+  Retry is a dead end — the command has already been refused and can never be
+  accepted. Before this the basket matched two codes by hand
+  (`reason === 'legacy_pricing_version'`, `reason === 'quote_ref_stale'`) in a
+  component that is MOUNTED TWICE on desktop, which is exactly how two mounts end
+  up disagreeing about whether a quote is finished. **A fourth answer is
+  `unknown`, and it is a real answer rather than a parse failure**: a newer server
+  may add a reason, and guessing it transient loops a dead quote while guessing it
+  terminal discards a live one. `retired` is READ from the closure the server
+  recorded, never inferred from the disposition — `quote_unverifiable` needs a
+  fresh quote and retires nothing.
+  **THE STATE MOVE LIVES IN THE COORDINATOR** (`applyQuoteRefusal`), so both
+  mounts make it identically: TERMINAL and REPRICE settle the issued command and
+  **KEEP THE KEY** (the basket is unchanged, so it is still the same purchase, and
+  a fresh key would turn one attempt into two orders), TRANSIENT and UNKNOWN move
+  nothing. A failed durable settle downgrades to `unknown` rather than licensing a
+  re-price on a record that still names an unsettled command.
+  **THE CLIENT ASKS THE SERVER RATHER THAN DECIDING.** `order_details.quote_policy`
+  publishes a DEADLINE, and it is ADVISORY: the server samples its clock after its
+  locks and that decision is the one that counts, so concluding "expired" from this
+  device's clock would be wrong on any skew. When the deadline has passed here,
+  `confirmQuote` calls **`PUT orders/retire-quote/`** — which answers
+  `quote_still_valid` (submit as the diner asked), `quote_closed` (re-price) or
+  anything else (surface a Retry; a round trip that did not answer is not an
+  answer, and must never become permission to submit). Attempting an acceptance to
+  find out is the wrong alternative: when the quote is fine it SUCCEEDS, claiming a
+  table and sending food to a kitchen in order to ask a question.
+  **THE DEADLINE IS GATED ON `quote_protocol`, NOT ON THE OBJECT'S PRESENCE.** The
+  level is the promise and the object is data; an absent level is 0, and 0 does NOT
+  mean "quotes never expire here" — it means the server has not said. **It is a
+  SEPARATE level from `checkout_protocol`, which stays 3 and is untouched**: one
+  answers "can an uncertain checkout be retried and recovered", the other "may this
+  quote still be accepted", and a client can want either without the other.
+  **`quoteRetired` CHANGES WHAT IS SAID, NEVER WHAT IS DONE** — the re-price is
+  identical for a terminal and a reprice refusal, and the notice is shown only when
+  the server really retired the quote, because "your order can no longer be placed"
+  is otherwise a claim nobody made. **AND IT IS READ, NOT INFERRED** (Codex P2 on
+  PR #673, valid): both component sites set it from `refusal.disposition ===
+  'terminal'`, which is a statement about the REASON, while the notice is a
+  statement about the server having RECORDED a closure — and `readQuoteRefusal`
+  keeps those apart on purpose (`retired: closure !== null`, absent AND unreadable
+  alike). They agree on the paired backend, where all three terminal reasons carry
+  `quote_closure`; the component must not be the thing that makes them agree, or a
+  response that carried no closure would still have the diner told one was written.
+  The two are settled from the SAME field on both paths — the submit failure and
+  the `retire-quote` enquiry's error handler — and the third site, the enquiry's
+  200 `quote_closed`, stays a literal `true` deliberately: there is no refusal
+  object there, the SERVER stated the outcome, and the route claims that word only
+  when it actually wrote or found a closure. It is cleared by a DELIBERATE Checkout press
+  (`initiateOrder`) and not by `placeOrder`, which is the re-price itself and would
+  erase the notice before the sheet meant to carry it had rendered.
+  `ErrorInterceptor` forwards the structured body for `orders/retire-quote/` as it
+  already does for `orders/submit/`, **and now for 409 as well as 400** — the
+  already-accepted conflict is the one answer that must never be re-sent, and
+  flattened to a sentence it would classify as `unknown`. The route is on the diner
+  capability allowlist in `_security/diner-capability-contract.ts` (six routes now);
+  that classifier fails CLOSED, so a missing entry does not degrade — the call goes
+  out with no session and the backend answers it as an unauthenticated caller
 - Checkout confirmation is the SERVER's quote (D02/D03): ✅ **the diner now confirms
   the amount the server saved, never one this browser computed.** The pre-pricing
   "are you sure?" dialog is GONE — it asked about a number the client produced, and

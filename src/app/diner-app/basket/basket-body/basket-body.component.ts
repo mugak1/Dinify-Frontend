@@ -14,6 +14,10 @@ import {
   CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, acceptanceVerdict,
   correlationPromised, currentDisposition, protocolLevel, readCorrelation,
 } from 'src/app/_shared/order/checkout-correlation';
+import {
+  quoteDeadlinePassed,
+  readPublishedPolicy,
+} from 'src/app/_shared/order/quote-transition';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -82,6 +86,18 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     { ref: string | null; revision: number; context: string } | null = null;
   /** Set when the server refused a draft priced before the pricing correction. */
   legacyDraft = false;
+
+  /**
+   * Set when the server has RECORDED that the last reviewed quote may never be
+   * accepted (D06 — expired, or the purchase changed).
+   *
+   * It exists to change what the diner is TOLD, never what happens: the
+   * re-price is identical to the one a `quote_ref_stale` triggers. Saying "your
+   * order was placed a while ago, so we have re-checked the prices" is accurate
+   * only when the server really retired the quote; saying it for a refusal that
+   * retired nothing would be a claim nobody made.
+   */
+  quoteRetired = false;
 
   /** Inline placement-error state, shown with a Retry at the checkout footer. */
   orderError = false;
@@ -793,6 +809,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * the server's: this replaces a dialog rather than adding a second one.
    */
   initiateOrder() {
+    // A DELIBERATE PRESS CLEARS THE RETIRED NOTICE, and `placeOrder` does not.
+    // The re-price that follows a retirement goes through `placeOrder`, so
+    // resetting it there would erase the notice before the new review sheet
+    // that is meant to carry it has rendered. This is the diner starting a
+    // checkout of their own accord, which is when the previous quote's fate
+    // stops being news.
+    this.quoteRetired = false;
     // Hard stop: the table already has an order in the kitchen. The CTA is
     // disabled in this state, so this is just defense in depth.
     if (this.tableHasOngoingOrder) return;
@@ -1655,7 +1678,118 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // between owns the checkout, and this confirmation waits rather than
     // racing it.
     if (!this.holdCheckout()) return;
+    // D06. THE DEADLINE HAS PASSED ON THIS DEVICE — SO ASK THE SERVER, DO NOT
+    // DECIDE. The published `expires_at` is advisory: the server samples its
+    // clock after its locks and that decision is the one that counts, so a
+    // client concluding "expired" from its own clock would be wrong on any
+    // skew and would discard a quote the server would still honour.
+    // `retire-quote` is how the question is asked without attempting an
+    // acceptance — which, when the quote turns out to be fine, SUCCEEDS,
+    // claiming a table and sending food to a kitchen in order to find out.
+    if (this.quoteDeadlineHasPassed()) {
+      this.renewQuote();
+      return;
+    }
     this.submitOrder();
+  }
+
+  /** Has the server's published deadline for the reviewed quote passed here?
+   *
+   *  `false` whenever the server has not published one — an older server, or a
+   *  quote whose age it could not establish. Absence is not evidence. */
+  private quoteDeadlineHasPassed(): boolean {
+    return quoteDeadlinePassed(
+      readPublishedPolicy(this.order_initiated?.order_details), Date.now());
+  }
+
+  /**
+   * Ask the server whether the reviewed quote can still be honoured, and act on
+   * its answer rather than on this device's clock.
+   *
+   * THREE ANSWERS, AND ONLY ONE OF THEM IS "IT IS DEAD":
+   *
+   *   quote_still_valid   the clock here was ahead. Submit exactly as the
+   *                       diner asked; nothing was written and nothing about
+   *                       the quote changed.
+   *   quote_closed /      the server retired it. Re-price the UNCHANGED basket
+   *   already_closed      and review again; the key is kept, because this is
+   *                       still the same purchase.
+   *   anything else       treated as a failed placement and surfaced with a
+   *                       Retry. It is NOT read as "the quote is fine" — a
+   *                       round trip that did not answer is not an answer.
+   *
+   * The response is bounded like every other checkout round trip, and a
+   * timeout takes the last branch: an enquiry that never landed says nothing
+   * about the quote, and must never be turned into permission to submit.
+   */
+  private renewQuote(): void {
+    const orderId = this.order_initiated?.order_details?.id;
+    const quoteReference = this.reviewedQuote?.ref ?? null;
+    if (orderId == null || !quoteReference) {
+      // Nothing to name, so nothing to ask about. Fall through to the ordinary
+      // submission, which refuses on its own terms rather than guessing here.
+      this.submitOrder();
+      return;
+    }
+    const issued = this.attemptSeq;
+
+    this.checkout.bounded(
+      this.api.postPatch(
+        'orders/retire-quote/',
+        { order: orderId, quote_ref: quoteReference },
+        'put',
+      ),
+    ).subscribe(
+      (response: any) => {
+        if (issued !== this.attemptSeq) return;   // the diner moved on
+        const outcome = response?.outcome;
+        if (outcome === 'quote_still_valid') {
+          this.submitOrder();
+          return;
+        }
+        if (outcome === 'quote_closed' || outcome === 'quote_already_closed') {
+          this.showQuoteSheet = false;
+          this.reviewedQuote = null;
+          // Also a READ rather than an inference, though it does not go
+          // through `QuoteRefusal`: this is a 200 in which the SERVER stated
+          // the outcome, and the retire route claims that word only when it
+          // actually wrote (or found) a closure. There is no refusal object
+          // on this path, so do not "align" it with `refusal.retired`.
+          this.quoteRetired = true;
+          this.toast.clear();
+          this.placeOrder();
+          return;
+        }
+        // An answer this build cannot read. The quote is not known to be dead
+        // and is not known to be good, so nothing is submitted and nothing is
+        // discarded.
+        this.showQuoteSheet = false;
+        this.failOrder(this.placementErrorMessage(response));
+      },
+      (error) => {
+        if (issued !== this.attemptSeq) return;
+        this.showQuoteSheet = false;
+        if (this.dinerSession.isCredentialDenied(error)) {
+          this.dinerSession.invalidateCredential();
+          this.toast.clear();
+          this.releaseCheckout();
+          return;
+        }
+        if (this.dinerSession.isSessionExpired(error)) {
+          this.dinerSession.expireSession();
+        }
+        // A refusal here carries the same vocabulary a submission's does —
+        // an already-accepted order above all, which is not a failure of
+        // anything and must not be re-sent.
+        const refusal = this.checkout.applyQuoteRefusal(error);
+        // READ, never inferred from the disposition — `QuoteRefusal.retired`
+        // is true only when the server actually sent a closure this build
+        // could read. A terminal reason whose closure object is absent or
+        // unreadable must not produce a notice claiming one was recorded.
+        this.quoteRetired = refusal?.retired === true;
+        this.failOrder(this.placementErrorMessage(error));
+      },
+    );
   }
 
   /** Diner backed out — return to the basket unchanged (no submit, no basket mutation).
@@ -1845,67 +1979,100 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.releaseCheckout();
         this.order_initiated = undefined;
       },
-      (error) => {
-        // The acceptance resolved, so the review sheet stops being the lock:
-        // every branch below either explains itself at the checkout footer or
-        // re-prices, and both need the basket back.
-        this.showQuoteSheet = false;
-        this.dialog.closeModal();
-        // A table-session failure can still surface here if the session lapsed
-        // between initiate and submit — route it the same way as placeOrder().
-        if (this.dinerSession.isCredentialDenied(error)) {
-          this.dinerSession.invalidateCredential();
-          this.toast.clear();
-          this.releaseCheckout();
-          return;
-        }
-        if (this.dinerSession.isSessionExpired(error)) {
-          this.dinerSession.expireSession();
-        }
-        // The server refused the draft because it was priced by the previous
-        // calculation. Offer an explicit re-review rather than retrying the
-        // same acceptance, which can only fail the same way.
-        if (this.refusalReason(error) === 'legacy_pricing_version') {
-          this.legacyDraft = true;
-          this.toast.clear();
-          this.releaseCheckout();
-          return;
-        }
-        // The saved quote moved under us. Re-price and review again; the basket
-        // is untouched and the idempotency key is deliberately NOT re-minted.
-        //
-        // THE REFUSED COMMAND IS SETTLED FIRST, AND WITHOUT THAT THE REPRICE
-        // NEVER HAPPENS. `noteCommand` has already recorded this checkout as
-        // `accepting`, so `reserveIntent` answers `outstanding` and
-        // `placeOrder` refuses to start anything — the branch promised a new
-        // quote and delivered a dead end, with Retry re-sending the very
-        // command the server has just refused. `quote_ref_stale` is
-        // DEFINITIVE (the server re-read the order under its lock and the
-        // reference does not match), so there is no outstanding acceptance to
-        // protect; the KEY is kept, because the basket is unchanged and this
-        // is the same purchase.
-        if (this.refusalReason(error) === 'quote_ref_stale') {
-          this.toast.clear();
-          this.reviewedQuote = null;
-          if (!this.checkout.settleRefusedCommand()) {
-            // The settle is a required durable write: repricing on top of a
-            // record that still names an unsettled command would leave one
-            // nobody resolves. Nothing is sent.
-            this.failOrder(
-              "We couldn't save your checkout on this device, so we haven't "
-              + 'placed the order. Please try again.');
-            return;
-          }
-          this.placeOrder();
-          return;
-        }
-        // submit/ otherwise only runs after a successful initiate/, which already
-        // passed the table-gate — so it can't carry the ongoing-order 400 (that's
-        // handled in placeOrder()). Any remaining failure is genuine: surface the
-        // backend message inline + Retry at the footer.
-        this.failOrder(this.placementErrorMessage(error));
-      }
+      (error) => this.handleSubmitFailure(error)
     );
+  }
+
+  /**
+   * THE ONE PLACE A FAILED ACCEPTANCE IS INTERPRETED.
+   *
+   * Extracted from the subscriber so it is reachable by name — this component
+   * is mounted TWICE on desktop and the interpretation must be identical on
+   * both, which is far easier to believe of a named method than of a closure
+   * nobody can call. It also makes the D06 dispositions testable without
+   * driving an HTTP round trip to produce each one.
+   */
+  private handleSubmitFailure(error: unknown): void {
+    // The acceptance resolved, so the review sheet stops being the lock:
+    // every branch below either explains itself at the checkout footer or
+    // re-prices, and both need the basket back.
+    this.showQuoteSheet = false;
+    this.dialog.closeModal();
+    // A table-session failure can still surface here if the session lapsed
+    // between initiate and submit — route it the same way as placeOrder().
+    if (this.dinerSession.isCredentialDenied(error)) {
+      this.dinerSession.invalidateCredential();
+      this.toast.clear();
+      this.releaseCheckout();
+      return;
+    }
+    if (this.dinerSession.isSessionExpired(error)) {
+      this.dinerSession.expireSession();
+    }
+    // The server refused the draft because it was priced by the previous
+    // calculation. Offer an explicit re-review rather than retrying the
+    // same acceptance, which can only fail the same way.
+    if (this.refusalReason(error) === 'legacy_pricing_version') {
+      this.legacyDraft = true;
+      this.toast.clear();
+      this.releaseCheckout();
+      return;
+    }
+    // EVERY QUOTE REFUSAL GOES THROUGH THE ONE SHARED TRANSITION (D06).
+    // This used to be a hand-written `reason === 'quote_ref_stale'` test
+    // beside the legacy one above, on a component that is mounted TWICE on
+    // desktop — which is precisely how two mounts end up disagreeing about
+    // whether a quote is finished. The coordinator owns the state move; the
+    // branches below own only what the diner is told.
+    const refusal = this.checkout.applyQuoteRefusal(error);
+    if (refusal) {
+      this.toast.clear();
+
+      if (refusal.disposition === 'transient') {
+        // THE QUOTE SURVIVES. The restaurant paused, or the table went out
+        // of service — the same attempt, with the same quote and the same
+        // key, may succeed shortly. Re-pricing here would throw away a
+        // perfectly good quote and ask the diner to agree to the same
+        // amount again, so the reviewed quote is deliberately KEPT and the
+        // server's own sentence is shown with a Retry.
+        this.quoteRetired = false;
+        this.failOrder(this.placementErrorMessage(error));
+        return;
+      }
+
+      if (refusal.disposition === 'terminal'
+          || refusal.disposition === 'reprice') {
+        this.reviewedQuote = null;
+        // `applyQuoteRefusal` downgrades to `unknown` when the durable
+        // settle fails, so reaching here means the record is consistent and
+        // a fresh quote may be requested. TERMINAL says the server RECORDED
+        // that this quote is finished; REPRICE says only that it refused
+        // this command. The action is the same and the sentence is not,
+        // which is why they are separate words.
+        //
+        // THE NOTICE IS READ, NOT INFERRED. It keys on `retired` — the
+        // server having sent a closure this build could read — rather than
+        // on the disposition, because the two can disagree: a terminal
+        // reason whose `quote_closure` is absent or malformed parses to
+        // `retired: false`, and showing the notice there would claim a
+        // closure the response never carried. The re-price below is
+        // unchanged either way; only the sentence moves.
+        this.quoteRetired = refusal.retired;
+        this.placeOrder();
+        return;
+      }
+
+      // UNKNOWN — including a refusal whose settle could not be written
+      // down. Nothing is re-sent and nothing is discarded: an outcome this
+      // build cannot classify must not be guessed into either bucket.
+      this.failOrder(this.placementErrorMessage(error));
+      return;
+    }
+    // submit/ otherwise only runs after a successful initiate/, which already
+    // passed the table-gate — so it can't carry the ongoing-order 400 (that's
+    // handled in placeOrder()). Any remaining failure is genuine: surface the
+    // backend message inline + Retry at the footer.
+    this.failOrder(this.placementErrorMessage(error));
   }
   /** True when a stored basket extra carries a discount (original > charged). */
   isExtraDiscounted(ex: any): boolean {

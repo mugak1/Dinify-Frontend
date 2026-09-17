@@ -361,6 +361,20 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
           {{ orderErrorMessage }}
         </p>
       }
+      <!-- D06. The server RECORDED that the quote just reviewed may never be
+      accepted — it expired, or something about the purchase changed — so a
+      fresh one is being prepared. Shown only for a retirement the server
+      actually stated: a refusal that retired nothing (a stale reference, a
+      quote whose age could not be established) re-prices in exactly the same
+      way and says nothing here, because claiming the old order "can no longer
+      be placed" would be a claim nobody made. The basket is untouched
+      throughout — only the quote is replaced. -->
+      @if (quoteRetired) {
+        <p class="mb-2 text-sm text-gray-600 text-center" role="status">
+          This order was priced a while ago, so we're checking today's prices
+          and availability. Nothing has been sent to the kitchen.
+        </p>
+      }
       <!-- AN UNRESOLVED CHECKOUT OFFERS RETRY, NOT CHECKOUT. Tapping
            Checkout with an acceptance outstanding is refused anyway (the
            record of the issued command is the only thing that can resolve

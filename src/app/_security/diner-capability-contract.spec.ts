@@ -41,12 +41,19 @@ describe('classifyDinerCapabilityRequest', () => {
       expect(CREDENTIAL_ROUTE.capability).toBe('credential');
     });
 
-    it('pins exactly the five session-gated routes', () => {
+    it('pins exactly the six session-gated routes', () => {
+      // `retire-quote` joined with D06. It acts on ONE diner's saved draft
+      // under the same authority as `submit` — the table session bound to that
+      // order's table — so it carries the same header and no other. The list is
+      // exhaustive on purpose: the classifier fails CLOSED, so a route missing
+      // from here is called with no session at all, and the backend answers it
+      // as an unauthenticated caller rather than as a diner.
       expect(SESSION_ROUTES.map(r => `${r.method} ${r.path}`)).toEqual([
         'GET /api/v1/orders/journey/order-details/',
         'GET /api/v1/orders/journey/payment-details/',
         'POST /api/v2/orders/initiate/',
         'PUT /api/v1/orders/submit/',
+        'PUT /api/v1/orders/retire-quote/',
         'POST /api/v1/reviews/submit/',
       ]);
       expect(SESSION_ROUTES.every(r => r.capability === 'session')).toBeTrue();
