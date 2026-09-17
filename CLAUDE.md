@@ -1204,9 +1204,9 @@ so keep it current when conventions change.
   carries are the eviction pressure — so this is NOT a claim about order volume,
   and at `MAX_KNOWN_ORDERS` exactly the entry a delayed Active read would have
   been refused by is the one released. `retirementCutoff` is the whole mechanism:
-  every release calls `retire(stamp)`, and `applyFeed` refuses a read that STARTED
-  before the highest retired stamp — whole and early, so membership, fields, the
-  protocol declaration and operation settlement all go together. **REFUSING IS THE
+  every release calls `retire()`, and `applyFeed` refuses a read that STARTED
+  before the boundary that release took — whole and early, so membership, fields,
+  the protocol declaration and operation settlement all go together. **REFUSING IS THE
   HALF TO GIVE UP, not retaining**: `loadCompleted` is subscribed bare by the
   board with NO timeout, so "the oldest read in flight" is not a quantity this
   client can bound, while the board keeping what it has for one poll cycle costs
@@ -1221,6 +1221,33 @@ so keep it current when conventions change.
   and `e2e/kitchen-board/` scenario 9 is M1's browser case — a real recall and a
   real manager cancellation on one device, both of A's feeds frozen so no later
   poll can hide the defect, asserted on the card and the strip.
+  **AND THE BOUNDARY IS THE RELEASE, NOT THE RECORD BEING RELEASED (M2b).** M2
+  retired the released entry's own `stamp` — the moment it was last WRITTEN — on
+  the reasoning that this named the reads it would have refused. It names half of
+  them, because a `knownById` entry is TWO protections and only one of them is
+  bounded by that stamp: the STAMP refuses a read that began before the write,
+  while the REVISION FLOOR refuses any row the server has already moved past,
+  **whenever the read carrying it began** — which is the entire reason R1 put the
+  floor beside the stamp rather than replacing it. So the interval
+  `entry write < held read's start < release` fell between the two: above the old
+  cutoff, with the floor that would have refused it now gone. Reached by an
+  ordinary two-device sequence — a Completed read observes a serve, another device
+  recalls inside the window, and one later Completed response of historical
+  service data both drops the order and supplies the eviction pressure — after
+  which an Active read that started BEFORE all of it was admitted at a revision
+  the server had left two commands ago. `retire()` now takes a FRESH stamp from
+  the same clock at the actual release, so every read issued before it is below
+  it whenever the thing it needed was recorded, and every read issued after is
+  above it. **A FRESH STAMP, NOT THE LAST ISSUED NUMBER**: a feed's stamp is taken
+  when its REQUEST STARTS, so a read begun after it can still be outstanding when
+  it lands and triggers the sweep — and with `seq < cutoff` a cutoff set to "the
+  last number issued" leaves exactly that read eligible. Pinned by its own spec,
+  and by a mutation that fails only it. **BOTH RELEASE SITES GET THE SAME
+  SEMANTICS** (entry eviction and tombstone-cap overflow) and neither fires on a
+  sweep that releases nothing — a mutation retiring on every sweep fails the new
+  no-op spec AND M2's own poll-in-flight control. Bounds, liveness classes and the
+  tombstone-forget rule are untouched; the cost is that one already-outstanding
+  feed may be discarded, and the next poll is the recovery.
   Both logout paths (`logout()` and `logoutDueToInactivity()`) now revoke the
   refresh token server-side before clearing state — a shared `revokeAndExit()`
   POSTs the refresh to `users/auth/logout/` (via `rawHttp` to dodge the error

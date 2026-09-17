@@ -133,12 +133,14 @@ const MAX_TOMBSTONES = 200;
 /**
  * How many orders to remember a stamp and revision floor for.
  *
- * Bounded for the same reason the tombstones are, and evicted under a rule that
- * CANNOT HAND AN OUTSTANDING OLD RESPONSE NEW AUTHORITY: only an id that is on
- * neither board and carries no operation is ever dropped, so the entry that a
- * stale row would have to clear is exactly the one that is never evicted. An id
- * we have genuinely finished with behaves like one never seen, which is what a
- * board that has moved on should do.
+ * Bounded for the same reason the tombstones are. AN OUTSTANDING OLD RESPONSE
+ * NEVER GAINS AUTHORITY FROM AN EVICTION, and it takes both halves of the rule
+ * to say so: only an id on neither board and carrying no operation is ever
+ * dropped, AND the drop itself retires every response already in flight (see
+ * `retire`). The liveness classes alone are not enough — an order we really
+ * have finished with is evictable while a read about it is still outstanding,
+ * which is exactly the case the boundary covers. An id past both is treated
+ * like one never seen, which is what a board that has moved on should do.
  */
 const MAX_KNOWN_ORDERS = 500;
 
@@ -317,11 +319,15 @@ export class KitchenOrderService {
    * volume: it is ordinary historical service data arriving while an Active
    * read is in flight.
    *
-   * RETIREMENT AND ELIGIBILITY NOW MOVE TOGETHER. An entry written at stamp `w`
-   * protected reads that STARTED BEFORE `w`; releasing it therefore retires
-   * those reads too, and this watermark is how they are refused. Refusing is
-   * the right half to give up: the board keeps what it has and the next poll —
-   * three seconds away, and started after the retirement — is authoritative.
+   * RETIREMENT AND ELIGIBILITY MOVE TOGETHER, AND THE BOUNDARY IS THE RELEASE
+   * ITSELF. It was once the released record's own stamp, on the reasoning that
+   * an entry written at `w` protected reads that started before `w`. That is
+   * true of the entry's STAMP and false of the entry as a whole: its REVISION
+   * FLOOR refuses any row the server has already moved past, whenever the read
+   * carrying it began. A read that started AFTER `w` and was still outstanding
+   * at the release fell between the two. Refusing is the right half to give up:
+   * the board keeps what it has and the next poll — three seconds away, and
+   * started after the retirement — is authoritative.
    * Retaining instead would have to be bounded by something, and there is
    * nothing honest to bound it by: `loadCompleted` is subscribed bare by the
    * board, with no timeout at all, so "the oldest read in flight" is not a
@@ -510,10 +516,9 @@ export class KitchenOrderService {
    *
    * WHAT IT DOES NOT PROMISE, stated rather than implied: the map is bounded,
    * so a fully settled order with no operation, on no board and past its
-   * tombstone is eventually forgotten, and after that a sufficiently delayed
-   * snapshot of it would be treated as new. That is bounded memory behaving as
-   * bounded memory, and the window it leaves is the few seconds a read can be
-   * in flight — every read carries an 8s timeout and every command a 15s one.
+   * tombstone is eventually forgotten, and a read ISSUED AFTER that would treat
+   * a stale snapshot of it as new. A read already in flight is not that case —
+   * the release retires it. That is bounded memory behaving as bounded memory.
    * Tests pin both halves: the protection, and the bound.
    */
   private evictKnown(): void {
@@ -523,13 +528,16 @@ export class KitchenOrderService {
       ...Object.keys(this._operations()),
       ...this.tombstones.keys(),
     ]);
+    let released = false;
     for (const id of [...this.knownById.keys()]) {
-      if (this.knownById.size <= MAX_KNOWN_ORDERS) return;
+      if (this.knownById.size <= MAX_KNOWN_ORDERS) break;
       if (live.has(id)) continue;
-      // Releasing this entry retires every read it would have refused.
-      this.retire(this.knownById.get(id)?.stamp ?? 0);
       this.knownById.delete(id);
+      released = true;
     }
+    // ONE BOUNDARY PER SWEEP, and only when something actually went: a poll
+    // under the cap releases nothing, so it must not retire anything either.
+    if (released) this.retire();
   }
 
   private rememberTombstone(id: string, stamp: number): void {
@@ -538,21 +546,47 @@ export class KitchenOrderService {
       // Oldest-first: Map preserves insertion order.
       const oldest = this.tombstones.keys().next();
       if (!oldest.done) {
-        this.retire(this.tombstones.get(oldest.value) ?? 0);
         this.tombstones.delete(oldest.value);
+        // The same release boundary the eviction site takes: this drop is a
+        // protection going, and the reads that may have needed it are the ones
+        // outstanding NOW, not the ones that predate the stamp it was filed at.
+        this.retire();
       }
     }
   }
 
   /**
-   * Release protection recorded at `stamp`, and retire the reads it protected.
+   * A protection has just been dropped: retire every response ALREADY IN FLIGHT.
    *
-   * Every caller is a point where bookkeeping is dropped. Raising the watermark
-   * in the same breath is what keeps the two answers — what we remember, and
-   * whose answers we accept — from drifting apart.
+   * THE BOUNDARY IS TAKEN NOW, NOT READ OFF THE RECORD BEING RELEASED. It used
+   * to be that record's own stamp — the moment it was last written — on the
+   * reasoning that this described the reads it would have refused. It describes
+   * only half of them, because a `knownById` entry is TWO protections:
+   *
+   *   * the STAMP refuses a read that began before that write, and its reach
+   *     really is bounded by the stamp;
+   *   * the REVISION FLOOR refuses any row the server has already moved past,
+   *     whenever the read carrying it began — local request order is not server
+   *     observation order, which is the entire reason R1 put the floor beside
+   *     the stamp rather than replacing it.
+   *
+   * So a read that STARTED AFTER the entry was written and was still in flight
+   * when it was released fell between the two: above the old cutoff, with the
+   * floor that would have refused it now gone. A fresh stamp from the same clock
+   * puts the boundary at the RELEASE instead, so every read issued before it is
+   * below it — whenever the thing it needed happened to be recorded — and every
+   * read issued after it is above it.
+   *
+   * MONOTONIC BY CONSTRUCTION, and that is what keeps recovery from freezing:
+   * `nextStamp` only climbs, so the cutoff only moves forward and a read issued
+   * after a retirement always carries a newer stamp than the retirement. The
+   * poll is never stopped and nothing needs a manual refresh; at worst one
+   * already-outstanding feed is discarded and the next one settles the board.
+   *
+   * CALLED ONLY ON AN ACTUAL RELEASE, never merely because a sweep ran.
    */
-  private retire(stamp: number): void {
-    if (stamp > this.retirementCutoff) this.retirementCutoff = stamp;
+  private retire(): void {
+    this.retirementCutoff = this.nextStamp();
   }
 
   /** Owner/manager at the active restaurant — the elevated-void gate (mirrors
