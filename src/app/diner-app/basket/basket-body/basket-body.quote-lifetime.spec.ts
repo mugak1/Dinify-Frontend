@@ -122,6 +122,24 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
     status: 400, message: `refused: ${reason}`, reason, ...over,
   });
 
+  /**
+   * The durable closure a D06 terminal refusal carries — key for key what
+   * `quote_closure.closure_projection` emits.
+   *
+   * IT IS SUPPLIED EXPLICITLY, never folded into `refusal()`, because whether
+   * one is present is the whole distinction under test below: the notice
+   * claims the server RECORDED that this quote is finished, and only this
+   * object says it did.
+   */
+  const closure = (reason: string) => ({
+    quote_closure: {
+      closed_at: '2026-09-17T10:00:00Z',
+      reason,
+      quote_ref: 'q1',
+      policy_version: 1,
+    },
+  });
+
   function footer(): string {
     fixture.detectChanges();
     return ((fixture.nativeElement as HTMLElement).textContent || '').trim();
@@ -208,15 +226,55 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
     });
 
     it('re-prices and says so on a terminal refusal', () => {
+      // The closure is what the paired backend sends with `quote_expired`
+      // (`_TerminalQuoteOutcome` builds the refusal from the row it just
+      // wrote), and it is what the notice is a statement about.
       const placed = spyOn(component as any, 'placeOrder').and.stub();
       withIssuedCommand();
 
-      (component as any).handleSubmitFailure(refusal('quote_expired'));
+      (component as any).handleSubmitFailure(
+        refusal('quote_expired', closure('quote_expired')));
 
       expect(component.quoteRetired).toBeTrue();
       expect((component as any).reviewedQuote).toBeNull();
       expect(placed).toHaveBeenCalled();
       expect(footer()).toContain("checking today's prices");
+    });
+
+    it('re-prices WITHOUT the retired claim when NO closure was recorded', () => {
+      // THE NOTICE IS READ, NOT INFERRED. `quote_expired` is terminal, so the
+      // re-price is identical — but the sentence asserts the server RECORDED a
+      // closure, and a response carrying none has not said that.
+      // `readQuoteRefusal` is explicit about it (`retired: closure !== null`),
+      // and the component must not be the thing that puts the two back in
+      // step by guessing.
+      const placed = spyOn(component as any, 'placeOrder').and.stub();
+      withIssuedCommand();
+
+      (component as any).handleSubmitFailure(refusal('quote_expired'));
+
+      expect(component.quoteRetired).toBeFalse();
+      // The ACTION is unchanged — only the sentence moves.
+      expect((component as any).reviewedQuote).toBeNull();
+      expect(placed).toHaveBeenCalled();
+      expect(footer()).not.toContain("checking today's prices");
+    });
+
+    it('treats an UNREADABLE closure exactly as an absent one', () => {
+      // A half-parsed closure is not evidence of a closure: `readClosure`
+      // requires all three of reason, quote_ref and an integer policy_version,
+      // so a projection this build cannot read yields `retired: false` — the
+      // same answer as omission, and the same absence of a claim.
+      const placed = spyOn(component as any, 'placeOrder').and.stub();
+      withIssuedCommand();
+
+      (component as any).handleSubmitFailure(refusal('quote_expired', {
+        quote_closure: { reason: 'quote_expired', quote_ref: 'q1' },
+      }));
+
+      expect(component.quoteRetired).toBeFalse();
+      expect(placed).toHaveBeenCalled();
+      expect(footer()).not.toContain("checking today's prices");
     });
 
     it('re-prices WITHOUT the retired claim on a reprice refusal', () => {
@@ -330,6 +388,42 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
 
       expect(submitted).not.toHaveBeenCalled();
       expect(component.orderError).toBeTrue();
+    });
+
+    it('claims no retirement the failed enquiry never recorded', () => {
+      // The enquiry's error handler reads `retired` for the same reason the
+      // submit handler does. A terminal REASON says this quote cannot be
+      // accepted; only a closure says the server wrote that down, and the
+      // notice is a statement about the writing.
+      //
+      // The command is issued so the settle SUCCEEDS and the disposition
+      // stays `terminal` — otherwise `applyQuoteRefusal` downgrades it to
+      // `unknown` and the assertion would hold for a reason that has nothing
+      // to do with the closure.
+      withIssuedCommand();
+      reviewing(past);
+      api.postPatch.and.returnValue(throwError(() => ({
+        status: 400, message: 'refused', reason: 'quote_expired',
+      })) as any);
+
+      component.confirmQuote();
+
+      expect(component.quoteRetired).toBeFalse();
+      expect(component.orderError).toBeTrue();
+    });
+
+    it('states one the enquiry DID record', () => {
+      // The control: same path, same disposition, closure present.
+      withIssuedCommand();
+      reviewing(past);
+      api.postPatch.and.returnValue(throwError(() => ({
+        status: 400, message: 'refused', reason: 'quote_expired',
+        ...closure('quote_expired'),
+      })) as any);
+
+      component.confirmQuote();
+
+      expect(component.quoteRetired).toBeTrue();
     });
 
     it('does NOT ask while the deadline has not passed', () => {

@@ -1750,6 +1750,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         if (outcome === 'quote_closed' || outcome === 'quote_already_closed') {
           this.showQuoteSheet = false;
           this.reviewedQuote = null;
+          // Also a READ rather than an inference, though it does not go
+          // through `QuoteRefusal`: this is a 200 in which the SERVER stated
+          // the outcome, and the retire route claims that word only when it
+          // actually wrote (or found) a closure. There is no refusal object
+          // on this path, so do not "align" it with `refusal.retired`.
           this.quoteRetired = true;
           this.toast.clear();
           this.placeOrder();
@@ -1777,7 +1782,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // an already-accepted order above all, which is not a failure of
         // anything and must not be re-sent.
         const refusal = this.checkout.applyQuoteRefusal(error);
-        this.quoteRetired = refusal?.disposition === 'terminal';
+        // READ, never inferred from the disposition — `QuoteRefusal.retired`
+        // is true only when the server actually sent a closure this build
+        // could read. A terminal reason whose closure object is absent or
+        // unreadable must not produce a notice claiming one was recorded.
+        this.quoteRetired = refusal?.retired === true;
         this.failOrder(this.placementErrorMessage(error));
       },
     );
@@ -2040,7 +2049,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // that this quote is finished; REPRICE says only that it refused
         // this command. The action is the same and the sentence is not,
         // which is why they are separate words.
-        this.quoteRetired = refusal.disposition === 'terminal';
+        //
+        // THE NOTICE IS READ, NOT INFERRED. It keys on `retired` — the
+        // server having sent a closure this build could read — rather than
+        // on the disposition, because the two can disagree: a terminal
+        // reason whose `quote_closure` is absent or malformed parses to
+        // `retired: false`, and showing the notice there would claim a
+        // closure the response never carried. The re-price below is
+        // unchanged either way; only the sentence moves.
+        this.quoteRetired = refusal.retired;
         this.placeOrder();
         return;
       }

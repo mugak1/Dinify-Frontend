@@ -112,7 +112,19 @@ so keep it current when conventions change.
   **`quoteRetired` CHANGES WHAT IS SAID, NEVER WHAT IS DONE** — the re-price is
   identical for a terminal and a reprice refusal, and the notice is shown only when
   the server really retired the quote, because "your order can no longer be placed"
-  is otherwise a claim nobody made. It is cleared by a DELIBERATE Checkout press
+  is otherwise a claim nobody made. **AND IT IS READ, NOT INFERRED** (Codex P2 on
+  PR #673, valid): both component sites set it from `refusal.disposition ===
+  'terminal'`, which is a statement about the REASON, while the notice is a
+  statement about the server having RECORDED a closure — and `readQuoteRefusal`
+  keeps those apart on purpose (`retired: closure !== null`, absent AND unreadable
+  alike). They agree on the paired backend, where all three terminal reasons carry
+  `quote_closure`; the component must not be the thing that makes them agree, or a
+  response that carried no closure would still have the diner told one was written.
+  The two are settled from the SAME field on both paths — the submit failure and
+  the `retire-quote` enquiry's error handler — and the third site, the enquiry's
+  200 `quote_closed`, stays a literal `true` deliberately: there is no refusal
+  object there, the SERVER stated the outcome, and the route claims that word only
+  when it actually wrote or found a closure. It is cleared by a DELIBERATE Checkout press
   (`initiateOrder`) and not by `placeOrder`, which is the re-price itself and would
   erase the notice before the sheet meant to carry it had rendered.
   `ErrorInterceptor` forwards the structured body for `orders/retire-quote/` as it
