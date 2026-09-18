@@ -134,6 +134,54 @@ so keep it current when conventions change.
   capability allowlist in `_security/diner-capability-contract.ts` (six routes now);
   that classifier fails CLOSED, so a missing entry does not degrade — the call goes
   out with no session and the backend answers it as an unauthenticated caller
+- **A CLOSED QUOTE PRODUCES ONE NEW ATTEMPT, WITH A NEW KEY (D06/G3b).** The
+  transition above settles the issued command and KEEPS the key on both a TERMINAL
+  and a REPRICE refusal — right for one of them and a dead end for the other, and
+  they arrive through the same branch. `quote_ref_stale` means the server re-read
+  the order and only the reference moved, so the same purchase must reuse its key.
+  A CLOSURE is different: the key is BOUND to the order the closure was written
+  against, so the re-price `initiate`s under it, D04 REPLAYS the same retired
+  draft, the review sheet renders a quote that can never be paid, submitting it is
+  refused identically, and the diner loops with no in-app escape.
+  **`CheckoutCoordinatorService.renewAfterClosure()` is the one primitive** that
+  ends it: ONE new persisted attempt carrying the SAME `request` and `scope` (the
+  basket has not changed — it is a new attempt at one purchase, not a new
+  purchase) under a NEW key, linked by `CheckoutRecord.replaces`. It never
+  reprices the old order and never deletes or contradicts the closure, which is a
+  server fact this client cannot write. **EXACTLY ONE SUCCESSOR**: both mounts can
+  hold the same refusal, so a caller may name the record it decided about and a
+  call naming one that is no longer current answers `superseded` — which the
+  component treats as SUCCESS, because another mount already did the thing it
+  wanted. **IT IS REFUSED WHILE AN ACCEPTANCE IS OUTSTANDING** — a renewal
+  abandons the key that is the only way to resolve an unsettled command, which is
+  exactly how a diner ends up with two orders — and the durable write is verified
+  before the key is returned, so a storage that silently drops it sends nothing.
+  **THE RECORD VERSION DELIBERATELY DOES NOT MOVE for `replaces`.** Bumping would
+  make every record this build writes `unsupported` to the previous one, and an
+  `unsupported` record BLOCKS — a rollback mid-checkout would strand a diner with
+  an order in flight, to protect a field that carries no guarantee (the
+  one-successor rule is enforced by comparing the CURRENT record, never by reading
+  `replaces`). An older build ignores the key and loses nothing it relied on.
+  **THE SECOND SITE IS THE ONE WITHOUT A REFUSAL.** `initiate` can hand back a
+  retired quote with no failure involved, because the key is bound to a purchase
+  and a replay returns whatever order it was used for — retired since by a refusal
+  whose response was lost, by the other mount, or by `retire-quote`. So the
+  initiate handler reads the response itself through `readPublishedClosure`, which
+  is **gated on `REQUIRED_CLOSURE_PROTOCOL` (2), a SEPARATE constant from
+  `REQUIRED_QUOTE_PROTOCOL` (1)**: a level-1 backend enforces the lifetime and
+  announces a closure only on the refusal, so an absent `quote_closure` on its
+  read says NOTHING and must never be read as "not closed" — folding the two
+  constants would also silently stop a level-1 server's deadline being consulted.
+  That reader is gated while `readQuoteRefusal`'s closure is NOT, and the
+  asymmetry is deliberate: a refusal is the direct answer to a command this client
+  issued, a read is a projection whose availability is what the level states.
+  The renewal there is **ONCE PER CHECKOUT EPISODE** (`renewedThisEpisode`, reset
+  by the deliberate `initiateOrder()` press and NOT by `placeOrder`, which is the
+  re-price itself) — a renewal that comes back closed again is a server
+  contradicting itself, and looping would be a client-driven order storm. Pinned
+  by `checkout-coordinator.renewal.spec.ts` (11) and
+  `basket-body.quote-renewal.spec.ts` (13); removing either wiring site fails
+  exactly 2, and ungating the closure reader fails the level control
 - Checkout confirmation is the SERVER's quote (D02/D03): ✅ **the diner now confirms
   the amount the server saved, never one this browser computed.** The pre-pricing
   "are you sure?" dialog is GONE — it asked about a number the client produced, and

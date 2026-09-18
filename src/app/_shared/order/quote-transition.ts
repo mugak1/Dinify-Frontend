@@ -44,6 +44,19 @@
 export const REQUIRED_QUOTE_PROTOCOL = 1;
 
 /**
+ * The level at which a server publishes a RETIRED quote on the order read
+ * (backend D06/G3a). Level 1 enforces the lifetime and retires quotes durably
+ * but announces a closure only on the refusal that created it — the one
+ * response a client can lose — so at level 1 an absent `quote_closure` on a
+ * read says NOTHING, and must never be read as "not closed".
+ *
+ * A SEPARATE CONSTANT FROM `REQUIRED_QUOTE_PROTOCOL`, not a bump of it: the
+ * deadline is still published at 1 and the client still consults it there.
+ * Folding the two would silently stop a level-1 server's deadline being read.
+ */
+export const REQUIRED_CLOSURE_PROTOCOL = 2;
+
+/**
  * TRANSIENT — the quote survives, and the SAME attempt may succeed later. Every
  * one of these is a statement about the restaurant or the table, never about
  * the purchase, so none of them retires anything.
@@ -190,6 +203,29 @@ export function readPublishedPolicy(orderDetails: any): QuotePolicy | null {
   const level = whole(orderDetails?.quote_protocol);
   if (level === null || level < REQUIRED_QUOTE_PROTOCOL) { return null; }
   return readQuotePolicy(orderDetails);
+}
+
+/**
+ * The closure a server has PUBLISHED for a saved quote, or `null`.
+ *
+ * GATED ON THE STATED LEVEL, like the deadline beside it, and for a sharper
+ * reason: this one is read as a VERDICT — it is what tells a client its key is
+ * bound to an order that can never be accepted, so the client mints a new one.
+ * An absent key from a server that has not said it publishes closures is
+ * silence, not a negative, and treating silence as "still good" is the safe
+ * direction: the client goes on using its key, and the server refuses the
+ * acceptance if the quote really is retired.
+ *
+ * DELIBERATELY NOT the same gate as `readQuoteRefusal`'s closure, which is
+ * UNGATED. That one arrives on the direct answer to a command the client
+ * issued — the server put it there, in response to this request — while this
+ * one is a projection on a read, whose availability is exactly what the level
+ * states.
+ */
+export function readPublishedClosure(orderDetails: any): QuoteClosure | null {
+  const level = whole(orderDetails?.quote_protocol);
+  if (level === null || level < REQUIRED_CLOSURE_PROTOCOL) { return null; }
+  return readClosure(orderDetails);
 }
 
 /**

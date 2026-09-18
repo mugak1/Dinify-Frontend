@@ -9,6 +9,7 @@ import { BasketService } from 'src/app/_services/basket.service';
 import {
   CheckoutCoordinatorService, CheckoutOwner, CheckoutRecord, FlightToken,
   IntentReservation, IssuedCommand, PURCHASE_CANON, RecoveryOutcome,
+  RenewalResult,
 } from 'src/app/_services/checkout-coordinator.service';
 import {
   CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, acceptanceVerdict,
@@ -16,6 +17,7 @@ import {
 } from 'src/app/_shared/order/checkout-correlation';
 import {
   quoteDeadlinePassed,
+  readPublishedClosure,
   readPublishedPolicy,
 } from 'src/app/_shared/order/quote-transition';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
@@ -816,6 +818,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // checkout of their own accord, which is when the previous quote's fate
     // stops being news.
     this.quoteRetired = false;
+    // AND IT OPENS A NEW CHECKOUT EPISODE (G3b). The renewal guard below is
+    // per-episode rather than per-request precisely so a re-price cannot reset
+    // it: `placeOrder` is what the terminal branch calls, so resetting there
+    // would let a server that keeps answering "closed" drive an unbounded
+    // mint-and-retry loop. A deliberate press is the diner starting again.
+    this.renewedThisEpisode = false;
     // Hard stop: the table already has an order in the kitchen. The CTA is
     // disabled in this state, so this is just defense in depth.
     if (this.tableHasOngoingOrder) return;
@@ -1009,6 +1017,55 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   // Shared placement body for both the dialog-"yes" path and Retry. Posts the
   // current basket to orders/initiate/ and, when everything is still available,
   // commits straight away; otherwise it hands off to the unavailable-items sheet.
+  /**
+   * One renewal per checkout episode. See `initiateOrder`, which opens one.
+   */
+  private renewedThisEpisode = false;
+
+  /**
+   * Is the server telling us this quote has been RETIRED?
+   *
+   * GATED ON THE STATED LEVEL, never on the key merely being present — the
+   * same rule `readPublishedPolicy` applies to the deadline. A server that has
+   * not said it publishes closures is not one whose silence means "not
+   * closed", and treating an absent key as a verdict would make every older
+   * backend look like it was answering a question it has never been asked.
+   */
+  private quoteIsRetired(orderDetails: any): boolean {
+    return readPublishedClosure(orderDetails) !== null;
+  }
+
+  /**
+   * Mint ONE new attempt for a purchase whose quote the server retired.
+   *
+   * Returns whether it is safe to go on and price again. The refusals are not
+   * interchangeable and none of them is "try anyway":
+   *
+   *   superseded  the OTHER mount already renewed this exact record — which
+   *               is the outcome this call wanted, so it proceeds. It does
+   *               not mint a second key for one closure.
+   *   none        nothing is persisted, so `reserveIntent` will mint a fresh
+   *               key on its own. Proceeding is the renewal.
+   *   outstanding an acceptance MAY be in flight. A renewal abandons the key
+   *               that is the only way to resolve it, so this is exactly the
+   *               case that must not proceed — the diner is asked to settle
+   *               the outstanding checkout first.
+   *   storage-error / blocked  a key nobody wrote down is not an idempotency
+   *               key, and a record this build cannot read must not be
+   *               reasoned about. Nothing is sent.
+   */
+  private renewAfterClosure(): boolean {
+    const renewal = this.checkout.renewAfterClosure();
+    if (renewal.kind === 'ready' || renewal.kind === 'superseded'
+        || renewal.kind === 'none') {
+      this.renewedThisEpisode = true;
+      return true;
+    }
+    this.releaseCheckout();
+    this.onReservationRefused(renewal);
+    return false;
+  }
+
   private placeOrder() {
     // SINGLE FLIGHT (D04/D). The desktop sidebar and the routed basket page
     // are two instances of this component; before the coordinator each had
@@ -1120,6 +1177,27 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // does not ask for. Once the corrected backend is live the reference
           // is always present, always sent, and its acceptance path requires it
           // — there is no client-side switch that can turn that off.
+          // G3b — THE SERVER JUST HANDED BACK A RETIRED QUOTE.
+          //
+          // Reachable without any refusal being lost: the key is bound to a
+          // purchase, so `initiate` REPLAYS the order it was used for, and
+          // that order's quote may have been retired since — by a lost
+          // refusal here, or by the other mount, or by `retire-quote`.
+          // Rendering it would put a review sheet in front of the diner for
+          // something that can never be placed.
+          //
+          // `quote_closure` is what makes this visible at all, and it is
+          // gated on the level rather than on the key being present: a server
+          // that has not said it publishes closures is not one whose silence
+          // means "not closed". ONCE PER EPISODE — a renewal that comes back
+          // closed again is a server contradicting itself, and looping on it
+          // would be a client-driven order storm.
+          if (this.quoteIsRetired(od) && !this.renewedThisEpisode
+              && this.renewAfterClosure()) {
+            this.releaseCheckout();
+            this.placeOrder();
+            return;
+          }
           const quoteReference = od?.quote_ref ?? null;
           this.reviewedQuote = {
             ref: quoteReference,
@@ -1411,7 +1489,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Say what a refused reservation means, without starting a checkout. */
   private onReservationRefused(
-    reservation: Exclude<IntentReservation, { kind: 'ready' }>,
+    reservation:
+      | Exclude<IntentReservation, { kind: 'ready' }>
+      | Extract<RenewalResult,
+                { kind: 'outstanding' | 'storage-error' | 'blocked' }>,
   ): void {
     switch (reservation.kind) {
       case 'outstanding':
@@ -2058,6 +2139,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // closure the response never carried. The re-price below is
         // unchanged either way; only the sentence moves.
         this.quoteRetired = refusal.retired;
+        // G3b — A CLOSED QUOTE NEEDS A NEW KEY, AND A REPRICE DOES NOT.
+        // `settleRefusedCommand` keeps the key, which is right for
+        // `quote_ref_stale` (the order is still acceptable; only the
+        // reference moved) and FATAL for a closure: the key is bound to the
+        // order the closure was written against, so the re-price below
+        // REPLAYS it and the same retired draft comes back — a review sheet
+        // for a quote that can never be paid, refused again on submit, with
+        // no way out of the app. The two arrive through this one branch,
+        // which is why they had one answer and only one of them was right.
+        if (refusal.disposition === 'terminal'
+            && !this.renewAfterClosure()) {
+          return;
+        }
         this.placeOrder();
         return;
       }
