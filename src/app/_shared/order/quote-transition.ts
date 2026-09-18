@@ -229,6 +229,73 @@ export function readPublishedClosure(orderDetails: any): QuoteClosure | null {
 }
 
 /**
+ * WHAT THE RETIRE ENQUIRY ANSWERED, once the answer is shown to be about what
+ * was asked (D06 completion, G4).
+ *
+ * `still-valid` is the answer that leads to SUBMITTING an order, so it is the
+ * one that most needs to be correlated — and it was the one with nothing to
+ * correlate against until the backend began naming the enquiry back. D04 made
+ * this discipline standard for acceptance answers; the enquiry was left out.
+ *
+ * THE CORRELATION RULE IS "CONTRADICTS", NOT "CONFIRMS". An answer that names a
+ * DIFFERENT order or a different reference is refused: it is not about this
+ * enquiry, whatever it says. An answer that names NEITHER is honoured, because
+ * that is an older server answering the request it was sent on the connection
+ * it was sent on — refusing it would leave every pre-G4 backend unable to
+ * complete a checkout whose deadline had passed, which is a worse failure than
+ * the one being guarded against.
+ *
+ * `unreadable` covers an outcome this build does not know. It is a REAL answer,
+ * not a parse failure: the quote is not known to be dead and not known to be
+ * good, so nothing may be submitted and nothing may be discarded.
+ */
+export type QuoteAnswer =
+  | { readonly kind: 'still-valid' }
+  | { readonly kind: 'retired'; readonly closure: QuoteClosure | null }
+  | { readonly kind: 'unreadable' };
+
+export function readQuoteAnswer(
+  response: any,
+  asked: { readonly order: string; readonly quoteRef: string },
+): QuoteAnswer {
+  // THE RESPONSE ITSELF, not `body()`. That helper finds a REFUSAL body and
+  // keys on a `reason`, which a successful enquiry does not carry — reading a
+  // 200 through it would make every `quote_still_valid` unreadable. A success
+  // and a refusal are different shapes arriving on different callbacks, and
+  // this is the reader for the first.
+  const found = response && typeof response === 'object' ? response : null;
+  if (!found) { return { kind: 'unreadable' }; }
+
+  const namedOrder = text(found.order);
+  if (namedOrder !== null && namedOrder !== asked.order) {
+    return { kind: 'unreadable' };
+  }
+  const namedRef = text(found.quote_ref);
+  if (namedRef !== null && namedRef !== asked.quoteRef) {
+    return { kind: 'unreadable' };
+  }
+
+  const outcome = text(found.outcome);
+  if (outcome === 'quote_still_valid') { return { kind: 'still-valid' }; }
+  if (outcome === 'quote_closed' || outcome === 'quote_already_closed') {
+    // READ, not inferred. The route claims those words only when it actually
+    // wrote or found a closure, and the object beside them is that row.
+    return { kind: 'retired', closure: readClosure(found) };
+  }
+  return { kind: 'unreadable' };
+}
+
+/**
+ * The D06 level a response states, or `0` when it states none.
+ *
+ * `0` PROMISES NOTHING and is not "level 1": a server that has not said cannot
+ * be assumed to enforce a lifetime, publish a closure, or offer the enquiry.
+ */
+export function quoteProtocolLevel(source: any): number {
+  return whole(source?.quote_protocol) ?? 0;
+}
+
+/**
  * Has the published deadline passed at `now`?
  *
  * ADVISORY ONLY. A `true` here means "stop offering checkout and get a fresh

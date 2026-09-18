@@ -17,8 +17,10 @@ import {
 } from 'src/app/_shared/order/checkout-correlation';
 import {
   quoteDeadlinePassed,
+  quoteProtocolLevel,
   readPublishedClosure,
   readPublishedPolicy,
+  readQuoteAnswer,
 } from 'src/app/_shared/order/quote-transition';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -918,6 +920,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.order_initiated = response.data;
           const od = this.order_initiated?.order_details;
           this.checkout.noteProtocol(protocolLevel(od));
+          // AND THE D06 LEVEL (G4), remembered for the same reason and kept
+          // apart because the two are separate promises that move
+          // independently. It is what makes a LATER response's silence about a
+          // closure readable as "not retired" rather than "this server has
+          // never said".
+          this.checkout.noteQuoteProtocol(quoteProtocolLevel(od));
           this.reviewedQuote = {
             ref: od?.quote_ref ?? null,
             revision: attempt.revision,
@@ -1209,6 +1217,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // demonstrated on the initiate is what makes a later submit reply
           // carrying NO projection readable as broken rather than old.
           this.checkout.noteProtocol(protocolLevel(od));
+          // AND THE D06 LEVEL (G4). Both initiate consumers note it — this one
+          // and `resendInitiation` — because "which level did this server
+          // demonstrate" must not depend on which path happened to ask.
+          this.checkout.noteQuoteProtocol(quoteProtocolLevel(od));
           // The stage a reload should ask about. NOT the command — nothing
           // has been accepted yet, and recording one here would make a draft
           // the diner is still reading look like an outstanding acceptance.
@@ -1792,12 +1804,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *   quote_still_valid   the clock here was ahead. Submit exactly as the
    *                       diner asked; nothing was written and nothing about
    *                       the quote changed.
-   *   quote_closed /      the server retired it. Re-price the UNCHANGED basket
-   *   already_closed      and review again; the key is kept, because this is
-   *                       still the same purchase.
+   *   quote_closed /      the server retired it. Renew (G3b — the key is
+   *   already_closed      bound to the order the closure was written against,
+   *                       so re-pricing under it would replay that order) and
+   *                       review the UNCHANGED basket again under a new one.
    *   anything else       treated as a failed placement and surfaced with a
    *                       Retry. It is NOT read as "the quote is fine" — a
-   *                       round trip that did not answer is not an answer.
+   *                       round trip that did not answer is not an answer, and
+   *                       (G4) neither is one that answered about something
+   *                       else.
    *
    * The response is bounded like every other checkout round trip, and a
    * timeout takes the last branch: an enquiry that never landed says nothing
@@ -1812,43 +1827,81 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.submitOrder();
       return;
     }
-    const issued = this.attemptSeq;
+    const asked = { order: String(orderId), quoteRef: quoteReference };
+
+    // G4 — IDENTITY IS FROZEN AT ISSUANCE, through the SAME owner every
+    // acceptance consumer uses. The old guard was `issued !== this.attemptSeq`:
+    // a process-local counter that survives nothing, names no operation and
+    // restarts at 0 on every load — exactly the identity D04 replaced. An
+    // answer is acted on only if the record it was issued against is still the
+    // one in hand, and never after this instance has been destroyed (Angular
+    // does not cancel an in-flight request when a component goes away; only
+    // unsubscribing does, and an answer landing afterwards would submit an
+    // order on behalf of a screen the diner has left). The `destroyed` flag is
+    // the component's established mechanism for that — the same one every
+    // ownership predicate here reads — rather than a second one beside it.
+    const owner = this.recoveryOwner();
+    if (owner === null) {
+      // NOTHING TO BIND AN ANSWER TO. Every checkout reserves a record before
+      // it prices, so reaching here means the record was lost between the
+      // review and the confirmation. The answer would decide whether an order
+      // is SUBMITTED, so it must not be acted on unbound — and it must not
+      // hang either: a silent return would leave the CTA spinning with nothing
+      // said, which is the failure mode the enquiry exists to avoid.
+      this.showQuoteSheet = false;
+      this.failOrder(
+        "We couldn't confirm your checkout on this device, so we haven't "
+        + 'placed the order. Please try again.');
+      return;
+    }
+    const mine = () => !this.destroyed && this.checkout.settles(owner);
 
     this.checkout.bounded(
       this.api.postPatch(
         'orders/retire-quote/',
-        { order: orderId, quote_ref: quoteReference },
+        { order: asked.order, quote_ref: asked.quoteRef },
         'put',
       ),
     ).subscribe(
       (response: any) => {
-        if (issued !== this.attemptSeq) return;   // the diner moved on
-        const outcome = response?.outcome;
-        if (outcome === 'quote_still_valid') {
+        if (!mine()) return;
+        // THE LEVEL THIS SERVER HAS NOW DEMONSTRATED, remembered like D04's.
+        this.checkout.noteQuoteProtocol(quoteProtocolLevel(response));
+
+        const answer = readQuoteAnswer(response, asked);
+        if (answer.kind === 'still-valid') {
+          // The clock here was ahead. Submit exactly as the diner asked;
+          // nothing was written and nothing about the quote changed.
           this.submitOrder();
           return;
         }
-        if (outcome === 'quote_closed' || outcome === 'quote_already_closed') {
+        if (answer.kind === 'retired') {
           this.showQuoteSheet = false;
           this.reviewedQuote = null;
-          // Also a READ rather than an inference, though it does not go
-          // through `QuoteRefusal`: this is a 200 in which the SERVER stated
-          // the outcome, and the retire route claims that word only when it
-          // actually wrote (or found) a closure. There is no refusal object
-          // on this path, so do not "align" it with `refusal.retired`.
+          // A READ rather than an inference, though it does not go through
+          // `QuoteRefusal`: this is a 200 in which the SERVER stated the
+          // outcome, and the route claims that word only when it actually
+          // wrote or found a closure. There is no refusal object on this
+          // path, so do not "align" it with `refusal.retired`.
           this.quoteRetired = true;
           this.toast.clear();
+          // G3b APPLIES HERE TOO, and this is the most direct closure signal
+          // the client ever gets. Re-pricing under the same key would replay
+          // the retired order — it would self-heal at the initiate handler,
+          // one wasted round trip later, which is not a reason to send a
+          // request whose answer is already known.
+          if (!this.renewAfterClosure()) return;
           this.placeOrder();
           return;
         }
-        // An answer this build cannot read. The quote is not known to be dead
-        // and is not known to be good, so nothing is submitted and nothing is
-        // discarded.
+        // An answer this build cannot read, or one that is about something
+        // else. The quote is not known to be dead and is not known to be
+        // good, so nothing is submitted and nothing is discarded.
         this.showQuoteSheet = false;
         this.failOrder(this.placementErrorMessage(response));
       },
       (error) => {
-        if (issued !== this.attemptSeq) return;
+        if (!mine()) return;
         this.showQuoteSheet = false;
         if (this.dinerSession.isCredentialDenied(error)) {
           this.dinerSession.invalidateCredential();

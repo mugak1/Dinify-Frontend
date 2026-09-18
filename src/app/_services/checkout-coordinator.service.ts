@@ -231,6 +231,21 @@ export interface CheckoutRecord {
    * record with this key ignores it and loses nothing it was relying on.
    */
   readonly replaces: string | null;
+  /**
+   * G4 — THE HIGHEST D06 QUOTE-PROTOCOL LEVEL THIS SERVER HAS STATED FOR THIS
+   * ATTEMPT. Monotonic, and remembered for the same reason `protocol` is: a
+   * capability once demonstrated does not un-demonstrate itself.
+   *
+   * It is what makes a LATER response's SILENCE readable. A server that
+   * published `quote_protocol: 2` on the initiate and then answers with no
+   * `quote_closure` is saying the quote is not retired; one that never stated a
+   * level is saying nothing at all, and reading its silence as a verdict would
+   * make every older backend look like it was answering a question it has never
+   * been asked. Kept apart from `protocol` because the two levels are separate
+   * promises that move independently — D04 answers "can an uncertain checkout be
+   * recovered", D06 "may this quote still be accepted".
+   */
+  readonly quoteProtocol: number;
 }
 
 /**
@@ -439,6 +454,7 @@ export class CheckoutCoordinatorService {
       protocol: 0,
       degraded: false,
       replaces: null,
+      quoteProtocol: 0,
     };
     return this.persist(record)
       ? { kind: 'ready', key: record.key, record }
@@ -613,6 +629,19 @@ export class CheckoutCoordinatorService {
     return this.persist({ ...current, protocol: level });
   }
 
+  /**
+   * Remember the D06 level this server has stated. Monotonic — see
+   * `CheckoutRecord.quoteProtocol`.
+   */
+  noteQuoteProtocol(level: number): boolean {
+    const current = this.record();
+    if (!current || !Number.isInteger(level)
+        || level <= current.quoteProtocol) {
+      return false;
+    }
+    return this.persist({ ...current, quoteProtocol: level });
+  }
+
   private sameCommand(
     record: CheckoutRecord, request: PurchaseRequest, scope: string,
   ): boolean {
@@ -763,6 +792,9 @@ export class CheckoutCoordinatorService {
       protocol: 0,
       degraded: false,
       replaces: current.key,
+      // A NEW ATTEMPT IS A NEW QUESTION, for this level as for the other: the
+      // server re-states what it supports on the next response.
+      quoteProtocol: 0,
     };
     return this.persist(record)
       ? { kind: 'ready', key: record.key, record }
@@ -1083,6 +1115,12 @@ export class CheckoutCoordinatorService {
       // absent rather than `degraded`: nothing is decided from it.
       replaces: typeof value['replaces'] === 'string' && value['replaces']
         ? (value['replaces'] as string) : null,
+      // ABSENT MEANS "NOTHING DEMONSTRATED", which is what every record written
+      // before G4 carries and what a pre-D06 server would leave.
+      quoteProtocol: typeof value['quoteProtocol'] === 'number'
+        && Number.isInteger(value['quoteProtocol'])
+        && value['quoteProtocol'] > 0
+        ? (value['quoteProtocol'] as number) : 0,
     };
   }
 
@@ -1137,6 +1175,8 @@ export class CheckoutCoordinatorService {
       degraded: phase === 'submitting' && !issued,
       // A D04/D record predates renewals, so it replaces nothing.
       replaces: null,
+      // and predates the D06 level memory, so nothing is claimed.
+      quoteProtocol: 0,
     };
   }
 

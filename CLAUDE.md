@@ -182,6 +182,46 @@ so keep it current when conventions change.
   by `checkout-coordinator.renewal.spec.ts` (11) and
   `basket-body.quote-renewal.spec.ts` (13); removing either wiring site fails
   exactly 2, and ungating the closure reader fails the level control
+- **THE ENQUIRY'S ANSWER IS VALIDATED AND CORRELATED, LIKE EVERY OTHER (D06/G4).**
+  D04 made this standard for ACCEPTANCE answers — an answer is acted on only once
+  it is shown to be about this key, this order and this scope, with the
+  operation's identity FROZEN AT ISSUANCE rather than re-read when the reply
+  lands. The D06 enquiry never joined it: `renewQuote` read `response.outcome`
+  and acted, having checked nothing about what the answer was about — and
+  `quote_still_valid` is the answer that leads to SUBMITTING an order. Four
+  things changed, all of them the same things D04 closed on its own side.
+  **`readQuoteAnswer` IS THE ONE READING**, and the correlation rule is
+  CONTRADICTS, NOT CONFIRMS: an answer naming a DIFFERENT order or reference is
+  refused, while one naming NEITHER is honoured, because that is an older server
+  answering the request it was sent — refusing it would leave every pre-G4
+  backend unable to complete a checkout whose deadline had passed, a worse
+  failure than the one being guarded against. It reads the RESPONSE directly and
+  not through `body()`, which finds a REFUSAL body and keys on a `reason` a
+  successful enquiry does not carry; reading a 200 through it made every
+  `quote_still_valid` unreadable.
+  **IDENTITY IS FROZEN THROUGH THE SAME `CheckoutOwner`** every acceptance
+  consumer uses, rather than a second mechanism beside it. The old guard was
+  `issued !== this.attemptSeq` — a process-local counter that survives nothing,
+  names no operation and restarts at 0 on every load, which is exactly the
+  identity D04 replaced. A record LOST between the review and the confirmation is
+  its own answer: there is nothing to bind to, so nothing is submitted AND the
+  diner is told, because a silent return would leave the CTA spinning with
+  nothing said.
+  **THE RETIRED ANSWER RENEWS** (G3b's primitive) instead of re-pricing under the
+  dead key — the most direct closure signal the client ever gets was the one site
+  G3b had not reached. It would have self-healed at the initiate handler one
+  wasted round trip later, which is not a reason to send a request whose answer
+  is already known.
+  **AND THE D06 LEVEL IS REMEMBERED** (`CheckoutRecord.quoteProtocol`, monotonic,
+  noted by BOTH initiate consumers and by the enquiry) — kept apart from
+  `protocol` because the two are separate promises that move independently. It is
+  what makes a LATER response's silence about a closure readable as "not retired"
+  rather than "this server has never said". Pinned by
+  `basket-body.quote-answer.spec.ts` (13); each of the four halves fails exactly
+  2 when reverted. **One pre-existing fixture was COMPLETED rather than the rule
+  relaxed**: three `basket-body.quote-lifetime.spec.ts` cases opened the review
+  sheet with NO reserved record, a state production cannot reach, and now reserve
+  one unless the case deliberately established an outstanding command
 - Checkout confirmation is the SERVER's quote (D02/D03): ✅ **the diner now confirms
   the amount the server saved, never one this browser computed.** The pre-pricing
   "are you sure?" dialog is GONE — it asked about a number the client produced, and
