@@ -105,13 +105,13 @@ node e2e/kitchen-board/kitchen.mjs
 same database fails two of its own checks on the second pass — a fixture
 artefact, not a defect. Re-seed between runs.
 
-Last run: **55/55**, against a disposable local PostgreSQL 16.13 (its own
-cluster on port 55432, never a shared instance), a local Django on
-`test_settings` at backend `b378fa90` (unmodified), and a **development**
-`ng serve` on Node 24.21.0 with Chromium 141
-(`/opt/pw-browsers/chromium-1194`), driving the M1/M2 revision of the frontend.
-The two diner harnesses were run on the same stack as regression evidence:
-`journey.mjs` **42/42** and `recovery.mjs` **35/35**.
+Last run: **55/55**, re-run at the D06 COMPLETION revision on a FRESH
+fixture, against a disposable local PostgreSQL 16.13 (never a shared
+instance), a local Django on `test_settings` and a **development**
+`ng serve` on Node 24.15.0 with Chromium 141. D06 changes no kitchen
+command, and the one kitchen route it does touch — the 86 panel's stock
+write, which G1a enlisted in the admission barrier — is exercised here and
+in `recovery.mjs`'s sold-out scenario.
 
 **AND EVERY NEW SCENARIO WAS PROVED TO DISCRIMINATE, IN THE SERVED APP.** A
 green run means nothing until you have seen it go red for the right reason:
