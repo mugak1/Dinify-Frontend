@@ -621,8 +621,23 @@ const main = async () => {
           (await activeTickets()).length === 0);
 
     check('the client re-priced rather than offering a dead Retry',
-          state.keys.length >= 2
-          && state.keys.every((k) => k === state.keys[0]),
+          state.keys.length >= 2,
+          `keys=${JSON.stringify(state.keys)}`);
+    // THIS ASSERTION IS INVERTED FROM WHAT IT USED TO BE, DELIBERATELY (D06/G3b).
+    //
+    // It required every key to be the SAME, on the reasoning that the basket
+    // has not changed so the purchase has not changed. That reasoning holds for
+    // a `quote_ref_stale` reprice and is FATAL for a closure: the key is bound
+    // to the order the closure was written against, so re-pricing under it
+    // REPLAYS that retired draft — the review sheet renders a quote that can
+    // never be paid, submitting it is refused identically, and the diner loops
+    // with no way out of the app. This run is the sold-out case, which is
+    // TERMINAL, so the successor must carry a new key.
+    //
+    // Changed rather than deleted: the old expectation was a real statement
+    // about the contract, and it is the statement that moved.
+    check('and it did so under a NEW key, because the old one is retired',
+          new Set(state.keys).size === state.keys.length,
           `keys=${JSON.stringify(state.keys)}`);
     check('the sold-out interleaving raised no uncaught errors',
           state.errors.length === 0, JSON.stringify(state.errors));

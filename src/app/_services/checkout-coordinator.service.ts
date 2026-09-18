@@ -84,6 +84,21 @@ export const CHECKOUT_RECORD_VERSION = 2;
  *  refused     terminal the other way: the server definitively refused, so
  *              nothing was accepted.
  */
+/**
+ * What happened when a renewal was attempted after a closure (G3b).
+ *
+ * `superseded` is NOT a failure a caller must report: it means another mount
+ * already renewed this exact record, which is the outcome the caller wanted.
+ */
+export type RenewalResult =
+  | { readonly kind: 'ready'; readonly key: string;
+      readonly record: CheckoutRecord }
+  | { readonly kind: 'superseded' }
+  | { readonly kind: 'outstanding'; readonly record: CheckoutRecord }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'storage-error' }
+  | { readonly kind: 'blocked'; readonly stored: StoredCheckout };
+
 export type CheckoutStage =
   | 'pricing' | 'reviewing' | 'accepting'
   | 'unresolved' | 'accepted' | 'refused';
@@ -199,6 +214,38 @@ export interface CheckoutRecord {
    * was ever issued", which is the inference the not-found rule forbids.
    */
   readonly degraded: boolean;
+  /**
+   * G3b — THE ATTEMPT THIS ONE REPLACES, when it replaces one.
+   *
+   * Provenance for a renewal after a closure: it says this key is the
+   * successor of a purchase the server permanently retired, rather than an
+   * unrelated second checkout. PURELY INFORMATIONAL — the "exactly one
+   * successor" guarantee is enforced by comparing the record that is CURRENT,
+   * never by reading this.
+   *
+   * THAT IS WHY THE RECORD VERSION DOES NOT MOVE FOR IT, and the reasoning is
+   * worth keeping. Bumping would make every record this build writes
+   * `unsupported` to the previous one, and an `unsupported` record BLOCKS: a
+   * rollback mid-checkout would strand a diner who has an order in flight,
+   * to protect a field that carries no guarantee. An older build reading a
+   * record with this key ignores it and loses nothing it was relying on.
+   */
+  readonly replaces: string | null;
+  /**
+   * G4 — THE HIGHEST D06 QUOTE-PROTOCOL LEVEL THIS SERVER HAS STATED FOR THIS
+   * ATTEMPT. Monotonic, and remembered for the same reason `protocol` is: a
+   * capability once demonstrated does not un-demonstrate itself.
+   *
+   * It is what makes a LATER response's SILENCE readable. A server that
+   * published `quote_protocol: 2` on the initiate and then answers with no
+   * `quote_closure` is saying the quote is not retired; one that never stated a
+   * level is saying nothing at all, and reading its silence as a verdict would
+   * make every older backend look like it was answering a question it has never
+   * been asked. Kept apart from `protocol` because the two levels are separate
+   * promises that move independently — D04 answers "can an uncertain checkout be
+   * recovered", D06 "may this quote still be accepted".
+   */
+  readonly quoteProtocol: number;
 }
 
 /**
@@ -406,6 +453,8 @@ export class CheckoutCoordinatorService {
       startedAt: Date.now(),
       protocol: 0,
       degraded: false,
+      replaces: null,
+      quoteProtocol: 0,
     };
     return this.persist(record)
       ? { kind: 'ready', key: record.key, record }
@@ -580,6 +629,19 @@ export class CheckoutCoordinatorService {
     return this.persist({ ...current, protocol: level });
   }
 
+  /**
+   * Remember the D06 level this server has stated. Monotonic — see
+   * `CheckoutRecord.quoteProtocol`.
+   */
+  noteQuoteProtocol(level: number): boolean {
+    const current = this.record();
+    if (!current || !Number.isInteger(level)
+        || level <= current.quoteProtocol) {
+      return false;
+    }
+    return this.persist({ ...current, quoteProtocol: level });
+  }
+
   private sameCommand(
     record: CheckoutRecord, request: PurchaseRequest, scope: string,
   ): boolean {
@@ -657,6 +719,86 @@ export class CheckoutCoordinatorService {
     const current = this.record();
     if (!current) return false;
     return this.persist({ ...current, stage: 'accepted', outcome });
+  }
+
+  /**
+   * G3b — ONE NEW ATTEMPT, WITH A NEW KEY, FOR A QUOTE THE SERVER RETIRED.
+   *
+   * THE DEAD END THIS EXISTS FOR. `settleRefusedCommand` keeps the key, and
+   * that is RIGHT for a `quote_ref_stale` reprice: the order is still
+   * acceptable and only the reference moved, so the same purchase must reuse
+   * its key. It is FATAL for a closure. The key is bound to the order the
+   * closure was written against, so the next `initiate` REPLAYS it: the same
+   * retired draft comes back, the review sheet renders a quote that can never
+   * be paid, submitting it is refused again, and the diner loops with no way
+   * out of the app. The two arrive through the same branch, which is why they
+   * had the same answer and why only one of them was correct.
+   *
+   * A renewal is not a repair. It does not reprice the old order, it cannot
+   * delete or contradict the closure — that is a server fact and this client
+   * has no business pretending otherwise — and it never lets one key name two
+   * orders. It is a NEW attempt at the SAME purchase: the basket has not
+   * changed, so `request` and `scope` carry across unchanged and only the key
+   * is new.
+   *
+   * EXACTLY ONE SUCCESSOR. `BasketBodyComponent` is mounted TWICE on desktop,
+   * and both can be holding the same refusal. `replaced` names the record the
+   * caller decided about; if it is no longer the current one, another mount
+   * has already renewed and this call reports `superseded` rather than
+   * minting a second key for the same closure. Called with no argument it
+   * renews whatever is current, which is right for a caller that has just
+   * read it.
+   *
+   * IT IS REFUSED WHILE AN ACCEPTANCE IS OUTSTANDING, and that is the
+   * important refusal. A renewal abandons the current key; abandoning one
+   * whose command may have been issued and whose outcome is unknown is
+   * exactly how a diner ends up with two orders — the failure the not-found
+   * rule exists to prevent. `isProtected` also refuses a degraded record, an
+   * `accepted` claim with no outcome behind it, and an identity produced by a
+   * canonicalisation this build does not know, for the reasons recorded
+   * there.
+   *
+   * THE WRITE IS VERIFIED BEFORE THE KEY IS RETURNED. A key nobody wrote down
+   * is not an idempotency key, so a storage that silently drops the write
+   * refuses the renewal and the caller sends nothing.
+   */
+  renewAfterClosure(replaced?: CheckoutRecord): RenewalResult {
+    const stored = this.read();
+    if (stored.kind === 'none') return { kind: 'none' };
+    if (stored.kind !== 'record') return { kind: 'blocked', stored };
+
+    const current = stored.record;
+    if (replaced && replaced.key !== current.key) {
+      return { kind: 'superseded' };
+    }
+    if (this.isProtected(current, current.request)) {
+      return { kind: 'outstanding', record: current };
+    }
+
+    const record: CheckoutRecord = {
+      v: CHECKOUT_RECORD_VERSION,
+      key: this.mintKey(),
+      scope: current.scope,
+      request: current.request,
+      stage: 'pricing',
+      // A NEW ATTEMPT CARRIES NOTHING FORWARD BUT THE PURCHASE. The command
+      // belonged to the refused attempt and the outcome to no attempt at all;
+      // the protocol level is re-demonstrated by this server's next response,
+      // and carrying it would let a record assert a capability about an
+      // exchange that has not happened yet.
+      command: null,
+      outcome: null,
+      startedAt: Date.now(),
+      protocol: 0,
+      degraded: false,
+      replaces: current.key,
+      // A NEW ATTEMPT IS A NEW QUESTION, for this level as for the other: the
+      // server re-states what it supports on the next response.
+      quoteProtocol: 0,
+    };
+    return this.persist(record)
+      ? { kind: 'ready', key: record.key, record }
+      : { kind: 'storage-error' };
   }
 
   /**
@@ -968,6 +1110,17 @@ export class CheckoutCoordinatorService {
         && Number.isInteger(value['protocol']) && value['protocol'] > 0
         ? (value['protocol'] as number) : 0,
       degraded,
+      // ABSENT MEANS "NOT A RENEWAL", which is what every record written
+      // before G3b is. It is provenance, so an unreadable value is simply
+      // absent rather than `degraded`: nothing is decided from it.
+      replaces: typeof value['replaces'] === 'string' && value['replaces']
+        ? (value['replaces'] as string) : null,
+      // ABSENT MEANS "NOTHING DEMONSTRATED", which is what every record written
+      // before G4 carries and what a pre-D06 server would leave.
+      quoteProtocol: typeof value['quoteProtocol'] === 'number'
+        && Number.isInteger(value['quoteProtocol'])
+        && value['quoteProtocol'] > 0
+        ? (value['quoteProtocol'] as number) : 0,
     };
   }
 
@@ -1020,6 +1173,10 @@ export class CheckoutCoordinatorService {
       // did not survive. `isOutstanding` already protects `unresolved`; this
       // says WHY, and keeps it protected if the stage vocabulary ever moves.
       degraded: phase === 'submitting' && !issued,
+      // A D04/D record predates renewals, so it replaces nothing.
+      replaces: null,
+      // and predates the D06 level memory, so nothing is claimed.
+      quoteProtocol: 0,
     };
   }
 

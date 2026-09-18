@@ -157,12 +157,29 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`, 4s) and 35/35 (`recovery.mjs`, 67s)** against a
-disposable local PostgreSQL 16.13 (its own cluster on port 55432, never a shared
-instance), a local Django on `test_settings` (Python 3.11.15) at backend
-`fd190ddc`, and a **development** `ng serve` on Node 24.21.0 with Chromium 141
-(`/opt/pw-browsers/chromium-1194`), driving the D04 Stage-B consumer-gates
-revision of the frontend.
+Last run: **42/42 (`journey.mjs`) and 47/47 (`recovery.mjs`)** against a
+disposable local PostgreSQL 16.13 (its own cluster, never a shared instance), a
+local Django on `test_settings` (Python 3.11) at the D06 COMPLETION revision, and
+a **development** `ng serve` on Node 24.15.0 with Chromium 141
+(`/opt/pw-browsers/chromium-1194`), driving the matching frontend.
+
+**RE-SEED BEFORE EVERY RUN.** The first attempt of that run scored 4 checks in
+and failed on two of its own: the fixture dish was ALREADY at the mid-run reprice
+target and a `pending` order was still holding the table, so the Checkout button
+was correctly disabled and the reprice PUT correctly answered "no changes". Both
+were LEFTOVER STATE from an earlier run of this harness against the same
+database, not defects — the journey mutates its fixture by design. Drop and
+recreate the database, migrate, re-seed.
+
+**ONE ASSERTION IN `recovery.mjs` WAS INVERTED, DELIBERATELY (D06/G3b).** The
+sold-out scenario required every idempotency key to be the SAME across the
+re-price, on the reasoning that the basket has not changed so the purchase has
+not changed. That holds for a `quote_ref_stale` reprice and is FATAL for a
+closure: the key is bound to the order the closure was written against, so
+re-pricing under it replays a retired draft the diner can never pay for. It now
+requires a NEW key, and the old expectation is recorded beside it rather than
+deleted — it was a real statement about the contract, and it is the statement
+that moved.
 
 **SCENARIO 4 IS NEW, AND IT IS THE ONE THIS HARNESS COULD NOT DO BEFORE.**
 Scenario 3 reloads with the cart UNTOUCHED, so the accepted purchase is still

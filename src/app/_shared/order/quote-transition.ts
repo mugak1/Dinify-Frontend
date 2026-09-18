@@ -44,6 +44,19 @@
 export const REQUIRED_QUOTE_PROTOCOL = 1;
 
 /**
+ * The level at which a server publishes a RETIRED quote on the order read
+ * (backend D06/G3a). Level 1 enforces the lifetime and retires quotes durably
+ * but announces a closure only on the refusal that created it — the one
+ * response a client can lose — so at level 1 an absent `quote_closure` on a
+ * read says NOTHING, and must never be read as "not closed".
+ *
+ * A SEPARATE CONSTANT FROM `REQUIRED_QUOTE_PROTOCOL`, not a bump of it: the
+ * deadline is still published at 1 and the client still consults it there.
+ * Folding the two would silently stop a level-1 server's deadline being read.
+ */
+export const REQUIRED_CLOSURE_PROTOCOL = 2;
+
+/**
  * TRANSIENT — the quote survives, and the SAME attempt may succeed later. Every
  * one of these is a statement about the restaurant or the table, never about
  * the purchase, so none of them retires anything.
@@ -190,6 +203,96 @@ export function readPublishedPolicy(orderDetails: any): QuotePolicy | null {
   const level = whole(orderDetails?.quote_protocol);
   if (level === null || level < REQUIRED_QUOTE_PROTOCOL) { return null; }
   return readQuotePolicy(orderDetails);
+}
+
+/**
+ * The closure a server has PUBLISHED for a saved quote, or `null`.
+ *
+ * GATED ON THE STATED LEVEL, like the deadline beside it, and for a sharper
+ * reason: this one is read as a VERDICT — it is what tells a client its key is
+ * bound to an order that can never be accepted, so the client mints a new one.
+ * An absent key from a server that has not said it publishes closures is
+ * silence, not a negative, and treating silence as "still good" is the safe
+ * direction: the client goes on using its key, and the server refuses the
+ * acceptance if the quote really is retired.
+ *
+ * DELIBERATELY NOT the same gate as `readQuoteRefusal`'s closure, which is
+ * UNGATED. That one arrives on the direct answer to a command the client
+ * issued — the server put it there, in response to this request — while this
+ * one is a projection on a read, whose availability is exactly what the level
+ * states.
+ */
+export function readPublishedClosure(orderDetails: any): QuoteClosure | null {
+  const level = whole(orderDetails?.quote_protocol);
+  if (level === null || level < REQUIRED_CLOSURE_PROTOCOL) { return null; }
+  return readClosure(orderDetails);
+}
+
+/**
+ * WHAT THE RETIRE ENQUIRY ANSWERED, once the answer is shown to be about what
+ * was asked (D06 completion, G4).
+ *
+ * `still-valid` is the answer that leads to SUBMITTING an order, so it is the
+ * one that most needs to be correlated — and it was the one with nothing to
+ * correlate against until the backend began naming the enquiry back. D04 made
+ * this discipline standard for acceptance answers; the enquiry was left out.
+ *
+ * THE CORRELATION RULE IS "CONTRADICTS", NOT "CONFIRMS". An answer that names a
+ * DIFFERENT order or a different reference is refused: it is not about this
+ * enquiry, whatever it says. An answer that names NEITHER is honoured, because
+ * that is an older server answering the request it was sent on the connection
+ * it was sent on — refusing it would leave every pre-G4 backend unable to
+ * complete a checkout whose deadline had passed, which is a worse failure than
+ * the one being guarded against.
+ *
+ * `unreadable` covers an outcome this build does not know. It is a REAL answer,
+ * not a parse failure: the quote is not known to be dead and not known to be
+ * good, so nothing may be submitted and nothing may be discarded.
+ */
+export type QuoteAnswer =
+  | { readonly kind: 'still-valid' }
+  | { readonly kind: 'retired'; readonly closure: QuoteClosure | null }
+  | { readonly kind: 'unreadable' };
+
+export function readQuoteAnswer(
+  response: any,
+  asked: { readonly order: string; readonly quoteRef: string },
+): QuoteAnswer {
+  // THE RESPONSE ITSELF, not `body()`. That helper finds a REFUSAL body and
+  // keys on a `reason`, which a successful enquiry does not carry — reading a
+  // 200 through it would make every `quote_still_valid` unreadable. A success
+  // and a refusal are different shapes arriving on different callbacks, and
+  // this is the reader for the first.
+  const found = response && typeof response === 'object' ? response : null;
+  if (!found) { return { kind: 'unreadable' }; }
+
+  const namedOrder = text(found.order);
+  if (namedOrder !== null && namedOrder !== asked.order) {
+    return { kind: 'unreadable' };
+  }
+  const namedRef = text(found.quote_ref);
+  if (namedRef !== null && namedRef !== asked.quoteRef) {
+    return { kind: 'unreadable' };
+  }
+
+  const outcome = text(found.outcome);
+  if (outcome === 'quote_still_valid') { return { kind: 'still-valid' }; }
+  if (outcome === 'quote_closed' || outcome === 'quote_already_closed') {
+    // READ, not inferred. The route claims those words only when it actually
+    // wrote or found a closure, and the object beside them is that row.
+    return { kind: 'retired', closure: readClosure(found) };
+  }
+  return { kind: 'unreadable' };
+}
+
+/**
+ * The D06 level a response states, or `0` when it states none.
+ *
+ * `0` PROMISES NOTHING and is not "level 1": a server that has not said cannot
+ * be assumed to enforce a lifetime, publish a closure, or offer the enquiry.
+ */
+export function quoteProtocolLevel(source: any): number {
+  return whole(source?.quote_protocol) ?? 0;
 }
 
 /**

@@ -347,6 +347,20 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
         context: (component as any).checkoutContext(),
       };
       (component as any).showQuoteSheet = true;
+      // AND A RESERVED CHECKOUT RECORD, which this fixture used to omit.
+      // Every real checkout reserves one before it prices, so a sheet open
+      // with no record is a state production cannot reach — and G4 binds the
+      // enquiry's answer to the record it was issued against, so without one
+      // there is no identity for the answer to be about.
+      // Only when the case has not already established one: two of these
+      // deliberately set up an OUTSTANDING command first, and reserving over
+      // that is correctly refused.
+      if (coordinator.record() === null) {
+        const reservation = coordinator.reserveIntent(
+          { identity: basketService.contentIdentity(), canon: PURCHASE_CANON },
+          (component as any).checkoutContext());
+        expect(reservation.kind).toBe('ready');
+      }
     }
 
     it('asks the server instead of deciding for itself', () => {
