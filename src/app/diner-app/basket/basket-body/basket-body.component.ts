@@ -651,6 +651,39 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // used to run its own completion beside the live instance's. Both guards
     // below read this.
     this.destroyed = true;
+    // ...AND IT CANNOT GIVE THE FLIGHT BACK LATER, SO IT GIVES IT BACK NOW.
+    //
+    // The flight is APP-WIDE and SINGLE, and `placingOrder` is a getter over
+    // it — that is the whole point of D04/D, so the routed page and the
+    // desktop sidebar cannot disagree about whether a checkout is running.
+    // But every release site is a method on the instance that CLAIMED it, so
+    // a token still held here is held forever: the sidebar (which lives
+    // beside the router outlet and is never destroyed) and every later basket
+    // instance keep a disabled Checkout button until the page is reloaded.
+    //
+    // `renewQuote` is the path that reached it. Its `mine()` guard returns on
+    // BOTH callbacks once this instance is gone — correctly, an answer must
+    // not place an order for a screen the diner has left — but nothing then
+    // released the claim `confirmQuote` took before issuing the enquiry.
+    // `placeOrder` and `submitOrder` both discard through `releaseIfLatest`,
+    // which releases; that path had no equivalent.
+    //
+    // IT BELONGS HERE RATHER THAN AT THAT GUARD, and the difference is
+    // load-bearing. A destroyed instance can have no NEWER operation, which
+    // is what makes an unconditional release safe. At the guard, the other
+    // way `mine()` goes false is that THIS instance moved the record on to a
+    // newer attempt — and `holdCheckout()` is idempotent per instance, so
+    // that attempt holds the SAME token. Releasing there would free a LIVE
+    // flight, the exact hazard `releaseIfLatest` exists to avoid.
+    //
+    // NO DUPLICATE PROTECTION IS DROPPED. The flight is a UI single-flight;
+    // what prevents a second order is the durable record and the idempotency
+    // key, and both survive a destroyed instance untouched. A surface that
+    // presses Checkout while an acceptance issued here is genuinely still in
+    // flight is answered `outstanding` by `reserveIntent` and told the
+    // checkout is still being confirmed — which is what a diner needs, rather
+    // than a button that never comes back.
+    this.releaseCheckout();
     this.upsellStorageSub?.unsubscribe();
     window.removeEventListener('resize', this.onResize);
   }

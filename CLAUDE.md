@@ -221,7 +221,33 @@ so keep it current when conventions change.
   2 when reverted. **One pre-existing fixture was COMPLETED rather than the rule
   relaxed**: three `basket-body.quote-lifetime.spec.ts` cases opened the review
   sheet with NO reserved record, a state production cannot reach, and now reserve
-  one unless the case deliberately established an outstanding command
+  one unless the case deliberately established an outstanding command.
+  **AND A DESTROYED INSTANCE GIVES THE FLIGHT BACK** (Codex P1 on PR #674, valid).
+  G4's `mine()` guard returns on BOTH of the enquiry's callbacks once the routed
+  instance is gone — correctly, since an answer must not place an order for a
+  screen the diner has left — but nothing then released the claim `confirmQuote`
+  took before issuing it. The flight is APP-WIDE and `placingOrder` is a getter
+  over it, and every release site is a method on the instance that CLAIMED it, so
+  a token still held at destruction is held FOREVER: the desktop sidebar (which
+  lives beside the router outlet and is never destroyed) and every later basket
+  instance keep a disabled Checkout button until the page is reloaded.
+  `placeOrder` and `submitOrder` both discard through `releaseIfLatest`, which
+  releases; the enquiry G4 added had no equivalent. **THE RELEASE BELONGS IN
+  `ngOnDestroy`, NOT AT THE GUARD**, and the difference is load-bearing: a
+  destroyed instance can have no NEWER operation, which is what makes an
+  unconditional release safe, while at the guard the other way `mine()` goes
+  false is that THIS instance moved the record on to a newer attempt — and
+  `holdCheckout()` is idempotent per instance, so that attempt holds the SAME
+  token and releasing there would free a LIVE flight, the exact hazard
+  `releaseIfLatest` exists to avoid. **NO DUPLICATE PROTECTION IS DROPPED**: the
+  flight is a UI single-flight, and what prevents a second order is the durable
+  record and the idempotency key, both of which survive untouched — a surface
+  pressing Checkout while an acceptance issued by the destroyed instance is
+  genuinely in flight is answered `outstanding` by `reserveIntent` and told the
+  checkout is still being confirmed, rather than facing a button that never comes
+  back. Pinned by `basket-body.flight-release.spec.ts` (6); 4 fail on the head
+  that carried the defect and the 2 that pass are the controls that must not
+  change
 - Checkout confirmation is the SERVER's quote (D02/D03): ✅ **the diner now confirms
   the amount the server saved, never one this browser computed.** The pre-pricing
   "are you sure?" dialog is GONE — it asked about a number the client produced, and
