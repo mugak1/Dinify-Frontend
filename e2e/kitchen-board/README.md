@@ -105,7 +105,8 @@ node e2e/kitchen-board/kitchen.mjs
 same database fails two of its own checks on the second pass — a fixture
 artefact, not a defect. Re-seed between runs.
 
-Last run: **55/55**, re-run at the **D06 C1/C2/C3 + A1 revision** on a FRESH
+Last run: **55/55**, re-run at the **D06 E1/O1/A1b/V1 revision with the three
+Codex findings fixed** on a FRESH
 fixture, against a disposable local PostgreSQL 16.13 (never a shared
 instance), a local Django on `test_settings` and a **development**
 `ng serve` on Node 24.15.0 with Chromium 141. D06 changes no kitchen

@@ -473,7 +473,29 @@ export type RecoveryOutcome =
    * survives so a later coherent read still can.
    */
   | { readonly kind: 'inconsistent'; readonly order: any;
-      readonly correlation: CheckoutCorrelation;
+      readonly correlation: CheckoutCorrelation | null;
+      readonly evidence: ClosureEvidence }
+  /**
+   * E1 — THE SERVER ASSERTED A CLOSURE THIS BUILD MAY NOT ACT ON, BESIDE AN
+   * ORDER IT HAS NOT ACCEPTED.
+   *
+   * A policy version this build has never seen, a malformed row, or one
+   * naming a different quote. None of them is `absent`: the server recorded
+   * SOMETHING under `quote_closure`, and reading that as "no closure" is the
+   * convenient half — the key may be bound to an order the server has
+   * retired, so the `draft` fallback would re-send the recorded acceptance,
+   * be refused identically, file as `unknown` and return here.
+   *
+   * KEPT APART FROM `inconsistent` DELIBERATELY. That one is the server
+   * contradicting ITSELF (accepted AND closed); this one is a single
+   * coherent statement this build cannot read. The remedy is the same today
+   * — preserve the attempt, announce nothing, mint nothing, erase nothing,
+   * point at staff, and let a later authorized read from a build that knows
+   * the version resolve it — but the causes are different, and one word for
+   * two facts is how the next reader mis-diagnoses.
+   */
+  | { readonly kind: 'closure-unreadable'; readonly order: any;
+      readonly correlation: CheckoutCorrelation | null;
       readonly evidence: ClosureEvidence }
   /** THE SERVER ANSWERED AND HAS NO ROW FOR THIS KEY, at a scope it resolved
    *  itself. It licenses a SAME-KEY, SAME-REQUEST replay — never a new key,
@@ -1409,6 +1431,26 @@ export class CheckoutCoordinatorService {
     // one: at level 2 a genuine draft and an acceptance that predates the
     // evidence table read identically, and the server's own docstring says so.
     if (order.accepted === true) {
+      // E1 — AND THE CONTRADICTION GATE REACHES THIS ACCEPTED PATH TOO.
+      //
+      // The level-3 branch above refuses an accepted-AND-closed projection;
+      // this one returned before looking, so the same payload announced the
+      // acceptance, cleared the basket and deleted the record. The two levels
+      // are INDEPENDENT by design — `quote_protocol` says whether closures
+      // are published and `checkout_protocol` whether the correlated
+      // projection is — so a server that publishes a closure while answering
+      // below level 3 is exactly the shape this gate exists for, and a gate
+      // applied to one of two accepted returns is not a gate (Codex P2 on
+      // PR #676, valid).
+      //
+      // `closureAsserted`, not "is it usable": ANY closure beside an
+      // acceptance is the contradiction, so no expected reference is
+      // supplied and a malformed row counts as much as a valid one.
+      const beside = this.publishedClosure(order, pending, null);
+      if (closureAsserted(beside)) {
+        return { kind: 'inconsistent', order, correlation: null,
+                 evidence: beside };
+      }
       return { kind: 'accepted', order, correlation: null };
     }
     if (pending.command === null) {
@@ -1451,9 +1493,25 @@ export class CheckoutCoordinatorService {
   ): RecoveryOutcome {
     const evidence = this.publishedClosure(
       order, pending, pending.command?.quoteRef ?? null);
-    return evidence.kind === 'closure'
-      ? { kind: 'closed', order, correlation, closure: evidence.closure }
-      : fallback;
+    if (evidence.kind === 'closure') {
+      return { kind: 'closed', order, correlation, closure: evidence.closure };
+    }
+    // E1 — ASSERTED BUT UNUSABLE IS NOT ABSENT, AND THIS IS WHERE THAT WAS
+    // LOST. Both non-`closure` kinds fell through to `fallback`, which on
+    // every caller is `draft` — and `draft` is proof of non-execution, so
+    // `replayIssuedCommand` re-sends the acceptance for a quote the server
+    // may already have retired. That is the refusal/retry loop this change
+    // exists to remove, reintroduced by the one branch that did not
+    // distinguish the two (Codex P2 on PR #676, valid).
+    //
+    // The rule is E1's own: a malformed, unsupported or wrong-reference
+    // closure is never permission to treat the quote as open, resend an
+    // acceptance, discard evidence or create another intent. The last usable
+    // attempt is KEPT and an actionable unresolved state is surfaced.
+    if (closureAsserted(evidence)) {
+      return { kind: 'closure-unreadable', order, correlation, evidence };
+    }
+    return fallback;
   }
 
   /**

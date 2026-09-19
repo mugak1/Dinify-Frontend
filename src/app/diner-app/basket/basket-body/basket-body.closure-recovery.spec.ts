@@ -500,18 +500,209 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
 
   it('CONTROL: a closure from a server that never promised to publish one is '
      + 'not a verdict', () => {
-    const key = priceAndAccept();
+    // FIXTURE CORRECTED, RULE UNCHANGED. This used to price through
+    // `priceAndAccept()`, whose initiate declares `quote_protocol: 2` — so
+    // the record remembered level 2 for this attempt and the read's level 1
+    // was a DOWNGRADE, not an older server. `readPublishedClosure` has called
+    // that `malformed('level')` since E1b; `closedOr` merely swallowed it to
+    // `draft`, which is the defect the two regressions above close, and this
+    // control was passing on that swallow rather than on the compatibility it
+    // names. The downgrade keeps its own test below.
+    //
+    // A server that NEVER promised states level 1 THROUGHOUT, and that is the
+    // case this control is for: `quote_protocol: 1` retires quotes durably
+    // but announces them only on the refusal, so a `quote_closure` on its
+    // read is not something it ever said it would send. Reading it as a
+    // verdict would make an older backend look like it was answering a
+    // question it has never been asked.
+    component.initiateOrder();
+    http.expectOne(`${API}/v2/orders/initiate/`)
+      .flush(initiated({ quote_protocol: 1 }));
+    const key = coordinator.record()!.key;
+    component.confirmQuote();
     loseTheReply();
 
     component.retryOrder();
-    // `quote_protocol: 1` retires quotes durably but announces them only on
-    // the refusal, so a `quote_closure` on ITS read is not something it ever
-    // said it would send. Reading it as a verdict would make an older backend
-    // look like it was answering a question it has never been asked.
     answerTheRead(readAnswer(
       key, { quote_protocol: 1, quote_closure: CLOSURE }));
 
     const resent = http.expectOne(`${V1}/orders/submit/`);
     resent.flush({ status: 200, message: 'ok' });
+  });
+
+  it('THE REGRESSION: a server that DEMONSTRATED level 2 and then answers '
+     + 'below it is broken, not old', () => {
+    // The other half of the fixture above, kept explicit so the distinction
+    // cannot be lost again. The level is remembered per attempt and
+    // monotonically — a capability does not un-demonstrate itself — so this
+    // read is this server failing a promise it made, and reading it as "no
+    // closure" would re-send the acceptance for a quote that may be retired.
+    const key = priceAndAccept();
+    loseTheReply();
+
+    component.retryOrder();
+    answerTheRead(readAnswer(
+      key, { quote_protocol: 1, quote_closure: CLOSURE }));
+
+    http.expectNone(`${V1}/orders/submit/`);
+    expect((component as any).recovered.kind).toBe('closure-unreadable');
+    expect(coordinator.record()!.key).toBe(key);
+    expect(component.checkoutBlocked).toBeTrue();
+  });
+
+  // ====================================================================
+  // E1 — ASSERTED BUT UNUSABLE IS NOT ABSENT, AT THE RECOVERY CONSUMER
+  //
+  // `closedOr` promoted a draft verdict to `closed` only for a VALID
+  // closure and handed back the `draft` fallback for every other kind. Two
+  // of those kinds are not absence: `unsupported` (a policy version this
+  // build has never seen) and `malformed` (including one naming a different
+  // quote). The server recorded SOMETHING under `quote_closure`, and `draft`
+  // is proof of non-execution — so `replayIssuedCommand` re-sent the
+  // acceptance for a quote that may already be retired, the server refused
+  // it identically, the refusal filed as `unknown`, and Retry returned here.
+  //
+  // The rule is E1's own and it is stated in the approval: a malformed or
+  // wrong-reference closure is never permission to treat the quote as open,
+  // resend an acceptance, discard evidence or create another intent.
+  // (Codex P2 on PR #676, valid.)
+  // ====================================================================
+
+  it('THE REGRESSION: an UNSUPPORTED-policy closure beside a draft does NOT '
+     + 'resend the acceptance', () => {
+    const key = priceAndAccept();
+    loseTheReply();
+
+    component.retryOrder();
+    answerTheRead(readAnswer(
+      key, { quote_closure: { ...CLOSURE, policy_version: 99 } }));
+
+    // NOT a draft, and above all no second acceptance.
+    http.expectNone(`${V1}/orders/submit/`);
+    expect((component as any).recovered.kind).toBe('closure-unreadable');
+    // NOTHING IS MINTED, SETTLED OR ERASED: the last usable attempt is kept.
+    http.expectNone(`${API}/v2/orders/initiate/`);
+    expect(coordinator.record()!.key).toBe(key);
+    expect(coordinator.record()!.command).toEqual(
+      { orderId: 'o1', quoteRef: 'q1' });
+    expect(coordinator.closureOf(coordinator.record()!).evidence.kind)
+      .toBe('absent');
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    // AND THE DINER IS TOLD, with the one remedy this build can name.
+    expect(component.checkoutBlocked).toBeTrue();
+    expect(component.recoveryNotice).toContain('check with staff');
+    expect(component.updatedReviewPrompt).toBeNull();
+  });
+
+  it('THE REGRESSION: a closure naming ANOTHER quote does not resend either',
+     () => {
+    const key = priceAndAccept();
+    loseTheReply();
+
+    component.retryOrder();
+    answerTheRead(readAnswer(
+      key, { quote_closure: { ...CLOSURE, quote_ref: 'some-other-quote' } }));
+
+    http.expectNone(`${V1}/orders/submit/`);
+    expect((component as any).recovered.kind).toBe('closure-unreadable');
+    expect(coordinator.record()!.key).toBe(key);
+  });
+
+  it('CONTROL: a VALID closure is still the `closed` verdict', () => {
+    // The discriminating half — same shape, policy 1, this attempt's quote.
+    const key = priceAndAccept();
+    loseTheReply();
+
+    component.retryOrder();
+    answerTheRead(readAnswer(key, { quote_closure: CLOSURE }));
+
+    expect((component as any).recovered.kind).toBe('closed');
+    expect(component.updatedReviewPrompt).not.toBeNull();
+  });
+
+  it('CONTROL: NO closure is still an ordinary draft that re-sends', () => {
+    // The other discriminating half, and the one a careless fix breaks: an
+    // absent closure must keep D04's proof-of-non-execution re-send.
+    const key = priceAndAccept();
+    loseTheReply();
+
+    component.retryOrder();
+    answerTheRead(readAnswer(key));
+
+    const resent = http.expectOne(`${V1}/orders/submit/`);
+    expect(resent.request.body).toEqual({ order: 'o1', quote_ref: 'q1' });
+    resent.flush({ status: 200, message: 'ok' });
+  });
+
+  // ====================================================================
+  // E1 — AND THE CONTRADICTION GATE REACHES THE LEGACY ACCEPTED PATH
+  //
+  // The two protocol levels are INDEPENDENT by design: `quote_protocol`
+  // says whether closures are published, `checkout_protocol` whether the
+  // correlated projection is. So a server answering below level 3 while
+  // publishing a level-2 closure is exactly the shape the accepted-and-
+  // closed gate exists for — and that gate ran only inside the level-3
+  // branch, so the legacy `accepted: true` return announced the acceptance,
+  // cleared the basket and deleted the record. A gate applied to one of two
+  // accepted returns is not a gate. (Codex P2 on PR #676, valid.)
+  // ====================================================================
+
+  describe('below level 3, with a level-2 closure beside an acceptance', () => {
+    /** An initiate that promises closures and NOT the correlated projection. */
+    const legacyInitiated = () =>
+      initiated({ checkout_protocol: undefined, quote_protocol: 2 });
+
+    /** The read that server answers with: no `checkout`, no level 3. */
+    const legacyRead = (over: Record<string, unknown> = {}) => ({
+      status: 200,
+      message: 'Successfully retrieved the order details',
+      data: {
+        id: 'o1', quote_ref: 'q1', actual_cost: '5000.00',
+        quote_total: '5000.00', quote_complete: true, order_status: 'pending',
+        quote_protocol: 2, quote_closure: null,
+        accepted: true, accepted_at: '2026-09-18T09:59:00Z',
+        items: [] as unknown[], quote: [] as unknown[],
+        ...over,
+      },
+    });
+
+    function priceAndAcceptAtLevel2(): string {
+      component.initiateOrder();
+      http.expectOne(`${API}/v2/orders/initiate/`).flush(legacyInitiated());
+      const key = coordinator.record()!.key;
+      component.confirmQuote();
+      return key;
+    }
+
+    it('THE REGRESSION: accepted AND closed is refused here too', () => {
+      const key = priceAndAcceptAtLevel2();
+      loseTheReply();
+
+      component.retryOrder();
+      answerTheRead(legacyRead({ quote_closure: CLOSURE }));
+
+      expect((component as any).recovered.kind).toBe('inconsistent');
+      // NEITHER HALF IS ACTED ON.
+      expect(basketService.clearBasket).not.toHaveBeenCalled();
+      expect(coordinator.record()).not.toBeNull();
+      expect(coordinator.record()!.key).toBe(key);
+      http.expectNone(`${API}/v2/orders/initiate/`);
+      expect(component.checkoutBlocked).toBeTrue();
+      expect(component.recoveryNotice).toContain('check with staff');
+    });
+
+    it('CONTROL: the same answer WITHOUT a closure is still accepted', () => {
+      // The compatibility half. A genuinely pre-level-3 server announcing an
+      // acceptance must keep working exactly as it did.
+      priceAndAcceptAtLevel2();
+      loseTheReply();
+
+      component.retryOrder();
+      answerTheRead(legacyRead());
+
+      expect((component as any).recovered.kind).toBe('accepted');
+      expect(basketService.clearBasket).toHaveBeenCalled();
+      expect(coordinator.record()).toBeNull();
+    });
   });
 });

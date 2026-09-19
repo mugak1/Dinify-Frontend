@@ -1215,8 +1215,44 @@ so keep it current when conventions change.
   whether it could be pressed. `releaseCheckout()` now runs at the top of that
   branch: the acceptance has RESOLVED, so there is nothing left to protect, and
   `releaseFlight` ignores a token that is no longer current, so a late release
-  from a superseded attempt cannot free a live one. Paired backend: `A1b` /
-  `BREAKING_CHANGES.md` §16c; record: `D06_CONSUMER_GATES_CLOSURE.md`
+  from a superseded attempt cannot free a live one.
+  **AND THE EXHAUSTIVE RULE HAD TO REACH THE RECOVERY CONSUMER, AND BOTH
+  ACCEPTED RETURNS** (two Codex P2 on PR #676, both valid, both the same shape
+  as everything else here — a rule implemented at one consumer and not the
+  next). `closedOr` promoted a draft verdict to `closed` for a VALID closure
+  and handed back the `draft` fallback for every other kind — but `unsupported`
+  and `malformed` (a wrong reference included) are NOT absence: the server
+  recorded something under `quote_closure`, and `draft` is PROOF OF
+  NON-EXECUTION, so `replayIssuedCommand` re-sent the acceptance for a quote
+  that may already be retired, the server refused it identically, the refusal
+  filed as `unknown`, and Retry returned there. That is E1's own rule —
+  *a malformed or wrong-reference closure is never permission to treat the
+  quote as open, resend an acceptance, discard evidence or create another
+  intent* — reaching the submit-failure path and the renewal primitive but not
+  the read. **`closure-unreadable` IS ITS OWN OUTCOME, KEPT APART FROM
+  `inconsistent` DELIBERATELY**: that one is the server contradicting ITSELF
+  (accepted AND closed), this one is a single coherent statement this build
+  cannot read. The remedy is the same today — preserve the attempt, announce
+  nothing, mint nothing, erase nothing, point at staff — and the causes are
+  different, which is exactly when one word for two facts mis-diagnoses.
+  Separately, the accepted-and-closed gate ran ONLY inside the level-3 branch,
+  so the LEGACY `accepted === true` return announced the acceptance, cleared
+  the basket and deleted the record on the same contradictory payload. **The
+  two levels are independent by design** — `quote_protocol` says whether
+  closures are published, `checkout_protocol` whether the correlated projection
+  is — so a server publishing a level-2 closure while answering below level 3
+  is exactly the shape that gate exists for, and a gate applied to one of two
+  accepted returns is not a gate. **ONE PRE-EXISTING CONTROL WAS CORRECTED,
+  NOT THE RULE RELAXED**: `CONTROL: a closure from a server that never promised
+  to publish one` priced through an initiate declaring `quote_protocol: 2` and
+  then read `quote_protocol: 1` — a DOWNGRADE, which E1b has called
+  `malformed('level')` since it landed, so the control was passing on
+  `closedOr`'s swallow rather than on the compatibility it names. It now
+  states level 1 throughout, and the downgrade keeps its own regression beside
+  it. Pinned by `basket-body.closure-recovery.spec.ts` (21); reverting the two
+  fixes one at a time fails exactly 3 and 1 of them, every control holding.
+  Paired backend: `A1b` / `BREAKING_CHANGES.md` §16c; record:
+  `D06_CONSUMER_GATES_CLOSURE.md`
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

@@ -472,7 +472,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // any read completes; `checkoutBlocked` already suppresses the CTA for
     // it, and a disabled button with no sentence beside it is the silence
     // this notice exists to remove.
-    if (this.recovered?.kind !== 'inconsistent' && this.unusableClosure()) {
+    if (this.recovered?.kind !== 'inconsistent'
+        && this.recovered?.kind !== 'closure-unreadable'
+        && this.unusableClosure()) {
       return UNRESOLVED_CLOSURE_MESSAGE;
     }
     switch (this.recovered?.kind) {
@@ -508,6 +510,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // sentence on one screen.
         return 'Your order could not be placed at the price you reviewed, and '
           + 'nothing has been sent to the kitchen.';
+      case 'closure-unreadable':
+        // E1 — THE SERVER RECORDED A CLOSURE THIS BUILD CANNOT ACT ON, beside
+        // an order it has not accepted. Not "no closure": the quote may be
+        // retired, so neither "review it again" (which would re-send the
+        // acceptance) nor silence is honest. Same sentence as the
+        // contradiction below, for the same reason — the remedy is a person
+        // — and the record survives so a build that knows the version can
+        // still resolve it.
+        return UNRESOLVED_CLOSURE_MESSAGE;
       case 'inconsistent':
         // E1 — THE SERVER SAID BOTH THINGS AT ONCE. Neither half may be
         // announced: "it is with the kitchen" would be a claim about an order
@@ -589,6 +600,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // Checkout would price under it, replay the retired order and loop.
     if (this.unusableClosure()) return true;
     switch (this.recovered?.kind) {
+      case 'closure-unreadable':
       case 'inconsistent':
       case 'uncorrelated':
       case 'unsupported':
@@ -1169,8 +1181,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.resendIssuedCommand(record.command);
           return;
         default:
-          // Draft, unreachable, unsupported, unauthorised or uncorrelated:
-          // all unresolved. The record stands and the notice says so.
+          // Unreachable, unsupported, unauthorised, uncorrelated, or a
+          // closure this build cannot act on: all unresolved. The record
+          // stands and the notice says so.
           return;
       }
     });
@@ -1179,10 +1192,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   // Shared placement body for both the dialog-"yes" path and Retry. Posts the
   // current basket to orders/initiate/ and, when everything is still available,
   // commits straight away; otherwise it hands off to the unavailable-items sheet.
-  /**
-   * One renewal per checkout episode. See `initiateOrder`, which opens one.
-   */
-
   /**
    * Is the server telling us this quote has been RETIRED?
    *
@@ -1239,7 +1248,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * authorized read from a build that does know the version resolves it.
    */
   private unusableClosure(): ClosureEvidence | null {
-    if (this.recovered?.kind === 'inconsistent') return this.recovered.evidence;
+    if (this.recovered?.kind === 'inconsistent'
+        || this.recovered?.kind === 'closure-unreadable') {
+      return this.recovered.evidence;
+    }
     const evidence = this.storedClosure();
     return evidence.kind === 'unsupported' || evidence.kind === 'malformed'
       ? evidence : null;
