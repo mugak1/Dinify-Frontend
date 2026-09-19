@@ -169,7 +169,12 @@ export const SUPPORTED_QUOTE_POLICY_VERSIONS: readonly number[] = [1];
  *  no diner ever sees one, for the reason the refusal messages are uniform. */
 export type ClosureDefect =
   | 'shape' | 'reason' | 'quote_ref' | 'closed_at' | 'policy_version'
-  | 'other_quote';
+  | 'other_quote'
+  /** E1 — the payload did not state a level this build could read a closure
+   *  from, on an attempt where this server had ALREADY demonstrated one. Not
+   *  `absent`: a capability does not un-demonstrate itself, so silence about
+   *  the level is a promise not kept rather than "no closure". */
+  | 'level';
 
 /**
  * C2 — ONE READING OF A DURABLE CLOSURE, AND THREE DISTINGUISHABLE ANSWERS.
@@ -182,20 +187,44 @@ export type ClosureDefect =
  * express, and acting on it would mean minting a replacement key on evidence
  * nobody can read.
  *
- * `policySupported` IS A FLAG ON ACCEPTED EVIDENCE RATHER THAN A FOURTH
- * ANSWER, and that is deliberate. RETIREMENT IS VERSION-INDEPENDENT: the
- * server recorded that this quote may never be accepted, and that is true
- * whatever rule produced it — so refusing an unrecognised version outright
- * would strand a diner against a future backend with no way forward, which is
- * the exact dead end this whole change exists to remove. What an unsupported
- * version does forfeit is any POLICY-DERIVED claim: the client may not say
- * "it expired" under a rule it does not know, and says the neutral sentence.
+ * `unsupported` IS ITS OWN ANSWER, NOT A FLAG ON AN ACCEPTED ONE (E1). An
+ * earlier cut carried `policySupported` beside an accepted closure and let
+ * every positive version drive a renewal, using the flag only to choose the
+ * wording. That is a forward-compatibility claim — *any future rule that
+ * retires a quote retires it in a way this build may act on* — and no protocol
+ * guarantee here states it: `QUOTE_POLICY_VERSION` is frozen precisely so a
+ * NEW version means a NEW rule, and this build cannot know what a rule it has
+ * never seen makes true. So an unrecognised version is READ (the closure is
+ * structurally sound and is carried, so a consumer may say what it knows) and
+ * is NOT ACTED ON: no renewal, no settled command, no discarded evidence.
+ *
+ * IT IS NOT PARALYSIS, and the distinction matters. The last usable attempt is
+ * KEPT — nothing is cleared, nothing is minted — and the consumer surfaces an
+ * actionable unresolved state, so a later valid authorized read from a build
+ * that does know the version resolves it. Widening this to act on an unknown
+ * version is a protocol decision, not a tidy-up: state the guarantee and get it
+ * approved before changing the rule.
  */
 export type ClosureEvidence =
-  | { readonly kind: 'closure'; readonly closure: QuoteClosure;
-      readonly policySupported: boolean }
+  | { readonly kind: 'closure'; readonly closure: QuoteClosure }
+  | { readonly kind: 'unsupported'; readonly closure: QuoteClosure }
   | { readonly kind: 'absent' }
   | { readonly kind: 'malformed'; readonly defect: ClosureDefect };
+
+/** Evidence this build may ACT on: mint a successor, settle a command, tell
+ *  the diner the quote is finished. Deliberately a named predicate rather than
+ *  an inline `kind === 'closure'` at each consumer — the point of splitting
+ *  `unsupported` out is that every consumer treats it the same way. */
+export function usableClosure(evidence: ClosureEvidence): QuoteClosure | null {
+  return evidence.kind === 'closure' ? evidence.closure : null;
+}
+
+/** Did the server publish SOMETHING under `quote_closure`? True for every
+ *  answer but `absent`, which is what makes "accepted AND closed" decidable
+ *  without first deciding whether the closure is one this build can use. */
+export function closureAsserted(evidence: ClosureEvidence): boolean {
+  return evidence.kind !== 'absent';
+}
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
@@ -321,11 +350,10 @@ function validateClosure(
     return { kind: 'malformed', defect: 'other_quote' };
   }
 
-  return {
-    kind: 'closure',
-    closure: { closedAt, reason, quoteRef, policyVersion },
-    policySupported: SUPPORTED_QUOTE_POLICY_VERSIONS.includes(policyVersion),
-  };
+  const closure: QuoteClosure = { closedAt, reason, quoteRef, policyVersion };
+  return SUPPORTED_QUOTE_POLICY_VERSIONS.includes(policyVersion)
+    ? { kind: 'closure', closure }
+    : { kind: 'unsupported', closure };
 }
 
 /**
@@ -415,15 +443,32 @@ export function readPublishedPolicy(orderDetails: any): QuotePolicy | null {
  * states.
  */
 export function readPublishedClosure(
-  orderDetails: any, expected?: { readonly quoteRef?: string | null },
+  orderDetails: any,
+  expected?: { readonly quoteRef?: string | null },
+  demonstrated: number = 0,
 ): ClosureEvidence {
-  const level = whole(orderDetails?.quote_protocol);
-  if (level === null || level < REQUIRED_CLOSURE_PROTOCOL) {
-    // NOT `malformed`: a server that has not promised to publish closures has
-    // said nothing at all, whatever keys happen to be beside the promise.
-    return { kind: 'absent' };
+  const stated = whole(orderDetails?.quote_protocol);
+  if (stated !== null && stated >= REQUIRED_CLOSURE_PROTOCOL) {
+    return readClosureEvidence(orderDetails, expected);
   }
-  return readClosureEvidence(orderDetails, expected);
+  // E1 — SAME-ATTEMPT DEMONSTRATED SUPPORT, EVALUATED WHEN THE ANSWER LANDS.
+  //
+  // `demonstrated` is what THIS server already stated for THIS attempt, which
+  // the record remembers monotonically. A capability does not un-demonstrate
+  // itself, so a payload that now says nothing about the level is not an older
+  // server — it is this one failing to keep a promise it made, and reading its
+  // silence as "no closure" is exactly the convenient half.
+  //
+  // It is the CAPABILITY that is read live; the operation's identity (key,
+  // scope, the issued command and the reference the closure is checked
+  // against) stays as captured, or a held answer starts being measured against
+  // whatever storage says now.
+  if (demonstrated >= REQUIRED_CLOSURE_PROTOCOL) {
+    return { kind: 'malformed', defect: 'level' };
+  }
+  // NOT `malformed`: a server that has not promised to publish closures has
+  // said nothing at all, whatever keys happen to be beside the promise.
+  return { kind: 'absent' };
 }
 
 /**
@@ -452,8 +497,9 @@ export function readPublishedClosure(
  */
 export type QuoteAnswer =
   | { readonly kind: 'still-valid' }
-  | { readonly kind: 'retired'; readonly closure: QuoteClosure;
-      readonly policySupported: boolean }
+  /** The server recorded a closure this build may act on. An unrecognised
+   *  policy version never reaches here — see `ClosureEvidence`. */
+  | { readonly kind: 'retired'; readonly closure: QuoteClosure }
   | { readonly kind: 'unreadable'; readonly defect: string };
 
 export function readQuoteAnswer(
@@ -520,17 +566,21 @@ export function readQuoteAnswer(
     // on it would retire a quote on evidence nobody can read.
     const evidence = readClosureEvidence(found, { quoteRef: asked.quoteRef });
     if (evidence.kind !== 'closure') {
+      // E1 — AND AN UNSUPPORTED POLICY VERSION LANDS HERE TOO. The enquiry's
+      // `retired` answer is what mints a successor, so it may only be produced
+      // from evidence this build may act on. An unrecognised version is a real
+      // answer that says the quote is finished under a rule this build has
+      // never seen: nothing is submitted, nothing is settled, nothing is
+      // minted, the record survives, and the consumer surfaces an actionable
+      // unresolved state that a later authorized read can clear.
       return {
         kind: 'unreadable',
         defect: evidence.kind === 'absent' ? 'closure_absent'
-          : `closure_${evidence.defect}`,
+          : evidence.kind === 'unsupported' ? 'closure_unsupported_policy'
+            : `closure_${evidence.defect}`,
       };
     }
-    return {
-      kind: 'retired',
-      closure: evidence.closure,
-      policySupported: evidence.policySupported,
-    };
+    return { kind: 'retired', closure: evidence.closure };
   }
   return { kind: 'unreadable', defect: 'outcome' };
 }

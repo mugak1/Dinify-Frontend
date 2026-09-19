@@ -17,7 +17,7 @@ Two scripts share one fixture and one setup:
 | | |
 |---|---|
 | `journey.mjs` | the CLEAN path — 42 checks, below |
-| `recovery.mjs` | INDUCED LOSS — 68 checks, the D04 and D06 sections near the bottom |
+| `recovery.mjs` | INDUCED LOSS — 88 checks, the D04 and D06 sections near the bottom |
 
 ## What it asserts
 
@@ -157,12 +157,32 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`) and 68/68 (`recovery.mjs`)** against a
-disposable local PostgreSQL 16.13 (its own cluster, never a shared instance), a
-local Django on `test_settings` (Python 3.11) at the D06 COMPLETION revision, and
-a **development** `ng serve` on Node 24.15.0 with Chromium 141
-(`/opt/pw-browsers/chromium-1194`), driving the matching frontend. Re-run at the
-**D06 C1/C2/C3 + A1 revision**, which added the two scenarios below.
+Last run: **42/42 (`journey.mjs`), 88/88 (`recovery.mjs`) and 55/55
+(`e2e/kitchen-board/kitchen.mjs`)** at the **D06 E1/O1/A1b/V1 revision** — the
+FINAL delivered pair, re-run after the component change that pass produced.
+Against a disposable local PostgreSQL 16 (its own cluster at
+`/var/lib/postgresql/d06`, `127.0.0.1`, never a shared instance), a local Django
+on `test_settings` at `ENV=dev`, and a **DEVELOPMENT** `ng serve` (`--configuration
+development`, NOT optimized assets) on Node 24.15.0 with Chromium 141
+(`/opt/pw-browsers/chromium-1194`). No UAT or production database, host or
+credential was reached.
+
+**CLEAR THE BOARD BETWEEN SCRIPTS, not only re-seed.** `recovery.mjs` clears it
+itself and `journey.mjs` does not, so running the pair in that order leaves an
+ACCEPTED order holding the table and `journey.mjs` then fails at its first
+Checkout click on a correctly-disabled button. Re-seeding is not enough — the seed
+does not remove orders. That cost one confusing run; it is not a defect in either
+script.
+
+**THIS RUN FOUND A REAL DEFECT THAT NO UNIT SPEC COULD SEE.** D06e timed out
+waiting for *Review updated order* to become enabled: the D06/O1 change replaced
+the terminal branch's fall-through to `placeOrder()` (which owns the app-wide
+checkout flight and releases it on every outcome) with a `return`, and nothing
+released it — so the very button that branch renders came up `disabled` /
+`aria-busy` and stayed that way until a reload. Every unit spec asserted on the
+STATE behind the button rather than on whether it could be pressed, which is
+exactly the gap a browser run exists to cover. Fixed, and now pinned by
+`basket-body.evidence-gates.spec.ts`.
 
 ### D06c — the closure commits and the refusal is lost
 
@@ -186,6 +206,33 @@ and O1 is still an unaccepted draft with its closure intact.` It also asserts
 that BOTH basket mounts read the established closure — the desktop sidebar
 never runs recovery, so without the persisted evidence it would still be
 offering Checkout for a purchase that can never be placed.
+
+### D06e — the successor's INITIATION is lost
+
+**THE INTERLEAVING THE OTHER FOUR DO NOT REACH, and the state the record can
+least afford to get wrong.** D06c loses the acceptance that WRITES a closure and
+then loses the successor's ACCEPTANCE. This loses the successor's INITIATION: the
+server prices O2 under K2 and the browser never learns it exists
+(`route.fetch()` then `route.abort()` on `POST orders/initiate/`, so the server
+really creates the draft).
+
+After that tap the record holds K2 with **no command and no order**, and both
+readings of that silence are wrong in opposite directions. Read as "nothing
+happened" it mints a THIRD key, the server prices a third order and one purchase
+ends up with three drafts behind it. Read as "an acceptance may be outstanding"
+it offers only a Retry for a command that was never issued — the dead end this
+whole programme exists to remove.
+
+Seven steps, each asserted: price O1 under K1 and open the review; make the
+purchase unacceptable so the server writes a REAL closure; submit, and the
+refusal is **seen** here (this scenario is about the step after it); the client
+establishes the closure and offers *Review updated order*; tap it, and the
+INITIATE reply is destroyed; reload; complete. The invariants at the end are that
+**exactly two keys** were ever used across the whole sequence, **exactly one
+order** reaches the kitchen and it is not O1, the successor record survives the
+reload, the notice never claims an acceptance that was never issued, and O1 is
+still a retired, unaccepted draft whose `quote_total` is byte-identical to what it
+was before the closure.
 
 ### D06d — the acceptance never reaches the server
 

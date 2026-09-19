@@ -332,8 +332,22 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
     resent.flush({ status: 200, message: 'ok' });
   });
 
-  it('CONTROL: an ACCEPTED order that also carries a closure is accepted',
+  it('E1: an ACCEPTED order that ALSO carries a closure is INCONSISTENT',
      () => {
+    // CHANGED EXPECTATION, DELIBERATELY. This asserted `accepted` on the
+    // reasoning that a closure is about the QUOTE, so an order accepted
+    // before one was written is still accepted. The premise is sound and the
+    // conclusion does not follow: the server cannot produce this pair.
+    // `quote_closure.close` refuses to write a closure beside acceptance
+    // evidence and the acceptance path resolves evidence FIRST, so one order
+    // carries at most one of the two.
+    //
+    // Choosing the acceptance half is not free. It CLEARS THE BASKET AND
+    // DELETES THE RECORD, on a response whose other half says the quote was
+    // retired — and if the closure is the true half, the diner has lost both
+    // their basket and the only handle that could resolve it. Choosing the
+    // closure half would mint a replacement for an order that may be cooking.
+    // So neither is chosen.
     const key = priceAndAccept();
     loseTheReply();
 
@@ -346,9 +360,30 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
         accepted_at: '2026-09-18T09:59:00Z' },
     ));
 
-    // A closure is about the QUOTE. An order that was accepted before it was
-    // written is still accepted, and telling the diner otherwise would ask
-    // them to re-order something the kitchen is already cooking.
+    expect((component as any).recovered.kind).toBe('inconsistent');
+    // NOTHING IS ANNOUNCED, MINTED OR ERASED.
+    http.expectNone(`${V1}/orders/initiate/`);
+    expect(coordinator.record()).not.toBeNull();
+    expect(coordinator.record()!.key).toBe(key);
+    expect(basketService.clearBasket).not.toHaveBeenCalled();
+    expect(component.checkoutBlocked).toBeTrue();
+    expect(component.recoveryNotice).toContain('check with staff');
+  });
+
+  it('CONTROL: an ACCEPTED order with NO closure is still accepted', () => {
+    // The half that must not move. Without the contradiction the acceptance
+    // is announced exactly as before.
+    const key = priceAndAccept();
+    loseTheReply();
+
+    component.retryOrder();
+    answerTheRead(readAnswer(
+      key,
+      { accepted: true, accepted_at: '2026-09-18T09:59:00Z' },
+      { state: 'accepted', outcome: null, quote_ref: 'q1',
+        accepted_at: '2026-09-18T09:59:00Z' },
+    ));
+
     expect((component as any).recovered.kind).toBe('accepted');
     http.expectNone(`${V1}/orders/initiate/`);
   });
@@ -373,10 +408,14 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
     // outstanding and the CTA offering a Retry that arrives back here.
     expect((component as any).recovered.kind).toBe('closed');
     expect(coordinator.record()!.command).toBeNull();
-    expect(coordinator.record()!.closure).toEqual({
+    const reading = coordinator.closureOf(coordinator.record()!);
+    expect(reading.evidence.kind === 'closure'
+      && reading.evidence.closure).toEqual({
       closedAt: CLOSURE.closed_at, reason: CLOSURE.reason,
       quoteRef: CLOSURE.quote_ref, policyVersion: CLOSURE.policy_version,
     });
+    // O1 — AND IT NAMES THE ATTEMPT IT WAS WRITTEN AGAINST.
+    expect(reading.predecessor?.key).toBe(coordinator.record()!.key);
     expect(component.updatedReviewPrompt).not.toBeNull();
   });
 
@@ -395,6 +434,68 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
     expect((component as any).recovered.kind).toBe('unknown');
     expect(coordinator.record()!.command).not.toBeNull();
     expect(coordinator.record()!.closure).toBeNull();
+  });
+
+  // -- O1: the two RECOVERY writes are required, and were unpinned --------
+  //
+  // THE GAP THIS CLOSES WAS FOUND BY MUTATION, NOT BY READING. Both recovery
+  // consumers already checked `noteClosure`'s return, and removing BOTH checks
+  // failed nothing in 2497 specs — so the rule was stated in code and in a
+  // comment and pinned by neither. A closure that cannot be written down is
+  // not an established fact: the sidebar, the next reload and the diner's
+  // explicit review would each read a record that says nothing about a
+  // closure, and the review would then find none and price again under the
+  // retired key. The submit-refusal path has its own gate in
+  // `basket-body.evidence-gates.spec.ts`; these are the other two sites.
+
+  it('O1: a Retry whose closure cannot be written down claims nothing', () => {
+    const key = priceAndAccept();
+    loseTheReply();
+
+    component.retryOrder();
+    // A store that ACCEPTS `setItem`, throws nothing and keeps the previous
+    // value is the realistic failure — which is why `persist` verifies by
+    // read-back rather than by try/catch.
+    spyOn(window.sessionStorage, 'setItem').and.stub();
+    answerTheRead(readAnswer(key, { quote_closure: CLOSURE }));
+
+    expect((component as any).recovered.kind).toBe('unknown');
+    // NOTHING IS CLAIMED AND NOTHING IS LOST: no review is offered, and the
+    // command stays outstanding so a later read can still settle it.
+    expect(component.updatedReviewPrompt).toBeNull();
+    expect(coordinator.record()!.command).not.toBeNull();
+    // And no successor is minted on the strength of an unwritten closure.
+    http.expectNone(`${API}/v2/orders/initiate/`);
+  });
+
+  it('O1: and the STARTUP read applies the same rule', () => {
+    const key = priceAndAccept();
+    loseTheReply();
+
+    // The routed instance resumes in `ngOnInit`. A second component over the
+    // SAME persisted record is what drives that path here, since the fixture
+    // above deliberately suppresses its own resume.
+    const resumed = TestBed.createComponent(BasketBodyComponent);
+    spyOn(window.sessionStorage, 'setItem').and.stub();
+    resumed.detectChanges();
+    answerTheRead(readAnswer(key, { quote_closure: CLOSURE }));
+
+    expect((resumed.componentInstance as any).recovered.kind).toBe('unknown');
+    expect(resumed.componentInstance.updatedReviewPrompt).toBeNull();
+    expect(coordinator.record()!.command).not.toBeNull();
+  });
+
+  it('CONTROL: when the write DOES land, the review is offered', () => {
+    const key = priceAndAccept();
+    loseTheReply();
+
+    component.retryOrder();
+    answerTheRead(readAnswer(key, { quote_closure: CLOSURE }));
+
+    // The half a fix must not buy the two above by breaking.
+    expect((component as any).recovered.kind).toBe('closed');
+    expect(component.updatedReviewPrompt).not.toBeNull();
+    expect(coordinator.record()!.command).toBeNull();
   });
 
   it('CONTROL: a closure from a server that never promised to publish one is '
