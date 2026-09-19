@@ -11,7 +11,11 @@ import {
 } from 'src/app/_shared/order/checkout-correlation';
 import {
   QuoteRefusal,
+  readPublishedClosure,
+  readStoredClosureEvidence,
   readQuoteRefusal,
+  ClosureEvidence,
+  QuoteClosure,
 } from 'src/app/_shared/order/quote-transition';
 
 /**
@@ -154,6 +158,25 @@ export const PURCHASE_CANON = 'contentIdentity/lineIdentity-v1';
  */
 const UNMATCHABLE = '\u0000';
 
+/**
+ * C1 — READ A PERSISTED CLOSURE BACK THROUGH THE SAME CONTRACT THE WIRE USES.
+ *
+ * A stored record is not more trustworthy than a response: it may have been
+ * written by a build with a different idea of what a closure is, or edited, or
+ * truncated. `readClosureEvidence` is the one rule, so a value this build
+ * cannot accept is simply not a closure — and the record then behaves exactly
+ * as one written before closures existed.
+ *
+ * It is given no expected reference: the record's own command may since have
+ * been settled and cleared, and a closure that was validated against the right
+ * reference when it was WRITTEN does not become wrong because the handle used
+ * to validate it has gone.
+ */
+function readStoredClosure(value: unknown): QuoteClosure | null {
+  const evidence = readStoredClosureEvidence(value);
+  return evidence.kind === 'closure' ? evidence.closure : null;
+}
+
 /** A correlated terminal result, written durably before any cleanup. */
 export interface TerminalOutcome {
   readonly kind: 'accepted';
@@ -246,6 +269,32 @@ export interface CheckoutRecord {
    * recovered", D06 "may this quote still be accepted".
    */
   readonly quoteProtocol: number;
+  /**
+   * C1 — THE SERVER'S DURABLE STATEMENT THAT THIS ATTEMPT'S QUOTE IS FINISHED.
+   *
+   * WHY IT IS PERSISTED RATHER THAN HELD IN MEMORY. A closure is the one D06
+   * fact a client learns and can then LOSE: the refusal that announces it is
+   * exactly the response a dropped connection destroys, and the reload that
+   * follows is what this record exists to survive. Without it the diner's
+   * explicit "review updated order" would have to re-read the server to find
+   * out what it already knew, and a second mount would have no way to see that
+   * the first had established it.
+   *
+   * IT IS EVIDENCE, NOT A FLAG. It is written only from a closure this build
+   * VALIDATED (`readClosureEvidence`), it names the reference the server
+   * retired, and it is never inferred from a reason code, a deadline, a
+   * refusal that carried no row, or the absence of anything.
+   *
+   * THE RECORD VERSION DELIBERATELY DOES NOT MOVE FOR IT, for the reason
+   * `replaces` records at length: bumping would make every record this build
+   * writes `unsupported` to the previous one, and an `unsupported` record
+   * BLOCKS — a rollback mid-checkout would strand a diner with an order in
+   * flight. An older build reading a record carrying this key ignores it and
+   * loses nothing it relied on: the key is kept and the command settled, so its
+   * next re-price replays the retired order and its own G3b initiate-handler
+   * check renews there instead. That is one wasted round trip, not a dead end.
+   */
+  readonly closure: QuoteClosure | null;
 }
 
 /**
@@ -303,6 +352,22 @@ export type RecoveryOutcome =
   /** The key resolved to a draft the server has NOT accepted. */
   | { readonly kind: 'draft'; readonly order: any;
       readonly correlation: CheckoutCorrelation | null }
+  /**
+   * C1 — THE ORDER IS A DEFINITIVE DRAFT *AND* ITS QUOTE HAS BEEN RETIRED.
+   *
+   * Kept apart from `draft` because the two call for OPPOSITE actions. A
+   * draft's acceptance may be re-sent — that is D04's proof-of-non-execution
+   * rule, and withholding the re-send there is its own dead end. A CLOSED
+   * quote can never be accepted, so re-sending is the dead end: the server
+   * refuses identically, the refusal files as unknown, and Retry returns here.
+   *
+   * It is only ever reached from a `not-accepted` verdict: acceptance is
+   * resolved FIRST, so an order the server accepted stays accepted whatever a
+   * closure beside it says.
+   */
+  | { readonly kind: 'closed'; readonly order: any;
+      readonly correlation: CheckoutCorrelation | null;
+      readonly closure: QuoteClosure }
   /** THE SERVER ANSWERED AND HAS NO ROW FOR THIS KEY, at a scope it resolved
    *  itself. It licenses a SAME-KEY, SAME-REQUEST replay — never a new key,
    *  and never discarding the record. */
@@ -455,6 +520,8 @@ export class CheckoutCoordinatorService {
       degraded: false,
       replaces: null,
       quoteProtocol: 0,
+      // A FRESH ATTEMPT IS NOT RETIRED. Nothing has been priced yet.
+      closure: null,
     };
     return this.persist(record)
       ? { kind: 'ready', key: record.key, record }
@@ -617,6 +684,18 @@ export class CheckoutCoordinatorService {
   }
 
   /**
+   * The highest D06 level any server has stated for the live attempt, or 0.
+   *
+   * C2 — READ WHEN AN ANSWER LANDS, not when the request was sent, and
+   * deliberately NOT from the response being read: a capability once
+   * demonstrated does not un-demonstrate itself, so an answer that omits both
+   * the level and the correlation must not be excused by its own silence.
+   */
+  establishedQuoteProtocol(): number {
+    return this.record()?.quoteProtocol ?? 0;
+  }
+
+  /**
    * Remember a stated capability level. MONOTONIC — a level once stated is
    * never lowered by a later response that happens to omit it, because that
    * omission is exactly the broken case the memory exists to catch.
@@ -687,6 +766,35 @@ export class CheckoutCoordinatorService {
     const current = this.record();
     if (!current) return false;
     return this.persist({ ...current, stage: 'refused', command: null });
+  }
+
+  /**
+   * C1 — RECORD THAT THE SERVER RETIRED THIS ATTEMPT'S QUOTE.
+   *
+   * ONE WRITE, TWO FACTS, AND THEY MUST NOT BE SPLIT. The command is settled
+   * (a closed quote can never be accepted, so the issued acceptance is
+   * definitively dead — the `settleRefusedCommand` reasoning, reached by the
+   * strongest possible evidence) AND the closure is remembered, so the diner's
+   * explicit review action, the other mount and the next page load all see the
+   * same established fact without asking the server again. Writing them
+   * separately would leave a window where the command is settled and the
+   * reason is gone — a record that looks like an ordinary reprice.
+   *
+   * THE KEY IS KEPT. The successor is minted by `renewAfterClosure` from a
+   * DELIBERATE diner action; retiring the key here would discard the identity
+   * of the attempt before anything had decided what to do about it.
+   *
+   * It takes a VALIDATED closure and never a reason code: the whole point is
+   * that this is evidence the server produced, not a conclusion this client
+   * drew. Returns whether the write is durable; a caller must not act on
+   * `false`.
+   */
+  noteClosure(closure: QuoteClosure): boolean {
+    const current = this.record();
+    if (!current) return false;
+    return this.persist({
+      ...current, stage: 'refused', command: null, closure,
+    });
   }
 
   noteStage(stage: CheckoutStage): boolean {
@@ -762,7 +870,20 @@ export class CheckoutCoordinatorService {
    * is not an idempotency key, so a storage that silently drops the write
    * refuses the renewal and the caller sends nothing.
    */
-  renewAfterClosure(replaced?: CheckoutRecord): RenewalResult {
+  renewAfterClosure(
+    closure: QuoteClosure, replaced?: CheckoutRecord,
+  ): RenewalResult {
+    // C2 — NO EVIDENCE, NO SUCCESSOR. A renewal abandons an idempotency key,
+    // which is the single most consequential thing this client does with one,
+    // and the only justification for it is that the server RECORDED that the
+    // quote behind that key can never be accepted. This used to take no
+    // argument at all, so every caller's reading of the evidence was its own
+    // and a terminal reason carrying no closure minted a key just as readily
+    // as one carrying a valid row. The argument makes the requirement a
+    // property of the primitive rather than a convention at four call sites.
+    if (!closure || typeof closure !== 'object' || !closure.quoteRef) {
+      return { kind: 'none' };
+    }
     const stored = this.read();
     if (stored.kind === 'none') return { kind: 'none' };
     if (stored.kind !== 'record') return { kind: 'blocked', stored };
@@ -795,6 +916,11 @@ export class CheckoutCoordinatorService {
       // A NEW ATTEMPT IS A NEW QUESTION, for this level as for the other: the
       // server re-states what it supports on the next response.
       quoteProtocol: 0,
+      // AND IT CARRIES NO CLOSURE. The closure belonged to the RETIRED
+      // attempt and is left on nothing — the successor's quote has not been
+      // priced yet, let alone retired. Copying it forward would make a brand
+      // new attempt read as already finished.
+      closure: null,
     };
     return this.persist(record)
       ? { kind: 'ready', key: record.key, record }
@@ -865,9 +991,30 @@ export class CheckoutCoordinatorService {
    * body, so `readQuoteRefusal` returns null and this returns null with it.
    */
   applyQuoteRefusal(error: unknown): QuoteRefusal | null {
-    const refusal = readQuoteRefusal(error);
+    const current = this.record();
+    // C2 — THE CLOSURE IS VALIDATED AGAINST THE COMMAND THAT WAS ISSUED. A
+    // closure naming a different reference is a statement about a different
+    // quote; honouring it here would settle THIS command and mint a successor
+    // on evidence about something else. Absent when no command was issued,
+    // which is the case an authorized answer about a quote this client never
+    // submitted legitimately reaches.
+    const refusal = readQuoteRefusal(error, {
+      quoteRef: current?.command?.quoteRef ?? null,
+    });
     if (!refusal) return null;
-    if (refusal.disposition === 'terminal' || refusal.disposition === 'reprice') {
+
+    if (refusal.disposition === 'terminal'
+        && refusal.evidence.kind === 'closure') {
+      // C1 — THE CLOSURE IS REMEMBERED, NOT JUST ACTED ON. The refusal that
+      // carries it is the one response a client can lose, and a diner who
+      // reloads must not have to discover it again by attempting an
+      // acceptance the server has already permanently refused.
+      if (!this.noteClosure(refusal.evidence.closure)) {
+        return { ...refusal, disposition: 'unknown' };
+      }
+      return refusal;
+    }
+    if (refusal.disposition === 'reprice') {
       // A FAILED DURABLE WRITE IS HONOURED: re-pricing on top of a record that
       // still names an unsettled command would leave one nobody resolves, so
       // the caller is told and must not send anything.
@@ -981,7 +1128,25 @@ export class CheckoutCoordinatorService {
         case 'accepted':
           return { kind: 'accepted', order, correlation };
         case 'not-accepted':
-          return { kind: 'draft', order, correlation };
+          // C1 — A DEFINITIVE DRAFT IS NOT NECESSARILY A RE-SUBMITTABLE ONE.
+          //
+          // `not_accepted` is proof the acceptance did not commit, and D04
+          // rightly re-sends the recorded command on it. But the same read
+          // can ALSO carry the server's durable statement that this order's
+          // quote was retired — which is exactly what the level-2 projection
+          // exists to publish, for exactly the client that lost the refusal
+          // announcing it. Re-sending there is a dead end by construction:
+          // the server refuses identically, the refusal files as unknown,
+          // and Retry comes back here.
+          //
+          // ACCEPTANCE IS RESOLVED FIRST, and that ordering is the contract
+          // rather than an accident of the switch: an order the server
+          // accepted stays accepted whatever a closure beside it says, so the
+          // closure is consulted only on the one verdict that has ruled
+          // acceptance OUT.
+          return this.closedOr(
+            { kind: 'draft', order, correlation }, order, pending,
+            correlation);
         case 'indeterminate':
           return { kind: 'accepted-unrecorded', order, correlation };
         default:
@@ -1023,11 +1188,45 @@ export class CheckoutCoordinatorService {
       // inferring anything from the server: it never issued an acceptance for
       // this key, so there is no acceptance for the server to have lost track
       // of, and the order can only be the draft that initiate created.
-      return { kind: 'draft', order, correlation: null };
+      //
+      // C1 APPLIES HERE TOO. A commandless draft whose quote the server
+      // retired is just as unacceptable as one whose acceptance was lost —
+      // the diner would press Checkout, replay the retired order under the
+      // same key and be handed a review sheet for a quote that can never be
+      // paid. The level gate inside `readPublishedClosure` is what keeps this
+      // silent against a server that has not promised to publish closures.
+      return this.closedOr(
+        { kind: 'draft', order, correlation: null }, order, pending, null);
     }
     // An acceptance WAS issued and this server cannot say whether it landed.
     // Unresolved, and reported as such rather than guessed either way.
     return { kind: 'unsupported', protocol: protocolLevel(order) };
+  }
+
+  /**
+   * C1 — PROMOTE A DRAFT VERDICT TO `closed` WHEN THE READ PUBLISHES A
+   * VALIDATED CLOSURE FOR IT, otherwise hand back the verdict unchanged.
+   *
+   * ONE PLACE, TWO CALLERS, and it has to be: the level-3 `not-accepted`
+   * branch and the level-2 commandless-draft fallback are the same situation
+   * reached through different evidence about the ACCEPTANCE, and a closure is
+   * equally decisive in both. Two copies would disagree on whichever the next
+   * change touched.
+   *
+   * The closure is validated against the reference this client SUBMITTED when
+   * it has one: a closure naming a different quote is a statement about
+   * something else and must not retire this attempt.
+   */
+  private closedOr(
+    fallback: RecoveryOutcome, order: any, pending: CheckoutRecord,
+    correlation: CheckoutCorrelation | null,
+  ): RecoveryOutcome {
+    const evidence = readPublishedClosure(order, {
+      quoteRef: pending.command?.quoteRef ?? null,
+    });
+    return evidence.kind === 'closure'
+      ? { kind: 'closed', order, correlation, closure: evidence.closure }
+      : fallback;
   }
 
   private classifyFailure(error: unknown): RecoveryOutcome {
@@ -1121,6 +1320,17 @@ export class CheckoutCoordinatorService {
         && Number.isInteger(value['quoteProtocol'])
         && value['quoteProtocol'] > 0
         ? (value['quoteProtocol'] as number) : 0,
+      // C1 — ABSENT MEANS "NOT KNOWN TO BE RETIRED", which is what every
+      // record written before this change carries and what every live attempt
+      // carries. It is re-read through the SAME evidence contract the wire is
+      // read through, so a stored value this build cannot accept is treated as
+      // absent rather than acted on — and that is SAFE in the only direction
+      // that matters: the worst outcome is one wasted re-price, which the
+      // initiate handler's own closure check then resolves. It is deliberately
+      // NOT `degraded`: an unreadable closure reduces what is known about the
+      // QUOTE and says nothing about whether an acceptance was issued, which
+      // is the question `degraded` exists to keep open.
+      closure: readStoredClosure(value['closure']),
     };
   }
 
@@ -1177,6 +1387,8 @@ export class CheckoutCoordinatorService {
       replaces: null,
       // and predates the D06 level memory, so nothing is claimed.
       quoteProtocol: 0,
+      // and predates closures entirely, so nothing is known about its quote.
+      closure: null,
     };
   }
 
@@ -1263,6 +1475,16 @@ export class CheckoutCoordinatorService {
         ? [record.outcome.orderId, record.outcome.orderNumber,
            record.outcome.quoteRef, record.outcome.acceptedAt] : null,
       record.protocol,
+      // C1/C2 — BOTH LEVELS AND THE CLOSURE ARE READ-BACK VERIFIED.
+      // `quoteProtocol` decides whether an uncorrelated enquiry answer is
+      // honoured or refused, and `closure` decides whether a renewal may be
+      // minted at all; a store that accepted the write and kept the previous
+      // value would have reported success on both, which is the exact failure
+      // Gate C's fingerprint exists to catch.
+      record.quoteProtocol,
+      record.closure
+        ? [record.closure.closedAt, record.closure.reason,
+           record.closure.quoteRef, record.closure.policyVersion] : null,
     ]);
   }
 

@@ -72,6 +72,22 @@ describe('CheckoutCoordinatorService — renewal after a closure (D06/G3b)', () 
     window.sessionStorage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
   });
 
+  /**
+   * C2 — THE EVIDENCE THE PRIMITIVE NOW REQUIRES.
+   *
+   * `renewAfterClosure` used to take no argument at all, so every caller's
+   * reading of the server's evidence was its own and a terminal reason
+   * carrying no closure minted a key just as readily as one carrying a valid
+   * row. Passing a validated closure makes the requirement a property of the
+   * primitive rather than a convention at four call sites.
+   */
+  const CLOSURE = {
+    closedAt: '2026-09-18T10:00:00Z',
+    reason: 'quote_expired',
+    quoteRef: 'ref-1',
+    policyVersion: 1,
+  };
+
   describe('the dead end', () => {
     it('THE REGRESSION: settling a refused command hands the SAME key back', () => {
       const first = reserve();
@@ -90,7 +106,7 @@ describe('CheckoutCoordinatorService — renewal after a closure (D06/G3b)', () 
       coordinator.noteCommand({ orderId: 'o1', quoteRef: 'ref-1' });
       coordinator.settleRefusedCommand();
 
-      const renewed = coordinator.renewAfterClosure();
+      const renewed = coordinator.renewAfterClosure(CLOSURE);
       expect(renewed.kind).toBe('ready');
 
       const after = reserve();
@@ -105,8 +121,8 @@ describe('CheckoutCoordinatorService — renewal after a closure (D06/G3b)', () 
       const first = reserve();
       coordinator.settleRefusedCommand();
 
-      const a = coordinator.renewAfterClosure(first.record);
-      const b = coordinator.renewAfterClosure(first.record);
+      const a = coordinator.renewAfterClosure(CLOSURE, first.record);
+      const b = coordinator.renewAfterClosure(CLOSURE, first.record);
 
       expect(a.kind).toBe('ready');
       expect(b.kind).toBe('superseded');
@@ -117,16 +133,16 @@ describe('CheckoutCoordinatorService — renewal after a closure (D06/G3b)', () 
     it('a renewal naming a record that is no longer current is refused', () => {
       const first = reserve();
       coordinator.settleRefusedCommand();
-      coordinator.renewAfterClosure(first.record);
+      coordinator.renewAfterClosure(CLOSURE, first.record);
 
-      const stale = coordinator.renewAfterClosure(first.record);
+      const stale = coordinator.renewAfterClosure(CLOSURE, first.record);
       expect(stale.kind).toBe('superseded');
     });
 
     it('the successor LINKS to what it replaces', () => {
       const first = reserve();
       coordinator.settleRefusedCommand();
-      coordinator.renewAfterClosure(first.record);
+      coordinator.renewAfterClosure(CLOSURE, first.record);
 
       const after = reserve();
       expect(after.record.replaces).toBe(first.key);
@@ -143,7 +159,7 @@ describe('CheckoutCoordinatorService — renewal after a closure (D06/G3b)', () 
       const first = reserve();
       coordinator.noteCommand({ orderId: 'o1', quoteRef: 'ref-1' });
 
-      const refused = coordinator.renewAfterClosure();
+      const refused = coordinator.renewAfterClosure(CLOSURE);
       expect(refused.kind).toBe('outstanding');
       // and the key is untouched, so the outstanding command is still
       // recoverable by exactly the record that issued it.
@@ -153,14 +169,27 @@ describe('CheckoutCoordinatorService — renewal after a closure (D06/G3b)', () 
     });
 
     it('is refused when there is no record to renew', () => {
-      expect(coordinator.renewAfterClosure().kind).toBe('none');
+      expect(coordinator.renewAfterClosure(CLOSURE).kind).toBe('none');
+    });
+
+    it('C2: is refused with NO verified closure behind it', () => {
+      // A renewal abandons an idempotency key. The only thing that entitles a
+      // client to do that is the server having RECORDED that the quote behind
+      // it can never be accepted — so "no evidence" must not mint a key, and
+      // the record must be left exactly as it was.
+      const first = reserve();
+      coordinator.settleRefusedCommand();
+
+      expect(coordinator.renewAfterClosure(null as any).kind).toBe('none');
+      expect(coordinator.renewAfterClosure({} as any).kind).toBe('none');
+      expect(coordinator.record()!.key).toBe(first.key);
     });
 
     it('does not carry the replaced attempt COMMAND forward', () => {
       reserve();
       coordinator.noteCommand({ orderId: 'o1', quoteRef: 'ref-1' });
       coordinator.settleRefusedCommand();
-      coordinator.renewAfterClosure();
+      coordinator.renewAfterClosure(CLOSURE);
 
       const after = coordinator.record()!;
       expect(after.command).toBeNull();
@@ -172,7 +201,7 @@ describe('CheckoutCoordinatorService — renewal after a closure (D06/G3b)', () 
       reserve();
       coordinator.noteProtocol(3);
       coordinator.settleRefusedCommand();
-      coordinator.renewAfterClosure();
+      coordinator.renewAfterClosure(CLOSURE);
 
       // A NEW ATTEMPT IS A NEW QUESTION. The level is remembered per attempt
       // and is re-demonstrated by the server's next response; carrying it
@@ -189,7 +218,7 @@ describe('CheckoutCoordinatorService — renewal after a closure (D06/G3b)', () 
       const before = coordinator.record()!.key;
 
       spyOn(window.sessionStorage, 'setItem').and.stub();
-      expect(coordinator.renewAfterClosure().kind).toBe('storage-error');
+      expect(coordinator.renewAfterClosure(CLOSURE).kind).toBe('storage-error');
 
       // NOTHING IS SENT on a key nobody wrote down: the previous record is
       // still what storage holds, so the client has not silently started an

@@ -158,8 +158,16 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
 
   describe('a terminal refusal', () => {
     it('THE REGRESSION: re-prices under a NEW key', () => {
+      // C2 — WITH THE CLOSURE. This oracle used to pass a bare
+      // `quote_expired` and expect a new key, which asserted the SUPERSEDED
+      // behaviour: the word alone settled the issued command and minted a
+      // replacement. `_TerminalQuoteOutcome` builds this refusal from the row
+      // `quote_closure.close` just wrote and attaches it, so the row is what
+      // a terminal refusal actually carries — and it is what entitles this
+      // client to abandon an idempotency key.
       const first = afterPricing();
-      (component as any).handleSubmitFailure(refusal('quote_expired'));
+      (component as any).handleSubmitFailure(
+        refusal('quote_expired', closureFacts));
 
       const keys = keysSent();
       expect(keys.length).toBe(2);
@@ -167,16 +175,30 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
       expect(coordinator.record()!.key).not.toBe(first);
     });
 
-    it('and the new attempt LINKS to the retired one', () => {
+    it('C2: CONTROL — the same reason with NO closure renews nothing', () => {
+      // The discriminating half of the correction above. A server that says
+      // the word and sends no row has made a promise it did not keep, and
+      // minting a key on it is acting on evidence nobody can read.
       const first = afterPricing();
       (component as any).handleSubmitFailure(refusal('quote_expired'));
+
+      expect(keysSent().length).toBe(1);
+      expect(coordinator.record()!.key).toBe(first);
+      expect(coordinator.record()!.command).toBeNull();
+    });
+
+    it('and the new attempt LINKS to the retired one', () => {
+      const first = afterPricing();
+      (component as any).handleSubmitFailure(
+        refusal('quote_expired', closureFacts));
       expect(coordinator.record()!.replaces).toBe(first);
     });
 
     it('carries the SAME purchase across — it is a new attempt, not a new basket', () => {
       afterPricing();
       const identity = coordinator.record()!.request.identity;
-      (component as any).handleSubmitFailure(refusal('quote_expired'));
+      (component as any).handleSubmitFailure(
+        refusal('quote_expired', closureFacts));
       expect(coordinator.record()!.request.identity).toBe(identity);
     });
 
@@ -290,7 +312,13 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
       const key = coordinator.record()!.key;
       const sent = keysSent().length;
 
-      const proceeded = (component as any).renewAfterClosure();
+      const proceeded = (component as any).renewAfterClosure(
+        closureFacts.quote_closure && {
+          closedAt: closureFacts.quote_closure.closed_at,
+          reason: closureFacts.quote_closure.reason,
+          quoteRef: closureFacts.quote_closure.quote_ref,
+          policyVersion: closureFacts.quote_closure.policy_version,
+        });
 
       expect(proceeded).toBeFalse();
       expect(coordinator.record()!.key).toBe(key);
@@ -305,7 +333,10 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
       spyOn(coordinator, 'renewAfterClosure').and.returnValue(
         { kind: 'storage-error' });
 
-      expect((component as any).renewAfterClosure()).toBeFalse();
+      expect((component as any).renewAfterClosure({
+        closedAt: '2026-09-17T10:00:00Z', reason: 'quote_expired',
+        quoteRef: 'q1', policyVersion: 1,
+      })).toBeFalse();
       expect(keysSent().length).toBe(sent);
     });
   });

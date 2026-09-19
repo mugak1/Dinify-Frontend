@@ -24,6 +24,17 @@ describe('D06 quote transition vocabulary', () => {
   const refusal = (reason: string, extra: Record<string, unknown> = {}) =>
     ({ status: 400, message: 'refused', reason, ...extra });
 
+  /** A closure exactly as the backend projects one. */
+  const closure = (over: Record<string, unknown> = {}) => ({
+    quote_closure: {
+      closed_at: '2026-01-01T00:00:00+00:00',
+      reason: 'quote_expired',
+      quote_ref: 'REF',
+      policy_version: 1,
+      ...over,
+    },
+  });
+
   describe('the disposition of a refusal', () => {
     it('classifies every operational refusal as transient', () => {
       for (const reason of TRANSIENT_REASONS) {
@@ -32,10 +43,16 @@ describe('D06 quote transition vocabulary', () => {
       }
     });
 
-    it('classifies expiry and a changed purchase as terminal', () => {
+    it('classifies expiry and a changed purchase as terminal — WITH the '
+       + 'closure the server records for them', () => {
+      // C2 — TERMINAL IS A CLAIM ABOUT A DURABLE RECORD, so the record has to
+      // be there. The backend builds every one of these reasons only after
+      // `quote_closure.close` returned a row and attaches it beside the word
+      // (`_TerminalQuoteOutcome._metadata`), so this is the shape a terminal
+      // refusal actually arrives in.
       for (const reason of TERMINAL_REASONS) {
-        expect(readQuoteRefusal(refusal(reason))!.disposition)
-          .withContext(reason).toBe('terminal');
+        expect(readQuoteRefusal(refusal(reason, closure({ reason: 'quote_expired' })))!
+          .disposition).withContext(reason).toBe('terminal');
       }
     });
 
@@ -70,24 +87,83 @@ describe('D06 quote transition vocabulary', () => {
       expect(readQuoteRefusal(raw)!.reason).toBe('quote_expired');
     });
 
-    it('never claims the quote was retired without a closure to read', () => {
-      // `retired` is READ, not inferred from the disposition: a server that
-      // refused without recording one has said so by omitting the object.
+    it('C2: a TERMINAL reason with no closure is UNKNOWN, not terminal', () => {
+      // `retired` is READ, not inferred — and C2 goes one step further,
+      // because "terminal" is not merely a label: it SETTLES the issued
+      // command and licenses a replacement key. Every backend that can emit
+      // one of these reasons attaches the row it wrote, so the word without
+      // the row is a BROKEN PROMISE rather than an older shape, and the safe
+      // answer is the one that settles nothing, renews nothing and leaves the
+      // record for the authorized read to resolve.
       const withoutClosure = readQuoteRefusal(refusal('quote_expired'))!;
-      expect(withoutClosure.disposition).toBe('terminal');
+      expect(withoutClosure.disposition).toBe('unknown');
       expect(withoutClosure.retired).toBeFalse();
       expect(withoutClosure.closure).toBeNull();
+      expect(withoutClosure.evidence.kind).toBe('absent');
+      // and the reason itself is preserved verbatim, so the diner still sees
+      // the server's own sentence and a log still says which reason it was.
+      expect(withoutClosure.reason).toBe('quote_expired');
+    });
+
+    it('C2: and an UNREADABLE closure is distinguished from an absent one', () => {
+      const bad = readQuoteRefusal(refusal('quote_expired', closure({
+        policy_version: 'one',
+      })))!;
+      expect(bad.disposition).toBe('unknown');
+      expect(bad.evidence.kind).toBe('malformed');
+    });
+
+    it('C2: refuses a closure that names a DIFFERENT quote', () => {
+      // CONTRADICTS, NOT CONFIRMS. A closure about another reference is a
+      // statement about another quote; acting on it would settle this command
+      // and mint a successor on evidence about something else.
+      const other = readQuoteRefusal(
+        refusal('quote_expired', closure({ quote_ref: 'OTHER' })),
+        { quoteRef: 'REF' })!;
+      expect(other.disposition).toBe('unknown');
+      expect(other.evidence.kind).toBe('malformed');
+
+      const mine = readQuoteRefusal(
+        refusal('quote_expired', closure()), { quoteRef: 'REF' })!;
+      expect(mine.disposition).toBe('terminal');
+    });
+
+    it('C2: refuses a reason outside the closure vocabulary', () => {
+      // The server guards the same two strings with a database constraint, so
+      // a third is not a closure this build has any business acting on.
+      const wrong = readQuoteRefusal(refusal('quote_expired', closure({
+        reason: 'restaurant_paused',
+      })))!;
+      expect(wrong.evidence.kind).toBe('malformed');
+    });
+
+    it('C2: refuses a closure with no meaningful moment', () => {
+      // `closed_at` is NOT NULL on the server and its projection formats it
+      // directly, so a missing or unparseable one is a defect.
+      expect(readQuoteRefusal(refusal('quote_expired', closure({
+        closed_at: null,
+      })))!.evidence.kind).toBe('malformed');
+      expect(readQuoteRefusal(refusal('quote_expired', closure({
+        closed_at: 'whenever',
+      })))!.evidence.kind).toBe('malformed');
+    });
+
+    it('C2: an UNSUPPORTED policy version is still a closure', () => {
+      // RETIREMENT IS VERSION-INDEPENDENT. Refusing a version this build does
+      // not know would strand a diner against a future backend with no way
+      // forward — the exact dead end this work removes. What it forfeits is
+      // the policy-derived CLAIM, not the fact.
+      const future = readQuoteRefusal(refusal('quote_expired', closure({
+        policy_version: 99,
+      })))!;
+      expect(future.disposition).toBe('terminal');
+      expect(future.retired).toBeTrue();
+      expect(future.evidence.kind === 'closure'
+        && future.evidence.policySupported).toBeFalse();
     });
 
     it('reads the closure the server did record', () => {
-      const found = readQuoteRefusal(refusal('quote_expired', {
-        quote_closure: {
-          closed_at: '2026-01-01T00:00:00+00:00',
-          reason: 'quote_expired',
-          quote_ref: 'REF',
-          policy_version: 1,
-        },
-      }))!;
+      const found = readQuoteRefusal(refusal('quote_expired', closure()))!;
       expect(found.retired).toBeTrue();
       expect(found.closure!.quoteRef).toBe('REF');
       expect(found.closure!.policyVersion).toBe(1);
@@ -98,6 +174,16 @@ describe('D06 quote transition vocabulary', () => {
         quote_closure: { reason: 'quote_expired' },   // no ref, no version
       }))!;
       expect(found.retired).toBeFalse();
+    });
+
+    it('CONTROL: a REPRICE reason needs no closure and keeps its word', () => {
+      // `quote_ref_stale` and `quote_unverifiable` retire nothing by design,
+      // so the evidence requirement above must not reach them — they settle
+      // the command, keep the key, and re-price the SAME purchase.
+      for (const reason of REPRICE_REASONS) {
+        expect(readQuoteRefusal(refusal(reason))!.disposition)
+          .withContext(reason).toBe('reprice');
+      }
     });
   });
 

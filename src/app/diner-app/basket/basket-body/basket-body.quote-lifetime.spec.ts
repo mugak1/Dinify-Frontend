@@ -165,7 +165,12 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
       withIssuedCommand();
       const key = coordinator.record()!.key;
 
-      const applied = coordinator.applyQuoteRefusal(refusal('quote_expired'));
+      // C2 — WITH THE CLOSURE THE SERVER RECORDS FOR IT. The refusal is built
+      // from the row `quote_closure.close` just wrote, so this is the shape a
+      // terminal refusal actually arrives in — and settling the command is a
+      // claim about that row rather than about the reason code.
+      const applied = coordinator.applyQuoteRefusal(
+        refusal('quote_expired', closure('quote_expired')));
 
       expect(applied!.disposition).toBe('terminal');
       expect(coordinator.record()!.stage).toBe('refused');
@@ -173,6 +178,26 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
       // The basket is unchanged, so this is still the same purchase: a fresh
       // key would turn one attempt into two orders.
       expect(coordinator.record()!.key).toBe(key);
+      // C1 — AND THE CLOSURE IS REMEMBERED, in the same write. The refusal
+      // that carries it is the one response a client can lose.
+      expect(coordinator.record()!.closure).toEqual({
+        closedAt: '2026-09-17T10:00:00Z', reason: 'quote_expired',
+        quoteRef: 'q1', policyVersion: 1,
+      });
+    });
+
+    it('C2: settles NOTHING for a terminal reason with no closure', () => {
+      // The word without the row is a broken promise, not an older shape, and
+      // settling on it would discard a command that is still the only handle
+      // on this checkout. The record survives, so the authorized read — which
+      // publishes the closure at level 2, for exactly the client that lost
+      // this response — can resolve it afterwards.
+      withIssuedCommand();
+      const applied = coordinator.applyQuoteRefusal(refusal('quote_expired'));
+
+      expect(applied!.disposition).toBe('unknown');
+      expect(coordinator.record()!.command).not.toBeNull();
+      expect(coordinator.record()!.closure).toBeNull();
     });
 
     it('settles a REPRICE refusal the same way', () => {
@@ -241,30 +266,33 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
       expect(footer()).toContain("checking today's prices");
     });
 
-    it('re-prices WITHOUT the retired claim when NO closure was recorded', () => {
-      // THE NOTICE IS READ, NOT INFERRED. `quote_expired` is terminal, so the
-      // re-price is identical — but the sentence asserts the server RECORDED a
-      // closure, and a response carrying none has not said that.
-      // `readQuoteRefusal` is explicit about it (`retired: closure !== null`),
-      // and the component must not be the thing that puts the two back in
-      // step by guessing.
+    it('C2: neither the claim NOR the re-price when NO closure was recorded',
+       () => {
+      // THE NOTICE WAS ALREADY READ RATHER THAN INFERRED, and C2 extends the
+      // same discipline to the ACTION. The old oracle asserted that the
+      // re-price happened anyway — which meant a response carrying the word
+      // and not the row still settled the issued command and minted a
+      // replacement key. That is acting on a claim nobody could read, and the
+      // re-price it produced was under a key bound to an order the server may
+      // well have retired, so it looped.
+      //
+      // Nothing is sent, nothing is settled, and the diner is told — which is
+      // recoverable, because the authorized read resolves it.
       const placed = spyOn(component as any, 'placeOrder').and.stub();
       withIssuedCommand();
 
       (component as any).handleSubmitFailure(refusal('quote_expired'));
 
       expect(component.quoteRetired).toBeFalse();
-      // The ACTION is unchanged — only the sentence moves.
-      expect((component as any).reviewedQuote).toBeNull();
-      expect(placed).toHaveBeenCalled();
-      expect(footer()).not.toContain("checking today's prices");
+      expect(placed).not.toHaveBeenCalled();
+      expect(component.orderError).toBeTrue();
     });
 
-    it('treats an UNREADABLE closure exactly as an absent one', () => {
-      // A half-parsed closure is not evidence of a closure: `readClosure`
-      // requires all three of reason, quote_ref and an integer policy_version,
-      // so a projection this build cannot read yields `retired: false` — the
-      // same answer as omission, and the same absence of a claim.
+    it('C2: treats an UNREADABLE closure exactly as an absent one', () => {
+      // A half-parsed closure is not evidence of a closure: the evidence
+      // contract requires a vocabulary reason, a reference, a real moment and
+      // an integer version, so a projection this build cannot read is the
+      // same answer as omission — and now the same absence of an ACTION.
       const placed = spyOn(component as any, 'placeOrder').and.stub();
       withIssuedCommand();
 
@@ -273,8 +301,8 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
       }));
 
       expect(component.quoteRetired).toBeFalse();
-      expect(placed).toHaveBeenCalled();
-      expect(footer()).not.toContain("checking today's prices");
+      expect(placed).not.toHaveBeenCalled();
+      expect(component.orderError).toBeTrue();
     });
 
     it('re-prices WITHOUT the retired claim on a reprice refusal', () => {
@@ -381,8 +409,11 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
     it('re-prices when the server retires it', () => {
       reviewing(past);
       const placed = spyOn(component as any, 'placeOrder').and.stub();
+      // C2 — WITH THE CLOSURE. `as_review_result` claims `quote_closed` only
+      // when a row was written or found, and puts the row beside the word.
       api.postPatch.and.returnValue(of({
         status: 200, outcome: 'quote_closed', reason: 'quote_expired',
+        ...closure('quote_expired'),
       }) as any);
 
       component.confirmQuote();

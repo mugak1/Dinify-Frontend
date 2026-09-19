@@ -91,6 +91,17 @@ export const REPRICE_REASONS: readonly string[] = [
   'legacy_pricing_version',
 ];
 
+/**
+ * May this build make a POLICY-DERIVED claim about a closure?
+ *
+ * Retirement itself is version-independent, so this never decides whether a
+ * quote is finished — only whether the client may say WHY in the policy's own
+ * terms ("it expired") rather than in the neutral ones.
+ */
+export function policyVersionSupported(closure: QuoteClosure): boolean {
+  return SUPPORTED_QUOTE_POLICY_VERSIONS.includes(closure.policyVersion);
+}
+
 export type QuoteDisposition = 'transient' | 'terminal' | 'reprice' | 'unknown';
 
 export interface QuotePolicy {
@@ -100,7 +111,9 @@ export interface QuotePolicy {
 }
 
 export interface QuoteClosure {
-  readonly closedAt: string | null;
+  /** A real instant. `readClosureEvidence` refuses a closure without one, so
+   *  every consumer may rely on it rather than branching on absence. */
+  readonly closedAt: string;
   readonly reason: string;
   readonly quoteRef: string;
   readonly policyVersion: number;
@@ -113,7 +126,76 @@ export interface QuoteRefusal {
   readonly retired: boolean;
   readonly policy: QuotePolicy | null;
   readonly closure: QuoteClosure | null;
+  /**
+   * C2 — WHY THERE IS NO CLOSURE, when there is none.
+   *
+   * `closure` alone cannot distinguish "this server said nothing" from "this
+   * server said something this build refuses to act on", and the two call for
+   * opposite handling: the first is an older or non-retiring answer, the
+   * second is a broken promise. Every TERMINAL reason this backend emits
+   * carries a closure (`_TerminalQuoteOutcome._metadata` attaches one whenever
+   * it wrote one, and the two reasons that reach a client without one are
+   * classified REPRICE here, not TERMINAL), so a terminal reason with no
+   * readable closure is a contradiction rather than an older shape.
+   */
+  readonly evidence: ClosureEvidence;
 }
+
+/**
+ * THE NARROW VOCABULARY A CLOSURE MAY BE RECORDED UNDER.
+ *
+ * The backend guards the same two strings with a `CheckConstraint` on
+ * `OrderQuoteClosure.reason`, precisely so a future caller cannot widen them:
+ * a pause, a menu-only table, a lost response or a permission failure says
+ * "not now", never "finished". A value outside this set is therefore not a
+ * closure this build has any business acting on.
+ */
+export const CLOSURE_REASONS: readonly string[] = [
+  'quote_expired',
+  'purchase_needs_review',
+];
+
+/**
+ * The quote-policy versions whose closures this build can reason about.
+ *
+ * The backend states that the version is FROZEN and that a future change of
+ * duration is a NEW version rather than an edit to this one — so an
+ * unrecognised version is a real possibility rather than a corruption, and it
+ * gets its own answer below rather than being silently accepted or refused.
+ */
+export const SUPPORTED_QUOTE_POLICY_VERSIONS: readonly number[] = [1];
+
+/** Which part of a closure this build could not accept. Diagnostic only —
+ *  no diner ever sees one, for the reason the refusal messages are uniform. */
+export type ClosureDefect =
+  | 'shape' | 'reason' | 'quote_ref' | 'closed_at' | 'policy_version'
+  | 'other_quote';
+
+/**
+ * C2 — ONE READING OF A DURABLE CLOSURE, AND THREE DISTINGUISHABLE ANSWERS.
+ *
+ * `absent` and `malformed` are DIFFERENT FACTS and collapsing them is how a
+ * broken server gets trusted — the same distinction this repo already draws
+ * for `quote_total` and for D04's correlated projection. Absence may be an
+ * older server, a quote that was never retired, or a level that promises
+ * nothing; a malformed closure is a server that said something it could not
+ * express, and acting on it would mean minting a replacement key on evidence
+ * nobody can read.
+ *
+ * `policySupported` IS A FLAG ON ACCEPTED EVIDENCE RATHER THAN A FOURTH
+ * ANSWER, and that is deliberate. RETIREMENT IS VERSION-INDEPENDENT: the
+ * server recorded that this quote may never be accepted, and that is true
+ * whatever rule produced it — so refusing an unrecognised version outright
+ * would strand a diner against a future backend with no way forward, which is
+ * the exact dead end this whole change exists to remove. What an unsupported
+ * version does forfeit is any POLICY-DERIVED claim: the client may not say
+ * "it expired" under a rule it does not know, and says the neutral sentence.
+ */
+export type ClosureEvidence =
+  | { readonly kind: 'closure'; readonly closure: QuoteClosure;
+      readonly policySupported: boolean }
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'malformed'; readonly defect: ClosureDefect };
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
@@ -148,16 +230,102 @@ export function readQuotePolicy(source: any): QuotePolicy | null {
   return { version, status, expiresAt: text(raw.expires_at) };
 }
 
-function readClosure(source: any): QuoteClosure | null {
+/** A timestamp that MEANS something — present, and a real instant. The
+ *  column is NOT NULL on the server and its projection formats it directly,
+ *  so a missing or unparseable one is a defect rather than an older shape. */
+function moment(value: unknown): string | null {
+  const raw = text(value);
+  if (raw === null) { return null; }
+  return Number.isNaN(Date.parse(raw)) ? null : raw;
+}
+
+/**
+ * Read a closure, saying exactly what it is or exactly why it is not one.
+ *
+ * `expected.quoteRef`, when given, is the reference THIS client is asking
+ * about — the one it reviewed and submitted. A closure naming a different
+ * reference is a statement about a different quote, and the CONTRADICTS rule
+ * applies: it is refused rather than honoured. It is checked only when the
+ * caller has one, because an authorized read with no issued command can
+ * legitimately surface a closure minted elsewhere (the other mount, or
+ * `retire-quote`) and there is no local reference to compare it against.
+ */
+export function readClosureEvidence(
+  source: any,
+  expected?: { readonly quoteRef?: string | null },
+): ClosureEvidence {
   const raw = source?.quote_closure;
-  if (!raw || typeof raw !== 'object') { return null; }
-  const reason = text(raw.reason);
-  const quoteRef = text(raw.quote_ref);
-  const policyVersion = whole(raw.policy_version);
-  if (reason === null || quoteRef === null || policyVersion === null) {
-    return null;
+  if (raw === undefined || raw === null) { return { kind: 'absent' }; }
+  if (typeof raw !== 'object') { return { kind: 'malformed', defect: 'shape' }; }
+  // THE WIRE'S KEYS, mapped once. The validation below is shared with the
+  // STORED form, which carries this module's own camelCase names — one rule,
+  // two spellings, and a stored closure is therefore held to exactly the
+  // standard the response it came from was.
+  return validateClosure({
+    closedAt: raw.closed_at,
+    reason: raw.reason,
+    quoteRef: raw.quote_ref,
+    policyVersion: raw.policy_version,
+  }, expected);
+}
+
+/**
+ * The same contract, applied to a closure this client PERSISTED.
+ *
+ * A stored record is not more trustworthy than a response: it may have been
+ * written by a build with a different idea of what a closure is, or edited, or
+ * truncated. Sharing `validateClosure` is what makes that true rather than
+ * merely intended — and the read-back verification on every durable write is
+ * what caught the first version of this, which read the wire's snake_case keys
+ * off a stored camelCase object and quietly returned `absent` for every
+ * closure it had just written.
+ */
+export function readStoredClosureEvidence(value: unknown): ClosureEvidence {
+  if (value === undefined || value === null) { return { kind: 'absent' }; }
+  if (typeof value !== 'object') {
+    return { kind: 'malformed', defect: 'shape' };
   }
-  return { closedAt: text(raw.closed_at), reason, quoteRef, policyVersion };
+  const raw = value as Record<string, unknown>;
+  return validateClosure({
+    closedAt: raw['closedAt'],
+    reason: raw['reason'],
+    quoteRef: raw['quoteRef'],
+    policyVersion: raw['policyVersion'],
+  });
+}
+
+function validateClosure(
+  candidate: {
+    closedAt: unknown; reason: unknown;
+    quoteRef: unknown; policyVersion: unknown;
+  },
+  expected?: { readonly quoteRef?: string | null },
+): ClosureEvidence {
+  const reason = text(candidate.reason);
+  if (reason === null || !CLOSURE_REASONS.includes(reason)) {
+    return { kind: 'malformed', defect: 'reason' };
+  }
+  const quoteRef = text(candidate.quoteRef);
+  if (quoteRef === null) {
+    return { kind: 'malformed', defect: 'quote_ref' };
+  }
+  const closedAt = moment(candidate.closedAt);
+  if (closedAt === null) {
+    return { kind: 'malformed', defect: 'closed_at' };
+  }
+  const policyVersion = whole(candidate.policyVersion);
+  if (policyVersion === null || policyVersion < 1) {
+    return { kind: 'malformed', defect: 'policy_version' };
+  }
+  if (expected?.quoteRef && quoteRef !== expected.quoteRef) {
+    return { kind: 'malformed', defect: 'other_quote' };
+  }
+
+  return {
+    kind: 'closure',
+    closure: { closedAt, reason, quoteRef, policyVersion },
+    policySupported: SUPPORTED_QUOTE_POLICY_VERSIONS.includes(policyVersion),
+  };
 }
 
 /**
@@ -168,7 +336,9 @@ function readClosure(source: any): QuoteClosure | null {
  * entitled to add one, and treating it as transient would loop a dead quote
  * while treating it as terminal would discard a live one.
  */
-export function readQuoteRefusal(error: any): QuoteRefusal | null {
+export function readQuoteRefusal(
+  error: any, expected?: { readonly quoteRef?: string | null },
+): QuoteRefusal | null {
   const found = body(error);
   const reason = text(found?.reason);
   if (reason === null) { return null; }
@@ -178,7 +348,28 @@ export function readQuoteRefusal(error: any): QuoteRefusal | null {
   else if (TERMINAL_REASONS.includes(reason)) { disposition = 'terminal'; }
   else if (REPRICE_REASONS.includes(reason)) { disposition = 'reprice'; }
 
-  const closure = readClosure(found);
+  const evidence = readClosureEvidence(found, expected);
+
+  // C2 — A TERMINAL REASON IS ONLY TERMINAL WITH THE EVIDENCE BEHIND IT.
+  //
+  // TERMINAL means "the server RECORDED that this quote may never be
+  // accepted", and every backend that can emit one of these reasons attaches
+  // the closure it wrote: `quote_expired` and `purchase_needs_review` are
+  // built by `_TerminalQuoteOutcome` only after `quote_closure.close`
+  // returned a row, and `quote_closed` is the branch that found an existing
+  // one. A refusal carrying the word and not the row is therefore a BROKEN
+  // PROMISE, not an older shape — and the client acted on it: it settled the
+  // issued command and minted a replacement key on a claim nobody could read.
+  //
+  // `unknown` is the honest answer and the safe one. Nothing is settled,
+  // nothing is renewed, the diner is told, and the record survives — so the
+  // authorized read (which publishes the closure at level 2, exactly for the
+  // client that lost this response) can resolve it afterwards.
+  if (disposition === 'terminal' && evidence.kind !== 'closure') {
+    disposition = 'unknown';
+  }
+
+  const closure = evidence.kind === 'closure' ? evidence.closure : null;
   return {
     reason,
     disposition,
@@ -188,6 +379,7 @@ export function readQuoteRefusal(error: any): QuoteRefusal | null {
     retired: closure !== null,
     policy: readQuotePolicy(found),
     closure,
+    evidence,
   };
 }
 
@@ -222,10 +414,16 @@ export function readPublishedPolicy(orderDetails: any): QuotePolicy | null {
  * one is a projection on a read, whose availability is exactly what the level
  * states.
  */
-export function readPublishedClosure(orderDetails: any): QuoteClosure | null {
+export function readPublishedClosure(
+  orderDetails: any, expected?: { readonly quoteRef?: string | null },
+): ClosureEvidence {
   const level = whole(orderDetails?.quote_protocol);
-  if (level === null || level < REQUIRED_CLOSURE_PROTOCOL) { return null; }
-  return readClosure(orderDetails);
+  if (level === null || level < REQUIRED_CLOSURE_PROTOCOL) {
+    // NOT `malformed`: a server that has not promised to publish closures has
+    // said nothing at all, whatever keys happen to be beside the promise.
+    return { kind: 'absent' };
+  }
+  return readClosureEvidence(orderDetails, expected);
 }
 
 /**
@@ -245,18 +443,23 @@ export function readPublishedClosure(orderDetails: any): QuoteClosure | null {
  * complete a checkout whose deadline had passed, which is a worse failure than
  * the one being guarded against.
  *
- * `unreadable` covers an outcome this build does not know. It is a REAL answer,
- * not a parse failure: the quote is not known to be dead and not known to be
- * good, so nothing may be submitted and nothing may be discarded.
+ * `unreadable` covers an outcome this build does not know, an answer about
+ * something else, and (C2) a `quote_closed` whose closure cannot be read. It is
+ * a REAL answer, not a parse failure: the quote is not known to be dead and not
+ * known to be good, so nothing may be submitted and nothing may be discarded.
+ * Its `defect` is DIAGNOSTIC — the diner sees one sentence, because a
+ * per-reason message would be an oracle over the response.
  */
 export type QuoteAnswer =
   | { readonly kind: 'still-valid' }
-  | { readonly kind: 'retired'; readonly closure: QuoteClosure | null }
-  | { readonly kind: 'unreadable' };
+  | { readonly kind: 'retired'; readonly closure: QuoteClosure;
+      readonly policySupported: boolean }
+  | { readonly kind: 'unreadable'; readonly defect: string };
 
 export function readQuoteAnswer(
   response: any,
   asked: { readonly order: string; readonly quoteRef: string },
+  demonstrated: number,
 ): QuoteAnswer {
   // THE RESPONSE ITSELF, not `body()`. That helper finds a REFUSAL body and
   // keys on a `reason`, which a successful enquiry does not carry — reading a
@@ -264,25 +467,72 @@ export function readQuoteAnswer(
   // and a refusal are different shapes arriving on different callbacks, and
   // this is the reader for the first.
   const found = response && typeof response === 'object' ? response : null;
-  if (!found) { return { kind: 'unreadable' }; }
+  if (!found) { return { kind: 'unreadable', defect: 'shape' }; }
 
   const namedOrder = text(found.order);
   if (namedOrder !== null && namedOrder !== asked.order) {
-    return { kind: 'unreadable' };
+    return { kind: 'unreadable', defect: 'order' };
   }
   const namedRef = text(found.quote_ref);
   if (namedRef !== null && namedRef !== asked.quoteRef) {
-    return { kind: 'unreadable' };
+    return { kind: 'unreadable', defect: 'quote_ref' };
   }
 
   const outcome = text(found.outcome);
+  if (outcome === null) { return { kind: 'unreadable', defect: 'outcome' }; }
+
+  // C2 — AN OMITTED CORRELATION IS OLDER-SERVER COMPATIBILITY ONLY WHILE THIS
+  // SERVER HAS NOT DEMONSTRATED BETTER.
+  //
+  // The G4 correlation (`order`, `quote_ref` and `quote_protocol` on every
+  // answer that states an outcome or a reason) and `QUOTE_PROTOCOL` 2 shipped
+  // in ONE backend change and deployed together, so there is no level-2 server
+  // that answers without naming what it is answering about. Honouring an
+  // uncorrelated answer from one that has proved it is level 2 is therefore
+  // trusting a BROKEN response under a rule written for an OLD one — and this
+  // is the answer that leads to submitting an order.
+  //
+  // `demonstrated` is the MONOTONIC level remembered for this attempt, not the
+  // level this payload happens to state: a capability does not un-demonstrate
+  // itself, and reading it off the response would let the broken answer excuse
+  // itself by omitting the level too.
+  // BOTH FIELDS, NOT EITHER. `_correlate_quote_answer` stamps `order`
+  // unconditionally and echoes `quote_ref` whenever the caller named one — and
+  // this client always does, because `renewQuote` refuses to ask at all without
+  // a reference to ask about. So a level-2 server answers with both, and an
+  // answer carrying one of them is as broken as one carrying neither.
+  //
+  // Requiring only that they are not BOTH absent accepted a partial shape on
+  // the branch that AUTHORIZES SUBMISSION: an answer naming the expected order
+  // while omitting `quote_ref` established that it was about this ORDER and
+  // said nothing about which QUOTE of it, which is precisely the question a
+  // lifetime enquiry asks. A quote is what expires; the order outlives it.
+  if (demonstrated >= REQUIRED_CLOSURE_PROTOCOL
+      && (namedOrder === null || namedRef === null)) {
+    return { kind: 'unreadable', defect: 'uncorrelated' };
+  }
+
   if (outcome === 'quote_still_valid') { return { kind: 'still-valid' }; }
   if (outcome === 'quote_closed' || outcome === 'quote_already_closed') {
-    // READ, not inferred. The route claims those words only when it actually
-    // wrote or found a closure, and the object beside them is that row.
-    return { kind: 'retired', closure: readClosure(found) };
+    // READ, NEVER INFERRED FROM THE WORD. The route claims these only when it
+    // actually wrote or found a closure and attaches the row beside them, so an
+    // answer carrying the word and not the row is a broken promise — and acting
+    // on it would retire a quote on evidence nobody can read.
+    const evidence = readClosureEvidence(found, { quoteRef: asked.quoteRef });
+    if (evidence.kind !== 'closure') {
+      return {
+        kind: 'unreadable',
+        defect: evidence.kind === 'absent' ? 'closure_absent'
+          : `closure_${evidence.defect}`,
+      };
+    }
+    return {
+      kind: 'retired',
+      closure: evidence.closure,
+      policySupported: evidence.policySupported,
+    };
   }
-  return { kind: 'unreadable' };
+  return { kind: 'unreadable', defect: 'outcome' };
 }
 
 /**
