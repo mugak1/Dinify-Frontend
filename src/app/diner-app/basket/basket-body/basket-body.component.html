@@ -334,14 +334,16 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
       <button app-dn-button variant="cta" type="button" [disabled]="true" class="w-full">
         Checkout unavailable
       </button>
-    } @else if (legacyDraft) {
-      <!-- A draft this device started BEFORE the corrected pricing shipped, and
-      which the server has confirmed was never submitted. The basket is kept —
-      only the stale draft is discarded — so the diner re-reviews the SAME
-      selections at today's prices rather than losing them. -->
-      <p class="mb-2 text-sm text-gray-600 text-center">
-        Prices have been updated since you started. Review your order to
-        continue — nothing has been sent to the kitchen.
+    } @else if (updatedReviewPrompt) {
+      <!-- TWO PRODUCERS, ONE ACTION. Either a draft this device started BEFORE
+      the corrected pricing shipped and the server has confirmed was never
+      submitted, or (D06/C1) a quote the server has durably RETIRED. Both mean
+      the same thing to the diner: nothing reached the kitchen, the basket is
+      kept, and a fresh quote for the SAME selections is one tap away. Offering
+      Retry for the second would be a button whose every press is refused. -->
+      <p class="mb-2 text-sm text-gray-600 text-center"
+        data-testid="updated-review-prompt">
+        {{ updatedReviewPrompt }}
       </p>
       <button app-dn-button variant="cta" (click)="reviewUpdatedOrder()"
         [loading]="placingOrder" class="w-full">

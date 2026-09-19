@@ -101,10 +101,26 @@ describe('BasketBodyComponent — the quote answer (D06/G4)', () => {
     },
   });
 
-  /** A correlated retire answer — what the server actually sends. */
+  /** The closure the backend attaches to every `quote_closed` answer — its
+   *  `as_review_result` claims that word ONLY when a row was written or
+   *  found, and `_metadata` puts the row beside it. */
+  const CLOSURE = {
+    quote_closure: {
+      closed_at: '2026-09-18T10:00:00Z',
+      reason: 'quote_expired',
+      quote_ref: 'q1',
+      policy_version: 1,
+    },
+  };
+
+  /** A correlated retire answer — what the server actually sends. A closed
+   *  outcome carries its closure, because the route never sends one without. */
   const answer = (outcome: string, over: Record<string, unknown> = {}) => ({
     status: 200, message: 'ok', outcome,
-    order: 'o1', quote_ref: 'q1', ...over,
+    order: 'o1', quote_ref: 'q1',
+    ...(outcome === 'quote_closed' || outcome === 'quote_already_closed'
+      ? CLOSURE : {}),
+    ...over,
   });
 
   function initiateCalls(): any[] {
@@ -203,13 +219,31 @@ describe('BasketBodyComponent — the quote answer (D06/G4)', () => {
       expect(submitCalls().length).toBe(0);
     });
 
-    it('COMPATIBILITY: an answer that names NOTHING is still honoured', () => {
-      // A server that does not echo the enquiry back is OLDER, not wrong. It
-      // answered the request it was sent, on the connection it was sent on;
-      // refusing it would make every pre-G4 backend unable to complete a
-      // checkout whose deadline had passed. What is refused is an answer that
-      // names something ELSE — a contradiction, not a silence.
+    it('C2: an answer that names NOTHING is REFUSED once this server has '
+       + 'demonstrated level 2', () => {
+      // THE OLD ORACLE CALLED THIS OLDER-SERVER COMPATIBILITY, and it was the
+      // right rule applied without looking at what this server had already
+      // shown it could do. The G4 correlation and `QUOTE_PROTOCOL` 2 shipped
+      // in ONE backend change and deployed together, so a server that
+      // declared level 2 on the initiate — as this fixture does — and then
+      // answers without naming what it is answering about is BROKEN, not old.
+      // And this is the answer that leads to SUBMITTING an order.
       askTheServer(of({ status: 200, outcome: 'quote_still_valid' }));
+      expect(submitCalls().length).toBe(0);
+      // Nothing is discarded either: the quote is not known to be dead.
+      expect(coordinator.record()).not.toBeNull();
+    });
+
+    it('CONTROL: and an uncorrelated answer from a server that has '
+       + 'demonstrated NOTHING is still honoured', () => {
+      // The compatibility the rule above narrows, preserved exactly. A
+      // genuinely pre-G4 backend states no level, so its silence about the
+      // enquiry is the only shape it has ever had — refusing it would leave
+      // every such backend unable to complete a checkout whose deadline had
+      // passed. The deadline is still consulted at level 1, which is why the
+      // enquiry happens at all here.
+      askTheServer(of({ status: 200, outcome: 'quote_still_valid' }),
+                   { quote_protocol: 1 });
       expect(submitCalls().length).toBe(1);
     });
 
@@ -242,6 +276,80 @@ describe('BasketBodyComponent — the quote answer (D06/G4)', () => {
       askTheServer(of(answer('quote_already_closed')));
       const keys = initiateCalls().map((a) => a[1].client_order_id);
       expect(keys[1]).not.toBe(keys[0]);
+    });
+
+    it('C2: a `quote_closed` carrying NO closure renews nothing', () => {
+      // The route claims that word only when it actually wrote or found a
+      // row, so the word without the row is a broken promise — and acting on
+      // it would abandon an idempotency key on evidence nobody can read.
+      askTheServer(of({ status: 200, outcome: 'quote_closed',
+                        order: 'o1', quote_ref: 'q1' }));
+      expect(initiateCalls().length).toBe(1);
+      expect(submitCalls().length).toBe(0);
+      expect((component as any).quoteRetired).toBeFalse();
+    });
+
+    it('C2: nor does one whose closure names a DIFFERENT quote', () => {
+      askTheServer(of(answer('quote_closed', {
+        quote_closure: { ...CLOSURE.quote_closure, quote_ref: 'q-other' },
+      })));
+      expect(initiateCalls().length).toBe(1);
+      expect(submitCalls().length).toBe(0);
+    });
+
+    it('C1: and the closure the server stated is REMEMBERED', () => {
+      // The successor carries none of its own, but the fact was recorded
+      // before the renewal — which is what lets a reload, the other mount and
+      // the diner's explicit review all read one established answer.
+      askTheServer(of(answer('quote_closed')));
+      expect(coordinator.record()!.replaces).not.toBeNull();
+      expect(coordinator.record()!.closure).toBeNull();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 2b. C2 — the capability is read LIVE, the identity stays FROZEN
+  // ------------------------------------------------------------------
+
+  describe('the two things read when an answer lands', () => {
+    it('C2: the level is REMEMBERED durably, so a reload reads it', () => {
+      // Asserted while the attempt is still live — a completed checkout drops
+      // its record, which is correct and would make this assertion about
+      // nothing.
+      const held = new Subject<any>();
+      askTheServer(held);
+      expect(coordinator.record()!.quoteProtocol).toBe(2);
+      expect(coordinator.establishedQuoteProtocol()).toBe(2);
+      held.complete();
+    });
+
+    it('C2: an answer that states NO level cannot excuse its own silence', () => {
+      // READ FROM THE MEMORY, NOT FROM THE PAYLOAD. If the level were taken
+      // off the response, a broken answer could omit the correlation AND the
+      // level and be read as an older server's. The record already holds what
+      // this server demonstrated on the initiate, and a capability does not
+      // un-demonstrate itself.
+      askTheServer(of({ status: 200, outcome: 'quote_still_valid' }));
+      expect(submitCalls().length).toBe(0);
+      expect(coordinator.record()).not.toBeNull();
+    });
+
+    it('C2: a still-valid answer does NOT submit once the review has moved on',
+       () => {
+      // A STILL-VALID ANSWER CONTINUES AN INTENT; IT NEVER CREATES ONE. The
+      // enquiry writes nothing and claims no table, so its 200 is permission
+      // to go on with the press that asked it — about the same order and the
+      // same reference — and nothing more.
+      const late = new Subject<any>();
+      askTheServer(late);
+      // the review the diner confirmed is replaced underneath the enquiry
+      (component as any).reviewedQuote = { ref: 'q-different',
+                                           revision: 1, context: ':' };
+
+      late.next(answer('quote_still_valid'));
+
+      expect(submitCalls().length).toBe(0);
+      expect(component.orderError).toBeTrue();
     });
   });
 
