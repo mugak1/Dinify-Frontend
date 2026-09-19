@@ -87,9 +87,18 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *
    *  `ref` is NULL against a server that prices the old way and therefore names
    *  no quote — see the tolerance in placeOrder(). Everything else about the
-   *  binding (revision + checkout context) applies identically either way. */
+   *  binding (revision + checkout context) applies identically either way.
+   *
+   *  `key` IS THE ATTEMPT THIS REVIEW WAS PRICED UNDER, and it is the only part
+   *  of the binding that can tell two attempts at ONE purchase apart. A
+   *  renewal carries `request` and `scope` across unchanged — that is what
+   *  makes it the same purchase — so the revision and the context are
+   *  IDENTICAL either side of it and neither can say that the record has moved
+   *  on. Null only where no record existed to read, which production does not
+   *  reach: every checkout reserves before it prices. */
   private reviewedQuote:
-    { ref: string | null; revision: number; context: string } | null = null;
+    { ref: string | null; revision: number; context: string;
+      key: string | null } | null = null;
   /** Set when the server refused a draft priced before the pricing correction. */
   legacyDraft = false;
 
@@ -1006,6 +1015,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             ref: od?.quote_ref ?? null,
             revision: attempt.revision,
             context: attempt.context,
+            key: this.checkout.record()?.key ?? null,
           };
           this.checkout.noteStage('reviewing');
           this.showQuoteSheet = true;
@@ -1382,6 +1392,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             ref: quoteReference,
             revision: attempt.revision,
             context: attempt.context,
+            key: this.checkout.record()?.key ?? null,
           };
           // GATE A — REMEMBER WHAT THIS SERVER SAYS IT CAN DO. The backend
           // publishes `order_details.checkout_protocol` (D04/B), and a level
@@ -1576,6 +1587,27 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       { order: command.orderId };
     if (command.quoteRef) payload.quote_ref = command.quoteRef;
     const issued = { seq: ++this.attemptSeq, orderId: command.orderId };
+    // THE SAME OWNERSHIP PREDICATE THE ENQUIRY USES, for the same reason.
+    //
+    // `issued.seq` is a COMPONENT counter: it moves when THIS instance starts
+    // something newer and never when another one does, and it does not exist
+    // at all once this instance is gone. Angular does not cancel an in-flight
+    // request on destroy — `ngOnDestroy` releases the app-wide flight and the
+    // socket stays open — so a resend outliving its component lands with its
+    // seq still matching and writes to the SHARED record: the error path hands
+    // a refusal to `applyQuoteRefusal`, which can settle a command and record
+    // a closure against whatever attempt is current by then, and the success
+    // path records an outcome and forgets the intent. Neither is this
+    // instance's to do any more.
+    //
+    // A NULL OWNER FAILS CLOSED. It means no record was readable when the
+    // resend went out, which `retryOrder` cannot produce — it reads the
+    // command off a record in the same synchronous turn — so this is a guard
+    // rather than a path. Permitting it would be worse than useless: with no
+    // operation to be the current one, an answer would be free to act on
+    // whatever record a DIFFERENT checkout had created by the time it landed.
+    const mine = () =>
+      !this.destroyed && owner !== null && this.checkout.settles(owner);
 
     this.checkout.bounded(
       this.api.postPatch('orders/submit/', payload, 'put'),
@@ -1586,6 +1618,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         this.releaseCheckout();
+        if (!mine()) return;
         // The same single decision as `submitOrder` — see `submitVerdict`.
         const { correlation, verdict } =
           this.submitVerdict(response, command.orderId, command.quoteRef);
@@ -1619,6 +1652,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         this.releaseCheckout();
+        if (!mine()) return;
         // C1 — A RESEND IS REFUSED BY THE SAME SERVER AND MUST BE READ THE
         // SAME WAY.
         //
@@ -2068,22 +2102,28 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // note above has already folded in whatever this response declared.
         const answer = readQuoteAnswer(
           response, asked, this.checkout.establishedQuoteProtocol());
+        // C2 — AN ANSWER MAY ONLY ACT ON THE REVIEW THAT ASKED FOR IT, and
+        // that is ONE rule covering both branches that do anything.
+        //
+        // The enquiry is a QUESTION — it writes nothing and claims no table —
+        // and its two decisive answers SUBMIT an order or ABANDON an
+        // idempotency key. Neither may be done on behalf of a review the diner
+        // is no longer confirming, or one belonging to an attempt that has
+        // since been superseded. `settles(owner)` above refuses an answer
+        // whose attempt moved on AFTER the enquiry went out; this is the
+        // question it cannot reach, whether the review itself still matches
+        // the attempt in hand (see `reviewedIntentIsStill`).
+        //
+        // `unreadable` is deliberately NOT gated on it: that branch acts on
+        // nothing, and a Retry is the right offer however stale the screen is.
+        if ((answer.kind === 'still-valid' || answer.kind === 'retired')
+            && !this.reviewedIntentIsStill(asked)) {
+          this.showQuoteSheet = false;
+          this.failOrder('Your order changed while we were checking. '
+            + 'Please review it again.');
+          return;
+        }
         if (answer.kind === 'still-valid') {
-          // C2 — A STILL-VALID ANSWER CONTINUES AN INTENT; IT NEVER CREATES
-          // ONE. The enquiry is a QUESTION — it writes nothing and claims no
-          // table — and its 200 is the answer that leads to placing an order,
-          // so it may only continue the explicit Place order press that asked
-          // it, about the same order and the same reference. `settles(owner)`
-          // above already refuses an answer whose ATTEMPT has moved on; this
-          // is the narrower question of whether the REVIEW the diner
-          // confirmed is still the one on screen, which the key and the scope
-          // cannot express.
-          if (!this.reviewedIntentIsStill(asked)) {
-            this.showQuoteSheet = false;
-            this.failOrder('Your order changed while we were checking. '
-              + 'Please review it again.');
-            return;
-          }
           // The clock here was ahead. Submit exactly as the diner asked;
           // nothing was written and nothing about the quote changed.
           this.submitOrder();
@@ -2104,6 +2144,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // the retired order — it would self-heal at the initiate handler,
           // one wasted round trip later, which is not a reason to send a
           // request whose answer is already known.
+          //
+          // THE CURRENT RECORD IS THE RIGHT `replaced` HERE ONLY BECAUSE OF
+          // THE GATE ABOVE. `renewAfterClosure` compares it against what
+          // storage holds to decide `superseded`, so passing "whatever is
+          // current" can never report one — it is right only for a caller
+          // that has just established this record is the attempt it decided
+          // about, which `reviewedIntentIsStill` has now done by key.
           if (!this.renewAfterClosure(
               answer.closure, this.checkout.record() ?? undefined)) return;
           this.placeOrder();
@@ -2153,9 +2200,35 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   private reviewedIntentIsStill(
     asked: { readonly order: string; readonly quoteRef: string },
   ): boolean {
-    return this.showQuoteSheet
-      && String(this.order_initiated?.order_details?.id ?? '') === asked.order
-      && (this.reviewedQuote?.ref ?? '') === asked.quoteRef;
+    if (!this.showQuoteSheet) return false;
+    if (String(this.order_initiated?.order_details?.id ?? '') !== asked.order) {
+      return false;
+    }
+    if ((this.reviewedQuote?.ref ?? '') !== asked.quoteRef) return false;
+    // AND THE RECORD MUST STILL BE THE ATTEMPT THIS REVIEW BELONGS TO.
+    //
+    // The three checks above are about the SCREEN and `settles(owner)` is
+    // about the ATTEMPT — but that owner is frozen when the ENQUIRY is issued,
+    // which is too late to see a renewal that happened before the diner
+    // pressed the button. Both mounts render this basket: one can be holding a
+    // stale sheet for O1/Q1 while the other has already settled Q1's closure
+    // and minted a live K2 successor. The stale sheet still shows O1/Q1, so
+    // every screen check passes; the owner is captured from the CURRENT (K2)
+    // record, so `settles` passes too; and nothing between them notices that
+    // this review predates the attempt in hand.
+    //
+    // The key is what closes it, and nothing else can: a renewal is a new
+    // attempt at the SAME purchase, so the revision, the context, the scope
+    // and the request are all unchanged across it.
+    //
+    // A NULL REVIEWED KEY DISCRIMINATES NOTHING and is treated as such rather
+    // than as a refusal. It means no record was readable when the review was
+    // established — which `renewQuote` has already failed closed on by then,
+    // since `recoveryOwner()` would have returned null — so inventing a
+    // refusal here would answer a question this field cannot answer.
+    const reviewedKey = this.reviewedQuote?.key ?? null;
+    if (reviewedKey === null) return true;
+    return (this.checkout.record()?.key ?? null) === reviewedKey;
   }
 
   /** Diner backed out — return to the basket unchanged (no submit, no basket mutation).

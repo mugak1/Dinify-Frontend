@@ -496,8 +496,19 @@ export function readQuoteAnswer(
   // level this payload happens to state: a capability does not un-demonstrate
   // itself, and reading it off the response would let the broken answer excuse
   // itself by omitting the level too.
+  // BOTH FIELDS, NOT EITHER. `_correlate_quote_answer` stamps `order`
+  // unconditionally and echoes `quote_ref` whenever the caller named one — and
+  // this client always does, because `renewQuote` refuses to ask at all without
+  // a reference to ask about. So a level-2 server answers with both, and an
+  // answer carrying one of them is as broken as one carrying neither.
+  //
+  // Requiring only that they are not BOTH absent accepted a partial shape on
+  // the branch that AUTHORIZES SUBMISSION: an answer naming the expected order
+  // while omitting `quote_ref` established that it was about this ORDER and
+  // said nothing about which QUOTE of it, which is precisely the question a
+  // lifetime enquiry asks. A quote is what expires; the order outlives it.
   if (demonstrated >= REQUIRED_CLOSURE_PROTOCOL
-      && namedOrder === null && namedRef === null) {
+      && (namedOrder === null || namedRef === null)) {
     return { kind: 'unreadable', defect: 'uncorrelated' };
   }
 

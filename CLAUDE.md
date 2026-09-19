@@ -1083,7 +1083,57 @@ so keep it current when conventions change.
   commits and the refusal is lost — the full O1 -> C1 -> review -> K2/O2 -> lost
   successor -> one accepted order sequence, both mounts reading the closure) and
   **D06d** (the acceptance never arrives, so nothing is retired and a Retry is
-  offered), now **68/68**
+  offered), now **68/68**.
+  **AND AN ANSWER MAY ONLY ACT ON THE OPERATION THAT ASKED FOR IT — THREE
+  CONSUMERS, ONE RULE** (three Codex P2 on PR #675, all valid, each a rule this
+  work had already established reaching only part of the code it governs; suite
+  2450 -> 2464).
+  **THE REVIEW IS BOUND TO THE ATTEMPT IT WAS PRICED UNDER.** `renewQuote`'s
+  retired branch renewed `this.checkout.record()` — whatever storage held when
+  the answer LANDED — which is the one input `renewAfterClosure`'s `superseded`
+  check can never refuse, since it compares `replaced` against exactly that. So
+  a mount holding a STALE sheet for O1/Q1 could take Q1's closure and abandon
+  the live K2 successor the OTHER mount had already minted for it: a valid
+  attempt at the same purchase, discarded on the strength of a closure about a
+  different one. **`settles(owner)` CANNOT SEE IT**, and that is the subtle
+  half — the owner is frozen when the ENQUIRY is issued, which is AFTER the
+  renewal, so both it and the fresh read say K2 and agree. `reviewedQuote` now
+  carries the `key` it was priced under, because **nothing else distinguishes
+  two attempts at ONE purchase**: a renewal carries `request` and `scope` across
+  unchanged — that is what makes it the same purchase — so the revision, the
+  context and the scope are identical either side of it. The gate is ONE
+  statement covering both branches that ACT (`still-valid` submits, `retired`
+  abandons a key); `unreadable` is deliberately outside it, because it acts on
+  nothing and a Retry is the right offer however stale the screen is. A NULL
+  reviewed key discriminates nothing and is treated as such rather than as a
+  refusal — it means no record was readable when the review was established,
+  which `renewQuote` has already failed closed on by then.
+  **THE RESEND GUARDED ON A COMPONENT COUNTER.** `issued.seq` moves when THIS
+  instance starts something newer and never when another one does, and it does
+  not exist at all once the instance is gone — so a resend outliving its
+  component landed with its seq still matching and wrote to the SHARED record:
+  the error path handed a refusal to `applyQuoteRefusal`, which settles a
+  command and records a closure against whatever attempt is current by then,
+  and the success path recorded an outcome and forgot the intent. `renewQuote`
+  was given the immutable owner for exactly this reason on #674; the resend was
+  left on the old mechanism. Both callbacks now clear `!this.destroyed &&
+  settles(owner)`, AFTER releasing the flight so nothing is stranded. A NULL
+  owner FAILS CLOSED rather than being permitted: with no operation to be the
+  current one, an answer would be free to act on whatever record a DIFFERENT
+  checkout had created by the time it landed.
+  **AND A PARTIAL CORRELATION AUTHORIZED SUBMISSION.** At a demonstrated level 2
+  `readQuoteAnswer` refused only when BOTH `order` and `quote_ref` were absent.
+  `_correlate_quote_answer` stamps `order` unconditionally and echoes
+  `quote_ref` whenever the caller named one — and this client always does,
+  since `renewQuote` refuses to ask without a reference to ask about — so an
+  answer carrying ONE of them is as broken as one carrying neither, on the
+  branch that authorizes an order. **Naming the ORDER establishes nothing about
+  WHICH QUOTE of it**, which is the entire question a lifetime enquiry asks: a
+  quote is what expires, and the order outlives it. The genuinely pre-level-2
+  tolerance is untouched and has its own control.
+  Pinned by `basket-body.stale-answer.spec.ts` (14), which drives the real
+  component through the real coordinator and storage; reverting the three fixes
+  one at a time fails exactly 3 / 2 / 2 of them and never a control
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
