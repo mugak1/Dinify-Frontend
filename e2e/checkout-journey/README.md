@@ -158,11 +158,18 @@ node e2e/checkout-journey/journey.mjs
 defaults. Exit status is non-zero if any check fails.
 
 Last run: **42/42 (`journey.mjs`), 88/88 (`recovery.mjs`) and 55/55
-(`e2e/kitchen-board/kitchen.mjs`)** at the **D06 E1/O1/A1b/V1 revision with the
-three Codex findings fixed** (backend #325 P1 — the post-wait replay's session
-check; frontend #676 P2 ×2 — the asserted-but-unusable closure at the recovery
-consumer, and the contradiction gate on the legacy accepted return) — the FINAL
-delivered pair, re-run because all three touch paths these scripts exercise.
+(`e2e/kitchen-board/kitchen.mjs`)** at the **D06 revision with the SECOND Codex
+round fixed** — backend `314c823` (#325 P2: the post-lock refusal is now the
+door's refusal byte for byte, at all three diner sites) and frontend `4620075`
+(#676 P2: a block no longer renders a mutating Retry, so a commandless unreadable
+closure cannot re-initiate under a possibly retired key). The FINAL delivered
+pair, re-run because BOTH touch paths these scripts exercise: the frontend change
+is on the footer CTA and the Retry handler that `recovery.mjs` drives directly,
+and the backend change is on the refusal the diner channel returns.
+
+The round before it — backend #325 P1 and frontend #676 P2 ×2 (the
+asserted-but-unusable closure at the recovery consumer, and the contradiction
+gate on the legacy accepted return) — scored the same three totals.
 Against a disposable local PostgreSQL 16 (its own cluster at
 `/var/lib/postgresql/d06`, `127.0.0.1`, never a shared instance), a local Django
 on `test_settings` at `ENV=dev`, and a **DEVELOPMENT** `ng serve` (`--configuration

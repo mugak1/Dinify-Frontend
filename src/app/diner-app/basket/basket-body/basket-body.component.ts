@@ -593,6 +593,32 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** True while an outcome the diner must resolve is outstanding — the CTA is
    *  suppressed rather than silently starting a second checkout. */
+  /**
+   * E1 — AN ASSERTED-BUT-UNUSABLE CLOSURE OFFERS NO MUTATING ACTION AT ALL.
+   *
+   * `checkoutBlocked` withholds Checkout, and the footer answers a block by
+   * rendering **Retry** (`@if (orderError || checkoutBlocked)`) — so blocking
+   * these three states did not remove the mutation, it renamed the button.
+   * `retryOrder()` then re-sent `orders/initiate/` under a key that may be
+   * bound to an order the server has retired, and the reply carries the same
+   * unreadable closure: the exact loop `checkoutBlocked`'s own comment says it
+   * exists to prevent, reached through the other door.
+   *
+   * THE NOTICE ALREADY NAMES THE REMEDY, AND IT IS A PERSON —
+   * `UNRESOLVED_CLOSURE_MESSAGE` says to check with staff *before ordering the
+   * same items again*, which is precisely what a Retry beside it invites. So
+   * the footer renders a disabled control here, the same shape
+   * `tableHasOngoingOrder` already uses for "blocked, and the reason is stated
+   * elsewhere".
+   *
+   * It reads `unusableClosure()`, which is already the ONE definition of the
+   * state — a live `inconsistent` or `closure-unreadable`, or a stored closure
+   * this build cannot act on — so this cannot drift from what blocks Checkout.
+   */
+  get closureUnresolved(): boolean {
+    return this.unusableClosure() !== null;
+  }
+
   get checkoutBlocked(): boolean {
     // E1 — A CLOSURE THIS BUILD CANNOT ACT ON BLOCKS, whether it arrived on a
     // live read or was restored from the record. It is not "no closure": the
@@ -1008,6 +1034,22 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.failOrder("You're offline — reconnect to place your order.");
       return;
     }
+    // E1 — NO MUTATION BY ANY DOOR. `placeOrder` carries this same guard and
+    // its comment claims it covers "every other entry — a direct
+    // `retryOrder`". It does not: the two replay exits below return BEFORE
+    // reaching it, so only the fallthrough was ever guarded. Asked here, it
+    // covers `replayIssuedCommand` (which would re-send an acceptance),
+    // `replayInitiation` (which would re-price under a possibly retired key)
+    // and `placeOrder` alike.
+    //
+    // DEFENCE IN DEPTH, not the only protection: the footer renders no Retry
+    // for this state. A getter that decides whether a mutation may be OFFERED
+    // must not be the thing a template ordering depends on to be right — the
+    // reasoning `checkoutBlocked`'s `closed` case already records.
+    //
+    // Nothing is held yet at this point (`holdCheckout` happens inside each
+    // of the three), so there is nothing to release.
+    if (this.closureUnresolved) return;
     const record = this.checkout.record();
     if (record && this.checkout.isOutstanding(record)) {
       this.replayIssuedCommand(record);

@@ -705,4 +705,99 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
       expect(coordinator.record()).toBeNull();
     });
   });
+
+  // ====================================================================
+  // E1 — A BLOCK IS NOT A RENAMED MUTATION (Codex P2 on PR #676, valid)
+  //
+  // `checkoutBlocked` withholds Checkout, and the footer answers a block by
+  // rendering **Retry** (`@if (orderError || checkoutBlocked)`). For a record
+  // with NO issued command — the ordinary shape after a lost `retire-quote`
+  // reply, where nothing was ever accepted — `retryOrder()` skips
+  // `replayIssuedCommand`, classifies the record as a replayable initiation
+  // and re-sends `orders/initiate/` under a key that may be bound to an order
+  // the server has RETIRED. The reply carries the same unreadable closure, so
+  // the diner loops: exactly what `checkoutBlocked`'s own comment says it
+  // exists to prevent, reached through the other door.
+  //
+  // `placeOrder` carries the guard and claims to cover "every other entry — a
+  // direct `retryOrder`"; it does not, because the two replay exits return
+  // before reaching it.
+  //
+  // IT PREDATES THIS PR. `unusableClosure()` and `inconsistent` already
+  // blocked at 477c6af; 6b9d994 added a third state to the same group. All
+  // three are fixed together — fixing only the new one would be the same
+  // one-consumer-not-the-next shape this pass is about.
+  // ====================================================================
+
+  describe('a commandless unreadable closure', () => {
+    /** Price, never accept, then resume over the SAME record and let the
+     *  startup read answer with a closure this build cannot act on. */
+    function reachItOnResume() {
+      component.initiateOrder();
+      http.expectOne(`${API}/v2/orders/initiate/`).flush(initiated());
+      const key = coordinator.record()!.key;
+      // THE PREMISE: nothing was ever accepted, so there is no command.
+      expect(coordinator.record()!.command).toBeNull();
+
+      const resumed = TestBed.createComponent(BasketBodyComponent);
+      resumed.detectChanges();
+      answerTheRead(readAnswer(
+        key, { quote_closure: { ...CLOSURE, policy_version: 99 } }));
+      resumed.detectChanges();
+      return { key, ui: resumed.componentInstance, resumed };
+    }
+
+    it('THE REGRESSION: Retry does not re-initiate under the retired key',
+       () => {
+      const { key, ui } = reachItOnResume();
+      expect((ui as any).recovered.kind).toBe('closure-unreadable');
+
+      ui.retryOrder();
+
+      // NO MUTATION BY ANY DOOR, and the attempt is preserved.
+      http.expectNone(`${API}/v2/orders/initiate/`);
+      http.expectNone(`${V1}/orders/submit/`);
+      expect(coordinator.record()!.key).toBe(key);
+      expect(coordinator.record()!.command).toBeNull();
+    });
+
+    it('and the footer offers no mutating control at all', () => {
+      const { ui, resumed } = reachItOnResume();
+      expect(ui.closureUnresolved).toBeTrue();
+
+      const host = resumed.nativeElement as HTMLElement;
+      expect(host.querySelector('[data-testid="closure-unresolved-cta"]'))
+        .not.toBeNull();
+      const labels = Array.from(host.querySelectorAll('button'))
+        .map((b) => (b.textContent || '').trim());
+      expect(labels).not.toContain('Retry');
+    });
+
+    it('and the diner is still told, with the one remedy this build can name',
+       () => {
+      const { ui } = reachItOnResume();
+      expect(ui.recoveryNotice).toContain('check with staff');
+      expect(ui.updatedReviewPrompt).toBeNull();
+    });
+
+    it('CONTROL: an ordinary unresolved checkout still offers a real Retry',
+       () => {
+      // `unknown` is the state this must NOT catch: the server could not be
+      // reached, nothing was asserted about the quote, and re-sending is
+      // exactly the right offer.
+      const key = priceAndAccept();
+      loseTheReply();
+      component.retryOrder();
+      http.expectOne(
+        (r) => r.url.startsWith(`${V1}/orders/journey/order-details/`)
+          && r.url.includes('intent='),
+      ).error(new ProgressEvent('error'), { status: 0 });
+      fixture.detectChanges();
+
+      expect((component as any).recovered.kind).toBe('unknown');
+      expect(component.closureUnresolved).toBeFalse();
+      expect(component.checkoutBlocked).toBeTrue();
+      expect(coordinator.record()!.key).toBe(key);
+    });
+  });
 });

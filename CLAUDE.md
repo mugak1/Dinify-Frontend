@@ -1249,8 +1249,38 @@ so keep it current when conventions change.
   `malformed('level')` since it landed, so the control was passing on
   `closedOr`'s swallow rather than on the compatibility it names. It now
   states level 1 throughout, and the downgrade keeps its own regression beside
-  it. Pinned by `basket-body.closure-recovery.spec.ts` (21); reverting the two
-  fixes one at a time fails exactly 3 and 1 of them, every control holding.
+  it.
+  **AND A BLOCK IS NOT A RENAMED MUTATION** (a further Codex P2, valid, and a
+  defect that PREDATES this work). `checkoutBlocked` withholds Checkout — and
+  the footer answers a block by rendering **Retry**
+  (`@if (orderError || checkoutBlocked)`), so blocking these states did not
+  remove the mutation, it renamed the button. For a record with NO issued
+  command — the ordinary shape after a lost `retire-quote` reply, where nothing
+  was ever accepted — `retryOrder()` skips `replayIssuedCommand`, classifies the
+  record as a replayable initiation and re-sends `orders/initiate/` under a key
+  that may be bound to an order the server has RETIRED; the reply carries the
+  same unreadable closure, so the diner loops. That is exactly what
+  `checkoutBlocked`'s own comment says it exists to prevent, reached through the
+  other door — and `placeOrder` carries the guard while claiming to cover "every
+  other entry — a direct `retryOrder`", which it does not, because the two
+  replay exits return BEFORE reaching it. **IT IS NOT NEW**: `unusableClosure()`
+  and `inconsistent` already blocked before this pass, which added a third state
+  to the same group, so all three are fixed together. `closureUnresolved` reads
+  the ONE definition (`unusableClosure()`) so it cannot drift from what blocks
+  Checkout; `retryOrder` is guarded at the top, covering
+  `replayIssuedCommand`, `replayInitiation` and `placeOrder` alike; and the
+  footer renders a DISABLED control instead, the shape `tableHasOngoingOrder`
+  already uses. **NO MUTATING ACTION AT ALL, rather than a non-mutating one**,
+  because the notice beside it already names the remedy and it is a person —
+  `UNRESOLVED_CLOSURE_MESSAGE` says to check with staff *before ordering the
+  same items again*, which is precisely what a Retry there invites. The guard
+  and the template are INDEPENDENT (defence in depth, the reasoning
+  `checkoutBlocked`'s `closed` case already records): reverting them one at a
+  time fails exactly 1 of 25 each. Pinned by
+  `basket-body.closure-recovery.spec.ts` (25); reverting the three earlier fixes
+  one at a time fails exactly 3, 1 and 1, every control holding — including the
+  `unknown` control, which must keep its real Retry, since nothing was asserted
+  about the quote there and re-sending is the right offer.
   Paired backend: `A1b` / `BREAKING_CHANGES.md` §16c; record:
   `D06_CONSUMER_GATES_CLOSURE.md`
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now

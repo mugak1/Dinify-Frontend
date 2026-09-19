@@ -384,17 +384,33 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
            does the right thing is better than offering one that explains
            why it will not. The notice at the top of the basket says what
            is being resolved. -->
-      @if (!orderError && !checkoutBlocked) {
-        <button app-dn-button variant="cta" (click)="initiateOrder()"
-          [loading]="placingOrder" [disabled]="!!limitState.breach" class="w-full">
-          Checkout — {{ totalIsExact ? '' : 'about ' }}UGX {{ totalAmount | number }}
+      <!-- E1 — AN UNUSABLE CLOSURE OFFERS NO MUTATING ACTION. Blocking
+      Checkout is not enough on its own: the branch below answers a block by
+      rendering Retry, and Retry re-sends `orders/initiate/` under a key that
+      may be bound to an order the server has RETIRED, whose reply carries the
+      same unreadable closure — the loop this state exists to prevent, reached
+      through the other door. The notice at the top of the basket says the
+      remedy is a person ("check with staff before ordering the same items
+      again"), so a button inviting exactly that is withheld rather than
+      relabelled. Same shape as `tableHasOngoingOrder` above. -->
+      @if (closureUnresolved) {
+        <button app-dn-button variant="cta" type="button" [disabled]="true"
+          class="w-full" data-testid="closure-unresolved-cta">
+          Checkout unavailable
         </button>
-      }
-      @if (orderError || checkoutBlocked) {
-        <button app-dn-button variant="cta" (click)="retryOrder()"
-          [loading]="placingOrder" [disabled]="!!limitState.breach" class="w-full">
-          Retry
-        </button>
+      } @else {
+        @if (!orderError && !checkoutBlocked) {
+          <button app-dn-button variant="cta" (click)="initiateOrder()"
+            [loading]="placingOrder" [disabled]="!!limitState.breach" class="w-full">
+            Checkout — {{ totalIsExact ? '' : 'about ' }}UGX {{ totalAmount | number }}
+          </button>
+        }
+        @if (orderError || checkoutBlocked) {
+          <button app-dn-button variant="cta" (click)="retryOrder()"
+            [loading]="placingOrder" [disabled]="!!limitState.breach" class="w-full">
+            Retry
+          </button>
+        }
       }
     }
   </div>
