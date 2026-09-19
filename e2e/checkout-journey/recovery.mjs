@@ -644,6 +644,211 @@ const main = async () => {
     await page.close();
   }
 
+  // ══ D06c. THE CLOSURE RESPONSE IS LOST, AND THE SUCCESSOR IS DELIBERATE ══
+  //
+  // THE ONE INTERLEAVING NO UNIT SPEC CAN PRODUCE, and the dead end the C1/C3
+  // work exists to close. D06b drops nothing: the client SEES the terminal
+  // refusal and re-prices from it. Here the server COMMITS the closure and the
+  // browser never learns — which is the single response D06 was built around
+  // losing — so the only way the client can find out is the authorized read,
+  // and the only way forward is a deliberate successor.
+  //
+  // Before C1 this looped: the read answered `not_accepted`, the client called
+  // that an ordinary draft, re-sent the acceptance the server had permanently
+  // refused, filed the refusal as unknown, and offered a Retry that came back
+  // to the same place.
+  console.log('\n=== D06c. the closure commits and the refusal is lost ===');
+  {
+    await clearTheBoard();
+    const { page, state } = await openTab();
+    await buildBasket(page);
+    const place = await openReview(page);
+    const firstKey = state.keys[0];
+    const firstOrder = state.initiated[0].id;
+
+    // Make the purchase genuinely unacceptable, through the kitchen's own
+    // panel — so the server writes a REAL closure rather than a simulated one.
+    await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
+      method: 'PUT', body: JSON.stringify({ in_stock: false }),
+    });
+
+    // THE SEAM: the server processes the acceptance and commits the closure;
+    // the browser's view of the reply is destroyed.
+    let swallowed = false;
+    await page.route('**/orders/submit/**', async (route) => {
+      if (route.request().method() !== 'PUT' || swallowed) {
+        return route.continue();
+      }
+      swallowed = true;
+      await route.fetch();                    // the server commits the closure…
+      await route.abort('connectionreset');   // …the browser never learns
+    });
+    await place.click();
+    await page.waitForTimeout(1500);
+
+    check('the closure was really written and nothing reached the kitchen',
+          swallowed && (await activeTickets()).length === 0);
+
+    // The dish comes back. The closure is DURABLE, so this must not resurrect
+    // the retired quote — and the successor needs an orderable dish.
+    await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
+      method: 'PUT', body: JSON.stringify({ in_stock: true }),
+    });
+
+    // THE RELOAD. Recovery reads the published closure off the authorized
+    // order read — the level-2 projection that exists for exactly this client.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    const notice = await page.locator('[data-testid="checkout-recovery"]')
+      .textContent().catch(() => '');
+    check('the reloaded page states the quote could not be honoured',
+          /could not be placed/i.test(notice || ''), `notice=${notice}`);
+
+    // THE FOOTER IS READ ONCE THE ACTION IT BELONGS TO HAS RENDERED. The
+    // recovery read and the footer it drives settle on their own schedule, so
+    // reading the prompt on a fixed delay races them — and the first version of
+    // this check did, reporting an empty string for an element that was about
+    // to appear. Waiting for the button is the honest barrier: they render from
+    // the same branch, so once it is there the sentence above it is too.
+    const review = page.getByRole('button', { name: /Review updated order/ })
+      .first();
+    await review.waitFor({ state: 'visible', timeout: 20000 });
+    // `.first()` IS LOAD-BEARING, and the reason is the point of the durable
+    // record: the shell mounts a SECOND `app-basket-body` as the desktop
+    // sidebar, which is CSS-hidden at this width but present in the DOM — and
+    // it never runs recovery, so without the persisted closure it would still
+    // be offering Checkout for a purchase that can never be placed. Both
+    // mounts render the prompt, which is asserted below rather than worked
+    // around; a bare `page.locator(...)` matches two and throws in strict mode,
+    // which is what an earlier version of this check silently swallowed.
+    const prompts = page.locator('[data-testid="updated-review-prompt"]');
+    const prompt = await prompts.first().textContent().catch(() => '');
+
+    check('and it offers a REVIEW, not a Retry that would be refused again',
+          /nothing has been sent to the kitchen/i.test(prompt || ''),
+          `prompt=${prompt}`);
+    check('BOTH mounts read the established closure, not just the one that '
+          + 'recovered', await prompts.count() === 2,
+          `mounts=${await prompts.count()}`);
+    check('no Retry button is offered for a quote that can never be accepted',
+          !(await page.getByRole('button', { name: /^Retry$/ }).first()
+              .isVisible().catch(() => false)));
+    check('and nothing was re-sent to find that out',
+          state.submits.length === 1,
+          `submits=${JSON.stringify(state.submits)}`);
+
+    // THE DELIBERATE SUCCESSOR. One tap, one new attempt.
+    await review.click();
+    // REPEATED CLICKS SHARE ONE SUCCESSOR. The button is replaced by the review
+    // sheet, so a second tap is attempted before waiting for it.
+    await review.click({ timeout: 1500 }).catch(() => {});
+    const place2 = page.getByRole('button', { name: /Place order/ }).first();
+    await place2.waitFor({ state: 'visible', timeout: 20000 });
+
+    const secondKey = state.keys[state.keys.length - 1];
+    const secondOrder = state.initiated[state.initiated.length - 1].id;
+    check('the successor carries a NEW key — the old one is bound to a '
+          + 'retired order',
+          !!secondKey && secondKey !== firstKey,
+          `k1=${firstKey} k2=${secondKey}`);
+    check('and the server priced a NEW order under it',
+          !!secondOrder && secondOrder !== firstOrder,
+          `o1=${firstOrder} o2=${secondOrder}`);
+    check('repeated taps produced exactly ONE successor',
+          new Set(state.keys).size === 2,
+          `keys=${JSON.stringify(state.keys)}`);
+
+    // AND THE SUCCESSOR IS ITSELF RECOVERABLE. Drop its acceptance the same
+    // way: the reload must resolve O2/K2, never mint a third attempt.
+    let swallowed2 = false;
+    await page.unroute('**/orders/submit/**');
+    await page.route('**/orders/submit/**', async (route) => {
+      if (route.request().method() !== 'PUT' || swallowed2) {
+        return route.continue();
+      }
+      swallowed2 = true;
+      await route.fetch();
+      await route.abort('connectionreset');
+    });
+    await place2.click();
+    await page.waitForTimeout(1500);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+
+    check('the lost successor resolves to the SAME attempt, not a third',
+          new Set(state.keys).size === 2,
+          `keys=${JSON.stringify(state.keys)}`);
+    const resumed = await page.locator('[data-testid="checkout-recovery"]')
+      .textContent().catch(() => '');
+    check('and the diner is told the successor was placed',
+          /already placed/i.test(resumed || ''), `notice=${resumed}`);
+
+    const tickets = await activeTickets();
+    check('exactly ONE order reaches the kitchen across the whole sequence',
+          tickets.length === 1, `tickets=${tickets.length}`);
+    check('and it is the SUCCESSOR, not the order whose quote was retired',
+          tickets.length === 1 && tickets[0].id === secondOrder,
+          `ticket=${tickets[0] && tickets[0].id} o2=${secondOrder}`);
+
+    // O1 STAYS EXACTLY AS IT WAS. A closure is never deleted to recover, the
+    // retired order is never repriced, and it never becomes an order.
+    const original = await op(
+      `/api/v1/kitchen/orders/${firstOrder}/state/`, { method: 'GET' });
+    check('the retired order was never accepted and never repriced',
+          original.status !== 200
+          || original.body?.data?.order_status === 'initiated',
+          `state=${JSON.stringify(original.body?.data ?? original.status)}`);
+    check('the lost-closure sequence raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
+  // ══ D06d. A PRE-COMMIT FAILURE IS NOT A CLOSURE ════════════════════════
+  //
+  // THE CONTROL FOR EVERYTHING ABOVE. The acceptance never reaches the server,
+  // so nothing is closed and nothing is retired — and the client must NOT
+  // invent a closure from a failure it merely observed. It keeps the key,
+  // offers a Retry, and re-sends the SAME command.
+  console.log('\n=== D06d. the acceptance never reaches the server ===');
+  {
+    await clearTheBoard();
+    const { page, state } = await openTab();
+    await buildBasket(page);
+    const place = await openReview(page);
+    const key = state.keys[0];
+
+    let blocked = false;
+    await page.route('**/orders/submit/**', async (route) => {
+      if (route.request().method() !== 'PUT' || blocked) {
+        return route.continue();
+      }
+      blocked = true;
+      await route.abort('connectionreset');   // NOTHING reaches the server
+    });
+    await place.click();
+    await page.waitForTimeout(1500);
+
+    check('nothing was accepted, because nothing arrived',
+          (await activeTickets()).length === 0);
+    check('the client offers a RETRY, never a review',
+          await page.getByRole('button', { name: /^Retry$/ }).first()
+            .isVisible().catch(() => false));
+    check('no closure was invented from a failure the client merely observed',
+          !(await page.locator('[data-testid="updated-review-prompt"]')
+              .isVisible().catch(() => false)));
+
+    await page.getByRole('button', { name: /^Retry$/ }).first().click();
+    await page.waitForURL(/order-complete/, { timeout: 20000 }).catch(() => {});
+    check('the retry re-sent the SAME command under the SAME key',
+          state.keys.every((k) => k === key),
+          `keys=${JSON.stringify(state.keys)}`);
+    check('and exactly ONE order reaches the kitchen',
+          (await activeTickets()).length === 1);
+    check('the pre-commit failure raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
   await browser.close();
   console.log(`\n${passed}/${passed + failed} induced-loss checks passed`);
   console.log('This is a MANUAL repeatable run against disposable fixtures '

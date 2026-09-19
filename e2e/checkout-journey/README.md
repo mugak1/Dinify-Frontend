@@ -17,7 +17,7 @@ Two scripts share one fixture and one setup:
 | | |
 |---|---|
 | `journey.mjs` | the CLEAN path — 42 checks, below |
-| `recovery.mjs` | INDUCED LOSS — 35 checks, the D04 section near the bottom |
+| `recovery.mjs` | INDUCED LOSS — 68 checks, the D04 and D06 sections near the bottom |
 
 ## What it asserts
 
@@ -157,11 +157,42 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`) and 47/47 (`recovery.mjs`)** against a
+Last run: **42/42 (`journey.mjs`) and 68/68 (`recovery.mjs`)** against a
 disposable local PostgreSQL 16.13 (its own cluster, never a shared instance), a
 local Django on `test_settings` (Python 3.11) at the D06 COMPLETION revision, and
 a **development** `ng serve` on Node 24.15.0 with Chromium 141
-(`/opt/pw-browsers/chromium-1194`), driving the matching frontend.
+(`/opt/pw-browsers/chromium-1194`), driving the matching frontend. Re-run at the
+**D06 C1/C2/C3 + A1 revision**, which added the two scenarios below.
+
+### D06c — the closure commits and the refusal is lost
+
+**THE ONE INTERLEAVING NO UNIT SPEC CAN PRODUCE**, and the dead end C1 exists to
+close. D06b drops nothing: the client SEES the terminal refusal and re-prices
+from it. Here the server COMMITS the closure and the browser never learns —
+which is the single response D06 was built around losing — so the only way the
+client can find out is the authorized read, and the only way forward is a
+deliberate successor.
+
+Before C1 this LOOPED. The read answered `not_accepted`, the client called that
+an ordinary draft, re-sent the acceptance the server had permanently refused,
+filed the refusal as `unknown`, and offered a Retry that came back to the same
+place.
+
+It runs the whole sequence the closure recovery is specified as:
+`O1/K1/Q1 -> committed C1 -> persisted closed evidence -> explicit review ->
+K2 != K1, O2 != O1 -> the successor's acceptance is ALSO lost -> the SAME
+O2/K2 resolves, never a third attempt -> exactly ONE order in the kitchen,
+and O1 is still an unaccepted draft with its closure intact.` It also asserts
+that BOTH basket mounts read the established closure — the desktop sidebar
+never runs recovery, so without the persisted evidence it would still be
+offering Checkout for a purchase that can never be placed.
+
+### D06d — the acceptance never reaches the server
+
+**THE CONTROL FOR ALL OF IT.** The submission is aborted BEFORE it arrives, so
+nothing is closed and nothing is retired — and the client must not invent a
+closure from a failure it merely observed. It keeps the key, offers a Retry, and
+re-sends the SAME command.
 
 **RE-SEED BEFORE EVERY RUN.** The first attempt of that run scored 4 checks in
 and failed on two of its own: the fixture dish was ALREADY at the mid-run reprice

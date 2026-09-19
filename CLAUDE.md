@@ -1009,6 +1009,81 @@ so keep it current when conventions change.
   cannot disagree. Pinned by 8 specs that change session storage UNDERNEATH a
   mounted instance rather than assigning `component.table`, which is exactly what
   hid this: 7 fail on `06a7559` and the 8th is the control that must not.
+- **A LOST CLOSURE RESPONSE IS RECOVERABLE, AND ITS EVIDENCE IS VALIDATED
+  (D06/C1-C3).** The three bullets above got the SHAPE of the closure right and
+  left the one response D06 was built around losing with no consumer. No backend
+  contract change: `quote_protocol` stays 2 and `checkout_protocol` stays 3.
+  **C1 — THE DEAD END.** `CheckoutCoordinator.classify()` was the D04
+  acceptance-only classifier: its `not-accepted` branch returned `draft` without
+  ever looking at `quote_closure`. So the ordinary six-step interruption had no
+  exit — a diner prices O1/Q1, presses Place order, the server COMMITS a closure
+  and refuses, and the reply is LOST; the reload reads the order (still
+  `initiated`, `not_accepted`, carrying the closure level 2 publishes for exactly
+  this client) and `draft` is proof of non-execution, so `replayIssuedCommand`
+  RE-SENDS the acceptance the server has permanently refused,
+  `resendIssuedCommand` files every failure as `unknown`, the CTA offers Retry,
+  and Retry comes back to the same place. **Reproduced through the real
+  component, the real `ApiService`, the real `HttpClient` and the real
+  `ErrorInterceptor` before anything was changed** —
+  `basket-body.closure-recovery.spec.ts` ran **4 FAILED / 4 SUCCESS on
+  `80de76a`**, the failures showing `recovered.kind === 'draft'`, a second
+  `orders/submit/`, and a notice promising a retry the state cannot keep.
+  There is now ONE validated `closed` outcome and every consumer reaches it: the
+  startup read, the Retry read, the submit refusal, the RESEND refusal (which
+  read every failure as unknown), the initiate replay, the retire enquiry, and
+  cached restoration from the record. **ACCEPTANCE IS RESOLVED FIRST** — a
+  closure beside an accepted order changes nothing, because a closure is about
+  the QUOTE — so only a definitive `not-accepted` may become `closed`.
+  **C2 — ONE EXPLICIT EVIDENCE CONTRACT.** `readClosureEvidence` answers
+  `closure` / `absent` / `malformed`, validating a narrow reason vocabulary (the
+  two strings the server's `CheckConstraint` guards), a reference, a real moment
+  and a supported policy version, and refusing a closure that names a DIFFERENT
+  quote than the command that was issued. `validateClosure` is SHARED with the
+  STORED form, so a persisted closure is held to the standard the response it
+  came from was — the first cut read the wire's snake_case keys off a camelCase
+  record and silently returned `absent` for every closure it had just written,
+  which the read-back verification caught. **A TERMINAL REASON WITH NO READABLE
+  CLOSURE IS `unknown`**: every backend that can emit one attaches the row it
+  wrote, so the word without the row is a broken promise, and it used to settle
+  the issued command and mint a replacement key anyway. `renewAfterClosure`
+  REQUIRES the evidence rather than trusting four call sites. **AN UNSUPPORTED
+  POLICY VERSION IS STILL A CLOSURE** — retirement is version-independent and
+  refusing it would strand a diner against a future backend; it forfeits only the
+  policy-derived claim (`policySupported`). The enquiry reads the MONOTONIC
+  remembered level at answer time (`establishedQuoteProtocol`), so an
+  uncorrelated `quote_still_valid` from a server that demonstrated level 2 is
+  refused as BROKEN rather than honoured as old — the G4 correlation and
+  `QUOTE_PROTOCOL` 2 shipped in one backend change and deployed together — and
+  the genuinely pre-level-2 tolerance is pinned beside it. **A still-valid answer
+  continues only a review that is STILL CURRENT**: a review-only enquiry never
+  becomes an acceptance.
+  **C3 — ONE DELIBERATE SUCCESSOR.** The closure is persisted WITH the command
+  settle in one write (`noteClosure`), so the routed page, the desktop sidebar
+  (which never runs recovery) and the next reload read one established fact.
+  `reviewUpdatedOrder` then mints ONE successor under a NEW key linked by
+  `replaces`, carrying the same purchase. Repeated taps and a second mount share
+  it (`superseded`); a storage failure sends nothing and never deletes the
+  closure; a changed cart is preserved; a lost successor replays K2 with the
+  ORIGINAL lines. `placeOrder` never prices under a key a closure was written
+  against — that would replay the retired order and self-heal a wasted round
+  trip later, which is not a reason to send a request whose answer is known — and
+  `reviewUpdatedOrder` no longer `clearIntent()`s when NEITHER producer
+  established anything, which was a reserved key forgotten on no evidence.
+  **`CheckoutRecord.closure` DOES NOT MOVE THE RECORD VERSION**, for the reason
+  `replaces` records: bumping makes every record this build writes `unsupported`
+  to the previous one, and an `unsupported` record BLOCKS. An older build ignores
+  the key, keeps the key and the settled command, and its own G3b initiate-handler
+  check renews on the next re-price — one wasted round trip, not a dead end.
+  **ORACLES CORRECTED RATHER THAN RELAXED, each with its discriminating control**:
+  the two `quote-renewal` cases that expected a new key from a bare
+  `quote_expired`, the `quote-answer` case that called an omitted correlation
+  older-server compatibility while ignoring demonstrated level 2, and three
+  `quote-lifetime` cases that asserted the re-price happened without evidence.
+  Suite 2411 -> 2450. Browser: `recovery.mjs` gained **D06c** (the closure
+  commits and the refusal is lost — the full O1 -> C1 -> review -> K2/O2 -> lost
+  successor -> one accepted order sequence, both mounts reading the closure) and
+  **D06d** (the acceptance never arrives, so nothing is retired and a Retry is
+  offered), now **68/68**
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
