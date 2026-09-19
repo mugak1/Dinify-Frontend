@@ -180,7 +180,9 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
       expect(coordinator.record()!.key).toBe(key);
       // C1 — AND THE CLOSURE IS REMEMBERED, in the same write. The refusal
       // that carries it is the one response a client can lose.
-      expect(coordinator.record()!.closure).toEqual({
+      const reading = coordinator.closureOf(coordinator.record()!);
+      expect(reading.evidence.kind === 'closure'
+        && reading.evidence.closure).toEqual({
         closedAt: '2026-09-17T10:00:00Z', reason: 'quote_expired',
         quoteRef: 'q1', policyVersion: 1,
       });
@@ -197,7 +199,8 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
 
       expect(applied!.disposition).toBe('unknown');
       expect(coordinator.record()!.command).not.toBeNull();
-      expect(coordinator.record()!.closure).toBeNull();
+      expect(coordinator.closureOf(coordinator.record()!).evidence.kind)
+        .toBe('absent');
     });
 
     it('settles a REPRICE refusal the same way', () => {
@@ -250,10 +253,12 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
       expect((component as any).reviewedQuote).not.toBeNull();
     });
 
-    it('re-prices and says so on a terminal refusal', () => {
-      // The closure is what the paired backend sends with `quote_expired`
-      // (`_TerminalQuoteOutcome` builds the refusal from the row it just
-      // wrote), and it is what the notice is a statement about.
+    it('O1: says so and offers the review — it does not re-price itself', () => {
+      // CHANGED EXPECTATION, DELIBERATELY. The notice was already READ rather
+      // than inferred; O1 extends that to the ACTION. A refusal handler that
+      // re-prices is minting an idempotency key as a side effect of reading a
+      // response, on whatever record is current at that instant — so the
+      // closure is established here and the re-price happens on the tap.
       const placed = spyOn(component as any, 'placeOrder').and.stub();
       withIssuedCommand();
 
@@ -261,9 +266,16 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
         refusal('quote_expired', closure('quote_expired')));
 
       expect(component.quoteRetired).toBeTrue();
-      expect((component as any).reviewedQuote).toBeNull();
+      expect(placed).not.toHaveBeenCalled();
+      expect(component.updatedReviewPrompt).not.toBeNull();
+      // AND THE COPY MOVED WITH THE ACTION. "checking today's prices" was the
+      // re-price in progress; what the diner reads now is why the quote is
+      // finished and the one action that works.
+      expect(footer()).toContain('no longer available');
+      expect(footer()).toContain('nothing has been sent to the kitchen');
+
+      component.reviewUpdatedOrder();
       expect(placed).toHaveBeenCalled();
-      expect(footer()).toContain("checking today's prices");
     });
 
     it('C2: neither the claim NOR the re-price when NO closure was recorded',
@@ -369,11 +381,6 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
         unavailable_items: [] as unknown[],
         unavailable_extras: [] as unknown[],
       };
-      (component as any).reviewedQuote = {
-        ref: 'q1',
-        revision: basketService.revision(),
-        context: (component as any).checkoutContext(),
-      };
       (component as any).showQuoteSheet = true;
       // AND A RESERVED CHECKOUT RECORD, which this fixture used to omit.
       // Every real checkout reserves one before it prices, so a sheet open
@@ -389,6 +396,16 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
           (component as any).checkoutContext());
         expect(reservation.kind).toBe('ready');
       }
+      // O1 — THE REVIEW NAMES THE ATTEMPT IT WAS PRICED UNDER, which is what
+      // every command is now checked against before it is persisted or sent.
+      // Production stamps this in the initiate handler, from the record it
+      // has just reserved; the fixture does the same, in the same order.
+      (component as any).reviewedQuote = {
+        ref: 'q1',
+        revision: basketService.revision(),
+        context: (component as any).checkoutContext(),
+        key: coordinator.record()?.key ?? null,
+      };
     }
 
     it('asks the server instead of deciding for itself', () => {
@@ -406,7 +423,8 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
       expect(submitted).toHaveBeenCalled();
     });
 
-    it('re-prices when the server retires it', () => {
+    it('O1: records the retirement and offers the review', () => {
+      // CHANGED EXPECTATION — the same correction, at the enquiry.
       reviewing(past);
       const placed = spyOn(component as any, 'placeOrder').and.stub();
       // C2 — WITH THE CLOSURE. `as_review_result` claims `quote_closed` only
@@ -419,6 +437,10 @@ describe('BasketBodyComponent — the quote lifetime (D06)', () => {
       component.confirmQuote();
 
       expect(component.quoteRetired).toBeTrue();
+      expect(placed).not.toHaveBeenCalled();
+      expect(component.updatedReviewPrompt).not.toBeNull();
+
+      component.reviewUpdatedOrder();
       expect(placed).toHaveBeenCalled();
     });
 

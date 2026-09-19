@@ -620,24 +620,40 @@ const main = async () => {
     check('the retired quote is not resurrected by the dish coming back',
           (await activeTickets()).length === 0);
 
-    check('the client re-priced rather than offering a dead Retry',
-          state.keys.length >= 2,
+    // CHANGED EXPECTATION, DELIBERATELY (D06/O1) — and this is its SECOND
+    // move, so both are recorded.
+    //
+    // It first required every key to be the SAME, on the reasoning that the
+    // basket has not changed so the purchase has not changed. That holds for a
+    // `quote_ref_stale` reprice and is FATAL for a closure: the key is bound to
+    // the order the closure was written against, so re-pricing under it
+    // REPLAYS that retired draft. G3b inverted it to require a NEW key.
+    //
+    // It then required the client to have re-priced AT ALL (`keys.length >= 2`)
+    // by the time the refusal settled — i.e. it pinned an AUTOMATIC renewal
+    // inside a failure handler. O1 removed that: a terminal refusal now
+    // establishes the closure and STOPS, and the successor is minted by the
+    // diner's deliberate "Review updated order" tap. Asserting the old shape
+    // would pin exactly the auto-renew this change exists to remove, so the
+    // assertion moves to what the contract now says: no key is minted by the
+    // refusal, the review is offered rather than a dead Retry, and the tap
+    // mints exactly one successor under a NEW key.
+    check('the refusal alone mints NO replacement key',
+          state.keys.length === 1,
           `keys=${JSON.stringify(state.keys)}`);
-    // THIS ASSERTION IS INVERTED FROM WHAT IT USED TO BE, DELIBERATELY (D06/G3b).
-    //
-    // It required every key to be the SAME, on the reasoning that the basket
-    // has not changed so the purchase has not changed. That reasoning holds for
-    // a `quote_ref_stale` reprice and is FATAL for a closure: the key is bound
-    // to the order the closure was written against, so re-pricing under it
-    // REPLAYS that retired draft — the review sheet renders a quote that can
-    // never be paid, submitting it is refused identically, and the diner loops
-    // with no way out of the app. This run is the sold-out case, which is
-    // TERMINAL, so the successor must carry a new key.
-    //
-    // Changed rather than deleted: the old expectation was a real statement
-    // about the contract, and it is the statement that moved.
-    check('and it did so under a NEW key, because the old one is retired',
-          new Set(state.keys).size === state.keys.length,
+
+    const review = page.getByRole('button', { name: /Review updated order/ })
+      .first();
+    await review.waitFor({ state: 'visible', timeout: 20000 });
+    check('the retired quote offers a review, never a dead Retry',
+          !(await page.getByRole('button', { name: /^Retry$/ }).first()
+              .isVisible().catch(() => false)));
+
+    await review.click();
+    await page.waitForTimeout(1500);
+    check('and the deliberate tap re-prices under a NEW key',
+          state.keys.length === 2
+          && new Set(state.keys).size === state.keys.length,
           `keys=${JSON.stringify(state.keys)}`);
     check('the sold-out interleaving raised no uncaught errors',
           state.errors.length === 0, JSON.stringify(state.errors));
@@ -665,6 +681,33 @@ const main = async () => {
     const place = await openReview(page);
     const firstKey = state.keys[0];
     const firstOrder = state.initiated[0].id;
+
+    // V1 — THE SAVED MONEY, READ BEFORE ANYTHING IS RETIRED. The final
+    // assertion below claims the retired order was "never repriced", and a
+    // claim about money has to be checked against money: an order that came
+    // back with a different payable would satisfy every status check here and
+    // still be exactly the thing a closure exists to prevent.
+    const dinerSession = await page.evaluate(() => {
+      const raw = sessionStorage.getItem('[dinify]diner.session');
+      try { return JSON.parse(raw || 'null')?.value ?? null; } catch { return null; }
+    });
+    const readOrder = (id) => api(
+      `/api/v1/orders/journey/order-details/?order=${id}`,
+      { headers: { 'X-Diner-Session': dinerSession } });
+    const priced = await readOrder(firstOrder);
+    // THE PATH IS THE READ'S OWN, NOT THE INITIATE RESPONSE'S. `?order=`
+    // publishes `quote_total` / `actual_cost` / `quote_closure` at the TOP of
+    // `data` (D04/U1 + G3a); only the INITIATE response nests them under
+    // `order_details`. Reading the nested path here inspected `undefined` and
+    // compared two absences as equal — an assertion about money that could
+    // never fail. `journey.mjs` records the same distinction at its own read.
+    const savedMoney = {
+      quote_total: priced.body?.data?.quote_total ?? null,
+      actual_cost: priced.body?.data?.actual_cost ?? null,
+    };
+    check('the priced order is readable and names a payable',
+          priced.status === 200 && savedMoney.quote_total !== null,
+          `status=${priced.status} money=${JSON.stringify(savedMoney)}`);
 
     // Make the purchase genuinely unacceptable, through the kitchen's own
     // panel — so the server writes a REAL closure rather than a simulated one.
@@ -792,12 +835,36 @@ const main = async () => {
 
     // O1 STAYS EXACTLY AS IT WAS. A closure is never deleted to recover, the
     // retired order is never repriced, and it never becomes an order.
+    //
+    // V1 — POSITIVELY ESTABLISHED, not satisfied by an unreadable answer.
+    // This used to accept `status !== 200` as success, so a 404, a 500 or a
+    // server that had stopped answering passed it — and it asserted nothing
+    // about the saved money, which is the fact "never repriced" is about.
     const original = await op(
       `/api/v1/kitchen/orders/${firstOrder}/state/`, { method: 'GET' });
-    check('the retired order was never accepted and never repriced',
-          original.status !== 200
-          || original.body?.data?.order_status === 'initiated',
-          `state=${JSON.stringify(original.body?.data ?? original.status)}`);
+    check('the retired order is still READABLE and still an unaccepted draft',
+          original.status === 200
+          && original.body?.data?.order_status === 'initiated',
+          `status=${original.status} `
+          + `state=${JSON.stringify(original.body?.data ?? null)}`);
+
+    const retired = await readOrder(firstOrder);
+    check('its saved payable is byte-identical to what was priced',
+          retired.status === 200
+          && retired.body?.data?.quote_total === savedMoney.quote_total
+          && retired.body?.data?.actual_cost === savedMoney.actual_cost,
+          `before=${JSON.stringify(savedMoney)} after=${JSON.stringify({
+            quote_total: retired.body?.data?.quote_total,
+            actual_cost: retired.body?.data?.actual_cost,
+          })}`);
+    check('the closure the server wrote is still there — never deleted to '
+          + 'recover',
+          typeof retired.body?.data?.quote_closure?.reason === 'string',
+          `closure=${JSON.stringify(
+            retired.body?.data?.quote_closure ?? null)}`);
+    check('and it never became an accepted order',
+          retired.body?.data?.accepted !== true,
+          `accepted=${retired.body?.data?.accepted}`);
     check('the lost-closure sequence raised no uncaught errors',
           state.errors.length === 0, JSON.stringify(state.errors));
     await page.close();
@@ -845,6 +912,152 @@ const main = async () => {
     check('and exactly ONE order reaches the kitchen',
           (await activeTickets()).length === 1);
     check('the pre-commit failure raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
+  // ══ D06e. THE SUCCESSOR'S *INITIATION* IS LOST ═════════════════════════
+  //
+  // V1 — THE INTERLEAVING THE OTHERS DO NOT REACH. D06c loses the acceptance
+  // that WRITES a closure, and then loses the successor's ACCEPTANCE. This
+  // loses the successor's INITIATION: the server prices O2 under K2 and the
+  // browser never learns that it exists.
+  //
+  // It is the state the record can least afford to get wrong. After the tap
+  // the record holds K2 with NO command and NO order — so a client that reads
+  // its own silence as "nothing happened" mints a THIRD key, the server
+  // prices a third order, and the diner's one purchase has three drafts
+  // behind it. A client that reads it as "an acceptance may be outstanding"
+  // is equally wrong in the other direction: nothing was accepted, and
+  // offering only a Retry for a command that was never issued is the dead end
+  // this whole programme exists to remove.
+  //
+  // SEVEN STEPS, and each one is an assertion below:
+  //   1. price O1 under K1 and open the review
+  //   2. make the purchase unacceptable, so the server writes a REAL closure
+  //   3. submit — the closure commits and the refusal is SEEN (not lost here)
+  //   4. the client establishes the closure and offers the review
+  //   5. tap Review — K2 is minted and the INITIATE response is destroyed
+  //   6. reload — recovery must resolve K2 rather than mint a third key
+  //   7. complete: ONE order reaches the kitchen, and O1 is still a retired,
+  //      unaccepted, un-repriced draft
+  console.log('\n=== D06e. the successor\'s initiation is lost ===');
+  {
+    await clearTheBoard();
+    const { page, state } = await openTab();
+    await buildBasket(page);
+    const place = await openReview(page);                       // 1
+    const firstKey = state.keys[0];
+    const firstOrder = state.initiated[0].id;
+
+    const session = await page.evaluate(() => {
+      const raw = sessionStorage.getItem('[dinify]diner.session');
+      try { return JSON.parse(raw || 'null')?.value ?? null; } catch { return null; }
+    });
+    const read = (id) => api(
+      `/api/v1/orders/journey/order-details/?order=${id}`,
+      { headers: { 'X-Diner-Session': session } });
+    const pricedFirst = await read(firstOrder);
+    // Top-level on this read — see the note in D06c.
+    const firstMoney = pricedFirst.body?.data?.quote_total ?? null;
+    check('the first order is readable and names a payable',
+          pricedFirst.status === 200 && firstMoney !== null,
+          `status=${pricedFirst.status} quote_total=${firstMoney}`);
+
+    await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {   // 2
+      method: 'PUT', body: JSON.stringify({ in_stock: false }),
+    });
+
+    await place.click();                                          // 3
+    await page.waitForTimeout(1500);
+    check('the refusal is SEEN here — this scenario is about the next step',
+          state.submits.length === 1,
+          `submits=${JSON.stringify(state.submits)}`);
+    check('and nothing reached the kitchen',
+          (await activeTickets()).length === 0);
+
+    await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
+      method: 'PUT', body: JSON.stringify({ in_stock: true }),
+    });
+
+    const review = page.getByRole('button', { name: /Review updated order/ })
+      .first();
+    await review.waitFor({ state: 'visible', timeout: 20000 });    // 4
+    check('the retired quote offers a review rather than a Retry',
+          !(await page.getByRole('button', { name: /^Retry$/ }).first()
+              .isVisible().catch(() => false)));
+
+    // THE SEAM, moved one request earlier than D06c's: the server PRICES the
+    // successor and the browser's view of the reply is destroyed.
+    let swallowed = false;
+    await page.route('**/orders/initiate/**', async (route) => {   // 5
+      if (route.request().method() !== 'POST' || swallowed) {
+        return route.continue();
+      }
+      swallowed = true;
+      await route.fetch();                    // the server creates O2…
+      await route.abort('connectionreset');   // …the browser never learns
+    });
+    await review.click();
+    await page.waitForTimeout(1500);
+
+    const secondKey = state.keys[state.keys.length - 1];
+    check('the successor was minted under a NEW key before it was sent',
+          swallowed && !!secondKey && secondKey !== firstKey,
+          `k1=${firstKey} k2=${secondKey}`);
+    check('exactly TWO keys have ever been used',
+          new Set(state.keys).size === 2,
+          `keys=${JSON.stringify(state.keys)}`);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });          // 6
+    await page.waitForTimeout(2000);
+
+    check('the reload resolves the SAME attempt — no third key is minted',
+          new Set(state.keys).size === 2,
+          `keys=${JSON.stringify(state.keys)}`);
+    const stored = await page.evaluate(() =>
+      sessionStorage.getItem('[dinify]diner.checkout.attempt'));
+    check('and the successor record survives the reload',
+          typeof stored === 'string' && stored.includes(secondKey),
+          `stored=${stored}`);
+    check('a lost INITIATION is not read as an outstanding acceptance',
+          !(await page.locator('[data-testid="checkout-recovery"]')
+              .first().textContent().catch(() => ''))
+          || !/still being confirmed/i.test(
+              await page.locator('[data-testid="checkout-recovery"]')
+                .first().textContent().catch(() => '')),
+          'notice must not claim an acceptance that was never issued');
+
+    // 7. THE DINER COMPLETES. One order, one key, and O1 untouched.
+    const checkout = page.getByRole('button', { name: /Checkout —/ }).first();
+    await checkout.waitFor({ state: 'visible', timeout: 20000 });
+    await checkout.click();
+    const place2 = page.getByRole('button', { name: /Place order/ }).first();
+    await place2.waitFor({ state: 'visible', timeout: 20000 });
+    await place2.click();
+    await page.waitForURL(/order-complete/, { timeout: 20000 }).catch(() => {});
+
+    check('still exactly TWO keys across the whole sequence',
+          new Set(state.keys).size === 2,
+          `keys=${JSON.stringify(state.keys)}`);
+    const tickets = await activeTickets();
+    check('exactly ONE order reaches the kitchen',
+          tickets.length === 1, `tickets=${tickets.length}`);
+    check('and it is NOT the order whose quote was retired',
+          tickets.length === 1 && tickets[0].id !== firstOrder,
+          `ticket=${tickets[0] && tickets[0].id} o1=${firstOrder}`);
+
+    const retired = await read(firstOrder);
+    check('O1 is still an unaccepted draft with its closure intact',
+          retired.status === 200
+          && retired.body?.data?.accepted !== true
+          && typeof retired.body?.data?.quote_closure?.reason === 'string',
+          `accepted=${retired.body?.data?.accepted} closure=${JSON.stringify(
+            retired.body?.data?.quote_closure ?? null)}`);
+    check('and its saved payable never moved',
+          retired.body?.data?.quote_total === firstMoney,
+          `before=${firstMoney} after=${retired.body?.data?.quote_total}`);
+    check('the lost-initiation sequence raised no uncaught errors',
           state.errors.length === 0, JSON.stringify(state.errors));
     await page.close();
   }

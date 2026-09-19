@@ -11,6 +11,7 @@ import {
 } from 'src/app/_shared/order/checkout-correlation';
 import {
   QuoteRefusal,
+  closureAsserted,
   readPublishedClosure,
   readStoredClosureEvidence,
   readQuoteRefusal,
@@ -89,16 +90,38 @@ export const CHECKOUT_RECORD_VERSION = 2;
  *              nothing was accepted.
  */
 /**
- * What happened when a renewal was attempted after a closure (G3b).
+ * What happened when a renewal was attempted after a closure (G3b/O1).
  *
- * `superseded` is NOT a failure a caller must report: it means another mount
- * already renewed this exact record, which is the outcome the caller wanted.
+ * `superseded` is NOT a failure a caller must report: the successor this call
+ * wanted already exists — minted by the other mount, or by an earlier tap
+ * whose response was lost — or the closure is about an attempt that is no
+ * longer the one on screen. Either way there is nothing left to mint.
  */
 export type RenewalResult =
   | { readonly kind: 'ready'; readonly key: string;
       readonly record: CheckoutRecord }
   | { readonly kind: 'superseded' }
   | { readonly kind: 'outstanding'; readonly record: CheckoutRecord }
+  /**
+   * O1 — THE CURRENT ATTEMPT IS NEITHER THE PREDECESSOR NOR ITS SUCCESSOR.
+   *
+   * The same purchase at the same table, under a key this closure says
+   * nothing about. Renewing would abandon a key that is currently in use on
+   * the strength of evidence about an older one, which is the precise thing a
+   * conditional transition exists to refuse. Nothing is minted and nothing is
+   * replaced.
+   */
+  | { readonly kind: 'conflict'; readonly record: CheckoutRecord }
+  /**
+   * E1 — A CLOSURE IS ASSERTED AND THIS BUILD MAY NOT ACT ON IT.
+   *
+   * Distinct from `none`, which means no closure was recorded at all. An
+   * unrecognised policy version or an unreadable row is not permission to
+   * treat the quote as open: nothing is minted, nothing is settled, the
+   * record survives, and the consumer offers manual recovery instead of a
+   * re-price that would replay the retired order under the same key.
+   */
+  | { readonly kind: 'unusable'; readonly evidence: ClosureEvidence }
   | { readonly kind: 'none' }
   | { readonly kind: 'storage-error' }
   | { readonly kind: 'blocked'; readonly stored: StoredCheckout };
@@ -159,22 +182,78 @@ export const PURCHASE_CANON = 'contentIdentity/lineIdentity-v1';
 const UNMATCHABLE = '\u0000';
 
 /**
- * C1 — READ A PERSISTED CLOSURE BACK THROUGH THE SAME CONTRACT THE WIRE USES.
+ * O1 — WHICH ATTEMPT A STORED CLOSURE WAS WRITTEN AGAINST.
+ *
+ * A closure retires ONE quote of ONE order, reached under ONE key at ONE
+ * scope for ONE purchase. Without that written down beside it, a renewal
+ * could only ask "is there a closure on whatever record is current now", and
+ * a mount holding a stale refusal would answer yes about a record another
+ * mount had already moved on. The reference itself lives on the closure; this
+ * is the rest of the identity.
+ *
+ * `orderId` is nullable because a refusal does not always name one; every
+ * other field is what `ownerOf` already captures, so the two cannot drift.
+ */
+export interface ClosurePredecessor {
+  readonly key: string;
+  readonly orderId: string | null;
+  readonly scope: string;
+  readonly purchase: string;
+}
+
+/** What a record says about its quote having been retired. */
+export interface StoredClosureReading {
+  readonly evidence: ClosureEvidence;
+  readonly predecessor: ClosurePredecessor | null;
+}
+
+function textOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value ? value : null;
+}
+
+function readPredecessor(value: unknown): ClosurePredecessor | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = (value as Record<string, unknown>)['predecessor'];
+  if (!raw || typeof raw !== 'object') return null;
+  const found = raw as Record<string, unknown>;
+  const key = textOrNull(found['key']);
+  const scope = textOrNull(found['scope']);
+  const purchase = textOrNull(found['purchase']);
+  // PARTIAL IS NOT USABLE. The whole point of the identity is that a renewal
+  // can refuse a closure belonging to a different attempt, and a predecessor
+  // missing the fields it would be compared on cannot do that. `orderId` is
+  // the one exception, because a refusal legitimately omits it.
+  if (key === null || scope === null || purchase === null) return null;
+  return { key, orderId: textOrNull(found['orderId']), scope, purchase };
+}
+
+/**
+ * C1/E1 — READ A PERSISTED CLOSURE BACK THROUGH THE SAME CONTRACT THE WIRE
+ * USES, AND SAY EXACTLY WHAT IT IS.
  *
  * A stored record is not more trustworthy than a response: it may have been
  * written by a build with a different idea of what a closure is, or edited, or
- * truncated. `readClosureEvidence` is the one rule, so a value this build
- * cannot accept is simply not a closure — and the record then behaves exactly
- * as one written before closures existed.
+ * truncated. `readClosureEvidence` is the one rule, so this build cannot
+ * quietly act on a value it does not understand.
+ *
+ * IT RETURNS THE EVIDENCE RATHER THAN A NULLABLE CLOSURE (E1). Collapsing
+ * `unsupported` and `malformed` into `null` made the record "behave exactly as
+ * one written before closures existed" — which is right for a build that may
+ * act on any closure it can parse, and WRONG once an unrecognised policy
+ * version is deliberately not actionable: the re-price it licensed replays the
+ * retired order under the same key, is refused identically, and loops. The
+ * consumers need the distinction to offer manual recovery instead.
  *
  * It is given no expected reference: the record's own command may since have
  * been settled and cleared, and a closure that was validated against the right
  * reference when it was WRITTEN does not become wrong because the handle used
  * to validate it has gone.
  */
-function readStoredClosure(value: unknown): QuoteClosure | null {
-  const evidence = readStoredClosureEvidence(value);
-  return evidence.kind === 'closure' ? evidence.closure : null;
+export function readRecordClosure(value: unknown): StoredClosureReading {
+  return {
+    evidence: readStoredClosureEvidence(value),
+    predecessor: readPredecessor(value),
+  };
 }
 
 /** A correlated terminal result, written durably before any cleanup. */
@@ -285,6 +364,14 @@ export interface CheckoutRecord {
    * retired, and it is never inferred from a reason code, a deadline, a
    * refusal that carried no row, or the absence of anything.
    *
+   * IT IS HELD AS THE RAW PERSISTED VALUE AND READ THROUGH ONE FUNCTION
+   * (`readRecordClosure`), which is what makes E1 true rather than intended:
+   * parsing it into a nullable closure DISCARDED anything this build could not
+   * use, and re-persisting the record then erased it from storage as well. The
+   * raw value round-trips untouched, so a closure written by a build that knows
+   * a policy version this one does not survives a rollback intact — and so does
+   * the O1 `predecessor` that rides on the same object.
+   *
    * THE RECORD VERSION DELIBERATELY DOES NOT MOVE FOR IT, for the reason
    * `replaces` records at length: bumping would make every record this build
    * writes `unsupported` to the previous one, and an `unsupported` record
@@ -294,7 +381,7 @@ export interface CheckoutRecord {
    * next re-price replays the retired order and its own G3b initiate-handler
    * check renews there instead. That is one wasted round trip, not a dead end.
    */
-  readonly closure: QuoteClosure | null;
+  readonly closure: unknown;
 }
 
 /**
@@ -368,6 +455,48 @@ export type RecoveryOutcome =
   | { readonly kind: 'closed'; readonly order: any;
       readonly correlation: CheckoutCorrelation | null;
       readonly closure: QuoteClosure }
+  /**
+   * E1 — THE PROJECTION SAYS THE ORDER WAS ACCEPTED *AND* ITS QUOTE WAS
+   * RETIRED, WHICH THE SERVER CANNOT BOTH BE TRUE ABOUT.
+   *
+   * `quote_closure.close` refuses to write a closure beside acceptance
+   * evidence, and the acceptance path resolves evidence FIRST, so one order
+   * carries at most one of the two. A response carrying both is a server
+   * contradicting itself, and either half taken alone leads somewhere
+   * irreversible: announce the acceptance and the basket is cleared for an
+   * order that may never have been placed; act on the closure and a
+   * replacement key is minted for one that was.
+   *
+   * SO NEITHER HALF IS CHOSEN. The original attempt is preserved, no ordinary
+   * success is announced, no successor is minted and nothing is erased — the
+   * diner is pointed at the one party who can resolve it, and the record
+   * survives so a later coherent read still can.
+   */
+  | { readonly kind: 'inconsistent'; readonly order: any;
+      readonly correlation: CheckoutCorrelation | null;
+      readonly evidence: ClosureEvidence }
+  /**
+   * E1 — THE SERVER ASSERTED A CLOSURE THIS BUILD MAY NOT ACT ON, BESIDE AN
+   * ORDER IT HAS NOT ACCEPTED.
+   *
+   * A policy version this build has never seen, a malformed row, or one
+   * naming a different quote. None of them is `absent`: the server recorded
+   * SOMETHING under `quote_closure`, and reading that as "no closure" is the
+   * convenient half — the key may be bound to an order the server has
+   * retired, so the `draft` fallback would re-send the recorded acceptance,
+   * be refused identically, file as `unknown` and return here.
+   *
+   * KEPT APART FROM `inconsistent` DELIBERATELY. That one is the server
+   * contradicting ITSELF (accepted AND closed); this one is a single
+   * coherent statement this build cannot read. The remedy is the same today
+   * — preserve the attempt, announce nothing, mint nothing, erase nothing,
+   * point at staff, and let a later authorized read from a build that knows
+   * the version resolve it — but the causes are different, and one word for
+   * two facts is how the next reader mis-diagnoses.
+   */
+  | { readonly kind: 'closure-unreadable'; readonly order: any;
+      readonly correlation: CheckoutCorrelation | null;
+      readonly evidence: ClosureEvidence }
   /** THE SERVER ANSWERED AND HAS NO ROW FOR THIS KEY, at a scope it resolved
    *  itself. It licenses a SAME-KEY, SAME-REQUEST replay — never a new key,
    *  and never discarding the record. */
@@ -793,8 +922,63 @@ export class CheckoutCoordinatorService {
     const current = this.record();
     if (!current) return false;
     return this.persist({
-      ...current, stage: 'refused', command: null, closure,
+      ...current,
+      stage: 'refused',
+      command: null,
+      // O1 — THE CLOSURE CARRIES THE ATTEMPT IT WAS WRITTEN AGAINST.
+      // `command` is cleared in this same write, so the order id is read
+      // BEFORE it goes. The reference itself is already on the closure; this
+      // is the rest of the identity, and it is what lets `renewAfterClosure`
+      // make a CONDITIONAL transition rather than acting on whatever record
+      // happens to be current when a caller gets round to asking.
+      closure: {
+        closedAt: closure.closedAt,
+        reason: closure.reason,
+        quoteRef: closure.quoteRef,
+        policyVersion: closure.policyVersion,
+        predecessor: {
+          key: current.key,
+          orderId: current.command?.orderId ?? null,
+          scope: current.scope,
+          purchase: current.request.identity,
+        },
+      },
     });
+  }
+
+  /** What this record says about its quote having been retired. ONE reading,
+   *  so no consumer forms its own opinion about a stored closure. */
+  closureOf(record: CheckoutRecord): StoredClosureReading {
+    return readRecordClosure(record.closure);
+  }
+
+  /** The same, for whatever attempt is current. `null` when there is no
+   *  readable record at all — which is not the same as "no closure". */
+  currentClosure(): StoredClosureReading | null {
+    const current = this.record();
+    return current ? this.closureOf(current) : null;
+  }
+
+  private closureDigest(record: CheckoutRecord): unknown {
+    const reading = readRecordClosure(record.closure);
+    const identity = reading.predecessor
+      ? [reading.predecessor.key, reading.predecessor.orderId,
+         reading.predecessor.scope, reading.predecessor.purchase]
+      : null;
+    switch (reading.evidence.kind) {
+      case 'absent':
+        return null;
+      case 'malformed':
+        return ['malformed', reading.evidence.defect, identity];
+      default:
+        return [
+          reading.evidence.kind,
+          reading.evidence.closure.closedAt, reading.evidence.closure.reason,
+          reading.evidence.closure.quoteRef,
+          reading.evidence.closure.policyVersion,
+          identity,
+        ];
+    }
   }
 
   noteStage(stage: CheckoutStage): boolean {
@@ -870,28 +1054,58 @@ export class CheckoutCoordinatorService {
    * is not an idempotency key, so a storage that silently drops the write
    * refuses the renewal and the caller sends nothing.
    */
-  renewAfterClosure(
-    closure: QuoteClosure, replaced?: CheckoutRecord,
-  ): RenewalResult {
-    // C2 — NO EVIDENCE, NO SUCCESSOR. A renewal abandons an idempotency key,
-    // which is the single most consequential thing this client does with one,
-    // and the only justification for it is that the server RECORDED that the
-    // quote behind that key can never be accepted. This used to take no
-    // argument at all, so every caller's reading of the evidence was its own
-    // and a terminal reason carrying no closure minted a key just as readily
-    // as one carrying a valid row. The argument makes the requirement a
-    // property of the primitive rather than a convention at four call sites.
-    if (!closure || typeof closure !== 'object' || !closure.quoteRef) {
-      return { kind: 'none' };
-    }
+  renewAfterClosure(): RenewalResult {
     const stored = this.read();
     if (stored.kind === 'none') return { kind: 'none' };
     if (stored.kind !== 'record') return { kind: 'blocked', stored };
 
     const current = stored.record;
-    if (replaced && replaced.key !== current.key) {
-      return { kind: 'superseded' };
+
+    // O1 — THE EVIDENCE IS READ FROM THE RECORD, NEVER PASSED IN.
+    //
+    // This used to take the caller's `QuoteClosure` and an optional record
+    // handle, so the decision was made about whatever the CALLER was holding.
+    // A mount holding a stale refusal for K1 could therefore renew a record
+    // another mount had already moved to K2: `replaced` was optional, and
+    // omitting it — which the initiate-replay and enquiry paths did — meant
+    // "renew whatever is current". Reading the persisted closure makes the
+    // decision about the attempt the SERVER retired, which is the only
+    // identity that means anything here.
+    //
+    // C2's rule survives intact and is now a property of the store rather
+    // than of four call sites: no persisted evidence, no successor.
+    const reading = readRecordClosure(current.closure);
+    if (reading.evidence.kind === 'absent') return { kind: 'none' };
+    if (reading.evidence.kind !== 'closure') {
+      // E1 — ASSERTED AND UNUSABLE IS NOT ABSENT. A closure this build cannot
+      // act on must not mint a key (that is the supported-policy rule) and
+      // must not be read as "no closure" either (that re-prices under a key
+      // bound to a retired order and loops). It is its own answer, and the
+      // consumer offers manual recovery.
+      return { kind: 'unusable', evidence: reading.evidence };
     }
+
+    // THE CONDITIONAL TRANSITION. Exactly three outcomes for a predecessor:
+    // create K2 once, observe the K2 that already exists, or refuse.
+    const predecessor = reading.predecessor;
+    if (predecessor && predecessor.key !== current.key) {
+      if (current.replaces === predecessor.key) {
+        // The successor is already established — by the other mount, or by an
+        // earlier tap whose response was lost. This call wanted exactly that.
+        return { kind: 'superseded' };
+      }
+      if (current.scope !== predecessor.scope
+          || current.request.identity !== predecessor.purchase) {
+        // A different table or a different basket: this closure is not about
+        // the attempt on screen and nothing needs renewing for it.
+        return { kind: 'superseded' };
+      }
+      // Same purchase, neither the predecessor nor its successor — a later
+      // attempt this closure says nothing about. REFUSED rather than
+      // replaced: minting here would abandon a key that is currently in use.
+      return { kind: 'conflict', record: current };
+    }
+
     if (this.isProtected(current, current.request)) {
       return { kind: 'outstanding', record: current };
     }
@@ -990,8 +1204,24 @@ export class CheckoutCoordinatorService {
    * timeout, a lost response or an unreachable server produces no refusal
    * body, so `readQuoteRefusal` returns null and this returns null with it.
    */
-  applyQuoteRefusal(error: unknown): QuoteRefusal | null {
+  applyQuoteRefusal(error: unknown, issued?: CheckoutOwner): QuoteRefusal | null {
     const current = this.record();
+
+    // O1 — THE REFUSAL MUST BE ABOUT THE COMMAND THAT WAS ISSUED.
+    //
+    // This read `this.record()` and acted on whatever was current when the
+    // reply landed. Both halves of that are consequential: the terminal
+    // branch SETTLES a command and records a closure, and the reprice branch
+    // settles one with no closure at all — so a `quote_ref_stale` reply
+    // arriving after the attempt moved on had nothing to catch it, because
+    // there is no reference on that path for the evidence check to compare.
+    //
+    // `issued` is the operation this reply belongs to, frozen when the
+    // command went out. Omitted by a caller that has no command in flight
+    // (an authorized enquiry about a quote this client never submitted),
+    // which is the case the reference check below already covers.
+    if (issued && !this.settles(issued)) return null;
+
     // C2 — THE CLOSURE IS VALIDATED AGAINST THE COMMAND THAT WAS ISSUED. A
     // closure naming a different reference is a statement about a different
     // quote; honouring it here would settle THIS command and mint a successor
@@ -1125,8 +1355,28 @@ export class CheckoutCoordinatorService {
         quoteRef: pending.command?.quoteRef ?? null,
       }, { mutation: false });
       switch (verdict.kind) {
-        case 'accepted':
+        case 'accepted': {
+          // E1 — AND THE SAME PAYLOAD MUST NOT ALSO SAY THE QUOTE IS DEAD.
+          //
+          // The `not-accepted` branch below already consults the closure;
+          // this one returned before looking, so an ACCEPTED-AND-CLOSED
+          // projection was silently reduced to its acceptance half — the
+          // basket cleared and the record deleted on a response the server
+          // has no coherent way to produce.
+          //
+          // `closureAsserted` rather than "is it usable": the question here
+          // is whether the server said anything at all under `quote_closure`,
+          // and a malformed row beside an acceptance is no more coherent than
+          // a valid one. The expected reference is deliberately NOT supplied
+          // — ANY closure on an accepted order is the contradiction, not just
+          // one naming this quote.
+          const beside = this.publishedClosure(order, pending, null);
+          if (closureAsserted(beside)) {
+            return { kind: 'inconsistent', order, correlation,
+                     evidence: beside };
+          }
           return { kind: 'accepted', order, correlation };
+        }
         case 'not-accepted':
           // C1 — A DEFINITIVE DRAFT IS NOT NECESSARILY A RE-SUBMITTABLE ONE.
           //
@@ -1181,6 +1431,26 @@ export class CheckoutCoordinatorService {
     // one: at level 2 a genuine draft and an acceptance that predates the
     // evidence table read identically, and the server's own docstring says so.
     if (order.accepted === true) {
+      // E1 — AND THE CONTRADICTION GATE REACHES THIS ACCEPTED PATH TOO.
+      //
+      // The level-3 branch above refuses an accepted-AND-closed projection;
+      // this one returned before looking, so the same payload announced the
+      // acceptance, cleared the basket and deleted the record. The two levels
+      // are INDEPENDENT by design — `quote_protocol` says whether closures
+      // are published and `checkout_protocol` whether the correlated
+      // projection is — so a server that publishes a closure while answering
+      // below level 3 is exactly the shape this gate exists for, and a gate
+      // applied to one of two accepted returns is not a gate (Codex P2 on
+      // PR #676, valid).
+      //
+      // `closureAsserted`, not "is it usable": ANY closure beside an
+      // acceptance is the contradiction, so no expected reference is
+      // supplied and a malformed row counts as much as a valid one.
+      const beside = this.publishedClosure(order, pending, null);
+      if (closureAsserted(beside)) {
+        return { kind: 'inconsistent', order, correlation: null,
+                 evidence: beside };
+      }
       return { kind: 'accepted', order, correlation: null };
     }
     if (pending.command === null) {
@@ -1221,12 +1491,59 @@ export class CheckoutCoordinatorService {
     fallback: RecoveryOutcome, order: any, pending: CheckoutRecord,
     correlation: CheckoutCorrelation | null,
   ): RecoveryOutcome {
-    const evidence = readPublishedClosure(order, {
-      quoteRef: pending.command?.quoteRef ?? null,
-    });
-    return evidence.kind === 'closure'
-      ? { kind: 'closed', order, correlation, closure: evidence.closure }
-      : fallback;
+    const evidence = this.publishedClosure(
+      order, pending, pending.command?.quoteRef ?? null);
+    if (evidence.kind === 'closure') {
+      return { kind: 'closed', order, correlation, closure: evidence.closure };
+    }
+    // E1 — ASSERTED BUT UNUSABLE IS NOT ABSENT, AND THIS IS WHERE THAT WAS
+    // LOST. Both non-`closure` kinds fell through to `fallback`, which on
+    // every caller is `draft` — and `draft` is proof of non-execution, so
+    // `replayIssuedCommand` re-sends the acceptance for a quote the server
+    // may already have retired. That is the refusal/retry loop this change
+    // exists to remove, reintroduced by the one branch that did not
+    // distinguish the two (Codex P2 on PR #676, valid).
+    //
+    // The rule is E1's own: a malformed, unsupported or wrong-reference
+    // closure is never permission to treat the quote as open, resend an
+    // acceptance, discard evidence or create another intent. The last usable
+    // attempt is KEPT and an actionable unresolved state is surfaced.
+    if (closureAsserted(evidence)) {
+      return { kind: 'closure-unreadable', order, correlation, evidence };
+    }
+    return fallback;
+  }
+
+  /**
+   * E1 — ONE READING OF A PUBLISHED CLOSURE, WITH THIS ATTEMPT'S DEMONSTRATED
+   * D06 LEVEL SUPPLIED.
+   *
+   * `readPublishedClosure` gates on the level the PAYLOAD states, which is
+   * right for a first answer and wrong for a later one: a server that
+   * published `quote_protocol: 2` for this attempt and then answers without
+   * it has not become an older server, and reading its silence as "no
+   * closure" is the convenient half. The level is read LIVE, monotonically,
+   * for the same key; the operation's identity stays as captured.
+   */
+  private publishedClosure(
+    order: any, pending: CheckoutRecord, quoteRef: string | null,
+  ): ClosureEvidence {
+    return readPublishedClosure(
+      order, { quoteRef }, this.demonstratedQuoteProtocol(pending));
+  }
+
+  /**
+   * The highest D06 level this server has stated for THIS attempt.
+   *
+   * The `demonstratedProtocol` split, applied to the other level: only the
+   * CAPABILITY is read live, and only for the same key. A record replaced by
+   * a different key describes a different operation and says nothing here.
+   */
+  private demonstratedQuoteProtocol(pending: CheckoutRecord): number {
+    const now = this.record();
+    return now && now.key === pending.key
+      ? Math.max(pending.quoteProtocol, now.quoteProtocol)
+      : pending.quoteProtocol;
   }
 
   private classifyFailure(error: unknown): RecoveryOutcome {
@@ -1320,17 +1637,15 @@ export class CheckoutCoordinatorService {
         && Number.isInteger(value['quoteProtocol'])
         && value['quoteProtocol'] > 0
         ? (value['quoteProtocol'] as number) : 0,
-      // C1 — ABSENT MEANS "NOT KNOWN TO BE RETIRED", which is what every
-      // record written before this change carries and what every live attempt
-      // carries. It is re-read through the SAME evidence contract the wire is
-      // read through, so a stored value this build cannot accept is treated as
-      // absent rather than acted on — and that is SAFE in the only direction
-      // that matters: the worst outcome is one wasted re-price, which the
-      // initiate handler's own closure check then resolves. It is deliberately
-      // NOT `degraded`: an unreadable closure reduces what is known about the
-      // QUOTE and says nothing about whether an acceptance was issued, which
-      // is the question `degraded` exists to keep open.
-      closure: readStoredClosure(value['closure']),
+      // C1/E1 — CARRIED VERBATIM, INTERPRETED NOWHERE BUT `readRecordClosure`.
+      // Absent means "not known to be retired", which is what every record
+      // written before this change carries and what every live attempt
+      // carries. A value this build cannot act on is NOT nulled here: doing so
+      // erased it on the next write, and an unusable closure is a reason to
+      // offer manual recovery rather than a reason to re-price. It is
+      // deliberately NOT `degraded`: that flag is about whether an ACCEPTANCE
+      // may be outstanding, which a closure says nothing about.
+      closure: value['closure'] ?? null,
     };
   }
 
@@ -1482,9 +1797,13 @@ export class CheckoutCoordinatorService {
       // value would have reported success on both, which is the exact failure
       // Gate C's fingerprint exists to catch.
       record.quoteProtocol,
-      record.closure
-        ? [record.closure.closedAt, record.closure.reason,
-           record.closure.quoteRef, record.closure.policyVersion] : null,
+      // E1 — DIGESTED THROUGH THE READING, NEVER OFF THE RAW OBJECT. A raw
+      // `JSON.stringify` would make the digest depend on key order, which is
+      // not something either side of a storage round trip promises; and an
+      // unusable closure must still be verified, because "a closure was
+      // asserted and this build cannot act on it" is exactly a fact a later
+      // consumer reads.
+      this.closureDigest(record),
     ]);
   }
 

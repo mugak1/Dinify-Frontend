@@ -370,10 +370,24 @@ describe('BasketBodyComponent', () => {
    * basket never contained and exercise the wrong branch.
    */
   function reserveCheckout(): void {
-    TestBed.inject(CheckoutCoordinatorService).reserveIntent(
+    const coordinator = TestBed.inject(CheckoutCoordinatorService);
+    coordinator.reserveIntent(
       { identity: basketService.contentIdentity(), canon: PURCHASE_CANON },
       (component as any).checkoutContext(),
     );
+    // O1 — AND THE REVIEW THE COMMAND CONFIRMS. `submitOrder` now checks that
+    // the review in hand belongs to the attempt the record describes, before
+    // it persists or sends anything: a renewal is a new attempt at the SAME
+    // purchase, so the key is the only thing that distinguishes two of them.
+    // Production stamps this in the initiate handler; a fixture that calls
+    // `submitOrder` directly has to establish it, exactly as it has to
+    // establish the reservation above.
+    (component as any).reviewedQuote = {
+      ref: null,
+      revision: basketService.revision(),
+      context: (component as any).checkoutContext(),
+      key: coordinator.record()?.key ?? null,
+    };
   }
 
   it('forwards the real order id to order-complete on a successful submit', () => {

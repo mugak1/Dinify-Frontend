@@ -165,7 +165,9 @@ describe('BasketBodyComponent — one successor from a closure (D06/C3)', () => 
     // one component's memory. The command is settled with it in the same
     // write, so nothing is left outstanding for a retry to re-send.
     const record = coordinator.record()!;
-    expect(record.closure).toEqual(CLOSURE);
+    const reading = coordinator.closureOf(record);
+    expect(reading.evidence.kind === 'closure'
+      && reading.evidence.closure).toEqual(CLOSURE);
     expect(record.command).toBeNull();
     expect(record.stage).toBe('refused');
   });
@@ -248,11 +250,13 @@ describe('BasketBodyComponent — one successor from a closure (D06/C3)', () => 
     component.reviewUpdatedOrder();
     const successor = coordinator.record()!.key;
 
-    // The other mount held the SAME record and renews it too. The primitive
-    // answers `superseded` — which the caller treats as success, because
-    // another surface already did the thing it wanted.
-    const second = coordinator.renewAfterClosure(CLOSURE, first);
-    expect(second.kind).toBe('superseded');
+    // The other mount renews too. O1 — it no longer hands over a closure it
+    // is holding; the primitive reads the PERSISTED one, and the successor
+    // carries none, so there is nothing left to mint. The caller treats that
+    // as success, because another surface already did the thing it wanted.
+    expect(first.key).not.toBe(successor);
+    const second = coordinator.renewAfterClosure();
+    expect(second.kind).toBe('none');
     expect(coordinator.record()!.key).toBe(successor);
   });
 
@@ -274,8 +278,12 @@ describe('BasketBodyComponent — one successor from a closure (D06/C3)', () => 
     component.reviewUpdatedOrder();
 
     // The record is untouched, so the established fact survives the failure
-    // and the next tap can still act on it.
-    expect(coordinator.record()!.closure).toEqual(CLOSURE);
+    // and the next tap can still act on it. Read through the ONE reading
+    // (E1), because the record now carries the raw persisted value.
+    const reading = coordinator.closureOf(coordinator.record()!);
+    expect(reading.evidence.kind).toBe('closure');
+    expect(reading.evidence.kind === 'closure'
+      && reading.evidence.closure).toEqual(CLOSURE);
   });
 
   it('never mints a successor while an acceptance is outstanding', () => {
@@ -285,10 +293,14 @@ describe('BasketBodyComponent — one successor from a closure (D06/C3)', () => 
     // one state where doing so produces two orders.
     component.initiateOrder();
     api.postPatch.calls.reset();
+    // O1 — the closure is established FIRST (that is where one comes from
+    // now), and the command issued after it is what leaves the record
+    // outstanding. The protection is unchanged; the route to the state is.
+    expect(coordinator.noteClosure(CLOSURE)).toBeTrue();
     coordinator.noteCommand({ orderId: 'o1', quoteRef: 'q1' });
     const key = coordinator.record()!.key;
 
-    expect(coordinator.renewAfterClosure(CLOSURE).kind).toBe('outstanding');
+    expect(coordinator.renewAfterClosure().kind).toBe('outstanding');
     expect(coordinator.record()!.key).toBe(key);
     expect(coordinator.record()!.command).toEqual(
       { orderId: 'o1', quoteRef: 'q1' });

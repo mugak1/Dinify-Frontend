@@ -16,6 +16,7 @@ import {
   correlationPromised, currentDisposition, protocolLevel, readCorrelation,
 } from 'src/app/_shared/order/checkout-correlation';
 import {
+  ClosureEvidence,
   quoteDeadlinePassed,
   quoteProtocolLevel,
   policyVersionSupported,
@@ -23,7 +24,21 @@ import {
   readPublishedClosure,
   readPublishedPolicy,
   readQuoteAnswer,
+  usableClosure,
 } from 'src/app/_shared/order/quote-transition';
+
+/**
+ * E1 — WHAT A DINER IS TOLD WHEN A CLOSURE IS ASSERTED AND UNUSABLE.
+ *
+ * ONE sentence for every unusable shape: an unrecognised policy version, an
+ * unreadable row, and a projection that claims an acceptance and a closure at
+ * once. Distinguishing them for the diner would be an oracle over the
+ * response and would ask them to act on a difference they cannot act on — the
+ * remedy is the same in all three, and it is a person.
+ */
+const UNRESOLVED_CLOSURE_MESSAGE =
+  'We could not confirm the status of this order. Please check with staff '
+  + 'before ordering the same items again.';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -371,11 +386,21 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // be a round trip whose answer this client already holds — and on a server
     // that cannot be reached it would produce `unknown`, which BLOCKS the
     // checkout and offers a Retry, for a purchase whose remedy is a review.
-    if (stored.kind === 'record' && stored.record.closure) {
+    const restored = stored.kind === 'record'
+      ? this.checkout.closureOf(stored.record).evidence
+      : { kind: 'absent' as const };
+    if (restored.kind === 'closure') {
       this.recovered = {
         kind: 'closed', order: null, correlation: null,
-        closure: stored.record.closure,
+        closure: restored.closure,
       };
+      return;
+    }
+    // E1 — AND A STORED CLOSURE THIS BUILD CANNOT ACT ON IS ITS OWN STATE,
+    // never silence. Falling through here would offer Checkout for a purchase
+    // whose key is bound to an order the server has retired.
+    if (restored.kind !== 'absent') {
+      this.recovered = null;
       return;
     }
 
@@ -398,7 +423,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // review all read one established fact. NO acceptance is issued and
           // NO successor is minted here: minting one is a purchase decision
           // and belongs to a deliberate tap, not to a page load.
-          this.checkout.noteClosure(outcome.closure);
+          //
+          // O1 — AND THE WRITE IS CHECKED. This ignored its return, so a
+          // store that silently dropped it left the diner reading "review
+          // your updated order" above a record that still said nothing about
+          // a closure — and the review would then find none and price again
+          // under the retired key. A failed write claims nothing.
+          if (!this.checkout.noteClosure(outcome.closure)) {
+            this.recovered = { kind: 'unknown' };
+          }
           return;
         case 'accepted-unrecorded':
           // GATE B — UNKNOWN EVIDENCE STAYS UNRESOLVED. `evidence_unavailable`
@@ -434,6 +467,16 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * worst of the available answers.
    */
   get recoveryNotice(): string | null {
+    // E1 — AN UNUSABLE CLOSURE SAYS SO EVEN WHEN NO RECOVERY RAN. The
+    // desktop sidebar never runs one, and a reload restores the record before
+    // any read completes; `checkoutBlocked` already suppresses the CTA for
+    // it, and a disabled button with no sentence beside it is the silence
+    // this notice exists to remove.
+    if (this.recovered?.kind !== 'inconsistent'
+        && this.recovered?.kind !== 'closure-unreadable'
+        && this.unusableClosure()) {
+      return UNRESOLVED_CLOSURE_MESSAGE;
+    }
     switch (this.recovered?.kind) {
       case 'accepted': {
         // GATE B — AN ACCEPTANCE AND WHAT HAPPENED AFTERWARDS ARE SEPARATE
@@ -467,6 +510,23 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // sentence on one screen.
         return 'Your order could not be placed at the price you reviewed, and '
           + 'nothing has been sent to the kitchen.';
+      case 'closure-unreadable':
+        // E1 — THE SERVER RECORDED A CLOSURE THIS BUILD CANNOT ACT ON, beside
+        // an order it has not accepted. Not "no closure": the quote may be
+        // retired, so neither "review it again" (which would re-send the
+        // acceptance) nor silence is honest. Same sentence as the
+        // contradiction below, for the same reason — the remedy is a person
+        // — and the record survives so a build that knows the version can
+        // still resolve it.
+        return UNRESOLVED_CLOSURE_MESSAGE;
+      case 'inconsistent':
+        // E1 — THE SERVER SAID BOTH THINGS AT ONCE. Neither half may be
+        // announced: "it is with the kitchen" would be a claim about an order
+        // whose quote the same response says was retired, and "review your
+        // order" would invite a replacement for one that may already be
+        // cooking. The remedy is a person, and the record survives so a later
+        // coherent read can still resolve it.
+        return UNRESOLVED_CLOSURE_MESSAGE;
       case 'accepted-unrecorded':
         // NOT THE SAME SENTENCE, and the difference matters in the
         // dangerous direction. `evidence_unavailable` is the server saying
@@ -533,8 +593,41 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** True while an outcome the diner must resolve is outstanding — the CTA is
    *  suppressed rather than silently starting a second checkout. */
+  /**
+   * E1 — AN ASSERTED-BUT-UNUSABLE CLOSURE OFFERS NO MUTATING ACTION AT ALL.
+   *
+   * `checkoutBlocked` withholds Checkout, and the footer answers a block by
+   * rendering **Retry** (`@if (orderError || checkoutBlocked)`) — so blocking
+   * these three states did not remove the mutation, it renamed the button.
+   * `retryOrder()` then re-sent `orders/initiate/` under a key that may be
+   * bound to an order the server has retired, and the reply carries the same
+   * unreadable closure: the exact loop `checkoutBlocked`'s own comment says it
+   * exists to prevent, reached through the other door.
+   *
+   * THE NOTICE ALREADY NAMES THE REMEDY, AND IT IS A PERSON —
+   * `UNRESOLVED_CLOSURE_MESSAGE` says to check with staff *before ordering the
+   * same items again*, which is precisely what a Retry beside it invites. So
+   * the footer renders a disabled control here, the same shape
+   * `tableHasOngoingOrder` already uses for "blocked, and the reason is stated
+   * elsewhere".
+   *
+   * It reads `unusableClosure()`, which is already the ONE definition of the
+   * state — a live `inconsistent` or `closure-unreadable`, or a stored closure
+   * this build cannot act on — so this cannot drift from what blocks Checkout.
+   */
+  get closureUnresolved(): boolean {
+    return this.unusableClosure() !== null;
+  }
+
   get checkoutBlocked(): boolean {
+    // E1 — A CLOSURE THIS BUILD CANNOT ACT ON BLOCKS, whether it arrived on a
+    // live read or was restored from the record. It is not "no closure": the
+    // key may be bound to an order the server has retired, so offering
+    // Checkout would price under it, replay the retired order and loop.
+    if (this.unusableClosure()) return true;
     switch (this.recovered?.kind) {
+      case 'closure-unreadable':
+      case 'inconsistent':
       case 'uncorrelated':
       case 'unsupported':
       case 'unknown':
@@ -910,7 +1003,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // it: `placeOrder` is what the terminal branch calls, so resetting there
     // would let a server that keeps answering "closed" drive an unbounded
     // mint-and-retry loop. A deliberate press is the diner starting again.
-    this.renewedThisEpisode = false;
     // Hard stop: the table already has an order in the kitchen. The CTA is
     // disabled in this state, so this is just defense in depth.
     if (this.tableHasOngoingOrder) return;
@@ -942,6 +1034,22 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.failOrder("You're offline — reconnect to place your order.");
       return;
     }
+    // E1 — NO MUTATION BY ANY DOOR. `placeOrder` carries this same guard and
+    // its comment claims it covers "every other entry — a direct
+    // `retryOrder`". It does not: the two replay exits below return BEFORE
+    // reaching it, so only the fallthrough was ever guarded. Asked here, it
+    // covers `replayIssuedCommand` (which would re-send an acceptance),
+    // `replayInitiation` (which would re-price under a possibly retired key)
+    // and `placeOrder` alike.
+    //
+    // DEFENCE IN DEPTH, not the only protection: the footer renders no Retry
+    // for this state. A getter that decides whether a mutation may be OFFERED
+    // must not be the thing a template ordering depends on to be right — the
+    // reasoning `checkoutBlocked`'s `closed` case already records.
+    //
+    // Nothing is held yet at this point (`holdCheckout` happens inside each
+    // of the three), so there is nothing to release.
+    if (this.closureUnresolved) return;
     const record = this.checkout.record();
     if (record && this.checkout.isOutstanding(record)) {
       this.replayIssuedCommand(record);
@@ -1071,7 +1179,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // recorded that the quote can never be accepted, so the re-send can
           // only be refused — and its refusal files as `unknown`, offering
           // Retry, which returns to exactly this point.
-          this.checkout.noteClosure(outcome.closure);
+          //
+          // O1 — AND THE WRITE IS CHECKED, for the reason the startup path
+          // records: an unverified closure is not an established fact.
+          if (!this.checkout.noteClosure(outcome.closure)) {
+            this.recovered = { kind: 'unknown' };
+          }
           return;
         case 'absent':
         case 'draft':
@@ -1110,8 +1223,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.resendIssuedCommand(record.command);
           return;
         default:
-          // Draft, unreachable, unsupported, unauthorised or uncorrelated:
-          // all unresolved. The record stands and the notice says so.
+          // Unreachable, unsupported, unauthorised, uncorrelated, or a
+          // closure this build cannot act on: all unresolved. The record
+          // stands and the notice says so.
           return;
       }
     });
@@ -1121,11 +1235,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   // current basket to orders/initiate/ and, when everything is still available,
   // commits straight away; otherwise it hands off to the unavailable-items sheet.
   /**
-   * One renewal per checkout episode. See `initiateOrder`, which opens one.
-   */
-  private renewedThisEpisode = false;
-
-  /**
    * Is the server telling us this quote has been RETIRED?
    *
    * GATED ON THE STATED LEVEL, never on the key merely being present — the
@@ -1134,11 +1243,16 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * closed", and treating an absent key as a verdict would make every older
    * backend look like it was answering a question it has never been asked.
    */
-  private publishedClosure(orderDetails: any): QuoteClosure | null {
-    const evidence = readPublishedClosure(orderDetails, {
-      quoteRef: this.checkout.record()?.command?.quoteRef ?? null,
-    });
-    return evidence.kind === 'closure' ? evidence.closure : null;
+  private publishedClosureEvidence(orderDetails: any): ClosureEvidence {
+    return readPublishedClosure(
+      orderDetails,
+      { quoteRef: this.checkout.record()?.command?.quoteRef ?? null },
+      // E1 — THE LEVEL THIS SERVER HAS ALREADY DEMONSTRATED FOR THIS ATTEMPT,
+      // read when the answer lands. A response that omits `quote_protocol`
+      // after an earlier one published it has not become an older server, and
+      // reading its silence as "no closure" is the convenient half.
+      this.checkout.establishedQuoteProtocol(),
+    );
   }
 
   /**
@@ -1155,7 +1269,34 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private closedQuote(): QuoteClosure | null {
     if (this.recovered?.kind === 'closed') return this.recovered.closure;
-    return this.checkout.record()?.closure ?? null;
+    return usableClosure(this.storedClosure());
+  }
+
+  /** What the record says about its quote, through the ONE reading. */
+  private storedClosure(): ClosureEvidence {
+    const record = this.checkout.record();
+    return record ? this.checkout.closureOf(record).evidence
+      : { kind: 'absent' };
+  }
+
+  /**
+   * E1 — A CLOSURE THIS BUILD MAY NOT ACT ON, or `null`.
+   *
+   * `unsupported` (a policy version this build has never seen) and
+   * `malformed` are NOT "no closure". Reading them as absence re-prices under
+   * a key bound to a retired order, replays it, is refused identically and
+   * loops — so they get their own state: the attempt is kept, nothing is
+   * minted, nothing is settled, and the diner is pointed at staff. A later
+   * authorized read from a build that does know the version resolves it.
+   */
+  private unusableClosure(): ClosureEvidence | null {
+    if (this.recovered?.kind === 'inconsistent'
+        || this.recovered?.kind === 'closure-unreadable') {
+      return this.recovered.evidence;
+    }
+    const evidence = this.storedClosure();
+    return evidence.kind === 'unsupported' || evidence.kind === 'malformed'
+      ? evidence : null;
   }
 
   /**
@@ -1209,24 +1350,49 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *               key, and a record this build cannot read must not be
    *               reasoned about. Nothing is sent.
    */
-  private renewAfterClosure(
-    closure: QuoteClosure, replaced?: CheckoutRecord,
-  ): boolean {
-    // C2/C3 — THE EVIDENCE AND THE RECORD BOTH TRAVEL. The closure is what
-    // entitles this client to abandon an idempotency key at all; `replaced`
-    // names the record the caller decided about, so two mounts holding the
-    // same refusal produce ONE successor (`superseded`) rather than two keys
-    // for one closure. Calling it with no record renews whatever is current,
-    // which is right only for a caller that has just read it.
-    const renewal = this.checkout.renewAfterClosure(closure, replaced);
+  private renewAfterClosure(): boolean {
+    // O1 — THE COORDINATOR DECIDES, FROM THE PERSISTED CLOSURE AND THE
+    // PREDECESSOR IT CARRIES. This used to hand it a `QuoteClosure` the
+    // caller was holding plus an optional record; omitting the record meant
+    // "renew whatever is current", which is exactly how a mount holding a
+    // stale refusal for K1 could abandon a K2 another mount had established.
+    // Nothing is passed now, so there is nothing to pass staleley.
+    const renewal = this.checkout.renewAfterClosure();
     if (renewal.kind === 'ready' || renewal.kind === 'superseded'
         || renewal.kind === 'none') {
-      this.renewedThisEpisode = true;
       return true;
     }
     this.releaseCheckout();
     this.onReservationRefused(renewal);
     return false;
+  }
+
+  /**
+   * O1 — RECORD A CLOSURE THIS CLIENT HAS JUST LEARNED, AND STOP.
+   *
+   * THE THREE AUTOMATIC RENEWALS ARE GONE. A refused submission, an initiate
+   * that handed back a retired order and an enquiry answered `quote_closed`
+   * all used to mint a successor key and immediately re-price, inside the
+   * response handler that learned of the closure. Minting an idempotency key
+   * is the most consequential thing this client does with one, and doing it
+   * as a side effect of reading a response means it happens on whatever
+   * record is current at that instant — the stale-mount hazard — and without
+   * the diner having asked for anything.
+   *
+   * What each of them does now is the same three steps, in order: establish
+   * the closure DURABLY (verified, because a key nobody wrote down is not an
+   * idempotency key), surface the one action that works, and wait for the
+   * diner to take it. `reviewUpdatedOrder` is that action and is the ONLY
+   * renewal site left.
+   *
+   * Returns whether the closure is now established. `false` means the write
+   * could not be verified: nothing is claimed, and the caller falls through
+   * to its ordinary unresolved handling rather than promising a review.
+   */
+  private establishClosure(closure: QuoteClosure): boolean {
+    if (!this.checkout.noteClosure(closure)) return false;
+    this.quoteRetired = true;
+    return true;
   }
 
   private placeOrder() {
@@ -1254,12 +1420,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // order" rather than Checkout or Retry, and that path renews first. This
     // is the guard for every other entry — a direct `retryOrder`, a future
     // caller, or a second mount acting on state the first established.
-    const known = this.closedQuote();
-    if (known && !this.renewedThisEpisode) {
-      if (!this.renewAfterClosure(
-          known, this.checkout.record() ?? undefined)) {
-        return;
-      }
+    // O1 — IT STOPS RATHER THAN RENEWING. Minting a key here would be a
+    // purchase decision taken inside a guard, on behalf of a diner who
+    // pressed Checkout. The established fact is already durable, so the
+    // footer's "Review updated order" is rendered and the renewal happens
+    // when they take it.
+    if (this.closedQuote() || this.unusableClosure()) {
+      this.quoteRetired = !!this.closedQuote();
+      this.releaseCheckout();
+      return;
     }
 
     this.orderError = false;
@@ -1376,15 +1545,30 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // `quote_closure` is what makes this visible at all, and it is
           // gated on the level rather than on the key being present: a server
           // that has not said it publishes closures is not one whose silence
-          // means "not closed". ONCE PER EPISODE — a renewal that comes back
-          // closed again is a server contradicting itself, and looping on it
-          // would be a client-driven order storm.
-          const handedBack = this.publishedClosure(od);
-          if (handedBack && !this.renewedThisEpisode
-              && this.renewAfterClosure(handedBack, this.checkout.record()
-                  ?? undefined)) {
+          // means "not closed". IT NO LONGER RENEWS, so the once-per-episode
+          // bound this used to need is gone with it: the only renewal left is
+          // a deliberate tap, and a successful one clears the persisted
+          // closure, so a second tap mints nothing.
+          const handedBack = this.publishedClosureEvidence(od);
+          if (handedBack.kind === 'closure') {
+            // O1 — ESTABLISH AND STOP. This used to mint a successor and
+            // re-price immediately, which put a key mint inside a response
+            // handler. The closure is recorded durably instead and the
+            // footer offers the review; a failed write claims nothing and
+            // falls through to the ordinary sheet.
+            if (this.establishClosure(handedBack.closure)) {
+              this.showQuoteSheet = false;
+              this.releaseCheckout();
+              return;
+            }
+          } else if (handedBack.kind !== 'absent') {
+            // E1 — ASSERTED AND UNUSABLE. Not silence, and not a reason to
+            // review: this build cannot say what the server retired, so it
+            // says so and stops rather than pricing again under a key that
+            // may be bound to a retired order.
+            this.showQuoteSheet = false;
             this.releaseCheckout();
-            this.placeOrder();
+            this.failOrder(UNRESOLVED_CLOSURE_MESSAGE);
             return;
           }
           const quoteReference = od?.quote_ref ?? null;
@@ -1665,7 +1849,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // the resend rather than the read. The shared transition settles the
         // command and records the closure; the diner is then offered the
         // review, exactly as on every other path.
-        const refusal = this.checkout.applyQuoteRefusal(error);
+        //
+        // O1 — AND IT NAMES THE OPERATION IT BELONGS TO. The transition
+        // settles a command and records a closure; both act on the record,
+        // so a reply landing after the attempt moved on must not.
+        const refusal = this.checkout.applyQuoteRefusal(
+          error, owner ?? undefined);
         if (refusal?.disposition === 'terminal' && refusal.closure) {
           this.recovered = {
             kind: 'closed', order: null, correlation: null,
@@ -1732,9 +1921,23 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     reservation:
       | Exclude<IntentReservation, { kind: 'ready' }>
       | Extract<RenewalResult,
-                { kind: 'outstanding' | 'storage-error' | 'blocked' }>,
+                { kind: 'outstanding' | 'storage-error' | 'blocked'
+                        | 'conflict' | 'unusable' }>,
   ): void {
     switch (reservation.kind) {
+      case 'conflict':
+        // O1 — THE CLOSURE IS ABOUT AN ATTEMPT THAT IS NO LONGER THE CURRENT
+        // ONE, at the same table for the same basket. Another mount, or an
+        // earlier tap, has moved this purchase on; minting here would abandon
+        // a key that is in use. Nothing is sent and nothing is replaced.
+        this.failOrder(
+          'Your order has already been updated on this device. Please '
+          + 'review it again.');
+        return;
+      case 'unusable':
+        // E1 — A CLOSURE IS RECORDED AND THIS BUILD MAY NOT ACT ON IT.
+        this.failOrder(UNRESOLVED_CLOSURE_MESSAGE);
+        return;
       case 'outstanding':
         // An acceptance is already out there. Resolving THAT is the only
         // correct next step; starting another is what the record exists to
@@ -2151,9 +2354,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // current" can never report one — it is right only for a caller
           // that has just established this record is the attempt it decided
           // about, which `reviewedIntentIsStill` has now done by key.
-          if (!this.renewAfterClosure(
-              answer.closure, this.checkout.record() ?? undefined)) return;
-          this.placeOrder();
+          // O1 — ESTABLISH AND STOP, as at every other site that LEARNS of
+          // a closure. The enquiry answered that this quote is finished; the
+          // replacement is the diner's decision, not this handler's.
+          this.showQuoteSheet = false;
+          if (this.establishClosure(answer.closure)) {
+            this.releaseCheckout();
+            return;
+          }
+          this.failOrder(UNRESOLVED_CLOSURE_MESSAGE);
           return;
         }
         // An answer this build cannot read, or one that is about something
@@ -2177,7 +2386,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // A refusal here carries the same vocabulary a submission's does —
         // an already-accepted order above all, which is not a failure of
         // anything and must not be re-sent.
-        const refusal = this.checkout.applyQuoteRefusal(error);
+        const refusal = this.checkout.applyQuoteRefusal(error, owner);
         // READ, never inferred from the disposition — `QuoteRefusal.retired`
         // is true only when the server actually sent a closure this build
         // could read. A terminal reason whose closure object is absent or
@@ -2226,8 +2435,28 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // established — which `renewQuote` has already failed closed on by then,
     // since `recoveryOwner()` would have returned null — so inventing a
     // refusal here would answer a question this field cannot answer.
+    return this.reviewedAttemptIsCurrent();
+  }
+
+  /**
+   * O1 — IS THE REVIEW IN HAND STILL THE ATTEMPT THE RECORD DESCRIBES?
+   *
+   * The key is what closes it and nothing else can: a renewal is a new
+   * attempt at the SAME purchase, so the revision, the context, the scope and
+   * the request all carry across unchanged, and every other comparison
+   * available to this component passes over one.
+   *
+   * A NULL REVIEWED KEY IS NOT A MATCH. It used to be treated as "discriminates
+   * nothing, so allow" — which is fine for a predicate that only decides
+   * whether to keep going with something already established, and wrong for
+   * one that gates persisting and sending a command: if a record has appeared
+   * since, the command would be bound to an attempt this review never belonged
+   * to. The honest reading of a null is that the review was established
+   * against no readable record, so there is nothing for it to still be.
+   */
+  private reviewedAttemptIsCurrent(): boolean {
     const reviewedKey = this.reviewedQuote?.key ?? null;
-    if (reviewedKey === null) return true;
+    if (reviewedKey === null) return false;
     return (this.checkout.record()?.key ?? null) === reviewedKey;
   }
 
@@ -2266,8 +2495,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // press does — so the renewal below is the episode's one renewal and the
     // initiate handler's own guard still bounds a server that keeps answering
     // "closed".
-    this.renewedThisEpisode = false;
-
     const closure = this.closedQuote();
     if (closure) {
       // C3 — ONE DELIBERATE SUCCESSOR, FROM THE PERSISTED CLOSURE.
@@ -2281,8 +2508,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       // and it refuses while an acceptance is outstanding — which is exactly
       // the case where minting a second key produces two orders.
       this.quoteRetired = true;
-      const record = this.checkout.record() ?? undefined;
-      if (!this.renewAfterClosure(closure, record)) return;
+      if (!this.renewAfterClosure()) return;
       this.recovered = null;
       this.placeOrder();
       return;
@@ -2323,6 +2549,33 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // rather than the absence of one. A corrected server always names one, and
     // refuses a submission that arrives without it.
     const quoteReference = this.reviewedQuote?.ref ?? null;
+
+    // O1 — THE REVIEWED KEY IS CHECKED BEFORE EVERY COMMAND, not only when
+    // an expired local deadline happens to trigger the extra enquiry.
+    //
+    // `reviewedIntentIsStill` was reached ONLY from `renewQuote`'s answer
+    // handler, so the ordinary submission — the common path, the one that
+    // places most orders — persisted and sent a command without ever asking
+    // whether the review it is confirming belongs to the attempt in hand.
+    // Both mounts render this basket: one can be holding a sheet priced under
+    // K1 while the other has already renewed to K2, and every other check
+    // passes across a renewal because a renewal is a new attempt at the SAME
+    // purchase (the revision, the context, the scope and the request are all
+    // unchanged).
+    //
+    // A NULL REVIEWED KEY IS REFUSED HERE RATHER THAN TRUSTED. It means no
+    // record was readable when the review was established; if one exists now,
+    // writing a command onto it would bind this review to an attempt it never
+    // belonged to, and if none exists `noteCommand` refuses anyway. Either
+    // way there is nothing to confirm against, which is not the same as
+    // confirming.
+    if (!this.reviewedAttemptIsCurrent()) {
+      this.showQuoteSheet = false;
+      this.releaseCheckout();
+      this.failOrder('Your order changed while we were checking. '
+        + 'Please review it again.');
+      return;
+    }
 
     // RECORD THE EXACT COMMAND BEFORE ISSUING IT, AND DO NOT ISSUE IT IF THAT
     // FAILS. From here the outcome is genuinely uncertain until the response
@@ -2465,7 +2718,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.releaseCheckout();
         this.order_initiated = undefined;
       },
-      (error) => this.handleSubmitFailure(error)
+      (error) => this.handleSubmitFailure(error, submitOwner)
     );
   }
 
@@ -2478,7 +2731,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * nobody can call. It also makes the D06 dispositions testable without
    * driving an HTTP round trip to produce each one.
    */
-  private handleSubmitFailure(error: unknown): void {
+  private handleSubmitFailure(
+    error: unknown, issued?: CheckoutOwner | null,
+  ): void {
     // The acceptance resolved, so the review sheet stops being the lock:
     // every branch below either explains itself at the checkout footer or
     // re-prices, and both need the basket back.
@@ -2510,7 +2765,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // desktop — which is precisely how two mounts end up disagreeing about
     // whether a quote is finished. The coordinator owns the state move; the
     // branches below own only what the diner is told.
-    const refusal = this.checkout.applyQuoteRefusal(error);
+    // O1 — THE REFUSAL IS BOUND TO THE ACCEPTANCE THAT WAS ISSUED.
+    //
+    // Both branches below act on the RECORD: the terminal one settles the
+    // command and records a closure, and the `quote_ref_stale` reprice
+    // settles it with no closure at all — so on the reprice path there is no
+    // reference for the evidence check to compare, and a reply arriving after
+    // the attempt moved on had nothing to catch it. `submitOwner` is the
+    // operation this reply belongs to, frozen when the command went out.
+    const refusal = this.checkout.applyQuoteRefusal(error, issued ?? undefined);
     if (refusal) {
       this.toast.clear();
 
@@ -2559,11 +2822,30 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // and it is passed rather than re-read, because the coordinator has
         // already recorded exactly this row.
         if (refusal.disposition === 'terminal') {
+          // O1 — ESTABLISH AND STOP. `applyQuoteRefusal` has already written
+          // the closure and settled the command in ONE verified write, so the
+          // fact is durable here; what used to follow was a key mint and an
+          // immediate re-price, both inside a failure handler. The footer
+          // offers "Review updated order" and the diner decides.
+          //
+          // AND THE FLIGHT IS GIVEN BACK — the one thing "stop" has to do that
+          // "re-price" did for free. `placeOrder()` below owns the flight and
+          // releases it on every outcome; a branch that returns instead left
+          // the APP-WIDE single flight held, so the very button this branch
+          // renders ("Review updated order") came up `disabled` / `aria-busy`
+          // and stayed that way until the page was reloaded — a dead end
+          // produced by the change that exists to remove one. The acceptance
+          // has RESOLVED here, so there is nothing left to protect; and
+          // `releaseFlight` ignores a token that is no longer current, so a
+          // late release from a superseded attempt cannot free a live one.
+          //
+          // Found by `e2e/checkout-journey/recovery.mjs` scenario D06e, which
+          // is the only check that presses the button rather than asserting on
+          // the state behind it.
+          this.releaseCheckout();
           if (!refusal.closure) return;
-          if (!this.renewAfterClosure(
-              refusal.closure, this.checkout.record() ?? undefined)) {
-            return;
-          }
+          this.quoteRetired = true;
+          return;
         }
         this.placeOrder();
         return;

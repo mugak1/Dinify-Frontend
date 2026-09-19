@@ -157,18 +157,31 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
   // ------------------------------------------------------------------
 
   describe('a terminal refusal', () => {
-    it('THE REGRESSION: re-prices under a NEW key', () => {
-      // C2 — WITH THE CLOSURE. This oracle used to pass a bare
-      // `quote_expired` and expect a new key, which asserted the SUPERSEDED
-      // behaviour: the word alone settled the issued command and minted a
-      // replacement. `_TerminalQuoteOutcome` builds this refusal from the row
-      // `quote_closure.close` just wrote and attaches it, so the row is what
-      // a terminal refusal actually carries — and it is what entitles this
-      // client to abandon an idempotency key.
+    it('O1: ESTABLISHES the closure and STOPS — the diner re-prices', () => {
+      // CHANGED EXPECTATION, DELIBERATELY. This asserted that the refusal
+      // handler itself minted a new key and re-priced. Minting an idempotency
+      // key is the most consequential thing this client does with one, and
+      // doing it as a side effect of reading a failure means it happens on
+      // whatever record is current at that instant, without the diner having
+      // asked for anything.
+      //
+      // The three steps are the same and the ORDER is the change: establish
+      // the closure durably, offer the one action that works, and mint on the
+      // tap. Both halves are asserted here.
       const first = afterPricing();
       (component as any).handleSubmitFailure(
         refusal('quote_expired', closureFacts));
 
+      // NOTHING IS SENT, and the key is untouched.
+      expect(keysSent().length).toBe(1);
+      expect(coordinator.record()!.key).toBe(first);
+      // The closure IS established, and the action is offered.
+      const reading = coordinator.closureOf(coordinator.record()!);
+      expect(reading.evidence.kind).toBe('closure');
+      expect(component.updatedReviewPrompt).not.toBeNull();
+
+      // THE DELIBERATE TAP is what renews.
+      component.reviewUpdatedOrder();
       const keys = keysSent();
       expect(keys.length).toBe(2);
       expect(keys[1]).not.toBe(keys[0]);
@@ -191,6 +204,7 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
       const first = afterPricing();
       (component as any).handleSubmitFailure(
         refusal('quote_expired', closureFacts));
+      component.reviewUpdatedOrder();
       expect(coordinator.record()!.replaces).toBe(first);
     });
 
@@ -199,6 +213,7 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
       const identity = coordinator.record()!.request.identity;
       (component as any).handleSubmitFailure(
         refusal('quote_expired', closureFacts));
+      component.reviewUpdatedOrder();
       expect(coordinator.record()!.request.identity).toBe(identity);
     });
 
@@ -229,20 +244,27 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
   // ------------------------------------------------------------------
 
   describe('an initiate that hands back a retired quote', () => {
-    it('renews and re-prices instead of reviewing it', () => {
+    it('O1: ESTABLISHES the closure and STOPS, then the tap re-prices', () => {
+      // CHANGED EXPECTATION, DELIBERATELY — the same correction as the
+      // terminal refusal above, at the other site that LEARNS of a closure.
+      // A key mint inside a response handler acts on whatever record is
+      // current at that instant; the diner's tap is what decides.
       api.postPatch.and.returnValues(
         of(initiated(closureFacts)) as any,
         of(initiated({ quote_protocol: 2 })) as any,
       );
 
       component.initiateOrder();
-      const keys = keysSent();
 
-      // The keys SENT are what matters, and they are compared against each
-      // other rather than against the record: the renewal happens inside the
-      // synchronous response handler, so by the time the record is read it is
-      // already the successor and comparing with it would compare a key with
-      // itself.
+      // ONE request, no successor, and the retired quote is NOT reviewed.
+      expect(keysSent().length).toBe(1);
+      expect((component as any).showQuoteSheet).toBeFalse();
+      expect(coordinator.closureOf(coordinator.record()!).evidence.kind)
+        .toBe('closure');
+      expect(component.updatedReviewPrompt).not.toBeNull();
+
+      component.reviewUpdatedOrder();
+      const keys = keysSent();
       expect(keys.length).toBe(2);
       expect(keys[1]).not.toBe(keys[0]);
       expect(coordinator.record()!.key).toBe(keys[1]);
@@ -252,24 +274,18 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
       expect((component as any).reviewedQuote.ref).toBe('q1');
     });
 
-    it('does so AT MOST ONCE per checkout press', () => {
-      // A server that keeps answering "closed" is contradicting itself, and
-      // looping on it would be a client-driven order storm.
+    it('O1: a server that keeps answering "closed" cannot loop', () => {
+      // CHANGED EXPECTATION. This asserted a once-per-episode bound on an
+      // AUTOMATIC renewal. There is no automatic renewal left, so the bound
+      // is structural: every cycle costs a deliberate tap, and nothing this
+      // client does on its own sends a second request.
       api.postPatch.and.returnValue(of(initiated(closureFacts)) as any);
 
       component.initiateOrder();
+      expect(keysSent().length).toBe(1);
 
+      component.reviewUpdatedOrder();
       expect(keysSent().length).toBe(2);
-    });
-
-    it('and a DELIBERATE second press may renew again', () => {
-      api.postPatch.and.returnValue(of(initiated(closureFacts)) as any);
-      component.initiateOrder();
-      const after = keysSent().length;
-
-      component.initiateOrder();
-
-      expect(keysSent().length).toBeGreaterThan(after);
     });
 
     it('CONTROL: an ordinary response is reviewed under its own key', () => {
@@ -308,17 +324,20 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
       // It is asserted anyway, because the renewal is what abandons a key and
       // this is the one state where doing so produces two orders.
       afterPricing();
+      // O1 — the closure is ESTABLISHED first (that is where one comes from
+      // now), and the command issued after it is what leaves the record
+      // outstanding. The protection is unchanged; the route to the state is.
+      expect(coordinator.noteClosure({
+        closedAt: closureFacts.quote_closure!.closed_at,
+        reason: closureFacts.quote_closure!.reason,
+        quoteRef: closureFacts.quote_closure!.quote_ref,
+        policyVersion: closureFacts.quote_closure!.policy_version,
+      })).toBeTrue();
       coordinator.noteCommand({ orderId: 'o1', quoteRef: 'q1' });
       const key = coordinator.record()!.key;
       const sent = keysSent().length;
 
-      const proceeded = (component as any).renewAfterClosure(
-        closureFacts.quote_closure && {
-          closedAt: closureFacts.quote_closure.closed_at,
-          reason: closureFacts.quote_closure.reason,
-          quoteRef: closureFacts.quote_closure.quote_ref,
-          policyVersion: closureFacts.quote_closure.policy_version,
-        });
+      const proceeded = (component as any).renewAfterClosure();
 
       expect(proceeded).toBeFalse();
       expect(coordinator.record()!.key).toBe(key);
@@ -333,10 +352,7 @@ describe('BasketBodyComponent — renewal after a closure (D06/G3b)', () => {
       spyOn(coordinator, 'renewAfterClosure').and.returnValue(
         { kind: 'storage-error' });
 
-      expect((component as any).renewAfterClosure({
-        closedAt: '2026-09-17T10:00:00Z', reason: 'quote_expired',
-        quoteRef: 'q1', policyVersion: 1,
-      })).toBeFalse();
+      expect((component as any).renewAfterClosure()).toBeFalse();
       expect(keysSent().length).toBe(sent);
     });
   });

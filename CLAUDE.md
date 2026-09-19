@@ -1134,6 +1134,155 @@ so keep it current when conventions change.
   Pinned by `basket-body.stale-answer.spec.ts` (14), which drives the real
   component through the real coordinator and storage; reverting the three fixes
   one at a time fails exactly 3 / 2 / 2 of them and never a control
+- **CLOSURE EVIDENCE IS EXHAUSTIVE, AND A CLOSURE NAMES THE ATTEMPT IT WAS
+  WRITTEN AGAINST (D06 E1/O1).** The bullet above got the shape of the evidence
+  and the successor right and left both under-specified at their consumers. No
+  backend contract change: `quote_protocol` stays 2, `checkout_protocol` stays 3,
+  `QUOTE_POLICY_VERSION` stays 1, and **the record version deliberately does not
+  move** — the predecessor rides INSIDE the existing `closure` key, for the reason
+  `replaces` records (bumping makes every record this build writes `unsupported`
+  to the previous one, and an `unsupported` record BLOCKS).
+  **E1 — FOUR EXHAUSTIVE ANSWERS, NOT THREE PLUS A FLAG.** `ClosureEvidence` is
+  `closure` / `unsupported` / `absent` / `malformed`, read through exactly two
+  predicates: `usableClosure` (*may I act on this*) and `closureAsserted` (*did
+  the server say anything at all under `quote_closure`*). `unsupported` is its own
+  KIND because a closure written under a policy this build has never seen is a
+  REAL closure (retirement is a fact the server recorded) and one this build may
+  not ACT on — two different things, and a boolean beside a usable closure is
+  exactly how the distinction gets dropped at the next consumer. **TWO #675
+  SEMANTICS ARE REVERTED**: it accepted every positive policy version for renewal
+  with `policySupported` demoted to copy, and it returned `accepted` before
+  inspecting a contradictory closure beside it. The agreed supported-policy rule
+  (policy 1) is restored and the inconsistent-result path is explicit again —
+  `RecoveryOutcome.inconsistent` preserves the original attempt, announces no
+  ordinary success, mints no successor and erases nothing, and no database repair
+  is authorized or performed. **A malformed, unsupported or wrong-reference
+  closure is never permission** to treat the quote as open, resend an acceptance,
+  discard evidence or create another intent: the last usable attempt is KEPT and
+  an actionable unresolved/manual-recovery state is shown, so **unknown is not
+  permanent paralysis** — nothing is discarded, and a later valid authorized read
+  resolves it. **THE LEVEL IS EVALUATED AT ANSWER TIME AND THE IDENTITY IS NOT**:
+  `readPublishedClosure(orderDetails, expected?, demonstrated)` answers
+  `malformed('level')` — never `absent` — when a server that has already
+  demonstrated `REQUIRED_CLOSURE_PROTOCOL` for THIS attempt then says nothing, and
+  `demonstratedQuoteProtocol` takes the max of the frozen snapshot and the live
+  record ONLY for the same key. `quote_protocol` is never conflated with
+  `checkout_protocol` and neither is inferred from `pricing_version`.
+  **O1 — THE CLOSURE CARRIES ITS PREDECESSOR.** `noteClosure` persists
+  `{closedAt, reason, quoteRef, policyVersion, predecessor: {key, orderId, scope,
+  purchase}}` and settles the command in ONE verified write, reading the order id
+  BEFORE `command` is cleared. `renewAfterClosure()` is **zero-argument** and
+  reads that evidence, making a CONDITIONAL transition for THAT predecessor:
+  create K2 once, return the already-established K2 (`superseded`, which the
+  component treats as success), or refuse (`conflict`). **It can never treat a
+  stale C1 plus a freshly loaded K2 record as permission to replace K2** — the
+  comparison is against the predecessor the closure names, never against whatever
+  `record()` happens to return — so stale UI is not the only protection, and two
+  deliberately-new meals under different keys are never globally de-duplicated.
+  It refuses on absent/unusable evidence, on an outstanding acceptance and on a
+  failed durable write. **THE REVIEWED KEY IS CHECKED BEFORE EVERY COMMAND IS
+  PERSISTED OR SENT** (`reviewedQuote.key` + `reviewedAttemptIsCurrent()` gating
+  `submitOrder`), not only when an expired local deadline happens to trigger the
+  extra enquiry, and **a NULL reviewed key is REFUSED, never trusted**. **ALL
+  THREE AUTO-RENEW PATHS ARE NOW DELIBERATE** — `handleSubmitFailure`, the closed
+  initiation replay in `placeOrder` and the retired answer in `renewQuote` each
+  establish the closure and STOP; `reviewUpdatedOrder()` is the only caller of the
+  renewal, and `renewedThisEpisode` is gone (an episode counter was a weaker
+  statement of what the conditional transition now enforces exactly). The owner
+  rule covers the direct-submit SUCCESS and ERROR handlers, **including the
+  `quote_ref_stale` reprice refusal**, which carries no closure reference and so
+  has nothing else to stop it matching the current record by accident. Both
+  recovery `noteClosure()` returns are checked.
+  **M8 IS WORTH KNOWING ABOUT.** Removing BOTH recovery write-checks failed
+  NOTHING in 2497 specs — the rule was stated in code and in a comment and pinned
+  by neither, which is the class of defect this whole programme is about. Three
+  specs closed it (the Retry site, the STARTUP site driven through a second
+  component over the same persisted record, and the control that must keep
+  offering the review when the write DOES land). Pinned by
+  `basket-body.evidence-gates.spec.ts` (18) plus extensions to the suites that
+  already owned each behaviour; eight source mutations fail 7 / 2 / 1 / 4 / 2 / 2
+  / 5 / 2 named subsets with every control holding, and `recovery.mjs` gains
+  **D06e**, the lost *initiation* of a successor.
+  **AND "STOP" HAS TO GIVE THE FLIGHT BACK — the defect this pass INTRODUCED,
+  found in a browser.** Replacing the terminal branch's fall-through to
+  `placeOrder()` with a `return` dropped the one thing that fall-through did for
+  free: `placeOrder()` OWNS the app-wide checkout flight and releases it on every
+  outcome. Nothing released it on the new path, so `placingOrder` (a getter over
+  the coordinator's one flight) stayed true and **the very button that branch
+  renders — *Review updated order* — came up `disabled` / `aria-busy` and stayed
+  that way until a reload**. D06e timed out on it; NO unit spec could see it,
+  because every spec asserted on the STATE behind the button rather than on
+  whether it could be pressed. `releaseCheckout()` now runs at the top of that
+  branch: the acceptance has RESOLVED, so there is nothing left to protect, and
+  `releaseFlight` ignores a token that is no longer current, so a late release
+  from a superseded attempt cannot free a live one.
+  **AND THE EXHAUSTIVE RULE HAD TO REACH THE RECOVERY CONSUMER, AND BOTH
+  ACCEPTED RETURNS** (two Codex P2 on PR #676, both valid, both the same shape
+  as everything else here — a rule implemented at one consumer and not the
+  next). `closedOr` promoted a draft verdict to `closed` for a VALID closure
+  and handed back the `draft` fallback for every other kind — but `unsupported`
+  and `malformed` (a wrong reference included) are NOT absence: the server
+  recorded something under `quote_closure`, and `draft` is PROOF OF
+  NON-EXECUTION, so `replayIssuedCommand` re-sent the acceptance for a quote
+  that may already be retired, the server refused it identically, the refusal
+  filed as `unknown`, and Retry returned there. That is E1's own rule —
+  *a malformed or wrong-reference closure is never permission to treat the
+  quote as open, resend an acceptance, discard evidence or create another
+  intent* — reaching the submit-failure path and the renewal primitive but not
+  the read. **`closure-unreadable` IS ITS OWN OUTCOME, KEPT APART FROM
+  `inconsistent` DELIBERATELY**: that one is the server contradicting ITSELF
+  (accepted AND closed), this one is a single coherent statement this build
+  cannot read. The remedy is the same today — preserve the attempt, announce
+  nothing, mint nothing, erase nothing, point at staff — and the causes are
+  different, which is exactly when one word for two facts mis-diagnoses.
+  Separately, the accepted-and-closed gate ran ONLY inside the level-3 branch,
+  so the LEGACY `accepted === true` return announced the acceptance, cleared
+  the basket and deleted the record on the same contradictory payload. **The
+  two levels are independent by design** — `quote_protocol` says whether
+  closures are published, `checkout_protocol` whether the correlated projection
+  is — so a server publishing a level-2 closure while answering below level 3
+  is exactly the shape that gate exists for, and a gate applied to one of two
+  accepted returns is not a gate. **ONE PRE-EXISTING CONTROL WAS CORRECTED,
+  NOT THE RULE RELAXED**: `CONTROL: a closure from a server that never promised
+  to publish one` priced through an initiate declaring `quote_protocol: 2` and
+  then read `quote_protocol: 1` — a DOWNGRADE, which E1b has called
+  `malformed('level')` since it landed, so the control was passing on
+  `closedOr`'s swallow rather than on the compatibility it names. It now
+  states level 1 throughout, and the downgrade keeps its own regression beside
+  it.
+  **AND A BLOCK IS NOT A RENAMED MUTATION** (a further Codex P2, valid, and a
+  defect that PREDATES this work). `checkoutBlocked` withholds Checkout — and
+  the footer answers a block by rendering **Retry**
+  (`@if (orderError || checkoutBlocked)`), so blocking these states did not
+  remove the mutation, it renamed the button. For a record with NO issued
+  command — the ordinary shape after a lost `retire-quote` reply, where nothing
+  was ever accepted — `retryOrder()` skips `replayIssuedCommand`, classifies the
+  record as a replayable initiation and re-sends `orders/initiate/` under a key
+  that may be bound to an order the server has RETIRED; the reply carries the
+  same unreadable closure, so the diner loops. That is exactly what
+  `checkoutBlocked`'s own comment says it exists to prevent, reached through the
+  other door — and `placeOrder` carries the guard while claiming to cover "every
+  other entry — a direct `retryOrder`", which it does not, because the two
+  replay exits return BEFORE reaching it. **IT IS NOT NEW**: `unusableClosure()`
+  and `inconsistent` already blocked before this pass, which added a third state
+  to the same group, so all three are fixed together. `closureUnresolved` reads
+  the ONE definition (`unusableClosure()`) so it cannot drift from what blocks
+  Checkout; `retryOrder` is guarded at the top, covering
+  `replayIssuedCommand`, `replayInitiation` and `placeOrder` alike; and the
+  footer renders a DISABLED control instead, the shape `tableHasOngoingOrder`
+  already uses. **NO MUTATING ACTION AT ALL, rather than a non-mutating one**,
+  because the notice beside it already names the remedy and it is a person —
+  `UNRESOLVED_CLOSURE_MESSAGE` says to check with staff *before ordering the
+  same items again*, which is precisely what a Retry there invites. The guard
+  and the template are INDEPENDENT (defence in depth, the reasoning
+  `checkoutBlocked`'s `closed` case already records): reverting them one at a
+  time fails exactly 1 of 25 each. Pinned by
+  `basket-body.closure-recovery.spec.ts` (25); reverting the three earlier fixes
+  one at a time fails exactly 3, 1 and 1, every control holding — including the
+  `unknown` control, which must keep its real Retry, since nothing was asserted
+  about the quote there and re-sending is the right offer.
+  Paired backend: `A1b` / `BREAKING_CHANGES.md` §16c; record:
+  `D06_CONSUMER_GATES_CLOSURE.md`
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

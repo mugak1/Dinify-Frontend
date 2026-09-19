@@ -4,10 +4,14 @@ import {
   REQUIRED_QUOTE_PROTOCOL,
   TERMINAL_REASONS,
   TRANSIENT_REASONS,
+  closureAsserted,
   quoteDeadlinePassed,
+  readPublishedClosure,
   readPublishedPolicy,
+  readQuoteAnswer,
   readQuotePolicy,
   readQuoteRefusal,
+  usableClosure,
 } from './quote-transition';
 
 /**
@@ -148,18 +152,29 @@ describe('D06 quote transition vocabulary', () => {
       })))!.evidence.kind).toBe('malformed');
     });
 
-    it('C2: an UNSUPPORTED policy version is still a closure', () => {
-      // RETIREMENT IS VERSION-INDEPENDENT. Refusing a version this build does
-      // not know would strand a diner against a future backend with no way
-      // forward — the exact dead end this work removes. What it forfeits is
-      // the policy-derived CLAIM, not the fact.
+    it('E1: an UNSUPPORTED policy version is READ and NOT ACTED ON', () => {
+      // CHANGED EXPECTATION, DELIBERATELY. This asserted `terminal` +
+      // `retired` for any positive version, on the reasoning that retirement
+      // is version-independent. That is a forward-compatibility CLAIM — every
+      // future rule retires a quote in a way this build may act on — and no
+      // protocol guarantee states it: `QUOTE_POLICY_VERSION` is frozen
+      // precisely so a new version is a new rule.
+      //
+      // The evidence is still READ (the closure is carried, so a consumer can
+      // say what it knows) and is its own kind, so no consumer settles a
+      // command or mints a successor on it. The refusal therefore reports
+      // `unknown` — nothing is submitted, nothing is discarded, the record
+      // survives, and a later authorized read from a build that knows the
+      // version resolves it.
       const future = readQuoteRefusal(refusal('quote_expired', closure({
         policy_version: 99,
       })))!;
-      expect(future.disposition).toBe('terminal');
-      expect(future.retired).toBeTrue();
-      expect(future.evidence.kind === 'closure'
-        && future.evidence.policySupported).toBeFalse();
+      expect(future.disposition).toBe('unknown');
+      expect(future.retired).toBeFalse();
+      expect(future.closure).toBeNull();
+      expect(future.evidence.kind).toBe('unsupported');
+      expect(future.evidence.kind === 'unsupported'
+        && future.evidence.closure.policyVersion).toBe(99);
     });
 
     it('reads the closure the server did record', () => {
@@ -265,5 +280,149 @@ describe('D06 quote transition vocabulary', () => {
         'legacy_pricing_version', 'quote_ref_stale', 'quote_unverifiable',
       ]);
     });
+  });
+});
+
+/**
+ * E1 — THE PUBLISHED CLOSURE, AND THE LEVEL IT IS READ UNDER.
+ *
+ * Two separate promises move independently here, and conflating them is the
+ * defect: `checkout_protocol` says whether an uncertain checkout can be
+ * recovered (D04), `quote_protocol` whether a quote may still be accepted
+ * (D06). Neither is inferable from the other, and neither from
+ * `pricing_version`, which describes how the MONEY was calculated.
+ */
+describe('E1 — reading a published closure', () => {
+  const details = (over: Record<string, unknown> = {}) => ({
+    id: 'o1', quote_ref: 'q1', ...over,
+  });
+
+  const wire = (over: Record<string, unknown> = {}) => ({
+    closed_at: '2026-01-01T00:00:00+00:00',
+    reason: 'quote_expired',
+    quote_ref: 'q1',
+    policy_version: 1,
+    ...over,
+  });
+
+  it('a level-2 payload carrying a closure is READ', () => {
+    const found = readPublishedClosure(
+      details({ quote_protocol: 2, quote_closure: wire() }));
+    expect(found.kind).toBe('closure');
+  });
+
+  it('a level-2 payload carrying NO closure is ABSENT — not retired', () => {
+    const found = readPublishedClosure(details({ quote_protocol: 2 }));
+    expect(found.kind).toBe('absent');
+  });
+
+  it('a payload that states NO level is silence, whatever is beside it', () => {
+    // An older server. Its silence about closures is the only shape it has
+    // ever had, so a closure-looking object beside it does not upgrade the
+    // promise — the level is the promise, the object is data.
+    const found = readPublishedClosure(details({ quote_closure: wire() }));
+    expect(found.kind).toBe('absent');
+  });
+
+  it('THE REGRESSION: silence from a server that ALREADY demonstrated 2 is '
+     + 'MALFORMED, not absent', () => {
+    // A capability does not un-demonstrate itself. Reading this as "no
+    // closure" is the convenient half of a response that has stopped keeping
+    // a promise it made for this same attempt.
+    const found = readPublishedClosure(details({}), undefined, 2);
+    expect(found.kind).toBe('malformed');
+    expect(found.kind === 'malformed' && found.defect).toBe('level');
+  });
+
+  it('CONTROL: a demonstrated level of 0 leaves silence as silence', () => {
+    const found = readPublishedClosure(details({}), undefined, 0);
+    expect(found.kind).toBe('absent');
+  });
+
+  it('CONTROL: `checkout_protocol` never stands in for `quote_protocol`', () => {
+    const found = readPublishedClosure(
+      details({ checkout_protocol: 3, quote_closure: wire() }));
+    expect(found.kind).toBe('absent');
+  });
+
+  it('CONTROL: `pricing_version` never stands in for either', () => {
+    const found = readPublishedClosure(
+      details({ pricing_version: 'CORRECTED', quote_closure: wire() }));
+    expect(found.kind).toBe('absent');
+  });
+
+  it('an UNSUPPORTED policy version is its own answer, carrying the row', () => {
+    const found = readPublishedClosure(
+      details({ quote_protocol: 2, quote_closure: wire({ policy_version: 7 }) }));
+    expect(found.kind).toBe('unsupported');
+    expect(found.kind === 'unsupported' && found.closure.policyVersion).toBe(7);
+    // AND IT IS NOT USABLE, which is the whole point of the distinction.
+    expect(usableClosure(found)).toBeNull();
+    // while still being an ASSERTION, which is what stops a consumer reading
+    // it as "no closure".
+    expect(closureAsserted(found)).toBeTrue();
+  });
+
+  it('a malformed row is asserted and unusable too', () => {
+    const found = readPublishedClosure(details({
+      quote_protocol: 2,
+      quote_closure: { reason: 'quote_expired' },
+    }));
+    expect(found.kind).toBe('malformed');
+    expect(usableClosure(found)).toBeNull();
+    expect(closureAsserted(found)).toBeTrue();
+  });
+
+  it('absence is the ONE answer that asserts nothing', () => {
+    expect(closureAsserted({ kind: 'absent' })).toBeFalse();
+  });
+
+  it('a closure naming ANOTHER quote is refused, not honoured', () => {
+    const found = readPublishedClosure(
+      details({ quote_protocol: 2, quote_closure: wire() }),
+      { quoteRef: 'q-other' });
+    expect(found.kind).toBe('malformed');
+    expect(found.kind === 'malformed' && found.defect).toBe('other_quote');
+  });
+});
+
+describe('E1 — the enquiry answer under the supported-policy rule', () => {
+  const answer = (over: Record<string, unknown> = {}) => ({
+    status: 200, outcome: 'quote_closed', order: 'o1', quote_ref: 'q1',
+    quote_closure: {
+      closed_at: '2026-01-01T00:00:00+00:00', reason: 'quote_expired',
+      quote_ref: 'q1', policy_version: 1,
+    },
+    ...over,
+  });
+
+  const asked = { order: 'o1', quoteRef: 'q1' };
+
+  it('a supported closure retires the quote', () => {
+    const read = readQuoteAnswer(answer(), asked, 2);
+    expect(read.kind).toBe('retired');
+  });
+
+  it('THE REGRESSION: an UNSUPPORTED one is UNREADABLE, so nothing renews',
+     () => {
+    // The answer that mints a successor may only be produced from evidence
+    // this build may act on. Nothing is submitted, nothing is settled,
+    // nothing is minted, and the record survives for a later read.
+    const read = readQuoteAnswer(answer({
+      quote_closure: {
+        closed_at: '2026-01-01T00:00:00+00:00', reason: 'quote_expired',
+        quote_ref: 'q1', policy_version: 42,
+      },
+    }), asked, 2);
+    expect(read.kind).toBe('unreadable');
+    expect(read.kind === 'unreadable' && read.defect)
+      .toBe('closure_unsupported_policy');
+  });
+
+  it('CONTROL: a still-valid answer is unaffected', () => {
+    const read = readQuoteAnswer(
+      { status: 200, outcome: 'quote_still_valid', order: 'o1',
+        quote_ref: 'q1' }, asked, 2);
+    expect(read.kind).toBe('still-valid');
   });
 });

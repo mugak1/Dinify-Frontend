@@ -181,14 +181,15 @@ describe('BasketBodyComponent — a stale answer owns nothing (D06/C)', () => {
     return coordinator.record()?.key ?? '';
   }
 
-  /** The OTHER mount settles this quote's closure and mints the successor.
-   *  It passes no `replaced`, which is right for a caller that has just read
-   *  the record — and it is what leaves this instance's sheet stale. */
+  /** The OTHER mount settles this quote's closure and mints the successor —
+   *  the two steps production now takes, in that order (O1) — and it is what
+   *  leaves this instance's sheet stale. */
   function theOtherMountRenews(): string {
-    const renewal = coordinator.renewAfterClosure({
+    expect(coordinator.noteClosure({
       closedAt: '2026-09-18T10:00:00Z', reason: 'quote_expired',
       quoteRef: 'q1', policyVersion: 1,
-    } as any);
+    })).toBeTrue();
+    const renewal = coordinator.renewAfterClosure();
     expect(renewal.kind).toBe('ready');
     return coordinator.record()?.key ?? '';
   }
@@ -239,17 +240,26 @@ describe('BasketBodyComponent — a stale answer owns nothing (D06/C)', () => {
       expect(coordinator.record()?.key).toBe(k2);
     });
 
-    it('CONTROL: the SAME closed answer renews when the review is still the '
-       + 'current attempt', () => {
+    it('CONTROL: the SAME closed answer IS acted on when the review is still '
+       + 'the current attempt', () => {
+      // CHANGED EXPECTATION in one respect only, and the discriminating half
+      // is unchanged: the stale case above still does NOTHING, and this one
+      // still ACTS. What "acts" means moved — O1 establishes the closure and
+      // offers the review rather than minting a key inside the handler — so
+      // the key moves on the tap rather than on the answer.
       const k1 = reviewed();
 
       confirmWith(of(answer('quote_closed')));
 
-      // A fresh key for the same purchase, and the re-price that follows it.
+      expect(component.quoteRetired).toBeTrue();
+      expect(coordinator.closureOf(coordinator.record()!).evidence.kind)
+        .toBe('closure');
+      expect(coordinator.record()?.key).toBe(k1);
+
+      component.reviewUpdatedOrder();
       expect(coordinator.record()?.key).not.toBe(k1);
       expect(coordinator.record()?.key).toBeTruthy();
       expect(call('orders/initiate/').length).toBe(2);
-      expect(component.quoteRetired).toBeTrue();
     });
 
     it('CONTROL: the SAME still-valid answer submits when the review is '
@@ -354,9 +364,14 @@ describe('BasketBodyComponent — a stale answer owns nothing (D06/C)', () => {
       });
       submit.error(terminalRefusal());
 
-      const record = coordinator.record();
-      expect(record?.closure?.quoteRef).toBe('q1');
-      expect(record?.stage).toBe('refused');
+      const record = coordinator.record()!;
+      const reading = coordinator.closureOf(record);
+      expect(reading.evidence.kind === 'closure'
+        && reading.evidence.closure.quoteRef).toBe('q1');
+      // O1 — AND IT NAMES THE ATTEMPT IT WAS WRITTEN AGAINST.
+      expect(reading.predecessor?.key).toBe(record.key);
+      expect(reading.predecessor?.orderId).toBe('o1');
+      expect(record.stage).toBe('refused');
       expect(component.quoteRetired).toBeTrue();
     });
   });

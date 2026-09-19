@@ -259,8 +259,18 @@ describe('BasketBodyComponent — the quote answer (D06/G4)', () => {
   // ------------------------------------------------------------------
 
   describe('a retired quote', () => {
-    it('re-prices under a NEW key', () => {
+    it('O1: ESTABLISHES the closure and STOPS, then the tap re-prices', () => {
+      // CHANGED EXPECTATION, DELIBERATELY — the third site that LEARNS of a
+      // closure, corrected the same way as the submit refusal and the
+      // initiate replay. The enquiry answered that the quote is finished; the
+      // replacement is the diner's decision, not this handler's.
       askTheServer(of(answer('quote_closed')));
+      expect(initiateCalls().length).toBe(1);
+      expect(submitCalls().length).toBe(0);
+      expect((component as any).quoteRetired).toBeTrue();
+      expect(component.updatedReviewPrompt).not.toBeNull();
+
+      component.reviewUpdatedOrder();
       const keys = initiateCalls().map((a) => a[1].client_order_id);
       expect(keys.length).toBe(2);
       expect(keys[1]).not.toBe(keys[0]);
@@ -274,6 +284,7 @@ describe('BasketBodyComponent — the quote answer (D06/G4)', () => {
 
     it('treats an already-closed answer identically', () => {
       askTheServer(of(answer('quote_already_closed')));
+      component.reviewUpdatedOrder();
       const keys = initiateCalls().map((a) => a[1].client_order_id);
       expect(keys[1]).not.toBe(keys[0]);
     });
@@ -298,12 +309,17 @@ describe('BasketBodyComponent — the quote answer (D06/G4)', () => {
     });
 
     it('C1: and the closure the server stated is REMEMBERED', () => {
-      // The successor carries none of its own, but the fact was recorded
-      // before the renewal — which is what lets a reload, the other mount and
-      // the diner's explicit review all read one established answer.
+      // O1 — IT IS RECORDED BEFORE ANYTHING ELSE, which is what lets a
+      // reload, the other mount and the diner's explicit review all read one
+      // established answer. The successor then carries none of its own.
       askTheServer(of(answer('quote_closed')));
+      expect(coordinator.closureOf(coordinator.record()!).evidence.kind)
+        .toBe('closure');
+
+      component.reviewUpdatedOrder();
       expect(coordinator.record()!.replaces).not.toBeNull();
-      expect(coordinator.record()!.closure).toBeNull();
+      expect(coordinator.closureOf(coordinator.record()!).evidence.kind)
+        .toBe('absent');
     });
   });
 
