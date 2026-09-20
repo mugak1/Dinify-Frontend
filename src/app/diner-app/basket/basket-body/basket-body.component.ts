@@ -412,7 +412,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // be a round trip whose answer this client already holds — and on a server
     // that cannot be reached it would produce `unknown`, which BLOCKS the
     // checkout and offers a Retry, for a purchase whose remedy is a review.
+    //
+    // L1 — BUT A STORED CLOSURE IS NOT ALWAYS THE WHOLE STORY. A coherent
+    // read that began before a contradiction was observed writes its closure
+    // and is correctly refused the release, so "a closure exists AND the
+    // situation is unresolved" is a legitimate state. Restoring from the
+    // record there would ask nothing — and a read is the only thing that can
+    // resolve it, since every mutation is (rightly) refused.
     const restored = stored.kind === 'record'
+      && this.checkout.unresolvedClosure() === null
       ? this.checkout.closureOf(stored.record).evidence
       : { kind: 'absent' as const };
     if (restored.kind === 'closure') {
@@ -445,7 +453,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       switch (outcome.kind) {
         case 'accepted':
           // DEFINITIVE, and the only outcome that finishes anything.
-          this.finishAcceptedCheckout(outcome.correlation, owner);
+          this.finishAcceptedCheckout(outcome.correlation, owner, observed);
           return;
         case 'closed':
           // C1 — REMEMBER IT, AND ATTEMPT NOTHING. The server has stated
@@ -725,13 +733,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private closureUnresolvable(): boolean {
     if (this.checkout.unresolvedClosure() !== null) return true;
-    // A SERVER CONTRADICTING ITSELF IS NOT RESOLVED BY A CLOSURE. That one
-    // claims an acceptance as well, so a durable closure beside it settles
-    // nothing and the yield below must not reach it.
-    if (this.recovered?.kind === 'inconsistent') return true;
+    // L2 — AND A LOCAL CONTRADICTION IS GOVERNED LIKE THE OTHER TWO. This
+    // returned true unconditionally, so the mount that OBSERVED went on
+    // claiming a situation a later coherent read had legitimately resolved,
+    // and went on blocking a successor it had no fact about. What keeps the
+    // durable-closure yield off a live contradiction is `unresolvedClosure`,
+    // which withholds it there — so reaching the yield below means the hold
+    // was RELEASED, which only an ordering-checked coherent answer does.
     if (this.staleLocalClosureResult()) return false;
     return this.unusableClosure() !== null
-      || this.recovered?.kind === 'closure-unrecorded';
+      || this.recovered?.kind === 'closure-unrecorded'
+      || this.recovered?.kind === 'inconsistent';
   }
 
   /**
@@ -883,8 +895,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private staleLocalClosureResult(): boolean {
-    if (this.recovered?.kind !== 'closure-unreadable'
-        && this.recovered?.kind !== 'closure-unrecorded') {
+    const kind = this.recovered?.kind;
+    if (kind !== 'closure-unreadable' && kind !== 'closure-unrecorded'
+        // L2 — a contradiction is a local result like the other two, and it
+        // outlives its situation the same way.
+        && kind !== 'inconsistent') {
       return false;
     }
     // Supported while the shared observation still stands FOR THIS ATTEMPT,
@@ -908,6 +923,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'closure-unreadable':
       case 'closure-unrecorded':
       case 'inconsistent':
+        // L2 — THE SAME RESULT, ASKED THE SAME QUESTION. `closureUnresolvable`
+        // above has already yielded these three when the situation they
+        // describe has been resolved, so restating them unconditionally here
+        // would withhold Checkout for an attempt this instance holds no fact
+        // about — which is how one mount went on blocking a successor
+        // another had legitimately created.
+        return !this.staleLocalClosureResult();
       case 'uncorrelated':
       case 'unsupported':
       case 'unknown':
@@ -950,10 +972,16 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * failure in between leaves a record that still says "accepted", which a
    * reload reads correctly — the other order leaves a diner being asked about
    * an order that is already cooking.
+   *
+   * @param observed The hold that stood when the request whose answer this is
+   *   went OUT. It defaults to `null` — nothing observed — so a caller with
+   *   no request behind it (the cached-terminal restoration) withholds the
+   *   forgetting while anything is held, which is the safe direction.
    */
   private finishAcceptedCheckout(
     correlation: CheckoutCorrelation | null = null,
     owner: CheckoutOwner | null = null,
+    observed: ClosureHold | null = null,
   ): void {
     // GATE B — THE RESULT IS RECORDED BEFORE ANY CLEANUP, on this path too.
     // The submit handler already did this; a recovery-DISCOVERED acceptance
@@ -1002,7 +1030,26 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // applies. A store that silently drops writes must not lose the accepted
     // outcome while the REMOVAL succeeds, which would leave a reload free to
     // start a second checkout for an order already being cooked.
-    if (recorded) this.checkout.clearIntent();
+    //
+    // AND ONLY WHEN THIS ANSWER SAW WHATEVER IS HELD NOW (Codex P2 on #680).
+    // Forgetting the attempt is how an observation stops applying, so an
+    // answer issued BEFORE a hold was established could retire it without
+    // ever passing the ordering check `releaseClosureHold` exists to apply —
+    // an older read silencing a newer observation, by the one door that does
+    // not go through it. The acceptance is still recorded and still
+    // announced, because losing a real one would be as wrong; only the
+    // FORGETTING is withheld, exactly as it is for a failed durable write,
+    // and the next read tidies up once it has seen what is held.
+    if (recorded && this.observedWhatIsHeld(observed)) {
+      this.checkout.clearIntent();
+    }
+  }
+
+  /** Did the request whose answer this is see the observation that stands
+   *  now? Reference identity, the rule `releaseClosureHold` already uses. */
+  private observedWhatIsHeld(observed: ClosureHold | null): boolean {
+    const held = this.checkout.unresolvedClosure();
+    return held === null || held === observed;
   }
 
   /**
@@ -1593,7 +1640,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.releaseCheckout();
       switch (outcome.kind) {
         case 'accepted':
-          this.finishAcceptedCheckout(outcome.correlation, owner);
+          this.finishAcceptedCheckout(outcome.correlation, owner, observed);
           return;
         case 'accepted-unrecorded':
           // Gate B, exactly as in the resume path: the server cannot

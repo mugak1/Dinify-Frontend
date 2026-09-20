@@ -1581,6 +1581,112 @@ so keep it current when conventions change.
   Suite 2627 -> 2632; reverting the guard fails 2 and making it two-way fails 1.
   Browser: `journey.mjs` 42/42 and `recovery.mjs` 128/128 RE-RUN on a fresh
   disposable database after the fix
+- **AN OBSERVATION HAS A LIFETIME, NOT JUST A VALUE (D06 I2-C lifecycle, L1-L3).**
+  The hold got the right decision at registration and at application, and its
+  RETIREMENT was never anybody's job — so it outlived its attempt at one end and
+  outlived its resolution at the other. No backend change: `quote_protocol` stays
+  2, `checkout_protocol` stays 3, and the record version does not move.
+  **THE ONE INVARIANT.** An unresolved observation belongs to a particular
+  ATTEMPT and a particular SITUATION. It must block every relevant mutation while
+  that situation is current, stay recoverable by an authorized READ even when the
+  cached record holds only one half of the disputed facts, stop governing EVERY
+  consumer once a sufficiently current coherent answer resolves it, and stop
+  occupying the one slot once its attempt has legitimately completed — without
+  weakening a hold belonging to the NEXT attempt. `unresolvedClosure() === null`
+  at one instant was never the whole of it.
+  **L1 — THE CACHED SHORTCUT PREVENTED THE READ THAT RESOLVES.**
+  `resumeInterruptedCheckout` returned early on a usable persisted closure,
+  BEFORE consulting the observation or issuing the GET. #679's own ordering rule
+  makes "a closure is stored AND a contradiction is unresolved" a legitimate
+  state — a coherent read that BEGAN before the contradiction writes its closure
+  and is correctly refused the release — so a consumer mounted after that asked
+  nothing and could never obtain the later coherent answer the release requires.
+  Every mutation gate refused it correctly, which is exactly why none of them
+  could be the way out. The shortcut is now conditional on the applicable
+  observation; an ordinary settled cached closure still needs NO read, and that
+  control is pinned beside the regression.
+  **L2 — SHARED RESOLUTION DID NOT REACH THE CONSUMER THAT OBSERVED.**
+  `closureUnresolvable()` returned true unconditionally on this instance's own
+  `recovered.kind === 'inconsistent'`, and `staleLocalClosureResult()` governed
+  only the two ordinary kinds — so a later authorized read could legitimately
+  clear the shared hold and establish the closure while the mount that made the
+  observation went on claiming it, and went on blocking a successor ANOTHER mount
+  had created. `inconsistent` is now a local result like the other two, governed
+  by the same staleness question, and `checkoutBlocked` stopped restating the
+  three kinds unconditionally beneath it. **THE YIELD IS NOT "no hold, therefore
+  resolved"**: `unresolvedClosure` withholds the durable-closure yield from a
+  contradiction and returns the hold for storage it cannot read, so reaching the
+  yield means the hold was RELEASED — which only an ordering-checked coherent
+  answer does.
+  **L3 — A COMPLETED ATTEMPT'S OBSERVATION VETOED THE NEXT ONE.** The coherent
+  accepted branch finishes through `finishAcceptedCheckout` and `clearIntent`,
+  neither of which touches the slot, and `holdClosure` compared the incoming hold
+  against the RAW slot — so #679's contradiction priority refused K2's own
+  ordinary hold on the strength of a contradiction about an attempt that was
+  over, leaving the next purchase unprotected in precisely the situation the hold
+  exists for. It now measures against `unresolvedClosure()`, the hold that still
+  APPLIES. **`supersedes` carries both halves and neither is redundant**: an
+  observation about a DIFFERENT attempt never displaces an applicable one (the
+  replacement would then be refused for not matching the record, losing the
+  original outright — and the DOWNGRADE rule does not cover it, since a foreign
+  CONTRADICTION passes that test), and ordinary evidence still never downgrades a
+  contradiction about the same attempt. **RETIREMENT IS BY NON-APPLICATION, NOT
+  BY CLEARING**: nothing was added to any cleanup callback, so a removal that was
+  merely attempted still retires nothing and a failed terminal write still leaves
+  the observation standing.
+  Pinned by `basket-body.observation-lifecycle.spec.ts` (18) driving real
+  component instances over one real coordinator, storage, HTTP stack and
+  interceptor; **9 fail on unmodified `24bf29c`** and the 8 that pass are the
+  premises and the controls. Seven source mutations fail 1 / 2 / 1 / 4 / 1 / 3 / 3
+  named subsets. **One of those pins exists because mutation testing found the
+  decision unpinned** — the foreign-attempt half of `supersedes` failed NOTHING
+  until a control was added for a foreign CONTRADICTION, the only shape the
+  downgrade rule does not already refuse. Suite 2632 -> 2650.
+  **`recovery.mjs` GAINS I2-E (128 -> 137) AND IT DOES NOT DISCRIMINATE, which
+  is measured rather than assumed.** It passes 137/137 against unmodified
+  `24bf29c` too, because the shared hold is MEMORY-BACKED and does not survive a
+  reload — and `page.reload()` is the only thing in that harness that makes a
+  routed mount run its startup recovery, so K1's contradiction has left the slot
+  before K2 exists. The observed `ctas=2` on main IS the proof: the raw-slot
+  comparison would otherwise have refused K2's hold. Reaching L3 in a browser
+  needs all three reads in ONE document, and L2's cross-mount half needs the
+  resolving read to come from a mount other than the one holding the local
+  result — which re-mounting destroys. **That is the same shipped-UI limit #679
+  recorded for H1**, kept as a lifecycle WALK with the reasoning written into
+  `e2e/checkout-journey/README.md`. `journey.mjs` 42/42 and `recovery.mjs`
+  137/137 on a FRESH disposable database against backend `f7d2ce6`, development
+  assets.
+  **AND FORGETTING AN ATTEMPT IS ALSO A WAY OF RETIRING AN OBSERVATION** (Codex
+  P2 on PR #680, valid — a real regression of L2 layered on a gap that predates
+  it). The ordering guard `releaseClosureHold` applies lives on the RELEASE door;
+  the accepted branch does not go through it, and `finishAcceptedCheckout` ->
+  `clearIntent` retires the attempt an observation NAMES — which makes
+  `unresolvedClosure()` answer `null` and `storedClosure()` answer `absent` by
+  the one route the guard never sees. On main the unconditional local
+  `inconsistent` block masked it; L2 made that block conditional, so an accepted
+  read issued BEFORE a contradiction was observed could land last and withdraw
+  the newer observation's warning and block from both mounts.
+  **THE CLEANUP NOW ASKS THE SAME ORDERING QUESTION THE RELEASE DOOR ASKS**:
+  `observedWhatIsHeld(observed)` compares, by REFERENCE IDENTITY, the hold that
+  stood when the request went out against the one standing when its answer
+  lands. **ONLY THE FORGETTING IS WITHHELD** — the outcome is still recorded and
+  the acceptance still announced, because losing a real one would be as wrong,
+  which is exactly the split a FAILED DURABLE WRITE already makes; the next read
+  tidies up once it has seen what is held.
+  **`held === null` IS A REAL CLAUSE, NOT A CONVENIENCE**: with nothing held
+  there is no observation for the forgetting to silence, so a read whose
+  observation was LEGITIMATELY RESOLVED while it was open must still tidy up —
+  and an over-strict `held === observed` would retain a dead record on the
+  ordinary documented exit. It needs no attempt comparison of its own, because
+  `unresolvedClosure()` already refuses a hold that names a different attempt.
+  **The CACHED-TERMINAL branch passes NOTHING and keeps the `null` default**: it
+  has no request behind it, so it can name no observation, and withholding the
+  forget while anything is held is the safe direction there.
+  Pinned by 6 more specs in the same file (18 -> 24); the unconditional form
+  fails exactly the 3 regressions and the over-strict form exactly the 1 control,
+  with the other controls holding throughout. Suite 2650 -> 2656. Browser:
+  `journey.mjs` 42/42 and `recovery.mjs` 137/137 RE-RUN on a fresh disposable
+  database after the fix
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

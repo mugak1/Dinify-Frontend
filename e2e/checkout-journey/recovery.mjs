@@ -1585,6 +1585,112 @@ const main = async () => {
           (await readRecord())?.key === key);
     check('the contradiction sequence raised no uncaught errors',
           state.errors.length === 0, JSON.stringify(state.errors));
+
+    // ══ I2-E. THE OBSERVATION'S LIFETIME, WALKED END TO END ══════════════
+    //
+    // I2-D stops at the block, which is where the lifecycle used to end: the
+    // contradiction was reachable, had no exit both mounts could see, and the
+    // attempt after it inherited the veto. This walks the SAME sequence
+    // through the two ends it was missing — a coherent resolution, and the
+    // next purchase registering an observation of its own.
+    //
+    // ════════════════════════════════════════════════════════════════════
+    // IT DOES NOT DISCRIMINATE FOR L1-L3, AND THAT IS MEASURED, NOT ASSUMED.
+    // This block passes 137/137 against UNMODIFIED `24bf29c` as well as
+    // against the fix. The reason is structural and is a DOCUMENTED property
+    // rather than a defect: the shared hold is MEMORY-BACKED and does not
+    // survive a reload — and `page.reload()` is the only thing in this
+    // harness that makes a routed mount run its startup recovery, because
+    // `app-basket-body` renders no in-app link to navigate away from and
+    // back to. So K1's contradiction is gone from the slot before K2 exists,
+    // and on main K2's hold registers into an empty slot exactly as it does
+    // here. The observed `ctas=2` on main IS that proof: had the
+    // contradiction still occupied the slot, main's raw-slot comparison
+    // would have refused K2's ordinary hold outright.
+    //
+    // Reaching L3 in a browser needs the contradiction, the resolving read
+    // and K2's read in ONE document; reaching L2's cross-mount half needs
+    // the resolving read to come from a mount OTHER than the one holding the
+    // local `inconsistent` — and only a routed mount runs a recovery, so
+    // re-mounting destroys the holder. That is the same shipped-UI limit
+    // #679 recorded for H1, and it is not worked around here.
+    //
+    // WHAT IT IS WORTH is an end-to-end walk of the lifecycle against a real
+    // server: the resolution really clears both mounts, the next purchase
+    // really prices under a new key, and K2's own hold really reaches the
+    // mount that never read it. The L1-L3 DECISIONS are pinned
+    // deterministically by `basket-body.observation-lifecycle.spec.ts`
+    // instead, which fails 9 on `24bf29c`.
+    // ════════════════════════════════════════════════════════════════════
+    //
+    // NOTHING NEW IS INJECTED FOR THE RESOLUTION. The route guard above fires
+    // ONCE, so this reload gets the body the server really sends — and for an
+    // order it really accepted that is a coherent `accepted` with no closure
+    // beside it, which is precisely the answer the contradiction was waiting
+    // for. The resolution is therefore a REAL server fact, not a second
+    // fabrication.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+
+    check('L2: the resolving answer clears the unresolved state on BOTH '
+          + 'mounts', await disabled.count() === 0,
+          `ctas=${await disabled.count()}`);
+    check('L2: and the attempt it settled is retired, not left behind',
+          (await readRecord()) === null,
+          `record=${JSON.stringify(await readRecord())}`);
+
+    // THE NEXT PURCHASE. Same table, same dish, a genuinely new attempt —
+    // the shape in which a completed attempt's observation used to veto the
+    // one after it, because the slot still named K1.
+    const beforeK2 = state.keys.length;
+    await buildBasket(page);
+    await openReview(page);
+    const k2 = state.keys[state.keys.length - 1];
+    check('L3: a legitimate next purchase is priced under a NEW key',
+          state.keys.length === beforeK2 + 1 && !!k2 && k2 !== key,
+          `k1=${key} k2=${k2}`);
+
+    // K2's OWN closure situation: a real closure written under a policy this
+    // build has never seen. The server cannot produce one, so it is injected
+    // — labelled, like I2-D's — but the ATTEMPT it is about is entirely real.
+    let unsupported = false;
+    await page.route('**/orders/journey/order-details/**', async (route) => {
+      if (unsupported || !route.request().url().includes('intent=')) {
+        return route.continue();
+      }
+      unsupported = true;
+      const response = await route.fetch();
+      const body = await response.json();
+      const target = body?.data ?? body;
+      target.quote_closure = {
+        closed_at: new Date().toISOString(),
+        reason: 'quote_expired',
+        quote_ref: target?.quote_ref ?? null,
+        policy_version: 99,
+      };
+      await route.fulfill({ response, json: body });
+    });
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    check('L3: K2`s own unusable evidence really was delivered', unsupported);
+
+    check('L3: and K2`s own hold reaches BOTH mounts',
+          await disabled.count() === 2, `ctas=${await disabled.count()}`);
+    check('L3: the mount that never read it offers no mutating action',
+          await bodies().nth(1)
+            .getByRole('button', { name: /^Retry$|^Checkout —/ })
+            .count() === 0);
+    const heldRecord = await readRecord();
+    check('L3: and the attempt held is K2, not the one that completed',
+          heldRecord?.key === k2, `held=${heldRecord?.key} k1=${key}`);
+
+    const afterK2 = state.keys.length;
+    await page.waitForTimeout(1500);
+    check('L3: K2 is not re-priced under a key a closure may be bound to',
+          state.keys.length === afterK2, `initiates=${state.keys.length}`);
+    check('the lifecycle sequence raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
     await page.close();
   }
 

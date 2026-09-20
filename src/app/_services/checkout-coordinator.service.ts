@@ -222,6 +222,26 @@ export interface ClosureHold {
   readonly evidence: ClosureEvidence;
 }
 
+/** Are these two holds about the same attempt? */
+function sameAttempt(a: PricingOperation, b: PricingOperation): boolean {
+  return a.key === b.key && a.scope === b.scope && a.purchase === b.purchase;
+}
+
+/**
+ * May `incoming` take the one observation slot from `current`?
+ *
+ * Asked only of a `current` that STILL APPLIES — see `holdClosure`, which is
+ * what makes a completed attempt's observation unable to veto the next one.
+ */
+function supersedes(current: ClosureHold, incoming: ClosureHold): boolean {
+  // A statement about another attempt is not newer evidence about this one,
+  // and taking the slot would lose the applicable observation outright.
+  if (!sameAttempt(current.attempt, incoming.attempt)) return false;
+  // An observation may never weaken a stronger one about the same attempt.
+  return current.kind !== 'contradictory-evidence'
+    || incoming.kind === 'contradictory-evidence';
+}
+
 /**
  * I1 — WHAT AN INITIATION ANSWER IS STILL ALLOWED TO DO.
  *
@@ -962,56 +982,32 @@ export class CheckoutCoordinatorService {
    * route by which an unusable assertion becomes a valid terminal fact, which
    * is `noteClosure`'s job and requires a validated closure.
    *
-   * LAST WRITE WINS, EXCEPT THAT AN OBSERVATION MAY NEVER WEAKEN A STRONGER
-   * ONE — and the exception is the whole of it.
+   * IT IS MEASURED AGAINST THE HOLD THAT STILL APPLIES, never against the raw
+   * slot. An observation whose attempt is over does not survive as a veto: it
+   * lingers in the one slot until something replaces it, and comparing
+   * against it refused the NEXT attempt's own hold — leaving the purchase
+   * that needed protecting with none (L3).
    *
-   * The rule was unconditional, on the argument that "both kinds refuse the
-   * same mutations, so a second observation about the same attempt cannot
-   * weaken the first". That argument died the moment a THIRD kind arrived
-   * which does NOT refuse the same mutations: `contradictory-evidence` alone
-   * withholds the durable-closure yield in `unresolvedClosure`, because a
-   * closure records the RETIRED half and says nothing about the acceptance
-   * the same response claimed. The argument was left standing anyway.
+   * `supersedes` is the whole rule, and both halves are load-bearing. An
+   * observation about a DIFFERENT attempt never displaces an applicable one,
+   * because `unresolvedClosure` would then refuse the replacement for not
+   * matching the record and the original would simply be lost. And ordinary
+   * evidence never downgrades a contradiction about the SAME attempt, because
+   * only that kind withholds the durable-closure yield — a closure records
+   * the retired half and says nothing about the acceptance the same response
+   * claimed (Codex P2 on PR #679).
    *
-   * So a later ordinary hold was a DOWNGRADE, and a durable closure then
-   * released a situation whose acceptance half nobody had resolved —
-   * `renewAfterClosure` free to mint a successor for an order that may
-   * already be in the kitchen. That is the irreversible half of the
-   * contradiction, reached through the very door the kind was introduced by
-   * (Codex P2 on PR #679, valid).
+   * Everything else still replaces freely: a contradiction over an ordinary
+   * hold, a fresher contradiction over an older one, and the two ordinary
+   * kinds over each other.
    *
-   * IT IS ONE-WAY, and every direction is pinned. A contradiction still
-   * REPLACES an ordinary hold — it refuses strictly more, so applying it
-   * loses nothing — a FRESHER contradiction still replaces an older one, so
-   * the evidence on screen is the latest read rather than a stale one, and
-   * the two ordinary kinds still replace each other freely, because of THEM
-   * the original argument remains true. Only the downgrade is refused.
-   *
-   * IT DELIBERATELY DOES NOT COMPARE ATTEMPTS, and the first cut of this fix
-   * did. That looked like the careful version and is the opposite: a hold
-   * naming a DIFFERENT attempt would pass such a guard, replace the
-   * contradiction in the one slot, and then be refused by `unresolvedClosure`
-   * for not matching the record — so the contradiction would be LOST and the
-   * attempt it was about unblocked, which is exactly the harm this exists to
-   * prevent. Refusing every downgrade keeps the stronger statement in every
-   * case; the cost is that a hold about an attempt the record has not reached
-   * is not recorded, and nothing may mutate on the strength of one anyway.
-   *
-   * ONE SLOT IS A PRE-EXISTING LIMIT, not something this widens: two holds
-   * about two attempts have never been representable, and `unresolvedClosure`
-   * is what binds whichever one is held to the record before it applies.
-   *
-   * THE CONTRADICTION'S EXIT IS UNCHANGED and is deliberately not this:
-   * `releaseClosureHold`, which is ordering-aware, so a coherent answer still
-   * resolves it and a stale one still cannot.
+   * ONE SLOT IS A PRE-EXISTING LIMIT. Two holds about two attempts have never
+   * been representable; what this fixes is the slot outliving its attempt.
+   * The contradiction's exit is still `releaseClosureHold`, ordering-aware.
    */
   holdClosure(hold: ClosureHold): void {
-    const current = this._closureHold();
-    if (current
-        && current.kind === 'contradictory-evidence'
-        && hold.kind !== 'contradictory-evidence') {
-      return;
-    }
+    const current = this.unresolvedClosure();
+    if (current && !supersedes(current, hold)) return;
     this._closureHold.set(hold);
   }
 
@@ -1094,10 +1090,7 @@ export class CheckoutCoordinatorService {
     const hold = this.unresolvedClosure();
     if (!hold) return null;
     if (!operation) return hold;
-    return hold.attempt.key === operation.key
-      && hold.attempt.scope === operation.scope
-      && hold.attempt.purchase === operation.purchase
-      ? hold : null;
+    return sameAttempt(hold.attempt, operation) ? hold : null;
   }
 
   /**
