@@ -1482,6 +1482,78 @@ so keep it current when conventions change.
   reverted — with the persist control holding throughout.
   `recovery.mjs` gains **I2-C**, the first scenario to drive both mounts at a
   desktop width so the sidebar is genuinely visible and clickable
+- **THE SHARED HOLD REACHES THE RESEND AND THE CONTRADICTION (D06 I2-C
+  completion).** I2-C gated FOUR shared decisions on the observation and left two
+  consumers outside it, both named by the original requirement. No backend
+  change: `quote_protocol` stays 2, `checkout_protocol` stays 3, and the record
+  version does not move — the hold is still memory-backed.
+  **H1 — A RECOVERY ALREADY IN FLIGHT BYPASSED A HOLD ESTABLISHED SINCE.**
+  `retryOrder` asks `closureUnresolved` ONCE, at the press; `replayIssuedCommand`
+  then opens a read that stays outstanding for as long as the network takes, and
+  its draft/absent callback calls `resendIssuedCommand`, which PUTs
+  `orders/submit/` directly. **IT IS THE ONE ACCEPTANCE IN THIS CLIENT THAT
+  REACHES THE WIRE WITHOUT PASSING `noteCommand`** — the command was persisted
+  before the ORIGINAL acceptance, so a resend writes nothing on its way out and
+  the structural gate never sees it. `ownsRecovery` cannot cover it either: it
+  asks whether an answer may SETTLE the operation it was about, which is a
+  question about identity, not about whether a mutation is still permitted.
+  **`heldOperation(operation)` IS THE ONE SHARED SEND-ELIGIBILITY QUESTION**,
+  asked immediately before the send with the identity captured before the read;
+  `heldRecord` delegates to it so the record-shaped and operation-shaped callers
+  cannot drift, and a NULL operation FAILS CLOSED (nothing names an attempt, so
+  nothing can be shown to be a different one). Refusing DISCARDS NOTHING — the
+  command, the key, the basket and the hold all stand, the read is not called a
+  failure, and only the owned UI flight is given back.
+  **H2 — A CONTRADICTORY ANSWER WAS DELIBERATELY NOT SHARED.** `inconsistent`
+  (the projection says ACCEPTED *and* RETIRED) blocked the receiving mount via
+  `this.recovered`, a field on ONE component, while the shared record stayed
+  `K1 / pricing / command=null / closure=null` — so the second mount classified
+  the initiation as replayable and re-priced under a key that may be bound to a
+  retired order. **`contradictory-evidence` IS A THIRD `ClosureHoldKind`, NOT A
+  REUSE OF `unusable-evidence`**: the row beside the acceptance may itself be
+  perfectly readable, so this is not "cannot be read" — and it is **the one hold
+  a durable closure must NOT resolve**, because that records the RETIRED half and
+  says nothing about the acceptance the same response claimed, so yielding would
+  offer a successor for an order that may be in the kitchen.
+  **`releaseClosureHold(operation, observed)` IS THE EXIT, AND THE ORDERING GUARD
+  IS REFERENCE IDENTITY**: `observed` is the hold that was current when the read
+  went OUT, so a stale answer can never clear an observation made while it was
+  still open, however much later it lands. Both recovery sinks capture it and
+  release on a COHERENT `closed` whose `noteClosure` landed — the mirror of
+  `shareUnrecordedClosure`, at the same point, so the two cannot drift.
+  **THE NOTICE FOLLOWS, and only for the two sentences that promise a Retry the
+  hold refuses**: a mount whose own read answered `draft` or `absent` now speaks
+  the held sentence, because both otherwise say "tap retry" above a control
+  `closureUnresolved` has disabled. Every OTHER result keeps its own wording
+  deliberately — the three closure kinds say MORE than the hold can, an
+  acceptance outranks a statement about a quote, `blocked` and `unauthorized`
+  name a more specific remedy, and the uncertain three already point at staff.
+  A control pins that direction, because over-widening the rule silences them.
+  **AND THE DRAFT/NOT-FOUND COMMENT IS CORRECTED**: neither answer proves the
+  original request never arrived — each is ONE snapshot taken without the lock
+  the acceptance itself takes, so a command may be waiting behind that lock or
+  mid-transaction. What makes the re-send safe is the KEY, not the observation.
+  Pinned by `basket-body.held-mutation.spec.ts` (34) driving real component
+  instances over one real coordinator, storage, HTTP stack and interceptor;
+  **19 fail on unmodified `8d33199`** with one spec skipped (it names
+  `heldOperation`, which main does not have, so it is pinned by mutation rather
+  than by a baseline that would only report a missing export) and the 14 that
+  pass are the premises and the controls. Nine source mutations fail
+  6 / 11 / 2 / 1 / 1 / 2 / 1 / 1 / 1 named subsets. **Three of those pins exist
+  because mutation testing found the decisions unpinned** — the notice rule
+  above failed NOTHING when reverted, which is the M8 class of gap again.
+  Suite 2593 -> 2627.
+  **`recovery.mjs` gains I2-D** (the contradiction, cross-mount, at a desktop
+  width — 114 -> 128 checks; **123/128 with the two production files reverted**,
+  the five failures ending in `initiates=2` under one key). **THE H1 HALF IS NOT
+  BROWSER-REACHABLE and no scenario was added for it**: only the mount that saw
+  the failure renders Retry (measured — the sidebar shows Checkout), the only
+  competing hold producer that does not need the app-wide flight is a STARTUP
+  recovery, and producing one means re-mounting the routed basket, which destroys
+  the Retry holder so `ownsRecovery` refuses the answer before the gate is
+  consulted. The interleaving is CONSTRUCTED rather than reached, exactly as the
+  kitchen harness records for its own operation-identity check; the reasoning is
+  written down in `e2e/checkout-journey/README.md` so it is not rediscovered
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

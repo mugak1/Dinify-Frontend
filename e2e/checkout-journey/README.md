@@ -157,22 +157,49 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`) and 114/114 (`recovery.mjs`)**, both
-re-executed at the **D06 I2-C + Codex-P2 revision** — frontend
-`claude/d06-shared-closure-hold` (a recovered closure this device could not write
-down is shared too) against backend `f7d2ce6`, which is `origin/main` and was NOT
-modified for this work. Node 24.15.0, Chromium 141.0.7390.37, PostgreSQL 16.13,
-a disposable local database and **development** assets (`ng serve
---configuration development`, not an optimized build). `recovery.mjs` grew from
-101 to 114 checks at I2-C: the new **I2-C** scenario. The Codex-P2 fix edits the
-FAILURE branch of the two recovery `noteClosure` checks, which this harness
-cannot induce — it has no storage-fault injection — so both runs are re-executions
-that confirm the unchanged success paths, not evidence about the branch itself;
-that branch is pinned by `basket-body.shared-closure-hold.spec.ts` and
-`basket-body.closure-recovery.spec.ts`. **`e2e/kitchen-board/kitchen.mjs` (55/55
-at the I2-C revision) was NOT re-run here** — nothing in the kitchen board was
-touched — and that number is recorded as the earlier execution it was, never as a
-new one.
+Last run: **42/42 (`journey.mjs`) and 128/128 (`recovery.mjs`)**, both
+re-executed at the **D06 I2-C completion** — frontend
+`claude/dinify-d06-shared-hold-rsx96p` (the shared hold reaches the acceptance
+resend and the contradiction) against backend `f7d2ce6`, which is `origin/main`
+and was NOT modified for this work. Node 24.21.0, Chromium 141.0.7390.37,
+PostgreSQL 16.13, a disposable local database and **development** assets
+(`ng serve --configuration development`, not an optimized build). `recovery.mjs`
+grew from 114 to 128 checks: the new **I2-D** scenario. **`e2e/kitchen-board/
+kitchen.mjs` (55/55 at the I2-C revision) was NOT re-run here** — nothing in the
+kitchen board was touched — and that number is recorded as the earlier execution
+it was, never as a new one.
+
+**I2-D DISCRIMINATES, and it was measured rather than assumed**: with the two
+production files reverted to `8d33199` and everything else held constant, the
+same scenario runs **123/128**. The five failures are the defect itself —
+`notices=1`, `ctas=1`, `mutatingButtons=1`, no disabled control, and then
+`initiates=2` with the SAME key twice, which is the second mount re-pricing
+under a key bound to an order the server has reported both accepted and retired.
+The press deliberately follows whichever button the sidebar actually offers:
+clicking only the disabled control would make that last check vacuous against
+the build the scenario exists to catch.
+
+**THE H1 HALF OF THAT CHANGE IS NOT REACHABLE FROM A BROWSER, and the reason is
+worth recording so nobody spends an afternoon rediscovering it.** H1 is an
+acceptance RESEND issued while an authorized read is already in flight, with a
+hold established inside that window. Reproducing it needs the mount that pressed
+Retry to still be alive when the competing observation arrives — and in this
+app it cannot be. Only the mount that SAW the failure renders Retry
+(`orderError` and `recovered` are component-local, so the sidebar shows an
+ordinary Checkout, measured: `mount[0] buttons ["Retry"]`, `mount[1] buttons
+["Checkout — UGX 15,500.15"]`, both before and after a reload). The only
+producer of a competing hold that does not need the app-wide checkout flight is
+a startup recovery, which only a ROUTED instance runs — so producing one means
+re-mounting the routed basket, which destroys the Retry holder and makes
+`ownsRecovery` refuse the answer on its own, before the gate is ever consulted.
+`replayIssuedCommand` claims the flight for the whole read, so no second Retry
+and no second checkout can issue anything meanwhile. The interleaving is
+therefore CONSTRUCTED rather than reached — the same honest limit the kitchen
+harness records for its own operation-identity check — and it is pinned
+deterministically by `basket-body.held-mutation.spec.ts`, which drives the real
+component, coordinator, storage, `HttpClient` and `ErrorInterceptor` with
+genuinely interleaved outstanding requests. A scenario that cannot fail is worse
+than no scenario, so none was added for it.
 
 **THE I2-C SCENARIO FOUND A DEFECT IN THE CHANGE IT WAS WRITTEN FOR, and no unit
 spec had.** The first cut shared the hold from the initiation and recovery doors
