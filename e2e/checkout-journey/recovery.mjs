@@ -1418,6 +1418,176 @@ const main = async () => {
     await page.close();
   }
 
+  // ══ I2-D. A SERVER CONTRADICTING ITSELF, ON BOTH MOUNTS ═══════════════
+  //
+  // THE DISTINCTION FROM I2-C IS WHAT THE SERVER SAID. There, one coherent
+  // statement this build could not write down. Here, TWO statements that
+  // cannot both be true of one order: the projection reports it ACCEPTED and
+  // the same payload carries the closure saying its quote was RETIRED.
+  // Neither half may be acted on — announcing the acceptance clears a basket
+  // for an order that may never have been placed, acting on the closure mints
+  // a key for one that was — so nothing is persisted, and the shared record
+  // stays exactly what an ordinary attempt waiting to be reviewed looks like.
+  // The mount that received the answer knew; the sidebar beside it did not.
+  //
+  // THE SYNTHETIC HALF IS ONE KEY, AND IT IS LABELLED because it matters for
+  // what this run proves. The acceptance is REAL — placed through the diner's
+  // own session against the real server, then served through the kitchen API
+  // so the table is free again and the second mount's Checkout is genuinely
+  // live rather than disabled for an unrelated reason. What is INJECTED is
+  // `quote_closure`, added to the real recovery response: a healthy backend
+  // refuses to write a closure beside acceptance evidence, which is precisely
+  // why this state is defensive and why no run against a correct server can
+  // produce it. The successful server fact therefore PRECEDES the injected
+  // fault, and the fault is additive to a body the server really sent.
+  //
+  // THE ACCEPTANCE IS ISSUED BY RAW FETCH, not through the UI, and that is
+  // the point rather than a shortcut: this client never calls `noteCommand`,
+  // so the record stays COMMANDLESS — which is the shape where the second
+  // mount is free to act. With a command on it `reserveIntent` already
+  // answers `outstanding`, and the contradiction would be refused by a rule
+  // that has nothing to do with it.
+  console.log('\n=== I2-D. the server reports accepted AND retired ===');
+  {
+    await clearTheBoard();
+    const { page, state } = await openTab(1280);
+
+    // Capture the reference the initiate names, so the acceptance below is a
+    // real one the server will honour.
+    let quoteRef = null;
+    page.on('response', async (r) => {
+      if (r.url().includes('orders/initiate') && !quoteRef) {
+        try {
+          quoteRef = (await r.json())?.data?.order_details?.quote_ref ?? null;
+        } catch { /* aborted */ }
+      }
+    });
+
+    await buildBasket(page);
+    await openReview(page);
+    const key = state.keys[0];
+    const orderId = state.initiated[0]?.id;
+
+    const readRecord = () => page.evaluate(() => {
+      const raw = sessionStorage.getItem('[dinify]diner.checkout.attempt');
+      try { return JSON.parse(raw || 'null')?.value ?? null; } catch {
+        return null;
+      }
+    });
+    const reserved = await readRecord();
+    check('THE PREMISE: the attempt is reserved and COMMANDLESS',
+          reserved?.key === key && !reserved?.command,
+          `stage=${reserved?.stage} command=${JSON.stringify(reserved?.command)}`);
+
+    // A REAL acceptance, through the diner's own capability channel, that
+    // this client did not issue and therefore did not record.
+    const accepted = await page.evaluate(async ([api, order, ref]) => {
+      const raw = sessionStorage.getItem('[dinify]diner.session');
+      let token = null;
+      try { token = JSON.parse(raw || 'null')?.value ?? null; } catch { /**/ }
+      const res = await fetch(`${api}/api/v1/orders/submit/`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Diner-Session': token,
+        },
+        body: JSON.stringify({ order, quote_ref: ref }),
+      });
+      return { status: res.status };
+    }, [API, orderId, quoteRef]);
+    check('THE PREMISE: the server really accepted that order',
+          accepted.status === 200, `status=${accepted.status}`);
+
+    // Free the table, so the second mount's Checkout is withheld by the
+    // contradiction and by nothing else.
+    await clearTheBoard();
+    check('THE PREMISE: and the table is free again',
+          (await activeTickets()).length === 0);
+
+    // THE INJECTED KEY, added to the response the server really sent.
+    let contradicted = false;
+    await page.route('**/orders/journey/order-details/**', async (route) => {
+      if (contradicted || !route.request().url().includes('intent=')) {
+        return route.continue();
+      }
+      contradicted = true;
+      const response = await route.fetch();
+      const body = await response.json();
+      const target = body?.data ?? body;
+      target.quote_closure = {
+        closed_at: new Date().toISOString(),
+        reason: 'quote_expired',
+        quote_ref: quoteRef,
+        policy_version: 1,
+      };
+      await route.fulfill({ response, json: body });
+    });
+
+    // The routed mount's own startup recovery is what reads it.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    check('THE PREMISE: the contradictory answer really was delivered',
+          contradicted);
+
+    const bodies = () => page.locator('app-basket-body');
+    check('THE PREMISE: both basket mounts are really rendered',
+          await bodies().count() === 2, `mounts=${await bodies().count()}`);
+    const during = await readRecord();
+    check('THE MECHANISM: neither half was persisted',
+          during?.key === key && !during?.closure && !during?.outcome,
+          `closure=${JSON.stringify(during?.closure)} `
+          + `outcome=${JSON.stringify(during?.outcome)}`);
+
+    // THE REGRESSION, on the mount that did NOT receive the answer.
+    const notices = page.locator('[data-testid="checkout-recovery"]');
+    const disabled = page.locator('[data-testid="closure-unresolved-cta"]');
+    check('THE REGRESSION: BOTH mounts report the unresolved state',
+          await notices.count() === 2, `notices=${await notices.count()}`);
+    check('THE REGRESSION: and BOTH offer the non-mutating control instead',
+          await disabled.count() === 2, `ctas=${await disabled.count()}`);
+
+    const sidebar = bodies().nth(1);
+    const mutating = await sidebar
+      .getByRole('button', { name: /^Retry$|^Checkout —/ }).count();
+    check('THE REGRESSION: the sidebar offers no mutating action at all',
+          mutating === 0, `mutatingButtons=${mutating}`);
+
+    // ACT THROUGH THE SECOND MOUNT'S OWN CONTROL, not a second press of the
+    // first one's.
+    const sidebarCta = sidebar
+      .locator('[data-testid="closure-unresolved-cta"]').first();
+    const ctaVisible = await sidebarCta.isVisible({ timeout: 3000 })
+      .catch(() => false);
+    const ctaEnabled = ctaVisible
+      ? await sidebarCta.isEnabled({ timeout: 3000 }).catch(() => true) : true;
+    check('and the control it does render is visibly disabled',
+          ctaVisible && !ctaEnabled,
+          `visible=${ctaVisible} enabled=${ctaEnabled}`);
+    // PRESS WHATEVER THE SIDEBAR ACTUALLY OFFERS. Clicking only the disabled
+    // control would make the consequence below vacuous against a build that
+    // renders a LIVE button there instead — which is exactly the shape this
+    // scenario exists to catch, so the press has to follow the button.
+    const initiatesBefore = state.keys.length;
+    if (ctaVisible) {
+      await sidebarCta.click({ force: true, timeout: 2000 }).catch(() => {});
+    } else if (mutating > 0) {
+      await sidebar.getByRole('button', { name: /^Retry$|^Checkout —/ })
+        .first().click({ timeout: 2000 }).catch(() => {});
+    }
+    await page.waitForTimeout(2500);
+    check('THE CONSEQUENCE: nothing was re-priced through the second mount',
+          state.keys.length === initiatesBefore
+            && new Set(state.keys.filter(Boolean)).size === 1,
+          `initiates=${state.keys.length} keys=${JSON.stringify(state.keys)}`);
+    check('and no second order reached the kitchen',
+          (await activeTickets()).length === 0);
+    check('and the reserved attempt is preserved, not replaced',
+          (await readRecord())?.key === key);
+    check('the contradiction sequence raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
   await browser.close();
   console.log(`\n${passed}/${passed + failed} induced-loss checks passed`);
   console.log('This is a MANUAL repeatable run against disposable fixtures '
