@@ -437,6 +437,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.checkout.recover().subscribe((outcome) => {
       if (!this.ownsRecovery(owner)) return;
       this.recovered = outcome;
+      this.shareUnusableEvidence(outcome, owner);
       switch (outcome.kind) {
         case 'accepted':
           // DEFINITIVE, and the only outcome that finishes anything.
@@ -502,6 +503,31 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         && this.recovered?.kind !== 'closure-unreadable'
         && this.unusableClosure()) {
       return UNRESOLVED_CLOSURE_MESSAGE;
+    }
+    // I2-C — A MOUNT THAT DID NOT MAKE THE OBSERVATION STILL EXPLAINS ITSELF.
+    //
+    // The sidebar, and anything mounted after the hold, holds no `recovered`
+    // of its own — so without this it would render a disabled control and no
+    // sentence, which is the silence this notice exists to remove. The two
+    // kinds say different things because they ARE different facts: one is a
+    // statement this build cannot read, the other a statement it read
+    // perfectly well and could not write down.
+    if (!this.recovered && this.checkout.unresolvedClosure()) {
+      return this.heldClosureMessage();
+    }
+    // I2-C — AND A LOCAL RESULT THE RECORD HAS SINCE RESOLVED SAYS SO. The
+    // two branches below describe a situation that is over once the closure
+    // is durably established, and leaving them to speak would put "we could
+    // not save that on this device" directly above a working review button.
+    if (this.staleLocalClosureResult()) {
+      return usableClosure(this.storedClosure())
+        ? 'Your order could not be placed at the price you reviewed, and '
+          + 'nothing has been sent to the kitchen.'
+        // The attempt this result was about has been replaced by a successor.
+        // There is nothing unresolved left to report about it, and repeating
+        // the old sentence beside a fresh quote would be a claim about the
+        // wrong purchase.
+        : null;
     }
     switch (this.recovered?.kind) {
       case 'closure-unrecorded':
@@ -661,10 +687,106 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * closure whose local write failed (`closure-unrecorded`). They differ in
    * what is known and agree in what may be done: no ordinary review, no
    * successor, no mutating Retry.
+   *
+   * I2-C — AND IT READS THE SHARED HOLD FIRST, which is what makes this a
+   * statement about the ATTEMPT rather than about this instance. The two
+   * local producers below are fields on one component: they are how the
+   * RECEIVING mount knows, and they are invisible to the sidebar beside it
+   * and to anything mounted afterwards. Both are kept — a component that made
+   * the observation itself can say more about it (see `recoveryNotice`) — but
+   * the hold is the one every consumer shares, and `unresolvedClosure()`
+   * binds it to the attempt so a stale one cannot answer for a successor.
    */
   private closureUnresolvable(): boolean {
+    if (this.checkout.unresolvedClosure() !== null) return true;
+    // A SERVER CONTRADICTING ITSELF IS NOT RESOLVED BY A CLOSURE. That one
+    // claims an acceptance as well, so a durable closure beside it settles
+    // nothing and the yield below must not reach it.
+    if (this.recovered?.kind === 'inconsistent') return true;
+    if (this.staleLocalClosureResult()) return false;
     return this.unusableClosure() !== null
       || this.recovered?.kind === 'closure-unrecorded';
+  }
+
+  /**
+   * I2-C — HAS THIS INSTANCE'S OWN CLOSURE RESULT BEEN OVERTAKEN?
+   *
+   * `recovered` is a field on ONE component and it never expires by itself,
+   * so the mount that made an observation would go on reporting it after the
+   * situation had been resolved — by a later authorized read, or by the other
+   * mount — while every other consumer had moved on. A local result that
+   * outlives its situation is the mirror image of the defect this whole change
+   * is about: the first was one instance knowing something the others did not,
+   * this is one instance NOT knowing something the others do.
+   *
+   * THE DURABLE FACT IS WHAT OUTRANKS IT, never the mere absence of a hold: a
+   * VALID closure, verified into the record, for the attempt on screen. That
+   * is the one thing that means "this has been established", and it is exactly
+   * what `unresolvedClosure()` yields to for the shared observation, so the
+   * two cannot disagree about when a situation is over.
+   */
+  /**
+   * I2-C — A RECOVERY THAT FOUND UNUSABLE EVIDENCE SHARES IT TOO.
+   *
+   * The read has the SAME two producers as the initiation answer and the same
+   * consequence: nothing valid is persisted, so the record goes on looking
+   * like an ordinary attempt waiting to be reviewed. Only the routed page
+   * runs a recovery — the sidebar never does — so without this the mount that
+   * asked would be the only one that knew, which is the defect this change
+   * exists to close, reached through the other door.
+   *
+   * IT NAMES THE OPERATION THE READ WAS ABOUT, taken from the owner captured
+   * BEFORE the request, so a held answer cannot hold an attempt it was never
+   * about. `inconsistent` is deliberately NOT shared: that one claims an
+   * acceptance as well, and it is not a statement about a quote alone.
+   */
+  private shareUnusableEvidence(
+    outcome: RecoveryOutcome, owner: CheckoutOwner | null,
+  ): void {
+    // A NULL OWNER NAMES NO OPERATION, so there is nothing to bind a hold to
+    // and it is not established. `ownsRecovery` has already refused to act on
+    // such an answer; this simply does not invent an identity for it.
+    if (!owner || outcome.kind !== 'closure-unreadable') return;
+    this.checkout.holdClosure({
+      kind: 'unusable-evidence',
+      attempt: { key: owner.key, scope: owner.scope, purchase: owner.purchase },
+      orderId: owner.orderId,
+      evidence: outcome.evidence,
+    });
+  }
+
+  /**
+   * I2-C — WHICH OF THE TWO SENTENCES THIS SITUATION DESERVES.
+   *
+   * The shared hold is consulted FIRST and the local result second, because a
+   * mount that did not make the observation has no local result at all — and
+   * reading only `this.recovered` there produced the "we cannot say what the
+   * server retired" wording for a closure that is perfectly readable and
+   * merely unwritten. The two are genuinely different facts and the diner is
+   * told which one they are in.
+   */
+  private heldClosureMessage(): string {
+    const kind = this.checkout.unresolvedClosure()?.kind
+      ?? (this.recovered?.kind === 'closure-unrecorded'
+        ? 'unrecorded-closure' : 'unusable-evidence');
+    return kind === 'unrecorded-closure'
+      ? UNRECORDED_CLOSURE_MESSAGE : UNRESOLVED_CLOSURE_MESSAGE;
+  }
+
+  private staleLocalClosureResult(): boolean {
+    if (this.recovered?.kind !== 'closure-unreadable'
+        && this.recovered?.kind !== 'closure-unrecorded') {
+      return false;
+    }
+    // Supported while the shared observation still stands FOR THIS ATTEMPT,
+    // or while the record itself carries evidence this build may not act on.
+    // Either is a bound fact: the first by `unresolvedClosure()`, the second
+    // by being ON the record. When neither holds, this result is describing
+    // an attempt or a situation that has moved on — a closure established
+    // durably since, or a successor minted from one.
+    if (this.checkout.unresolvedClosure() !== null) return false;
+    const stored = this.storedClosure();
+    return stored.kind !== 'unsupported' && stored.kind !== 'malformed';
   }
 
   get checkoutBlocked(): boolean {
@@ -1260,6 +1382,16 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       // reload re-reads the order, finds the same published closure and writes
       // it then.
       this.showQuoteSheet = false;
+      // I2-C — AND THE OBSERVATION IS SHARED, NOT LOCAL. `this.recovered` is
+      // a field on THIS instance: it decides what this screen says, and the
+      // other mount — and any component mounted afterwards — cannot read it.
+      // The record they all share still says `pricing` with no closure, which
+      // is honest and is also exactly what an ordinary reviewable attempt
+      // looks like. The hold is what tells them apart.
+      this.checkout.holdClosure({
+        kind: 'unrecorded-closure', attempt: attempt.operation,
+        orderId: od?.id != null ? String(od.id) : null, evidence: handedBack,
+      });
       this.recovered = {
         kind: 'closure-unrecorded', closure: handedBack.closure,
       };
@@ -1272,12 +1404,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       //
       // This build cannot say what the server retired, so it may not price
       // again under a key that may be bound to a retired order. It used to
-      // call `failOrder` alone — an inline message on ONE instance, which
-      // `checkoutBlocked` and `closureUnresolved` cannot read, so the footer
-      // went on offering a Retry through the weaker replay path. Recording the
-      // shared `closure-unreadable` result is what makes the decision and the
-      // template agree.
+      // call `failOrder` alone — an inline message, which `checkoutBlocked`
+      // and `closureUnresolved` cannot read, so the footer went on offering a
+      // Retry through the weaker replay path. `closure-unreadable` is what
+      // makes THIS instance's decision and its template agree; the hold below
+      // is what makes every OTHER consumer agree with both.
       this.showQuoteSheet = false;
+      // I2-C — SHARED, for the same reason as the branch above: there is no
+      // valid closure to persist here, so the record says nothing and every
+      // other consumer would read this attempt as replayable.
+      this.checkout.holdClosure({
+        kind: 'unusable-evidence', attempt: attempt.operation,
+        orderId: od?.id != null ? String(od.id) : null, evidence: handedBack,
+      });
       this.recovered = {
         kind: 'closure-unreadable', order: od ?? null,
         correlation: null, evidence: handedBack,
@@ -1338,6 +1477,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       this.recovered = outcome;
+      this.shareUnusableEvidence(outcome, owner);
       this.releaseCheckout();
       switch (outcome.kind) {
         case 'accepted':
@@ -2054,6 +2194,14 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         // E1 — A CLOSURE IS RECORDED AND THIS BUILD MAY NOT ACT ON IT.
         this.failOrder(UNRESOLVED_CLOSURE_MESSAGE);
         return;
+      case 'held':
+        // I2-C — THE ATTEMPT IS HELD BY AN OBSERVATION THIS MOUNT MAY NOT
+        // HAVE MADE. Nothing was sent and nothing was replaced; the sentence
+        // follows the kind, because a closure this build cannot read and one
+        // it could not write down are different facts with the same remedy.
+        this.failOrder(reservation.hold.kind === 'unrecorded-closure'
+          ? UNRECORDED_CLOSURE_MESSAGE : UNRESOLVED_CLOSURE_MESSAGE);
+        return;
       case 'outstanding':
         // An acceptance is already out there. Resolving THAT is the only
         // correct next step; starting another is what the record exists to
@@ -2721,6 +2869,26 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.releaseCheckout();
       this.failOrder('Your order changed while we were checking. '
         + 'Please review it again.');
+      return;
+    }
+
+    // I2-C — AND NOT WHILE THE ATTEMPT IS HELD, whoever established that.
+    //
+    // A REVIEWED KEY THAT STILL MATCHES IS NOT ENOUGH. A mount holding a
+    // review opened BEFORE the other one received an unusable or unrecordable
+    // closure passes every check it can make about itself: the key is the
+    // same, the basket has not moved, the scope has not moved, the sheet is
+    // still open. What changed is a fact about the attempt that this instance
+    // has no way to have seen.
+    //
+    // `noteCommand` refuses a held attempt too, and that is deliberate
+    // duplication rather than redundancy: that one is the structural gate
+    // every acceptance must pass, this one is what makes the diner's sentence
+    // accurate instead of "we couldn't save your checkout on this device".
+    if (this.closureUnresolvable()) {
+      this.showQuoteSheet = false;
+      this.releaseCheckout();
+      this.failOrder(this.heldClosureMessage());
       return;
     }
 

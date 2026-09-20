@@ -116,9 +116,18 @@ const main = async () => {
     executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium',
   });
 
-  /** A fresh tab with the recorders every scenario reads. */
-  const openTab = async () => {
-    const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
+  /**
+   * A fresh tab with the recorders every scenario reads.
+   *
+   * THE WIDTH IS A PARAMETER BECAUSE ONE SCENARIO NEEDS BOTH MOUNTS TO BE
+   * REAL. The diner shell renders a second `app-basket-body` as a
+   * `hidden lg:block` sidebar, so below 1024px it is in the DOM but neither
+   * visible nor clickable — fine for asserting that both mounts READ a
+   * persisted fact (D06c does exactly that at 420), and not fine for pressing
+   * the second mount's own button, which I2-C has to do.
+   */
+  const openTab = async (width = 420) => {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
     const state = { keys: [], initiated: [], submits: [], errors: [] };
     page.on('pageerror', (e) => state.errors.push(e.message));
     page.on('request', (r) => {
@@ -1244,6 +1253,167 @@ const main = async () => {
     check('still exactly ONE order in the kitchen',
           (await activeTickets()).length === 1);
     check('the held-answer sequence raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
+  // ══ I2-C. A CLOSURE THIS DEVICE COULD NOT WRITE DOWN, ON BOTH MOUNTS ═══
+  //
+  // THE DISTINCTION FROM D06c IS THE WHOLE SCENARIO. There, the closure is
+  // written down, and both mounts read it FROM STORAGE — that is the working
+  // path, asserted there and re-asserted at the end here. This is the case
+  // where nothing is persisted: the server retires the quote, the local write
+  // fails, and the shared record still says `reviewing` with no command and no
+  // closure. The mount that received the answer knows; the sidebar beside it
+  // reads the same record and, before this change, concluded the initiation
+  // was replayable and sent it again under a key bound to a retired order.
+  //
+  // TWO THINGS ARE REAL AND ONE IS INJECTED, and the seam is labelled because
+  // that matters for what the run proves. The closure is REAL — written by the
+  // server's own `quote_closure` path after the dish is taken off sale through
+  // the kitchen panel. The two mounts are REAL — the routed basket page and
+  // the `lg:` sidebar, at a desktop width so the second one is genuinely
+  // visible and clickable rather than merely present. What is INJECTED is the
+  // storage failure, and it is injected at ONE point: `sessionStorage.setItem`
+  // for the checkout attempt key, armed AFTER the server has committed the
+  // closure and BEFORE the browser processes the refusal. Arming it earlier
+  // would fail the key RESERVATION or the `noteCommand` write, neither of
+  // which is closure persistence — the acceptance would never be sent and the
+  // run would prove nothing about this path.
+  console.log('\n=== I2-C. a closure nothing could be written down ===');
+  {
+    await clearTheBoard();
+    // 1024px is the `lg:` breakpoint the sidebar is gated on.
+    const { page, state } = await openTab(1280);
+    await buildBasket(page);
+    const place = await openReview(page);
+    const key = state.keys[0];
+    const submitsBefore = state.submits.length;
+
+    const readRecord = () => page.evaluate(() => {
+      const raw = sessionStorage.getItem('[dinify]diner.checkout.attempt');
+      try { return JSON.parse(raw || 'null')?.value ?? null; } catch {
+        return null;
+      }
+    });
+    const bodies = () => page.locator('app-basket-body');
+    check('THE PREMISE: both basket mounts are really rendered',
+          await bodies().count() === 2, `mounts=${await bodies().count()}`);
+
+    // A REAL CLOSURE PRODUCER: the dish comes off sale, so the purchase can no
+    // longer be honoured and the server writes `purchase_needs_review`.
+    await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
+      method: 'PUT', body: JSON.stringify({ in_stock: false }),
+    });
+
+    // THE INJECTED SEAM, at the closure write and nowhere else.
+    let armed = false;
+    await page.route('**/orders/submit/**', async (route) => {
+      if (route.request().method() !== 'PUT' || armed) return route.continue();
+      armed = true;
+      const response = await route.fetch();   // the server commits the closure
+      await page.evaluate(() => {
+        const target = '[dinify]diner.checkout.attempt';
+        const real = Storage.prototype.setItem;
+        window.__realSetItem = real;
+        // SILENTLY DROPS rather than throwing: a store that accepts the write,
+        // reports nothing and keeps the previous value is the realistic
+        // failure, and it is the one `persist`'s read-back exists to catch.
+        Storage.prototype.setItem = function (k, v) {
+          if (k === target) return;
+          return real.call(this, k, v);
+        };
+      });
+      await route.fulfill({ response });      // …and only now does it land
+    });
+    await place.click();
+    await page.waitForTimeout(2000);
+
+    check('the server really retired the quote and nothing reached the kitchen',
+          armed && (await activeTickets()).length === 0);
+
+    const held = await readRecord();
+    // THE MECHANISM, and the shape is the SUBMIT door's rather than the
+    // initiation door's: `noteCommand` runs before the request is sent, so it
+    // succeeded and the record legitimately carries `accepting` and a command.
+    // What it does NOT carry is the closure — so to every other consumer it is
+    // indistinguishable from an ordinary acceptance whose outcome is unknown,
+    // which is precisely why the sidebar went on offering a checkout for a
+    // quote the server had permanently retired.
+    check('THE MECHANISM: the shared record says nothing about the closure',
+          held?.key === key && !held?.closure,
+          `key=${held?.key === key} closure=${JSON.stringify(held?.closure)} `
+          + `stage=${held?.stage} command=${JSON.stringify(held?.command)}`);
+
+    // THE REGRESSION, on the mount that did NOT receive the answer.
+    const notices = page.locator('[data-testid="checkout-recovery"]');
+    const disabled = page.locator('[data-testid="closure-unresolved-cta"]');
+    check('THE REGRESSION: BOTH mounts report the unresolved closure',
+          await notices.count() === 2, `notices=${await notices.count()}`);
+    check('THE REGRESSION: and BOTH offer the non-mutating control instead',
+          await disabled.count() === 2, `ctas=${await disabled.count()}`);
+
+    // ACT THROUGH THE SECOND MOUNT SPECIFICALLY — its own button, not a
+    // second press of the first one. `.nth(1)` is the sidebar.
+    const sidebar = bodies().nth(1);
+    const sidebarRetry = sidebar.getByRole(
+      'button', { name: /^Retry$|^Checkout —/ });
+    const offered = await sidebarRetry.count();
+    check('THE REGRESSION: the sidebar offers no mutating action at all',
+          offered === 0, `mutatingButtons=${offered}`);
+    const sidebarCta = sidebar.locator('[data-testid="closure-unresolved-cta"]')
+      .first();
+    // BOUNDED, so a missing control is a FAILED CHECK rather than a harness
+    // crash — the whole scenario reports nothing if this throws.
+    const ctaVisible = await sidebarCta.isVisible({ timeout: 3000 })
+      .catch(() => false);
+    const ctaEnabled = ctaVisible
+      ? await sidebarCta.isEnabled({ timeout: 3000 }).catch(() => true) : true;
+    check('and the control it does render is visibly disabled',
+          ctaVisible && !ctaEnabled,
+          `visible=${ctaVisible} enabled=${ctaEnabled}`);
+    if (ctaVisible) {
+      await sidebarCta.click({ force: true, timeout: 2000 }).catch(() => {});
+    }
+    await page.waitForTimeout(1200);
+    check('THE CONSEQUENCE: nothing was sent through the second mount',
+          state.submits.length === submitsBefore + 1
+            && new Set(state.keys.filter(Boolean)).size === 1,
+          `submits=${state.submits.length} `
+          + `keys=${JSON.stringify(state.keys)}`);
+    check('and no second key was minted around the hold',
+          (await readRecord())?.key === key);
+
+    // KEEPING RECOVERY USABLE. Storage comes back, the dish comes back, and
+    // the authorized READ establishes the SAME closure — which is the exit
+    // this hold is required to leave open.
+    await page.evaluate(() => {
+      if (window.__realSetItem) Storage.prototype.setItem = window.__realSetItem;
+    });
+    await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
+      method: 'PUT', body: JSON.stringify({ in_stock: true }),
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const review = page.getByRole('button', { name: /Review updated order/ })
+      .first();
+    await review.waitFor({ state: 'visible', timeout: 20000 });
+    const recovered = await readRecord();
+    check('RECOVERY: the read establishes the closure durably',
+          !!recovered?.closure && recovered?.key === key,
+          `closure=${JSON.stringify(recovered?.closure)}`);
+    const prompts = page.locator('[data-testid="updated-review-prompt"]');
+    check('RECOVERY: and BOTH mounts now offer the review',
+          await prompts.count() === 2, `prompts=${await prompts.count()}`);
+
+    // ONE deliberate successor, from the durable closure and nothing else.
+    await review.click();
+    const place2 = page.getByRole('button', { name: /Place order/ }).first();
+    await place2.waitFor({ state: 'visible', timeout: 20000 });
+    const successor = await readRecord();
+    check('RECOVERY: exactly one successor, replacing the retired attempt',
+          successor?.key !== key && successor?.replaces === key,
+          `key=${successor?.key} replaces=${successor?.replaces}`);
+    check('the held-closure sequence raised no uncaught errors',
           state.errors.length === 0, JSON.stringify(state.errors));
     await page.close();
   }

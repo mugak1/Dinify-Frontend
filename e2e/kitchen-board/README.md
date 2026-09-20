@@ -105,18 +105,20 @@ node e2e/kitchen-board/kitchen.mjs
 same database fails two of its own checks on the second pass — a fixture
 artefact, not a defect. Re-seed between runs.
 
-Last run: **55/55**, re-run at the **D06 I1/I2 revision** (frontend `03583cc`
-against backend `f7d2ce6`, which is `origin/main` and was NOT modified) on a
+Last run: **55/55**, re-run at the **D06 I2-C revision** (frontend
+`claude/d06-shared-closure-hold` against backend `f7d2ce6`, which is
+`origin/main` and was NOT modified) on a
 FRESH fixture, against a disposable local PostgreSQL **16.13** (its own cluster
 at `/var/lib/postgresql/d06`, `127.0.0.1:5432` — never a shared instance), a
 local Django on `test_settings` and a **development** `ng serve`
 (`--configuration development`, NOT optimized assets) on Node **24.15.0** with
 Chromium **141.0.7390.37**.
 
-**I1/I2 TOUCHES NO KITCHEN PATH AT ALL** — its whole diff is the diner checkout
+**I2-C TOUCHES NO KITCHEN PATH AT ALL** — its whole diff is the diner checkout
 coordinator and the basket body — so this is a REGRESSION re-run rather than
-evidence about the change, and it is recorded as such. The previous revision
-(backend `314c823`, frontend `4620075`) scored the same 55/55. D06 changes no
+evidence about the change, and it is recorded as such. The I1/I2 revision
+(frontend `03583cc`) and the one before it (backend `314c823`, frontend
+`4620075`) both scored the same 55/55. D06 changes no
 kitchen command, and the one kitchen route it does touch — the 86 panel's stock
 write, which G1a enlisted in the admission barrier — is exercised here and in
 `recovery.mjs`'s sold-out scenario.
