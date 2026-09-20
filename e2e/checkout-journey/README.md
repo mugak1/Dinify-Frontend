@@ -157,25 +157,29 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`), 88/88 (`recovery.mjs`) and 55/55
-(`e2e/kitchen-board/kitchen.mjs`)** at the **D06 revision with the SECOND Codex
-round fixed** — backend `314c823` (#325 P2: the post-lock refusal is now the
-door's refusal byte for byte, at all three diner sites) and frontend `4620075`
-(#676 P2: a block no longer renders a mutating Retry, so a commandless unreadable
-closure cannot re-initiate under a possibly retired key). The FINAL delivered
-pair, re-run because BOTH touch paths these scripts exercise: the frontend change
-is on the footer CTA and the Retry handler that `recovery.mjs` drives directly,
-and the backend change is on the refusal the diner channel returns.
+Last run: **42/42 (`journey.mjs`), 101/101 (`recovery.mjs`) and 55/55
+(`e2e/kitchen-board/kitchen.mjs`)** at the **D06 I1/I2 revision** — frontend
+`03583cc` (a pricing answer owns one operation; a failed closure write is its
+own result) against backend `f7d2ce6`, which is `origin/main` and was NOT
+modified for this work. `recovery.mjs` grew from 88 to 101 checks: the new
+**I1** scenario, plus the premise and cart-edit assertions added to it.
 
-The round before it — backend #325 P1 and frontend #676 P2 ×2 (the
-asserted-but-unusable closure at the recovery consumer, and the contradiction
-gate on the legacy accepted return) — scored the same three totals.
-Against a disposable local PostgreSQL 16 (its own cluster at
-`/var/lib/postgresql/d06`, `127.0.0.1`, never a shared instance), a local Django
-on `test_settings` at `ENV=dev`, and a **DEVELOPMENT** `ng serve` (`--configuration
-development`, NOT optimized assets) on Node 24.15.0 with Chromium 141
-(`/opt/pw-browsers/chromium-1194`). No UAT or production database, host or
-credential was reached.
+The run before it — backend `314c823` (#325 P2) and frontend `4620075` (#676
+P2) — scored 42/42, 88/88 and 55/55.
+
+Against a disposable local PostgreSQL **16.13** (its own cluster at
+`/var/lib/postgresql/d06`, `127.0.0.1:5432`, superuser role `dinify`, database
+`dinify_journey` dropped and recreated before the final triple — never a shared
+instance), a local Django on `test_settings` at `ENV=dev` on `127.0.0.1:8099`,
+and a **DEVELOPMENT** `ng serve` (`--configuration development`, NOT optimized
+assets) on Node **24.15.0** with Chromium **141.0.7390.37**
+(`/opt/pw-browsers/chromium-1194`). `environment.ts`'s `apiUrl` was pointed at
+the local API for the run and restored before committing. No UAT or production
+database, host or credential was reached.
+
+**THE KITCHEN RUN USED ITS OWN FRESH SEED**, and the journey/recovery pair a
+second one after it, because the kitchen harness leaves served and cancelled
+orders behind.
 
 **CLEAR THE BOARD BETWEEN SCRIPTS, not only re-seed.** `recovery.mjs` clears it
 itself and `journey.mjs` does not, so running the pair in that order leaves an
@@ -243,6 +247,45 @@ order** reaches the kitchen and it is not O1, the successor record survives the
 reload, the notice never claims an acceptance that was never issued, and O1 is
 still a retired, unaccepted draft whose `quote_total` is byte-identical to what it
 was before the closure.
+
+### I1 — a held initiation answer lands after an acceptance
+
+The schedule the unit specs describe, driven for real: the browser's view of the
+FIRST `orders/initiate/` reply is held open (`route.fetch()` runs, so the server
+really creates O1; `route.fulfill()` is deferred), the routed basket page is
+destroyed by an in-app navigation and rebuilt, a SECOND initiation replays the
+same key, the diner places the order, that acceptance COMMITS and its reply is
+destroyed — and only then is the first reply released.
+
+**IT DISCRIMINATES ONLY AGAINST ALL THREE HALVES OF THE FIX, and the measurement
+is worth recording, because two plausible mutation runs come back green.**
+
+| mutation | I1 result |
+|---|---|
+| the component-side `resolvePricedAnswer` gate removed | **101/101** — `notePricedReview` re-asks in the coordinator |
+| `isCurrent`'s `!this.destroyed` removed, gate intact | **101/101** — the coordinator gate catches it |
+| both of those, PLUS `notePricedReview` -> unconditional `noteStage('reviewing')` — main's shape | **100/101**, the failure reading `stage=reviewing` |
+
+So the gate is real and it is layered; a single-mutation run proves nothing
+here. The premise is asserted rather than assumed — `the held reply really did
+land on the destroyed instance` checks that both initiate responses were
+observed, because `ngOnDestroy` does NOT cancel the request and a reply that
+never arrived would make every later assertion pass vacuously.
+
+**THE KEY-MINTING CONSEQUENCE IS NOT OBSERVABLE HERE, AND THE SCRIPT SAYS SO.**
+Once that acceptance has committed the table is occupied, so the footer's first
+branch (`tableHasOngoingOrder`) correctly renders a disabled control and there is
+no mutating CTA to press — `pressed=false` is reported in the check's own
+message rather than hidden. That consequence is pinned deterministically by
+`basket-body.initiation-ownership.spec.ts`, which drives `reserveIntent`
+directly.
+
+**ONE ORACLE DEFECT IN THIS SCENARIO WAS FOUND BY RUNNING IT.** Its first
+version read the stored record as `JSON.parse(raw)` where every other reader in
+this file unwraps `JSON.parse(raw)?.value`, so `stage` and `command` were
+`undefined` — two checks failed loudly and two more PASSED VACUOUSLY on
+`undefined === undefined`. The reads are shared now and the equality checks
+require the value to be PRESENT as well as equal.
 
 ### D06d — the acceptance never reaches the server
 
