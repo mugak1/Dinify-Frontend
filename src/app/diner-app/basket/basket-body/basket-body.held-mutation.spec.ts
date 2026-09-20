@@ -384,6 +384,110 @@ describe('BasketBodyComponent — the hold reaches the resend and the '
       http.match(() => true).forEach((r: TestRequest) => r.flush({}));
     });
 
+    /**
+     * THE SENTENCE IS PART OF THE REFUSAL, not decoration beside it.
+     *
+     * B's own read answered `draft`, and a `draft` on an outstanding record
+     * says "Tap retry to send the same order again" — which under a hold is a
+     * button `closureUnresolved` has already disabled. Promising an action the
+     * state refuses is the shape this file has closed twice before, so the
+     * shared hold outranks that one local result (and `absent`, which promises
+     * the same thing) while every other sentence is left exactly as shipped.
+     */
+    it('THE REGRESSION: and it does not promise a Retry the hold refuses',
+       () => {
+      const { b, bRead, key } = twoReadsThenAHold();
+
+      bRead.flush(readAnswer(key));
+
+      const notice = b.componentInstance.recoveryNotice ?? '';
+      expect(notice).not.toContain('Tap retry');
+      expect(notice)
+        .withContext('nor the same promise in the other wording')
+        .not.toContain('send the same order again');
+      expect(notice)
+        .withContext('it names the situation the diner is actually in')
+        .toContain('check with staff');
+      http.match(() => true).forEach((r: TestRequest) => r.flush({}));
+    });
+
+    it('THE REGRESSION: an older ABSENT answer does not promise one either',
+       () => {
+      const { b, bRead } = twoReadsThenAHold();
+
+      bRead.flush({ detail: 'Not found.' },
+                  { status: 404, statusText: 'Not Found' });
+
+      expect(b.componentInstance.recoveryNotice ?? '')
+        .not.toContain('send the same order again');
+      expect(http.match(() => true).length).toBe(0);
+    });
+
+    it('CONTROL: with NO hold, a draft still says the retry works — the hold '
+       + 'is what changes the sentence, not the draft', () => {
+      const { key } = anIssuedAcceptance();
+      const b = makeComponent();
+      b.componentInstance.retryOrder();
+      http.expectOne(intentRead()).flush(readAnswer(key));
+
+      expect(b.componentInstance.recoveryNotice ?? '')
+        .withContext('the shipped sentence for an ordinary unconfirmed '
+                     + 'acceptance is unchanged')
+        .toContain('Tap retry');
+      http.expectOne(SUBMIT).flush({ status: 200, message: 'ok' });
+    });
+
+    it('CONTROL: the sentences that already point at staff keep their own '
+       + 'wording under a hold', () => {
+      const { key } = anIssuedAcceptance();
+      const b = makeComponent();
+      b.componentInstance.retryOrder();
+      const bRead = http.expectOne(intentRead());
+
+      const c = makeComponent(false);
+      c.detectChanges();
+      const cRead = http.expectOne(intentRead());
+      faultTheWrite();
+      cRead.flush(readAnswer(key, { quote_closure: CLOSURE }));
+
+      // An unreachable server, not a statement about the quote. `unknown`
+      // already says "check with staff before ordering the same items again",
+      // so the hold has nothing to correct and does not take the sentence.
+      bRead.error(new ProgressEvent('error'),
+                  { status: 0, statusText: 'Unknown' });
+
+      expect((b.componentInstance as any).recovered.kind).toBe('unknown');
+      expect(b.componentInstance.recoveryNotice)
+        .toBe("We're still confirming your last order. Please check with "
+              + 'staff before ordering the same items again.');
+      expect(http.match(() => true).length).toBe(0);
+    });
+
+    it('THE NULL OPERATION FAILS CLOSED: a hold applies to an answer whose '
+       + 'record could not be read when it was issued', () => {
+      const { key } = aPricedAttempt();
+      const c = makeComponent(false);
+      c.detectChanges();
+      http.expectOne(intentRead())
+        .flush(readAnswer(key, { quote_closure: { ...CLOSURE,
+                                                  policy_version: 99 } }));
+      expect(coordinator.unresolvedClosure()).not.toBeNull();
+
+      // Nothing names an attempt, so nothing can be shown to be a DIFFERENT
+      // attempt — which is exactly when a mutation must not go out.
+      expect(coordinator.heldOperation(null))
+        .withContext('a null operation is refused, never waved through')
+        .not.toBeNull();
+    });
+
+    /** A commandless attempt, reused by the null-operation case above. */
+    function aPricedAttempt() {
+      const a = makeComponent();
+      a.componentInstance.initiateOrder();
+      http.expectOne(INITIATE).flush(correctedInitiate('o1', 'q1'));
+      return { a, key: coordinator.record()!.key };
+    }
+
     it('THE REGRESSION: an older ABSENT answer is refused the same way — the '
        + 'not-found rule is not weakened, the mutation is', () => {
       const { key, bRead } = twoReadsThenAHold();
@@ -609,9 +713,13 @@ describe('BasketBodyComponent — the hold reaches the resend and the '
         .toBeFalse();
       expect(coordinator.reserveIntent(record.request, record.scope).kind)
         .withContext('and neither branch of reservation').toBe('held');
+      // `unusable`, NOT `storage-error`: nothing here failed to write. The
+      // row beside the acceptance may be perfectly readable — what may not be
+      // acted on is the PAIR — and `unusable` is the word the consumer
+      // already answers with manual recovery rather than "we could not save
+      // that on this device".
       expect(coordinator.renewAfterClosure().kind)
-        .withContext('and no successor for a contradiction')
-        .not.toBe('ready');
+        .withContext('and no successor for a contradiction').toBe('unusable');
     });
 
     it('THE REGRESSION: with a RETAINED ISSUED COMMAND, B`s Retry sends no '
