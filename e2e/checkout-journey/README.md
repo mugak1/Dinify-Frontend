@@ -157,18 +157,44 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`) and 128/128 (`recovery.mjs`)**, both
-RE-EXECUTED on a fresh disposable database after the Codex-P2 follow-up (an
-ordinary hold may no longer downgrade a contradiction) — frontend
-`claude/dinify-d06-shared-hold-rsx96p` (the shared hold reaches the acceptance
-resend and the contradiction) against backend `f7d2ce6`, which is `origin/main`
-and was NOT modified for this work. Node 24.21.0, Chromium 141.0.7390.37,
-PostgreSQL 16.13, a disposable local database and **development** assets
-(`ng serve --configuration development`, not an optimized build). `recovery.mjs`
-grew from 114 to 128 checks: the new **I2-D** scenario. **`e2e/kitchen-board/
+Last run: **42/42 (`journey.mjs`) and 137/137 (`recovery.mjs`)**, both executed
+on a FRESH disposable database against the final code of the observation
+LIFECYCLE change (L1–L3) — frontend `claude/dinify-d06-shared-hold-rsx96p`
+against backend `f7d2ce6`, which is `origin/main` and was NOT modified for this
+work. Node 24.21.0, Chromium 141.0.7390.37, PostgreSQL 16.13, a disposable
+local database and **development** assets (`ng serve --configuration
+development`, not an optimized build). `recovery.mjs` grew from 128 to 137
+checks: the new **I2-E** continuation of I2-D. **`e2e/kitchen-board/
 kitchen.mjs` (55/55 at the I2-C revision) was NOT re-run here** — nothing in the
 kitchen board was touched — and that number is recorded as the earlier execution
 it was, never as a new one.
+
+A note on re-running `journey.mjs`: it raises the dish price **mid-run** through
+the real operator API, so a second run against the same database starts with the
+price already raised and fails two checks (`Add — UGX 35,000.3`, then `400` on
+the raise). That is fixture contamination, not a regression — **re-seed before
+each run.**
+
+### I2-E does not discriminate, and that was measured
+
+The new continuation passes **137/137 against unmodified `24bf29c` as well**, so
+it is a lifecycle WALK rather than a regression for L1–L3. The reason is a
+documented property: the shared hold is **memory-backed and does not survive a
+reload**, and `page.reload()` is the only thing in this harness that makes a
+routed mount run its startup recovery (`app-basket-body` renders no in-app link
+to navigate away from and back to). K1's contradiction is therefore gone from
+the slot before K2 exists, and on main K2's hold registers into an empty slot
+exactly as it does on the fix — the observed `ctas=2` on main IS that proof,
+since main's raw-slot comparison would otherwise have refused K2's ordinary
+hold outright.
+
+Reaching L3 in a browser needs the contradiction, the resolving read and K2's
+read in ONE document; reaching L2's cross-mount half needs the resolving read to
+come from a mount OTHER than the one holding the local `inconsistent`, and only
+a routed mount runs a recovery — so re-mounting destroys the holder. **That is
+the same shipped-UI limitation #679 recorded for H1**, and it is not worked
+around. The L1–L3 decisions are pinned deterministically by
+`basket-body.observation-lifecycle.spec.ts`, which fails 9 on `24bf29c`.
 
 **I2-D DISCRIMINATES, and it was measured rather than assumed**: with the two
 production files reverted to `8d33199` and everything else held constant, the
