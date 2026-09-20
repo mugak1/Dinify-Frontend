@@ -8,8 +8,8 @@ import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import {
   CheckoutCoordinatorService, CheckoutOwner, CheckoutRecord, FlightToken,
-  IntentReservation, IssuedCommand, PURCHASE_CANON, RecoveryOutcome,
-  RenewalResult,
+  IntentReservation, IssuedCommand, PURCHASE_CANON, PricingOperation,
+  RecoveryOutcome, RenewalResult,
 } from 'src/app/_services/checkout-coordinator.service';
 import {
   CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, acceptanceVerdict,
@@ -39,6 +39,22 @@ import {
 const UNRESOLVED_CLOSURE_MESSAGE =
   'We could not confirm the status of this order. Please check with staff '
   + 'before ordering the same items again.';
+
+/**
+ * I2 — WHAT A DINER IS TOLD WHEN THE SERVER RETIRED THE QUOTE AND THIS DEVICE
+ * COULD NOT SAVE THAT.
+ *
+ * A SEPARATE SENTENCE FROM THE ONE ABOVE, because the facts are different and
+ * so is the remedy. There the status is genuinely unknown to this build; here
+ * it is known exactly — the quote can no longer be placed — and what is
+ * missing is only this device's record of it. Naming the reload is honest and
+ * actionable: a fresh page re-reads the order, finds the same published
+ * closure and writes it down, after which the ordinary review is offered.
+ */
+const UNRECORDED_CLOSURE_MESSAGE =
+  'This order can no longer be placed at the price you reviewed, and we could '
+  + "not save that on this device. Reload the page to continue, or check with "
+  + 'staff before ordering the same items again.';
 import { DinerSessionService } from 'src/app/_services/diner-session.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { SessionStorageService } from 'src/app/_services/storage/session-storage.service';
@@ -95,8 +111,18 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   /** R2 — set in `ngOnDestroy`; see `ownsRecovery`. */
   private destroyed = false;
   private attemptSeq = 0;
+  /**
+   * I1 — AND IT CARRIES THE OPERATION IT WAS ISSUED FOR.
+   *
+   * `seq`, `revision` and `context` are all LOCAL: none of them moves when
+   * another mount advances the checkout, and none of them exists once this
+   * instance is destroyed. `operation` is the durable identity of the attempt
+   * being priced, captured before the request, and it is what the coordinator
+   * compares the shared record against when the answer lands.
+   */
   private activeAttempt: {
     seq: number; revision: number; context: string;
+    operation: PricingOperation;
   } | null = null;
   /** The quote the diner is actually looking at, if any.
    *
@@ -478,6 +504,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       return UNRESOLVED_CLOSURE_MESSAGE;
     }
     switch (this.recovered?.kind) {
+      case 'closure-unrecorded':
+        // I2 — THE SERVER FACT AND THE LOCAL FAILURE, SAID APART. The quote is
+        // finished; what is missing is this device's record of it, which a
+        // reload supplies.
+        return UNRECORDED_CLOSURE_MESSAGE;
       case 'accepted': {
         // GATE B — AN ACCEPTANCE AND WHAT HAPPENED AFTERWARDS ARE SEPARATE
         // FACTS. This said "it is with the kitchen" for every accepted
@@ -616,7 +647,24 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * this build cannot act on — so this cannot drift from what blocks Checkout.
    */
   get closureUnresolved(): boolean {
-    return this.unusableClosure() !== null;
+    return this.closureUnresolvable();
+  }
+
+  /**
+   * I2 — IS THE CHECKOUT HELD BY A CLOSURE SITUATION THIS DEVICE CANNOT
+   * RESOLVE BY ITSELF?
+   *
+   * THE ONE DEFINITION, read by the mutation guard, by `checkoutBlocked`, by
+   * the template's disabled control and by `placeOrder`'s own entry guard — so
+   * none of them can drift from another. Two producers, one answer:
+   * `unusableClosure()` (evidence this build may not act on) and a VALID
+   * closure whose local write failed (`closure-unrecorded`). They differ in
+   * what is known and agree in what may be done: no ordinary review, no
+   * successor, no mutating Retry.
+   */
+  private closureUnresolvable(): boolean {
+    return this.unusableClosure() !== null
+      || this.recovered?.kind === 'closure-unrecorded';
   }
 
   get checkoutBlocked(): boolean {
@@ -624,9 +672,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // live read or was restored from the record. It is not "no closure": the
     // key may be bound to an order the server has retired, so offering
     // Checkout would price under it, replay the retired order and loop.
-    if (this.unusableClosure()) return true;
+    if (this.closureUnresolvable()) return true;
     switch (this.recovered?.kind) {
       case 'closure-unreadable':
+      case 'closure-unrecorded':
       case 'inconsistent':
       case 'uncorrelated':
       case 'unsupported':
@@ -1095,6 +1144,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       seq: this.attemptSeq,
       revision: this.basketService.revision(),
       context: record.scope,
+      // I1 — THE OPERATION THIS REPLAY IS FOR, captured before it is sent.
+      // Taken from the RECORD rather than from the live context, because a
+      // replay is defined by the attempt it re-sends.
+      operation: {
+        key: record.key, scope: record.scope,
+        purchase: record.request.identity,
+      },
     };
     this.activeAttempt = attempt;
 
@@ -1109,24 +1165,20 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.releaseIfLatest(attempt);
           return;
         }
+        // I2-A — A REPLAY READS THE CLOSURE TOO.
+        //
+        // This handler used to assign the response, note the protocols, write
+        // the review and open the sheet, and never once asked whether the
+        // order it got back still had a quote that could be accepted. A replay
+        // legitimately returns an order whose quote was retired AFTER the
+        // original initiation — by a refusal whose reply was lost, by the other
+        // mount, or by `retire-quote` — so a healthy envelope carrying a closed
+        // quote arrived here as an ordinary confirmable review purely because
+        // it came through Retry. One shared implementation now decides for both
+        // doors.
         if (response?.status === 200) {
-          this.order_initiated = response.data;
-          const od = this.order_initiated?.order_details;
-          this.checkout.noteProtocol(protocolLevel(od));
-          // AND THE D06 LEVEL (G4), remembered for the same reason and kept
-          // apart because the two are separate promises that move
-          // independently. It is what makes a LATER response's silence about a
-          // closure readable as "not retired" rather than "this server has
-          // never said".
-          this.checkout.noteQuoteProtocol(quoteProtocolLevel(od));
-          this.reviewedQuote = {
-            ref: od?.quote_ref ?? null,
-            revision: attempt.revision,
-            context: attempt.context,
-            key: this.checkout.record()?.key ?? null,
-          };
-          this.checkout.noteStage('reviewing');
-          this.showQuoteSheet = true;
+          this.applyInitiationResult(response, attempt);
+          return;
         }
         this.releaseCheckout();
       },
@@ -1139,6 +1191,129 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.failOrder(this.placementErrorMessage(error));
       },
     );
+  }
+
+  /**
+   * I1/I2 — THE ONE READING OF A SUCCESSFUL INITIATION ANSWER.
+   *
+   * Both doors reach it: `placeOrder` (a fresh or reused reservation) and
+   * `replayInitiation` (a re-send of the recorded request under the recorded
+   * key). They differed in exactly the ways that mattered — only one consumed
+   * the closure the response carried, and both bound the returned quote to
+   * whatever key storage happened to hold when the answer LANDED — so the
+   * decision lives here once, taking the operation that was captured before
+   * the request went out.
+   *
+   * EVERY WRITE BELOW IS GATED, and the gate comes first. A pricing answer
+   * that no longer owns its attempt must not assign the quote, note a protocol
+   * level, record a closure or move a stage: each of those acts on the SHARED
+   * record, and the attempt it was about may since have been accepted, closed,
+   * settled or replaced by a successor.
+   */
+  private applyInitiationResult(
+    response: any,
+    attempt: { seq: number; revision: number; context: string;
+               operation: PricingOperation },
+  ): void {
+    // I1 — MAY THIS ANSWER STILL ACT ON THE RECORD IT WAS ABOUT?
+    //
+    // `isCurrent` has already refused a superseded or destroyed INSTANCE; this
+    // refuses a superseded ATTEMPT, which no component-local state can see.
+    // Nothing is reported to the diner: the screen this answer priced for is
+    // not the one in front of them, and there is nothing here to resolve.
+    if (this.checkout.resolvePricedAnswer(attempt.operation).kind !== 'owned') {
+      this.releaseCheckout();
+      return;
+    }
+
+    this.order_initiated = response.data;
+    const od = this.order_initiated?.order_details;
+
+    // THE SERVER JUST HANDED BACK A RETIRED QUOTE (G3b/C1/E1).
+    //
+    // Reachable with no refusal involved: the key is bound to a purchase, so
+    // `initiate` REPLAYS the order it was used for, and that order's quote may
+    // have been retired since. Rendering it would put a review sheet in front
+    // of the diner for something that can never be placed.
+    const handedBack = this.publishedClosureEvidence(od);
+    if (handedBack.kind === 'closure') {
+      // O1 — ESTABLISH AND STOP. The closure is recorded durably and the
+      // footer offers the review; minting a successor here would be a purchase
+      // decision taken inside a response handler.
+      if (this.establishClosure(handedBack.closure)) {
+        this.showQuoteSheet = false;
+        this.releaseCheckout();
+        return;
+      }
+      // I2-B — THE WRITE FAILED, AND THAT IS ITS OWN ANSWER.
+      //
+      // This used to FALL THROUGH to the ordinary review: the stored stage
+      // stayed `pricing`, the record carried no closure, and the diner was
+      // shown a confirmable sheet for a quote the response had just said was
+      // permanently closed. A local storage failure is not a reason to
+      // contradict the server.
+      //
+      // The server fact and the failure to record it are reported separately:
+      // the key and the request are kept, no successor is minted (there is no
+      // persisted closure to mint one from, and inventing one would assert a
+      // transition nothing wrote down), the owned flight is given back, and a
+      // reload re-reads the order, finds the same published closure and writes
+      // it then.
+      this.showQuoteSheet = false;
+      this.recovered = {
+        kind: 'closure-unrecorded', closure: handedBack.closure,
+      };
+      this.releaseCheckout();
+      this.failOrder(UNRECORDED_CLOSURE_MESSAGE);
+      return;
+    }
+    if (handedBack.kind !== 'absent') {
+      // I2-C — ASSERTED AND UNUSABLE, AS A STATE RATHER THAN A SENTENCE.
+      //
+      // This build cannot say what the server retired, so it may not price
+      // again under a key that may be bound to a retired order. It used to
+      // call `failOrder` alone — an inline message on ONE instance, which
+      // `checkoutBlocked` and `closureUnresolved` cannot read, so the footer
+      // went on offering a Retry through the weaker replay path. Recording the
+      // shared `closure-unreadable` result is what makes the decision and the
+      // template agree.
+      this.showQuoteSheet = false;
+      this.recovered = {
+        kind: 'closure-unreadable', order: od ?? null,
+        correlation: null, evidence: handedBack,
+      };
+      this.releaseCheckout();
+      this.failOrder(UNRESOLVED_CLOSURE_MESSAGE);
+      return;
+    }
+
+    // GATE A / G4 — REMEMBER WHAT THIS SERVER SAYS IT CAN DO. A level
+    // demonstrated on an initiate is what makes a later reply's silence
+    // readable as broken rather than old. Both levels are separate promises
+    // that move independently, and both initiation doors note them.
+    this.checkout.noteProtocol(protocolLevel(od));
+    this.checkout.noteQuoteProtocol(quoteProtocolLevel(od));
+    // I1 — THE REVIEW IS BOUND TO THE ATTEMPT IT WAS PRICED UNDER, taken from
+    // the captured operation and never from `record()?.key` at arrival. That
+    // read is the one input a stale answer can get wrong in the direction that
+    // matters: it named whatever attempt storage held when the reply landed,
+    // so a held K1 answer bound its quote to the successor K2.
+    this.reviewedQuote = {
+      ref: od?.quote_ref ?? null,
+      revision: attempt.revision,
+      context: attempt.context,
+      key: attempt.operation.key,
+    };
+    // I1 — AND THE STAGE MOVES CONDITIONALLY. `noteStage('reviewing')` was an
+    // unconditional spread over whatever record was current, which is how an
+    // old pricing answer walked an `accepting` record back to `reviewing` and
+    // unprotected its issued command.
+    this.checkout.notePricedReview(attempt.operation);
+    // ALWAYS review — whether or not anything dropped. The diner sees the
+    // server's lines and the server's total, and nothing is accepted until
+    // they say so.
+    this.showQuoteSheet = true;
+    this.releaseCheckout();
   }
 
   /**
@@ -1425,7 +1600,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // pressed Checkout. The established fact is already durable, so the
     // footer's "Review updated order" is rendered and the renewal happens
     // when they take it.
-    if (this.closedQuote() || this.unusableClosure()) {
+    // I2 — AND A CLOSURE THIS DEVICE FAILED TO RECORD BLOCKS IT TOO. The
+    // server retired the quote; only the local write is missing, so pricing
+    // again under that key replays the retired order. One definition
+    // (`closureUnresolvable`) so this guard cannot drift from the CTA's.
+    if (this.closedQuote() || this.closureUnresolvable()) {
       this.quoteRetired = !!this.closedQuote();
       this.releaseCheckout();
       return;
@@ -1437,12 +1616,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // Stamp this attempt with the basket revision AND the checkout context it
     // was priced for. A response that no longer matches both is discarded.
     this.attemptSeq += 1;
-    const attempt = {
-      seq: this.attemptSeq,
-      revision: this.basketService.revision(),
-      context: this.checkoutContext(),
-    };
-    this.activeAttempt = attempt;
+    const seq = this.attemptSeq;
+    const revision = this.basketService.revision();
+    const context = this.checkoutContext();
 
     // RESERVE THE KEY, AND DO NOT SEND ANYTHING IF THAT FAILS.
     //
@@ -1462,7 +1638,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     const reservation = this.checkout.reserveIntent(
       { identity: this.basketService.contentIdentity(),
         canon: PURCHASE_CANON, items: lines },
-      attempt.context,
+      context,
     );
     if (reservation.kind !== 'ready') {
       this.activeAttempt = null;
@@ -1470,6 +1646,19 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.onReservationRefused(reservation);
       return;
     }
+    // I1 — THE ATTEMPT IS STAMPED ONLY ONCE THE RESERVATION NAMES IT. The key
+    // is what identifies the operation to the coordinator, and it is not known
+    // until `reserveIntent` has answered — so the attempt is completed here
+    // rather than guessed above.
+    const attempt = {
+      seq, revision, context,
+      operation: {
+        key: reservation.key,
+        scope: reservation.record.scope,
+        purchase: reservation.record.request.identity,
+      },
+    };
+    this.activeAttempt = attempt;
 
     const orderPayload = {
       // THE IDEMPOTENCY KEY, PERSISTED BEFORE THIS REQUEST IS SENT (D04/D).
@@ -1518,84 +1707,12 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         if (response.status === 200) {
-          this.order_initiated = response.data;
-          const od = this.order_initiated?.order_details;
-          // A SERVER THAT PRICES THE OLD WAY NAMES NO QUOTE, and that is not an
-          // error. This client ships BEFORE the paired backend (see the release
-          // order), so treating a missing reference as a failure would turn
-          // every otherwise-successful checkout into one for the whole window —
-          // an outage, from the change meant to make checkout truthful.
-          //
-          // What a legacy response cannot give is a NAME for the quote. It
-          // still carries the server's own total, so the diner still reviews
-          // and confirms the server's amount rather than this browser's, and
-          // submit simply omits an acknowledgement that server never issued and
-          // does not ask for. Once the corrected backend is live the reference
-          // is always present, always sent, and its acceptance path requires it
-          // — there is no client-side switch that can turn that off.
-          // G3b — THE SERVER JUST HANDED BACK A RETIRED QUOTE.
-          //
-          // Reachable without any refusal being lost: the key is bound to a
-          // purchase, so `initiate` REPLAYS the order it was used for, and
-          // that order's quote may have been retired since — by a lost
-          // refusal here, or by the other mount, or by `retire-quote`.
-          // Rendering it would put a review sheet in front of the diner for
-          // something that can never be placed.
-          //
-          // `quote_closure` is what makes this visible at all, and it is
-          // gated on the level rather than on the key being present: a server
-          // that has not said it publishes closures is not one whose silence
-          // means "not closed". IT NO LONGER RENEWS, so the once-per-episode
-          // bound this used to need is gone with it: the only renewal left is
-          // a deliberate tap, and a successful one clears the persisted
-          // closure, so a second tap mints nothing.
-          const handedBack = this.publishedClosureEvidence(od);
-          if (handedBack.kind === 'closure') {
-            // O1 — ESTABLISH AND STOP. This used to mint a successor and
-            // re-price immediately, which put a key mint inside a response
-            // handler. The closure is recorded durably instead and the
-            // footer offers the review; a failed write claims nothing and
-            // falls through to the ordinary sheet.
-            if (this.establishClosure(handedBack.closure)) {
-              this.showQuoteSheet = false;
-              this.releaseCheckout();
-              return;
-            }
-          } else if (handedBack.kind !== 'absent') {
-            // E1 — ASSERTED AND UNUSABLE. Not silence, and not a reason to
-            // review: this build cannot say what the server retired, so it
-            // says so and stops rather than pricing again under a key that
-            // may be bound to a retired order.
-            this.showQuoteSheet = false;
-            this.releaseCheckout();
-            this.failOrder(UNRESOLVED_CLOSURE_MESSAGE);
-            return;
-          }
-          const quoteReference = od?.quote_ref ?? null;
-          this.reviewedQuote = {
-            ref: quoteReference,
-            revision: attempt.revision,
-            context: attempt.context,
-            key: this.checkout.record()?.key ?? null,
-          };
-          // GATE A — REMEMBER WHAT THIS SERVER SAYS IT CAN DO. The backend
-          // publishes `order_details.checkout_protocol` (D04/B), and a level
-          // demonstrated on the initiate is what makes a later submit reply
-          // carrying NO projection readable as broken rather than old.
-          this.checkout.noteProtocol(protocolLevel(od));
-          // AND THE D06 LEVEL (G4). Both initiate consumers note it — this one
-          // and `resendInitiation` — because "which level did this server
-          // demonstrate" must not depend on which path happened to ask.
-          this.checkout.noteQuoteProtocol(quoteProtocolLevel(od));
-          // The stage a reload should ask about. NOT the command — nothing
-          // has been accepted yet, and recording one here would make a draft
-          // the diner is still reading look like an outstanding acceptance.
-          this.checkout.noteStage('reviewing');
-          // ALWAYS review — whether or not anything dropped. The diner sees the
-          // server's lines and the server's total, and nothing is accepted
-          // until they say so.
-          this.showQuoteSheet = true;
-          this.releaseCheckout();
+          // I1/I2 — ONE READING FOR BOTH INITIATION DOORS. Everything this
+          // branch used to do inline — the closure decision, the protocol
+          // notes, the review binding and the stage move — now happens in
+          // `applyInitiationResult`, behind the ownership gate, so the replay
+          // door cannot go on skipping half of it.
+          this.applyInitiationResult(response, attempt);
         } else {
           this.toast.success(response.message);
           this.releaseCheckout();
@@ -1790,8 +1907,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // rather than a path. Permitting it would be worse than useless: with no
     // operation to be the current one, an answer would be free to act on
     // whatever record a DIFFERENT checkout had created by the time it landed.
-    const mine = () =>
-      !this.destroyed && owner !== null && this.checkout.settles(owner);
+    const mine = () => this.ownsIssuedAnswer(owner);
 
     this.checkout.bounded(
       this.api.postPatch('orders/submit/', payload, 'put'),
@@ -2029,10 +2145,41 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     if (attempt.seq === this.attemptSeq) this.releaseCheckout();
   }
 
-  /** Is this attempt still the one the diner is waiting on? */
+  /**
+   * I1 — MAY AN ANSWER TO AN ACCEPTANCE THIS INSTANCE ISSUED STILL ACT ON THE
+   * SHARED RECORD?
+   *
+   * The predicate `resendIssuedCommand` already applied inline, given a name
+   * so the two submit surfaces cannot answer it differently. `submitOrder`
+   * had no equivalent: its success path guarded only on `issued.seq` — a
+   * COMPONENT counter that does not exist once the instance is destroyed and
+   * never moves when another mount advances the checkout — and its failure
+   * handler reached `applyQuoteRefusal`'s own owner check only after the
+   * credential and legacy branches had already run.
+   *
+   * A NULL OWNER FAILS CLOSED: it means no record was readable when the
+   * command went out, so there is no operation for this answer to be the
+   * current one of, and acting would write to whatever record a different
+   * checkout had created by the time it landed.
+   */
+  private ownsIssuedAnswer(owner: CheckoutOwner | null): boolean {
+    return !this.destroyed && owner !== null && this.checkout.settles(owner);
+  }
+
+  /** Is this attempt still the one the diner is waiting on?
+   *
+   *  I1 — A DESTROYED INSTANCE IS WAITING ON NOTHING. `ngOnDestroy` does not
+   *  clear `activeAttempt` and Angular does not cancel the request, so without
+   *  this the three comparisons below all still passed for a component the
+   *  diner had navigated away from — and its answer went on to render a review
+   *  sheet nobody can see and write to the shared record. It is the
+   *  per-instance half of the rule; `resolvePricedAnswer` is the durable half,
+   *  and both are needed: this one cannot see another mount, and that one
+   *  cannot see a navigation. */
   private isCurrent(attempt: { seq: number; revision: number; context: string }):
     boolean {
     return (
+      !this.destroyed &&
       this.activeAttempt?.seq === attempt.seq &&
       this.basketService.revision() === attempt.revision &&
       this.checkoutContext() === attempt.context
@@ -2615,6 +2762,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.releaseIfLatest(issued);
           return;
         }
+        // I1 — AND MAY THIS ANSWER STILL ACT ON THE RECORD IT WAS ABOUT?
+        //
+        // `issued.seq` cannot say so: it is a component counter, unmoved by
+        // another mount and still matching once this instance is destroyed. So
+        // a reply outliving its component reached `recordOutcome`, the router
+        // and `clearIntent` — writing a terminal outcome onto whatever attempt
+        // was current by then and navigating a screen the diner had left.
+        if (!this.ownsIssuedAnswer(submitOwner)) {
+          this.releaseCheckout();
+          return;
+        }
         // VALIDATE THE ANSWER IS ABOUT THIS COMMAND BEFORE ANNOUNCING IT.
         // Where the server publishes the correlated projection the key, the
         // order and the scope must all agree; below that level there is
@@ -2718,7 +2876,18 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
         this.releaseCheckout();
         this.order_initiated = undefined;
       },
-      (error) => this.handleSubmitFailure(error, submitOwner)
+      (error) => {
+        // I1 — THE SAME SUPERSESSION CHECK THE SUCCESS PATH HAS ALWAYS HAD.
+        // The failure path had none, so a refusal for an attempt this instance
+        // had already moved past ran the whole interpretation — including the
+        // two branches that act on session and draft state before the shared
+        // transition's own owner check is reached.
+        if (issued.seq !== this.attemptSeq) {
+          this.releaseIfLatest(issued);
+          return;
+        }
+        this.handleSubmitFailure(error, submitOwner);
+      },
     );
   }
 
@@ -2734,6 +2903,23 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   private handleSubmitFailure(
     error: unknown, issued?: CheckoutOwner | null,
   ): void {
+    // I1 — THE OWNERSHIP QUESTION IS ASKED FIRST, BEFORE ANY BRANCH.
+    //
+    // `applyQuoteRefusal` has always carried its own owner check, but it is
+    // reached three branches in: a stale answer could already have invalidated
+    // a freshly scanned diner credential, expired a live session, or marked
+    // another attempt LEGACY — none of which is this answer's to decide.
+    //
+    // AN ABSENT ARGUMENT IS THE UNBOUND DIRECT-CALLER CONTRACT, unchanged.
+    // `applyQuoteRefusal(error, issued ?? undefined)` below has always skipped
+    // its binding check for a caller that names no operation, and this method
+    // is deliberately reachable by name so a disposition can be exercised
+    // without an HTTP round trip. `submitOrder` always names one, so no
+    // production path takes that branch.
+    if (issued !== undefined && !this.ownsIssuedAnswer(issued)) {
+      this.releaseCheckout();
+      return;
+    }
     // The acceptance resolved, so the review sheet stops being the lock:
     // every branch below either explains itself at the checkout footer or
     // re-prices, and both need the basket back.

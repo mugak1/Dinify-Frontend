@@ -1283,6 +1283,78 @@ so keep it current when conventions change.
   about the quote there and re-sending is the right offer.
   Paired backend: `A1b` / `BREAKING_CHANGES.md` §16c; record:
   `D06_CONSUMER_GATES_CLOSURE.md`
+- **A PRICING ANSWER OWNS ONE OPERATION, AND A FAILED CLOSURE WRITE IS NOT AN
+  ORDINARY REVIEW (D06 I1/I2).** The two initiation consumers were the last
+  callbacks in this checkout still guarded only by component-local state. No
+  backend change: `quote_protocol` stays 2, `checkout_protocol` stays 3, and the
+  record version deliberately does not move.
+  **I1 — A COMPONENT-LOCAL GUARD IS NOT AN OPERATION GUARD.** `placeOrder` and
+  `replayInitiation` each guarded on `{seq, revision, context}` and then wrote to
+  the SHARED record. **None of those three moves when another mount advances the
+  checkout**, and a destroyed instance keeps its own `activeAttempt` — so the
+  ordinary interruption (price on the routed page, navigate away, finish on the
+  sidebar) let a held initiation answer land over an acceptance issued since.
+  `noteStage('reviewing')` then walked the record back from `accepting`, and
+  because `isOutstanding` reads the STAGE, the issued command stopped being
+  protected: the next changed purchase minted a fresh key and erased the only
+  handle that unsettled acceptance could be recovered by.
+  **THE IDENTITY IS CAPTURED BEFORE THE REQUEST AND THE TRANSITION IS
+  CONDITIONAL** — `PricingOperation` (key, scope, purchase) frozen at issuance,
+  read by `resolvePricedAnswer` / `notePricedReview` in the COORDINATOR, so both
+  mounts decide identically and the check sits where the write does. **A KEY
+  CHECK ALONE IS INSUFFICIENT**: the same key is exactly what a legitimate replay
+  reuses, so the stage and the command are part of the question — an answer may
+  act only on a record still in `pricing` / `reviewing` / `refused` (the last
+  because the ordinary `quote_ref_stale` reprice leaves it there), carrying NO
+  command and NO asserted closure. `settles(owner)` cannot stand in for it
+  either: it short-circuits true at `orderId === null`, which is precisely the
+  pricing stage. The gate runs BEFORE any shared write, quote assignment, stage
+  write, cleanup or secondary request, and `isCurrent` gained `!this.destroyed`
+  beside it. **The two handlers are ONE implementation** (`applyInitiationResult`),
+  so the replay door cannot drift from the direct one, and `replayInitiation`
+  still re-sends the stored request under the stored key.
+  **AND THE SAME RULE REACHED THE DIRECT-SUBMIT CALLBACKS** — success had only
+  `issued.seq`, and the error handler ran its credential and legacy branches
+  before `applyQuoteRefusal` consulted its owner, so an older answer could
+  invalidate a newly scanned session, mark another attempt legacy or navigate an
+  unrelated screen. Both now clear `ownsIssuedAnswer` first.
+  **I2 — BOTH DOORS INTERPRET THE CLOSURE, AND A FAILED WRITE IS ITS OWN
+  RESULT.** `replayInitiation` bypassed closure consumption entirely, so a
+  retired quote reached the review sheet purely because it came through Retry.
+  And when `noteClosure` FAILED, the handler fell through to the ordinary sheet:
+  the stage stayed `pricing`, the record carried no closure, and the diner was
+  offered a confirmable review for a quote the response had just said was
+  permanently closed. **A LOCAL STORAGE FAILURE IS NOT A REASON TO CONTRADICT
+  THE SERVER**, and the two facts are reported separately —
+  `RecoveryOutcome.closure-unrecorded` is a THIRD kind, deliberately apart from
+  `closure-unreadable` (that one is a statement this build cannot read; this one
+  is a statement it read perfectly well and could not write down). It mints no
+  successor (there is no persisted closure to mint one from), keeps the key and
+  the request, releases the owned flight, and a reload re-reads the order, finds
+  the same published closure and writes it then. **THE DECISION AND THE TEMPLATE
+  AGREE** rather than the message being the state: `closureUnresolvable()` is the
+  one predicate `closureUnresolved` and `checkoutBlocked` both read, so the
+  footer renders a disabled control and no mutating Retry — an error message
+  alone is not shared state, and it is readable by ONE instance.
+  **`noteStage` NOW HAS NO PRODUCTION CALLER** and says so at its declaration; it
+  survives as spec fixture setup, and every answer-driven transition goes through
+  a conditional one.
+  Pinned by `basket-body.initiation-ownership.spec.ts` (17) and
+  `basket-body.initiation-closure.spec.ts` (22), both driving TWO real component
+  instances over one real coordinator, storage and HTTP stack; **5 and 15 of them
+  fail on unmodified `d5dcd24`**. Suite 2514 -> 2553.
+  **THE BROWSER SCENARIO DISCRIMINATES ONLY AGAINST ALL THREE HALVES, and that
+  is worth knowing before trusting a green mutation run.** `recovery.mjs` gains
+  **I1** (a real held initiation answer landing after a real committed
+  acceptance, 88 -> 101 checks). Neutralising the component gate ALONE changes
+  nothing, because `notePricedReview` re-asks in the coordinator; neutralising
+  the destroyed check alone changes nothing, because the coordinator gate still
+  refuses. Only main's full shape — destroyed check off, component gate off,
+  `noteStage('reviewing')` unconditional — reproduces it, at which point the
+  scenario reads `stage=reviewing`. The key-minting CONSEQUENCE is NOT observable
+  there and the harness says so in its own comment: the acceptance really
+  committed, so the table is occupied and the footer correctly offers no mutating
+  CTA. That consequence is pinned deterministically by the unit spec instead
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

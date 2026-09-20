@@ -1062,6 +1062,192 @@ const main = async () => {
     await page.close();
   }
 
+  // ══ I1. A HELD INITIATION ANSWER, LANDING OVER A NEWER ACCEPTANCE ══════
+  //
+  // THE ONE SCHEDULE THE SINGLE FLIGHT MAKES REACHABLE, and the one no unit
+  // spec can produce end to end: an initiation answer that is still coming
+  // when a LATER acceptance has already been issued under the same key.
+  //
+  // The app-wide flight means two surfaces cannot both be pricing — so the
+  // only way to overlap is for the first to give it back, which is what
+  // `ngOnDestroy` does. An in-app navigation (the row's Edit control, a real
+  // `router.navigate`) destroys the routed basket page while leaving its XHR
+  // open; `page.goto` would not, because a document navigation cancels it.
+  //
+  //   1. price under K1 — the server creates O1 and the REPLY IS HELD
+  //   2. tap Edit — the routed page is destroyed, the flight is released,
+  //      the request is still in flight
+  //   3. come back and tap Checkout — the SAME key, a second initiate, a
+  //      real review
+  //   4. Place order — the acceptance COMMITS and its reply is destroyed, so
+  //      the record is K1 / accepting / {O1,Q1}
+  //   5. release the held reply from step 1
+  //
+  // On the pre-fix client that reply wrote `reviewing` over the record, and
+  // `isOutstanding` reads the STAGE — so the issued command stopped being
+  // protected and the next changed purchase minted a fresh key, erasing the
+  // only handle the unsettled acceptance could be recovered by.
+  console.log('\n=== I1. a held initiation answer lands after an acceptance ===');
+  {
+    await clearTheBoard();
+    const { page, state } = await openTab();
+    await buildBasket(page);
+
+    // THE SEAM: the server really prices O1; the browser's view of the reply
+    // is held open until step 5.
+    let release = null;
+    let fulfilErr = null;
+    const held = new Promise((resolve) => { release = resolve; });
+    let holding = false;
+    await page.route('**/orders/initiate/**', async (route) => {
+      if (route.request().method() !== 'POST' || holding) {
+        return route.continue();
+      }
+      holding = true;
+      const response = await route.fetch();   // the server creates O1…
+      await held;                             // …the browser waits
+      try { await route.fulfill({ response }); }
+      catch (e) { fulfilErr = e.message; }
+    });
+
+    await page.goto(`${WEB}/diner/basket`, { waitUntil: 'domcontentloaded' });
+    const more = page.getByRole('button', { name: 'Increase quantity' })
+      .first();
+    await more.waitFor({ state: 'visible', timeout: 20000 });
+    await more.click();
+    const checkout1 = page.getByRole('button', { name: /Checkout —/ }).first();
+    await checkout1.waitFor({ state: 'visible', timeout: 20000 });
+    await checkout1.click();                                       // 1
+    await page.waitForTimeout(1200);
+    const firstKey = state.keys[0];
+    check('the first initiation is in flight and its reply is held',
+          holding && !!firstKey, `key=${firstKey}`);
+
+    // 2. IN-APP navigation destroys the routed basket page. The flight is
+    //    given back (`ngOnDestroy`); the request is not cancelled.
+    await page.getByRole('button', { name: /^Edit / }).first().click();
+    await page.waitForTimeout(800);
+    await page.goBack();
+    await page.waitForTimeout(800);
+
+    // 3. A NEW routed instance prices under the SAME key. The server replays
+    //    K1 and hands back the very order it created in step 1.
+    const checkout2 = page.getByRole('button', { name: /Checkout —/ }).first();
+    await checkout2.waitFor({ state: 'visible', timeout: 20000 });
+    await checkout2.click();
+    const place = page.getByRole('button', { name: /Place order/ }).first();
+    await place.waitFor({ state: 'visible', timeout: 20000 });
+    check('the second initiation reuses the SAME key',
+          new Set(state.keys.filter(Boolean)).size === 1,
+          `keys=${JSON.stringify(state.keys)}`);
+
+    // 4. THE ACCEPTANCE COMMITS AND ITS REPLY IS DESTROYED.
+    let dropped = false;
+    await page.route('**/orders/submit/**', async (route) => {
+      if (dropped) return route.continue();
+      dropped = true;
+      await route.fetch();                    // the server ACCEPTS O1…
+      await route.abort('connectionreset');   // …the browser never learns
+    });
+    await place.click();
+    await page.waitForTimeout(2000);
+
+    // The record is stored INSIDE a `{value: ...}` envelope, exactly as every
+    // other reader in this file unwraps it. Reading the raw object yields
+    // `undefined` for every field, which makes an equality oracle pass
+    // vacuously — the one failure mode a regression harness must not have.
+    const readRecord = () => page.evaluate(() => {
+      const raw = sessionStorage.getItem('[dinify]diner.checkout.attempt');
+      return raw ? JSON.parse(raw)?.value ?? null : null;
+    });
+    const before = await readRecord();
+    check('the record is ACCEPTING with the issued command',
+          before?.stage === 'accepting' && !!before?.command?.orderId,
+          `stage=${before?.stage} command=${JSON.stringify(before?.command)}`);
+    check('and the server really accepted it',
+          (await activeTickets()).length === 1);
+
+    // 5. THE HELD REPLY FROM STEP 1 FINALLY LANDS.
+    release();
+    await page.waitForTimeout(3000);
+    // THE PREMISE, ASSERTED. Every check below is about what the browser does
+    // with that reply, so a reply that never arrived would make all of them
+    // pass vacuously — which is the one failure mode a regression scenario
+    // must not have. `ngOnDestroy` does NOT cancel the request, so the
+    // destroyed instance's subscriber really is still waiting on it.
+    check('the held reply really did land on the destroyed instance',
+          state.initiated.length === 2 && fulfilErr === null,
+          `initiated=${JSON.stringify(state.initiated)} err=${fulfilErr}`);
+
+    const after = await readRecord();
+    check('THE REGRESSION: the old answer does not move the record back to '
+          + '`reviewing`',
+          after?.stage === 'accepting',
+          `stage=${after?.stage}`);
+    // NOT a bare equality — two `undefined`s would satisfy that while proving
+    // nothing. The command must still be THERE, and be the same one.
+    check('THE REGRESSION: and the issued command survives it',
+          !!after?.command?.orderId
+            && after.command.orderId === before?.command?.orderId,
+          `before=${JSON.stringify(before?.command)} `
+          + `after=${JSON.stringify(after?.command)}`);
+    check('the key never moved',
+          !!after?.key && after.key === before?.key,
+          `${before?.key} -> ${after?.key}`);
+    check('no review sheet reopened for the stale answer',
+          !(await page.getByRole('button', { name: /Place order/ }).first()
+              .isVisible().catch(() => false)));
+
+    // THE CONSEQUENCE, driven rather than asserted on storage: a changed
+    // basket must NOT be allowed to mint a fresh key while that acceptance
+    // is unresolved.
+    const bump = page.getByRole('button', { name: 'Increase quantity' })
+      .first();
+    const bumped = await bump.isVisible().catch(() => false);
+    if (bumped) {
+      await bump.click();
+      await page.waitForTimeout(600);
+    }
+    // EXERCISED, NOT SKIPPED. A conditional click that never happened would
+    // leave the key set trivially unchanged, so the fact that the cart really
+    // was edited is asserted rather than assumed.
+    check('the cart really was edited while that acceptance was unresolved',
+          bumped);
+    const keysBefore = new Set(state.keys.filter(Boolean)).size;
+    // BY ROLE AND ACCESSIBLE NAME, as every other scenario here locates it:
+    // `:has-text` also matches ANCESTORS carrying the text, so it resolved to
+    // an outer control that is never enabled and the press never happened.
+    const cta = page
+      .getByRole('button', { name: /^Retry$|^Checkout —/ }).first();
+    // BEST-EFFORT AND REPORTED. A `.click()` on a disabled control throws and
+    // would abort the whole harness — a crash where a FAIL belongs — and a
+    // silent skip would make the check below pass for the wrong reason. So
+    // whether the press happened is carried in the message.
+    //
+    // MEASURED: it does not happen, on the fixed tree OR the mutated one, and
+    // that is correct rather than a gap. The acceptance really committed, so
+    // the table is occupied and the footer's FIRST branch
+    // (`tableHasOngoingOrder`) renders a disabled control — there is no
+    // mutating CTA to press. The discriminating evidence in this scenario is
+    // therefore the STAGE, which fails against main's shape; the key-minting
+    // consequence is pinned deterministically by
+    // `basket-body.initiation-ownership.spec.ts`, which drives `reserveIntent`
+    // directly instead of through a UI that correctly refuses to offer it.
+    const pressed = await cta.isEnabled().catch(() => false);
+    if (pressed) {
+      await cta.click();
+      await page.waitForTimeout(2500);
+    }
+    check('THE CONSEQUENCE: no fresh key is minted for the changed basket',
+          new Set(state.keys.filter(Boolean)).size === keysBefore,
+          `pressed=${pressed} keys=${JSON.stringify(state.keys)}`);
+    check('still exactly ONE order in the kitchen',
+          (await activeTickets()).length === 1);
+    check('the held-answer sequence raised no uncaught errors',
+          state.errors.length === 0, JSON.stringify(state.errors));
+    await page.close();
+  }
+
   await browser.close();
   console.log(`\n${passed}/${passed + failed} induced-loss checks passed`);
   console.log('This is a MANUAL repeatable run against disposable fixtures '

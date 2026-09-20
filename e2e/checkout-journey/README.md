@@ -244,6 +244,45 @@ reload, the notice never claims an acceptance that was never issued, and O1 is
 still a retired, unaccepted draft whose `quote_total` is byte-identical to what it
 was before the closure.
 
+### I1 — a held initiation answer lands after an acceptance
+
+The schedule the unit specs describe, driven for real: the browser's view of the
+FIRST `orders/initiate/` reply is held open (`route.fetch()` runs, so the server
+really creates O1; `route.fulfill()` is deferred), the routed basket page is
+destroyed by an in-app navigation and rebuilt, a SECOND initiation replays the
+same key, the diner places the order, that acceptance COMMITS and its reply is
+destroyed — and only then is the first reply released.
+
+**IT DISCRIMINATES ONLY AGAINST ALL THREE HALVES OF THE FIX, and the measurement
+is worth recording, because two plausible mutation runs come back green.**
+
+| mutation | I1 result |
+|---|---|
+| the component-side `resolvePricedAnswer` gate removed | **101/101** — `notePricedReview` re-asks in the coordinator |
+| `isCurrent`'s `!this.destroyed` removed, gate intact | **101/101** — the coordinator gate catches it |
+| both of those, PLUS `notePricedReview` -> unconditional `noteStage('reviewing')` — main's shape | **100/101**, the failure reading `stage=reviewing` |
+
+So the gate is real and it is layered; a single-mutation run proves nothing
+here. The premise is asserted rather than assumed — `the held reply really did
+land on the destroyed instance` checks that both initiate responses were
+observed, because `ngOnDestroy` does NOT cancel the request and a reply that
+never arrived would make every later assertion pass vacuously.
+
+**THE KEY-MINTING CONSEQUENCE IS NOT OBSERVABLE HERE, AND THE SCRIPT SAYS SO.**
+Once that acceptance has committed the table is occupied, so the footer's first
+branch (`tableHasOngoingOrder`) correctly renders a disabled control and there is
+no mutating CTA to press — `pressed=false` is reported in the check's own
+message rather than hidden. That consequence is pinned deterministically by
+`basket-body.initiation-ownership.spec.ts`, which drives `reserveIntent`
+directly.
+
+**ONE ORACLE DEFECT IN THIS SCENARIO WAS FOUND BY RUNNING IT.** Its first
+version read the stored record as `JSON.parse(raw)` where every other reader in
+this file unwraps `JSON.parse(raw)?.value`, so `stage` and `command` were
+`undefined` — two checks failed loudly and two more PASSED VACUOUSLY on
+`undefined === undefined`. The reads are shared now and the equality checks
+require the value to be PRESENT as well as equal.
+
 ### D06d — the acceptance never reaches the server
 
 **THE CONTROL FOR ALL OF IT.** The submission is aborted BEFORE it arrives, so

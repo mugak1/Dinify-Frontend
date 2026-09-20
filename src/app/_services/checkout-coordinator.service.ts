@@ -130,6 +130,51 @@ export type CheckoutStage =
   | 'pricing' | 'reviewing' | 'accepting'
   | 'unresolved' | 'accepted' | 'refused';
 
+/**
+ * I1 — THE IMMUTABLE IDENTITY OF ONE PRICING OPERATION.
+ *
+ * The initiation counterpart of `CheckoutOwner`, and captured the same way:
+ * BEFORE the request goes out, never re-read when its answer lands. An
+ * initiation answer is the one reply in this checkout that carries no order
+ * of its own to correlate against — the server is being asked to price, not
+ * to act — so the only thing that can say which attempt it belongs to is
+ * what the client knew when it asked.
+ *
+ * `orderId` is deliberately absent. A pricing operation has issued no
+ * command, which is exactly why `settles()` cannot stand in for this: with a
+ * null `orderId` it short-circuits to true for ANY answer naming the same key
+ * and scope, including one that predates an acceptance issued since.
+ */
+export interface PricingOperation {
+  readonly key: string;
+  readonly scope: string;
+  readonly purchase: string;
+}
+
+/**
+ * I1 — WHAT AN INITIATION ANSWER IS STILL ALLOWED TO DO.
+ *
+ * `superseded` is not a failure to report: the attempt this answer priced has
+ * been overtaken — by an acceptance, by a terminal outcome, by a retirement,
+ * or by a successor key — and an answer about a superseded attempt has
+ * nothing left to say about the record.
+ */
+export type PricedAnswer =
+  | { readonly kind: 'owned'; readonly record: CheckoutRecord }
+  | { readonly kind: 'superseded' };
+
+/**
+ * I1 — THE RESULT OF MOVING AN OWNED PRICING OPERATION TO `reviewing`.
+ *
+ * `storage-error` is reported rather than swallowed, for the reason every
+ * other durable write here reports it — but see `notePricedReview` for why
+ * this particular failure is not a reason to withhold the review.
+ */
+export type ReviewTransition =
+  | { readonly kind: 'reviewing'; readonly record: CheckoutRecord }
+  | { readonly kind: 'superseded' }
+  | { readonly kind: 'storage-error' };
+
 /** The exact command that was issued, captured BEFORE it was sent. Replaying
  *  a lost acceptance means re-sending THIS, never rebuilding one from the
  *  basket as it stands now. */
@@ -497,6 +542,24 @@ export type RecoveryOutcome =
   | { readonly kind: 'closure-unreadable'; readonly order: any;
       readonly correlation: CheckoutCorrelation | null;
       readonly evidence: ClosureEvidence }
+  /**
+   * I2 — THE SERVER RETIRED THE QUOTE AND THIS DEVICE COULD NOT WRITE IT DOWN.
+   *
+   * NOT `closure-unreadable`, and the difference is the whole reason it has
+   * its own word: the closure is valid, supported and names this attempt's
+   * quote. What failed is the LOCAL transition — `noteClosure`'s verified
+   * write — so the server fact is known and the record does not carry it.
+   *
+   * Pretending the write succeeded would offer a successor for a closure
+   * nothing recorded; treating it as absence would open an ordinary
+   * confirmable review for a quote that can never be paid, which is what the
+   * fall-through it replaces actually did. So neither: the key and the request
+   * are kept, no successor is minted, nothing is erased, and the diner is told
+   * the quote is finished and that this device could not save it. A reload
+   * re-reads the order, finds the SAME published closure and writes it then —
+   * which is the recovery, and it needs nothing to have been guessed here.
+   */
+  | { readonly kind: 'closure-unrecorded'; readonly closure: QuoteClosure }
   /** THE SERVER ANSWERED AND HAS NO ROW FOR THIS KEY, at a scope it resolved
    *  itself. It licenses a SAME-KEY, SAME-REQUEST replay — never a new key,
    *  and never discarding the record. */
@@ -981,10 +1044,112 @@ export class CheckoutCoordinatorService {
     }
   }
 
+  /**
+   * Write a stage onto whatever record is current — UNCONDITIONALLY.
+   *
+   * IT HAS NO PRODUCTION CALLER, and that is deliberate rather than an
+   * oversight waiting to be tidied up. It is kept because the specs use it to
+   * BUILD a record in a named stage, which is honest fixture setup; what it
+   * must never again be is the way a RESPONSE moves the checkout on.
+   *
+   * It spreads over `record()` and asks nothing about which operation the
+   * caller was answering for, so a late pricing reply walked an `accepting`
+   * record back to `reviewing` and — since `isOutstanding` reads the STAGE —
+   * unprotected the issued acceptance underneath it. Every transition driven
+   * by an answer goes through a CONDITIONAL one instead
+   * (`notePricedReview`, `noteCommand`, `recordOutcome`, `noteClosure`,
+   * `settleRefusedCommand`), each of which establishes that the record it is
+   * about is still the record it was issued for.
+   *
+   * So: if you are reaching for this from a subscriber, you want
+   * `notePricedReview`.
+   */
   noteStage(stage: CheckoutStage): boolean {
     const current = this.record();
     if (!current) return false;
     return this.persist({ ...current, stage });
+  }
+
+  /**
+   * I1 — MAY THIS PRICING ANSWER STILL ACT ON THE RECORD?
+   *
+   * THE DEFECT THIS ANSWERS. Both initiation handlers guarded their callbacks
+   * on a component-local `{seq, revision, context}` and then wrote to the
+   * SHARED record. None of those three moves when another mount advances the
+   * checkout, and a destroyed instance keeps its `activeAttempt` — so the
+   * ordinary interruption (price on the routed page, navigate away, finish on
+   * the sidebar) let a held initiation answer land over an acceptance that had
+   * been issued since. `noteStage('reviewing')` then walked the record back
+   * from `accepting`, and because `isOutstanding` reads the STAGE, the issued
+   * command stopped being protected: the next changed purchase minted a fresh
+   * key and erased the only handle the unsettled acceptance could be
+   * recovered by.
+   *
+   * SO IT IS A CONDITIONAL TRANSITION, the shape `renewAfterClosure` already
+   * uses, and it refuses on two independent grounds.
+   *
+   * IDENTITY — the record must still be the attempt this operation was issued
+   * for: the same key, at the same scope, for the same purchase. A successor
+   * minted after a closure carries a different key and is not this answer's
+   * to touch.
+   *
+   * STATE — and the attempt must not have MOVED ON, which identity alone
+   * cannot say. `accepting`, `unresolved` and `accepted` are all reached only
+   * by an acceptance; an issued `command` says the same thing from the other
+   * side and is checked independently, because a handle can be lost without
+   * the operation having been. An asserted closure is refused too: a quote the
+   * server has retired must never be walked back to a reviewable one, and that
+   * is reachable exactly when one mount establishes a closure while another's
+   * older pricing answer is still in flight.
+   *
+   * `refused` IS AN ALLOWED SOURCE, and deliberately so: `settleRefusedCommand`
+   * leaves a `quote_ref_stale` reprice at `refused` with no command and no
+   * closure, and `placeOrder` then prices again under the same key. Refusing
+   * it here would break the ordinary reprice.
+   */
+  resolvePricedAnswer(operation: PricingOperation): PricedAnswer {
+    const current = this.record();
+    if (!current) return { kind: 'superseded' };
+    if (current.key !== operation.key
+        || current.scope !== operation.scope
+        || current.request.identity !== operation.purchase) {
+      return { kind: 'superseded' };
+    }
+    if (current.stage !== 'pricing' && current.stage !== 'reviewing'
+        && current.stage !== 'refused') {
+      return { kind: 'superseded' };
+    }
+    if (current.command !== null) return { kind: 'superseded' };
+    if (readRecordClosure(current.closure).evidence.kind !== 'absent') {
+      return { kind: 'superseded' };
+    }
+    return { kind: 'owned', record: current };
+  }
+
+  /**
+   * I1 — MOVE AN OWNED PRICING OPERATION TO `reviewing`, OR DO NOTHING.
+   *
+   * The write `noteStage('reviewing')` used to make unconditionally. It
+   * re-asks `resolvePricedAnswer` rather than trusting a check the caller made
+   * earlier, so the gate and the write cannot be separated by anything — the
+   * same reasoning that keeps `renewAfterClosure`'s decision inside the
+   * primitive rather than at its four call sites.
+   *
+   * A FAILED WRITE IS REPORTED BUT IS NOT A REASON TO WITHHOLD THE REVIEW, and
+   * that is a narrower claim than it looks. `pricing` and `reviewing` are
+   * indistinguishable to every consumer that matters — neither is outstanding,
+   * both are replayable initiations — so a record stuck at `pricing` describes
+   * the same recoverable attempt. Nothing the diner is about to confirm rests
+   * on it, unlike the closure write in `noteClosure`, which is the sole record
+   * of a fact only the server knows.
+   */
+  notePricedReview(operation: PricingOperation): ReviewTransition {
+    const owned = this.resolvePricedAnswer(operation);
+    if (owned.kind !== 'owned') return { kind: 'superseded' };
+    const record: CheckoutRecord = { ...owned.record, stage: 'reviewing' };
+    return this.persist(record)
+      ? { kind: 'reviewing', record }
+      : { kind: 'storage-error' };
   }
 
   /**
