@@ -785,6 +785,153 @@ describe('BasketBodyComponent — the hold reaches the resend and the '
       expect(hold.attempt.key).withContext('bound to the attempt').toBe(key);
     });
 
+    /**
+     * CODEX P2 ON PR #679, VALID — AND A REGRESSION OF THIS CHANGE.
+     *
+     * `holdClosure` is LAST WRITE WINS, and its own safety argument was
+     * "both kinds refuse the same mutations, so a second observation about
+     * the same attempt cannot weaken the first". Adding a third kind made
+     * that false and left it standing: `contradictory-evidence` alone
+     * withholds the durable-closure yield, so an ordinary hold recorded for
+     * the SAME attempt afterwards is a DOWNGRADE — and a durable closure
+     * then releases a situation whose acceptance half nobody resolved,
+     * letting `renewAfterClosure` mint a successor for an order the server
+     * said was accepted. That is the irreversible half of the contradiction,
+     * reached through the one door the kind was introduced by.
+     *
+     * TWO READS DISAGREEING ABOUT ACCEPTANCE IS THE FIXTURE, and it is
+     * defensive territory by construction — so is `inconsistent` itself. The
+     * subject is the REPLACEMENT RULE, not the server's coherence.
+     */
+    it('THE REGRESSION: an ordinary hold never downgrades a contradiction '
+       + 'about the same attempt', () => {
+      const { key } = aPricedAttempt();
+      const c = makeComponent(false);
+      c.detectChanges();
+      http.expectOne(intentRead()).flush(contradictoryAnswer(key));
+      expect(coordinator.unresolvedClosure()!.kind)
+        .toBe('contradictory-evidence');
+
+      // A second mount's read answers NOT accepted, with a closure this
+      // build may not act on — an ordinary `unusable-evidence` observation
+      // about the very same attempt.
+      const d = makeComponent(false);
+      d.detectChanges();
+      http.expectOne(intentRead()).flush(
+        readAnswer(key, { quote_closure: { ...CLOSURE, policy_version: 99 } }));
+
+      expect(coordinator.unresolvedClosure()!.kind)
+        .withContext('the stronger observation stands; it refuses strictly '
+                     + 'more than the one that arrived after it')
+        .toBe('contradictory-evidence');
+    });
+
+    it('THE REGRESSION: so a durable closure still does not release it, and '
+       + 'no successor is minted', () => {
+      const { key } = aPricedAttempt();
+      const c = makeComponent(false);
+      c.detectChanges();
+      http.expectOne(intentRead()).flush(contradictoryAnswer(key));
+
+      const d = makeComponent(false);
+      d.detectChanges();
+      http.expectOne(intentRead()).flush(
+        readAnswer(key, { quote_closure: { ...CLOSURE, policy_version: 99 } }));
+
+      // The durable closure that an ordinary hold WOULD have yielded to.
+      expect(coordinator.noteClosure({
+        closedAt: CLOSURE.closed_at, reason: 'quote_expired',
+        quoteRef: 'q1', policyVersion: 1,
+      } as any)).withContext('the write itself is unaffected').toBeTrue();
+
+      expect(coordinator.unresolvedClosure())
+        .withContext('the contradiction survives the downgrade attempt AND '
+                     + 'the closure').not.toBeNull();
+      expect(coordinator.renewAfterClosure().kind)
+        .withContext('so no successor for an order the server said was '
+                     + 'accepted').not.toBe('ready');
+    });
+
+    it('CONTROL: a contradiction DOES replace an ordinary hold — the guard '
+       + 'is one-way, and an upgrade must still land', () => {
+      const { key } = aPricedAttempt();
+      const d = makeComponent(false);
+      d.detectChanges();
+      http.expectOne(intentRead()).flush(
+        readAnswer(key, { quote_closure: { ...CLOSURE, policy_version: 99 } }));
+      expect(coordinator.unresolvedClosure()!.kind).toBe('unusable-evidence');
+
+      const c = makeComponent(false);
+      c.detectChanges();
+      http.expectOne(intentRead()).flush(contradictoryAnswer(key));
+
+      expect(coordinator.unresolvedClosure()!.kind)
+        .withContext('a contradiction refuses strictly more, so it applies')
+        .toBe('contradictory-evidence');
+    });
+
+    it('CONTROL: a FRESHER contradiction replaces an older one, so the '
+       + 'evidence on screen is the latest read', () => {
+      const { key } = aPricedAttempt();
+      const c = makeComponent(false);
+      c.detectChanges();
+      http.expectOne(intentRead()).flush(contradictoryAnswer(key));
+      expect(coordinator.unresolvedClosure()!.evidence)
+        .toEqual(jasmine.objectContaining({ kind: 'closure' }));
+      const first = coordinator.unresolvedClosure()!;
+
+      // A second read of the same contradictory situation, naming the other
+      // closure reason. Both refuse identically, so the guard must not keep
+      // the stale one.
+      const d = makeComponent(false);
+      d.detectChanges();
+      http.expectOne(intentRead()).flush(readAnswer(key, {
+        order_status: 'pending', accepted: true,
+        accepted_at: '2026-09-20T10:00:00Z',
+        quote_closure: { ...CLOSURE, reason: 'purchase_needs_review' },
+        checkout: {
+          order_id: 'o1', intent_key: key,
+          scope: { restaurant: 'r1', table: 't1' },
+          acceptance: { state: 'accepted', outcome: 'newly_accepted',
+                        quote_ref: 'q1',
+                        accepted_at: '2026-09-20T10:00:00Z' },
+          current: { order_status: 'pending', fulfilment_status: 'new',
+                     cancelled_at: null, served_at: null },
+          checkout_protocol: 3,
+        },
+      }));
+
+      const now = coordinator.unresolvedClosure()!;
+      expect(now.kind)
+        .withContext('still a contradiction').toBe('contradictory-evidence');
+      expect(now).not
+        .withContext('but the FRESHER observation, not the one it replaced')
+        .toBe(first);
+      expect((now.evidence as any).closure?.reason)
+        .withContext('carrying what the latest read actually said')
+        .toBe('purchase_needs_review');
+    });
+
+    it('CONTROL: an ordinary hold still replaces an ordinary hold', () => {
+      const { key } = aPricedAttempt();
+      const d = makeComponent(false);
+      d.detectChanges();
+      http.expectOne(intentRead()).flush(
+        readAnswer(key, { quote_closure: { ...CLOSURE, policy_version: 99 } }));
+      expect(coordinator.unresolvedClosure()!.kind).toBe('unusable-evidence');
+
+      // The existing last-write-wins behaviour between the two ordinary
+      // kinds is untouched: they DO refuse the same mutations.
+      coordinator.holdClosure({
+        kind: 'unrecorded-closure',
+        attempt: { key, scope: 'r1:t1',
+                   purchase: basketService.contentIdentity() },
+        orderId: 'o1',
+        evidence: { kind: 'absent' },
+      });
+      expect(coordinator.unresolvedClosure()!.kind).toBe('unrecorded-closure');
+    });
+
     it('A DURABLE CLOSURE DOES NOT RESOLVE A CONTRADICTION BY ITSELF', () => {
       const { key } = aPricedAttempt();
       const c = makeComponent(false);

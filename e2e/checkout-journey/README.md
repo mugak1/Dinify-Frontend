@@ -158,7 +158,8 @@ node e2e/checkout-journey/journey.mjs
 defaults. Exit status is non-zero if any check fails.
 
 Last run: **42/42 (`journey.mjs`) and 128/128 (`recovery.mjs`)**, both
-re-executed at the **D06 I2-C completion** — frontend
+RE-EXECUTED on a fresh disposable database after the Codex-P2 follow-up (an
+ordinary hold may no longer downgrade a contradiction) — frontend
 `claude/dinify-d06-shared-hold-rsx96p` (the shared hold reaches the acceptance
 resend and the contradiction) against backend `f7d2ce6`, which is `origin/main`
 and was NOT modified for this work. Node 24.21.0, Chromium 141.0.7390.37,

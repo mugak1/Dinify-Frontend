@@ -1554,6 +1554,33 @@ so keep it current when conventions change.
   consulted. The interleaving is CONSTRUCTED rather than reached, exactly as the
   kitchen harness records for its own operation-identity check; the reasoning is
   written down in `e2e/checkout-journey/README.md` so it is not rediscovered
+  **AND AN OBSERVATION MAY NEVER WEAKEN A STRONGER ONE** (Codex P2 on PR #679,
+  valid — and a regression of this change rather than a pre-existing gap).
+  `holdClosure` is LAST WRITE WINS, on the argument that "both kinds refuse the
+  same mutations, so a second observation about the same attempt cannot weaken
+  the first". **THAT ARGUMENT DIED THE MOMENT A THIRD KIND ARRIVED**, and it was
+  left standing: `contradictory-evidence` alone withholds the durable-closure
+  yield, so a later ORDINARY hold was a DOWNGRADE — and a durable closure then
+  released a situation whose acceptance half nobody had resolved, leaving
+  `renewAfterClosure` free to mint a successor for an order that may already be
+  in the kitchen. Reproduced through two real mounts before it was fixed
+  (`unusable-evidence` replacing the contradiction, `unresolvedClosure()` then
+  `null`, `renewAfterClosure()` then `ready`).
+  **IT IS ONE-WAY AND EVERY DIRECTION IS PINNED**: a contradiction still
+  REPLACES an ordinary hold (it refuses strictly more), a FRESHER contradiction
+  still replaces an older one (so the evidence is the latest read), and the two
+  ordinary kinds still replace each other freely — of THEM the original argument
+  remains true. **IT DELIBERATELY DOES NOT COMPARE ATTEMPTS, and the first cut
+  of the fix did**: a hold naming a DIFFERENT attempt would pass such a guard,
+  replace the contradiction in the ONE slot, and then be refused by
+  `unresolvedClosure` for not matching the record — so the contradiction would
+  be LOST and its attempt unblocked, which is precisely the harm being guarded.
+  That clause also failed NOTHING under mutation, which is how it was caught.
+  One slot is a PRE-EXISTING limit this does not widen. The exit is unchanged
+  and is deliberately not this: `releaseClosureHold`, which is ordering-aware.
+  Suite 2627 -> 2632; reverting the guard fails 2 and making it two-way fails 1.
+  Browser: `journey.mjs` 42/42 and `recovery.mjs` 128/128 RE-RUN on a fresh
+  disposable database after the fix
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
