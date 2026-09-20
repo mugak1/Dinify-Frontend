@@ -54,6 +54,8 @@ import { ConfirmDialogService } from '../../../_common/confirm-dialog.service';
 import { ConnectivityService } from '../../../_services/connectivity.service';
 import { BasketItem } from '../../../_models/app.models';
 import { BasketBodyComponent } from './basket-body.component';
+import { correctedInitiate } from './corrected-quote.fixture';
+import { reviewQuote } from '../../../_shared/order/quote-review';
 
 describe('BasketBodyComponent — closure at both initiation doors (D06/I2)',
 () => {
@@ -79,20 +81,23 @@ describe('BasketBodyComponent — closure at both initiation doors (D06/I2)',
     policy_version: 1,
   };
 
-  const initiated = (details: Record<string, unknown> = {}) => ({
-    status: 200,
-    data: {
-      order_details: {
-        id: 'o1', quote_ref: 'q1', actual_cost: '5000.00',
-        quote_total: '5000.00', pricing_version: 'CORRECTED',
-        checkout_protocol: 3, quote_protocol: 2,
-        ...details,
-      },
-      order_items: [], available_items: [], unavailable_items: [],
-      extras: [], available_extras: [], unavailable_extras: [],
-      quote: [], quote_total: '5000.00',
-    },
-  });
+  /**
+   * A complete CORRECTED-wire initiate 200, so the premise of every schedule
+   * below — "an ordinarily confirmable quote" — is true of the CURRENT
+   * contract rather than of the pre-D02 one.
+   *
+   * THE FIXTURE THIS REPLACES SPELLED `pricing_version: 'CORRECTED'`. The
+   * discriminator is the NUMERIC `PRICING_VERSION_CORRECTED` (1), compared
+   * with `===`, so that payload took the LEGACY branch: the reference, the row
+   * identities, the per-line reconciliation, the availability counts and the
+   * order-level sum went unexercised. The timing behaviour these specs are
+   * about was still genuinely tested; what was not established is that it
+   * holds for an itemised quote. It does — and `reviewQuote` is asserted
+   * directly, on the unmodified payload, so the claim is checked rather than
+   * asserted.
+   */
+  const initiated = (details: Record<string, unknown> = {}) =>
+    correctedInitiate('o1', 'q1', details);
 
   beforeEach(async () => {
     basket = { items: [line()], totalAmount: 5000 };
@@ -177,6 +182,29 @@ describe('BasketBodyComponent — closure at both initiation doors (D06/I2)',
     expect((replay.request.body as any).client_order_id).toBe(key);
     replay.flush(body);
   }
+
+
+  it('THE FIXTURE PREMISE: the unmodified payload is a readable, ITEMISED '
+     + 'corrected quote', () => {
+    // ASSERTED, NOT ASSUMED. Every schedule in this file injects exactly one
+    // fault into `initiated()` and reads the outcome as attributable to it.
+    // That inference is only sound if the payload without the fault is one
+    // the diner could ordinarily confirm — and the version discriminator is
+    // numeric, so a fixture saying `'CORRECTED'` would pass through here
+    // reporting `itemised: false` and prove nothing about the current wire.
+    const review = reviewQuote(initiated().data as any);
+    expect(review.readable).withContext('confirmable').toBeTrue();
+    expect(review.itemised)
+      .withContext('and by the CORRECTED contract — the reference, the row '
+                   + 'identities, the reconciliation and the availability '
+                   + 'counts were all checked').toBeTrue();
+    expect(review.reason).toBeNull();
+    // The exact payable, in minor units: one 5,000 parent plus one 1,000
+    // extra, reconciling to the 6,000 the server states.
+    expect(review.totalMinor).toBe(600000);
+    expect(initiated().data.order_details.no_available_items).toBe(1);
+    expect(initiated().data.order_details.no_unavailable_items).toBe(0);
+  });
 
   // -- A: the replay door consumes the closure ---------------------------
 
@@ -333,7 +361,25 @@ describe('BasketBodyComponent — closure at both initiation doors (D06/I2)',
         expect(coordinator.record()!.key).toBe(key);
         // No closure was written, so there is nothing to mint a successor
         // FROM — and nothing may be invented.
-        expect(coordinator.renewAfterClosure().kind).toBe('none');
+        //
+        // THIS ORACLE MOVED, AND IT MOVED BECAUSE IT ENCODED A PERMISSION.
+        // It asserted `none`, which reads as "nothing to renew" — and the
+        // consumer treats `none` as PROCEED ("`reserveIntent` will mint a
+        // fresh key on its own", `renewAfterClosure`'s own docstring). For a
+        // valid closure this device failed to write down that is the wrong
+        // answer in the dangerous direction: it licenses a fresh key for a
+        // quote the server has permanently retired, and only a guard on the
+        // ONE instance that saw the answer stopped it. I2-C answers
+        // `storage-error` instead — nothing is minted, and no consumer is
+        // told to carry on.
+        const renewal = coordinator.renewAfterClosure();
+        expect(renewal.kind).toBe('storage-error');
+        expect(renewal.kind as string)
+          .withContext('and specifically NOT the old `none`, which the '
+                       + 'consumer reads as permission to proceed')
+          .not.toBe('none');
+        expect(coordinator.record()!.key)
+          .withContext('no successor key was minted').toBe(key);
       });
 
       it(`${name} gives the checkout flight back`, () => {

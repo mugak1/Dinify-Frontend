@@ -157,12 +157,31 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`), 101/101 (`recovery.mjs`) and 55/55
-(`e2e/kitchen-board/kitchen.mjs`)** at the **D06 I1/I2 revision** — frontend
-`03583cc` (a pricing answer owns one operation; a failed closure write is its
-own result) against backend `f7d2ce6`, which is `origin/main` and was NOT
-modified for this work. `recovery.mjs` grew from 88 to 101 checks: the new
-**I1** scenario, plus the premise and cart-edit assertions added to it.
+Last run: **42/42 (`journey.mjs`) and 114/114 (`recovery.mjs`)**, both
+re-executed at the **D06 I2-C + Codex-P2 revision** — frontend
+`claude/d06-shared-closure-hold` (a recovered closure this device could not write
+down is shared too) against backend `f7d2ce6`, which is `origin/main` and was NOT
+modified for this work. Node 24.15.0, Chromium 141.0.7390.37, PostgreSQL 16.13,
+a disposable local database and **development** assets (`ng serve
+--configuration development`, not an optimized build). `recovery.mjs` grew from
+101 to 114 checks at I2-C: the new **I2-C** scenario. The Codex-P2 fix edits the
+FAILURE branch of the two recovery `noteClosure` checks, which this harness
+cannot induce — it has no storage-fault injection — so both runs are re-executions
+that confirm the unchanged success paths, not evidence about the branch itself;
+that branch is pinned by `basket-body.shared-closure-hold.spec.ts` and
+`basket-body.closure-recovery.spec.ts`. **`e2e/kitchen-board/kitchen.mjs` (55/55
+at the I2-C revision) was NOT re-run here** — nothing in the kitchen board was
+touched — and that number is recorded as the earlier execution it was, never as a
+new one.
+
+**THE I2-C SCENARIO FOUND A DEFECT IN THE CHANGE IT WAS WRITTEN FOR, and no unit
+spec had.** The first cut shared the hold from the initiation and recovery doors
+and left the SUBMIT door: `applyQuoteRefusal` downgrades a closure it cannot act
+on — or cannot write down — to `unknown`, which blocks the mount that received
+it and tells no one else. The run reported
+`stage=accepting notices=0 mutatingButtons=1`. The fix is at that shared
+boundary, and it now has its own unit group with an ordinary-uncertainty control
+(a refusal carrying no closure must stay a real Retry).
 
 The run before it — backend `314c823` (#325 P2) and frontend `4620075` (#676
 P2) — scored 42/42, 88/88 and 55/55.
@@ -286,6 +305,50 @@ this file unwraps `JSON.parse(raw)?.value`, so `stage` and `command` were
 `undefined` — two checks failed loudly and two more PASSED VACUOUSLY on
 `undefined === undefined`. The reads are shared now and the equality checks
 require the value to be PRESENT as well as equal.
+
+### I2-C — a closure nothing could be written down, on both mounts
+
+**THE ONLY SCENARIO HERE THAT DRIVES BOTH REAL MOUNTS.** The diner shell renders
+a second `app-basket-body` as a `hidden lg:block` sidebar, so below 1024px it is
+in the DOM but neither visible nor clickable — fine for D06c, which asserts that
+both mounts READ a persisted closure, and not fine for pressing the second
+mount's own button. This one opens its tab at **1280px** so the sidebar is
+genuinely rendered and interactive, and `openTab()` takes a width for that
+reason alone.
+
+**THE DISTINCTION FROM D06c IS THE WHOLE SCENARIO.** There the closure is
+written down and both mounts read it from storage — the working path, re-asserted
+at the end here. This is the case where **nothing is persisted**: the server
+retires the quote, the local write fails, and the shared record still says
+`reviewing` with no command and no closure. That record is honest, and it is
+also exactly what an ordinary attempt waiting to be reviewed looks like — which
+is why the sidebar, before this change, classified the initiation as replayable
+and sent it again under a key bound to a retired order.
+
+**TWO THINGS ARE REAL AND ONE IS INJECTED, and the seam is labelled because it
+decides what the run proves.** The closure is REAL, written by the server's own
+`quote_closure` path after the dish is taken off sale through the kitchen panel.
+The two mounts are REAL. What is INJECTED is the storage failure, at exactly one
+point: `sessionStorage.setItem` for the checkout attempt key, armed **after**
+`route.fetch()` has let the server commit the closure and **before**
+`route.fulfill()` lets the browser process the refusal. It **silently drops**
+rather than throwing, because a store that accepts a write, reports nothing and
+keeps the previous value is the realistic failure and the one `persist`'s
+read-back exists to catch.
+
+**ARMING IT EARLIER WOULD PROVE NOTHING.** The key RESERVATION and the
+`noteCommand` write both happen before the acceptance is sent, and failing
+either of those refuses the submission outright — the server would never write a
+closure, and the run would be exercising a different guard while claiming to
+exercise closure persistence.
+
+It then asserts the mechanism (the shared record says nothing), the regression
+on the mount that did NOT receive the answer (both report it, both offer the
+non-mutating control, the sidebar offers no mutating action at all and pressing
+what it does render sends nothing and mints no second key), and finally that
+**recovery is still usable**: storage comes back, the authorized READ establishes
+the same closure durably, both mounts offer the review, and one deliberate tap
+produces exactly one successor.
 
 ### D06d — the acceptance never reaches the server
 

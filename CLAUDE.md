@@ -1355,6 +1355,133 @@ so keep it current when conventions change.
   there and the harness says so in its own comment: the acceptance really
   committed, so the table is occupied and the footer correctly offers no mutating
   CTA. That consequence is pinned deterministically by the unit spec instead
+- **AN UNRESOLVED CLOSURE IS A FACT BOTH BASKET CONSUMERS READ (D06 I2-C).**
+  I1/I2 put the right decision in the RECEIVING component and left it there. No
+  backend change: `quote_protocol` stays 2, `checkout_protocol` stays 3, and the
+  record version deliberately does not move — the observation is memory-backed,
+  so there is nothing new in storage to version.
+  **THE MECHANISM.** `applyInitiationResult` answers two closure situations by
+  assigning `this.recovered`: `closure-unreadable` (the server asserted
+  something under `quote_closure` this build may not act on) and
+  `closure-unrecorded` (the closure is VALID and `noteClosure`'s verified write
+  failed). Both are FIELDS ON ONE COMPONENT — `RecoveryOutcome` being declared
+  in the coordinator module does not make one shared runtime state — and
+  `closureUnresolvable()` read that field plus `unusableClosure()`, which reads
+  the same field and the persisted closure. In both situations the shared record
+  is still `K1 / pricing / command=null / outcome=null / closure=null`, which is
+  honest and is ALSO exactly what an ordinary attempt waiting to be reviewed
+  looks like. So the desktop sidebar — a second mount of this component, which
+  never runs a recovery — read the same record, classified the initiation as
+  replayable and **sent it again under a key that may be bound to an order the
+  server has retired**. The first component stayed blocked; the second did not,
+  and a component mounted after the hold was in the same position.
+  **THE OBSERVATION MOVED TO THE COORDINATOR** (`ClosureHold`,
+  `holdClosure`, `unresolvedClosure`), memory-backed and reactive — the right
+  shape for a hold that must survive within ONE document while storage itself is
+  the thing failing, since in the `unrecorded-closure` case a durable hold cannot
+  be written down by definition. **It is NOT a substitute** for persisting an
+  attempt before sending it, nor for the verified durable closure
+  `renewAfterClosure` still requires before minting a successor, and it never
+  turns an unusable assertion into a valid terminal fact — the evidence is
+  carried verbatim in the existing `ClosureEvidence` vocabulary. **FOUR FACTS
+  STAY APART**: a usable closure durably recorded (the existing working path), a
+  usable server closure with incomplete local persistence, unusable or
+  contradictory evidence, and genuine network uncertainty with no closure
+  asserted at all — the last is NOT a hold, and a Retry there is the right offer.
+  **IT NAMES THE ATTEMPT IT WAS MADE ABOUT**, captured before the request whose
+  answer produced it (`PricingOperation` for an initiation answer, the recovery's
+  own frozen `CheckoutOwner` for a read), never whatever record is current when
+  an old answer lands. `unresolvedClosure()` is where that binding is enforced,
+  and its five cases are each a decision: no record at all DOES NOT APPLY (there
+  is no attempt to hold, and blocking a fresh one would strand the diner with
+  nothing to recover from); a different key, scope or purchase DOES NOT APPLY
+  (that is what stops a stale K1 hold blocking a legitimately established K2);
+  the same attempt carrying a VALID DURABLE CLOSURE does not apply, because a
+  newer verified fact outranks an older observation; the same attempt APPLIES;
+  and unreadable storage APPLIES, fail-closed.
+  **ENFORCED AT THE SHARED BOUNDARY, NOT ONLY IN THE FOOTER.** Four coordinator
+  gates, so UI, ordinary initiation, initiation retry, direct acceptance,
+  acceptance resend and renewal cannot disagree for one held attempt:
+  `reserveIntent` answers a new `held` kind and refuses BOTH of its branches
+  (the same-key continue would re-price under a key that may be retired; the
+  mint would abandon the attempt the observation is about) — **a cart edit is
+  explicitly not a way out**; `isReplayableInitiation` is false; `noteCommand`
+  refuses, which is the structural gate every acceptance passes through, so a
+  second mount holding a review opened BEFORE the hold is stopped even though
+  its reviewed key still matches; and `renewAfterClosure` answers `unusable` or
+  `storage-error` rather than `none`. **THAT LAST ONE CORRECTED A SHIPPED
+  ORACLE**, recorded rather than relaxed: two #677 specs asserted `none`, and
+  the consumer treats `none` as PROCEED (`renewAfterClosure`'s own docstring:
+  "`reserveIntent` will mint a fresh key on its own"), so the old answer
+  licensed a fresh key for a permanently retired quote and only a guard on the
+  ONE instance that saw the answer stopped it.
+  **RECOVERY STAYS USABLE, AND THAT IS WHAT THE HOLD IS FOR.** `recover()` is a
+  GET and is deliberately outside every gate — reading cannot duplicate
+  anything, and a hold whose only exit was a mutation would be a dead end. The
+  documented exit is unchanged: storage recovers, the diner's own scoped read
+  finds the SAME published closure, `noteClosure` succeeds, and only then does
+  the explicit review action mint ONE successor. **A LOCAL RESULT YIELDS TO A
+  SHARED RESOLUTION** (`staleLocalClosureResult`), which is the mirror of the
+  defect above — one instance not knowing what the others do — and a mount whose
+  own result is no longer supported by either the hold or the record stops
+  reporting it. **The memory-backed hold does not survive a reload, and nothing
+  claims it does**: after one, the routed mount's recovery re-establishes it
+  from the server, which is the same path that resolves it.
+  **THE #677 FIXTURES WERE CORRECTED, and their timing tests are unaffected.**
+  Both spec files spelled `pricing_version: 'CORRECTED'` while the discriminator
+  is the NUMERIC `PRICING_VERSION_CORRECTED` (1) compared with `===`, so their
+  payloads took the LEGACY branch: the reference, the row identities, the
+  per-line reconciliation, the availability counts and the order-level sum went
+  unexercised, and the premise "an ordinarily confirmable quote" was true only of
+  the pre-D02 contract. `corrected-quote.fixture.ts` is now the one source —
+  importing the constant rather than restating it — with one parent (5,000) and
+  one extra (1,000) reconciling exactly to a 6,000 payable, and each file
+  asserts `reviewQuote(...).readable === true` and `.itemised === true` on the
+  UNMODIFIED payload before injecting a fault. A genuinely legacy fixture
+  (`legacyInitiate`) is kept and labelled as a different SERVER, not a weaker
+  version of the same one. `reviewQuote` is untouched and no production version
+  coercion was broadened.
+  **AND THE RECOVERY DOOR HAD TO SHARE A VALID CLOSURE IT COULD NOT WRITE DOWN**
+  (Codex P2 on PR #678, valid — the same defect class as the three doors this
+  change already covers, at the fourth). `shareUnusableEvidence` gated on
+  `closure-unreadable`, so the two recovery sinks answered a FAILED
+  `noteClosure` by setting `{kind: 'unknown'}` on the ONE component that made
+  the read, which is two mistakes in one line. **THE CLAIM WAS WRONG**:
+  `unknown` means genuine network uncertainty, and here the server published a
+  valid closure this build read perfectly well and failed to persist — exactly
+  what `closure-unrecorded` names, so the word said the outcome was
+  undetermined about a quote that is known retired. **AND THE SCOPE WAS
+  WRONG**: the shared record is still `K1 / pricing / command=null /
+  closure=null`, indistinguishable from an ordinary attempt waiting to be
+  reviewed, so the sidebar — which never runs a recovery — went on classifying
+  the initiation as replayable and could re-initiate under a key bound to a
+  retired order, recreating the cross-mount dead end through the one door the
+  first cut had not reached. `shareUnrecordedClosure` makes the SAME transition
+  the initiation door makes, with the same two halves in the same order (the
+  shared hold, then the local result), so the two cannot drift, and a NULL
+  owner still binds nothing. **IT IS NOT A SUBSTITUTE FOR THE WRITE**:
+  `renewAfterClosure` still requires the VERIFIED DURABLE closure before it
+  mints anything, and the documented exit — a reload, the same published
+  closure, a write that lands — is unchanged. **TWO SHIPPED ORACLES WERE
+  CORRECTED, RECORDED RATHER THAN RELAXED**: the two O1 specs in
+  `basket-body.closure-recovery.spec.ts` asserted that `unknown`, and now
+  assert `closure-unrecorded` plus the hold, with every other assertion they
+  make BYTE-IDENTICAL (no review, the command still outstanding, no successor)
+  — their subject never changed, and removing either `noteClosure` check still
+  fails both, which is the M8 gap they were written for.
+  Pinned by `basket-body.shared-closure-hold.spec.ts` (38 specs driving TWO real
+  component instances over one real coordinator, storage and HTTP stack, with B's
+  OWN Retry, Checkout and confirmation methods exercised); **12 of the first 34
+  fail on unmodified `d1a0abb`**, every failure because the second consumer acts
+  or is uninformed, and the 9 that pass are the premises and the controls. The
+  4 added for the Codex P2 fail **3 / 3 / 1 / 2** under four separate
+  mutations — the whole fix reverted, the shared half dropped while the local
+  result stands (which fails all three, because `staleLocalClosureResult` then
+  reads an unsupported local result and the mount says nothing at all), the
+  local result reverted while the hold stands, and the STARTUP sink alone
+  reverted — with the persist control holding throughout.
+  `recovery.mjs` gains **I2-C**, the first scenario to drive both mounts at a
+  desktop width so the sidebar is genuinely visible and clickable
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

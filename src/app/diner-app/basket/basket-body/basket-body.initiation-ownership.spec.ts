@@ -62,6 +62,8 @@ import { ConnectivityService } from '../../../_services/connectivity.service';
 import { DinerSessionService } from '../../../_services/diner-session.service';
 import { BasketItem } from '../../../_models/app.models';
 import { BasketBodyComponent } from './basket-body.component';
+import { correctedInitiate } from './corrected-quote.fixture';
+import { reviewQuote } from '../../../_shared/order/quote-review';
 
 describe('BasketBodyComponent — initiation-answer ownership (D06/I1)', () => {
   let http: HttpTestingController;
@@ -78,24 +80,17 @@ describe('BasketBodyComponent — initiation-answer ownership (D06/I1)', () => {
     quantity: 1, selectedModifiers: [], extras: [], isDiscounted: false,
   } as unknown as BasketItem);
 
-  /** A complete, otherwise-valid initiate 200 — so a refusal below is the
-   *  new guard and never an unrelated structural rejection of the quote. */
+  /**
+   * A complete CORRECTED-wire initiate 200 — so a refusal below is the new
+   * guard and never an unrelated structural rejection of the quote, and the
+   * "otherwise valid" premise is true of the CURRENT contract.
+   *
+   * See `corrected-quote.fixture.ts`: the version discriminator is NUMERIC,
+   * so the `'CORRECTED'` string this replaces exercised the legacy branch.
+   */
   const initiated = (
     orderId = 'o1', quoteRef = 'q1', details: Record<string, unknown> = {},
-  ) => ({
-    status: 200,
-    data: {
-      order_details: {
-        id: orderId, quote_ref: quoteRef, actual_cost: '5000.00',
-        quote_total: '5000.00', pricing_version: 'CORRECTED',
-        checkout_protocol: 3, quote_protocol: 2,
-        ...details,
-      },
-      order_items: [], available_items: [], unavailable_items: [],
-      extras: [], available_extras: [], unavailable_extras: [],
-      quote: [], quote_total: '5000.00',
-    },
-  });
+  ) => correctedInitiate(orderId, quoteRef, details);
 
   /** A correlated acceptance (checkout_protocol 3), so `submitVerdict`
    *  resolves `accepted` rather than refusing an unreadable projection. */
@@ -208,6 +203,29 @@ describe('BasketBodyComponent — initiation-answer ownership (D06/I1)', () => {
       .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown' });
     return fixture;
   }
+
+
+  it('THE FIXTURE PREMISE: the unmodified payload is a readable, ITEMISED '
+     + 'corrected quote', () => {
+    // ASSERTED, NOT ASSUMED. Every schedule in this file injects exactly one
+    // fault into `initiated()` and reads the outcome as attributable to it.
+    // That inference is only sound if the payload without the fault is one
+    // the diner could ordinarily confirm — and the version discriminator is
+    // numeric, so a fixture saying `'CORRECTED'` would pass through here
+    // reporting `itemised: false` and prove nothing about the current wire.
+    const review = reviewQuote(initiated().data as any);
+    expect(review.readable).withContext('confirmable').toBeTrue();
+    expect(review.itemised)
+      .withContext('and by the CORRECTED contract — the reference, the row '
+                   + 'identities, the reconciliation and the availability '
+                   + 'counts were all checked').toBeTrue();
+    expect(review.reason).toBeNull();
+    // The exact payable, in minor units: one 5,000 parent plus one 1,000
+    // extra, reconciling to the 6,000 the server states.
+    expect(review.totalMinor).toBe(600000);
+    expect(initiated().data.order_details.no_available_items).toBe(1);
+    expect(initiated().data.order_details.no_unavailable_items).toBe(0);
+  });
 
   // -- I1-a: the same-key progression ------------------------------------
 

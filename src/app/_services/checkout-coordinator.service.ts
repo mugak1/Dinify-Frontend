@@ -152,6 +152,62 @@ export interface PricingOperation {
 }
 
 /**
+ * I2-C — AN UNRESOLVED CLOSURE SITUATION, WHERE BOTH BASKET CONSUMERS READ IT.
+ *
+ * WHAT IT IS FOR. Two closure answers leave the diner held with NOTHING
+ * durable to show for it, because in both the local write is exactly what did
+ * not happen:
+ *
+ *   `unusable-evidence`   the server asserted something under `quote_closure`
+ *                         that this build may not act on, so there is nothing
+ *                         valid to persist;
+ *   `unrecorded-closure`  the closure is valid and `noteClosure`'s verified
+ *                         write failed, so there is nothing persisted.
+ *
+ * In both, the record stays `pricing` with no command and no closure — which
+ * is the honest state, and is also indistinguishable from an ordinary attempt
+ * waiting to be reviewed. The receiving component knew better and held that
+ * knowledge in a field of its own; the OTHER mount (the desktop sidebar beside
+ * the routed page), and any component mounted afterwards, read the same record
+ * and concluded the initiation was replayable.
+ *
+ * SO THE OBSERVATION LIVES HERE. It is memory-backed and reactive, which is
+ * the appropriate shape for a hold that must survive within ONE document while
+ * storage itself is the thing failing — a durable hold cannot be written down
+ * by definition in the `unrecorded-closure` case. It is NOT a substitute for
+ * persisting an attempt before sending it, nor for the verified durable
+ * closure `renewAfterClosure` still requires before minting a successor.
+ *
+ * IT NAMES THE ATTEMPT IT WAS MADE ABOUT, captured before the request whose
+ * answer produced it — never whatever record happens to be current when an old
+ * answer lands. `unresolvedClosure()` is where that binding is enforced, so a
+ * stale observation cannot block or mutate an unrelated successor.
+ */
+export type ClosureHoldKind = 'unusable-evidence' | 'unrecorded-closure';
+
+export interface ClosureHold {
+  readonly kind: ClosureHoldKind;
+  /**
+   * The captured attempt identity. `key`, `scope` and `purchase` are what
+   * `unresolvedClosure()` matches on — they are the attempt, and they are
+   * stable across everything that does not change which purchase is being
+   * made at which table.
+   */
+  readonly attempt: PricingOperation;
+  /**
+   * The order the answer named. RECORDED, NOT MATCHED: a held attempt cannot
+   * acquire a command (`noteCommand` refuses one), so matching on it could
+   * only ever make the hold lapse, which is the wrong direction. It is here
+   * so the hold says what it is about.
+   */
+  readonly orderId: string | null;
+  /** The server's own statement, in the existing evidence vocabulary. A
+   *  `closure` here means `unrecorded-closure`; `unsupported` or `malformed`
+   *  mean `unusable-evidence`. Nothing is coerced between the two. */
+  readonly evidence: ClosureEvidence;
+}
+
+/**
  * I1 — WHAT AN INITIATION ANSWER IS STILL ALLOWED TO DO.
  *
  * `superseded` is not a failure to report: the attempt this answer priced has
@@ -459,6 +515,18 @@ export type IntentReservation =
   | { readonly kind: 'outstanding'; readonly record: CheckoutRecord }
   /** The durable write did not succeed, so no mutation may be sent. */
   | { readonly kind: 'storage-error' }
+  /**
+   * I2-C — THIS ATTEMPT IS HELD BY AN UNRESOLVED CLOSURE SITUATION.
+   *
+   * Distinct from `blocked` (the stored record cannot be read) and from
+   * `outstanding` (an acceptance is in flight): the record here is perfectly
+   * readable and nothing was ever issued. What is known is that the server
+   * said something about this quote which this device could neither act on
+   * nor write down, so neither continuing under the same key nor minting a
+   * fresh one is available — the first replays a quote that may be retired,
+   * the second abandons the attempt the observation is about.
+   */
+  | { readonly kind: 'held'; readonly hold: ClosureHold }
   /** Storage holds something this build must not act around. */
   | { readonly kind: 'blocked'; readonly stored: StoredCheckout };
 
@@ -607,6 +675,13 @@ export class CheckoutCoordinatorService {
    *  this, so they cannot disagree about whether a checkout is running. */
   readonly inFlight = computed(() => this._flight() !== null);
 
+  /**
+   * I2-C — the unresolved closure observation, shared exactly as the flight
+   * is. See `ClosureHold` for what it is and `unresolvedClosure()` for the
+   * binding that keeps a stale one harmless.
+   */
+  private readonly _closureHold = signal<ClosureHold | null>(null);
+
   constructor(
     private readonly api: ApiService,
     private readonly storage: SessionStorageService,
@@ -683,6 +758,18 @@ export class CheckoutCoordinatorService {
     if (stored.kind === 'malformed' || stored.kind === 'unsupported') {
       return { kind: 'blocked', stored };
     }
+
+    // I2-C — A HELD ATTEMPT IS NEITHER CONTINUED NOR REPLACED.
+    //
+    // BOTH branches below had to be refused, and refusing only one would have
+    // been worse than refusing neither. `sameCommand` hands the SAME key back
+    // for the same purchase, which would re-price under a key that may be
+    // bound to a retired order; the mint below would abandon the attempt the
+    // observation is about and start a second one for the same basket. The
+    // check sits here, above both, so every consumer — the routed page, the
+    // sidebar, a component mounted after the hold — reaches one answer.
+    const held = this.unresolvedClosure();
+    if (held) return { kind: 'held', hold: held };
 
     if (stored.kind === 'record') {
       const existing = stored.record;
@@ -779,6 +866,11 @@ export class CheckoutCoordinatorService {
    * at `pricing` or `reviewing` with nothing issued against it.
    */
   isReplayableInitiation(record: CheckoutRecord): boolean {
+    // I2-C — AND NOT WHILE THE ATTEMPT IS HELD. Re-issuing the recorded
+    // initiation is precisely what a second mount did on the strength of a
+    // record that says `pricing` with no closure, which is what the
+    // observation exists to contradict.
+    if (this.heldRecord(record)) return false;
     if (record.degraded) return false;
     if (record.request.canon !== PURCHASE_CANON) return false;
     if (record.command !== null || record.outcome !== null) return false;
@@ -841,6 +933,83 @@ export class CheckoutCoordinatorService {
    */
   ownsPurchase(owner: CheckoutOwner, purchase: string): boolean {
     return owner.purchase === purchase;
+  }
+
+  // -- the shared unresolved-closure observation (I2-C) --------------------
+
+  /**
+   * Record that an attempt is held by a closure situation this device could
+   * neither act on nor write down.
+   *
+   * IT ASSERTS NOTHING THE SERVER DID NOT SAY. The evidence is carried
+   * verbatim in the vocabulary it was read in, so an `unsupported` or
+   * `malformed` assertion stays exactly that — this is deliberately not a
+   * route by which an unusable assertion becomes a valid terminal fact, which
+   * is `noteClosure`'s job and requires a validated closure.
+   *
+   * LAST WRITE WINS, and that is safe: both kinds refuse the same mutations,
+   * so a second observation about the same attempt cannot weaken the first.
+   */
+  holdClosure(hold: ClosureHold): void {
+    this._closureHold.set(hold);
+  }
+
+  /**
+   * The hold that applies to the attempt on record NOW, or `null`.
+   *
+   * THE BINDING IS THE WHOLE POINT. A hold is about ONE attempt, and every
+   * consumer reads it through here so none of them can act on one that has
+   * been left behind. Five cases, and each is a decision:
+   *
+   *   no record at all      DOES NOT APPLY. There is no attempt to hold, and
+   *                         blocking a fresh one would strand the diner with
+   *                         nothing to recover from — `reserveIntent` mints a
+   *                         new key there, which IS the way out.
+   *   a different attempt   DOES NOT APPLY. A different key, table or
+   *                         purchase is a different operation and this
+   *                         observation was never about it. That is what
+   *                         stops a stale K1 hold blocking a legitimate K2.
+   *   same attempt, and a
+   *   VALID durable closure DOES NOT APPLY. The situation has been resolved
+   *                         by a verified write — from a later authorized
+   *                         read, or from the other mount — and a newer
+   *                         established fact outranks an older observation.
+   *                         This is what keeps a local result from masking a
+   *                         shared resolution forever.
+   *   same attempt          APPLIES.
+   *   unreadable storage    APPLIES. Nothing here can prove the hold is about
+   *                         a different attempt, so it stands. (Those records
+   *                         are independently refused by `reserveIntent`.)
+   *
+   * It is a plain read: no write, no repair, no expiry and no clock.
+   */
+  unresolvedClosure(): ClosureHold | null {
+    const hold = this._closureHold();
+    if (!hold) return null;
+
+    const stored = this.read();
+    if (stored.kind === 'none') return null;
+    if (stored.kind !== 'record') return hold;
+
+    const now = stored.record;
+    if (now.key !== hold.attempt.key
+        || now.scope !== hold.attempt.scope
+        || now.request.identity !== hold.attempt.purchase) {
+      return null;
+    }
+    if (readRecordClosure(now.closure).evidence.kind === 'closure') return null;
+    return hold;
+  }
+
+  /** Is the attempt this record names held? The record-shaped question, for
+   *  callers that already have one in hand. */
+  private heldRecord(record: CheckoutRecord): ClosureHold | null {
+    const hold = this.unresolvedClosure();
+    if (!hold) return null;
+    return record.key === hold.attempt.key
+      && record.scope === hold.attempt.scope
+      && record.request.identity === hold.attempt.purchase
+      ? hold : null;
   }
 
   /**
@@ -1162,6 +1331,16 @@ export class CheckoutCoordinatorService {
   noteCommand(command: IssuedCommand): boolean {
     const current = this.record();
     if (!current) return false;
+    // I2-C — NO ACCEPTANCE IS RECORDED FOR A HELD ATTEMPT, SO NONE IS ISSUED.
+    //
+    // THE STRUCTURAL GATE, and the reason a consumer-side guard is not enough
+    // on its own: every acceptance in this client is written down before it
+    // is sent, so refusing the write refuses the send — for the direct
+    // confirmation, for a resend, and for any future caller. A second mount
+    // holding a review opened BEFORE the hold passes every check it can make
+    // about itself (its reviewed key still matches, its sheet is still open,
+    // the basket has not moved) and is stopped here.
+    if (this.heldRecord(current)) return false;
     return this.persist({ ...current, stage: 'accepting', command });
   }
 
@@ -1225,6 +1404,26 @@ export class CheckoutCoordinatorService {
     if (stored.kind !== 'record') return { kind: 'blocked', stored };
 
     const current = stored.record;
+
+    // I2-C — A HELD ATTEMPT MINTS NO SUCCESSOR, and the two kinds answer
+    // differently because they differ in what is KNOWN.
+    //
+    // `unusable-evidence` is E1's answer reached one step earlier: the server
+    // asserted a closure this build cannot read, so nothing was persisted and
+    // the record's own evidence reads `absent` — which without this would
+    // return `none` and read to a caller as "no closure, carry on".
+    //
+    // `unrecorded-closure` is a valid closure this device failed to write
+    // down. A successor may only ever come from a VERIFIED durable closure,
+    // so there is nothing here to mint from; `storage-error` is what that is,
+    // and it is the answer the consumer already handles by keeping the
+    // attempt and saying so.
+    const held = this.heldRecord(current);
+    if (held) {
+      return held.kind === 'unusable-evidence'
+        ? { kind: 'unusable', evidence: held.evidence }
+        : { kind: 'storage-error' };
+    }
 
     // O1 — THE EVIDENCE IS READ FROM THE RECORD, NEVER PASSED IN.
     //
@@ -1398,6 +1597,31 @@ export class CheckoutCoordinatorService {
     });
     if (!refusal) return null;
 
+    // I2-C — THE SUBMIT DOOR ASSERTS UNUSABLE EVIDENCE TOO, AND SAYS SO
+    // SHARED.
+    //
+    // `readQuoteRefusal` downgrades a terminal reason whose closure this build
+    // cannot read to `unknown` — correctly, because nothing may be acted on —
+    // and the consumer then reports generic uncertainty and offers a Retry the
+    // server refuses identically. The DOWNGRADE stays; what is added is that
+    // the fact becomes shared, so the other mount does not go on offering a
+    // checkout under a key that may be bound to a retired order.
+    //
+    // A refusal carrying NO closure at all is left completely alone: that is
+    // genuine uncertainty, and a Retry there is the right offer. The
+    // distinction is `closureAsserted`, which is the same predicate every
+    // other consumer uses.
+    if (current && refusal.disposition === 'unknown'
+        && closureAsserted(refusal.evidence)) {
+      this.holdClosure({
+        kind: 'unusable-evidence',
+        attempt: { key: current.key, scope: current.scope,
+                   purchase: current.request.identity },
+        orderId: issued?.orderId ?? current.command?.orderId ?? null,
+        evidence: refusal.evidence,
+      });
+    }
+
     if (refusal.disposition === 'terminal'
         && refusal.evidence.kind === 'closure') {
       // C1 — THE CLOSURE IS REMEMBERED, NOT JUST ACTED ON. The refusal that
@@ -1405,6 +1629,25 @@ export class CheckoutCoordinatorService {
       // reloads must not have to discover it again by attempting an
       // acceptance the server has already permanently refused.
       if (!this.noteClosure(refusal.evidence.closure)) {
+        // I2-C — AND A FAILED WRITE IS SHARED, NOT ONLY DOWNGRADED.
+        //
+        // The downgrade is right and stays: nothing durable was recorded, so
+        // no caller may re-price or mint a successor. But `unknown` alone is
+        // a LOCAL message on ONE mount, and the record it leaves behind is
+        // indistinguishable from an ordinary attempt — which is how the
+        // sidebar went on offering a checkout for a quote the server had
+        // permanently retired. THE SERVER FACT IS KNOWN HERE; only this
+        // device's record of it is missing, which is exactly the
+        // `unrecorded-closure` situation.
+        if (current) {
+          this.holdClosure({
+            kind: 'unrecorded-closure',
+            attempt: { key: current.key, scope: current.scope,
+                       purchase: current.request.identity },
+            orderId: issued?.orderId ?? current.command?.orderId ?? null,
+            evidence: refusal.evidence,
+          });
+        }
         return { ...refusal, disposition: 'unknown' };
       }
       return refusal;
