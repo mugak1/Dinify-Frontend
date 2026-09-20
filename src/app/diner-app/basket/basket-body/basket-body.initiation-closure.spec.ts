@@ -432,9 +432,24 @@ describe('BasketBodyComponent — closure at both initiation doors (D06/I2)',
       http.expectOne(`${API}/v2/orders/initiate/`)
         .flush(initiated({ quote_closure: { ...CLOSURE, policy_version: 99 } }));
 
+      const before = coordinator.record();
       component.retryOrder();
+
+      // `expectNone` IS the load-bearing assertion and it discriminates —
+      // removing `retryOrder`'s guard fails exactly this spec. But it is
+      // `HttpTestingController`'s check, not Jasmine's, so the runner reported
+      // `has no expectations` and this read like the vacuous spec it is not.
+      // A warning that usually means something real must not be trained away,
+      // so the same facts are stated as expectations too.
       http.expectNone(`${API}/v2/orders/initiate/`);
       http.expectNone(`${V1}/orders/submit/`);
+      expect(http.match(() => true).length)
+        .withContext('no request of any kind was issued').toBe(0);
+      // AND NOTHING WAS SPENT: the refusal leaves the attempt exactly as it
+      // was, so a later authorized read can still resolve it.
+      expect(coordinator.record()?.key).toBe(before?.key);
+      expect(coordinator.record()?.stage).toBe(before?.stage);
+      expect(component.closureUnresolved).toBeTrue();
     });
   });
 });
