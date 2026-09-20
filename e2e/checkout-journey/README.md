@@ -158,20 +158,28 @@ node e2e/checkout-journey/journey.mjs
 defaults. Exit status is non-zero if any check fails.
 
 Last run: **42/42 (`journey.mjs`) and 137/137 (`recovery.mjs`)**, both executed
-on a FRESH disposable database and **RE-RUN after the Codex P2 fix on PR #680**
-(the terminal cleanup now asks the same ordering question the release door
-asks), so the numbers describe the final code of the observation LIFECYCLE
-change (L1–L3) — frontend `claude/dinify-d06-shared-hold-rsx96p`
-against backend `f7d2ce6`, which is `origin/main` and was NOT modified for this
-work. Neither script discriminates for that fix either, for the reason the
-section below gives about I2-E: it needs two overlapping recovery reads in ONE
-document, and a reload is the only thing here that makes a routed mount read. Node 24.21.0, Chromium 141.0.7390.37, PostgreSQL 16.13, a disposable
+on a FRESH disposable database and **RE-RUN after the L4 change** (the cached
+ACCEPTANCE branch of `resumeInterruptedCheckout` now consults the applicable
+observation, as the cached-closure branch beside it already did), so the numbers
+describe the final code of that change — frontend
+`claude/dinify-d06-shared-hold-rsx96p` against backend `f7d2ce6`, which is
+`origin/main` and was NOT modified for this work. **Neither script discriminates
+for L4 either, and that was measured rather than assumed**: with the one
+production change reverted and everything else held constant, `recovery.mjs`
+runs **137/137** again. The reason is the one already recorded for I2-E below —
+the L4 state needs an accepted read issued BEFORE a contradiction to land AFTER
+it and then a FRESH routed mount in the SAME document, while `page.reload()` is
+the only thing here that makes a routed mount read and the hold is memory-backed,
+so the observation is gone before the next mount exists. No scenario was added
+for it: a walkthrough that cannot fail would not be evidence, and the decision is
+pinned deterministically by `basket-body.observation-lifecycle.spec.ts`, which
+fails 6 on `bf11a16` — every one of them on the missing GET.
+Node 24.21.0, Chromium 141.0.7390.37, PostgreSQL 16.13, a disposable
 local database and **development** assets (`ng serve --configuration
-development`, not an optimized build). `recovery.mjs` grew from 128 to 137
-checks: the new **I2-E** continuation of I2-D. **`e2e/kitchen-board/
-kitchen.mjs` (55/55 at the I2-C revision) was NOT re-run here** — nothing in the
-kitchen board was touched — and that number is recorded as the earlier execution
-it was, never as a new one.
+development`, not an optimized build). `recovery.mjs` is unchanged at 137
+checks. **`e2e/kitchen-board/kitchen.mjs` (55/55 at the I2-C revision) was NOT
+re-run here** — nothing in the kitchen board was touched — and that number is
+recorded as the earlier execution it was, never as a new one.
 
 A note on re-running `journey.mjs`: it raises the dish price **mid-run** through
 the real operator API, so a second run against the same database starts with the

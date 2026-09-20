@@ -1687,6 +1687,46 @@ so keep it current when conventions change.
   with the other controls holding throughout. Suite 2650 -> 2656. Browser:
   `journey.mjs` 42/42 and `recovery.mjs` 137/137 RE-RUN on a fresh disposable
   database after the fix
+  **AND THE OTHER CACHED SHORTCUT HAD THE SAME GAP — on the very state that
+  cleanup rule creates (L4).** L1 taught the cached-CLOSURE branch of
+  `resumeInterruptedCheckout` to consult the applicable observation; the
+  cached-ACCEPTANCE branch immediately above it was left unconditional, and the
+  fix above is what made that reachable. `observedWhatIsHeld` deliberately
+  withholds `clearIntent` when an older accepted answer lands under a newer
+  contradiction, so it leaves behind `K1 / accepted / outcome recorded /
+  contradiction unresolved` ON PURPOSE — an intended conservative state, not a
+  fault. A consumer mounted afterwards then took the shortcut, called
+  `finishAcceptedCheckout` with the default `observed = null` and RETURNED
+  BEFORE THE GET; cleanup correctly refused to forget the observation a second
+  time, so the next consumer repeated it. **"The next read tidies up once it has
+  seen what is held" was therefore not true through the actual startup entry
+  point** for the one state the rule produces. Every mutation gate refuses that
+  attempt correctly, which is exactly why none of them can be the way out: the
+  GET is the only permitted door and the shortcut was what closed it. **ONE
+  INVARIANT, stated so the next reader does not have to derive it: neither
+  cached terminal projection is sufficient to skip authoritative read recovery
+  while the applicable observation still requires it.** The correction is the
+  condition the adjacent branch already carries — three lines — and the ordinary
+  no-hold fast paths are deliberately untouched: a settled acceptance and a
+  settled closure each still restore with NO network dependency, and both
+  directions are pinned. **NOTHING IS SATISFIED BY SLEIGHT OF HAND**:
+  `observedWhatIsHeld` is unchanged and is never handed a hold the cached result
+  never observed, the recorded acceptance and the observation both stand while
+  the new read is pending or fails, and no storage is cleared, no successor
+  minted and no reload forced. Pinned by 9 more specs in the same file
+  (24 -> 33); **6 fail on unmodified `bf11a16` and every one of them fails on
+  the MISSING GET** rather than on a missing helper, while the over-strict form
+  that never takes the fast path fails exactly the 1 control that says an
+  ordinary settled cached acceptance needs no read. Suite 2656 -> 2665.
+  **The browser pair was RE-RUN (`journey.mjs` 42/42, `recovery.mjs` 137/137, a
+  fresh disposable database, backend `f7d2ce6`, development assets) and NEITHER
+  DISCRIMINATES — measured, with the production change reverted, at 137/137
+  again.** No scenario was added: the L4 interleaving needs an accepted read
+  issued before a contradiction to land after it AND a fresh routed mount in the
+  SAME document, while `page.reload()` is the only thing that makes a routed
+  mount read and the hold is memory-backed — the same shipped-UI limit #679
+  recorded for H1 and I2-E for the lifecycle walk, and a walkthrough that cannot
+  fail would not be evidence
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns
