@@ -154,22 +154,33 @@ export interface PricingOperation {
 /**
  * I2-C — AN UNRESOLVED CLOSURE SITUATION, WHERE BOTH BASKET CONSUMERS READ IT.
  *
- * WHAT IT IS FOR. Two closure answers leave the diner held with NOTHING
- * durable to show for it, because in both the local write is exactly what did
- * not happen:
+ * WHAT IT IS FOR. Three closure answers leave the diner held with NOTHING
+ * durable to show for it, because in all three the local write is exactly what
+ * did not happen:
  *
- *   `unusable-evidence`   the server asserted something under `quote_closure`
- *                         that this build may not act on, so there is nothing
- *                         valid to persist;
- *   `unrecorded-closure`  the closure is valid and `noteClosure`'s verified
- *                         write failed, so there is nothing persisted.
+ *   `unusable-evidence`      the server asserted something under
+ *                            `quote_closure` that this build may not act on,
+ *                            so there is nothing valid to persist;
+ *   `unrecorded-closure`     the closure is valid and `noteClosure`'s verified
+ *                            write failed, so there is nothing persisted;
+ *   `contradictory-evidence` the projection says the order was ACCEPTED *and*
+ *                            that its quote was RETIRED. Neither half may be
+ *                            persisted — acting on the acceptance clears a
+ *                            basket for an order that may never have been
+ *                            placed, acting on the closure mints a key for one
+ *                            that was — so nothing is.
  *
- * In both, the record stays `pricing` with no command and no closure — which
- * is the honest state, and is also indistinguishable from an ordinary attempt
- * waiting to be reviewed. The receiving component knew better and held that
- * knowledge in a field of its own; the OTHER mount (the desktop sidebar beside
- * the routed page), and any component mounted afterwards, read the same record
- * and concluded the initiation was replayable.
+ * THE THREE ARE KEPT APART BECAUSE THEY DIFFER IN WHAT IS KNOWN, and one word
+ * for three facts is how the next consumer mis-diagnoses: a statement this
+ * build cannot read, a statement it read and could not write down, and a
+ * server contradicting itself. They agree only on what may be DONE.
+ *
+ * In all three, the record stays `pricing` with no command and no closure —
+ * which is the honest state, and is also indistinguishable from an ordinary
+ * attempt waiting to be reviewed. The receiving component knew better and held
+ * that knowledge in a field of its own; the OTHER mount (the desktop sidebar
+ * beside the routed page), and any component mounted afterwards, read the same
+ * record and concluded the initiation was replayable.
  *
  * SO THE OBSERVATION LIVES HERE. It is memory-backed and reactive, which is
  * the appropriate shape for a hold that must survive within ONE document while
@@ -183,7 +194,8 @@ export interface PricingOperation {
  * answer lands. `unresolvedClosure()` is where that binding is enforced, so a
  * stale observation cannot block or mutate an unrelated successor.
  */
-export type ClosureHoldKind = 'unusable-evidence' | 'unrecorded-closure';
+export type ClosureHoldKind =
+  | 'unusable-evidence' | 'unrecorded-closure' | 'contradictory-evidence';
 
 export interface ClosureHold {
   readonly kind: ClosureHoldKind;
@@ -201,9 +213,12 @@ export interface ClosureHold {
    * so the hold says what it is about.
    */
   readonly orderId: string | null;
-  /** The server's own statement, in the existing evidence vocabulary. A
-   *  `closure` here means `unrecorded-closure`; `unsupported` or `malformed`
-   *  mean `unusable-evidence`. Nothing is coerced between the two. */
+  /** The server's own statement, in the existing evidence vocabulary, carried
+   *  VERBATIM. On `unrecorded-closure` it is the valid `closure` that failed
+   *  to persist; on `unusable-evidence` the `unsupported` or `malformed` row;
+   *  on `contradictory-evidence` whatever stood beside the acceptance, which
+   *  may itself be perfectly readable — it is the PAIR that cannot be acted
+   *  on, not the row. Nothing is ever coerced between the three. */
   readonly evidence: ClosureEvidence;
 }
 
@@ -970,12 +985,20 @@ export class CheckoutCoordinatorService {
    *                         observation was never about it. That is what
    *                         stops a stale K1 hold blocking a legitimate K2.
    *   same attempt, and a
-   *   VALID durable closure DOES NOT APPLY. The situation has been resolved
-   *                         by a verified write — from a later authorized
-   *                         read, or from the other mount — and a newer
-   *                         established fact outranks an older observation.
-   *                         This is what keeps a local result from masking a
-   *                         shared resolution forever.
+   *   VALID durable closure DOES NOT APPLY — EXCEPT to a CONTRADICTION. The
+   *                         situation has been resolved by a verified write —
+   *                         from a later authorized read, or from the other
+   *                         mount — and a newer established fact outranks an
+   *                         older observation. This is what keeps a local
+   *                         result from masking a shared resolution forever.
+   *                         **`contradictory-evidence` is deliberately outside
+   *                         it**: a durable closure records the RETIRED half
+   *                         and says nothing about the acceptance the same
+   *                         response claimed, so yielding would offer a
+   *                         successor for an order that may be in the kitchen
+   *                         — which is the irreversible half of the
+   *                         contradiction. Only an answer that resolves it
+   *                         (`releaseClosureHold`) clears that one.
    *   same attempt          APPLIES.
    *   unreadable storage    APPLIES. Nothing here can prove the hold is about
    *                         a different attempt, so it stands. (Those records
@@ -997,19 +1020,78 @@ export class CheckoutCoordinatorService {
         || now.request.identity !== hold.attempt.purchase) {
       return null;
     }
-    if (readRecordClosure(now.closure).evidence.kind === 'closure') return null;
+    if (hold.kind !== 'contradictory-evidence'
+        && readRecordClosure(now.closure).evidence.kind === 'closure') {
+      return null;
+    }
     return hold;
+  }
+
+  /**
+   * Is the attempt this OPERATION names held?
+   *
+   * THE ONE SHARED SEND-ELIGIBILITY QUESTION, asked by everything that is
+   * about to mutate on behalf of one attempt. `noteCommand` asks it of the
+   * record it is about to write, `isReplayableInitiation` of the record it is
+   * classifying, and the acceptance RESEND of the immutable owner captured
+   * before its read — which is the consumer that had no gate at all, because
+   * a resend re-sends a command that was persisted before the ORIGINAL
+   * acceptance and therefore writes nothing on its way out.
+   *
+   * A NULL OPERATION NAMES NOTHING, so it cannot be shown to be a different
+   * attempt: it FAILS CLOSED and any live hold applies, exactly as
+   * `unresolvedClosure` does for storage it cannot read. The realistic
+   * producer is a record that was unreadable when the request went out, which
+   * is precisely when nothing should be sent.
+   */
+  heldOperation(operation: PricingOperation | null): ClosureHold | null {
+    const hold = this.unresolvedClosure();
+    if (!hold) return null;
+    if (!operation) return hold;
+    return hold.attempt.key === operation.key
+      && hold.attempt.scope === operation.scope
+      && hold.attempt.purchase === operation.purchase
+      ? hold : null;
+  }
+
+  /**
+   * I2-C (completion) — A COHERENT ANSWER RESOLVES THE SITUATION IT IS ABOUT.
+   *
+   * The two ordinary kinds already have a passive exit: a VERIFIED durable
+   * closure on the record, which `unresolvedClosure` yields to. A CONTRADICTION
+   * has none, deliberately — see the yield rule above — so without this it
+   * could only ever be resolved by the record disappearing, and a server that
+   * stopped contradicting itself would leave the diner held for ever.
+   *
+   * ORDERING IS THE WHOLE GUARD, and it is stated as reference identity:
+   * `observed` is the hold that was current when the request whose answer
+   * this is went OUT. If the current hold is not that same one, an observation
+   * has been made since and this answer describes a moment before it — so it
+   * is refused, however much later it happens to land. A null `observed`
+   * (nothing was held when the request was issued) can therefore never clear a
+   * hold established while it was open.
+   *
+   * It is not a general "clear the hold" setter: the answer must be about the
+   * attempt the hold names, which is what routing through `heldOperation`
+   * asserts.
+   */
+  releaseClosureHold(
+    operation: PricingOperation | null, observed: ClosureHold | null,
+  ): boolean {
+    if (!observed) return false;
+    if (this.heldOperation(operation) !== observed) return false;
+    this._closureHold.set(null);
+    return true;
   }
 
   /** Is the attempt this record names held? The record-shaped question, for
    *  callers that already have one in hand. */
   private heldRecord(record: CheckoutRecord): ClosureHold | null {
-    const hold = this.unresolvedClosure();
-    if (!hold) return null;
-    return record.key === hold.attempt.key
-      && record.scope === hold.attempt.scope
-      && record.request.identity === hold.attempt.purchase
-      ? hold : null;
+    return this.heldOperation({
+      key: record.key,
+      scope: record.scope,
+      purchase: record.request.identity,
+    });
   }
 
   /**
@@ -1418,11 +1500,22 @@ export class CheckoutCoordinatorService {
     // so there is nothing here to mint from; `storage-error` is what that is,
     // and it is the answer the consumer already handles by keeping the
     // attempt and saying so.
+    //
+    // `contradictory-evidence` is `unusable` for a different reason, and the
+    // mapping is spelled out rather than left to a two-way `else`: the row
+    // beside the acceptance may itself be perfectly readable, so this is not
+    // "the closure cannot be read" — it is that a closure claimed beside an
+    // acceptance may not be acted on at all, which is exactly what `unusable`
+    // means to the consumer. Minting here is the irreversible half.
     const held = this.heldRecord(current);
     if (held) {
-      return held.kind === 'unusable-evidence'
-        ? { kind: 'unusable', evidence: held.evidence }
-        : { kind: 'storage-error' };
+      switch (held.kind) {
+        case 'unrecorded-closure':
+          return { kind: 'storage-error' };
+        case 'unusable-evidence':
+        case 'contradictory-evidence':
+          return { kind: 'unusable', evidence: held.evidence };
+      }
     }
 
     // O1 — THE EVIDENCE IS READ FROM THE RECORD, NEVER PASSED IN.

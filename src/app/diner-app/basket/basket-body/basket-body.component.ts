@@ -7,9 +7,9 @@ import { BasketItem, OrderInitiated, OrderQuoteLine, Restaurant, TableScan } fro
 import { ApiService } from 'src/app/_services/api.service';
 import { BasketService } from 'src/app/_services/basket.service';
 import {
-  CheckoutCoordinatorService, CheckoutOwner, CheckoutRecord, FlightToken,
-  IntentReservation, IssuedCommand, PURCHASE_CANON, PricingOperation,
-  RecoveryOutcome, RenewalResult,
+  CheckoutCoordinatorService, CheckoutOwner, CheckoutRecord, ClosureHold,
+  ClosureHoldKind, FlightToken, IntentReservation, IssuedCommand,
+  PURCHASE_CANON, PricingOperation, RecoveryOutcome, RenewalResult,
 } from 'src/app/_services/checkout-coordinator.service';
 import {
   CHECKOUT_PROTOCOL_CORRELATED, CheckoutCorrelation, acceptanceVerdict,
@@ -434,6 +434,10 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // A held answer landing after the diner has edited, moved table or
     // started a permitted new attempt must not clear the newer state.
     const owner = this.recoveryOwner();
+    // I2-C (completion) — THE HOLD AS IT STOOD WHEN THIS READ WENT OUT. A
+    // coherent answer may release the situation it was issued under; it may
+    // never release one observed while it was still open.
+    const observed = this.checkout.unresolvedClosure();
     this.checkout.recover().subscribe((outcome) => {
       if (!this.ownsRecovery(owner)) return;
       this.recovered = outcome;
@@ -462,6 +466,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             // retired, and it told only this mount; `shareUnrecordedClosure`
             // states the real fact and puts it where every consumer reads it.
             this.shareUnrecordedClosure(outcome.closure, owner);
+          } else {
+            // I2-C (completion) — AND A WRITE THAT LANDED RESOLVES THE HOLD
+            // THIS READ WAS ISSUED UNDER. A coherent "not accepted, closed"
+            // is exactly the answer a contradiction was waiting for.
+            this.releaseResolvedClosure(owner, observed);
           }
           return;
         case 'accepted-unrecorded':
@@ -512,11 +521,24 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     //
     // The sidebar, and anything mounted after the hold, holds no `recovered`
     // of its own — so without this it would render a disabled control and no
-    // sentence, which is the silence this notice exists to remove. The two
-    // kinds say different things because they ARE different facts: one is a
-    // statement this build cannot read, the other a statement it read
-    // perfectly well and could not write down.
-    if (!this.recovered && this.checkout.unresolvedClosure()) {
+    // sentence, which is the silence this notice exists to remove. The kinds
+    // say different things because they ARE different facts: a statement this
+    // build cannot read, a statement it read perfectly well and could not
+    // write down, and a server contradicting itself.
+    //
+    // I2-C (completion) — AND IT OUTRANKS THE TWO LOCAL RESULTS THAT PROMISE
+    // A RETRY THE HOLD REFUSES. A mount whose own read answered `draft` or
+    // `absent` while a hold stood would say "tap retry to send the same order
+    // again" / "you can send the same order again" above a control
+    // `closureUnresolved` has disabled — the promise-a-button-cannot-keep
+    // shape this file has closed twice already. Every OTHER result keeps its
+    // own sentence deliberately: the three closure kinds say MORE than the
+    // hold can, an acceptance outranks a statement about a quote, `blocked`
+    // and `unauthorized` name a more specific remedy, and the uncertain
+    // three already point at staff rather than at a button.
+    if (this.checkout.unresolvedClosure()
+        && (!this.recovered || this.recovered.kind === 'draft'
+            || this.recovered.kind === 'absent')) {
       return this.heldClosureMessage();
     }
     // I2-C — AND A LOCAL RESULT THE RECORD HAS SINCE RESOLVED SAYS SO. The
@@ -741,8 +763,21 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *
    * IT NAMES THE OPERATION THE READ WAS ABOUT, taken from the owner captured
    * BEFORE the request, so a held answer cannot hold an attempt it was never
-   * about. `inconsistent` is deliberately NOT shared: that one claims an
-   * acceptance as well, and it is not a statement about a quote alone.
+   * about.
+   *
+   * I2-C (completion) — AND `inconsistent` IS SHARED TOO, WITH ITS OWN WORD.
+   * It used to be excluded on the reasoning that it "claims an acceptance as
+   * well, and is not a statement about a quote alone" — true, and not a reason
+   * to leave it on one component. The record it leaves behind is the same
+   * `K1 / pricing / command=null / closure=null` as the other two, so the
+   * second mount classified the initiation as replayable and could re-issue it
+   * under a key that may be bound to a retired order, while the receiving
+   * mount stayed correctly blocked. That is the cross-mount gap this whole
+   * change exists to close, at the one door it had not reached.
+   *
+   * THE REASON DISTINCTION IS KEPT, which is why it gets its own kind rather
+   * than riding `unusable-evidence`: a contradiction is the server disagreeing
+   * with ITSELF, and it is the one hold a durable closure must not resolve.
    */
   private shareUnusableEvidence(
     outcome: RecoveryOutcome, owner: CheckoutOwner | null,
@@ -750,13 +785,40 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // A NULL OWNER NAMES NO OPERATION, so there is nothing to bind a hold to
     // and it is not established. `ownsRecovery` has already refused to act on
     // such an answer; this simply does not invent an identity for it.
-    if (!owner || outcome.kind !== 'closure-unreadable') return;
+    if (!owner) return;
+    let kind: ClosureHoldKind;
+    switch (outcome.kind) {
+      case 'closure-unreadable': kind = 'unusable-evidence'; break;
+      case 'inconsistent': kind = 'contradictory-evidence'; break;
+      default: return;
+    }
     this.checkout.holdClosure({
-      kind: 'unusable-evidence',
+      kind,
       attempt: { key: owner.key, scope: owner.scope, purchase: owner.purchase },
       orderId: owner.orderId,
       evidence: outcome.evidence,
     });
+  }
+
+  /**
+   * I2-C (completion) — A COHERENT ANSWER RELEASES THE HOLD IT RESOLVED.
+   *
+   * The mirror of `shareUnrecordedClosure`, and called from the same two
+   * recovery sinks at the same point: that one runs when the closure write
+   * FAILED, this one when it LANDED. A verified durable closure is what
+   * `unresolvedClosure` already yields to for the two ordinary kinds, so for
+   * those this is a no-op that costs nothing; for a CONTRADICTION it is the
+   * only exit, because there the yield is deliberately withheld.
+   *
+   * `observed` is the hold that was current when this read was ISSUED, which
+   * is what stops a stale answer clearing a newer observation — the ordering
+   * rule lives in `releaseClosureHold` so both sinks cannot spell it
+   * differently.
+   */
+  private releaseResolvedClosure(
+    owner: CheckoutOwner | null, observed: ClosureHold | null,
+  ): void {
+    this.checkout.releaseClosureHold(owner, observed);
   }
 
   /**
@@ -1518,6 +1580,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // only the startup path captured an owner, so a Retry answer held across
     // an edit or a table move completed unconditionally.
     const owner = this.checkout.ownerOf(record);
+    // I2-C (completion) — THE HOLD AS IT STOOD WHEN THIS READ WENT OUT; see
+    // the startup sink for why it is captured here rather than re-read.
+    const observed = this.checkout.unresolvedClosure();
     this.checkout.recover().subscribe((outcome) => {
       if (!this.ownsRecovery(owner)) {
         this.releaseCheckout();
@@ -1550,23 +1615,35 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             // retired, and it told only this mount; `shareUnrecordedClosure`
             // states the real fact and puts it where every consumer reads it.
             this.shareUnrecordedClosure(outcome.closure, owner);
+          } else {
+            // I2-C (completion) — AND A WRITE THAT LANDED RESOLVES THE HOLD
+            // THIS READ WAS ISSUED UNDER; see the startup sink.
+            this.releaseResolvedClosure(owner, observed);
           }
           return;
         case 'absent':
         case 'draft':
-          // BOTH ARE PROOF THE ACCEPTANCE DID NOT LAND, so both re-send the
-          // SAME command under the SAME key — never a fresh one, which is
-          // the whole point of having recorded it.
+          // BOTH DESCRIBE AN ORDER THE SERVER HAD NOT ACCEPTED WHEN IT
+          // LOOKED, so both re-send the SAME command under the SAME key —
+          // never a fresh one, which is the whole point of having recorded
+          // it.
+          //
+          // WHAT MAKES THAT SAFE IS THE KEY, NOT THE OBSERVATION. Neither
+          // answer proves the original request never arrived: each is one
+          // snapshot, taken without the lock the acceptance itself takes, so
+          // a command may have been received and be waiting behind that lock,
+          // or be mid-transaction and not yet visible. What the server
+          // guarantees is that a re-send under the same key and the same
+          // reference resolves to ONE acceptance however many times it lands
+          // — so the re-send is safe whether or not the first one did.
           //
           // `absent`: no row for this key at a scope the server resolved
-          // itself. `draft`: a level-3 `not_accepted`, which is DEFINITIVE
-          // and in fact the stronger evidence — the server names the order
-          // and says it is still `initiated`, and the backend writes its
-          // acceptance row in the SAME transaction as the transition, so
-          // "still a draft, no evidence" means the acceptance did not
-          // commit. It is also the LIKELIER case: a request that never
-          // arrives leaves behind the draft `initiate` already created, so
-          // recovery finds that draft rather than nothing.
+          // itself. `draft`: a level-3 `not_accepted`, which is the stronger
+          // of the two because the server NAMES the order and says it is
+          // still `initiated`, rather than merely failing to find one. It is
+          // also the LIKELIER case: a request that never arrives leaves
+          // behind the draft `initiate` already created, so recovery finds
+          // that draft rather than nothing.
           //
           // This branch previously did nothing, and doing nothing was a
           // DEAD END rather than a pause: the record still held a command,
@@ -2070,11 +2147,34 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * to one acceptance.
    */
   private resendIssuedCommand(command: IssuedCommand): void {
-    if (!this.holdCheckout()) return;
     // R2 — CAPTURED BEFORE THE SEND. `issued.seq` below is a component
     // counter: a cart edit does not move it, so it cannot say whether this
     // answer still owns what is on screen.
     const owner = this.recoveryOwner();
+
+    // I2-C (completion) — THE SHARED DECISION, ASKED IMMEDIATELY BEFORE THE
+    // SEND RATHER THAN AT THE PRESS THAT LED TO IT.
+    //
+    // `retryOrder` asks `closureUnresolved` once, and then `replayIssuedCommand`
+    // opens a read that stays outstanding for as long as the network takes. A
+    // hold established inside that window — by the other mount, by a routed
+    // instance's startup recovery, by a submit refusal — was invisible here,
+    // and this is the ONE acceptance in this client that reaches the wire
+    // without passing `noteCommand`: the command was persisted before the
+    // ORIGINAL acceptance, so a resend writes nothing on its way out and the
+    // structural gate never sees it.
+    //
+    // NOTHING IS DISCARDED BY REFUSING. The command, the key, the basket and
+    // the hold all stand; the read that produced this answer was worth making
+    // and its observation is not being called a failure. Only the mutation is
+    // withheld, and the flight is given back so no surface is left spinning —
+    // `releaseCheckout` is safe here whether or not this instance holds it.
+    if (this.checkout.heldOperation(owner)) {
+      this.releaseCheckout();
+      return;
+    }
+
+    if (!this.holdCheckout()) return;
     const payload: { order: unknown; quote_ref?: string } =
       { order: command.orderId };
     if (command.quoteRef) payload.quote_ref = command.quoteRef;
