@@ -453,7 +453,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       switch (outcome.kind) {
         case 'accepted':
           // DEFINITIVE, and the only outcome that finishes anything.
-          this.finishAcceptedCheckout(outcome.correlation, owner);
+          this.finishAcceptedCheckout(outcome.correlation, owner, observed);
           return;
         case 'closed':
           // C1 — REMEMBER IT, AND ATTEMPT NOTHING. The server has stated
@@ -972,10 +972,16 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * failure in between leaves a record that still says "accepted", which a
    * reload reads correctly — the other order leaves a diner being asked about
    * an order that is already cooking.
+   *
+   * @param observed The hold that stood when the request whose answer this is
+   *   went OUT. It defaults to `null` — nothing observed — so a caller with
+   *   no request behind it (the cached-terminal restoration) withholds the
+   *   forgetting while anything is held, which is the safe direction.
    */
   private finishAcceptedCheckout(
     correlation: CheckoutCorrelation | null = null,
     owner: CheckoutOwner | null = null,
+    observed: ClosureHold | null = null,
   ): void {
     // GATE B — THE RESULT IS RECORDED BEFORE ANY CLEANUP, on this path too.
     // The submit handler already did this; a recovery-DISCOVERED acceptance
@@ -1024,7 +1030,26 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // applies. A store that silently drops writes must not lose the accepted
     // outcome while the REMOVAL succeeds, which would leave a reload free to
     // start a second checkout for an order already being cooked.
-    if (recorded) this.checkout.clearIntent();
+    //
+    // AND ONLY WHEN THIS ANSWER SAW WHATEVER IS HELD NOW (Codex P2 on #680).
+    // Forgetting the attempt is how an observation stops applying, so an
+    // answer issued BEFORE a hold was established could retire it without
+    // ever passing the ordering check `releaseClosureHold` exists to apply —
+    // an older read silencing a newer observation, by the one door that does
+    // not go through it. The acceptance is still recorded and still
+    // announced, because losing a real one would be as wrong; only the
+    // FORGETTING is withheld, exactly as it is for a failed durable write,
+    // and the next read tidies up once it has seen what is held.
+    if (recorded && this.observedWhatIsHeld(observed)) {
+      this.checkout.clearIntent();
+    }
+  }
+
+  /** Did the request whose answer this is see the observation that stands
+   *  now? Reference identity, the rule `releaseClosureHold` already uses. */
+  private observedWhatIsHeld(observed: ClosureHold | null): boolean {
+    const held = this.checkout.unresolvedClosure();
+    return held === null || held === observed;
   }
 
   /**
@@ -1615,7 +1640,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.releaseCheckout();
       switch (outcome.kind) {
         case 'accepted':
-          this.finishAcceptedCheckout(outcome.correlation, owner);
+          this.finishAcceptedCheckout(outcome.correlation, owner, observed);
           return;
         case 'accepted-unrecorded':
           // Gate B, exactly as in the resume path: the server cannot

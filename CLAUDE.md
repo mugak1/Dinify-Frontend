@@ -1655,7 +1655,38 @@ so keep it current when conventions change.
   recorded for H1**, kept as a lifecycle WALK with the reasoning written into
   `e2e/checkout-journey/README.md`. `journey.mjs` 42/42 and `recovery.mjs`
   137/137 on a FRESH disposable database against backend `f7d2ce6`, development
-  assets
+  assets.
+  **AND FORGETTING AN ATTEMPT IS ALSO A WAY OF RETIRING AN OBSERVATION** (Codex
+  P2 on PR #680, valid — a real regression of L2 layered on a gap that predates
+  it). The ordering guard `releaseClosureHold` applies lives on the RELEASE door;
+  the accepted branch does not go through it, and `finishAcceptedCheckout` ->
+  `clearIntent` retires the attempt an observation NAMES — which makes
+  `unresolvedClosure()` answer `null` and `storedClosure()` answer `absent` by
+  the one route the guard never sees. On main the unconditional local
+  `inconsistent` block masked it; L2 made that block conditional, so an accepted
+  read issued BEFORE a contradiction was observed could land last and withdraw
+  the newer observation's warning and block from both mounts.
+  **THE CLEANUP NOW ASKS THE SAME ORDERING QUESTION THE RELEASE DOOR ASKS**:
+  `observedWhatIsHeld(observed)` compares, by REFERENCE IDENTITY, the hold that
+  stood when the request went out against the one standing when its answer
+  lands. **ONLY THE FORGETTING IS WITHHELD** — the outcome is still recorded and
+  the acceptance still announced, because losing a real one would be as wrong,
+  which is exactly the split a FAILED DURABLE WRITE already makes; the next read
+  tidies up once it has seen what is held.
+  **`held === null` IS A REAL CLAUSE, NOT A CONVENIENCE**: with nothing held
+  there is no observation for the forgetting to silence, so a read whose
+  observation was LEGITIMATELY RESOLVED while it was open must still tidy up —
+  and an over-strict `held === observed` would retain a dead record on the
+  ordinary documented exit. It needs no attempt comparison of its own, because
+  `unresolvedClosure()` already refuses a hold that names a different attempt.
+  **The CACHED-TERMINAL branch passes NOTHING and keeps the `null` default**: it
+  has no request behind it, so it can name no observation, and withholding the
+  forget while anything is held is the safe direction there.
+  Pinned by 6 more specs in the same file (18 -> 24); the unconditional form
+  fails exactly the 3 regressions and the over-strict form exactly the 1 control,
+  with the other controls holding throughout. Suite 2650 -> 2656. Browser:
+  `journey.mjs` 42/42 and `recovery.mjs` 137/137 RE-RUN on a fresh disposable
+  database after the fix
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

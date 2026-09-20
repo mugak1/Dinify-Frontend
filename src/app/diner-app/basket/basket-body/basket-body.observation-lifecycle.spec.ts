@@ -667,6 +667,130 @@ describe('BasketBodyComponent — the observation lifecycle (D06/I2-C)', () => {
         .withContext('and the mount that observed it still blocks').toBeTrue();
     });
 
+    /**
+     * Codex P2 on PR #680, valid. An ACCEPTED read issued BEFORE a
+     * contradiction can land after it, and the accepted branch consults the
+     * `observed` hold it already captures for nothing: `clearIntent` removes
+     * the record, `unresolvedClosure()` then answers null for want of an
+     * attempt, and the newer observation is silenced by an older answer that
+     * was never allowed to resolve it.
+     */
+    function anOlderAcceptedAnswerUnderANewerContradiction() {
+      const { key } = aPricedAttempt();
+
+      // A's accepted read is issued FIRST and held. Nothing is observed yet,
+      // so it can never be the answer that resolves what comes next.
+      const a = makeComponent(false);
+      a.detectChanges();
+      const aRead = http.expectOne(intentRead());
+
+      // The contradiction is observed while it is open.
+      const b = makeComponent(false);
+      b.detectChanges();
+      http.expectOne(intentRead()).flush(contradictoryAnswer(key));
+      expect(coordinator.unresolvedClosure()!.kind)
+        .withContext('THE PREMISE: the contradiction is established')
+        .toBe('contradictory-evidence');
+
+      // A's OLDER answer lands last, and it is coherent.
+      aRead.flush(acceptedAnswer(key));
+      return { a, b, key };
+    }
+
+    it('THE REGRESSION: an older accepted answer does not retire a '
+       + 'contradiction observed while it was open', () => {
+      const { key } = anOlderAcceptedAnswerUnderANewerContradiction();
+
+      expect(coordinator.unresolvedClosure())
+        .withContext('the newer observation still applies').not.toBeNull();
+      expect(coordinator.record()?.key)
+        .withContext('because the attempt it names was not forgotten')
+        .toBe(key);
+    });
+
+    it('THE REGRESSION: so the consumer that observed it keeps saying so',
+       () => {
+      const { a, b } = anOlderAcceptedAnswerUnderANewerContradiction();
+
+      expect(b.componentInstance.closureUnresolved)
+        .withContext('the mount that observed the contradiction').toBeTrue();
+      expect(a.componentInstance.closureUnresolved)
+        .withContext('and the one that did not, through the shared hold')
+        .toBeTrue();
+    });
+
+    it('THE REGRESSION: and the acceptance is NOT lost — only the forgetting '
+       + 'is withheld', () => {
+      anOlderAcceptedAnswerUnderANewerContradiction();
+
+      expect(coordinator.record()?.outcome?.kind)
+        .withContext('the terminal outcome is still durably recorded')
+        .toBe('accepted');
+    });
+
+    it('CONTROL: an accepted answer that DID observe the hold still tidies '
+       + 'up', () => {
+      const { key } = aPricedAttempt();
+      const b = makeComponent(false);
+      b.detectChanges();
+      http.expectOne(intentRead()).flush(contradictoryAnswer(key));
+
+      // Issued AFTER the contradiction, so it is the answer to a question
+      // asked in full knowledge of it.
+      const c = makeComponent(false);
+      c.detectChanges();
+      http.expectOne(intentRead()).flush(acceptedAnswer(key));
+
+      expect(coordinator.record())
+        .withContext('the settled attempt is forgotten as it always was')
+        .toBeNull();
+      expect(coordinator.unresolvedClosure())
+        .withContext('and nothing is held against a fresh purchase')
+        .toBeNull();
+    });
+
+    it('CONTROL: an answer whose observation was LEGITIMATELY RESOLVED while '
+       + 'it was open still tidies up', () => {
+      const { key } = aPricedAttempt();
+
+      // D's accepted read is issued while the contradiction STANDS, so it is
+      // the answer to a question asked in full knowledge of it.
+      const c = makeComponent(false);
+      c.detectChanges();
+      http.expectOne(intentRead()).flush(contradictoryAnswer(key));
+      const d = makeComponent(false);
+      d.detectChanges();
+      const dRead = http.expectOne(intentRead());
+
+      // A later coherent read resolves it through the ordering check — the
+      // documented exit — so by the time D's answer lands the observation it
+      // was measured against is gone, and there is nothing left to silence.
+      const e = makeComponent(false);
+      e.detectChanges();
+      http.expectOne(intentRead())
+        .flush(readAnswer(key, 'o1', 'q1', { quote_closure: closureFor('q1') }));
+      expect(coordinator.unresolvedClosure())
+        .withContext('THE PREMISE: the observation is legitimately resolved')
+        .toBeNull();
+
+      dRead.flush(acceptedAnswer(key));
+
+      expect(coordinator.record())
+        .withContext('with nothing held, the forgetting silences nothing')
+        .toBeNull();
+    });
+
+    it('CONTROL: an ORDINARY accepted recovery with no observation at all '
+       + 'still tidies up', () => {
+      const { key } = aPricedAttempt();
+      const c = makeComponent(false);
+      c.detectChanges();
+      http.expectOne(intentRead()).flush(acceptedAnswer(key));
+
+      expect(coordinator.record())
+        .withContext('the ordinary path is untouched').toBeNull();
+    });
+
     it('CONTROL: a FAILED terminal write retires nothing — the observation '
        + 'stands and the record survives', () => {
       const { key } = aPricedAttempt();

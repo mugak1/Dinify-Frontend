@@ -158,10 +158,14 @@ node e2e/checkout-journey/journey.mjs
 defaults. Exit status is non-zero if any check fails.
 
 Last run: **42/42 (`journey.mjs`) and 137/137 (`recovery.mjs`)**, both executed
-on a FRESH disposable database against the final code of the observation
-LIFECYCLE change (L1–L3) — frontend `claude/dinify-d06-shared-hold-rsx96p`
+on a FRESH disposable database and **RE-RUN after the Codex P2 fix on PR #680**
+(the terminal cleanup now asks the same ordering question the release door
+asks), so the numbers describe the final code of the observation LIFECYCLE
+change (L1–L3) — frontend `claude/dinify-d06-shared-hold-rsx96p`
 against backend `f7d2ce6`, which is `origin/main` and was NOT modified for this
-work. Node 24.21.0, Chromium 141.0.7390.37, PostgreSQL 16.13, a disposable
+work. Neither script discriminates for that fix either, for the reason the
+section below gives about I2-E: it needs two overlapping recovery reads in ONE
+document, and a reload is the only thing here that makes a routed mount read. Node 24.21.0, Chromium 141.0.7390.37, PostgreSQL 16.13, a disposable
 local database and **development** assets (`ng serve --configuration
 development`, not an optimized build). `recovery.mjs` grew from 128 to 137
 checks: the new **I2-E** continuation of I2-D. **`e2e/kitchen-board/
