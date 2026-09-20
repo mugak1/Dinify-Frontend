@@ -739,6 +739,121 @@ describe('BasketBodyComponent — the unresolved closure both mounts read '
       expect(coordinator.record()!.key).toBe(key);
     });
 
+    it('THE REGRESSION: a VALID closure the recovery cannot write down holds '
+       + 'the sidebar too', () => {
+      // CODEX P2 ON #678, VALID — and the same defect class as the three doors
+      // this change already covers, at the fourth. `shareUnusableEvidence`
+      // gated on `closure-unreadable`, so a recovery that resolved a
+      // PERFECTLY VALID closure and then failed to persist it set
+      // `{kind: 'unknown'}` on ONE component and shared nothing. The record
+      // stays a commandless `reviewing` with no closure, which is exactly what
+      // an ordinary reviewable attempt looks like — so the other mount
+      // re-initiates a permanently retired quote.
+      const priced = makeComponent();
+      priced.componentInstance.initiateOrder();
+      http.expectOne(INITIATE).flush(correctedInitiate());
+      const key = coordinator.record()!.key;
+      priced.destroy();
+
+      const routed = makeComponent(false);
+      routed.detectChanges();
+      // The fault is armed AFTER the read is issued, so it lands on the
+      // CLOSURE write specifically and not on anything earlier.
+      const read = http.expectOne(intentRead(key));
+      spyOn(storage, 'setItem').and.stub();
+      read.flush(readAnswer(key, { quote_closure: CLOSURE }));
+
+      expect(coordinator.closureOf(coordinator.record()!).evidence.kind)
+        .withContext('the write really failed').toBe('absent');
+      expect(routed.componentInstance.closureUnresolved)
+        .withContext('the mount that recovered it').toBeTrue();
+
+      const sidebar = makeComponent();
+      expect(sidebar.componentInstance.closureUnresolved)
+        .withContext('and the one that never ran a recovery').toBeTrue();
+      attemptEveryMutation(sidebar);
+      expect(http.match(() => true).length)
+        .withContext('a retired quote is not re-initiated because this device '
+                     + 'could not write the closure down').toBe(0);
+      expect(coordinator.record()!.key).toBe(key);
+    });
+
+    it('THE REGRESSION: and it says which situation it is, not "we could not '
+       + 'confirm"', () => {
+      // `unknown` claims the outcome is undetermined. It is not: the server
+      // stated the quote is retired and this device failed to record it, which
+      // is the `closure-unrecorded` fact the initiation door already reports.
+      const priced = makeComponent();
+      priced.componentInstance.initiateOrder();
+      http.expectOne(INITIATE).flush(correctedInitiate());
+      const key = coordinator.record()!.key;
+      priced.destroy();
+
+      const routed = makeComponent(false);
+      routed.detectChanges();
+      const read = http.expectOne(intentRead(key));
+      spyOn(storage, 'setItem').and.stub();
+      read.flush(readAnswer(key, { quote_closure: CLOSURE }));
+
+      const notice = routed.componentInstance.recoveryNotice ?? '';
+      expect(notice.toLowerCase())
+        .withContext('the local failure, named').toContain('could not save');
+      expect(notice.toLowerCase())
+        .withContext('and the remedy that works').toContain('reload');
+    });
+
+    it('THE REGRESSION: the RETRY recovery sink shares it as well', () => {
+      // The second sink. A lost acceptance leaves an outstanding command, so
+      // Retry replays it through a recovery read — the same `closed` outcome
+      // and the same failed write, down a different path.
+      const a = makeComponent();
+      a.componentInstance.initiateOrder();
+      http.expectOne(INITIATE).flush(correctedInitiate());
+      const key = coordinator.record()!.key;
+      a.componentInstance.confirmQuote();
+      http.expectOne(SUBMIT)
+        .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown' });
+      expect(coordinator.isOutstanding(coordinator.record()!))
+        .withContext('an acceptance is outstanding, so Retry recovers')
+        .toBeTrue();
+
+      a.componentInstance.retryOrder();
+      const read = http.expectOne(intentRead(key));
+      spyOn(storage, 'setItem').and.stub();
+      read.flush(readAnswer(key, { quote_closure: CLOSURE }));
+
+      const sidebar = makeComponent();
+      expect(a.componentInstance.closureUnresolved)
+        .withContext('the mount that retried').toBeTrue();
+      expect(sidebar.componentInstance.closureUnresolved)
+        .withContext('and the mount that did not').toBeTrue();
+      attemptEveryMutation(sidebar);
+      expect(http.match(() => true).length).toBe(0);
+    });
+
+    it('CONTROL: a recovered closure that DOES persist is the working path',
+       () => {
+      const priced = makeComponent();
+      priced.componentInstance.initiateOrder();
+      http.expectOne(INITIATE).flush(correctedInitiate());
+      const key = coordinator.record()!.key;
+      priced.destroy();
+
+      const routed = makeComponent(false);
+      routed.detectChanges();
+      http.expectOne(intentRead(key))
+        .flush(readAnswer(key, { quote_closure: CLOSURE }));
+
+      expect(coordinator.closureOf(coordinator.record()!).evidence.kind)
+        .toBe('closure');
+      const sidebar = makeComponent();
+      expect(routed.componentInstance.closureUnresolved)
+        .withContext('a recorded closure is not an unresolved one').toBeFalse();
+      expect(sidebar.componentInstance.closureUnresolved).toBeFalse();
+      expect(sidebar.componentInstance.updatedReviewPrompt)
+        .withContext('and BOTH mounts are offered the review').not.toBeNull();
+    });
+
     it('CONTROL: an ordinary draft read holds nothing', () => {
       const priced = makeComponent();
       priced.componentInstance.initiateOrder();

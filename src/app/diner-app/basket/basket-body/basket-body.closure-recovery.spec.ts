@@ -447,6 +447,19 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
   // closure, and the review would then find none and price again under the
   // retired key. The submit-refusal path has its own gate in
   // `basket-body.evidence-gates.spec.ts`; these are the other two sites.
+  //
+  // I2-C — ONE SHIPPED ORACLE CORRECTED HERE, RECORDED RATHER THAN RELAXED.
+  // Both specs below asserted `unknown` for this situation, which is the word
+  // for genuine network uncertainty — and here the server published a valid
+  // closure this build read perfectly well and failed to persist, which is
+  // what `closure-unrecorded` names. Worse, `unknown` was LOCAL: it told the
+  // mount that made the read and left the shared record looking like an
+  // ordinary attempt, so the sidebar could re-initiate under a key bound to a
+  // retired order. Everything else these two assert is BYTE-IDENTICAL — no
+  // review, the command still outstanding, no successor — because their
+  // subject has not changed: a closure that could not be written down claims
+  // nothing. They still fail if either `noteClosure` check is removed, which
+  // is the gap they were written for.
 
   it('O1: a Retry whose closure cannot be written down claims nothing', () => {
     const key = priceAndAccept();
@@ -459,7 +472,10 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
     spyOn(window.sessionStorage, 'setItem').and.stub();
     answerTheRead(readAnswer(key, { quote_closure: CLOSURE }));
 
-    expect((component as any).recovered.kind).toBe('unknown');
+    expect((component as any).recovered.kind).toBe('closure-unrecorded');
+    // I2-C — AND IT IS SHARED, so the sidebar that never ran this read is
+    // held by the same fact rather than left free to re-initiate.
+    expect(coordinator.unresolvedClosure()?.kind).toBe('unrecorded-closure');
     // NOTHING IS CLAIMED AND NOTHING IS LOST: no review is offered, and the
     // command stays outstanding so a later read can still settle it.
     expect(component.updatedReviewPrompt).toBeNull();
@@ -480,7 +496,9 @@ describe('BasketBodyComponent — a lost closure response (D06/C1)', () => {
     resumed.detectChanges();
     answerTheRead(readAnswer(key, { quote_closure: CLOSURE }));
 
-    expect((resumed.componentInstance as any).recovered.kind).toBe('unknown');
+    expect((resumed.componentInstance as any).recovered.kind)
+      .toBe('closure-unrecorded');
+    expect(coordinator.unresolvedClosure()?.kind).toBe('unrecorded-closure');
     expect(resumed.componentInstance.updatedReviewPrompt).toBeNull();
     expect(coordinator.record()!.command).not.toBeNull();
   });

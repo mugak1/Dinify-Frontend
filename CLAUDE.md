@@ -1441,11 +1441,45 @@ so keep it current when conventions change.
   (`legacyInitiate`) is kept and labelled as a different SERVER, not a weaker
   version of the same one. `reviewQuote` is untouched and no production version
   coercion was broadened.
-  Pinned by `basket-body.shared-closure-hold.spec.ts` (34 specs driving TWO real
+  **AND THE RECOVERY DOOR HAD TO SHARE A VALID CLOSURE IT COULD NOT WRITE DOWN**
+  (Codex P2 on PR #678, valid — the same defect class as the three doors this
+  change already covers, at the fourth). `shareUnusableEvidence` gated on
+  `closure-unreadable`, so the two recovery sinks answered a FAILED
+  `noteClosure` by setting `{kind: 'unknown'}` on the ONE component that made
+  the read, which is two mistakes in one line. **THE CLAIM WAS WRONG**:
+  `unknown` means genuine network uncertainty, and here the server published a
+  valid closure this build read perfectly well and failed to persist — exactly
+  what `closure-unrecorded` names, so the word said the outcome was
+  undetermined about a quote that is known retired. **AND THE SCOPE WAS
+  WRONG**: the shared record is still `K1 / pricing / command=null /
+  closure=null`, indistinguishable from an ordinary attempt waiting to be
+  reviewed, so the sidebar — which never runs a recovery — went on classifying
+  the initiation as replayable and could re-initiate under a key bound to a
+  retired order, recreating the cross-mount dead end through the one door the
+  first cut had not reached. `shareUnrecordedClosure` makes the SAME transition
+  the initiation door makes, with the same two halves in the same order (the
+  shared hold, then the local result), so the two cannot drift, and a NULL
+  owner still binds nothing. **IT IS NOT A SUBSTITUTE FOR THE WRITE**:
+  `renewAfterClosure` still requires the VERIFIED DURABLE closure before it
+  mints anything, and the documented exit — a reload, the same published
+  closure, a write that lands — is unchanged. **TWO SHIPPED ORACLES WERE
+  CORRECTED, RECORDED RATHER THAN RELAXED**: the two O1 specs in
+  `basket-body.closure-recovery.spec.ts` asserted that `unknown`, and now
+  assert `closure-unrecorded` plus the hold, with every other assertion they
+  make BYTE-IDENTICAL (no review, the command still outstanding, no successor)
+  — their subject never changed, and removing either `noteClosure` check still
+  fails both, which is the M8 gap they were written for.
+  Pinned by `basket-body.shared-closure-hold.spec.ts` (38 specs driving TWO real
   component instances over one real coordinator, storage and HTTP stack, with B's
-  OWN Retry, Checkout and confirmation methods exercised); **12 of them fail on
-  unmodified `d1a0abb`**, every failure because the second consumer acts or is
-  uninformed, and the 9 that pass are the premises and the controls.
+  OWN Retry, Checkout and confirmation methods exercised); **12 of the first 34
+  fail on unmodified `d1a0abb`**, every failure because the second consumer acts
+  or is uninformed, and the 9 that pass are the premises and the controls. The
+  4 added for the Codex P2 fail **3 / 3 / 1 / 2** under four separate
+  mutations — the whole fix reverted, the shared half dropped while the local
+  result stands (which fails all three, because `staleLocalClosureResult` then
+  reads an unsupported local result and the mount says nothing at all), the
+  local result reverted while the hold stands, and the STARTUP sink alone
+  reverted — with the persist control holding throughout.
   `recovery.mjs` gains **I2-C**, the first scenario to drive both mounts at a
   desktop width so the sidebar is genuinely visible and clickable
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now

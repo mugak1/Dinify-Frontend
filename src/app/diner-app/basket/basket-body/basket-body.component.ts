@@ -457,7 +457,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // a closure — and the review would then find none and price again
           // under the retired key. A failed write claims nothing.
           if (!this.checkout.noteClosure(outcome.closure)) {
-            this.recovered = { kind: 'unknown' };
+            // I2-C — AND A FAILED WRITE IS SHARED, NOT DOWNGRADED. `unknown`
+            // claimed the outcome was undetermined when the quote is known
+            // retired, and it told only this mount; `shareUnrecordedClosure`
+            // states the real fact and puts it where every consumer reads it.
+            this.shareUnrecordedClosure(outcome.closure, owner);
           }
           return;
         case 'accepted-unrecorded':
@@ -753,6 +757,49 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       orderId: owner.orderId,
       evidence: outcome.evidence,
     });
+  }
+
+  /**
+   * I2-C — A RECOVERED CLOSURE THIS DEVICE COULD NOT WRITE DOWN IS SHARED TOO.
+   *
+   * The two recovery sinks checked `noteClosure`'s return and answered it by
+   * downgrading THIS component to `unknown` — which is two mistakes in one
+   * line. The claim is wrong: `unknown` means genuine network uncertainty,
+   * and here the server published a valid closure this build read perfectly
+   * well and failed to persist, which is exactly what `closure-unrecorded`
+   * names. And the scope is wrong: the shared record is still
+   * `K1 / pricing / command=null / closure=null`, indistinguishable from an
+   * ordinary attempt waiting to be reviewed, so the desktop sidebar — which
+   * never runs a recovery — went on classifying the initiation as replayable
+   * and could re-initiate under a key that may be bound to a retired order.
+   * That is the cross-mount dead end this change exists to close, reached
+   * through the one door it had not yet reached.
+   *
+   * It is the SAME transition the initiation door makes, with the same two
+   * halves and in the same order, so the two cannot drift: the shared hold,
+   * then the local result. The evidence is rebuilt as the `closure` kind it
+   * is — `renewAfterClosure` still requires the VERIFIED DURABLE closure
+   * before it will mint anything, so a hold is never a substitute for the
+   * write that failed.
+   */
+  private shareUnrecordedClosure(
+    closure: QuoteClosure, owner: CheckoutOwner | null,
+  ): void {
+    // A NULL OWNER NAMES NO OPERATION, exactly as above: there is nothing to
+    // bind the hold to, and inventing an identity for it is what would let a
+    // held answer hold an attempt it was never about. The local result still
+    // stands — it is this instance's own reading of its own request.
+    if (owner) {
+      this.checkout.holdClosure({
+        kind: 'unrecorded-closure',
+        attempt: {
+          key: owner.key, scope: owner.scope, purchase: owner.purchase,
+        },
+        orderId: owner.orderId,
+        evidence: { kind: 'closure', closure },
+      });
+    }
+    this.recovered = { kind: 'closure-unrecorded', closure };
   }
 
   /**
@@ -1498,7 +1545,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
           // O1 — AND THE WRITE IS CHECKED, for the reason the startup path
           // records: an unverified closure is not an established fact.
           if (!this.checkout.noteClosure(outcome.closure)) {
-            this.recovered = { kind: 'unknown' };
+            // I2-C — AND A FAILED WRITE IS SHARED, NOT DOWNGRADED. `unknown`
+            // claimed the outcome was undetermined when the quote is known
+            // retired, and it told only this mount; `shareUnrecordedClosure`
+            // states the real fact and puts it where every consumer reads it.
+            this.shareUnrecordedClosure(outcome.closure, owner);
           }
           return;
         case 'absent':

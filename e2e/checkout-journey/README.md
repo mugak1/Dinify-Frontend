@@ -157,14 +157,22 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`), 114/114 (`recovery.mjs`) and 55/55
-(`e2e/kitchen-board/kitchen.mjs`)** at the **D06 I2-C revision** — frontend
-`claude/d06-shared-closure-hold` (an unresolved closure is a fact both basket
-consumers read) against backend `f7d2ce6`, which is `origin/main` and was NOT
+Last run: **42/42 (`journey.mjs`) and 114/114 (`recovery.mjs`)**, both
+re-executed at the **D06 I2-C + Codex-P2 revision** — frontend
+`claude/d06-shared-closure-hold` (a recovered closure this device could not write
+down is shared too) against backend `f7d2ce6`, which is `origin/main` and was NOT
 modified for this work. Node 24.15.0, Chromium 141.0.7390.37, PostgreSQL 16.13,
 a disposable local database and **development** assets (`ng serve
 --configuration development`, not an optimized build). `recovery.mjs` grew from
-101 to 114 checks: the new **I2-C** scenario.
+101 to 114 checks at I2-C: the new **I2-C** scenario. The Codex-P2 fix edits the
+FAILURE branch of the two recovery `noteClosure` checks, which this harness
+cannot induce — it has no storage-fault injection — so both runs are re-executions
+that confirm the unchanged success paths, not evidence about the branch itself;
+that branch is pinned by `basket-body.shared-closure-hold.spec.ts` and
+`basket-body.closure-recovery.spec.ts`. **`e2e/kitchen-board/kitchen.mjs` (55/55
+at the I2-C revision) was NOT re-run here** — nothing in the kitchen board was
+touched — and that number is recorded as the earlier execution it was, never as a
+new one.
 
 **THE I2-C SCENARIO FOUND A DEFECT IN THE CHANGE IT WAS WRITTEN FOR, and no unit
 spec had.** The first cut shared the hold from the initiation and recovery doors
