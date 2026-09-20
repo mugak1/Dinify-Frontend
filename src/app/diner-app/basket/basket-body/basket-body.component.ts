@@ -412,7 +412,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // be a round trip whose answer this client already holds — and on a server
     // that cannot be reached it would produce `unknown`, which BLOCKS the
     // checkout and offers a Retry, for a purchase whose remedy is a review.
+    //
+    // L1 — BUT A STORED CLOSURE IS NOT ALWAYS THE WHOLE STORY. A coherent
+    // read that began before a contradiction was observed writes its closure
+    // and is correctly refused the release, so "a closure exists AND the
+    // situation is unresolved" is a legitimate state. Restoring from the
+    // record there would ask nothing — and a read is the only thing that can
+    // resolve it, since every mutation is (rightly) refused.
     const restored = stored.kind === 'record'
+      && this.checkout.unresolvedClosure() === null
       ? this.checkout.closureOf(stored.record).evidence
       : { kind: 'absent' as const };
     if (restored.kind === 'closure') {
@@ -725,13 +733,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private closureUnresolvable(): boolean {
     if (this.checkout.unresolvedClosure() !== null) return true;
-    // A SERVER CONTRADICTING ITSELF IS NOT RESOLVED BY A CLOSURE. That one
-    // claims an acceptance as well, so a durable closure beside it settles
-    // nothing and the yield below must not reach it.
-    if (this.recovered?.kind === 'inconsistent') return true;
+    // L2 — AND A LOCAL CONTRADICTION IS GOVERNED LIKE THE OTHER TWO. This
+    // returned true unconditionally, so the mount that OBSERVED went on
+    // claiming a situation a later coherent read had legitimately resolved,
+    // and went on blocking a successor it had no fact about. What keeps the
+    // durable-closure yield off a live contradiction is `unresolvedClosure`,
+    // which withholds it there — so reaching the yield below means the hold
+    // was RELEASED, which only an ordering-checked coherent answer does.
     if (this.staleLocalClosureResult()) return false;
     return this.unusableClosure() !== null
-      || this.recovered?.kind === 'closure-unrecorded';
+      || this.recovered?.kind === 'closure-unrecorded'
+      || this.recovered?.kind === 'inconsistent';
   }
 
   /**
@@ -883,8 +895,11 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private staleLocalClosureResult(): boolean {
-    if (this.recovered?.kind !== 'closure-unreadable'
-        && this.recovered?.kind !== 'closure-unrecorded') {
+    const kind = this.recovered?.kind;
+    if (kind !== 'closure-unreadable' && kind !== 'closure-unrecorded'
+        // L2 — a contradiction is a local result like the other two, and it
+        // outlives its situation the same way.
+        && kind !== 'inconsistent') {
       return false;
     }
     // Supported while the shared observation still stands FOR THIS ATTEMPT,
@@ -908,6 +923,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'closure-unreadable':
       case 'closure-unrecorded':
       case 'inconsistent':
+        // L2 — THE SAME RESULT, ASKED THE SAME QUESTION. `closureUnresolvable`
+        // above has already yielded these three when the situation they
+        // describe has been resolved, so restating them unconditionally here
+        // would withhold Checkout for an attempt this instance holds no fact
+        // about — which is how one mount went on blocking a successor
+        // another had legitimately created.
+        return !this.staleLocalClosureResult();
       case 'uncorrelated':
       case 'unsupported':
       case 'unknown':
