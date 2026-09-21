@@ -7,7 +7,6 @@ import {
   PaymentMethodData,
   PopularItemData,
   RevenueData,
-  RevenueSeriesPoint,
   RevenueTotals,
   ReviewsSummaryResponse,
   TablesData,
@@ -88,7 +87,7 @@ function generateDates(from: string, to: string, bucket: ReportBucketUnit): stri
 /**
  * The bucket a given day falls into, as the matching `generateDates` key.
  *
- * MUST agree with `generateDates` key-for-key: `buildRevenueSeries` looks each row's bucket up
+ * MUST agree with `generateDates` key-for-key: `buildBuckets` looks each row's bucket up
  * in the slot map with `slots.get(dayAtIso(bucketKey(...)))`, so a disagreement is not a type
  * error or an exception — every lookup silently misses and the whole series renders as zero.
  */
@@ -164,8 +163,20 @@ function dayAtIso(date: string, hour = 0): string {
   return d.toISOString();
 }
 
-function aov(net: number, orders: number): number {
-  return orders > 0 ? Math.round(net / orders) : 0;
+/**
+ * One bucket of the shared basis, before either card narrows it to its own shape.
+ *
+ * MOCK-INTERNAL, and deliberately NOT `RevenueSeriesPoint`. The revenue series carries
+ * no order count and no average ticket, because the live wire carries neither — but the
+ * ORDERS card's series is built from these same slots, which is what keeps the two
+ * charts on one x-axis. Holding `orders` here lets the orders card read it without the
+ * revenue point type claiming a figure `_build_revenue` never sends.
+ */
+interface BucketRow {
+  at: string;
+  gross: number;
+  net: number;
+  orders: number;
 }
 
 /**
@@ -173,12 +184,12 @@ function aov(net: number, orders: number): number {
  * `Σ series === totals` holds by construction at every granularity and the revenue and
  * orders charts share one x-axis exactly.
  */
-function buildRevenueSeries(
+function buildBuckets(
   rows: DailyRevenueRow[],
   from: string,
   to: string,
   bucket: ReportBucketUnit,
-): RevenueSeriesPoint[] {
+): BucketRow[] {
   // hour → spread the single day's totals across 24 hours; the points sum to the day total.
   if (bucket === 'hour') {
     const day = rows[0];
@@ -191,12 +202,11 @@ function buildRevenueSeries(
       gross: gH[h],
       net: nH[h],
       orders,
-      aov: aov(nH[h], orders),
     }));
   }
 
-  const slots = new Map<string, RevenueSeriesPoint>(
-    generateDates(from, to, bucket).map((at) => [at, { at, gross: 0, net: 0, orders: 0, aov: 0 }]),
+  const slots = new Map<string, BucketRow>(
+    generateDates(from, to, bucket).map((at) => [at, { at, gross: 0, net: 0, orders: 0 }]),
   );
   for (const r of rows) {
     const p = slots.get(dayAtIso(bucketKey(r.date, bucket)));
@@ -205,7 +215,7 @@ function buildRevenueSeries(
     p.net += r.net;
     p.orders += r.orders;
   }
-  return [...slots.values()].map((p) => ({ ...p, aov: aov(p.net, p.orders) }));
+  return [...slots.values()];
 }
 
 export function getMockRevenueData(
@@ -217,7 +227,13 @@ export function getMockRevenueData(
   const rows = dailyRevenue(restaurantId, from, to);
 
   return {
-    series: buildRevenueSeries(rows, from, to, bucket),
+    // NARROWED TO THE LIVE SHAPE — {at, gross, net} and nothing else. This generator used
+    // to emit `orders` and `aov` per point, and that is exactly why the adapter's
+    // `orders: 0` / `aov: 0` literals looked fine in the running app: mock mode filled
+    // two fields the wire has never had, so the revenue tooltip read correctly here and
+    // would have read "Orders: 0 · AOV: 0" the moment USE_MOCK_DATA flipped. A mock
+    // richer than the thing it stands in for hides the defect it is standing in for.
+    series: buildBuckets(rows, from, to, bucket).map(({ at, gross, net }) => ({ at, gross, net })),
     totals: sumTotals(rows),
   };
 }
@@ -294,8 +310,11 @@ export function getMockOrdersData(
   const rows = dailyRevenue(restaurantId, from, to);
   const total = rows.reduce((a, r) => a + r.orders, 0);
 
-  // Same slots as the revenue series, so the two charts share one x-axis exactly.
-  const series = buildRevenueSeries(rows, from, to, bucket).map((p) => ({
+  // Same slots as the revenue series, so the two charts share one x-axis exactly. The
+  // per-bucket order count lives on `BucketRow` rather than on the revenue point, so this
+  // is the ONE mock series that states an order count — matching the wire, where
+  // `_build_orders` sends per-bucket counts and `_build_revenue` does not.
+  const series = buildBuckets(rows, from, to, bucket).map((p) => ({
     at: p.at,
     orders: p.orders,
   }));

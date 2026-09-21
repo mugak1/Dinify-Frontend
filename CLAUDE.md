@@ -3382,10 +3382,14 @@ writing new tag, price/menu or date-range logic:
 - **EVERY Dashboard mock card derives from the shared `dailyRevenue` basis**, so the closed
   weekday is coherent across the WHOLE screen rather than on the two cards that happened to
   read it. **The rule for the next generator added to `dashboard-mock-data.ts`: read the
-  basis. Do not synthesise your own figures, and do not scale by a day count** — a closed
+  basis, and emit only what the WIRE emits. Do not synthesise your own figures, and do not
+  scale by a day count** — a closed
   day is a calendar day that traded nothing, so `rangeDays`-style scaling overstates every
   window containing one. Summing the basis handles that by construction, which is why the
-  file needs no trading-day helper. Until DASH-MOCK-COHERENCE-00 two cards broke this:
+  file needs no trading-day helper. The wire-parity clause is DASH-REVENUE-CLAIM-00's: a mock
+  RICHER than the wire it stands in for hides the defect it is standing in for, which is
+  exactly how the revenue tooltip's manufactured `orders`/`aov` went unnoticed — see the
+  Dashboard flip-time gate. Until DASH-MOCK-COHERENCE-00 two cards broke this:
   `getMockPaymentMethods(from, to)` multiplied three fixed per-day constants by a CALENDAR-day
   count (never seeing `restaurantId`, so every restaurant reported identical payments), and
   `getMockPopularItems()` took NO ARGUMENTS at all — byte-identical for "Today", "Last year"
@@ -3594,14 +3598,42 @@ writing new tag, price/menu or date-range logic:
   reflex on seeing it will be to restore a fallback; that fallback is the D07
   defect. If the emptiness is judged unacceptable to ship, the answer is to build
   payment recording or to drop the columns, never to re-invent their contents
-- Dashboard flip-time gate — **the sparse-series hazard this entry used to carry is CLOSED**.
-  It warned that flipping `DashboardService.USE_MOCK_DATA` to `false` would activate a
-  densification gap in `dashboard-adapter`'s `adaptRevenueSeries`, because the backend emitted
-  no bucket for a period with no orders. Backend BUCKETS-ZEROFILL-00 now zero-fills both
-  `dashboard-v2` series onto the requested window, so the series arrives dense and the adapter
-  has nothing to fill. Left standing as the one thing to CHECK rather than fix at flip time:
-  the adapter still does not densify, so confirm the server-side fill is present on the
-  deployed backend before flipping — this repo's verification cannot see it
+- Dashboard flip-time gate — **both hazards this entry used to carry are CLOSED, by
+  opposite routes, and the pair is worth reading together.**
+  **The SPARSE-SERIES hazard was closed FROM THE SERVER.** It warned that flipping
+  `DashboardService.USE_MOCK_DATA` to `false` would activate a densification gap in
+  `dashboard-adapter`'s `adaptRevenueSeries`, because the backend emitted no bucket for a
+  period with no orders. Backend BUCKETS-ZEROFILL-00 now zero-fills both `dashboard-v2`
+  series onto the requested window, so the series arrives dense and the adapter has nothing
+  to fill. Left standing as the one thing to CHECK rather than fix at flip time: the adapter
+  still does not densify, so confirm the server-side fill is present on the deployed backend
+  before flipping — this repo's verification cannot see it.
+  **The MANUFACTURED ORDERS/AOV claim was closed HERE, by deleting the claim** (DASH-REVENUE-
+  CLAIM-00). `adaptRevenueSeries` built every point with `orders: 0` and `aov: 0` — literals,
+  since `_build_revenue` emits only `at`, `gross`, `discounts`, `refunds` per bucket — and the
+  revenue chart's tooltip rendered both, so against a live backend every hover would have read
+  **"Orders: 0 · AOV: 0"** about a restaurant that had traded all day. **IT WAS A FLIP-TIME
+  LANDMINE PRECISELY BECAUSE IT LOOKED RIGHT**: the mock populated both fields, so mock mode
+  showed a correct tooltip and nothing in the running app could reveal it. Same family as the
+  D07 reports-adapter defect (`?? 'Cash'` manufacturing a tender column, PR #682), on an ORDERS
+  claim rather than a payment one — which is why it was reported out of that PR's scope rather
+  than folded into it (backend `D07_PAYMENT_CLAIM_CLOSURE.md` §12).
+  **THE FIELDS ARE GONE FROM `RevenueSeriesPoint`, THE ADAPTER, THE MOCK AND THE TOOLTIP**, so
+  the tooltip now states Gross and Net only — `net` being a derivation over three figures the
+  server did send, not a figure invented beside them. Making them REAL was the other honest
+  option and is still open: it is a BACKEND change first (a per-bucket order count on
+  `_build_revenue`, with its basis STATED — that series is driven by PAID orders while
+  `_build_orders` counts orders PLACED), then an adapter read here. **Joining `revenue.series`
+  to `orders.series` by `at` in the client is NOT that fix** — it replaces a zero with an
+  assumption about a definition only the server can settle.
+  **THE MOCK NO LONGER CARRIES WHAT THE WIRE DOES NOT.** `buildBuckets` (renamed from
+  `buildRevenueSeries`) returns a mock-internal `BucketRow` that still holds `orders`, because
+  the ORDERS card's series is built from the same slots and the two charts must share one
+  x-axis; `getMockRevenueData` narrows it to `{at, gross, net}`. That narrowing is the rule for
+  the next generator added to `dashboard-mock-data.ts`, beside the read-the-basis one: **a mock
+  richer than the wire it stands in for hides the defect it is standing in for.** Pinned by
+  `dashboard/revenue-series-claim-honesty.spec.ts` (11); against unmodified `cabb672` 4 fail and
+  the 7 controls hold
 
 ## Known Issues & Deferred Work
 - EVERY SPEC IN `reports/sales/sales-report.component.spec.ts` PINS ITS RANGE, AND

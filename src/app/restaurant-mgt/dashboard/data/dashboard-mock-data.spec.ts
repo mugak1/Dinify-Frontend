@@ -72,7 +72,7 @@ describe('dashboard revenue mock — shared-basis reconciliation', () => {
     }
   });
 
-  // LADDER-WEEK-00. `generateDates` and `bucketKey` must agree key-for-key: `buildRevenueSeries`
+  // LADDER-WEEK-00. `generateDates` and `bucketKey` must agree key-for-key: `buildBuckets`
   // resolves each row's slot with `slots.get(dayAtIso(bucketKey(...)))`, so a disagreement throws
   // nothing — every lookup misses and the series comes back as a run of zeros beside non-zero
   // totals. Σ-vs-totals above would catch that; this names the failure so the next reader knows
@@ -103,7 +103,18 @@ describe('dashboard revenue mock — shared-basis reconciliation', () => {
     expect(rev.series.length).toBe(24);
     expect(rev.series.reduce((a, p) => a + p.gross, 0)).toBe(row.gross);
     expect(rev.series.reduce((a, p) => a + p.net, 0)).toBe(row.net);
-    expect(rev.series.reduce((a, p) => a + p.orders, 0)).toBe(row.orders);
+  });
+
+  // `distributeByHour(day.orders)` is still what splits the day's order count across the
+  // 24 slots — this assertion used to read it off `rev.series`, which no longer carries an
+  // order count (the wire does not, so the type does not). It moved to the ORDERS series,
+  // which is where a per-bucket order count is actually stated, rather than being dropped.
+  it('hourly view splits the day ORDER count across the same 24 points', () => {
+    const DAY = '2026-06-15';
+    const orders = getMockOrdersData(RID, DAY, DAY, 'hour');
+    const [row] = dailyRevenue(RID, DAY, DAY);
+    expect(orders.series.length).toBe(24);
+    expect(orders.series.reduce((a, p) => a + p.orders, 0)).toBe(row.orders);
   });
 
 });
@@ -205,7 +216,7 @@ describe('dashboard payments + popular-items mock — one trading basis', () => 
     });
 
     it('reads zero across the WHOLE screen, not just the two cards that always did', () => {
-      // `hour` deliberately: `buildRevenueSeries` short-circuits on an empty basis before it
+      // `hour` deliberately: `buildBuckets` short-circuits on an empty basis before it
       // reaches `generateDates`, which would throw on an inverted interval at any other rung.
       const d = getMockDashboardData(RID, NO_TRADE_FROM, NO_TRADE_TO, 'hour');
       expect(d.revenue.totals.net).toBe(0);
