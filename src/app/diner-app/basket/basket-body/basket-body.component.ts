@@ -393,8 +393,17 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     // A COMPLETED CHECKOUT THAT DID NOT FINISH TIDYING UP. The outcome was
     // recorded durably before any cleanup, precisely so this case announces
     // the order rather than re-enquiring about one already in the kitchen.
+    //
+    // L4 — UNLESS AN OBSERVATION IS STILL WAITING ON A READ, the same
+    // condition the cached-closure branch below carries and for the same
+    // reason. `observedWhatIsHeld` deliberately withholds `clearIntent` when
+    // an older accepted answer lands under a newer contradiction, so
+    // "recorded acceptance AND unresolved observation" is a state this client
+    // creates on purpose — and restoring from the record there asks nothing,
+    // while a read is the only thing that can resolve it.
     if (stored.kind === 'record' && stored.record.stage === 'accepted'
-        && stored.record.outcome) {
+        && stored.record.outcome
+        && this.checkout.unresolvedClosure() === null) {
       // R2 — AND IT IS STILL ONLY THE OWNER OF THIS CART. A restored terminal
       // record is evidence about a PAST purchase; it is not permission to
       // erase whatever is on screen now. This branch went straight to
