@@ -1,3 +1,5 @@
+import { PaymentMeasurement } from '../../../_shared/reporting/payment-measurement';
+
 // ── Date range ────────────────────────────────────────────
 // The coarse 'day'|'week'|'month'|'ytd' enum that used to live here was deleted in
 // TIMEFRAME-01B. The Dashboard now shares the range model in `_shared/timeframe`
@@ -139,12 +141,20 @@ export interface ReviewsSummaryResponse {
 // ── Dashboard V2 composite response ──────────────────────
 export interface DashboardV2Response {
   /**
-   * Whether the SERVER records settled payments (D07). OPTIONAL, and that is
-   * load-bearing: an older backend does not send it, and absence is "the server
-   * has not said" — never `false`. Read it with `=== false`, the same rule the
-   * billing screen applies to `in_app_collection_supported`.
+   * Whether this platform measures settled payments, CLASSIFIED ONCE (D07).
+   *
+   * It replaced `payment_tracking_enabled?: boolean`, and the type change is
+   * the point rather than tidying: an optional boolean has three inhabitants
+   * and the wire has four states, so `undefined` was carrying both "an older
+   * server never said" and "the server said something this client could not
+   * read". Every consumer then re-derived the rule with `=== false`, which made
+   * both of those render as a measurement.
+   *
+   * REQUIRED, not optional. A response that declared nothing still resolves to
+   * a decision (`unestablished`), so no consumer has to invent one from an
+   * absent field — which is how the boolean came to be read as `false`-or-fine.
    */
-  payment_tracking_enabled?: boolean;
+  payment_measurement: PaymentMeasurement;
   revenue: RevenueData;
   payments: PaymentMethodData[];
   orders: OrdersData;

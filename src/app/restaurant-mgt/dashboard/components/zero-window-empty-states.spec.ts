@@ -46,16 +46,29 @@ describe('dashboard cards — a window with no trade', () => {
 
     function render(from: string, to: string): HTMLElement {
       fixture = TestBed.createComponent(PaymentMethodsCardComponent);
+      // D07/G1: these cards withhold every settled-payment figure unless the
+      // SERVER vouches for the basis. This suite is about a DIFFERENT rule, so
+      // it states the measuring server its assertions were always written for —
+      // fixture completion, not a relaxation of the withholding rule, which has
+      // its own suite in `payment-tracking-disclosure.spec.ts`.
+      fixture.componentRef.setInput('measurement', { kind: 'supported' });
       fixture.componentRef.setInput('paymentMethods', getMockPaymentMethods(RID, from, to));
       fixture.componentRef.setInput('loading', false);
       fixture.detectChanges();
       return fixture.nativeElement as HTMLElement;
     }
 
-    it('says nothing settled, rather than showing a zero-width split', () => {
+    it('says nothing was recorded, rather than showing a zero-width split', () => {
       const host = render(NO_TRADE_FROM, NO_TRADE_TO);
 
-      expect(host.textContent).toContain('No settled payments in this period');
+      // ORACLE CORRECTED, NOT RELAXED (D07/G1). The sentence was "No settled
+      // payments in this period", which invites the reading that money was
+      // owed and not taken. It is now only ever said by a server that DOES
+      // record settlement, so it states what is true of the period: nothing
+      // was recorded. The rule this spec exists for — an empty window renders
+      // a written empty state rather than three zero-width bars — is unchanged
+      // and is still what the assertions below check.
+      expect(host.textContent).toContain('No payments recorded in this period');
       expect(host.textContent).not.toContain('Total settled');
       // The empty branch short-circuits before any bar is built, so there is no
       // zero-width, full-width or NaN-width bar to get wrong.
@@ -80,7 +93,7 @@ describe('dashboard cards — a window with no trade', () => {
       const host = render(TRADING, TRADING);
 
       expect(host.textContent).toContain('Total settled');
-      expect(host.textContent).not.toContain('No settled payments in this period');
+      expect(host.textContent).not.toContain('No payments recorded in this period');
       expect(host.textContent).not.toContain('NaN');
       // 50 / 33 / 17 — the proportions this card has always shown.
       expect(fixture.componentInstance.rows.map((r) => r.percentage)).toEqual([50, 33, 17]);

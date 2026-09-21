@@ -22,7 +22,8 @@
     <div class="lg:col-span-2">
       <app-revenue-card
         [revenueData]="dashboardData?.revenue ?? null"
-        [paymentTrackingEnabled]="dashboardData?.payment_tracking_enabled"
+        [measurement]="dashboardData?.payment_measurement ?? null"
+        [baselineMeasurement]="comparisonData?.payment_measurement ?? null"
         [previousNet]="comparisonData?.revenue?.totals?.net ?? null"
         [comparisonWindow]="comparisonWindow"
         [range]="range"
@@ -34,7 +35,7 @@
     </div>
     <app-payment-methods-card
       [paymentMethods]="dashboardData?.payments ?? null"
-      [paymentTrackingEnabled]="dashboardData?.payment_tracking_enabled"
+      [measurement]="dashboardData?.payment_measurement ?? null"
       [loading]="loading"
     ></app-payment-methods-card>
   </div>
@@ -48,7 +49,7 @@
     <div class="lg:col-span-2">
       <app-total-orders-card
         [ordersData]="dashboardData?.orders ?? null"
-        [paymentTrackingEnabled]="dashboardData?.payment_tracking_enabled"
+        [measurement]="dashboardData?.payment_measurement ?? null"
         [previousTotal]="comparisonData?.orders?.total ?? null"
         [comparisonWindow]="comparisonWindow"
         [range]="range"
@@ -60,8 +61,11 @@
 
   <!-- Row 3: Tables (compact) + KDS Attention (large) -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+    <!-- THE TABLES CARD WAS THE ONE CARD NEVER BOUND (D07/G1). Four of its
+    five history tiles are paid-gated in `_build_tables`. -->
     <app-tables-card
       [tablesData]="dashboardData?.tables ?? null"
+      [measurement]="dashboardData?.payment_measurement ?? null"
       [loading]="loading"
     ></app-tables-card>
     <div class="lg:col-span-2">

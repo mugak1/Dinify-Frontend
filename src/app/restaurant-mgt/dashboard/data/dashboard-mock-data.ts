@@ -1,3 +1,4 @@
+import { classifyPaymentDeclaration } from '../../../_shared/reporting/payment-measurement';
 import {
   DashboardV2Response,
   KdsData,
@@ -461,7 +462,12 @@ export function getMockDashboardData(
     // is true of every restaurant and every window. So the mock states what a
     // real server states, and the disclosure is reachable for design review
     // instead of being invisible until `USE_MOCK_DATA` flips.
-    payment_tracking_enabled: false,
+    // The mock builds the RESPONSE directly rather than adapting a wire payload,
+    // so it classifies through the SAME function the adapter's reader delegates
+    // to. A literal `{ kind: 'unavailable' }` here would be a second opinion
+    // about what `false` means, in the one file whose job is to stand in for the
+    // thing it would be disagreeing with.
+    payment_measurement: classifyPaymentDeclaration(false),
     revenue: getMockRevenueData(restaurantId, from, to, bucket),
     payments: getMockPaymentMethods(restaurantId, from, to),
     orders: getMockOrdersData(restaurantId, from, to, bucket),

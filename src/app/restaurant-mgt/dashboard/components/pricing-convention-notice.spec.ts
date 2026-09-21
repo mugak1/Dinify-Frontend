@@ -39,6 +39,12 @@ describe('revenue card — mixed pricing convention notice', () => {
   /** `setInput` so Angular runs `ngOnChanges` — assigning the field directly
    *  leaves the pills and the chart unbuilt and would prove nothing. */
   const render = (data: RevenueData) => {
+    // D07/G1: these cards withhold every settled-payment figure unless the
+    // SERVER vouches for the basis. This suite is about a DIFFERENT rule, so
+    // it states the measuring server its assertions were always written for —
+    // fixture completion, not a relaxation of the withholding rule, which has
+    // its own suite in `payment-tracking-disclosure.spec.ts`.
+    fixture.componentRef.setInput('measurement', { kind: 'supported' });
     fixture.componentRef.setInput('range', range);
     fixture.componentRef.setInput('bucketUnit', 'day');
     fixture.componentRef.setInput('revenueData', data);
