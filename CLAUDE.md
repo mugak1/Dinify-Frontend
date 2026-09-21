@@ -2617,7 +2617,14 @@ so keep it current when conventions change.
   FAILED** against unmodified `cabb672`, both through the real components (G2 through
   the real `ApiService`, `HttpClient` and interceptor).
   `dashboard/payment-tracking-disclosure.spec.ts` 23 -> **60**;
-  `settings/billing/billing-read-states.spec.ts` is **30** new. Suite 2773 -> **2803**.
+  `settings/billing/billing-read-states.spec.ts` is **30** new. Suite **2736 -> 2803**,
+  and the arithmetic closes exactly: +37 on the disclosure suite plus the 30 new
+  ones. **The first published figure was 2773 and was wrong** — that was an
+  INTERMEDIATE run taken after G1 and before G2's specs existed, not `main`.
+  `main` (`cabb672`) was re-measured in a throwaway worktree at **2736 SUCCESS**
+  rather than inferred, because a static `it(` count is not the runtime count
+  here: five `for (const kind of ['unavailable','unestablished','unusable'])`
+  loops WRAP an `it(`, so the disclosure file's 42 source specs execute as 60.
   **THREE SHIPPED ORACLES WERE CORRECTED OPENLY, each at the spec that replaced it**:
   "an older server keeps the original wording" asserted the behaviour G1 removes; "it
   recomputes, suppresses and reprices nothing" asserted that all four Revenue pills
