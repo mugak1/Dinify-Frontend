@@ -5,12 +5,38 @@
 // selectable and there is one timeframe vocabulary in the app rather than two.
 
 // ── Revenue ───────────────────────────────────────────────
+/**
+ * ONE BUCKET OF THE REVENUE SERIES — EXACTLY WHAT THE SERVER SENDS, AND NOTHING
+ * BESIDE IT.
+ *
+ * `_build_revenue` (`reports_app/controllers/restaurant/dashboard.py`) emits
+ * `at`, `gross`, `discounts` and `refunds` per bucket and no other key. `net` is
+ * the ONE derivation here, and it is arithmetic over three figures the server
+ * actually sent rather than a value invented alongside them.
+ *
+ * `orders` AND `aov` USED TO BE ON THIS TYPE, and the adapter filled both with
+ * the literal `0` because no wire key backs either. The revenue chart's tooltip
+ * rendered them, so against a live backend every hover read
+ * "Orders: 0 · AOV: 0" — a false statement about trade, manufactured by the
+ * client. It was invisible in the running app only because the MOCK populated
+ * both, which made it a flip-time landmine rather than a visible bug: it would
+ * have become wrong the moment `DashboardService.USE_MOCK_DATA` flipped. Same
+ * family as the D07 reports-adapter defect (`?? 'Cash'` manufacturing an entire
+ * tender column), on an ORDERS claim rather than a payment one.
+ *
+ * DO NOT RE-ADD EITHER WITHOUT A WIRE KEY BEHIND IT, and joining this series to
+ * `orders.series` by `at` is not that key: this series is driven by PAID orders
+ * while `_build_orders` counts orders PLACED, so "orders in this revenue bucket"
+ * needs a definition the SERVER states, not one the client assumes. Adding them
+ * for real is a backend change first (a bucket-level `orders` count, with that
+ * basis stated), then an adapter read here.
+ *
+ * Pinned by `dashboard/revenue-series-claim-honesty.spec.ts`.
+ */
 export interface RevenueSeriesPoint {
   at: string;
   gross: number;
   net: number;
-  orders: number;
-  aov: number;
 }
 
 export interface RevenueTotals {
