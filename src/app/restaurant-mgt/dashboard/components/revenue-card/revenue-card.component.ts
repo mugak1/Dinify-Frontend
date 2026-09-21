@@ -385,6 +385,19 @@ export class RevenueCardComponent implements OnChanges {
               if (!items.length) return '';
               return items[0].label || '';
             },
+            // GROSS AND NET ONLY — the two things a bucket actually carries.
+            //
+            // It used to add `Orders: ${point.orders}` and `AOV: ${point.aov}`,
+            // both read off literals the adapter wrote because `_build_revenue`
+            // sends no such key. Against a live backend every hover therefore
+            // read "Orders: 0 · AOV: 0" about a restaurant that had traded.
+            // The mock populated both, so it looked right in the running app and
+            // would have started lying at the `USE_MOCK_DATA` flip.
+            //
+            // The fields are gone from `RevenueSeriesPoint`, so restoring these
+            // two lines will not compile — which is the intent. Re-adding them
+            // means a server-side orders count on the revenue bucket first; see
+            // that type for why joining `orders.series` by `at` is not it.
             label: (item: TooltipItem<'line'>) => {
               const idx = item.dataIndex;
               const point = seriesRef[idx];
@@ -392,8 +405,6 @@ export class RevenueCardComponent implements OnChanges {
               return [
                 `Gross: ${formatCurrency(point.gross)}`,
                 `Net: ${formatCurrency(point.net)}`,
-                `Orders: ${point.orders}`,
-                `AOV: ${formatCurrency(point.aov)}`,
               ] as any;
             },
           },

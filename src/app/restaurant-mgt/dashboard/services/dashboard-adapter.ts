@@ -30,6 +30,21 @@ function safeFloat(val: any, fallback = 0): number {
 // Dashboard V2 — section adapters
 // ---------------------------------------------------------------------------
 
+/**
+ * One revenue bucket per wire row, carrying only what the wire carried.
+ *
+ * `net` is a DERIVATION, not an invention: `gross - discounts - refunds` over
+ * three figures the server sent for this same bucket. That is the only thing
+ * computed here.
+ *
+ * It used to emit `orders: 0` and `aov: 0` beside them. No key on the wire backs
+ * either — `_build_revenue` sends `at`, `gross`, `discounts`, `refunds` — so
+ * those two literals were the client stating "no orders, zero average ticket"
+ * about every bucket of a live response, and the revenue tooltip rendered them
+ * verbatim. An absence is rendered as an absence in this repo, and here the
+ * honest absence is the field not existing at all: see `RevenueSeriesPoint` for
+ * why reading `orders.series` instead would not be a fix.
+ */
 function adaptRevenueSeries(raw: any[]): RevenueSeriesPoint[] {
   if (!Array.isArray(raw)) return [];
   return raw.map((p) => {
@@ -40,8 +55,6 @@ function adaptRevenueSeries(raw: any[]): RevenueSeriesPoint[] {
       at: p.at ?? '',
       gross,
       net: gross - discounts - refunds,
-      orders: 0,
-      aov: 0,
     };
   });
 }
