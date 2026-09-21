@@ -44,7 +44,14 @@ const METHOD_COLORS: Record<string, string> = {
             <p class="text-[10px] sm:text-xs text-muted-foreground">Share of payments in selected period</p>
           </div>
           <div class="flex-1 flex items-center justify-center">
-            <p class="text-sm text-muted-foreground text-center">No settled payments in this period</p>
+            @if (trackingUnavailable) {
+              <p class="text-sm text-muted-foreground text-center">
+                Dinify doesn't record settled payments, so there's nothing to
+                measure here.
+              </p>
+            } @else {
+              <p class="text-sm text-muted-foreground text-center">No settled payments in this period</p>
+            }
           </div>
         </div>
       </app-dn-card>
@@ -103,9 +110,16 @@ const METHOD_COLORS: Record<string, string> = {
           </div>
 
           <!-- Footer -->
-          <p class="text-[10px] sm:text-xs text-muted-foreground mt-auto pt-3">
-            Based on settled payments in the selected period.
-          </p>
+          @if (trackingUnavailable) {
+            <p class="text-[10px] sm:text-xs text-muted-foreground mt-auto pt-3">
+              Dinify doesn't record settled payments — these figures aren't a
+              measurement of money received.
+            </p>
+          } @else {
+            <p class="text-[10px] sm:text-xs text-muted-foreground mt-auto pt-3">
+              Based on settled payments in the selected period.
+            </p>
+          }
         </div>
       </app-dn-card>
     }
@@ -114,6 +128,25 @@ const METHOD_COLORS: Record<string, string> = {
 export class PaymentMethodsCardComponent implements OnChanges {
   @Input() paymentMethods: PaymentMethodData[] | null = null;
   @Input() loading = false;
+
+  /** The server's answer, or `undefined` when it did not state one. */
+  @Input() paymentTrackingEnabled?: boolean;
+
+  /**
+   * True ONLY when the server explicitly said it does not record settled
+   * payments (D07). An absent flag says nothing, so the card keeps its original
+   * wording rather than asserting an absence on an older server's behalf.
+   *
+   * WHY THIS CARD NEEDED IT. It sums `order_payment` transactions with status
+   * `success`; the writer for those was deleted in the non-custodial teardown,
+   * so the list is permanently empty and the two sentences it used to show —
+   * "No settled payments in this period" and "Based on settled payments in the
+   * selected period" — both describe a measurement nothing performs. An operator
+   * reads them as a statement about their trade.
+   */
+  get trackingUnavailable(): boolean {
+    return this.paymentTrackingEnabled === false;
+  }
 
   rows: MethodRow[] = [];
   total = 0;

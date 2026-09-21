@@ -140,13 +140,23 @@
               <span class="text-sm">View menu only</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_pay" class="h-4 w-4" />
-              <span class="text-sm">Order &amp; pay</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_only" class="h-4 w-4" />
               <span class="text-sm">Order only</span>
             </label>
+            <!-- The legacy mode is shown ONLY for a table that already holds it,
+                 so an existing row stays representable and selectable while it is
+                 never offered as a NEW choice. It permits ordering exactly as
+                 "Order only" does; the app collects no payment either way. -->
+            @if (table.qrMode === 'order_pay') {
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_pay" class="h-4 w-4" />
+                <span class="text-sm">Order (legacy)</span>
+              </label>
+              <p class="text-xs text-muted-foreground">
+                This table uses a legacy mode. Diners can order; the app doesn't
+                take payment. Choose "Order only" to move it across.
+              </p>
+            }
           </div>
         }
       } @else {
@@ -162,14 +172,14 @@
         </label>
 
         @if (generateQR) {
+          <!-- NEW table: the legacy "Order & pay" mode is deliberately NOT
+               offered. It named in-app payment collection, which no code path
+               performs, so minting a fresh table into it would create the claim
+               this change removes. Existing rows keep it (see the edit branch). -->
           <div class="space-y-2 ml-6">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="menu_only" class="h-4 w-4" />
               <span class="text-sm">View menu only</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_pay" class="h-4 w-4" />
-              <span class="text-sm">Order &amp; pay</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_only" class="h-4 w-4" />

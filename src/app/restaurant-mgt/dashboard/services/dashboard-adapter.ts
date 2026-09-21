@@ -238,6 +238,13 @@ function adaptRecentReviews(raw: any[]): RecentReview[] {
 export function adaptDashboardResponse(raw: any): DashboardV2Response {
   return {
     revenue: adaptRevenue(raw?.revenue),
+    // Passed through STRICTLY: only an explicit boolean survives, so a server
+    // that never mentioned the capability stays `undefined` rather than being
+    // adapted into a claim it did not make.
+    payment_tracking_enabled:
+      typeof raw?.payment_tracking_enabled === 'boolean'
+        ? raw.payment_tracking_enabled
+        : undefined,
     payments: adaptPaymentMethods(raw?.payment_methods),
     orders: adaptOrders(raw?.orders),
     popular_items: adaptPopularItems(raw?.popular_items),

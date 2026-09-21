@@ -138,6 +138,13 @@ export interface ReviewsSummaryResponse {
 
 // ── Dashboard V2 composite response ──────────────────────
 export interface DashboardV2Response {
+  /**
+   * Whether the SERVER records settled payments (D07). OPTIONAL, and that is
+   * load-bearing: an older backend does not send it, and absence is "the server
+   * has not said" — never `false`. Read it with `=== false`, the same rule the
+   * billing screen applies to `in_app_collection_supported`.
+   */
+  payment_tracking_enabled?: boolean;
   revenue: RevenueData;
   payments: PaymentMethodData[];
   orders: OrdersData;

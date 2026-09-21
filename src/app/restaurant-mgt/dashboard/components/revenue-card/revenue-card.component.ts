@@ -120,6 +120,41 @@ import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-
             }
           </div>
 
+          <!-- D07/PR-5. Gross and Discounts are measured over SETTLED PAYMENTS,
+          and the server has just said it does not record them; Net and the chart
+          are derived from those two less Refunds. So the figures above are not a
+          measurement of money taken, and an operator reading them as one is
+          reading this platform's instrumentation as their own trade.
+
+          NOTHING IS RECOMPUTED, SUPPRESSED OR REPRICED — the server's own numbers
+          are still rendered verbatim, beside a statement of what they are.
+
+          NEUTRAL, not the warning hue the pricing notice below uses. That one is
+          window-specific ("this period straddles a boundary"); this one is a
+          permanent property of every window and every restaurant, so an amber
+          alarm on every load would read as "something went wrong today" and
+          would devalue the one that really does mean it. -->
+          @if (trackingUnavailable) {
+            <div
+              role="note"
+              data-testid="revenue-tracking-note"
+              class="-mt-2 mb-4 sm:mb-6 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-caption text-muted-foreground"
+            >
+              <svg aria-hidden="true" class="w-4 h-4 shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+              </svg>
+              <span>
+                Dinify doesn't record settled payments, so Gross and Discounts —
+                and the Net figure and chart derived from them — aren't a
+                measurement of money taken.
+                @if (netIsNegative) {
+                  That is why Net reads below zero here: refunds are subtracted
+                  from figures nothing measured.
+                }
+              </span>
+            </div>
+          }
+
           <!-- The server's mixed-pricing-convention notice, beside the figures
           it is about. Gross and Discounts are the two affected pills, so it
           sits immediately under them rather than at the foot of the card. -->
@@ -168,6 +203,9 @@ export class RevenueCardComponent implements OnChanges {
    * a "New" chip would answer a question they did not ask.
    */
   @Input() comparisonWindow: ReportDateRange | null = null;
+  /** The server's answer to whether it records settled payments, or `undefined`
+   *  when it did not state one (D07). */
+  @Input() paymentTrackingEnabled?: boolean;
   @Input() loading = false;
   @Input() error: string | null = null;
   @Output() retry = new EventEmitter<void>();
@@ -179,6 +217,39 @@ export class RevenueCardComponent implements OnChanges {
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly currencyFormatter = (v: number) => formatCurrency(v);
+
+  /**
+   * True ONLY when the server explicitly said it does not record settled
+   * payments (D07/PR-5). An absent flag says nothing, so an older response
+   * leaves the card exactly as it was rather than asserting an absence on that
+   * server's behalf — the same strict rule `payment-methods-card` applies.
+   *
+   * WHY THIS CARD NEEDED IT, AND WHY IT IS THE LOUDEST OF THE THREE CONSUMERS.
+   * `_build_revenue` aggregates `gross` and `discounts` over orders filtered
+   * `payment_status='paid'` — a column with no writer — so both are zero in
+   * every bucket and in `totals`, and `net = gross - discounts - refunds` is
+   * built on top of them. The headline figure on the Dashboard is therefore a
+   * derivation from two unmeasured quantities, presented in success green.
+   */
+  get trackingUnavailable(): boolean {
+    return this.paymentTrackingEnabled === false;
+  }
+
+  /**
+   * The second clause of the notice, and it is OBSERVED rather than predicted.
+   *
+   * `refunds` is NOT paid-gated (`order_status='refunded'` is reachable), so a
+   * window holding one reports a NEGATIVE net against a zero gross. The card is
+   * rendering that number, so it can say why — but it says so only when it can
+   * actually see it, rather than claiming in advance what the server will send.
+   *
+   * It is gated on the disclosure: a negative net from a server that DOES
+   * measure payments is an ordinary trading fact (refunds exceeded takings) and
+   * needs no explanation from us.
+   */
+  get netIsNegative(): boolean {
+    return this.trackingUnavailable && (this.revenueData?.totals.net ?? 0) < 0;
+  }
 
   /**
    * The server's mixed-pricing-convention sentence, or `null`.

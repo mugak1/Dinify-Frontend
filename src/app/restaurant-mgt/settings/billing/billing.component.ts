@@ -1,34 +1,54 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
-import { RestaurantDetail, TransactionListItem } from 'src/app/_models/app.models';
+import { TransactionListItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
-import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
-import { BadgeVariant } from 'src/app/_shared/ui/badge/badge.component';
-import { formatUGX } from 'src/app/_shared/utils/price-utils';
+import { formatAmount } from 'src/app/_shared/utils/decimal-money';
 import { SectionPageState } from '../components/section-page/section-page.component';
 import {
-  BILLING_PLANS,
-  BILLING_PLAN_FEATURES,
-  BillingCycle,
-  BillingPlan,
-  MONTHLY_PRICE_UGX,
-  YEARLY_PRICE_UGX,
-} from './billing-plans';
+  BillingInterval,
+  SubscriptionDetails,
+  SubscriptionTerms,
+  readSubscriptionDetails,
+} from './billing.model';
 
 /**
- * Billing — the restaurant's B2B SaaS subscription to Dinify. Rebuilt on the
- * shared settings section-page scaffold: a status-display + discrete-action
- * surface (subscription status, monthly/yearly plan cards, billing history),
- * subscription-only (the per_order / surcharge model was dropped).
+ * Billing — READ-ONLY (D07 / PR-3).
  *
- * The payment path is PRESERVED VERBATIM: `PayNow()` opens the existing dn-dialog
- * and `Save()`/`sendOtp()` drive the live MoMo/card/OTP integration against
- * `finances/transactions/`. The redesign rebuilds everything UP TO that seam and
- * hands off unchanged — the dialog markup, the form shape, and the endpoints are
- * untouched. Plan cards are display-only: prices come from a FE catalogue
- * (`billing-plans.ts`) while the charged amount stays the configured `flat_fee`.
+ * This screen used to state four things the platform could not support, and the
+ * removals below are the point of the change rather than a tidy-up:
+ *
+ *   A PLAN CATALOGUE WITH PRICES. `billing-plans.ts` carried UGX 150,000 /
+ *   1,500,000 and a "Save UGX 300,000/yr" badge derived from them, under a
+ *   `TODO(pricing): confirm the real figures before merge` that was never
+ *   confirmed. No server ever sent those numbers and no owner ever approved
+ *   them. The file is DELETED rather than relabelled "indicative": a price a
+ *   restaurant reads on its own billing page is a price it will hold us to.
+ *
+ *   A PAY / RENEW / SUBSCRIBE CONTROL. It opened a dialog, took a phone number,
+ *   sent a real OTP, and POSTed `finances/transactions/` — which contacted no
+ *   provider, wrote a Pending row and answered "The subscription payment has
+ *   been initiated. Please confirm payment when promted". There is no aggregator
+ *   integration in the platform. The server now refuses that call outright
+ *   (HTTP 501), so the control had nothing behind it in either repository.
+ *
+ *   AN "ACTIVE" STATUS BADGE, read from `subscription_validity` — a column that
+ *   DEFAULTS TO TRUE and that no supported writer maintains, so it read "Active"
+ *   for every restaurant on the platform regardless of anything. The Admin plane
+ *   froze the equivalent boolean `false` for exactly this reason.
+ *
+ *   A "NEXT BILLING DATE", read from `subscription_expiry_date` — likewise
+ *   unwritten, and a claim about a billing run that does not exist.
+ *
+ * WHAT IT STATES INSTEAD is what the server actually knows: the canonical
+ * recorded terms (`commercial_app.RestaurantSubscriptionTerms`) or an explicit
+ * "none recorded", and whether in-app collection is supported at all. Both come
+ * from the SERVER — the capability especially, so this page cannot outlive a
+ * collector's absence the way the old button did.
+ *
+ * WHAT IT DELIBERATELY DOES NOT ADD: no "mark as paid" acknowledgement, no
+ * invoice, no receivable, no amount due, no balance, no bank details and no
+ * payment instruction. None of those exist in the platform, and inventing one on
+ * the screen is the same defect this change removes, wearing a different shape.
  */
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -38,120 +58,137 @@ import {
   standalone: false,
 })
 export class BillingComponent implements OnInit {
-  rest?: RestaurantDetail;
   rest_id: any;
 
   /** Drives the section-page chrome (loading skeleton / error+retry / ready). */
   loadState: SectionPageState = 'loading';
 
-  // Plan catalogue (FE-defined; display only — see billing-plans.ts).
-  readonly plans = BILLING_PLANS;
-  readonly planFeatures = BILLING_PLAN_FEATURES;
+  /** The server's answer, or undefined until it lands. Never defaulted. */
+  details?: SubscriptionDetails;
 
-  // ── Payment / dialog state (PRESERVED) ──────────────────────────────────────
-  showModal = false;
-  PaymentForm?: FormGroup;
-  require_otp = false;
-  data = '';
-  sub_details?: { subscription_validity: boolean; subscription_expiry_date: any };
-  date_now = Date.now();
   transaction_list: TransactionListItem[] = [];
   load_list = false;
 
   constructor(
     private auth: AuthenticationService,
-    private route: ActivatedRoute,
     private api: ApiService,
-    private fb: FormBuilder,
-    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
-    this.rest = this.auth.currentRestaurant;
-    this.rest_id = this.auth.currentRestaurantRole?.restaurant_id ?? this.rest?.id;
+    this.rest_id =
+      this.auth.currentRestaurantRole?.restaurant_id ?? this.auth.currentRestaurant?.id;
     if (!this.rest_id) {
       this.loadState = 'error';
       return;
     }
     this.reload();
-    this.route.params.subscribe((x) => {
-      if (x['id']) {
-        ///// PopUp Payment Status (post-payment return route: billing/paid/:id)
-      }
-    });
   }
 
-  /** (Re)load subscription details + history; subscription-details gates the state. */
   reload(): void {
     this.loadState = 'loading';
     this.loadingBillingSub();
     this.getTransactionList();
   }
 
-  // ── Display helpers ─────────────────────────────────────────────────────────
+  // ── The recorded terms ──────────────────────────────────────────────────────
 
-  /** The restaurant's active cycle, or null if not on a monthly/yearly plan. */
-  get currentCycle(): BillingCycle | null {
-    const m = this.rest?.preferred_subscription_method;
-    return m === 'monthly' || m === 'yearly' ? m : null;
-  }
-
-  isCurrentPlan(plan: BillingPlan): boolean {
-    return plan.cycle === this.currentCycle;
-  }
-
-  /** Freshest validity/expiry — prefer the just-fetched sub_details over stale rest. */
-  get validity(): boolean {
-    return this.sub_details?.subscription_validity ?? this.rest?.subscription_validity ?? false;
-  }
-  get expiryDate(): any {
-    return this.sub_details?.subscription_expiry_date ?? this.rest?.subscription_expiry_date ?? null;
-  }
-  get isFreeTrial(): boolean {
-    return this.validity && (this.expiryDate === null || this.expiryDate === undefined);
-  }
-
-  get statusLabel(): string {
-    if (this.isFreeTrial) return 'Free trial';
-    return this.validity ? 'Active' : 'Inactive';
-  }
-  get statusVariant(): BadgeVariant {
-    if (this.isFreeTrial) return 'secondary';
-    return this.validity ? 'success' : 'destructive';
-  }
-
-  get feeDisplay(): string {
-    return formatUGX(Number(this.rest?.flat_fee) || 0);
-  }
-  get cadenceLabel(): string {
-    return this.currentCycle === 'yearly' ? 'year' : 'month';
-  }
-  planPrice(plan: BillingPlan): string {
-    return formatUGX(plan.priceUGX);
-  }
-  ugx(amount: number): string {
-    return formatUGX(Number(amount) || 0);
-  }
-
-  /** Yearly saving vs paying monthly for a year — derived from the FE catalogue. */
-  get savingsUGX(): number {
-    return Math.max(0, MONTHLY_PRICE_UGX * 12 - YEARLY_PRICE_UGX);
-  }
-  get savingsDisplay(): string {
-    return formatUGX(this.savingsUGX);
-  }
-
-  /** Primary action label on the current-plan card. */
-  get payActionLabel(): string {
-    return this.validity ? 'Renew' : 'Subscribe';
+  /**
+   * True only when the SERVER said so. `undefined` (not yet loaded, or an older
+   * server that does not send the key) is NOT "no terms" — it is "not stated",
+   * and the template renders neither an amount nor a reassurance for it.
+   */
+  get termsRecorded(): boolean {
+    return this.details?.subscription_terms?.recorded === true;
   }
 
   /**
-   * Switching billing cycle is not self-serve yet (no restaurant-facing
-   * plan-change endpoint). Surface a clear next step instead of a dead button.
+   * Whether the server answered the terms question AT ALL.
+   *
+   * SEPARATE FROM `termsRecorded`, and the separation is the point: a response
+   * that never mentioned `subscription_terms` has said nothing, and rendering
+   * "no terms have been recorded" for it would invent a reassuring answer out
+   * of an older server's silence. Only a server that stated the fact gets to
+   * have that sentence shown on its behalf.
    */
-  requestSwitch(plan: BillingPlan): void {
-    this.toast.info(`To switch to the ${plan.name} plan, please contact support.`);
+  get termsStated(): boolean {
+    return this.details?.subscription_terms !== undefined;
+  }
+
+  get terms(): SubscriptionTerms | null {
+    return this.details?.subscription_terms?.current ?? null;
+  }
+
+  /**
+   * The recorded price, or `null` when it cannot be represented EXACTLY.
+   *
+   * `formatAmount` parses the canonical decimal string digit by digit and
+   * answers `null` rather than guessing — so `"0.00"` reads `0.00` (a real,
+   * deliberate price: a free pilot, a waived period) instead of collapsing to
+   * `0`, and an amount this client cannot express is REPORTED rather than
+   * rounded into something plausible. The same rule the diner checkout applies
+   * to a quote: a figure that cannot be shown exactly is not shown.
+   */
+  get recurringAmountDisplay(): string | null {
+    const terms = this.terms;
+    if (!terms) return null;
+    const formatted = formatAmount(terms.recurring_amount);
+    if (formatted === null) return null;
+    return `${terms.currency} ${formatted}`;
+  }
+
+  /**
+   * True when the SERVER says terms are recorded and this client cannot show
+   * the amount — whether because the figure is inexpressible or because the
+   * `current` block could not be read at all. Both are "we cannot display it",
+   * and neither is "none recorded", which is a different statement entirely.
+   */
+  get amountIsUnreadable(): boolean {
+    return this.termsRecorded && this.recurringAmountDisplay === null;
+  }
+
+  /** "every month" / "every 2 months" — never a plan name; there is no catalogue. */
+  get recurrenceLabel(): string | null {
+    const interval: BillingInterval | undefined = this.terms?.billing_interval;
+    if (!interval?.unit) return null;
+    const count = Number(interval.count);
+    if (!Number.isFinite(count) || count < 1) return null;
+    return count === 1 ? `every ${interval.unit}` : `every ${count} ${interval.unit}s`;
+  }
+
+  get effectiveFrom(): string | null {
+    return this.terms?.effective_from ?? null;
+  }
+
+  // ── The collection capability ───────────────────────────────────────────────
+
+  /**
+   * Whether the SERVER says it can collect in-app. Read strictly: only an
+   * explicit `false` produces the explanatory note, so a response that never
+   * mentioned the capability says nothing rather than asserting an absence.
+   *
+   * Rendering the note off this flag — rather than off a constant here — is what
+   * makes it disappear by itself if a collector is ever built, instead of
+   * becoming the next thing on this page that is no longer true.
+   */
+  get inAppCollectionUnsupported(): boolean {
+    return this.details?.in_app_collection_supported === false;
+  }
+
+  // ── Billing history ─────────────────────────────────────────────────────────
+
+  /**
+   * One recorded transaction's amount.
+   *
+   * It reads `amount`, which is WHAT THE WIRE CARRIES. The old table read
+   * `amount_out` — a field the custodial teardown removed from the serializer
+   * years of commits ago — so `Number(undefined) || 0` rendered **UGX 0** for
+   * every row in this table. A payment history that reports every payment as
+   * zero is the same class of untruth as a Pay button with no collector behind
+   * it, so it is fixed here rather than left for the next reader.
+   */
+  transactionAmount(record: TransactionListItem): string {
+    const formatted = formatAmount(record?.amount);
+    return formatted === null ? '—' : `UGX ${formatted}`;
   }
 
   subtractMonths(date: Date, monthsToSubtract: number): Date {
@@ -178,87 +215,33 @@ export class BillingComponent implements OnInit {
         }
       });
   }
+
   loadingBillingSub() {
-    this.api.get<any>(null, 'restaurant-setup/subscription-details/', { restaurant: this.rest_id }).subscribe({
-      next: (x) => {
-        this.sub_details = x?.data as any;
-        this.loadState = 'ready';
-      },
-      error: () => {
-        this.loadState = 'error';
-      },
-    });
-  }
-
-  // ── Payment flow — the provider seam (card redirect removed in 8a; reinstated with the provider in 8b) ──
-  closeModal() {
-    this.showModal = false;
-    this.data = '';
-    this.require_otp = false;
-  }
-  PayNow() {
-    this.PaymentForm = this.InitPayment();
-    this.showModal = true;
-  }
-  InitPayment() {
-    return this.fb.group({
-      transaction_type: ['subscription'],
-      transaction_platform: ['web'],
-      payment_mode: [''],
-      restaurant_id: [this.rest_id],
-      msisdn: [''],
-      otp: [],
-    });
-  }
-  Save() {
-    if (this.data != '' && this.require_otp && this.PaymentForm?.get('payment_mode')?.value == 'momo') {
-      this.PaymentForm.get('otp')?.setValue(this.data);
-      const d = this.PaymentForm.value;
-      d.msisdn = '256' + this.PaymentForm.get('msisdn')?.value;
-      this.api.postPatch('finances/transactions/', d, 'post').subscribe((x: any) => {
-        if (x.status == 200) {
-          this.toast.success(x.message);
-          this.closeModal();
-        }
-      });
-    } else if (this.PaymentForm?.get('payment_mode')?.value == 'momo') {
-      this.api.get<any>(null, 'users/msisdn-lookup/?msisdn=256' + this.PaymentForm.get('msisdn')?.value).subscribe((x) => {
-        if (x.status == 400) {
-          this.sendOtp('msisdn', '256' + this.PaymentForm?.get('msisdn')?.value, null);
-        } else if (x.status == 200) {
-          const d = this.PaymentForm?.value;
-          d.msisdn = '256' + this.PaymentForm?.get('msisdn')?.value;
-          this.api.postPatch('finances/transactions/', d, 'post').subscribe((x: any) => {
-            if (x.status == 200) {
-              this.toast.success(x.message);
-              this.closeModal();
-
-            }
-          });
-        }
-      });
-} else if (this.PaymentForm?.get('payment_mode')?.value == 'card') {
-  this.api.postPatch('finances/transactions/', this.PaymentForm.value, 'post').subscribe((x: any) => {
-    if (x.status == 200) {
-      this.toast.success(x.message);
-      this.closeModal();
-    }
-  });
-}
-  }
-  sendOtp(identification: any, identifier: any, purpose: any) {
     this.api
-      .postPatch('users/auth/resend-otp/', { identification: identification, identifier: identifier, purpose: purpose }, 'post')
-      .subscribe((_x) => {
-        this.require_otp = true;
+      .get<any>(null, 'restaurant-setup/subscription-details/', { restaurant: this.rest_id })
+      .subscribe({
+        next: (x) => {
+          this.details = readSubscriptionDetails(x?.data);
+          this.loadState = 'ready';
+        },
+        error: () => {
+          this.loadState = 'error';
+        },
       });
   }
-  // Phase 1: cash subscription payment is admin-plane functionality.
+
+  // Phase 1: subscription COLLECTION is not a restaurant-portal capability.
   //
-  // A `canChangeBillingDate` getter used to stand here, gating a third "Cash"
+  // `PayNow()` / `InitPayment()` / `Save()` / `sendOtp()` / `closeModal()` and the
+  // dialog they drove are GONE, along with `PaymentForm`, `showModal`,
+  // `require_otp` and `data`. They POSTed `finances/transactions/` (which the
+  // server now refuses with 501), issued a REAL OTP through
+  // `users/auth/resend-otp/` for a payment that could never happen, and probed
+  // `users/msisdn-lookup/` with a typed-in number. Nothing replaced them
+  // deliberately: there is no collector to put behind a button, and an inert
+  // control that sends an OTP is worse than no control at all.
+  //
+  // A `canChangeBillingDate` getter used to stand here too, gating a third "Cash"
   // option in the payment-method picker on a platform role read off
-  // profile.roles. It went with the platform-role vocabulary. Nothing replaced
-  // it deliberately: Save() below branches on 'momo' and 'card' only, so
-  // selecting Cash fired no request, showed no toast and closed nothing — the
-  // affordance was already inert. Restaurant roles never had it.
+  // profile.roles. It went with the platform-role vocabulary.
 }

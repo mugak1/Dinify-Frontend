@@ -452,7 +452,9 @@ export class TablesService {
       shape: data.shape ?? 'square',
       tags: data.tags ?? [],
       has_qr: data.hasQR ?? false,
-      qr_mode: data.qrMode ?? 'order_pay',
+      // CREATE payload backstop. `order_only` (D07): a table created without an
+      // explicit mode must not claim in-app payment collection.
+      qr_mode: data.qrMode ?? 'order_only',
       is_active: data.isActive ?? true,
       floor_x: data.x ?? 50,
       floor_y: data.y ?? 50,

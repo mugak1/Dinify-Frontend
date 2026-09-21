@@ -68,7 +68,7 @@ const SALES_LISTING_COLUMNS: ReportColumn[] = [
   { key: 'gross', label: 'Gross', format: 'ugx', align: 'right', total: true },
   { key: 'discount', label: 'Discount', format: 'ugx', align: 'right', total: true },
   { key: 'revenue', label: 'Net', format: 'ugx', align: 'right', total: true },
-  { key: 'payment_mode', label: 'Method', format: 'text' },
+  { key: 'payment_mode', label: 'Method', format: 'tender' },
   { key: 'payment_status', label: 'Status', format: 'status' },
 ];
 

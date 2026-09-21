@@ -113,6 +113,32 @@ interface StatusSegment {
             }
           </div>
 
+          <!-- D07/PR-5. The paid segment counts orders whose payment_status is
+          'paid', a column with no writer, and the open segment is everything
+          else that was not cancelled or refunded — so the split above is not a
+          measurement of who has paid, and "Paid 0 · 0.0%" in success green
+          reads as a statement about this restaurant's takings rather than about
+          our instrumentation. Cancelled and Refunded sit on the order-status
+          axis and ARE real, which is why the sentence names only the two that
+          are not. Neutral tone, and the same strict explicit-false rule as the
+          other two consumers of this flag. -->
+          @if (trackingUnavailable) {
+            <div
+              role="note"
+              data-testid="orders-tracking-note"
+              class="-mt-4 sm:-mt-5 mb-7 sm:mb-8 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-caption text-muted-foreground"
+            >
+              <svg aria-hidden="true" class="w-4 h-4 shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+              </svg>
+              <span>
+                Dinify doesn't record settled payments, so Paid and Open/Unpaid
+                aren't a measurement of who has paid — every order that wasn't
+                cancelled or refunded is counted as unpaid.
+              </span>
+            </div>
+          }
+
           <!-- Orders vs Time chart -->
           <div>
             <h3 class="text-card-title text-foreground mb-2">Orders vs Time</h3>
@@ -149,6 +175,9 @@ export class TotalOrdersCardComponent implements OnChanges {
    * a "New" chip would answer a question they did not ask.
    */
   @Input() comparisonWindow: ReportDateRange | null = null;
+  /** The server's answer to whether it records settled payments, or `undefined`
+   *  when it did not state one (D07). */
+  @Input() paymentTrackingEnabled?: boolean;
   @Input() loading = false;
 
   chartData: ChartData<'line'> = { labels: [], datasets: [] };
@@ -183,6 +212,16 @@ export class TotalOrdersCardComponent implements OnChanges {
   get absPercentage(): string {
     const change = this.percentageChange;
     return change === null ? '' : Math.abs(change).toFixed(1);
+  }
+
+  /**
+   * True ONLY when the server explicitly said it does not record settled
+   * payments (D07/PR-5). An absent flag says nothing — an older response leaves
+   * this card exactly as it was, the same strict rule the other two consumers
+   * of this flag apply.
+   */
+  get trackingUnavailable(): boolean {
+    return this.paymentTrackingEnabled === false;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
