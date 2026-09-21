@@ -126,11 +126,17 @@ describe('BillingComponent', () => {
         in_app_collection_supported: false,
         subscription_terms: { recorded: true, current: { nonsense: true } },
       });
-      expect(component.termsRecorded).toBeTrue();
+      // `hasCurrentTerms` REPLACED `termsRecorded` and asks a different
+      // question: not "what boolean did the server send" but "are there
+      // readable open terms on this screen". For this payload the answer is
+      // no — and the distinction is what keeps this state out of the absence
+      // branch, which is what the assertions below pin.
+      expect(component.hasCurrentTerms).toBeFalse();
       expect(component.terms).toBeNull();
-      expect(component.amountIsUnreadable).toBeTrue();
-      expect(text()).toContain("can't display your recorded subscription amount");
-      expect(text()).not.toContain('No subscription terms have been recorded');
+      expect(component.termsUnreadable).toBeTrue();
+      expect(component.termsAbsent).toBeFalse();
+      expect(text()).toContain("can't display your recorded subscription terms");
+      expect(text()).not.toContain('No current subscription terms are recorded');
     });
 
     it('refuses to display an amount it cannot represent exactly', () => {
@@ -138,8 +144,8 @@ describe('BillingComponent', () => {
       // whole change removes. The state is NAMED instead.
       start(withTerms('not-a-number'));
       expect(component.recurringAmountDisplay).toBeNull();
-      expect(component.amountIsUnreadable).toBeTrue();
-      expect(text()).toContain("can't display your recorded subscription amount");
+      expect(component.termsUnreadable).toBeTrue();
+      expect(text()).toContain("can't display your recorded subscription terms");
     });
   });
 
@@ -148,19 +154,31 @@ describe('BillingComponent', () => {
   describe('when no terms are recorded', () => {
     it('says so explicitly and invents no price', () => {
       start(withoutTerms());
-      expect(component.termsRecorded).toBeFalse();
-      expect(text()).toContain('No subscription terms have been recorded');
+      expect(component.hasCurrentTerms).toBeFalse();
+      // ORACLE CORRECTED, NOT RELAXED (D07/G2). `recorded` is driven by
+      // `open_terms` — `ended_at IS NULL` — so a restaurant whose terms have
+      // been ENDED answers this way too. The old sentence said none had been
+      // recorded "yet", which claims none ever existed and that the venue has
+      // never paid; neither is established by this response.
+      expect(text()).toContain('No current subscription terms are recorded');
       expect(text()).not.toContain('UGX');
     });
 
-    it('stays silent when the server did not answer the question at all', () => {
-      // An older server that sends neither key has said NOTHING. Rendering the
-      // reassuring "none recorded" sentence for it would be inventing an answer.
+    it('states that an older server did not answer, rather than staying blank', () => {
+      // ORACLE CORRECTED, NOT RELAXED (D07/G2). This asserted the section
+      // stayed SILENT. Rendering the reassuring "none recorded" sentence for
+      // an older server would still be inventing an answer — that half is
+      // unchanged and is still asserted below — but rendering NOTHING left a
+      // heading above blank space, which reads as a broken page rather than
+      // as "this server has not told us". Silence is not the same as saying
+      // the terms are unavailable, and only one of the two is true.
       start({ subscription_validity: true });
-      expect(component.termsRecorded).toBeFalse();
-      expect(component.inAppCollectionUnsupported).toBeFalse();
-      expect(text()).not.toContain('No subscription terms have been recorded');
+      expect(component.hasCurrentTerms).toBeFalse();
+      expect(component.collectionUnsupported).toBeFalse();
+      expect(text()).not.toContain('No current subscription terms are recorded');
       expect(text()).not.toContain("aren't collected through the app");
+      // ...and it SAYS SO, rather than rendering a heading above blank space.
+      expect(text()).toContain("aren't available from this server");
     });
   });
 
@@ -174,7 +192,8 @@ describe('BillingComponent', () => {
         subscription_validity: true,
         subscription_expiry_date: '2027-01-01T00:00:00+03:00',
       }));
-      expect(component.termsRecorded).toBeFalse();
+      expect(component.hasCurrentTerms).toBeFalse();
+      expect(component.termsAbsent).toBeTrue();
       expect(text()).not.toContain('Active');
       expect(text()).not.toContain('Next billing date');
     });
@@ -193,7 +212,7 @@ describe('BillingComponent', () => {
   describe('the collection capability', () => {
     it('states that payments are not collected in the app, from the server', () => {
       start(withoutTerms());
-      expect(component.inAppCollectionUnsupported).toBeTrue();
+      expect(component.collectionUnsupported).toBeTrue();
       expect(text()).toContain("aren't collected through the app");
     });
 
@@ -219,7 +238,7 @@ describe('BillingComponent', () => {
       // Rendered off the SERVER's flag, never a local constant — so this page
       // cannot outlive the absence it describes.
       start({ ...withoutTerms(), in_app_collection_supported: true });
-      expect(component.inAppCollectionUnsupported).toBeFalse();
+      expect(component.collectionUnsupported).toBeFalse();
       expect(text()).not.toContain("aren't collected through the app");
     });
   });

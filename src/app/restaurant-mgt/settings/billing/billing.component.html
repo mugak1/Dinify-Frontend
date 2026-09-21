@@ -17,13 +17,13 @@
   <section class="px-4 sm:px-6 py-5 border-b border-gray-200">
     <h2 class="text-section-title text-foreground">Subscription terms</h2>
 
-    @if (termsRecorded && recurringAmountDisplay) {
+    @if (hasCurrentTerms && recurringAmountDisplay) {
       <p class="text-sm text-gray-500 mt-0.5">What Dinify has recorded for your restaurant.</p>
 
       <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
         <div>
           <dt class="text-gray-500">Recurring fee</dt>
-          <dd class="mt-0.5 font-medium text-gray-900 tabular-nums">
+          <dd class="mt-0.5 font-medium text-gray-900 tabular-nums" data-testid="terms-amount">
             {{ recurringAmountDisplay }}
             @if (recurrenceLabel) {
               <span class="font-normal text-gray-400">{{ recurrenceLabel }}</span>
@@ -37,28 +37,47 @@
           </dd>
         </div>
       </dl>
-    } @else if (amountIsUnreadable) {
+    } @else if (termsUnreadable) {
       <!--
-        Terms exist and the amount cannot be represented exactly. Saying nothing
-        would be a lie by omission and rounding it would be a lie outright, so
-        the state is named and the operator is pointed at a person.
+        THREE PRODUCERS, ONE SENTENCE (D07/G2): a malformed projection,
+        `recorded: true` with no readable terms, `recorded: false` beside a
+        `current`, and an amount this client cannot express exactly. Saying
+        nothing would be a lie by omission and rounding would be a lie
+        outright, so the state is named and the operator is pointed at a
+        person. It is NOT "none recorded", which is a different statement.
       -->
-      <p class="mt-2 text-sm text-gray-700" role="alert">
-        We can't display your recorded subscription amount correctly. Please contact
+      <p class="mt-2 text-sm text-gray-700" role="alert" data-testid="terms-unreadable">
+        We can't display your recorded subscription terms correctly. Please contact
         support rather than relying on this page.
       </p>
-    } @else if (termsStated) {
+    } @else if (termsAbsent) {
       <!--
-        ABSENCE IS AN ANSWER, and the server stated it. No price is invented, no
-        plan is suggested and no "free" or "trial" is claimed — none of those
-        words means anything in this domain.
+        ABSENCE IS AN ANSWER, and the server stated it. No price is invented,
+        no plan is suggested and no "free" or "trial" is claimed.
+
+        "CURRENT", deliberately. The selector behind `recorded` is `open_terms`
+        — `ended_at IS NULL` — so a restaurant whose terms have ENDED answers
+        this way too. Saying none have "ever" been recorded, or that the venue
+        has never paid, would be a claim this response cannot support.
       -->
-      <p class="mt-2 text-sm text-gray-500">
-        No subscription terms have been recorded for your restaurant yet.
+      <p class="mt-2 text-sm text-gray-500" data-testid="terms-absent">
+        No current subscription terms are recorded for your restaurant.
+      </p>
+    } @else if (termsUnstated) {
+      <!--
+        AN OLDER SERVER THAT NEVER MENTIONED THE PROJECTION. This used to
+        render NOTHING — a heading above blank space, which reads as a broken
+        page. It is not a transport failure (the read succeeded), so it does
+        not take the section into its error state; it says what is true, which
+        is that this server did not tell us.
+      -->
+      <p class="mt-2 text-sm text-gray-500" data-testid="terms-unstated">
+        Your subscription terms aren't available from this server. Please contact
+        support if you need them.
       </p>
     }
 
-    @if (inAppCollectionUnsupported) {
+    @if (collectionUnsupported) {
       <!--
         THE CAPABILITY, from the server. It replaces a Pay / Renew / Subscribe
         button that opened a dialog, sent a real OTP and posted to an endpoint
@@ -69,7 +88,19 @@
         Subscription payments aren't collected through the app. Please contact
         support about your subscription.
       </p>
+    } @else if (collectionUnreadable) {
+      <!--
+        The server sent the capability and this client could not read it. Said
+        out loud rather than dropped: a malformed value used to be discarded in
+        the reader, so a broken contract silently removed the note above and
+        the page looked exactly like a build that had grown a collector.
+      -->
+      <p class="mt-4 text-sm text-gray-500" data-testid="collection-unreadable">
+        We couldn't read whether subscription payments are collected through the
+        app. Please contact support about your subscription.
+      </p>
     }
+
   </section>
 
   <!-- ── Billing history ──────────────────────────────────────────────── -->
@@ -78,7 +109,7 @@
     <p class="text-sm text-gray-500 mt-0.5">Subscription transactions recorded for your restaurant.</p>
 
     <div class="mt-4 overflow-x-auto">
-      @if (!load_list) {
+      @if (historyState === 'loading') {
         <ul class="divide-y divide-gray-100">
           @for (i of [0, 1, 2]; track i) {
             <li class="flex animate-pulse items-center gap-3 py-3">
@@ -87,8 +118,28 @@
             </li>
           }
         </ul>
+      } @else if (historyState === 'failed') {
+        <!--
+          A FAILED HISTORY READ IS ITS OWN STATE (D07/G2). It used to sit in
+          the skeleton above for ever, because `load_list` only ever moved on a
+          200 — so a denial, an offline device and a malformed body were all
+          rendered as "still loading". The retry is READ-ONLY: it re-runs both
+          reads and writes nothing.
+        -->
+        <div class="py-6 text-center" data-testid="history-failed">
+          <p class="text-sm text-gray-700" role="alert">
+            We couldn't load your billing history.
+          </p>
+          <button
+            type="button"
+            class="mt-2 text-sm font-medium text-primary hover:underline"
+            (click)="reload()"
+          >Try again</button>
+        </div>
       } @else if (transaction_list.length === 0) {
-        <p class="py-6 text-center text-sm text-gray-500">No subscription transactions recorded.</p>
+        <p class="py-6 text-center text-sm text-gray-500" data-testid="history-empty">
+          No subscription transactions recorded.
+        </p>
       } @else {
         <table class="w-full text-left text-sm">
           <thead class="border-b border-gray-200 text-xs uppercase text-gray-400">

@@ -8,8 +8,9 @@
  * been paid — there is no invoice, receivable or collection record anywhere in
  * this platform, so this screen never renders one.
  *
- * The two legacy keys are typed because the wire still carries them and this
- * change is additive. NOTHING IN THIS FOLDER READS THEM. They are not canonical:
+ * The two legacy keys are carried on the read because the wire still sends
+ * them and a reader should be able to see they arrived. NOTHING IN THIS
+ * FOLDER READS THEM. They are not canonical:
  * no supported writer maintains either, and `subscription_validity` defaults to
  * `true`, which is exactly how the old panel came to render "Active" for every
  * restaurant on the platform.
@@ -37,33 +38,66 @@ export interface SubscriptionTerms {
   effective_from: string;
 }
 
-/**
- * ABSENCE IS AN ANSWER. `recorded: false` is a successful statement that the
- * platform has recorded no terms — NOT a failure, and not something to fill in
- * with a default. Most restaurants are in this state today.
- */
-export interface SubscriptionTermsState {
-  recorded: boolean;
-  current: SubscriptionTerms | null;
-}
-
-export interface SubscriptionDetails {
-  /**
-   * Whether the SERVER can collect a subscription payment in-app.
-   *
-   * OPTIONAL, and that is load-bearing: absent means the server did not state
-   * it, which is NOT the same as stating `false`. Read it with `=== false`.
-   */
-  in_app_collection_supported?: boolean;
-  /** Absent when the server did not state it — see above. */
-  subscription_terms?: SubscriptionTermsState;
-
-  // --- legacy, carried by the wire, deliberately unread here ---------------
-  subscription_validity?: boolean;
-  subscription_expiry_date?: string | null;
-}
-
 // --- reading the wire --------------------------------------------------------
+//
+// FIVE ANSWERS TO "WHAT ARE THIS RESTAURANT'S TERMS?", AND COLLAPSING ANY TWO
+// IS THE DEFECT (D07/G2). The first cut of this screen had two — terms, or a
+// sentence saying none are recorded — reached through `recorded === true` and
+// `subscription_terms !== undefined`. Everything else fell through the gaps:
+//
+//   `current`      a valid open terms row.
+//   `none`         the server stated `recorded: false` with no `current`.
+//                  AN ANSWER, not a failure; most restaurants are here.
+//   `unstated`     the response never mentioned `subscription_terms`. An older
+//                  server. NOT a transport failure and NOT "none recorded" —
+//                  rendering the reassuring sentence for it invents an answer
+//                  out of silence, and rendering nothing at all (what it used
+//                  to do) leaves the section blank with no explanation.
+//   `unreadable`   the key is present and this client cannot trust it:
+//                  a non-object, a non-boolean `recorded`, `recorded: true`
+//                  with no readable `current`, or — the one most easily missed
+//                  — `recorded: false` BESIDE a perfectly valid `current`.
+//                  A contradiction is not evidence of absence.
+//   (failure)      the request failed, was denied, or the device is offline.
+//                  Owned by the load state, never by this vocabulary: a failed
+//                  read must never become "Not configured".
+
+/** Why a present projection could not be trusted. Diagnostic; one sentence reaches the screen. */
+export type TermsUnreadableReason =
+  | 'shape'          // not an object, or `recorded` is not a boolean
+  | 'missing-current' // recorded: true with no readable terms
+  | 'contradictory';  // recorded: false with a `current` beside it
+
+export type SubscriptionTermsRead =
+  | { readonly kind: 'current'; readonly terms: SubscriptionTerms }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'unstated' }
+  | { readonly kind: 'unreadable'; readonly reason: TermsUnreadableReason };
+
+/**
+ * Whether the SERVER can collect a subscription payment in-app.
+ *
+ * Four answers for the same reason the terms have five. `unstated` is an older
+ * server; `unreadable` is one that sent the key and failed to express it, which
+ * used to be silently dropped — so a broken contract removed the explanatory
+ * note and looked exactly like a build that had grown a collector.
+ */
+export type CollectionCapabilityRead =
+  | { readonly kind: 'supported' }
+  | { readonly kind: 'unsupported' }
+  | { readonly kind: 'unstated' }
+  | { readonly kind: 'unreadable' };
+
+/** The whole validated read of one subscription-details response. */
+export interface SubscriptionDetailsRead {
+  readonly terms: SubscriptionTermsRead;
+  readonly collection: CollectionCapabilityRead;
+  /** Carried so a reader can see they arrived. NOTHING here reads them. */
+  readonly legacy: {
+    readonly validity?: boolean;
+    readonly expiry?: string | null;
+  };
+}
 
 const INTERVAL_UNITS: readonly BillingInterval['unit'][] = ['day', 'week', 'month', 'year'];
 
@@ -103,44 +137,90 @@ function readTerms(value: unknown): SubscriptionTerms | null {
   };
 }
 
+function readTermsState(raw: Record<string, unknown>): SubscriptionTermsRead {
+  if (!('subscription_terms' in raw)) return { kind: 'unstated' };
+
+  const block = record(raw['subscription_terms']);
+  if (!block || typeof block['recorded'] !== 'boolean') {
+    return { kind: 'unreadable', reason: 'shape' };
+  }
+
+  const currentPresent = block['current'] !== undefined && block['current'] !== null;
+
+  if (block['recorded']) {
+    const terms = readTerms(block['current']);
+    // `recorded: true` means an OPEN ROW EXISTS. Without readable terms beside
+    // it this client cannot display the amount, and "none recorded" would be a
+    // different — and false — statement.
+    return terms
+      ? { kind: 'current', terms }
+      : { kind: 'unreadable', reason: 'missing-current' };
+  }
+
+  // `recorded: false` means NO OPEN ROW. A `current` beside it contradicts
+  // that, and a VALID one is the dangerous shape: read as absence it would
+  // silently hide a price the restaurant is being charged.
+  return currentPresent
+    ? { kind: 'unreadable', reason: 'contradictory' }
+    : { kind: 'none' };
+}
+
+function readCapability(raw: Record<string, unknown>): CollectionCapabilityRead {
+  if (!('in_app_collection_supported' in raw)) return { kind: 'unstated' };
+  const value = raw['in_app_collection_supported'];
+  if (value === true) return { kind: 'supported' };
+  if (value === false) return { kind: 'unsupported' };
+  return { kind: 'unreadable' };
+}
+
 /**
  * Read `data` from the subscription-details response.
  *
- * **A KEY THE SERVER DID NOT STATE IS OMITTED, NEVER DEFAULTED.** That is the
- * whole contract: every consumer of this object reads it strictly (`=== true` /
- * `=== false`), so an older server that has never heard of these facts says
- * NOTHING and the screen renders neither a price nor a reassurance about one.
- * Defaulting `in_app_collection_supported` to `false` here would put a claim on
- * the page that no server ever made — the same defect, one layer down.
+ * **KEY PRESENCE, NOT VALUE, SEPARATES SILENCE FROM A BROKEN ANSWER.** JSON
+ * cannot transmit `undefined`, so a value test cannot tell an older server
+ * from one that sent `null`, and the two call for opposite responses: the
+ * first is tolerated, the second is a contract error somebody should see.
  *
- * A MALFORMED `current` LEAVES `recorded` STANDING. The server said terms exist;
- * this client simply cannot read them, and those are different facts. The panel
- * reports that it cannot display the amount rather than quietly reporting that
- * none was recorded.
+ * **A NON-OBJECT BODY IS NOT AN OLDER SERVER.** It used to become `{}` here,
+ * which read as "said nothing" about both facts at once. It returns `null` now
+ * so the caller can report a failure rather than a silence.
  */
-export function readSubscriptionDetails(payload: unknown): SubscriptionDetails {
-  const raw = record(payload) ?? {};
-  const details: SubscriptionDetails = {} as SubscriptionDetails;
+export function readSubscriptionDetails(payload: unknown): SubscriptionDetailsRead | null {
+  const raw = record(payload);
+  if (!raw) return null;
 
-  if (typeof raw['in_app_collection_supported'] === 'boolean') {
-    details.in_app_collection_supported = raw['in_app_collection_supported'];
-  }
-
-  const terms = record(raw['subscription_terms']);
-  if (terms && typeof terms['recorded'] === 'boolean') {
-    details.subscription_terms = {
-      recorded: terms['recorded'],
-      current: readTerms(terms['current']),
-    };
-  }
-
-  // Passed through only so a reader can see they arrived; nothing here reads them.
+  const legacy: { validity?: boolean; expiry?: string | null } = {};
   if (typeof raw['subscription_validity'] === 'boolean') {
-    details.subscription_validity = raw['subscription_validity'];
+    legacy.validity = raw['subscription_validity'];
   }
   if (typeof raw['subscription_expiry_date'] === 'string') {
-    details.subscription_expiry_date = raw['subscription_expiry_date'];
+    legacy.expiry = raw['subscription_expiry_date'];
   }
 
-  return details;
+  return {
+    terms: readTermsState(raw),
+    collection: readCapability(raw),
+    legacy,
+  };
+}
+
+// --- billing history ---------------------------------------------------------
+
+/**
+ * Read the transactions listing.
+ *
+ * **A MALFORMED SUCCESSFUL PAYLOAD IS NOT AN EMPTY LIST.** The old code did
+ * `x?.data as any` and handed whatever arrived to a template loop; a non-array
+ * body threw `newCollection[Symbol.iterator] is not a function` out of Angular
+ * and took the section down. Returning `null` lets the caller say it could not
+ * read the history, which is true, instead of "no transactions recorded",
+ * which is a claim about the restaurant.
+ *
+ * A row that is not an object is DROPPED rather than failing the whole read —
+ * one unreadable row is not a reason to withhold the rest — and the component
+ * formats each field defensively, as it already did.
+ */
+export function readBillingHistory(payload: unknown): unknown[] | null {
+  if (!Array.isArray(payload)) return null;
+  return payload.filter((row) => record(row) !== null);
 }

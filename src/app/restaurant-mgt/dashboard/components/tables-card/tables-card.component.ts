@@ -7,6 +7,13 @@ import { AnimatedNumberComponent } from '../animated-number/animated-number.comp
 import { TrendIndicatorComponent } from '../trend-indicator/trend-indicator.component';
 import { TablesData } from '../../models/dashboard.models';
 import { formatCompact } from '../../utils/format.utils';
+import {
+  MEASUREMENT_WITHHELD,
+  PaymentMeasurement,
+  measurementIsSupported,
+  measurementNotice,
+  measurementWithheldLabel,
+} from 'src/app/_shared/reporting/payment-measurement';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -94,8 +101,14 @@ import { formatCompact } from '../../utils/format.utils';
                   Median occupancy time
                 </span>
               </div>
-              <div class="text-lg sm:text-xl font-bold text-foreground tabular-nums">
-                @if (medianVisit !== null && medianVisit > 0) {
+              <div class="text-lg sm:text-xl font-bold tabular-nums"
+                [class]="measured ? 'text-foreground' : 'text-muted-foreground'">
+                @if (!measured) {
+                  <span
+                    data-testid="tables-withheld-median"
+                    [attr.aria-label]="withheldLabel"
+                  >{{ withheld }}</span>
+                } @else if (medianVisit !== null && medianVisit > 0) {
                   {{ medianVisit }}m
                 } @else {
                   –
@@ -118,17 +131,30 @@ import { formatCompact } from '../../utils/format.utils';
                   Table turns (today)
                 </span>
               </div>
-              <div class="text-lg sm:text-xl font-bold text-foreground tabular-nums">
-                {{ turnsToday.toFixed(1) }}\u00d7
+              <div class="text-lg sm:text-xl font-bold tabular-nums"
+                [class]="measured ? 'text-foreground' : 'text-muted-foreground'">
+                @if (measured) {
+                  {{ turnsToday.toFixed(1) }}\u00d7
+                } @else {
+                  <span
+                    data-testid="tables-withheld-turns"
+                    [attr.aria-label]="withheldLabel"
+                  >{{ withheld }}</span>
+                }
               </div>
               <div class="text-[10px] sm:text-xs text-muted-foreground">
                 Seatings per table
               </div>
+              <!-- THE TREND GOES WITH THE FIGURE. Both sides of it are the same
+              paid-gated count, so a comparison between them is not a smaller
+              claim than the figure — it is the same claim twice. -->
               <div class="mt-auto pt-1.5 sm:pt-2 min-w-0">
-                <app-trend-indicator
-                  [current]="turnsToday"
-                  [previous]="turnsYesterday"
-                ></app-trend-indicator>
+                @if (measured) {
+                  <app-trend-indicator
+                    [current]="turnsToday"
+                    [previous]="turnsYesterday"
+                  ></app-trend-indicator>
+                }
               </div>
             </div>
 
@@ -139,24 +165,53 @@ import { formatCompact } from '../../utils/format.utils';
                   Avg order value
                 </span>
               </div>
-              <span class="text-lg sm:text-xl font-bold text-foreground tabular-nums">
-                <app-animated-number
-                  [value]="avgTicketToday"
-                  [duration]="2000"
-                  [formatFn]="compactFormatter"
-                ></app-animated-number>
+              <span class="text-lg sm:text-xl font-bold tabular-nums"
+                [class]="measured ? 'text-foreground' : 'text-muted-foreground'">
+                @if (measured) {
+                  <app-animated-number
+                    [value]="avgTicketToday"
+                    [duration]="2000"
+                    [formatFn]="compactFormatter"
+                  ></app-animated-number>
+                } @else {
+                  <span
+                    data-testid="tables-withheld-avg-ticket"
+                    [attr.aria-label]="withheldLabel"
+                  >{{ withheld }}</span>
+                }
               </span>
               <div class="text-[10px] sm:text-xs text-muted-foreground">
                 Per table
               </div>
               <div class="mt-auto pt-1.5 sm:pt-2 min-w-0">
-                <app-trend-indicator
-                  [current]="avgTicketToday"
-                  [previous]="avgTicketYesterday"
-                ></app-trend-indicator>
+                @if (measured) {
+                  <app-trend-indicator
+                    [current]="avgTicketToday"
+                    [previous]="avgTicketYesterday"
+                  ></app-trend-indicator>
+                }
               </div>
             </div>
           </div>
+
+          <!-- D07/G1. THE CARD WAS NEVER WIRED TO THE DECLARATION AT ALL — the
+          Dashboard bound it on the other three cards and not this one — so four
+          of its five history tiles printed zeros from a payment_status=paid
+          filter beside a LIVE occupancy figure that is real. The occupancy tile
+          stays exactly as it was: the server derives it from orders that are
+          not cancelled, refunded or drafts, which is live floor state. -->
+          @if (measurementNote) {
+            <div
+              role="note"
+              data-testid="tables-tracking-note"
+              class="pt-3 flex items-start gap-2 text-caption text-muted-foreground"
+            >
+              <svg aria-hidden="true" class="w-4 h-4 shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+              </svg>
+              <span>{{ measurementNote }}</span>
+            </div>
+          }
 
           <!-- Footer -->
           <div class="pt-3 sm:pt-4 mt-3 sm:mt-4">
@@ -177,7 +232,35 @@ export class TablesCardComponent {
   @Input() tablesData: TablesData | null = null;
   @Input() loading = false;
 
+  /**
+   * Whether this platform measures settled payments (D07/G1).
+   *
+   * FIVE OF THIS CARD'S FIELDS ARE PAID-GATED IN `_build_tables` —
+   * `median_visit_minutes`, `turns_today`, `turns_yesterday`,
+   * `avg_ticket_today` and `avg_ticket_yesterday` all filter
+   * `payment_status='paid'`, so each is permanently null or zero. Occupancy is
+   * not: it selects orders that are pending and not cancelled, refunded or
+   * drafts, which every live order satisfies.
+   */
+  @Input() measurement: PaymentMeasurement | null = null;
+
   readonly compactFormatter = (v: number) => formatCompact(v);
+  readonly withheld = MEASUREMENT_WITHHELD;
+
+  get measured(): boolean {
+    return measurementIsSupported(this.measurement);
+  }
+
+  get withheldLabel(): string {
+    return measurementWithheldLabel(this.measurement);
+  }
+
+  get measurementNote(): string | null {
+    return measurementNotice(
+      this.measurement,
+      'median occupancy time, table turns and average order value',
+    );
+  }
 
   get occupancyPct(): number {
     if (!this.tablesData) return 0;

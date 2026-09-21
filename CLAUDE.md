@@ -2534,6 +2534,142 @@ so keep it current when conventions change.
   **CUTOVER IS FRONTEND FIRST** — backend first makes an older client send a REAL
   OTP (the billing dialog dispatched one BEFORE its POST) for a payment that then
   fails, so this half ships first and is inert against a pre-D07 backend
+- **AN UNKNOWN MEASUREMENT IS RENDERED AS UNAVAILABLE, AND THE BILLING READ SAYS
+  WHICH ANSWER IT GOT (D07 G1/G2).** The bullet above got the DISCLOSURE right and
+  left the figures on screen. A note under a plotted series still shows the series,
+  and an operator reads the series. Paired backend: one `summarize_revenue`
+  correction; nothing else on the wire moved.
+  **FOUR ANSWERS, NOT TWO — `_shared/reporting/payment-measurement.ts`.** The old
+  reading was `paymentTrackingEnabled === false`, which merged three situations into
+  one "not false, therefore measured": the server said `false`, the server NEVER
+  SAID, and the server said something unreadable. The decision is now
+  `supported` / `unavailable` / `unestablished` / `unusable`, and **ONLY
+  `supported` licenses a figure** — the other three withhold it. **`dashboard-adapter`
+  classifies it ONCE, because key presence is the only thing that separates silence
+  from an unreadable answer** (`'payment_tracking_enabled' in raw`, never a value
+  test — JSON cannot transmit `undefined`), and once the payload is gone that
+  distinction cannot be recovered: `undefined` is also what an unbound input reads
+  as. `DashboardV2Response.payment_measurement` is therefore REQUIRED and typed, not
+  an optional boolean, so no consumer can invent one from an absent field.
+  **`false` AND `missing` GET DIFFERENT SENTENCES.** Saying "Dinify doesn't record
+  settled payments" on behalf of a server that never said so is the same
+  manufactured claim pointed the other way, and it would print against every older
+  deployment for as long as one is running.
+  **FOUR CONSUMERS, AND THE FOURTH WAS NEVER WIRED AT ALL** — `dashboard.component.html`
+  bound the declaration on Revenue, Payment Methods and Total Orders and NOT on
+  `app-tables-card`, whose `median_visit_minutes`, `turns_today`, `turns_yesterday`,
+  `avg_ticket_today` and `avg_ticket_yesterday` are every one of them paid-gated in
+  `_build_tables`.
+  **WHAT IS NOT WITHHELD IS AS DELIBERATE AS WHAT IS.** Revenue's **Refunds** pill
+  survives (it aggregates `order_status`, which is written, and "no removing refunds"
+  is an explicit constraint); Total Orders keeps its headline, its Cancelled and
+  Refunded tiles and **its trend badge**, which is an order count on both sides and
+  is not payment-gated at all; Tables keeps occupancy, which is live floor state. The
+  unmeasured orders appear ONCE, as a neutral remainder derived from three measured
+  figures (`total − cancelled − refunded`), never as a split this platform cannot
+  perform. **Nothing is rebased onto `sale_filters`, no settlement is synthesised, no
+  refund removed and no negative clamped** — the server's own numbers stay on the
+  component (`pills[].formatted` is still the verbatim figure), and only the CLAIM
+  that they are measurements is withdrawn.
+  **THE COMPARISON IS GATED ON BOTH WINDOWS** (`comparisonIsSupported` +
+  `baselineMeasurement`): the baseline comes from a SECOND `dashboard-v2` call
+  carrying its own declaration, so during a rollout the two can disagree, and a delta
+  between a measured window and an unmeasured one describes our deployment while
+  reading as the restaurant's trade. Neither the badge NOR the "New" chip is right
+  there — the chip claims there is no history and nobody established that — and the
+  caption drops its baseline AMOUNT for the same reason. `percentageChange` returns
+  `null` rather than merely being hidden: a number that exists gets read and exported
+  eventually. **`measurement` JOINS THE `ngOnChanges` TRIGGER LIST**, which is the
+  clearing rule: without it a card that rendered a series while supported keeps the
+  built `chartData` when the next response withholds.
+  **THE BILLING SCREEN HAD TWO STATES WHERE THE WIRE HAS FIVE (G2).** It does NOT
+  reopen a payment UI — `PayNow` / `Save` / `sendOtp` / `InitPayment` stay removed and
+  a control-set sweep keeps them out. `billing.model.ts` now answers `current` /
+  `none` / `unstated` / `unreadable`, with a request FAILURE owned by the load state
+  and never becoming "Not configured". The shapes that used to fall through: an older
+  response with no projection rendered **NOTHING AT ALL** (a heading above blank
+  space, which reads as a broken page); **`{recorded: false, current: <valid terms>}`
+  rendered as ABSENCE**, which would hide a price the restaurant is being charged;
+  `recorded: true` with unreadable terms is likewise not absence; a non-object body
+  became `{}` and read as an older server; a 2xx transport carrying a refusal
+  envelope was parsed anyway; and a malformed capability was silently DROPPED, so a
+  broken contract removed the explanatory note and the page looked exactly like a
+  build that had grown a collector.
+  **"NO CURRENT SUBSCRIPTION TERMS ARE RECORDED."** The selector behind `recorded` is
+  `commercial_app.reads.open_terms` — `ended_at IS NULL` — so a restaurant whose
+  terms have been ENDED answers `{recorded: false, current: null}` too. The old copy
+  said none had been recorded "yet", which claims none ever existed and that the
+  venue has never paid. **No historical-terms API was added to make a sentence
+  accurate.** `formatAmount` and the canonical decimal strings are unchanged, and an
+  explicit `0.00` is a RECORDED PRICE — never free, a trial or an absence.
+  **BOUNDED READ OWNERSHIP**: principal + restaurant + generation, captured BEFORE
+  each request and compared on arrival, never re-derived — comparing a response
+  against whatever the service says now is what makes a stale answer authoritative.
+  Measured on the unmodified code, a stale answer repainted a different restaurant's
+  `UGX 150,000` onto a screen scoped elsewhere, and an older FAILURE could overwrite a
+  newer success (the worse direction: it reports a working screen as broken).
+  Previous-scope content is cleared IMMEDIATELY rather than when the replacement
+  lands. **BILLING HISTORY HAS ITS OWN THREE STATES** — it sat in a skeleton for ever,
+  because `load_list` only moved on a 200 — and a malformed successful payload is not
+  an empty list: it threw `newCollection[Symbol.iterator] is not a function` out of
+  the template loop and took the section down.
+  **BASELINES AND PINS.** The G1 probe ran **7/7 FAILED** and the G2 probe **8/8
+  FAILED** against unmodified `cabb672`, both through the real components (G2 through
+  the real `ApiService`, `HttpClient` and interceptor).
+  `dashboard/payment-tracking-disclosure.spec.ts` 23 -> **60**;
+  `settings/billing/billing-read-states.spec.ts` is **30** new. Suite **2748 ->
+  2815**, and the arithmetic closes exactly: +37 on the disclosure suite plus the
+  30 new ones. **TWO EARLIER FIGURES WERE PUBLISHED AND BOTH ARE RECORDED RATHER
+  THAN OVERWRITTEN.** The first, 2773 -> 2803, was wrong: 2773 was an INTERMEDIATE
+  run taken after G1 and before G2's specs existed, not `main`. `main` (`cabb672`)
+  was then re-measured in a throwaway worktree at **2736 SUCCESS** rather than
+  inferred, because a static `it(` count is not the runtime count here: five
+  `for (const kind of ['unavailable','unestablished','unusable'])` loops WRAP an
+  `it(`, so the disclosure file's 42 source specs execute as 60. That gave
+  2736 -> 2803, correct for that base. The base then MOVED: DASH-REVENUE-CLAIM-00
+  (#683) landed on `main` and brought 11 specs of its own, so the same delta now
+  reads 2748 -> 2815. A suite total is a statement about a BASE as much as a
+  branch, which is why it has needed restating twice.
+  **AND MERGING THAT BASE IN PRODUCED A SEMANTIC CONFLICT WORTH KNOWING ABOUT** —
+  git merged both branches' edits to `revenue-card.component.ts` with no textual
+  conflict and the combined result was wrong in two places. **(1)** #683 REMOVED
+  `orders` / `aov` from `RevenueSeriesPoint` (no wire key backs either) and states
+  that the narrowed type is its primary gate — "a restored literal no longer
+  compiles". This suite's revenue fixture still padded both, so it stopped
+  compiling, which is the gate working. The fields came OUT of the fixture, and
+  the `as RevenueData` cast around it came out too: nothing here asserts on them,
+  and an unchecked cast in this file is exactly what would absorb the NEXT
+  narrowing silently. **(2)** #683's own `revenue-series-claim-honesty.spec.ts`
+  tooltip group then failed 4/4 on `label === undefined`, because G1 makes
+  `buildChart` withhold the plotted series (`chartOptions = {}`) unless settlement
+  is measured, and that fixture predates the `measurement` input. It now states
+  that precondition through `classifyPaymentDeclaration(true)` — the same
+  classifier the adapter uses, so it cannot become a second opinion about what
+  `true` means. **BOTH RULES SURVIVE**: #683 still pins that the tooltip reads
+  Gross and Net only (and now actually reaches the callback rather than dying
+  before it), and the withholding keeps its own separate pin,
+  `revenue-chart-withheld`. The two wrong fixes available were deleting G1's
+  `if (!this.measured)` guard or deleting #683's specs; neither was taken.
+  **`npm run type-check` CANNOT CATCH THE FIRST HALF** — it runs
+  `tsconfig.app.json`, which excludes specs — so the spec build inside
+  `test:tenant-boundary` is what fails, and a local type-check passing says
+  nothing about it.
+  **THREE SHIPPED ORACLES WERE CORRECTED OPENLY, each at the spec that replaced it**:
+  "an older server keeps the original wording" asserted the behaviour G1 removes; "it
+  recomputes, suppresses and reprices nothing" asserted that all four Revenue pills
+  RENDER, and its INTENT is preserved and still pinned; and the billing spec's "stays
+  silent when the server did not answer" asserted the blank section. The four
+  `netIsNegative` specs were DELETED with the getter — the clause explained a headline
+  that is no longer rendered — and a control now pins that a MEASURING server's
+  below-zero net is still shown plainly, which is the fact they existed to protect.
+  **AND IT WAS RUN IN A BROWSER.** `e2e/billing-journey/` (README beside it) is the
+  manual sibling of `e2e/checkout-journey/`: three seeded restaurants (unconfigured,
+  LEGACY BILLABLE, canonical terms + history), **42/42**, and **28/42 with the eleven
+  production files reverted**. It issues the retired collector's request through the
+  running app's own `ApiService` — so it passes the REAL interceptor chain — and
+  demonstrates the old OTP-before-POST ordering with the challenge INTERCEPTED, so no
+  verification code is dispatched. It also navigates the retired payment deep links
+  directly, which a QR-rotation method test never did
 - Notifications: scaffolded and routed (route `notifications`,
   `RestNotificationsComponent`) — per-view data-wiring status varies
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a

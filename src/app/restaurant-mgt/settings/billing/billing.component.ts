@@ -6,10 +6,40 @@ import { formatAmount } from 'src/app/_shared/utils/decimal-money';
 import { SectionPageState } from '../components/section-page/section-page.component';
 import {
   BillingInterval,
-  SubscriptionDetails,
+  CollectionCapabilityRead,
+  SubscriptionDetailsRead,
   SubscriptionTerms,
+  SubscriptionTermsRead,
+  readBillingHistory,
   readSubscriptionDetails,
 } from './billing.model';
+
+/**
+ * WHOSE ANSWER THIS IS (D07/G2).
+ *
+ * Both reads are fired from `ngOnInit` and again from `reload()`, and neither
+ * used to carry any identity: a response that arrived after the operator had
+ * moved to a second restaurant repainted the first restaurant's price onto the
+ * second restaurant's screen (measured — the stale answer's UGX 150,000 landed
+ * on a page scoped elsewhere). An older FAILURE could likewise overwrite a
+ * newer success, which is the worse direction: it reports a working screen as
+ * broken.
+ *
+ * THREE PARTS, AND ALL THREE ARE NEEDED. Restaurant alone misses a principal
+ * change that keeps the same restaurant id; principal alone misses a
+ * restaurant switch; and neither catches an ordinary Retry, where both are
+ * unchanged and an older in-flight answer must still be discarded — that is
+ * what `generation` is for.
+ */
+interface BillingScope {
+  readonly principal: string;
+  readonly restaurantId: string;
+  readonly generation: number;
+}
+
+/** How a section's read ended. Kept apart from the READ vocabulary on purpose:
+ *  a failed request must never become "no terms are recorded". */
+type SectionState = 'loading' | 'ready' | 'failed';
 
 /**
  * Billing — READ-ONLY (D07 / PR-3).
@@ -63,11 +93,24 @@ export class BillingComponent implements OnInit {
   /** Drives the section-page chrome (loading skeleton / error+retry / ready). */
   loadState: SectionPageState = 'loading';
 
-  /** The server's answer, or undefined until it lands. Never defaulted. */
-  details?: SubscriptionDetails;
+  /** The VALIDATED read, or undefined until one lands. Never defaulted. */
+  details?: SubscriptionDetailsRead;
 
+  /**
+   * The billing history's own three states.
+   *
+   * SEPARATE FROM THE SECTION CHROME, because the two reads fail
+   * independently: a subscription read that succeeded must not be reported as
+   * broken because the listing timed out, and a listing that failed must not
+   * sit in a skeleton for ever — which is exactly what it used to do, since
+   * `load_list` only ever moved on a 200.
+   */
+  historyState: SectionState = 'loading';
   transaction_list: TransactionListItem[] = [];
-  load_list = false;
+
+  /** The scope every in-flight read is measured against. */
+  private scope!: BillingScope;
+  private generation = 0;
 
   constructor(
     private auth: AuthenticationService,
@@ -75,47 +118,120 @@ export class BillingComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.rest_id =
-      this.auth.currentRestaurantRole?.restaurant_id ?? this.auth.currentRestaurant?.id;
-    if (!this.rest_id) {
-      this.loadState = 'error';
-      return;
-    }
     this.reload();
   }
 
+  /**
+   * Start a fresh generation and re-read both sections.
+   *
+   * THE PREVIOUS SCOPE'S CONTENT IS CLEARED IMMEDIATELY, before either request
+   * goes out. Leaving the old terms on screen while a new restaurant's read is
+   * in flight shows one restaurant's price under another restaurant's heading
+   * for as long as the network takes, which is the same untruth the ownership
+   * guard exists to prevent — arriving a moment earlier.
+   */
   reload(): void {
+    this.rest_id =
+      this.auth.currentRestaurantRole?.restaurant_id ?? this.auth.currentRestaurant?.id;
+
+    this.generation += 1;
+    this.scope = {
+      principal: String(this.auth.userValue?.profile?.id ?? ''),
+      restaurantId: String(this.rest_id ?? ''),
+      generation: this.generation,
+    };
+
+    this.details = undefined;
+    this.transaction_list = [];
     this.loadState = 'loading';
-    this.loadingBillingSub();
-    this.getTransactionList();
+    this.historyState = 'loading';
+
+    if (!this.rest_id) {
+      this.loadState = 'error';
+      this.historyState = 'failed';
+      return;
+    }
+
+    this.loadingBillingSub(this.scope);
+    this.getTransactionList(this.scope);
+  }
+
+  /**
+   * Whether an answer captured under `at` may still write to this screen.
+   *
+   * Compared against the scope CAPTURED BEFORE THE REQUEST, never re-derived
+   * on arrival: comparing a response against whatever the service says now is
+   * what makes a stale answer look authoritative.
+   */
+  private owns(at: BillingScope): boolean {
+    return at.generation === this.scope.generation
+      && at.restaurantId === this.scope.restaurantId
+      && at.principal === this.scope.principal;
   }
 
   // ── The recorded terms ──────────────────────────────────────────────────────
 
-  /**
-   * True only when the SERVER said so. `undefined` (not yet loaded, or an older
-   * server that does not send the key) is NOT "no terms" — it is "not stated",
-   * and the template renders neither an amount nor a reassurance for it.
-   */
-  get termsRecorded(): boolean {
-    return this.details?.subscription_terms?.recorded === true;
+  /** The validated read, or `null` before one lands. */
+  get termsRead(): SubscriptionTermsRead | null {
+    return this.details?.terms ?? null;
   }
 
-  /**
-   * Whether the server answered the terms question AT ALL.
-   *
-   * SEPARATE FROM `termsRecorded`, and the separation is the point: a response
-   * that never mentioned `subscription_terms` has said nothing, and rendering
-   * "no terms have been recorded" for it would invent a reassuring answer out
-   * of an older server's silence. Only a server that stated the fact gets to
-   * have that sentence shown on its behalf.
-   */
-  get termsStated(): boolean {
-    return this.details?.subscription_terms !== undefined;
-  }
-
+  /** The one open terms row, or `null` in every other state. */
   get terms(): SubscriptionTerms | null {
-    return this.details?.subscription_terms?.current ?? null;
+    const read = this.termsRead;
+    return read?.kind === 'current' ? read.terms : null;
+  }
+
+  /** The server stated an OPEN ROW EXISTS and this client could read it. */
+  get hasCurrentTerms(): boolean {
+    return this.termsRead?.kind === 'current';
+  }
+
+  /**
+   * The server stated there are NO OPEN TERMS.
+   *
+   * THE SELECTOR IS `open_terms` — `ended_at IS NULL` and nothing else — so a
+   * restaurant whose only terms have been ENDED also answers
+   * `{recorded: false, current: null}`. The copy therefore says no CURRENT
+   * terms are recorded, and never that none ever existed or that the venue has
+   * never paid, neither of which this response establishes. (There is no
+   * historical-terms API, and adding one to make a sentence accurate would be
+   * building a surface to justify copy.)
+   */
+  get termsAbsent(): boolean {
+    return this.termsRead?.kind === 'none';
+  }
+
+  /**
+   * The response never mentioned the projection — an older server.
+   *
+   * IT GETS A SENTENCE OF ITS OWN, and that is the change. It used to render
+   * NOTHING: the section carried a heading and then blank space, which reads
+   * as a loading failure or a layout bug rather than as "this server has not
+   * told us". It is not a transport failure and must not be reported as one.
+   */
+  get termsUnstated(): boolean {
+    return this.termsRead?.kind === 'unstated';
+  }
+
+  /**
+   * The projection arrived and cannot be trusted.
+   *
+   * THREE PRODUCERS, ONE SENTENCE. A malformed block, `recorded: true` with no
+   * readable terms, and `recorded: false` beside a `current` are different
+   * faults and the same remedy — ask a person, do not rely on this page. The
+   * reason is kept on the read for diagnosis and deliberately does not branch
+   * the copy, which would make the screen an oracle over the response.
+   *
+   * It ALSO covers a readable row whose amount this client cannot express
+   * exactly: `formatAmount` answers `null` rather than rounding, and a price
+   * that cannot be shown exactly is not shown.
+   */
+  get termsUnreadable(): boolean {
+    const read = this.termsRead;
+    if (!read) return false;
+    if (read.kind === 'unreadable') return true;
+    return read.kind === 'current' && this.recurringAmountDisplay === null;
   }
 
   /**
@@ -125,8 +241,9 @@ export class BillingComponent implements OnInit {
    * answers `null` rather than guessing — so `"0.00"` reads `0.00` (a real,
    * deliberate price: a free pilot, a waived period) instead of collapsing to
    * `0`, and an amount this client cannot express is REPORTED rather than
-   * rounded into something plausible. The same rule the diner checkout applies
-   * to a quote: a figure that cannot be shown exactly is not shown.
+   * rounded into something plausible. **An explicit zero is a RECORDED VALUE**,
+   * never a free trial, a discount or an absence — the absence is a row that
+   * does not exist, which is `termsAbsent`.
    */
   get recurringAmountDisplay(): string | null {
     const terms = this.terms;
@@ -134,16 +251,6 @@ export class BillingComponent implements OnInit {
     const formatted = formatAmount(terms.recurring_amount);
     if (formatted === null) return null;
     return `${terms.currency} ${formatted}`;
-  }
-
-  /**
-   * True when the SERVER says terms are recorded and this client cannot show
-   * the amount — whether because the figure is inexpressible or because the
-   * `current` block could not be read at all. Both are "we cannot display it",
-   * and neither is "none recorded", which is a different statement entirely.
-   */
-  get amountIsUnreadable(): boolean {
-    return this.termsRecorded && this.recurringAmountDisplay === null;
   }
 
   /** "every month" / "every 2 months" — never a plan name; there is no catalogue. */
@@ -161,17 +268,30 @@ export class BillingComponent implements OnInit {
 
   // ── The collection capability ───────────────────────────────────────────────
 
+  get collectionRead(): CollectionCapabilityRead | null {
+    return this.details?.collection ?? null;
+  }
+
   /**
-   * Whether the SERVER says it can collect in-app. Read strictly: only an
-   * explicit `false` produces the explanatory note, so a response that never
-   * mentioned the capability says nothing rather than asserting an absence.
+   * The server says it cannot collect in-app.
    *
-   * Rendering the note off this flag — rather than off a constant here — is what
-   * makes it disappear by itself if a collector is ever built, instead of
-   * becoming the next thing on this page that is no longer true.
+   * Rendering the note off the SERVER's answer — rather than off a constant
+   * here — is what makes it disappear by itself if a collector is ever built,
+   * instead of becoming the next thing on this page that is no longer true.
    */
-  get inAppCollectionUnsupported(): boolean {
-    return this.details?.in_app_collection_supported === false;
+  get collectionUnsupported(): boolean {
+    return this.collectionRead?.kind === 'unsupported';
+  }
+
+  /**
+   * The server sent the capability key and this client could not read it.
+   *
+   * SAID OUT LOUD RATHER THAN DROPPED. A malformed value used to be discarded
+   * in the reader, so a broken contract silently removed the explanatory note
+   * and the page looked exactly like a build that had grown a collector.
+   */
+  get collectionUnreadable(): boolean {
+    return this.collectionRead?.kind === 'unreadable';
   }
 
   // ── Billing history ─────────────────────────────────────────────────────────
@@ -197,34 +317,73 @@ export class BillingComponent implements OnInit {
     return dateCopy;
   }
 
-  getTransactionList() {
-    this.load_list = false;
+  getTransactionList(at: BillingScope = this.scope): void {
     const today = new Date();
     const from_today = this.subtractMonths(today, 5);
     this.api
       .get<any>(null, `reports/restaurant/` + 'transactions-listing/', {
-        restaurant: this.rest_id,
+        restaurant: at.restaurantId,
         from: `${from_today.getFullYear()}-${from_today.getMonth() + 1}-${from_today.getDate()}`,
         to: `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`,
         type: 'subscription',
       })
-      .subscribe((x) => {
-        if (x?.status == 200) {
-          this.transaction_list = x?.data as any;
-          this.load_list = true;
-        }
+      .subscribe({
+        next: (x) => {
+          if (!this.owns(at)) return;
+          // A 2xx body whose envelope says otherwise is a FAILURE, not an
+          // empty history — the old code simply left the skeleton up for it.
+          if (x?.status !== 200) {
+            this.historyState = 'failed';
+            return;
+          }
+          const rows = readBillingHistory(x?.data);
+          if (rows === null) {
+            // A MALFORMED SUCCESSFUL PAYLOAD IS NOT AN EMPTY LIST. Handing a
+            // non-array to the template loop threw
+            // `newCollection[Symbol.iterator] is not a function` out of
+            // Angular and took the section down with it.
+            this.historyState = 'failed';
+            return;
+          }
+          this.transaction_list = rows as TransactionListItem[];
+          this.historyState = 'ready';
+        },
+        error: () => {
+          if (!this.owns(at)) return;
+          this.historyState = 'failed';
+        },
       });
   }
 
-  loadingBillingSub() {
+  loadingBillingSub(at: BillingScope = this.scope): void {
     this.api
-      .get<any>(null, 'restaurant-setup/subscription-details/', { restaurant: this.rest_id })
+      .get<any>(null, 'restaurant-setup/subscription-details/', { restaurant: at.restaurantId })
       .subscribe({
         next: (x) => {
-          this.details = readSubscriptionDetails(x?.data);
+          if (!this.owns(at)) return;
+          // THE ENVELOPE IS CHECKED BEFORE THE BODY. A non-200 envelope on a
+          // 2xx transport used to be parsed anyway, producing an empty read
+          // that rendered as silence — a denial reported as "this server said
+          // nothing about terms".
+          if (x?.status !== 200) {
+            this.loadState = 'error';
+            return;
+          }
+          const read = readSubscriptionDetails(x?.data);
+          if (read === null) {
+            // A body this client cannot parse at all is a FAILURE. It used to
+            // become `{}`, which every downstream getter read as an older
+            // server that had simply not answered.
+            this.loadState = 'error';
+            return;
+          }
+          this.details = read;
           this.loadState = 'ready';
         },
         error: () => {
+          if (!this.owns(at)) return;
+          // A FAILED, DENIED OR OFFLINE READ IS NEVER "Not configured". The
+          // section chrome renders its own error with a read-only retry.
           this.loadState = 'error';
         },
       });

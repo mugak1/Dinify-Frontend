@@ -1,3 +1,4 @@
+import { readPaymentMeasurement } from '../../../_shared/reporting/payment-measurement';
 import {
   DashboardV2Response,
   RevenueSeriesPoint,
@@ -251,13 +252,14 @@ function adaptRecentReviews(raw: any[]): RecentReview[] {
 export function adaptDashboardResponse(raw: any): DashboardV2Response {
   return {
     revenue: adaptRevenue(raw?.revenue),
-    // Passed through STRICTLY: only an explicit boolean survives, so a server
-    // that never mentioned the capability stays `undefined` rather than being
-    // adapted into a claim it did not make.
-    payment_tracking_enabled:
-      typeof raw?.payment_tracking_enabled === 'boolean'
-        ? raw.payment_tracking_enabled
-        : undefined,
+    // CLASSIFIED ONCE, HERE, because this is the only place that still holds
+    // the PAYLOAD (D07). The previous form collapsed every non-boolean to
+    // `undefined`, which made a key the server sent as `null` indistinguishable
+    // from a key it never sent — and once the payload is gone that distinction
+    // cannot be recovered, since `undefined` is also what an unbound input
+    // reads as. `readPaymentMeasurement` asks `in` rather than reading the
+    // value, so silence and an unreadable answer stay apart.
+    payment_measurement: readPaymentMeasurement(raw),
     payments: adaptPaymentMethods(raw?.payment_methods),
     orders: adaptOrders(raw?.orders),
     popular_items: adaptPopularItems(raw?.popular_items),

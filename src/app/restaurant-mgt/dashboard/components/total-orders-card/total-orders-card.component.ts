@@ -11,6 +11,13 @@ import { bucketAxisLabel, baselineCaption } from '../../utils/timeframe-labels';
 import { percentChange } from '../../../../_shared/utils/percent-change';
 import { NoBaselineChipComponent } from '../../../../_shared/ui/no-baseline-chip/no-baseline-chip.component';
 import { chartMutedColor, chartTooltipTheme } from 'src/app/_common/utils/chart-theme-utils';
+import {
+  MEASUREMENT_WITHHELD,
+  PaymentMeasurement,
+  measurementIsSupported,
+  measurementNotice,
+  measurementWithheldLabel,
+} from 'src/app/_shared/reporting/payment-measurement';
 
 interface StatusSegment {
   key: string;
@@ -19,6 +26,11 @@ interface StatusSegment {
   percentage: string;
   colorClass: string;
   bgClass: string;
+  /** True when the count is aggregated over settled payments this server does
+   *  not vouch for — the figure is withheld rather than printed (D07/G1). */
+  withheld: boolean;
+  /** Share of `total` this segment occupies on the stacked bar. */
+  share: number;
 }
 
 @Component({
@@ -88,15 +100,30 @@ interface StatusSegment {
             </div>
           </div>
 
-          <!-- Stacked status bar -->
+          <!-- Stacked status bar. A WITHHELD SEGMENT DRAWS NO BAND OF ITS OWN;
+          the orders it would have covered appear once, as the neutral
+          unmeasured remainder below, which is arithmetic on three figures that
+          ARE measured (total, cancelled, refunded) rather than a split this
+          platform cannot perform. The title attribute on each band is a tooltip, so it
+          states the same thing the tile does. -->
           <div class="mb-4">
             <div class="flex gap-1 h-8 rounded-none overflow-hidden">
               @for (seg of segments; track seg.key) {
+                @if (!seg.withheld) {
+                  <div
+                    class="transition-all"
+                    [class]="seg.bgClass"
+                    [style.width.%]="seg.share"
+                    [title]="seg.label + ': ' + seg.count + ' (' + seg.percentage + '%)'"
+                  ></div>
+                }
+              }
+              @if (unmeasuredShare > 0) {
                 <div
-                  class="transition-all"
-                  [class]="seg.bgClass"
-                  [style.width.%]="seg.count > 0 ? (seg.count / ordersData.total * 100) : 0"
-                  [title]="seg.label + ': ' + seg.count + ' (' + seg.percentage + '%)'"
+                  class="transition-all bg-muted-foreground/25"
+                  data-testid="orders-unmeasured-band"
+                  [style.width.%]="unmeasuredShare"
+                  [title]="unmeasuredBandTitle"
                 ></div>
               }
             </div>
@@ -106,23 +133,35 @@ interface StatusSegment {
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-7 sm:mb-8">
             @for (seg of segments; track seg.key) {
               <div class="text-center p-1.5 sm:p-2 bg-muted rounded-none">
-                <div class="text-base sm:text-lg font-bold" [class]="seg.colorClass">{{ seg.count }}</div>
-                <div class="text-[10px] sm:text-xs text-foreground">{{ seg.label }}</div>
-                <div class="text-[10px] sm:text-xs text-foreground">{{ seg.percentage }}%</div>
+                @if (seg.withheld) {
+                  <div
+                    class="text-base sm:text-lg font-bold text-muted-foreground"
+                    [attr.data-testid]="'orders-withheld-' + seg.key"
+                    [attr.aria-label]="withheldLabel"
+                  >{{ withheld }}</div>
+                  <div class="text-[10px] sm:text-xs text-foreground">{{ seg.label }}</div>
+                  <div class="text-[10px] sm:text-xs text-muted-foreground">{{ withheld }}</div>
+                } @else {
+                  <div class="text-base sm:text-lg font-bold" [class]="seg.colorClass">{{ seg.count }}</div>
+                  <div class="text-[10px] sm:text-xs text-foreground">{{ seg.label }}</div>
+                  <div class="text-[10px] sm:text-xs text-foreground">{{ seg.percentage }}%</div>
+                }
               </div>
             }
           </div>
 
-          <!-- D07/PR-5. The paid segment counts orders whose payment_status is
-          'paid', a column with no writer, and the open segment is everything
-          else that was not cancelled or refunded — so the split above is not a
-          measurement of who has paid, and "Paid 0 · 0.0%" in success green
-          reads as a statement about this restaurant's takings rather than about
-          our instrumentation. Cancelled and Refunded sit on the order-status
-          axis and ARE real, which is why the sentence names only the two that
-          are not. Neutral tone, and the same strict explicit-false rule as the
-          other two consumers of this flag. -->
-          @if (trackingUnavailable) {
+          <!-- D07/G1. Paid counts payment_status=paid, a column with no writer,
+          and Open/Unpaid is everything else on that SAME payment axis — so
+          neither is a measurement of who has paid, and "Paid 0 / 0.0%" in
+          success green reads as a statement about this restaurant's takings.
+          Both are withheld above.
+
+          THE CARD IS NOT HIDDEN AND THE OTHER FIGURES ARE NOT TOUCHED. Total
+          is a plain order count, and Cancelled and Refunded sit on the ORDER-STATUS
+          axis — three independent measurements, so the headline, the trend
+          badge against the comparison window (also a plain order count), the
+          orders-over-time chart and two of the four tiles are unchanged. -->
+          @if (measurementNote) {
             <div
               role="note"
               data-testid="orders-tracking-note"
@@ -131,11 +170,7 @@ interface StatusSegment {
               <svg aria-hidden="true" class="w-4 h-4 shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
               </svg>
-              <span>
-                Dinify doesn't record settled payments, so Paid and Open/Unpaid
-                aren't a measurement of who has paid — every order that wasn't
-                cancelled or refunded is counted as unpaid.
-              </span>
+              <span>{{ measurementNote }}</span>
             </div>
           }
 
@@ -175,9 +210,16 @@ export class TotalOrdersCardComponent implements OnChanges {
    * a "New" chip would answer a question they did not ask.
    */
   @Input() comparisonWindow: ReportDateRange | null = null;
-  /** The server's answer to whether it records settled payments, or `undefined`
-   *  when it did not state one (D07). */
-  @Input() paymentTrackingEnabled?: boolean;
+  /**
+   * Whether this platform measures settled payments (D07/G1). Classified once
+   * by the adapter — see `_shared/reporting/payment-measurement.ts`.
+   *
+   * There is deliberately NO baseline counterpart here, unlike the Revenue
+   * card: `total` is an ORDER COUNT on both sides of the comparison and is not
+   * payment-gated, so the trend badge stays a real measurement whatever this
+   * says.
+   */
+  @Input() measurement: PaymentMeasurement | null = null;
   @Input() loading = false;
 
   chartData: ChartData<'line'> = { labels: [], datasets: [] };
@@ -214,18 +256,53 @@ export class TotalOrdersCardComponent implements OnChanges {
     return change === null ? '' : Math.abs(change).toFixed(1);
   }
 
+  readonly withheld = MEASUREMENT_WITHHELD;
+
+  /** Whether the payment-axis split on this card is a measurement. */
+  get measured(): boolean {
+    return measurementIsSupported(this.measurement);
+  }
+
+  get withheldLabel(): string {
+    return measurementWithheldLabel(this.measurement);
+  }
+
+  get measurementNote(): string | null {
+    return measurementNotice(this.measurement, 'Paid and Open/Unpaid');
+  }
+
   /**
-   * True ONLY when the server explicitly said it does not record settled
-   * payments (D07/PR-5). An absent flag says nothing — an older response leaves
-   * this card exactly as it was, the same strict rule the other two consumers
-   * of this flag apply.
+   * The share of the bar the withheld segments would have covered.
+   *
+   * DERIVED FROM MEASURED FIGURES ONLY — total less cancelled less refunded —
+   * so it states how many orders this platform cannot classify, and never
+   * implies which side of the split they fall on. Clamped at zero so a payload
+   * whose parts exceed its total cannot produce a negative width.
    */
-  get trackingUnavailable(): boolean {
-    return this.paymentTrackingEnabled === false;
+  get unmeasuredShare(): number {
+    if (this.measured || !this.ordersData) return 0;
+    const total = this.ordersData.total;
+    if (total <= 0) return 0;
+    const b = this.ordersData.breakdown;
+    const remainder = total - b.cancelled - b.refunded;
+    if (remainder <= 0) return 0;
+    return (remainder / total) * 100;
+  }
+
+  get unmeasuredBandTitle(): string {
+    const b = this.ordersData?.breakdown;
+    const total = this.ordersData?.total ?? 0;
+    const remainder = b ? Math.max(0, total - b.cancelled - b.refunded) : 0;
+    return `Payment state not measured: ${remainder}`;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['ordersData'] || changes['bucketUnit'] || changes['range']) && this.ordersData) {
+    // `measurement` joins the trigger list so the segments are rebuilt when the
+    // decision changes, rather than keeping the shape they were built under.
+    if (
+      (changes['ordersData'] || changes['bucketUnit'] || changes['range'] || changes['measurement'])
+      && this.ordersData
+    ) {
       this.buildSegments();
       this.buildChart();
     }
@@ -235,12 +312,32 @@ export class TotalOrdersCardComponent implements OnChanges {
     if (!this.ordersData) return;
     const b = this.ordersData.breakdown;
     const total = this.ordersData.total || 1;
+    const unmeasured = !this.measured;
+    const seg = (
+      key: string,
+      label: string,
+      count: number,
+      colorClass: string,
+      bgClass: string,
+      withheld: boolean,
+    ): StatusSegment => ({
+      key,
+      label,
+      count,
+      percentage: ((count / total) * 100).toFixed(1),
+      colorClass,
+      bgClass,
+      withheld,
+      share: count > 0 ? (count / total) * 100 : 0,
+    });
 
     this.segments = [
-      { key: 'paid', label: 'Paid', count: b.paid, percentage: ((b.paid / total) * 100).toFixed(1), colorClass: 'text-success', bgClass: 'bg-success' },
-      { key: 'open', label: 'Open/Unpaid', count: b.open, percentage: ((b.open / total) * 100).toFixed(1), colorClass: 'text-warning', bgClass: 'bg-warning' },
-      { key: 'cancelled', label: 'Cancelled', count: b.cancelled, percentage: ((b.cancelled / total) * 100).toFixed(1), colorClass: 'text-muted-foreground', bgClass: 'bg-muted-foreground' },
-      { key: 'refunded', label: 'Refunded', count: b.refunded, percentage: ((b.refunded / total) * 100).toFixed(1), colorClass: 'text-destructive', bgClass: 'bg-destructive' },
+      // Payment axis — unmeasured unless the server vouches for settlement.
+      seg('paid', 'Paid', b.paid, 'text-success', 'bg-success', unmeasured),
+      seg('open', 'Open/Unpaid', b.open, 'text-warning', 'bg-warning', unmeasured),
+      // Order-status axis — real measurements, never withheld.
+      seg('cancelled', 'Cancelled', b.cancelled, 'text-muted-foreground', 'bg-muted-foreground', false),
+      seg('refunded', 'Refunded', b.refunded, 'text-destructive', 'bg-destructive', false),
     ];
   }
 

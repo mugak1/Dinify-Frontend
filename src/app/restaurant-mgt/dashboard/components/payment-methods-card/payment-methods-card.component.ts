@@ -5,6 +5,11 @@ import { CardSkeletonComponent } from '../card-skeleton/card-skeleton.component'
 import { AnimatedNumberComponent } from '../animated-number/animated-number.component';
 import { PaymentMethodData } from '../../models/dashboard.models';
 import { formatCompact } from '../../utils/format.utils';
+import {
+  PaymentMeasurement,
+  measurementIsSupported,
+  measurementNotice,
+} from 'src/app/_shared/reporting/payment-measurement';
 
 interface MethodRow {
   method: string;
@@ -36,7 +41,7 @@ const METHOD_COLORS: Record<string, string> = {
   template: `
     @if (loading) {
       <app-card-skeleton variant="compact"></app-card-skeleton>
-    } @else if (!paymentMethods || total === 0) {
+    } @else if (!measured || !paymentMethods || total === 0) {
       <app-dn-card [fullHeight]="true">
         <div class="p-4 sm:p-6 h-full flex flex-col overflow-hidden">
           <div class="mb-4 sm:mb-5">
@@ -44,13 +49,22 @@ const METHOD_COLORS: Record<string, string> = {
             <p class="text-[10px] sm:text-xs text-muted-foreground">Share of payments in selected period</p>
           </div>
           <div class="flex-1 flex items-center justify-center">
-            @if (trackingUnavailable) {
-              <p class="text-sm text-muted-foreground text-center">
-                Dinify doesn't record settled payments, so there's nothing to
-                measure here.
-              </p>
+            <!-- THE UNMEASURED BRANCH COMES FIRST AND IS STRUCTURAL. It does not
+            ask whether rows happen to have arrived: a server that cannot vouch
+            for settlement could send rows and they would still not be a share of
+            payments. -->
+            @if (!measured) {
+              <p
+                data-testid="payments-measurement-note"
+                class="text-sm text-muted-foreground text-center"
+              >{{ measurementNote }}</p>
             } @else {
-              <p class="text-sm text-muted-foreground text-center">No settled payments in this period</p>
+              <!-- "RECORDED", NOT "SETTLED". This sentence is now only ever said
+              by a server that DOES record settlement, so it is a statement about
+              the period; "no settled payments" invites the reading that money
+              was owed and not taken, where what is true is that none was
+              recorded. -->
+              <p class="text-sm text-muted-foreground text-center">No payments recorded in this period</p>
             }
           </div>
         </div>
@@ -109,17 +123,11 @@ const METHOD_COLORS: Record<string, string> = {
             }
           </div>
 
-          <!-- Footer -->
-          @if (trackingUnavailable) {
-            <p class="text-[10px] sm:text-xs text-muted-foreground mt-auto pt-3">
-              Dinify doesn't record settled payments — these figures aren't a
-              measurement of money received.
-            </p>
-          } @else {
-            <p class="text-[10px] sm:text-xs text-muted-foreground mt-auto pt-3">
-              Based on settled payments in the selected period.
-            </p>
-          }
+          <!-- Footer. Only a measured card reaches this branch now, so there is
+          one sentence and it is true of it. -->
+          <p class="text-[10px] sm:text-xs text-muted-foreground mt-auto pt-3">
+            Based on payments recorded in the selected period.
+          </p>
         </div>
       </app-dn-card>
     }
@@ -129,23 +137,28 @@ export class PaymentMethodsCardComponent implements OnChanges {
   @Input() paymentMethods: PaymentMethodData[] | null = null;
   @Input() loading = false;
 
-  /** The server's answer, or `undefined` when it did not state one. */
-  @Input() paymentTrackingEnabled?: boolean;
+  /**
+   * Whether this platform measures settled payments (D07/G1). Classified once
+   * by the adapter — see `_shared/reporting/payment-measurement.ts`.
+   */
+  @Input() measurement: PaymentMeasurement | null = null;
 
   /**
-   * True ONLY when the server explicitly said it does not record settled
-   * payments (D07). An absent flag says nothing, so the card keeps its original
-   * wording rather than asserting an absence on an older server's behalf.
+   * Whether the totals and shares on this card are measurements.
    *
-   * WHY THIS CARD NEEDED IT. It sums `order_payment` transactions with status
+   * WHY THIS CARD NEEDS IT. It sums `order_payment` transactions with status
    * `success`; the writer for those was deleted in the non-custodial teardown,
-   * so the list is permanently empty and the two sentences it used to show —
-   * "No settled payments in this period" and "Based on settled payments in the
-   * selected period" — both describe a measurement nothing performs. An operator
-   * reads them as a statement about their trade.
+   * so the list is permanently empty and every sentence about it — the total,
+   * the shares and the two empty-state lines — describes a measurement nothing
+   * performs. An operator reads them as a statement about their own trade.
    */
-  get trackingUnavailable(): boolean {
-    return this.paymentTrackingEnabled === false;
+  get measured(): boolean {
+    return measurementIsSupported(this.measurement);
+  }
+
+  /** The sentence for the non-supported state, or `null` when measured. */
+  get measurementNote(): string | null {
+    return measurementNotice(this.measurement, 'a share of payments');
   }
 
   rows: MethodRow[] = [];
