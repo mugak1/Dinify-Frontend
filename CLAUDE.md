@@ -2174,8 +2174,8 @@ so keep it current when conventions change.
   retired) and a brand-new employee's one-time temp password is surfaced on a
   persistent, non-dismissable `StaffCredentialDialogComponent`), Tax & receipts
   (`settings/tax-receipts`, `TaxReceiptsComponent`), Billing (`settings/billing`,
-  subscription-only — `BillingComponent` is the one section still in
-  `declarations`, i.e. non-standalone), Account & security (`settings/account`,
+  subscription-only and **READ-ONLY since D07** — `BillingComponent` is the one
+  section still in `declarations`, i.e. non-standalone), Account & security (`settings/account`,
   `AccountSecurityComponent`), and Preset tags (`settings/preset-tags`,
   `PresetTagsComponent`). Shared section chrome lives in `settings/components/`
   (`SectionPageComponent`, `SettingsIconComponent`); the old monolithic
@@ -2447,6 +2447,93 @@ so keep it current when conventions change.
   DinifyAccount balance) has been deleted. There is no `payments` route or
   sidebar entry; the `reports/restaurant/transactions-listing/` data now backs
   the Reports module's Transactions report instead
+- NO SCREEN CLAIMS A PAYMENT THE PLATFORM CANNOT MAKE (D07): ✅ this app
+  collected no money and said otherwise on four surfaces. Paired backend: the
+  `tx_subscription` 501 and the additive terms projection. Nothing here builds,
+  enables or simulates a collector.
+  **BILLING IS READ-ONLY.** `billing-plans.ts` is DELETED — it carried UGX 150,000
+  / 1,500,000 and a "Save UGX 300,000/yr" badge derived from them, under a
+  `TODO(pricing): confirm the real figures before merge` that was never confirmed;
+  no server ever sent those numbers and no owner ever approved them, and a price a
+  restaurant reads on its own billing page is a price it will hold us to, so they
+  are REMOVED rather than relabelled "indicative". The Pay/Renew/Subscribe control
+  is gone with `PayNow()` / `InitPayment()` / `Save()` / `sendOtp()`: it took a
+  phone number, **sent a REAL OTP through `users/auth/resend-otp/` for a payment
+  that could never happen**, probed `users/msisdn-lookup/` with a typed-in number
+  and POSTed `finances/transactions/`, which contacted no provider. The "Active"
+  badge (read from `subscription_validity`, a column that DEFAULTS TRUE with no
+  supported writer, so it read Active for every restaurant on the platform) and
+  the "next billing date" (read from the equally unwritten `subscription_expiry_date`)
+  are gone too. What the screen states instead is the SERVER's answer: the
+  canonical recorded terms or an explicit "none recorded", and whether in-app
+  collection is supported at all — **both read from the response**, the capability
+  especially, so the page cannot outlive a collector's absence the way the button
+  did. `termsRecorded` and `termsStated` are deliberately SEPARATE: a response
+  that never mentioned terms has said nothing, and rendering "no terms have been
+  recorded" for it would invent a reassuring answer out of an older server's
+  silence. It adds NO "mark as paid", invoice, receivable, amount due, balance,
+  bank detail or payment instruction — none of those exist, and inventing one on
+  the screen is this same defect wearing a different shape. One real bug fell out:
+  the history table read `amount_out`, a field the custodial teardown removed from
+  the serializer, so `Number(undefined) || 0` rendered **UGX 0 for every row**.
+  **A NEW TABLE IS CREATED `order_only`.** The six-plus frontend sites that name a
+  QR mode are classified rather than swept: a NEW table's form default, its reset
+  and the create payload become `order_only`; **mapping an EXISTING row with a
+  missing or unknown `qr_mode` RETAINS UNKNOWN** (`readQrMode` → `undefined`, and
+  `updateTable` already omits the key, so "retain" reaches the server as "leave it
+  alone"); and an unrelated edit preserves whatever the row carries. `order_pay`
+  is removed from the CREATE pickers and kept, labelled "Order (legacy)", on the
+  EDIT form for a row that already holds it. Pinned by
+  `tables/tables-qr-mode.spec.ts`.
+  **THE DASHBOARD SAYS PAYMENT IS NOT MEASURED, ON ALL THREE CARDS THE FLAG
+  GOVERNS.** `payment_tracking_enabled` is ONE statement about instrumentation and
+  `dashboard-v2` publishes it beside every figure it makes untrue, so disclosing
+  one card would have been the same defect with a smaller blast radius.
+  **Payment Methods** no longer shows an empty list that reads as "no one paid
+  today". **The Revenue card** is the loudest of the three and was the one first
+  missed: `gross` and `discounts` are aggregated over `payment_status='paid'`, a
+  column with no writer, so both are zero in every bucket — and `net = gross −
+  discounts − refunds` is derived from them while `refunds` is NOT paid-gated, so
+  a window holding a single refund reports a NEGATIVE net as the Dashboard's
+  headline figure, in success green. (Its `pricing_conventions` counts run over
+  that same empty set, which is why the D02/C mixed-pricing notice has never been
+  able to render on a live payload.) **Total Orders** is the third: `paid` is that
+  same unwritten column and `open` is everything else not cancelled or refunded,
+  so the split reads "nobody has paid" about a restaurant that traded all day —
+  and the sentence there deliberately names ONLY those two, because Cancelled and
+  Refunded sit on the order-status axis and ARE real measurements.
+  **NOTHING IS RECOMPUTED, SUPPRESSED OR REPRICED** — every server figure is still
+  rendered verbatim, beside a statement of what it is. The Revenue note's
+  below-zero clause is OBSERVED rather than predicted (`netIsNegative` reads the
+  number the card is rendering) and is gated on the disclosure, since a negative
+  net from a server that DOES measure is an ordinary trading fact needing no
+  sentence from us. The two new notes are NEUTRAL, deliberately not the warning
+  hue the pricing-conventions notice uses: that one is window-specific, while this
+  is a permanent property of every window and every restaurant, so a standing
+  amber alarm would read as "something went wrong today" and would devalue the one
+  that really does mean it. `payment_tracking_enabled`
+  is read STRICTLY at all three — only an explicit `false` produces a note, so an
+  older response that never mentioned it says nothing — and the mock states `false`
+  because the flag is a BUILD fact, true for every restaurant and every window,
+  unlike the pricing-conventions notice which depends on window data. Pinned by
+  `dashboard/payment-tracking-disclosure.spec.ts` (23); five source mutations fail
+  3 / 2 / 2 / 3 / 1 named subsets with every control holding.
+  **AND A REPORT NEVER STATES A TENDER OR STATUS THE SERVER DID NOT** — see the
+  `reports-adapter` `stated()` rule and the `tender` column format in the Reports
+  notes below, plus the flip-time gate, which now warns that these columns go
+  empty against a live backend and that restoring a fallback IS the defect.
+  **The tax and receipt copy states STORAGE, never APPLICATION**: the VAT rate note
+  says the value is saved for reference rather than "applied to taxable orders",
+  and the Receipts section no longer claims anything prints — `receipt_footer` has
+  no consumer in either repository. No tax is calculated, no quote altered, no
+  receipt created and no legal compliance inferred.
+  Paired backend: the `tx_subscription` 501 / `BREAKING_CHANGES.md` §17; delivery
+  record: `D07_PAYMENT_CLAIM_CLOSURE.md` (backend repo) — the E1-E7 to
+  changed-consumer mapping, the Stage A evidence corrections, the judgement calls
+  and what was deliberately not run.
+  **CUTOVER IS FRONTEND FIRST** — backend first makes an older client send a REAL
+  OTP (the billing dialog dispatched one BEFORE its POST) for a payment that then
+  fails, so this half ships first and is inert against a pre-D07 backend
 - Notifications: scaffolded and routed (route `notifications`,
   `RestNotificationsComponent`) — per-view data-wiring status varies
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
@@ -3020,15 +3107,17 @@ writing new tag, price/menu or date-range logic:
 - **`$safeNavigationMigration()` wrappers in templates are load-bearing — never bulk
   `sed` them away.** Pre-22 a template `?.` yielded `null` when the receiver was
   nullish; v22 yields `undefined`. The v22 migration wrapped the sites where that
-  distinction reaches a null-sensitive sink, restoring `null`. There are **16, across
-  7 templates** (`auth/register` 5, `settings/billing` 3, `_common/confirm-dialog` 3,
-  `diner-app/payment-details` 2, then one each in `menu/section-form-dialog`,
-  `menu/item-form-dialog`, `diner-app/menu`). They are deliberately narrow — in
-  `confirm-dialog` only a ternary's consequent is wrapped, not its truthiness test,
-  and in `payment-details` the `=== 'successful'` comparisons are left bare, since
-  `null` and `undefined` are indistinguishable there. Unwrapping them is a
-  site-by-site audit of what each sink does with `null` vs `undefined`, one PR of its
-  own
+  distinction reaches a null-sensitive sink, restoring `null`. There are **11, across
+  5 templates** (`auth/register` 5, `_common/confirm-dialog` 3, then one each in
+  `menu/section-form-dialog`, `menu/item-form-dialog`, `diner-app/menu`). They are
+  deliberately narrow — in `confirm-dialog` only a ternary's consequent is wrapped,
+  not its truthiness test. **The census dropped from 16/7 in D07 and the two
+  removals are the reason**: the billing collector dialog took `settings/billing`'s
+  3 with it, and the retired `diner-app/payment-details` view took its 2 (whose
+  `=== 'successful'` comparisons this entry used to name as deliberately bare).
+  Neither was unwrapped — the templates were DELETED — so the outstanding audit is
+  unchanged in kind and smaller in size. Unwrapping the remainder is a site-by-site
+  audit of what each sink does with `null` vs `undefined`, one PR of its own
 - **An Angular major is `ng update`, never a version bump.** A bump alone —
   Dependabot's or ours — installs the new framework without running its migrations,
   and the migrations that matter are RUNTIME behaviour changes that type-check, lint
@@ -3343,13 +3432,42 @@ writing new tag, price/menu or date-range logic:
   `order_charge`/`subscription`); the adapter's `txnType` strips the `order_`
   prefix to the FE `payment`/`refund`/`charge`/`subscription` tokens (else a
   refund mislabels as 'Payment')
+- A REPORT STATES THE SERVER'S TENDER AND STATUS, OR NONE (D07). `reports-adapter`'s
+  `stated()` is the one rule: a non-string, an explicit `null`, an absent key and a
+  blank or whitespace-only string all become **`null`**, and only a real token is
+  passed through. It replaced `?? 'Cash'`, `?? 'paid'` and `?? 'pending'`, which did
+  not paper over a rare gap — they MANUFACTURED THE ENTIRE COLUMN, because nothing in
+  the platform records a diner payment, so every real Sales row rendered a settled
+  cash sale and every Transactions row a pending payment. `PaymentMode`,
+  `PaymentStatus` and `TransactionStatus` are therefore `| null` on the row models.
+  **`null` IS NOT A NEUTRAL TOKEN**: `'unknown'` / `'other'` would become values an
+  operator can filter, sort and total by, and would read as something the server said.
+  The absence reaches THREE consumers and all three spell it the same — `statusLabel`
+  renders `—` with the neutral `outline` pill (never `success`, which would paint an
+  unstated payment green), `methodDisplay` renders `—` and `isCashMode` withholds the
+  cash dagger, and the Sales listing's Method column uses the **`tender`** column
+  format, which is `text` PLUS the absence rule. That format exists because
+  `formatCell(null, 'text')` returns `''`, so the Sales listing rendered a BLANK
+  Method cell beside a `—` Status cell on the same row — one absence spelled two ways,
+  which reads as data loss. It maps NO vocabulary: the `momo` vs `MTN MoMo` mismatch
+  is the separate KNOWN GAP below. **ONE derived claim is deliberately KEPT**:
+  `listingDisplayStatus('refund', null)` still reads `refunded`, because
+  `transaction_type` IS server-stated and the pill restates a fact rather than
+  inventing one from an absence. Pinned by `reports/payment-claim-honesty.spec.ts`
+  (13); five mutations fail 2 / 1 / 2 / 2 / 1 named subsets with every control holding
 - KNOWN GAP (follow-up, not a flip blocker): backend `payment_mode` vocab is
   `cash`/`momo`/`card`, but the FE `PaymentMode` union is
   `MTN MoMo`/`Airtel MoMo`/`Cash`. The adapter passes the raw token through and
   the "Method" column renders it as plain text, so it degrades gracefully — but
   the values don't match. A proper fix needs a product call (backend can't
   distinguish MTN vs Airtel — it stores only `momo`) plus a model + mock-data
-  rework; deferred to its own change
+  rework; deferred to its own change. **D07 NARROWED WHAT THIS GAP CAN COST AND
+  DELIBERATELY DID NOT CLOSE IT.** `PaymentMode` is now `| null` and the adapter
+  no longer defaults an unstated tender to `'Cash'` (see the D07 bullet), so the
+  gap is confined to a MISMATCH between two real vocabularies rather than also
+  covering an INVENTED value — which is a different and much smaller problem.
+  Mapping the two vocabularies is still the product call it always was, and the
+  new `tender` column format maps nothing: it carries the absence rule only
 - Only flip a mock flag to `false` when design is finalised and the
   backend endpoint is confirmed
 - ReportsService flip-time gate — the four report contracts are pinned by the
@@ -3359,7 +3477,16 @@ writing new tag, price/menu or date-range logic:
   FOUR reports (Sales, Menu, Transactions, Diners) end-to-end against the live
   backend — slug, params AND response shape — since the mock returns
   frontend-shaped data and masks any drift until flip; (3) resolve the
-  `payment_mode` vocab gap above
+  `payment_mode` vocab gap above; and (4) **EXPECT THE TENDER AND STATUS COLUMNS
+  TO GO EMPTY, AND DO NOT "FIX" THAT** (D07). The mock populates `payment_mode`
+  and `payment_status` on every row; the LIVE backend populates neither, because
+  nothing in the platform records a diner payment. So the flip turns the Sales
+  listing's Method and Status columns and the Transactions listing's Method column
+  into em dashes across the board — which is the TRUE state, and is exactly what
+  the adapter's `null` and the `tender`/`status` formats exist to render. The
+  reflex on seeing it will be to restore a fallback; that fallback is the D07
+  defect. If the emptiness is judged unacceptable to ship, the answer is to build
+  payment recording or to drop the columns, never to re-invent their contents
 - Dashboard flip-time gate — **the sparse-series hazard this entry used to carry is CLOSED**.
   It warned that flipping `DashboardService.USE_MOCK_DATA` to `false` would activate a
   densification gap in `dashboard-adapter`'s `adaptRevenueSeries`, because the backend emitted

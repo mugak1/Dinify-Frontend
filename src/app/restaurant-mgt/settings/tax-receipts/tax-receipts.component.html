@@ -25,7 +25,7 @@
             <p class="text-sm font-medium text-gray-900">VAT registered</p>
             <p class="text-xs text-gray-400 mt-0.5">
               Turn on if your business is registered for VAT with URA. The rate
-              below applies only when this is on.
+              below is only shown when this is on.
             </p>
           </div>
           <app-dn-switch
@@ -58,7 +58,17 @@
                 Enter a rate between 0 and 100 (up to 2 decimal places).
               </p>
             } @else {
-              <p class="mt-1 text-xs text-gray-400">The percentage applied to taxable orders.</p>
+              <!-- D07: this said "The percentage applied to taxable orders",
+                   which claims the rate is APPLIED. Nothing in either repository
+                   computes tax on an order: the quote is built from item prices,
+                   modifiers and extras only, and no VAT line exists anywhere in
+                   the checkout, the stored order or the kitchen ticket. The
+                   wording below is the approved replacement and is deliberately
+                   about STORAGE rather than calculation. -->
+              <p class="mt-1 text-xs text-gray-400">
+                This value is saved for reference. Dinify does not currently use
+                it to calculate tax on orders.
+              </p>
             }
           </div>
         }
@@ -85,7 +95,17 @@
     <!-- ── Receipts ─────────────────────────────────────────────────────── -->
     <section class="px-4 sm:px-6 py-5">
       <h2 class="text-section-title text-foreground">Receipts</h2>
-      <p class="text-sm text-gray-500 mt-0.5">What prints at the bottom of customer receipts.</p>
+      <!-- D07: this said "What prints at the bottom of customer receipts",
+           a claim in the present tense about something the platform does not
+           do. `receipt_footer` has NO consumer in either repository — no diner
+           screen, no kitchen ticket, no print sheet, no serializer beyond the
+           settings read/write, and no backend reader at all — so nothing
+           prints, renders or issues a receipt carrying it. The replacement
+           describes STORAGE and INTENT, exactly as the VAT-rate note below
+           does, and deliberately promises no future receipt either. -->
+      <p class="text-sm text-gray-500 mt-0.5">
+        The footer message saved for customer receipts.
+      </p>
 
       <div class="mt-4">
         <label for="t-footer" class="block text-sm font-medium text-gray-700 mb-1">
@@ -100,7 +120,11 @@
           [ngClass]="fieldClass()"
         ></textarea>
         <div class="mt-1 flex items-center justify-between gap-2">
-          <p class="text-xs text-gray-400">A short message — thanks, WiFi, or a policy note.</p>
+          <p class="text-xs text-gray-400">
+            A short message — thanks, WiFi, or a policy note. This value is
+            saved for reference. Dinify does not currently print or issue
+            customer receipts.
+          </p>
           <span class="text-xs text-gray-400 tabular-nums">{{ receiptFooterLength }}/255</span>
         </div>
       </div>

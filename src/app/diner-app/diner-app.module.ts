@@ -9,7 +9,6 @@ import { StorageModule } from '../_services/storage/storage.module';
 import { DinifyCommonModule } from '../_common/dinify-common.module';
 import { MenuItemDetailComponent } from './menu-item-detail/menu-item-detail.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { PaymentDetailsComponent } from './payment-details/payment-details.component';
 import { OrderCompleteComponent } from './order-complete/order-complete.component';
 import { ErrorPageComponent } from "./error-page/error-page.component";
 import { DinerConnectionErrorComponent } from './connection-error/connection-error.component';
@@ -35,7 +34,20 @@ const routes: Routes = [
   {path:'basket',component:BasketComponent,title:'Basket'},
   {path:'basket/order-complete',component:OrderCompleteComponent,title:'Order placed'},
   {path:'error',component:ErrorPageComponent},
-  {path:'payment-details/:id', component:PaymentDetailsComponent},
+  // RETIRED (D07). `payment-details/:id` rendered "Your payment of UGX X was
+  // successfully received" from a `transaction_status` nothing in the platform
+  // can produce: the order-payment write path was retired in the non-custodial
+  // teardown and the only surviving writer (`tx_subscription`) is record-only
+  // and now refuses outright (501). It was orphaned from navigation — no
+  // routerLink, no navigate(), and no backend redirect or provider callback
+  // names it — but it was LIVE as a deep link on BOTH diner mounts, so this is
+  // the removal of a reachable route rather than of dead code. A bookmarked URL
+  // now falls to the wildcard below and lands on the menu.
+  //
+  // The BACKEND route it read (`orders/journey/payment-details/`) is untouched,
+  // and its entry in `_security/diner-capability-contract.ts` deliberately
+  // STAYS: that allowlist describes the server's surface for cross-repo parity,
+  // not this app's navigation.
   { path: 'h/:table/item/:itemId', component: MenuItemDetailComponent, title: 'Menu' },
   { path: '**', redirectTo: '' }
   ];
@@ -45,7 +57,6 @@ const routes: Routes = [
     DinersMenuComponent,
     BasketComponent,
     MenuItemDetailComponent,
-    PaymentDetailsComponent,
     OrderCompleteComponent
   ],
   imports: [

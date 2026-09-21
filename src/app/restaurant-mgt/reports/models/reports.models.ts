@@ -57,8 +57,14 @@ export interface SalesListingRow {
   discount: number;
   /** UGX, net (gross − discount). */
   revenue: number;
-  payment_mode: PaymentMode;
-  payment_status: PaymentStatus;
+  /**
+  * `null` means THE SERVER STATED NO TENDER (D07). It is not "Cash": nothing in
+  * the platform records how a diner paid, so a row that carries no tender is a
+  * row we know nothing about.
+  */
+  payment_mode: PaymentMode | null;
+  /** `null` means the server stated no payment status — never "paid". */
+  payment_status: PaymentStatus | null;
   /** ISO 8601 datetime. */
   time_created: string;
 }
@@ -70,7 +76,23 @@ export interface SalesListingTotals {
   revenue: number;
 }
 
-export type ReportColumnFormat = 'text' | 'number' | 'ugx' | 'datetime' | 'status';
+/**
+ * `tender` is `text` PLUS THE ABSENCE RULE (D07/PR-6), and it exists because the
+ * two are different facts. An empty `text` cell means the row carried nothing
+ * worth printing; a tender column's empty cell means THE SERVER STATED NO
+ * TENDER, which is the whole point of the null this adapter now preserves.
+ *
+ * Without it the Sales listing rendered a BLANK Method cell beside a `—` Status
+ * cell on the same row — one absence spelled two ways, which reads as data loss
+ * rather than as the deliberate statement it is. The other two consumers
+ * (`statusLabel`, `methodDisplay`) already said `—`; this is that same rule
+ * reaching the third.
+ *
+ * It maps no vocabulary and renames nothing: the `momo`/`cash`/`card` versus
+ * `MTN MoMo`/`Cash` mismatch is a separate KNOWN GAP needing a product call, and
+ * widening this token to touch it would be exactly the conflation D07 removes.
+ */
+export type ReportColumnFormat = 'text' | 'tender' | 'number' | 'ugx' | 'datetime' | 'status';
 
 export interface ReportColumn {
   /** Row property key. */
@@ -132,10 +154,12 @@ export interface TransactionsSummary {
 export interface TransactionsListingRow {
   order_number: string;
   transaction_type: TransactionType;
-  transaction_status: TransactionStatus;
+  /** `null` means the server stated no status — never "pending". */
+  transaction_status: TransactionStatus | null;
   /** UGX. */
   amount: number;
-  payment_mode: PaymentMode;
+  /** `null` means the server stated no tender — see SalesListingRow. */
+  payment_mode: PaymentMode | null;
   transaction_platform: string;
   /** ISO 8601 datetime. */
   time_created: string;

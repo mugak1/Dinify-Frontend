@@ -627,13 +627,22 @@ export interface Account {
   restaurant: string
   user: any
 }
+// One row of `reports/restaurant/transactions-listing/`.
+//
+// MIRRORS `finance_app.SerializerGetRestaurantTransactionListing` EXACTLY. It
+// used to declare `amount_in` / `amount_out`, the custodial pair the
+// non-custodial teardown replaced with a single neutral `amount` — so the one
+// consumer that read `amount_out` got `undefined` and rendered every recorded
+// payment as UGX 0. `order_number` is a STRING or null on the wire (it is null
+// for a subscription row, which has no order), and `payment_mode` is the tender.
 export interface TransactionListItem {
   id: string
   time_created: string
   transaction_type: string
-  order_number: number
-  amount_in: number
-  amount_out: number
+  order_number: string | null
+  /** Canonical decimal amount. Format with `formatAmount`, never `Number()`. */
+  amount: number | string
+  payment_mode: string | null
   transaction_status: string
   transaction_platform: string
 }

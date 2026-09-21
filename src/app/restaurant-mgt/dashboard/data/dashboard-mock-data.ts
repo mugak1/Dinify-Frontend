@@ -454,6 +454,14 @@ export function getMockDashboardData(
   bucket: ReportBucketUnit,
 ): DashboardV2Response {
   return {
+    // STATED, NOT INVENTED — and the distinction from the pricing-conventions
+    // notice is the point. That notice depends on the WINDOW's orders, so a mock
+    // asserting one would be fabricating data. This flag depends only on the
+    // BUILD: no code path in either repository records a settled payment, which
+    // is true of every restaurant and every window. So the mock states what a
+    // real server states, and the disclosure is reachable for design review
+    // instead of being invisible until `USE_MOCK_DATA` flips.
+    payment_tracking_enabled: false,
     revenue: getMockRevenueData(restaurantId, from, to, bucket),
     payments: getMockPaymentMethods(restaurantId, from, to),
     orders: getMockOrdersData(restaurantId, from, to, bucket),

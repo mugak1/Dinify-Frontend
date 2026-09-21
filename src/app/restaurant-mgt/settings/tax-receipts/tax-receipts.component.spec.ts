@@ -140,4 +140,97 @@ describe('TaxReceiptsComponent', () => {
     expect(component.form.get('tin')!.value).toBe('1000123456');
     expect(component.isDirty).toBeFalse();
   });
+
+  // ── D07 / PR-7: the copy states STORAGE, never APPLICATION ────────────────
+  //
+  // These two screens describe what Dinify does with a value. Both used to
+  // describe something it does not do. `vat_rate`, `vat_registered`, `tin` and
+  // `receipt_footer` have NO production reader in either repository — they
+  // appear only in the model, the write serializer and EDIT_INFORMATION — so
+  // no quote carries a VAT line, no order stores one, no kitchen ticket shows
+  // one, and nothing prints or issues a receipt.
+  //
+  // Copy is where that gap reaches a person. An operator who reads "the
+  // percentage applied to taxable orders" sets a rate believing their prices
+  // now carry VAT, and reconciles against a URA return on that belief. The
+  // sentences are therefore pinned, VERBATIM and by ABSENCE, rather than left
+  // to be softened back by the next edit.
+  //
+  // WHAT IS DELIBERATELY NOT DONE HERE: no tax is calculated, no quote is
+  // altered, no receipt is created, and nothing infers legal tax compliance.
+  // The fields stay saved, editable and untouched.
+
+  function textOf(): string {
+    return (fixture.nativeElement as HTMLElement).textContent!.replace(/\s+/g, ' ');
+  }
+
+  describe('states storage, never application (D07/PR-7)', () => {
+    beforeEach(() => {
+      // VAT on with a valid rate: the branch that renders the rate note.
+      component.form.patchValue({ vat_registered: true, vat_rate: '18.00' });
+      fixture.detectChanges();
+    });
+
+    it('REGRESSION: the VAT rate note says the value is saved, not applied', () => {
+      expect(textOf()).toContain(
+        'This value is saved for reference. Dinify does not currently use it to calculate tax on orders.',
+      );
+    });
+
+    it('REGRESSION: no surface claims the rate is applied to orders', () => {
+      const text = textOf().toLowerCase();
+
+      // The exact phrase that shipped, plus the two ways it tends to come back.
+      expect(text).not.toContain('applied to taxable orders');
+      expect(text).not.toContain('will be applied');
+      expect(text).not.toContain('is applied to');
+    });
+
+    it('REGRESSION: the VAT toggle says the rate is SHOWN, not that it applies', () => {
+      // "The rate below applies only when this is on" reads as a statement
+      // about when tax is charged. It is a statement about a form field.
+      const text = textOf();
+
+      expect(text).toContain('The rate below is only shown when this is on.');
+      expect(text.toLowerCase()).not.toContain('rate below applies');
+    });
+
+    it('REGRESSION: the receipt copy does not claim a receipt is printed', () => {
+      const text = textOf();
+
+      expect(text).toContain(
+        'Dinify does not currently print or issue customer receipts.',
+      );
+      // The present-tense claim that shipped.
+      expect(text).not.toContain('What prints at the bottom of customer receipts');
+    });
+
+    it('CONTROL: the fields are still editable and still describe their purpose', () => {
+      // The correction removes a CLAIM, not the feature. An operator must still
+      // be able to record a rate, a TIN and a footer, and still be told what
+      // each is for.
+      const text = textOf();
+
+      expect(text).toContain('VAT registered');
+      expect(text).toContain('TIN');
+      expect(text).toContain('The footer message saved for customer receipts.');
+      expect(component.form.get('vat_rate')!.enabled).toBeTrue();
+      expect(component.form.get('receipt_footer')!.enabled).toBeTrue();
+    });
+
+    it('CONTROL: an invalid rate still shows its validation error instead of the note', () => {
+      component.form.patchValue({ vat_rate: '250' });
+      component.form.get('vat_rate')!.markAsTouched();
+      fixture.detectChanges();
+
+      const text = textOf();
+      expect(text).toContain('Enter a rate between 0 and 100');
+      // The VAT-SPECIFIC sentence, not the shared "saved for reference"
+      // prefix — the receipt-footer helper carries that phrase too and is
+      // still on screen here, which is exactly why this names the whole claim.
+      expect(text).not.toContain(
+        'Dinify does not currently use it to calculate tax on orders.',
+      );
+    });
+  });
 });

@@ -231,6 +231,13 @@ export class ReportTableComponent implements OnChanges {
         return formatUGX(Number(value) || 0);
       case 'datetime':
         return value ? formatDate(parseISO(String(value)), 'd MMM yyyy, HH:mm') : '';
+      case 'tender':
+        // D07/PR-6. `null` here is the SERVER having stated no tender, not a
+        // value this client failed to read, so it is SHOWN rather than left
+        // blank — the same em dash `statusLabel` prints one column to the right.
+        // A blank cell would read as a rendering glitch; a token like 'Unknown'
+        // would read as something the server said.
+        return value == null || String(value).trim() === '' ? '\u2014' : String(value);
       default:
         return value == null ? '' : String(value);
     }
@@ -243,7 +250,7 @@ export class ReportTableComponent implements OnChanges {
     return null;
   }
 
-  statusVariant(value: string): BadgeVariant {
+  statusVariant(value: string | null | undefined): BadgeVariant {
     switch (value) {
       case 'paid':
       case 'success':
@@ -260,7 +267,12 @@ export class ReportTableComponent implements OnChanges {
     }
   }
 
-  statusLabel(value: string): string {
-    return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+  /**
+   * An UNSTATED status renders as an em dash, not as an empty badge (D07).
+   * A blank pill reads as a rendering glitch; "—" reads as "the server did not
+   * say", which is the fact.
+   */
+  statusLabel(value: string | null | undefined): string {
+    return value ? value.charAt(0).toUpperCase() + value.slice(1) : '—';
   }
 }

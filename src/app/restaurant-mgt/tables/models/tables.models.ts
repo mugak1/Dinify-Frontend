@@ -4,6 +4,31 @@ export type TableShape = 'round' | 'square' | 'rectangle' | 'bar';
 export type ReservationStatus = 'confirmed' | 'arrived' | 'late' | 'no_show' | 'seated' | 'cancelled';
 export type QRMode = 'menu_only' | 'order_pay' | 'order_only';
 
+/** The modes this build knows. Used only by `readQrMode`. */
+const KNOWN_QR_MODES: readonly QRMode[] = ['menu_only', 'order_pay', 'order_only'];
+
+/**
+ * Read a stored `qr_mode` off the wire, RETAINING UNKNOWN (D07).
+ *
+ * It used to be `raw.qr_mode ?? 'order_pay'`, which invented a mode for a row
+ * that had none and — worse — invented the one mode that claims the app
+ * collects the diner's payment. A table whose mode the server did not state is
+ * not a table configured to take payment; it is a table whose mode we do not
+ * know, and `undefined` is what says so.
+ *
+ * ABSENT AND UNRECOGNISED COLLAPSE TO THE SAME ANSWER, deliberately: both mean
+ * "this build cannot name the stored mode", and the one thing a consumer must
+ * do about either is the same — leave it alone. `updateTable` sends `qr_mode`
+ * only when it is defined, so an unrelated edit to such a table PRESERVES the
+ * server's value instead of overwriting it with a guess.
+ *
+ * It is NOT a validator for values this client is sending: a future server mode
+ * reads as unknown here and is neither rendered as a known one nor written back.
+ */
+export function readQrMode(raw: unknown): QRMode | undefined {
+  return KNOWN_QR_MODES.includes(raw as QRMode) ? (raw as QRMode) : undefined;
+}
+
 // ── Tag ───────────────────────────────────────────────────
 export interface TableTag {
   id: string;
@@ -197,7 +222,9 @@ export function mapApiTable(raw: any, areaId?: string): RestaurantTable {
     tags: raw.tags ?? [],
     isActive: raw.is_active ?? true,
     hasQR: raw.has_qr ?? false,
-    qrMode: raw.qr_mode ?? 'order_pay',
+    // MAPPING AN EXISTING ROW — retains unknown rather than defaulting. See
+    // `readQrMode`; this is not a create path and must invent nothing.
+    qrMode: readQrMode(raw.qr_mode),
     qrCredential: raw.qr_credential ?? undefined,
     qrRegeneratedAt: raw.qr_regenerated_at ? new Date(raw.qr_regenerated_at) : undefined,
     // Deferred: `serverId` is intentionally not mapped from `raw.server_id`

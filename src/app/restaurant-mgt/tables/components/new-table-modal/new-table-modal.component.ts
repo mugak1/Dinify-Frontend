@@ -68,7 +68,16 @@ export class NewTableModalComponent implements OnChanges {
   tags: string[] = [];
   isActive = true;
   generateQR = true;
-  qrMode: QRMode = 'order_pay';
+  /**
+   * `undefined` is REACHABLE and meaningful on the EDIT path: it is what an
+   * existing table whose stored mode this build cannot name maps to, and no
+   * radio is then selected. Submitting without choosing one sends no `qr_mode`,
+   * so the server's value is preserved rather than overwritten (D07).
+   *
+   * On the CREATE path `resetForm()` always seeds it, so it is never undefined
+   * there.
+   */
+  qrMode: QRMode | undefined = 'order_only';
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['open'] && this.open) {
@@ -82,7 +91,10 @@ export class NewTableModalComponent implements OnChanges {
         this.tags = [...this.table.tags];
         this.isActive = this.table.isActive;
         this.generateQR = this.table.hasQR;
-        this.qrMode = this.table.qrMode ?? 'order_pay';
+        // MAPPING AN EXISTING ROW: retain unknown. Defaulting here would show
+        // the operator a mode the table does not have, and saving would then
+        // write that guess back as though they had chosen it.
+        this.qrMode = this.table.qrMode;
       } else {
         this.resetForm();
       }
@@ -144,6 +156,8 @@ export class NewTableModalComponent implements OnChanges {
     this.tags = [];
     this.isActive = true;
     this.generateQR = true;
-    this.qrMode = 'order_pay';
+    // NEW table: `order_only`, never the legacy `order_pay` — there is no
+    // in-app payment collector for a new table to claim.
+    this.qrMode = 'order_only';
   }
 }

@@ -105,14 +105,12 @@
       </label>
 
       @if (generateQR) {
+        <!-- NEW tables only, so the legacy "Order & pay" mode is not offered
+             here at all — see the new-table modal for the reasoning. -->
         <div class="space-y-2 ml-6">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="menu_only" class="h-4 w-4" />
             <span class="text-sm">View menu only</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_pay" class="h-4 w-4" />
-            <span class="text-sm">Order &amp; pay</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" [(ngModel)]="qrMode" name="qrMode" value="order_only" class="h-4 w-4" />

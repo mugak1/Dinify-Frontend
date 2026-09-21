@@ -40,6 +40,27 @@ function txnType(raw: any): TransactionType {
   return 'payment';
 }
 
+/**
+ * A tender or status the server stated, or `null` when it stated none (D07).
+ *
+ * THESE USED TO BE `?? 'Cash'`, `?? 'paid'` AND `?? 'pending'`. Nothing in the
+ * platform records a diner payment — the order-payment writer was deleted in the
+ * non-custodial teardown — so those fallbacks did not paper over a rare gap:
+ * they manufactured the entire column. A report row that knew nothing about how
+ * or whether a diner paid rendered "Cash" and "Paid", and an operator reconciling
+ * their takings against it would be reconciling against values this client
+ * invented.
+ *
+ * `null` is what the renderers show as an em dash. It is deliberately NOT a
+ * neutral token like 'unknown' or 'other', which would become a value operators
+ * could filter and total by, and would read as something the server said.
+ */
+function stated(raw: any): string | null {
+  if (typeof raw !== 'string') return null;
+  const token = raw.trim();
+  return token === '' ? null : token;
+}
+
 function toArray(raw: any): any[] {
   if (Array.isArray(raw)) return raw;
   if (Array.isArray(raw?.records)) return raw.records;
@@ -67,8 +88,8 @@ export function adaptSalesListing(raw: any): SalesListingRow[] {
     gross: num(r?.gross ?? r?.gross_amount),
     discount: num(r?.discount ?? r?.discount_amount),
     revenue: num(r?.revenue ?? r?.net_amount),
-    payment_mode: (r?.payment_mode ?? 'Cash') as PaymentMode,
-    payment_status: (r?.payment_status ?? 'paid') as PaymentStatus,
+    payment_mode: stated(r?.payment_mode) as PaymentMode | null,
+    payment_status: stated(r?.payment_status)?.toLowerCase() as PaymentStatus | null ?? null,
     time_created: String(r?.time_created ?? r?.created_at ?? ''),
   }));
 }
@@ -106,11 +127,10 @@ export function adaptTransactionsListing(raw: any): TransactionsListingRow[] {
     // Normalise the backend `order_*` type vocabulary to the FE token; lowercase
     // the status (backend already emits raw lowercase success/failed/…).
     transaction_type: txnType(r?.transaction_type ?? r?.type),
-    transaction_status: String(
-      r?.transaction_status ?? r?.status ?? 'pending',
-    ).toLowerCase() as TransactionStatus,
+    transaction_status:
+      (stated(r?.transaction_status ?? r?.status)?.toLowerCase() as TransactionStatus) ?? null,
     amount: num(r?.amount),
-    payment_mode: (r?.payment_mode ?? 'Cash') as PaymentMode,
+    payment_mode: stated(r?.payment_mode) as PaymentMode | null,
     transaction_platform: String(r?.transaction_platform ?? r?.platform ?? ''),
     time_created: String(r?.time_created ?? r?.created_at ?? ''),
   }));

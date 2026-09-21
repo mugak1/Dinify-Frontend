@@ -57,7 +57,8 @@ export class BulkAddTablesModalComponent implements OnChanges {
   maxCapacity = 4;
   shape: TableShape = 'square';
   generateQR = true;
-  qrMode: QRMode = 'order_pay';
+  // NEW tables only — `order_only`, never the legacy `order_pay` (D07).
+  qrMode: QRMode = 'order_only';
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['open'] && this.open) {
@@ -112,6 +113,6 @@ export class BulkAddTablesModalComponent implements OnChanges {
     this.maxCapacity = 4;
     this.shape = 'square';
     this.generateQR = true;
-    this.qrMode = 'order_pay';
+    this.qrMode = 'order_only';
   }
 }

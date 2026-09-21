@@ -236,7 +236,7 @@ export class FloorPlanCanvasComponent {
       tags: [],
       isActive: true,
       hasQR: true,
-      qrMode: 'order_pay',
+      qrMode: 'order_only',   // NEW table (D07) — see Table.qr_mode
       x: 45,
       y: 45,
       width: 12,

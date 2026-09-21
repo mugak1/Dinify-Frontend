@@ -29,12 +29,12 @@ const METHOD_DISPLAY: Record<string, string> = {
 };
 
 /** The mock already carries friendly 'MTN MoMo'/'Airtel MoMo'/'Cash'; real tokens map here. */
-export function methodDisplay(mode: string): string {
+export function methodDisplay(mode: string | null | undefined): string {
   return METHOD_DISPLAY[(mode ?? '').toLowerCase()] ?? (mode || '—');
 }
 
 /** Cash is operator-asserted (self-reported), not PSP-confirmed. */
-export function isCashMode(mode: string): boolean {
+export function isCashMode(mode: string | null | undefined): boolean {
   return (mode ?? '').toLowerCase() === 'cash';
 }
 
@@ -55,7 +55,10 @@ export function typeDisplay(type: string): string {
  * `refunded`, `success` → `paid`, otherwise the raw status passes through (so an
  * unknown real token still renders a sensible pill). Reconciled at Gate 2.
  */
-export function listingDisplayStatus(type: string, status: string): string {
+export function listingDisplayStatus(
+  type: string,
+  status: string | null | undefined,
+): string {
   if ((type ?? '').toLowerCase() === 'refund') return 'refunded';
   if ((status ?? '').toLowerCase() === 'success') return 'paid';
   return (status ?? '').toLowerCase();

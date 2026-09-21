@@ -22,6 +22,7 @@
     <div class="lg:col-span-2">
       <app-revenue-card
         [revenueData]="dashboardData?.revenue ?? null"
+        [paymentTrackingEnabled]="dashboardData?.payment_tracking_enabled"
         [previousNet]="comparisonData?.revenue?.totals?.net ?? null"
         [comparisonWindow]="comparisonWindow"
         [range]="range"
@@ -33,6 +34,7 @@
     </div>
     <app-payment-methods-card
       [paymentMethods]="dashboardData?.payments ?? null"
+      [paymentTrackingEnabled]="dashboardData?.payment_tracking_enabled"
       [loading]="loading"
     ></app-payment-methods-card>
   </div>
@@ -46,6 +48,7 @@
     <div class="lg:col-span-2">
       <app-total-orders-card
         [ordersData]="dashboardData?.orders ?? null"
+        [paymentTrackingEnabled]="dashboardData?.payment_tracking_enabled"
         [previousTotal]="comparisonData?.orders?.total ?? null"
         [comparisonWindow]="comparisonWindow"
         [range]="range"
