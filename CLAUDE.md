@@ -2617,14 +2617,43 @@ so keep it current when conventions change.
   FAILED** against unmodified `cabb672`, both through the real components (G2 through
   the real `ApiService`, `HttpClient` and interceptor).
   `dashboard/payment-tracking-disclosure.spec.ts` 23 -> **60**;
-  `settings/billing/billing-read-states.spec.ts` is **30** new. Suite **2736 -> 2803**,
-  and the arithmetic closes exactly: +37 on the disclosure suite plus the 30 new
-  ones. **The first published figure was 2773 and was wrong** — that was an
-  INTERMEDIATE run taken after G1 and before G2's specs existed, not `main`.
-  `main` (`cabb672`) was re-measured in a throwaway worktree at **2736 SUCCESS**
-  rather than inferred, because a static `it(` count is not the runtime count
-  here: five `for (const kind of ['unavailable','unestablished','unusable'])`
-  loops WRAP an `it(`, so the disclosure file's 42 source specs execute as 60.
+  `settings/billing/billing-read-states.spec.ts` is **30** new. Suite **2748 ->
+  2815**, and the arithmetic closes exactly: +37 on the disclosure suite plus the
+  30 new ones. **TWO EARLIER FIGURES WERE PUBLISHED AND BOTH ARE RECORDED RATHER
+  THAN OVERWRITTEN.** The first, 2773 -> 2803, was wrong: 2773 was an INTERMEDIATE
+  run taken after G1 and before G2's specs existed, not `main`. `main` (`cabb672`)
+  was then re-measured in a throwaway worktree at **2736 SUCCESS** rather than
+  inferred, because a static `it(` count is not the runtime count here: five
+  `for (const kind of ['unavailable','unestablished','unusable'])` loops WRAP an
+  `it(`, so the disclosure file's 42 source specs execute as 60. That gave
+  2736 -> 2803, correct for that base. The base then MOVED: DASH-REVENUE-CLAIM-00
+  (#683) landed on `main` and brought 11 specs of its own, so the same delta now
+  reads 2748 -> 2815. A suite total is a statement about a BASE as much as a
+  branch, which is why it has needed restating twice.
+  **AND MERGING THAT BASE IN PRODUCED A SEMANTIC CONFLICT WORTH KNOWING ABOUT** —
+  git merged both branches' edits to `revenue-card.component.ts` with no textual
+  conflict and the combined result was wrong in two places. **(1)** #683 REMOVED
+  `orders` / `aov` from `RevenueSeriesPoint` (no wire key backs either) and states
+  that the narrowed type is its primary gate — "a restored literal no longer
+  compiles". This suite's revenue fixture still padded both, so it stopped
+  compiling, which is the gate working. The fields came OUT of the fixture, and
+  the `as RevenueData` cast around it came out too: nothing here asserts on them,
+  and an unchecked cast in this file is exactly what would absorb the NEXT
+  narrowing silently. **(2)** #683's own `revenue-series-claim-honesty.spec.ts`
+  tooltip group then failed 4/4 on `label === undefined`, because G1 makes
+  `buildChart` withhold the plotted series (`chartOptions = {}`) unless settlement
+  is measured, and that fixture predates the `measurement` input. It now states
+  that precondition through `classifyPaymentDeclaration(true)` — the same
+  classifier the adapter uses, so it cannot become a second opinion about what
+  `true` means. **BOTH RULES SURVIVE**: #683 still pins that the tooltip reads
+  Gross and Net only (and now actually reaches the callback rather than dying
+  before it), and the withholding keeps its own separate pin,
+  `revenue-chart-withheld`. The two wrong fixes available were deleting G1's
+  `if (!this.measured)` guard or deleting #683's specs; neither was taken.
+  **`npm run type-check` CANNOT CATCH THE FIRST HALF** — it runs
+  `tsconfig.app.json`, which excludes specs — so the spec build inside
+  `test:tenant-boundary` is what fails, and a local type-check passing says
+  nothing about it.
   **THREE SHIPPED ORACLES WERE CORRECTED OPENLY, each at the spec that replaced it**:
   "an older server keeps the original wording" asserted the behaviour G1 removes; "it
   recomputes, suppresses and reprices nothing" asserted that all four Revenue pills

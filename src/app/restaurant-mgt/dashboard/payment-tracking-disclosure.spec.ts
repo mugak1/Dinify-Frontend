@@ -176,10 +176,18 @@ describe('D07/G1 — payment measurement', () => {
 
     const revenue = (net: number): RevenueData => ({
       series: [
-        { at: '2026-09-01T00:00:00+03:00', gross: 0, net, orders: 0, aov: 0 },
+        // `orders` / `aov` ARE DELIBERATELY ABSENT. DASH-REVENUE-CLAIM-00 took
+        // both off `RevenueSeriesPoint` because no wire key backs either — the
+        // adapter filled them with a literal 0 and the tooltip rendered it —
+        // and the narrowed type is that change's PRIMARY gate. This fixture
+        // padded them only because the old type demanded it; nothing here
+        // asserts on them. The `as RevenueData` cast went with them so the
+        // literal is structurally checked rather than asserted into place,
+        // which is what would hide the next narrowing.
+        { at: '2026-09-01T00:00:00+03:00', gross: 0, net },
       ],
       totals: { gross: 0, discounts: 0, refunds: net < 0 ? -net : 0, net },
-    } as RevenueData);
+    });
 
     const WINDOW = { from: '2026-08-01', to: '2026-08-31', preset: 'custom' } as any;
 

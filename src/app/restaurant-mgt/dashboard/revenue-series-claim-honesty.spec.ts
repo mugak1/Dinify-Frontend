@@ -6,6 +6,7 @@ import { TooltipItem } from 'chart.js';
 import { RevenueCardComponent } from './components/revenue-card/revenue-card.component';
 import { adaptDashboardResponse } from './services/dashboard-adapter';
 import { getMockOrdersData, getMockRevenueData } from './data/dashboard-mock-data';
+import { classifyPaymentDeclaration } from '../../_shared/reporting/payment-measurement';
 
 /**
  * THE REVENUE SERIES STATES WHAT THE SERVER SENT, AND NOTHING BESIDE IT.
@@ -166,6 +167,18 @@ describe('dashboard revenue series — no claim the server did not make', () => 
      *  hand-built point that could quietly disagree with what the adapter produces. */
     function tooltipLines(index: number): string[] {
       fixture.componentRef.setInput('bucketUnit', 'day');
+      // A SUPPORTED MEASUREMENT IS NOW A PRECONDITION OF THE CHART EXISTING, and
+      // this fixture predates that input. D07/G1 made `buildChart` withhold the
+      // plotted series — `chartOptions = {}` — unless settlement is measured,
+      // because a chart is the most persuasive form an unmeasured figure takes.
+      // Without this line the tooltip callback is simply absent and these four
+      // specs fail on `label === undefined`, which says nothing about what the
+      // tooltip READS. That withholding has its own pin (`revenue-chart-withheld`
+      // in payment-tracking-disclosure.spec.ts); what THIS group owns is the
+      // CONTENT of the tooltip once it is drawn, so it states the precondition
+      // rather than either rule being relaxed. Through the same classifier the
+      // adapter uses, so it cannot become a second opinion about what `true` means.
+      fixture.componentRef.setInput('measurement', classifyPaymentDeclaration(true));
       fixture.componentRef.setInput('revenueData', adaptDashboardResponse(rawDashboard()).revenue);
       fixture.detectChanges();
 
