@@ -2927,6 +2927,81 @@ so keep it current when conventions change.
   flow lives in the Kitchen View (KDS board) at `/kitchen`. The diner app's
   parked OrdersComponent (another dead Falcon payment screen) has likewise been
   removed
+- **WHAT IS RELEASED IS THE THING THAT WAS TESTED, AND IT SAYS SO (D08/B1).** ✅ the
+  release certification contract lives in `release/` — `policy.json` (the committed,
+  machine-readable release policy and compatible set), `lib/decide.mjs` (THE decision,
+  pure), `lib/manifest.mjs` + `lib/canonical.mjs` + `lib/source.mjs`, `cli.mjs` (the
+  I/O around it) and `tests/` (97 cases). `README.md` beside them explains; it is
+  documentation, never the gate.
+  **THREE THINGS IT CLOSES.** `ci.yml` ran on `pull_request` only, so the merge commit
+  that ships had never had the suite run against it; `deploy-prod.yml` then REBUILT
+  from scratch, so what shipped was not what anything tested — same configuration
+  name, different bytes, no record tying one to the other; and CI built
+  `--configuration=production` while the deploy shipped `--configuration=uat`, which
+  are different API origins. `certify.yml` now runs the full contract against MERGED
+  MAIN, builds the shipping configuration ONCE, stamps it and uploads it; `publish.yml`
+  consumes that candidate and may not build anything.
+  **THE CERTIFICATION UNIT IS A TUPLE, NOT A COMMIT** — repository, commit, build
+  configuration, dependency-lock digest, artifact tree digest, certifying run. A SHA
+  alone is not a release, because one SHA produces different bytes under different
+  configurations and the difference decides which API the bundle talks to.
+  **TWO RECORDS, AND THE SPLIT IS LOAD-BEARING.** `dist/release.json` ships inside the
+  artifact and is served at `/release.json` (`firebase.json` gives it `no-store`); it
+  carries the release's identity and NO digest of itself, because an artifact cannot
+  contain its own final hash. `provenance.json` sits BESIDE `dist/`, never inside, and
+  binds that identity to the artifact TREE DIGEST — over the files, length-prefixed
+  and NUL-delimited, never over an archive, whose bytes move with timestamps and
+  compression level and would make the gate noise.
+  **THE SHIPPING CONFIGURATION IS `uat` AND IS NOT CALLED ANYTHING ELSE.** It keeps the
+  UAT-targeted API origin — no destination changed — and now carries `production`'s
+  optimization, source-map, licence and BUDGET settings, so the artifact that ships is
+  held to the bar CI has always applied. The 500 kB entry is a `maximumWarning`: it
+  prints and exits zero, and it was not raised to make anything green. The environment
+  bakes `production: false`; that is recorded in every manifest as
+  `environment.productionFlag` because it is true, not because it is desirable.
+  **THE STAMP ASSERTS THE BUILT BYTES**, not the source: the approved origin must
+  appear in an emitted script and the forbidden ones must not. A file replacement that
+  silently did not apply produces an artifact that passes every source-level check and
+  points at the wrong API, and nothing else can see it.
+  **THE PUBLISHER IS SEPARATED FROM EVERYTHING THAT RUNS REPOSITORY CODE.**
+  `publish.yml` has `permissions: {}` at the top; the `gate` job holds no credential
+  and the `publish` job — the only one that may hold `FIREBASE_SERVICE_ACCOUNT` — does
+  no `npm ci`, no build and no checkout of application source: two sparse checkouts
+  (the certified commit's `firebase.json`/`.firebaserc`, and the trusted verifier from
+  `main`) plus the artifact. **The gate's own code and policy come from the default
+  branch, never from the candidate** — a candidate that supplied its own policy could
+  relax its own gate. Actions are SHA-pinned with the version recorded beside each,
+  and **`firebaseToolsVersion` is pinned too**: left at the action's default it
+  resolves `latest` at run time, an unpinned executable fetched from the network into
+  the one job holding the service-account credential. `firebase.json` is checked for
+  `predeploy`/`postdeploy` hooks, which are shell commands that tool executes — a
+  trusted deploy tool may run there, a hook specified by the thing being published may
+  not.
+  **THE ROLLBACK BARRIER SHIPS WITH THE ROLLBACK CAPABILITY, NOT AFTER IT (D08-F18).**
+  A rollback is a client downgrade, and the pre-v2 checkout reader rejects any record
+  whose `phase` is unset while a v2 record has `stage` — so it reads `null`, MINTS A
+  FRESH IDEMPOTENCY KEY, and the server's duplicate-order guarantee is bypassed at the
+  moment of the rollback. The manifest therefore records `checkoutRecordVersion` AND a
+  hand-maintained `semanticsRevision`, because D06 changed what a stored record MEANS
+  several times without moving the version — **equality of `CHECKOUT_RECORD_VERSION`
+  alone is not sufficient**. Lowering either is REFUSED, not warned about and not
+  offered behind an acknowledgement. Moving forward across a version is not blocked.
+  **THE D01 CEILING CONTRACT IS ONE AUTHORITY WITH TWO COMPILED COPIES.** The digest is
+  taken over the ceiling VALUES in a canonical form Python and JavaScript produce byte
+  for byte (`json.dumps(sort_keys=True, separators=(',',':'))`), so the two repositories
+  may annotate their copies differently and still agree, and a ceiling changed on one
+  side and not the other cannot be released. The backend half is
+  `orders_app/contracts/checkout_limits.py` plus its committed export, asserted
+  UNCONDITIONALLY there — its old cross-repository assertion `skipTest`s whenever this
+  repository is not checked out beside it, which in CI is always.
+  **WHAT THE GATE CANNOT ESTABLISH IS REFUSED, NOT ASSUMED**: Firebase release
+  retention (so a rollback is refused as `rollback.retention_unproven` until an owner
+  establishes it), and the served identity before anything has published one (an
+  EXPLICITLY AUTHORIZED bootstrap, `policy.bootstrap.authorized`, false today).
+  `identityOrigin` is the canonical Firebase site origin for the deploy target and is
+  NOT a claim that it is the only origin serving this content — which custom domains
+  are mapped, and how a printed diner QR URL's origin and path continue, is an owner
+  inventory item. Nothing here redirects, reroutes or reprints anything
 - Tenant-isolation closure (frontend regression gate): ✅ a focused
   `src/app/_security/` layer pins the client-side tenant-boundary invariants.
   `diner-capability-contract.ts` is the single source of truth for the diner
@@ -2974,6 +3049,14 @@ so keep it current when conventions change.
 - NEVER suggest manual deployment steps — the pipeline handles everything
 - Each feature must be on its own branch → PR → merge
 - Never stack work on unmerged branches
+- **THE LIVE PATH IS STILL `deploy-prod.yml`, AND IT IS UNTOUCHED.** The release
+  certification contract (`release/`, `certify.yml`, `publish.yml`) is in the
+  repository and PUBLICATION IS DISABLED: `publish.yml`'s final step is gated on the
+  repository variable `FRONTEND_PUBLISH_ENABLED`, which is not set, so the gate job
+  evaluates everything and reports the decision it would have acted on without
+  publishing. Nothing about what is deployed, or by whom, has changed. Enabling that
+  variable AND retiring `deploy-prod.yml` is the cutover, and it is its own small
+  reviewed change — see `release/README.md`
 
 ## Branch Selection — CRITICAL
 - When the task text (the prompt provided for the task) names a specific
@@ -3851,6 +3934,13 @@ writing new tag, price/menu or date-range logic:
 Before raising any PR:
 1. Run `npm run type-check` and confirm zero TypeScript errors
 2. Run `npm run lint` and confirm clean
+2a. Run `npm run test:release` — the release certification contract. COMPOUND, in the
+   house style of the gate below: `node release/cli.mjs self-test` first (a matcher
+   that silently stopped matching would otherwise pass everything), then the refusal
+   matrix that drives the pure `release/lib/decide.mjs` from fixtures. Pure Node, no
+   browser, seconds rather than minutes. Every case breaks exactly ONE fact about one
+   allowed baseline, and the positive controls assert that baseline is still allowed —
+   a gate that refused everything could not pass the suite either
 3. Run `npm run test:tenant-boundary` (the fail-fast boundary gate) and confirm
    green — especially if you touched the diner capability, QR lifecycle,
    selected-restaurant scoping, or the `_security/` contract. It is COMPOUND: it
@@ -3887,22 +3977,41 @@ Before raising any PR:
    object-graph half, asserting the live `routes` export stays clean
 4. Run `npm run test:ci` for any module you touched
 5. Run `npm run build:prod` and confirm zero errors
+5a. Build the SHIPPING configuration too —
+   `npx ng build --configuration="$(node -p "require('./release/policy.json').build.configuration")"`.
+   Read from the committed policy rather than typed, so this step and the workflows
+   cannot disagree about which configuration that is. The 500 kB budget WARNING is
+   expected and exits zero; do not raise it
 6. Confirm standalone components are in `imports`, not `declarations`
 
-A convenience runner `scripts/verify.sh` runs all five checks in CI order —
-type-check → lint → tenant-isolation closure gate (`npm run test:tenant-boundary`)
-→ test:ci → build:prod — continuing past failures so you see every problem at once,
-exiting non-zero if any fail. It is a manual pre-PR gate — run it and paste the
-output into the PR; it is intentionally NOT wired as a hook.
+A convenience runner `scripts/verify.sh` runs all seven checks in CI order —
+type-check → lint → release-contract gate (`npm run test:release`) →
+tenant-isolation closure gate (`npm run test:tenant-boundary`) → test:ci →
+build:prod → build the shipping candidate — continuing past failures so you see
+every problem at once, exiting non-zero if any fail. It is a manual pre-PR gate —
+run it and paste the output into the PR; it is intentionally NOT wired as a hook.
 
-CI (`.github/workflows/ci.yml`) runs all five steps on every PR to `main`:
-`type-check`, `lint`, the tenant-isolation closure gate
+CI (`.github/workflows/ci.yml`) runs all seven steps on every PR to `main`:
+`type-check`, `lint`, the release-contract gate (`npm run test:release`), the
+tenant-isolation closure gate
 (`npm run test:tenant-boundary` — a focused, fail-fast tenant-boundary spec set
 that runs BEFORE the full suite so a broken diner/restaurant boundary fails
-early), `test:ci`, and `build:prod`. The production deploy workflow
-(`deploy-prod.yml`) builds with `--configuration=uat` (intentionally still the
-uat build config for now — the prod backend API doesn't exist yet) and pushes to
-the `dinify-prod` Firebase Hosting target on every merge to `main`. A third
+early), `test:ci`, `build:prod`, and a build of the SHIPPING configuration so a
+candidate that would fail certification fails BEFORE the merge rather than after
+it. **The job is named `validate` and that name is the required status check on
+the `main` protection ruleset — do NOT rename it.**
+
+`certify.yml` ("Certify") then runs the same contract against MERGED MAIN on every
+push, builds the shipping configuration ONCE and uploads it as the candidate;
+`publish.yml` ("Publish") is the privileged boundary that consumes it. **Neither
+deploys anything today**: publication is gated on the unset repository variable
+`FRONTEND_PUBLISH_ENABLED`, so the gate evaluates and reports, and the production
+deploy workflow (`deploy-prod.yml`) is UNTOUCHED — it still builds with
+`--configuration=uat` (intentionally still the uat build config for now — the prod
+backend API doesn't exist yet) and pushes to the `dinify-prod` Firebase Hosting
+target on every merge to `main`. It also still resolves `firebase-tools@latest` at
+run time inside the job holding the service-account credential; `publish.yml` pins
+it, and pinning it on the live path too is a one-line follow-up. A third
 workflow (`audit.yml`, "Dependency Audit") runs `npm audit --audit-level=high`
 weekly (Mondays 06:30 UTC) and on manual dispatch — it is NOT a PR check and
 never blocks a merge; it just fires a notification if a high/critical advisory

@@ -1,0 +1,177 @@
+# CERTIFY — produce the one artifact that may later be published, and prove it.
+#
+# WHY THIS EXISTS. `ci.yml` runs on `pull_request` only, so the merge commit that
+# lands on `main` — the commit the live site is built from — has never had the suite
+# run against it. `deploy-prod.yml` then RE-BUILDS from scratch and publishes the
+# result, so what ships is not what anything tested: same configuration name, a
+# different set of bytes, and no record tying one to the other.
+#
+# This workflow runs the complete validation contract against MERGED MAIN, builds the
+# shipping configuration ONCE, stamps the result with its own identity, and uploads
+# that exact tree as the candidate. `publish.yml` consumes the candidate and is not
+# permitted to build anything.
+#
+# IT DEPLOYS NOTHING AND HOLDS NO CREDENTIAL. Its permissions are read-only and it
+# references no secret. Merging it changes nothing about what is deployed or by whom:
+# `deploy-prod.yml` is untouched and remains the live path until an owner enables the
+# new one (see release/policy.json → publication).
+name: Certify
+
+on:
+  push:
+    branches: [main]
+
+# Serialise rather than cancel. A cancelled certification leaves no artifact, and a
+# later publish would then resolve a run that produced nothing — which the publisher
+# refuses correctly, but noisily, for a reason that is ours rather than the code's.
+concurrency:
+  group: certify-frontend-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # Actions are pinned to reviewed commits, not to mutable tags. A tag can be
+      # repointed by its owner at any time, and these run with access to the source
+      # tree that produces the artifact a privileged job later publishes. The version
+      # each SHA corresponds to is recorded beside it so an update stays a small,
+      # reviewable change rather than an archaeology exercise.
+      - name: Checkout the merged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── The validation contract, exactly as `validate` runs it on a pull request ──
+      # Same commands, same order, now against the commit that actually ships. A
+      # difference between these two lists is a difference between what is tested and
+      # what is certified, so they are kept identical on purpose.
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Release-contract gate
+        run: npm run test:release
+
+      - name: Tenant-isolation closure gate
+        run: npm run test:tenant-boundary
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Build (production configuration)
+        run: npm run build:prod
+
+      # ── The candidate ────────────────────────────────────────────────────────────
+      - name: Resolve the shipping configuration from the committed policy
+        id: policy
+        run: |
+          set -euo pipefail
+          configuration="$(node -p "require('./release/policy.json').build.configuration")"
+          case "$configuration" in
+            (*[!a-z0-9-]*|'') echo "refusing an unexpected configuration name: $configuration" >&2; exit 1 ;;
+          esac
+          echo "configuration=$configuration" >> "$GITHUB_OUTPUT"
+          echo "Shipping configuration: $configuration"
+
+      # ONE build of the shipping configuration. Nothing downstream rebuilds; the
+      # publisher receives these bytes or it receives nothing.
+      - name: Build the shipping candidate
+        env:
+          CONFIGURATION: ${{ steps.policy.outputs.configuration }}
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          npx ng build --configuration="$CONFIGURATION"
+
+      # Stamps dist/release.json and writes the outer provenance record. It also
+      # asserts the BUILT BYTES carry the approved API origin and none of the
+      # forbidden ones — a file replacement that silently did not apply produces an
+      # artifact that passes every source-level check and points at the wrong API.
+      - name: Stamp the release identity and provenance
+        env:
+          COMMIT: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          node release/cli.mjs stamp \
+            --dist dist \
+            --out provenance.json \
+            --commit "$COMMIT" \
+            --ref "$REF" \
+            --now "$started" \
+            --runId "$RUN_ID" \
+            --runAttempt "$RUN_ATTEMPT" \
+            --runStartedAt "$started" \
+            --nodeVersion "$(node --version)" \
+            --artifactName "frontend-release-$RUN_ID-$RUN_ATTEMPT" \
+            > stamp.json
+          node -e '
+            const s = require("./stamp.json");
+            console.log("commit          ", s.manifest.commit);
+            console.log("configuration   ", s.manifest.buildConfiguration);
+            console.log("api origin      ", s.manifest.environment.apiUrl);
+            console.log("production flag ", s.manifest.environment.productionFlag);
+            console.log("tree digest     ", s.provenance.artifactTreeDigest);
+            console.log("files           ", s.provenance.entryCount);
+          '
+
+      - name: Upload the candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          # Named by RUN and ATTEMPT, not by commit. Artifacts are scoped to a run,
+          # so a re-run uploading the same name would collide — and, worse, a
+          # commit-named artifact left by a superseded attempt would look like the
+          # current one.
+          name: frontend-release-${{ github.run_id }}-${{ github.run_attempt }}
+          # `dist/` is the payload whose tree digest is bound in the provenance record;
+          # `provenance.json` sits BESIDE it, never inside, because an artifact cannot
+          # contain its own final hash.
+          path: |
+            dist
+            provenance.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summarise
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "### Certified candidate"
+            echo
+            echo '```'
+            if [ -f stamp.json ]; then
+              node -e '
+                const s = require("./stamp.json");
+                console.log("commit        " + s.manifest.commit);
+                console.log("configuration " + s.manifest.buildConfiguration);
+                console.log("tree digest   " + s.provenance.artifactTreeDigest);
+              '
+            else
+              echo "no candidate was produced"
+            fi
+            echo '```'
+            echo
+            echo "This workflow does not deploy. Publication is gated separately and is"
+            echo "disabled until an owner enables it — see release/policy.json."
+          } >> "$GITHUB_STEP_SUMMARY"
