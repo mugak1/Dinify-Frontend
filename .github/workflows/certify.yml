@@ -12,9 +12,13 @@
 # permitted to build anything.
 #
 # IT DEPLOYS NOTHING AND HOLDS NO CREDENTIAL. Its permissions are read-only and it
-# references no secret. Merging it changes nothing about what is deployed or by whom:
-# `deploy-prod.yml` is untouched and remains the live path until an owner enables the
-# new one (see release/policy.json → publication).
+# references no secret. It is NOT the only thing a merge to main runs, though:
+# `deploy-prod.yml` still builds and publishes every merge, and it builds the SAME
+# angular.json configuration this workflow certifies — so a change to that
+# configuration changes the live build whatever this workflow does (release/README.md,
+# "What merging does"). The live path moves to publish.yml only in the reviewed cutover
+# that deletes deploy-prod.yml; enabling publication while it exists would make two
+# independent writers.
 name: Certify
 
 on:

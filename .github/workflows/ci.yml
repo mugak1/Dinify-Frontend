@@ -59,9 +59,10 @@ jobs:
         # The release certification contract (release/), run the same way the two
         # gates beside it are: the CLI's own --self-test first — a matcher that
         # silently stopped matching would otherwise pass everything — then the
-        # refusal matrix that drives release/lib/decide.mjs from fixtures. Pure
-        # Node, no browser, seconds rather than minutes, so it runs before the
-        # suites rather than after them.
+        # refusal matrix that drives release/lib/decide.mjs from fixtures, the
+        # adapter suites, and the simulation that executes publish.yml. Pure Node,
+        # no browser, about half a minute, so it runs before the suites rather than
+        # after them.
         run: npm run test:release
 
       - name: Tenant-isolation closure gate
