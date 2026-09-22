@@ -3089,7 +3089,13 @@ so keep it current when conventions change.
   moving `main` rather than the revision its own YAML was taken from (`github.sha`). `workflow-drift.test.mjs` (22) holds the three workflow files
   to the policy statically — one secret reference, no `${{` in a script, every action
   SHA-pinned, the tool handed exactly the policy destination. Release suite **439 tests
-  in about 25 seconds**, labelled REGRESSION / CONTRACT / CONTROL. **Not proved**: GitHub
+  in about 25 seconds**, labelled REGRESSION / CONTRACT / CONTROL, and every one of the
+  22 baseline findings is carried by at least one test title. **Twenty-four source
+  mutations, each fix reverted alone, each fail a named subset — and the table found a
+  gap before it was closed**: discarding the Decide step's exit status failed NOTHING,
+  because the job still went red through the report step after it. A red job is not
+  evidence that the refusal happened AT the decision, so the Decide step's own status
+  is now pinned, and so is its 0 on both skips. **Not proved**: GitHub
   itself (queueing, concurrency groups, masking), the frontend's live `/release.json`
   (this environment's egress policy refuses the site — the committed-policy test
   DERIVES it from the committed rewrite and says so), and any dependency audit — the
