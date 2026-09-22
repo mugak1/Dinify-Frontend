@@ -25,11 +25,20 @@
  *     REAL `AuthInterceptor` and the REAL `ErrorInterceptor` rather than past
  *     them — a `fetch` would prove what the server answers and nothing about
  *     what the client does with it.
+ *     AND IT IS OBSERVED TWICE. The client sees a STRING with no status,
+ *     because that is what the interceptor flattens an ordinary failure to, so
+ *     `outcome === 'refused'` is satisfied equally by a 404 from the
+ *     authorization gate — which is exactly what this harness used to assert
+ *     while sending `restaurant` to an endpoint that reads `restaurant_id`.
+ *     `page.on('response')` therefore reads the SAME real response on the wire,
+ *     and the assertions name an exact 501 and an exact machine reason.
  *  3. THE OTP STEP IS INTERCEPTED, NEVER SENT. The old panel dispatched a real
  *     verification code BEFORE the POST that could not succeed. The ordering
  *     is what matters, so `users/auth/resend-otp/` is fulfilled by the harness
  *     and never reaches the server: the limitation is demonstrated with no
- *     challenge issued and no delivery attempted.
+ *     challenge issued and no delivery attempted. It is a REPLAY OF TWO
+ *     RECOVERED REQUESTS, not an execution of the retired bundle, and section
+ *     4 says so where it runs.
  *  4. THE LEGACY DEEP LINK IS NAVIGATED TO, not inferred from a different
  *     route's method test. The retired diner payment-result URL is entered
  *     directly in the address bar, which is the only thing that answers
@@ -56,6 +65,41 @@ const CHROMIUM = process.env.CHROMIUM_PATH || undefined;
 
 const fx = JSON.parse(readFileSync(FIXTURE, 'utf8'));
 
+/**
+ * The server's refusal, verbatim from `finance_app/subscription_capability.py`.
+ * Asserted EXACTLY: a generic error is not this, and neither is a 404 from the
+ * authorization gate that sits above it.
+ */
+const REFUSAL_STATUS = 501;
+const REFUSAL_REASON = 'subscription_collection_unavailable';
+const REFUSAL_MESSAGE =
+  'In-app subscription payment collection is not available. '
+  + 'This request did not create or send a payment request.';
+
+/**
+ * THE RETIRED BILLING DIALOG'S REQUEST, RECOVERED VERBATIM from the commit
+ * before D07 removed it (`InitPayment()` + `Save()` at `1d3d091^`):
+ *
+ *   {transaction_type, transaction_platform, payment_mode, restaurant_id,
+ *    msisdn, otp}
+ *
+ * THE KEY IS `restaurant_id`, AND THAT IS THE WHOLE POINT. The endpoint reads
+ * `data.get('restaurant_id')` and `can_manage_restaurant` fails closed on a
+ * missing one, so a probe sending `restaurant` is refused 404 by the
+ * AUTHORIZATION GATE and never reaches the collector at all — which an
+ * assertion on "some refusal" cannot tell apart from the 501 it is supposed to
+ * be proving. The endpoint is NOT relaxed to accept the wrong key; the harness
+ * sends the right one.
+ */
+const retiredCollectorBody = (restaurantId, msisdn) => ({
+  transaction_type: 'subscription',
+  transaction_platform: 'web',
+  payment_mode: 'momo',
+  restaurant_id: restaurantId,
+  msisdn,
+  otp: '1234',
+});
+
 let pass = 0;
 let fail = 0;
 const failures = [];
@@ -66,6 +110,14 @@ function check(name, ok, detail = '') {
 }
 
 const text = (s) => (s || '').replace(/\s+/g, ' ').trim();
+
+/**
+ * A short, always-printable detail. `JSON.stringify(undefined)` is `undefined`,
+ * so a bare `.slice(0, n)` on a stringified value turns the FIRST failing check
+ * into a crash that hides every check after it — which is exactly what a
+ * discriminating run most needs to print.
+ */
+const brief = (value, n = 200) => String(JSON.stringify(value) ?? value).slice(0, n);
 
 async function signIn(page, phone) {
   await page.goto(`${WEB}/login`, { waitUntil: 'domcontentloaded' });
@@ -116,13 +168,81 @@ async function run() {
     await signIn(page, fx.restaurants.unconfigured.owner_phone);
 
     // ── the D07/G1 dashboard, in the same session ────────────────────────
-    // The measurement decision is a property of the RESPONSE, not of the
-    // restaurant, so it is the same on every one of the three; it is checked
-    // here to spend one sign-in rather than four.
+    //
+    // THE COMMITTED BUILD STILL SELECTS THE MOCK BRANCH
+    // (`DashboardService.USE_MOCK_DATA === true`), so every withheld-figure
+    // assertion below could be satisfied WITHOUT A SINGLE REQUEST REACHING THE
+    // SERVER — a mock payload declaring `payment_tracking_enabled: false` and a
+    // real one are indistinguishable once they are in the card. The section
+    // therefore runs in TWO PHASES: the mock branch as a CONTROL that proves it
+    // cannot supply the evidence, then the REAL branch, selected by a
+    // TEST-ONLY runtime flip of the static through Angular's dev-mode
+    // `window.ng` handle.
+    //
+    // NOTHING IS COMMITTED TO SELECT IT: no production flag is changed, no test
+    // endpoint is added, no build configuration is introduced. The flip lives
+    // in this file, is undone before the section ends, and works only because
+    // the flag is a `static` on the class and `dashboardService` is a public
+    // property — both true of the shipped build, neither added for this.
+    const dashboardCalls = [];
+    page.on('response', (res) => {
+      const url = res.url();
+      if (!url.includes('reports/restaurant/dashboard-v2/')) return;
+      const req = res.request();
+      dashboardCalls.push(
+        res.json().catch(() => null).then((body) => ({
+          url,
+          status: res.status(),
+          auth: req.headers()['authorization'] || null,
+          body,
+        })),
+      );
+    });
+
     await page.goto(`${WEB}/dashboard`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('app-revenue-card', { timeout: 30000 });
-    await page.waitForTimeout(1200);
-    const dash = text(await page.locator('app-dashboard, app-restaurant-mgt').first().innerText());
+    await page.waitForTimeout(1800);
+
+    // PHASE A — the control. The withheld testids are ALREADY present here, and
+    // that is exactly why this check exists: their presence proves nothing
+    // until a real declaration is shown to have produced them.
+    const mockPhaseCalls = dashboardCalls.length;
+    check('CONTROL: on the committed mock branch NO dashboard-v2 request is issued, so the real-data checks below cannot be satisfied by it',
+      mockPhaseCalls === 0, `observed ${mockPhaseCalls}`);
+    check('CONTROL: ...and the withheld hooks are nevertheless already rendered from mock data',
+      await page.locator('[data-testid="revenue-headline-withheld"]').count() === 1);
+
+    // PHASE B — the real branch.
+    const flipped = await page.evaluate(() => {
+      const host = document.querySelector('app-rest-dashboard');
+      const cmp = host && window.ng && window.ng.getComponent(host);
+      const svc = cmp && cmp.dashboardService;
+      if (!svc) return { ok: false, why: 'no DashboardService on the dashboard component' };
+      const cls = svc.constructor;
+      if (cls.USE_MOCK_DATA !== true) return { ok: false, why: `flag was already ${cls.USE_MOCK_DATA}` };
+      cls.USE_MOCK_DATA = false;
+      svc.refresh$.next();
+      return { ok: true };
+    });
+    check('the real-data branch was selected by a TEST-ONLY runtime flip',
+      flipped && flipped.ok === true, JSON.stringify(flipped));
+
+    await page.waitForFunction(
+      () => true, null, { timeout: 1000 },
+    ).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    const calls = await Promise.all(dashboardCalls);
+    const primary = calls.find((c) => c.status === 200);
+    check('an AUTHORIZED dashboard-v2 request really reached the server',
+      calls.length > 0 && calls.every((c) => typeof c.auth === 'string' && c.auth.startsWith('Bearer ')),
+      brief(calls.map((c) => ({ status: c.status, authorized: !!c.auth })), 200));
+    check('the SERVER declares that settlement is not measured',
+      primary && primary.body && primary.body.data
+        && primary.body.data.payment_tracking_enabled === false,
+      brief(primary && primary.body && Object.keys(primary.body.data || {}), 200));
+
+    const dash = text(await page.locator('app-rest-dashboard, app-restaurant-mgt').first().innerText());
 
     check('the revenue headline is WITHHELD, not rendered',
       await page.locator('[data-testid="revenue-headline-withheld"]').count() === 1);
@@ -147,6 +267,13 @@ async function run() {
       !dash.includes('No settled payments in this period'), dash.slice(0, 200));
     check('occupancy is NOT withheld — it is live floor state',
       /tables occupied/i.test(dash));
+
+    // Undo the test-only flip, so the rest of the run sees the shipped build.
+    await page.evaluate(() => {
+      const host = document.querySelector('app-rest-dashboard');
+      const cmp = host && window.ng && window.ng.getComponent(host);
+      if (cmp && cmp.dashboardService) cmp.dashboardService.constructor.USE_MOCK_DATA = true;
+    });
 
     await openBilling(page);
     const body = text(await page.locator('app-billing').innerText());
@@ -192,7 +319,7 @@ async function run() {
     check('the fixture really is legacy-billable on the wire',
       wire.body?.data?.subscription_validity === true
       && typeof wire.body?.data?.subscription_expiry_date === 'string',
-      JSON.stringify(wire.body?.data ?? wire).slice(0, 200));
+      brief(wire.body?.data ?? wire, 200));
     check('...with NO canonical terms beside it',
       wire.body?.data?.subscription_terms?.recorded === false
       && wire.body?.data?.subscription_terms?.current === null);
@@ -244,41 +371,143 @@ async function run() {
     check('history is not in a failed or loading state',
       await seen(page, 'history-failed') === 0 && await seen(page, 'history-empty') === 0);
 
-    // ── the old client's collector, through the REAL interceptor ──────────
-    collectorProbe = await page.evaluate(async (rid) => {
+    // ── the retired collector, through the REAL interceptor ──────────────
+    //
+    // TWO INDEPENDENT OBSERVERS OF ONE REAL REQUEST, and both are needed.
+    //
+    //   THE NETWORK — `page.on('response')` reads the status and the raw body
+    //     BEFORE `ErrorInterceptor` touches either. The interceptor flattens an
+    //     ordinary failure to `err.error?.message || err.statusText`, a STRING
+    //     WITH NO STATUS, so a client-side observation cannot distinguish 501
+    //     from 404, 403 or 500 — and it was `collectorProbe.outcome ===
+    //     'refused'` that this file used to assert, which every one of those
+    //     satisfies.
+    //   THE CLIENT — the same request issued through the live component's own
+    //     `ApiService`, so the REAL `AuthInterceptor` attaches the session and
+    //     the REAL `ErrorInterceptor` decides what the operator is told.
+    //
+    // The assertions below name an EXACT status and an EXACT machine reason, so
+    // a 400, 401, 403, 404, an arbitrary non-2xx, or a request that never
+    // answers at all each FAIL rather than passing as "some refusal".
+    const collectorResponses = [];
+    page.on('response', (res) => {
+      if (!res.url().includes('finances/transactions/')) return;
+      collectorResponses.push(
+        res.text().catch(() => null).then((body) => {
+          let parsed = null;
+          try { parsed = JSON.parse(body); } catch { parsed = null; }
+          return { status: res.status(), raw: body, body: parsed };
+        }),
+      );
+    });
+
+    /** Issue a body through the app's own ApiService and report what it saw. */
+    const issueThroughApp = (body) => page.evaluate(async (payload) => {
       const host = document.querySelector('app-billing');
       const ng = window.ng;
       if (!ng || !host) return { reached: false, why: 'no dev-mode ng handle' };
       const cmp = ng.getComponent(host);
       const api = cmp && cmp.api;
-      if (!api || typeof api.postPatch !== 'function') return { reached: false, why: 'no ApiService on the component' };
-      // The body the RETIRED billing dialog sent, verbatim.
-      const payload = {
-        restaurant: rid,
-        transaction_type: 'subscription',
-        payment_mode: 'momo',
-        msisdn: '256700000803',
-      };
+      if (!api || typeof api.postPatch !== 'function') {
+        return { reached: false, why: 'no ApiService on the component' };
+      }
       return await new Promise((resolve) => {
         api.postPatch('finances/transactions/', payload, 'post').subscribe({
           next: (r) => resolve({ reached: true, outcome: 'accepted', body: r }),
           error: (e) => resolve({
             reached: true,
             outcome: 'refused',
-            status: e?.status ?? null,
+            status: e && e.status !== undefined ? e.status : null,
             // The ErrorInterceptor flattens an ordinary failure to a string.
-            flattened: typeof e === 'string' ? e : (e?.message ?? null),
+            flattened: typeof e === 'string' ? e : (e && e.message) || null,
           }),
+        });
+      });
+    }, body);
+
+    /** The restaurant's OWN authorized financial listing — the row-count witness. */
+    const countHistoryRows = () => page.evaluate(async (rid) => {
+      const cmp = window.ng && window.ng.getComponent(document.querySelector('app-billing'));
+      const api = cmp && cmp.api;
+      if (!api) return null;
+      const today = new Date();
+      const from = new Date(today); from.setMonth(from.getMonth() - 5);
+      const d = (x) => `${x.getFullYear()}-${x.getMonth() + 1}-${x.getDate()}`;
+      return await new Promise((resolve) => {
+        api.get(null, 'reports/restaurant/transactions-listing/', {
+          restaurant: rid, from: d(from), to: d(today), type: 'subscription',
+        }).subscribe({
+          next: (r) => resolve(Array.isArray(r && r.data) ? r.data.length : null),
+          error: () => resolve(null),
         });
       });
     }, fx.restaurants.recorded.id);
 
+    const rowsBefore = await countHistoryRows();
+    check('the financial-row witness is readable before the probe',
+      typeof rowsBefore === 'number', `rowsBefore=${rowsBefore}`);
+
+    const outboundBefore = otpAttempts.length;
+    collectorProbe = await issueThroughApp(
+      retiredCollectorBody(fx.restaurants.recorded.id, '256700000803'),
+    );
+
     check('the collector request really went through the app',
-      collectorProbe?.reached === true, JSON.stringify(collectorProbe).slice(0, 200));
-    check('the live server REFUSES it', collectorProbe?.outcome === 'refused',
-      JSON.stringify(collectorProbe).slice(0, 200));
-    check('no verification code was dispatched before it',
-      otpAttempts.length === 0, `intercepted ${otpAttempts.length}`);
+      collectorProbe && collectorProbe.reached === true,
+      brief(collectorProbe, 200));
+
+    const observed = await Promise.all(collectorResponses);
+    const probeResponse = observed[0] || null;
+
+    // A request that never answered leaves `probeResponse` null, and every
+    // assertion below fails on it — a timeout is not a refusal.
+    check('THE SERVER ANSWERED 501 — observed on the wire, before any interceptor',
+      probeResponse !== null && probeResponse.status === REFUSAL_STATUS,
+      `observed=${JSON.stringify(observed.map((o) => o.status))}`);
+    check('...carrying the machine reason a client branches on',
+      probeResponse && probeResponse.body
+        && probeResponse.body.reason === REFUSAL_REASON,
+      brief(probeResponse && probeResponse.body, 220));
+    check('...and the sentence that is about THIS REQUEST and nothing else',
+      probeResponse && probeResponse.body
+        && probeResponse.body.message === REFUSAL_MESSAGE,
+      brief(probeResponse && probeResponse.body && probeResponse.body.message, 220));
+
+    // SEPARATELY: what the component and the interceptor made of the same answer.
+    check('the client reports it as a refusal rather than a success',
+      collectorProbe && collectorProbe.outcome === 'refused',
+      brief(collectorProbe, 200));
+    check('the ErrorInterceptor surfaces the SERVER’s own sentence, not a generic one',
+      collectorProbe && collectorProbe.flattened === REFUSAL_MESSAGE,
+      brief(collectorProbe && collectorProbe.flattened, 220));
+
+    // ── the CONTROL that keeps the 501 from being "the endpoint always says no"
+    // `can_manage_restaurant` fails closed, so a missing or foreign id is
+    // refused by the AUTHORIZATION GATE with an opaque 404 and never reaches
+    // the collector. Without this, a harness that happened to send the wrong
+    // key would score a passing "refusal" forever — which is the defect this
+    // section is correcting.
+    const missingId = await issueThroughApp({
+      transaction_type: 'subscription', transaction_platform: 'web', payment_mode: 'momo',
+    });
+    const foreignId = await issueThroughApp(
+      retiredCollectorBody('11111111-1111-4111-8111-111111111111', '256700000803'),
+    );
+    const controls = (await Promise.all(collectorResponses)).slice(1);
+    check('CONTROL: an id this operator cannot manage is 404 at the gate, NOT 501',
+      controls.length === 2 && controls.every((c) => c.status === 404),
+      JSON.stringify(controls.map((c) => c.status)));
+    check('CONTROL: ...and both are refused at the client too',
+      missingId && missingId.outcome === 'refused'
+      && foreignId && foreignId.outcome === 'refused');
+
+    // ── ZERO EFFECTS, asserted rather than observed by hand ───────────────
+    const rowsAfter = await countHistoryRows();
+    check('NO FINANCIAL ROW WAS CREATED by any of the three attempts',
+      typeof rowsAfter === 'number' && rowsAfter === rowsBefore,
+      `before=${rowsBefore} after=${rowsAfter}`);
+    check('no verification code was dispatched before or during it',
+      otpAttempts.length === outboundBefore, `intercepted ${otpAttempts.length}`);
 
     // The toast the real ErrorInterceptor raised, on the real screen.
     await page.waitForTimeout(600);
@@ -289,6 +518,16 @@ async function run() {
       `toast="${toast.slice(0, 120)}" flattened="${collectorProbe?.flattened}"`);
 
     // ── 4. THE OLD PRE-SUBMIT OTP ORDERING, WITH NO CHALLENGE SENT ────────
+    //
+    // WHAT THIS IS, STATED NARROWLY: the two retired REQUESTS, recovered
+    // verbatim and re-issued IN THEIR ORIGINAL ORDER from the current build. It
+    // is NOT an execution of the old bundle — that code is deleted, its dialog,
+    // its MSISDN lookup and its form state are gone, and nothing here runs
+    // them. What it establishes is that the ORDERING the retired panel used
+    // spends a verification code before a request the server refuses. Whether
+    // the deployed older bundle renders that refusal well is not asserted and
+    // is not claimed.
+    //
     // Same session deliberately: see the sign-in budget in the header.
     console.log('\n4. the retired pre-submit OTP ordering (no challenge dispatched)');
     const order = [];
@@ -298,30 +537,42 @@ async function run() {
       if (u.includes('finances/transactions/')) order.push('collect');
     });
 
-    const replay = await page.evaluate(async (rid) => {
+    const replay = await page.evaluate(async ({ collectorBody }) => {
       const cmp = window.ng?.getComponent(document.querySelector('app-billing'));
       const api = cmp && cmp.api;
       if (!api) return { ran: false };
       // The retired sequence, in its original order: OTP, THEN the POST.
+      // Both bodies are the ones `sendOtp()` and `Save()` actually sent.
       const otp = await new Promise((resolve) => {
-        api.postPatch('users/auth/resend-otp/', { username: '256700000803' }, 'post')
+        api.postPatch('users/auth/resend-otp/',
+          { identification: 'msisdn', identifier: '256700000803', purpose: null }, 'post')
           .subscribe({ next: () => resolve('ok'), error: () => resolve('err') });
       });
       const post = await new Promise((resolve) => {
-        api.postPatch('finances/transactions/', {
-          restaurant: rid, transaction_type: 'subscription', payment_mode: 'momo',
-        }, 'post').subscribe({
+        api.postPatch('finances/transactions/', collectorBody, 'post').subscribe({
           next: () => resolve({ outcome: 'accepted' }),
-          error: (e) => resolve({ outcome: 'refused', status: e?.status ?? null }),
+          error: (e) => resolve({
+            outcome: 'refused',
+            status: e && e.status !== undefined ? e.status : null,
+            flattened: typeof e === 'string' ? e : (e && e.message) || null,
+          }),
         });
       });
       return { ran: true, otp, post };
-    }, fx.restaurants.recorded.id);
+    }, {
+      collectorBody: retiredCollectorBody(fx.restaurants.recorded.id, '256700000803'),
+    });
+
+    const replayObserved = (await Promise.all(collectorResponses)).slice(-1)[0] || null;
 
     check('the retired sequence ran', replay?.ran === true);
     check('THE OTP CAME FIRST, then the collection attempt',
       order[0] === 'otp' && order.includes('collect'), JSON.stringify(order));
-    check('the collection attempt is refused, so the code was spent for nothing',
+    check('the collection attempt is refused 501 ON THE WIRE, so the code was spent for nothing',
+      replayObserved !== null && replayObserved.status === REFUSAL_STATUS
+      && replayObserved.body?.reason === REFUSAL_REASON,
+      brief(replayObserved, 200));
+    check('...and the client reports that refusal',
       replay?.post?.outcome === 'refused', JSON.stringify(replay?.post));
     check('NO REAL CHALLENGE WAS DISPATCHED — the harness answered it',
       otpAttempts.length === 1 && order.filter((o) => o === 'otp').length === 1,

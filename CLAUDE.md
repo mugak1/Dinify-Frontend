@@ -2670,6 +2670,132 @@ so keep it current when conventions change.
   demonstrates the old OTP-before-POST ordering with the challenge INTERCEPTED, so no
   verification code is dispatched. It also navigates the retired payment deep links
   directly, which a QR-rotation method test never did
+- **A BILLING READ IS OWNED BY THE LIVE CONTEXT, AND THE SCREEN VALIDATES WHAT IT
+  DISPLAYS (D07 B1/B2/V1).** The bullet above got the OWNER and the five READ
+  STATES right and left both under-checked at the point they are used. **No
+  backend source changed** — the paired repository's delta is
+  `D07_PAYMENT_CLAIM_CLOSURE.md` §14 and two corrections to §9/§11.
+  **B1 — THE OWNER STAYS FROZEN AND WHAT IT IS MEASURED AGAINST IS READ LIVE.**
+  G2 captured `{principal, restaurantId, generation}` before every request, which
+  was right, and compared it against `this.scope` — a field only `reload()` ever
+  writes. So the guard could only ever see a transition the component had already
+  been told about. Measured on the unmodified component through the deployed
+  chain: an auth RESTAURANT change, an auth PRINCIPAL change and DESTRUCTION with
+  both reads in flight each left `owns()` true; all three repainted, and the third
+  wrote to a dead instance and left two requests running, because **Angular does
+  not cancel an HTTP request on destroy — only unsubscribing does**. `owns()` is
+  now `!destroyed && generation && liveContext()`, both reads carry
+  `takeUntil(destroy$)`, `reload()` refuses on a destroyed instance, and the
+  principal is OBSERVED through `AuthenticationService.user` — the mechanism
+  `kitchen-order.service.ts` already uses. **REPLACING THE CAPTURED OWNER WITH THE
+  CURRENT PRINCIPAL WOULD BE THE OPPOSITE ERROR** (attributing an old answer to a
+  new user) and is not done. A departed scope re-reads through `reload()`, which
+  clears the previous scope's content AT ONCE and sends nothing when there is
+  nothing to read — sign-out clears storage before it publishes, so no request
+  goes out on the way to a hard redirect. **A STABLE PRINCIPAL IDENTIFIER IS NOT A
+  BEARER CREDENTIAL**: no token enters ownership metadata or any log.
+  **THE RESTAURANT HALF IS DEFENSIVE AND LABELLED AS SUCH** — `rest_role`
+  publishes nothing and every writer ends in a full document load, so no shipped
+  in-app switch keeps this component mounted across one; the interleaving is
+  CONSTRUCTED, exactly as the kitchen board records for itself. The
+  `!this.destroyed` clause inside `owns()` is belt and braces once the reads are
+  cancelled, and says so where it is written.
+  Pinned by `billing-live-ownership.spec.ts` (15), which registers the DEPLOYED
+  wiring (`withXhr()`, `withInterceptorsFromDi()`, `AuthInterceptor`,
+  `ErrorInterceptor`) and proves it ran with two DISCRIMINATING controls — the
+  `Authorization` header one interceptor adds, and the STRING an ordinary failure
+  is flattened to by the other; asserting the component's error state would have
+  read the same either way. **8 FAILED / 7 SUCCESS on the unmodified component**
+  (7 real regressions; the 8th was a fault in the new file, corrected). Four
+  mutations fail 1 / 1 / 1 / 1 distinct specs. Destruction is asserted through the
+  testing client's own report — `TestRequest.cancelled` and
+  `verify({ignoreCancelled: true})` — never by flushing a cancelled request, which
+  is a state the deployed app cannot reach.
+  **B2 — SHAPE IS NOT VALUE.** G2 asked whether `subscription_terms` was an object
+  and `recorded` a boolean, and never whether the values inside were the ones the
+  wire promises. `currency: ''` rendered a price with no currency; `'ugx'` and
+  `'UGANDA'` rendered as they arrived; **`effective_from: 'not-a-date'` THREW out
+  of Angular's DatePipe and took the whole section down**; a NAIVE timestamp was
+  resolved against the device clock, which on an EAT platform administered from
+  elsewhere is a three-hour lie about when a price took effect; `'-150000.00'`
+  rendered as a negative fee; and a recurrence count of 2^40 rendered as a
+  recurrence. `readTerms` now requires an ISO-4217 code (`/^[A-Z]{3}$/`, the
+  backend's own CHECK), an **offset-bearing** ISO instant whose CALENDAR FIELDS
+  are range-checked separately from `Date.parse` (which is lenient: 30 February
+  parses happily as 2 March), an EXACT NON-NEGATIVE canonical decimal string
+  through `toMinorUnits`, and a count within the wire's own 2^31-1 ceiling.
+  **THE HISTORY WAS WORSE, BECAUSE IT ANSWERED WITH A SENTENCE.**
+  `readBillingHistory` DROPPED an unreadable row and returned the rest, so
+  `[null, 'junk']` became `[]` and the screen said **"No subscription transactions
+  recorded"** — a claim about the restaurant manufactured out of rows nobody could
+  read — while `[valid, null]` presented an incomplete history as the whole one
+  with nothing saying a row had gone. Any unreadable row now makes the HISTORY
+  unreadable: the state that already existed, with the read-only retry it already
+  had, and the two sections still fail independently so an unreadable history
+  leaves a readable price on screen. **NOTHING IS REPAIRED** — a readable page is
+  returned VERBATIM (the same array), so there is no place for a repair to hide,
+  and no row is deleted, rewritten, backfilled or reclassified. **A LEGITIMATELY
+  NULL TENDER OR STATUS IS AN UNKNOWN and keeps its row**; `cash`, `paid`,
+  `success` and `pending` are never invented, which is the D07 `stated()` rule
+  applied here, and the template now spells a null status `—` rather than leaving
+  the cell blank. `order_number`, `transaction_platform` and an ABSENT `amount`
+  are documented legacy nullables and do not fail a read; a PRESENT amount that
+  cannot be read exactly does, because `transactionAmount` answers `—` for both
+  and on a financial table those are different facts. What validation covers is
+  **what this template renders** — `transaction_type` reaches no pixel here and
+  nothing is asserted about it — plus the `@for` track identity, since a duplicate
+  raises NG0955 and kills the section.
+  Pinned by `billing-wire-validation.spec.ts` (32), which drives malformed values
+  through the REAL template rather than asserting on `kind`: **19 FAILED / 13
+  SUCCESS on the unmodified reader**, the 13 being exactly the specs labelled
+  CONTROL. Seven mutations fail 7 / 2 / 11 / 2 / 1 / 2 / 1 named subsets.
+  **ONE SHIPPED ORACLE WAS CORRECTED OPENLY**, at the spec that carried it:
+  `billing-read-states.spec.ts::'one unreadable row does not withhold the rest'`
+  asserted the silent drop, and now asserts the rule above with its own control
+  for a genuinely empty list. Suite **2815 -> 2862**.
+  **V1 — THE BROWSER EVIDENCE NOW DISCRIMINATES, AND TWO OF ITS CLAIMS DID NOT.**
+  `e2e/billing-journey/billing.mjs`'s collector probes sent `restaurant` to an
+  endpoint that reads `restaurant_id`, so `can_manage_restaurant` refused them
+  **404** at the authorization gate and `SubscriptionPaymentTransaction.initiate()`
+  never ran — and the only assertion made, `outcome === 'refused'`, is satisfied by
+  that 404. It HAD to be, because `ErrorInterceptor` flattens an ordinary failure
+  to a STRING with no status, so the client cannot tell 501 from 404 at all. The
+  probe now issues the retired request **recovered verbatim from `1d3d091^`**
+  (`{transaction_type, transaction_platform, payment_mode, restaurant_id, msisdn,
+  otp}`) and a SECOND OBSERVER — `page.on('response')` — reads the same real
+  response BEFORE any interceptor, asserting exactly `501`, exactly
+  `subscription_collection_unavailable` and exactly the request-specific sentence,
+  so 400/401/403/404, an arbitrary non-2xx and a request that never answers each
+  FAIL. A **404 control** (missing id, foreign id) keeps the 501 from being "the
+  endpoint always says no", and the subscription-row count is read from the
+  restaurant's own authorized listing before and after all three attempts and
+  ASSERTED unchanged — a figure the record previously carried from a manual look.
+  **THE BACKEND WAS NOT RELAXED to accept `restaurant` as an alias**: rescuing a
+  harness by weakening a contract is the opposite of what this is for.
+  **AND THE DASHBOARD SECTION WAS PASSING ON MOCK DATA.**
+  `DashboardService.USE_MOCK_DATA` is still `true`, so every withheld hook rendered
+  with NO request reaching the server. It runs in two phases now: a mock-branch
+  CONTROL asserting zero `dashboard-v2` requests are issued, then the REAL branch
+  selected by a TEST-ONLY runtime flip of the static through `window.ng`, where an
+  AUTHORIZED request is observed on the wire and `payment_tracking_enabled: false`
+  is asserted in the response body before the withheld-figure checks run. The flip
+  is undone before the section ends; **no production flag is changed, no test
+  endpoint is added and no build configuration is introduced**.
+  **MEASURED, not asserted**: **56/56** clean, **51/56** under the wrong-key
+  mutation (five failures, every one printing `404`, while `the client reports it
+  as a refusal` still PASSES — the old assertion, proved non-discriminating), and
+  **54/56** under the mock-dashboard mutation (exactly the two real-data checks).
+  Sections 3-4 replay two recovered REQUESTS from the CURRENT build and are **not**
+  an execution of the retired bundle; the script and README both say so.
+  **The other three journeys were re-run on the same pair with clean seeds** —
+  `journey.mjs` **42/42**, `recovery.mjs` **137/137**, `kitchen.mjs` **55/55**,
+  each on a fresh disposable database. None exercises this change, and they are
+  re-run as regression evidence rather than as discrimination. Tooling is PINNED:
+  Node 24.15.0, **Playwright 1.56.1** (`npm i --no-save playwright@1.56.1`, product
+  manifests verified unchanged), Chromium `/opt/pw-browsers/chromium-1194` with
+  `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, PostgreSQL 16, development assets.
+  **The G1/G2 28/42 production-revert figure is NOT restated for the 56-check
+  harness** — it belongs to the 42-check one at that revision and is labelled so
 - Notifications: scaffolded and routed (route `notifications`,
   `RestNotificationsComponent`) — per-view data-wiring status varies
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a

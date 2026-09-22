@@ -181,9 +181,21 @@ describe('D07/G2 — billing read states', () => {
       expect(readBillingHistory([])).toEqual([]);
     });
 
-    it('one unreadable row does not withhold the rest', () => {
-      expect(readBillingHistory([{ id: 1 }, 'junk', { id: 2 }]))
-        .toEqual([{ id: 1 }, { id: 2 }]);
+    // CORRECTED ORACLE (D07/B2). This asserted
+    //   `readBillingHistory([{id: 1}, 'junk', {id: 2}])` -> `[{id: 1}, {id: 2}]`
+    // under the heading "one unreadable row does not withhold the rest". That
+    // was the wrong rule for a financial table, and it produced two untrue
+    // screens: an all-unreadable page became `[]` and rendered "No subscription
+    // transactions recorded" — a claim about the restaurant — and a mixed page
+    // rendered an incomplete history as the whole one with nothing saying a row
+    // had gone. The rule is now that any unreadable row makes the HISTORY
+    // unreadable; the full pinning, including every control, lives in
+    // `billing-wire-validation.spec.ts`.
+    it('one unreadable row withholds the history rather than the row', () => {
+      expect(readBillingHistory([{ id: 1 }, 'junk', { id: 2 }])).toBeNull();
+      // CONTROL: a page of readable rows is still returned, and verbatim.
+      const page = [{ id: 1 }, { id: 2 }];
+      expect(readBillingHistory(page)).toBe(page);
     });
   });
 

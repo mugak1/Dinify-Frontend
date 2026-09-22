@@ -164,7 +164,14 @@
                 <td class="py-2.5 pr-4 capitalize text-gray-700">{{ t.transaction_platform || '—' }}</td>
                 <td class="py-2.5 pr-4 capitalize text-gray-700">{{ t.payment_mode || '—' }}</td>
                 <td class="py-2.5 pr-4 font-medium text-gray-900 tabular-nums">{{ transactionAmount(t) }}</td>
-                <td class="py-2.5 capitalize text-gray-700">{{ t.transaction_status }}</td>
+                <!--
+                  A NULL STATUS IS AN UNKNOWN, spelled the same way as every
+                  other absence in this table. It used to render as an empty
+                  cell, which reads as a layout fault rather than as a fact the
+                  server did not state — and the one thing it must never do is
+                  become `pending` or `success`, which is the D07 reports rule.
+                -->
+                <td class="py-2.5 capitalize text-gray-700">{{ t.transaction_status || '—' }}</td>
               </tr>
             }
           </tbody>

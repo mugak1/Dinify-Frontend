@@ -1,3 +1,5 @@
+import { toMinorUnits } from 'src/app/_shared/utils/decimal-money';
+
 /**
  * The wire shape of `GET restaurant-setup/subscription-details/` (D07 / PR-2).
  *
@@ -101,10 +103,77 @@ export interface SubscriptionDetailsRead {
 
 const INTERVAL_UNITS: readonly BillingInterval['unit'][] = ['day', 'week', 'month', 'year'];
 
+/**
+ * The wire's own ceiling on `billing_interval_count`, not a display preference.
+ * `commercial_app` stores it in a `PositiveIntegerField`, a 32-bit PostgreSQL
+ * `integer`, and its writer caps it there explicitly — anything beyond cannot
+ * have come from this contract.
+ */
+const MAX_INTERVAL_COUNT = 2_147_483_647;
+
+/** ISO-4217: three uppercase ASCII letters, which is the backend's own CHECK. */
+const CURRENCY_CODE = /^[A-Z]{3}$/;
+
+/**
+ * An ISO-8601 instant carrying an EXPLICIT offset.
+ *
+ * THE OFFSET IS REQUIRED, and that is the point rather than pedantry. The
+ * backend's `AwareDateTimeField` refuses a naive value on the way IN because
+ * midnight EAT and midnight UTC are three hours apart; accepting one on the way
+ * OUT would resolve it against whatever zone the operator's device happens to
+ * be in, and `effective_from` is the field that decides which terms were in
+ * force. DRF emits `isoformat()` on an aware datetime, so the offset is always
+ * there on a real response.
+ */
+const AWARE_ISO_MOMENT =
+  /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/**
+ * A real instant this client can render.
+ *
+ * THE CALENDAR FIELDS ARE CHECKED SEPARATELY FROM `Date.parse`, because
+ * `Date.parse` is permitted to be lenient and is: `2026-02-30T00:00:00+03:00`
+ * parses happily as 2 March. Silently moving a price's effective date by two
+ * days is the same class of untruth as rendering it in the wrong zone.
+ */
+function readsAsAwareMoment(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const parts = AWARE_ISO_MOMENT.exec(value);
+  if (!parts) return false;
+  const [, year, month, day, hour, minute, second] = parts;
+  const y = Number(year);
+  const mo = Number(month);
+  if (mo < 1 || mo > 12) return false;
+  const d = Number(day);
+  if (d < 1 || d > daysInMonth(y, mo)) return false;
+  if (Number(hour) > 23 || Number(minute) > 59) return false;
+  // 60 is a leap second, which is legal in ISO-8601 and which `Date.parse`
+  // then refuses — so the final check is what settles it either way.
+  if (second !== undefined && Number(second) > 60) return false;
+  return Number.isFinite(Date.parse(value));
+}
+
+/**
+ * An amount this client can express EXACTLY, and which is not negative.
+ *
+ * `toMinorUnits` parses the digits of the canonical decimal string and answers
+ * `null` rather than guessing — never `Number(value) * 100`. A recurring
+ * SUBSCRIPTION FEE below zero is not a price, and an explicit `0.00` is: it
+ * scales to 0, passes, and is displayed as the recorded price it is.
+ */
+function readsAsNonNegativeMoney(value: unknown): boolean {
+  const minor = toMinorUnits(value);
+  return minor !== null && minor >= 0;
 }
 
 function readInterval(value: unknown): BillingInterval | null {
@@ -114,26 +183,50 @@ function readInterval(value: unknown): BillingInterval | null {
   const count = raw['count'];
   if (!INTERVAL_UNITS.includes(unit as BillingInterval['unit'])) return null;
   if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) return null;
+  if (count > MAX_INTERVAL_COUNT) return null;
   return { unit: unit as BillingInterval['unit'], count };
 }
 
+/**
+ * One open terms row, or `null` when any field the SCREEN RENDERS cannot be
+ * trusted (D07/B2).
+ *
+ * IT USED TO CHECK ONLY THE TYPES. `typeof x === 'string'` admitted
+ * `currency: ''` (a price rendered with no currency), `effective_from:
+ * 'not-a-date'` (which threw out of Angular's DatePipe and took the whole
+ * section down), a naive timestamp resolved against the device clock, and
+ * `recurring_amount: '-150000.00'`. Each of those is a statement about money
+ * this client had no basis for.
+ *
+ * NOTHING IS REPAIRED HERE. No currency is defaulted, no date is resolved, no
+ * amount is rounded, no sign is flipped. The row is either displayed as the
+ * server sent it or reported as unreadable, which is what the screen's one
+ * sentence already says.
+ */
 function readTerms(value: unknown): SubscriptionTerms | null {
   const raw = record(value);
   if (!raw) return null;
+
   const interval = readInterval(raw['billing_interval']);
-  if (
-    typeof raw['recurring_amount'] !== 'string'
-    || typeof raw['currency'] !== 'string'
-    || typeof raw['effective_from'] !== 'string'
-    || !interval
-  ) {
-    return null;
-  }
+  if (!interval) return null;
+
+  const amount = raw['recurring_amount'];
+  // A canonical decimal STRING: `commercial_reads` calls `str()` on the
+  // Decimal precisely so the scale survives, and a JSON number would already
+  // have lost `0.00`.
+  if (typeof amount !== 'string' || !readsAsNonNegativeMoney(amount)) return null;
+
+  const currency = raw['currency'];
+  if (typeof currency !== 'string' || !CURRENCY_CODE.test(currency)) return null;
+
+  const effectiveFrom = raw['effective_from'];
+  if (!readsAsAwareMoment(effectiveFrom)) return null;
+
   return {
-    recurring_amount: raw['recurring_amount'],
-    currency: raw['currency'],
+    recurring_amount: amount,
+    currency,
     billing_interval: interval,
-    effective_from: raw['effective_from'],
+    effective_from: effectiveFrom as string,
   };
 }
 
@@ -206,6 +299,44 @@ export function readSubscriptionDetails(payload: unknown): SubscriptionDetailsRe
 
 // --- billing history ---------------------------------------------------------
 
+/** Displayed as text; absent and `null` are legitimate and render as unknown. */
+const OPTIONAL_TEXT_KEYS = ['transaction_status', 'transaction_platform', 'payment_mode'];
+
+/**
+ * Whether one row can be displayed. It asks about THE FIELDS THIS TEMPLATE
+ * RENDERS and nothing else — `transaction_type` and `order_number` reach no
+ * pixel here, so nothing is asserted about them.
+ */
+function rowIsDisplayable(row: unknown): boolean {
+  const raw = record(row);
+  if (!raw) return false;
+
+  // The `@for` track expression. A row with no identity cannot be tracked, and
+  // Angular raises NG0955 on a duplicate — the section dying rather than a row
+  // rendering twice. Duplicates are caught by the caller, which sees the page.
+  const id = raw['id'];
+  const identified =
+    (typeof id === 'string' && id.length > 0) || (typeof id === 'number' && Number.isFinite(id));
+  if (!identified) return false;
+
+  // Piped through `| date`, which THROWS on a value it cannot convert.
+  const createdAt = raw['time_created'];
+  if (createdAt !== undefined && createdAt !== null && !readsAsAwareMoment(createdAt)) {
+    return false;
+  }
+
+  // `transactionAmount` answers `—` for an amount it cannot read AND for one
+  // that is absent, so an unreadable figure was indistinguishable from a row
+  // carrying none. On a financial table those are different facts.
+  const amount = raw['amount'];
+  if (amount !== undefined && amount !== null && toMinorUnits(amount) === null) return false;
+
+  return OPTIONAL_TEXT_KEYS.every((key) => {
+    const value = raw[key];
+    return value === undefined || value === null || typeof value === 'string';
+  });
+}
+
 /**
  * Read the transactions listing.
  *
@@ -216,11 +347,35 @@ export function readSubscriptionDetails(payload: unknown): SubscriptionDetailsRe
  * read the history, which is true, instead of "no transactions recorded",
  * which is a claim about the restaurant.
  *
- * A row that is not an object is DROPPED rather than failing the whole read —
- * one unreadable row is not a reason to withhold the rest — and the component
- * formats each field defensively, as it already did.
+ * **AND A ROW IT CANNOT READ IS THE SAME FACT (D07/B2).** This used to DROP
+ * such a row and return the rest, which produced the two answers a financial
+ * view must never give: `[null, 'junk']` became `[]` and the screen said "No
+ * subscription transactions recorded" — a claim about the restaurant
+ * manufactured out of rows nobody could read — and `[valid, null]` presented an
+ * incomplete history as the whole one, with nothing on screen saying a row had
+ * gone. The smallest truthful behaviour is the state that already exists: the
+ * history is UNREADABLE, the screen says so, the read-only retry is offered,
+ * and the terms beside it stay readable because the two sections fail
+ * independently.
+ *
+ * **NO ROW IS DELETED, CHANGED, BACKFILLED OR RECLASSIFIED**, here or anywhere
+ * downstream. A readable page is returned VERBATIM — the same array, not a
+ * rebuilt one — so there is no place for a repair to hide. A legitimately null
+ * tender or status is an UNKNOWN and keeps its row; inventing `cash` or
+ * `pending` for it is the defect the D07 reports rule already names.
  */
 export function readBillingHistory(payload: unknown): unknown[] | null {
   if (!Array.isArray(payload)) return null;
-  return payload.filter((row) => record(row) !== null);
+
+  const seen = new Set<string>();
+  for (const row of payload) {
+    if (!rowIsDisplayable(row)) return null;
+    const id = (row as Record<string, unknown>)['id'];
+    // `track t.id` keys a Map, so `'1'` and `1` are different rows to Angular
+    // and the same row to a looser comparison. Keep the type in the key.
+    const key = `${typeof id}:${String(id)}`;
+    if (seen.has(key)) return null;
+    seen.add(key);
+  }
+  return payload;
 }

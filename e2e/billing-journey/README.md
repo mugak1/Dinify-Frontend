@@ -10,13 +10,13 @@ It is deliberately **NOT wired into CI** and prints that at the end of every
 run. It needs a disposable PostgreSQL, a running Django and a running dev
 server, and CI has none of those.
 
-`billing.mjs` — **42 checks**, five sections.
+`billing.mjs` — **56 checks**, five sections.
 
 ## What it asserts
 
 | | |
 |---|---|
-| **the dashboard withholds every unvouched figure** | headline, chart, comparison and the Gross/Discounts/Net pills, in a real session against a real `dashboard-v2` |
+| **the dashboard withholds every unvouched figure** | headline, chart, comparison and the Gross/Discounts/Net pills — **against a REAL `dashboard-v2` response, selected by a test-only runtime flip**, with the mock branch kept beside it as the control that proves it could not have supplied the evidence |
 | **Refunds survives** | it aggregates `order_status`, which is written; blanking it would hide a real measurement |
 | **Paid and Open/Unpaid are withheld on Total Orders** | and the card is not hidden — total, Cancelled and Refunded are independent measurements |
 | **the Tables card is wired at all** | four of its five history tiles are paid-gated and it was the one card the dashboard template never bound |
@@ -26,34 +26,57 @@ server, and CI has none of those.
 | **a LEGACY BILLABLE row decides nothing** | `subscription_validity=True` + a future expiry + a `flat_fee` are proved present ON THE WIRE, and the screen still says no current terms, shows no "Active" and renders no billing date |
 | canonical recorded terms render with their scale | `UGX 150,000.50` — a non-zero fraction, because a round number cannot show that the decimal survived |
 | the history row shows the amount the serializer emits | not the `UGX 0` the retired `amount_out` read produced |
-| **the retired collector is REFUSED by the live server** | issued through the running app's own `ApiService`, so it passes the REAL `AuthInterceptor` and `ErrorInterceptor` |
-| **the refusal reaches the operator** | rather than being swallowed |
+| **the retired collector is REFUSED 501 by the live server** | the exact status, the exact machine reason and the exact sentence, **read off the wire before any interceptor**, with a 404 control that keeps it from being "the endpoint always says no" |
+| **no financial row is created by any attempt** | asserted from the restaurant's own authorized listing, before and after |
+| **the refusal reaches the operator** | and carries the SERVER's own sentence, not a generic one |
 | **the old OTP-before-POST ordering is demonstrated** | with the challenge **intercepted by the harness** — no code is dispatched and no delivery is attempted |
 | **the retired payment deep links resolve to no payment surface** | three URLs entered directly in the address bar |
 | the page raised no uncaught errors | |
 
-### The 501 is issued through the app, not around it
+### The 501 is issued through the app AND observed on the wire
 
 `page.evaluate` reaches the live `BillingComponent` through Angular's dev-mode
 `window.ng` handle and reads its injected `ApiService` — TypeScript `private`
 is erased at runtime, so the service is a plain property. That is what puts the
 request through the real interceptor chain. **A `fetch` would prove what the
-server answers and nothing about what the client does with it**, which is the
-half this section exists for.
+server answers and nothing about what the client does with it.**
 
-The server's answer, captured verbatim from the service in the same disposable
-pairing:
+**BUT THE CLIENT CANNOT SEE A STATUS, AND THAT WAS THE HOLE.** `ErrorInterceptor`
+flattens an ordinary failure to `err.error?.message || err.statusText` — a
+STRING — so `outcome === 'refused'`, which this harness used to assert, is
+satisfied equally by 501, 404, 403, 401 and 500. It was passing on a **404**:
+the probe sent `restaurant`, the endpoint reads `restaurant_id`, and
+`can_manage_restaurant` fails closed on a missing one, so the request was
+refused by the AUTHORIZATION GATE and never reached the collector at all.
+
+Two things fix it, and both are in the committed script:
+
+- **THE RETIRED REQUEST IS THE REAL ONE**, recovered verbatim from the commit
+  before D07 removed it (`InitPayment()` + `Save()` at `1d3d091^`):
+  `{transaction_type, transaction_platform, payment_mode, restaurant_id,
+  msisdn, otp}`. **The endpoint was NOT relaxed to accept the wrong key** —
+  that would be rescuing the harness by weakening the contract.
+- **A SECOND, INDEPENDENT OBSERVER.** `page.on('response')` reads the status
+  and raw body of the SAME real response before any interceptor touches it, and
+  the assertions name an exact `501`, the exact machine reason
+  `subscription_collection_unavailable` and the exact sentence. A 400, 401,
+  403, 404, an arbitrary non-2xx, or a request that never answers each FAIL.
 
 ```
 {"status": 501,
  "reason": "subscription_collection_unavailable",
  "message": "In-app subscription payment collection is not available. This request did not create or send a payment request."}
-rows before/after: 1 1
 ```
 
-The row count is the substantive half: the fixture's one seeded history row is
-all there is, before and after — including a call supplying both `msisdn` and
-`otp`, which the service accepts and deliberately does not read.
+**THE 404 CONTROL IS WHAT KEEPS THAT HONEST.** The same retired shape is issued
+twice more — once with no `restaurant_id`, once with a foreign one — and both
+must answer **404**. Without it, a harness that drifted back to the wrong key
+would score a passing "refusal" forever.
+
+**AND THE ROW COUNT IS NOW AN ASSERTION, NOT AN OBSERVATION.** This document
+used to record `rows before/after: 1 1` from a manual look. The harness reads
+the restaurant's own authorized `transactions-listing` before the probe and
+again after all three attempts, and fails if the count moved.
 
 ### No challenge is ever sent
 
@@ -75,31 +98,66 @@ between runs.
 
 ### What it deliberately does NOT cover
 
-- **It does not exercise a real pre-D07 client.** Section 3 replays the retired
-  request from the current build; that shows the SERVER refuses it and the
-  CURRENT interceptor chain surfaces the refusal. Whether the deployed older
-  bundle renders that refusal well is not asserted, and is not claimed.
+- **It does not exercise a real pre-D07 client, and section 4 is not an
+  old-bundle pairing.** Sections 3 and 4 replay the two retired REQUESTS,
+  recovered verbatim and re-issued in their original order **from the current
+  build**. That shows the SERVER refuses the collection and that the CURRENT
+  interceptor chain surfaces the refusal. The retired dialog, its MSISDN
+  lookup and its form state are deleted and nothing here runs them; whether the
+  deployed older bundle renders that refusal well is not asserted and is not
+  claimed.
+- **The dashboard section proves the REAL branch only because it selects it.**
+  `DashboardService.USE_MOCK_DATA` is still `true` in the committed build, so
+  the withheld hooks render from mock data with no request made. The harness
+  flips the static at runtime through `window.ng`, undoes it before the section
+  ends, and keeps the mock phase as an explicit control. **No production flag
+  is changed, no test endpoint is added and no build configuration is
+  introduced.**
 - **It asserts nothing about production or UAT data.** Everything here is a
   disposable local database seeded by `seed.py`.
 - **It contacts no payment provider**, and there is none to contact.
 
 ## It discriminates, and that was measured
 
-With the eleven production files reverted (`git stash push` on the cards, the
-adapter, the model, the mock, the dashboard template and the billing
-component/model/template) and everything else held constant, the same run
-scores **28/42**.
+Three measurements, each taken by reverting one thing and holding everything
+else constant.
 
-**Eight of the fourteen failures are behavioural** — the withheld headline, the
-chart, the comparison, the pills, the orders split, the Tables wiring, the
-Tables tiles, and the copy check, whose captured text is the old sentence
-verbatim: *"No subscription terms have been recorded for your restaurant yet."*
+**THE WRONG REQUEST KEY — 51/56.** Sending `restaurant` instead of
+`restaurant_id`, which is what the committed harness used to do, fails **five**
+checks and every one of them prints `404`:
 
-**Six are selector-dependent** and are recorded as such rather than counted as
-regressions: `terms-absent`, `terms-amount` and `history-empty` are
-`data-testid` hooks this change introduced, so a run against code that predates
-them fails for want of the hook rather than for want of the behaviour. The
-behavioural twin of each is asserted separately above.
+```
+FAIL THE SERVER ANSWERED 501 — observed on the wire, before any interceptor — observed=[404]
+FAIL ...carrying the machine reason a client branches on — {"status":404,"message":"Not found"}
+FAIL ...and the sentence that is about THIS REQUEST and nothing else — "Not found"
+FAIL the ErrorInterceptor surfaces the SERVER’s own sentence, not a generic one — "Not found"
+FAIL the collection attempt is refused 501 ON THE WIRE ... {"status":404, ...}
+```
+
+**`the client reports it as a refusal rather than a success` STILL PASSES** in
+that run. That is the old assertion, and it is the proof that it never
+discriminated.
+
+**THE MOCK DASHBOARD BRANCH — 54/56.** Neutralising the runtime flip so the
+section stays on mock data fails exactly the two real-data checks:
+
+```
+FAIL an AUTHORIZED dashboard-v2 request really reached the server — []
+FAIL the SERVER declares that settlement is not measured — undefined
+```
+
+Both CONTROL checks in that phase still pass, including the one asserting that
+the withheld hooks are already rendered from mock data — which is precisely why
+their presence alone is not evidence.
+
+**THE G1/G2 PRODUCTION REVERT — 28/42, AND THAT FIGURE IS NOT RESTATED HERE.**
+It was measured against the **42-check** harness at the revision that
+introduced it (eleven production files stashed: the cards, the adapter, the
+model, the mock, the dashboard template and the billing
+component/model/template). Eight of the fourteen failures were behavioural and
+six were selector-dependent, both recorded at the time. It has **not** been
+re-measured against the 56-check harness, and this document does not claim it
+has: the two measurements above are the ones this revision is responsible for.
 
 ## Running it
 
@@ -127,9 +185,11 @@ npx ng serve --port 4299 --host 127.0.0.1 --configuration development &
 
 # 5. `playwright` is NOT a dependency of this repo (it would be a production-tree
 #    dependency for a manual script), so install it without touching the
-#    manifests and point at a browser you already have:
-#        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm i --no-save playwright
-#        export CHROMIUM_PATH=/path/to/chrome
+#    manifests and point at a browser you already have.
+#    PIN THE VERSION: `npm i --no-save playwright` resolves to whatever is
+#    latest that day, which is not a repeatable run.
+#        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm i --no-save playwright@1.56.1
+#        export CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome
 node e2e/billing-journey/billing.mjs
 ```
 
@@ -140,10 +200,16 @@ defaults. Exit status is non-zero if any check fails.
 milder here than in `checkout-journey`, but the seed is idempotent and costs
 nothing.
 
-Last run: **42/42**, and **28/42 with the production change reverted**.
-Node 24.15.0 (`/opt/node24`), Playwright 1.63.0 (`npm i --no-save`, product
-manifests unchanged), Chromium 141.0.7390.37 (pre-installed at
-`/opt/pw-browsers/chromium-1194`, `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` so
-nothing was fetched), PostgreSQL 16, a disposable local database, and
-**development** assets (`ng serve --configuration development`, not an
-optimized build).
+Last run: **56/56**, on a FRESH disposable database, with **51/56** under the
+wrong-request-key mutation and **54/56** under the mock-dashboard mutation (see
+the measurements above).
+
+Node 24.15.0 (`/opt/node24`), **Playwright 1.56.1** (`npm i --no-save
+playwright@1.56.1` — a PIN, and the product manifests are unchanged, verified
+with `git status` on `package.json` and `package-lock.json`), Chromium
+pre-installed at `/opt/pw-browsers/chromium-1194`
+(`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, so nothing was fetched), PostgreSQL 16 on
+a disposable cluster, and **development** assets (`ng serve --configuration
+development`, not an optimized build). `src/environments/environment.ts` was
+pointed at `http://127.0.0.1:8099` for the run and **that change is not
+committed**.

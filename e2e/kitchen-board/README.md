@@ -105,7 +105,15 @@ node e2e/kitchen-board/kitchen.mjs
 same database fails two of its own checks on the second pass — a fixture
 artefact, not a defect. Re-seed between runs.
 
-Last run: **55/55**, re-run at the **D06 I2-C revision** (frontend
+Last run: **55/55**, re-run at the **D07 B1/B2/V1 revision** (frontend
+`claude/serene-shannon-7iz7bj` against an UNMODIFIED backend) on a FRESH
+disposable database, Node 24.15.0, **Playwright 1.56.1 pinned**, Chromium
+`/opt/pw-browsers/chromium-1194`, PostgreSQL 16, development assets. That change
+touches only the billing settings screen and its reader, so this harness does not
+exercise it and is not expected to discriminate for it — it is re-run as
+REGRESSION evidence that the board is untouched.
+
+Before that: **55/55**, re-run at the **D06 I2-C revision** (frontend
 `claude/d06-shared-closure-hold` against backend `f7d2ce6`, which is
 `origin/main` and was NOT modified) on a
 FRESH fixture, against a disposable local PostgreSQL **16.13** (its own cluster
