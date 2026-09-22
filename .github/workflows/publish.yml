@@ -1,0 +1,479 @@
+# PUBLISH — the privileged boundary.
+#
+# It builds nothing, installs no application dependency and runs no repository script
+# from the thing being published. It takes the candidate `certify.yml` produced,
+# establishes that the candidate really is that run's output, that the run really is
+# the certification of a commit on `main`, that the candidate belongs beside its
+# pinned peers, and that publishing it now would move the served release forward —
+# and only then hands one job the publishing credential.
+#
+# ┌─ gate ─────────────────────────────────────────────────────────────────────┐
+# │ no credential. Resolves identity, downloads the candidate AS DATA, and     │
+# │ evaluates release/lib/decide.mjs — the same pure function the local        │
+# │ refusal suite drives. Emits a decision and nothing else.                   │
+# ├─ publish ──────────────────────────────────────────────────────────────────┤
+# │ the ONLY job that may hold FIREBASE_SERVICE_ACCOUNT. No `npm ci`, no build,│
+# │ no checkout of application source: two sparse checkouts (the trusted gate  │
+# │ code, and the certified commit's hosting configuration) and the artifact.  │
+# └────────────────────────────────────────────────────────────────────────────┘
+#
+# PUBLICATION IS DISABLED UNTIL AN OWNER ENABLES IT. The repository variable named in
+# release/policy.json is not set, so the final step is skipped and the job reports the
+# decision it would have acted on. `deploy-prod.yml` is untouched and remains the live
+# path; merging this workflow changes nothing about what is deployed or by whom.
+name: Publish
+
+on:
+  # `workflow_run.workflows` can only match a workflow's mutable DISPLAY NAME. That is
+  # a coarse pre-filter GitHub forces on us and is deliberately NOT the security
+  # proof: the gate re-resolves the triggering run through the API and requires it to
+  # belong to the workflow resolved from release/policy.json's certification path.
+  workflow_run:
+    workflows: ["Certify"]
+    types: [completed]
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Full 40-character lowercase commit SHA on main that Certify has certified"
+        required: true
+        type: string
+      mode:
+        description: "deploy = publish this candidate · rollback = deliberate backward movement"
+        required: true
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+
+# Serialise, never cancel. A cancelled run mid-publication would leave the served
+# state and this workflow's view of it disagreeing, which is the one thing the
+# ordering guard cannot recover from on its own.
+concurrency:
+  group: publish-frontend
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # A failed certification produces a cleanly skipped publication, not a red one: a
+    # broken build is not a deployment incident, and turning every one into a failed
+    # publish run trains the operator to ignore this workflow's red.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      allow: ${{ steps.decide.outputs.allow }}
+      decision: ${{ steps.decide.outputs.decision }}
+      sha: ${{ steps.identity.outputs.sha }}
+      run_id: ${{ steps.certification.outputs.run_id }}
+      artifact_name: ${{ steps.certification.outputs.artifact_name }}
+
+    steps:
+      - name: Refuse an unexpected event or ref
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            workflow_run|workflow_dispatch) ;;
+            *) echo "refusing event $EVENT" >&2; exit 1 ;;
+          esac
+          # The workflow file is always taken from the default branch for both of these
+          # events; anything else means an assumption here has stopped holding.
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "refusing a run reported against $REF" >&2
+            exit 1
+          fi
+
+      # THE TRUSTED CHECKOUT. The gate's own code and policy come from the default
+      # branch — the same place GitHub took this workflow file from — never from the
+      # candidate. A candidate that supplied its own policy could relax its own gate.
+      - name: Check out the trusted gate code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Resolve the target and the request
+        id: identity
+        env:
+          EVENT: ${{ github.event_name }}
+          DISPATCH_SHA: ${{ inputs.sha }}
+          DISPATCH_MODE: ${{ inputs.mode }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            sha="$DISPATCH_SHA"; mode="$DISPATCH_MODE"; trigger="manual"
+          else
+            sha="$EVENT_SHA"; mode="deploy"; trigger="automatic"
+          fi
+          if ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "refusing a target that is not a full lowercase commit SHA" >&2
+            exit 1
+          fi
+          case "$mode" in
+            deploy|rollback) ;;
+            *) echo "refusing mode $mode" >&2; exit 1 ;;
+          esac
+          printf 'sha=%s\nmode=%s\ntrigger=%s\n' "$sha" "$mode" "$trigger" >> "$GITHUB_OUTPUT"
+          printf '{"mode":"%s","trigger":"%s"}\n' "$mode" "$trigger" > request.json
+
+      - name: Establish the certifying run
+        id: certification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ steps.identity.outputs.sha }}
+          TRIGGER: ${{ steps.identity.outputs.trigger }}
+          EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          workflow_path="$(node -p "require('./release/policy.json').certification.workflowPath")"
+          # Resolve the workflow by PATH, then compare what the event claimed against
+          # what the API says. A different workflow that merely happens to share a
+          # display name can never satisfy this.
+          workflow_id="$(gh api "repos/$REPO/actions/workflows" --paginate \
+            --jq ".workflows[] | select(.path == \"$workflow_path\") | .id" | head -n1)"
+          if [ -z "${workflow_id:-}" ]; then
+            echo "no workflow is registered at $workflow_path" >&2
+            exit 1
+          fi
+
+          if [ "$TRIGGER" = "automatic" ]; then
+            run_id="$EVENT_RUN_ID"
+          else
+            run_id="$(gh api "repos/$REPO/actions/workflows/$workflow_id/runs?head_sha=$SHA&status=success&event=push&branch=main&per_page=1" \
+              --jq '.workflow_runs[0].id // empty')"
+          fi
+
+          if [ -z "${run_id:-}" ]; then
+            node -e 'require("fs").writeFileSync("certification.json", JSON.stringify({present:false}))'
+            echo "run_id=" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=" >> "$GITHUB_OUTPUT"
+            echo "No certifying run was found for $SHA." >&2
+            exit 0
+          fi
+
+          gh api "repos/$REPO/actions/runs/$run_id" > run.json
+
+          # Ancestry is necessary and not sufficient — an ordinary revert leaves the
+          # reverted commit in ancestry for ever — so it is one input among several,
+          # never the eligibility rule on its own.
+          git fetch --no-tags origin main >/dev/null 2>&1 || true
+          if git merge-base --is-ancestor "$SHA" origin/main 2>/dev/null; then
+            ancestor=true
+          else
+            ancestor=false
+          fi
+
+          # THE JOBS OF THE RESOLVED RUN, not the check-runs of the commit. The commit
+          # list is not scoped to this run, so a passing check contributed by ANY
+          # other workflow on the same SHA could satisfy a required name here — and
+          # if the certifying workflow were edited so its required job no longer runs
+          # while the workflow still concludes success, that is precisely the
+          # substitution the requirement exists to prevent. `filter=latest` matches
+          # the attempt the run reports, which is the same attempt the artifact is
+          # bound to.
+          gh api "repos/$REPO/actions/runs/$run_id/jobs?per_page=100&filter=latest" --paginate --jq \
+            '[.jobs[] | {name: .name, status: .status, conclusion: .conclusion}]' > checks.json
+
+          WORKFLOW_PATH="$workflow_path" RUN_ID="$run_id" ANCESTOR="$ancestor" REPO="$REPO" node -e '
+            const fs = require("fs");
+            const run = JSON.parse(fs.readFileSync("run.json", "utf8"));
+            // Jobs of the certifying run — see the comment on the query above.
+            const checks = JSON.parse(fs.readFileSync("checks.json", "utf8")).flat();
+            fs.writeFileSync("certification.json", JSON.stringify({
+              present: true,
+              repository: process.env.REPO,
+              workflowPath: run.path,
+              event: run.event,
+              headBranch: run.head_branch,
+              headSha: run.head_sha,
+              conclusion: run.conclusion,
+              runId: String(run.id),
+              runAttempt: String(run.run_attempt),
+              runStartedAt: run.run_started_at,
+              ancestorOfDefaultBranch: process.env.ANCESTOR === "true",
+              checks,
+            }, null, 2));
+          '
+          run_attempt="$(node -p "require('./run.json').run_attempt")"
+          {
+            echo "run_id=$run_id"
+            echo "artifact_name=frontend-release-$run_id-$run_attempt"
+          } >> "$GITHUB_OUTPUT"
+
+      # The artifact is bound to the trusted run because it is fetched BY THAT RUN'S
+      # ID: only that run can have uploaded it. Everything after this treats its
+      # contents as untrusted input.
+      - name: Download the candidate
+        id: download
+        if: steps.certification.outputs.run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ steps.certification.outputs.artifact_name }}
+          path: candidate
+          run-id: ${{ steps.certification.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Observe the candidate as data
+        env:
+          SHA: ${{ steps.identity.outputs.sha }}
+          DOWNLOADED: ${{ steps.download.outcome }}
+        run: |
+          set -euo pipefail
+          # The hosting configuration is read from the CERTIFIED COMMIT, not from the
+          # candidate and not from whatever main says now, so the headers and hooks
+          # that would be applied are the ones reviewed at that commit.
+          if git cat-file -e "$SHA:firebase.json" 2>/dev/null; then
+            git show "$SHA:firebase.json" > certified-firebase.json
+          else
+            echo '{"__unreadable__": true}' > certified-firebase.json
+          fi
+          if [ "${DOWNLOADED:-skipped}" != "success" ]; then
+            node -e 'require("fs").writeFileSync("observation.json", JSON.stringify({present:false}))'
+          else
+            node release/cli.mjs observe --root candidate --hosting-config certified-firebase.json > observation.json
+          fi
+          node -e '
+            const o = require("./observation.json");
+            console.log("present        ", o.present === true);
+            console.log("manifest valid ", o.manifestValid === true);
+            console.log("tree digest    ", o.observedTreeDigest ?? "-");
+            console.log("expected       ", o.expectedTreeDigest ?? "-");
+            console.log("unsafe entries ", (o.unsafeEntries ?? []).length);
+            console.log("hosting hooks  ", (o.hostingConfigHooks ?? []).length);
+          '
+
+      - name: Read the served release identity
+        env:
+          SHA: ${{ steps.identity.outputs.sha }}
+        run: |
+          set -euo pipefail
+          node release/cli.mjs serve-state > served.json || true
+          # The relation between the target and what is live is computed from git, not
+          # inferred from timestamps: local request order is not server observation
+          # order, and "which of these two commits is newer" is exactly the question
+          # ancestry answers and a clock does not.
+          SHA="$SHA" node -e '
+            const fs = require("fs");
+            const { execFileSync } = require("child_process");
+            const served = JSON.parse(fs.readFileSync("served.json", "utf8"));
+            const target = process.env.SHA;
+            if (served.state === "known" && typeof served.servedCommit === "string") {
+              const known = (sha) => {
+                try { execFileSync("git", ["cat-file", "-e", `${sha}^{commit}`]); return true; }
+                catch { return false; }
+              };
+              const isAncestor = (a, b) => {
+                try { execFileSync("git", ["merge-base", "--is-ancestor", a, b]); return true; }
+                catch { return false; }
+              };
+              if (served.servedCommit === target) served.relationToTarget = "identical";
+              else if (!known(served.servedCommit) || !known(target)) served.relationToTarget = "unknown";
+              else if (isAncestor(served.servedCommit, target)) served.relationToTarget = "descendant";
+              else if (isAncestor(target, served.servedCommit)) served.relationToTarget = "ancestor";
+              else served.relationToTarget = "divergent";
+              // Firebase Hosting release retention for this site has not been
+              // established by this repository and cannot be from source, so a
+              // rollback target is reported as unproven rather than assumed retained.
+              served.targetRetained = "unknown";
+            }
+            fs.writeFileSync("served.json", JSON.stringify(served, null, 2));
+            console.log("served state", served.state, served.servedCommit ?? "", served.relationToTarget ?? "");
+          '
+
+      - name: Decide
+        id: decide
+        run: |
+          set -euo pipefail
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          set +e
+          node release/cli.mjs decide \
+            --request request.json \
+            --certification certification.json \
+            --observation observation.json \
+            --served served.json \
+            --now "$now" > decision.json
+          status=$?
+          set -e
+          cat decision.json
+          decision="$(node -p "require('./decision.json').decision")"
+          allow="$(node -p "String(require('./decision.json').allow)")"
+          {
+            echo "decision=$decision"
+            echo "allow=$allow"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Publication decision: $decision"
+            echo
+            echo '```'
+            node -p 'require("./decision.json").reasons.map(r => `${r.code}  ${r.detail ?? ""}`).join("\n") || "no objections"'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # A refusal fails the run; a SKIP does not. A skip is a correct, uneventful
+          # outcome and must not be dressed up as either a success or a failure.
+          if [ "$decision" = "REFUSE" ]; then
+            echo "Publication refused. See the reasons above." >&2
+            exit "${status:-1}"
+          fi
+
+      - name: Retain the decision
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publish-decision-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            request.json
+            certification.json
+            observation.json
+            served.json
+            decision.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  publish:
+    needs: gate
+    if: needs.gate.outputs.allow == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      # The certified commit's hosting configuration ONLY. No application source, no
+      # package.json, no lockfile — nothing whose install or build could execute in
+      # the job that holds the publishing credential.
+      - name: Check out the certified hosting configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+          path: certified
+          sparse-checkout: |
+            firebase.json
+            .firebaserc
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Check out the trusted verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: trusted
+          sparse-checkout: release
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Download the candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.gate.outputs.artifact_name }}
+          path: candidate
+          run-id: ${{ needs.gate.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      # The gate verified a download of its own. This job verifies ITS OWN download,
+      # because what matters is the digest of the bytes this job is about to publish.
+      - name: Re-verify the candidate in the publishing job
+        run: |
+          set -euo pipefail
+          node trusted/release/cli.mjs observe --root candidate > observation.json
+          node -e '
+            const o = require("./observation.json");
+            const problems = [];
+            if (o.present !== true) problems.push("artifact absent");
+            if (o.manifestValid !== true) problems.push("manifest invalid");
+            if (o.provenanceValid !== true) problems.push("provenance invalid");
+            if (!o.expectedTreeDigest) problems.push("no expected digest");
+            if (o.observedTreeDigest !== o.expectedTreeDigest) problems.push("digest mismatch");
+            if ((o.unsafeEntries ?? []).length) problems.push("unsafe entries: " + o.unsafeEntries.join(", "));
+            if (problems.length) { console.error("refusing to publish:\n  - " + problems.join("\n  - ")); process.exit(1); }
+            console.log("verified " + o.observedTreeDigest + " (" + o.entryCount + " files)");
+          '
+          # firebase.json declares `"public": "./dist"` relative to itself, so the
+          # payload is placed beside the certified configuration and nowhere else.
+          mv candidate/dist certified/dist
+
+      - name: Publication enablement
+        id: enablement
+        env:
+          ENABLED: ${{ vars.FRONTEND_PUBLISH_ENABLED }}
+          DECISION: ${{ needs.gate.outputs.decision }}
+          SHA: ${{ needs.gate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          if [ "${ENABLED:-}" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Publication is enabled; proceeding to publish $SHA."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Would publish — publication is not enabled"
+              echo
+              echo "Decision: \`$DECISION\` for \`$SHA\`. Every gate passed and the candidate"
+              echo "was re-verified in this job, but \`FRONTEND_PUBLISH_ENABLED\` is not set, so"
+              echo "nothing was published. The existing \`deploy-prod.yml\` remains the live path."
+              echo
+              echo "Enabling this is the cutover, and it is its own reviewed change — see"
+              echo "\`release/README.md\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The publish tool is PINNED. Left at the action's default it resolves
+      # `firebase-tools@latest` at run time — an unpinned executable fetched from the
+      # network into the one job holding the service-account credential.
+      - name: Publish to Firebase Hosting
+        if: steps.enablement.outputs.enabled == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@7c850a480ce753f4f06f010801fc5a43787740bb # v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: dinify-dev
+          target: dinify-prod
+          channelId: live
+          entryPoint: certified
+          firebaseToolsVersion: '15.30.2'
+          disableComment: 'true'
+
+      # A publication is not finished because a runner step exited zero. The served
+      # identity is re-read from the public origin and must name the exact commit that
+      # was published; anything else fails the run.
+      - name: Assert the served identity from the public origin
+        if: steps.enablement.outputs.enabled == 'true'
+        env:
+          SHA: ${{ needs.gate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            node trusted/release/cli.mjs serve-state > served.json || true
+            state="$(node -p "require('./served.json').state")"
+            commit="$(node -p "require('./served.json').servedCommit || ''")"
+            if [ "$state" = "known" ] && [ "$commit" = "$SHA" ]; then
+              echo "served identity confirmed: $commit"
+              exit 0
+            fi
+            echo "attempt $attempt: state=$state commit=${commit:-none}" >&2
+            sleep $(( attempt * 5 ))
+          done
+          echo "the public origin does not serve the published release identity" >&2
+          exit 1

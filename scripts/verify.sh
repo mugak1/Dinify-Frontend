@@ -8,9 +8,11 @@
 #
 #   1. type-check              (tsc --noEmit)
 #   2. lint                    (ng lint)
-#   3. tenant-isolation gate   (focused tenant-boundary spec set, fail-fast)
-#   4. test                    (ng test, headless single run)
-#   5. build:prod              (ng build --configuration=production)
+#   3. release-contract gate   (release/ self-test + the refusal matrix)
+#   4. tenant-isolation gate   (focused tenant-boundary spec set, fail-fast)
+#   5. test                    (ng test, headless single run)
+#   6. build:prod              (ng build --configuration=production)
+#   7. build the shipping candidate (the configuration publish.yml may promote)
 #
 # This is a manual, post-change pre-PR gate — run it after making changes and
 # paste the output into the PR. It is intentionally NOT wired as a hook.
@@ -44,6 +46,10 @@ run_step() {
 
 run_step "type-check" npm run type-check
 run_step "lint"       npm run lint
+# The release certification contract (release/). Its own --self-test first, in the
+# house style of the gate below: a matcher that stopped matching must fail here
+# rather than pass everything. Pure Node, so it costs seconds and runs early.
+run_step "release-contract gate" npm run test:release
 # Fail-fast boundary gate, two things in order: the platform-role source gate
 # (FE-AUTH-00, scripts/check-platform-roles.mjs — its own --self-test first, so a
 # matcher that stopped matching fails here rather than passing everything), then
@@ -54,6 +60,9 @@ run_step "lint"       npm run lint
 run_step "tenant-isolation closure gate" npm run test:tenant-boundary
 run_step "test"       npm run test:ci
 run_step "build:prod" npm run build:prod
+# The configuration that actually ships, read from the committed policy so this
+# script and the workflows cannot disagree about which one that is.
+run_step "build:candidate" bash -c 'set -euo pipefail; npx ng build --configuration="$(node -p "require(\"./release/policy.json\").build.configuration")"'
 
 echo
 echo "=================================================================="

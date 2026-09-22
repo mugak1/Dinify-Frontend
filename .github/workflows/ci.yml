@@ -12,6 +12,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: State what this run validated
+        # WHAT A RUN TESTED IS PART OF ITS RESULT. On a pull request `actions/checkout`
+        # takes `refs/pull/N/merge` — a SYNTHETIC MERGE that GitHub computes and that
+        # exists under no branch. It is not the commit that will land on `main`, and a
+        # green run here is therefore NOT a certification of anything that ships.
+        # `certify.yml` is what certifies merged main. Stated rather than left to be
+        # inferred, because conflating the two is exactly how a commit reaches the
+        # live site having had nothing run against it.
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
+          MERGE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Validated: SYNTHETIC MERGE"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| pull-request head | \`$HEAD_SHA\` |"
+            echo "| base | \`$BASE_REF\` |"
+            echo "| merge ref tested | \`$MERGE_SHA\` |"
+            echo
+            echo "This is **not** a certification of a commit on \`main\`. The commit that"
+            echo "merges is certified by \`certify.yml\`, and only that certification can"
+            echo "authorize a publication."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
@@ -26,6 +54,15 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Release-contract gate
+        # The release certification contract (release/), run the same way the two
+        # gates beside it are: the CLI's own --self-test first — a matcher that
+        # silently stopped matching would otherwise pass everything — then the
+        # refusal matrix that drives release/lib/decide.mjs from fixtures. Pure
+        # Node, no browser, seconds rather than minutes, so it runs before the
+        # suites rather than after them.
+        run: npm run test:release
 
       - name: Tenant-isolation closure gate
         # Fail-fast boundary regression gate. Two things, in order:
@@ -45,3 +82,13 @@ jobs:
 
       - name: Build (production)
         run: npm run build:prod
+
+      - name: Build the shipping candidate
+        # The configuration that actually ships is built on the pull request too, so
+        # a candidate that would fail certification fails BEFORE the merge rather
+        # than after it. It is read from release/policy.json rather than typed here,
+        # so the gate and the policy cannot drift apart.
+        run: |
+          set -euo pipefail
+          configuration="$(node -p "require('./release/policy.json').build.configuration")"
+          npx ng build --configuration="$configuration"

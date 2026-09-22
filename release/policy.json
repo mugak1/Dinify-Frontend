@@ -1,0 +1,180 @@
+{
+  "_schema": "dinify.release.policy/1",
+  "_note": [
+    "The committed, machine-readable release policy for this application. Every field",
+    "here is READ BY release/lib/decide.mjs and therefore enforced; nothing in this",
+    "file is decoration. release/README.md explains the reasoning for a human reader",
+    "and is documentation, NOT the gate (D08-A2).",
+    "",
+    "Changing any value here is an ordinary reviewed pull request, and that is the",
+    "point: the compatible set below is a thing that exists in the repository rather",
+    "than a thing somebody remembers."
+  ],
+  "application": "dinify-frontend",
+  "repository": "mugak1/Dinify-Frontend",
+  "defaultBranch": "main",
+  "certification": {
+    "_note": [
+      "The certifying workflow is resolved by PATH, through the GitHub API, and only",
+      "then compared with what the triggering event claimed. `workflow_run.workflows`",
+      "can match a workflow's mutable DISPLAY NAME and nothing else, so the name in",
+      "publish.yml is a coarse pre-filter GitHub forces on us \u2014 never the proof.",
+      "",
+      "requiredChecks names the jobs inside that workflow whose success IS the",
+      "certification. A missing check is refused exactly as a failed one is."
+    ],
+    "workflowPath": ".github/workflows/certify.yml",
+    "event": "push",
+    "branch": "main",
+    "requiredChecks": [
+      "certify"
+    ]
+  },
+  "freshness": {
+    "_note": [
+      "A certification describes a moment. The evidence behind it \u2014 above all the",
+      "dependency audit (D13/B2) \u2014 does not stay true indefinitely, so a candidate",
+      "that has been sitting in an artifact for longer than this window must be",
+      "re-certified rather than promoted on an old statement.",
+      "",
+      "24 hours is the operational default adopted in the Stage B approval. It is",
+      "named here rather than hidden in a script so that changing it is a decision."
+    ],
+    "certificationWindowHours": 24
+  },
+  "build": {
+    "_note": [
+      "THE configuration that ships. CI and the certifying run build this and nothing",
+      "else, and the publisher refuses an artifact stamped with any other name.",
+      "",
+      "`uat` is the honest name for it: it carries the UAT-targeted API origin, which",
+      "is the destination this stack has today and which Stage B deliberately does NOT",
+      "change. It is not 'production' and this file does not call it that. The",
+      "environment it bakes sets Angular's `production` flag FALSE \u2014 recorded in every",
+      "manifest as environment.productionFlag so the diagnostic behaviour that follows",
+      "from it is a written-down fact rather than a discovery.",
+      "",
+      "expectedApiUrl and forbiddenOriginsInBundle are asserted against the BUILT",
+      "BYTES by `release/cli.mjs stamp`, not against the source. A file replacement",
+      "that silently failed would otherwise produce an artifact that passes every",
+      "check and points at the wrong API."
+    ],
+    "configuration": "uat",
+    "expectedApiUrl": "https://api-test.dinifyapp.com/uat",
+    "expectedProductionFlag": false,
+    "forbiddenOriginsInBundle": [
+      "https://api.dinifyapp.com"
+    ]
+  },
+  "hosting": {
+    "_note": [
+      "The destination, pinned. identityOrigin is the canonical Firebase site origin",
+      "for this target and is where the served-release identity is read back from.",
+      "",
+      "",
+      "publicDirectory is the directory `firebase.json` must declare as the",
+      "hosting block's `public`. It is the field that decides WHAT gets published,",
+      "and the publisher places the verified artifact at exactly that path beside",
+      "the certified configuration \u2014 so a certified commit that moved it would",
+      "deploy a different tree, successfully, and the post-publish identity read",
+      "would notice only afterwards.",
+      "This is NOT a claim that it is the only origin serving this content: which",
+      "custom domains are mapped to this site is an owner inventory item (Stage A",
+      "WP-21), and a printed diner QR URL is a long-lived artifact whose origin and",
+      "path continuity must be planned rather than assumed. Nothing here redirects,",
+      "reroutes or reprints anything."
+    ],
+    "project": "dinify-dev",
+    "site": "dinify-prod",
+    "target": "dinify-prod",
+    "publicDirectory": "./dist",
+    "channelId": "live",
+    "identityOrigin": "https://dinify-prod.web.app",
+    "identityPath": "/release.json",
+    "firebaseToolsVersion": "15.30.2"
+  },
+  "bootstrap": {
+    "_note": [
+      "No release has ever published an identity file, so the first publication has",
+      "nothing to order itself against. That is a real state exactly once, and it is",
+      "an EXPLICITLY AUTHORIZED bootstrap rather than a permanent hole: while this is",
+      "false the publisher refuses a candidate it cannot place in order.",
+      "",
+      "Flipping it to true is an owner decision recorded in a reviewed pull request,",
+      "and the same pull request should flip it back once an identity is being served."
+    ],
+    "authorized": false
+  },
+  "compatibleSet": {
+    "_note": [
+      "The approved combination. An unchanged component is PINNED, never 'latest' \u2014",
+      "that is what makes 'the compatible set' a thing rather than a recollection.",
+      "",
+      "The peers are recorded at the commits reviewed on 22 September 2026. Their",
+      "published capability levels and the D01 ceiling digest were read from that",
+      "backend commit's source; the digest is computed over the ceiling VALUES in a",
+      "canonical form Python and JavaScript produce byte for byte, so a ceiling",
+      "changed on one side and not the other cannot be released.",
+      "",
+      "THIS FILE PINS THE PEERS AND DESCRIBES THIS APPLICATION BY ITS REQUIREMENTS.",
+      "It deliberately does not pin the frontend's own commit: a repository file",
+      "cannot contain the SHA of the commit that introduces it."
+    ],
+    "id": "2026-09-22-pilot-1",
+    "frontendRequires": {
+      "buildConfiguration": "uat"
+    },
+    "peers": {
+      "backend": {
+        "repository": "mugak1/Dinify-Backend",
+        "commit": "77a01b09341f33ee675eae38e80b06c10e01d687",
+        "publishes": {
+          "checkout_protocol": 3,
+          "quote_protocol": 2,
+          "kitchen_protocol": 1,
+          "quote_policy_version": 1
+        },
+        "contracts": {
+          "d01CheckoutLimits": "sha256:1441d038214a7ff71b61f43f7c73516304545256d8e4a4822f71b424f6f18676"
+        }
+      },
+      "admin": {
+        "repository": "mugak1/Dinify-Admin",
+        "commit": "38df0373e235c3e2952ae1985333731327400b93",
+        "_note": "Pinned for the record. The Admin portal is a separate origin with its own publication path; nothing in this repository promotes it."
+      }
+    }
+  },
+  "rollback": {
+    "_note": [
+      "Firebase Hosting retains previous releases and can re-promote one, but WHAT IS",
+      "RETAINED for this site has not been established by this repository and cannot",
+      "be from source. Until it is, a rollback whose target cannot be shown to be",
+      "retained is refused rather than attempted \u2014 `targetRetained: unknown` is not",
+      "`true`. Establishing retention is an owner action (Stage A WP-21).",
+      "",
+      "The storage barrier below is separate and is NOT an owner decision: an older",
+      "bundle's reader discards a checkout record written by a newer one, dropping an",
+      "outstanding idempotency key and minting a fresh one, which is how one purchase",
+      "becomes two orders. It is enforced in decide.mjs and ships WITH the rollback",
+      "capability, never after it."
+    ],
+    "retentionEvidence": "unverified"
+  },
+  "publication": {
+    "_note": [
+      "PUBLICATION IS DISABLED UNTIL AN OWNER ENABLES IT. Milestone B1 delivers the",
+      "certification and publication BOUNDARY; it performs no production cutover, and",
+      "merging it changes nothing about what is deployed or by whom. The existing",
+      "deploy-prod.yml is untouched and remains the live path.",
+      "",
+      "The publisher evaluates every gate above and reports the decision it would act",
+      "on, then stops, because the repository variable named here is not set. Setting",
+      "it \u2014 and retiring deploy-prod.yml in the same change \u2014 is the cutover, and it",
+      "is its own small, reviewable pull request.",
+      "",
+      "This is an enablement, not a skipped check: nothing above it is bypassed."
+    ],
+    "enablementVariable": "FRONTEND_PUBLISH_ENABLED"
+  }
+}
