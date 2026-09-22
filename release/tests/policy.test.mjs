@@ -52,7 +52,8 @@ describe('peers — a pin that cannot be read is not a pin (R1)', () => {
   test('REGRESSION (R1.b): an approved admin commit that is not a SHA', () => {
     rejected((p) => { p.compatibleSet.peers.admin.approved[0].commit = 'not-a-sha'; }, 'policy.admin_commit_invalid');
   });
-  test('CONTRACT: an abbreviated SHA is not a pin', () => {
+  test('REGRESSION (R1.c): a backend commit that is a nonsense string, or an abbreviated SHA, is not a pin', () => {
+    rejected((p) => { p.compatibleSet.peers.backend.approved[0].commit = 'not-a-commit'; }, 'policy.backend_commit_invalid');
     rejected((p) => { p.compatibleSet.peers.backend.approved[0].commit = '9448f55'; }, 'policy.backend_commit_invalid');
   });
   test('CONTRACT: an uppercase SHA is not the form git prints and is refused', () => {

@@ -173,7 +173,7 @@ describe('every promoting path, through the decision (R2)', () => {
     return codes(decide(input));
   };
 
-  test('REGRESSION (R2.a): an automatic REVERT — a descendant commit — that drops a reader is refused', () => {
+  test('CONTRACT: an automatic REVERT — a descendant commit — that drops a reader is refused', () => {
     assert.ok(refusedFor((i) => withCandidateStorage(i, narrowed)).includes('storage.incompatible'));
   });
 

@@ -183,7 +183,7 @@ describe('publish.yml, statically, against release/policy.json', () => {
     }
   });
 
-  it('REGRESSION (R3.b–f): the candidate is downloaded BY ID from the certifying run, and a digest mismatch is an error', () => {
+  it('REGRESSION (R3.e): the candidate is downloaded BY ID from the certifying run, and a digest mismatch is an error', () => {
     const downloads = stepsOf(PUBLISH).filter(({ step }) => actionOf(step.uses) === 'actions/download-artifact');
     assert.deepEqual(downloads.map(({ job }) => job), ['gate', 'publish']);
     for (const { job, step } of downloads) {

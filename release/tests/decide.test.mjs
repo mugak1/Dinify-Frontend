@@ -358,7 +358,7 @@ describe('ordering and identity — the candidate, not the commit (R3)', () => {
     assert.equal(result.decision, 'SKIP_IDENTICAL');
   });
 
-  test('REGRESSION (R3.a): the same SHA with a DIFFERENT manifest is not "identical"', () => {
+  test('REGRESSION (R3.a/b): the same SHA with a DIFFERENT manifest is not "identical" — the relation is not decided on the SHA alone', () => {
     const result = broken((i) => {
       const other = manifestFor({ commit: TARGET_SHA, builtAt: '2026-09-22T11:00:00Z' });
       i.served = servedKnown({ manifest: other, relation: 'identical' });
@@ -452,20 +452,20 @@ describe('STORAGE — set containment, on every promoting path (R2)', () => {
     assertProceeds(broken((i) => { withCandidateStorage(i, upgraded); }));
   });
 
-  test('REGRESSION (R2.a): an AUTOMATIC DESCENDANT that drops a reader the served build needs is refused', () => {
+  test('REGRESSION (R2.b): an AUTOMATIC DESCENDANT that cannot read the served record version is refused', () => {
     // A revert on main is an ordinary automatic deploy of a descendant commit. It
     // passed unchecked, because the barrier existed only on the rollback path.
     assertRefused(broken((i) => { i.served = servedKnown({ commit: OLDER_SHA, relation: 'descendant', storage: upgraded }); }), 'storage.incompatible');
   });
 
-  test('REGRESSION (R2.b): a MANUAL deploy that drops a reader is refused', () => {
+  test('REGRESSION (R2.b): a MANUAL deploy that cannot read the served record version is refused', () => {
     assertRefused(broken((i) => {
       i.request.trigger = 'manual';
       i.served = servedKnown({ commit: OLDER_SHA, relation: 'descendant', storage: upgraded });
     }), 'storage.incompatible');
   });
 
-  test('CONTRACT: a rollback to a build that cannot read what is served is refused', () => {
+  test('CONTROL (R2.c): the one case the old barrier refused — a rollback to an older record version — is still refused', () => {
     assertRefused(broken((i) => {
       i.request = { mode: 'rollback', trigger: 'manual', target: TARGET_SHA };
       i.served = servedKnown({ commit: OLDER_SHA, relation: 'ancestor', storage: upgraded });
@@ -480,7 +480,7 @@ describe('STORAGE — set containment, on every promoting path (R2)', () => {
     }));
   });
 
-  test('CONTRACT: a changed SEMANTICS at the same version is refused', () => {
+  test('REGRESSION (R2.a): a descendant that cannot read the served SEMANTICS is refused, at the same version', () => {
     const newSemantics = storageProjection({ writes: pair(2, 2), reads: [pair(1), pair(2), pair(2, 2)] });
     assertRefused(broken((i) => { i.served = servedKnown({ commit: OLDER_SHA, relation: 'descendant', storage: newSemantics }); }), 'storage.incompatible');
   });

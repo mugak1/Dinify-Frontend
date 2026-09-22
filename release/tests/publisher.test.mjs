@@ -70,7 +70,7 @@ const preflight = (record, mutate, { now = '2026-09-22T12:05:00Z', policy = POLI
 };
 
 describe('the admitted record', () => {
-  test('CONTRACT: a PROCEED is admitted and binds every identity the publisher checks', () => {
+  test('REGRESSION (R3.c): a PROCEED is admitted and binds every identity the publisher checks — not a SHA and a name', () => {
     const record = recordFor();
     assert.equal(record.schema, RECORD_SCHEMA);
     assert.equal(record.admitted, true);
@@ -215,7 +215,7 @@ describe('outcomes — what happened, stated as what it is', () => {
     assert.deepEqual(classifyVerification(record, { identity, files: allFiles }), { servesCandidate: true, filesMatch: true, verified: true });
   });
 
-  test('REGRESSION (R3.k): the right SHA with a different manifest is NOT this candidate', () => {
+  test('REGRESSION (R3.f/k): the right SHA with a different manifest is NOT this candidate — success is not the served commit', () => {
     const r = classifyVerification(record, { identity: { ...identity, manifestDigest: `sha256:${'e'.repeat(64)}` }, files: allFiles });
     assert.equal(r.servesCandidate, false);
     assert.equal(r.verified, false);

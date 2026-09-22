@@ -380,7 +380,10 @@ R3.j  .firebaserc never read
 R3.k  origin serving the SHA from another run's build           -> reported as success
 ```
 
-Each is now refused or pinned by a test carrying its label.
+Each is now refused or pinned by at least one test whose title carries its label.
+R2.c is carried by a **CONTROL**, not a REGRESSION: it was the one case the old barrier
+already refused, and it must stay refused now that the same rule covers every other
+promoting path.
 
 ## What is deliberately left for later
 
