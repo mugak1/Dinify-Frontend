@@ -187,7 +187,12 @@ describe('the publisher\'s critical section — the gate and the publisher agree
 
 describe('outcomes — what happened, stated as what it is', () => {
   const record = recordFor();
-  const identity = { state: 'known', commit: record.target.commit, manifestDigest: record.artifact.manifestDigest };
+  // What verify-served observes about the identity: the manifest it names AND the cache
+  // header it was served with, which is the first thing the NEXT decision reads.
+  const identity = {
+    state: 'known', commit: record.target.commit, manifestDigest: record.artifact.manifestDigest,
+    cacheControl: 'no-store', cacheControlNoStore: true,
+  };
   const allFiles = { checked: record.artifact.entryCount, mismatched: [], unreachable: [] };
 
   test('CONTRACT: the closed set, and which of it turns a run red', () => {
@@ -211,8 +216,19 @@ describe('outcomes — what happened, stated as what it is', () => {
   ];
   for (const [name, input, outcome] of cases) test(`CONTRACT: ${name} → ${outcome}`, () => assert.equal(summarizeOutcome(input), outcome));
 
-  test('CONTROL: the admitted identity and every certified file → verified', () => {
-    assert.deepEqual(classifyVerification(record, { identity, files: allFiles }), { servesCandidate: true, filesMatch: true, verified: true });
+  test('CONTROL: the admitted identity, served no-store, and every certified file → verified', () => {
+    assert.deepEqual(classifyVerification(record, { identity, files: allFiles }), { servesCandidate: true, identityNoStore: true, filesMatch: true, verified: true });
+  });
+
+  test('REGRESSION (Codex P2 on #687): the admitted identity served CACHEABLE is not verified — the next gate could not read it', () => {
+    const r = classifyVerification(record, { identity: { ...identity, cacheControl: 'public, max-age=300', cacheControlNoStore: false }, files: allFiles });
+    assert.deepEqual(r, { servesCandidate: true, identityNoStore: false, filesMatch: true, verified: false });
+    assert.equal(summarizeOutcome({ decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'success', verification: r }), 'PUBLISHED_DEGRADED');
+  });
+
+  test('CONTRACT: a cache header that was never observed is not no-store — absence verifies nothing', () => {
+    const { cacheControl, cacheControlNoStore, ...unobserved } = identity;
+    assert.equal(classifyVerification(record, { identity: unobserved, files: allFiles }).verified, false);
   });
 
   test('REGRESSION (R3.f/k): the right SHA with a different manifest is NOT this candidate — success is not the served commit', () => {
@@ -265,7 +281,26 @@ describe('verify-served — the identity AND every certified file, fetched back 
     const r = await verify(published(world.candidate));
     assert.equal(r.verified, true, JSON.stringify(r));
     assert.equal(r.files.checked, world.record.artifact.entryCount);
+    assert.equal(r.identity.cacheControlNoStore, true);
+    assert.equal(r.identity.cacheControl, 'no-store');
     assert.match(r.note, /one vantage point/);
+  });
+
+  test('REGRESSION (Codex P2 on #687): the right candidate served with a CACHEABLE identity → not verified, and the header is recorded', async () => {
+    const config = world.config;
+    world.config = clone(config);
+    world.config.hosting[0].headers = world.config.hosting[0].headers.map((rule) => (rule.source === '/release.json'
+      ? { ...rule, headers: [{ key: 'Cache-Control', value: 'public, max-age=300' }] } : rule));
+    try {
+      const r = await verify(published(world.candidate));
+      assert.equal(r.servesCandidate, true, 'the bytes and the identity are right');
+      assert.equal(r.identity.cacheControl, 'public, max-age=300');
+      assert.equal(r.identity.cacheControlNoStore, false);
+      assert.equal(r.verified, false);
+      assert.equal(summarizeOutcome({ decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'success', verification: r }), 'PUBLISHED_DEGRADED');
+    } finally {
+      world.config = config;
+    }
   });
 
   test('REGRESSION (R3.k): a different build of the SAME SHA served → not verified, whatever the commit says', async () => {

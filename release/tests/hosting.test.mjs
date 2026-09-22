@@ -18,7 +18,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
-import { effectiveHosting, TOOL_BUILTIN_IGNORES } from '../lib/hosting.mjs';
+import {
+  cacheControlIsNoStore, effectiveHosting, headerSourceMatches, identityCacheControl, TOOL_BUILTIN_IGNORES,
+} from '../lib/hosting.mjs';
 import { ROOT } from './harness.mjs';
 import { POLICY, clone } from './fixtures.mjs';
 
@@ -79,8 +81,12 @@ describe('controls', () => {
   });
 
   test('CONTRACT: a different header rule is a different configuration digest', () => {
+    // The rule changed is index.html's, not the identity's: a change to the identity's
+    // Cache-Control is refused outright (see "the served identity" below), so it cannot
+    // be the example of an ACCEPTED configuration with a different digest.
     const a = evaluate();
-    const b = evaluate({ config: entry((e) => { e.headers[0].headers[0].value = 'no-cache'; }) });
+    const b = evaluate({ config: entry((e) => { e.headers[1].headers[0].value = 'no-store'; }) });
+    assert.equal(FIREBASE_JSON.hosting[0].headers[1].source, '/index.html');
     assert.deepEqual(b.problems, []);
     assert.notEqual(a.digest, b.digest);
   });
@@ -191,5 +197,96 @@ describe('the file set — every certified file must survive the effective ignor
     const policy = clone(POLICY);
     policy.hosting.ignore = ['**/*.{js,css}'];
     refused({ config: entry((e) => { e.ignore = ['**/*.{js,css}']; }), policy }, 'hosting.ignore_unsupported');
+  });
+});
+
+describe('the served identity must be no-store — decided BEFORE publication (Codex P2 on #687)', () => {
+  // Every later decision reads the served identity and refuses a cacheable one in EVERY
+  // mode (decide.mjs, served.identity_cacheable) — rollback included. Reproduced on
+  // ce6b892 through the executed workflow: a certified firebase.json serving
+  // /release.json as `public, max-age=300` was admitted, published and reported
+  // PUBLISHED_VERIFIED, and then a redeploy AND a rollback were both refused. The gate
+  // must never admit a configuration it would itself refuse to read back.
+  const IDENTITY = POLICY.hosting.identityPath;
+  const withIdentityValue = (value) => entry((e) => { e.headers[0].headers[0].value = value; });
+
+  test('CONTROL: the committed configuration serves the identity no-store', () => {
+    assert.equal(FIREBASE_JSON.hosting[0].headers[0].source, IDENTITY);
+    assert.deepEqual(identityCacheControl(FIREBASE_JSON.hosting[0].headers, IDENTITY), { state: 'no-store', values: ['no-store'] });
+    assert.deepEqual(evaluate().problems, []);
+  });
+
+  test('REGRESSION (Codex P2 on #687): a certified change making the identity cacheable is refused at the gate', () => {
+    const r = refused({ config: withIdentityValue('public, max-age=300') }, 'hosting.identity_cacheable');
+    assert.match(r.problems.find((p) => p.code === 'hosting.identity_cacheable').detail, /public, max-age=300/);
+  });
+
+  test('CONTRACT: no-cache is not no-store — it still permits storing, and the next gate refuses it', () => {
+    refused({ config: withIdentityValue('no-cache') }, 'hosting.identity_cacheable');
+  });
+
+  test('CONTRACT: no rule setting Cache-Control on the identity leaves the host default, which is cacheable', () => {
+    const r = refused({ config: entry((e) => { e.headers = e.headers.slice(1); }) }, 'hosting.identity_cacheable');
+    assert.match(r.problems.find((p) => p.code === 'hosting.identity_cacheable').detail, /host default/);
+  });
+
+  test('CONTRACT: a broader matching rule with a cacheable value is refused in EITHER order — rule order never decides it', () => {
+    const broad = { source: '/**', headers: [{ key: 'Cache-Control', value: 'public, max-age=60' }] };
+    refused({ config: entry((e) => { e.headers = [broad, ...e.headers]; }) }, 'hosting.identity_cacheable');
+    refused({ config: entry((e) => { e.headers = [...e.headers, broad]; }) }, 'hosting.identity_cacheable');
+  });
+
+  test('CONTRACT: the header name is case-insensitive, as HTTP says', () => {
+    refused({ config: entry((e) => { e.headers[0].headers[0] = { key: 'cache-control', value: 'max-age=60' }; }) }, 'hosting.identity_cacheable');
+    assert.deepEqual(evaluate({ config: entry((e) => { e.headers[0].headers[0].key = 'cache-control'; }) }).problems, []);
+  });
+
+  test('CONTROL: no-store beside other directives is no-store — the same predicate the served check applies', () => {
+    assert.deepEqual(evaluate({ config: withIdentityValue('no-store, max-age=0') }).problems, []);
+    for (const v of ['no-store', 'NO-STORE', 'private, no-store', 'no-store,max-age=0']) assert.equal(cacheControlIsNoStore(v), true, v);
+    for (const v of ['no-cache', 'public, max-age=300', 'x-no-store', 'no-storex', '', null]) assert.equal(cacheControlIsNoStore(v), false, String(v));
+  });
+
+  test('CONTRACT: a rule that sets Cache-Control with a pattern the model cannot decide is refused, never assumed not to apply', () => {
+    for (const source of ['/{release,index}.json', '/[r]elease.json', '/!(index).json', '!/index.html', '/+(release).json', '/*(r)elease.json', '/rel\\ease.json']) {
+      const r = refused({ config: entry((e) => { e.headers = [...e.headers, { source, headers: [{ key: 'Cache-Control', value: 'max-age=60' }] }]; }) }, 'hosting.identity_cache_unproven');
+      assert.match(r.problems.find((p) => p.code === 'hosting.identity_cache_unproven').detail, /cannot decide/, source);
+    }
+  });
+
+  test('CONTROL: an undecidable pattern that sets no Cache-Control cannot affect the identity\'s caching', () => {
+    const config = entry((e) => { e.headers = [...e.headers, { source: '/{a,b}.html', headers: [{ key: 'X-Frame-Options', value: 'DENY' }] }]; });
+    assert.deepEqual(evaluate({ config }).problems, []);
+  });
+
+  test('CONTRACT: an identity path the model cannot match is unproven rather than assumed safe', () => {
+    const policy = clone(POLICY);
+    policy.hosting.identityPath = '/.well-known/release.json';
+    refused({ policy }, 'hosting.identity_cache_unproven');
+  });
+
+  test('CONTRACT: the matcher — decided cases, and undecidable ones answered null', () => {
+    const cases = [
+      ['/release.json', '/release.json', true],
+      ['release.json', '/release.json', true],
+      ['/index.html', '/release.json', false],
+      ['/**/*.@(js|css)', '/release.json', false],
+      ['/**/*.@(js|css)', '/main-abc.js', true],
+      ['/**/*.@(js|css)', '/assets/deep/styles.css', true],
+      ['/**', '/release.json', true],
+      ['**', '/release.json', true],
+      ['/*.json', '/release.json', true],
+      ['/*.json', '/a/release.json', false],
+      ['/**/*.json', '/a/b/release.json', true],
+      ['/releas?.json', '/release.json', true],
+      ['/release.json/', '/release.json', false],
+      ['/a/../release.json', '/release.json', true],
+      ['/RELEASE.json', '/release.json', false],
+      ['/{release,x}.json', '/release.json', null],
+      ['/[r]elease.json', '/release.json', null],
+      ['!/release.json', '/release.json', null],
+      ['/rel**ease.json', '/release.json', null],
+    ];
+    for (const [source, path, expected] of cases) assert.equal(headerSourceMatches(source, path), expected, `${source} vs ${path}`);
   });
 });

@@ -28,11 +28,141 @@
  * REFUSE, NEVER OVERRIDE. If the certified configuration disagrees with the policy,
  * that is refused rather than silently replaced by the generated one: a reviewed
  * change to hosting that the policy does not know about is a question for a person.
+ *
+ * THE IDENTITY MUST BE SERVED `no-store`, AND THE GATE CHECKS THAT BEFORE IT ADMITS A
+ * CONFIGURATION (Codex P2 on #687, reproduced). Every later decision reads the served
+ * identity and refuses one that is cacheable (`served.identity_cacheable`, in every
+ * mode, rollback included). Header rules used to be checked for SHAPE only, so a
+ * certified commit could make `/release.json` cacheable: the gate admitted it, the
+ * publisher verified it, and every decision after it — the rollback that would undo it
+ * included — was refused. The gate must never admit a configuration it would itself
+ * refuse to read back. `identityCacheControl` resolves which header rules apply to the
+ * identity path the way Firebase's open-source hosting server does, and fails closed on
+ * a pattern it cannot decide.
  */
+
+import { posix } from 'node:path';
 
 import { digestOfValue } from './canonical.mjs';
 import { partitionByIgnore, supportedIgnorePattern } from './glob.mjs';
 import { hostingHooks } from './source.mjs';
+
+/**
+ * THE one reading of "is this response `no-store`". Shared by the served-identity read
+ * (io.mjs) and the configuration check below, so the rule the gate applies before a
+ * publication is the rule the next gate applies after it.
+ */
+const NO_STORE = /(^|[\s,])no-store([\s,]|$)/i;
+export function cacheControlIsNoStore(value) {
+  return typeof value === 'string' && NO_STORE.test(value);
+}
+
+// ── Which header rules apply to a path ──────────────────────────────────────────
+//
+// Firebase's open-source hosting server (superstatic, lib/middleware/headers.js — what
+// the firebase-tools emulator serves with) normalises each rule's `source` with
+// glob-slasher (`path.normalize(path.join('/', source))`, a leading `!` kept as
+// negation), tests the request path with `minimatch(path, source)` under DEFAULT
+// options, and applies the headers of EVERY matching rule in order. This models the
+// part of minimatch a header source here actually uses — literal text, `*`, `?`, a
+// whole-segment `**`, and `@(a|b)` over literal alternatives — and answers `null` for
+// anything else (braces, classes, other extglobs, negation, escapes), which the caller
+// treats as "cannot decide", never as "does not match". The model is pinned against
+// superstatic's own matcher and header middleware by hosting-oracle.test.mjs. The
+// production CDN cannot be executed from here; what it actually serves is observed
+// after publication, by verify-served, and a cacheable identity is never "verified".
+
+const SEGMENT_SAFE = /^[A-Za-z0-9._~-]$/;
+const SIMPLE_PATH_RE = /^(\/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)+$/;
+
+function segmentRegExp(segment) {
+  let source = '';
+  let i = 0;
+  while (i < segment.length) {
+    const c = segment[i];
+    if (c === '*') {
+      if (segment[i + 1] === '*' || segment[i + 1] === '(') return null; // `**` inside a segment; `*(…)` extglob
+      source += '[^/]*';
+      i += 1;
+    } else if (c === '?') {
+      if (segment[i + 1] === '(') return null; // `?(…)` extglob
+      source += '[^/]';
+      i += 1;
+    } else if (c === '@' && segment[i + 1] === '(') {
+      const close = segment.indexOf(')', i + 2);
+      if (close === -1) return null;
+      const alternatives = segment.slice(i + 2, close).split('|');
+      if (alternatives.some((a) => a.length === 0 || ![...a].every((ch) => SEGMENT_SAFE.test(ch)))) return null;
+      source += `(?:${alternatives.map((a) => a.replace(/\./g, '\\.')).join('|')})`;
+      i = close + 1;
+    } else if (SEGMENT_SAFE.test(c)) {
+      source += c === '.' ? '\\.' : c;
+      i += 1;
+    } else {
+      return null; // [ ] { } ( ) | ! + \ and anything else: not modelled
+    }
+  }
+  return new RegExp(`^${source}$`);
+}
+
+/**
+ * Does a Firebase header rule `source` apply to `path`? `true`, `false`, or `null` when
+ * the pattern is outside the modelled subset. `path` must be a simple absolute path
+ * with no dot-leading segment (so minimatch's dot rules cannot come into play).
+ */
+export function headerSourceMatches(source, path) {
+  if (typeof source !== 'string' || source.length === 0 || !SIMPLE_PATH_RE.test(String(path))) return null;
+  if (source.startsWith('!')) return null;
+  const normalized = posix.normalize(posix.join('/', source));
+  const pattern = normalized.split('/');
+  const target = String(path).split('/');
+  const compiled = [];
+  for (const segment of pattern) {
+    if (segment === '**') {
+      compiled.push('**');
+    } else {
+      const re = segmentRegExp(segment);
+      if (re === null) return null;
+      compiled.push(re);
+    }
+  }
+  const match = (pi, ti) => {
+    if (pi === compiled.length) return ti === target.length;
+    const p = compiled[pi];
+    if (p === '**') {
+      for (let k = ti; k <= target.length; k += 1) if (match(pi + 1, k)) return true;
+      return false;
+    }
+    return ti < target.length && p.test(target[ti]) && match(pi + 1, ti + 1);
+  };
+  return match(0, 0);
+}
+
+/**
+ * The `Cache-Control` the identity path would be served with, resolved conservatively:
+ *   no-store   at least one matching rule sets it, and EVERY value any matching rule
+ *              sets is no-store — so rule order cannot matter
+ *   cacheable  a matching rule sets a value that is not no-store
+ *   absent     no rule sets it, so the host's default (cacheable) applies
+ *   unproven   a rule that sets it has a pattern this model cannot decide
+ */
+export function identityCacheControl(headers, identityPath) {
+  if (!SIMPLE_PATH_RE.test(String(identityPath))) {
+    return { state: 'unproven', values: [], detail: `the identity path ${JSON.stringify(identityPath)} is outside what the header model can match` };
+  }
+  const values = [];
+  for (const rule of headers) {
+    const sets = rule.headers.filter((kv) => kv.key.toLowerCase() === 'cache-control').map((kv) => kv.value);
+    if (sets.length === 0) continue;
+    const applies = headerSourceMatches(rule.source, identityPath);
+    if (applies === null) {
+      return { state: 'unproven', values, detail: `cannot decide whether ${JSON.stringify(rule.source)} applies to ${identityPath}` };
+    }
+    if (applies) values.push(...sets);
+  }
+  if (values.length === 0) return { state: 'absent', values };
+  return { state: values.every(cacheControlIsNoStore) ? 'no-store' : 'cacheable', values };
+}
 
 /** Keys a hosting entry may carry. Anything else — `source` (web frameworks, which
  *  run a build), `redirects`, `i18n`, `appAssociation`, a functions/run rewrite —
@@ -165,6 +295,18 @@ export function effectiveHosting({ firebaseJson, firebaserc, policy, files = [] 
   const headers = entry.headers ?? [];
   if (!Array.isArray(headers) || !headers.every(validHeaderRule)) {
     problem(problems, 'hosting.header_unsupported', 'only {source, headers:[{key, value}]} rules are allowed');
+  } else {
+    // The identity is what every LATER decision reads, and it refuses a cacheable one
+    // in every mode. So a configuration that would serve it cacheable is refused HERE,
+    // before it can be published and lock the path out — rollback included.
+    const cache = identityCacheControl(headers, h.identityPath);
+    if (cache.state === 'unproven') {
+      problem(problems, 'hosting.identity_cache_unproven', cache.detail);
+    } else if (cache.state === 'absent') {
+      problem(problems, 'hosting.identity_cacheable', `no header rule sets Cache-Control on ${h.identityPath}, so the host default (cacheable) would apply`);
+    } else if (cache.state === 'cacheable') {
+      problem(problems, 'hosting.identity_cacheable', `${h.identityPath} would be served with Cache-Control ${cache.values.map((v) => JSON.stringify(v)).join(', ')}; it must be no-store`);
+    }
   }
 
   // ── The file set: every certified file must survive the effective ignores ────

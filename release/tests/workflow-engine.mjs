@@ -688,7 +688,9 @@ async function uploadStandIn({ inputs, workspace, world }) {
 /**
  * THE OBSERVABLE PUBLISHER. Resolves the destination and the upload list with
  * firebase-tools' own functions, then serves exactly those files from the site's
- * local origin. `world.publisher.mode` makes it misbehave on purpose.
+ * local origin. `world.publisher.mode` makes it misbehave on purpose: `fail-before`,
+ * `fail-after`, `partial`, `wrong-candidate`, and `identity-cacheable` (the origin
+ * serves /release.json cacheable whatever configuration it was given).
  */
 async function hostingDeployStandIn({ inputs, workspace, world }) {
   const received = inputs.firebaseServiceAccount ?? '';
@@ -740,9 +742,20 @@ async function hostingDeployStandIn({ inputs, workspace, world }) {
     cpSync(join(sourceDir, rel), join(docroot, rel));
   }
   world.publisher.published.push({ ...destination, files, docroot });
-  if (site) site.serveSite(docroot, config);
+  // FAULT INJECTION, labelled: an origin that does not apply the configuration it was
+  // handed to the identity file. The gate cannot prevent that — only observe it.
+  const served = mode === 'identity-cacheable' ? identityServedCacheable(config) : config;
+  if (site) site.serveSite(docroot, served);
   if (mode === 'fail-after') return { ok: false, detail: 'simulated tool failure AFTER the release went live', observed: destination };
   return { ok: true, observed: { ...destination, files: files.length } };
+}
+
+function identityServedCacheable(config) {
+  const copy = JSON.parse(JSON.stringify(config));
+  const entry = Array.isArray(copy.hosting) ? copy.hosting[0] : copy.hosting;
+  entry.headers = (entry.headers ?? []).map((rule) => (rule.source === '/release.json'
+    ? { ...rule, headers: [{ key: 'Cache-Control', value: 'public, max-age=300' }] } : rule));
+  return copy;
 }
 
 const STAND_INS = {

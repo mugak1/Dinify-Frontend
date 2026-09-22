@@ -689,7 +689,14 @@ async function cmdVerifyServed(args) {
   const entries = walkTree(payload).entries;
   const files = await fetchBackFiles(origin, entries);
   const observed = {
-    identity: { state: identity.state, commit: identity.servedCommit ?? null, manifestDigest: identity.manifestDigest ?? null },
+    identity: {
+      state: identity.state,
+      commit: identity.servedCommit ?? null,
+      manifestDigest: identity.manifestDigest ?? null,
+      // What the NEXT decision reads before anything else (served.identity_cacheable).
+      cacheControl: identity.cacheControl ?? null,
+      cacheControlNoStore: identity.cacheControlNoStore === true,
+    },
     files,
     note: 'one fetch of each file, from one vantage point, at one moment — not a guarantee about any other edge or any later request',
   };
@@ -723,7 +730,7 @@ function cmdOutcome(args) {
     `| preflight | ${preflight ? (preflight.ok ? 'passed' : preflight.reasons.map((r) => r.code).join(', ')) : 'not run'} |`,
     `| enabled | ${String(f.enabled) === 'true' ? 'yes' : `no — ${policy?.publication?.enablementVariable ?? 'the enablement variable'} is not set`} |`,
     `| publication step | ${String(f['publish-step'] ?? 'skipped')} |`,
-    `| served identity | ${verification ? `${verification.identity.state} ${verification.identity.manifestDigest ?? ''}` : 'not observed'} |`,
+    `| served identity | ${verification ? `${verification.identity.state} ${verification.identity.manifestDigest ?? ''}, Cache-Control ${verification.identity.cacheControlNoStore === true ? 'no-store' : `${JSON.stringify(verification.identity.cacheControl ?? null).replace(/\|/g, '\\|')} — NOT no-store`}` : 'not observed'} |`,
     `| certified files fetched back | ${verification ? `${verification.files.checked} checked, ${verification.files.mismatched.length} mismatched, ${verification.files.unreachable.length} unreachable` : 'not observed'} |`,
     '',
   ];

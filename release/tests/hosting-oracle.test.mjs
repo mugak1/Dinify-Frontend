@@ -24,7 +24,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
-import { effectiveHosting, TOOL_BUILTIN_IGNORES } from '../lib/hosting.mjs';
+import { cacheControlIsNoStore, effectiveHosting, headerSourceMatches, identityCacheControl, TOOL_BUILTIN_IGNORES } from '../lib/hosting.mjs';
 import { partitionByIgnore } from '../lib/glob.mjs';
 import { ROOT, tempDir, writeText } from './harness.mjs';
 import { POLICY, clone } from './fixtures.mjs';
@@ -36,6 +36,12 @@ const { Command } = require(join(FT, 'command.js'));
 const { hostingConfig } = require(join(FT, 'hosting/config.js'));
 const { listFiles } = require(join(FT, 'listFiles.js'));
 const INSTALLED = JSON.parse(readFileSync(join(ROOT, 'node_modules/firebase-tools/package.json'), 'utf8')).version;
+// Firebase's hosting library: the header middleware and the pattern matcher it calls.
+const SS = join(ROOT, 'node_modules/superstatic/lib');
+const { configMatcher } = require(join(SS, 'utils/patterns.js'));
+const headersMiddleware = require(join(SS, 'middleware/headers.js'));
+const slasher = require(join(ROOT, 'node_modules/glob-slasher'));
+const SUPERSTATIC = JSON.parse(readFileSync(join(ROOT, 'node_modules/superstatic/package.json'), 'utf8')).version;
 
 const FIREBASE_JSON = JSON.parse(readFileSync(join(ROOT, 'firebase.json'), 'utf8'));
 const FIREBASERC = JSON.parse(readFileSync(join(ROOT, '.firebaserc'), 'utf8'));
@@ -126,4 +132,87 @@ describe('the upload list — the tool\'s own listFiles against the model\'s glo
       assert.deepEqual(modelKept, toolKept);
     });
   }
+});
+
+describe('which header rules apply to a path — Firebase\'s own hosting library against the model (Codex P2 on #687)', () => {
+  // superstatic is Firebase's open-source hosting server, the one the firebase-tools
+  // emulator serves with — the only executable statement of these matching rules
+  // available here; the production CDN is observed after publication instead. Its
+  // header middleware slashes each rule's source, matches with minimatch, and sets the
+  // headers of every matching rule in order. The model re-implements a SUBSET of that
+  // and must never disagree where it answers — and must answer null rather than guess
+  // outside it.
+  const SOURCES = [
+    '/release.json', 'release.json', '/index.html', '/**/*.@(js|css)', '/**', '**', '/*.json', '/**/*.json',
+    '/releas?.json', '/release.json/', '/a/../release.json', '/RELEASE.json', '/*', '/*/release.json',
+    '/**/release.json', '/@(release|index).json', '/*.@(json|txt)', '/release.@(js|css)',
+    '/{release,x}.json', '/[r]elease.json', '!/release.json', '/rel**ease.json', '/+(release).json',
+    '/*(r)elease.json', '/?(r)elease.json', '/!(index).json',
+  ];
+  const PATHS = ['/release.json', '/index.html', '/main-abc.js', '/assets/deep/styles.css', '/a/release.json', '/release'];
+
+  test(`RECORD: superstatic ${SUPERSTATIC}, the hosting server of the installed firebase-tools ${INSTALLED} emulator`, (t) => {
+    assert.match(SUPERSTATIC, /^\d+\.\d+\.\d+$/);
+    t.diagnostic(`superstatic ${SUPERSTATIC}`);
+  });
+
+  test('CONTRACT: wherever the model decides, it agrees with the tool; where it cannot, it says so', () => {
+    let decided = 0;
+    const undecided = new Set();
+    for (const source of SOURCES) {
+      for (const path of PATHS) {
+        const model = headerSourceMatches(source, path);
+        if (model === null) { undecided.add(source); continue; }
+        decided += 1;
+        assert.equal(model, configMatcher(slasher(path), { source: slasher(source) }), `${source} vs ${path}`);
+      }
+    }
+    assert.ok(decided >= 100, `only ${decided} decided pairs — the corpus stopped exercising the model`);
+    assert.deepEqual([...undecided].sort(), [
+      '!/release.json', '/*(r)elease.json', '/+(release).json', '/?(r)elease.json', '/[r]elease.json',
+      '/rel**ease.json', '/{release,x}.json', '/!(index).json',
+    ].sort());
+  });
+
+  /** The Cache-Control the TOOL would serve on `path` under `headers`. */
+  function toolCacheControl(headers, path) {
+    const set = {};
+    const res = { setHeader: (k, v) => { set[k.toLowerCase()] = v; }, writeHead: () => {} };
+    headersMiddleware({})({ url: path, superstatic: { headers: clone(headers) } }, res, () => {});
+    res.writeHead(200);
+    return set['cache-control'];
+  }
+
+  const HEADERS = FIREBASE_JSON.hosting[0].headers;
+  const broad = { source: '/**', headers: [{ key: 'Cache-Control', value: 'public, max-age=60' }] };
+  const configs = [
+    ['the committed rules', HEADERS],
+    ['the identity made cacheable', HEADERS.map((r, i) => (i === 0 ? { ...r, headers: [{ key: 'Cache-Control', value: 'public, max-age=300' }] } : r))],
+    ['no rule for the identity', HEADERS.slice(1)],
+    ['a broad cacheable rule AFTER the identity rule', [...HEADERS, broad]],
+    ['a broad cacheable rule BEFORE the identity rule', [broad, ...HEADERS]],
+    ['a lower-case header name', HEADERS.map((r, i) => (i === 0 ? { ...r, headers: [{ key: 'cache-control', value: 'max-age=60' }] } : r))],
+  ];
+  for (const [label, headers] of configs) {
+    test(`CONTRACT: ${label} — the model says no-store only when the tool really serves no-store`, () => {
+      const model = identityCacheControl(headers, POLICY.hosting.identityPath);
+      const tool = toolCacheControl(headers, POLICY.hosting.identityPath);
+      if (model.state === 'no-store') assert.equal(cacheControlIsNoStore(tool), true, `the tool serves ${String(tool)}`);
+      else assert.notEqual(model.state, 'unproven', 'every rule here is inside the modelled subset');
+    });
+  }
+
+  test('CONTROL: the committed rules really are served no-store by the tool, and the model agrees', () => {
+    assert.equal(toolCacheControl(HEADERS, POLICY.hosting.identityPath), 'no-store');
+    assert.equal(identityCacheControl(HEADERS, POLICY.hosting.identityPath).state, 'no-store');
+  });
+
+  test('RECORD: the model is deliberately STRICTER than the tool when rule order would rescue a cacheable rule', () => {
+    // The tool applies rules in order and the last Cache-Control wins, so a broad
+    // cacheable rule BEFORE the identity rule is served no-store. The model refuses it
+    // anyway: whether a publication stays readable must not depend on rule order.
+    const headers = [broad, ...HEADERS];
+    assert.equal(toolCacheControl(headers, POLICY.hosting.identityPath), 'no-store');
+    assert.equal(identityCacheControl(headers, POLICY.hosting.identityPath).state, 'cacheable');
+  });
 });

@@ -271,6 +271,27 @@ content (an owner inventory item), and it cannot see bytes served differently to
 clients. A tool that fails after going live is reported `PUBLISHED_DEGRADED`, not as a
 clean failure.
 
+**The identity must also be served `no-store`, and that is checked twice.** Every later
+decision reads the served identity first and refuses a cacheable one
+(`served.identity_cacheable`, in every mode, rollback included), so a publication that
+leaves `/release.json` cacheable leaves this path unable to decide again — including the
+rollback that would undo it.
+
+- **Before publishing**, the gate resolves which header rules in the candidate's
+  `firebase.json` apply to the identity path, the way Firebase's open-source hosting
+  server does (normalised `source`, minimatch with default options, every matching rule
+  applied in order). It refuses `hosting.identity_cacheable` when a matching rule's
+  `Cache-Control` is not `no-store`, or when no rule sets one at all (the host default
+  would then apply), and `hosting.identity_cache_unproven` when a rule uses a pattern it
+  cannot decide (braces, classes, negation, most extglobs). The model is deliberately
+  stricter than the tool: every matching value must be `no-store`, so rule order never
+  decides the answer. `hosting-oracle.test.mjs` pins it against superstatic's own matcher
+  and header middleware.
+- **After publishing**, `PUBLISHED_VERIFIED` requires the served identity to carry
+  `no-store`. Otherwise the outcome is `PUBLISHED_DEGRADED`, and the run summary shows the
+  `Cache-Control` the origin actually sent. This is the only observation of the
+  production CDN; the model above describes the configuration, not the edge.
+
 ## The first publication — every prerequisite is a named refusal
 
 The committed policy refuses every candidate today, and the refusals are the list of
@@ -325,23 +346,24 @@ desirable. `release/cli.mjs stamp` asserts the approved origin is present in the
 
 ## Tests, and what each kind proves
 
-`npm run test:release` runs the CLI self-test, then 439 tests in about 25 seconds
+`npm run test:release` runs the CLI self-test, then 465 tests in about 25 seconds
 (Node 24, four cores; most of it is the workflow simulation). Each is labelled
-**REGRESSION** (pins a finding reproduced on `3386724`), **CONTRACT** (a rule this
+**REGRESSION** (pins a finding reproduced before its fix: on `3386724` for the
+baseline, on `ce6b892` for what review on #687 found), **CONTRACT** (a rule this
 change introduces) or **CONTROL** (something that must not change).
 
 | file | tests | what it proves |
 |---|---|---|
 | `decide.test.mjs` | 125 | the refusal matrix: one allowed baseline, each case breaking exactly one fact |
 | `policy.test.mjs` | 43 | the policy is validated before anything is evaluated; every decision-bearing field |
-| `publisher.test.mjs` | 55 | the admitted record, the critical section, the outcome vocabulary |
-| `hosting.test.mjs` | 32 | destination resolution, the allow-list, the ignore proof, regeneration |
-| `hosting-oracle.test.mjs` | 10 | the model against the installed firebase-tools' own functions |
+| `publisher.test.mjs` | 58 | the admitted record, the critical section, the outcome vocabulary, a `no-store` identity required for `PUBLISHED_VERIFIED` |
+| `hosting.test.mjs` | 43 | destination resolution, the allow-list, the ignore proof, regeneration, the identity's `Cache-Control` before publishing |
+| `hosting-oracle.test.mjs` | 20 | the model against the installed firebase-tools' own functions, and the header model against superstatic's own matcher and middleware |
 | `storage.test.mjs` | 33 | set containment, the declaration, the tripwire |
 | `peers.test.mjs` | 30 | receipts from real git, public verification, serving over real TLS |
 | `manifest.test.mjs` | 46 | the stamp and the manifest schema |
 | `contract.test.mjs` | 9 | the D01 digest across languages |
-| `workflow-simulation.test.mjs` | 29 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher |
+| `workflow-simulation.test.mjs` | 31 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher |
 | `workflow-drift.test.mjs` | 22 | the three workflow files held to the policy, statically |
 | `committed-policy.test.mjs` | 5 | the committed policy's exact refusal set, through the real `decide` |
 
@@ -384,6 +406,26 @@ Each is now refused or pinned by at least one test whose title carries its label
 R2.c is carried by a **CONTROL**, not a REGRESSION: it was the one case the old barrier
 already refused, and it must stay refused now that the same rule covers every other
 promoting path.
+
+### Found in review on #687, reproduced on `ce6b892` before any change
+
+```
+C.a  firebase.json serving /release.json as public, max-age=300
+       gate                                                     -> PROCEED
+       publisher verification                                   -> PUBLISHED_VERIFIED
+       the next redeploy, and the rollback that would undo it   -> refused, served.identity_cacheable
+```
+
+It is now refused, and it is carried by tests labelled
+`REGRESSION (Codex P2 on #687)`:
+
+- **C.a.** Checked before publishing (`hosting.identity_cacheable` /
+  `hosting.identity_cache_unproven`) and after it (`PUBLISHED_VERIFIED` requires a
+  `no-store` identity). Against the unmodified `lib/`, the publisher and simulation
+  suites fail 8: the five new tests, plus three existing ones (two CONTROLs and a
+  CONTRACT) whose expected shapes now include the cache facts. The new hosting tests
+  import a function the unmodified `lib/` does not have, so they are pinned by mutation
+  rather than by that baseline.
 
 ## What is deliberately left for later
 

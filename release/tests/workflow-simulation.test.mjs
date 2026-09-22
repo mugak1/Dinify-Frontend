@@ -318,6 +318,7 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     assert.equal(published.files.length, record.artifact.entryCount, 'the tool uploaded exactly the certified files');
     const verification = retained(world, event, 'verification.json');
     assert.equal(verification.files.checked, record.artifact.entryCount);
+    assert.equal(verification.identityNoStore, true, 'the identity the next gate reads is served no-store');
     assert.equal(verification.verified, true);
 
     // THE PRIVILEGED JOB HELD NO APPLICATION SOURCE.
@@ -486,6 +487,39 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     const result = await simulate(world, automaticEvent(world, 5102));
     assert.ok(codesOf(decisionOf(result)).includes('hosting.ignore_changed'));
     assertNothingPublished(world, result);
+  });
+
+  test('REGRESSION (Codex P2 on #687): a certified hosting change that would serve the identity cacheable is refused at the gate', async () => {
+    // Reproduced on ce6b892 with this exact world: the gate PROCEEDED, the outcome was
+    // PUBLISHED_VERIFIED, and then a redeploy AND a rollback were both refused
+    // served.identity_cacheable — the path could no longer decide anything, including
+    // the rollback that would undo it.
+    const fb = JSON.parse(readFileSync(join(ROOT, 'firebase.json'), 'utf8'));
+    assert.equal(fb.hosting[0].headers[0].source, '/release.json');
+    fb.hosting[0].headers[0].headers[0].value = 'public, max-age=300';
+    const world = await makeWorld({ c2Files: { 'firebase.json': `${JSON.stringify(fb, null, 2)}\n` } });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.ok(codesOf(decisionOf(result)).includes('hosting.identity_cacheable'), JSON.stringify(codesOf(decisionOf(result))));
+    assertNothingPublished(world, result);
+    assert.equal(servedCommitNow(world).commit, world.C1, 'the served release is untouched');
+    // And the path is still able to decide: a rollback to C1 is not refused on the identity.
+    const rollback = await simulate(world, manualEvent(world, world.C1, 'rollback'));
+    assert.equal(codesOf(decisionOf(rollback)).includes('served.identity_cacheable'), false);
+  });
+
+  test('REGRESSION (Codex P2 on #687): an origin that serves the identity cacheable is PUBLISHED_DEGRADED, never verified (fault injection)', async () => {
+    const world = await makeWorld();
+    world.publisher.mode = 'identity-cacheable';
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assert.equal(decisionOf(result).decision, 'PROCEED', 'the configuration itself was sound');
+    const verification = retained(world, event, 'verification.json');
+    assert.equal(verification.servesCandidate, true, 'the right candidate is served');
+    assert.equal(verification.identity.cacheControl, 'public, max-age=300');
+    assert.equal(verification.identityNoStore, false);
+    assert.equal(verification.verified, false);
+    assert.equal(outcomeOf(result), 'PUBLISHED_DEGRADED');
+    assert.equal(result.jobs.publish.result, 'failure');
   });
 
   test('REGRESSION (R3.k): a tool that publishes a DIFFERENT build of the same SHA is not reported as published', async () => {

@@ -15,6 +15,7 @@ import { readFileSync, readdirSync, lstatSync, existsSync, statSync } from 'node
 import { join, posix } from 'node:path';
 
 import { digestOfValue, sha256Hex, treeDigest } from './canonical.mjs';
+import { cacheControlIsNoStore } from './hosting.mjs';
 import { validateManifest, validateProvenance } from './manifest.mjs';
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -201,8 +202,6 @@ export function artifactFacts(a) {
 
 // ── public identities over HTTPS ─────────────────────────────────────────────────
 
-const NO_STORE = /(^|[\s,])no-store([\s,]|$)/i;
-
 async function fetchText(url, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -233,7 +232,7 @@ export async function readServedIdentity(origin, path, { timeoutMs = 15000 } = {
   }
   out.status = r.status;
   out.cacheControl = r.cacheControl;
-  out.cacheControlNoStore = NO_STORE.test(r.cacheControl ?? '');
+  out.cacheControlNoStore = cacheControlIsNoStore(r.cacheControl ?? '');
   if (r.status === 404) {
     out.state = 'absent';
   } else if (r.status === 200) {
@@ -268,7 +267,7 @@ export async function readPublicCommitIdentity(origin, path, { timeoutMs = 15000
   const url = `${origin}${path}`;
   const r = await fetchText(url, timeoutMs);
   if (!r.ok) return { state: 'unreadable', url, detail: r.detail };
-  const noStore = NO_STORE.test(r.cacheControl ?? '');
+  const noStore = cacheControlIsNoStore(r.cacheControl ?? '');
   const body = r.text.trim();
   if (r.status !== 200) return { state: 'unreadable', url, detail: `status ${r.status}`, noStore, cacheControl: r.cacheControl };
   if (!SHA_RE.test(body)) return { state: 'unreadable', url, detail: 'body is not exactly one full commit SHA', noStore, cacheControl: r.cacheControl };
