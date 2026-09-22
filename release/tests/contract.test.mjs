@@ -10,14 +10,20 @@
  * is not checked out beside it — which, in CI, is always. Two independently checked
  * copies are not parity: they are two things that each agree with themselves.
  *
- * What closes it is a DIGEST OVER THE VALUES in a canonical form both languages
- * produce byte for byte, recorded in the release manifest and compared against the
- * pinned peer in the compatible set. A ceiling changed on one side and not the other
- * cannot then be released, whichever side moved.
+ * What closes it ON THIS PATH is a DIGEST OVER THE VALUES in a canonical form both
+ * languages produce byte for byte. The frontend records its copy's digest in every
+ * release manifest; the backend's copy is read from the backend's OWN git at an
+ * approved revision into a peer receipt (release/peers/), and the gate compares the
+ * two. That makes a one-sided change REFUSABLE ON THE FRONTEND'S PUBLICATION PATH.
  *
- * These tests assert the three links in that chain that live in this repository. The
+ * WHAT IT DOES NOT DO, stated because the earlier wording claimed it: it does not stop
+ * the BACKEND releasing a changed ceiling. The backend's deploy consults nothing here,
+ * so cross-repository changes remain an ORDERED, MANUAL sequence — backend first, then
+ * a reviewed frontend change that approves a receipt for the new backend revision.
+ *
+ * These tests assert the links in that chain that live in this repository. The
  * fourth — that the backend's own committed copy matches its live constants
- * unconditionally — is asserted on the backend side, by the paired change.
+ * unconditionally — is asserted on the backend side.
  */
 
 import { strict as assert } from 'node:assert';
@@ -26,6 +32,7 @@ import { test, describe } from 'node:test';
 
 import { canonicalJson, contractDigest } from '../lib/canonical.mjs';
 import { readIntConstant } from '../lib/source.mjs';
+import { receiptDigest } from '../lib/peers.mjs';
 
 const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 const CONTRACT_PATH = 'src/app/_shared/order/checkout-limits.contract.json';
@@ -75,28 +82,68 @@ describe('link 2 — the digest is reproducible across languages', () => {
   });
 });
 
-describe('link 3 — the pinned peer in the compatible set agrees with this copy', () => {
-  test('the committed policy pins the digest of the contract this repository compiles', () => {
-    const pinned = policy.compatibleSet.peers.backend.contracts.d01CheckoutLimits;
-    assert.equal(
-      pinned, contractDigest(contract),
-      'release/policy.json pins a D01 digest that is not the one this repository would ship. '
-      + 'Either the backend peer moved and this copy was not synchronized, or this copy '
-      + 'moved and the peer was not re-pinned. Both are release-blocking by design.',
-    );
+describe('link 3 — the approved backend receipt agrees with this copy', () => {
+  const approved = policy.compatibleSet.peers.backend.approved;
+
+  test('every approved backend receipt carries the digest of the contract this repository compiles', () => {
+    assert.ok(approved.length >= 1, 'the compatible set approves no backend revision');
+    for (const entry of approved) {
+      const receipt = JSON.parse(readFileSync(`${ROOT}/${entry.receipt}`, 'utf8'));
+      assert.equal(receipt.commit, entry.commit, `${entry.receipt} is about ${receipt.commit}, not ${entry.commit}`);
+      assert.equal(receiptDigest(receipt), entry.receiptDigest, `${entry.receipt} is not the receipt the policy approved`);
+      assert.equal(
+        receipt.contracts.d01CheckoutLimits?.digest, contractDigest(contract),
+        `backend ${entry.commit} publishes a D01 contract this repository does not compile. `
+        + 'Either the backend moved and this copy was not synchronized, or this copy moved '
+        + 'and a receipt for a matching backend revision was not approved.',
+      );
+    }
   });
 
-  test('THE NEGATIVE CASE: a ceiling changed on one side only does not release', async () => {
-    // The scenario the Stage B approval names: the backend raises a ceiling and
-    // updates its own fixture, this repository's copy stays as it was, and the release
-    // must refuse. Here the backend's move is represented by the pinned digest moving.
+  test('the receipt\'s values are the backend\'s export, not a restatement of ours', () => {
+    // The receipt carries the VALUES it read, so the digest is re-derivable from the
+    // receipt alone — a reviewer does not have to trust the digest field.
+    for (const entry of approved) {
+      const receipt = JSON.parse(readFileSync(`${ROOT}/${entry.receipt}`, 'utf8'));
+      assert.equal(contractDigest(receipt.contracts.d01CheckoutLimits.values), receipt.contracts.d01CheckoutLimits.digest);
+    }
+  });
+
+  test('REGRESSION (R1.f): a backend whose export moved is refused — the literal is gone', async () => {
+    // On 3386724 this comparison read a digest TYPED INTO the policy, so it could fail
+    // only when someone edited that literal. Now the backend side is a receipt produced
+    // by the real producer from the backend's files at a revision.
     const { decide } = await import('../lib/decide.mjs');
-    const { baseline, codes } = await import('./fixtures.mjs');
-    const input = baseline();
+    const { baseline, codes, backendReceipt, allowedPolicy, peersFor } = await import('./fixtures.mjs');
     const drifted = { ...Object.fromEntries(ceilingNames.map((k) => [k, contract[k]])), MAX_LINES_PER_ORDER: 120 };
-    input.policy.compatibleSet.peers.backend.contracts.d01CheckoutLimits = contractDigest(drifted);
+    const backend = backendReceipt({ d01: drifted });
+    const input = baseline();
+    input.policy = allowedPolicy({ backend });
+    input.peers = peersFor({ backend });
     const result = decide(input);
     assert.equal(result.decision, 'REFUSE');
     assert.ok(codes(result).includes('peers.contract_mismatch'), JSON.stringify(codes(result)));
+  });
+
+  test('CONTRACT: a frontend whose copy moved is refused against an unchanged backend', async () => {
+    const { decide } = await import('../lib/decide.mjs');
+    const { baseline, codes } = await import('./fixtures.mjs');
+    const { digestOfValue } = await import('../lib/canonical.mjs');
+    const drifted = { ...Object.fromEntries(ceilingNames.map((k) => [k, contract[k]])), MAX_TOTAL_UNITS: 501 };
+    const input = baseline();
+    input.artifact.manifest.compatibility.contracts.d01CheckoutLimits = contractDigest(drifted);
+    input.artifact.manifestDigest = digestOfValue(input.artifact.manifest);
+    input.source.d01Digest = contractDigest(drifted);
+    const result = decide(input);
+    assert.equal(result.decision, 'REFUSE');
+    assert.ok(codes(result).includes('peers.contract_mismatch'), JSON.stringify(codes(result)));
+  });
+
+  test('CONTROL: matching copies on both sides are not refused on this ground', async () => {
+    const { decide } = await import('../lib/decide.mjs');
+    const { baseline, codes } = await import('./fixtures.mjs');
+    const result = decide(baseline());
+    assert.ok(!codes(result).includes('peers.contract_mismatch'), JSON.stringify(codes(result)));
+    assert.equal(result.decision, 'PROCEED');
   });
 });
