@@ -3037,12 +3037,15 @@ so keep it current when conventions change.
   `(version, semantics)` pairs this build writes and reads, and `lib/storage.mjs`
   requires `served.reads ∪ {served.writes} ⊆ candidate.reads` — SET CONTAINMENT, never
   numeric, on deploy, redeploy, rollback and bootstrap alike. **A numerically larger
-  version is not evidence that its reader preserves an older issued command.** A digest
-  tripwire over the coordinator and quote-transition sources makes the stamp refuse a
-  candidate whose declaration was not re-affirmed after they changed
-  (`cli.mjs storage-reviewed --write`), and
-  `checkout-record-storage.contract.spec.ts` (9) drives the REAL coordinator with a
-  record of every declared pair and asserts same-key recovery with the command intact.
+  version is not evidence that its reader preserves an older issued command.** The
+  declaration also states WHERE the bytes are — the physical key and the encoding — and
+  a candidate that moves them is refused even with every pair unchanged (see the review
+  round below). A digest tripwire over the coordinator and quote-transition sources AND
+  the storage layer beneath them makes the stamp refuse a candidate whose declaration
+  was not re-affirmed after any of them changed (`cli.mjs storage-reviewed --write`),
+  and `checkout-record-storage.contract.spec.ts` (11) builds the REAL coordinator from
+  the real `AppModule`, seeds the RAW BYTES of every declared pair at the declared
+  physical key, and asserts same-key recovery with the command intact.
   Eligibility is separate from ancestry: `policy.eligibility` names revoked commits and
   a minimum safe target, applied on every promoting path.
   **R3 — ONE CERTIFIED UNIT.** The gate's outputs were a SHA and a name, and the
@@ -3061,7 +3064,9 @@ so keep it current when conventions change.
   is handed a REGENERATED pair (`lib/hosting.mjs`). Identity is the MANIFEST DIGEST:
   two certifications of one SHA are two candidates. Verification fetches the identity
   AND EVERY CERTIFIED FILE back; a marker alone proves nothing about the other files,
-  and even the fetch-back is one vantage point at one moment. Eight distinct outcome
+  and even the fetch-back is one vantage point at one moment. `PUBLISHED_VERIFIED` also
+  requires the identity to be served `no-store`, because that is what the NEXT decision
+  reads. Eight distinct outcome
   words (`lib/outcome.mjs`), `RESTORED_AFTER_FAILURE` never produced. **Nothing claims
   an artifact was substituted** — uploads are immutable; the record is what makes "the
   same unit" checkable.
@@ -3079,7 +3084,7 @@ so keep it current when conventions change.
   independent writers. The cutover is one reviewed change deleting it (README →
   "The cutover"). The Publish gate is RED on every merge until then, by design, and its
   summary says it is this path refusing, not the build failing.
-  **§8 — THE WORKFLOW IS EXECUTED, NOT DESCRIBED.** `workflow-simulation.test.mjs` (29)
+  **§8 — THE WORKFLOW IS EXECUTED, NOT DESCRIBED.** `workflow-simulation.test.mjs` (31)
   parses and runs `publish.yml` step by step with GitHub's expression semantics, real
   bash, the real CLI, real git checkouts and local HTTPS origins, against an OBSERVABLE
   stand-in publisher that resolves its destination with firebase-tools' own functions
@@ -3088,9 +3093,10 @@ so keep it current when conventions change.
   step crashed when the trusted checkout itself had failed, and the gate checked out a
   moving `main` rather than the revision its own YAML was taken from (`github.sha`). `workflow-drift.test.mjs` (22) holds the three workflow files
   to the policy statically — one secret reference, no `${{` in a script, every action
-  SHA-pinned, the tool handed exactly the policy destination. Release suite **439 tests
+  SHA-pinned, the tool handed exactly the policy destination. Release suite **477 tests
   in about 25 seconds**, labelled REGRESSION / CONTRACT / CONTROL, and every one of the
-  22 baseline findings is carried by at least one test title. **Twenty-four source
+  22 baseline findings is carried by at least one test title (the suite was 439 before
+  the review round below). **Twenty-four source
   mutations, each fix reverted alone, each fail a named subset — and the table found a
   gap before it was closed**: discarding the Decide step's exit status failed NOTHING,
   because the job still went red through the report step after it. A red job is not
@@ -3100,7 +3106,60 @@ so keep it current when conventions change.
   (this environment's egress policy refuses the site — the committed-policy test
   DERIVES it from the committed rewrite and says so), and any dependency audit — the
   24-hour window is a conservative limit, not audit evidence, until B2's inventory
-  rescan exists. B2 / B3 / B4 are listed in the README as what is left
+  rescan exists. B2 / B3 / B4 are listed in the README as what is left.
+  **AND REVIEW ON #687 FOUND TWO RULES CHECKED AT ONLY ONE OF THE PLACES THEY
+  GOVERN — two Codex P2s, both valid, both reproduced on `ce6b892` before anything
+  changed, and fixed in one commit each.**
+  **THE GATE ADMITTED A CONFIGURATION IT WOULD ITSELF REFUSE TO READ BACK.** Every
+  decision reads the served identity first and refuses a cacheable one
+  (`served.identity_cacheable`, in every mode, rollback included), while header rules
+  were checked for SHAPE only. Through the executed workflow, a certified
+  `firebase.json` serving `/release.json` as `public, max-age=300` was admitted
+  (`PROCEED`), published and reported `PUBLISHED_VERIFIED` — and then a redeploy AND
+  the rollback that would undo it were both refused. The path locked itself out with
+  its own green light. `hosting.mjs` now resolves which header rules apply to the
+  identity path the way Firebase's open-source hosting server does (normalised
+  `source`, minimatch under default options, every matching rule applied in order) and
+  refuses
+  `hosting.identity_cacheable` — a matching `Cache-Control` that is not `no-store`, or
+  none at all, since the host default is cacheable — and
+  `hosting.identity_cache_unproven` for a pattern it cannot decide. **EVERY MATCHING
+  VALUE MUST BE `no-store`, SO RULE ORDER NEVER DECIDES THE ANSWER**: deliberately
+  stricter than the tool, and `hosting-oracle.test.mjs` pins the matcher against
+  superstatic's own matcher and header middleware, including a record that the model
+  is the stricter of the two. `PUBLISHED_VERIFIED` now also requires the OBSERVED
+  identity to be `no-store` — the configuration check describes the configuration, and
+  the fetch-back is the only observation of the edge. ONE ORACLE WAS CORRECTED, NOT
+  THE RULE RELAXED: the configuration-digest CONTROL used a `no-cache` identity header
+  as its example of an ACCEPTED change; it now changes `index.html`'s.
+  **WHERE THE BYTES ARE IS PART OF WHAT IS COMPATIBLE.** The declaration said what a
+  record MEANS (the pairs) and nothing about where a served build LEFT it — a string
+  under a physical key (`[dinify]diner.checkout.attempt`) in the storage service's
+  envelope. The tripwire covered the reader only, and the contract spec seeded its
+  fixtures THROUGH the service it tested, so writer and reader changed together: a
+  changed envelope, key format or root prefix passed both (9/9) while every stored
+  record became invisible — measured, `read()` answers `none` and a fresh key is
+  minted for a purchase whose command is still outstanding. The declaration now states
+  `physicalKey` and `encoding`, the validator and the manifest require both,
+  `decide.mjs` refuses `storage.incompatible` when store, key, physical key or encoding
+  differ **even with every pair unchanged**, the tripwire covers
+  `storage.service.ts`, `session-storage.service.ts` and `storage.module.ts`, and the
+  spec (11) seeds RAW BYTES, encoded by its OWN statement of the declared encoding,
+  through the application's real `AppModule`. **`app.module.ts` IS DELIBERATELY NOT
+  PINNED**: it changes for many reasons unrelated to storage, and pinning it would make
+  each of them a storage review. The prefix change is caught by the spec instead —
+  measured: tripwire exit 0, spec 7/11 FAILED. A consequence worth knowing: a
+  bootstrap `servedBaseline` must now carry a declaration stating its physical
+  location, i.e. be at or after this change's merge, which the live path guarantees by
+  publishing every merge. Release suite 439 -> **477**, Karma +2. **Fourteen more
+  mutations, each piece of either fix reverted alone, each fail a named subset**: the
+  gate's identity check 8, the verified-needs-no-store rule 4, verify-served claiming
+  no-store unchecked 2, an undecidable pattern read as not matching 1, last-rule-wins 2,
+  a substring `no-store` 1; the location compared on store and key only 2, the manifest
+  projection dropping it 91 (every stamped candidate stops validating), the declaration
+  validator 3, the storage layer out of the tripwire 2, the manifest schema 2; and in
+  Karma the envelope, key-format and prefix changes each fail the spec 7 of 11, the
+  tripwire catching the first two and not the third, as intended
 - Tenant-isolation closure (frontend regression gate): ✅ a focused
   `src/app/_security/` layer pins the client-side tenant-boundary invariants.
   `diner-capability-contract.ts` is the single source of truth for the diner

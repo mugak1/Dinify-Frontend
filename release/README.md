@@ -325,7 +325,7 @@ by running the real `decide` against the committed file:
 | `prerequisite.legacy_publisher_present` | the same change **deleting** `deploy-prod.yml` — this one is observed from the checkout, so the policy cannot claim it |
 | `peers.capabilities_unpublished` | approving a receipt for a backend commit carrying the capability export |
 | `peers.backend_serving_unverified` | B3: the backend publishing a served-revision identity |
-| `served.bootstrap_unauthorized` | an explicit, reviewed `bootstrap.authorized: true` with `servedBaseline` naming the live commit. That commit must carry the storage declaration, i.e. be at or after the commit that introduced it |
+| `served.bootstrap_unauthorized` | an explicit, reviewed `bootstrap.authorized: true` with `servedBaseline` naming the live commit. That commit must carry a valid storage declaration, one that states where its bytes are (physical key and encoding) — i.e. be at or after the merge that introduced them. The live path publishes every merge, so by the time a bootstrap is authorized the live commit will be |
 
 `peers.backend_serving_unverified` has no owner action available today: it needs B3.
 Until then this path cannot publish, and says so, rather than accepting an operator's
