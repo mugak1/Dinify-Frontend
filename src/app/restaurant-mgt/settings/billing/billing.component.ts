@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject, takeUntil } from 'rxjs';
 import { TransactionListItem } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
@@ -87,7 +88,7 @@ type SectionState = 'loading' | 'ready' | 'failed';
   styleUrl: './billing.component.css',
   standalone: false,
 })
-export class BillingComponent implements OnInit {
+export class BillingComponent implements OnInit, OnDestroy {
   rest_id: any;
 
   /** Drives the section-page chrome (loading skeleton / error+retry / ready). */
@@ -112,6 +113,25 @@ export class BillingComponent implements OnInit {
   private scope!: BillingScope;
   private generation = 0;
 
+  /**
+   * Closed by `ngOnDestroy`. BOTH reads are bound to it.
+   *
+   * Angular does NOT cancel an HTTP request when a component is destroyed —
+   * only unsubscribing does — so without this a read issued by a screen the
+   * operator has left goes on running and its callback goes on writing to a
+   * dead instance.
+   */
+  private readonly destroy$ = new Subject<void>();
+
+  /**
+   * A DESTROYED INSTANCE OWNS NOTHING AND SENDS NOTHING.
+   *
+   * Read by `owns()` (so a callback that somehow still runs writes nothing)
+   * and by `reload()` (so no replacement request is issued). Set BEFORE the
+   * reads are released, so a synchronous teardown cannot slip between them.
+   */
+  private destroyed = false;
+
   constructor(
     private auth: AuthenticationService,
     private api: ApiService,
@@ -119,6 +139,29 @@ export class BillingComponent implements OnInit {
 
   ngOnInit(): void {
     this.reload();
+
+    // THE ONE EVENT THE PRINCIPAL HALF OF OWNERSHIP HAS, and the mechanism this
+    // repository already uses for exactly this question (`kitchen-order.service`).
+    // `AuthenticationService` publishes on profile update, on OTP completion, on
+    // a token refresh and — as `null` — on sign-out. Without observing it, a
+    // billing screen with no read in flight keeps rendering the previous
+    // principal's recorded price until something happens to ask again.
+    //
+    // ORDER IS LOAD-BEARING: `user` is a BehaviorSubject, so subscribing HERE
+    // fires synchronously with the principal `reload()` has just captured. It
+    // therefore matches and no-ops. Subscribing before `reload()` would fire
+    // against an unset scope.
+    //
+    // This is an OBSERVATION, not an authentication path: it reads a stable
+    // principal identifier and nothing else. No token is captured, compared,
+    // stored in ownership metadata or logged.
+    this.auth.user?.pipe(takeUntil(this.destroy$)).subscribe(() => this.onContextPublished());
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   /**
@@ -131,15 +174,16 @@ export class BillingComponent implements OnInit {
    * guard exists to prevent — arriving a moment earlier.
    */
   reload(): void {
-    this.rest_id =
-      this.auth.currentRestaurantRole?.restaurant_id ?? this.auth.currentRestaurant?.id;
+    // `reload()` is PUBLIC — the section chrome's Retry and the history's Try
+    // again both call it — so the guard belongs here rather than at each call
+    // site. A destroyed instance issues no replacement request.
+    if (this.destroyed) return;
+
+    const live = this.liveContext();
+    this.rest_id = live.restaurantId || undefined;
 
     this.generation += 1;
-    this.scope = {
-      principal: String(this.auth.userValue?.profile?.id ?? ''),
-      restaurantId: String(this.rest_id ?? ''),
-      generation: this.generation,
-    };
+    this.scope = { ...live, generation: this.generation };
 
     this.details = undefined;
     this.transaction_list = [];
@@ -157,16 +201,73 @@ export class BillingComponent implements OnInit {
   }
 
   /**
+   * The principal and restaurant AS THEY ARE NOW. Read fresh on every call —
+   * `currentRestaurantRole` is a getter over localStorage and `userValue` is a
+   * getter over the published subject, so neither is cached here.
+   *
+   * It carries an IDENTIFIER, never a credential. A stable principal id is not
+   * a bearer token and the session token is deliberately not part of ownership.
+   */
+  private liveContext(): { principal: string; restaurantId: string } {
+    return {
+      principal: String(this.auth.userValue?.profile?.id ?? ''),
+      restaurantId: String(
+        this.auth.currentRestaurantRole?.restaurant_id ?? this.auth.currentRestaurant?.id ?? '',
+      ),
+    };
+  }
+
+  /** Does the context an answer was requested under still hold? */
+  private contextMatches(at: BillingScope): boolean {
+    const live = this.liveContext();
+    return at.principal === live.principal && at.restaurantId === live.restaurantId;
+  }
+
+  /**
    * Whether an answer captured under `at` may still write to this screen.
    *
-   * Compared against the scope CAPTURED BEFORE THE REQUEST, never re-derived
-   * on arrival: comparing a response against whatever the service says now is
-   * what makes a stale answer look authoritative.
+   * THE OWNER STAYS FROZEN AND WHAT IT IS MEASURED AGAINST IS READ LIVE — the
+   * shape D04 settled for the diner checkout and the kitchen board settled for
+   * its own scope. `at` is captured BEFORE the request and never re-derived on
+   * arrival; replacing it with the current principal would be the opposite
+   * error, attributing an old answer to a new user.
+   *
+   * IT USED TO COMPARE `at` AGAINST `this.scope`, a field only `reload()` ever
+   * writes — so the guard could only ever see a transition this component had
+   * already been told about. A principal or restaurant that moved underneath a
+   * mounted screen passed it, and the departed scope's answer repainted.
+   *
+   * Three parts and all three are needed: `destroyed` (a dead instance owns
+   * nothing), the GENERATION (an ordinary Retry, where both context halves are
+   * unchanged and the older in-flight answer must still lose), and the LIVE
+   * CONTEXT (a change nothing told this component about).
    */
   private owns(at: BillingScope): boolean {
-    return at.generation === this.scope.generation
-      && at.restaurantId === this.scope.restaurantId
-      && at.principal === this.scope.principal;
+    return !this.destroyed
+      && at.generation === this.generation
+      && this.contextMatches(at);
+  }
+
+  /**
+   * The published principal moved.
+   *
+   * ONE TRANSITION, AND IT IS `reload()`: it clears the previous scope's
+   * content AT ONCE (rather than leaving one principal's recorded price under
+   * another's heading until some other answer happens to arrive), bumps the
+   * generation so every read still in flight is disowned, and re-reads for
+   * whatever is current now. It sends NOTHING when there is nothing to read —
+   * sign-out clears storage before publishing, so the restaurant is already
+   * gone and `reload()` returns before issuing a request.
+   *
+   * A REPUBLISHED SAME PRINCIPAL CHANGES NOTHING. A token refresh pushes a new
+   * object carrying the same profile; treating every emission as a context
+   * change would discard an ordinary billing read on every refresh, which is
+   * the opposite defect.
+   */
+  private onContextPublished(): void {
+    if (this.destroyed || !this.scope) return;
+    if (this.contextMatches(this.scope)) return;
+    this.reload();
   }
 
   // ── The recorded terms ──────────────────────────────────────────────────────
@@ -327,6 +428,7 @@ export class BillingComponent implements OnInit {
         to: `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`,
         type: 'subscription',
       })
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (x) => {
           if (!this.owns(at)) return;
@@ -358,6 +460,7 @@ export class BillingComponent implements OnInit {
   loadingBillingSub(at: BillingScope = this.scope): void {
     this.api
       .get<any>(null, 'restaurant-setup/subscription-details/', { restaurant: at.restaurantId })
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (x) => {
           if (!this.owns(at)) return;

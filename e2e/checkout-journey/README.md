@@ -157,7 +157,16 @@ node e2e/checkout-journey/journey.mjs
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`) and 137/137 (`recovery.mjs`)**, both executed
+Last run: **42/42 (`journey.mjs`) and 137/137 (`recovery.mjs`)**, both RE-RUN at
+the **D07 B1/B2/V1 revision** on a FRESH disposable database per script (frontend
+`claude/serene-shannon-7iz7bj`, backend unchanged), Node 24.15.0, **Playwright
+1.56.1 pinned**, Chromium `/opt/pw-browsers/chromium-1194`, PostgreSQL 16,
+development assets. That change touches only the billing settings screen and its
+reader, so neither script exercises it and neither is expected to discriminate
+for it — they are re-run as REGRESSION evidence that the checkout is untouched,
+which is what they are for here.
+
+Before that: **42/42 and 137/137**, both executed
 on a FRESH disposable database and **RE-RUN after the L4 change** (the cached
 ACCEPTANCE branch of `resumeInterruptedCheckout` now consults the applicable
 observation, as the cached-closure branch beside it already did), so the numbers
