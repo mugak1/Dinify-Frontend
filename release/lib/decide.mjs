@@ -43,7 +43,7 @@
 
 import { validatePolicy } from './policy.mjs';
 import { peerReasons } from './peers.mjs';
-import { comparable, unreadableByCandidate } from './storage.mjs';
+import { comparable, locationChanges, unreadableByCandidate } from './storage.mjs';
 import { clientExpectationsFrom } from './manifest.mjs';
 import { canonicalJson, digestOfValue } from './canonical.mjs';
 
@@ -416,8 +416,13 @@ export function decide(input) {
       if (missing.length > 0) {
         refuse('storage.incompatible', `the candidate cannot read ${missing.join(', ')}, which the served build writes or reads`);
       }
-      if (candidateStorage.key !== baselineStorage.key || candidateStorage.store !== baselineStorage.store) {
-        refuse('storage.incompatible', `the candidate keeps its record at ${candidateStorage.store}:${candidateStorage.key}, the served build at ${baselineStorage.store}:${baselineStorage.key}`);
+      // THE SAME RECORD MUST BE FOUND WHERE THE SERVED BUILD LEFT IT — the physical key
+      // and the encoding, not only the logical key. Pairs say what a record MEANS; a
+      // candidate looking under another key or envelope reads none of them.
+      const moved = locationChanges({ candidate: candidateStorage, baseline: baselineStorage });
+      if (moved.length > 0) {
+        const where = (x) => `${String(x.store)}:${String(x.physicalKey ?? x.key)} as ${String(x.encoding)}`;
+        refuse('storage.incompatible', `the candidate keeps its record at ${where(candidateStorage)}, the served build at ${where(baselineStorage)} (${moved.join(', ')} differ)`);
       }
     }
     // ELIGIBILITY, SEPARATE FROM ANCESTRY. A revoked target stays an ancestor of main

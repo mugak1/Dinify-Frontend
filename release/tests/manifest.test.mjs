@@ -63,6 +63,8 @@ describe('manifest validation', () => {
     m.compatibility.storage = { checkoutRecordVersion: 2, semanticsRevision: 1 };
   });
   reject('CONTRACT: rejects a storage declaration digest that is not sha256', 'manifest.bad_storage_declaration_digest', (m) => { m.compatibility.storage.declarationDigest = 'sha1:x'; });
+  reject('CONTRACT (Codex P2 on #687): rejects storage that does not say where its bytes are', 'manifest.bad_storage', (m) => { delete m.compatibility.storage.physicalKey; });
+  reject('CONTRACT (Codex P2 on #687): rejects storage that does not say how its bytes are encoded', 'manifest.bad_storage', (m) => { m.compatibility.storage.encoding = ''; });
   reject('CONTRACT: rejects missing client quote-policy support', 'manifest.bad_client_supports', (m) => { delete m.compatibility.clientSupports; });
   reject('CONTRACT: rejects a non-integer supported quote-policy version', 'manifest.bad_client_supports', (m) => { m.compatibility.clientSupports.quote_policy_version = ['1']; });
   reject('rejects empty client expectations', 'manifest.no_client_expectations', (m) => { m.compatibility.clientExpects = {}; });

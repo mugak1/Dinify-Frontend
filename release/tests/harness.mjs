@@ -350,6 +350,9 @@ export const FRONTEND_FILES = Object.freeze([
   'src/app/_shared/order/checkout-correlation.ts',
   'src/app/_shared/order/checkout-limits.contract.json',
   'src/app/_services/checkout-record.storage.json',
+  'src/app/_services/storage/storage.service.ts',
+  'src/app/_services/storage/session-storage.service.ts',
+  'src/app/_services/storage/storage.module.ts',
   '.github/workflows/publish.yml',
   '.github/workflows/certify.yml',
 ]);

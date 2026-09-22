@@ -24,8 +24,8 @@ import { describe, test } from 'node:test';
 import { digestOf } from '../lib/canonical.mjs';
 import { readIntConstant } from '../lib/source.mjs';
 import {
-  STORAGE_SCHEMA, declarationDigest, manifestStorage, staleReviewedSources, unreadableByCandidate,
-  validateStorageDeclaration,
+  LOCATION_FIELDS, STORAGE_SCHEMA, declarationDigest, locationChanges, manifestStorage, staleReviewedSources,
+  unreadableByCandidate, validateStorageDeclaration,
 } from '../lib/storage.mjs';
 import { decide } from '../lib/decide.mjs';
 import { ROOT, buildCandidate, cli, commitAll, fixtureFrontend, git, writeText } from './harness.mjs';
@@ -46,6 +46,24 @@ describe('the committed declaration', () => {
     assert.match(coordinator, new RegExp(`ATTEMPT_KEY\\s*=\\s*'${DECLARATION.key.replace(/\./g, '\\.')}'`));
     assert.match(coordinator, /SessionStorageService/);
     assert.equal(DECLARATION.store, 'sessionStorage');
+  });
+
+  test('CONTRACT (Codex P2 on #687): it states where the bytes are — the physical key names the logical one, and an encoding', () => {
+    assert.equal(DECLARATION.physicalKey, `[dinify]${DECLARATION.key}`);
+    assert.equal(DECLARATION.encoding, 'json-value-envelope');
+  });
+
+  test('REGRESSION (Codex P2 on #687): the tripwire covers the storage layer that writes the physical bytes, not only the reader', () => {
+    // A changed envelope or key format in StorageService moved every stored record while
+    // the tripwire over the coordinator stayed silent (reproduced on ce6b892). The root
+    // PREFIX lives in AppModule and is deliberately NOT pinned here — a digest of the root
+    // module would fire on every unrelated edit to it; the Karma contract spec reads the
+    // real AppModule prefix instead, and fails on exactly that change.
+    for (const path of [
+      'src/app/_services/storage/storage.service.ts',
+      'src/app/_services/storage/session-storage.service.ts',
+      'src/app/_services/storage/storage.module.ts',
+    ]) assert.ok(Object.hasOwn(DECLARATION.reviewedSources, path), `${path} is not in the tripwire`);
   });
 
   test('CONTRACT: it writes the version the code writes', () => {
@@ -74,6 +92,7 @@ describe('the committed declaration', () => {
   test('CONTRACT: the manifest projection carries the declaration digest, notes excluded', () => {
     const projection = manifestStorage(DECLARATION);
     assert.equal(projection.declarationDigest, declarationDigest(DECLARATION));
+    assert.deepEqual(LOCATION_FIELDS.map((f) => projection[f]), LOCATION_FIELDS.map((f) => DECLARATION[f]), 'the location travels with the release');
     assert.equal(declarationDigest(DECLARATION), declarationDigest({ ...DECLARATION, _note: ['a different note'] }));
     assert.notEqual(declarationDigest(DECLARATION), declarationDigest({ ...DECLARATION, reads: [pair(2)] }));
   });
@@ -93,6 +112,22 @@ describe('the tripwire through the real stamp', () => {
     await assert.rejects(
       buildCandidate({ repo: fixture.dir, commit: changed, runId: 4300, startedAt: '2026-09-22T11:30:00Z' }),
       /storage declaration not re-affirmed: src\/app\/_services\/checkout-coordinator\.service\.ts: changed/,
+    );
+  });
+
+  test('REGRESSION (Codex P2 on #687): a storage-layer serialization change nobody re-affirmed is refused at stamp', async () => {
+    const fixture = fixtureFrontend();
+    const path = 'src/app/_services/storage/storage.service.ts';
+    writeText(fixture.dir, path, readFileSync(join(ROOT, path), 'utf8')
+      .replace('JSON.stringify({ value })', 'JSON.stringify({ v: value })')
+      .replace('return JSON.parse(data).value;', 'return JSON.parse(data).v;'));
+    const changed = commitAll(fixture.dir, 'change the envelope, writer and reader together');
+    const stale = await cli(['storage-reviewed'], { root: fixture.dir });
+    assert.equal(stale.status, 1);
+    assert.deepEqual(JSON.parse(stale.stdout).stale, [`${path}: changed`]);
+    await assert.rejects(
+      buildCandidate({ repo: fixture.dir, commit: changed, runId: 4303, startedAt: '2026-09-22T11:30:00Z' }),
+      /storage declaration not re-affirmed: src\/app\/_services\/storage\/storage\.service\.ts: changed/,
     );
   });
 
@@ -127,6 +162,9 @@ describe('declaration shape', () => {
   test('CONTRACT: a wrong schema', () => rejected((d) => { d.schema = 'x/1'; }, 'storage.declaration_wrong_schema'));
   test('CONTRACT: no store', () => rejected((d) => { delete d.store; }, 'storage.declaration_no_store'));
   test('CONTRACT: no key', () => rejected((d) => { d.key = ''; }, 'storage.declaration_no_key'));
+  test('CONTRACT: no physical key', () => rejected((d) => { delete d.physicalKey; }, 'storage.declaration_no_physical_key'));
+  test('CONTRACT: a physical key that does not name the logical one', () => rejected((d) => { d.physicalKey = '[dinify]other.key'; }, 'storage.declaration_physical_key_mismatch'));
+  test('CONTRACT: no encoding', () => rejected((d) => { d.encoding = ''; }, 'storage.declaration_no_encoding'));
   test('CONTRACT: a zero version', () => rejected((d) => { d.writes = pair(0); }, 'storage.declaration_bad_writes'));
   test('CONTRACT: a non-integer semantics', () => rejected((d) => { d.reads = [{ version: 2, semantics: '1' }]; }, 'storage.declaration_bad_reads'));
   test('CONTRACT: no reads', () => rejected((d) => { d.reads = []; }, 'storage.declaration_bad_reads'));
@@ -167,6 +205,7 @@ describe('the rule — set containment, never numeric', () => {
 
 describe('every promoting path, through the decision (R2)', () => {
   const narrowed = storageProjection({ writes: pair(2), reads: [pair(2)] });
+  const STORAGE_BASELINE = storageProjection();
   const refusedFor = (mutate) => {
     const input = baseline();
     mutate(input);
@@ -195,6 +234,25 @@ describe('every promoting path, through the decision (R2)', () => {
       i.policy.bootstrap = { authorized: true, servedBaseline: { commit: 'b'.repeat(40) } };
       i.baseline = { state: 'known', commit: 'b'.repeat(40), storage: storageProjection({ writes: pair(3), reads: [pair(2), pair(3)] }) };
     }).includes('storage.incompatible'));
+  });
+
+  for (const [label, change] of [
+    ['a changed root prefix — the same logical key under another physical one', { physicalKey: `[dinify-app]${DECLARATION.key}` }],
+    ['a changed envelope — the same bytes location, read another way', { encoding: 'json-raw' }],
+    ['a changed store', { store: 'localStorage' }],
+  ]) {
+    test(`REGRESSION (Codex P2 on #687): ${label}, with every pair unchanged, is refused`, () => {
+      const moved = storageProjection(change);
+      assert.deepEqual(unreadableByCandidate({ candidate: moved, baseline: STORAGE_BASELINE }), [], 'the PAIRS agree — the pair rule alone would admit it');
+      const refusals = refusedFor((i) => withCandidateStorage(i, moved));
+      assert.ok(refusals.includes('storage.incompatible'), JSON.stringify(refusals));
+    });
+  }
+
+  test('CONTRACT: a side that does not state its location cannot be shown to be the same one', () => {
+    const { physicalKey, ...unstated } = storageProjection();
+    assert.deepEqual(locationChanges({ candidate: unstated, baseline: storageProjection() }), ['physicalKey']);
+    assert.deepEqual(locationChanges({ candidate: storageProjection(), baseline: storageProjection() }), []);
   });
 
   test('CONTROL: a same-SHA re-certification is evaluated against what is served, and passes when the pairs agree', () => {

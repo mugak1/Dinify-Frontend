@@ -57,8 +57,11 @@ export const CONSTANTS = Object.freeze({
 });
 
 /** A storage projection with the given pairs, carrying a digest over its own content. */
-export function storageProjection({ writes = STORAGE.writes, reads = STORAGE.reads, key = STORAGE.key, store = STORAGE.store } = {}) {
-  const body = { store, key, writes, reads };
+export function storageProjection({
+  writes = STORAGE.writes, reads = STORAGE.reads, key = STORAGE.key, store = STORAGE.store,
+  physicalKey = STORAGE.physicalKey, encoding = STORAGE.encoding,
+} = {}) {
+  const body = { store, key, physicalKey, encoding, writes, reads };
   return { ...clone(body), declarationDigest: digestOfValue(body) };
 }
 

@@ -131,8 +131,8 @@ export function validateManifest(manifest) {
     if (!comparable(storage)) {
       fail(problems, 'manifest.bad_storage', JSON.stringify(storage));
     } else {
-      if (typeof storage.store !== 'string' || typeof storage.key !== 'string') {
-        fail(problems, 'manifest.bad_storage', 'store/key');
+      for (const field of ['store', 'key', 'physicalKey', 'encoding']) {
+        if (typeof storage[field] !== 'string' || storage[field].length === 0) fail(problems, 'manifest.bad_storage', field);
       }
       if (!DIGEST_RE.test(storage.declarationDigest ?? '')) {
         fail(problems, 'manifest.bad_storage_declaration_digest', String(storage.declarationDigest));

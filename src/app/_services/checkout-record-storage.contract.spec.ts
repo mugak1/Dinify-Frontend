@@ -2,13 +2,11 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 
 import declaration from './checkout-record.storage.json';
+import { AppModule } from '../app.module';
 import { ApiService } from './api.service';
 import {
   CHECKOUT_RECORD_VERSION, CheckoutCoordinatorService, PURCHASE_CANON,
 } from './checkout-coordinator.service';
-import { SessionStorageService } from './storage/session-storage.service';
-import { STORAGE_KEY_PREFIX } from './storage/storage-key-prefix.token';
-import { WINDOW } from './storage/window.token';
 
 /**
  * D08 B1 (R2) — THE STORAGE DECLARATION IS THE CODE'S BEHAVIOUR, NOT A CLAIM BESIDE IT.
@@ -17,9 +15,8 @@ import { WINDOW } from './storage/window.token';
  * WRITES and can READ, and the release gate refuses to promote a build that cannot
  * read every pair the served build writes or reads. That rule is only as good as the
  * declaration, and a declaration is a sentence somebody wrote. This spec is what makes
- * it a checked sentence: it drives the REAL coordinator, through the REAL session
- * storage service, with a stored record of EVERY declared read pair, and asserts the
- * one property the whole barrier exists for —
+ * it a checked sentence: it drives the REAL coordinator with a stored record of EVERY
+ * declared read pair, and asserts the one property the whole barrier exists for —
  *
  *   an OUTSTANDING ISSUED COMMAND survives, UNDER THE SAME KEY.
  *
@@ -30,10 +27,36 @@ import { WINDOW } from './storage/window.token';
  * A DECLARED PAIR WITH NO FIXTURE FAILS. Adding `{version: 2, semantics: 2}` to
  * `reads` without adding the record it describes here is refused, so the declaration
  * cannot claim to read a shape nothing has ever proved it reads.
+ *
+ * THE FIXTURES ARE BYTES, NOT OBJECTS (Codex P2 on #687, reproduced). What an older
+ * release left in a diner's browser is a STRING, under a PHYSICAL key, in the encoding
+ * the storage service wrote it in. This spec used to seed its fixtures through the
+ * current `SessionStorageService.setItem`, under a prefix of its own — so the writer
+ * and the reader changed together, and a changed root prefix, key format or envelope
+ * passed it (and the tripwire) while every stored record became invisible; measured,
+ * the reader then answered `none` and minted a FRESH key for the same purchase while
+ * the served build's command was still outstanding. Now the record is seeded as RAW
+ * bytes, encoded by THIS spec's own statement of the declared encoding, at the
+ * declared physical key — and the coordinator is built from the application's REAL
+ * root configuration (`AppModule`), so the prefix it reads under is the one the app
+ * actually uses.
  */
+
+/**
+ * The declared encodings, stated HERE rather than borrowed from the service under test.
+ * `json-value-envelope` is what `StorageService.setItem` writes: `JSON.stringify({value})`.
+ * A declared encoding with no entry is refused below — the declaration may not name a
+ * byte format nothing has proved this build reads.
+ */
+const ENCODINGS: Record<string, { encode: (record: unknown) => string; decode: (raw: string) => unknown }> = {
+  'json-value-envelope': {
+    encode: (record) => JSON.stringify({ value: record }),
+    decode: (raw) => (JSON.parse(raw) as { value: unknown }).value,
+  },
+};
+
 describe('checkout record storage — the declared compatibility is the behaviour (D08 R2)', () => {
   let service: CheckoutCoordinatorService;
-  let storage: SessionStorageService;
 
   const BASKET = JSON.stringify(['{"i":"i1","m":[],"e":[]}x2']);
   const OTHER_BASKET = JSON.stringify(['{"i":"i9","m":[],"e":[]}x1']);
@@ -41,6 +64,10 @@ describe('checkout record storage — the declared compatibility is the behaviou
 
   type Pair = { version: number; semantics: number };
   const pairKey = (p: Pair) => `${p.version}.${p.semantics}`;
+  const encoding = () => ENCODINGS[declaration.encoding];
+  /** Put bytes where an older release would have left them — never through the service. */
+  const seedRaw = (record: unknown) => window.sessionStorage.setItem(declaration.physicalKey, encoding().encode(record));
+  const raw = () => window.sessionStorage.getItem(declaration.physicalKey);
 
   /**
    * One stored record per declared read pair, each carrying an ISSUED command — the
@@ -74,19 +101,17 @@ describe('checkout record storage — the declared compatibility is the behaviou
   beforeEach(() => {
     const api = jasmine.createSpyObj<ApiService>('ApiService', ['get', 'postPatch']);
     api.get.and.returnValue(of({ data: {} }) as never);
+    // THE APPLICATION'S ROOT CONFIGURATION, not a prefix of this spec's choosing: the
+    // storage prefix a served build wrote under is the one AppModule provides.
     TestBed.configureTestingModule({
-      providers: [
-        { provide: WINDOW, useValue: window },
-        { provide: STORAGE_KEY_PREFIX, useValue: 'storage-contract-spec' },
-        { provide: ApiService, useValue: api },
-      ],
+      imports: [AppModule],
+      providers: [{ provide: ApiService, useValue: api }],
     });
     service = TestBed.inject(CheckoutCoordinatorService);
-    storage = TestBed.inject(SessionStorageService);
-    storage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY);
+    window.sessionStorage.removeItem(declaration.physicalKey);
   });
 
-  afterEach(() => storage.removeItem(CheckoutCoordinatorService.ATTEMPT_KEY));
+  afterEach(() => window.sessionStorage.removeItem(declaration.physicalKey));
 
   it('names the key and the store the coordinator actually uses', () => {
     expect(declaration.key).toBe(CheckoutCoordinatorService.ATTEMPT_KEY);
@@ -95,6 +120,22 @@ describe('checkout record storage — the declared compatibility is the behaviou
 
   it('declares exactly the version this build writes', () => {
     expect(declaration.writes.version).toBe(CHECKOUT_RECORD_VERSION);
+  });
+
+  it('CONTRACT: the declared encoding is one this spec states — a byte format nothing proves is refused', () => {
+    expect(encoding()).withContext(`declared encoding ${declaration.encoding} has no statement in this spec`).toBeDefined();
+  });
+
+  it('REGRESSION (Codex P2 on #687): a fresh checkout leaves its bytes at the declared PHYSICAL key, in the declared encoding', () => {
+    // Through the REAL root configuration: a changed AppModule prefix, a changed key
+    // format or a changed envelope each fail here, where they used to pass unseen.
+    const reservation = service.reserveIntent({ identity: BASKET, canon: PURCHASE_CANON }, CONTEXT);
+    expect(reservation.kind).toBe('ready');
+    const bytes = raw();
+    expect(bytes).withContext(`nothing was written at ${declaration.physicalKey}`).not.toBeNull();
+    const record = encoding().decode(bytes as string) as Record<string, unknown>;
+    expect(record['v']).toBe(declaration.writes.version);
+    expect(encoding().encode(record)).withContext('the stored string is exactly the declared encoding of the record').toBe(bytes as string);
   });
 
   it('every declared read pair has a recovery fixture — a pair nothing proves is refused', () => {
@@ -109,8 +150,8 @@ describe('checkout record storage — the declared compatibility is the behaviou
     const fixture = FIXTURES[pairKey(pair)];
     if (!fixture) continue;
 
-    it(`CONTRACT: a stored ${pairKey(pair)} record is read with its issued command under the SAME key`, () => {
-      storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, fixture.stored);
+    it(`CONTRACT: the raw bytes of a stored ${pairKey(pair)} record are read with its issued command under the SAME key`, () => {
+      seedRaw(fixture.stored);
       const stored = service.read();
       expect(stored.kind).toBe('record');
       if (stored.kind !== 'record') return;
@@ -119,7 +160,7 @@ describe('checkout record storage — the declared compatibility is the behaviou
     });
 
     it(`CONTRACT: a changed basket cannot replace a stored ${pairKey(pair)} command — same-key recovery survives`, () => {
-      storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, fixture.stored);
+      seedRaw(fixture.stored);
       const reservation = service.reserveIntent({ identity: OTHER_BASKET, canon: PURCHASE_CANON }, CONTEXT);
       expect(reservation.kind).toBe('outstanding');
       const after = service.read();
@@ -127,20 +168,21 @@ describe('checkout record storage — the declared compatibility is the behaviou
     });
   }
 
-  it('CONTROL: an UNDECLARED record version is unsupported and blocks — it is never replaced', () => {
+  it('CONTROL: an UNDECLARED record version is unsupported and blocks — its bytes are never replaced', () => {
     const highest = Math.max(...(declaration.reads as Pair[]).map((p) => p.version));
     const future = { v: highest + 1, key: 'k-future', stage: 'accepting' };
-    storage.setItem(CheckoutCoordinatorService.ATTEMPT_KEY, future);
+    seedRaw(future);
+    const before = raw();
     expect(service.read().kind).toBe('unsupported');
     expect(service.reserveIntent({ identity: BASKET, canon: PURCHASE_CANON }, CONTEXT).kind).toBe('blocked');
-    expect(storage.getItem(CheckoutCoordinatorService.ATTEMPT_KEY)).toEqual(future);
+    expect(raw()).toBe(before);
   });
 
   it('CONTRACT: what a fresh checkout writes is the declared `writes` pair', () => {
     const reservation = service.reserveIntent({ identity: BASKET, canon: PURCHASE_CANON }, CONTEXT);
     expect(reservation.kind).toBe('ready');
-    const raw = storage.getItem(CheckoutCoordinatorService.ATTEMPT_KEY) as Record<string, unknown>;
-    expect(raw['v']).toBe(declaration.writes.version);
+    const record = encoding().decode(raw() as string) as Record<string, unknown>;
+    expect(record['v']).toBe(declaration.writes.version);
     const pairs = (declaration.reads as Pair[]).map(pairKey);
     expect(pairs).toContain(pairKey(declaration.writes as Pair));
   });

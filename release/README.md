@@ -215,19 +215,38 @@ digest — read from the backend's export at that revision — and refused on mi
 A promotion can strand a diner's checkout if the incoming bundle cannot read the record
 the served bundle wrote. The rule is `lib/storage.mjs` over a **reviewed declaration**,
 `src/app/_services/checkout-record.storage.json`: the exact `(version, semantics)`
-pairs a build writes and reads under its key. The gate requires
+pairs a build writes and reads, and **where the bytes are** — the store, the logical
+key, the physical key the storage layer actually writes (`[dinify]diner.checkout.attempt`,
+the root prefix included) and the byte encoding (`json-value-envelope`, i.e.
+`JSON.stringify({value})`). The gate requires
 
 ```
-served.reads ∪ {served.writes}  ⊆  candidate.reads      (and the same store and key)
+served.reads ∪ {served.writes}  ⊆  candidate.reads
+and  store, key, physicalKey, encoding  equal on both sides
 ```
 
 as **set containment, never a numeric comparison**, on every path that promotes —
 deploy, redeploy, rollback and bootstrap. A numerically larger version is not evidence
-that its reader preserves an older issued command. The declaration is kept honest by a
-digest tripwire over the reader's source files (the stamp refuses a candidate whose
-declaration was not re-affirmed after they changed) and by a Karma spec that drives the
-real coordinator with a record of every declared pair and asserts it is recovered under
-the same key with its issued command intact.
+that its reader preserves an older issued command, and the same pairs at a different
+physical key or in a different encoding are not compatible either: the reader finds
+nothing, answers `none`, and mints a fresh key for a purchase whose command is still
+outstanding. The declaration is kept honest two ways:
+
+- a **digest tripwire** over the reader's source files *and the storage layer beneath
+  it* (`storage.service.ts`, `session-storage.service.ts`, `storage.module.ts`): the
+  stamp refuses a candidate whose declaration was not re-affirmed after any of them
+  changed;
+- a **Karma spec** that builds the coordinator from the application's real root
+  configuration (`AppModule`, so the prefix is the one the app uses), seeds each
+  declared pair as **raw bytes** at the declared physical key in the declared encoding
+  — never through the service under test — and asserts it is recovered under the same
+  key with its issued command intact. It also checks that a fresh checkout leaves its
+  bytes exactly there.
+
+`app.module.ts` is deliberately **not** in the tripwire. It changes for many reasons
+unrelated to storage, and pinning it would make every one of them a storage review.
+A change to the root prefix there is caught by the spec instead, and that was measured:
+with the prefix changed, the tripwire passes and the spec fails 7 of 11.
 
 ### Eligibility is separate from ancestry
 
@@ -346,7 +365,7 @@ desirable. `release/cli.mjs stamp` asserts the approved origin is present in the
 
 ## Tests, and what each kind proves
 
-`npm run test:release` runs the CLI self-test, then 465 tests in about 25 seconds
+`npm run test:release` runs the CLI self-test, then 477 tests in about 25 seconds
 (Node 24, four cores; most of it is the workflow simulation). Each is labelled
 **REGRESSION** (pins a finding reproduced before its fix: on `3386724` for the
 baseline, on `ce6b892` for what review on #687 found), **CONTRACT** (a rule this
@@ -359,9 +378,9 @@ change introduces) or **CONTROL** (something that must not change).
 | `publisher.test.mjs` | 58 | the admitted record, the critical section, the outcome vocabulary, a `no-store` identity required for `PUBLISHED_VERIFIED` |
 | `hosting.test.mjs` | 43 | destination resolution, the allow-list, the ignore proof, regeneration, the identity's `Cache-Control` before publishing |
 | `hosting-oracle.test.mjs` | 20 | the model against the installed firebase-tools' own functions, and the header model against superstatic's own matcher and middleware |
-| `storage.test.mjs` | 33 | set containment, the declaration, the tripwire |
+| `storage.test.mjs` | 43 | set containment, the declaration, where the bytes are, the tripwire |
 | `peers.test.mjs` | 30 | receipts from real git, public verification, serving over real TLS |
-| `manifest.test.mjs` | 46 | the stamp and the manifest schema |
+| `manifest.test.mjs` | 48 | the stamp and the manifest schema |
 | `contract.test.mjs` | 9 | the D01 digest across languages |
 | `workflow-simulation.test.mjs` | 31 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher |
 | `workflow-drift.test.mjs` | 22 | the three workflow files held to the policy, statically |
@@ -414,9 +433,17 @@ C.a  firebase.json serving /release.json as public, max-age=300
        gate                                                     -> PROCEED
        publisher verification                                   -> PUBLISHED_VERIFIED
        the next redeploy, and the rollback that would undo it   -> refused, served.identity_cacheable
+C.b  the storage layer changed where or how the record is written
+     (JSON envelope, key format, root prefix), declaration untouched
+       storage tripwire                                         -> silent (not in reviewedSources)
+       storage contract spec                                    -> 9/9 pass (it seeded through
+                                                                   the same service it tested)
+       what a diner's reload then does                          -> read() answers none; a fresh
+                                                                   key is minted while the served
+                                                                   build's command is outstanding
 ```
 
-It is now refused, and it is carried by tests labelled
+Both are now refused, and each finding is carried by tests labelled
 `REGRESSION (Codex P2 on #687)`:
 
 - **C.a.** Checked before publishing (`hosting.identity_cacheable` /
@@ -426,6 +453,12 @@ It is now refused, and it is carried by tests labelled
   CONTRACT) whose expected shapes now include the cache facts. The new hosting tests
   import a function the unmodified `lib/` does not have, so they are pinned by mutation
   rather than by that baseline.
+- **C.b.** The declaration names the physical key and the encoding, the gate refuses any
+  change to either, and the tripwire covers the storage layer. The contract spec now
+  seeds raw bytes through the real `AppModule`. Each of the three storage mutations fails
+  it 7 of 11. The tripwire catches the envelope and key-format mutations. The prefix
+  mutation lives in `app.module.ts`, which is deliberately not pinned (see "Storage"
+  above), so only the spec catches it.
 
 ## What is deliberately left for later
 

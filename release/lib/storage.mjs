@@ -30,6 +30,17 @@
  * changed), and a Karma spec that drives the real coordinator with a record of every
  * declared read pair and asserts it is recovered under the SAME key.
  *
+ * AND WHERE THE BYTES ARE IS PART OF WHAT IS COMPATIBLE (Codex P2 on #687, reproduced).
+ * A record a served build left is a STRING in the diner's browser, under a PHYSICAL key
+ * (`[<root prefix>]<logical key>`), in the encoding the storage service wrote it in —
+ * not the record object the pairs describe. Change the prefix, the key format or the
+ * envelope and every stored record becomes invisible while the pairs are unchanged: the
+ * reader sees nothing, and mints a FRESH idempotency key for a purchase whose command is
+ * still outstanding. So the declaration states `physicalKey` and `encoding`, the
+ * tripwire covers the serialization layer, the Karma spec seeds RAW bytes at that key
+ * through the application's real root configuration, and the gate refuses a candidate
+ * whose physical location differs from the served build's.
+ *
  * Pure: no clock, no filesystem, no network.
  */
 
@@ -80,6 +91,14 @@ export function validateStorageDeclaration(declaration) {
   if (d.schema !== STORAGE_SCHEMA) problem(problems, 'storage.declaration_wrong_schema', String(d.schema));
   if (typeof d.store !== 'string' || d.store.length === 0) problem(problems, 'storage.declaration_no_store', String(d.store));
   if (typeof d.key !== 'string' || d.key.length === 0) problem(problems, 'storage.declaration_no_key', String(d.key));
+  if (typeof d.physicalKey !== 'string' || d.physicalKey.length === 0) {
+    problem(problems, 'storage.declaration_no_physical_key', String(d.physicalKey));
+  } else if (typeof d.key === 'string' && d.key.length > 0 && !d.physicalKey.includes(d.key)) {
+    // The physical key is the logical one under the storage layer's prefix; one that
+    // does not even name it means the two fields were edited apart.
+    problem(problems, 'storage.declaration_physical_key_mismatch', `${d.physicalKey} does not name ${d.key}`);
+  }
+  if (typeof d.encoding !== 'string' || d.encoding.length === 0) problem(problems, 'storage.declaration_no_encoding', String(d.encoding));
   if (!isPair(d.writes)) problem(problems, 'storage.declaration_bad_writes', JSON.stringify(d.writes));
   if (!Array.isArray(d.reads) || d.reads.length === 0 || !d.reads.every(isPair)) {
     problem(problems, 'storage.declaration_bad_reads', JSON.stringify(d.reads));
@@ -132,6 +151,20 @@ export function unreadableByCandidate({ candidate, baseline }) {
   return [...required.keys()].filter((key) => !readable.has(key)).sort();
 }
 
+/** Where a side keeps its record: the fields that must agree for a candidate to find the served build's bytes. */
+export const LOCATION_FIELDS = Object.freeze(['store', 'key', 'physicalKey', 'encoding']);
+
+/**
+ * The location fields on which `candidate` and `baseline` differ. A field one side does
+ * not state at all counts as a difference: an unstated location cannot be shown to be
+ * the same one.
+ */
+export function locationChanges({ candidate, baseline }) {
+  return LOCATION_FIELDS.filter((field) => typeof candidate?.[field] !== 'string'
+    || typeof baseline?.[field] !== 'string'
+    || candidate[field] !== baseline[field]);
+}
+
 /** True when both sides carry something this rule can read at all. */
 export function comparable(side) {
   return isObject(side) && isPair(side.writes) && Array.isArray(side.reads) && side.reads.length > 0 && side.reads.every(isPair);
@@ -142,6 +175,8 @@ export function manifestStorage(declaration) {
   return {
     store: declaration.store,
     key: declaration.key,
+    physicalKey: declaration.physicalKey,
+    encoding: declaration.encoding,
     writes: { version: declaration.writes.version, semantics: declaration.writes.semantics },
     reads: declaration.reads.map((p) => ({ version: p.version, semantics: p.semantics })),
     declarationDigest: declarationDigest(declaration),
