@@ -3024,12 +3024,17 @@ so keep it current when conventions change.
   observed serving at `release.txt`; the PRIVATE backend's receipt is an OPERATOR
   receipt reviewed as a file — no backend credential reaches anything that runs
   repository code, no public endpoint was added — and its serving is refused by name,
-  `peers.backend_serving_unverified`, until B3 publishes an identity. **The committed
-  backend receipt (`9448f55`) predates the export, so the gate refuses
-  `peers.capabilities_unpublished` until a follow-up approves a receipt for a backend
-  commit carrying it** — the ordered, manual coordination, stated rather than claimed
-  away. Every Admin promotion likewise refuses `peers.admin_serving_unapproved` until
-  its receipt is approved.
+  `peers.backend_serving_unverified`, until B3 publishes an identity. **The first
+  committed backend receipt (`9448f55`) predated the export, so the gate refused
+  `peers.capabilities_unpublished` until the 2026-09-23 follow-up approved the receipt
+  for `366b7e4` (the #331 merge, digest `sha256:ee8d855f…`)** — produced by the
+  existing producer from the backend clone at that exact commit and re-derived
+  independently. It REPLACED `9448f55` in the approved set rather than joining it:
+  every approved backend is checked, so an export-less one left beside it would keep
+  the refusal for ever. The old receipt stays under `release/peers/` as history and is
+  selected deliberately as a negative control. Approving it is a statement about
+  SOURCE, and `peers.backend_serving_unverified` stands. Every Admin promotion likewise
+  refuses `peers.admin_serving_unapproved` until its receipt is approved.
   **R2 — STORAGE IS A DECLARATION, CHECKED ON EVERY PROMOTING PATH.** A descendant
   deploy lowering the served record's version or semantics PROCEEDED, because the old
   barrier ran on explicit rollbacks only and compared numbers. Now
@@ -3079,7 +3084,8 @@ so keep it current when conventions change.
   warns, and above 4 MB initial or 8 kB per component style the LIVE deploy now fails,
   where before it had no budget. This change builds the same digest. Publication stays
   disabled; every outstanding owner action is a NAMED REFUSAL
-  (`committed-policy.test.mjs` pins the exact set of seven), and **setting
+  (`committed-policy.test.mjs` pins the exact set — seven at #687's merge, six since
+  the backend receipt follow-up), and **setting
   `FRONTEND_PUBLISH_ENABLED` while `deploy-prod.yml` exists is not a cutover** — two
   independent writers. The cutover is one reviewed change deleting it (README →
   "The cutover"). The Publish gate is RED on every merge until then, by design, and its

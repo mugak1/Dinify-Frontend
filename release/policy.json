@@ -171,7 +171,7 @@
       "The frontend's own commit is deliberately not pinned: a file cannot contain the",
       "SHA of the commit that introduces it."
     ],
-    "id": "2026-09-22-pilot-2",
+    "id": "2026-09-23-pilot-3",
     "frontendRequires": {
       "buildConfiguration": "uat"
     },
@@ -180,11 +180,12 @@
         "repository": "mugak1/Dinify-Backend",
         "receiptVerification": "operator",
         "_receiptVerification": "The backend repository is private, so its receipt cannot be re-derived from a public API at decision time. It is produced by an operator from the backend's git and reviewed as a file; its digest is what is approved.",
+        "_approvedHistory": "9448f55 (the #330 merge) was the first approved backend revision. It predates orders_app/contracts/published_capabilities.contract.json, so it is REPLACED here rather than kept beside the new entry: every approved backend is checked for compatibility, and an export-less revision left in this list would refuse peers.capabilities_unpublished for ever. Its receipt stays under release/peers/ as history; it is no longer approved.",
         "approved": [
           {
-            "commit": "9448f55ed28c040b96bf747e27c9dd2c86884c5a",
-            "receipt": "release/peers/backend-9448f55ed28c040b96bf747e27c9dd2c86884c5a.json",
-            "receiptDigest": "sha256:28bc20c96db80f44a90b6a1134c81e352298886248d579a1e835b2f782dc5916"
+            "commit": "366b7e457cfffa700663fc10983b0420e8882313",
+            "receipt": "release/peers/backend-366b7e457cfffa700663fc10983b0420e8882313.json",
+            "receiptDigest": "sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63"
           }
         ],
         "serving": {

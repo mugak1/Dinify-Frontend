@@ -183,7 +183,7 @@ where a peer publishes one, and refused by name where it does not.
 
 | peer | selection | serving |
 |---|---|---|
-| backend (`9448f55`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
+| backend (`366b7e4`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
 | admin (`38df037`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
@@ -194,9 +194,15 @@ one-sided change unreleasable — the other side's own deploy can still ship it 
 order is: merge the peer, produce a receipt from its git at the merged commit, approve
 that receipt here in a reviewed pull request. Two consequences of the committed state:
 
-- the approved backend revision predates the capability export, so the gate refuses
-  `peers.capabilities_unpublished` until a receipt for a backend commit carrying
-  `orders_app/contracts/published_capabilities.contract.json` is approved;
+- the approved backend revision is `366b7e4` (the #331 merge), the first carrying
+  `orders_app/contracts/published_capabilities.contract.json`. It REPLACED `9448f55`
+  (the #330 merge) rather than joining it, because every approved backend is checked for
+  compatibility and an export-less revision left in the list would refuse
+  `peers.capabilities_unpublished` for ever. `9448f55`'s receipt stays under `peers/` as
+  history and is no longer approved; the committed-policy suite selects it deliberately
+  as a negative control. **Approving a receipt is a statement about SOURCE**, and
+  `peers.backend_serving_unverified` stands until B3 — a deployment log is not a
+  served-revision identity;
 - **every Admin promotion makes this path refuse** `peers.admin_serving_unapproved`
   until a receipt for the new Admin commit is approved. That is the ordered
   coordination made visible, and it is deliberate.
@@ -323,9 +329,12 @@ by running the real `decide` against the committed file:
 | `prerequisite.retention_unverified` | establishing what Firebase Hosting retains for this site — the owner's fallback — in `prerequisites.retention` |
 | `prerequisite.legacy_publisher_active` | the cutover change setting `prerequisites.singlePublisher` |
 | `prerequisite.legacy_publisher_present` | the same change **deleting** `deploy-prod.yml` — this one is observed from the checkout, so the policy cannot claim it |
-| `peers.capabilities_unpublished` | approving a receipt for a backend commit carrying the capability export |
 | `peers.backend_serving_unverified` | B3: the backend publishing a served-revision identity |
 | `served.bootstrap_unauthorized` | an explicit, reviewed `bootstrap.authorized: true` with `servedBaseline` naming the live commit. That commit must carry a valid storage declaration, one that states where its bytes are (physical key and encoding) — i.e. be at or after the merge that introduced them. The live path publishes every merge, so by the time a bootstrap is authorized the live commit will be |
+
+`peers.capabilities_unpublished` was the seventh until the 2026-09-23 follow-up approved
+the receipt for backend `366b7e4`; it reappears — and is not an expected wait — if an
+export-less backend is ever approved again.
 
 `peers.backend_serving_unverified` has no owner action available today: it needs B3.
 Until then this path cannot publish, and says so, rather than accepting an operator's
@@ -479,6 +488,30 @@ node release/cli.mjs peer-receipt --peer admin --repository mugak1/Dinify-Admin 
      --commit <sha> --repo-dir <clone>           # prints the receipt and its digest
 node release/cli.mjs storage-reviewed            # checks the storage tripwire; --write re-affirms
 ```
+
+### Approving a backend receipt
+
+The backend is private, so its receipt is an OPERATOR receipt: produced by the existing
+producer from an authenticated local clone at the exact merged commit, never typed and
+never fetched by anything that runs repository code.
+
+```bash
+node release/cli.mjs peer-receipt --peer backend --repository mugak1/Dinify-Backend \
+     --commit <full merged sha> --repo-dir <backend clone> --write
+```
+
+Then re-derive it independently (a second clone, a second implementation) and compare
+digests before pinning `receiptDigest` in `policy.json`. Replace the approved entry
+rather than adding beside it unless both revisions are genuinely live candidates —
+every approved backend is checked for compatibility.
+
+The receipt approved on 2026-09-23 for `366b7e457cfffa700663fc10983b0420e8882313`
+(the #331 merge): digest `sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63`,
+tree `f129fe74…`, D01 export blob `1cb6a6db…` (unchanged from `9448f55`, digest
+`sha256:1441d038…`), capability export blob `cc916050…` publishing
+`checkout_protocol 3, quote_protocol 2, kitchen_protocol 1, quote_policy_version 1`.
+The same digest was re-derived by a Python implementation over a fresh clone from
+origin, and the four levels match the backend's source constants at that commit.
 
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The

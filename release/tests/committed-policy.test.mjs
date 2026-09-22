@@ -35,14 +35,21 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
+import { decide } from '../lib/decide.mjs';
 import { effectiveHosting } from '../lib/hosting.mjs';
 import { receiptDigest } from '../lib/peers.mjs';
-import { digestOfValue } from '../lib/canonical.mjs';
+import { contractDigest, digestOfValue } from '../lib/canonical.mjs';
 import { POLICY, baseline, clone } from './fixtures.mjs';
 import { ROOT, cli, startOrigin, tempDir } from './harness.mjs';
 
 const ADMIN = POLICY.compatibleSet.peers.admin.approved[0].commit;
 const BACKEND = POLICY.compatibleSet.peers.backend.approved[0].commit;
+
+// The backend revision this policy approved BEFORE the capability export existed
+// (the #330 merge). Its receipt is retained under release/peers/ as history and is
+// no longer approved; the negative controls below select it deliberately.
+const HISTORICAL_BACKEND = '9448f55ed28c040b96bf747e27c9dd2c86884c5a';
+const HISTORICAL_RECEIPT_PATH = `release/peers/backend-${HISTORICAL_BACKEND}.json`;
 
 /** Receipts exactly as `peer-facts` assembles them from the committed files. */
 function committedReceipts() {
@@ -83,10 +90,9 @@ before(async () => {
 
 after(async () => { await origin?.close(); });
 
-async function decideCommitted({ served = derivedServed, peers = recordedPeers() } = {}) {
-  const input = baseline();
-  const dir = tempDir('committed-decide');
-  const facts = {
+/** The facts `git-facts` would report for the committed policy over the fixture candidate. */
+function committedFacts(input) {
+  return {
     source: input.source,
     hosting: effectiveHosting({
       firebaseJson: JSON.parse(readFileSync(join(ROOT, 'firebase.json'), 'utf8')),
@@ -101,6 +107,12 @@ async function decideCommitted({ served = derivedServed, peers = recordedPeers()
     trusted: { legacyPublisherPresent: existsSync(join(ROOT, POLICY.prerequisites.singlePublisher.legacyWorkflow)) },
     policy: { revision: 'f'.repeat(40), digest: digestOfValue(POLICY), verifierTree: 'e'.repeat(40) },
   };
+}
+
+async function decideCommitted({ served = derivedServed, peers = recordedPeers() } = {}) {
+  const input = baseline();
+  const dir = tempDir('committed-decide');
+  const facts = committedFacts(input);
   const files = {
     request: input.request, certification: input.certification, observation: input.artifact,
     facts, served, peers,
@@ -126,6 +138,39 @@ const PREREQUISITES = [
   'prerequisite.source_protection_unrecorded',
 ];
 
+/**
+ * The PURE decision over exactly the inputs `decideCommitted` hands the CLI, with the
+ * policy as an argument — so a single fact (which backend receipt is approved) can be
+ * varied while every other fact is held fixed. The CLI cannot do that by design: it
+ * reads only the committed file. The first comparison test proves this function and
+ * the CLI agree on the committed policy, so the comparison is not against a different
+ * rule.
+ */
+function decidePure({ policy = POLICY, peers = recordedPeers(), served = derivedServed } = {}) {
+  const input = baseline();
+  const facts = committedFacts(input);
+  return decide({
+    policy, request: input.request, certification: input.certification, artifact: input.artifact,
+    source: facts.source, hosting: facts.hosting, served, baseline: facts.baseline,
+    eligibility: facts.eligibility, peers, trusted: facts.trusted, now: input.now,
+  });
+}
+
+/** The committed policy and peer facts with ONE change: the approved backend is the
+ *  retained historical receipt, read from its committed file. */
+function withHistoricalBackend() {
+  const receipt = JSON.parse(readFileSync(join(ROOT, HISTORICAL_RECEIPT_PATH), 'utf8'));
+  const policy = clone(POLICY);
+  policy.compatibleSet.peers.backend.approved = [
+    { commit: HISTORICAL_BACKEND, receipt: HISTORICAL_RECEIPT_PATH, receiptDigest: receiptDigest(receipt) },
+  ];
+  const peers = recordedPeers();
+  peers.receipts.backend = [
+    { commit: HISTORICAL_BACKEND, path: HISTORICAL_RECEIPT_PATH, present: true, readable: true, receipt, digest: receiptDigest(receipt) },
+  ];
+  return { policy, peers, receipt };
+}
+
 describe('the committed release/policy.json, run through the real decide command', () => {
   test('CONTRACT: the derived served state is what the committed rewrite produces — the SPA document, read as absent', () => {
     assert.equal(derivedServed.state, 'absent');
@@ -138,16 +183,16 @@ describe('the committed release/policy.json, run through the real decide command
     assert.equal(decision.decision, 'REFUSE');
     assert.deepEqual(hostingProblems, [], 'the committed hosting pair raises nothing against a real file list');
     assert.deepEqual(codesOf(decision), [
+      // SELECTION IS NOT SERVING. The approved backend (366b7e4, the #331 merge) now
+      // publishes its capability export, so peers.capabilities_unpublished is gone —
+      // but which backend revision is LIVE is still unobservable until B3, and a
+      // successful deployment log is not accepted in place of a serving identity.
       'peers.backend_serving_unverified',
-      // The approved backend revision predates the capability export. The follow-up is
-      // an ordered, manual one: approve a receipt for a backend commit carrying
-      // orders_app/contracts/published_capabilities.contract.json.
-      'peers.capabilities_unpublished',
       ...PREREQUISITES,
       'served.bootstrap_unauthorized',
     ].sort());
     const detail = (code) => decision.reasons.find((r) => r.code === code).detail;
-    assert.match(detail('peers.capabilities_unpublished'), new RegExp(BACKEND));
+    assert.match(detail('peers.backend_serving_unverified'), /no served-revision identity \(B3\)/);
     assert.match(detail('prerequisite.legacy_publisher_present'), /deploy-prod\.yml exists on the default branch/);
 
     // The operator reads the summary, not the JSON: the prerequisites are grouped under
@@ -162,7 +207,6 @@ describe('the committed release/policy.json, run through the real decide command
     const { decision } = await decideCommitted({ served: { state: 'unreadable', detail: 'CONNECT refused' } });
     assert.deepEqual(codesOf(decision), [
       'peers.backend_serving_unverified',
-      'peers.capabilities_unpublished',
       ...PREREQUISITES,
       'served.unreadable',
     ].sort());
@@ -172,7 +216,7 @@ describe('the committed release/policy.json, run through the real decide command
     const { decision } = await decideCommitted({ peers: recordedPeers({ adminServes: '0'.repeat(40) }) });
     const reasons = decision.reasons.filter((r) => r.code.startsWith('peers.admin'));
     assert.deepEqual(reasons.map((r) => r.code), ['peers.admin_serving_unapproved']);
-    assert.match(reasons[0].detail, /not in compatible set 2026-09-22-pilot-2/);
+    assert.match(reasons[0].detail, /not in compatible set 2026-09-23-pilot-3/);
   });
 
   test('CONTROL: the committed receipts are the approved ones, byte for byte', () => {
@@ -185,5 +229,83 @@ describe('the committed release/policy.json, run through the real decide command
       }
     }
     assert.equal(clone(POLICY).bootstrap.authorized, false, 'bootstrap stays an owner decision');
+  });
+});
+
+describe('the approved backend receipt (366b7e4, the #331 merge) — what approving it changes, and what it does not', () => {
+  test('CONTRACT: the approved receipt is the source-derived one — export present, D01 unchanged, levels as the backend publishes them', () => {
+    assert.equal(BACKEND, '366b7e457cfffa700663fc10983b0420e8882313');
+    const approved = POLICY.compatibleSet.peers.backend.approved;
+    assert.equal(approved.length, 1, 'the export-less revision is REPLACED, not kept beside it — every approved backend is checked');
+    const receipt = JSON.parse(readFileSync(join(ROOT, approved[0].receipt), 'utf8'));
+    assert.equal(receiptDigest(receipt), 'sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63');
+    assert.equal(receipt.tree, 'f129fe74fa9dc023fc92f23196a6f888b753081f');
+    assert.deepEqual(receipt.unavailable, []);
+    assert.deepEqual(receipt.publishes, { checkout_protocol: 3, quote_protocol: 2, kitchen_protocol: 1, quote_policy_version: 1 });
+    const historical = JSON.parse(readFileSync(join(ROOT, HISTORICAL_RECEIPT_PATH), 'utf8'));
+    assert.deepEqual(receipt.contracts.d01CheckoutLimits, historical.contracts.d01CheckoutLimits, 'the D01 contract did not move between the two revisions');
+    assert.equal(receipt.sources[0].blob, historical.sources[0].blob, 'nor did the D01 export file');
+  });
+
+  test('CONTROL: the pure decision and the real CLI agree on the committed policy, so the comparison below measures the same rule', async () => {
+    const viaCli = await decideCommitted();
+    assert.deepEqual(codesOf(decidePure()), codesOf(viaCli.decision));
+  });
+
+  test('CONTRACT: with every other fact held fixed, the new receipt removes peers.capabilities_unpublished and nothing else', () => {
+    const before = codesOf(decidePure(withHistoricalBackend()));
+    const after = codesOf(decidePure());
+    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.capabilities_unpublished']);
+    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'approving the receipt introduced no new reason');
+    assert.equal(before.length, 7);
+    assert.equal(after.length, 6);
+  });
+
+  test('REGRESSION: the historical revision, deliberately selected, is still refused for its missing export', () => {
+    const { policy, peers, receipt } = withHistoricalBackend();
+    assert.equal(receipt.publishes, null);
+    assert.deepEqual(receipt.unavailable, ['publishedCapabilities']);
+    const decision = decidePure({ policy, peers });
+    const reason = decision.reasons.find((r) => r.code === 'peers.capabilities_unpublished');
+    assert.ok(reason, JSON.stringify(codesOf(decision)));
+    assert.match(reason.detail, new RegExp(HISTORICAL_BACKEND));
+  });
+
+  test('REGRESSION: the approved receipt, edited without re-approval, is refused — a capability level, a D01 value, or its source binding', () => {
+    const edits = {
+      'a capability level': (r) => { r.publishes.checkout_protocol = 4; },
+      'a D01 value, with its digest recomputed to match': (r) => {
+        r.contracts.d01CheckoutLimits.values.MAX_QUANTITY_PER_LINE = 100;
+        r.contracts.d01CheckoutLimits.digest = contractDigest(r.contracts.d01CheckoutLimits.values);
+      },
+      'its source binding (the export file blob)': (r) => { r.sources[1].blob = 'f'.repeat(40); },
+      'the revision it is about': (r) => { r.commit = HISTORICAL_BACKEND; },
+    };
+    for (const [label, edit] of Object.entries(edits)) {
+      const peers = recordedPeers();
+      const receipt = clone(peers.receipts.backend[0].receipt);
+      edit(receipt);
+      peers.receipts.backend[0] = { ...peers.receipts.backend[0], receipt, digest: receiptDigest(receipt) };
+      const codes = codesOf(decidePure({ peers }));
+      assert.ok(codes.some((c) => ['peers.receipt_mismatch', 'peers.receipt_wrong_revision'].includes(c)), `${label}: ${JSON.stringify(codes)}`);
+    }
+    // An edited D01 value WITHOUT its digest recomputed is inconsistent on its own terms.
+    const peers = recordedPeers();
+    const receipt = clone(peers.receipts.backend[0].receipt);
+    receipt.contracts.d01CheckoutLimits.values.MAX_QUANTITY_PER_LINE = 100;
+    peers.receipts.backend[0] = { ...peers.receipts.backend[0], receipt, digest: receiptDigest(receipt) };
+    assert.ok(codesOf(decidePure({ peers })).includes('peers.receipt_inconsistent'));
+  });
+
+  test('CONTROL: approving the receipt changed no owner setting — bootstrap, source protection, retention, legacy publisher, enablement, backend serving', () => {
+    assert.deepEqual(POLICY.bootstrap.authorized, false);
+    assert.equal(POLICY.bootstrap.servedBaseline, null);
+    assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded');
+    assert.equal(POLICY.prerequisites.retention.status, 'unverified');
+    assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
+    assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
+    assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
+    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable');
+    assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
   });
 });
