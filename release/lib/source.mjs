@@ -50,3 +50,58 @@ export function hostingHooks(config) {
   scan(config, '$');
   return found;
 }
+
+/** Firebase accepts `hosting` as one object or an array of them. */
+function hostingEntries(config) {
+  const hosting = config?.hosting;
+  if (Array.isArray(hosting)) return hosting;
+  if (hosting && typeof hosting === 'object') return [hosting];
+  return [];
+}
+
+/** `./dist`, `dist` and `dist/` name the same directory to Firebase. */
+function normalisePublicPath(value) {
+  if (typeof value !== 'string') return null;
+  return value.replace(/^\.\//, '').replace(/\/+$/, '');
+}
+
+/**
+ * Does this Firebase configuration deploy the tree we verified, to the site we
+ * approved?
+ *
+ * THIS IS THE FIELD THAT DECIDES WHAT GETS PUBLISHED, and until it was checked the
+ * gate validated the payload exhaustively and validated almost nothing about the
+ * configuration that says where the payload goes. `hosting.public` names the
+ * directory Firebase uploads; the publish job places the verified artifact at
+ * `dist` beside this file. Change `public` to `.` and Firebase deploys the whole
+ * staging directory instead — a successful deployment of the wrong tree, which the
+ * post-publish identity read would only notice afterwards, with the site already
+ * broken.
+ *
+ * `site` is the weaker of the two: a mismatch there normally fails target
+ * resolution loudly rather than publishing somewhere unintended. It is asserted
+ * anyway, so that is a property of the gate rather than of Firebase's behaviour.
+ */
+export function hostingDestinationProblems(config, { site, publicDirectory }) {
+  const problems = [];
+  const entries = hostingEntries(config);
+  if (entries.length === 0) {
+    problems.push('the hosting configuration declares no hosting block');
+    return problems;
+  }
+  const selected = entries.filter((entry) => entry?.site === site);
+  if (selected.length === 0) {
+    problems.push(`no hosting block declares site ${site}`);
+    return problems;
+  }
+  if (selected.length > 1) {
+    problems.push(`${selected.length} hosting blocks declare site ${site}`);
+    return problems;
+  }
+  const declared = normalisePublicPath(selected[0].public);
+  const expected = normalisePublicPath(publicDirectory);
+  if (declared !== expected) {
+    problems.push(`hosting.public is ${JSON.stringify(selected[0].public)}, expected ${JSON.stringify(publicDirectory)}`);
+  }
+  return problems;
+}

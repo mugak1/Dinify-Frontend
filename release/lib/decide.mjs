@@ -175,6 +175,18 @@ export function decide({ policy, request, certification, artifact, served, now }
       if (manifest.environment?.apiUrl !== policy.build.expectedApiUrl) {
         refuse('artifact.api_url_mismatch', `${String(manifest.environment?.apiUrl)} != ${policy.build.expectedApiUrl}`);
       }
+      // The same triple as the origin above, and checked for the same reason: the
+      // stamper refuses to produce a candidate whose flag disagrees with the policy,
+      // but the policy can move AFTER a candidate is certified and while it is still
+      // inside the freshness window. Comparing one field of a triple and not the
+      // other would leave a diagnostic-mode bundle publishable under a policy that
+      // had since asked for the opposite.
+      if (manifest.environment?.productionFlag !== policy.build.expectedProductionFlag) {
+        refuse(
+          'artifact.production_flag_mismatch',
+          `${String(manifest.environment?.productionFlag)} != ${String(policy.build.expectedProductionFlag)}`,
+        );
+      }
       if (manifest.hosting?.site !== policy.hosting.site || manifest.hosting?.target !== policy.hosting.target) {
         refuse('artifact.destination_mismatch', `${String(manifest.hosting?.site)}/${String(manifest.hosting?.target)}`);
       }
@@ -188,6 +200,15 @@ export function decide({ policy, request, certification, artifact, served, now }
     }
     if (a.hostingConfigMatchesCertified === false) {
       refuse('artifact.hosting_config_uncertified', 'firebase.json does not come from the certified commit');
+    }
+    // WHERE THE PAYLOAD GOES IS PART OF WHAT IS BEING PUBLISHED. `hosting.public`
+    // names the directory Firebase uploads, and the publish job places the verified
+    // artifact at one specific path beside the configuration. A certified commit
+    // that changed that field would deploy a different tree — successfully — and the
+    // post-publish identity read would find out only afterwards, with the site
+    // already serving the wrong thing.
+    for (const problem of a.hostingConfigProblems ?? []) {
+      refuse('artifact.hosting_destination_invalid', String(problem));
     }
   }
 

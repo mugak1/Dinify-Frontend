@@ -10,17 +10,15 @@
     "point: the compatible set below is a thing that exists in the repository rather",
     "than a thing somebody remembers."
   ],
-
   "application": "dinify-frontend",
   "repository": "mugak1/Dinify-Frontend",
   "defaultBranch": "main",
-
   "certification": {
     "_note": [
       "The certifying workflow is resolved by PATH, through the GitHub API, and only",
       "then compared with what the triggering event claimed. `workflow_run.workflows`",
       "can match a workflow's mutable DISPLAY NAME and nothing else, so the name in",
-      "publish.yml is a coarse pre-filter GitHub forces on us — never the proof.",
+      "publish.yml is a coarse pre-filter GitHub forces on us \u2014 never the proof.",
       "",
       "requiredChecks names the jobs inside that workflow whose success IS the",
       "certification. A missing check is refused exactly as a failed one is."
@@ -28,13 +26,14 @@
     "workflowPath": ".github/workflows/certify.yml",
     "event": "push",
     "branch": "main",
-    "requiredChecks": ["certify"]
+    "requiredChecks": [
+      "certify"
+    ]
   },
-
   "freshness": {
     "_note": [
-      "A certification describes a moment. The evidence behind it — above all the",
-      "dependency audit (D13/B2) — does not stay true indefinitely, so a candidate",
+      "A certification describes a moment. The evidence behind it \u2014 above all the",
+      "dependency audit (D13/B2) \u2014 does not stay true indefinitely, so a candidate",
       "that has been sitting in an artifact for longer than this window must be",
       "re-certified rather than promoted on an old statement.",
       "",
@@ -43,7 +42,6 @@
     ],
     "certificationWindowHours": 24
   },
-
   "build": {
     "_note": [
       "THE configuration that ships. CI and the certifying run build this and nothing",
@@ -52,7 +50,7 @@
       "`uat` is the honest name for it: it carries the UAT-targeted API origin, which",
       "is the destination this stack has today and which Stage B deliberately does NOT",
       "change. It is not 'production' and this file does not call it that. The",
-      "environment it bakes sets Angular's `production` flag FALSE — recorded in every",
+      "environment it bakes sets Angular's `production` flag FALSE \u2014 recorded in every",
       "manifest as environment.productionFlag so the diagnostic behaviour that follows",
       "from it is a written-down fact rather than a discovery.",
       "",
@@ -64,14 +62,22 @@
     "configuration": "uat",
     "expectedApiUrl": "https://api-test.dinifyapp.com/uat",
     "expectedProductionFlag": false,
-    "forbiddenOriginsInBundle": ["https://api.dinifyapp.com"]
+    "forbiddenOriginsInBundle": [
+      "https://api.dinifyapp.com"
+    ]
   },
-
   "hosting": {
     "_note": [
       "The destination, pinned. identityOrigin is the canonical Firebase site origin",
       "for this target and is where the served-release identity is read back from.",
       "",
+      "",
+      "publicDirectory is the directory `firebase.json` must declare as the",
+      "hosting block's `public`. It is the field that decides WHAT gets published,",
+      "and the publisher places the verified artifact at exactly that path beside",
+      "the certified configuration \u2014 so a certified commit that moved it would",
+      "deploy a different tree, successfully, and the post-publish identity read",
+      "would notice only afterwards.",
       "This is NOT a claim that it is the only origin serving this content: which",
       "custom domains are mapped to this site is an owner inventory item (Stage A",
       "WP-21), and a printed diner QR URL is a long-lived artifact whose origin and",
@@ -81,12 +87,12 @@
     "project": "dinify-dev",
     "site": "dinify-prod",
     "target": "dinify-prod",
+    "publicDirectory": "./dist",
     "channelId": "live",
     "identityOrigin": "https://dinify-prod.web.app",
     "identityPath": "/release.json",
     "firebaseToolsVersion": "15.30.2"
   },
-
   "bootstrap": {
     "_note": [
       "No release has ever published an identity file, so the first publication has",
@@ -99,10 +105,9 @@
     ],
     "authorized": false
   },
-
   "compatibleSet": {
     "_note": [
-      "The approved combination. An unchanged component is PINNED, never 'latest' —",
+      "The approved combination. An unchanged component is PINNED, never 'latest' \u2014",
       "that is what makes 'the compatible set' a thing rather than a recollection.",
       "",
       "The peers are recorded at the commits reviewed on 22 September 2026. Their",
@@ -140,13 +145,12 @@
       }
     }
   },
-
   "rollback": {
     "_note": [
       "Firebase Hosting retains previous releases and can re-promote one, but WHAT IS",
       "RETAINED for this site has not been established by this repository and cannot",
       "be from source. Until it is, a rollback whose target cannot be shown to be",
-      "retained is refused rather than attempted — `targetRetained: unknown` is not",
+      "retained is refused rather than attempted \u2014 `targetRetained: unknown` is not",
       "`true`. Establishing retention is an owner action (Stage A WP-21).",
       "",
       "The storage barrier below is separate and is NOT an owner decision: an older",
@@ -157,7 +161,6 @@
     ],
     "retentionEvidence": "unverified"
   },
-
   "publication": {
     "_note": [
       "PUBLICATION IS DISABLED UNTIL AN OWNER ENABLES IT. Milestone B1 delivers the",
@@ -167,7 +170,7 @@
       "",
       "The publisher evaluates every gate above and reports the decision it would act",
       "on, then stops, because the repository variable named here is not set. Setting",
-      "it — and retiring deploy-prod.yml in the same change — is the cutover, and it",
+      "it \u2014 and retiring deploy-prod.yml in the same change \u2014 is the cutover, and it",
       "is its own small, reviewable pull request.",
       "",
       "This is an enablement, not a skipped check: nothing above it is bypassed."

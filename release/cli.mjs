@@ -23,7 +23,7 @@ import { argv, exit, stderr, stdout } from 'node:process';
 
 import { digestOf, digestOfValue, sha256Hex, treeDigest, contractDigest } from './lib/canonical.mjs';
 import { MANIFEST_SCHEMA, buildProvenance, validateManifest, validateProvenance } from './lib/manifest.mjs';
-import { hostingHooks, readEnvironmentLiteral, readIntConstant } from './lib/source.mjs';
+import { hostingDestinationProblems, hostingHooks, readEnvironmentLiteral, readIntConstant } from './lib/source.mjs';
 import { decide } from './lib/decide.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
@@ -213,7 +213,7 @@ function cmdObserve(args) {
   const f = flags(args);
   const root = String(f.root);
   const distDir = join(root, 'dist');
-  const out = { present: false, unsafeEntries: [], hostingConfigHooks: [] };
+  const out = { present: false, unsafeEntries: [], hostingConfigHooks: [], hostingConfigProblems: [] };
 
   if (!existsSync(distDir) || !statSync(distDir).isDirectory()) {
     out.unsafeEntries.push('artifact carries no dist/ directory');
@@ -258,11 +258,20 @@ function cmdObserve(args) {
   }
 
   if (f['hosting-config']) {
+    // The policy is read from THIS checkout — the trusted default branch — never
+    // from the candidate, for the same reason the gate's code is.
+    const policy = JSON.parse(readFileSync(join(ROOT, 'release/policy.json'), 'utf8'));
     try {
-      out.hostingConfigHooks = hostingHooks(JSON.parse(readFileSync(String(f['hosting-config']), 'utf8')));
+      const config = JSON.parse(readFileSync(String(f['hosting-config']), 'utf8'));
+      out.hostingConfigHooks = hostingHooks(config);
+      out.hostingConfigProblems = hostingDestinationProblems(config, {
+        site: policy.hosting.site,
+        publicDirectory: policy.hosting.publicDirectory,
+      });
       out.hostingConfigMatchesCertified = true;
     } catch (error) {
       out.hostingConfigHooks = [];
+      out.hostingConfigProblems = [];
       out.hostingConfigMatchesCertified = false;
       out.unsafeEntries.push(`hosting config unreadable: ${error.message}`);
     }

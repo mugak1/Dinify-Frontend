@@ -132,6 +132,7 @@ export function baseline() {
       entryCount: 3,
       unsafeEntries: [],
       hostingConfigHooks: [],
+      hostingConfigProblems: [],
       hostingConfigMatchesCertified: true,
     },
     served: {

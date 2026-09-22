@@ -181,13 +181,22 @@ jobs:
             ancestor=false
           fi
 
-          gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" --jq \
-            '[.check_runs[] | {name: .name, status: .status, conclusion: .conclusion}]' > checks.json
+          # THE JOBS OF THE RESOLVED RUN, not the check-runs of the commit. The commit
+          # list is not scoped to this run, so a passing check contributed by ANY
+          # other workflow on the same SHA could satisfy a required name here — and
+          # if the certifying workflow were edited so its required job no longer runs
+          # while the workflow still concludes success, that is precisely the
+          # substitution the requirement exists to prevent. `filter=latest` matches
+          # the attempt the run reports, which is the same attempt the artifact is
+          # bound to.
+          gh api "repos/$REPO/actions/runs/$run_id/jobs?per_page=100&filter=latest" --paginate --jq \
+            '[.jobs[] | {name: .name, status: .status, conclusion: .conclusion}]' > checks.json
 
           WORKFLOW_PATH="$workflow_path" RUN_ID="$run_id" ANCESTOR="$ancestor" REPO="$REPO" node -e '
             const fs = require("fs");
             const run = JSON.parse(fs.readFileSync("run.json", "utf8"));
-            const checks = JSON.parse(fs.readFileSync("checks.json", "utf8"));
+            // Jobs of the certifying run — see the comment on the query above.
+            const checks = JSON.parse(fs.readFileSync("checks.json", "utf8")).flat();
             fs.writeFileSync("certification.json", JSON.stringify({
               present: true,
               repository: process.env.REPO,

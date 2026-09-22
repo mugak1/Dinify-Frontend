@@ -218,6 +218,36 @@ describe('artifact — is this the exact thing that run certified?', () => {
   test('refuses a hosting config that does not come from the certified commit', () => {
     assertRefused(broken((i) => { i.artifact.hostingConfigMatchesCertified = false; }), 'artifact.hosting_config_uncertified');
   });
+
+  test('refuses a hosting config that would publish a DIFFERENT TREE', () => {
+    // Codex P1 on #686. `hosting.public` names the directory Firebase uploads and
+    // the publisher places the verified artifact at one path beside the certified
+    // configuration. A certified commit that moved it deploys a different tree,
+    // successfully, and the post-publish identity read notices only afterwards.
+    assertRefused(
+      broken((i) => { i.artifact.hostingConfigProblems = ['hosting.public is ".", expected "./dist"']; }),
+      'artifact.hosting_destination_invalid',
+    );
+  });
+
+  test('refuses an artifact whose production flag disagrees with the policy', () => {
+    // Codex P2 on #686. The stamper refuses to build a candidate whose flag
+    // disagrees, but the POLICY can move after a candidate is certified and while it
+    // is still fresh. The origin beside it was already compared; this is the other
+    // half of the same triple.
+    assertRefused(
+      broken((i) => { i.policy.build.expectedProductionFlag = true; }),
+      'artifact.production_flag_mismatch',
+    );
+  });
+
+  test('CONTROL: a matching production flag is not refused', () => {
+    const result = broken((i) => {
+      i.policy.build.expectedProductionFlag = true;
+      i.artifact.manifest.environment.productionFlag = true;
+    });
+    assert.equal(result.decision, 'PROCEED', JSON.stringify(codes(result)));
+  });
 });
 
 describe('compatible set — does this candidate belong beside its pinned peers?', () => {

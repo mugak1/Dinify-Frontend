@@ -12,6 +12,10 @@ import { test, describe } from 'node:test';
 
 import { validateManifest, validateProvenance, buildProvenance, MANIFEST_SCHEMA } from '../lib/manifest.mjs';
 import { canonicalJson, digestOfValue, treeDigest, contractDigest } from '../lib/canonical.mjs';
+import { hostingDestinationProblems } from '../lib/source.mjs';
+import { readFileSync } from 'node:fs';
+
+const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 import { manifestFor, provenanceFor, TREE_DIGEST, TARGET_SHA } from './fixtures.mjs';
 
 const problemCodes = (r) => r.problems.map((p) => p.code);
@@ -157,5 +161,78 @@ describe('canonical form and digests', () => {
 
   test('the D01 digest refuses an empty contract', () => {
     assert.throws(() => contractDigest({ _note: 'nothing here' }), /empty/);
+  });
+});
+
+describe('the hosting destination — what gets published, and where', () => {
+  // Codex P1 on #686: until this existed, the gate validated the payload
+  // exhaustively and validated almost nothing about the configuration that decides
+  // where the payload goes.
+  const POLICY_DESTINATION = { site: 'dinify-prod', publicDirectory: './dist' };
+  const ok = (config) => hostingDestinationProblems(config, POLICY_DESTINATION);
+  const shipping = { hosting: [{ site: 'dinify-prod', public: './dist' }] };
+
+  test('CONTROL: the configuration this repository ships is accepted', () => {
+    assert.deepEqual(ok(JSON.parse(readFileSync(`${ROOT}/firebase.json`, 'utf8'))), []);
+  });
+
+  test('CONTROL: the policy and firebase.json agree today', () => {
+    const policy = JSON.parse(readFileSync(`${ROOT}/release/policy.json`, 'utf8'));
+    const config = JSON.parse(readFileSync(`${ROOT}/firebase.json`, 'utf8'));
+    assert.deepEqual(
+      hostingDestinationProblems(config, {
+        site: policy.hosting.site,
+        publicDirectory: policy.hosting.publicDirectory,
+      }),
+      [],
+      'release/policy.json and firebase.json disagree about the hosting destination',
+    );
+  });
+
+  test('THE REGRESSION: a public directory of "." is refused', () => {
+    const problems = ok({ hosting: [{ site: 'dinify-prod', public: '.' }] });
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /hosting\.public/);
+  });
+
+  test('refuses any other public directory', () => {
+    assert.equal(ok({ hosting: [{ site: 'dinify-prod', public: 'build' }] }).length, 1);
+    assert.equal(ok({ hosting: [{ site: 'dinify-prod', public: './dist/browser' }] }).length, 1);
+  });
+
+  test('refuses a missing or non-string public directory', () => {
+    assert.equal(ok({ hosting: [{ site: 'dinify-prod' }] }).length, 1);
+    assert.equal(ok({ hosting: [{ site: 'dinify-prod', public: ['./dist'] }] }).length, 1);
+  });
+
+  test('accepts the equivalent spellings of the same directory', () => {
+    // `./dist`, `dist` and `dist/` name one directory to Firebase; refusing a
+    // semantically identical value would be a false gate.
+    for (const value of ['./dist', 'dist', 'dist/', './dist/']) {
+      assert.deepEqual(ok({ hosting: [{ site: 'dinify-prod', public: value }] }), [], value);
+    }
+  });
+
+  test('accepts a single hosting object as well as an array', () => {
+    assert.deepEqual(ok({ hosting: { site: 'dinify-prod', public: './dist' } }), []);
+  });
+
+  test('refuses a configuration with no hosting block', () => {
+    assert.equal(ok({}).length, 1);
+    assert.equal(ok({ hosting: [] }).length, 1);
+  });
+
+  test('refuses a configuration that declares a different site', () => {
+    assert.equal(ok({ hosting: [{ site: 'somewhere-else', public: './dist' }] }).length, 1);
+  });
+
+  test('refuses an ambiguous configuration declaring the site twice', () => {
+    const problems = ok({ hosting: [shipping.hosting[0], { site: 'dinify-prod', public: 'other' }] });
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /2 hosting blocks/);
+  });
+
+  test('a block for an unrelated site alongside ours is not refused', () => {
+    assert.deepEqual(ok({ hosting: [{ site: 'other-site', public: 'x' }, shipping.hosting[0]] }), []);
   });
 });
