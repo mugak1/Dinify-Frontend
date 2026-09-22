@@ -25,8 +25,14 @@
  */
 
 import { digestOfValue } from './canonical.mjs';
+import { comparable } from './storage.mjs';
 
-export const MANIFEST_SCHEMA = 'dinify.release.manifest/1';
+// /2 (D08 B1 completion): the manifest now binds the SOURCE TREE it was built from,
+// declares storage compatibility as the exact pairs the build writes and reads
+// (release/lib/storage.mjs), and states which quote-policy versions the client can
+// act on. A /1 manifest is refused rather than read as /2 — its storage fields
+// mean something different, and guessing is how a barrier is bypassed.
+export const MANIFEST_SCHEMA = 'dinify.release.manifest/2';
 export const PROVENANCE_SCHEMA = 'dinify.release.provenance/1';
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -60,6 +66,12 @@ export function validateManifest(manifest) {
   }
   if (typeof m.commit !== 'string' || !SHA_RE.test(m.commit)) {
     fail(problems, 'manifest.bad_commit', String(m.commit));
+  }
+  // THE SOURCE TREE. A commit names history; the tree names content. The gate
+  // re-derives this from git at the certified commit, so a candidate whose manifest
+  // names one commit while describing another tree is refused rather than trusted.
+  if (m.source === null || typeof m.source !== 'object' || !SHA_RE.test(m.source?.tree ?? '')) {
+    fail(problems, 'manifest.bad_source_tree', String(m.source?.tree));
   }
   if (typeof m.buildConfiguration !== 'string' || m.buildConfiguration.length === 0) {
     fail(problems, 'manifest.no_build_configuration', String(m.buildConfiguration));
@@ -112,21 +124,26 @@ export function validateManifest(manifest) {
   if (compat === null || typeof compat !== 'object') {
     fail(problems, 'manifest.no_compatibility', String(compat));
   } else {
+    // STORAGE COMPATIBILITY, as declared pairs — see release/lib/storage.mjs. The
+    // digest binds the whole reviewed declaration (including its source tripwire);
+    // the pairs are what the gate compares, as set containment and never numerically.
     const storage = compat.storage;
-    if (storage === null || typeof storage !== 'object') {
-      fail(problems, 'manifest.no_storage', String(storage));
+    if (!comparable(storage)) {
+      fail(problems, 'manifest.bad_storage', JSON.stringify(storage));
     } else {
-      if (!Number.isInteger(storage.checkoutRecordVersion) || storage.checkoutRecordVersion < 1) {
-        fail(problems, 'manifest.bad_storage_version', String(storage?.checkoutRecordVersion));
+      for (const field of ['store', 'key', 'physicalKey', 'encoding']) {
+        if (typeof storage[field] !== 'string' || storage[field].length === 0) fail(problems, 'manifest.bad_storage', field);
       }
-      // The second half of the rollback barrier. CHECKOUT_RECORD_VERSION moves only
-      // when the RECORD SHAPE changes; a policy or protocol transition can change what
-      // a record MEANS while leaving the number alone (D06 did this repeatedly). This
-      // integer is bumped by hand for exactly those, so "same version" can never on its
-      // own be read as "same meaning".
-      if (!Number.isInteger(storage.semanticsRevision) || storage.semanticsRevision < 1) {
-        fail(problems, 'manifest.bad_semantics_revision', String(storage?.semanticsRevision));
+      if (!DIGEST_RE.test(storage.declarationDigest ?? '')) {
+        fail(problems, 'manifest.bad_storage_declaration_digest', String(storage.declarationDigest));
       }
+    }
+    // Which quote-policy versions this client can ACT on. A backend publishing a
+    // version outside this list is one whose closures the client may not treat as
+    // usable evidence, so the pairing is refused rather than discovered at checkout.
+    const supports = compat.clientSupports?.quote_policy_version;
+    if (!Array.isArray(supports) || supports.length === 0 || !supports.every((v) => Number.isInteger(v) && v >= 1)) {
+      fail(problems, 'manifest.bad_client_supports', JSON.stringify(compat.clientSupports));
     }
     // KEYED BY THE SERVER CAPABILITY NAME, not by the client constant that produced
     // it. The client reads `checkout_protocol`, `quote_protocol` and
@@ -207,5 +224,71 @@ export function buildProvenance({ manifest, artifactName, artifactTreeDigest, en
     artifactTreeDigest,
     entryCount,
     manifestDigest: digestOfValue(manifest),
+  };
+}
+
+/**
+ * The SERVER capability levels this client needs, derived from its own constants.
+ *
+ * Keyed by the SERVER field the client reads, so a peer's published level can be
+ * compared with a plain `>=`. The closure reader is gated on `quote_protocol`, which
+ * is why the two client constants collapse to one server key here. ONE function,
+ * used by the stamp that writes the manifest AND by the gate that re-derives it from
+ * git at the certified commit — so the mapping is made once and cannot be restated.
+ */
+export function clientExpectationsFrom(constants) {
+  return {
+    checkout_protocol: constants.CHECKOUT_PROTOCOL_CORRELATED,
+    quote_protocol: Math.max(constants.REQUIRED_QUOTE_PROTOCOL, constants.REQUIRED_CLOSURE_PROTOCOL),
+    kitchen_protocol: constants.REQUIRED_KITCHEN_PROTOCOL,
+  };
+}
+
+/**
+ * The INNER manifest, from facts a caller has already established. Pure: `stamp`
+ * gathers the facts (files, git, the built bytes) and this assembles them, so the
+ * shape a certified candidate carries is testable without a build.
+ */
+export function buildManifest({
+  policy, commit, ref, sourceTree, builtAt, env, lockDigest, nodeVersion, run,
+  constants, supportedQuotePolicyVersions, storage, d01Digest,
+}) {
+  return {
+    schema: MANIFEST_SCHEMA,
+    application: policy.application,
+    repository: policy.repository,
+    commit,
+    ref,
+    source: { tree: sourceTree },
+    buildConfiguration: policy.build.configuration,
+    builtAt,
+    environment: {
+      name: `${policy.build.configuration}-targeted`,
+      apiUrl: env.apiUrl,
+      dinerBaseUrl: env.dinerBaseUrl,
+      // Recorded because it is true, not because it is desirable: the shipping
+      // configuration bakes Angular's `production` flag FALSE today.
+      productionFlag: env.production,
+    },
+    dependencies: { lockDigest, nodeVersion },
+    certification: {
+      workflowPath: policy.certification.workflowPath,
+      runId: String(run.runId),
+      runAttempt: String(run.runAttempt),
+      runStartedAt: String(run.runStartedAt),
+    },
+    compatibility: {
+      storage,
+      clientExpects: clientExpectationsFrom(constants),
+      clientSupports: { quote_policy_version: [...supportedQuotePolicyVersions] },
+      clientConstants: constants,
+      contracts: { d01CheckoutLimits: d01Digest },
+    },
+    hosting: {
+      project: policy.hosting.project,
+      site: policy.hosting.site,
+      target: policy.hosting.target,
+      identityPath: policy.hosting.identityPath,
+    },
   };
 }

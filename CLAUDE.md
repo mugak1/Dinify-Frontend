@@ -2931,8 +2931,9 @@ so keep it current when conventions change.
   release certification contract lives in `release/` — `policy.json` (the committed,
   machine-readable release policy and compatible set), `lib/decide.mjs` (THE decision,
   pure), `lib/manifest.mjs` + `lib/canonical.mjs` + `lib/source.mjs`, `cli.mjs` (the
-  I/O around it) and `tests/` (97 cases). `README.md` beside them explains; it is
-  documentation, never the gate.
+  I/O around it) and `tests/`. `README.md` beside them explains; it is documentation,
+  never the gate. **Several claims in this bullet were overtaken by the B1 completion
+  directly below, which is authoritative where the two differ.**
   **THREE THINGS IT CLOSES.** `ci.yml` ran on `pull_request` only, so the merge commit
   that ships had never had the suite run against it; `deploy-prod.yml` then REBUILT
   from scratch, so what shipped was not what anything tested — same configuration
@@ -2966,9 +2967,10 @@ so keep it current when conventions change.
   **THE PUBLISHER IS SEPARATED FROM EVERYTHING THAT RUNS REPOSITORY CODE.**
   `publish.yml` has `permissions: {}` at the top; the `gate` job holds no credential
   and the `publish` job — the only one that may hold `FIREBASE_SERVICE_ACCOUNT` — does
-  no `npm ci`, no build and no checkout of application source: two sparse checkouts
-  (the certified commit's `firebase.json`/`.firebaserc`, and the trusted verifier from
-  `main`) plus the artifact. **The gate's own code and policy come from the default
+  no `npm ci`, no build and no checkout of application source: sparse checkouts only
+  (the certified commit's `firebase.json`/`.firebaserc`, the verifier PINNED to the
+  revision the gate ran, and `main`'s `release/` tree to notice a policy that moved)
+  plus the artifact. **The gate's own code and policy come from the default
   branch, never from the candidate** — a candidate that supplied its own policy could
   relax its own gate. Actions are SHA-pinned with the version recorded beside each,
   and **`firebaseToolsVersion` is pinned too**: left at the action's default it
@@ -2981,27 +2983,183 @@ so keep it current when conventions change.
   A rollback is a client downgrade, and the pre-v2 checkout reader rejects any record
   whose `phase` is unset while a v2 record has `stage` — so it reads `null`, MINTS A
   FRESH IDEMPOTENCY KEY, and the server's duplicate-order guarantee is bypassed at the
-  moment of the rollback. The manifest therefore records `checkoutRecordVersion` AND a
-  hand-maintained `semanticsRevision`, because D06 changed what a stored record MEANS
-  several times without moving the version — **equality of `CHECKOUT_RECORD_VERSION`
-  alone is not sufficient**. Lowering either is REFUSED, not warned about and not
-  offered behind an acknowledgement. Moving forward across a version is not blocked.
+  moment of the rollback. **As first shipped the barrier compared two numbers on the
+  explicit rollback path only; the B1 completion replaced it** with a reviewed storage
+  declaration checked by SET CONTAINMENT on every promoting path (see below).
   **THE D01 CEILING CONTRACT IS ONE AUTHORITY WITH TWO COMPILED COPIES.** The digest is
   taken over the ceiling VALUES in a canonical form Python and JavaScript produce byte
   for byte (`json.dumps(sort_keys=True, separators=(',',':'))`), so the two repositories
-  may annotate their copies differently and still agree, and a ceiling changed on one
-  side and not the other cannot be released. The backend half is
+  may annotate their copies differently and still agree. A candidate whose digest
+  differs from an approved backend receipt's is refused ON THIS PATH — which is not the
+  same as "cannot be released": the backend's own deploy consults nothing, so changing
+  a ceiling remains an ordered, manual two-repository sequence. The backend half is
   `orders_app/contracts/checkout_limits.py` plus its committed export, asserted
   UNCONDITIONALLY there — its old cross-repository assertion `skipTest`s whenever this
   repository is not checked out beside it, which in CI is always.
   **WHAT THE GATE CANNOT ESTABLISH IS REFUSED, NOT ASSUMED**: Firebase release
-  retention (so a rollback is refused as `rollback.retention_unproven` until an owner
-  establishes it), and the served identity before anything has published one (an
-  EXPLICITLY AUTHORIZED bootstrap, `policy.bootstrap.authorized`, false today).
+  retention (an owner prerequisite, `prerequisite.retention_unverified` — the owner's
+  FALLBACK, since a rollback on this path republishes the target's certified artifact
+  rather than asking Firebase for an old release), and the served identity before
+  anything has published one (an EXPLICITLY AUTHORIZED bootstrap,
+  `policy.bootstrap.authorized`, false today).
   `identityOrigin` is the canonical Firebase site origin for the deploy target and is
   NOT a claim that it is the only origin serving this content — which custom domains
   are mapped, and how a printed diner QR URL's origin and path continue, is an owner
   inventory item. Nothing here redirects, reroutes or reprints anything
+- **ONE ADMITTED UNIT, FROM THE DECISION TO THE SERVED BYTES (D08/B1 completion).** ✅
+  #686 got the SHAPE of certification right and left the three things a publication
+  depends on — which peers, which stored state, which unit — as literals, as a number,
+  and as a commit. Every finding was REPRODUCED on `3386724` before anything changed
+  (`release/README.md` → "Baseline" records the 22 lines), then refuted or closed.
+  Paired backend: the source-bound capability export (`published_capabilities`).
+  **R1 — PEERS ARE EVIDENCE, NOT LITERALS.** The compatible set named a backend commit
+  nothing read and capability integers nobody derived: deleting the commit, writing
+  `not-a-sha` or naming a foreign repository all PROCEEDED. Now each approved peer
+  revision is a RECEIPT (`lib/peers.mjs`) produced from that peer's own git by
+  `cli.mjs peer-receipt`, committed under `release/peers/` and pinned BY DIGEST; its
+  D01 values and capability levels are read from the peer's export files at that
+  revision. **SELECTION IS NOT SERVING** and the two are separate inputs: a receipt
+  proves what a revision's SOURCE says, never that it is live. Admin is identity-only
+  (no protocol is assumed), re-derived through the public API at decision time and
+  observed serving at `release.txt`; the PRIVATE backend's receipt is an OPERATOR
+  receipt reviewed as a file — no backend credential reaches anything that runs
+  repository code, no public endpoint was added — and its serving is refused by name,
+  `peers.backend_serving_unverified`, until B3 publishes an identity. **The committed
+  backend receipt (`9448f55`) predates the export, so the gate refuses
+  `peers.capabilities_unpublished` until a follow-up approves a receipt for a backend
+  commit carrying it** — the ordered, manual coordination, stated rather than claimed
+  away. Every Admin promotion likewise refuses `peers.admin_serving_unapproved` until
+  its receipt is approved.
+  **R2 — STORAGE IS A DECLARATION, CHECKED ON EVERY PROMOTING PATH.** A descendant
+  deploy lowering the served record's version or semantics PROCEEDED, because the old
+  barrier ran on explicit rollbacks only and compared numbers. Now
+  `src/app/_services/checkout-record.storage.json` declares the exact
+  `(version, semantics)` pairs this build writes and reads, and `lib/storage.mjs`
+  requires `served.reads ∪ {served.writes} ⊆ candidate.reads` — SET CONTAINMENT, never
+  numeric, on deploy, redeploy, rollback and bootstrap alike. **A numerically larger
+  version is not evidence that its reader preserves an older issued command.** The
+  declaration also states WHERE the bytes are — the physical key and the encoding — and
+  a candidate that moves them is refused even with every pair unchanged (see the review
+  round below). A digest tripwire over the coordinator and quote-transition sources AND
+  the storage layer beneath them makes the stamp refuse a candidate whose declaration
+  was not re-affirmed after any of them changed (`cli.mjs storage-reviewed --write`),
+  and `checkout-record-storage.contract.spec.ts` (11) builds the REAL coordinator from
+  the real `AppModule`, seeds the RAW BYTES of every declared pair at the declared
+  physical key, and asserts same-key recovery with the command intact.
+  Eligibility is separate from ancestry: `policy.eligibility` names revoked commits and
+  a minimum safe target, applied on every promoting path.
+  **R3 — ONE CERTIFIED UNIT.** The gate's outputs were a SHA and a name, and the
+  publisher downloaded BY NAME, checked out its verifier at whatever `main` was by
+  then, and called success when the served COMMIT matched — so a self-consistent
+  substitute passed and a DIFFERENT build of the same SHA was reported as published.
+  Now the gate emits an ADMITTED RECORD (`lib/record.mjs`) binding artifact id + listed
+  digest, run and ATTEMPT, commit, manifest and tree digests, configuration, the
+  regenerated hosting configuration's digest, the verifier revision and the policy
+  digest; the publisher runs the verifier PINNED to that revision (a policy that moved
+  is `preflight.policy_advanced`, an explicit restart), downloads BY ID with
+  `digest-mismatch: error`, measures ITS OWN download, and re-checks the run, the
+  attempt, the listing, the window, the served state and Admin's serving inside its
+  critical section (`lib/preflight.mjs`). The destination is resolved as firebase-tools
+  resolves it — `.firebaserc` included, since `applyRC` follows an alias — and the tool
+  is handed a REGENERATED pair (`lib/hosting.mjs`). Identity is the MANIFEST DIGEST:
+  two certifications of one SHA are two candidates. Verification fetches the identity
+  AND EVERY CERTIFIED FILE back; a marker alone proves nothing about the other files,
+  and even the fetch-back is one vantage point at one moment. `PUBLISHED_VERIFIED` also
+  requires the identity to be served `no-store`, because that is what the NEXT decision
+  reads. Eight distinct outcome
+  words (`lib/outcome.mjs`), `RESTORED_AFTER_FAILURE` never produced. **Nothing claims
+  an artifact was substituted** — uploads are immutable; the record is what makes "the
+  same unit" checkable.
+  **§7 — WHAT MERGING DOES, MEASURED.** `deploy-prod.yml` is still the live writer and
+  builds `--configuration=uat` — the configuration `policy.json` names. **#686 described
+  itself as inert and changed that configuration.** Measured with clean `git archive`
+  builds: `f0ab3d0` and `3386724` build the SAME 34-file tree
+  (`sha256:3284ed65…49c8`, with an identical-rebuild control) — the added options restate
+  the builder's defaults — but the live build now EVALUATES BUDGETS: 870.47 kB initial
+  warns, and above 4 MB initial or 8 kB per component style the LIVE deploy now fails,
+  where before it had no budget. This change builds the same digest. Publication stays
+  disabled; every outstanding owner action is a NAMED REFUSAL
+  (`committed-policy.test.mjs` pins the exact set of seven), and **setting
+  `FRONTEND_PUBLISH_ENABLED` while `deploy-prod.yml` exists is not a cutover** — two
+  independent writers. The cutover is one reviewed change deleting it (README →
+  "The cutover"). The Publish gate is RED on every merge until then, by design, and its
+  summary says it is this path refusing, not the build failing.
+  **§8 — THE WORKFLOW IS EXECUTED, NOT DESCRIBED.** `workflow-simulation.test.mjs` (31)
+  parses and runs `publish.yml` step by step with GitHub's expression semantics, real
+  bash, the real CLI, real git checkouts and local HTTPS origins, against an OBSERVABLE
+  stand-in publisher that resolves its destination with firebase-tools' own functions
+  and can fail, fail after going live, drop a file or publish another build. Building
+  it surfaced two workflow defects the unit suites could not reach: the gate's report
+  step crashed when the trusted checkout itself had failed, and the gate checked out a
+  moving `main` rather than the revision its own YAML was taken from (`github.sha`). `workflow-drift.test.mjs` (22) holds the three workflow files
+  to the policy statically — one secret reference, no `${{` in a script, every action
+  SHA-pinned, the tool handed exactly the policy destination. Release suite **477 tests
+  in about 25 seconds**, labelled REGRESSION / CONTRACT / CONTROL, and every one of the
+  22 baseline findings is carried by at least one test title (the suite was 439 before
+  the review round below). **Twenty-four source
+  mutations, each fix reverted alone, each fail a named subset — and the table found a
+  gap before it was closed**: discarding the Decide step's exit status failed NOTHING,
+  because the job still went red through the report step after it. A red job is not
+  evidence that the refusal happened AT the decision, so the Decide step's own status
+  is now pinned, and so is its 0 on both skips. **Not proved**: GitHub
+  itself (queueing, concurrency groups, masking), the frontend's live `/release.json`
+  (this environment's egress policy refuses the site — the committed-policy test
+  DERIVES it from the committed rewrite and says so), and any dependency audit — the
+  24-hour window is a conservative limit, not audit evidence, until B2's inventory
+  rescan exists. B2 / B3 / B4 are listed in the README as what is left.
+  **AND REVIEW ON #687 FOUND TWO RULES CHECKED AT ONLY ONE OF THE PLACES THEY
+  GOVERN — two Codex P2s, both valid, both reproduced on `ce6b892` before anything
+  changed, and fixed in one commit each.**
+  **THE GATE ADMITTED A CONFIGURATION IT WOULD ITSELF REFUSE TO READ BACK.** Every
+  decision reads the served identity first and refuses a cacheable one
+  (`served.identity_cacheable`, in every mode, rollback included), while header rules
+  were checked for SHAPE only. Through the executed workflow, a certified
+  `firebase.json` serving `/release.json` as `public, max-age=300` was admitted
+  (`PROCEED`), published and reported `PUBLISHED_VERIFIED` — and then a redeploy AND
+  the rollback that would undo it were both refused. The path locked itself out with
+  its own green light. `hosting.mjs` now resolves which header rules apply to the
+  identity path the way Firebase's open-source hosting server does (normalised
+  `source`, minimatch under default options, every matching rule applied in order) and
+  refuses
+  `hosting.identity_cacheable` — a matching `Cache-Control` that is not `no-store`, or
+  none at all, since the host default is cacheable — and
+  `hosting.identity_cache_unproven` for a pattern it cannot decide. **EVERY MATCHING
+  VALUE MUST BE `no-store`, SO RULE ORDER NEVER DECIDES THE ANSWER**: deliberately
+  stricter than the tool, and `hosting-oracle.test.mjs` pins the matcher against
+  superstatic's own matcher and header middleware, including a record that the model
+  is the stricter of the two. `PUBLISHED_VERIFIED` now also requires the OBSERVED
+  identity to be `no-store` — the configuration check describes the configuration, and
+  the fetch-back is the only observation of the edge. ONE ORACLE WAS CORRECTED, NOT
+  THE RULE RELAXED: the configuration-digest CONTROL used a `no-cache` identity header
+  as its example of an ACCEPTED change; it now changes `index.html`'s.
+  **WHERE THE BYTES ARE IS PART OF WHAT IS COMPATIBLE.** The declaration said what a
+  record MEANS (the pairs) and nothing about where a served build LEFT it — a string
+  under a physical key (`[dinify]diner.checkout.attempt`) in the storage service's
+  envelope. The tripwire covered the reader only, and the contract spec seeded its
+  fixtures THROUGH the service it tested, so writer and reader changed together: a
+  changed envelope, key format or root prefix passed both (9/9) while every stored
+  record became invisible — measured, `read()` answers `none` and a fresh key is
+  minted for a purchase whose command is still outstanding. The declaration now states
+  `physicalKey` and `encoding`, the validator and the manifest require both,
+  `decide.mjs` refuses `storage.incompatible` when store, key, physical key or encoding
+  differ **even with every pair unchanged**, the tripwire covers
+  `storage.service.ts`, `session-storage.service.ts` and `storage.module.ts`, and the
+  spec (11) seeds RAW BYTES, encoded by its OWN statement of the declared encoding,
+  through the application's real `AppModule`. **`app.module.ts` IS DELIBERATELY NOT
+  PINNED**: it changes for many reasons unrelated to storage, and pinning it would make
+  each of them a storage review. The prefix change is caught by the spec instead —
+  measured: tripwire exit 0, spec 7/11 FAILED. A consequence worth knowing: a
+  bootstrap `servedBaseline` must now carry a declaration stating its physical
+  location, i.e. be at or after this change's merge, which the live path guarantees by
+  publishing every merge. Release suite 439 -> **477**, Karma +2. **Fourteen more
+  mutations, each piece of either fix reverted alone, each fail a named subset**: the
+  gate's identity check 8, the verified-needs-no-store rule 4, verify-served claiming
+  no-store unchecked 2, an undecidable pattern read as not matching 1, last-rule-wins 2,
+  a substring `no-store` 1; the location compared on store and key only 2, the manifest
+  projection dropping it 91 (every stamped candidate stops validating), the declaration
+  validator 3, the storage layer out of the tripwire 2, the manifest schema 2; and in
+  Karma the envelope, key-format and prefix changes each fail the spec 7 of 11, the
+  tripwire catching the first two and not the third, as intended
 - Tenant-isolation closure (frontend regression gate): ✅ a focused
   `src/app/_security/` layer pins the client-side tenant-boundary invariants.
   `diner-capability-contract.ts` is the single source of truth for the diner
@@ -3051,12 +3209,15 @@ so keep it current when conventions change.
 - Never stack work on unmerged branches
 - **THE LIVE PATH IS STILL `deploy-prod.yml`, AND IT IS UNTOUCHED.** The release
   certification contract (`release/`, `certify.yml`, `publish.yml`) is in the
-  repository and PUBLICATION IS DISABLED: `publish.yml`'s final step is gated on the
-  repository variable `FRONTEND_PUBLISH_ENABLED`, which is not set, so the gate job
-  evaluates everything and reports the decision it would have acted on without
-  publishing. Nothing about what is deployed, or by whom, has changed. Enabling that
-  variable AND retiring `deploy-prod.yml` is the cutover, and it is its own small
-  reviewed change — see `release/README.md`
+  repository and PUBLICATION IS DISABLED: `publish.yml`'s tool step is gated on the
+  repository variable `FRONTEND_PUBLISH_ENABLED`, which is not set — and the gate
+  refuses first anyway, naming the outstanding owner prerequisites. **`deploy-prod.yml`
+  builds `--configuration=uat`, the configuration `release/policy.json` names, so a
+  change to that `angular.json` configuration changes what the LIVE path builds** —
+  #686 did (budgets; bytes measured identical), and "the deploy YAML is unchanged" is
+  not evidence about the deployed build. Setting the variable while `deploy-prod.yml`
+  exists would make two independent writers: the cutover deletes it in the same
+  reviewed change — see `release/README.md` → "The cutover"
 
 ## Branch Selection — CRITICAL
 - When the task text (the prompt provided for the task) names a specific
@@ -3936,11 +4097,14 @@ Before raising any PR:
 2. Run `npm run lint` and confirm clean
 2a. Run `npm run test:release` — the release certification contract. COMPOUND, in the
    house style of the gate below: `node release/cli.mjs self-test` first (a matcher
-   that silently stopped matching would otherwise pass everything), then the refusal
-   matrix that drives the pure `release/lib/decide.mjs` from fixtures. Pure Node, no
-   browser, seconds rather than minutes. Every case breaks exactly ONE fact about one
-   allowed baseline, and the positive controls assert that baseline is still allowed —
-   a gate that refused everything could not pass the suite either
+   that silently stopped matching would otherwise pass everything), then every
+   `release/tests/*.test.mjs`: the refusal matrix that drives the pure
+   `release/lib/decide.mjs` from fixtures, the adapter suites over real git and local
+   HTTPS origins, and the workflow simulation that EXECUTES `publish.yml`. Pure Node,
+   no browser; about 25 seconds, most of it the simulation. Every matrix case breaks
+   exactly ONE fact about one allowed baseline, and the positive controls assert that
+   baseline is still allowed — a gate that refused everything could not pass the suite
+   either
 3. Run `npm run test:tenant-boundary` (the fail-fast boundary gate) and confirm
    green — especially if you touched the diner capability, QR lifecycle,
    selected-restaurant scoping, or the `_security/` contract. It is COMPOUND: it

@@ -1,0 +1,65 @@
+{
+  "_note": [
+    "THE STORAGE COMPATIBILITY DECLARATION for the diner checkout record (D08 B1, R2).",
+    "Reviewed source, not a generated file. release/lib/storage.mjs is the rule that reads it;",
+    "release/README.md explains it for a human.",
+    "",
+    "WHAT IT STATES. The exact (version, semantics) pairs this build WRITES and can READ under",
+    "the key below. The release gate refuses to promote a build unless it can read every pair",
+    "the served build writes or reads — as SET CONTAINMENT over these declared pairs, never",
+    "as a numeric comparison, on every promotion path (deploy, redeploy, rollback, bootstrap).",
+    "",
+    "version 1 names the UNVERSIONED D04/D (#663) shape, which carries no v field and is",
+    "upgraded by CheckoutCoordinatorService.upgradeV1(). version 2 is CHECKOUT_RECORD_VERSION.",
+    "semantics names what a record of that version MEANS to a reader; bump it (and list the",
+    "new pair in reads/writes) when a change would make an OLDER reader mishandle an",
+    "outstanding issued command even though the version number did not move.",
+    "",
+    "THE TRIPWIRE. reviewedSources are the sha256 of the files that implement the reader, the",
+    "writer, and the storage layer that serializes the record (StorageService,",
+    "SessionStorageService, StorageModule). release/cli.mjs stamp refuses a candidate whose",
+    "files no longer match, and",
+    "release/tests/storage.test.mjs fails the pull request first — so a change to the",
+    "checkout record code cannot reach certification without somebody re-affirming this",
+    "declaration (recompute with: node release/cli.mjs storage-reviewed --write).",
+    "",
+    "THE BEHAVIOURAL PROOF is src/app/_services/checkout-record-storage.contract.spec.ts,",
+    "which drives the real coordinator with a record of every declared read pair and",
+    "asserts it is recovered under the SAME key with its issued command intact.",
+    "",
+    "WHERE THE BYTES ARE (Codex P2 on #687). key is the logical key the coordinator uses;",
+    "physicalKey is where the bytes actually sit in sessionStorage — SessionStorageService",
+    "prepends the ROOT prefix (AppModule's StorageModule.forRoot) as [prefix]key. encoding",
+    "names the string StorageService stores: json-value-envelope is JSON.stringify({value:",
+    "record}). A served build's records are found only where and as it left them, so the",
+    "gate refuses a candidate whose store, key, physicalKey or encoding differs from the",
+    "served build's, and the contract spec seeds RAW bytes at physicalKey through the real",
+    "AppModule configuration rather than through the writer it is testing."
+  ],
+  "schema": "dinify.storage.compatibility/1",
+  "store": "sessionStorage",
+  "key": "diner.checkout.attempt",
+  "physicalKey": "[dinify]diner.checkout.attempt",
+  "encoding": "json-value-envelope",
+  "writes": {
+    "version": 2,
+    "semantics": 1
+  },
+  "reads": [
+    {
+      "version": 1,
+      "semantics": 1
+    },
+    {
+      "version": 2,
+      "semantics": 1
+    }
+  ],
+  "reviewedSources": {
+    "src/app/_services/checkout-coordinator.service.ts": "sha256:ac235f76bd03bdfac27ea30df5fbe56c50e51373c059b5800f1a665d9b1cec60",
+    "src/app/_shared/order/quote-transition.ts": "sha256:e6e680159d97faf9708bb5aa6f5e9adde493194133e0a1d884cd36801fa886fe",
+    "src/app/_services/storage/storage.service.ts": "sha256:fbc2c8dfcb938216bad9fbf0dcdeac42f72195dc95f0693130a84e4defede08b",
+    "src/app/_services/storage/session-storage.service.ts": "sha256:efd85cc53a7ba5f9c1cbd2a9624d555dce159960ee2f2863507a2e1fd38ec880",
+    "src/app/_services/storage/storage.module.ts": "sha256:6f48957ff1d00bc4a07c9a87c8172f87eb9239a206c480e907ce02055013179b"
+  }
+}

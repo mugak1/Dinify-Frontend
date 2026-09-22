@@ -10,13 +10,14 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 
-import { validateManifest, validateProvenance, buildProvenance, MANIFEST_SCHEMA } from '../lib/manifest.mjs';
+import {
+  validateManifest, validateProvenance, buildProvenance, buildManifest, clientExpectationsFrom,
+} from '../lib/manifest.mjs';
 import { canonicalJson, digestOfValue, treeDigest, contractDigest } from '../lib/canonical.mjs';
-import { hostingDestinationProblems } from '../lib/source.mjs';
-import { readFileSync } from 'node:fs';
-
-const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
-import { manifestFor, provenanceFor, TREE_DIGEST, TARGET_SHA } from './fixtures.mjs';
+import {
+  manifestFor, provenanceFor, TREE_DIGEST, TARGET_SHA, SOURCE_TREE, CONSTANTS, STORAGE, POLICY,
+  D01_DIGEST, LOCK_DIGEST, RUN_STARTED,
+} from './fixtures.mjs';
 
 const problemCodes = (r) => r.problems.map((p) => p.code);
 
@@ -42,7 +43,10 @@ describe('manifest validation', () => {
     }
   });
 
-  reject('rejects a future schema it does not understand', 'manifest.wrong_schema', (m) => { m.schema = 'dinify.release.manifest/2'; });
+  reject('rejects a future schema it does not understand', 'manifest.wrong_schema', (m) => { m.schema = 'dinify.release.manifest/3'; });
+  reject('CONTRACT: rejects a /1 manifest — its storage fields mean something else', 'manifest.wrong_schema', (m) => { m.schema = 'dinify.release.manifest/1'; });
+  reject('CONTRACT: rejects a missing source tree — a commit names history, not content', 'manifest.bad_source_tree', (m) => { delete m.source; });
+  reject('CONTRACT: rejects an abbreviated source tree', 'manifest.bad_source_tree', (m) => { m.source.tree = 'e'.repeat(12); });
   reject('rejects a short commit', 'manifest.bad_commit', (m) => { m.commit = 'abc1234'; });
   reject('rejects an uppercase commit', 'manifest.bad_commit', (m) => { m.commit = 'A'.repeat(40); });
   reject('rejects a missing build configuration', 'manifest.no_build_configuration', (m) => { delete m.buildConfiguration; });
@@ -52,8 +56,17 @@ describe('manifest validation', () => {
   reject('rejects a lock digest that is not sha256', 'manifest.bad_lock_digest', (m) => { m.dependencies.lockDigest = 'md5:abc'; });
   reject('rejects a workflow path outside .github/workflows', 'manifest.bad_workflow_path', (m) => { m.certification.workflowPath = 'certify.yml'; });
   reject('rejects a non-numeric run id', 'manifest.bad_run_reference', (m) => { m.certification.runId = 'latest'; });
-  reject('rejects a zero storage version', 'manifest.bad_storage_version', (m) => { m.compatibility.storage.checkoutRecordVersion = 0; });
-  reject('rejects a missing semantics revision', 'manifest.bad_semantics_revision', (m) => { delete m.compatibility.storage.semanticsRevision; });
+  reject('CONTRACT: rejects a zero storage version', 'manifest.bad_storage', (m) => { m.compatibility.storage.writes.version = 0; });
+  reject('CONTRACT: rejects a missing semantics pair', 'manifest.bad_storage', (m) => { delete m.compatibility.storage.writes.semantics; });
+  reject('CONTRACT: rejects storage with no readable pairs', 'manifest.bad_storage', (m) => { m.compatibility.storage.reads = []; });
+  reject('REGRESSION (R2): rejects the /1 numeric storage shape rather than guessing', 'manifest.bad_storage', (m) => {
+    m.compatibility.storage = { checkoutRecordVersion: 2, semanticsRevision: 1 };
+  });
+  reject('CONTRACT: rejects a storage declaration digest that is not sha256', 'manifest.bad_storage_declaration_digest', (m) => { m.compatibility.storage.declarationDigest = 'sha1:x'; });
+  reject('CONTRACT (Codex P2 on #687): rejects storage that does not say where its bytes are', 'manifest.bad_storage', (m) => { delete m.compatibility.storage.physicalKey; });
+  reject('CONTRACT (Codex P2 on #687): rejects storage that does not say how its bytes are encoded', 'manifest.bad_storage', (m) => { m.compatibility.storage.encoding = ''; });
+  reject('CONTRACT: rejects missing client quote-policy support', 'manifest.bad_client_supports', (m) => { delete m.compatibility.clientSupports; });
+  reject('CONTRACT: rejects a non-integer supported quote-policy version', 'manifest.bad_client_supports', (m) => { m.compatibility.clientSupports.quote_policy_version = ['1']; });
   reject('rejects empty client expectations', 'manifest.no_client_expectations', (m) => { m.compatibility.clientExpects = {}; });
   reject('rejects a non-integer protocol level', 'manifest.bad_protocol_level', (m) => { m.compatibility.clientExpects.quote_protocol = '2'; });
   reject('rejects a missing client-constant record', 'manifest.no_client_constants', (m) => { delete m.compatibility.clientConstants; });
@@ -164,75 +177,43 @@ describe('canonical form and digests', () => {
   });
 });
 
-describe('the hosting destination — what gets published, and where', () => {
-  // Codex P1 on #686: until this existed, the gate validated the payload
-  // exhaustively and validated almost nothing about the configuration that decides
-  // where the payload goes.
-  const POLICY_DESTINATION = { site: 'dinify-prod', publicDirectory: './dist' };
-  const ok = (config) => hostingDestinationProblems(config, POLICY_DESTINATION);
-  const shipping = { hosting: [{ site: 'dinify-prod', public: './dist' }] };
-
-  test('CONTROL: the configuration this repository ships is accepted', () => {
-    assert.deepEqual(ok(JSON.parse(readFileSync(`${ROOT}/firebase.json`, 'utf8'))), []);
+describe('buildManifest — the shape stamp writes', () => {
+  const built = () => buildManifest({
+    policy: POLICY,
+    commit: TARGET_SHA,
+    ref: 'refs/heads/main',
+    sourceTree: SOURCE_TREE,
+    builtAt: RUN_STARTED,
+    env: { apiUrl: 'https://api-test.dinifyapp.com/uat', dinerBaseUrl: 'https://order.dinifyapp.com', production: false },
+    lockDigest: LOCK_DIGEST,
+    nodeVersion: 'v24.21.0',
+    run: { runId: 4242, runAttempt: 1, runStartedAt: RUN_STARTED },
+    constants: { ...CONSTANTS },
+    supportedQuotePolicyVersions: [1],
+    storage: STORAGE,
+    d01Digest: D01_DIGEST,
   });
 
-  test('CONTROL: the policy and firebase.json agree today', () => {
-    const policy = JSON.parse(readFileSync(`${ROOT}/release/policy.json`, 'utf8'));
-    const config = JSON.parse(readFileSync(`${ROOT}/firebase.json`, 'utf8'));
-    assert.deepEqual(
-      hostingDestinationProblems(config, {
-        site: policy.hosting.site,
-        publicDirectory: policy.hosting.publicDirectory,
-      }),
-      [],
-      'release/policy.json and firebase.json disagree about the hosting destination',
-    );
+  test('CONTROL: what stamp assembles validates', () => {
+    const r = validateManifest(built());
+    assert.equal(r.ok, true, JSON.stringify(r.problems));
   });
 
-  test('THE REGRESSION: a public directory of "." is refused', () => {
-    const problems = ok({ hosting: [{ site: 'dinify-prod', public: '.' }] });
-    assert.equal(problems.length, 1);
-    assert.match(problems[0], /hosting\.public/);
+  test('CONTROL: stamp and the fixture agree on every field the gate reads', () => {
+    assert.deepEqual(built(), manifestFor());
   });
 
-  test('refuses any other public directory', () => {
-    assert.equal(ok({ hosting: [{ site: 'dinify-prod', public: 'build' }] }).length, 1);
-    assert.equal(ok({ hosting: [{ site: 'dinify-prod', public: './dist/browser' }] }).length, 1);
+  test('CONTRACT: the run reference is stored as strings, whatever the caller passed', () => {
+    const m = built();
+    assert.equal(m.certification.runId, '4242');
+    assert.equal(m.certification.runAttempt, '1');
   });
 
-  test('refuses a missing or non-string public directory', () => {
-    assert.equal(ok({ hosting: [{ site: 'dinify-prod' }] }).length, 1);
-    assert.equal(ok({ hosting: [{ site: 'dinify-prod', public: ['./dist'] }] }).length, 1);
-  });
-
-  test('accepts the equivalent spellings of the same directory', () => {
-    // `./dist`, `dist` and `dist/` name one directory to Firebase; refusing a
-    // semantically identical value would be a false gate.
-    for (const value of ['./dist', 'dist', 'dist/', './dist/']) {
-      assert.deepEqual(ok({ hosting: [{ site: 'dinify-prod', public: value }] }), [], value);
-    }
-  });
-
-  test('accepts a single hosting object as well as an array', () => {
-    assert.deepEqual(ok({ hosting: { site: 'dinify-prod', public: './dist' } }), []);
-  });
-
-  test('refuses a configuration with no hosting block', () => {
-    assert.equal(ok({}).length, 1);
-    assert.equal(ok({ hosting: [] }).length, 1);
-  });
-
-  test('refuses a configuration that declares a different site', () => {
-    assert.equal(ok({ hosting: [{ site: 'somewhere-else', public: './dist' }] }).length, 1);
-  });
-
-  test('refuses an ambiguous configuration declaring the site twice', () => {
-    const problems = ok({ hosting: [shipping.hosting[0], { site: 'dinify-prod', public: 'other' }] });
-    assert.equal(problems.length, 1);
-    assert.match(problems[0], /2 hosting blocks/);
-  });
-
-  test('a block for an unrelated site alongside ours is not refused', () => {
-    assert.deepEqual(ok({ hosting: [{ site: 'other-site', public: 'x' }, shipping.hosting[0]] }), []);
+  test('CONTRACT: client expectations are derived by ONE function the gate also calls', () => {
+    const m = built();
+    assert.deepEqual(m.compatibility.clientExpects, clientExpectationsFrom(m.compatibility.clientConstants));
+    // The closure reader is gated on quote_protocol, so the two client constants
+    // collapse to the larger of them on that one server key.
+    assert.equal(m.compatibility.clientExpects.quote_protocol, 2);
   });
 });

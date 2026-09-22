@@ -48,7 +48,8 @@ run_step "type-check" npm run type-check
 run_step "lint"       npm run lint
 # The release certification contract (release/). Its own --self-test first, in the
 # house style of the gate below: a matcher that stopped matching must fail here
-# rather than pass everything. Pure Node, so it costs seconds and runs early.
+# rather than pass everything. Pure Node — about half a minute, most of it the
+# simulation that executes publish.yml — so it runs early.
 run_step "release-contract gate" npm run test:release
 # Fail-fast boundary gate, two things in order: the platform-role source gate
 # (FE-AUTH-00, scripts/check-platform-roles.mjs — its own --self-test first, so a
