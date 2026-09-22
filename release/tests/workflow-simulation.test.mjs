@@ -361,6 +361,13 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     const world = await makeWorld({ prerequisites: 'committed', legacyWorkflow: true });
     const result = await simulate(world, automaticEvent(world, 5102));
     assert.equal(result.jobs.gate.result, 'failure', 'a refusal is red');
+    // Red AT the decision, not only at the report after it. The job would still go red
+    // through the report step if the Decide step discarded the CLI's status — which is
+    // exactly why that has to be pinned here: the step an operator opens first must be
+    // the one that says no, and softening the report later must not turn a refusal green.
+    const decide = step(result, 'gate', 'Decide');
+    assert.equal(decide.status, 1, 'the Decide step exits with the refusal');
+    assert.equal(decide.outcome, 'failure');
     assert.equal(result.jobs.publish.result, 'skipped');
     const codes = codesOf(decisionOf(result));
     for (const code of ['prerequisite.source_protection_unrecorded', 'prerequisite.retention_unverified',
@@ -522,6 +529,7 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     const result = await simulate(world, automaticEvent(world, 5102));
     assert.equal(decisionOf(result).decision, 'SKIP_IDENTICAL');
     assert.equal(result.jobs.gate.result, 'success');
+    assert.equal(step(result, 'gate', 'Decide').status, 0, 'a skip is not a refusal at the decision either');
     assert.equal(result.jobs.publish.result, 'skipped');
     assert.equal(outcomeOf(result), 'SKIPPED_IDENTICAL');
     assertNothingPublished(world, result);
@@ -532,6 +540,8 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     world.serve(world.candidates.c2);
     const result = await simulate(world, automaticEvent(world, 5101));
     assert.equal(decisionOf(result).decision, 'SKIP_STALE');
+    assert.equal(result.jobs.gate.result, 'success', 'an automatic run that arrived late is not a failure');
+    assert.equal(step(result, 'gate', 'Decide').status, 0);
     assert.equal(outcomeOf(result), 'SKIPPED_STALE');
     assertNothingPublished(world, result);
   });

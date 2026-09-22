@@ -24,7 +24,7 @@ published is one record (`lib/record.mjs`, `dinify.release.record/1`):
 | the target | repository, commit, the commit's source tree |
 | the certification | workflow path, run id, **run attempt**, run start (the certification window counts from it) |
 | the artifact | the upload's **artifact id** and the zip digest the API lists for it, the **manifest digest**, the **tree digest**, the entry count |
-| the build | configuration, the dependency-lock digest, the environment the stamp read from the built bytes |
+| the build | configuration, the dependency-lock digest and the environment the stamp read from the built bytes — bound through the manifest digest, which carries all three and which the publisher recomputes from its own download |
 | the destination | the project, site, target and channel, and the digest of the **regenerated** hosting configuration |
 | the peers | the approved receipt digests, and the Admin revision observed serving |
 | the served state | what `/release.json` answered when the gate decided |
