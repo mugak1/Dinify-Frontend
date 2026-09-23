@@ -150,10 +150,21 @@ FAIL the SERVER declares that settlement is not measured — undefined
 
 That figure was measured when the mock declared `false` and rendered the same
 withheld hooks the real server does, which is why their presence alone was not
-evidence then. The mock now declares a measuring server and renders none, so
-the phase-A control asserts their ABSENCE. Neutralising the flip should
-therefore also fail every withheld-hook check in phase B. That is REASONED and
-has not been re-measured, and this document does not restate 54/56 as current.
+evidence then. The mock now declares a measuring server
+(`MOCK_PAYMENT_TRACKING_ENABLED`) and renders none, so the phase-A control
+asserts their ABSENCE. Re-measured on that revision, **the same mutation now
+scores 47/56**: the two real-data checks above fail, and so do SEVEN
+withheld-hook checks that the mock used to satisfy on its own:
+
+```
+FAIL the revenue headline is WITHHELD, not rendered
+FAIL the revenue chart is not drawn
+FAIL no percentage is computed for the comparison window
+FAIL the unmeasured pills are withheld and REFUNDS is not
+FAIL the paid/unpaid split is withheld on Total Orders
+FAIL the Tables card is wired to the decision at last
+FAIL the tables history tiles are withheld
+```
 
 **THE G1/G2 PRODUCTION REVERT — 28/42, AND THAT FIGURE IS NOT RESTATED HERE.**
 It was measured against the **42-check** harness at the revision that
@@ -205,9 +216,20 @@ defaults. Exit status is non-zero if any check fails.
 milder here than in `checkout-journey`, but the seed is idempotent and costs
 nothing.
 
-Last run: **56/56**, on a FRESH disposable database, with **51/56** under the
-wrong-request-key mutation and **54/56** under the mock-dashboard mutation (see
-the measurements above).
+Last run: **56/56**, on a FRESH disposable database, with the mock declaring a
+measuring server and **47/56** under the mock-dashboard mutation (see the
+measurements above). The **51/56** wrong-request-key figure belongs to the
+previous revision and was not re-measured.
+
+**Run the browser in Kampala time** (`TZ=Africa/Kampala node …`). The seed
+stamps the history row at `timezone.now()`, and the billing screen asks for a
+window ending on the BROWSER's local date. Between 21:00 and 24:00 UTC a UTC
+browser is still on the previous day while the server is already on the next
+one. The row then falls outside the window, and `history is not in a failed or
+loading state` fails on `history-empty`. A browser in Kampala is on the
+server's date, which is why the harness should run in it. Whether an operator
+administering from another zone should see the same window is a separate
+product question this harness does not answer.
 
 Node 24.15.0 (`/opt/node24`), **Playwright 1.56.1** (`npm i --no-save
 playwright@1.56.1` — a PIN, and the product manifests are unchanged, verified
