@@ -170,14 +170,16 @@ async function run() {
     // ── the D07/G1 dashboard, in the same session ────────────────────────
     //
     // THE COMMITTED BUILD STILL SELECTS THE MOCK BRANCH
-    // (`DashboardService.USE_MOCK_DATA === true`), so every withheld-figure
-    // assertion below could be satisfied WITHOUT A SINGLE REQUEST REACHING THE
-    // SERVER — a mock payload declaring `payment_tracking_enabled: false` and a
-    // real one are indistinguishable once they are in the card. The section
-    // therefore runs in TWO PHASES: the mock branch as a CONTROL that proves it
-    // cannot supply the evidence, then the REAL branch, selected by a
-    // TEST-ONLY runtime flip of the static through Angular's dev-mode
-    // `window.ng` handle.
+    // (`DashboardService.USE_MOCK_DATA === true`). The mock now declares a
+    // MEASURING server (`MOCK_PAYMENT_TRACKING_ENABLED` in
+    // `dashboard-mock-data.ts`), so it renders every figure and NO withheld
+    // hook. That turns phase A into a sharper control than it used to be: when
+    // the mock declared `false`, it rendered the same hooks the real server
+    // does, and the two could not be told apart once they were in the card.
+    // Now the withheld hooks can only come from the REAL declaration. The
+    // section still runs in TWO PHASES: the mock branch as a CONTROL, then the
+    // REAL branch, selected by a TEST-ONLY runtime flip of the static through
+    // Angular's dev-mode `window.ng` handle.
     //
     // NOTHING IS COMMITTED TO SELECT IT: no production flag is changed, no test
     // endpoint is added, no build configuration is introduced. The flip lives
@@ -203,14 +205,15 @@ async function run() {
     await page.waitForSelector('app-revenue-card', { timeout: 30000 });
     await page.waitForTimeout(1800);
 
-    // PHASE A — the control. The withheld testids are ALREADY present here, and
-    // that is exactly why this check exists: their presence proves nothing
-    // until a real declaration is shown to have produced them.
+    // PHASE A — the control. The mock declares a measuring server, so NO
+    // withheld hook may be present yet. Any that appear in phase B can only
+    // have come from the server's own declaration.
     const mockPhaseCalls = dashboardCalls.length;
     check('CONTROL: on the committed mock branch NO dashboard-v2 request is issued, so the real-data checks below cannot be satisfied by it',
       mockPhaseCalls === 0, `observed ${mockPhaseCalls}`);
-    check('CONTROL: ...and the withheld hooks are nevertheless already rendered from mock data',
-      await page.locator('[data-testid="revenue-headline-withheld"]').count() === 1);
+    check('CONTROL: ...and the mock renders its dummy figures, with NO withheld hook',
+      await page.locator('[data-testid*="withheld"]').count() === 0,
+      `observed ${await page.locator('[data-testid*="withheld"]').count()}`);
 
     // PHASE B — the real branch.
     const flipped = await page.evaluate(() => {

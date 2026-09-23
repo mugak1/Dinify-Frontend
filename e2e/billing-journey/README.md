@@ -107,10 +107,12 @@ between runs.
   deployed older bundle renders that refusal well is not asserted and is not
   claimed.
 - **The dashboard section proves the REAL branch only because it selects it.**
-  `DashboardService.USE_MOCK_DATA` is still `true` in the committed build, so
-  the withheld hooks render from mock data with no request made. The harness
-  flips the static at runtime through `window.ng`, undoes it before the section
-  ends, and keeps the mock phase as an explicit control. **No production flag
+  `DashboardService.USE_MOCK_DATA` is still `true` in the committed build. The
+  mock declares a MEASURING server (`MOCK_PAYMENT_TRACKING_ENABLED`), so the
+  mock phase renders every dummy figure and NO withheld hook, and the control
+  asserts exactly that. The harness flips the static at runtime through
+  `window.ng`, undoes it before the section ends, and keeps the mock phase as
+  an explicit control. **No production flag
   is changed, no test endpoint is added and no build configuration is
   introduced.**
 - **It asserts nothing about production or UAT data.** Everything here is a
@@ -146,9 +148,12 @@ FAIL an AUTHORIZED dashboard-v2 request really reached the server — []
 FAIL the SERVER declares that settlement is not measured — undefined
 ```
 
-Both CONTROL checks in that phase still pass, including the one asserting that
-the withheld hooks are already rendered from mock data — which is precisely why
-their presence alone is not evidence.
+That figure was measured when the mock declared `false` and rendered the same
+withheld hooks the real server does, which is why their presence alone was not
+evidence then. The mock now declares a measuring server and renders none, so
+the phase-A control asserts their ABSENCE. Neutralising the flip should
+therefore also fail every withheld-hook check in phase B. That is REASONED and
+has not been re-measured, and this document does not restate 54/56 as current.
 
 **THE G1/G2 PRODUCTION REVERT — 28/42, AND THAT FIGURE IS NOT RESTATED HERE.**
 It was measured against the **42-check** harness at the revision that
