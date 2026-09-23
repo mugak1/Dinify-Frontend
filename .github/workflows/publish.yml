@@ -29,7 +29,20 @@
 # live path: it still builds and publishes every merge to main, including the
 # `angular.json` configuration this directory names. Setting the variable is NOT the
 # cutover — see release/README.md.
-name: Publish
+#
+# A READINESS EVALUATION IS NOT A FAILED RELEASE. While publication is disabled, the
+# automatic run after every merge is an evaluation that is REQUIRED to refuse. When the
+# refusal is EXACTLY the recorded, still-pending prerequisites
+# (release/policy.json → publication.readiness.awaiting, each standing in its context —
+# release/lib/readiness.mjs), the gate job completes green and says so: the decision
+# stays REFUSE, allow:false, nothing is admitted and the publish job stays skipped. Any
+# other refusal, any manual attempt, any enabled or invalid enablement value, and any
+# evaluation that did not complete stays red.
+name: Release readiness and publication
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch'
+      && format('Release attempt: manual {0} of {1}', inputs.mode, inputs.sha)
+      || format('Readiness evaluation: automatic, {0}', github.event.workflow_run.head_sha) }}
 
 on:
   # `workflow_run.workflows` can only match a workflow's mutable DISPLAY NAME. That is
@@ -69,6 +82,8 @@ permissions: {}
 
 jobs:
   gate:
+    # The gate holds no credential and cannot publish, whatever it decides.
+    name: Evaluate release readiness (non-publishing)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # A failed certification produces a cleanly skipped publication, not a red one: a
@@ -221,12 +236,23 @@ jobs:
           set -euo pipefail
           node release/cli.mjs peer-facts > peers.json
 
-      # A REFUSE turns this step red with the decision's own exit status; a SKIP does
-      # not. The shadow-mode summary is written either way.
+      # `decide` keeps its own exit status: 1 on REFUSE, 0 on PROCEED or a SKIP. A
+      # REFUSE — and ONLY exit status 1 — is asked ONE further question by the trusted
+      # CLI: is it exactly the recorded waiting state of a non-publishing automatic
+      # evaluation? Only that answer ends this step green; `readiness` exits 1 for
+      # everything else, including a decision file it cannot read back. Any other
+      # status from `decide` (a crash, a usage error) is passed through untranslated.
+      # The decision file, its outputs (decision, allow) and the record are `decide`'s
+      # alone and are not rewritten; the shadow-mode summary is written either way.
       - name: Decide
         id: decide
+        env:
+          ENABLEMENT: ${{ vars.FRONTEND_PUBLISH_ENABLED }}
         run: |
           set -euo pipefail
+          # Only a classification made HERE, about THIS decision, may be read by the
+          # report below — never a file that was already in the workspace.
+          rm -f readiness.json
           now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           status=0
           node release/cli.mjs decide \
@@ -241,6 +267,20 @@ jobs:
             --outputs "$GITHUB_OUTPUT" \
             --summary "$GITHUB_STEP_SUMMARY" > decision.json || status=$?
           cat decision.json
+          if [ "$status" -eq 1 ]; then
+            readiness=0
+            node release/cli.mjs readiness \
+              --decision decision.json \
+              --request request.json \
+              --facts facts.json \
+              --served served.json \
+              --peers peers.json \
+              --enablement "$ENABLEMENT" \
+              --out readiness.json \
+              --outputs "$GITHUB_OUTPUT" \
+              --summary "$GITHUB_STEP_SUMMARY" || readiness=$?
+            exit "$readiness"
+          fi
           exit "$status"
 
       # A decision other than PROCEED ends the run here, so its outcome is stated here —
@@ -264,7 +304,7 @@ jobs:
             echo '{"outcome":"REFUSED"}'
             exit 1
           fi
-          node release/cli.mjs outcome --decision decision.json --decision-word "${DECISION:-}" --summary "$GITHUB_STEP_SUMMARY"
+          node release/cli.mjs outcome --decision decision.json --decision-word "${DECISION:-}" --readiness readiness.json --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Retain the gate's evidence
         if: always()
@@ -279,13 +319,17 @@ jobs:
             served.json
             peers.json
             decision.json
+            readiness.json
             record.json
           if-no-files-found: warn
           retention-days: 90
 
   publish:
+    name: Publish admitted candidate
     needs: gate
-    if: needs.gate.outputs.allow == 'true'
+    # The EXPLICIT admitted decision, never "the gate job was green": a completed
+    # readiness evaluation is green and is still a REFUSE.
+    if: needs.gate.outputs.decision == 'PROCEED' && needs.gate.outputs.allow == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

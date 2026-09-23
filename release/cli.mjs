@@ -14,6 +14,8 @@
  *   peer-receipt          PRODUCE a peer receipt from that peer's own git
  *   peer-facts            read receipts, verify public ones, observe peer serving
  *   decide                the decision + the admitted record + a shadow-mode summary
+ *   readiness             is a refusal EXACTLY the recorded waiting state of a
+ *                         non-publishing evaluation? (asked only of a refusal)
  *   preflight             the publisher's critical-section recheck, then staging
  *   verify-served         fetch the identity and every certified file back
  *   outcome               the one outcome word for the whole run
@@ -40,6 +42,7 @@ import { PEER_NAMES, produceReceipt, receiptDigest } from './lib/peers.mjs';
 import { buildRecord, decodeRecord, encodeRecord, recordDigest } from './lib/record.mjs';
 import { preflightReasons } from './lib/preflight.mjs';
 import { FAILING_OUTCOMES, classifyVerification, summarizeOutcome } from './lib/outcome.mjs';
+import { AWAITING, classifyReadiness, readinessCovers, unclassifiable } from './lib/readiness.mjs';
 import { partitionByIgnore, supportedIgnorePattern, globToRegExp } from './lib/glob.mjs';
 import {
   artifactFacts, fetchBackFiles, ghApi, git, gitShow, observeCandidate,
@@ -586,6 +589,88 @@ function cmdDecide(args) {
   exit(decision.decision === 'REFUSE' ? 1 : 0);
 }
 
+// ── readiness ───────────────────────────────────────────────────────────────────
+
+/**
+ * Asked ONLY of a refusal, by the workflow wrapper around `decide`. `decide` keeps its
+ * own exit status — 1 on REFUSE — and this is the one further question: is the refusal
+ * EXACTLY the recorded waiting state of a non-publishing evaluation
+ * (lib/readiness.mjs)? Exit 0 for that and for nothing else. An invalid policy, an
+ * input that cannot be read back, an enablement that was not passed, or any other answer is 1,
+ * so a wrapper can translate this one status and no arbitrary other.
+ *
+ * The decision is read back from the file `decide` wrote and classified as DATA; it is
+ * never re-derived, edited or re-emitted. Nothing here writes a decision, an allow, a
+ * record or anything the publish job reads.
+ */
+function cmdReadiness(args) {
+  const f = flags(args);
+  const { policy, check } = readPolicy();
+  const read = (name) => {
+    if (typeof f[name] !== 'string' || !existsSync(f[name])) return { ok: false };
+    try { return { ok: true, value: readJson(f[name]) }; } catch { return { ok: false }; }
+  };
+  const inputs = Object.fromEntries(['decision', 'request', 'facts', 'served', 'peers'].map((n) => [n, read(n)]));
+  let result;
+  if (!check.ok) {
+    result = unclassifiable('readiness.policy_invalid', check.problems.map((p) => p.code).join(','));
+  } else if (Object.values(inputs).some((i) => !i.ok)) {
+    const missing = Object.entries(inputs).filter(([, i]) => !i.ok).map(([n]) => n);
+    result = unclassifiable('readiness.evidence_unreadable', `unreadable: ${missing.join(', ')}`);
+  } else {
+    result = classifyReadiness({
+      policy,
+      request: inputs.request.value,
+      // A wrapper that forgot `--enablement` hands over undefined, which the classifier
+      // reads as NOT READ (readiness.enablement_unread) — never as "disabled".
+      enablement: f.enablement,
+      decision: inputs.decision.value,
+      facts: inputs.facts.value,
+      served: inputs.served.value,
+      peers: inputs.peers.value,
+    });
+  }
+  if (f.out) writeFileSync(String(f.out), `${JSON.stringify(result, null, 2)}\n`);
+  writeOutputs(f.outputs, { readiness: result.kind });
+  if (f.summary) appendFileSync(String(f.summary), readinessSummary(result, policy));
+  // STDERR, deliberately: it runs inside the Decide step, whose stdout is the
+  // decision and nothing else. Two documents on one stream is how a reader of the
+  // log — or of the step — mistakes one for the other.
+  stderr.write(`${JSON.stringify(result, null, 2)}\n`);
+  exit(result.kind === AWAITING ? 0 : 1);
+}
+
+function readinessSummary(result, policy) {
+  const legacy = policy?.prerequisites?.singlePublisher?.legacyWorkflow ?? 'the legacy deploy workflow';
+  const variable = policy?.publication?.enablementVariable ?? 'the enablement variable';
+  const enablement = {
+    'disabled-unset': `disabled — \`${variable}\` is not set`,
+    disabled: `disabled — \`${variable}\` is \`false\``,
+    enabled: `ENABLED — \`${variable}\` is \`true\``,
+    invalid: `INVALID — \`${variable}\` is neither unset, \`false\` nor \`true\``,
+  }[result.enablement] ?? 'not read';
+  const lines = [];
+  if (result.kind === AWAITING) {
+    lines.push('### Readiness evaluation completed', '');
+    lines.push('- **New-path publication: NOT PERMITTED** — pending recorded prerequisites.');
+    lines.push('- **Release decision:** `REFUSE`; allow: `false`. Nothing was admitted.');
+    lines.push('- **Published by this run:** no.');
+    lines.push(`- **Publication enablement:** ${enablement}.`);
+    lines.push(`- **Legacy deployment:** remains separately configured (\`${legacy}\`). Its own runs report its result; this evaluation neither observes nor vouches for it.`);
+    lines.push('', `**Outstanding (${result.awaiting.length})** — each listed in \`release/policy.json\` → \`publication.readiness.awaiting\` and standing in its context:`, '');
+    lines.push('| reason | waiting on |', '|---|---|');
+    for (const a of result.awaiting) lines.push(`| \`${a.code}\` | ${a.means} |`);
+    lines.push('', '_Green because the evaluation completed and every refusal is a recorded, still-pending prerequisite. It does not mean anything was, or would be, published._', '');
+  } else {
+    lines.push('### Readiness evaluation: NOT the recorded waiting state', '');
+    lines.push('This refusal stays a failure. What separates it from the recorded waiting state:', '');
+    lines.push('| problem | detail |', '|---|---|');
+    for (const p of result.problems) lines.push(`| \`${p.code}\` | ${String(p.detail ?? '').replace(/\|/g, '\\|')} |`);
+    lines.push('', `Publication enablement: ${enablement}. Published by this run: no.`, '');
+  }
+  return `${lines.join('\n')}\n`;
+}
+
 // ── preflight ───────────────────────────────────────────────────────────────────
 
 async function cmdPreflight(args) {
@@ -709,15 +794,34 @@ async function cmdVerifyServed(args) {
 
 function cmdOutcome(args) {
   const f = flags(args);
-  const { policy } = readPolicy();
+  // The report must still say REFUSED when the trusted policy itself cannot be parsed;
+  // it reads the policy for one variable NAME and nothing else.
+  let policy = null;
+  try { ({ policy } = readPolicy()); } catch { policy = null; }
   const word = f['decision-word'] === true ? '' : String(f['decision-word'] ?? '');
   // A run that stopped BEFORE a decision (a step failed first) has no decision to
   // report. It is refused, and the summary says it never got as far as deciding.
-  const decision = f.decision && existsSync(String(f.decision)) ? readJson(f.decision).decision : word;
+  // A decision file that exists but cannot be read (decide died after the shell had
+  // already created it) is the same fact as no decision: nothing was decided.
+  const readable = (path) => {
+    if (!path || !existsSync(String(path))) return null;
+    try { return readJson(path); } catch { return null; }
+  };
+  const decisionObject = readable(f.decision);
+  const decision = typeof decisionObject?.decision === 'string' ? decisionObject.decision : word;
   const preflight = f.preflight && existsSync(String(f.preflight)) ? readJson(f.preflight) : null;
   const verification = f.verification && existsSync(String(f.verification)) ? readJson(f.verification) : null;
+  // A recorded wait counts only when the readiness record classifies EXACTLY the
+  // decision in this file (bound by digest) — never on the word of a stray file.
+  let readiness = null;
+  const readinessPresent = Boolean(f.readiness) && existsSync(String(f.readiness));
+  if (readinessPresent) {
+    try { readiness = readJson(f.readiness); } catch { readiness = null; }
+  }
+  const awaiting = readinessCovers(readiness, decisionObject);
   const outcome = summarizeOutcome({
     decision,
+    awaiting,
     preflightOk: preflight ? preflight.ok === true : null,
     enabled: String(f.enabled) === 'true',
     publishStep: String(f['publish-step'] ?? 'skipped'),
@@ -727,8 +831,12 @@ function cmdOutcome(args) {
     `### Publication outcome: ${outcome}`, '',
     '| stage | result |', '|---|---|',
     `| decision | ${decision || 'none — the gate stopped before deciding; see the failed step'} |`,
+    ...(readinessPresent ? [`| readiness | ${awaiting ? `awaiting ${readiness.awaiting.length} recorded prerequisite(s) — evaluation completed, nothing admitted` : `not the recorded waiting state${readiness?.problems?.length ? ` (${readiness.problems.map((p) => p.code).join(', ')})` : ''}`} |`] : []),
     `| preflight | ${preflight ? (preflight.ok ? 'passed' : preflight.reasons.map((r) => r.code).join(', ')) : 'not run'} |`,
-    `| enabled | ${String(f.enabled) === 'true' ? 'yes' : `no — ${policy?.publication?.enablementVariable ?? 'the enablement variable'} is not set`} |`,
+    // The gate's report is not handed the variable, and must not claim what it never
+    // read: "is not set" beside a refused ENABLED release would be false. The gate's
+    // own reading is the readiness line above.
+    `| enabled | ${!Object.hasOwn(f, 'enabled') ? 'not read by this step' : String(f.enabled) === 'true' ? 'yes' : `no — ${policy?.publication?.enablementVariable ?? 'the enablement variable'} is not \`true\``} |`,
     `| publication step | ${String(f['publish-step'] ?? 'skipped')} |`,
     `| served identity | ${verification ? `${verification.identity.state} ${verification.identity.manifestDigest ?? ''}, Cache-Control ${verification.identity.cacheControlNoStore === true ? 'no-store' : `${JSON.stringify(verification.identity.cacheControl ?? null).replace(/\|/g, '\\|')} — NOT no-store`}` : 'not observed'} |`,
     `| certified files fetched back | ${verification ? `${verification.files.checked} checked, ${verification.files.mismatched.length} mismatched, ${verification.files.unreachable.length} unreachable` : 'not observed'} |`,
@@ -820,13 +928,14 @@ try {
     case 'peer-receipt': cmdPeerReceipt(rest); break;
     case 'peer-facts': await cmdPeerFacts(rest); break;
     case 'decide': cmdDecide(rest); break;
+    case 'readiness': cmdReadiness(rest); break;
     case 'preflight': await cmdPreflight(rest); break;
     case 'verify-served': await cmdVerifyServed(rest); break;
     case 'outcome': cmdOutcome(rest); break;
     case 'storage-reviewed': cmdStorageReviewed(rest); break;
     case 'self-test': cmdSelfTest(); break;
     default:
-      stderr.write('usage: node release/cli.mjs <stamp|observe|certification-facts|git-facts|serve-state|peer-receipt|peer-facts|decide|preflight|verify-served|outcome|storage-reviewed|self-test> [...]\n');
+      stderr.write('usage: node release/cli.mjs <stamp|observe|certification-facts|git-facts|serve-state|peer-receipt|peer-facts|decide|readiness|preflight|verify-served|outcome|storage-reviewed|self-test> [...]\n');
       exit(2);
   }
 } catch (error) {

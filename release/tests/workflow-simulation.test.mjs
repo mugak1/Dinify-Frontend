@@ -29,11 +29,13 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { cpSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
+import { digestOfValue } from '../lib/canonical.mjs';
 import { receiptDigest } from '../lib/peers.mjs';
+import { AWAITING } from '../lib/readiness.mjs';
 import {
   REPOSITORY, ROOT, artifactDigest, artifactStore, buildCandidate, certificationResponses, cli, commitAll,
   fixtureFrontend, git, initRepo, installFakeGh, runObject, startOrigin, tempDir, writeText,
@@ -239,7 +241,7 @@ const step = (result, job, name) => result.jobs[job]?.steps.find((s) => s.name =
 
 function decisionOf(result) {
   const s = step(result, 'gate', 'Decide');
-  if (!s || s.outcome === 'skipped') return null;
+  if (!s || s.outcome === 'skipped' || !s.stdout.includes('{')) return null;
   return JSON.parse(s.stdout.slice(s.stdout.indexOf('{')));
 }
 
@@ -356,6 +358,9 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     assert.equal(result.jobs.publish.result, 'success');
     assertNothingPublished(world, result);
     assert.equal(servedCommitNow(world).commit, world.C1, 'the served release is unchanged');
+    // An admitted candidate is never asked the readiness question at all.
+    assert.equal(step(result, 'gate', 'Decide').status, 0);
+    assert.equal(existsSync(join(result.jobs.gate.workspace, 'readiness.json')), false);
   });
 
   test('CONTRACT: outstanding owner prerequisites refuse at the gate; the publish job never starts', async () => {
@@ -376,6 +381,11 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
       assert.ok(codes.includes(code), `${code} missing from ${codes}`);
     }
     assert.equal(outcomeOf(result), 'REFUSED');
+    // PUBLICATION IS ENABLED in this world, so this refusal is a failed release — the
+    // readiness question was asked and answered no, by name.
+    const readiness = JSON.parse(decide.stderr.slice(decide.stderr.indexOf('{')));
+    assert.notEqual(readiness.kind, AWAITING);
+    assert.ok(readiness.problems.some((p) => p.code === 'readiness.publication_enabled'), JSON.stringify(readiness.problems));
     assertNothingPublished(world, result);
     assert.match(result.jobs.gate.summary, /Owner prerequisites outstanding/);
     assert.match(result.jobs.gate.summary, /deploy-prod\.yml` *\n?still builds and publishes/);
@@ -686,5 +696,324 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     const uses = result.steps.filter((s) => s.action);
     assert.ok(uses.length > 0);
     for (const s of uses) assert.equal(s.pinned, true, `${s.name} uses ${s.uses}`);
+  });
+});
+
+// ── the non-publishing evaluation (readiness) ───────────────────────────────────
+
+/** The committed list, READ from the committed policy — never retyped. */
+const EXPECTED_WAIT = [...POLICY.publication.readiness.awaiting].sort();
+
+/**
+ * The site as the LEGACY writer leaves it today: a build with no release.json behind
+ * the committed firebase.json, whose `**` rewrite answers the identity path with the
+ * SPA document (200, HTML) — which serve-state classifies as absent.
+ */
+function serveLegacySpa(world) {
+  const docroot = tempDir('sim-legacy');
+  writeFileSync(join(docroot, 'index.html'), '<!doctype html><html><body><app-root></app-root></body></html>\n');
+  world.site.serveSite(docroot, JSON.parse(readFileSync(join(ROOT, 'firebase.json'), 'utf8')));
+}
+
+/**
+ * THE COMMITTED STATE, as an ordinary merge to main meets it: the owner prerequisites
+ * outstanding, the legacy workflow present, no backend serving observation (B3),
+ * bootstrap unauthorized, publication NOT enabled, and the legacy site served. The
+ * peers are the fixture's real receipts, so only the recorded conditions refuse.
+ */
+async function committedWorld({ policyMutate, ...rest } = {}) {
+  const world = await makeWorld({
+    prerequisites: 'committed',
+    enabled: false,
+    legacyWorkflow: true,
+    policyMutate: (p) => {
+      p.compatibleSet.peers.backend.serving = clone(POLICY.compatibleSet.peers.backend.serving);
+      policyMutate?.(p);
+    },
+    ...rest,
+  });
+  serveLegacySpa(world);
+  return world;
+}
+
+/**
+ * FAULT INJECTION: replace ONE command of the gate's own CLI, in that job's workspace,
+ * with a script; every other command still runs the real one.
+ */
+function shimCommand(workspace, command, body) {
+  if (!existsSync(join(workspace, 'release/cli-real.mjs'))) {
+    renameSync(join(workspace, 'release/cli.mjs'), join(workspace, 'release/cli-real.mjs'));
+  }
+  writeFileSync(join(workspace, 'release/cli.mjs'), [
+    "import { argv, exit, stdout, stderr } from 'node:process';",
+    `if (argv[2] === ${JSON.stringify(command)}) { ${body} }`,
+    "await import('./cli-real.mjs');",
+  ].join('\n'));
+}
+
+/** A file the GATE retained, or null when it did not. */
+function retainedGate(world, event, file) {
+  const path = join(world.evidence, `publish-gate-${event.runId}-1`, file);
+  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+}
+
+const readinessOf = (result) => {
+  const path = join(result.jobs.gate.workspace, 'readiness.json');
+  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+};
+
+/** The recorded wait, asserted fact by fact: completed, REFUSE, nothing admitted or published. */
+function assertRecordedWait(world, result, event) {
+  // 1. THE EVALUATION COMPLETED — green at the decision AND at the report.
+  const decide = step(result, 'gate', 'Decide');
+  assert.equal(decide.status, 0, decide.stderr);
+  assert.equal(decide.outcome, 'success');
+  assert.equal(step(result, 'gate', 'Report the outcome').outcome, 'success');
+  assert.equal(result.jobs.gate.result, 'success', result.jobs.gate.summary);
+
+  // 2. THE DECISION IS UNCHANGED — REFUSE, allow:false, exactly the recorded six, in
+  // the step's stdout, the job's outputs and the retained evidence alike.
+  const decision = decisionOf(result);
+  assert.equal(decision.decision, 'REFUSE');
+  assert.equal(decision.allow, false);
+  assert.deepEqual(codesOf(decision).sort(), EXPECTED_WAIT);
+  assert.equal(result.jobs.gate.outputs.decision, 'REFUSE');
+  assert.equal(result.jobs.gate.outputs.allow, 'false');
+  assert.deepEqual(retainedGate(world, event, 'decision.json'), decision);
+  const readiness = retainedGate(world, event, 'readiness.json');
+  assert.equal(readiness.kind, AWAITING);
+  assert.equal(readiness.decisionDigest, digestOfValue(decision));
+  assert.deepEqual(readiness.awaiting.map((a) => a.code).sort(), EXPECTED_WAIT);
+  assert.equal(outcomeOf(result), 'PENDING_PREREQUISITES');
+
+  // 3. NOTHING ADMITTED, NOTHING PUBLISHED — the credentialed job never started.
+  const record = retainedGate(world, event, 'record.json');
+  assert.equal(record.admitted, false);
+  assert.equal(record.decision, 'REFUSE');
+  assert.equal(result.jobs.publish.result, 'skipped');
+  assert.equal(result.jobs.publish.steps.length, 0, 'no step of the publish job ran');
+  assert.equal(result.steps.filter((s) => s.job === 'publish').length, 0);
+  assertNothingPublished(world, result);
+  assert.equal(world.site.site() && existsSync(join(world.site.site().dir, 'release.json')), false, 'nothing reached the site');
+
+  // What the operator reads.
+  const summary = result.jobs.gate.summary;
+  assert.match(summary, /### Readiness evaluation completed/);
+  assert.match(summary, /New-path publication: NOT PERMITTED/);
+  assert.match(summary, /Release decision:\*\* `REFUSE`; allow: `false`/);
+  assert.match(summary, /Published by this run:\*\* no/);
+  assert.match(summary, /### Publication outcome: PENDING_PREREQUISITES/);
+  assert.doesNotMatch(summary, /WOULD_PUBLISH|PUBLISHED_VERIFIED|Publication outcome: PROCEED/);
+}
+
+/** A refusal that must stay RED, with the publish job never started. */
+function assertRedAndInert(world, result, { readinessProblem } = {}) {
+  assert.equal(result.jobs.gate.result, 'failure', 'this must not report as a completed evaluation');
+  // RED AT BOTH STEPS, each on its own: the Report step would keep the job red even if
+  // the Decide step translated this refusal, so the job's colour alone cannot show that
+  // the refusal was refused AT the decision (the #687 lesson, applied to the wrapper).
+  const decide = step(result, 'gate', 'Decide');
+  if (decide && decide.outcome !== 'skipped') {
+    assert.equal(decide.outcome, 'failure', `the Decide step went green: ${decide.stderr}`);
+    assert.notEqual(decide.status, 0);
+  }
+  const report = step(result, 'gate', 'Report the outcome');
+  if (report && report.outcome !== 'skipped') assert.equal(report.outcome, 'failure', 'the Report step went green');
+  assert.equal(result.jobs.publish.result, 'skipped');
+  assert.equal(result.steps.filter((s) => s.job === 'publish').length, 0);
+  assertNothingPublished(world, result);
+  if (outcomeOf(result) !== null) assert.notEqual(outcomeOf(result), 'PENDING_PREREQUISITES');
+  const readiness = readinessOf(result);
+  if (readinessProblem) {
+    assert.ok(readiness, 'the readiness question was asked');
+    assert.notEqual(readiness.kind, AWAITING);
+    assert.ok(readiness.problems.some((p) => p.code === readinessProblem), JSON.stringify(readiness.problems));
+  }
+  if (readiness) assert.notEqual(readiness.kind, AWAITING);
+}
+
+describe('publish.yml, a deliberately NON-PUBLISHING evaluation — reported as what it is', { concurrency: 4 }, () => {
+  test('CONTRACT (§5.1): the committed state, automatic, publication unset — a completed evaluation, green, nothing admitted', async () => {
+    const world = await committedWorld();
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assertRecordedWait(world, result, event);
+    assert.equal(readinessOf(result).enablement, 'disabled-unset');
+  });
+
+  test('CONTROL: an explicit `false` is as disabled as unset — still the recorded wait', async () => {
+    const world = await committedWorld();
+    world.vars = { FRONTEND_PUBLISH_ENABLED: 'false' };
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assertRecordedWait(world, result, event);
+    assert.equal(readinessOf(result).enablement, 'disabled');
+  });
+
+  test('CONTROL (§5.2): the same world plus an artifact that fails its digest at download — red', async () => {
+    const world = await committedWorld();
+    writeFileSync(join(world.artifacts.get(world.ids.c2).dir, 'dist/styles-fixture.css'), 'altered');
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.equal(step(result, 'gate', 'Download the candidate').outcome, 'failure');
+    assert.ok(codesOf(decisionOf(result)).includes('artifact.missing'));
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTROL (§5.3): the same world plus an unreadable identity origin — red, never read as absent', async () => {
+    const world = await committedWorld();
+    world.site.route('/release.json', { status: 503, headers: { 'content-type': 'text/plain' }, body: 'unavailable' });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.ok(codesOf(decisionOf(result)).includes('served.unreadable'));
+    assert.equal(codesOf(decisionOf(result)).includes('served.bootstrap_unauthorized'), false);
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTROL (§5.3): the same world plus an unreadable peer (Admin) — red', async () => {
+    const world = await committedWorld();
+    world.adminOrigin.route('/release.txt', { status: 500, headers: { 'content-type': 'text/plain' }, body: 'boom' });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.ok(codesOf(decisionOf(result)).some((c) => c.startsWith('peers.admin')), codesOf(decisionOf(result)).join(','));
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTROL (§5.4): a wrong, a missing or a changed backend receipt — red, each time', async () => {
+    const wrong = await committedWorld({ policyMutate: (p) => { p.compatibleSet.peers.backend.approved[0].receiptDigest = `sha256:${'0'.repeat(64)}`; } });
+    const missing = await committedWorld();
+    git(missing.repo, ['rm', '-q', `release/peers/backend-${shared.B1}.json`]);
+    commitAll(missing.repo, 'the approved receipt deleted on main');
+    missing.refreshApi();
+    const changed = await committedWorld();
+    const path = join(changed.repo, `release/peers/backend-${shared.B1}.json`);
+    const edited = JSON.parse(readFileSync(path, 'utf8'));
+    edited.publishes.quote_protocol = 9;
+    writeFileSync(path, `${JSON.stringify(edited, null, 2)}\n`);
+    commitAll(changed.repo, 'a receipt edited on main without re-approval');
+    changed.refreshApi();
+    for (const [name, world] of [['wrong digest', wrong], ['missing file', missing], ['changed file', changed]]) {
+      const result = await simulate(world, automaticEvent(world, 5102));
+      const codes = codesOf(decisionOf(result));
+      assert.ok(codes.some((c) => c.startsWith('peers.') && c !== 'peers.backend_serving_unverified'), `${name}: ${codes}`);
+      assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+    }
+  });
+
+  test('CONTROL (§5.5, fault injection): `decide` crashes — its status passes through untranslated, red', async () => {
+    const world = await committedWorld();
+    const result = await simulate(world, automaticEvent(world, 5102), {
+      beforeStep: async ({ job, step: name, workspace }) => {
+        if (job === 'gate' && name === 'Decide') writeFileSync(join(workspace, 'facts.json'), '{"truncated": ');
+      },
+    });
+    const decide = step(result, 'gate', 'Decide');
+    assert.equal(decide.status, 3, 'a crash is not translated');
+    assert.equal(decisionOf(result), null, 'no decision was produced');
+    assert.equal(readinessOf(result), null, 'readiness is asked only of a refusal');
+    assert.equal(outcomeOf(result), 'REFUSED');
+    assertRedAndInert(world, result);
+  });
+
+  test('CONTROL (§5.5, fault injection): `decide` exits 1 with no complete decision — refused as unreadable, red', async () => {
+    const world = await committedWorld();
+    const result = await simulate(world, automaticEvent(world, 5102), {
+      beforeStep: async ({ job, step: name, workspace }) => {
+        // The gate's own `decide`, replaced by one that prints half a decision and exits
+        // 1 — the one status the wrapper asks readiness about.
+        if (job === 'gate' && name === 'Decide') shimCommand(workspace, 'decide', "stdout.write('{\"decision\":\"REFUSE\",\"allow\":false'); exit(1);");
+      },
+    });
+    assert.equal(step(result, 'gate', 'Decide').status, 1);
+    assert.deepEqual(readinessOf(result).problems.map((p) => p.code), ['readiness.evidence_unreadable']);
+    assert.equal(outcomeOf(result), 'REFUSED');
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.evidence_unreadable' });
+  });
+
+  test('CONTROL (§5.6, fault injection): an evidence step fails before Decide — red, and not labelled waiting', async () => {
+    const world = await committedWorld();
+    const result = await simulate(world, automaticEvent(world, 5102), {
+      beforeStep: async ({ job, step: name, workspace }) => {
+        if (job === 'gate' && name === 'Read the peers') shimCommand(workspace, 'peer-facts', "stderr.write('peer-facts: simulated failure\\n'); exit(1);");
+      },
+    });
+    assert.equal(step(result, 'gate', 'Read the peers').outcome, 'failure');
+    assert.equal(step(result, 'gate', 'Decide').outcome, 'skipped');
+    assert.equal(readinessOf(result), null);
+    assert.equal(outcomeOf(result), 'REFUSED');
+    assert.match(result.jobs.gate.summary, /the gate stopped before deciding/);
+    assert.doesNotMatch(result.jobs.gate.summary, /Readiness evaluation completed|PENDING_PREREQUISITES/);
+    assertRedAndInert(world, result);
+  });
+
+  test('CONTROL (§5.7): a prerequisite resolved in the policy but left on the list — a stale model, red', async () => {
+    const world = await committedWorld({ policyMutate: (p) => { p.prerequisites.retention.status = 'verified'; } });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.equal(codesOf(decisionOf(result)).includes('prerequisite.retention_unverified'), false);
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.expectation_stale' });
+  });
+
+  test('CONTROL (§5.7): a refusal the list does not record — red, even when it is one of the six the policy dropped', async () => {
+    const world = await committedWorld({ policyMutate: (p) => {
+      p.publication.readiness.awaiting = p.publication.readiness.awaiting.filter((c) => c !== 'served.bootstrap_unauthorized');
+    } });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTROL (§5.7): a NEW reason beside the six — a stale certification — red', async () => {
+    const world = await committedWorld({ certifyStartedAgo: 25 * 60 * MINUTE });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.ok(codesOf(decisionOf(result)).includes('certification.stale'));
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTROL (§5.8): publication ENABLED with the prerequisites pending — a failed release, red', async () => {
+    const world = await committedWorld();
+    world.vars = { FRONTEND_PUBLISH_ENABLED: 'true' };
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.deepEqual(codesOf(decisionOf(result)).sort(), EXPECTED_WAIT, 'the same six — enablement is what differs');
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.publication_enabled' });
+  });
+
+  test('CONTROL (§5.8): an enablement value that is neither unset, `false` nor `true` is a misconfiguration, not "disabled"', async () => {
+    for (const value of ['yes', 'TRUE', '1', ' false']) {
+      const world = await committedWorld();
+      world.vars = { FRONTEND_PUBLISH_ENABLED: value };
+      const result = await simulate(world, automaticEvent(world, 5102));
+      assertRedAndInert(world, result, { readinessProblem: 'readiness.enablement_invalid' });
+    }
+  });
+
+  test('CONTROL (§5.9): a manual deploy and a manual rollback against the pending prerequisites — refused, red', async () => {
+    const world = await committedWorld();
+    for (const [target, mode] of [[world.C2, 'deploy'], [world.C1, 'rollback']]) {
+      const result = await simulate(world, manualEvent(world, target, mode));
+      assert.equal(decisionOf(result).decision, 'REFUSE', mode);
+      assertRedAndInert(world, result, { readinessProblem: 'readiness.deliberate_attempt' });
+    }
+  });
+
+  test('REGRESSION GUARD: a green gate is not an admission — keying the publish job on `needs.gate.result` would start it', async () => {
+    // The mutation this pins: `publish.if` rewritten to the gate JOB's status. Executed
+    // against the committed world the gate is green, and the credential-holding job
+    // then STARTS for a refused decision. Only the preflight's own `admitted` check —
+    // the second, independent fence — stops it there; the real workflow never starts it.
+    const text = readFileSync(WORKFLOW, 'utf8');
+    const original = "if: needs.gate.outputs.decision == 'PROCEED' && needs.gate.outputs.allow == 'true'";
+    assert.equal(text.split(original).length, 2, 'the pinned condition is present exactly once');
+    const mutated = join(tempDir('sim-mutant'), 'publish.yml');
+    writeFileSync(mutated, text.replace(original, "if: needs.gate.result == 'success'"));
+
+    const real = await committedWorld();
+    const realEvent = automaticEvent(real, 5102);
+    const realResult = await simulate(real, realEvent);
+    assertRecordedWait(real, realResult, realEvent);
+
+    const world = await committedWorld();
+    const result = await runWorkflow({ workflowPath: mutated, event: automaticEvent(world, 5102), world });
+    assert.equal(result.jobs.gate.result, 'success');
+    assert.notEqual(result.jobs.publish.result, 'skipped', 'under the mutation the publish job starts');
+    assert.ok(result.steps.some((s) => s.job === 'publish' && s.outcome !== 'skipped'), 'publish-job steps ran');
+    // ...and the second fence holds: the record says not admitted.
+    assert.ok(codesOf(preflightOf(result)).length > 0, 'the preflight refused the unadmitted record');
+    assertNothingPublished(world, result);
   });
 });

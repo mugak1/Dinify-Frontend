@@ -15,6 +15,7 @@
  */
 
 import { supportedIgnorePattern } from './glob.mjs';
+import { WAITING_CODES } from './readiness.mjs';
 
 export const POLICY_SCHEMA = 'dinify.release.policy/2';
 
@@ -140,6 +141,19 @@ export function validatePolicy(policy) {
   }
 
   if (!VAR_RE.test(String(p.publication?.enablementVariable))) fail('policy.bad_enablement_variable', p.publication?.enablementVariable);
+  // The reviewed list of refusals a NON-PUBLISHING evaluation may report as waiting
+  // rather than failing (lib/readiness.mjs). Shape and vocabulary only: whether each
+  // entry still stands is the classifier's question, answered against this policy and
+  // the run's evidence. An entry the registry does not know is not a wait to excuse.
+  const awaiting = p.publication?.readiness?.awaiting;
+  if (!Array.isArray(awaiting)) {
+    fail('policy.bad_readiness', 'publication.readiness.awaiting must be a list');
+  } else {
+    for (const code of awaiting) {
+      if (!WAITING_CODES.includes(code)) fail('policy.bad_readiness', `not a waiting condition: ${JSON.stringify(code)}`);
+    }
+    if (new Set(awaiting).size !== awaiting.length) fail('policy.bad_readiness', 'duplicate entry');
+  }
 
   return { ok: problems.length === 0, problems };
 }

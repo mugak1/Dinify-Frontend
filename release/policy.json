@@ -171,7 +171,7 @@
       "The frontend's own commit is deliberately not pinned: a file cannot contain the",
       "SHA of the commit that introduces it."
     ],
-    "id": "2026-09-22-pilot-2",
+    "id": "2026-09-23-pilot-3",
     "frontendRequires": {
       "buildConfiguration": "uat"
     },
@@ -180,11 +180,12 @@
         "repository": "mugak1/Dinify-Backend",
         "receiptVerification": "operator",
         "_receiptVerification": "The backend repository is private, so its receipt cannot be re-derived from a public API at decision time. It is produced by an operator from the backend's git and reviewed as a file; its digest is what is approved.",
+        "_approvedHistory": "9448f55 (the #330 merge) was the first approved backend revision. It predates orders_app/contracts/published_capabilities.contract.json, so it is REPLACED here rather than kept beside the new entry: every approved backend is checked for compatibility, and an export-less revision left in this list would refuse peers.capabilities_unpublished for ever. Its receipt stays under release/peers/ as history; it is no longer approved.",
         "approved": [
           {
-            "commit": "9448f55ed28c040b96bf747e27c9dd2c86884c5a",
-            "receipt": "release/peers/backend-9448f55ed28c040b96bf747e27c9dd2c86884c5a.json",
-            "receiptDigest": "sha256:28bc20c96db80f44a90b6a1134c81e352298886248d579a1e835b2f782dc5916"
+            "commit": "366b7e457cfffa700663fc10983b0420e8882313",
+            "receipt": "release/peers/backend-366b7e457cfffa700663fc10983b0420e8882313.json",
+            "receiptDigest": "sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63"
           }
         ],
         "serving": {
@@ -259,6 +260,30 @@
       "publishing, the site would have two independent writers. The cutover retires",
       "deploy-prod.yml and records the prerequisites above in the same reviewed change."
     ],
-    "enablementVariable": "FRONTEND_PUBLISH_ENABLED"
+    "enablementVariable": "FRONTEND_PUBLISH_ENABLED",
+    "readiness": {
+      "_note": [
+        "WHAT A NON-PUBLISHING EVALUATION MAY REPORT AS WAITING RATHER THAN FAILED.",
+        "Each entry is a pending commissioning prerequisite this policy itself records",
+        "as outstanding. A refusal made up of EXACTLY these, each standing in its",
+        "context (release/lib/readiness.mjs), from an AUTOMATIC deploy evaluation with",
+        "publication disabled, completes the evaluation without a red run. The DECISION",
+        "is unchanged: it is still REFUSE, allow:false, nothing is admitted and nothing",
+        "is published. Any other reason, any enabled or manual attempt, and any entry",
+        "whose prerequisite this policy records as resolved stays red.",
+        "",
+        "The change that resolves a prerequisite removes its entry here in the same",
+        "reviewed change; committed-policy.test.mjs holds this list equal to what the",
+        "committed policy actually refuses."
+      ],
+      "awaiting": [
+        "peers.backend_serving_unverified",
+        "prerequisite.legacy_publisher_active",
+        "prerequisite.legacy_publisher_present",
+        "prerequisite.retention_unverified",
+        "prerequisite.source_protection_unrecorded",
+        "served.bootstrap_unauthorized"
+      ]
+    }
   }
 }

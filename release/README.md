@@ -64,9 +64,13 @@ push to main
                measures it as data, reads the certified commit from git (source,
                storage declaration, firebase.json AND .firebaserc), the served
                identity and the peers, and evaluates lib/decide.mjs. Emits the
-               decision and the admitted record.
-      publish  the ONLY job that references FIREBASE_SERVICE_ACCOUNT, and only in the
-               tool step. No npm ci, no build, no application source: the verifier
+               decision and the admitted record. A REFUSE is asked one more question
+               (lib/readiness.mjs): is it exactly the recorded, still-pending
+               prerequisites of an automatic evaluation with publication disabled?
+               Only that ends the gate green — the decision is still REFUSE.
+      publish  starts only on decision == PROCEED AND allow == true — never on the
+               gate job merely being green. The ONLY job that references
+               FIREBASE_SERVICE_ACCOUNT, and only in the tool step. No npm ci, no build, no application source: the verifier
                PINNED to the gate's revision, main's release/ tree (to notice a policy
                that moved), the certified commit's two hosting files, and the admitted
                artifact by id. Inside one critical section it re-establishes the record
@@ -75,9 +79,11 @@ push to main
                AND every certified file back.
 ```
 
-Every run ends in one outcome word (`lib/outcome.mjs`): `REFUSED`, `SKIPPED_IDENTICAL`,
-`SKIPPED_STALE`, `PREFLIGHT_REFUSED`, `WOULD_PUBLISH`, `PUBLICATION_FAILED`,
-`PUBLISHED_VERIFIED` or `PUBLISHED_DEGRADED`. The four failing ones turn the run red.
+Every run ends in one outcome word (`lib/outcome.mjs`): `REFUSED`,
+`PENDING_PREREQUISITES`, `SKIPPED_IDENTICAL`, `SKIPPED_STALE`, `PREFLIGHT_REFUSED`,
+`WOULD_PUBLISH`, `PUBLICATION_FAILED`, `PUBLISHED_VERIFIED` or `PUBLISHED_DEGRADED`. The
+four failing ones turn the run red; `PENDING_PREREQUISITES` is the one refusal that does
+not, and why is the next section but one.
 `RESTORED_AFTER_FAILURE` is never produced: nothing restores anything automatically.
 
 ## What merging does
@@ -89,12 +95,20 @@ dispatch was run" is not a release-safety argument. So, stated plainly:
   runner, builds the shipping configuration and uploads a 30-day artifact. It deploys
   nothing.
 - **`publish.yml` runs after every successful Certify.** Its gate evaluates everything
-  and today **refuses** (see "The first publication" below), so the gate job goes red
-  on every merge and the publish job is skipped. The summary says why, groups the
-  outstanding owner prerequisites under a heading that says they are expected, and
-  names `deploy-prod.yml` as the live path. A red Publish run is this path saying it
-  would not publish; it says nothing about the build being broken and changes nothing
-  that is live.
+  and today **refuses** (see "The first publication" below) — `REFUSE`, `allow: false`,
+  nothing admitted — and the publish job is skipped. Because that refusal is exactly the
+  recorded, still-pending commissioning prerequisites of an automatic evaluation with
+  publication disabled, the run now reports **a completed readiness evaluation**
+  (`PENDING_PREREQUISITES`) rather than a failed release, and is not red. The run is
+  titled *Readiness evaluation: automatic, …* and its gate job *Evaluate release
+  readiness (non-publishing)*. **A green run here means the evaluation completed and
+  every refusal was an expected wait. It does not mean anything was, or would be,
+  published**, and its summary says so in those words. Anything else — an integrity
+  failure, an unreadable origin or peer, an enabled release, a manual attempt, a crash,
+  a changed policy list — stays red. Before this change the same refusal turned every
+  merge's run red.
+- **The certification and CI checks are unchanged**, including the required `validate`
+  status; nothing here depends on the gate being green.
 - **`deploy-prod.yml` still builds and publishes every merge to `main`**, with
   `npx ng build --configuration=uat` — the configuration `policy.json → build` names.
   **A change to that `angular.json` configuration therefore changes what the LIVE path
@@ -131,6 +145,69 @@ configuration to the same `sha256:3284ed65…49c8`, 34 files. It changes no
 — the storage declaration and a spec that reads it — are imported by nothing the
 application bundles. A merge that lands after other commits on `main` should be
 re-measured, not assumed.
+
+## A readiness evaluation is not a failed release
+
+Until the cutover, every merge's gate refuses, correctly, for reasons the policy itself
+records as outstanding. Reported red, every merge adds another red run that means
+"still waiting" — which is how the one red run that means "the candidate's bytes do not
+match" gets ignored. `lib/readiness.mjs` separates the two **without touching the
+decision**. It keeps three facts apart and merges none of them:
+
+| fact | where it comes from | in the recorded wait |
+|---|---|---|
+| the evaluation completed correctly | `lib/readiness.mjs` | yes |
+| the release decision | `lib/decide.mjs`, unchanged | `REFUSE`, `allow: false`, nothing admitted |
+| publication performed | nothing on this path | no |
+
+A refusal is the recorded wait only when **all** of these hold:
+
+- the trigger is **automatic** and the mode **deploy**. A refused manual deploy or
+  rollback is an attempt somebody made, and stays red;
+- publication is **demonstrably disabled**: `FRONTEND_PUBLISH_ENABLED` unset or exactly
+  `false`. `true` is an enabled release whose refusal is a failed release; any other
+  value (`TRUE`, `1`, `yes`, ` false`…) is a misconfiguration, never "disabled"; a value
+  the wrapper did not pass is *not read*, never "disabled";
+- the decision was **fully produced** — readable, exactly decide's shape, `REFUSE`,
+  `allow: false`, about this request;
+- **every** reason is listed in `policy.json → publication.readiness.awaiting`, known to
+  the closed registry in `lib/readiness.mjs`, and **standing in its context**: the
+  policy still records it pending, and the evidence this run gathered looks the way that
+  pending state says it should (the bootstrap reason only beside a no-identity answer —
+  404, or the SPA at 200 — from the policy's own identity URL; the legacy reasons only
+  while the trusted checkout shows the file; the backend-serving reason only while the
+  policy declares no observation);
+- **every listed condition that stands was actually refused** — a required check that
+  disappeared is a defect, not good news — and **none is stale** (listed but recorded
+  resolved).
+
+There are no wildcards and no allowlist learned from the result being classified. After
+the 2026-09-23 receipt approval `peers.capabilities_unpublished` is **not** a wait; if it
+comes back it is red. The policy validator refuses a list naming anything outside the
+registry, and `committed-policy.test.mjs` holds the list equal to what the committed
+policy actually refuses — so **the change that resolves a prerequisite removes its entry
+in the same reviewed change**, or the next evaluation is red (`readiness.expectation_stale`).
+
+**How the workflow applies it.** The Decide step runs `decide` exactly as before; its
+standalone exit status is still 1 on `REFUSE`, and its decision JSON, outputs and record
+are written by it alone. Only when that status is **exactly 1** does the step ask
+`cli.mjs readiness`, which reads the decision back from disk as data and exits 0 for the
+recorded wait and 1 for everything else — so any other status (a crash, a usage error) is
+passed through untranslated, and a decision it cannot read back is red. The Report step
+then states `PENDING_PREREQUISITES` only when the readiness record is bound **by digest**
+to the decision in the same file. The publish job keys on `decision == 'PROCEED' &&
+allow == 'true'` and never on the gate being green; even if it started, the preflight
+refuses any record not marked admitted. No `continue-on-error`, `|| true` or `always()`
+was added to a privileged job.
+
+**What it cannot say.** Nothing about the legacy deployment's health (its own runs
+report that), nothing about whether the site is up, and nothing about whether this
+candidate would publish once the prerequisites clear — only a later evaluation can.
+
+**Left as it was, deliberately:** the publish job's own enablement step still reads any
+value other than `true` as "not enabled" and reports `WOULD_PUBLISH` for an admitted
+candidate. That is fail-safe (nothing publishes), unreachable while every candidate is
+refused, and outside this change.
 
 ## Trust boundaries
 
@@ -183,7 +260,7 @@ where a peer publishes one, and refused by name where it does not.
 
 | peer | selection | serving |
 |---|---|---|
-| backend (`9448f55`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
+| backend (`366b7e4`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
 | admin (`38df037`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
@@ -194,9 +271,15 @@ one-sided change unreleasable — the other side's own deploy can still ship it 
 order is: merge the peer, produce a receipt from its git at the merged commit, approve
 that receipt here in a reviewed pull request. Two consequences of the committed state:
 
-- the approved backend revision predates the capability export, so the gate refuses
-  `peers.capabilities_unpublished` until a receipt for a backend commit carrying
-  `orders_app/contracts/published_capabilities.contract.json` is approved;
+- the approved backend revision is `366b7e4` (the #331 merge), the first carrying
+  `orders_app/contracts/published_capabilities.contract.json`. It REPLACED `9448f55`
+  (the #330 merge) rather than joining it, because every approved backend is checked for
+  compatibility and an export-less revision left in the list would refuse
+  `peers.capabilities_unpublished` for ever. `9448f55`'s receipt stays under `peers/` as
+  history and is no longer approved; the committed-policy suite selects it deliberately
+  as a negative control. **Approving a receipt is a statement about SOURCE**, and
+  `peers.backend_serving_unverified` stands until B3 — a deployment log is not a
+  served-revision identity;
 - **every Admin promotion makes this path refuse** `peers.admin_serving_unapproved`
   until a receipt for the new Admin commit is approved. That is the ordered
   coordination made visible, and it is deliberate.
@@ -323,9 +406,12 @@ by running the real `decide` against the committed file:
 | `prerequisite.retention_unverified` | establishing what Firebase Hosting retains for this site — the owner's fallback — in `prerequisites.retention` |
 | `prerequisite.legacy_publisher_active` | the cutover change setting `prerequisites.singlePublisher` |
 | `prerequisite.legacy_publisher_present` | the same change **deleting** `deploy-prod.yml` — this one is observed from the checkout, so the policy cannot claim it |
-| `peers.capabilities_unpublished` | approving a receipt for a backend commit carrying the capability export |
 | `peers.backend_serving_unverified` | B3: the backend publishing a served-revision identity |
 | `served.bootstrap_unauthorized` | an explicit, reviewed `bootstrap.authorized: true` with `servedBaseline` naming the live commit. That commit must carry a valid storage declaration, one that states where its bytes are (physical key and encoding) — i.e. be at or after the merge that introduced them. The live path publishes every merge, so by the time a bootstrap is authorized the live commit will be |
+
+`peers.capabilities_unpublished` was the seventh until the 2026-09-23 follow-up approved
+the receipt for backend `366b7e4`; it reappears — and is not an expected wait — if an
+export-less backend is ever approved again.
 
 `peers.backend_serving_unverified` has no owner action available today: it needs B3.
 Until then this path cannot publish, and says so, rather than accepting an operator's
@@ -337,7 +423,9 @@ word for which backend is live.
 cutover**: the site would have two independent writers, only one of them serialised or
 gated. The cutover presupposes that every other refusal in the table is already
 resolved — B3 included — and it is ONE reviewed change that deletes `deploy-prod.yml`,
-records the prerequisites, and authorizes the bootstrap with `servedBaseline` naming the
+records the prerequisites, **empties `publication.readiness.awaiting`** (each entry
+leaves with the prerequisite it names; an entry left behind turns the evaluation red as
+stale), and authorizes the bootstrap with `servedBaseline` naming the
 last commit `deploy-prod.yml` actually published (read from its last run, and re-read
 immediately before merging: a merge landing in between makes the named baseline wrong,
 and nothing can verify it — that is why the bootstrap is an explicit owner statement).
@@ -365,8 +453,8 @@ desirable. `release/cli.mjs stamp` asserts the approved origin is present in the
 
 ## Tests, and what each kind proves
 
-`npm run test:release` runs the CLI self-test, then 477 tests in about 25 seconds
-(Node 24, four cores; most of it is the workflow simulation). Each is labelled
+`npm run test:release` runs the CLI self-test, then 569 tests in about 45 seconds
+(four cores; most of it is the workflow simulation). Each is labelled
 **REGRESSION** (pins a finding reproduced before its fix: on `3386724` for the
 baseline, on `ce6b892` for what review on #687 found), **CONTRACT** (a rule this
 change introduces) or **CONTROL** (something that must not change).
@@ -375,16 +463,17 @@ change introduces) or **CONTROL** (something that must not change).
 |---|---|---|
 | `decide.test.mjs` | 125 | the refusal matrix: one allowed baseline, each case breaking exactly one fact |
 | `policy.test.mjs` | 43 | the policy is validated before anything is evaluated; every decision-bearing field |
-| `publisher.test.mjs` | 58 | the admitted record, the critical section, the outcome vocabulary, a `no-store` identity required for `PUBLISHED_VERIFIED` |
+| `publisher.test.mjs` | 67 | the admitted record, the critical section, the outcome vocabulary (a recorded wait is its own word and only a refusal can be one), a `no-store` identity required for `PUBLISHED_VERIFIED` |
 | `hosting.test.mjs` | 43 | destination resolution, the allow-list, the ignore proof, regeneration, the identity's `Cache-Control` before publishing |
 | `hosting-oracle.test.mjs` | 20 | the model against the installed firebase-tools' own functions, and the header model against superstatic's own matcher and middleware |
 | `storage.test.mjs` | 43 | set containment, the declaration, where the bytes are, the tripwire |
 | `peers.test.mjs` | 30 | receipts from real git, public verification, serving over real TLS |
 | `manifest.test.mjs` | 48 | the stamp and the manifest schema |
 | `contract.test.mjs` | 9 | the D01 digest across languages |
-| `workflow-simulation.test.mjs` | 31 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher |
-| `workflow-drift.test.mjs` | 22 | the three workflow files held to the policy, statically |
-| `committed-policy.test.mjs` | 5 | the committed policy's exact refusal set, through the real `decide` |
+| `readiness.test.mjs` | 55 | the recorded wait against every way a refusal can differ from it, and the real `readiness` and `outcome` commands through files |
+| `workflow-simulation.test.mjs` | 47 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher — including the non-publishing evaluation matrix, both outcome steps and the publisher/credential counts |
+| `workflow-drift.test.mjs` | 24 | the three workflow files held to the policy, statically — the publish job keyed on the admitted decision, the readiness wrapper translating one status |
+| `committed-policy.test.mjs` | 15 | the committed policy's exact refusal set, through the real `decide`; the approved receipt; the readiness list equal to that set |
 
 **The simulation is production-shaped, not GitHub.** It parses and runs `publish.yml`
 with GitHub's expression semantics; `actions/*` and the Firebase action are stand-ins
@@ -479,6 +568,30 @@ node release/cli.mjs peer-receipt --peer admin --repository mugak1/Dinify-Admin 
      --commit <sha> --repo-dir <clone>           # prints the receipt and its digest
 node release/cli.mjs storage-reviewed            # checks the storage tripwire; --write re-affirms
 ```
+
+### Approving a backend receipt
+
+The backend is private, so its receipt is an OPERATOR receipt: produced by the existing
+producer from an authenticated local clone at the exact merged commit, never typed and
+never fetched by anything that runs repository code.
+
+```bash
+node release/cli.mjs peer-receipt --peer backend --repository mugak1/Dinify-Backend \
+     --commit <full merged sha> --repo-dir <backend clone> --write
+```
+
+Then re-derive it independently (a second clone, a second implementation) and compare
+digests before pinning `receiptDigest` in `policy.json`. Replace the approved entry
+rather than adding beside it unless both revisions are genuinely live candidates —
+every approved backend is checked for compatibility.
+
+The receipt approved on 2026-09-23 for `366b7e457cfffa700663fc10983b0420e8882313`
+(the #331 merge): digest `sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63`,
+tree `f129fe74…`, D01 export blob `1cb6a6db…` (unchanged from `9448f55`, digest
+`sha256:1441d038…`), capability export blob `cc916050…` publishing
+`checkout_protocol 3, quote_protocol 2, kitchen_protocol 1, quote_policy_version 1`.
+The same digest was re-derived by a Python implementation over a fresh clone from
+origin, and the four levels match the backend's source constants at that commit.
 
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
