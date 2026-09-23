@@ -260,6 +260,30 @@
       "publishing, the site would have two independent writers. The cutover retires",
       "deploy-prod.yml and records the prerequisites above in the same reviewed change."
     ],
-    "enablementVariable": "FRONTEND_PUBLISH_ENABLED"
+    "enablementVariable": "FRONTEND_PUBLISH_ENABLED",
+    "readiness": {
+      "_note": [
+        "WHAT A NON-PUBLISHING EVALUATION MAY REPORT AS WAITING RATHER THAN FAILED.",
+        "Each entry is a pending commissioning prerequisite this policy itself records",
+        "as outstanding. A refusal made up of EXACTLY these, each standing in its",
+        "context (release/lib/readiness.mjs), from an AUTOMATIC deploy evaluation with",
+        "publication disabled, completes the evaluation without a red run. The DECISION",
+        "is unchanged: it is still REFUSE, allow:false, nothing is admitted and nothing",
+        "is published. Any other reason, any enabled or manual attempt, and any entry",
+        "whose prerequisite this policy records as resolved stays red.",
+        "",
+        "The change that resolves a prerequisite removes its entry here in the same",
+        "reviewed change; committed-policy.test.mjs holds this list equal to what the",
+        "committed policy actually refuses."
+      ],
+      "awaiting": [
+        "peers.backend_serving_unverified",
+        "prerequisite.legacy_publisher_active",
+        "prerequisite.legacy_publisher_present",
+        "prerequisite.retention_unverified",
+        "prerequisite.source_protection_unrecorded",
+        "served.bootstrap_unauthorized"
+      ]
+    }
   }
 }

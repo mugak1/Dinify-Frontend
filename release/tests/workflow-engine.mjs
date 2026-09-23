@@ -397,7 +397,11 @@ const ACTION_REF = /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)@([^\s]+)$/;
  * @param {string} args.workflowPath
  * @param {object} args.event   {name, ref, sha, runId, runAttempt, payload?, inputs?}
  * @param {object} args.world   see workflow-simulation.test.mjs
- * @param {object} [args.hooks] {betweenJobs: async ({after, jobs}) => {}}
+ * @param {object} [args.hooks] {betweenJobs: async ({after, jobs}) => {},
+ *                               beforeStep: async ({job, step, workspace, world}) => {}}
+ *   `beforeStep` is FAULT INJECTION: it runs before a step's condition is evaluated,
+ *   with that job's workspace, so a scenario can corrupt what the step will read. A
+ *   scenario using it says so in its title.
  */
 export async function runWorkflow({ workflowPath, event, world, hooks = {} }) {
   const workflow = parseWorkflow(workflowPath);
@@ -441,7 +445,7 @@ export async function runWorkflow({ workflowPath, event, world, hooks = {} }) {
       result.jobs[jobName] = { result: 'skipped', outputs: {}, steps: [], summary: '', permissions: job.permissions ?? workflow.permissions };
       continue;
     }
-    result.jobs[jobName] = await runJob({ jobName, job, workflow, github, inputs, secrets, vars, needsContext, world, result });
+    result.jobs[jobName] = await runJob({ jobName, job, workflow, github, inputs, secrets, vars, needsContext, world, result, hooks });
     if (hooks.betweenJobs && jobIndex < order.length - 1) await hooks.betweenJobs({ after: jobName, jobs: result.jobs, world });
   }
   return result;
@@ -460,7 +464,7 @@ function topologicalJobs(jobs) {
   return order;
 }
 
-async function runJob({ jobName, job, workflow, github, inputs, secrets, vars, needsContext, world, result }) {
+async function runJob({ jobName, job, workflow, github, inputs, secrets, vars, needsContext, world, result, hooks = {} }) {
   const workspace = tempDir(`sim-${jobName}-ws`);
   const runnerTemp = tempDir(`sim-${jobName}-tmp`);
   const stepsContext = {};
@@ -482,6 +486,7 @@ async function runJob({ jobName, job, workflow, github, inputs, secrets, vars, n
       },
     };
     world.log.push({ type: 'step', job: jobName, step: label });
+    if (hooks.beforeStep) await hooks.beforeStep({ job: jobName, step: label, workspace, world });
     let ran = evaluateCondition(step.if, scope);
     let outcome = 'skipped';
     let outputs = {};

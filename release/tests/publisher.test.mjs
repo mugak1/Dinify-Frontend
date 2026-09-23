@@ -196,7 +196,9 @@ describe('outcomes — what happened, stated as what it is', () => {
   const allFiles = { checked: record.artifact.entryCount, mismatched: [], unreachable: [] };
 
   test('CONTRACT: the closed set, and which of it turns a run red', () => {
-    assert.deepEqual([...OUTCOMES].sort(), ['PREFLIGHT_REFUSED', 'PUBLICATION_FAILED', 'PUBLISHED_DEGRADED', 'PUBLISHED_VERIFIED', 'REFUSED', 'SKIPPED_IDENTICAL', 'SKIPPED_STALE', 'WOULD_PUBLISH']);
+    assert.deepEqual([...OUTCOMES].sort(), ['PENDING_PREREQUISITES', 'PREFLIGHT_REFUSED', 'PUBLICATION_FAILED', 'PUBLISHED_DEGRADED', 'PUBLISHED_VERIFIED', 'REFUSED', 'SKIPPED_IDENTICAL', 'SKIPPED_STALE', 'WOULD_PUBLISH']);
+    // UNCHANGED by the readiness word: a recorded wait is not red, and nothing that was
+    // red before became green.
     assert.deepEqual([...FAILING_OUTCOMES].sort(), ['PREFLIGHT_REFUSED', 'PUBLICATION_FAILED', 'PUBLISHED_DEGRADED', 'REFUSED']);
     assert.equal(OUTCOMES.includes('RESTORED_AFTER_FAILURE'), false, 'nothing restores automatically, so nothing may claim it did');
   });
@@ -215,6 +217,28 @@ describe('outcomes — what happened, stated as what it is', () => {
     ['the tool succeeded and verification never ran', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'success', verification: null }, 'PUBLISHED_DEGRADED'],
   ];
   for (const [name, input, outcome] of cases) test(`CONTRACT: ${name} → ${outcome}`, () => assert.equal(summarizeOutcome(input), outcome));
+
+  // A RECORDED WAIT IS A REFUSAL WITH A SEPARATE WORD — and only a refusal can be one.
+  // The flag is set by the CLI from readinessCovers (a digest-bound classification),
+  // and here it is read STRICTLY: nothing but `true` on a REFUSE changes the word.
+  const waiting = [
+    ['CONTRACT: a refusal classified as the recorded waiting state', { decision: 'REFUSE', awaiting: true }, 'PENDING_PREREQUISITES'],
+    ['CONTROL: a refusal with no classification stays REFUSED', { decision: 'REFUSE' }, 'REFUSED'],
+    ['CONTROL: a truthy non-boolean is not a classification', { decision: 'REFUSE', awaiting: 'true' }, 'REFUSED'],
+    ['CONTROL: an admitted candidate is never re-labelled a wait', { decision: 'PROCEED', awaiting: true, preflightOk: true, enabled: false }, 'WOULD_PUBLISH'],
+    ['CONTROL: an admitted, refused-in-preflight candidate is never re-labelled a wait', { decision: 'PROCEED', awaiting: true, preflightOk: false }, 'PREFLIGHT_REFUSED'],
+    ['CONTROL: a published candidate is never re-labelled a wait', { decision: 'PROCEED', awaiting: true, preflightOk: true, enabled: true, publishStep: 'success', verification: { verified: true } }, 'PUBLISHED_VERIFIED'],
+    ['CONTROL: a skip is never re-labelled a wait', { decision: 'SKIP_STALE', awaiting: true }, 'SKIPPED_STALE'],
+    ['CONTROL: no decision at all is never a wait', { decision: '', awaiting: true }, 'REFUSED'],
+  ];
+  for (const [name, input, outcome] of waiting) test(`${name} → ${outcome}`, () => assert.equal(summarizeOutcome(input), outcome));
+  test('CONTRACT: the recorded wait is not a failing outcome, and is none of the words that claim a publication', () => {
+    assert.equal(FAILING_OUTCOMES.has('PENDING_PREREQUISITES'), false);
+    assert.notEqual('PENDING_PREREQUISITES', 'WOULD_PUBLISH');
+    for (const claim of ['WOULD_PUBLISH', 'PUBLISHED_VERIFIED', 'PUBLISHED_DEGRADED']) {
+      assert.notEqual(summarizeOutcome({ decision: 'REFUSE', awaiting: true, preflightOk: true, enabled: true, publishStep: 'success', verification: { verified: true } }), claim);
+    }
+  });
 
   test('CONTROL: the admitted identity, served no-store, and every certified file → verified', () => {
     assert.deepEqual(classifyVerification(record, { identity, files: allFiles }), { servesCandidate: true, identityNoStore: true, filesMatch: true, verified: true });

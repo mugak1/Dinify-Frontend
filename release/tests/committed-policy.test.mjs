@@ -39,6 +39,7 @@ import { decide } from '../lib/decide.mjs';
 import { effectiveHosting } from '../lib/hosting.mjs';
 import { receiptDigest } from '../lib/peers.mjs';
 import { contractDigest, digestOfValue } from '../lib/canonical.mjs';
+import { AWAITING, classifyReadiness } from '../lib/readiness.mjs';
 import { POLICY, baseline, clone } from './fixtures.mjs';
 import { ROOT, cli, startOrigin, tempDir } from './harness.mjs';
 
@@ -307,5 +308,57 @@ describe('the approved backend receipt (366b7e4, the #331 merge) — what approv
     assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
     assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable');
     assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
+  });
+});
+
+describe('the committed readiness list, against what the committed policy actually refuses', () => {
+  // The derived served state came from a LOCAL origin standing in for the committed
+  // identity origin; readiness binds the bootstrap context to the policy's own URL, so
+  // the stand-in's address is replaced by the one it stands in for — and a CONTROL
+  // below shows that binding is real.
+  const servedAtIdentity = () => ({ ...derivedServed, url: `${POLICY.hosting.identityOrigin}${POLICY.hosting.identityPath}` });
+  const classify = (decision, over = {}) => {
+    const input = baseline();
+    return classifyReadiness({
+      policy: POLICY, request: input.request, enablement: '', decision,
+      facts: committedFacts(input), served: servedAtIdentity(), peers: recordedPeers(), ...over,
+    });
+  };
+
+  test('CONTRACT: the recorded wait is EXACTLY the committed refusal — no entry more, none fewer', async () => {
+    const { decision } = await decideCommitted();
+    assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), codesOf(decision));
+  });
+
+  test('CONTRACT: that refusal, automatic with publication unset or `false`, is the recorded wait — and still REFUSE', async () => {
+    const { status, decision } = await decideCommitted();
+    assert.equal(status, 1, 'decide itself still exits non-zero; only the workflow wrapper asks the further question');
+    for (const enablement of ['', 'false']) {
+      const r = classify(decision, { enablement });
+      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
+      assert.equal(r.decision, 'REFUSE');
+      assert.equal(r.allow, false);
+      assert.equal(r.published, false);
+    }
+  });
+
+  test('CONTROL: the same refusal enabled, invalid, manual, or read at another origin is not a wait', async () => {
+    const { decision } = await decideCommitted();
+    assert.deepEqual(classify(decision, { enablement: 'true' }).problems.map((p) => p.code), ['readiness.publication_enabled']);
+    assert.deepEqual(classify(decision, { enablement: 'on' }).problems.map((p) => p.code), ['readiness.enablement_invalid']);
+    const manual = { ...decision, trigger: 'manual' };
+    assert.ok(classify(manual, { request: { ...baseline().request, trigger: 'manual' } }).problems.some((p) => p.code === 'readiness.deliberate_attempt'));
+    const elsewhere = classify(decision, { served: derivedServed });
+    assert.deepEqual(elsewhere.problems.map((p) => p.code), ['readiness.context_mismatch']);
+  });
+
+  test('CONTRACT: the historical backend (9448f55) refuses capabilities_unpublished, and that is NOT a wait', () => {
+    const { policy, peers } = withHistoricalBackend();
+    const decision = decidePure({ policy, peers });
+    assert.ok(codesOf(decision).includes('peers.capabilities_unpublished'));
+    const r = classify(decision, { peers });
+    assert.notEqual(r.kind, AWAITING);
+    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
+    assert.match(r.problems[0].detail, /peers\.capabilities_unpublished/);
   });
 });

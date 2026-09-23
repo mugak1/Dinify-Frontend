@@ -133,7 +133,43 @@ describe('publish.yml, statically, against release/policy.json', () => {
     assert.equal(enablement.env.ENABLED, `\${{ vars.${POLICY.publication.enablementVariable} }}`);
     const deploy = byName(PUBLISH, 'publish', 'Publish to Firebase Hosting');
     assert.equal(deploy.if, "steps.enablement.outputs.enabled == 'true'");
-    assert.equal(PUBLISH.jobs.publish.if, "needs.gate.outputs.allow == 'true'");
+    // BOTH of the gate's own decision outputs, never the gate JOB's result: a gate that
+    // completed a non-publishing evaluation is green and has admitted nothing, so
+    // "the gate succeeded" cannot be what starts the credentialed job. The implicit
+    // success() still applies on top — this expression names no status function.
+    assert.equal(PUBLISH.jobs.publish.if, "needs.gate.outputs.decision == 'PROCEED' && needs.gate.outputs.allow == 'true'");
+    assert.ok(!/needs\.gate\.result|success\(\)|always\(\)|failure\(\)|cancelled\(\)/.test(PUBLISH.jobs.publish.if),
+      'the publish job keys on a job status, not the admitted decision');
+  });
+
+  it('CONTRACT: the readiness wrapper reads the SAME variable, and translates exactly one status', () => {
+    const decide = byName(PUBLISH, 'gate', 'Decide');
+    assert.equal(decide.env.ENABLEMENT, `\${{ vars.${POLICY.publication.enablementVariable} }}`);
+    const script = decide.run;
+    // `decide` runs first and writes the decision the report reads; `readiness` is asked
+    // only inside the status-1 branch, and the step exits with `decide`'s own status
+    // everywhere else.
+    assert.ok(script.indexOf('cli.mjs decide') < script.indexOf('cli.mjs readiness'));
+    assert.match(script, /if \[ "\$status" -eq 1 \]; then[\s\S]*cli\.mjs readiness[\s\S]*exit "\$readiness"\n\s*fi\n\s*exit "\$status"\s*$/);
+    assert.match(script, /--enablement "\$ENABLEMENT"/);
+    assert.match(script, /rm -f readiness\.json[\s\S]*cli\.mjs decide/, 'a stale classification is removed before deciding');
+    // The report reads the classification, and nothing else in the gate does.
+    const report = byName(PUBLISH, 'gate', 'Report the outcome');
+    assert.match(report.run, /cli\.mjs outcome --decision decision\.json[^\n]*--readiness readiness\.json/);
+    assert.equal(report.if, "always() && steps.decide.outputs.decision != 'PROCEED'");
+    // No output the publish job reads is written by the readiness step.
+    assert.deepEqual(Object.keys(PUBLISH.jobs.gate.outputs).sort(),
+      ['allow', 'artifact_id', 'decision', 'policy_revision', 'record', 'record_digest', 'run_id', 'sha']);
+    for (const [name, value] of Object.entries(PUBLISH.jobs.gate.outputs)) {
+      if (name !== 'sha') assert.match(value, /^\$\{\{ steps\.decide\.outputs\.[a-z_]+ \}\}$/, name);
+    }
+  });
+
+  it('CONTRACT: the gate is named for what it does on every merge, and the run says which kind it was', () => {
+    assert.equal(PUBLISH.jobs.gate.name, 'Evaluate release readiness (non-publishing)');
+    assert.equal(PUBLISH.jobs.publish.name, 'Publish admitted candidate');
+    assert.match(PUBLISH['run-name'], /Readiness evaluation: automatic/);
+    assert.match(PUBLISH['run-name'], /Release attempt: manual/);
   });
 
   it('REGRESSION (R3.d): the publisher runs the verifier the GATE ran — its revision, not main as it is now', () => {

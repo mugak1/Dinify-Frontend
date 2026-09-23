@@ -6,6 +6,14 @@
  * closed set, and every run's summary names the stage it stopped at:
  *
  *   REFUSED              the gate refused; nothing was admitted
+ *   PENDING_PREREQUISITES
+ *                        the gate refused, and the refusal is EXACTLY the recorded,
+ *                        still-pending commissioning prerequisites of an automatic
+ *                        evaluation with publication disabled (lib/readiness.mjs).
+ *                        The evaluation completed; the decision is still REFUSE,
+ *                        nothing was admitted and nothing was published. It is a
+ *                        separate word so a green run can never be read as
+ *                        "published", "would publish" or "admitted"
  *   SKIPPED_IDENTICAL    exactly this candidate is already served
  *   SKIPPED_STALE        an older automatic candidate; a newer one is served
  *   PREFLIGHT_REFUSED    admitted, then refused inside the critical section
@@ -27,11 +35,12 @@
  */
 
 export const OUTCOMES = Object.freeze([
-  'REFUSED', 'SKIPPED_IDENTICAL', 'SKIPPED_STALE', 'PREFLIGHT_REFUSED', 'WOULD_PUBLISH',
+  'REFUSED', 'PENDING_PREREQUISITES', 'SKIPPED_IDENTICAL', 'SKIPPED_STALE', 'PREFLIGHT_REFUSED', 'WOULD_PUBLISH',
   'PUBLICATION_FAILED', 'PUBLISHED_VERIFIED', 'PUBLISHED_DEGRADED',
 ]);
 
-/** Outcomes that must turn the run red. A skip and a would-publish are uneventful. */
+/** Outcomes that must turn the run red. A skip, a would-publish and a recorded wait
+ *  are uneventful — and none of the three published anything. */
 export const FAILING_OUTCOMES = Object.freeze(new Set([
   'REFUSED', 'PREFLIGHT_REFUSED', 'PUBLICATION_FAILED', 'PUBLISHED_DEGRADED',
 ]));
@@ -69,14 +78,18 @@ export function classifyVerification(record, observed) {
 /**
  * @param {object} input
  * @param {string} input.decision            the gate's decision
+ * @param {boolean} [input.awaiting]          lib/readiness.mjs classified THIS refusal
+ *                                            as the recorded waiting state (readinessCovers)
  * @param {boolean|null} input.preflightOk    null when preflight did not run
  * @param {boolean} input.enabled
  * @param {string} input.publishStep         'success' | 'failure' | 'skipped' | 'cancelled'
  * @param {object|null} input.verification    classifyVerification() result, when it ran
  */
-export function summarizeOutcome({ decision, preflightOk, enabled, publishStep, verification }) {
+export function summarizeOutcome({ decision, awaiting = false, preflightOk, enabled, publishStep, verification }) {
   if (decision === 'SKIP_IDENTICAL') return 'SKIPPED_IDENTICAL';
   if (decision === 'SKIP_STALE') return 'SKIPPED_STALE';
+  // ONLY a refusal can be a recorded wait; anything else ignores the flag outright.
+  if (decision === 'REFUSE' && awaiting === true) return 'PENDING_PREREQUISITES';
   if (decision !== 'PROCEED') return 'REFUSED';
   if (preflightOk !== true) return 'PREFLIGHT_REFUSED';
   if (enabled !== true) return 'WOULD_PUBLISH';

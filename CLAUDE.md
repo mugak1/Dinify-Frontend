@@ -3088,8 +3088,9 @@ so keep it current when conventions change.
   the backend receipt follow-up), and **setting
   `FRONTEND_PUBLISH_ENABLED` while `deploy-prod.yml` exists is not a cutover** — two
   independent writers. The cutover is one reviewed change deleting it (README →
-  "The cutover"). The Publish gate is RED on every merge until then, by design, and its
-  summary says it is this path refusing, not the build failing.
+  "The cutover"). Until then every merge's gate REFUSES — and since the readiness
+  follow-up below that refusal is reported as a completed, non-publishing evaluation
+  (`PENDING_PREREQUISITES`), not as a red run; the decision itself is unchanged.
   **§8 — THE WORKFLOW IS EXECUTED, NOT DESCRIBED.** `workflow-simulation.test.mjs` (31)
   parses and runs `publish.yml` step by step with GitHub's expression semantics, real
   bash, the real CLI, real git checkouts and local HTTPS origins, against an OBSERVABLE
@@ -3166,6 +3167,62 @@ so keep it current when conventions change.
   validator 3, the storage layer out of the tripwire 2, the manifest schema 2; and in
   Karma the envelope, key-format and prefix changes each fail the spec 7 of 11, the
   tripwire catching the first two and not the third, as intended
+- **A NON-PUBLISHING READINESS EVALUATION IS NOT A FAILED RELEASE (D08/B1 follow-up,
+  2026-09-23).** ✅ Two changes, separate commits. **(A)** the approved backend receipt
+  is now `366b7e4` (the #331 merge), produced by the existing producer from the backend
+  clone at that exact commit and re-derived independently — which removed
+  `peers.capabilities_unpublished` and nothing else (7 → 6, every other fact held
+  fixed), and left `peers.backend_serving_unverified` standing, because a receipt is a
+  statement about SOURCE. **(B)** every merge's gate refuses for reasons the policy
+  itself records as outstanding, and reporting that as a red run on every merge is how
+  the one red run that means "the bytes do not match" gets ignored.
+  `release/lib/readiness.mjs` separates the two **WITHOUT TOUCHING THE DECISION** and
+  keeps THREE FACTS APART: the evaluation completed (readiness's question), the release
+  decision (`decide.mjs`'s, still `REFUSE` / `allow: false`, nothing admitted), and
+  publication performed (no). **A GREEN RUN HERE MEANS THE EVALUATION COMPLETED AND
+  EVERY REFUSAL WAS AN EXPECTED WAIT — never that anything was, or would be,
+  published**, and the summary says so in those words.
+  **THE RULE, ALL OF IT OR RED:** an AUTOMATIC `deploy`; publication DEMONSTRABLY
+  disabled (`FRONTEND_PUBLISH_ENABLED` unset or exactly `false` — `true` is a failed
+  release, any other value a misconfiguration, a value never passed is "not read");
+  a FULLY PRODUCED decision about this request; EVERY reason listed in
+  `policy.json → publication.readiness.awaiting`, known to the closed registry, and
+  STANDING IN ITS CONTEXT (pending in the policy AND observed in this run's evidence —
+  the bootstrap reason only beside a 404 / SPA-200 at the policy's own identity URL);
+  every listed condition that stands actually refused (a required check that
+  disappeared is a defect); and none stale. **No wildcards, no allowlist learned from
+  the result**, and after (A) `peers.capabilities_unpublished` is NOT a wait. The
+  policy validator refuses an unknown entry, and `committed-policy.test.mjs` holds the
+  list EQUAL to what the committed policy refuses — **so the change that resolves a
+  prerequisite removes its entry in the same reviewed change**, and the cutover empties
+  the list.
+  **THE WRAPPER TRANSLATES EXACTLY ONE STATUS.** `decide` runs as before, its
+  standalone exit is still 1 on `REFUSE`, and its JSON, outputs and record are its
+  alone. Only on status EXACTLY 1 does the Decide step ask `cli.mjs readiness`, which
+  reads the decision back as data (writing its own record to STDERR and `readiness.json`,
+  never into the decision stream) and exits 0 only for the recorded wait; a crash or
+  usage status passes through untranslated. The Report step says
+  `PENDING_PREREQUISITES` only when the readiness record is bound BY DIGEST to the
+  decision in the same file. **`publish.if` keys on `decision == 'PROCEED' && allow ==
+  'true'`, never on the gate job being green** — a regression test executes the
+  `needs.gate.result == 'success'` mutation and shows the credential-holding job would
+  then START (the preflight's `admitted` check is the second fence that stops it). No
+  `continue-on-error`, `|| true` or `always()` was added to a privileged job, and the
+  certification/CI checks and the required `validate` status are unchanged. Display
+  names changed and nothing depended on them: the workflow is *Release readiness and
+  publication*, the gate job *Evaluate release readiness (non-publishing)*, the publish
+  job *Publish admitted candidate*, and automatic runs are titled *Readiness evaluation*.
+  **Left as it was, deliberately:** the publish job's own enablement step still reads any
+  non-`true` value as "not enabled" (fail-safe, unreachable while every candidate is
+  refused). Pinned by `readiness.test.mjs` (55), the non-publishing matrix in
+  `workflow-simulation.test.mjs` (16, asserting BOTH the Decide and Report steps, the
+  retained decision, and zero publisher calls and zero credential evaluations in every
+  waiting or refused case), and additions to the drift, outcome and committed-policy
+  suites; release suite 483 -> **569**. Mutation testing found ONE gap before it was
+  closed: discarding readiness's status in the wrapper failed only 3 tests, because the
+  Report step keeps the JOB red on its own — so every red scenario now pins both steps'
+  colours individually (the #687 lesson again). An equivalent mutant (a CLI guard
+  duplicating the classifier's "not read" answer) was REMOVED rather than kept
 - Tenant-isolation closure (frontend regression gate): ✅ a focused
   `src/app/_security/` layer pins the client-side tenant-boundary invariants.
   `diner-capability-contract.ts` is the single source of truth for the diner
@@ -4107,7 +4164,7 @@ Before raising any PR:
    `release/tests/*.test.mjs`: the refusal matrix that drives the pure
    `release/lib/decide.mjs` from fixtures, the adapter suites over real git and local
    HTTPS origins, and the workflow simulation that EXECUTES `publish.yml`. Pure Node,
-   no browser; about 25 seconds, most of it the simulation. Every matrix case breaks
+   no browser; about 45 seconds, most of it the simulation. Every matrix case breaks
    exactly ONE fact about one allowed baseline, and the positive controls assert that
    baseline is still allowed — a gate that refused everything could not pass the suite
    either
@@ -4173,9 +4230,11 @@ the `main` protection ruleset — do NOT rename it.**
 
 `certify.yml` ("Certify") then runs the same contract against MERGED MAIN on every
 push, builds the shipping configuration ONCE and uploads it as the candidate;
-`publish.yml` ("Publish") is the privileged boundary that consumes it. **Neither
-deploys anything today**: publication is gated on the unset repository variable
-`FRONTEND_PUBLISH_ENABLED`, so the gate evaluates and reports, and the production
+`publish.yml` ("Release readiness and publication") is the privileged boundary that
+consumes it. **Neither deploys anything today**: publication is gated on the unset
+repository variable `FRONTEND_PUBLISH_ENABLED`, so the gate evaluates and reports — its
+expected refusal as a completed, non-publishing readiness evaluation rather than a red
+run (`release/README.md` → "A readiness evaluation is not a failed release") — and the production
 deploy workflow (`deploy-prod.yml`) is UNTOUCHED — it still builds with
 `--configuration=uat` (intentionally still the uat build config for now — the prod
 backend API doesn't exist yet) and pushes to the `dinify-prod` Firebase Hosting
