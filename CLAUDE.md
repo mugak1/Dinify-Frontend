@@ -2513,9 +2513,10 @@ so keep it current when conventions change.
   amber alarm would read as "something went wrong today" and would devalue the one
   that really does mean it. `payment_tracking_enabled`
   is read STRICTLY at all three — only an explicit `false` produces a note, so an
-  older response that never mentioned it says nothing — and the mock states `false`
-  because the flag is a BUILD fact, true for every restaurant and every window,
-  unlike the pricing-conventions notice which depends on window data. Pinned by
+  older response that never mentioned it says nothing. The mock stated `false` at
+  the time, because the flag is a BUILD fact, unlike the pricing-conventions
+  notice. **It no longer does**: see MOCK-MEASURED-00 under Mock Data Pattern,
+  which is why the dummy dashboard figures came back. Pinned by
   `dashboard/payment-tracking-disclosure.spec.ts` (23); five source mutations fail
   3 / 2 / 2 / 3 / 1 named subsets with every control holding.
   **AND A REPORT NEVER STATES A TENDER OR STATUS THE SERVER DID NOT** — see the
@@ -3951,6 +3952,25 @@ writing new tag, price/menu or date-range logic:
   applies; and **the only remaining no-trade window is an INVERTED range** (`dailyRevenue`
   returns `[]` for one by contract) — which is what the zero-window empty-state specs in
   `dashboard/` are driven by
+- **The dashboard mock declares a MEASURING server** (MOCK-MEASURED-00). This is a
+  DELIBERATE STATE, reversible by ONE CONSTANT: `MOCK_PAYMENT_TRACKING_ENABLED` in
+  `dashboard/data/dashboard-mock-data.ts` is currently `true`. It was `false` from D07,
+  which was right while the disclosure was a NOTE beside the figures. D07 G1 then made
+  `false` WITHHOLD them. The mock kept declaring `false`, and every deployed dashboard
+  runs on the mock, so **all the dummy revenue and payment data disappeared**: the
+  headline, pills and chart, Payment Methods, the Paid/Open split and three Tables tiles
+  showed "can't be shown". The mock had carried every one of those figures throughout.
+  That is the MOCK-NO-CLOSURES-00 argument again: design review, and a prospective
+  restaurant, need a populated screen. **IT CHANGES WHAT THE MOCK SAYS, NEVER WHAT A REAL
+  SERVER IS BELIEVED TO SAY.** The adapter still classifies the live payload's own
+  declaration, and the live backend still states `false`, so flipping `USE_MOCK_DATA`
+  withholds every governed figure exactly as G1 designed. The withholding specs build
+  their own fixtures and never read this mock. Setting the constant back to `false` is
+  all it takes to review the withheld states in the running app. Pinned by the MOCK MODE
+  block in `payment-tracking-disclosure.spec.ts` (5 specs, which are exactly the specs
+  that fail with the constant at `false`). The billing e2e's phase-A control now asserts
+  NO withheld hook on the mock branch. That makes it sharper, because withheld hooks in
+  phase B can then only come from the real declaration
 - For any new module service, follow the same constant-flag pattern.
   Split flags by sub-domain when different views go live at different times
 - Dashboard real endpoints: `reports/restaurant/dashboard-v2/` (core metrics, gated by

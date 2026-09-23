@@ -8,7 +8,7 @@ import { TablesCardComponent } from './components/tables-card/tables-card.compon
 import { TotalOrdersCardComponent } from './components/total-orders-card/total-orders-card.component';
 import { OrdersData, RevenueData, TablesData } from './models/dashboard.models';
 import { adaptDashboardResponse } from './services/dashboard-adapter';
-import { getMockDashboardData } from './data/dashboard-mock-data';
+import { MOCK_PAYMENT_TRACKING_ENABLED, getMockDashboardData } from './data/dashboard-mock-data';
 import {
   classifyPaymentDeclaration,
   comparisonIsSupported,
@@ -161,12 +161,14 @@ describe('D07/G1 — payment measurement', () => {
       expect(adaptDashboardResponse({}).payment_measurement).toBeDefined();
     });
 
-    it('the mock states the same fact through the same function', () => {
+    it('the mock declares through the same function, off ONE constant', () => {
       // The mock builds the response directly rather than adapting a payload,
-      // so a literal here would be a second opinion about what `false` means.
+      // so a literal here would be a second opinion about what the declaration
+      // means. WHICH declaration it makes is `MOCK_PAYMENT_TRACKING_ENABLED`'s
+      // job, and the mock-mode block at the end of this file pins its value.
       const data = getMockDashboardData('r1', '2026-09-01', '2026-09-07', 'day');
-      expect(data.payment_measurement).toEqual(classifyPaymentDeclaration(false));
-      expect(data.payment_measurement).toEqual({ kind: 'unavailable' });
+      expect(data.payment_measurement)
+        .toEqual(classifyPaymentDeclaration(MOCK_PAYMENT_TRACKING_ENABLED));
     });
   });
 
@@ -546,6 +548,96 @@ describe('D07/G1 — payment measurement', () => {
       expect(el('tables-withheld-median')).toBeNull();
       expect(text()).toContain('42m');
       expect(text()).toContain('2.4');
+    });
+  });
+
+  // ── Mock mode ─────────────────────────────────────────────────────────────
+  describe('MOCK MODE shows its dummy figures', () => {
+    // THE REGRESSION. Every deployed dashboard runs on the mock
+    // (`DashboardService.USE_MOCK_DATA`), and the mock declared `false`. Once
+    // G1 made `false` WITHHOLD the governed figures, the whole revenue card,
+    // Payment Methods, the Paid/Open split and three Tables tiles showed "can't
+    // be shown", although the mock had carried every figure all along. These
+    // render the REAL cards from ONE mock composite, bound the way
+    // `dashboard.component.html` binds them. The comparison window is a second
+    // mock call, so it makes the same declaration.
+    const FROM = '2026-09-01';
+    const TO = '2026-09-07';
+    const HOOKS = '[data-testid*="withheld"], [data-testid$="note"]';
+    const mock = () => getMockDashboardData('r1', FROM, TO, 'day');
+    const WINDOW = { from: '2026-08-25', to: '2026-08-31', preset: 'custom' } as any;
+
+    function mount<T>(component: new (...args: any[]) => T,
+                      inputs: Record<string, unknown>): HTMLElement {
+      TestBed.configureTestingModule({
+        imports: [component],
+        providers: [provideRouter([]), provideCharts(withDefaultRegisterables())],
+      });
+      const fixture = TestBed.createComponent(component);
+      for (const [name, value] of Object.entries(inputs)) {
+        fixture.componentRef.setInput(name, value);
+      }
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+    const text = (root: HTMLElement) => (root.textContent ?? '').replace(/\s+/g, ' ');
+
+    afterEach(() => TestBed.resetTestingModule());
+
+    it('the mock currently states a MEASURING server', () => {
+      // Flipping the constant back to `false` is how the withheld states are
+      // reviewed in the running app. It is a deliberate choice, and this spec
+      // moves with it.
+      expect(MOCK_PAYMENT_TRACKING_ENABLED).toBeTrue();
+      expect(measurementIsSupported(mock().payment_measurement)).toBeTrue();
+    });
+
+    it('THE REGRESSION: the revenue card plots its headline, pills and chart', () => {
+      const data = mock();
+      const root = mount(RevenueCardComponent, {
+        bucketUnit: 'day',
+        measurement: data.payment_measurement,
+        baselineMeasurement: mock().payment_measurement,
+        previousNet: data.revenue.totals.net - 1000,
+        comparisonWindow: WINDOW,
+        revenueData: data.revenue,
+      });
+      expect(root.querySelectorAll(HOOKS).length).toBe(0);
+      expect(root.querySelector('canvas')).not.toBeNull();
+      expect(text(root)).not.toContain("can't be shown");
+    });
+
+    it('THE REGRESSION: Payment Methods shows the mock settled total', () => {
+      const data = mock();
+      expect(data.payments.length).toBeGreaterThan(0);
+      const root = mount(PaymentMethodsCardComponent, {
+        measurement: data.payment_measurement,
+        paymentMethods: data.payments,
+      });
+      expect(root.querySelectorAll(HOOKS).length).toBe(0);
+      expect(text(root)).toContain('Total settled');
+      expect(text(root)).not.toContain("can't be shown");
+    });
+
+    it('THE REGRESSION: Total Orders shows the Paid and Open/Unpaid split', () => {
+      const data = mock();
+      const root = mount(TotalOrdersCardComponent, {
+        bucketUnit: 'day',
+        measurement: data.payment_measurement,
+        ordersData: data.orders,
+      });
+      expect(root.querySelectorAll(HOOKS).length).toBe(0);
+      expect(text(root)).toContain(String(data.orders.breakdown.paid));
+    });
+
+    it('THE REGRESSION: the Tables history tiles are shown', () => {
+      const data = mock();
+      const root = mount(TablesCardComponent, {
+        measurement: data.payment_measurement,
+        tablesData: data.tables,
+      });
+      expect(root.querySelectorAll(HOOKS).length).toBe(0);
+      expect(text(root)).toContain(`${data.tables.median_visit_minutes}m`);
     });
   });
 });

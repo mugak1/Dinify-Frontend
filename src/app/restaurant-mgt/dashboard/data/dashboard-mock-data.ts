@@ -467,6 +467,32 @@ export function getMockReviewsData(): ReviewsSummaryResponse {
 }
 
 // ── 8. Composite ─────────────────────────────────────────
+
+/**
+ * What the MOCK server says about settled-payment measurement. `true` makes it a
+ * measuring server; `false` makes it one that states it does not measure.
+ *
+ * CURRENTLY `true`, DELIBERATELY. It was `false` from D07, which was right while
+ * the disclosure was a NOTE printed beside the figures. D07 G1 then made
+ * `false` WITHHOLD the governed figures. Every deployed dashboard still runs on
+ * this mock (`DashboardService.USE_MOCK_DATA`), so the dummy data disappeared
+ * from the screen the mock exists to fill: the revenue headline, pills and
+ * chart, Payment Methods, the Paid/Open split and three Tables tiles. What was
+ * left was a screen of "can't be shown", in design review and in front of a
+ * prospective restaurant. That is the reason `CLOSED_WEEKDAY` is off, too.
+ *
+ * THIS CHANGES WHAT THE MOCK SAYS, NEVER WHAT A REAL SERVER IS BELIEVED TO SAY.
+ * The adapter still classifies the live payload's own declaration, and the live
+ * backend still states `false`. So the moment `USE_MOCK_DATA` flips, every
+ * governed figure is withheld exactly as before. The withholding branches are
+ * pinned by `payment-tracking-disclosure.spec.ts` with fixtures of their own,
+ * and they never read this mock.
+ *
+ * Setting this back to `false` is ALL it takes to review the withheld states in
+ * the running app; nothing else needs to move.
+ */
+export const MOCK_PAYMENT_TRACKING_ENABLED = true;
+
 export function getMockDashboardData(
   restaurantId: string,
   from: string,
@@ -474,19 +500,13 @@ export function getMockDashboardData(
   bucket: ReportBucketUnit,
 ): DashboardV2Response {
   return {
-    // STATED, NOT INVENTED — and the distinction from the pricing-conventions
-    // notice is the point. That notice depends on the WINDOW's orders, so a mock
-    // asserting one would be fabricating data. This flag depends only on the
-    // BUILD: no code path in either repository records a settled payment, which
-    // is true of every restaurant and every window. So the mock states what a
-    // real server states, and the disclosure is reachable for design review
-    // instead of being invisible until `USE_MOCK_DATA` flips.
-    // The mock builds the RESPONSE directly rather than adapting a wire payload,
-    // so it classifies through the SAME function the adapter's reader delegates
-    // to. A literal `{ kind: 'unavailable' }` here would be a second opinion
-    // about what `false` means, in the one file whose job is to stand in for the
-    // thing it would be disagreeing with.
-    payment_measurement: classifyPaymentDeclaration(false),
+    // See MOCK_PAYMENT_TRACKING_ENABLED for why the mock states a measuring
+    // server. The mock builds the RESPONSE directly rather than adapting a wire
+    // payload, so it classifies through the SAME function the adapter's reader
+    // delegates to. A literal `{ kind: 'supported' }` here would be a second
+    // opinion about what the declaration means, in the one file whose job is
+    // to stand in for the thing it would be disagreeing with.
+    payment_measurement: classifyPaymentDeclaration(MOCK_PAYMENT_TRACKING_ENABLED),
     revenue: getMockRevenueData(restaurantId, from, to, bucket),
     payments: getMockPaymentMethods(restaurantId, from, to),
     orders: getMockOrdersData(restaurantId, from, to, bucket),
