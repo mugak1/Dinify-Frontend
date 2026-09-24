@@ -57,8 +57,14 @@ so keep it current when conventions change.
   longer carries any timeframe control. Polling is CONDITIONAL: `timer(0, 30_000)`
   runs only while the selected range includes today; a closed range fetches once,
   since a finished period's numbers cannot change. Manual refresh (`refresh$`) works
-  for any range. The Reviews chain still polls unconditionally — `reviews/summary/`
-  takes no date range, so the selected window says nothing about it
+  for any range. **The Reviews chain follows the SAME rules** (REVIEWS-WINDOW-00): it
+  sends the window the other cards were fetched for (`effectiveRange`) as `from`/`to`,
+  polls only an open range and shows its skeleton only on a range change or refresh.
+  It used to send no range, so the server counted a fixed last 30 days while listing
+  the three newest reviews of ALL time — a restaurant with two-month-old reviews read
+  "0.0 · 0 reviews" above those very reviews, whatever range was picked. The card now
+  says "No reviews in this period" for an empty window rather than a 0.0 rating over
+  five empty stars, and withholds quotes there whatever the server listed
 - Diner App menu redesign: ✅ Complete (sticky brand strip, scroll-aware nav
   pills, quick-add affordance, allergen-safety disclaimer banner)
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
@@ -3976,6 +3982,10 @@ writing new tag, price/menu or date-range logic:
 - Dashboard real endpoints: `reports/restaurant/dashboard-v2/` (core metrics, gated by
   `USE_MOCK_DATA`) and `reviews/summary/` (Reviews card, already live behind
   `USE_MOCK_REVIEWS = false`) — both parsed through `dashboard-adapter`.
+  `reviews/summary/` takes `restaurant` + `from` + `to` (inclusive EAT days, the same
+  bounding as `reviews/analytics/`, so the card and the Reviews page agree for the same
+  dates); the pair travels together, one without the other is a 400, and a caller that
+  sends neither gets the backend's original rolling-30-day contract.
   dashboard-v2 takes `restaurant` + `from` + `to` + **`bucket`**
   (`hour|day|week|month|year`, from `resolveTimeframe`; `week` accepted since backend
   DASH-WEEK-00, matching the ladder's weekly rung — see LADDER-WEEK-00). The legacy

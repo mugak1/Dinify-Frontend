@@ -115,7 +115,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.dashboardService.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
-        takeUntil(this.destroy$),
         // ABOVE the timer switchMap on purpose: the skeleton shows on a range change or
         // a manual refresh, never on a background poll tick.
         tap(() => {
@@ -131,6 +130,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .getDashboardData(restaurantId, effectiveRange.from, effectiveRange.to, bucketUnit)
             .pipe(catchError((err) => of({ data: null, error: err })));
         }),
+        // LAST, in all three chains. `takeUntil` completes only what is upstream of it, and
+        // `switchMap` keeps its active inner subscription alive after its source completes —
+        // so anywhere earlier it left an open range's 30s timer polling after the dashboard
+        // was destroyed (until midnight), one more poller per visit.
+        takeUntil(this.destroy$),
       )
       .subscribe((res: any) => {
         this.loading = false;
@@ -161,7 +165,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.dashboardService.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
-        takeUntil(this.destroy$),
         switchMap(([range, basis, customFrom]) => {
           const { bucketUnit, effectiveRange } = resolveTimeframe(range);
           // CLASSIFY AND RESOLVE FROM THE SAME WINDOW. `effectiveRange` is what the primary
@@ -186,28 +189,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .getDashboardData(restaurantId, cmp.from, cmp.to, bucketUnit)
             .pipe(catchError(() => of({ data: null })));
         }),
+        // Last, so destruction also cancels a comparison request still in flight.
+        takeUntil(this.destroy$),
       )
       .subscribe((res: any) => {
         this.comparisonData = res.data ?? null;
       });
 
-    // Reviews data: reacts to manual refresh; always polls in the background. NOT gated
-    // on the timeframe — `reviews/summary/` takes no date range at all, so "the selected
-    // window is closed" says nothing about whether reviews changed.
-    this.dashboardService.refresh$
+    // Reviews data: follows the timeframe exactly as the primary chain does — the same
+    // window, the same polling rule, the same skeleton behaviour.
+    //
+    // It used to ignore the picker: `reviews/summary/` took no date range, counted a fixed
+    // last-30-days and listed the three newest reviews of all time, so a restaurant whose
+    // reviews were two months old read "0.0 · 0 reviews" above those very reviews on every
+    // range. It now sends the window the other cards were fetched for (`effectiveRange`,
+    // identical to the raw range below the over-cap clamp), and the server counts and
+    // lists the reviews in it.
+    //
+    // A review is stamped when it is submitted, so a CLOSED window cannot gain one — which
+    // is what makes `fetchTicks`' open-range-only polling right here too.
+    combineLatest([
+      this.timeframe.range$,
+      this.dashboardService.refresh$.pipe(startWith(undefined)),
+    ])
       .pipe(
-        startWith(undefined),
-        takeUntil(this.destroy$),
+        // ABOVE the timer, as in the primary chain: the skeleton shows on a range change or
+        // a manual refresh, never on a background poll tick.
         tap(() => {
           this.reviewsLoading = true;
           this.reviewsError = null;
         }),
-        switchMap(() => timer(0, DashboardComponent.POLL_MS)),
-        switchMap(() =>
-          this.dashboardService
-            .getReviewsSummary(restaurantId)
-            .pipe(catchError((err) => of({ data: null, error: err }))),
-        ),
+        switchMap(([range]) => this.fetchTicks(range).pipe(map(() => range))),
+        switchMap((range) => {
+          const { effectiveRange } = resolveTimeframe(range);
+          return this.dashboardService
+            .getReviewsSummary(restaurantId, effectiveRange.from, effectiveRange.to)
+            .pipe(catchError((err) => of({ data: null, error: err })));
+        }),
+        // Last — see the primary chain.
+        takeUntil(this.destroy$),
       )
       .subscribe((res: any) => {
         this.reviewsLoading = false;

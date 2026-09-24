@@ -467,6 +467,134 @@ describe('DashboardComponent — timeframe wiring', () => {
     }));
   });
 
+  // ─── Guest Reviews card follows the timeframe ─────────────────────────────────────
+  //
+  // `reviews/summary/` used to be called with no window at all, so the card counted a fixed
+  // last 30 days whatever the picker said — and read "0.0 · 0 reviews" above two-month-old
+  // reviews on every range. It now rides the same window, polling rule and skeleton rule as
+  // the primary chain.
+
+  /** {from,to} of the most recent getReviewsSummary call. */
+  const lastReviewsWindow = (): [string, string] => {
+    const args = dashboardService.getReviewsSummary.calls.mostRecent().args;
+    return [args[1] as string, args[2] as string];
+  };
+
+  describe('Guest Reviews card', () => {
+    it('asks for the selected window', fakeAsync(() => {
+      boot(closedRange);
+      fixture.detectChanges();
+      tick();
+
+      expect(dashboardService.getReviewsSummary).toHaveBeenCalledOnceWith(
+        'r1', closedRange.from, closedRange.to,
+      );
+    }));
+
+    it('asks again, for the new window, when the range changes', fakeAsync(() => {
+      const thisYear: ReportDateRange = { preset: 'custom', from: '2026-01-01', to: '2026-03-31' };
+      boot(closedRange);
+      fixture.detectChanges();
+      tick();
+
+      range$.next(thisYear);
+      tick();
+
+      expect(dashboardService.getReviewsSummary).toHaveBeenCalledTimes(2);
+      expect(lastReviewsWindow()).toEqual([thisYear.from, thisYear.to]);
+    }));
+
+    it('asks for exactly the window the other cards were fetched for, clamp included', fakeAsync(() => {
+      // Above the over-cap clamp `effectiveRange` moves `from`; the card must describe the
+      // same days as the cards beside it, not the raw range.
+      const overCap = openRange(2000);
+      boot(overCap);
+      fixture.detectChanges();
+      tick();
+
+      expect(lastWindow()[0]).withContext('this case must actually clamp').not.toBe(overCap.from);
+      expect(lastReviewsWindow()).toEqual(lastWindow());
+
+      discardPeriodicTasks();
+    }));
+
+    it('polls a range that includes today', fakeAsync(() => {
+      boot(openRange(0));
+      fixture.detectChanges();
+      tick();
+      expect(dashboardService.getReviewsSummary).toHaveBeenCalledTimes(1);
+
+      tick(30_000);
+      expect(dashboardService.getReviewsSummary).toHaveBeenCalledTimes(2);
+
+      discardPeriodicTasks();
+    }));
+
+    // A review is stamped when it is submitted, so a finished window cannot gain one.
+    it('fetches a historical range exactly once, and again only on a manual refresh', fakeAsync(() => {
+      boot(closedRange);
+      fixture.detectChanges();
+      tick();
+
+      tick(120_000);
+      expect(dashboardService.getReviewsSummary).toHaveBeenCalledTimes(1);
+
+      component.retryReviews();
+      tick();
+      expect(dashboardService.getReviewsSummary).toHaveBeenCalledTimes(2);
+    }));
+
+    it('shows its skeleton on a range change but not on a background poll', fakeAsync(() => {
+      boot(openRange(0));
+      fixture.detectChanges();
+      tick();
+      expect(component.reviewsLoading).toBeFalse();
+
+      tick(30_000);
+      expect(component.reviewsLoading).toBeFalse();
+
+      range$.next(openRange(25));
+      expect(component.reviewsLoading).toBeTrue();
+      tick();
+      expect(component.reviewsLoading).toBeFalse();
+
+      discardPeriodicTasks();
+    }));
+  });
+
+  // ─── Teardown ──────────────────────────────────────────────────────────────────────
+  //
+  // `takeUntil` completes only what is UPSTREAM of it, and `switchMap` keeps its active
+  // inner subscription alive after its source completes. Placed ahead of the polling
+  // `switchMap`s, it left the 30s timer of an open range running after the dashboard was
+  // destroyed — until midnight — and every visit added another poller (Codex, #691).
+
+  describe('when the dashboard is destroyed', () => {
+    it('stops polling the reviews summary', fakeAsync(() => {
+      boot(openRange(0));
+      fixture.detectChanges();
+      tick();
+      const before = dashboardService.getReviewsSummary.calls.count();
+
+      fixture.destroy();
+      tick(90_000);
+
+      expect(dashboardService.getReviewsSummary.calls.count()).toBe(before);
+    }));
+
+    it('stops polling the dashboard data', fakeAsync(() => {
+      boot(openRange(0));
+      fixture.detectChanges();
+      tick();
+      const before = dashboardService.getDashboardData.calls.count();
+
+      fixture.destroy();
+      tick(90_000);
+
+      expect(dashboardService.getDashboardData.calls.count()).toBe(before);
+    }));
+  });
+
   it('commits a picked basis through the service, not to local state', () => {
     boot(openRange(0));
 

@@ -65,6 +65,23 @@ describe('DashboardService', () => {
     });
   });
 
+  // The Guest Reviews card is real-wired independently of USE_MOCK_DATA. It must send the
+  // SAME window as dashboard-v2: without `from`/`to` the server falls back to a fixed last
+  // 30 days, which is how the card ignored the timeframe picker.
+  describe('reviews/summary/ contract', () => {
+    beforeEach(() => api.get.and.returnValue(of({ data: null }) as never));
+
+    it('sends restaurant / from / to, the window the other cards use', () => {
+      service.getReviewsSummary('r1', '2026-01-01', '2026-09-24').subscribe();
+
+      expect(api.get).toHaveBeenCalledWith(null, 'reviews/summary/', {
+        restaurant: 'r1',
+        from: '2026-01-01',
+        to: '2026-09-24',
+      });
+    });
+  });
+
   it('does not call the API while USE_MOCK_DATA is on', () => {
     service.getDashboardData('r1', '2026-06-01', '2026-06-30', 'day').subscribe();
     expect(api.get).not.toHaveBeenCalled();
