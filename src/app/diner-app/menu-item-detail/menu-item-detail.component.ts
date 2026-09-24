@@ -608,11 +608,13 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
     };
 
     const idx = this.editingIndex();
-    // Announce the result before navigating: the toast host is global (survives this
-    // navigation) and is aria-live, so screen-reader diners get confirmation an
-    // on-page region couldn't provide once the route changes.
-    this.toast.success(idx !== null ? 'Changes saved' : 'Added to basket');
     if (idx !== null) {
+      // Announce the edit before navigating: the toast host is global (survives this
+      // navigation) and is aria-live, so screen-reader diners get confirmation an
+      // on-page region couldn't provide once the route changes. A plain ADD is
+      // deliberately silent — the basket pill already reflects it, and a toast on
+      // every add was noise.
+      this.toast.success('Changes saved');
       this.basketService.updateItem(idx, basketItem);
       this.router.navigate(['/diner', 'basket']);
     } else {

@@ -90,7 +90,7 @@ describe('MenuItemDetailComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('announces the add / edit result via a global toast', () => {
+  it('adds silently but announces an edit via a global toast', () => {
     const toast = TestBed.inject(ToastService);
     const successSpy = spyOn(toast, 'success');
     const basket = TestBed.inject(BasketService);
@@ -102,7 +102,8 @@ describe('MenuItemDetailComponent', () => {
 
     component.editingIndex.set(null);
     component.addToBasket();
-    expect(successSpy).toHaveBeenCalledWith('Added to basket');
+    expect(basket.addItem).toHaveBeenCalled();
+    expect(successSpy).not.toHaveBeenCalled();
 
     component.editingIndex.set(3);
     component.addToBasket();
