@@ -4,13 +4,22 @@
  * WHAT IT REPLACED. An always-open amber box sat between "Total to pay" and the
  * Checkout bar: "We're unable to take custom dietary or special-prep requests.
  * Each item shows its allergens…". It now follows the item page: a subtle
- * "Allergens & dietary info" link, here at the top of the Checkout bar, opening
- * the same pop-up in its `basket` context.
+ * "Allergens & dietary info" link straight after the total, opening the same
+ * pop-up in its `basket` context. It is NOT in the sticky Checkout bar, which
+ * stays just the button. The summary above it has ONE total: the Subtotal row,
+ * which repeated "Total to pay" for every basket without a deal, is gone.
  *
  * WHERE THE POP-UP IS MOUNTED MATTERS. The Checkout bar is `sticky`, and a
  * sticky element is its own stacking context, so a fixed overlay inside it would
  * paint beneath the basket's sticky header. The pop-up is mounted at the root of
- * the basket template instead; the specs below pin both halves.
+ * the basket template, beside the checkout overlays, and never inside the bar.
+ *
+ * EVERY OVERLAY THE BASKET OPENS IS MARKED WHILE IT IS OPEN. The desktop
+ * sidebar is sticky too, and it raises its own layer (`z-[45]` through
+ * `:has([data-basket-overlay])`) only while one of these is open, so an overlay
+ * opened from the sidebar covers the page, and the rest of the time the sidebar
+ * stays beneath the page's sticky strips. The marker is that contract's basket
+ * half; `diner-app.component.spec.ts` pins the stylesheet half.
  *
  * Both mounts are driven: the routed basket page and the desktop sidebar.
  */
@@ -91,10 +100,14 @@ describe('BasketBodyComponent: allergen information', () => {
   const text = (el: Element | null) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
   const link = (root: HTMLElement) =>
     root.querySelector<HTMLButtonElement>('[data-testid="basket-allergen-info"] app-allergen-info-link button');
-  const bar = (root: HTMLElement) => link(root)?.closest('.sticky') ?? null;
   const checkout = (root: HTMLElement) => Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
     .find((b) => text(b).startsWith('Checkout —')) ?? null;
+  const bar = (root: HTMLElement) => checkout(root)?.closest('.sticky') ?? null;
+  const totalLabel = (root: HTMLElement) => Array.from(root.querySelectorAll('span'))
+    .find((s) => text(s) === 'Total to pay') ?? null;
+  const follows = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
   const dialog = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="dialog"]');
+  const markers = (root: HTMLElement) => root.querySelectorAll('[data-basket-overlay]');
 
   for (const sidebar of [false, true]) {
     const where = sidebar ? 'sidebar' : 'basket page';
@@ -105,14 +118,21 @@ describe('BasketBodyComponent: allergen information', () => {
       expect(root.querySelector('.bg-amber-50')).toBeNull();
     });
 
-    it(`(${where}) the link sits in the sticky Checkout bar, above the Checkout button`, () => {
+    it(`(${where}) the link comes straight after "Total to pay", outside the sticky Checkout bar`, () => {
       const root = mount(sidebar);
       expect(text(link(root))).toBe('Allergens & dietary info');
-      expect(bar(root)).withContext('the link is inside the sticky bar').not.toBeNull();
-      const cta = checkout(root)!;
-      expect(bar(root)!.contains(cta)).withContext('premise: the same bar holds Checkout').toBe(true);
-      // DOCUMENT_POSITION_FOLLOWING: the Checkout button comes after the link.
-      expect(link(root)!.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(bar(root)).withContext('premise: the sticky bar holds Checkout').not.toBeNull();
+      expect(bar(root)!.contains(link(root))).withContext('the link is NOT in the sticky bar').toBe(false);
+      expect(link(root)!.closest('.sticky')).toBeNull();
+      expect(follows(totalLabel(root)!, link(root)!)).withContext('after the total').toBe(true);
+      expect(follows(link(root)!, checkout(root)!)).withContext('before the Checkout bar').toBe(true);
+    });
+
+    it(`REGRESSION (${where}): one total, "Total to pay", and no Subtotal row`, () => {
+      const root = mount(sidebar);
+      expect(text(root)).not.toContain('Subtotal');
+      expect(Array.from(root.querySelectorAll('span')).filter((s) => text(s) === 'Total to pay').length)
+        .toBe(1);
     });
 
     it(`(${where}) the link opens the basket pop-up, led by the no-special-requests sentence`, () => {
@@ -131,7 +151,44 @@ describe('BasketBodyComponent: allergen information', () => {
       expect(dialog(root)!.closest('.sticky')).toBeNull();
       expect(bar(root)!.contains(dialog(root))).toBe(false);
     });
+
+    it(`(${where}) the pop-up is marked as a basket overlay only while it is open`, () => {
+      const root = mount(sidebar);
+      expect(markers(root).length).withContext('nothing is open').toBe(0);
+      link(root)!.click();
+      fixture.detectChanges();
+      expect(markers(root).length).toBe(1);
+      expect(markers(root)[0].contains(dialog(root))).withContext('the marker holds the dialog').toBe(true);
+      // Escape closes it through the sheet itself, not through our close button.
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fixture.detectChanges();
+      expect(dialog(root)).toBeNull();
+      expect(markers(root).length).withContext('closed again').toBe(0);
+    });
   }
+
+  it('the checkout prompt and the itemised review are marked as basket overlays too', () => {
+    const root = mount(true);
+    const component = fixture.componentInstance;
+    const needsReview = spyOnProperty(component, 'quoteNeedsReview', 'get').and.returnValue(false);
+    component.showQuoteSheet = true;
+    fixture.detectChanges();
+    const prompt = root.querySelector('[data-testid="checkout-confirm"]');
+    expect(prompt).withContext('premise: the plain prompt is up').not.toBeNull();
+    expect(prompt!.hasAttribute('data-basket-overlay')).toBe(true);
+    expect(markers(root).length).toBe(1);
+
+    needsReview.and.returnValue(true);
+    fixture.detectChanges();
+    const heading = Array.from(root.querySelectorAll('h3')).find((h) => text(h) === 'Review your order');
+    expect(heading).withContext('premise: the itemised review is up').toBeDefined();
+    expect(heading!.closest('[data-basket-overlay]')).not.toBeNull();
+    expect(markers(root).length).toBe(1);
+
+    component.showQuoteSheet = false;
+    fixture.detectChanges();
+    expect(markers(root).length).withContext('closed again').toBe(0);
+  });
 
   it('closing hands the basket back, and the link opens it again', () => {
     const root = mount(false);
@@ -146,7 +203,18 @@ describe('BasketBodyComponent: allergen information', () => {
     expect(dialog(root)).not.toBeNull();
   });
 
-  it('CONTROL: an empty basket has no Checkout bar, so no link either', () => {
+  it('CONTROL: a deal still states its saving, just above the one total', () => {
+    const deal = {
+      ...burger, basePrice: 800, totalPrice: 800, originalBasePrice: 1000, isDiscounted: true,
+    } as unknown as BasketItem;
+    const root = mount(false, [deal]);
+    const savings = Array.from(root.querySelectorAll('span')).find((s) => text(s) === 'Deal savings');
+    expect(savings).withContext('the saving is still stated').toBeDefined();
+    expect(follows(savings!, totalLabel(root)!)).toBe(true);
+    expect(text(root)).not.toContain('Subtotal');
+  });
+
+  it('CONTROL: an empty basket has no total, so no link either', () => {
     const root = mount(false, []);
     expect(link(root)).toBeNull();
     expect(text(root)).toContain('Your basket is empty');

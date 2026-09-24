@@ -58,25 +58,6 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly bannerHeightPx = signal(0);
   private bannerResizeObserver?: ResizeObserver;
 
-  /** The FIXED "View Basket" bar, rendered only while the basket has items. Its
-   *  height is published so the shell can keep the diner footer clear of it
-   *  (see `MenuNavStateService.fixedBasketBarHeight`). A setter, because the bar
-   *  comes and goes with the basket. At lg:+ the bar is `lg:hidden`, so the
-   *  observer reads 0 there and nothing is reserved. */
-  @ViewChild('basketBar') private set basketBar(ref: ElementRef<HTMLElement> | undefined) {
-    this.basketBarResizeObserver?.disconnect();
-    this.basketBarResizeObserver = undefined;
-    if (!ref) {
-      this.navState.setFixedBasketBarHeight(0);
-      return;
-    }
-    const el = ref.nativeElement;
-    this.basketBarResizeObserver = new ResizeObserver(
-      () => this.navState.setFixedBasketBarHeight(el.offsetHeight));
-    this.basketBarResizeObserver.observe(el);
-  }
-  private basketBarResizeObserver?: ResizeObserver;
-
   @Input() restaurant?: Restaurant;
   @Input() restaurant_id: any = '';
   menu_list?: MenuItem[] | any = [];
@@ -256,9 +237,6 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
     // Drop the banner-measured override so a later portal-embed mount (or any non-banner
     // consumer) falls back to the constant scroll-margin formula.
     this.navState.setMenuBannerStackHeight(null);
-    // The basket bar leaves with the menu, so no other page reserves room for it.
-    this.basketBarResizeObserver?.disconnect();
-    this.navState.setFixedBasketBarHeight(0);
     this.navState.setMenuActive(false);
     // Intentionally NOT clearing the menu list here. The item-detail page is a
     // sibling route that constructs after this component is destroyed, so it

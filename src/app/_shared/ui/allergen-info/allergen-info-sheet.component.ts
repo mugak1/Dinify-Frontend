@@ -9,7 +9,7 @@ import { SheetComponent } from '../sheet/sheet.component';
  * restaurant put on this dish.
  *
  * TWO CONTEXTS, ONE SET OF SAFETY SENTENCES. `dish` (the item page) lists the
- * dish's own tags. `basket` (opened from the basket's checkout bar) has no
+ * dish's own tags. `basket` (opened from under the basket's total) has no
  * single dish to describe, so it leads with the
  * basket's own policy, that the restaurant
  * cannot take custom dietary or special-prep requests, and points back to each

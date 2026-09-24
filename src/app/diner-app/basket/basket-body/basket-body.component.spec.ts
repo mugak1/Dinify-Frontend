@@ -224,12 +224,11 @@ describe('BasketBodyComponent', () => {
     expect(component.getTotalSavings()).toBe(0);
   });
 
-  it('derives the honest pre-discount subtotal as total + savings', () => {
+  it('counts a discounted dish\'s own saving toward total savings', () => {
     basket.items = [lineItem({ isDiscounted: true, basePrice: 800, originalBasePrice: 1000 })];
     basket.totalAmount = 800;
-    // savings = (1000 − 800) × 1 = 200 ⇒ subtotal = 800 + 200 = 1000 (subtotal − savings == total)
+    // savings = (1000 − 800) × 1 = 200
     expect(component.getTotalSavings()).toBe(200);
-    expect(component.cartSubtotal).toBe(1000);
   });
 
   // ── inline placement error + retry ───────────────────────────────────────
@@ -1165,13 +1164,6 @@ describe('BasketBodyComponent', () => {
       component.incrementItem(0);
 
       expect(component.totalAmount).toBe(2000);
-    });
-
-    it('states the subtotal against the figure on screen', () => {
-      basket.items = [subCentLine()];
-      basket.totalAmount = 1002.0099999999999;
-      // No discount on this line, so subtotal == total exactly.
-      expect(component.cartSubtotal).toBe(1002);
     });
   });
 });

@@ -117,8 +117,8 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   order_initiated?: OrderInitiated;
   /** The ONE authoritative review: the server's priced lines and total. */
   showQuoteSheet = false;
-  /** The allergen pop-up opened from the checkout bar's "Allergens & dietary
-   *  info" link. It replaced the always-open amber notice under the total. */
+  /** The allergen pop-up opened from the "Allergens & dietary info" link under
+   *  the total. It replaced the always-open amber notice that sat there. */
   readonly allergenInfoOpen = signal(false);
 
   /**
@@ -283,13 +283,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   get totalIsExact(): boolean {
     return this.total.exact;
-  }
-
-  /** Pre-discount subtotal for the honest summary: the current total plus the savings
-   *  already taken off (so subtotal − savings == total exactly). Named to avoid clashing
-   *  with the per-line getSubtotal(item). */
-  get cartSubtotal(): number {
-    return this.totalAmount + this.getTotalSavings();
   }
 
   /** True when the table already has an order still working through the kitchen.

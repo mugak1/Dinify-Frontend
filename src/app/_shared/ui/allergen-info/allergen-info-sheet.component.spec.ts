@@ -100,7 +100,7 @@ describe('AllergenInfoSheetComponent', () => {
       .toBe('This covers the dish on its own. The options and extras you choose may contain other allergens.');
   });
 
-  // ── the basket context: the checkout bar's link, where the amber box was ──
+  // ── the basket context: the link under the total, where the amber box was ──
   it('BASKET: leads with the no-special-requests sentence the amber box carried, and keeps both safety sentences', () => {
     const items = Array.from(render({ context: 'basket' })
       .querySelectorAll('[data-testid="allergen-important-info"] li')).map((li) => text(li));

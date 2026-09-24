@@ -86,36 +86,58 @@ so keep it current when conventions change.
   `menu-item-detail.allergen-info.spec.ts` and `allergen-info-sheet.component.spec.ts`.
   **THE BASKET FOLLOWS THE SAME FORMAT (ALLERGEN-INFO-01).** Its always-open amber box
   ("We're unable to take custom dietary or special-prep requests…"), which sat between
-  "Total to pay" and the Checkout bar, is GONE. The same link now sits at the top of the
-  sticky Checkout bar, above the button it qualifies, with its 44px target pulled into the
-  bar's top padding. It opens the same sheet with `context="basket"`, which leads with the
+  "Total to pay" and the Checkout bar, is GONE. The same link now sits straight after
+  "Total to pay" (and its estimate note, when there is one), in the page and NOT in the
+  sticky Checkout bar, which stays just the button (the owner's call). **THE SUMMARY HAS
+  ONE TOTAL**: the Subtotal row went with it, because for every basket without a deal it
+  repeated "Total to pay" (its `cartSubtotal` getter went too). "Deal savings" still
+  shows above the total when a deal applies, and each line still shows its own struck
+  price. The link opens the same sheet with `context="basket"`, which leads with the
   special-requests sentence, keeps the two shared safety sentences, and points to each
   dish's own info and the menu Filters (conditionally, because the Filters button only
   exists when something is tagged) instead of listing tags. Two layering rules, both
-  load-bearing: **THE SHEET IS MOUNTED AT THE BASKET TEMPLATE'S ROOT, NOT IN THE BAR**,
-  since the bar is sticky and so its own stacking context; and **THE DESKTOP SIDEBAR
-  `<aside>` CARRIES `lg:z-[45]`**, because `sticky` makes it a stacking context too, so
-  every overlay the sidebar basket opens (the checkout prompt, the review sheet, this
-  sheet) paints at the aside's layer. With no z-index that layer sat under the menu's
-  z-10 quick-add buttons and z-40 nav bar: a "+" landed on top of the checkout prompt's
-  Order button on desktop. 45 clears those and stays under every page-level overlay
-  (z-50 sheets, the z-[60] filter sheet, z-[100] toasts). The sheet is NOT rendered by
-  the shell: the portal's `rest-app-ordering` embed loads the diner routes WITHOUT the
-  shell, so a shell-owned sheet would leave the embed's link dead. Pinned by
-  `basket-body.allergen-info.spec.ts`; the z-index has no unit pin (Karma's window is
-  below `lg`) and was proved in a real browser, where reverting it fails the backdrop checks
-- The diner footer is COMPACT and never sits under a fixed bar (DINER-FOOTER-00): ✅ it
-  closes every diner page, so its padding is the last thing above the browser's toolbar.
-  It went from 21px above and below plus a 10.5px gap (82px) to `pt-4 pb-3` and
-  `mb-1.5` (59px). **THE MENU'S FIXED "View Basket" BAR USED TO HIDE IT FOR GOOD**: the
-  only space reserved for that bar was the menu list's `pb-24`, which sits ABOVE the
-  footer, so with anything in the basket the footer could never be scrolled into view.
-  The menu now publishes the bar's measured height (`#basketBar` + a ResizeObserver →
-  `MenuNavStateService.fixedBasketBarHeight`, 0 at `lg:` where the bar is hidden, reset
-  on destroy) and the shell renders a spacer of that height AFTER the footer. The list
-  keeps `pb-24` ONLY when `isInRestApp`: the portal embed has no shell, so no footer and
-  no spacer, and the bar would otherwise cover the last dish there. Pinned by
-  `menu.component.spec.ts` and `diner-app.component.spec.ts`
+  load-bearing: **THE SHEET IS MOUNTED AT THE BASKET TEMPLATE'S ROOT**, beside the two
+  checkout overlays and never inside a sticky or z-indexed box such as the Checkout bar,
+  whose stacking context would paint it beneath the basket header; and **THE DESKTOP SIDEBAR
+  `<aside>` IS RAISED TO `z-[45]` WHILE, AND ONLY WHILE, AN OVERLAY IS OPEN IN IT**
+  (`lg:has-[[data-basket-overlay]]:z-[45]`). `sticky` makes the aside a stacking
+  context too, so every overlay the sidebar basket opens (the checkout prompt, the
+  review sheet, this sheet) paints at the aside's layer. At the default layer the
+  menu's z-10 quick-add buttons and z-40 nav bar painted over them: a "+" landed on top
+  of the checkout prompt's Order button on desktop. 45 clears those and stays under every
+  page-level overlay (z-50 sheets, the z-[60] filter sheet, z-[100] toasts). **THE
+  CONDITION IS LOAD-BEARING TOO**: at the bottom of a long page the footer pushes a
+  full-height aside up to 53px from the top, into the offline strip's band (48-90px,
+  z-30, on every route but the menu and the basket), so a PERMANENT raise covered the end
+  of "You're offline…" there, where the strips used to paint over the aside. Every
+  overlay root carries `data-basket-overlay` while it is open (the sheet's always-present
+  host through an attribute binding on the same signal as `[open]`), and a new basket
+  overlay must carry it too. A browser without `:has()` just never raises the aside,
+  which is the behaviour from before the raise. The sheet is NOT rendered by the shell:
+  the portal's `rest-app-ordering` embed loads the diner routes WITHOUT the shell, so a
+  shell-owned sheet would leave the embed's link dead. Pinned from both halves: the
+  markers by `basket-body.allergen-info.spec.ts`, and the compiled rule by
+  `diner-app.component.spec.ts`, which reads the stylesheet and asks the aside whether it
+  MATCHES rather than measuring it, because Karma's window is below `lg`. Both
+  directions were also proved in a real browser
+- The diner footer is ALWAYS THE VERY BOTTOM OF THE PAGE, UNDER EVERY STICKY BAR
+  (DINER-FOOTER-00): ✅ the owner's rule, modelled on Nando's: a page's sticky bottom
+  bar rides the bottom of the screen while the page scrolls and comes to rest ABOVE the
+  footer, which is in view only once the diner reaches the end. The shell renders
+  NOTHING after `<app-diner-footer>`. The basket's Checkout bar and the item page's Add
+  bar were already sticky and in the flow. **THE MENU'S "View Basket" BAR WAS FIXED**,
+  which kept it on top of the footer for good (the list's `pb-24` sat ABOVE the footer,
+  so the footer could never be scrolled clear). In the diner shell it is now `sticky
+  bottom-0` and the LAST child of the menu root, which is `min-h-screen` with the bar
+  pushed to its end by `mt-auto`, so on a short menu the bar still sits at the bottom of
+  the screen rather than straight under the last dish. **A FIRST CUT KEPT THE BAR FIXED
+  AND RESERVED ITS HEIGHT AFTER THE FOOTER** (a ResizeObserver feeding a shell spacer),
+  which put the footer ABOVE the bar at the end of the page. The owner rejected that,
+  and it is gone; do not bring it back. **THE PORTAL EMBED IS UNCHANGED**: it has no
+  shell and so no footer, so there the bar stays `fixed` and the lists keep `pb-24`
+  (both keyed on `isInRestApp`). The footer itself is compact, `pt-4 pb-3` with an
+  `mb-1.5` gap (59px, down from 82px), so its links sit close to the bottom edge.
+  Pinned by `menu.component.spec.ts` and `diner-app.component.spec.ts`
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
   menu card, featured carousel, basket) now renders through the shared
   presentational trio (`app-price-display` / `app-discount-badge` /
