@@ -1,0 +1,44 @@
+{
+  "schema": "dinify.release.peer-receipt/1",
+  "peer": "backend",
+  "repository": "mugak1/Dinify-Backend",
+  "commit": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b",
+  "tree": "d6d1f838e931f89d68e5bcafec43a84fd1b6f538",
+  "sources": [
+    {
+      "name": "d01CheckoutLimits",
+      "path": "orders_app/contracts/checkout_limits.contract.json",
+      "blob": "1cb6a6db203edb2615668683d6426e0b972cdc31"
+    },
+    {
+      "name": "publishedCapabilities",
+      "path": "orders_app/contracts/published_capabilities.contract.json",
+      "blob": "cc9160508888e2daff083ef96348a501c37fe702"
+    }
+  ],
+  "contracts": {
+    "d01CheckoutLimits": {
+      "values": {
+        "MAX_QUANTITY_PER_LINE": 99,
+        "MAX_LINES_PER_ORDER": 100,
+        "MAX_TOTAL_UNITS": 500,
+        "MAX_MODIFIER_GROUPS_PER_LINE": 32,
+        "MAX_CHOICES_PER_GROUP": 64,
+        "MAX_EXTRAS_PER_LINE": 64,
+        "MAX_SELECTION_ENTRIES_PER_REQUEST": 2048
+      },
+      "digest": "sha256:1441d038214a7ff71b61f43f7c73516304545256d8e4a4822f71b424f6f18676"
+    }
+  },
+  "publishes": {
+    "checkout_protocol": 3,
+    "quote_protocol": 2,
+    "kitchen_protocol": 1,
+    "quote_policy_version": 1
+  },
+  "unavailable": [],
+  "producer": {
+    "tool": "release/cli.mjs peer-receipt",
+    "revision": 1
+  }
+}

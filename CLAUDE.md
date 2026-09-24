@@ -3259,6 +3259,27 @@ so keep it current when conventions change.
   Report step keeps the JOB red on its own — so every red scenario now pins both steps'
   colours individually (the #687 lesson again). An equivalent mutant (a CLI guard
   duplicating the classifier's "not read" answer) was REMOVED rather than kept
+- **A PEER DEPLOYMENT IS ANSWERED BY A REVIEWED RECEIPT, NEVER BY A NEW WAIT (D08
+  receipt refresh, 2026-09-24).** ✅ Admin #26/#27 deployed `3521ebd`, and readiness run
+  `36018365996` on `c32f383` refused `peers.admin_serving_unapproved` beside the six
+  prerequisites — `not-a-waiting-state`, publisher skipped, exactly as designed. The
+  remedy was compatible set **`2026-09-24-pilot-4`**: Admin `3521ebd` (receipt
+  `sha256:e58f7ff5…`) replaces `38df037`, backend `a6b25a6` (the #338 merge, receipt
+  `sha256:c1355f50…`) replaces `366b7e4`; both produced by `peer-receipt` at the exact
+  commit and re-derived by an independent Python implementation over fresh clones.
+  **The Admin interval is NOT copy-only** — #26 moved the SHA-pinned
+  `configure-aws-credentials` v6.2.4 → v6.3.0 in the receipt-bearing `deploy.yml`.
+  **The backend refresh changes no reason**: #332–#338 left both export blobs
+  byte-identical, and `peers.backend_serving_unverified` stands until B3. Nothing was
+  added to `publication.readiness.awaiting`; no `peers.*` entry may ever be. Replacing
+  (not joining) means an Admin rollback to `38df037` is refused the same way until
+  approved again. `committed-policy.test.mjs` replays run `36018365996`'s seven reasons
+  byte for byte against the previous set and shows the refresh removes exactly one.
+  Release suite 569 → **580**. **The next Admin deployment will turn the next frontend
+  readiness run red again until its receipt is approved** — that is the ordered
+  coordination working, not a defect. A backend deployment will NOT: its serving is
+  unobservable until B3, so the gate compares only the approved source receipt, and a
+  backend contract change surfaces when its receipt is refreshed here
 - Tenant-isolation closure (frontend regression gate): ✅ a focused
   `src/app/_security/` layer pins the client-side tenant-boundary invariants.
   `diner-capability-contract.ts` is the single source of truth for the diner
