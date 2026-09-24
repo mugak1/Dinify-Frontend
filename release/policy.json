@@ -171,7 +171,7 @@
       "The frontend's own commit is deliberately not pinned: a file cannot contain the",
       "SHA of the commit that introduces it."
     ],
-    "id": "2026-09-23-pilot-3",
+    "id": "2026-09-24-pilot-4",
     "frontendRequires": {
       "buildConfiguration": "uat"
     },
@@ -180,12 +180,12 @@
         "repository": "mugak1/Dinify-Backend",
         "receiptVerification": "operator",
         "_receiptVerification": "The backend repository is private, so its receipt cannot be re-derived from a public API at decision time. It is produced by an operator from the backend's git and reviewed as a file; its digest is what is approved.",
-        "_approvedHistory": "9448f55 (the #330 merge) was the first approved backend revision. It predates orders_app/contracts/published_capabilities.contract.json, so it is REPLACED here rather than kept beside the new entry: every approved backend is checked for compatibility, and an export-less revision left in this list would refuse peers.capabilities_unpublished for ever. Its receipt stays under release/peers/ as history; it is no longer approved.",
+        "_approvedHistory": "9448f55 (the #330 merge) was the first approved backend revision. It predates orders_app/contracts/published_capabilities.contract.json, so it was REPLACED by 366b7e4 (the #331 merge) rather than kept beside it: every approved backend is checked for compatibility, and an export-less revision left in this list would refuse peers.capabilities_unpublished for ever. 366b7e4 was in turn REPLACED on 2026-09-24 by a6b25a6 (the #338 merge) after review of #332-#338: both export files are byte-identical between the two (D01 blob 1cb6a6d, capability blob cc91605), so the D01 values and the four capability levels are unchanged. Both earlier receipts stay under release/peers/ as history; neither is approved. Approving a receipt is a statement about SOURCE and says nothing about which backend revision is live.",
         "approved": [
           {
-            "commit": "366b7e457cfffa700663fc10983b0420e8882313",
-            "receipt": "release/peers/backend-366b7e457cfffa700663fc10983b0420e8882313.json",
-            "receiptDigest": "sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63"
+            "commit": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b",
+            "receipt": "release/peers/backend-a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b.json",
+            "receiptDigest": "sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920"
           }
         ],
         "serving": {
@@ -196,11 +196,12 @@
       "admin": {
         "repository": "mugak1/Dinify-Admin",
         "receiptVerification": "public-repository",
+        "_approvedHistory": "38df037 (the Admin #25 merge) was the first approved Admin revision. It was REPLACED on 2026-09-24 by 3521ebd (the Admin #27 merge) after review of the two merges between them: #26 moved the SHA-pinned aws-actions/configure-aws-credentials in deploy.yml from v6.2.4 to v6.3.0 (the receipt-bearing blob, c1a5e7c -> 0e210bf), and #27 changed test-restaurant wording, comments and specs only. 38df037's receipt stays under release/peers/ as history and is no longer approved, so an Admin rollback to it is refused as peers.admin_serving_unapproved until it is approved again in a reviewed change.",
         "approved": [
           {
-            "commit": "38df0373e235c3e2952ae1985333731327400b93",
-            "receipt": "release/peers/admin-38df0373e235c3e2952ae1985333731327400b93.json",
-            "receiptDigest": "sha256:d58c5647ff5f6764dda5396063852226b14d58b64d3aab99be51e42e0129f59b"
+            "commit": "3521ebd05e5623878d262152bde11734b9cbd4fc",
+            "receipt": "release/peers/admin-3521ebd05e5623878d262152bde11734b9cbd4fc.json",
+            "receiptDigest": "sha256:e58f7ff5fdd0deb0b21d3b78f8b7fd55f2b56781210f8027a2f640b343debfb1"
           }
         ],
         "serving": {

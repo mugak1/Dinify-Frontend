@@ -1,0 +1,21 @@
+{
+  "schema": "dinify.release.peer-receipt/1",
+  "peer": "admin",
+  "repository": "mugak1/Dinify-Admin",
+  "commit": "3521ebd05e5623878d262152bde11734b9cbd4fc",
+  "tree": "8a84439cd87c36501881cce64b7f293a59695621",
+  "sources": [
+    {
+      "name": "deployWorkflow",
+      "path": ".github/workflows/deploy.yml",
+      "blob": "0e210bf938beb29d43115eb96ad2ebf11576bb90"
+    }
+  ],
+  "contracts": {},
+  "publishes": null,
+  "unavailable": [],
+  "producer": {
+    "tool": "release/cli.mjs peer-receipt",
+    "revision": 1
+  }
+}

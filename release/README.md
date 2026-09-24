@@ -260,8 +260,8 @@ where a peer publishes one, and refused by name where it does not.
 
 | peer | selection | serving |
 |---|---|---|
-| backend (`366b7e4`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
-| admin (`38df037`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
+| backend (`a6b25a6`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
+| admin (`3521ebd`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
 path that consults `compatibleSet`; the backend's own deploy and `deploy-prod.yml` make
@@ -271,18 +271,25 @@ one-sided change unreleasable — the other side's own deploy can still ship it 
 order is: merge the peer, produce a receipt from its git at the merged commit, approve
 that receipt here in a reviewed pull request. Two consequences of the committed state:
 
-- the approved backend revision is `366b7e4` (the #331 merge), the first carrying
-  `orders_app/contracts/published_capabilities.contract.json`. It REPLACED `9448f55`
-  (the #330 merge) rather than joining it, because every approved backend is checked for
-  compatibility and an export-less revision left in the list would refuse
-  `peers.capabilities_unpublished` for ever. `9448f55`'s receipt stays under `peers/` as
-  history and is no longer approved; the committed-policy suite selects it deliberately
-  as a negative control. **Approving a receipt is a statement about SOURCE**, and
+- the approved backend revision is `a6b25a6` (the #338 merge). `366b7e4` (the #331
+  merge, the first carrying `orders_app/contracts/published_capabilities.contract.json`)
+  REPLACED `9448f55` (the #330 merge) on 2026-09-23, and was itself replaced by
+  `a6b25a6` on 2026-09-24 — replaced rather than joined, because every approved backend
+  is checked for compatibility and an export-less revision left in the list would refuse
+  `peers.capabilities_unpublished` for ever. Both earlier receipts stay under `peers/`
+  as history and are no longer approved; the committed-policy suite selects them
+  deliberately as negative controls. **Approving a receipt is a statement about SOURCE**, and
   `peers.backend_serving_unverified` stands until B3 — a deployment log is not a
   served-revision identity;
 - **every Admin promotion makes this path refuse** `peers.admin_serving_unapproved`
   until a receipt for the new Admin commit is approved. That is the ordered
-  coordination made visible, and it is deliberate.
+  coordination made visible, and it is deliberate. It happened for real on
+  2026-09-24: Admin #26 and #27 were deployed, and the frontend readiness run
+  `36018365996` (on `c32f383`) refused `peers.admin_serving_unapproved` for `3521ebd`
+  and was classified `not-a-waiting-state` — correctly. The remedy was a reviewed
+  receipt refresh (below), **never** an entry in `publication.readiness.awaiting`. The
+  approved Admin revision is now `3521ebd`, replacing `38df037` rather than joining
+  it, so an Admin rollback to `38df037` is refused the same way until approved again.
 
 ### The D01 ceiling contract
 
@@ -453,7 +460,7 @@ desirable. `release/cli.mjs stamp` asserts the approved origin is present in the
 
 ## Tests, and what each kind proves
 
-`npm run test:release` runs the CLI self-test, then 569 tests in about 45 seconds
+`npm run test:release` runs the CLI self-test, then 580 tests in about 45 seconds
 (four cores; most of it is the workflow simulation). Each is labelled
 **REGRESSION** (pins a finding reproduced before its fix: on `3386724` for the
 baseline, on `ce6b892` for what review on #687 found), **CONTRACT** (a rule this
@@ -473,7 +480,7 @@ change introduces) or **CONTROL** (something that must not change).
 | `readiness.test.mjs` | 55 | the recorded wait against every way a refusal can differ from it, and the real `readiness` and `outcome` commands through files |
 | `workflow-simulation.test.mjs` | 47 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher — including the non-publishing evaluation matrix, both outcome steps and the publisher/credential counts |
 | `workflow-drift.test.mjs` | 24 | the three workflow files held to the policy, statically — the publish job keyed on the admitted decision, the readiness wrapper translating one status |
-| `committed-policy.test.mjs` | 15 | the committed policy's exact refusal set, through the real `decide`; the approved receipt; the readiness list equal to that set |
+| `committed-policy.test.mjs` | 26 | the committed policy's exact refusal set, through the real `decide`; the approved receipts; the readiness list equal to that set; the 2026-09-24 refresh replayed against what CI observed, with every other fact held fixed |
 
 **The simulation is production-shaped, not GitHub.** It parses and runs `publish.yml`
 with GitHub's expression semantics; `actions/*` and the Firebase action are stand-ins
@@ -592,6 +599,38 @@ tree `f129fe74…`, D01 export blob `1cb6a6db…` (unchanged from `9448f55`, dig
 `checkout_protocol 3, quote_protocol 2, kitchen_protocol 1, quote_policy_version 1`.
 The same digest was re-derived by a Python implementation over a fresh clone from
 origin, and the four levels match the backend's source constants at that commit.
+
+### The 2026-09-24 refresh (compatible set `2026-09-24-pilot-4`)
+
+Both peers moved after `2026-09-23-pilot-3` was approved. Each new receipt was produced
+by `peer-receipt` from the exact merged commit and re-derived by an independent Python
+implementation over a fresh clone from origin that hashes the commit, tree and blob
+objects itself; the digests agree.
+
+| peer | commit | tree | source blob(s) | receipt digest |
+|---|---|---|---|---|
+| admin | `3521ebd05e5623878d262152bde11734b9cbd4fc` (#27) | `8a84439c…` | `deploy.yml` `0e210bf9…` | `sha256:e58f7ff5fdd0deb0b21d3b78f8b7fd55f2b56781210f8027a2f640b343debfb1` |
+| backend | `a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b` (#338) | `d6d1f838…` | D01 `1cb6a6db…`, capabilities `cc916050…` | `sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920` |
+
+- **Admin `38df037..3521ebd` is NOT copy-only.** #26 moved the SHA-pinned
+  `aws-actions/configure-aws-credentials` from v6.2.4 (`cbe3b39…`) to v6.3.0
+  (`e125382…`, which is what the upstream `v6.3.0` tag names); v6.3.0 adds one
+  optional `translate-env-variables` input defaulting to the previous behaviour. That
+  file is the receipt-bearing blob (`c1a5e7c…` → `0e210bf…`), and GitHub's contents
+  API reports the same blob at `3521ebd`. #27 changed test-restaurant wording,
+  comments and specs only — no request shape, badge or authentication change.
+- **Backend `366b7e4..a6b25a6` (#332–#338) moved neither export**: both blobs are
+  byte-identical, `manage.py export_checkout_limits_contract --check` and
+  `export_published_capabilities --check` both exit 0 at `a6b25a6`, and the source
+  constants behind the four levels are untouched in the interval. No migration is in
+  it. The refresh therefore changes NO decision reason (the committed-policy suite
+  pins that); `peers.backend_serving_unverified` stands, because a receipt is a
+  statement about source.
+- **Before/after, every other fact held fixed** (committed-policy suite, replaying the
+  serving fact run `36018365996` logged): the previous set refuses exactly the seven
+  reasons that run printed, byte for byte, and is not a wait; the refreshed set refuses
+  the six recorded prerequisites and is a completed, non-publishing wait —
+  `REFUSE`, `allow: false`, nothing published.
 
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
