@@ -253,6 +253,24 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
     expect(text(root)).toContain('The total has changed');
   });
 
+  it('AN ESTIMATED BASKET TOTAL gets the itemised review even when it matches '
+     + 'the server (Codex P2 on PR #693)', () => {
+    // A legacy basket line whose base price cannot be read: the fallback figure
+    // still lands on 5,000, but the basket labels it an estimate.
+    basket.items[0] = {
+      ...basket.items[0], basePrice: 'not-a-price' as unknown as number,
+      totalPrice: 5000,
+    } as BasketItem;
+    const root = render(payload([quoteLine()]));
+    expect(component.totalIsExact).toBe(false);
+    expect(component.totalAmount).toBe(5000);
+    expect(component.quoteDiffersFromBasket).toBe(false);
+    expect(component.quoteNeedsReview).toBe(true);
+    expect(q(root, '[data-testid="checkout-confirm"]').length).toBe(0);
+    expect(q(root, '[data-testid="quote-total"]')[0].textContent)
+      .toContain('UGX 5,000.00');
+  });
+
   it('A DROPPED ITEM gets the itemised review, never the plain prompt', () => {
     const body = payload([quoteLine()]);
     body.unavailable_items = [{ item: 'i2', item_name: 'Chips', quantity: 1 }];

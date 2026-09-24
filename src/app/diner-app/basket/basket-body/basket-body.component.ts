@@ -2686,6 +2686,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * exceptions. `quoteDiffersFromBasket` answers `true` when it cannot compare,
    * so an amount this client cannot read never gets the plain prompt.
    *
+   * AN ESTIMATED BASKET TOTAL IS ALSO A REVIEW (Codex P2 on PR #693). When
+   * `totalIsExact` is false the basket labels its figure "Estimated total", and
+   * the plain prompt shows no amount at all. So a match there would let the
+   * diner confirm against a number the screen itself calls uncertain. The match
+   * is one double arithmetic happened to land on, not a price the diner saw
+   * stated, so the itemised sheet states the server's amount instead.
+   *
    * PRESENTATION ONLY. Both prompts call the same `confirmQuote` /
    * `cancelQuote`, so the quote, key and ownership rules are unchanged.
    */
@@ -2693,6 +2700,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.quoteIsUnreadable
       || this.quoteHasLosses
       || this.quoteHasNothingToPlace
+      || !this.totalIsExact
       || this.quoteDiffersFromBasket;
   }
 

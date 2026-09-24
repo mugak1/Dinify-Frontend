@@ -269,7 +269,9 @@ so keep it current when conventions change.
   "Checkout — Are you sure you want to place this order?" prompt with Order / Cancel
   instead of the itemised sheet. `quoteNeedsReview` is the one predicate: a loss, a
   changed or uncomparable total, nothing to place, or an unreadable quote gets the
-  itemised review. It is PRESENTATION ONLY: both prompts call the same `confirmQuote` /
+  itemised review, and so does a basket total that is only an ESTIMATE
+  (`!totalIsExact`, Codex P2 on PR #693): the plain prompt states no amount, so it
+  may only stand in for a total the basket page stated exactly. It is PRESENTATION ONLY: both prompts call the same `confirmQuote` /
   `cancelQuote` and are the same lock, so still exactly one confirmation per order and
   never a pre-pricing one. `confirmQuote()` then submits
   `{order, quote_ref}`; the basket is never trimmed, and a rejected line is never
