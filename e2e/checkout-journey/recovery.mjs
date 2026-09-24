@@ -170,6 +170,47 @@ const main = async () => {
   };
 
   /**
+   * THE CONFIRMATION, AND WHICH ONE.
+   *
+   * An unchanged purchase gets the plain "Are you sure you want to place this
+   * order?" prompt (#693); a quote that says anything the basket did not show
+   * gets the itemised review. Nothing in this file changes a price, a label or
+   * an item, so EVERY confirmation here is the plain prompt, and that is
+   * ASSERTED rather than accepted: the button is looked up inside the expected
+   * dialog only, and the other dialog must be absent. A permissive "Order or
+   * Place order" selector would let the wrong branch pass unnoticed.
+   *
+   * `optional` is for the sites that already tolerated no dialog at all (a
+   * Retry that re-sends the recorded command opens none). The branch is still
+   * checked whenever a dialog does appear.
+   */
+  const confirmation = async (page, label,
+                              { expected = 'plain', optional = false } = {}) => {
+    const plainPrompt = page.getByTestId('checkout-confirm');
+    const review = page.getByRole('heading', { name: 'Review your order' });
+    const button = expected === 'plain'
+      ? plainPrompt.getByRole('button', { name: /^Order$/ }).first()
+      : page.getByRole('button', { name: /^Place order/ }).first();
+    const shown = await button.waitFor({ state: 'visible', timeout: 20000 })
+      .then(() => true, () => false);
+    const other = expected === 'plain' ? review : plainPrompt;
+    const otherShown = await other.first().isVisible().catch(() => false);
+    if (shown || !optional) {
+      check(`${label}: the ${expected === 'plain'
+        ? 'plain "Are you sure?" prompt' : 'itemised review'} is the one shown`,
+            shown && !otherShown,
+            `expected=${expected} shown=${shown} other=${otherShown}`);
+    }
+    return button;
+  };
+
+  /** Is EITHER confirmation on screen? For the sites asserting neither is. */
+  const anyConfirmationVisible = async (page) =>
+    (await page.getByTestId('checkout-confirm').first().isVisible().catch(() => false))
+    || (await page.getByRole('button', { name: /^Place order/ }).first()
+      .isVisible().catch(() => false));
+
+  /**
    * THE BASKET IS EDITED ON THE PAGE BEFORE CHECKOUT, and that is not
    * decoration — it is what makes scenario 1 able to fail.
    *
@@ -184,7 +225,7 @@ const main = async () => {
    * the contents are restored identical — which is the real diner's
    * situation and the only version of it that discriminates.
    */
-  const openReview = async (page) => {
+  const openReview = async (page, label = 'checkout') => {
     await page.goto(`${WEB}/diner/basket`, { waitUntil: 'domcontentloaded' });
     const more = page.getByRole('button', { name: 'Increase quantity' })
       .first();
@@ -193,9 +234,7 @@ const main = async () => {
     const checkout = page.getByRole('button', { name: /Checkout —/ }).first();
     await checkout.waitFor({ state: 'visible', timeout: 20000 });
     await checkout.click();
-    const place = page.getByRole('button', { name: /Place order/ }).first();
-    await place.waitFor({ state: 'visible', timeout: 20000 });
-    return place;
+    return confirmation(page, label);
   };
 
   // ══ 1. A RELOAD BETWEEN PRICING AND ACCEPTANCE ═════════════════════════
@@ -204,15 +243,14 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    await openReview(page);
+    await openReview(page, '1');
     const firstKey = state.keys[0];
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: /Checkout —/ }).first()
       .waitFor({ state: 'visible', timeout: 20000 });
     await page.getByRole('button', { name: /Checkout —/ }).first().click();
-    await page.getByRole('button', { name: /Place order/ }).first()
-      .waitFor({ state: 'visible', timeout: 20000 });
+    const placeAfterReload = await confirmation(page, '1 after the reload');
 
     check('the reload sends the SAME idempotency key, not a fresh one',
           state.keys.length === 2 && !!firstKey && state.keys[1] === firstKey,
@@ -223,7 +261,7 @@ const main = async () => {
           && state.initiated[0].id === state.initiated[1].id,
           `ids=${JSON.stringify(state.initiated.map((i) => i.id))}`);
 
-    await page.getByRole('button', { name: /Place order/ }).first().click();
+    await placeAfterReload.click();
     await page.waitForURL(/order-complete/, { timeout: 20000 })
       .catch(() => {});
     const tickets = await activeTickets();
@@ -240,7 +278,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page);
+    const place = await openReview(page, '2');
 
     let realStatus = null;
     let swallowed = false;
@@ -257,7 +295,9 @@ const main = async () => {
     await place.click();
     await page.waitForFunction(
       () => !!document.body.textContent
-            && !/Placing/.test(document.body.textContent),
+            && !/Placing/.test(document.body.textContent)
+            // the plain prompt's Order button says nothing while placing; it is busy
+            && !document.querySelector('[data-testid="checkout-confirm"] [aria-busy="true"]'),
       null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
@@ -274,10 +314,8 @@ const main = async () => {
     check('the diner is offered a retry rather than a dead end', offered);
     if (offered) {
       await retry.click();
-      await page.getByRole('button', { name: /Place order/ }).first()
-        .waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
-      await page.getByRole('button', { name: /Place order/ }).first()
-        .click().catch(() => {});
+      const again = await confirmation(page, '2 after Retry', { optional: true });
+      await again.click({ timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(2500);
     }
 
@@ -306,7 +344,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page);
+    const place = await openReview(page, '3');
     const acceptedId = state.initiated[0]?.id ?? null;
 
     let swallowed = false;
@@ -321,7 +359,9 @@ const main = async () => {
     await place.click();
     await page.waitForFunction(
       () => !!document.body.textContent
-            && !/Placing/.test(document.body.textContent),
+            && !/Placing/.test(document.body.textContent)
+            // the plain prompt's Order button says nothing while placing; it is busy
+            && !document.querySelector('[data-testid="checkout-confirm"] [aria-busy="true"]'),
       null, { timeout: 20000 }).catch(() => {});
 
     // READ BEFORE THE RELOAD. This is the fact the whole change turns on: the
@@ -449,7 +489,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page);
+    const place = await openReview(page, '4');
 
     let swallowed = false;
     await page.route('**/orders/submit/**', async (route) => {
@@ -463,7 +503,9 @@ const main = async () => {
     await place.click();
     await page.waitForFunction(
       () => !!document.body.textContent
-            && !/Placing/.test(document.body.textContent),
+            && !/Placing/.test(document.body.textContent)
+            // the plain prompt's Order button says nothing while placing; it is busy
+            && !document.querySelector('[data-testid="checkout-confirm"] [aria-busy="true"]'),
       null, { timeout: 20000 }).catch(() => {});
 
     const storedBasket = () => page.evaluate(() => {
@@ -540,7 +582,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page);
+    const place = await openReview(page, 'D06');
     const keyBefore = state.keys[0];
 
     // A REAL pause through the real operator write — the same PUT the owner's
@@ -555,7 +597,9 @@ const main = async () => {
     await place.click();
     await page.waitForFunction(
       () => !!document.body.textContent
-            && !/Placing/.test(document.body.textContent),
+            && !/Placing/.test(document.body.textContent)
+            // the plain prompt's Order button says nothing while placing; it is busy
+            && !document.querySelector('[data-testid="checkout-confirm"] [aria-busy="true"]'),
       null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
 
@@ -579,8 +623,7 @@ const main = async () => {
     const retry = page.getByRole('button', { name: /Retry|Checkout —/ }).first();
     await retry.waitFor({ state: 'visible', timeout: 20000 });
     await retry.click();
-    const place2 = page.getByRole('button', { name: /Place order/ }).first();
-    await place2.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
+    const place2 = await confirmation(page, 'D06 after resuming', { optional: true });
     if (await place2.isVisible().catch(() => false)) await place2.click();
     await page.waitForURL(/order-complete/, { timeout: 20000 }).catch(() => {});
 
@@ -599,7 +642,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page);
+    const place = await openReview(page, 'D06');
 
     // A REAL sold-out toggle through the kitchen's own "86" panel.
     const soldOut = await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
@@ -611,7 +654,9 @@ const main = async () => {
     await place.click();
     await page.waitForFunction(
       () => !!document.body.textContent
-            && !/Placing/.test(document.body.textContent),
+            && !/Placing/.test(document.body.textContent)
+            // the plain prompt's Order button says nothing while placing; it is busy
+            && !document.querySelector('[data-testid="checkout-confirm"] [aria-busy="true"]'),
       null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
 
@@ -687,7 +732,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page);
+    const place = await openReview(page, 'D06c');
     const firstKey = state.keys[0];
     const firstOrder = state.initiated[0].id;
 
@@ -794,8 +839,7 @@ const main = async () => {
     // REPEATED CLICKS SHARE ONE SUCCESSOR. The button is replaced by the review
     // sheet, so a second tap is attempted before waiting for it.
     await review.click({ timeout: 1500 }).catch(() => {});
-    const place2 = page.getByRole('button', { name: /Place order/ }).first();
-    await place2.waitFor({ state: 'visible', timeout: 20000 });
+    const place2 = await confirmation(page, 'D06c the successor');
 
     const secondKey = state.keys[state.keys.length - 1];
     const secondOrder = state.initiated[state.initiated.length - 1].id;
@@ -890,7 +934,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page);
+    const place = await openReview(page, 'D06d');
     const key = state.keys[0];
 
     let blocked = false;
@@ -955,7 +999,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page);                       // 1
+    const place = await openReview(page, 'D06e');                       // 1
     const firstKey = state.keys[0];
     const firstOrder = state.initiated[0].id;
 
@@ -1041,8 +1085,7 @@ const main = async () => {
     const checkout = page.getByRole('button', { name: /Checkout —/ }).first();
     await checkout.waitFor({ state: 'visible', timeout: 20000 });
     await checkout.click();
-    const place2 = page.getByRole('button', { name: /Place order/ }).first();
-    await place2.waitFor({ state: 'visible', timeout: 20000 });
+    const place2 = await confirmation(page, 'D06e the diner completes');
     await place2.click();
     await page.waitForURL(/order-complete/, { timeout: 20000 }).catch(() => {});
 
@@ -1144,8 +1187,7 @@ const main = async () => {
     const checkout2 = page.getByRole('button', { name: /Checkout —/ }).first();
     await checkout2.waitFor({ state: 'visible', timeout: 20000 });
     await checkout2.click();
-    const place = page.getByRole('button', { name: /Place order/ }).first();
-    await place.waitFor({ state: 'visible', timeout: 20000 });
+    const place = await confirmation(page, 'I1 the second routed instance');
     check('the second initiation reuses the SAME key',
           new Set(state.keys.filter(Boolean)).size === 1,
           `keys=${JSON.stringify(state.keys)}`);
@@ -1203,9 +1245,8 @@ const main = async () => {
     check('the key never moved',
           !!after?.key && after.key === before?.key,
           `${before?.key} -> ${after?.key}`);
-    check('no review sheet reopened for the stale answer',
-          !(await page.getByRole('button', { name: /Place order/ }).first()
-              .isVisible().catch(() => false)));
+    check('no confirmation of either kind reopened for the stale answer',
+          !(await anyConfirmationVisible(page)));
 
     // THE CONSEQUENCE, driven rather than asserted on storage: a changed
     // basket must NOT be allowed to mint a fresh key while that acceptance
@@ -1286,7 +1327,7 @@ const main = async () => {
     // 1024px is the `lg:` breakpoint the sidebar is gated on.
     const { page, state } = await openTab(1280);
     await buildBasket(page);
-    const place = await openReview(page);
+    const place = await openReview(page, 'I2-C');
     const key = state.keys[0];
     const submitsBefore = state.submits.length;
 
@@ -1407,8 +1448,7 @@ const main = async () => {
 
     // ONE deliberate successor, from the durable closure and nothing else.
     await review.click();
-    const place2 = page.getByRole('button', { name: /Place order/ }).first();
-    await place2.waitFor({ state: 'visible', timeout: 20000 });
+    await confirmation(page, 'I2-C the recovered successor');
     const successor = await readRecord();
     check('RECOVERY: exactly one successor, replacing the retired attempt',
           successor?.key !== key && successor?.replaces === key,
@@ -1464,7 +1504,7 @@ const main = async () => {
     });
 
     await buildBasket(page);
-    await openReview(page);
+    await openReview(page, 'I2-D');
     const key = state.keys[0];
     const orderId = state.initiated[0]?.id;
 
@@ -1644,7 +1684,7 @@ const main = async () => {
     // one after it, because the slot still named K1.
     const beforeK2 = state.keys.length;
     await buildBasket(page);
-    await openReview(page);
+    await openReview(page, 'I2-E');
     const k2 = state.keys[state.keys.length - 1];
     check('L3: a legitimate next purchase is priced under a NEW key',
           state.keys.length === beforeK2 + 1 && !!k2 && k2 !== key,
