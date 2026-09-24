@@ -27,7 +27,8 @@ import { ExtrasSelectorComponent } from '../_shared/ui/extras-selector/extras-se
 import { StarRatingComponent } from './order-complete/star-rating.component';
 import { OngoingOrderBannerComponent } from './ongoing-order-banner/ongoing-order-banner.component';
 import { ButtonComponent } from '../_shared/ui/button/button.component';
-import { AllergenDisclaimerComponent } from '../_shared/ui/allergen-disclaimer/allergen-disclaimer.component';
+import { AllergenInfoLinkComponent } from '../_shared/ui/allergen-info/allergen-info-link.component';
+import { AllergenInfoSheetComponent } from '../_shared/ui/allergen-info/allergen-info-sheet.component';
 const routes: Routes = [
   {path: "h/:table",component:DinersMenuComponent,title:'Menu' /* redirectTo: "home", pathMatch: "prefix" */},
   {path:'menu',component:DinersMenuComponent,title:'Menu'},
@@ -86,7 +87,8 @@ const routes: Routes = [
     StarRatingComponent,
     OngoingOrderBannerComponent,
     ButtonComponent,
-    AllergenDisclaimerComponent
+    AllergenInfoLinkComponent,
+    AllergenInfoSheetComponent
 ],
   exports:[
     RouterModule,
