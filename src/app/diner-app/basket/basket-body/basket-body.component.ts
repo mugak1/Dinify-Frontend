@@ -1317,14 +1317,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   // confirm dialog) and surface the inline error straight away — the ambient
   // offline strip already explains why.
   /**
-   * Ask the server to price this basket, then show the diner THAT.
+   * Ask the server to price this basket, then ask the diner to confirm.
    *
-   * THERE IS NO LONGER A PRE-PRICING CONFIRM DIALOG. It asked "are you sure?"
-   * about a number this browser had computed, and placement then auto-submitted
-   * whenever nothing happened to be sold out — so the server's amount was never
-   * shown before the order was accepted. Correct calculation is not agreement to
-   * an amount. Every order now gets exactly ONE confirmation and it is always
-   * the server's: this replaces a dialog rather than adding a second one.
+   * THE CONFIRMATION COMES AFTER PRICING, NEVER BEFORE. The pre-D02 flow asked
+   * "are you sure?" about a number this browser had computed and then
+   * auto-submitted, so the server's amount was never checked before the order
+   * was accepted. The "Are you sure you want to place this order?" prompt is
+   * back (see `quoteNeedsReview`), but it opens only once the server's quote has
+   * matched the basket total exactly. Every order still gets exactly ONE
+   * confirmation: the plain prompt or the itemised review, never both.
    */
   initiateOrder() {
     // A DELIBERATE PRESS CLEARS THE RETIRED NOTICE, and `placeOrder` does not.
@@ -2669,6 +2670,38 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
     const details = this.order_initiated?.order_details;
     if (!details) return true;
     return (details.no_available_items ?? 0) < 1;
+  }
+
+  /**
+   * Does this quote need the ITEMISED review, or only the plain confirmation?
+   *
+   * THE ORDINARY CASE IS THE OLD "Are you sure you want to place this order?"
+   * PROMPT, restored at the owner's request. It asks after pricing rather than
+   * before, and only when the server's quote says nothing the basket page did
+   * not already show: every line available, the server's payable EXACTLY equal
+   * to the basket total on screen, and a quote that can be confirmed at all. The
+   * itemised sheet is for when the server has something to tell the diner.
+   * That is the pre-D02 split (the old flow also showed a sheet only when items
+   * dropped), with a price change and an unreadable quote added to the
+   * exceptions. `quoteDiffersFromBasket` answers `true` when it cannot compare,
+   * so an amount this client cannot read never gets the plain prompt.
+   *
+   * AN ESTIMATED BASKET TOTAL IS ALSO A REVIEW (Codex P2 on PR #693). When
+   * `totalIsExact` is false the basket labels its figure "Estimated total", and
+   * the plain prompt shows no amount at all. So a match there would let the
+   * diner confirm against a number the screen itself calls uncertain. The match
+   * is one double arithmetic happened to land on, not a price the diner saw
+   * stated, so the itemised sheet states the server's amount instead.
+   *
+   * PRESENTATION ONLY. Both prompts call the same `confirmQuote` /
+   * `cancelQuote`, so the quote, key and ownership rules are unchanged.
+   */
+  get quoteNeedsReview(): boolean {
+    return this.quoteIsUnreadable
+      || this.quoteHasLosses
+      || this.quoteHasNothingToPlace
+      || !this.totalIsExact
+      || this.quoteDiffersFromBasket;
   }
 
   /**

@@ -139,6 +139,12 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
+  /** A basket whose total differs from the quote, so the ITEMISED review
+   *  renders instead of the plain "Are you sure?" prompt. */
+  function basketTotal(amount: number): void {
+    basket.items[0] = { ...basket.items[0], basePrice: amount, totalPrice: amount } as BasketItem;
+  }
+
   const text = (el: HTMLElement) => el.textContent ?? '';
   const q = (el: HTMLElement, sel: string) => el.querySelectorAll(sel);
 
@@ -195,7 +201,86 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
   }
 
   // ── the states that must STAY understandable ───────────────────────────
+  // ── the plain prompt for an ordinary quote ─────────────────────────────
+  it('AN ORDINARY QUOTE GETS THE PLAIN "Are you sure?" PROMPT, not the itemised sheet', () => {
+    const root = render(payload([quoteLine({ modifiers: ['Size: Large'] })]));
+    expect(component.quoteNeedsReview).toBe(false);
+    expect(q(root, '[data-testid="checkout-confirm"]').length).toBe(1);
+    expect(text(root)).toContain('Are you sure you want to place this order?');
+    expect(text(root)).toContain('Order');
+    expect(text(root)).toContain('Cancel');
+    expect(q(root, '[data-testid="quote-line"]').length).toBe(0);
+    expect(text(root)).not.toContain('Review your order');
+  });
+
+  it('the plain prompt submits the SAME quote through confirmQuote', () => {
+    const root = render(payload([quoteLine()]));
+    const confirm = spyOn(component, 'confirmQuote');
+    const order = Array.from(root.querySelectorAll('[data-testid="checkout-confirm"] button'))
+      .find(b => b.textContent?.trim() === 'Order') as HTMLButtonElement;
+    order.click();
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('Cancel on the plain prompt returns to the basket and submits nothing', () => {
+    const root = render(payload([quoteLine()]));
+    const cancel = Array.from(root.querySelectorAll('[data-testid="checkout-confirm"] button'))
+      .find(b => b.textContent?.trim() === 'Cancel') as HTMLButtonElement;
+    cancel.click();
+    fixture.detectChanges();
+    expect(component.showQuoteSheet).toBe(false);
+    expect(api.postPatch).not.toHaveBeenCalled();
+  });
+
+  it('the plain prompt is a lock while the order is being placed', () => {
+    const root = render(payload([quoteLine()]));
+    spyOnProperty(component, 'placingOrder', 'get').and.returnValue(true);
+    fixture.detectChanges();
+    const buttons = Array.from(
+      root.querySelectorAll('[data-testid="checkout-confirm"] button')) as HTMLButtonElement[];
+    expect(buttons.length).toBe(2);
+    expect(buttons.every(b => b.disabled)).toBe(true);
+    component.cancelQuote();
+    expect(component.showQuoteSheet).toBe(true);
+  });
+
+  it('A CHANGED TOTAL gets the itemised review, never the plain prompt', () => {
+    basketTotal(4500);
+    const root = render(payload([quoteLine()]));
+    expect(component.quoteNeedsReview).toBe(true);
+    expect(q(root, '[data-testid="checkout-confirm"]').length).toBe(0);
+    expect(text(root)).toContain('Review your order');
+    expect(text(root)).toContain('The total has changed');
+  });
+
+  it('AN ESTIMATED BASKET TOTAL gets the itemised review even when it matches '
+     + 'the server (Codex P2 on PR #693)', () => {
+    // A legacy basket line whose base price cannot be read: the fallback figure
+    // still lands on 5,000, but the basket labels it an estimate.
+    basket.items[0] = {
+      ...basket.items[0], basePrice: 'not-a-price' as unknown as number,
+      totalPrice: 5000,
+    } as BasketItem;
+    const root = render(payload([quoteLine()]));
+    expect(component.totalIsExact).toBe(false);
+    expect(component.totalAmount).toBe(5000);
+    expect(component.quoteDiffersFromBasket).toBe(false);
+    expect(component.quoteNeedsReview).toBe(true);
+    expect(q(root, '[data-testid="checkout-confirm"]').length).toBe(0);
+    expect(q(root, '[data-testid="quote-total"]')[0].textContent)
+      .toContain('UGX 5,000.00');
+  });
+
+  it('A DROPPED ITEM gets the itemised review, never the plain prompt', () => {
+    const body = payload([quoteLine()]);
+    body.unavailable_items = [{ item: 'i2', item_name: 'Chips', quantity: 1 }];
+    const root = render(body);
+    expect(q(root, '[data-testid="checkout-confirm"]').length).toBe(0);
+    expect(text(root)).toContain('Some items are no longer available');
+  });
+
   it('renders a legitimate quote, its line, its labels and its total', () => {
+    basketTotal(4500);
     const root = render(payload([quoteLine({ modifiers: ['Size: Large'] })]));
     expect(q(root, '[data-testid="quote-line"]').length).toBe(1);
     expect(q(root, '[data-testid="quote-line-modifiers"]')[0].textContent)
@@ -206,6 +291,7 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
   });
 
   it('renders nested extras beneath their parent', () => {
+    basketTotal(4500);
     const root = render(payload([quoteLine({
       amount: '5000.00',
       line_actual_cost: '4000.00',
@@ -242,6 +328,7 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
      + 'quote_total still reviews through actual_cost', () => {
     const body = payload([quoteLine()], {});
     delete body.order_details.quote_total;          // ABSENT, never null
+    basketTotal(4500);
     const root = render(body);
     expect(q(root, '[data-testid="quote-unreadable"]').length).toBe(0);
     expect(q(root, '[data-testid="quote-total"]')[0].textContent)
@@ -249,6 +336,7 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
   });
 
   it('a LEGACY server that sent no itemised quote still reviews its total', () => {
+    basketTotal(4500);
     const root = render(payload([], { pricing_version: 0, quote_ref: undefined }));
     expect(q(root, '[data-testid="quote-unreadable"]').length).toBe(0);
     expect(text(root)).toContain("line-by-line breakdown isn't available");
