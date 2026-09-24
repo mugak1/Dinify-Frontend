@@ -50,19 +50,20 @@ import { SheetComponent } from '../sheet/sheet.component';
       </div>
 
       <div class="mx-auto w-full max-w-2xl px-6 pt-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] space-y-6">
-        <!-- The safety guidance, in the same amber treatment the item page
-        uses for its age-restriction notice. -->
-        <div class="bg-amber-50 border border-amber-400 text-amber-900 rounded-xl p-4"
+        <!-- The safety guidance as a NEUTRAL callout: the dish's own tags below
+        carry their own colours, and a tinted box beside them competed with
+        the pills (amber allergen tags read as part of an amber box). -->
+        <div class="rounded-xl bg-gray-50 ring-1 ring-inset ring-gray-200 p-4"
           data-testid="allergen-important-info">
-          <p class="flex items-center gap-2 text-body font-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-              class="flex-shrink-0" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+          <p class="flex items-center gap-2 text-body font-semibold text-gray-900">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+              class="flex-shrink-0 text-gray-900" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" fill="currentColor"/>
+              <path d="M12 16v-4M12 8h.01" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
             </svg>
             Important information
           </p>
-          <ul class="mt-2 list-disc pl-5 space-y-1.5 text-body">
+          <ul class="mt-2 list-disc pl-5 space-y-1.5 text-body text-gray-700 marker:text-gray-400">
             <li>Food allergies? Please ask restaurant staff to confirm before ordering.</li>
             <li>Menu tags are added by the restaurant. They may be incomplete and do not guarantee allergen safety.</li>
             @if (hasChoices) {
