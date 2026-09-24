@@ -6,13 +6,18 @@
 # This script is the single committed source of truth for these checks; if a
 # command changes, change it here (and CI).
 #
+#   0. dependency-audit snapshot (OFFLINE — the installed inventory, before anything runs)
 #   1. type-check              (tsc --noEmit)
 #   2. lint                    (ng lint)
 #   3. release-contract gate   (release/ self-test + the refusal matrix)
-#   4. tenant-isolation gate   (focused tenant-boundary spec set, fail-fast)
-#   5. test                    (ng test, headless single run)
-#   6. build:prod              (ng build --configuration=production)
-#   7. build the shipping candidate (the configuration publish.yml may promote)
+#   4. dependency-audit evaluator tests (OFFLINE — fixtures only; scans nothing)
+#   5. tenant-isolation gate   (focused tenant-boundary spec set, fail-fast)
+#   6. test                    (ng test, headless single run)
+#   7. build:prod              (ng build --configuration=production)
+#   8. build the shipping candidate (the configuration publish.yml may promote)
+#   9. dependency audit        (NETWORK — scans the snapshotted inventory against the
+#                               public advisory database; a scan that cannot complete
+#                               FAILS, it is never skipped. dependency-audit/README.md)
 #
 # This is a manual, post-change pre-PR gate — run it after making changes and
 # paste the output into the PR. It is intentionally NOT wired as a hook.
@@ -44,6 +49,9 @@ run_step() {
   fi
 }
 
+# Taken first, exactly as in CI, so the scan in the last step is bound to the tree that
+# everything in between validated.
+run_step "dependency-audit inventory snapshot (offline)" npm run audit:snapshot
 run_step "type-check" npm run type-check
 run_step "lint"       npm run lint
 # The release certification contract (release/). Its own --self-test first, in the
@@ -51,6 +59,7 @@ run_step "lint"       npm run lint
 # rather than pass everything. Pure Node — about half a minute, most of it the
 # simulation that executes publish.yml — so it runs early.
 run_step "release-contract gate" npm run test:release
+run_step "dependency-audit evaluator tests (offline)" npm run test:audit
 # Fail-fast boundary gate, two things in order: the platform-role source gate
 # (FE-AUTH-00, scripts/check-platform-roles.mjs — its own --self-test first, so a
 # matcher that stopped matching fails here rather than passing everything), then
@@ -64,6 +73,8 @@ run_step "build:prod" npm run build:prod
 # The configuration that actually ships, read from the committed policy so this
 # script and the workflows cannot disagree about which one that is.
 run_step "build:candidate" bash -c 'set -euo pipefail; npx ng build --configuration="$(node -p "require(\"./release/policy.json\").build.configuration")"'
+# NETWORK. Required: an unreachable advisory service fails this run; it does not pass.
+run_step "dependency audit (network: public advisory database)" npm run audit:deps
 
 echo
 echo "=================================================================="

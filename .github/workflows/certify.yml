@@ -60,6 +60,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The dependency-audit inventory snapshot, exactly as `validate` takes it: right
+      # after installation, before any repository code runs (dependency-audit/README.md).
+      - name: Dependency audit — snapshot the installed inventory
+        run: npm run audit:snapshot
+
       # ── The validation contract, exactly as `validate` runs it on a pull request ──
       # Same commands, same order, now against the commit that actually ships. A
       # difference between these two lists is a difference between what is tested and
@@ -73,6 +78,9 @@ jobs:
       - name: Release-contract gate
         run: npm run test:release
 
+      - name: Dependency-audit evaluator tests
+        run: npm run test:audit
+
       - name: Tenant-isolation closure gate
         run: npm run test:tenant-boundary
 
@@ -81,6 +89,15 @@ jobs:
 
       - name: Build (production configuration)
         run: npm run build:prod
+
+      # The same policy `validate` applies, against the inventory THIS merged commit
+      # installed — and BEFORE the candidate exists. A scan that found a blocking
+      # advisory, or that could not complete, stops the job here: no candidate is built,
+      # stamped or uploaded, so no certified artifact can claim a scan that did not pass.
+      # (Binding a fresh audit to a retained candidate before promotion is a later B2
+      # delivery; this establishes only that nothing is certified without one.)
+      - name: Dependency audit — scan the validated inventory and enforce the policy
+        run: npm run audit:deps
 
       # ── The candidate ────────────────────────────────────────────────────────────
       - name: Resolve the shipping configuration from the committed policy
@@ -179,3 +196,15 @@ jobs:
             echo "This workflow does not deploy. Publication is gated separately and is"
             echo "disabled until an owner enables it — see release/policy.json."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Last, and deliberately after the candidate upload: the evidence is its own
+      # artifact with its own name, and the publisher selects the candidate by its exact
+      # name, so the two cannot be confused.
+      - name: Retain the dependency-audit evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dependency-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dependency-audit/evidence/
+          if-no-files-found: warn
+          retention-days: 30
