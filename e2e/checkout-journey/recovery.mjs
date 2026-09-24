@@ -186,14 +186,18 @@ const main = async () => {
    */
   const confirmation = async (page, label,
                               { expected = 'plain', optional = false } = {}) => {
-    const plainPrompt = page.getByTestId('checkout-confirm');
+    // Visibility is read off each dialog's own button or heading, never the
+    // plain prompt's `data-testid` wrapper: that element holds only
+    // fixed-position children, has no box, and is never reported visible.
+    const plainOrder = page.getByTestId('checkout-confirm')
+      .getByRole('button', { name: /^Order$/ });
     const review = page.getByRole('heading', { name: 'Review your order' });
     const button = expected === 'plain'
-      ? plainPrompt.getByRole('button', { name: /^Order$/ }).first()
+      ? plainOrder.first()
       : page.getByRole('button', { name: /^Place order/ }).first();
     const shown = await button.waitFor({ state: 'visible', timeout: 20000 })
       .then(() => true, () => false);
-    const other = expected === 'plain' ? review : plainPrompt;
+    const other = expected === 'plain' ? review : plainOrder;
     const otherShown = await other.first().isVisible().catch(() => false);
     if (shown || !optional) {
       check(`${label}: the ${expected === 'plain'
@@ -206,7 +210,8 @@ const main = async () => {
 
   /** Is EITHER confirmation on screen? For the sites asserting neither is. */
   const anyConfirmationVisible = async (page) =>
-    (await page.getByTestId('checkout-confirm').first().isVisible().catch(() => false))
+    (await page.getByTestId('checkout-confirm').getByRole('button', { name: /^Order$/ })
+      .first().isVisible().catch(() => false))
     || (await page.getByRole('button', { name: /^Place order/ }).first()
       .isVisible().catch(() => false));
 
@@ -582,7 +587,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page, 'D06');
+    const place = await openReview(page, 'D06a');
     const keyBefore = state.keys[0];
 
     // A REAL pause through the real operator write — the same PUT the owner's
@@ -623,7 +628,7 @@ const main = async () => {
     const retry = page.getByRole('button', { name: /Retry|Checkout —/ }).first();
     await retry.waitFor({ state: 'visible', timeout: 20000 });
     await retry.click();
-    const place2 = await confirmation(page, 'D06 after resuming', { optional: true });
+    const place2 = await confirmation(page, 'D06a after resuming', { optional: true });
     if (await place2.isVisible().catch(() => false)) await place2.click();
     await page.waitForURL(/order-complete/, { timeout: 20000 }).catch(() => {});
 
@@ -642,7 +647,7 @@ const main = async () => {
     await clearTheBoard();
     const { page, state } = await openTab();
     await buildBasket(page);
-    const place = await openReview(page, 'D06');
+    const place = await openReview(page, 'D06b');
 
     // A REAL sold-out toggle through the kitchen's own "86" panel.
     const soldOut = await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {

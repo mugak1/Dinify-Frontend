@@ -12,12 +12,46 @@ run. It needs a disposable PostgreSQL, a running Django and a running dev server
 and CI has none of those. It is a **pre-merge gate for changes to the checkout
 pricing or confirmation path**, run by hand.
 
-Two scripts share one fixture and one setup:
+Three scripts share one fixture and one setup:
 
 | | |
 |---|---|
-| `journey.mjs` | the CLEAN path — 42 checks, below |
-| `recovery.mjs` | INDUCED LOSS — 88 checks, the D04 and D06 sections near the bottom |
+| `journey.mjs` | the CLEAN path — 43 checks, below |
+| `recovery.mjs` | INDUCED LOSS — 154 checks, the D04 and D06 sections near the bottom |
+| `equivalence.mjs` | WHICH CONFIRMATION — 21 checks, see "The plain prompt or the review" |
+
+## The plain prompt or the review
+
+An unchanged purchase is confirmed with the plain "Are you sure you want to place
+this order?" prompt (#693). Anything the quote says that the basket did not show
+gets the itemised review, and **an equal grand total is not enough**: the prompt
+is chosen by pairing every server line with the basket line it priced
+(`_shared/order/quote-equivalence.ts`). All three scripts now ASSERT which of the
+two appears, looking up each dialog's own button or heading. Two traps are worth
+knowing: a permissive "Order or Place order" selector would pass the wrong branch,
+and the plain prompt's `data-testid="checkout-confirm"` wrapper holds only
+fixed-position children, so it has no box and Playwright NEVER reports it
+visible. A check against the wrapper cannot fail.
+
+- `journey.mjs` changes the dish price mid-run, so its review is the ITEMISED one,
+  and it now checks the plain prompt is absent.
+- `recovery.mjs` changes nothing about the catalogue, so every confirmation there
+  is the PLAIN prompt, and each scenario asserts that (17 checks). Its
+  "placing has finished" waits now also cover the plain prompt's busy Order
+  button, which carries no "Placing" text.
+- `equivalence.mjs` makes the real server say something new with the grand
+  total held EXACTLY equal, through the real operator API, after the basket was
+  built and before Checkout:
+  - CONTROL, nothing changed: the plain prompt;
+  - RELABEL, the selected choice renamed "Large" to "Extra large" under the same
+    id and price: the server keeps `{"g-size":["c-large"]}`, snapshots
+    `["Size: Extra large"]`, and the diner is shown that label in the review;
+  - OFFSETTING, the burger up 5.00 and the rounding dish down 5.00: the review
+    shows both new line amounts.
+  It never accepts an order (each scenario ends with Cancel) and puts every
+  catalogue change back. **Measured, with the one-line fix reverted in the
+  served app: 17/21**, where RELABEL and OFFSETTING show the plain prompt and
+  their review is never seen.
 
 ## What it asserts
 
@@ -152,12 +186,22 @@ npx ng serve --port 4299 --host 127.0.0.1 --configuration development &
 #        npm i --no-save playwright
 #    and point CHROMIUM_PATH at a browser you already have.
 node e2e/checkout-journey/journey.mjs
+node e2e/checkout-journey/recovery.mjs      # on a FRESH database
+node e2e/checkout-journey/equivalence.mjs
 ```
 
 `JOURNEY_WEB`, `JOURNEY_API`, `JOURNEY_FIXTURE` and `CHROMIUM_PATH` override the
 defaults. Exit status is non-zero if any check fails.
 
-Last run: **42/42 (`journey.mjs`) and 137/137 (`recovery.mjs`)**, both RE-RUN at
+Last run: **43/43 (`journey.mjs`), 154/154 (`recovery.mjs`) and 21/21
+(`equivalence.mjs`)** at the confirmation-equivalence revision, backend `a6b25a6`
+unmodified, Node 24, Playwright 1.56.1, Chromium `/opt/pw-browsers/chromium-1194`,
+PostgreSQL 16, development assets. `journey.mjs` ran on its own fresh database;
+`recovery.mjs` on another fresh one, with `equivalence.mjs` after it on the same
+database (it accepts nothing and needs none of its own). With the fix reverted in
+the served app, `equivalence.mjs` scored 17/21.
+
+Before that: **42/42 (`journey.mjs`) and 137/137 (`recovery.mjs`)**, both RE-RUN at
 the **D07 B1/B2/V1 revision** on a FRESH disposable database per script (frontend
 `claude/serene-shannon-7iz7bj`, backend unchanged), Node 24.15.0, **Playwright
 1.56.1 pinned**, Chromium `/opt/pw-browsers/chromium-1194`, PostgreSQL 16,
