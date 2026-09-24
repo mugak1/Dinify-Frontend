@@ -262,7 +262,16 @@ so keep it current when conventions change.
   exactly ONE confirmation and it is always the server's: `initiateOrder()` prices,
   and the review sheet (`showQuoteSheet`) renders `data.quote` — one row per parent
   line with its extras nested — plus `order_details.actual_cost`. **This replaces a
-  dialog rather than adding a second one.** `confirmQuote()` then submits
+  dialog rather than adding a second one.** **THE PLAIN PROMPT IS BACK, AFTER PRICING
+  (DINER-CONFIRM-00, at the owner's request)**: when the quote says nothing the basket
+  page did not already show (every line available, the server's payable EXACTLY equal
+  to the basket total, the quote confirmable), `showQuoteSheet` renders the original
+  "Checkout — Are you sure you want to place this order?" prompt with Order / Cancel
+  instead of the itemised sheet. `quoteNeedsReview` is the one predicate: a loss, a
+  changed or uncomparable total, nothing to place, or an unreadable quote gets the
+  itemised review. It is PRESENTATION ONLY: both prompts call the same `confirmQuote` /
+  `cancelQuote` and are the same lock, so still exactly one confirmation per order and
+  never a pre-pricing one. `confirmQuote()` then submits
   `{order, quote_ref}`; the basket is never trimmed, and a rejected line is never
   re-POSTed. **THE REVIEW SHEET IS THE LOCK on the basket from confirm until submit
   resolves** — it stays up in a loading state, and `cancelQuote()` is inert while
