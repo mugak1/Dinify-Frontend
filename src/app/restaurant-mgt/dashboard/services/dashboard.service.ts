@@ -58,12 +58,32 @@ export class DashboardService {
     );
   }
 
-  getReviewsSummary(restaurantId: string): Observable<ApiResponse<ReviewsSummaryResponse>> {
+  /**
+   * The Guest Reviews card, over the SAME window the other cards were fetched for.
+   *
+   * `from` / `to` are inclusive days, exactly what `getDashboardData` sends. The server
+   * counts AND lists the reviews in that window, so the card's rating, count, histogram
+   * and quotes all describe one set of reviews. Without the pair it falls back to its
+   * original contract (a rolling 30 days, with the three newest reviews of all time),
+   * which is how the card came to read "0.0 · 0 reviews" above two five-star reviews from
+   * two months ago, whatever range was picked. The pair always travels together — one
+   * without the other is a 400.
+   *
+   * The mock ignores the window; it is a dormant design-review aid behind
+   * `USE_MOCK_REVIEWS` and describes no particular period.
+   */
+  getReviewsSummary(
+    restaurantId: string,
+    dateFrom: string,
+    dateTo: string,
+  ): Observable<ApiResponse<ReviewsSummaryResponse>> {
     if (DashboardService.USE_MOCK_REVIEWS) {
       return of({ data: getMockReviewsData() } as unknown as ApiResponse<ReviewsSummaryResponse>).pipe(delay(400));
     }
     return this.api.get<ReviewsSummaryResponse>(null, 'reviews/summary/', {
       restaurant: restaurantId,
+      from: dateFrom,
+      to: dateTo,
     }).pipe(
       map((res: any) => ({
         ...res,

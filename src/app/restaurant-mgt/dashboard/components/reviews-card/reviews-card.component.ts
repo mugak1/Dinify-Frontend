@@ -52,117 +52,128 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
             </a>
           </div>
 
-          <!-- Section 2: Score + Distribution -->
-          <div class="flex gap-4 sm:gap-8 mb-3 sm:mb-4">
-            <!-- Left side - Big Score -->
-            <div class="shrink-0">
-              <app-animated-number
-                [value]="reviewsData.avg_rating"
-                [duration]="2000"
-                [decimals]="1"
-                class="text-3xl sm:text-5xl font-bold text-foreground leading-none mb-1 block"
-              ></app-animated-number>
-              <div class="flex gap-0.5 mb-1">
-                @for (star of stars; track star) {
-                  <svg
-                    aria-hidden="true"
-                    class="w-3 h-3 sm:w-4 sm:h-4"
-                    [class.fill-warning]="star <= roundedRating"
-                    [class.text-warning]="star <= roundedRating"
-                    [class.text-muted-foreground/30]="star > roundedRating"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                  </svg>
-                }
-              </div>
-              <div class="text-[10px] sm:text-xs text-muted-foreground">
+          <!-- A window with no reviews says so, like every other dashboard card. An average
+               of no reviews is not 0.0 — five empty stars and a row of zero bars read as a
+               terrible rating, not an absent one. Quotes are withheld too, so the card can
+               never say "no reviews" above reviews (an older server lists its three newest
+               of ALL time whatever it counted). -->
+          @if (hasNoReviews) {
+            <p class="text-sm text-muted-foreground text-center py-8" data-testid="reviews-empty">
+              No reviews in this period
+            </p>
+          } @else {
+            <!-- Section 2: Score + Distribution -->
+            <div class="flex gap-4 sm:gap-8 mb-3 sm:mb-4">
+              <!-- Left side - Big Score -->
+              <div class="shrink-0">
                 <app-animated-number
-                  [value]="reviewsData.total_reviews"
+                  [value]="reviewsData.avg_rating"
                   [duration]="2000"
-                  suffix=" reviews"
+                  [decimals]="1"
+                  class="text-3xl sm:text-5xl font-bold text-foreground leading-none mb-1 block"
                 ></app-animated-number>
-              </div>
-            </div>
-
-            <!-- Right side - Distribution Bars -->
-            <div class="flex-1 space-y-1 sm:space-y-1.5 min-w-0">
-              @for (row of sortedDistribution; track row.rating) {
-                <div class="flex items-center gap-1.5 sm:gap-2">
-                  <span class="text-[10px] sm:text-xs text-muted-foreground w-5 sm:w-6 text-right shrink-0">
-                    {{ row.rating }}★
-                  </span>
-                  <div class="flex-1 h-2.5 sm:h-3 bg-muted rounded-full overflow-hidden min-w-0">
-                    <div
-                      class="h-full rounded-full transition-all"
-                      [class]="getBarColor(row.rating)"
-                      [style.width.%]="row.percentage"
-                    ></div>
-                  </div>
-                  <span class="text-[10px] sm:text-xs text-muted-foreground w-5 sm:w-6 shrink-0 text-right tabular-nums">
-                    {{ row.count }}
-                  </span>
+                <div class="flex gap-0.5 mb-1">
+                  @for (star of stars; track star) {
+                    <svg
+                      aria-hidden="true"
+                      class="w-3 h-3 sm:w-4 sm:h-4"
+                      [class.fill-warning]="star <= roundedRating"
+                      [class.text-warning]="star <= roundedRating"
+                      [class.text-muted-foreground/30]="star > roundedRating"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                  }
                 </div>
-              }
-            </div>
-          </div>
+                <div class="text-[10px] sm:text-xs text-muted-foreground">
+                  <app-animated-number
+                    [value]="reviewsData.total_reviews"
+                    [duration]="2000"
+                    suffix=" reviews"
+                  ></app-animated-number>
+                </div>
+              </div>
 
-          <!-- Section 3: Recent Reviews -->
-          @if (recentReviews.length > 0) {
-            <div class="pt-3 sm:pt-4 space-y-2">
-              @for (review of recentReviews; track review.review_id) {
-                <div
-                  class="p-2 sm:p-3 rounded-none border"
-                  [class.bg-success/5]="getSentiment(review.rating) === 'positive'"
-                  [class.border-success/20]="getSentiment(review.rating) === 'positive'"
-                  [class.bg-destructive/5]="getSentiment(review.rating) === 'negative'"
-                  [class.border-destructive/20]="getSentiment(review.rating) === 'negative'"
-                  [class.bg-warning/5]="getSentiment(review.rating) === 'neutral'"
-                  [class.border-warning/20]="getSentiment(review.rating) === 'neutral'"
-                >
-                  <div class="flex items-center justify-between mb-1">
-                    <div class="flex gap-0.5">
-                      @for (star of stars; track star) {
-                        <svg
-                          aria-hidden="true"
-                          class="w-2.5 h-2.5 sm:w-3 sm:h-3"
-                          [class]="star <= review.rating ? getStarFillClass(review.rating) : 'text-muted-foreground/30'"
-                          viewBox="0 0 24 24"
-                          [attr.fill]="star <= review.rating ? 'currentColor' : 'none'"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                        </svg>
-                      }
+              <!-- Right side - Distribution Bars -->
+              <div class="flex-1 space-y-1 sm:space-y-1.5 min-w-0">
+                @for (row of sortedDistribution; track row.rating) {
+                  <div class="flex items-center gap-1.5 sm:gap-2">
+                    <span class="text-[10px] sm:text-xs text-muted-foreground w-5 sm:w-6 text-right shrink-0">
+                      {{ row.rating }}★
+                    </span>
+                    <div class="flex-1 h-2.5 sm:h-3 bg-muted rounded-full overflow-hidden min-w-0">
+                      <div
+                        class="h-full rounded-full transition-all"
+                        [class]="getBarColor(row.rating)"
+                        [style.width.%]="row.percentage"
+                      ></div>
                     </div>
-                    <span class="text-[10px] sm:text-xs text-muted-foreground">
-                      {{ formatTimeAgo(review.created_at) }}
+                    <span class="text-[10px] sm:text-xs text-muted-foreground w-5 sm:w-6 shrink-0 text-right tabular-nums">
+                      {{ row.count }}
                     </span>
                   </div>
-                  <p class="text-xs sm:text-sm text-muted-foreground line-clamp-1">
-                    {{ review.text }}
-                  </p>
-                </div>
-              }
+                }
+              </div>
             </div>
-          }
 
-          <!-- Section 4: Warning Banner -->
-          @if (lowRatingPct > 5) {
-            <div class="mt-3 sm:mt-4 p-2 sm:p-3 rounded-none bg-destructive/10 border border-destructive/20 text-center">
-              <span class="text-destructive font-bold text-sm sm:text-base">{{ lowRatingPct.toFixed(1) }}%</span>
-              <span class="text-xs sm:text-sm text-muted-foreground ml-1">
-                of reviews are 1-2 stars this month
-              </span>
-            </div>
+            <!-- Section 3: Recent Reviews -->
+            @if (recentReviews.length > 0) {
+              <div class="pt-3 sm:pt-4 space-y-2">
+                @for (review of recentReviews; track review.review_id) {
+                  <div
+                    class="p-2 sm:p-3 rounded-none border"
+                    [class.bg-success/5]="getSentiment(review.rating) === 'positive'"
+                    [class.border-success/20]="getSentiment(review.rating) === 'positive'"
+                    [class.bg-destructive/5]="getSentiment(review.rating) === 'negative'"
+                    [class.border-destructive/20]="getSentiment(review.rating) === 'negative'"
+                    [class.bg-warning/5]="getSentiment(review.rating) === 'neutral'"
+                    [class.border-warning/20]="getSentiment(review.rating) === 'neutral'"
+                  >
+                    <div class="flex items-center justify-between mb-1">
+                      <div class="flex gap-0.5">
+                        @for (star of stars; track star) {
+                          <svg
+                            aria-hidden="true"
+                            class="w-2.5 h-2.5 sm:w-3 sm:h-3"
+                            [class]="star <= review.rating ? getStarFillClass(review.rating) : 'text-muted-foreground/30'"
+                            viewBox="0 0 24 24"
+                            [attr.fill]="star <= review.rating ? 'currentColor' : 'none'"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                          </svg>
+                        }
+                      </div>
+                      <span class="text-[10px] sm:text-xs text-muted-foreground">
+                        {{ formatTimeAgo(review.created_at) }}
+                      </span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-muted-foreground line-clamp-1">
+                      {{ review.text }}
+                    </p>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Section 4: Warning Banner -->
+            @if (lowRatingPct > 5) {
+              <div class="mt-3 sm:mt-4 p-2 sm:p-3 rounded-none bg-destructive/10 border border-destructive/20 text-center">
+                <span class="text-destructive font-bold text-sm sm:text-base">{{ lowRatingPct.toFixed(1) }}%</span>
+                <span class="text-xs sm:text-sm text-muted-foreground ml-1">
+                  of reviews in this period are 1-2 stars
+                </span>
+              </div>
+            }
           }
         </div>
       </app-dn-card>
@@ -176,6 +187,11 @@ export class ReviewsCardComponent {
   @Output() retry = new EventEmitter<void>();
 
   readonly stars = [1, 2, 3, 4, 5];
+
+  /** Nothing was reviewed in the selected window. */
+  get hasNoReviews(): boolean {
+    return (this.reviewsData?.total_reviews ?? 0) === 0;
+  }
 
   get roundedRating(): number {
     return Math.round(this.reviewsData?.avg_rating ?? 0);
