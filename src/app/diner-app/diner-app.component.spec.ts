@@ -199,6 +199,78 @@ describe('DinerAppComponent', () => {
     expect(chip?.textContent).toContain('Table 7');
   });
 
+  // ── the footer is always at the very bottom ──────────────────────────────
+  // A page's own sticky bottom bar (the menu's View Basket, the basket's
+  // Checkout) comes to rest ABOVE the footer, never under or after it. The
+  // shell's part is simply that nothing is rendered after the footer.
+  it('renders the diner footer as the last thing on the page', () => {
+    component.getTableDetails('good-id');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush(validScan('good-id', 7));
+    fixture.detectChanges();
+    const shell = (fixture.nativeElement as HTMLElement).querySelector('.min-h-screen')!;
+    expect(shell.lastElementChild?.tagName.toLowerCase()).toBe('app-diner-footer');
+  });
+
+  // ── the desktop sidebar's layer ──────────────────────────────────────────
+  // The sticky sidebar is its own stacking context, so the overlays the basket
+  // opens from it paint at ITS layer. It is raised to 45 only while one of them
+  // is open (`data-basket-overlay`, pinned in basket-body.allergen-info.spec.ts).
+  // Raised permanently, it covered the offline strip at the bottom of a long
+  // page. Karma's window is narrower than `lg:`, so these read the COMPILED
+  // stylesheet and ask the aside whether it matches, instead of measuring it.
+  describe('the desktop basket sidebar\'s layer', () => {
+    const scan = () => {
+      component.getTableDetails('good-id');
+      httpMock.expectOne(r => r.url.includes('table-scan')).flush(validScan('good-id', 7));
+      fixture.detectChanges();
+    };
+    const aside = () => (fixture.nativeElement as HTMLElement).querySelector('aside')!;
+
+    /** Every style rule in the page, including those inside media blocks that
+     *  do not apply at Karma's width, with the media text each sits under. */
+    const styleRules = (): { rule: CSSStyleRule; media: string }[] => {
+      const out: { rule: CSSStyleRule; media: string }[] = [];
+      const walk = (rules: CSSRuleList, media: string) => {
+        for (const rule of Array.from(rules)) {
+          if (rule instanceof CSSStyleRule) out.push({ rule, media });
+          else if (rule instanceof CSSMediaRule) walk(rule.cssRules, rule.conditionText);
+        }
+      };
+      for (const sheet of Array.from(document.styleSheets)) {
+        try { walk(sheet.cssRules, ''); } catch { /* a cross-origin sheet */ }
+      }
+      return out;
+    };
+    const matches = (el: Element, selector: string) => {
+      try { return el.matches(selector); } catch { return false; }
+    };
+    const withMarker = <T>(fn: () => T): T => {
+      const marker = document.createElement('div');
+      marker.setAttribute('data-basket-overlay', '');
+      aside().appendChild(marker);
+      try { return fn(); } finally { marker.remove(); }
+    };
+
+    it('is raised to 45 at lg: while a basket overlay is open inside it', () => {
+      scan();
+      const raises = styleRules().filter(({ rule }) =>
+        rule.style.zIndex !== '' && rule.selectorText.includes(':has([data-basket-overlay])'));
+      expect(raises.length).withContext('the compiled stylesheet carries the raise').toBe(1);
+      const [{ rule, media }] = raises;
+      expect(rule.style.zIndex).toBe('45');
+      expect(media).toContain('min-width: 1024px');
+      expect(matches(aside(), rule.selectorText)).withContext('nothing open').toBe(false);
+      expect(withMarker(() => matches(aside(), rule.selectorText))).withContext('an overlay open').toBe(true);
+    });
+
+    it('REGRESSION: with nothing open, no rule gives the aside a z-index at any width', () => {
+      scan();
+      const idle = styleRules().filter(({ rule }) =>
+        rule.style.zIndex !== '' && matches(aside(), rule.selectorText));
+      expect(idle.map(({ rule, media }) => `${media} ${rule.selectorText}`)).toEqual([]);
+    });
+  });
+
   // ── basket safety on table change ────────────────────────────────────────
   it('clears the basket when a re-scan lands on a DIFFERENT table', () => {
     const clearSpy = spyOn(component.basketService, 'clearBasket').and.callThrough();

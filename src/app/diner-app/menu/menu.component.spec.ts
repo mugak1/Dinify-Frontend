@@ -176,6 +176,10 @@ describe('DinersMenuComponent', () => {
   });
 
   describe('the basket pill shows the same figure as the basket screen', () => {
+    // The basket persists in session storage, so an item left behind here
+    // would still be in the basket for whichever spec runs next.
+    afterEach(() => TestBed.inject(BasketService).clearBasket());
+
     // It used to read the PERSISTED `Basket().totalAmount`. Every total
     // persisted before the exact helper landed is plain double arithmetic, so
     // a returning diner could see the pill say one number and the basket
@@ -198,6 +202,70 @@ describe('DinersMenuComponent', () => {
       basketService.Basket().totalAmount = 1002.0099999999999;
 
       expect(component.totalAmount).toBe(1002);
+    });
+  });
+
+  // The "View Basket" bar and the diner footer. The footer must ALWAYS be at
+  // the very bottom of the page, under the bar: the bar rides the bottom of the
+  // screen while the menu scrolls and comes to rest ABOVE the footer at the end.
+  // So in the diner shell the bar is STICKY and the last thing inside the menu,
+  // which is at least a screen tall with the bar pushed to its end. It used to
+  // be FIXED, which kept it on top of the footer for good.
+  describe('the View Basket bar and the diner footer', () => {
+    const addBurger = () => TestBed.inject(BasketService).addItem({
+      itemId: 'i1', itemName: 'Burger', basePrice: 1000, totalPrice: 1000,
+      quantity: 1, isDiscounted: false, extras: [], selectedModifiers: [],
+    } as unknown as BasketItem);
+    const root = () => (fixture.nativeElement as HTMLElement).firstElementChild as HTMLElement;
+    const bar = () =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-testid="view-basket-bar"]');
+    const has = (el: Element, ...classes: string[]) => classes.map((c) => el.classList.contains(c));
+
+    // The basket persists in session storage, so start every spec empty
+    // whatever ran before it, and leave it empty for whatever runs next.
+    beforeEach(() => TestBed.inject(BasketService).clearBasket());
+    afterEach(() => TestBed.inject(BasketService).clearBasket());
+
+    it('in the diner shell the bar is STICKY, the last thing in the menu, pushed to its end', () => {
+      addBurger();
+      fixture.detectChanges();
+      expect(bar()).withContext('premise: the bar is rendered').not.toBeNull();
+      expect(bar()!.parentElement).withContext('inside the menu, not after it').toBe(root());
+      expect(root().lastElementChild).toBe(bar());
+      expect(has(bar()!, 'sticky', 'bottom-0', 'mt-auto')).toEqual([true, true, true]);
+      expect(has(bar()!, 'fixed', 'left-0', 'right-0')).toEqual([false, false, false]);
+      expect(getComputedStyle(bar()!).position).toBe('sticky');
+      expect(root().classList.contains('min-h-screen')).withContext('a screen tall at least').toBe(true);
+    });
+
+    it('CONTROL: no basket, no bar', () => {
+      fixture.detectChanges();
+      expect(bar()).toBeNull();
+    });
+
+    it('the portal embed keeps the FIXED bar, and the list\'s own pb-24 to clear it', async () => {
+      // The skeleton stays up until the image preload resolves.
+      const settle = async () => {
+        for (let i = 0; i < 2; i++) await new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r)));
+      };
+      component.restaurant = approvedRestaurant();
+      fixture.detectChanges();
+      httpMock.expectOne(r => r.url.includes('show-menu'))
+        .flush({ data: [{ name: 'Mains', items: [] }], item_sort_mode: 'manual' });
+      await settle();
+      addBurger();
+      fixture.detectChanges();
+      const list = () => (fixture.nativeElement as HTMLElement).querySelector('[appscrollspy]')!;
+      expect(list()).withContext('premise: the browse list rendered').not.toBeNull();
+      expect(list().classList.contains('pb-24')).withContext('diner shell').toBe(false);
+
+      component.isInRestApp = true;
+      fixture.detectChanges();
+      expect(list().classList.contains('pb-24')).withContext('portal embed').toBe(true);
+      expect(has(bar()!, 'fixed', 'bottom-0', 'left-0', 'right-0')).toEqual([true, true, true, true]);
+      expect(has(bar()!, 'sticky', 'mt-auto')).toEqual([false, false]);
+      expect(getComputedStyle(bar()!).position).toBe('fixed');
+      expect(root().classList.contains('min-h-screen')).withContext('no shell, no footer').toBe(false);
     });
   });
 });

@@ -38,7 +38,7 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
 
   <!-- Heads-up: the table already has an order working through the kitchen, so a
   new order can't be placed yet (checkout is blocked in the footer). Sits at
-  the top of the basket, distinct from the amber allergy notice below. -->
+  the top of the basket. -->
   @if (basketItems.length > 0 && tableHasOngoingOrder) {
     <div class="mt-4 px-4">
       <app-ongoing-order-banner></app-ongoing-order-banner>
@@ -269,14 +269,12 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
           </div>
         }
       </div><!-- /one card -->
-      <!-- Order summary — honest breakdown: subtotal → deal savings → total to pay. All
-      client-side: cartSubtotal = totalAmount + getTotalSavings(); savings from
-      getTotalSavings(). No VAT line — diner prices are not tax-inclusive. -->
+      <!-- Order summary: ONE total. Deal savings (when there are any) then the
+      total to pay, both client-side. There is no Subtotal row: for every basket
+      without a deal it repeated the total to pay, and each line already shows
+      its own price, struck through where a deal applies. No VAT line — diner
+      prices are not tax-inclusive. -->
       <div class="mt-4">
-        <div class="flex items-center justify-between text-sm text-gray-600 py-1">
-          <span>Subtotal</span>
-          <span>UGX {{ cartSubtotal | number }}</span>
-        </div>
         @if (getTotalSavings() > 0) {
           <div
             class="flex items-center justify-between text-sm font-medium text-green-600 py-1">
@@ -302,21 +300,14 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
             at checkout.
           </p>
         }
-      </div>
-      <!-- Allergy & special-request notice -->
-      <div class="mt-3 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-amber-900">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          class="flex-shrink-0 mt-px text-amber-600" aria-hidden="true">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 16v-4"/>
-          <path d="M12 8h.01"/>
-        </svg>
-        <p class="text-xs leading-relaxed">
-          We're unable to take custom dietary or special-prep requests. Each item
-          shows its allergens — please check before ordering, and use the menu's
-          allergen filter to hide anything you need to avoid.
-        </p>
+        <!-- Allergens & special requests: the same subtle link and pop-up as the
+        item page, straight after the total, in place of the amber box that sat
+        between the total and the Checkout bar. It is in the page, not in the
+        sticky Checkout bar, so the bar stays just the button. The pop-up is
+        mounted at the end of this template (see the comment there). -->
+        <div class="mt-1" data-testid="basket-allergen-info">
+          <app-allergen-info-link (openInfo)="allergenInfoOpen.set(true)"></app-allergen-info-link>
+        </div>
       </div>
     </div>
   }
@@ -416,6 +407,19 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
   </div>
 }
 
+<!-- The allergen pop-up the link under the total opens. Mounted HERE, at the
+     template root beside the other two overlays, not next to the link: inside
+     a sticky or z-indexed box (the Checkout bar is one) it would sit in that
+     box's stacking context and paint beneath the basket header.
+     `data-basket-overlay` marks every overlay this template opens, while it is
+     open: the desktop sidebar raises its own layer only then, so the overlay
+     covers the page instead of sitting under the menu's buttons (see the
+     `<aside>` in diner-app.component.html). The sheet's host is always in the
+     DOM, so its marker follows the same signal as `[open]`. -->
+<app-allergen-info-sheet context="basket" [open]="allergenInfoOpen()"
+  [attr.data-basket-overlay]="allergenInfoOpen() ? '' : null"
+  (closed)="allergenInfoOpen.set(false)"></app-allergen-info-sheet>
+
 <!-- THE ORDINARY CONFIRMATION: the plain "Are you sure?" prompt, restored.
      Shown only when the server's quote matches what the basket page already
      showed (`quoteNeedsReview` is false). It is the same lock as the itemised
@@ -424,7 +428,7 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
      original dialog. -->
 @if (showQuoteSheet && !quoteNeedsReview) {
   <div class="relative z-50" role="dialog" aria-modal="true"
-    aria-labelledby="checkout-confirm-title" data-testid="checkout-confirm">
+    aria-labelledby="checkout-confirm-title" data-testid="checkout-confirm" data-basket-overlay>
     <div class="fixed inset-0 bg-black bg-opacity-60 transition-opacity"></div>
     <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
       <div class="h-screen flex justify-center items-center p-4 text-center my-auto sm:items-center sm:p-0">
@@ -472,7 +476,7 @@ table, but the always-mounted desktop sidebar has no such header, so it shows th
      an item dropped, the total changed, nothing is left to place, or the quote
      cannot be read (`quoteNeedsReview`). -->
 @if (showQuoteSheet && quoteNeedsReview) {
-  <div
+  <div data-basket-overlay
     class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4"
     (click)="cancelQuote()">
     <div class="w-full max-w-md bg-white rounded-xl shadow-xl p-5 max-h-[85vh] overflow-y-auto"

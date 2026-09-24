@@ -1,5 +1,5 @@
 import { CommonModule, Location } from '@angular/common';
-import { ChangeDetectionStrategy, AfterViewInit, Component, ViewChild, ElementRef, OnDestroy, OnInit, Input } from '@angular/core';
+import { ChangeDetectionStrategy, AfterViewInit, Component, ViewChild, ElementRef, OnDestroy, OnInit, Input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogService } from 'src/app/_common/confirm-dialog.service';
@@ -65,6 +65,8 @@ import { PriceDisplayComponent } from '../../../_shared/ui/price-display/price-d
 import { OngoingOrderBannerComponent } from '../../ongoing-order-banner/ongoing-order-banner.component';
 import { MenuNavStateService } from '../../menu/menu-nav-state.service';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
+import { AllergenInfoLinkComponent } from '../../../_shared/ui/allergen-info/allergen-info-link.component';
+import { AllergenInfoSheetComponent } from '../../../_shared/ui/allergen-info/allergen-info-sheet.component';
 import {
   addMinorUnits, formatAmount, formatMinorUnits, fromMinorUnits, sameAmount,
   toMinorUnits,
@@ -103,7 +105,8 @@ interface ReviewedQuote {
     templateUrl: './basket-body.component.html',
     styleUrls: ['./basket-body.component.css'],
     standalone: true,
-    imports: [CommonModule, PriceDisplayComponent, OngoingOrderBannerComponent, ButtonComponent]
+    imports: [CommonModule, PriceDisplayComponent, OngoingOrderBannerComponent, ButtonComponent,
+      AllergenInfoLinkComponent, AllergenInfoSheetComponent]
 })
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   table?: TableScan|any;
@@ -114,6 +117,9 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   order_initiated?: OrderInitiated;
   /** The ONE authoritative review: the server's priced lines and total. */
   showQuoteSheet = false;
+  /** The allergen pop-up opened from the "Allergens & dietary info" link under
+   *  the total. It replaced the always-open amber notice that sat there. */
+  readonly allergenInfoOpen = signal(false);
 
   /**
    * Which placement attempt is in flight, and what it was priced for.
@@ -277,13 +283,6 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   get totalIsExact(): boolean {
     return this.total.exact;
-  }
-
-  /** Pre-discount subtotal for the honest summary: the current total plus the savings
-   *  already taken off (so subtotal − savings == total exactly). Named to avoid clashing
-   *  with the per-line getSubtotal(item). */
-  get cartSubtotal(): number {
-    return this.totalAmount + this.getTotalSavings();
   }
 
   /** True when the table already has an order still working through the kitchen.
