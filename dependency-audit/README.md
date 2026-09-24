@@ -114,10 +114,27 @@ failed scan fails the run.
 `main` (1d22826) audits **within policy with 15 lower-severity tooling findings that
 REQUIRE TRIAGE** — seven advisories (`@opentelemetry/core`, `body-parser`, `csv-parse`,
 `qs` ×3, `stream-json`), every one moderate or low and every one on a dev-only path
-through `firebase-tools`, `exegesis` or `karma`. None blocks; none is triaged, because no
-triage record is approved by this change. In-range fixes exist for most of them
-(`firebase-tools` 15.31.0, `body-parser` 1.20.8); they were deliberately not bundled into
-this change, which alters no Frontend dependency.
+through `firebase-tools`, `exegesis` or `karma`. None blocks.
+
+This change corrects the lock entries that have an in-range fix, with `npm update
+body-parser qs express --package-lock-only --before=2026-09-20` (no `package.json`
+edit, no override, no `--force`, no package added): the nested `body-parser` under
+`firebase-tools`, `karma` and `exegesis` 1.20.4 → 1.20.8, `firebase-tools`'s nested
+`express` 4.22.1 → 4.22.3, and the three nested `qs` 6.14.2 copies that the fixed
+`body-parser` range lets dedupe away. Both built configurations are byte-identical to
+main's. **The delivered head audits within policy with 3 findings requiring triage**,
+and none of them has a fix this change may take:
+
+| advisory | package | why it stays |
+|---|---|---|
+| GHSA-8988-4f7v-96qf | `@opentelemetry/core` 1.30.1 | fixed in ≥2.8.0; every `@google-cloud/pubsub` 5.x pins `^1.30.1`, and the first on `^2.8.0` is 6.0.1 — a major, excluded by `firebase-tools`' `^5.2.0` |
+| GHSA-8cw4-87c7-c6xx | `csv-parse` 5.6.0 | fixed in ≥7.0.2; `firebase-tools` ≤15.30.2 pins `^5.0.4` |
+| GHSA-528h-pc64-c93x | `stream-json` 1.9.1 | affects ≤3.4.0; `firebase-tools` ≤15.30.2 pins `^1.7.3` |
+
+`firebase-tools` 15.31.0 moves the last two to `^7.0.2` / `^3.6.0` and is inside the
+`^15.22.0` range, but it was published 2026-09-23T23:26Z — after the `--before` cutoff and
+less than a day before this change, the same rule that stopped Admin's `hono` at 4.13.8.
+None is triaged, because no triage record is approved by this change.
 
 ## What this does not cover
 

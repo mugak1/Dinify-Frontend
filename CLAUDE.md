@@ -4401,7 +4401,10 @@ is built, so a blocking or incomplete audit leaves no candidate; the release sui
 existing CONTROL (identical `npm` command sequences in `certify` and `validate`) now
 guards the audit too. `policy.json → records` is empty — nothing is pre-approved. Main
 (1d22826) audits within policy with 15 lower-severity tooling findings requiring triage
-(firebase-tools / karma / exegesis paths). **The legacy `deploy-prod.yml` consumes NO
+(firebase-tools / karma / exegesis paths); an in-range lock correction (nested
+`body-parser` 1.20.8, `express` 4.22.3, the stale `qs` copies deduped; both builds
+byte-identical) leaves 3 — `@opentelemetry/core`, `csv-parse`, `stream-json` — whose
+fixes need a major or a `firebase-tools` release under a day old. **The legacy `deploy-prod.yml` consumes NO
 validation result, this audit included** (a test pins that disclosure), and the
 run-time-resolved `firebase-tools` publisher graph is not bound to any lockfile, so it is
 recorded as a coverage gap rather than certified — both are later B2 deliveries.
