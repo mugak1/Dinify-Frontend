@@ -54,3 +54,8 @@ Thumbs.db
 # Firebase
 firebase-debug.log
 .firebase/
+
+# Dependency audit (dependency-audit/README.md): retained evidence and the separately
+# installed, pinned scanner. Neither is source; CI uploads the evidence as an artifact.
+/dependency-audit/evidence/
+/dependency-audit/scanner/node_modules/
