@@ -66,7 +66,25 @@ so keep it current when conventions change.
   says "No reviews in this period" for an empty window rather than a 0.0 rating over
   five empty stars, and withholds quotes there whatever the server listed
 - Diner App menu redesign: ✅ Complete (sticky brand strip, scroll-aware nav
-  pills, quick-add affordance, allergen-safety disclaimer banner)
+  pills, quick-add affordance, allergen guidance on the item page)
+- Diner allergen guidance is a LINK AND A POP-UP, on EVERY dish (ALLERGEN-INFO-00):
+  ✅ the always-open amber banner on the item page is GONE. It was gated on the dish
+  having tags, so a dish with none (typically one sold with modifiers and extras)
+  showed no allergen guidance at all. A subtle "ⓘ Allergens & dietary info" link
+  (`app-allergen-info-link`) now sits under the tags on every dish and opens a bottom
+  sheet (`app-allergen-info-sheet`, over the shared `app-dn-sheet`) carrying the same
+  two safety sentences plus the dish's own allergen and dietary tags. Three rules:
+  **THE SHEET IS MOUNTED AT THE PAGE ROOT, NEVER BESIDE THE LINK**, because the item
+  content sheet is `relative z-[2]`, a stacking context that would paint a `fixed`
+  overlay beneath the shell's `z-40` brand strip. **AN UNTAGGED DISH IS NOT DECLARED
+  ALLERGEN-FREE**: the copy says nobody flagged any and that this does not mean it is
+  free of them; descriptor tags are left out, and a dish with options or extras says
+  the guidance covers the dish on its own (extras carry no tags on the public read).
+  **THE TAG ROW AND THE SHEET READ ONE `itemTags` COMPUTED**: `getVisibleTags` builds
+  new objects per call, so `track tag` re-created every pill on every pass (NG0956)
+  and a dev build left them blank (NG0100). Pinned by
+  `menu-item-detail.allergen-info.spec.ts` and `allergen-info-sheet.component.spec.ts`.
+  The basket's own dietary-requests notice is a separate, unchanged element
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
   menu card, featured carousel, basket) now renders through the shared
   presentational trio (`app-price-display` / `app-discount-badge` /
@@ -3354,7 +3372,8 @@ The module uses a deliberate mixed pattern — follow it exactly:
 
 ## Shared UI Component Library
 A shared component library lives in `src/app/_shared/ui/`:
-allergen-disclaimer, avatar (`app-dn-avatar`, initials-in-a-circle), badge,
+allergen-info (`app-allergen-info-link` + `app-allergen-info-sheet`), avatar
+(`app-dn-avatar`, initials-in-a-circle), badge,
 button (`app-dn-button`), card, dialog, discount-badge, extras-selector,
 featured-carousel, menu-dish-card, modifier-groups-selector,
 no-baseline-chip (`app-no-baseline-chip`), offline-banner,

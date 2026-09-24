@@ -57,6 +57,16 @@ export class MenuItemDetailComponent implements OnInit, OnDestroy {
   notFound = signal<boolean>(false);
   editingIndex = signal<number | null>(null);
   isEditMode = computed(() => this.editingIndex() !== null);
+  /** The allergen pop-up opened from the "Allergens & dietary info" link. */
+  allergenInfoOpen = signal<boolean>(false);
+  /**
+   * The dish's tags, normalised ONCE per item. The tag row and the allergen
+   * pop-up both read it, so the two cannot disagree. It also gives the row
+   * stable identities: `getVisibleTags` builds new objects on every call, so
+   * `track tag` re-created every pill on every change-detection pass (NG0956),
+   * and in a development build the re-created pill was left blank (NG0100).
+   */
+  itemTags = computed(() => this.getVisibleTags(this.item()?.tags));
 
   private storageSub?: Subscription;
   private menuFetchTriggered = false;

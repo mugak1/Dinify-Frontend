@@ -181,10 +181,10 @@
             </div>
 
             <!-- Menu tags -->
-            @if (getVisibleTags(it.tags).length > 0) {
+            @if (itemTags().length > 0) {
               <div class="px-6 pt-4">
                 <div class="flex flex-wrap gap-2">
-                  @for (tag of getVisibleTags(it.tags); track tag) {
+                  @for (tag of itemTags(); track tag) {
                     <app-tag-pill
                       [name]="tag.name"
                       [icon]="tag.icon"
@@ -195,11 +195,14 @@
               </div>
             }
 
-            <!-- Allergen-safety caveat: dietary tags are not a guarantee. Mounts the
-            previously-dead AllergenDisclaimerComponent next to the tags. -->
-            @if (getVisibleTags(it.tags).length > 0) {
-              <app-allergen-disclaimer class="block mt-3"></app-allergen-disclaimer>
-            }
+            <!-- Allergen guidance: a subtle link on EVERY dish, opening the pop-up
+            mounted at the end of this template. Deliberately unconditional: the
+            amber banner it replaced was gated on the dish having tags, so a
+            dish with none (typically one sold with modifiers and extras) showed
+            no allergen guidance at all. -->
+            <div class="px-6 pt-1">
+              <app-allergen-info-link (openInfo)="allergenInfoOpen.set(true)"></app-allergen-info-link>
+            </div>
           </div>
           <!-- /content sheet -->
 
@@ -301,6 +304,17 @@
         </button>
       </div>
     </div>
+
+    <!-- The allergen pop-up, at the ROOT of the page on purpose. The content
+    sheet that holds its link is `relative z-[2]`, a stacking context of its
+    own, so a fixed overlay mounted in there would paint beneath the shell's
+    sticky brand strip. -->
+    <app-allergen-info-sheet
+      [open]="allergenInfoOpen()"
+      [tags]="itemTags()"
+      [hasChoices]="modifierGroups().length > 0 || !!it.extras?.length"
+      (closed)="allergenInfoOpen.set(false)">
+    </app-allergen-info-sheet>
 
   }
 
