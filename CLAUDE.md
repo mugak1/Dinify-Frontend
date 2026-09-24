@@ -4354,6 +4354,8 @@ Before raising any PR:
    a source scanner, not semantic analysis, and its docstring says so.
    `_security/platform-role-ratchet.spec.ts` is the
    object-graph half, asserting the live `routes` export stays clean
+3a. Run `npm run test:audit` — the dependency-audit evaluator's regression matrix,
+   OFFLINE (fixtures only; it scans nothing). See "Dependency audit" below
 4. Run `npm run test:ci` for any module you touched
 5. Run `npm run build:prod` and confirm zero errors
 5a. Build the SHIPPING configuration too —
@@ -4361,24 +4363,51 @@ Before raising any PR:
    Read from the committed policy rather than typed, so this step and the workflows
    cannot disagree about which configuration that is. The 500 kB budget WARNING is
    expected and exits zero; do not raise it
+5b. Run the dependency audit — `npm run audit:snapshot` straight after `npm ci`, then
+   `npm run audit:deps` last. NETWORK: a scan that cannot complete FAILS
 6. Confirm standalone components are in `imports`, not `declarations`
 
-A convenience runner `scripts/verify.sh` runs all seven checks in CI order —
-type-check → lint → release-contract gate (`npm run test:release`) →
+A convenience runner `scripts/verify.sh` runs the checks in CI order —
+audit snapshot → type-check → lint → release-contract gate (`npm run test:release`) →
+dependency-audit evaluator tests (`npm run test:audit`) →
 tenant-isolation closure gate (`npm run test:tenant-boundary`) → test:ci →
-build:prod → build the shipping candidate — continuing past failures so you see
+build:prod → build the shipping candidate → dependency audit (network) — continuing past failures so you see
 every problem at once, exiting non-zero if any fail. It is a manual pre-PR gate —
 run it and paste the output into the PR; it is intentionally NOT wired as a hook.
 
-CI (`.github/workflows/ci.yml`) runs all seven steps on every PR to `main`:
-`type-check`, `lint`, the release-contract gate (`npm run test:release`), the
+CI (`.github/workflows/ci.yml`) runs every step on every PR to `main`:
+the dependency-audit snapshot, `type-check`, `lint`, the release-contract gate
+(`npm run test:release`), the dependency-audit evaluator tests, the
 tenant-isolation closure gate
 (`npm run test:tenant-boundary` — a focused, fail-fast tenant-boundary spec set
 that runs BEFORE the full suite so a broken diner/restaurant boundary fails
 early), `test:ci`, `build:prod`, and a build of the SHIPPING configuration so a
 candidate that would fail certification fails BEFORE the merge rather than after
-it. **The job is named `validate` and that name is the required status check on
-the `main` protection ruleset — do NOT rename it.**
+it — and then, LAST, the dependency audit (`npm run audit:deps`). **The job is named
+`validate` and that name is the required status check on the `main` protection
+ruleset — do NOT rename it.**
+
+**Dependency audit (D08 B2.1).** `dependency-audit/` (README there) is a required part
+of BOTH `validate` and `certify`, not a separate check: `audit:snapshot` records the lock
+graph right after `npm ci` and proves the installed tree IS that graph;
+`audit:deps` scans exactly that inventory plus the pinned scanner's own graph (npm
+11.19.1 from its own lockfile, scripts disabled) and decides with the policy shared with
+Admin and Backend — four outcomes, `within_policy` 0 / `exceptions_only` 0 / `blocking`
+1 / `incomplete` 2; high/critical blocks in every scope, any runtime advisory blocks,
+lower-severity tooling is TRIAGE REQUIRED (visible, never "zero findings"), anything
+unevaluable is incomplete and FAILS. `conformance.json` is byte-identical in the three
+repos and its digest is pinned in each suite. In `certify` it runs BEFORE the candidate
+is built, so a blocking or incomplete audit leaves no candidate; the release suite's
+existing CONTROL (identical `npm` command sequences in `certify` and `validate`) now
+guards the audit too. `policy.json → records` is empty — nothing is pre-approved. Main
+(1d22826) audits within policy with 15 lower-severity tooling findings requiring triage
+(firebase-tools / karma / exegesis paths); an in-range lock correction (nested
+`body-parser` 1.20.8, `express` 4.22.3, the stale `qs` copies deduped; both builds
+byte-identical) leaves 3 — `@opentelemetry/core`, `csv-parse`, `stream-json` — whose
+fixes need a major or a `firebase-tools` release under a day old. **The legacy `deploy-prod.yml` consumes NO
+validation result, this audit included** (a test pins that disclosure), and the
+run-time-resolved `firebase-tools` publisher graph is not bound to any lockfile, so it is
+recorded as a coverage gap rather than certified — both are later B2 deliveries.
 
 `certify.yml` ("Certify") then runs the same contract against MERGED MAIN on every
 push, builds the shipping configuration ONCE and uploads it as the candidate;
@@ -4393,12 +4422,13 @@ backend API doesn't exist yet) and pushes to the `dinify-prod` Firebase Hosting
 target on every merge to `main`. It also still resolves `firebase-tools@latest` at
 run time inside the job holding the service-account credential; `publish.yml` pins
 it, and pinning it on the live path too is a one-line follow-up. A third
-workflow (`audit.yml`, "Dependency Audit") runs `npm audit --audit-level=high`
-weekly (Mondays 06:30 UTC) and on manual dispatch — it is NOT a PR check and
-never blocks a merge; it just fires a notification if a high/critical advisory
-reappears. package.json keeps a small `overrides` block (`lodash-es`, gaxios's
-`uuid`, `@grpc/grpc-js`) to hold the audit-zero baseline — don't strip it
-wholesale. Only gaxios's `uuid` raises a version BEYOND its dependent's declared
+workflow (`audit.yml`, "Dependency Audit") is a weekly (Mondays 06:30 UTC) and
+manual RE-SCAN of main with the SAME evaluator and policy — the enforcing audit is
+inside `validate` and `certify`; this exists because advisories are published between
+merges. It is not a required check and nothing triggers on it. package.json keeps a
+small `overrides` block (`lodash-es`, gaxios's `uuid`, `@grpc/grpc-js`) to hold the
+high/critical-zero baseline — don't strip it wholesale. ("Audit-zero" was never true at
+full scope: lower-severity tooling findings exist and are reported as triage required.) Only gaxios's `uuid` raises a version BEYOND its dependent's declared
 range (gaxios asks for `^9.0.1`, the override forces `11.1.1`); `lodash-es` and
 `@grpc/grpc-js` sit inside their dependents' ranges (`ng2-charts` wants
 `^4.17.15`, `google-gax` wants `^1.12.6`) and act as floors. **The `esbuild`
