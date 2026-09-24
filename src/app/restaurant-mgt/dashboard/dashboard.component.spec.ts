@@ -562,6 +562,39 @@ describe('DashboardComponent — timeframe wiring', () => {
     }));
   });
 
+  // ─── Teardown ──────────────────────────────────────────────────────────────────────
+  //
+  // `takeUntil` completes only what is UPSTREAM of it, and `switchMap` keeps its active
+  // inner subscription alive after its source completes. Placed ahead of the polling
+  // `switchMap`s, it left the 30s timer of an open range running after the dashboard was
+  // destroyed — until midnight — and every visit added another poller (Codex, #691).
+
+  describe('when the dashboard is destroyed', () => {
+    it('stops polling the reviews summary', fakeAsync(() => {
+      boot(openRange(0));
+      fixture.detectChanges();
+      tick();
+      const before = dashboardService.getReviewsSummary.calls.count();
+
+      fixture.destroy();
+      tick(90_000);
+
+      expect(dashboardService.getReviewsSummary.calls.count()).toBe(before);
+    }));
+
+    it('stops polling the dashboard data', fakeAsync(() => {
+      boot(openRange(0));
+      fixture.detectChanges();
+      tick();
+      const before = dashboardService.getDashboardData.calls.count();
+
+      fixture.destroy();
+      tick(90_000);
+
+      expect(dashboardService.getDashboardData.calls.count()).toBe(before);
+    }));
+  });
+
   it('commits a picked basis through the service, not to local state', () => {
     boot(openRange(0));
 

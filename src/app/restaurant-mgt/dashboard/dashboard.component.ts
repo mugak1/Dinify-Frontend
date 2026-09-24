@@ -115,7 +115,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.dashboardService.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
-        takeUntil(this.destroy$),
         // ABOVE the timer switchMap on purpose: the skeleton shows on a range change or
         // a manual refresh, never on a background poll tick.
         tap(() => {
@@ -131,6 +130,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .getDashboardData(restaurantId, effectiveRange.from, effectiveRange.to, bucketUnit)
             .pipe(catchError((err) => of({ data: null, error: err })));
         }),
+        // LAST, in all three chains. `takeUntil` completes only what is upstream of it, and
+        // `switchMap` keeps its active inner subscription alive after its source completes —
+        // so anywhere earlier it left an open range's 30s timer polling after the dashboard
+        // was destroyed (until midnight), one more poller per visit.
+        takeUntil(this.destroy$),
       )
       .subscribe((res: any) => {
         this.loading = false;
@@ -161,7 +165,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.dashboardService.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
-        takeUntil(this.destroy$),
         switchMap(([range, basis, customFrom]) => {
           const { bucketUnit, effectiveRange } = resolveTimeframe(range);
           // CLASSIFY AND RESOLVE FROM THE SAME WINDOW. `effectiveRange` is what the primary
@@ -186,6 +189,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .getDashboardData(restaurantId, cmp.from, cmp.to, bucketUnit)
             .pipe(catchError(() => of({ data: null })));
         }),
+        // Last, so destruction also cancels a comparison request still in flight.
+        takeUntil(this.destroy$),
       )
       .subscribe((res: any) => {
         this.comparisonData = res.data ?? null;
@@ -208,7 +213,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.dashboardService.refresh$.pipe(startWith(undefined)),
     ])
       .pipe(
-        takeUntil(this.destroy$),
         // ABOVE the timer, as in the primary chain: the skeleton shows on a range change or
         // a manual refresh, never on a background poll tick.
         tap(() => {
@@ -222,6 +226,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .getReviewsSummary(restaurantId, effectiveRange.from, effectiveRange.to)
             .pipe(catchError((err) => of({ data: null, error: err })));
         }),
+        // Last — see the primary chain.
+        takeUntil(this.destroy$),
       )
       .subscribe((res: any) => {
         this.reviewsLoading = false;
