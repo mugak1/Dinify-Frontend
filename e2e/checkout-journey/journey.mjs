@@ -304,6 +304,12 @@ const main = async () => {
   await reviewHeading.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
   check('the review sheet appears BEFORE anything is submitted',
         await reviewHeading.isVisible().catch(() => false));
+  // WHICH CONFIRMATION, asserted. The price moved in step 4, so this quote says
+  // something the basket did not, and the itemised review is required. The
+  // plain "Are you sure?" prompt (#693) is only for an unchanged purchase; its
+  // appearing here would mean a repriced line was confirmed unseen.
+  check('the price change gets the ITEMISED review, not the plain prompt',
+        (await page.getByTestId('checkout-confirm').count()) === 0);
   const panel = reviewHeading.locator('xpath=..');
   const reviewText = await panel.textContent().catch(() => '');
 

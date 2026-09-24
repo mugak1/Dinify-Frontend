@@ -74,6 +74,7 @@ import {
   QuoteReview,
   reviewQuote,
 } from '../../../_shared/order/quote-review';
+import { quoteMatchesBasket } from '../../../_shared/order/quote-equivalence';
 import {
   PricedLineParts, lineOriginalSubtotalMinor, lineSubtotalMinor,
 } from '../../../_shared/order/line-money';
@@ -81,6 +82,20 @@ import {
   CheckoutLimitState, MAX_QUANTITY_PER_LINE, atLineQuantityCeiling,
   checkCheckoutLimits,
 } from '../../../_shared/order/checkout-limits';
+
+/** The binding between a displayed quote and the attempt that priced it. */
+interface ReviewedQuote {
+  ref: string | null;
+  revision: number;
+  context: string;
+  key: string | null;
+  /** The basket AS PRICED, copied when the quote was bound, or `null` when the
+   *  basket on screen was no longer that purchase. It is what
+   *  `quoteMatchesPricedBasket` compares the quote against, never the live
+   *  basket: quantities are mutated in place, and an old quote must not be
+   *  measured against whatever the basket holds by the time it renders. */
+  basket: readonly BasketItem[] | null;
+}
 
 @Component({
     changeDetection: ChangeDetectionStrategy.Eager,
@@ -137,9 +152,7 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    *  IDENTICAL either side of it and neither can say that the record has moved
    *  on. Null only where no record existed to read, which production does not
    *  reach: every checkout reserves before it prices. */
-  private reviewedQuote:
-    { ref: string | null; revision: number; context: string;
-      key: string | null } | null = null;
+  private reviewedQuote: ReviewedQuote | null = null;
   /** Set when the server refused a draft priced before the pricing correction. */
   legacyDraft = false;
 
@@ -1608,6 +1621,13 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       revision: attempt.revision,
       context: attempt.context,
       key: attempt.operation.key,
+      // THE PURCHASE THIS QUOTE PRICED, captured now. Only when the basket on
+      // screen is still the purchase the operation froze before its request:
+      // a replay re-sends the RECORDED lines, so an edited basket beside it is
+      // not what the server priced, and there is then nothing to compare.
+      basket: this.basketService.contentIdentity() === attempt.operation.purchase
+        ? structuredClone(this.basketItems)
+        : null,
     };
     // I1 — AND THE STAGE MOVES CONDITIONALLY. `noteStage('reviewing')` was an
     // unconditional spread over whatever record was current, which is how an
@@ -2701,8 +2721,45 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
       || this.quoteHasLosses
       || this.quoteHasNothingToPlace
       || !this.totalIsExact
-      || this.quoteDiffersFromBasket;
+      || this.quoteDiffersFromBasket
+      || !this.quoteMatchesPricedBasket;
   }
+
+  /**
+   * Does the quote agree with the priced basket LINE BY LINE?
+   *
+   * AN EQUAL TOTAL IS NOT AN UNCHANGED PURCHASE. Two lines whose prices moved
+   * by offsetting amounts, or a selected choice the restaurant relabelled under
+   * the same id and price, leave the total exactly where it was, and the plain
+   * prompt lists nothing. So the plain prompt also needs every line paired with
+   * the basket line it priced: the same dish, quantity, option labels and
+   * extras, and the same exact amounts (`_shared/order/quote-equivalence.ts`).
+   * Anything that cannot be paired or read gets the itemised review.
+   *
+   * Compared against the basket AS PRICED, which `reviewedQuote` carries, and
+   * false once the quote is stale: the plain prompt is never a statement about
+   * a basket the quote did not price. Memoised on the payload and the binding,
+   * like `review`, so both mounts and every change-detection read agree.
+   */
+  get quoteMatchesPricedBasket(): boolean {
+    const reviewed = this.reviewedQuote;
+    if (!reviewed || this.quoteIsStale) return false;
+    const payload = this.order_initiated ?? null;
+    if (this.equivalenceFor?.payload !== payload
+        || this.equivalenceFor?.reviewed !== reviewed) {
+      this.equivalenceFor = {
+        payload, reviewed,
+        matches: quoteMatchesBasket(reviewed.basket, this.review),
+      };
+    }
+    return this.equivalenceFor.matches;
+  }
+
+  private equivalenceFor: {
+    payload: OrderInitiated | null;
+    reviewed: ReviewedQuote;
+    matches: boolean;
+  } | null = null;
 
   /**
    * Diner accepted the server's quote — commit that exact draft.

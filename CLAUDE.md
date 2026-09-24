@@ -289,7 +289,25 @@ so keep it current when conventions change.
   changed or uncomparable total, nothing to place, or an unreadable quote gets the
   itemised review, and so does a basket total that is only an ESTIMATE
   (`!totalIsExact`, Codex P2 on PR #693): the plain prompt states no amount, so it
-  may only stand in for a total the basket page stated exactly. It is PRESENTATION ONLY: both prompts call the same `confirmQuote` /
+  may only stand in for a total the basket page stated exactly. **AN EQUAL TOTAL IS NOT
+  AN UNCHANGED PURCHASE (DINER-CONFIRM-01)**: a choice relabelled under the same id and
+  price, or two line prices moved by offsetting amounts, leave the total where it was,
+  and the plain prompt lists nothing. So `quoteNeedsReview` also requires
+  `quoteMatchesPricedBasket`, which reads `_shared/order/quote-equivalence.ts`: every
+  server line is paired with the basket line it priced by the server's own identity
+  (dish, choice ids per group, extra ids; order-independent, merged rows summed) and
+  must agree on quantity, dish and extra names, the option labels in the server's
+  `"Group: A, B"` form (choices in the server's canonical order, groups as a multiset,
+  as `meaning_matches` compares them) and the exact option, extra and line amounts.
+  Anything it cannot establish, a legacy quote with no lines included, gets the
+  itemised review. It compares against the basket AS PRICED — a copy
+  `reviewedQuote.basket` takes when the quote is bound, and only while the live basket
+  is still the operation's frozen `purchase` — never the live basket, whose
+  quantities are mutated in place, and a stale quote never gets the plain prompt.
+  Pinned by `quote-equivalence.spec.ts` and `basket-body.quote-equivalence.spec.ts`
+  (the latter through a real initiation); the browser scripts now assert WHICH dialog
+  appears, and `e2e/checkout-journey/equivalence.mjs` reproduces the relabel and
+  offsetting cases against a real server. It is PRESENTATION ONLY: both prompts call the same `confirmQuote` /
   `cancelQuote` and are the same lock, so still exactly one confirmation per order and
   never a pre-pricing one. `confirmQuote()` then submits
   `{order, quote_ref}`; the basket is never trimmed, and a rejected line is never

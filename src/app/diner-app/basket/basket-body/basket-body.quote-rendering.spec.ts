@@ -201,47 +201,23 @@ describe('BasketBodyComponent — review sheet rendering (QG01)', () => {
   }
 
   // ── the states that must STAY understandable ───────────────────────────
-  // ── the plain prompt for an ordinary quote ─────────────────────────────
-  it('AN ORDINARY QUOTE GETS THE PLAIN "Are you sure?" PROMPT, not the itemised sheet', () => {
+  // ── the plain prompt ───────────────────────────────────────────────────
+  // The ordinary-quote specs that lived here set `order_initiated` by hand on
+  // a basket with NO modifiers, beside a server line labelled "Size: Large",
+  // and asserted the plain prompt. That proved only that the prompt was chosen
+  // from the grand total; the line on the sheet did not describe the basket at
+  // all. The plain prompt now needs the quote to match the basket it PRICED,
+  // line by line, and that binding is made by a real initiation — so its
+  // specs (Order, Cancel, the lock) are in `basket-body.quote-equivalence.spec.ts`,
+  // which drives one through the real HTTP boundary.
+  it('A QUOTE WITH NO PRICED BASKET BEHIND IT gets the itemised review, whatever its total', () => {
     const root = render(payload([quoteLine({ modifiers: ['Size: Large'] })]));
-    expect(component.quoteNeedsReview).toBe(false);
-    expect(q(root, '[data-testid="checkout-confirm"]').length).toBe(1);
-    expect(text(root)).toContain('Are you sure you want to place this order?');
-    expect(text(root)).toContain('Order');
-    expect(text(root)).toContain('Cancel');
-    expect(q(root, '[data-testid="quote-line"]').length).toBe(0);
-    expect(text(root)).not.toContain('Review your order');
-  });
-
-  it('the plain prompt submits the SAME quote through confirmQuote', () => {
-    const root = render(payload([quoteLine()]));
-    const confirm = spyOn(component, 'confirmQuote');
-    const order = Array.from(root.querySelectorAll('[data-testid="checkout-confirm"] button'))
-      .find(b => b.textContent?.trim() === 'Order') as HTMLButtonElement;
-    order.click();
-    expect(confirm).toHaveBeenCalledTimes(1);
-  });
-
-  it('Cancel on the plain prompt returns to the basket and submits nothing', () => {
-    const root = render(payload([quoteLine()]));
-    const cancel = Array.from(root.querySelectorAll('[data-testid="checkout-confirm"] button'))
-      .find(b => b.textContent?.trim() === 'Cancel') as HTMLButtonElement;
-    cancel.click();
-    fixture.detectChanges();
-    expect(component.showQuoteSheet).toBe(false);
-    expect(api.postPatch).not.toHaveBeenCalled();
-  });
-
-  it('the plain prompt is a lock while the order is being placed', () => {
-    const root = render(payload([quoteLine()]));
-    spyOnProperty(component, 'placingOrder', 'get').and.returnValue(true);
-    fixture.detectChanges();
-    const buttons = Array.from(
-      root.querySelectorAll('[data-testid="checkout-confirm"] button')) as HTMLButtonElement[];
-    expect(buttons.length).toBe(2);
-    expect(buttons.every(b => b.disabled)).toBe(true);
-    component.cancelQuote();
-    expect(component.showQuoteSheet).toBe(true);
+    expect(component.quoteDiffersFromBasket).withContext('premise: equal totals').toBe(false);
+    expect(component.quoteHasLosses).withContext('premise: nothing dropped').toBe(false);
+    expect(component.quoteNeedsReview).toBe(true);
+    expect(q(root, '[data-testid="checkout-confirm"]').length).toBe(0);
+    expect(q(root, '[data-testid="quote-line-modifiers"]')[0].textContent)
+      .toContain('Size: Large');
   });
 
   it('A CHANGED TOTAL gets the itemised review, never the plain prompt', () => {
