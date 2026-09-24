@@ -84,7 +84,26 @@ so keep it current when conventions change.
   new objects per call, so `track tag` re-created every pill on every pass (NG0956)
   and a dev build left them blank (NG0100). Pinned by
   `menu-item-detail.allergen-info.spec.ts` and `allergen-info-sheet.component.spec.ts`.
-  The basket's own dietary-requests notice is a separate, unchanged element
+  **THE BASKET FOLLOWS THE SAME FORMAT (ALLERGEN-INFO-01).** Its always-open amber box
+  ("We're unable to take custom dietary or special-prep requests…"), which sat between
+  "Total to pay" and the Checkout bar, is GONE. The same link now sits at the top of the
+  sticky Checkout bar, above the button it qualifies, with its 44px target pulled into the
+  bar's top padding. It opens the same sheet with `context="basket"`, which leads with the
+  special-requests sentence, keeps the two shared safety sentences, and points to each
+  dish's own info and the menu Filters (conditionally, because the Filters button only
+  exists when something is tagged) instead of listing tags. Two layering rules, both
+  load-bearing: **THE SHEET IS MOUNTED AT THE BASKET TEMPLATE'S ROOT, NOT IN THE BAR**,
+  since the bar is sticky and so its own stacking context; and **THE DESKTOP SIDEBAR
+  `<aside>` CARRIES `lg:z-[45]`**, because `sticky` makes it a stacking context too, so
+  every overlay the sidebar basket opens (the checkout prompt, the review sheet, this
+  sheet) paints at the aside's layer. With no z-index that layer sat under the menu's
+  z-10 quick-add buttons and z-40 nav bar: a "+" landed on top of the checkout prompt's
+  Order button on desktop. 45 clears those and stays under every page-level overlay
+  (z-50 sheets, the z-[60] filter sheet, z-[100] toasts). The sheet is NOT rendered by
+  the shell: the portal's `rest-app-ordering` embed loads the diner routes WITHOUT the
+  shell, so a shell-owned sheet would leave the embed's link dead. Pinned by
+  `basket-body.allergen-info.spec.ts`; the z-index has no unit pin (Karma's window is
+  below `lg`) and was proved in a real browser, where reverting it fails the backdrop checks
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
   menu card, featured carousel, basket) now renders through the shared
   presentational trio (`app-price-display` / `app-discount-badge` /

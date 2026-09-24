@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angular/core';
 
 /**
- * The subtle "ⓘ Allergens & dietary info" link on the diner item-detail page.
- * It opens `app-allergen-info-sheet`, which the HOST mounts, because the link
- * sits inside the page's content sheet and the pop-up must not (see that
- * component's docstring for why).
+ * The subtle "ⓘ Allergens & dietary info" link on the diner item-detail page,
+ * and in the basket's checkout bar. It opens `app-allergen-info-sheet`, which
+ * the HOST mounts, because on both pages the link sits inside a stacking
+ * context (the item page's content sheet, the basket's sticky bar) and the
+ * pop-up must not (see that component's docstring for why).
  *
  * Shown on EVERY dish. The amber banner it replaced was gated on the dish
  * having tags, so a dish with none (often one sold with modifiers and extras)

@@ -8,6 +8,15 @@ import { SheetComponent } from '../sheet/sheet.component';
  * the allergen-safety guidance, then the allergen and dietary tags the
  * restaurant put on this dish.
  *
+ * TWO CONTEXTS, ONE SET OF SAFETY SENTENCES. `dish` (the item page) lists the
+ * dish's own tags. `basket` (opened from the basket's checkout bar) has no
+ * single dish to describe, so it leads with the
+ * basket's own policy, that the restaurant
+ * cannot take custom dietary or special-prep requests, and points back to each
+ * dish's info and the menu filter. That sentence used to sit in an always-open
+ * amber box between the total and the Checkout button. Both contexts share the
+ * two safety sentences, so the item page and the basket cannot drift apart.
+ *
  * MOUNT IT OUTSIDE ANY STACKING CONTEXT, NEVER BESIDE THE LINK. The sheet is
  * `position: fixed` at `z-50`, which only beats the diner shell's sticky brand
  * strip (`z-40`) in the ROOT stacking context. The item-detail content sheet
@@ -64,6 +73,11 @@ import { SheetComponent } from '../sheet/sheet.component';
             Important information
           </p>
           <ul class="mt-2 list-disc pl-5 space-y-1.5 text-body text-gray-700 marker:text-gray-400">
+            @if (context === 'basket') {
+              <li data-testid="allergen-no-requests">
+                We're unable to take custom dietary or special-prep requests.
+              </li>
+            }
             <li>Food allergies? Please ask restaurant staff to confirm before ordering.</li>
             <li>Menu tags are added by the restaurant. They may be incomplete and do not guarantee allergen safety.</li>
             @if (hasChoices) {
@@ -74,30 +88,41 @@ import { SheetComponent } from '../sheet/sheet.component';
           </ul>
         </div>
 
-        <section data-testid="allergen-tags">
-          <h3 class="text-micro font-semibold uppercase tracking-wide text-gray-500 mb-3">Allergens</h3>
-          @if (allergenTags.length > 0) {
-            <div class="flex flex-wrap gap-2">
-              @for (tag of allergenTags; track $index) {
-                <app-tag-pill [name]="tag.name" [icon]="tag.icon" [colour]="tag.colour" size="md"></app-tag-pill>
-              }
-            </div>
-          } @else {
-            <p class="text-body text-gray-600" data-testid="allergen-none-flagged">
-              The restaurant hasn't flagged any allergens for this dish. That doesn't mean it's free of them.
+        @if (context === 'basket') {
+          <section data-testid="allergen-basket-guidance">
+            <h3 class="text-micro font-semibold uppercase tracking-wide text-gray-500 mb-3">Your dishes</h3>
+            <p class="text-body text-gray-600">
+              Each dish's allergen and dietary tags are under "Allergens &amp; dietary info" on its
+              page. If the restaurant has tagged allergens, the menu's filters can hide dishes that
+              carry them.
             </p>
-          }
-        </section>
-
-        @if (dietaryTags.length > 0) {
-          <section data-testid="dietary-tags">
-            <h3 class="text-micro font-semibold uppercase tracking-wide text-gray-500 mb-3">Dietary</h3>
-            <div class="flex flex-wrap gap-2">
-              @for (tag of dietaryTags; track $index) {
-                <app-tag-pill [name]="tag.name" [icon]="tag.icon" [colour]="tag.colour" size="md"></app-tag-pill>
-              }
-            </div>
           </section>
+        } @else {
+          <section data-testid="allergen-tags">
+            <h3 class="text-micro font-semibold uppercase tracking-wide text-gray-500 mb-3">Allergens</h3>
+            @if (allergenTags.length > 0) {
+              <div class="flex flex-wrap gap-2">
+                @for (tag of allergenTags; track $index) {
+                  <app-tag-pill [name]="tag.name" [icon]="tag.icon" [colour]="tag.colour" size="md"></app-tag-pill>
+                }
+              </div>
+            } @else {
+              <p class="text-body text-gray-600" data-testid="allergen-none-flagged">
+                The restaurant hasn't flagged any allergens for this dish. That doesn't mean it's free of them.
+              </p>
+            }
+          </section>
+
+          @if (dietaryTags.length > 0) {
+            <section data-testid="dietary-tags">
+              <h3 class="text-micro font-semibold uppercase tracking-wide text-gray-500 mb-3">Dietary</h3>
+              <div class="flex flex-wrap gap-2">
+                @for (tag of dietaryTags; track $index) {
+                  <app-tag-pill [name]="tag.name" [icon]="tag.icon" [colour]="tag.colour" size="md"></app-tag-pill>
+                }
+              </div>
+            </section>
+          }
         }
       </div>
     </app-dn-sheet>
@@ -109,6 +134,8 @@ export class AllergenInfoSheetComponent {
   @Input() tags: readonly MenuItemTagRef[] = [];
   /** The dish has modifier groups or extras, so the diner can change it. */
   @Input() hasChoices = false;
+  /** `dish` lists this dish's tags; `basket` gives the basket-wide guidance. */
+  @Input() context: 'dish' | 'basket' = 'dish';
   /** Fired by the close button, the backdrop and Escape alike. */
   @Output() closed = new EventEmitter<void>();
 

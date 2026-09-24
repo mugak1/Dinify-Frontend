@@ -17,7 +17,7 @@ const SPICY = tag('s', 'Spicy', 'descriptor');
   standalone: true,
   imports: [AllergenInfoSheetComponent],
   template: `
-    <app-allergen-info-sheet [open]="open" [tags]="tags" [hasChoices]="hasChoices"
+    <app-allergen-info-sheet [open]="open" [tags]="tags" [hasChoices]="hasChoices" [context]="context"
       (closed)="closedCount = closedCount + 1; open = false"></app-allergen-info-sheet>
   `,
 })
@@ -25,6 +25,7 @@ class HostComponent {
   open = true;
   tags: MenuItemTagRef[] = [];
   hasChoices = false;
+  context: 'dish' | 'basket' = 'dish';
   closedCount = 0;
 }
 
@@ -97,6 +98,37 @@ describe('AllergenInfoSheetComponent', () => {
     expect(render({ hasChoices: false }).querySelector('[data-testid="allergen-choices-note"]')).toBeNull();
     expect(text(render({ hasChoices: true }).querySelector('[data-testid="allergen-choices-note"]')))
       .toBe('This covers the dish on its own. The options and extras you choose may contain other allergens.');
+  });
+
+  // ── the basket context: the checkout bar's link, where the amber box was ──
+  it('BASKET: leads with the no-special-requests sentence the amber box carried, and keeps both safety sentences', () => {
+    const items = Array.from(render({ context: 'basket' })
+      .querySelectorAll('[data-testid="allergen-important-info"] li')).map((li) => text(li));
+    expect(items[0]).toBe("We're unable to take custom dietary or special-prep requests.");
+    expect(items).toContain('Food allergies? Please ask restaurant staff to confirm before ordering.');
+    expect(items).toContain(
+      'Menu tags are added by the restaurant. They may be incomplete and do not guarantee allergen safety.');
+  });
+
+  it('BASKET: points to each dish and the filters instead of listing tags, and makes no per-dish claim', () => {
+    // Tags are ignored here: the basket has no single dish to describe.
+    const root = render({ context: 'basket', tags: [GLUTEN, VEGAN] });
+    expect(text(root.querySelector('[data-testid="allergen-basket-guidance"]'))).toContain(
+      'Each dish\'s allergen and dietary tags are under "Allergens & dietary info" on its page.');
+    expect(root.querySelectorAll('app-tag-pill').length).toBe(0);
+    expect(root.querySelector('[data-testid="allergen-none-flagged"]')).toBeNull();
+  });
+
+  it('BASKET: the filter pointer is conditional, because the filters only exist when something is tagged', () => {
+    expect(text(render({ context: 'basket' }).querySelector('[data-testid="allergen-basket-guidance"]')))
+      .toContain("If the restaurant has tagged allergens, the menu's filters can hide dishes that carry them.");
+  });
+
+  it('CONTROL: the dish context carries no special-requests sentence and no basket guidance', () => {
+    const root = render({ tags: [GLUTEN] });
+    expect(root.querySelector('[data-testid="allergen-no-requests"]')).toBeNull();
+    expect(root.querySelector('[data-testid="allergen-basket-guidance"]')).toBeNull();
+    expect(pillNames(root, 'allergen-tags')).toEqual(['Contains Gluten']);
   });
 
   it('the close button closes it', () => {

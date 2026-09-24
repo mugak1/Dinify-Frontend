@@ -8,8 +8,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
  * made by the caller from the table-scan `current_order.ongoing` flag (or the
  * initiate 400 backstop).
  *
- * Styled as a compact white card with a red icon chip (deliberately lighter than
- * the flat amber allergy notice it sits alongside in the basket).
+ * Styled as a compact white card with a red icon chip.
  */
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
