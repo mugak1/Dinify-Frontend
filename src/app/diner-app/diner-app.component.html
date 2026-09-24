@@ -84,5 +84,12 @@ On non-menu routes the class is inert — the brand-strip pins opaque regardless
       </div>
     </div>
     <app-diner-footer></app-diner-footer>
+    <!-- Room for the menu's FIXED "View Basket" bar, reserved AFTER the footer so
+    the footer can scroll clear of it (MenuNavStateService.fixedBasketBarHeight).
+    Zero, and absent, everywhere the bar is not on screen. -->
+    @if (navState.fixedBasketBarHeight() > 0) {
+      <div aria-hidden="true" class="flex-shrink-0" data-testid="basket-bar-spacer"
+        [style.height.px]="navState.fixedBasketBarHeight()"></div>
+    }
   </div>
 }

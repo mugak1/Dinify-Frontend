@@ -123,6 +123,16 @@ export class MenuNavStateService {
   menuBannerStackHeight: WritableSignal<number | null> = signal<number | null>(null);
 
   /**
+   * Height (px) of the menu's FIXED "View Basket" bar while it is on screen, 0
+   * otherwise. Set by the menu component's ResizeObserver, which also reads 0 at
+   * lg:+, where the bar is hidden. The shell reserves this much space after the
+   * diner footer so the footer can scroll clear of the bar: the menu's own
+   * bottom padding sits ABOVE the footer, so it kept the last dish clear and
+   * left the footer permanently underneath the bar.
+   */
+  readonly fixedBasketBarHeight: WritableSignal<number> = signal(0);
+
+  /**
    * Total vertical space occupied by the sticky header + nav bar from the
    * viewport top, in pixels. Drives both the section scroll-margin-top
    * (so clicked pills land flush against the nav bar bottom) and — by
@@ -351,6 +361,10 @@ export class MenuNavStateService {
    *  height. See `menuBannerStackHeight`. */
   setMenuBannerStackHeight(px: number | null): void {
     this.menuBannerStackHeight.set(px);
+  }
+
+  setFixedBasketBarHeight(px: number): void {
+    this.fixedBasketBarHeight.set(px);
   }
 
   setPendingClickTarget(target: string): void {

@@ -144,8 +144,11 @@
   <!-- Search mode: flat, ranked results (no sections, no featured). Shown only while
   the query is non-blank; the browse view below handles the empty-query case. -->
   @if (!navState.isLoading() && navState.searchQuery().trim()) {
+    <!-- pb-24 clears the FIXED basket bar only in the portal embed: there is no
+    diner shell there, so no footer and no space reserved after it. In the diner
+    shell that space comes after the footer instead (see the bar below). -->
     <div
-      class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0">
+      class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0 && isInRestApp">
       @if (navState.searchResults().length > 0) {
         <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
           @for (i of navState.searchResults(); track trackItem($index, i)) {
@@ -163,7 +166,7 @@
   }
 
   @if (!navState.isLoading() && !navState.searchQuery().trim() && navState.filteredMenuList()) {
-    <div class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0" appScrollSpy [spiedTags]="['DIV']" [stickyOffset]="navState.navStackHeight()" (sectionChange)="onSectionChange($event)">
+    <div class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0 && isInRestApp" appScrollSpy [spiedTags]="['DIV']" [stickyOffset]="navState.navStackHeight()" (sectionChange)="onSectionChange($event)">
       <!-- Featured Section: horizontal-scrolling carousel of items with is_featured.
       Items also continue to render in their natural category sections below
       (intentional merchandising parity).
@@ -243,9 +246,13 @@
     (cardClick)="viewItem(i)"></app-menu-dish-card>
   </ng-template>
 </div>
-<!-- Floating Basket Bar -->
+<!-- Floating Basket Bar. It is FIXED, so in the diner shell the space it covers
+is reserved AFTER the diner footer (measured through #basketBar), not by bottom
+padding on the menu: padding here sat above the footer and left the footer
+permanently underneath this bar. The portal embed has no shell, so there the
+menu keeps its own pb-24 (see the list containers above). -->
 @if (basketItems.length > 0) {
-  <div
+  <div #basketBar
     class="fixed bottom-0 left-0 right-0 z-30 p-3 bg-white border-t border-gray-200 shadow-lg lg:hidden">
     <button app-dn-button variant="cta"
       [routerLink]="['/diner/basket']"

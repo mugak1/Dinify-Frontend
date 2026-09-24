@@ -1,8 +1,12 @@
-<footer class="pt-6 pb-6 border-t border-gray-200 text-center">
-  <div class="text-xs text-gray-500 mb-3">
+<!-- Compact on purpose: it closes every diner page, below that page's own bottom
+bar, so its padding is the last thing above the browser's toolbar. It used to
+carry 21px above and below plus a 10.5px gap, which left the links floating
+well clear of the bottom edge. -->
+<footer class="pt-4 pb-3 border-t border-gray-200 text-center">
+  <div class="text-xs text-gray-500 mb-1.5">
     © {{ currentYear }} Dinify. All rights reserved.
   </div>
-  <nav class="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-gray-500" aria-label="Footer">
+  <nav class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-gray-500" aria-label="Footer">
     <a routerLink="/privacy" class="hover:text-gray-700 hover:underline transition-colors">Privacy Policy</a>
     <span aria-hidden="true" class="text-gray-300">·</span>
     <a routerLink="/terms" class="hover:text-gray-700 hover:underline transition-colors">Terms and Conditions</a>

@@ -104,6 +104,18 @@ so keep it current when conventions change.
   shell, so a shell-owned sheet would leave the embed's link dead. Pinned by
   `basket-body.allergen-info.spec.ts`; the z-index has no unit pin (Karma's window is
   below `lg`) and was proved in a real browser, where reverting it fails the backdrop checks
+- The diner footer is COMPACT and never sits under a fixed bar (DINER-FOOTER-00): ✅ it
+  closes every diner page, so its padding is the last thing above the browser's toolbar.
+  It went from 21px above and below plus a 10.5px gap (82px) to `pt-4 pb-3` and
+  `mb-1.5` (59px). **THE MENU'S FIXED "View Basket" BAR USED TO HIDE IT FOR GOOD**: the
+  only space reserved for that bar was the menu list's `pb-24`, which sits ABOVE the
+  footer, so with anything in the basket the footer could never be scrolled into view.
+  The menu now publishes the bar's measured height (`#basketBar` + a ResizeObserver →
+  `MenuNavStateService.fixedBasketBarHeight`, 0 at `lg:` where the bar is hidden, reset
+  on destroy) and the shell renders a spacer of that height AFTER the footer. The list
+  keeps `pb-24` ONLY when `isInRestApp`: the portal embed has no shell, so no footer and
+  no spacer, and the bar would otherwise cover the last dish there. Pinned by
+  `menu.component.spec.ts` and `diner-app.component.spec.ts`
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
   menu card, featured carousel, basket) now renders through the shared
   presentational trio (`app-price-display` / `app-discount-badge` /

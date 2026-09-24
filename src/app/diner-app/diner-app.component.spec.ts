@@ -199,6 +199,47 @@ describe('DinerAppComponent', () => {
     expect(chip?.textContent).toContain('Table 7');
   });
 
+  // ── room for the menu's fixed basket bar, after the footer ───────────────
+  // The menu publishes its fixed "View Basket" bar's height; the shell reserves
+  // it AFTER the footer so the footer can scroll clear of the bar.
+  describe('space for the menu\'s fixed basket bar', () => {
+    const scan = () => {
+      component.getTableDetails('good-id');
+      httpMock.expectOne(r => r.url.includes('table-scan')).flush({
+        data: {
+          id: 'good-id', number: 7,
+          restaurant: { id: 'r1', name: 'Test Restaurant', branding_configuration: {} },
+        },
+      });
+      fixture.detectChanges();
+    };
+    const spacer = () =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-testid="basket-bar-spacer"]');
+
+    afterEach(() => component.navState.setFixedBasketBarHeight(0));
+
+    it('reserves the bar\'s height AFTER the footer while the bar is on screen', () => {
+      scan();
+      component.navState.setFixedBasketBarHeight(68);
+      fixture.detectChanges();
+      expect(spacer()).not.toBeNull();
+      expect(spacer()!.style.height).toBe('68px');
+      const footer = (fixture.nativeElement as HTMLElement).querySelector('app-diner-footer')!;
+      expect(footer.compareDocumentPosition(spacer()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(spacer()!.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('CONTROL: reserves nothing when no bar is on screen', () => {
+      scan();
+      expect(spacer()).toBeNull();
+      component.navState.setFixedBasketBarHeight(68);
+      fixture.detectChanges();
+      component.navState.setFixedBasketBarHeight(0);
+      fixture.detectChanges();
+      expect(spacer()).toBeNull();
+    });
+  });
+
   // ── basket safety on table change ────────────────────────────────────────
   it('clears the basket when a re-scan lands on a DIFFERENT table', () => {
     const clearSpy = spyOn(component.basketService, 'clearBasket').and.callThrough();

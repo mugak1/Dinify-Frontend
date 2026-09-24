@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { ChangeDetectionStrategy, Component, NO_ERRORS_SCHEMA, inject } from '@angular/core';
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -12,6 +12,7 @@ import { DinersMenuComponent } from './menu.component';
 import { ConnectivityService } from '../../_services/connectivity.service';
 import { BasketService } from '../../_services/basket.service';
 import { BasketItem } from '../../_models/app.models';
+import { MenuNavStateService } from './menu-nav-state.service';
 
 describe('DinersMenuComponent', () => {
   let component: DinersMenuComponent;
@@ -199,5 +200,127 @@ describe('DinersMenuComponent', () => {
 
       expect(component.totalAmount).toBe(1002);
     });
+  });
+
+  // The FIXED "View Basket" bar used to cover the diner footer for good: the
+  // only space reserved for it was this list's own bottom padding, which sits
+  // ABOVE the footer. The bar now publishes its height and the shell reserves
+  // that space AFTER the footer (see diner-app.component.spec.ts).
+  describe('the fixed basket bar and the diner footer', () => {
+    const addBurger = () => TestBed.inject(BasketService).addItem({
+      itemId: 'i1', itemName: 'Burger', basePrice: 1000, totalPrice: 1000,
+      quantity: 1, isDiscounted: false, extras: [], selectedModifiers: [],
+    } as unknown as BasketItem);
+    // Two frames: the ResizeObserver reports after layout.
+    const settle = async () => {
+      for (let i = 0; i < 2; i++) await new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r)));
+    };
+    const bar = () => (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('div.fixed.bottom-0');
+
+    afterEach(() => TestBed.inject(BasketService).clearBasket());
+
+    it('publishes the bar\'s height while it is on screen', async () => {
+      addBurger();
+      fixture.detectChanges();
+      await settle();
+      expect(bar()).withContext('premise: the fixed bar is rendered').not.toBeNull();
+      expect(bar()!.offsetHeight).withContext('premise: visible below the lg breakpoint').toBeGreaterThan(0);
+      expect(component.navState.fixedBasketBarHeight()).toBe(bar()!.offsetHeight);
+    });
+
+    it('reserves nothing once the basket empties, or after the menu leaves', async () => {
+      addBurger();
+      fixture.detectChanges();
+      await settle();
+      expect(component.navState.fixedBasketBarHeight()).withContext('premise').toBeGreaterThan(0);
+
+      TestBed.inject(BasketService).clearBasket();
+      fixture.detectChanges();
+      expect(bar()).toBeNull();
+      expect(component.navState.fixedBasketBarHeight()).toBe(0);
+
+      addBurger();
+      fixture.detectChanges();
+      await settle();
+      const navState = component.navState;
+      expect(navState.fixedBasketBarHeight()).withContext('premise: back on screen').toBeGreaterThan(0);
+      fixture.destroy();
+      expect(navState.fixedBasketBarHeight()).toBe(0);
+    });
+
+    it('keeps the list\'s own pb-24 only in the portal embed, which has no shell to reserve the space', async () => {
+      component.restaurant = approvedRestaurant();
+      fixture.detectChanges();
+      httpMock.expectOne(r => r.url.includes('show-menu'))
+        .flush({ data: [{ name: 'Mains', items: [] }], item_sort_mode: 'manual' });
+      await settle(); // the skeleton stays up until the image preload resolves
+      addBurger();
+      fixture.detectChanges();
+      const list = () => (fixture.nativeElement as HTMLElement).querySelector('[appscrollspy]')!;
+      expect(list()).withContext('premise: the browse list rendered').not.toBeNull();
+      expect(list().classList.contains('pb-24')).withContext('diner shell').toBe(false);
+
+      component.isInRestApp = true;
+      fixture.detectChanges();
+      expect(list().classList.contains('pb-24')).withContext('portal embed').toBe(true);
+    });
+  });
+});
+
+/**
+ * The menu WRITES the bar height during its own change detection (the view
+ * query setter), and the diner shell, its PARENT, READS it. A parent binding
+ * that changes after it was checked is exactly what dev-mode `checkNoChanges`
+ * reports as NG0100. This host reproduces that arrangement, and TestBed runs
+ * `checkNoChanges` on every `detectChanges()`.
+ */
+@Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
+  selector: 'app-spacer-host',
+  standalone: false,
+  template: `<span id="reserved">{{ nav.fixedBasketBarHeight() }}</span><app-diners-menu></app-diners-menu>`,
+})
+class SpacerHostComponent {
+  readonly nav = inject(MenuNavStateService);
+}
+
+describe('DinersMenuComponent: the bar height reaches a parent that was already checked', () => {
+  let fixture: ComponentFixture<SpacerHostComponent>;
+  const settle = async () => {
+    for (let i = 0; i < 2; i++) await new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r)));
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [SpacerHostComponent, DinersMenuComponent],
+      providers: [
+        provideHttpClient(withXhr()), provideHttpClientTesting(), provideRouter([]),
+        { provide: WINDOW, useValue: window },
+        { provide: STORAGE_KEY_PREFIX, useValue: '' },
+        { provide: ConnectivityService, useValue: { isOffline: () => false } },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
+    }).compileComponents();
+    fixture = TestBed.createComponent(SpacerHostComponent);
+  });
+
+  afterEach(() => TestBed.inject(BasketService).clearBasket());
+
+  it('shows, then clears, without an ExpressionChanged error', async () => {
+    const reserved = () => (fixture.nativeElement as HTMLElement).querySelector('#reserved')!.textContent;
+    TestBed.inject(BasketService).addItem({
+      itemId: 'i1', itemName: 'Burger', basePrice: 1000, totalPrice: 1000,
+      quantity: 1, isDiscounted: false, extras: [], selectedModifiers: [],
+    } as unknown as BasketItem);
+    expect(() => fixture.detectChanges()).not.toThrow();
+    await settle();
+    fixture.detectChanges();
+    expect(Number(reserved())).withContext('premise: the bar was measured').toBeGreaterThan(0);
+
+    // The basket empties while the menu is on screen: the setter clears the
+    // height DURING the menu's check, after the host's binding was checked.
+    TestBed.inject(BasketService).clearBasket();
+    expect(() => fixture.detectChanges()).not.toThrow();
+    expect(reserved()).toBe('0');
   });
 });
