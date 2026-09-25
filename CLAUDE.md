@@ -3351,6 +3351,21 @@ so keep it current when conventions change.
   coordination working, not a defect. A backend deployment will NOT: its serving is
   unobservable until B3, so the gate compares only the approved source receipt, and a
   backend contract change surfaces when its receipt is refreshed here
+- **AND IT HAPPENED AGAIN, EXACTLY AS PREDICTED (D08 receipt refresh, 2026-09-25).** ✅
+  Admin #28/#29 deployed `1993a08`, and readiness run `36146235129` on `3a16e84` refused
+  `peers.admin_serving_unapproved` beside the six prerequisites — `not-a-waiting-state`,
+  publisher skipped. The remedy is compatible set **`2026-09-25-pilot-5`**: Admin
+  `1993a08` (the #29 merge, receipt `sha256:96df2207…`) replaces `3521ebd`, produced by
+  `peer-receipt` at the exact merged commit and re-derived by the independent Python
+  implementation over a fresh clone. **Only the Admin approval moved**; backend `a6b25a6`
+  stands. The interval did not touch the receipt-bearing `deploy.yml` (blob `0e210bf`
+  unchanged). `ad4a7f8` (#28) was deployed for about two and a half hours in between,
+  was never observed by the gate and is not approved. `committed-policy.test.mjs` now
+  replays run `36146235129`'s decision as a WHOLE VALUE: its digest is the
+  `decisionDigest` that run's readiness record carries (`sha256:03c51055…`). The
+  2026-09-24 block is kept as history pinned to its own set, so it no longer depends on
+  what the policy approves today. Release suite 580 → **584**. Nothing was added to
+  `publication.readiness.awaiting`
 - Tenant-isolation closure (frontend regression gate): ✅ a focused
   `src/app/_security/` layer pins the client-side tenant-boundary invariants.
   `diner-capability-contract.ts` is the single source of truth for the diner

@@ -171,7 +171,7 @@
       "The frontend's own commit is deliberately not pinned: a file cannot contain the",
       "SHA of the commit that introduces it."
     ],
-    "id": "2026-09-24-pilot-4",
+    "id": "2026-09-25-pilot-5",
     "frontendRequires": {
       "buildConfiguration": "uat"
     },
@@ -196,12 +196,12 @@
       "admin": {
         "repository": "mugak1/Dinify-Admin",
         "receiptVerification": "public-repository",
-        "_approvedHistory": "38df037 (the Admin #25 merge) was the first approved Admin revision. It was REPLACED on 2026-09-24 by 3521ebd (the Admin #27 merge) after review of the two merges between them: #26 moved the SHA-pinned aws-actions/configure-aws-credentials in deploy.yml from v6.2.4 to v6.3.0 (the receipt-bearing blob, c1a5e7c -> 0e210bf), and #27 changed test-restaurant wording, comments and specs only. 38df037's receipt stays under release/peers/ as history and is no longer approved, so an Admin rollback to it is refused as peers.admin_serving_unapproved until it is approved again in a reviewed change.",
+        "_approvedHistory": "38df037 (the Admin #25 merge) was the first approved Admin revision. It was REPLACED on 2026-09-24 by 3521ebd (the Admin #27 merge) after review of the two merges between them: #26 moved the SHA-pinned aws-actions/configure-aws-credentials in deploy.yml from v6.2.4 to v6.3.0 (the receipt-bearing blob, c1a5e7c -> 0e210bf), and #27 changed test-restaurant wording, comments and specs only. 3521ebd was in turn REPLACED on 2026-09-25 by 1993a08 (the Admin #29 merge) after review of #28 and #29: the receipt-bearing deploy.yml blob is unchanged (0e210bf); #28 added the dependency audit to ci.yml, rewrote the scheduled audit.yml, added three package.json scripts and moved five dev-tooling lock entries within range (fast-uri, js-yaml, hono, qs, karma's body-parser), and #29 changed only the audit's report reader, its tests and docs. ad4a7f8 (the #28 merge) was deployed between them and was never approved: no readiness run observed it. The 38df037 and 3521ebd receipts stay under release/peers/ as history and neither is approved, so an Admin rollback to either is refused as peers.admin_serving_unapproved until it is approved again in a reviewed change.",
         "approved": [
           {
-            "commit": "3521ebd05e5623878d262152bde11734b9cbd4fc",
-            "receipt": "release/peers/admin-3521ebd05e5623878d262152bde11734b9cbd4fc.json",
-            "receiptDigest": "sha256:e58f7ff5fdd0deb0b21d3b78f8b7fd55f2b56781210f8027a2f640b343debfb1"
+            "commit": "1993a087b2f2a37cbce8cf97c5c55c55b804e8ca",
+            "receipt": "release/peers/admin-1993a087b2f2a37cbce8cf97c5c55c55b804e8ca.json",
+            "receiptDigest": "sha256:96df2207aa3cf5fd94b3c10946a543d950f18dd1db9a844669ca97ebc81e5538"
           }
         ],
         "serving": {
