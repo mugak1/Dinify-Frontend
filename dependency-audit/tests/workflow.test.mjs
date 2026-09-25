@@ -11,11 +11,15 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { readdirSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 
+import { runWorkflow } from '../../release/tests/workflow-engine.mjs';
+import { auditedProject, HIGH_RUNTIME_MISSING_CAUSE, SUPPORTED_CHAIN } from './project.mjs';
 import { commandOf, loadWorkflow, runStep, simulateJob, statusSwallowers } from './workflow-harness.mjs';
 import { parseYaml } from './yaml-subset.mjs';
 
@@ -110,6 +114,131 @@ describe('the audit is part of BOTH required validation paths', () => {
     assert.equal(PKG.scripts['audit:snapshot'], 'node dependency-audit/cli.mjs snapshot');
     assert.equal(PKG.scripts['audit:deps'], 'node dependency-audit/cli.mjs self-test && node dependency-audit/cli.mjs audit');
     assert.equal(PKG.scripts['test:audit'], 'node --test dependency-audit/tests/*.test.mjs');
+  });
+});
+
+describe('an unaccounted vulnerability fails `validate` and leaves NO candidate — decided by the real evaluator, carried by the real steps', () => {
+  // The chain is EXECUTED, not assumed, four links long:
+  //   1. the real audit() decides a SYNTHETIC answer injected at its runner seam, and
+  //      leaves its evidence on disk;
+  //   2. the `npm run audit:deps` step exactly as each job declares it runs under the
+  //      runner's default shell, with `npm` answered by the REAL `evaluate` command over
+  //      that evidence — so the step's status is the evaluator's own exit status;
+  //   3. GitHub's step sequencing over the actual `validate` and `certify` steps turns
+  //      that status into each job's conclusion;
+  //   4. the release engine EXECUTES publish.yml for a Certify run that concluded that
+  //      way, with the publication variable ON and the credential PRESENT, and records
+  //      every step, secret read and publisher call.
+  const within = (answer, fn) => { const p = auditedProject(answer); try { return fn(p); } finally { p.cleanup(); } };
+  const jobWith = (steps, p) => {
+    const scanStep = steps[indexOfRun(steps, SCAN)];
+    const step = runStep(scanStep.run, { npmBody: p.evaluateCommand });
+    const job = simulateJob(steps, (s) => (s === scanStep ? (step.status === 0 ? 'success' : 'failure') : 'success'));
+    return { step, job };
+  };
+  const CANDIDATE = ['Resolve the shipping configuration from the committed policy', 'Build the shipping candidate', 'Stamp the release identity and provenance', 'Upload the candidate'];
+  const RETAIN = 'Retain the dependency-audit evidence';
+
+  for (const [name, steps] of Object.entries(JOBS)) {
+    it(`REGRESSION MATRIX (${name}): a HIGH runtime entry whose cause the report does not list turns the job red with status 2`, () => within(HIGH_RUNTIME_MISSING_CAUSE, (p) => {
+      assert.equal(p.result.outcome, 'incomplete');
+      const { step, job } = jobWith(steps, p);
+      assert.equal(step.status, 2, step.stdout + step.stderr);
+      assert.match(step.stdout, /scanner_dangling_cause/);
+      assert.equal(job.conclusion, 'failure');
+    }));
+
+    it(`CONTROL (${name}): the same path with a supported dependency chain is green`, () => within(SUPPORTED_CHAIN, (p) => {
+      const { step, job } = jobWith(steps, p);
+      assert.equal(step.status, 0, step.stdout + step.stderr);
+      assert.equal(job.conclusion, 'success');
+    }));
+  }
+
+  it('REGRESSION MATRIX (certify): that failure builds, stamps and uploads NOTHING', () => within(HIGH_RUNTIME_MISSING_CAUSE, (p) => {
+    const { job } = jobWith(JOBS.certify, p);
+    for (const step of CANDIDATE) assert.deepEqual(job.ran.find(([n]) => n === step), [step, 'skipped']);
+    // CONTROL: a supported chain does reach them, so the skip above is the audit's doing.
+    within(SUPPORTED_CHAIN, (q) => {
+      const green = jobWith(JOBS.certify, q).job;
+      for (const step of CANDIDATE) assert.deepEqual(green.ran.find(([n]) => n === step), [step, 'success']);
+    });
+  }));
+
+  it('REGRESSION MATRIX: the evidence is retained on that failure in both jobs, and `if: always()` does not rescue either', () => within(HIGH_RUNTIME_MISSING_CAUSE, (p) => {
+    for (const [name, steps] of Object.entries(JOBS)) {
+      const { job } = jobWith(steps, p);
+      const retain = steps.find((s) => s.name === RETAIN);
+      assert.equal(retain.if, 'always()', name);
+      assert.equal(retain.with.path, 'dependency-audit/evidence/', name);
+      assert.deepEqual(job.ran.find(([n]) => n === RETAIN), [RETAIN, 'success'], `${name}: the evidence step ran after the failure`);
+      assert.equal(job.conclusion, 'failure', `${name}: collecting the evidence did not turn the job green`);
+      // A retention step that itself failed would not make a failed job pass either.
+      assert.equal(simulateJob(steps, (s) => (s === retain || commandOf(s) === SCAN ? 'failure' : 'success')).conclusion, 'failure', name);
+    }
+    // What that step collects is on disk and says why: the raw answer, byte for byte, and
+    // a result that names the unaccounted cause.
+    assert.equal(readFileSync(join(p.evidence, 'application.scanner-stdout.txt'), 'utf8'), HIGH_RUNTIME_MISSING_CAUSE.stdout);
+    const result = JSON.parse(readFileSync(join(p.evidence, 'result.json'), 'utf8'));
+    assert.equal(result.outcome, 'incomplete');
+    assert.ok(result.reasons.some((r) => r.code === 'scanner_dangling_cause'));
+    assert.ok(existsSync(join(p.evidence, 'collection.json')) && existsSync(join(p.evidence, 'snapshot.json')));
+  }));
+
+  it('CONTRACT (certify): the always() summary, executed as written, states that no candidate was produced', () => {
+    const summarise = JOBS.certify.find((s) => s.name === 'Summarise');
+    assert.equal(summarise.if, 'always()');
+    const dir = mkdtempSync(join(tmpdir(), 'summarise-'));
+    try {
+      const out = join(dir, 'summary.md');
+      const r = spawnSync('bash', ['-e', '-c', summarise.run], { cwd: dir, env: { PATH: '/usr/bin:/bin', GITHUB_STEP_SUMMARY: out }, encoding: 'utf8' });
+      assert.equal(r.status, 0, r.stderr);
+      assert.match(readFileSync(out, 'utf8'), /no candidate was produced/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  const certifyRun = (conclusion) => ({
+    name: 'workflow_run', ref: 'refs/heads/main', sha: '1'.repeat(40), runId: 9701, runAttempt: 1,
+    payload: { action: 'completed', workflow_run: { id: 9700, name: CERTIFY.name, head_sha: '2'.repeat(40), head_branch: 'main', conclusion, event: 'push', path: '.github/workflows/certify.yml' } },
+  });
+  // Publication switched ON and the credential PRESENT, so nothing but the Certify
+  // conclusion stands between that run and the publisher.
+  const world = () => ({
+    log: [], token: 'simulated-token', repository: 'mugak1/Dinify-Frontend',
+    secrets: { FIREBASE_SERVICE_ACCOUNT: 'simulated-credential-never-read' }, vars: { FRONTEND_PUBLISH_ENABLED: 'true' },
+    publisher: { calls: [], published: [] },
+  });
+
+  it('LOCAL WORKFLOW SIMULATION: publish.yml, executed for the Certify run that audit failed, runs no step, reads no secret and calls no publisher', async () => {
+    const conclusion = within(HIGH_RUNTIME_MISSING_CAUSE, (p) => jobWith(JOBS.certify, p).job.conclusion);
+    assert.equal(conclusion, 'failure');
+    const w = world();
+    const result = await runWorkflow({ workflowPath: WF('publish.yml'), event: certifyRun(conclusion), world: w });
+    assert.equal(result.triggered, true, 'a completed Certify run does trigger publish.yml — the jobs are what refuse it');
+    assert.equal(result.jobs.gate.result, 'skipped');
+    assert.equal(result.jobs.publish.result, 'skipped');
+    assert.deepEqual(result.steps, []);
+    assert.deepEqual(result.secretAccess, []);
+    assert.deepEqual(w.publisher.calls, []);
+    assert.deepEqual(w.publisher.published, []);
+    assert.deepEqual(w.log.filter((e) => e.type === 'step'), []);
+  });
+
+  it('CONTROL (LOCAL WORKFLOW SIMULATION): for a SUCCESSFUL Certify run the gate job does start — the skip above is the conclusion\'s doing', async () => {
+    const conclusion = within(SUPPORTED_CHAIN, (p) => jobWith(JOBS.certify, p).job.conclusion);
+    assert.equal(conclusion, 'success');
+    const w = world();
+    const reached = [];
+    const stop = new Error('stopped at the first gate step');
+    // FAULT INJECTION: the run is halted before its first step executes, so the control
+    // proves the gate is ADMITTED without running any of it.
+    const hooks = { beforeStep: ({ job, step }) => { reached.push([job, step]); throw stop; } };
+    await assert.rejects(runWorkflow({ workflowPath: WF('publish.yml'), event: certifyRun(conclusion), world: w, hooks }), (e) => e === stop);
+    assert.equal(reached.length, 1);
+    assert.equal(reached[0][0], 'gate');
+    assert.deepEqual(w.publisher.calls, []);
   });
 });
 

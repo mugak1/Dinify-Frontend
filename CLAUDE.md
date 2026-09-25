@@ -4395,7 +4395,15 @@ graph right after `npm ci` and proves the installed tree IS that graph;
 Admin and Backend — four outcomes, `within_policy` 0 / `exceptions_only` 0 / `blocking`
 1 / `incomplete` 2; high/critical blocks in every scope, any runtime advisory blocks,
 lower-severity tooling is TRIAGE REQUIRED (visible, never "zero findings"), anything
-unevaluable is incomplete and FAILS. `conformance.json` is byte-identical in the three
+unevaluable is incomplete and FAILS. **Every vulnerability the report declares is
+accounted for, or the audit is incomplete**: a STRING `via` (a package vulnerable through
+another) is ordinary npm output and is followed to the advisory it reaches, while a name
+the report does not list, a chain or cycle reaching no advisory, a severity no reachable
+advisory supports, runtime exposure left attributed to tooling only, or a container npm
+never writes (a list or `null` where the name map belongs) exits 2, never zero findings —
+reason codes in the README, and `dependency-audit/tests/workflow.test.mjs` executes that
+failure through `validate`, `certify` (no candidate) and `publish.yml` (no step, secret or
+publisher call). `conformance.json` is byte-identical in the three
 repos and its digest is pinned in each suite. In `certify` it runs BEFORE the candidate
 is built, so a blocking or incomplete audit leaves no candidate; the release suite's
 existing CONTROL (identical `npm` command sequences in `certify` and `validate`) now
