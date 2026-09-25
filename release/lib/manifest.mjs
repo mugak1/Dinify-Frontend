@@ -33,7 +33,13 @@ import { comparable } from './storage.mjs';
 // act on. A /1 manifest is refused rather than read as /2 — its storage fields
 // mean something different, and guessing is how a barrier is bypassed.
 export const MANIFEST_SCHEMA = 'dinify.release.manifest/2';
-export const PROVENANCE_SCHEMA = 'dinify.release.provenance/1';
+// /2 (D08 B2.2): the outer record also binds the candidate's DEPENDENCY EVIDENCE — the
+// bundle retained beside dist/ (release/lib/dependency-evidence.mjs), by the digest of its
+// record and the tree digest of the whole bundle. A /1 record is still READ, so an old
+// candidate is refused by NAME (dependency.evidence_unsupported) rather than as a generic
+// malformed provenance — and it is never promoted: there is no retrofit.
+export const PROVENANCE_SCHEMA = 'dinify.release.provenance/2';
+export const LEGACY_PROVENANCE_SCHEMA = 'dinify.release.provenance/1';
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
@@ -187,9 +193,10 @@ export function validateProvenance(provenance, manifest) {
   const p = provenance;
   if (p === null || typeof p !== 'object' || Array.isArray(p)) {
     fail(problems, 'provenance.not_an_object', typeof p);
-    return { ok: false, problems };
+    return { ok: false, problems, legacy: false };
   }
-  if (p.schema !== PROVENANCE_SCHEMA) fail(problems, 'provenance.wrong_schema', String(p.schema));
+  const legacy = p.schema === LEGACY_PROVENANCE_SCHEMA;
+  if (p.schema !== PROVENANCE_SCHEMA && !legacy) fail(problems, 'provenance.wrong_schema', String(p.schema));
   if (!DIGEST_RE.test(p.artifactTreeDigest ?? '')) {
     fail(problems, 'provenance.bad_tree_digest', String(p.artifactTreeDigest));
   }
@@ -198,6 +205,14 @@ export function validateProvenance(provenance, manifest) {
   }
   if (typeof p.artifactName !== 'string' || p.artifactName.length === 0) {
     fail(problems, 'provenance.no_artifact_name', String(p.artifactName));
+  }
+  if (!legacy) {
+    const d = p.dependencyEvidence;
+    if (d === null || typeof d !== 'object' || Array.isArray(d) || d.schema !== 'dinify.release.dependency-evidence/1'
+        || !DIGEST_RE.test(String(d.recordDigest)) || !DIGEST_RE.test(String(d.treeDigest))
+        || !Number.isInteger(d.entryCount) || d.entryCount <= 0) {
+      fail(problems, 'provenance.bad_dependency_evidence', JSON.stringify(d));
+    }
   }
   if (manifest !== undefined) {
     if (p.commit !== manifest.commit) {
@@ -208,11 +223,11 @@ export function validateProvenance(provenance, manifest) {
       fail(problems, 'provenance.manifest_digest_disagrees', `${String(p.manifestDigest)} vs ${expected}`);
     }
   }
-  return { ok: problems.length === 0, problems };
+  return { ok: problems.length === 0, problems, legacy };
 }
 
 /** Build the OUTER record for a validated inner manifest and a measured tree. */
-export function buildProvenance({ manifest, artifactName, artifactTreeDigest, entryCount }) {
+export function buildProvenance({ manifest, artifactName, artifactTreeDigest, entryCount, dependencyEvidence }) {
   return {
     schema: PROVENANCE_SCHEMA,
     application: manifest.application,
@@ -224,6 +239,12 @@ export function buildProvenance({ manifest, artifactName, artifactTreeDigest, en
     artifactTreeDigest,
     entryCount,
     manifestDigest: digestOfValue(manifest),
+    dependencyEvidence: {
+      schema: dependencyEvidence.schema,
+      recordDigest: dependencyEvidence.recordDigest,
+      treeDigest: dependencyEvidence.treeDigest,
+      entryCount: dependencyEvidence.entryCount,
+    },
   };
 }
 

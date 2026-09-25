@@ -15,6 +15,7 @@ import { readFileSync, readdirSync, lstatSync, existsSync, statSync } from 'node
 import { join, posix } from 'node:path';
 
 import { digestOfValue, sha256Hex, treeDigest } from './canonical.mjs';
+import { EVIDENCE_DIR, inspectEvidenceBundle } from './dependency-evidence.mjs';
 import { cacheControlIsNoStore } from './hosting.mjs';
 import { validateManifest, validateProvenance } from './manifest.mjs';
 
@@ -50,9 +51,25 @@ export function walkTree(root) {
 }
 
 /**
- * Measure a downloaded candidate (`<root>/dist` + `<root>/provenance.json`).
- * The observation carries the file list, the tree digest, the inner manifest and its
- * digest, and the provenance's expected digest — all as data for the decision.
+ * Read every regular file under `root` into memory, keyed by its relative path, refusing
+ * what walkTree refuses. For the SMALL bundles a promotion carries (dependency evidence,
+ * an assessment) — never for a payload or a toolchain.
+ */
+export function readFilesUnder(root) {
+  if (!existsSync(root) || !statSync(root).isDirectory()) return { files: new Map(), unsafe: [] };
+  const walked = walkTree(root);
+  const files = new Map(walked.entries.map((e) => [e.path, readFileSync(join(root, e.path))]));
+  return { files, unsafe: walked.unsafe };
+}
+
+/**
+ * Measure a downloaded candidate (`<root>/dist` + `<root>/provenance.json` +
+ * `<root>/dependency-evidence/`). The observation carries the file list, the tree digest,
+ * the inner manifest and its digest, the provenance's expected digests, and the
+ * dependency evidence as inspected facts — all as data for the decision.
+ *
+ * The evidence bundle sits BESIDE dist/, never inside: it is not part of the hosted
+ * payload, is not in the payload's tree digest, and is never staged for publication.
  */
 export function observeCandidate(root, { artifactId = null } = {}) {
   const distDir = join(root, 'dist');
@@ -62,7 +79,7 @@ export function observeCandidate(root, { artifactId = null } = {}) {
     return out;
   }
   for (const name of readdirSync(root)) {
-    if (name !== 'dist' && name !== 'provenance.json') out.unsafeEntries.push(`unexpected artifact entry: ${name}`);
+    if (name !== 'dist' && name !== 'provenance.json' && name !== EVIDENCE_DIR) out.unsafeEntries.push(`unexpected artifact entry: ${name}`);
   }
   const walked = walkTree(distDir);
   out.present = true;
@@ -96,9 +113,49 @@ export function observeCandidate(root, { artifactId = null } = {}) {
     const check = validateProvenance(provenance, manifest);
     out.provenanceValid = check.ok;
     out.provenanceProblems = check.problems;
-    out.expectedTreeDigest = provenance.artifactTreeDigest;
+    out.expectedTreeDigest = provenance?.artifactTreeDigest;
+    out.provenance = { schema: provenance?.schema ?? null, legacy: check.legacy === true };
+  }
+  // THE DEPENDENCY EVIDENCE, as facts. An old (/1) candidate carries none, and says so
+  // through `provenance.legacy`; the decision refuses it by name.
+  const bundle = readFilesUnder(join(root, EVIDENCE_DIR));
+  const expected = out.provenance && !out.provenance.legacy && out.provenanceValid ? provenance.dependencyEvidence : null;
+  const inspected = inspectEvidenceBundle(bundle.files, expected);
+  out.dependencyEvidence = { ...inspected, unsafe: bundle.unsafe };
+  if (inspected.state === 'present' && !expected && !out.provenance?.legacy) {
+    out.dependencyEvidence.problems = [...inspected.problems, { code: 'evidence.not_bound', detail: 'the provenance binds no dependency evidence' }];
   }
   return out;
+}
+
+/**
+ * A prepared TOOLCHAIN directory, as data. Wider name rules than walkTree (npm scopes
+ * begin with `@`), and the same refusals: a symbolic link, a device, a socket, an unusual
+ * name, and anything at the top level other than the manifest, the lockfile and
+ * node_modules/ — so no .npmrc, hook or second entrypoint can ride along.
+ */
+export const TOOLING_ENTRY = /^[A-Za-z0-9._@][A-Za-z0-9._@+~-]*$/;
+export const TOOLING_TOP_LEVEL = Object.freeze(['node_modules', 'package-lock.json', 'package.json']);
+
+export function walkTooling(root) {
+  const entries = [];
+  const unsafe = [];
+  if (!existsSync(root) || !statSync(root).isDirectory()) return { entries, unsafe: ['no toolchain directory'], treeDigest: null };
+  for (const name of readdirSync(root)) if (!TOOLING_TOP_LEVEL.includes(name)) unsafe.push(`unexpected top-level entry: ${name}`);
+  const visit = (dir, prefix) => {
+    for (const name of readdirSync(dir).sort()) {
+      const full = join(dir, name);
+      const rel = prefix ? posix.join(prefix, name) : name;
+      if (!TOOLING_ENTRY.test(name)) { unsafe.push(`unsafe name: ${rel}`); continue; }
+      const st = lstatSync(full);
+      if (st.isSymbolicLink()) { unsafe.push(`symbolic link: ${rel}`); continue; }
+      if (st.isDirectory()) { visit(full, rel); continue; }
+      if (!st.isFile()) { unsafe.push(`not a regular file: ${rel}`); continue; }
+      entries.push({ path: rel, sha256: sha256Hex(readFileSync(full)), size: st.size });
+    }
+  };
+  visit(root, '');
+  return { entries, unsafe, treeDigest: entries.length ? treeDigest(entries) : null };
 }
 
 // ── git ─────────────────────────────────────────────────────────────────────────

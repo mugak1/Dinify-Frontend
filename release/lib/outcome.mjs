@@ -16,7 +16,12 @@
  *                        "published", "would publish" or "admitted"
  *   SKIPPED_IDENTICAL    exactly this candidate is already served
  *   SKIPPED_STALE        an older automatic candidate; a newer one is served
- *   PREFLIGHT_REFUSED    admitted, then refused inside the critical section
+ *   PREFLIGHT_REFUSED    admitted, then refused inside the critical section — or at
+ *                        the LAST BOUNDARY, by the publish command itself, before it
+ *                        read the credential or ran the tool (the fresh assessment
+ *                        aged out, an applied exception lapsed, or the toolchain in
+ *                        hand is not the admitted one). The tool never ran, so this is
+ *                        not a failed publication and is never reported as one
  *   WOULD_PUBLISH        admitted and re-checked; publication is not enabled
  *   PUBLICATION_FAILED   the tool failed and the origin does not serve the candidate
  *   PUBLISHED_VERIFIED   the origin serves this candidate's identity, `no-store`, and
@@ -83,9 +88,11 @@ export function classifyVerification(record, observed) {
  * @param {boolean|null} input.preflightOk    null when preflight did not run
  * @param {boolean} input.enabled
  * @param {string} input.publishStep         'success' | 'failure' | 'skipped' | 'cancelled'
+ * @param {boolean} [input.boundaryRefused]   the publish command refused at its last
+ *                                            boundary and ran no tool (strictly `true`)
  * @param {object|null} input.verification    classifyVerification() result, when it ran
  */
-export function summarizeOutcome({ decision, awaiting = false, preflightOk, enabled, publishStep, verification }) {
+export function summarizeOutcome({ decision, awaiting = false, preflightOk, enabled, publishStep, boundaryRefused = false, verification }) {
   if (decision === 'SKIP_IDENTICAL') return 'SKIPPED_IDENTICAL';
   if (decision === 'SKIP_STALE') return 'SKIPPED_STALE';
   // ONLY a refusal can be a recorded wait; anything else ignores the flag outright.
@@ -94,7 +101,10 @@ export function summarizeOutcome({ decision, awaiting = false, preflightOk, enab
   if (preflightOk !== true) return 'PREFLIGHT_REFUSED';
   if (enabled !== true) return 'WOULD_PUBLISH';
   if (publishStep !== 'success') {
-    return verification?.servesCandidate === true ? 'PUBLISHED_DEGRADED' : 'PUBLICATION_FAILED';
+    // Whatever the publish command SAYS, an origin serving the candidate is a publication
+    // this run cannot vouch for — so the observation is asked first.
+    if (verification?.servesCandidate === true) return 'PUBLISHED_DEGRADED';
+    return boundaryRefused === true ? 'PREFLIGHT_REFUSED' : 'PUBLICATION_FAILED';
   }
   return verification?.verified === true ? 'PUBLISHED_VERIFIED' : 'PUBLISHED_DEGRADED';
 }
