@@ -3082,7 +3082,9 @@ so keep it current when conventions change.
   relax its own gate. Actions are SHA-pinned with the version recorded beside each,
   and **`firebaseToolsVersion` is pinned too**: left at the action's default it
   resolves `latest` at run time, an unpinned executable fetched from the network into
-  the one job holding the service-account credential. `firebase.json` is checked for
+  the one job holding the service-account credential. (SUPERSEDED by B2.2, below: a
+  pinned VERSION still resolved an unreviewed GRAPH over the network in that job, so
+  the action is gone and the toolchain is a reviewed lock the gate prepares.) `firebase.json` is checked for
   `predeploy`/`postdeploy` hooks, which are shell commands that tool executes — a
   trusted deploy tool may run there, a hook specified by the thing being published may
   not.
@@ -3220,7 +3222,8 @@ so keep it current when conventions change.
   (this environment's egress policy refuses the site — the committed-policy test
   DERIVES it from the committed rewrite and says so), and any dependency audit — the
   24-hour window is a conservative limit, not audit evidence, until B2's inventory
-  rescan exists. B2 / B3 / B4 are listed in the README as what is left.
+  rescan exists (it now does — B2.2, below — and the window is deliberately
+  unchanged). B2 / B3 / B4 are listed in the README as what is left.
   **AND REVIEW ON #687 FOUND TWO RULES CHECKED AT ONLY ONE OF THE PLACES THEY
   GOVERN — two Codex P2s, both valid, both reproduced on `ce6b892` before anything
   changed, and fixed in one commit each.**
@@ -3366,6 +3369,54 @@ so keep it current when conventions change.
   2026-09-24 block is kept as history pinned to its own set, so it no longer depends on
   what the policy approves today. Release suite 580 → **584**. Nothing was added to
   `publication.readiness.awaiting`
+- **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
+  CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
+  promotion are associated with verifiable certification-time dependency evidence, and a
+  fresh assessment of that same inventory AND of the actual publication toolchain must be
+  acceptable before publication authority is used. Rebuilding, scanning current `main`,
+  moving a timestamp or resolving the publisher's graph independently cannot substitute.
+  `release/README.md` → "Dependencies" is the full account; the load-bearing points:
+  **THE EVIDENCE RIDES WITH THE CANDIDATE, OUT OF THE PAYLOAD.** `stamp` re-evaluates the
+  B2.1 audit evidence AFTER the build against the tree as it then stands and refuses if
+  any dependency input moved (so no stale evidence is attached), then writes
+  `dependency-evidence/` — the retained `package.json` + `package-lock.json`, inventory,
+  scanner identity, raw outputs and result — BESIDE `dist/`, bound by `provenance.json`
+  now `dinify.release.provenance/2` (the inner/outer split is unchanged: nothing about
+  dependencies is in the hosted payload). The gate re-derives it from the candidate's own
+  bytes and re-evaluates the RAW output, so a self-consistent bundle whose result
+  contradicts its raw answer is refused. **An old candidate (`/1`) is refused by name**
+  — `dependency.evidence_unsupported` + `dependency.assessment_missing` ("not
+  performed"); no retrofit and no bypass, rollback included.
+  **THE ASSESSMENT IS A REAL QUERY, NOW, OVER THE RETAINED GRAPH.** The gate (no
+  credential) prepares the publisher toolchain from the reviewed `release/publisher`
+  lock (`firebase-tools` 15.31.0, one exact dependency) with the pinned npm and
+  `--ignore-scripts`, measures it, then `assess`es three graphs with the pinned scanner —
+  the candidate's retained lock as a SCAN-ONLY REPLAY (two files, nothing installed, no
+  candidate script, hook or build run), the scanner's own, and the toolchain's — under the
+  TRUSTED audit policy, recording the collection's actual start and finish. Both are
+  retained as this run's artifacts and bound into the admitted record
+  (`dinify.release.record/2`) by id and digest; there is no `auditPassed: true`.
+  **THE PUBLISHER RE-ESTABLISHES IT FROM ITS OWN DOWNLOADS, TWICE.** The preflight
+  re-derives the toolchain and assessment digests, requires the assessment to be THIS
+  run's and inside its 24-hour window with no applied exception lapsed, and a moved
+  `release/` or `dependency-audit/` tree on main is `preflight.policy_advanced`. Then
+  **the publish step itself re-checks all of it with a clock read at that moment, BEFORE
+  reading the credential**, and only then runs the admitted entrypoint by absolute path,
+  in the stage, with an environment built from nothing and the credential in a `0600`
+  file. `FirebaseExtended/action-hosting-deploy` is GONE — it ran `npx
+  firebase-tools@<version>`, an unreviewed graph resolved over the network in the job
+  holding the secret. A last-boundary refusal reports `PREFLIGHT_REFUSED`, never
+  `PUBLICATION_FAILED`: no tool ran. Recovery is a NEW run, which prepares and assesses
+  afresh. **A new advisory can refuse unchanged bytes**; a scanner failure is
+  `incomplete` and red, never a wait (every `dependency.*` code is outside the readiness
+  registry, pinned by enumerating the source).
+  **WHAT IT DOES NOT DO**: bind anything to a Backend or Admin promotion; audit the GitHub
+  Actions or runner images; add self-tests for the gates' own scanners; touch
+  `deploy-prod.yml` (still the live writer, still `firebase-tools@latest`, consuming none
+  of this); relax the 24-hour certification window; approve any exception or triage
+  record. A record's path grammar admits only `application:`/`scanner:`, so a PUBLISHER
+  finding cannot be excepted — it blocks until the lock changes. Publication stays
+  disabled and nothing here grants deployment authority.
 - Tenant-isolation closure (frontend regression gate): ✅ a focused
   `src/app/_security/` layer pins the client-side tenant-boundary invariants.
   `diner-capability-contract.ts` is the single source of truth for the diner
@@ -4331,7 +4382,11 @@ Before raising any PR:
    `release/tests/*.test.mjs`: the refusal matrix that drives the pure
    `release/lib/decide.mjs` from fixtures, the adapter suites over real git and local
    HTTPS origins, and the workflow simulation that EXECUTES `publish.yml`. Pure Node,
-   no browser; about 45 seconds, most of it the simulation. Every matrix case breaks
+   no browser; about 100 seconds, most of it the simulation. **It needs the repository's
+   HISTORY** — it replays the genuine pre-B2.2 stamp from `69953f5` to prove an old
+   candidate is refused by name — so a shallow clone fails loudly; CI checks out with
+   `fetch-depth: 0`. Its advisory answers are SYNTHETIC, entering at one recorded-npm
+   seam (`release/tests/fake-npm.mjs`); nothing in it reaches the network Every matrix case breaks
    exactly ONE fact about one allowed baseline, and the positive controls assert that
    baseline is still allowed — a gate that refused everything could not pass the suite
    either
@@ -4443,8 +4498,10 @@ deploy workflow (`deploy-prod.yml`) is UNTOUCHED — it still builds with
 `--configuration=uat` (intentionally still the uat build config for now — the prod
 backend API doesn't exist yet) and pushes to the `dinify-prod` Firebase Hosting
 target on every merge to `main`. It also still resolves `firebase-tools@latest` at
-run time inside the job holding the service-account credential; `publish.yml` pins
-it, and pinning it on the live path too is a one-line follow-up. A third
+run time inside the job holding the service-account credential. `publish.yml` no
+longer runs a hosting action at all (B2.2): its toolchain is the reviewed
+`release/publisher` lock, prepared and assessed in the credential-free gate and run
+from that exact tree. The live path is deliberately not changed by that. A third
 workflow (`audit.yml`, "Dependency Audit") is a weekly (Mondays 06:30 UTC) and
 manual RE-SCAN of main with the SAME evaluator and policy — the enforcing audit is
 inside `validate` and `certify`; this exists because advisories are published between
