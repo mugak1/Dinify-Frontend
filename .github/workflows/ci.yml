@@ -11,6 +11,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          # FULL HISTORY: the release suite replays the GENUINE pre-B2.2 stamp from this
+          # repository's own history (release/tests/harness.mjs → commitPreB22Release)
+          # to prove an old candidate is refused by name. A shallow clone lacks it.
+          fetch-depth: 0
 
       - name: State what this run validated
         # WHAT A RUN TESTED IS PART OF ITS RESULT. On a pull request `actions/checkout`

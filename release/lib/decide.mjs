@@ -46,6 +46,7 @@ import { peerReasons } from './peers.mjs';
 import { comparable, locationChanges, unreadableByCandidate } from './storage.mjs';
 import { clientExpectationsFrom } from './manifest.mjs';
 import { canonicalJson, digestOfValue } from './canonical.mjs';
+import { assessmentReasons, evidenceReasons, toolingReasons } from './dependency-evidence.mjs';
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
@@ -100,13 +101,17 @@ export function selectCertifiedArtifact(listing, { runId, runAttempt }) {
  * @param {object} input.baseline        the bootstrap baseline's storage declaration, when nothing is served
  * @param {object} input.eligibility     {relationToMinimum}
  * @param {object} input.peers           receipts, public-repository verification and serving observations
- * @param {object} input.trusted         facts about the trusted checkout itself ({legacyPublisherPresent})
+ * @param {object} input.trusted         facts about the trusted checkout itself ({legacyPublisherPresent,
+ *                                       revision, auditPolicySha256, scannerLockfileSha256,
+ *                                       publisherLockfileSha256, publisherManifestSha256})
+ * @param {object} input.dependencies    the FRESH half (D08 B2.2): {assessment, tooling, uploads}
+ * @param {object} input.evaluation      {runId, runAttempt} of THIS evaluation
  * @param {string} input.now             ISO-8601 Z
  */
 export function decide(input) {
   const {
     policy, request, certification, artifact, source, hosting, served,
-    baseline, eligibility, peers, trusted, now,
+    baseline, eligibility, peers, trusted, dependencies, evaluation, now,
   } = input ?? {};
   const mode = request?.mode;
   const trigger = request?.trigger;
@@ -183,9 +188,9 @@ export function decide(input) {
         refuse('certification.check_not_passing', `${required} conclusion=${String(run.conclusion)}`);
       }
     }
-    // Freshness. A certification is a statement about a moment. This window is a
-    // CONSERVATIVE LIMIT, not a claim that the dependency evidence is fresh: B2 has not
-    // supplied a candidate-inventory rescan yet, so nothing here proves an audit.
+    // Freshness. A certification is a statement about a moment. This window is a limit on
+    // the CERTIFICATION; it is not dependency evidence. The fresh assessment (section 3b)
+    // is, and has its own window measured from its own collection.
     const age = hoursBetween(now, c.runStartedAt ?? '');
     if (age === null) {
       refuse('certification.unreadable_time', String(c.runStartedAt));
@@ -300,6 +305,24 @@ export function decide(input) {
         refuse('artifact.environment_mismatch', 'the manifest environment is not the certified environment file');
       }
     }
+  }
+
+  // ── 3b. Dependencies: certification evidence, the fresh assessment, the toolchain ──
+  // THE BYTES ARE ASSOCIATED WITH CERTIFICATION-TIME EVIDENCE, and a FRESH assessment of
+  // that same inventory and of the actual publication toolchain must be acceptable before
+  // anything is admitted. None of these substitutes for another, and a pass on one never
+  // makes an otherwise ineligible candidate promotable — every other rule still applies.
+  if (a.present) {
+    reasons.push(...evidenceReasons({
+      evidence: a.dependencyEvidence, provenance: a.provenance, manifest: manifestUsable ? manifest : null,
+      observedTreeDigest: a.observedTreeDigest, source, certification: c, policy,
+    }));
+    const dep = dependencies ?? {};
+    reasons.push(...toolingReasons({ tooling: dep.tooling, trusted, policy, uploads: dep.uploads }));
+    reasons.push(...assessmentReasons({
+      assessment: dep.assessment, evidence: a.dependencyEvidence, observation: a, listed, certification: c, target,
+      tooling: dep.tooling, trusted, evaluation, policy, now,
+    }));
   }
 
   // ── 4. The hosting configuration the tool will actually use ──────────────────────

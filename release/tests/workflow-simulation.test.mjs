@@ -38,9 +38,10 @@ import { receiptDigest } from '../lib/peers.mjs';
 import { AWAITING } from '../lib/readiness.mjs';
 import {
   REPOSITORY, ROOT, artifactDigest, artifactStore, buildCandidate, certificationResponses, cli, commitAll,
-  fixtureFrontend, git, initRepo, installFakeGh, runObject, startOrigin, tempDir, writeText,
+  commitPreB22Release, fixtureFrontend, git, initRepo, installFakeGh, runObject, startOrigin, tempDir, writeText,
 } from './harness.mjs';
 import { POLICY, clone } from './fixtures.mjs';
+import { fixtureStore, installFakeNpm } from './fake-npm.mjs';
 import { runWorkflow } from './workflow-engine.mjs';
 
 const WORKFLOW = join(ROOT, '.github/workflows/publish.yml');
@@ -118,6 +119,9 @@ async function makeWorld({
   policy.compatibleSet.peers.admin.serving = { observation: 'public-identity', origin: adminOrigin.origin, path: '/release.txt' };
   if (policyMutate) policyMutate(policy);
 
+  // THE RECORDED npm for this world: the store the fixture's graphs install from, and an
+  // advisory table (empty — no advisories — until a scenario says otherwise, SYNTHETIC).
+  const npm = installFakeNpm({ store: fixtureStore(policy.publisher.version) });
   const fixture = fixtureFrontend({
     policy,
     legacyWorkflow,
@@ -140,9 +144,9 @@ async function makeWorld({
     5103: iso(now - 20 * MINUTE),
   };
   const candidates = {
-    c1: await buildCandidate({ repo, commit: C1, runId: 5101, startedAt: started[5101] }),
-    c2: await buildCandidate({ repo, commit: C2, runId: 5102, startedAt: started[5102] }),
-    twin: await buildCandidate({ repo, commit: C2, runId: 5103, startedAt: started[5103], marker: ' twin' }),
+    c1: await buildCandidate({ repo, commit: C1, runId: 5101, startedAt: started[5101], npm }),
+    c2: await buildCandidate({ repo, commit: C2, runId: 5102, startedAt: started[5102], npm }),
+    twin: await buildCandidate({ repo, commit: C2, runId: 5103, startedAt: started[5103], marker: ' twin', npm }),
   };
   const store = artifactStore();
   const ids = {
@@ -164,13 +168,14 @@ async function makeWorld({
     secrets: { FIREBASE_SERVICE_ACCOUNT: SECRET },
     vars: enabled ? { FRONTEND_PUBLISH_ENABLED: 'true' } : {},
     gh,
+    npm,
     artifacts: store,
     evidence: tempDir('sim-evidence'),
     hosting: { project: 'dinify-dev', sites: { 'dinify-prod': site } },
     publisher: { mode: 'ok', calls: [], published: [], substitute: null },
     log,
     // fixture handles for scenarios
-    repo, C1, C2, candidates, ids, runs, site, adminOrigin, backendOrigin, policy,
+    repo, C1, C2, candidates, ids, runs, site, adminOrigin, backendOrigin, policy: fixture.policy,
     listedForManual: { [C1]: [5101], [C2]: [5102, 5103] },
   };
   world.refreshApi = () => refreshApi(world);
@@ -187,13 +192,20 @@ function refreshApi(world) {
   for (const run of Object.values(world.runs)) {
     Object.assign(map, certificationResponses({ run, artifacts: world.artifacts.listing(run.id) }));
   }
+  // The EVALUATION runs' own uploads (the prepared toolchain and the fresh assessment),
+  // listed as the API lists any run's artifacts — which the publisher's preflight reads.
+  for (const runId of new Set(world.artifacts.entries.map((e) => e.runId))) {
+    if (world.runs[runId]) continue;
+    const listing = world.artifacts.listing(runId);
+    map[`repos/${REPOSITORY}/actions/runs/${runId}/artifacts?per_page=100`] = { json: { total_count: listing.length, artifacts: listing } };
+  }
   for (const [commit, runIds] of Object.entries(world.listedForManual)) {
     map[`repos/${REPOSITORY}/actions/workflows/certify.yml/runs?head_sha=${commit}&event=push&branch=main&status=success&per_page=100`] = {
       json: { total_count: runIds.length, workflow_runs: runIds.map((id) => world.runs[id]) },
     };
   }
   const head = git(world.repo, ['rev-parse', 'main']);
-  for (const commit of [world.C1, world.C2]) {
+  for (const commit of new Set([world.C1, world.C2, ...Object.keys(world.listedForManual)])) {
     let status = 'diverged';
     if (commit === head) status = 'identical';
     else if (git(world.repo, ['merge-base', commit, head]) === commit) status = 'ahead';
@@ -229,8 +241,10 @@ function automaticEvent(world, runId, { conclusion = 'success', branch = 'main',
   };
 }
 
+/** Each dispatch is its own run, with its own id — as GitHub numbers them. */
 function manualEvent(world, sha, mode = 'deploy', { ref = 'refs/heads/main' } = {}) {
-  return { name: 'workflow_dispatch', ref, sha: git(world.repo, ['rev-parse', 'main']), runId: 8001, runAttempt: 1, inputs: { sha, mode } };
+  world.dispatches = (world.dispatches ?? 0) + 1;
+  return { name: 'workflow_dispatch', ref, sha: git(world.repo, ['rev-parse', 'main']), runId: 8000 + world.dispatches, runAttempt: 1, inputs: { sha, mode } };
 }
 
 const simulate = (world, event, hooks) => runWorkflow({ workflowPath: WORKFLOW, event, world, hooks });
@@ -274,14 +288,31 @@ function assertNothingPublished(world, result) {
   assert.deepEqual(result.secretAccess, [], `the credential was evaluated: ${JSON.stringify(result.secretAccess)}`);
 }
 
-/** THE AUTHORITY INVARIANT, when something was: exactly one step, exactly one credential. */
+/** The environment the admitted toolchain may receive: built from nothing, plus a proxy/CA passthrough. */
+const TOOL_ENV = new Set(['PATH', 'HOME', 'GOOGLE_APPLICATION_CREDENTIALS', 'FIREBASE_DEPLOY_AGENT', 'NO_UPDATE_NOTIFIER', 'CI',
+  'HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'NO_PROXY', 'no_proxy', 'NODE_EXTRA_CA_CERTS', 'RUNNER_TEMP']);
+
+/**
+ * THE AUTHORITY INVARIANT, when something was: exactly one step references the
+ * credential, and the admitted toolchain — run once — received it through a 0600 FILE
+ * that no longer exists, never through its environment, argv or anything it printed.
+ */
 function assertCredentialConfined(world, result) {
-  assert.equal(world.publisher.calls.length, 1);
-  assert.equal(world.publisher.calls[0].received, SECRET, 'the publisher received the credential');
+  assert.equal(world.publisher.calls.length, 1, 'the admitted toolchain ran exactly once');
+  const call = world.publisher.calls[0];
+  assert.equal(call.step, 'Publish to Firebase Hosting');
+  assert.equal(call.received, SECRET, 'the tool read the credential from the file it was pointed at');
+  assert.equal(call.credentialMode, '600');
+  assert.equal(existsSync(call.credentialPath), false, 'the credential file was removed after the tool ran');
+  for (const key of call.envKeys) assert.ok(TOOL_ENV.has(key), `the tool received ${key} in its environment`);
+  assert.equal(call.envKeys.includes('FIREBASE_SERVICE_ACCOUNT'), false);
+  assert.ok(!call.argv.join(' ').includes(SECRET));
   assert.deepEqual(result.secretAccess.map((a) => [a.job, a.step, a.name]), [['publish', 'Publish to Firebase Hosting', 'FIREBASE_SERVICE_ACCOUNT']]);
   for (const s of result.steps) {
     if (s.script) assert.ok(!s.script.includes(SECRET), `the credential reached the script of "${s.name}"`);
-    if (s.env) assert.ok(!Object.values(s.env).includes(SECRET), `the credential reached the environment of "${s.name}"`);
+    const holder = s.job === 'publish' && s.name === 'Publish to Firebase Hosting';
+    if (s.env && !holder) assert.ok(!Object.values(s.env).includes(SECRET), `the credential reached the environment of "${s.name}"`);
+    for (const out of [s.stdout, s.stderr]) if (out) assert.ok(!out.includes(SECRET), `the credential was printed by "${s.name}"`);
   }
 }
 
@@ -308,12 +339,21 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     assertCredentialConfined(world, result);
     assertNoPersistedCredentials(result);
 
-    // THE TOOL WAS HANDED THE POLICY'S DESTINATION AND PIN, and only the staged tree.
-    const call = world.publisher.calls[0].inputs;
-    assert.deepEqual(
-      [call.projectId, call.target, call.channelId, call.entryPoint, call.firebaseToolsVersion],
-      [POLICY.hosting.project, POLICY.hosting.target, 'live', 'stage', POLICY.hosting.firebaseToolsVersion],
-    );
+    // THE ADMITTED TOOLCHAIN RAN, BY PATH, WITH THE POLICY'S DESTINATION, in the staged
+    // tree only: the entrypoint inside the toolchain this job downloaded by the record's
+    // id, under the pinned Node, with the pinned deploy agent — and nothing resolved it.
+    const call = world.publisher.calls[0];
+    const publishWorkspace = result.jobs.publish.workspace;
+    assert.equal(call.entrypoint, join(publishWorkspace, 'tooling', world.policy.publisher.entrypoint));
+    assert.deepEqual(call.argv, ['deploy', '--only', `hosting:${POLICY.hosting.target}`, '--project', POLICY.hosting.project, '--non-interactive', '--json']);
+    assert.equal(call.cwd, join(publishWorkspace, 'stage'));
+    assert.equal(call.node, `v${world.policy.publisher.node}`);
+    assert.equal(call.deployAgent, POLICY.publisher.deployAgent);
+    // The toolchain was prepared with lifecycle scripts DISABLED: the fixture graph's one
+    // package with an install script was installed and its script did not run.
+    const lifecycle = world.npm.calls().filter((c) => c.lifecycle);
+    assert.ok(lifecycle.length > 0, 'the fixture graph carries an install script to not run');
+    assert.ok(lifecycle.every((c) => c.ran === false), JSON.stringify(lifecycle));
     const published = world.publisher.published[0];
     assert.equal(published.site, POLICY.hosting.site);
     const record = retained(world, event, 'record.json');
@@ -327,8 +367,8 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     const checkouts = result.jobs.publish.steps.filter((s) => s.action === 'actions/checkout').map((s) => s.observed);
     const gateRevision = result.jobs.gate.outputs.policy_revision;
     assert.deepEqual(checkouts.map((c) => [c.path, c.ref, c.sparse]), [
-      ['trusted', gateRevision, ['release']],
-      ['current', 'main', ['release']],
+      ['trusted', gateRevision, ['release', 'dependency-audit']],
+      ['current', 'main', ['release', 'dependency-audit']],
       ['certified', world.C2, ['firebase.json', '.firebaserc']],
     ]);
     assert.ok(!result.jobs.publish.steps.some((s) => s.script && /\bnpm\b|\bnpx\b|ng build/.test(s.script)), 'the privileged job ran a package manager or a build');
@@ -676,7 +716,7 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
     const world = await makeWorld();
     // After the candidates exist: the stamp would rightly refuse to certify under it.
     const policy = JSON.parse(readFileSync(join(world.repo, 'release/policy.json'), 'utf8'));
-    policy.hosting.firebaseToolsVersion = 'latest';
+    policy.publisher.version = 'latest';
     writeFileSync(join(world.repo, 'release/policy.json'), `${JSON.stringify(policy, null, 2)}\n`);
     commitAll(world.repo, 'an unpinned tool lands on main');
     world.refreshApi();
@@ -1015,5 +1055,310 @@ describe('publish.yml, a deliberately NON-PUBLISHING evaluation — reported as 
     // ...and the second fence holds: the record says not admitted.
     assert.ok(codesOf(preflightOf(result)).length > 0, 'the preflight refused the unadmitted record');
     assertNothingPublished(world, result);
+  });
+});
+
+// ── the dependency half (D08 B2.2) ──────────────────────────────────────────────
+//
+// Every advisory answer below is SYNTHETIC and enters at ONE place — the recorded npm's
+// advisory table, i.e. the scanner's process boundary, where the network's answer enters
+// this system (fake-npm.mjs). The certification of C1/C2 ran with the table EMPTY; a
+// scenario sets it only afterwards, so the candidate's bytes and its certification-time
+// evidence are exactly what they were. Everything downstream — the report reader, the
+// evaluator, the decision, the record, the preflight, the last boundary — is the real code.
+
+const DAY_MS = 86_400_000;
+const utcDate = (ms) => new Date(ms).toISOString().slice(0, 10);
+
+/** The retained artifact the gate's assess step uploaded, as the publish job would download it. */
+function assessmentOf(world, event) {
+  const path = join(world.evidence, `publish-assessment-${event.runId}-1`, 'assessment.json');
+  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+}
+
+/** The candidate's listed bytes, re-measured: an assessment must never touch them. */
+function assertCandidateUnchanged(world, id) {
+  const entry = world.artifacts.get(id);
+  assert.equal(artifactDigest(entry.dir), entry.digest, 'the candidate artifact changed');
+}
+
+/** Refused BEFORE the credential could matter: no tool ran, and the served release is untouched. */
+function assertRefusedAtLastBoundary(world, event, result, codes) {
+  assert.equal(preflightOf(result).ok, true, 'the critical section passed; the refusal is the last boundary\'s');
+  const publish = step(result, 'publish', 'Publish to Firebase Hosting');
+  assert.equal(publish.outcome, 'failure');
+  const said = retained(world, event, 'publish.json');
+  assert.equal(said.tool, null, 'the tool was run');
+  assert.deepEqual(said.reasons.map((r) => r.code).sort(), [...codes].sort());
+  assert.equal(world.publisher.calls.length, 0, 'the admitted toolchain ran');
+  assert.equal(servedCommitNow(world).commit, world.C1, 'the served release changed');
+  // HONEST: nothing ran, so it is not a failed publication.
+  assert.equal(outcomeOf(result), 'PREFLIGHT_REFUSED');
+  assert.match(step(result, 'publish', 'Report the outcome').stdout + result.jobs.publish.summary, /refused at the last boundary before the credential was read/);
+}
+
+/** A fixture-only exception record on main — never a record this repository approves. */
+function commitFixtureException(world, record) {
+  const path = join(world.repo, 'dependency-audit/policy.json');
+  const auditPolicy = JSON.parse(readFileSync(path, 'utf8'));
+  auditPolicy.records = [record];
+  writeFileSync(path, `${JSON.stringify(auditPolicy, null, 2)}\n`);
+  commitAll(world.repo, 'FIXTURE: an exception record on main');
+  world.refreshApi();
+}
+
+describe('publish.yml — the dependency half: certification evidence, a fresh assessment, the admitted toolchain', { concurrency: 4 }, () => {
+  test('CONTROL (SYNTHETIC advisory): a LOWER-SEVERITY tooling finding is visible and admits — the candidate bytes untouched', async () => {
+    const world = await makeWorld();
+    world.npm.setAdvisories({ advisories: [{ name: 'helper', versions: ['3.1.0'], severity: 'moderate', ghsa: 'GHSA-mmmm-oooo-dddd' }] });
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assert.equal(decisionOf(result).decision, 'PROCEED', JSON.stringify(codesOf(decisionOf(result))));
+    assert.equal(outcomeOf(result), 'PUBLISHED_VERIFIED');
+    const assessment = assessmentOf(world, event);
+    assert.equal(assessment.outcome, 'within_policy');
+    assert.equal(assessment.counts.triageRequired, 1, 'triage required is visible, never zero findings');
+    assert.deepEqual(assessment.recordsApplied, [], 'no record is approved to hide it');
+    // THE RECORD CARRIES IT, by identity and outcome — never an `auditPassed: true`.
+    const record = retained(world, event, 'record.json');
+    assert.equal(record.dependencies.assessment.outcome, 'within_policy');
+    assert.equal(record.dependencies.assessment.counts.triageRequired, 1);
+    assert.equal(Object.hasOwn(record.dependencies, 'auditPassed'), false);
+    assert.match(result.jobs.gate.summary, /triage/i);
+    assertCandidateUnchanged(world, world.ids.c2);
+    assertCredentialConfined(world, result);
+  });
+
+  test('CONTRACT (SYNTHETIC advisory): a NEW advisory refuses UNCHANGED bytes — the gate stops before any credential', async () => {
+    const world = await makeWorld();
+    const before = world.artifacts.get(world.ids.c2).digest;
+    world.npm.setAdvisories({ advisories: [{ name: 'shipped', versions: ['2.0.0'], severity: 'high', ghsa: 'GHSA-nnnn-eeee-wwww' }] });
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    const codes = codesOf(decisionOf(result));
+    assert.deepEqual(codes, ['dependency.assessment_blocking'], 'the one thing that changed is the advisory database');
+    assert.equal(step(result, 'gate', 'Assess the candidate\'s dependencies now').status, 1, 'the assessment exits with the audit\'s blocking status');
+    assert.equal(assessmentOf(world, event).outcome, 'blocking');
+    assert.equal(result.jobs.publish.result, 'skipped');
+    assertNothingPublished(world, result);
+    assert.equal(world.artifacts.get(world.ids.c2).digest, before);
+    assertCandidateUnchanged(world, world.ids.c2);
+    // The certification-time statement is unchanged too — it was true then.
+    const evidence = JSON.parse(readFileSync(join(world.artifacts.get(world.ids.c2).dir, 'dependency-evidence/record.json'), 'utf8'));
+    assert.equal(evidence.audit.outcome, 'within_policy');
+    assert.match(result.jobs.gate.summary, /fresh dependency assessment \| blocking — collected/);
+  });
+
+  for (const mode of ['network', 'garbage']) {
+    test(`CONTRACT (SYNTHETIC failure at the network seam, ${mode}): an assessment that cannot complete is INCOMPLETE — red, never a pass`, async () => {
+      const world = await makeWorld();
+      world.npm.setAdvisories({ failures: [{ whenPackage: 'shipped', mode }] });
+      const event = automaticEvent(world, 5102);
+      const result = await simulate(world, event);
+      assert.equal(step(result, 'gate', 'Assess the candidate\'s dependencies now').status, 2);
+      assert.equal(assessmentOf(world, event).outcome, 'incomplete');
+      assert.deepEqual(codesOf(decisionOf(result)), ['dependency.assessment_incomplete']);
+      assert.equal(step(result, 'gate', 'Decide').outcome, 'failure');
+      assertNothingPublished(world, result);
+      assertCandidateUnchanged(world, world.ids.c2);
+    });
+  }
+
+  test('CONTRACT: an OLD candidate (pre-B2.2 stamp) is refused by name on a rollback — NOT PERFORMED, never retrofitted', async () => {
+    const world = await makeWorld();
+    const { legacy, restored } = commitPreB22Release(world.repo);
+    const at = (ago) => iso(Date.now() - ago);
+    world.runs[5104] = runObject({ runId: 5104, headSha: legacy, startedAt: at(15 * MINUTE) });
+    world.runs[5105] = runObject({ runId: 5105, headSha: restored, startedAt: at(10 * MINUTE) });
+    const old = await buildCandidate({ repo: world.repo, commit: legacy, runId: 5104, startedAt: world.runs[5104].run_started_at, npm: world.npm });
+    const current = await buildCandidate({ repo: world.repo, commit: restored, runId: 5105, startedAt: world.runs[5105].run_started_at, npm: world.npm });
+    const oldId = world.artifacts.add(old).id;
+    world.artifacts.add(current);
+    world.listedForManual[legacy] = [5104];
+    world.listedForManual[restored] = [5105];
+    world.refreshApi();
+    world.serve(current);
+
+    const result = await simulate(world, manualEvent(world, legacy, 'rollback'));
+    const codes = codesOf(decisionOf(result));
+    assert.ok(codes.includes('dependency.evidence_unsupported'), codes.join(','));
+    assert.ok(codes.includes('dependency.assessment_missing'), codes.join(','));
+    const assess = step(result, 'gate', 'Assess the candidate\'s dependencies now');
+    assert.equal(assess.status, 2);
+    assert.match(assess.stderr, /assessment NOT PERFORMED/);
+    assert.match(result.jobs.gate.summary, /not performed/i);
+    assert.equal(result.jobs.publish.result, 'skipped');
+    assertNothingPublished(world, result);
+    assertCandidateUnchanged(world, oldId);
+    assert.equal(servedCommitNow(world).commit, restored, 'the served release is untouched');
+  });
+
+  test('CONTRACT (fault injection, clock): the assessment AGES OUT while the publisher waits — refused at the last boundary, then recovered by a new run', async () => {
+    // The certification window is widened so the only thing that lapses is the fresh
+    // assessment's; both are 24 hours in the committed policy.
+    const world = await makeWorld({ policyMutate: (p) => { p.freshness.certificationWindowHours = 48; } });
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event, {
+      stepEnv: ({ job, step: name }) => (job === 'publish' && name === 'Publish to Firebase Hosting'
+        ? { SIM_CLOCK_OFFSET_SECONDS: String(world.policy.freshness.assessmentWindowHours * 3600 + 120) } : {}),
+    });
+    assert.equal(decisionOf(result).decision, 'PROCEED');
+    assertRefusedAtLastBoundary(world, event, result, ['publisher.assessment_stale']);
+    assert.equal(result.jobs.publish.result, 'failure');
+
+    // RECOVERY is a new run, which prepares and assesses afresh — never a re-read of the old one.
+    world.listedForManual[world.C2] = [5102];
+    world.refreshApi();
+    const again = await simulate(world, manualEvent(world, world.C2, 'deploy'));
+    assert.equal(outcomeOf(again), 'PUBLISHED_VERIFIED');
+    assertCredentialConfined(world, again);
+  });
+
+  test('CONTRACT (fault injection, clock; SYNTHETIC advisory; FIXTURE record): an applied exception that LAPSES while the publisher waits is refused at the last boundary', async () => {
+    const world = await makeWorld({ policyMutate: (p) => { p.freshness.certificationWindowHours = 48; } });
+    const now = Date.now();
+    const lapse = Date.parse(`${utcDate(now + DAY_MS)}T00:00:00Z`);
+    commitFixtureException(world, {
+      id: 'fixture-helper-exception', kind: 'exception', advisory: 'GHSA-xxxx-pppp-aaaa', aliases: [],
+      package: 'helper', version: '3.1.0', paths: ['application:node_modules/tool/node_modules/helper'], scope: 'tooling',
+      applicability: 'FIXTURE ONLY: a synthetic advisory against the fixture graph, not a real package.',
+      reason: 'FIXTURE ONLY: exercises the lapse of an applied record at the last boundary.',
+      owner: 'release test fixture',
+      approval: { by: 'release test fixture', reference: 'https://github.com/mugak1/Dinify-Frontend/pull/1', date: utcDate(now) },
+      expires: utcDate(now + DAY_MS),
+    });
+    world.npm.setAdvisories({ advisories: [{ name: 'helper', versions: ['3.1.0'], severity: 'high', ghsa: 'GHSA-xxxx-pppp-aaaa' }] });
+    const offset = Math.ceil((lapse - now) / 1000) + 120;
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event, {
+      stepEnv: ({ job, step: name }) => (job === 'publish' && name === 'Publish to Firebase Hosting' ? { SIM_CLOCK_OFFSET_SECONDS: String(offset) } : {}),
+    });
+    assert.equal(decisionOf(result).decision, 'PROCEED', JSON.stringify(codesOf(decisionOf(result))));
+    const assessment = assessmentOf(world, event);
+    assert.equal(assessment.outcome, 'exceptions_only');
+    assert.deepEqual(assessment.recordsApplied.map((r) => r.id), ['fixture-helper-exception']);
+    // Within a few minutes after 00:00 UTC the lapse is ~24h away and the assessment's own
+    // window lapses in the same moment; otherwise the record's lapse is the ONLY reason.
+    const expected = offset < 23 * 3600 ? ['publisher.exception_expired'] : null;
+    if (expected) assertRefusedAtLastBoundary(world, event, result, expected);
+    else assert.ok(codesOf(retained(world, event, 'publish.json')).includes('publisher.exception_expired'));
+    assert.equal(world.publisher.calls.length, 0);
+  });
+
+  for (const [kind, prefix, codes] of [
+    ['toolchain', 'publisher-tooling-', ['preflight.tooling_replaced', 'preflight.tooling_mismatch']],
+    ['assessment', 'publish-assessment-', ['preflight.assessment_replaced', 'preflight.assessment_mismatch']],
+  ]) {
+    test(`CONTRACT (fault injection): a self-consistent ${kind} substituted between the jobs is refused in the critical section`, async () => {
+      const world = await makeWorld();
+      const event = automaticEvent(world, 5102);
+      const result = await simulate(world, event, {
+        betweenJobs: async () => {
+          // Not a claim that GitHub artifacts can be replaced: a stand-in for "the bytes in
+          // the publisher's hands are not the ones the gate admitted", however that arose.
+          const entry = world.artifacts.entries.find((e) => e.name.startsWith(prefix) && e.runId === String(event.runId));
+          const file = kind === 'toolchain' ? join(entry.dir, world.policy.publisher.entrypoint) : join(entry.dir, 'assessment.json');
+          writeFileSync(file, `${readFileSync(file, 'utf8')}\n`);
+          entry.digest = artifactDigest(entry.dir);
+          world.refreshApi();
+        },
+      });
+      assert.equal(decisionOf(result).decision, 'PROCEED');
+      const got = codesOf(preflightOf(result));
+      for (const code of codes) assert.ok(got.includes(code), `${code} missing from ${got}`);
+      assert.equal(outcomeOf(result), 'PREFLIGHT_REFUSED');
+      assertNothingPublished(world, result);
+    });
+  }
+
+  test('CONTRACT: an audit policy that advanced on main between the jobs is a policy advance — an explicit restart', async () => {
+    const world = await makeWorld();
+    const result = await simulate(world, automaticEvent(world, 5102), {
+      betweenJobs: async () => {
+        const path = join(world.repo, 'dependency-audit/policy.json');
+        const auditPolicy = JSON.parse(readFileSync(path, 'utf8'));
+        auditPolicy.scanner.timeoutSeconds += 1;
+        writeFileSync(path, `${JSON.stringify(auditPolicy, null, 2)}\n`);
+        commitAll(world.repo, 'the audit policy moves on main');
+        world.refreshApi();
+      },
+    });
+    assert.equal(decisionOf(result).decision, 'PROCEED');
+    assert.deepEqual(codesOf(preflightOf(result)), ['preflight.policy_advanced']);
+    assertNothingPublished(world, result);
+  });
+
+  test('CONTRACT (fault injection): a publisher lock that is not the REVIEWED one is refused, even though it installs and scans', async () => {
+    const world = await makeWorld();
+    const result = await simulate(world, automaticEvent(world, 5102), {
+      beforeStep: async ({ job, step: name, workspace }) => {
+        if (job !== 'gate' || name !== 'Prepare the publisher toolchain') return;
+        const path = join(workspace, world.policy.publisher.root, 'package-lock.json');
+        const lock = JSON.parse(readFileSync(path, 'utf8'));
+        lock.packages['node_modules/hosting-helper'].integrity = 'sha512-UNREVIEWED';
+        writeFileSync(path, `${JSON.stringify(lock, null, 2)}\n`);
+      },
+    });
+    assert.equal(step(result, 'gate', 'Prepare the publisher toolchain').outcome, 'success');
+    assert.ok(codesOf(decisionOf(result)).includes('dependency.tooling_unreviewed'), codesOf(decisionOf(result)).join(','));
+    assertNothingPublished(world, result);
+  });
+
+  test('REGRESSION GUARD: without `include-hidden-files` the retained toolchain loses npm\'s hidden lockfile — and the publisher refuses it', async () => {
+    const text = readFileSync(WORKFLOW, 'utf8');
+    const original = '          include-hidden-files: true\n';
+    assert.equal(text.split(original).length, 2, 'the toolchain upload includes hidden files, exactly once');
+    const mutated = join(tempDir('sim-mutant'), 'publish.yml');
+    writeFileSync(mutated, text.replace(original, ''));
+    const world = await makeWorld();
+    const result = await runWorkflow({ workflowPath: mutated, event: automaticEvent(world, 5102), world });
+    const codes = [...codesOf(decisionOf(result)), ...codesOf(preflightOf(result))];
+    assert.ok(codes.some((c) => /tooling/.test(c)), codes.join(','));
+    assertNothingPublished(world, result);
+  });
+});
+
+describe('publish.yml — the dependency half of a NON-PUBLISHING evaluation', { concurrency: 4 }, () => {
+  test('CONTRACT: the disabled evaluation still PERFORMS the fresh assessment — and records it beside the wait', async () => {
+    const world = await committedWorld();
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assertRecordedWait(world, result, event);
+    assert.equal(step(result, 'gate', 'Prepare the publisher toolchain').outcome, 'success');
+    assert.equal(step(result, 'gate', 'Assess the candidate\'s dependencies now').outcome, 'success');
+    const assessment = assessmentOf(world, event);
+    assert.equal(assessment.outcome, 'within_policy');
+    assert.equal(assessment.candidate.runId, '5102');
+    assertCandidateUnchanged(world, world.ids.c2);
+  });
+
+  test('CONTRACT (SYNTHETIC failure at the network seam): a scanner that fails while every other check passes is RED — never a wait', async () => {
+    const world = await committedWorld();
+    world.npm.setAdvisories({ failures: [{ whenPackage: 'shipped', mode: 'network' }] });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.deepEqual(codesOf(decisionOf(result)).sort(), [...EXPECTED_WAIT, 'dependency.assessment_incomplete'].sort());
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTRACT (SYNTHETIC advisory): a blocking assessment beside the recorded wait is RED — never a wait', async () => {
+    const world = await committedWorld();
+    world.npm.setAdvisories({ advisories: [{ name: 'shipped', versions: ['2.0.0'], severity: 'critical', ghsa: 'GHSA-cccc-rrrr-tttt' }] });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.ok(codesOf(decisionOf(result)).includes('dependency.assessment_blocking'));
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTRACT: a candidate that could not be downloaded is NOT assessed, and the summary says NOT PERFORMED', async () => {
+    const world = await committedWorld();
+    writeFileSync(join(world.artifacts.get(world.ids.c2).dir, 'dist/styles-fixture.css'), 'altered');
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.equal(step(result, 'gate', 'Prepare the publisher toolchain').outcome, 'skipped');
+    assert.equal(step(result, 'gate', 'Assess the candidate\'s dependencies now').outcome, 'skipped');
+    // The decision refuses on the candidate itself; the dependency half has nothing to be
+    // ABOUT, and the summary says it was not performed rather than leaving a blank.
+    assert.ok(codesOf(decisionOf(result)).includes('artifact.missing'));
+    assert.match(result.jobs.gate.summary, /fresh dependency assessment \| NOT PERFORMED/);
+    assert.match(result.jobs.gate.summary, /publisher toolchain \| NOT PREPARED/);
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
   });
 });

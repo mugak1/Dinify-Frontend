@@ -50,6 +50,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # FULL HISTORY, for the release suite only: it replays the GENUINE pre-B2.2
+          # stamp from history (release/tests/harness.mjs → commitPreB22Release). The
+          # candidate is built from the checked-out commit either way.
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -94,8 +98,8 @@ jobs:
       # installed — and BEFORE the candidate exists. A scan that found a blocking
       # advisory, or that could not complete, stops the job here: no candidate is built,
       # stamped or uploaded, so no certified artifact can claim a scan that did not pass.
-      # (Binding a fresh audit to a retained candidate before promotion is a later B2
-      # delivery; this establishes only that nothing is certified without one.)
+      # Its evidence is then BOUND to the candidate by the stamp below (D08 B2.2), and a
+      # fresh assessment of that same inventory is made again before any promotion.
       - name: Dependency audit — scan the validated inventory and enforce the policy
         run: npm run audit:deps
 
@@ -118,13 +122,20 @@ jobs:
           CONFIGURATION: ${{ steps.policy.outputs.configuration }}
         run: |
           set -euo pipefail
-          rm -rf dist
+          rm -rf dist dependency-evidence provenance.json
           npx ng build --configuration="$CONFIGURATION"
 
       # Stamps dist/release.json and writes the outer provenance record. It also
       # asserts the BUILT BYTES carry the approved API origin and none of the
       # forbidden ones — a file replacement that silently did not apply produces an
       # artifact that passes every source-level check and points at the wrong API.
+      #
+      # THE DEPENDENCY EVIDENCE IS BOUND HERE, after the build: the stamp re-captures the
+      # installed inventory and refuses unless it is still exactly the one snapshotted
+      # after `npm ci` and scanned above (so an input that changed during the build
+      # attaches no evidence and produces no candidate), re-reads the raw scanner output
+      # against the recorded digests, and writes dependency-evidence/ BESIDE dist/ — never
+      # inside the hosted payload — with provenance.json binding its digests.
       - name: Stamp the release identity and provenance
         env:
           COMMIT: ${{ github.sha }}
@@ -145,6 +156,8 @@ jobs:
             --runStartedAt "$started" \
             --nodeVersion "$(node --version)" \
             --artifactName "frontend-release-$RUN_ID-$RUN_ATTEMPT" \
+            --dependencyAudit dependency-audit/evidence \
+            --evidenceOut dependency-evidence \
             > stamp.json
           node -e '
             const s = require("./stamp.json");
@@ -154,6 +167,7 @@ jobs:
             console.log("production flag ", s.manifest.environment.productionFlag);
             console.log("tree digest     ", s.provenance.artifactTreeDigest);
             console.log("files           ", s.provenance.entryCount);
+            console.log("evidence        ", s.provenance.dependencyEvidence.recordDigest, s.dependencyEvidence.audit.outcome);
           '
 
       - name: Upload the candidate
@@ -166,10 +180,13 @@ jobs:
           name: frontend-release-${{ github.run_id }}-${{ github.run_attempt }}
           # `dist/` is the payload whose tree digest is bound in the provenance record;
           # `provenance.json` sits BESIDE it, never inside, because an artifact cannot
-          # contain its own final hash.
+          # contain its own final hash. `dependency-evidence/` sits beside it too: it is
+          # retained WITH the candidate (same upload, same retention) and is never staged
+          # for hosting.
           path: |
             dist
             provenance.json
+            dependency-evidence
           if-no-files-found: error
           retention-days: 30
 
@@ -197,9 +214,12 @@ jobs:
             echo "disabled until an owner enables it — see release/policy.json."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Last, and deliberately after the candidate upload: the evidence is its own
-      # artifact with its own name, and the publisher selects the candidate by its exact
-      # name, so the two cannot be confused.
+      # Last, and deliberately after the candidate upload: the RAW audit working directory
+      # as a diagnostic artifact, pass or fail — the one place a FAILED audit's output can
+      # be read, since a failed audit produces no candidate. It is not what binds a
+      # candidate to its evidence: that is the dependency-evidence/ bundle inside the
+      # candidate upload, which the publisher selects by id. "The newest audit artifact"
+      # is never a binding.
       - name: Retain the dependency-audit evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -18,12 +18,13 @@ import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 
 import { decide } from '../lib/decide.mjs';
+import { validateAssessment, validateEvidenceRecord, validateTooling } from '../lib/dependency-evidence.mjs';
 import { digestOfValue } from '../lib/canonical.mjs';
 import { receiptDigest } from '../lib/peers.mjs';
 import {
-  baseline, codes, clone, manifestFor, servedKnown, storageProjection, withCandidateStorage,
+  baseline, codes, clone, manifestFor, servedKnown, storageProjection, withCandidateStorage, reattest,
   backendReceipt, allowedPolicy, peersFor, D01_CONTRACT, POLICY,
-  TARGET_SHA, OLDER_SHA, BACKEND_SHA, ADMIN_SHA, TREE_DIGEST, STORAGE,
+  TARGET_SHA, OLDER_SHA, BACKEND_SHA, ADMIN_SHA, TREE_DIGEST, STORAGE, reattestKeepingAssessment,
 } from './fixtures.mjs';
 
 function broken(mutate) {
@@ -164,6 +165,7 @@ describe('artifact — is this the exact unit that run certified?', () => {
       i.certification.runAttempt = '2';
       i.certification.artifacts[0].name = 'frontend-release-4242-2';
       i.artifact.manifest.certification.runAttempt = '2';
+      reattest(i);
     }));
   });
 });
@@ -590,6 +592,143 @@ describe('a refusal names every reason, not the first one', () => {
     for (const code of ['certification.failed', 'certification.wrong_workflow', 'artifact.digest_mismatch', 'prerequisite.retention_unverified']) {
       assert.ok(codes(result).includes(code), `missing ${code} in ${JSON.stringify(codes(result))}`);
     }
+  });
+});
+
+describe('DEPENDENCIES (D08 B2.2) — certification evidence, the fresh assessment, the toolchain', () => {
+  const ev = (i) => i.artifact.dependencyEvidence;
+  const as = (i) => i.dependencies.assessment.doc;
+
+  test('CONTROL: the baseline carries passing evidence, a passing fresh assessment and a prepared toolchain — and proceeds', () => {
+    const input = baseline();
+    assert.deepEqual(validateEvidenceRecord(ev(input).record), [], 'the fixture record has the shape stamp writes');
+    assert.deepEqual(validateAssessment(as(input)), [], 'the fixture assessment has the shape assess writes');
+    assert.deepEqual(validateTooling(input.dependencies.tooling), [], 'the fixture toolchain has the shape prepare-publisher writes');
+    assertProceeds(decide(input));
+  });
+
+  test('CONTROL: the stamp time is not the API\'s run_started_at, and is never compared with it', () => {
+    const input = baseline();
+    assert.notEqual(input.artifact.manifest.certification.runStartedAt, input.certification.runStartedAt);
+    assert.equal(ev(input).record.certification.runStartedAt, input.artifact.manifest.certification.runStartedAt);
+    assertProceeds(decide(input));
+  });
+
+  // ── the certification half ──
+  const evidenceCases = [
+    ['REGRESSION: an OLD candidate (pre-B2.2 provenance) is unsupported — no retrofit, no bypass', 'dependency.evidence_unsupported', (i) => {
+      i.artifact.provenance = { schema: 'dinify.release.provenance/1', legacy: true };
+      i.artifact.dependencyEvidence = { state: 'absent', problems: [], unsafe: [] };
+    }],
+    ['CONTRACT: a current candidate that carries no evidence', 'dependency.evidence_missing', (i) => { i.artifact.dependencyEvidence = { state: 'absent', problems: [], unsafe: [] }; }],
+    ['CONTRACT: evidence the gate could not re-derive (a raw output missing)', 'dependency.evidence_invalid', (i) => { ev(i).problems = [{ code: 'evidence.raw_missing', detail: 'application' }]; }],
+    ['CONTRACT: a result.json the raw output does not reproduce', 'dependency.evidence_invalid', (i) => { ev(i).problems = [{ code: 'evidence.unreproducible', detail: 'blocking != within_policy' }]; }],
+    ['CONTRACT: an evidence directory carrying a link or an unexpected entry', 'dependency.evidence_invalid', (i) => { ev(i).unsafe = ['symbolic link: dependency-evidence/audit/x']; }],
+    ['CONTRACT: evidence of ANOTHER repository', 'dependency.evidence_wrong_repository', (i) => { ev(i).record.repository = 'mugak1/Dinify-Admin'; }],
+    ['CONTRACT: evidence bound to a DIFFERENT candidate tree', 'dependency.evidence_wrong_candidate', (i) => { ev(i).record.candidate.artifactTreeDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT: evidence bound to a different manifest (another certification of the same SHA)', 'dependency.evidence_wrong_candidate', (i) => { ev(i).record.candidate.manifestDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT: evidence of another commit', 'dependency.evidence_wrong_commit', (i) => { ev(i).record.commit = OLDER_SHA; }],
+    ['CONTRACT: evidence of another source tree', 'dependency.evidence_wrong_tree', (i) => { ev(i).record.tree = '0'.repeat(40); }],
+    ['CONTRACT: evidence of another build configuration', 'dependency.evidence_wrong_configuration', (i) => { ev(i).record.buildConfiguration = 'production'; }],
+    ['CONTRACT: evidence of another certifying run', 'dependency.evidence_wrong_run', (i) => { ev(i).record.certification.runId = '9999'; }],
+    ['CONTRACT: evidence stamped at another moment than its manifest (not the same stamp)', 'dependency.evidence_wrong_run', (i) => { ev(i).record.certification.runStartedAt = '2026-09-22T11:36:00Z'; }],
+    ['CONTRACT: evidence of another certification workflow', 'dependency.evidence_wrong_run', (i) => { ev(i).record.certification.workflowPath = '.github/workflows/ci.yml'; }],
+    ['CONTRACT: evidence of an earlier attempt of the run', 'dependency.evidence_wrong_attempt', (i) => { ev(i).record.certification.runAttempt = '2'; }],
+    ['CONTRACT: evidence over another lockfile than the manifest names', 'dependency.evidence_wrong_lock', (i) => { ev(i).inputs.lockDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT: a record that claims one lockfile beside a retained file that is another', 'dependency.evidence_wrong_lock', (i) => { ev(i).record.inputs.lockDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT: evidence over another package.json than the certified commit holds', 'dependency.evidence_wrong_manifest', (i) => { i.source.manifestDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT: evidence taken on another Node than the build', 'dependency.evidence_wrong_environment', (i) => { ev(i).record.environment.node = 'v24.0.0'; }],
+    ['CONTRACT: a certification audit that did not pass', 'dependency.evidence_not_passing', (i) => { ev(i).record.audit.outcome = 'blocking'; ev(i).record.audit.exitCode = 1; }],
+    ['CONTRACT: a certification the stamp re-evaluated as not passing', 'dependency.evidence_not_passing', (i) => { ev(i).record.audit.reevaluatedOutcome = 'incomplete'; }],
+    ['CONTRACT: a certification whose raw output reproduces as not passing', 'dependency.evidence_not_passing', (i) => { ev(i).audit.outcome = 'blocking'; }],
+  ];
+  for (const [name, code, mutate] of evidenceCases) test(name, () => assertRefused(broken(mutate), code));
+
+  // ── the fresh half ──
+  const assessmentCases = [
+    ['CONTRACT: no fresh assessment — not performed is not passed', 'dependency.assessment_missing', (i) => { i.dependencies.assessment = { state: 'absent', problems: [] }; }],
+    ['CONTRACT: an assessment directory that does not check out', 'dependency.assessment_invalid', (i) => { i.dependencies.assessment.problems = [{ code: 'assessment.raw_mismatch', detail: 'publisher' }]; }],
+    ['CONTRACT: an assessment made by ANOTHER evaluation run', 'dependency.assessment_not_current', (i) => { i.evaluation.runId = '9101'; }],
+    ['CONTRACT: an assessment made by an earlier attempt of this run', 'dependency.assessment_not_current', (i) => { i.evaluation.runAttempt = '2'; }],
+    ['CONTRACT: an assessment made by another verifier revision', 'dependency.assessment_not_current', (i) => { as(i).assessor.revision = '0'.repeat(40); }],
+    ['CONTRACT: an assessment of another commit', 'dependency.assessment_wrong_candidate', (i) => { as(i).candidate.commit = OLDER_SHA; }],
+    ['CONTRACT: an assessment of another artifact', 'dependency.assessment_wrong_candidate', (i) => { as(i).candidate.artifactId = 778; }],
+    ['CONTRACT: an assessment of another tree', 'dependency.assessment_wrong_candidate', (i) => { as(i).candidate.treeDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT: an assessment of other evidence', 'dependency.assessment_wrong_candidate', (i) => { as(i).candidate.evidenceRecordDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT: an assessment of another certification attempt', 'dependency.assessment_wrong_candidate', (i) => { as(i).candidate.runAttempt = '2'; }],
+    ['REGRESSION (the premise): an assessment of CURRENT MAIN\'s graph, not the candidate\'s', 'dependency.assessment_wrong_graph', (i) => { as(i).graphs.application.digests.lockfileSha256 = '0'.repeat(64); }],
+    ['CONTRACT: an application graph read from an installed tree rather than the certification snapshot', 'dependency.assessment_wrong_graph', (i) => { as(i).graphs.application.observation = 'installed-now'; }],
+    ['CONTRACT: an application graph whose inventory is not the certified one', 'dependency.assessment_wrong_graph', (i) => { as(i).graphs.application.digests.installedTreeSha256 = '0'.repeat(64); }],
+    ['CONTRACT: a scanner graph that is not the trusted pinned scanner', 'dependency.assessment_wrong_scanner', (i) => { as(i).graphs.scanner.digests.lockfileSha256 = '0'.repeat(64); }],
+    ['REGRESSION (the premise): a publisher graph resolved independently, not the prepared toolchain', 'dependency.assessment_wrong_tooling', (i) => { as(i).graphs.publisher.digests.lockfileSha256 = '0'.repeat(64); }],
+    ['CONTRACT: an assessed toolchain tree that is not the prepared one', 'dependency.assessment_wrong_tooling', (i) => { as(i).tooling.treeDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT: an assessment under another audit policy (a policy change is a restart)', 'dependency.assessment_policy_mismatch', (i) => { i.trusted.auditPolicySha256 = '0'.repeat(64); }],
+    ['CONTRACT: collection times out of order', 'dependency.assessment_time_invalid', (i) => { as(i).graphs.scanner.finishedAt = '2026-09-22T11:49:00Z'; }],
+    ['CONTRACT: an assessment decided AFTER the moment it is read at', 'dependency.assessment_time_invalid', (i) => { as(i).decidedAt = '2026-09-22T12:00:01Z'; }],
+    ['CONTRACT: an assessment "collected" before the candidate was stamped', 'dependency.assessment_time_invalid', (i) => {
+      const doc = as(i);
+      doc.startedAt = '2026-09-22T11:20:00Z';
+      for (const g of Object.values(doc.graphs)) { g.startedAt = '2026-09-22T11:21:00Z'; g.finishedAt = '2026-09-22T11:22:00Z'; }
+      doc.finishedAt = '2026-09-22T11:23:00Z'; doc.decidedAt = '2026-09-22T11:23:00Z';
+    }],
+    ['CONTRACT: an assessment older than the window', 'dependency.assessment_stale', (i) => { i.policy.freshness.assessmentWindowHours = 0.1; }],
+    ['REGRESSION (the premise): OLD evidence re-decided with today\'s clock is not fresh — the window runs from the COLLECTION', 'dependency.assessment_stale', (i) => {
+      // Collected a day and more ago, re-decided a minute ago: a re-decision is not a query.
+      const doc = as(i);
+      doc.startedAt = '2026-09-21T11:40:00Z';
+      for (const g of Object.values(doc.graphs)) { g.startedAt = '2026-09-21T11:41:00Z'; g.finishedAt = '2026-09-21T11:42:00Z'; }
+      doc.finishedAt = '2026-09-21T11:43:00Z';
+      doc.decidedAt = '2026-09-22T11:59:00Z';
+      i.certification.runStartedAt = '2026-09-21T11:30:00Z';
+      i.policy.freshness.certificationWindowHours = 48;
+      i.artifact.manifest.certification.runStartedAt = '2026-09-21T11:35:00Z';
+      i.artifact.manifest.builtAt = '2026-09-21T11:35:00Z';
+      reattestKeepingAssessment(i);
+    }],
+    ['CONTRACT: an applied exception that has lapsed', 'dependency.exception_expired', (i) => { as(i).recordsApplied = [{ id: 'fixture-exception', expires: '2026-09-22' }]; }],
+    ['CONTRACT (SYNTHETIC advisory): a new advisory refuses UNCHANGED bytes', 'dependency.assessment_blocking', (i) => { as(i).outcome = 'blocking'; as(i).exitCode = 1; }],
+    ['CONTRACT: a scanner, network or parse failure is incomplete — never a pass', 'dependency.assessment_incomplete', (i) => { as(i).outcome = 'incomplete'; as(i).exitCode = 2; }],
+    ['CONTRACT: an outcome word the gate does not know', 'dependency.assessment_invalid', (i) => { as(i).outcome = 'clean'; }],
+    ['CONTRACT: a passing word with a failing exit status', 'dependency.assessment_invalid', (i) => { as(i).exitCode = 1; }],
+  ];
+  for (const [name, code, mutate] of assessmentCases) test(name, () => assertRefused(broken(mutate), code));
+
+  test('CONTROL: an assessment that passes only through an applied, in-date exception proceeds', () => {
+    assertProceeds(broken((i) => { as(i).outcome = 'exceptions_only'; as(i).recordsApplied = [{ id: 'fixture-exception', expires: '2026-10-01' }]; }));
+  });
+
+  test('CONTROL: lower-severity findings stay VISIBLE and do not block', () => {
+    assertProceeds(broken((i) => { as(i).counts.findings = 2; as(i).counts.triageRequired = 2; }));
+  });
+
+  test('CONTROL: the last moment inside the assessment window is still inside it', () => {
+    assertProceeds(broken((i) => { i.policy.freshness.assessmentWindowHours = 1 / 6; }));
+  });
+
+  // ── the toolchain ──
+  const toolingCases = [
+    ['CONTRACT: no toolchain was prepared', 'dependency.tooling_missing', (i) => { i.dependencies.tooling = null; }],
+    ['CONTRACT: tooling facts that are not the shape prepare-publisher writes', 'dependency.tooling_invalid', (i) => { i.dependencies.tooling.schema = 'x'; }],
+    ['CONTRACT: preparation reported a problem', 'dependency.tooling_invalid', (i) => { i.dependencies.tooling.problems = [{ code: 'tooling.install_failed', detail: 'x' }]; }],
+    ['CONTRACT: another version of the tool than the policy pins', 'dependency.tooling_mismatch', (i) => { i.dependencies.tooling.version = '15.30.2'; }],
+    ['CONTRACT: another entrypoint than the policy pins', 'dependency.tooling_mismatch', (i) => { i.dependencies.tooling.entrypoint.path = 'node_modules/.bin/firebase'; }],
+    ['CONTRACT: prepared under another Node than the policy pins', 'dependency.tooling_mismatch', (i) => { i.dependencies.tooling.node = 'v24.0.0'; }],
+    ['CONTRACT: prepared from a lock that is not the reviewed one', 'dependency.tooling_unreviewed', (i) => { i.trusted.publisherLockfileSha256 = '0'.repeat(64); }],
+    ['CONTRACT: prepared from a manifest that is not the reviewed one', 'dependency.tooling_unreviewed', (i) => { i.trusted.publisherManifestSha256 = '0'.repeat(64); }],
+    ['CONTRACT: the toolchain was not retained for the publisher', 'dependency.tooling_unretained', (i) => { i.dependencies.uploads.tooling = null; }],
+    ['CONTRACT: the assessment was not retained for the publisher', 'dependency.assessment_unretained', (i) => { i.dependencies.uploads.assessment = null; }],
+  ];
+  for (const [name, code, mutate] of toolingCases) test(name, () => assertRefused(broken(mutate), code));
+
+  test('CONTRACT: a PASS makes nothing else promotable — a revoked target with a clean assessment is still refused', () => {
+    const result = broken((i) => { i.policy.eligibility.revoked = [{ commit: TARGET_SHA, reason: 'revoked for the test' }]; });
+    assertRefused(result, 'eligibility.revoked');
+    assert.equal(codes(result).some((c) => c.startsWith('dependency.')), false, 'the dependency half passed; the refusal is eligibility alone');
+  });
+
+  test('CONTRACT: each half is its own requirement — a passing assessment does not stand in for missing evidence, nor the reverse', () => {
+    assertRefused(broken((i) => { i.artifact.dependencyEvidence = { state: 'absent', problems: [], unsafe: [] }; }), 'dependency.evidence_missing');
+    assertRefused(broken((i) => { i.dependencies.assessment = { state: 'absent', problems: [] }; }), 'dependency.assessment_missing');
   });
 });
 

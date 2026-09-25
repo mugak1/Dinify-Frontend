@@ -27,9 +27,9 @@ import { contractDigest } from '../lib/canonical.mjs';
 import { receiptDigest } from '../lib/peers.mjs';
 import { preflightReasons } from '../lib/preflight.mjs';
 import {
-  ROOT, cli, commitAll, fixtureFrontend, git, initRepo, installFakeGh, startOrigin, tempDir, writeText,
+  ROOT, cli, commitAll, fixtureFrontend, git, initRepo, installFakeGh, startOrigin, tempDir, writeDependencyInputs, writeText,
 } from './harness.mjs';
-import { baseline, clone, POLICY } from './fixtures.mjs';
+import { POLICY, admittedRecordFor, baseline, clone, dependenciesFor, unchangedPreflightFacts } from './fixtures.mjs';
 
 const D01 = JSON.parse(readFileSync(join(ROOT, 'src/app/_shared/order/checkout-limits.contract.json'), 'utf8'));
 const CEILINGS = Object.fromEntries(Object.entries(D01).filter(([k]) => !k.startsWith('_')));
@@ -134,6 +134,11 @@ async function gatePeerHalf({
 
   const dir = tempDir('decide');
   const input = baseline();
+  // The dependency facts describe the FIXTURE's toolchain, under the policy the CLI decides
+  // with — `trusted.policy`, whose Node pin fixtureFrontend sets to the running Node. The
+  // baseline's own were built from the COMMITTED pin, so on any other Node 24 patch the
+  // positive controls would refuse dependency.tooling_mismatch (Codex P2 on #702).
+  input.dependencies = dependenciesFor({ policy: trusted.policy, manifest: input.artifact.manifest, evidence: input.artifact.dependencyEvidence });
   const write = (name, value) => { const p = join(dir, name); writeFileSync(p, json(value)); return p; };
   const args = [
     'decide',
@@ -141,11 +146,12 @@ async function gatePeerHalf({
     '--certification', write('certification.json', input.certification),
     '--observation', write('observation.json', input.artifact),
     '--facts', write('facts.json', {
-      policy: { revision: 'f'.repeat(40), digest: `sha256:${'0'.repeat(64)}`, verifierTree: 'e'.repeat(40) },
+      policy: { revision: 'f'.repeat(40), digest: `sha256:${'0'.repeat(64)}`, verifierTree: { release: 'e'.repeat(40), dependencyAudit: 'd'.repeat(40) } },
       source: input.source, hosting: input.hosting, baseline: input.baseline, eligibility: input.eligibility, trusted: input.trusted,
     }),
     '--served', write('served.json', input.served),
     '--peers', facts.status === 0 ? write('peers.json', JSON.parse(facts.stdout)) : write('peers.json', {}),
+    ...writeDependencyInputs(dir, input),
     '--now', input.now,
   ];
   const decision = await cli(args, { root: trusted.dir });
@@ -422,30 +428,17 @@ describe('the recheck at the promotion boundary', () => {
   // The adapter-level version is the workflow simulation's peer scenario; this pins
   // the rule itself: what the gate saw Admin serving is part of the admitted record,
   // and the publisher refuses if it has changed by the time it would publish.
-  const record = () => ({
-    schema: 'dinify.release.record/1', decision: 'PROCEED', admitted: true,
-    request: { mode: 'deploy', trigger: 'automatic', target: 'a'.repeat(40) },
-    policy: { revision: 'b'.repeat(40), digest: `sha256:${'1'.repeat(64)}`, verifierTree: 'c'.repeat(40) },
-    target: { repository: 'mugak1/Dinify-Frontend', commit: 'a'.repeat(40), sourceTree: 'e'.repeat(40) },
-    certification: { workflowPath: '.github/workflows/certify.yml', runId: '4242', runAttempt: '1', runStartedAt: '2026-09-22T11:30:00Z' },
-    artifact: { id: 777, name: 'frontend-release-4242-1', digest: `sha256:${'5'.repeat(64)}`, treeDigest: `sha256:${'2'.repeat(64)}`, manifestDigest: `sha256:${'3'.repeat(64)}`, entryCount: 3 },
-    hosting: { project: 'dinify-dev', site: 'dinify-prod', target: 'dinify-prod', channelId: 'live', toolsVersion: '15.30.2', configDigest: `sha256:${'6'.repeat(64)}` },
-    served: { state: 'known', commit: 'd'.repeat(40), manifestDigest: `sha256:${'4'.repeat(64)}`, relation: 'descendant' },
-    peers: { setId: 'x', backend: [], admin: [], adminServed: world.A1 },
-    admittedAt: '2026-09-22T12:00:00Z', expiresAt: '2026-09-23T11:30:00Z',
-  });
-  const facts = (adminCommit) => ({
-    trusted: { verifierTree: 'c'.repeat(40), policyDigest: `sha256:${'1'.repeat(64)}` },
-    current: { state: 'known', verifierTree: 'c'.repeat(40) },
-    run: { present: true, conclusion: 'success', headSha: 'a'.repeat(40), runAttempt: '1' },
-    artifacts: [{ id: 777, name: 'frontend-release-4242-1', expired: false, digest: `sha256:${'5'.repeat(64)}`, workflowRunId: 4242 }],
-    candidate: { present: true, valid: true, treeDigest: `sha256:${'2'.repeat(64)}`, manifestDigest: `sha256:${'3'.repeat(64)}`, unsafe: [] },
-    compare: { status: 'ahead' },
-    served: { state: 'known', servedCommit: 'd'.repeat(40), manifestDigest: `sha256:${'4'.repeat(64)}` },
-    adminServed: { state: 'known', commit: adminCommit },
-    hosting: { problems: [], digest: `sha256:${'6'.repeat(64)}` },
-    certifiedCheckout: { head: 'a'.repeat(40) },
-  });
+  const input = baseline();
+  const record = () => {
+    const r = admittedRecordFor(input);
+    r.peers.adminServed = world.A1;
+    return r;
+  };
+  const facts = (adminCommit) => {
+    const f = unchangedPreflightFacts(record(), input);
+    f.adminServed = { state: 'known', commit: adminCommit };
+    return f;
+  };
 
   test('CONTROL: unchanged peers pass the recheck', () => {
     assert.deepEqual(preflightReasons({ record: record(), policy: POLICY, facts: facts(world.A1), now: '2026-09-22T12:05:00Z' }), []);

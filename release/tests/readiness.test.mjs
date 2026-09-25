@@ -227,6 +227,32 @@ describe('readiness — the classifier over the committed policy', () => {
     }
   });
 
+  test('CONTRACT (D08 B2.2): NO dependency reason is ever a wait — every code the dependency half can emit, beside the six, stays red', () => {
+    // Enumerated FROM THE SOURCE, so a code added later is covered without editing this
+    // test: the certification evidence, the fresh assessment and the toolchain are
+    // integrity facts about THIS candidate, never an owner prerequisite still pending.
+    const source = readFileSync(join(import.meta.dirname, '../lib/dependency-evidence.mjs'), 'utf8');
+    const codes = [...new Set([...source.matchAll(/'(dependency\.[a-z_]+)'/g)].map((m) => m[1]))].sort();
+    assert.ok(codes.length >= 25, `the enumeration found ${codes.length} codes`);
+    for (const code of ['dependency.assessment_blocking', 'dependency.assessment_incomplete', 'dependency.assessment_missing',
+      'dependency.evidence_unsupported', 'dependency.tooling_unreviewed']) assert.ok(codes.includes(code), code);
+    for (const code of codes) {
+      assert.equal(WAITING_CODES.includes(code), false, `${code} is registered as a waiting condition`);
+      const r = classifyReadiness(evidence({ decision: refusal([...COMMITTED_AWAITING, code]) }));
+      assert.equal(r.kind, NOT_WAITING, code);
+      assert.deepEqual(problemCodes(r), ['readiness.unexpected_reason'], code);
+      // And no policy may list one: the list is validated against the closed registry.
+      const policy = clone(POLICY);
+      policy.publication.readiness.awaiting = [...COMMITTED_AWAITING, code];
+      assert.equal(validatePolicy(policy).ok, false, `a policy listing ${code} validates`);
+    }
+    for (const wildcard of ['dependency.*', 'dependency.assessment_*']) {
+      const policy = clone(POLICY);
+      policy.publication.readiness.awaiting = [...COMMITTED_AWAITING, wildcard];
+      assert.equal(validatePolicy(policy).ok, false, wildcard);
+    }
+  });
+
   test('CONTRACT: capabilities_unpublished is not a wait after the receipt approval, even if a policy listed it', () => {
     const policy = clone(POLICY);
     policy.publication.readiness.awaiting = [...COMMITTED_AWAITING, 'peers.capabilities_unpublished'];

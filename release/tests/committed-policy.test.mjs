@@ -30,6 +30,11 @@
  *                 2026-09-22)                                                RECORDED
  *   legacy        whether deploy-prod.yml exists in THIS checkout            OBSERVED
  *   candidate     the fixture baseline's certification, artifact and source  FIXTURE
+ *   dependencies  the fixture baseline's certification evidence, a PASSING
+ *                 fresh assessment of it and the prepared toolchain (D08
+ *                 B2.2) — held passing so that the refusal set is the OWNER
+ *                 and PEER facts alone; a failing assessment is never a wait
+ *                 and is proved so in readiness.test.mjs and the simulation  FIXTURE
  *
  * The frontend's live /release.json was NOT observed from the environment this suite
  * was written in — its egress policy refuses dinify-prod.web.app — which is why that
@@ -48,7 +53,7 @@ import { receiptDigest } from '../lib/peers.mjs';
 import { contractDigest, digestOfValue } from '../lib/canonical.mjs';
 import { AWAITING, classifyReadiness } from '../lib/readiness.mjs';
 import { POLICY, baseline, clone } from './fixtures.mjs';
-import { ROOT, cli, startOrigin, tempDir } from './harness.mjs';
+import { ROOT, cli, startOrigin, tempDir, writeDependencyInputs } from './harness.mjs';
 
 const ADMIN = POLICY.compatibleSet.peers.admin.approved[0].commit;
 const BACKEND = POLICY.compatibleSet.peers.backend.approved[0].commit;
@@ -186,8 +191,8 @@ function committedFacts(input) {
     // eligibility (minimumSafeTarget null), and what it OBSERVES about the legacy file.
     baseline: { state: 'none' },
     eligibility: { relationToMinimum: 'not-applicable' },
-    trusted: { legacyPublisherPresent: existsSync(join(ROOT, POLICY.prerequisites.singlePublisher.legacyWorkflow)) },
-    policy: { revision: 'f'.repeat(40), digest: digestOfValue(POLICY), verifierTree: 'e'.repeat(40) },
+    trusted: { ...input.trusted, legacyPublisherPresent: existsSync(join(ROOT, POLICY.prerequisites.singlePublisher.legacyWorkflow)) },
+    policy: { revision: 'f'.repeat(40), digest: digestOfValue(POLICY), verifierTree: { release: 'e'.repeat(40), dependencyAudit: 'd'.repeat(40) } },
   };
 }
 
@@ -200,7 +205,7 @@ async function decideCommitted({ served = derivedServed, peers = recordedPeers()
     facts, served, peers,
   };
   for (const [name, value] of Object.entries(files)) writeFileSync(join(dir, `${name}.json`), JSON.stringify(value));
-  const args = ['decide', '--now', input.now, '--record-out', join(dir, 'record.json'), '--summary', join(dir, 'summary.md')];
+  const args = ['decide', '--now', input.now, '--record-out', join(dir, 'record.json'), '--summary', join(dir, 'summary.md'), ...writeDependencyInputs(dir, input)];
   for (const name of Object.keys(files)) args.push(`--${name}`, join(dir, `${name}.json`));
   const r = await cli(args);
   return {
@@ -234,7 +239,8 @@ function decidePure({ policy = POLICY, peers = recordedPeers(), served = derived
   return decide({
     policy, request: input.request, certification: input.certification, artifact: input.artifact,
     source: facts.source, hosting: facts.hosting, served, baseline: facts.baseline,
-    eligibility: facts.eligibility, peers, trusted: facts.trusted, now: input.now,
+    eligibility: facts.eligibility, peers, trusted: facts.trusted, dependencies: input.dependencies, evaluation: input.evaluation,
+    now: input.now,
   });
 }
 

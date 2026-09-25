@@ -22,8 +22,15 @@
  */
 
 import { canonicalJson, digestOfValue } from './canonical.mjs';
+import { ASSESSMENT_SCHEMA, EVIDENCE_SCHEMA, TOOLING_SCHEMA, assessmentExpiresAt } from './dependency-evidence.mjs';
 
-export const RECORD_SCHEMA = 'dinify.release.record/1';
+// /2 (D08 B2.2): the record also binds the candidate's CERTIFICATION dependency evidence,
+// the FRESH assessment (its own artifact, run, attempt, clock readings, policy, scanner
+// and outcome) and the exact PUBLISHER TOOLCHAIN (its content tree, entrypoint, runtime,
+// lock and artifact). The publisher re-establishes each from its own downloads. There is
+// deliberately no `auditPassed: true`: an outcome is carried beside the evidence it was
+// derived from, and the evidence is what gets checked.
+export const RECORD_SCHEMA = 'dinify.release.record/2';
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
@@ -36,13 +43,27 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
  */
 export function buildRecord({
   decision, request, policyFacts, certification, listedArtifact, artifact, hosting,
-  served, peers, policy, now,
+  served, peers, policy, now, dependencies = {},
 }) {
   const manifest = artifact?.manifest ?? null;
   const started = Date.parse(certification?.runStartedAt ?? '');
-  const expires = Number.isFinite(started)
-    ? new Date(started + policy.freshness.certificationWindowHours * 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z')
-    : null;
+  const ev = artifact?.dependencyEvidence;
+  const as = dependencies.assessment;
+  const tooling = dependencies.tooling;
+  const uploads = dependencies.uploads ?? {};
+  // The unit stops being promotable at the FIRST of: the certification window, the fresh
+  // assessment's window, or the lapse of an exception record the assessment applied.
+  let expiresMs = Number.isFinite(started) ? started + policy.freshness.certificationWindowHours * 3_600_000 : NaN;
+  const assessed = as?.doc && Array.isArray(as.doc.recordsApplied) && typeof as.doc.startedAt === 'string';
+  if (assessed) {
+    const assessmentEnd = Date.parse(assessmentExpiresAt({ assessment: as.doc, policy }));
+    if (Number.isFinite(assessmentEnd) && Number.isFinite(expiresMs)) expiresMs = Math.min(expiresMs, assessmentEnd);
+  }
+  const expires = Number.isFinite(expiresMs) ? new Date(expiresMs).toISOString().replace(/\.\d{3}Z$/, 'Z') : null;
+  const graphDigests = (graph) => {
+    const d = as?.doc?.graphs?.[graph]?.digests;
+    return d ? { lockfileSha256: d.lockfileSha256 ?? null, manifestSha256: d.manifestSha256 ?? null, installedTreeSha256: d.installedTreeSha256 ?? null } : null;
+  };
   return {
     schema: RECORD_SCHEMA,
     decision: decision.decision,
@@ -77,9 +98,53 @@ export function buildRecord({
       site: policy.hosting.site,
       target: policy.hosting.target,
       channelId: policy.hosting.channelId,
-      toolsVersion: policy.hosting.firebaseToolsVersion,
+      toolsVersion: policy.publisher.version,
       configDigest: hosting?.digest ?? null,
     },
+    dependencies: {
+      evidence: ev?.record ? {
+        schema: EVIDENCE_SCHEMA,
+        recordDigest: ev.recordDigest,
+        treeDigest: ev.treeDigest,
+        entryCount: ev.entryCount,
+        lockDigest: ev.inputs?.lockDigest ?? null,
+        manifestSha256: ev.inputs?.manifestSha256 ?? null,
+        installedTreeSha256: ev.record.inventory?.installedTreeSha256 ?? null,
+        environment: ev.record.environment ?? null,
+        certificationRun: { runId: ev.record.certification?.runId ?? null, runAttempt: ev.record.certification?.runAttempt ?? null },
+      } : null,
+      assessment: as?.doc ? {
+        schema: ASSESSMENT_SCHEMA,
+        digest: as.digest,
+        treeDigest: as.treeDigest,
+        entryCount: as.entryCount,
+        artifact: { id: uploads.assessment?.id ?? null, name: uploads.assessment?.name ?? null, digest: uploads.assessment?.digest ?? null },
+        runId: as.doc.assessor?.runId ?? null,
+        runAttempt: as.doc.assessor?.runAttempt ?? null,
+        startedAt: as.doc.startedAt ?? null,
+        finishedAt: as.doc.finishedAt ?? null,
+        decidedAt: as.doc.decidedAt ?? null,
+        outcome: as.doc.outcome ?? null,
+        counts: as.doc.counts ?? null,
+        policySha256: as.doc.policy?.sha256 ?? null,
+        scanner: as.doc.scanner ?? null,
+        recordsApplied: as.doc.recordsApplied ?? null,
+        graphs: { application: graphDigests('application'), scanner: graphDigests('scanner'), publisher: graphDigests('publisher') },
+      } : null,
+    },
+    publisher: tooling && typeof tooling === 'object' ? {
+      schema: TOOLING_SCHEMA,
+      package: tooling.package ?? null,
+      version: tooling.version ?? null,
+      node: tooling.node ?? null,
+      deployAgent: policy.publisher.deployAgent,
+      entrypoint: tooling.entrypoint ?? null,
+      treeDigest: tooling.treeDigest ?? null,
+      entryCount: tooling.entryCount ?? null,
+      lockfileSha256: tooling.lock?.lockfileSha256 ?? null,
+      installedTreeSha256: tooling.installedTreeSha256 ?? null,
+      artifact: { id: uploads.tooling?.id ?? null, name: uploads.tooling?.name ?? null, digest: uploads.tooling?.digest ?? null },
+    } : null,
     served: {
       state: served?.state ?? null,
       commit: served?.servedCommit ?? null,
@@ -137,11 +202,25 @@ export function validateRecord(r) {
     problems.push({ code: 'preflight.not_admitted', detail: `decision ${String(r.decision)}` });
   }
   if (!SHA_RE.test(String(r.request?.target)) || r.target?.commit !== r.request?.target) bad('target');
-  if (!SHA_RE.test(String(r.policy?.revision)) || !DIGEST_RE.test(String(r.policy?.digest)) || !SHA_RE.test(String(r.policy?.verifierTree))) bad('policy');
+  if (!SHA_RE.test(String(r.policy?.revision)) || !DIGEST_RE.test(String(r.policy?.digest))
+      || !SHA_RE.test(String(r.policy?.verifierTree?.release)) || !SHA_RE.test(String(r.policy?.verifierTree?.dependencyAudit))) bad('policy');
   if (!Number.isInteger(r.artifact?.id) || !DIGEST_RE.test(String(r.artifact?.digest))
       || !DIGEST_RE.test(String(r.artifact?.treeDigest)) || !DIGEST_RE.test(String(r.artifact?.manifestDigest))) bad('artifact');
   if (!DIGEST_RE.test(String(r.hosting?.configDigest))) bad('hosting');
   if (!ISO_RE.test(String(r.expiresAt))) bad('expiresAt');
   if (!/^[0-9]+$/.test(String(r.certification?.runId)) || !/^[0-9]+$/.test(String(r.certification?.runAttempt))) bad('certification');
+  const ev = r.dependencies?.evidence;
+  if (!isObject(ev) || ev.schema !== EVIDENCE_SCHEMA || !DIGEST_RE.test(String(ev.recordDigest)) || !DIGEST_RE.test(String(ev.treeDigest))
+      || !DIGEST_RE.test(String(ev.lockDigest))) bad('dependencies.evidence');
+  const as = r.dependencies?.assessment;
+  if (!isObject(as) || as.schema !== ASSESSMENT_SCHEMA || !DIGEST_RE.test(String(as.digest)) || !DIGEST_RE.test(String(as.treeDigest))
+      || !Number.isInteger(as.artifact?.id) || !DIGEST_RE.test(String(as.artifact?.digest)) || typeof as.artifact?.name !== 'string'
+      || !/^[0-9]+$/.test(String(as.runId)) || !/^[0-9]+$/.test(String(as.runAttempt))
+      || !ISO_RE.test(String(as.startedAt)) || !Array.isArray(as.recordsApplied)) bad('dependencies.assessment');
+  const pub = r.publisher;
+  if (!isObject(pub) || pub.schema !== TOOLING_SCHEMA || !DIGEST_RE.test(String(pub.treeDigest)) || !Number.isInteger(pub.artifact?.id)
+      || !DIGEST_RE.test(String(pub.artifact?.digest)) || typeof pub.artifact?.name !== 'string'
+      || !/^v\d+\.\d+\.\d+$/.test(String(pub.node)) || typeof pub.entrypoint?.path !== 'string'
+      || !/^[0-9a-f]{64}$/.test(String(pub.entrypoint?.sha256))) bad('publisher');
   return problems;
 }

@@ -8,18 +8,24 @@
 # ┌─ gate ─────────────────────────────────────────────────────────────────────┐
 # │ no credential. Reads the certifying run, downloads the candidate BY ITS    │
 # │ ARTIFACT ID as data, reads the certified commit from git, the served       │
-# │ identity, and the peers' receipts and serving, and evaluates               │
-# │ release/lib/decide.mjs — the pure function the local suites drive. Emits   │
-# │ the decision AND the admitted record (every identity the publisher must    │
-# │ reproduce) with its digest.                                                │
+# │ identity, and the peers' receipts and serving. Then the FRESH half (D08    │
+# │ B2.2): prepares the publisher toolchain from the reviewed lock (pinned     │
+# │ npm, scripts disabled), and ASSESSES — a real advisory query, now — the    │
+# │ candidate's retained lock graph, the pinned scanner and that toolchain     │
+# │ under the trusted audit policy; retains both as artifacts. Evaluates       │
+# │ release/lib/decide.mjs and emits the decision AND the admitted record      │
+# │ (every identity the publisher must reproduce) with its digest.             │
 # ├─ publish ──────────────────────────────────────────────────────────────────┤
 # │ the ONLY job that may hold FIREBASE_SERVICE_ACCOUNT. No `npm ci`, no build │
 # │ and no application source: the verifier PINNED to the revision the gate   │
-# │ ran, the default branch's release/ tree (to notice a policy that moved),   │
-# │ the certified commit's two hosting files, and the admitted artifact —      │
-# │ downloaded by the record's id and digest. Inside one critical section it   │
-# │ re-establishes the record, stages exactly what it verified, publishes,     │
-# │ and then fetches the identity AND every certified file back.               │
+# │ ran, the default branch's release/ + dependency-audit/ trees (to notice a  │
+# │ policy that moved), the certified commit's two hosting files, and the      │
+# │ admitted candidate, toolchain and assessment — each downloaded by the      │
+# │ record's id and digest. Inside one critical section it re-establishes the  │
+# │ record and stages exactly what it verified; the publish step re-checks the │
+# │ assessment's age, every exception's expiry and the toolchain AGAIN, then   │
+# │ runs the admitted entrypoint — never a tool it resolved — and the identity │
+# │ AND every certified file are fetched back.                                 │
 # └────────────────────────────────────────────────────────────────────────────┘
 #
 # PUBLICATION IS DISABLED UNTIL AN OWNER ENABLES IT. The repository variable named in
@@ -103,6 +109,8 @@ jobs:
       artifact_id: ${{ steps.decide.outputs.artifact_id }}
       run_id: ${{ steps.decide.outputs.run_id }}
       policy_revision: ${{ steps.decide.outputs.policy_revision }}
+      tooling_artifact_id: ${{ steps.decide.outputs.tooling_artifact_id }}
+      assessment_artifact_id: ${{ steps.decide.outputs.assessment_artifact_id }}
       sha: ${{ steps.identity.outputs.sha }}
 
     steps:
@@ -135,10 +143,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # THE EXACT NODE THE PUBLISHER RUNS UNDER (release/policy.json → publisher.node),
+      # because the toolchain is prepared and measured here under it.
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '24.21.0'
 
       - name: Resolve the target and the request
         id: identity
@@ -236,6 +246,72 @@ jobs:
           set -euo pipefail
           node release/cli.mjs peer-facts > peers.json
 
+      # THE PUBLICATION TOOLCHAIN, prepared HERE, where there is no credential: installed
+      # ONLY from this checkout's reviewed release/publisher lock, by the pinned scanner's
+      # npm, with lifecycle scripts disabled, then measured as data (content tree,
+      # entrypoint, installed inventory, runtime). The publish job runs exactly this tree
+      # and resolves, downloads and installs nothing itself. A failure is recorded and the
+      # decision refuses it by name — it is never a wait.
+      - name: Prepare the publisher toolchain
+        id: prepare
+        if: steps.download.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          node release/cli.mjs prepare-publisher --out tooling --facts tooling.json > /dev/null
+
+      # THE FRESH ASSESSMENT: a real advisory query, now, over the candidate's RETAINED lock
+      # graph (a scan-only replay of the two files its evidence binds — no candidate script,
+      # hook or build runs), the pinned scanner and the toolchain just prepared, under THIS
+      # checkout's audit policy. Its exit status is the audit's (0 pass, 1 blocking, 2
+      # incomplete or not performed); the decision reads the document it wrote, so a
+      # failure here is a named refusal, not a skipped check.
+      - name: Assess the candidate's dependencies now
+        id: assess
+        if: steps.prepare.outcome == 'success'
+        continue-on-error: true
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          node release/cli.mjs assess \
+            --candidate candidate \
+            --tooling tooling \
+            --tooling-facts tooling.json \
+            --certification certification.json \
+            --out assessment \
+            --run-id "$RUN_ID" \
+            --run-attempt "$RUN_ATTEMPT" \
+            --now "$now" \
+            --summary "$GITHUB_STEP_SUMMARY" > assessment-outcome.json
+
+      # Both are RETAINED as their own artifacts, named by this run and attempt, so the
+      # publish job can download exactly these bytes by id. Hidden files are part of the
+      # toolchain's measured tree, so they are included; one day of retention is enough —
+      # a later publication prepares and assesses afresh.
+      - name: Retain the prepared toolchain
+        id: retain_tooling
+        if: steps.prepare.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publisher-tooling-${{ github.run_id }}-${{ github.run_attempt }}
+          path: tooling/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Retain the fresh assessment
+        id: retain_assessment
+        if: steps.prepare.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publish-assessment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: assessment/
+          if-no-files-found: warn
+          retention-days: 90
+
       # `decide` keeps its own exit status: 1 on REFUSE, 0 on PROCEED or a SKIP. A
       # REFUSE — and ONLY exit status 1 — is asked ONE further question by the trusted
       # CLI: is it exactly the recorded waiting state of a non-publishing automatic
@@ -248,6 +324,12 @@ jobs:
         id: decide
         env:
           ENABLEMENT: ${{ vars.FRONTEND_PUBLISH_ENABLED }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          TOOLING_ID: ${{ steps.retain_tooling.outputs.artifact-id }}
+          TOOLING_DIGEST: ${{ steps.retain_tooling.outputs.artifact-digest }}
+          ASSESSMENT_ID: ${{ steps.retain_assessment.outputs.artifact-id }}
+          ASSESSMENT_DIGEST: ${{ steps.retain_assessment.outputs.artifact-digest }}
         run: |
           set -euo pipefail
           # Only a classification made HERE, about THIS decision, may be read by the
@@ -262,6 +344,14 @@ jobs:
             --facts facts.json \
             --served served.json \
             --peers peers.json \
+            --assessment assessment \
+            --tooling-facts tooling.json \
+            --evaluation-run-id "$RUN_ID" \
+            --evaluation-run-attempt "$RUN_ATTEMPT" \
+            --tooling-artifact-id "${TOOLING_ID:-}" \
+            --tooling-artifact-digest "${TOOLING_DIGEST:-}" \
+            --assessment-artifact-id "${ASSESSMENT_ID:-}" \
+            --assessment-artifact-digest "${ASSESSMENT_DIGEST:-}" \
             --now "$now" \
             --record-out record.json \
             --outputs "$GITHUB_OUTPUT" \
@@ -318,6 +408,8 @@ jobs:
             facts.json
             served.json
             peers.json
+            tooling.json
+            assessment-outcome.json
             decision.json
             readiness.json
             record.json
@@ -345,15 +437,19 @@ jobs:
         with:
           ref: ${{ needs.gate.outputs.policy_revision }}
           path: trusted
-          sparse-checkout: release
+          sparse-checkout: |
+            release
+            dependency-audit
           persist-credentials: false
 
-      - name: Check out the default branch's release tree
+      - name: Check out the default branch's release and audit trees
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           path: current
-          sparse-checkout: release
+          sparse-checkout: |
+            release
+            dependency-audit
           persist-credentials: false
 
       # The certified commit's hosting configuration ONLY. No application source, no
@@ -371,10 +467,12 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # The exact Node the record admits the toolchain under; the preflight and the
+      # publish step both refuse any other.
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '24.21.0'
 
       - name: Download the admitted candidate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -386,12 +484,34 @@ jobs:
           merge-multiple: true
           digest-mismatch: error
 
+      # The toolchain and the assessment THIS run's gate retained, by the ids the record
+      # names. Data until the preflight has re-derived them against the record.
+      - name: Download the admitted toolchain
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.gate.outputs.tooling_artifact_id }}
+          path: tooling
+          merge-multiple: true
+          digest-mismatch: error
+
+      - name: Download the admitted assessment
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.gate.outputs.assessment_artifact_id }}
+          path: assessment
+          merge-multiple: true
+          digest-mismatch: error
+
       # THE CRITICAL SECTION. The record is decoded and re-derived against its digest,
       # then every identity it names is re-established from what THIS job holds and
       # what the world says NOW: the verifier, the policy, the certifying run and its
       # attempt, the listed artifact, this job's own download, the regenerated hosting
-      # configuration, the served release and the peers' serving. Only then is the
-      # payload staged — beside the regenerated configuration, and nothing else.
+      # configuration, the served release and the peers' serving — and the fresh
+      # assessment and toolchain: made by THIS run and attempt, listed with the recorded
+      # ids and digests, reproducing the recorded digests from this job's own downloads,
+      # the assessment inside its window with no applied exception lapsed, and this Node
+      # the admitted one. Only then is the payload staged — beside the regenerated
+      # configuration, and nothing else.
       - name: Re-establish the admitted unit, then stage it
         id: preflight
         env:
@@ -399,6 +519,8 @@ jobs:
           REPO: ${{ github.repository }}
           RECORD: ${{ needs.gate.outputs.record }}
           RECORD_DIGEST: ${{ needs.gate.outputs.record_digest }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
           now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -407,6 +529,10 @@ jobs:
             --record-digest "$RECORD_DIGEST" \
             --repo "$REPO" \
             --now "$now" \
+            --run-id "$RUN_ID" \
+            --run-attempt "$RUN_ATTEMPT" \
+            --tooling tooling \
+            --assessment assessment \
             --candidate candidate \
             --current current \
             --certified certified \
@@ -426,24 +552,31 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # The tool is PINNED (the same literal is in release/policy.json and a drift test
-      # holds the two together). Left at the action's default it resolves
-      # `firebase-tools@latest` at run time — an unpinned executable fetched from the
-      # network into the one job holding the service-account credential. It is pointed
-      # at the STAGED directory: the regenerated firebase.json and .firebaserc, and the
-      # verified payload.
+      # THE LAST BOUNDARY, THEN THE ADMITTED TOOLCHAIN. This step replaces
+      # FirebaseExtended/action-hosting-deploy, which ran `npx firebase-tools@<version>` —
+      # a graph resolved over the network here, in the job holding the credential, that
+      # nothing reviewed or scanned. Now: with a clock read at this moment, the command
+      # re-checks the assessment's age, every applied exception's expiry and the toolchain
+      # (content tree, entrypoint, this Node) against the record; only then does it read
+      # the credential, write it to a 0600 file in a fresh directory it removes afterwards,
+      # and run the admitted entrypoint by path — `deploy --only hosting:<target>
+      # --project <project> --json` in the staged directory, with a built environment and
+      # no retry. The secret is referenced here and nowhere else.
       - name: Publish to Firebase Hosting
         id: publish
         if: steps.enablement.outputs.enabled == 'true'
-        uses: FirebaseExtended/action-hosting-deploy@7c850a480ce753f4f06f010801fc5a43787740bb # v0
-        with:
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: dinify-dev
-          target: dinify-prod
-          channelId: live
-          entryPoint: stage
-          firebaseToolsVersion: '15.30.2'
-          disableComment: 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          node trusted/release/cli.mjs publish \
+            --record record.json \
+            --stage stage \
+            --tooling tooling \
+            --assessment assessment \
+            --now "$now" \
+            --out publish.json
 
       # A publication is not finished because a runner step exited zero. The identity
       # and EVERY certified file are fetched back from the origin and compared against
@@ -469,6 +602,7 @@ jobs:
             --preflight preflight.json \
             --enabled "${ENABLED:-false}" \
             --publish-step "${PUBLISHED:-skipped}" \
+            --publish publish.json \
             --verification verification.json \
             --summary "$GITHUB_STEP_SUMMARY"
 
@@ -480,6 +614,7 @@ jobs:
           path: |
             preflight.json
             record.json
+            publish.json
             verification.json
           if-no-files-found: warn
           retention-days: 90

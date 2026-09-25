@@ -172,6 +172,40 @@ and none of them has a fix this change may take:
 less than a day before this change, the same rule that stopped Admin's `hono` at 4.13.8.
 None is triaged, because no triage record is approved by this change.
 
+**The publisher graph (D08 B2.2), measured 2026-09-25.** The reviewed `release/publisher`
+lock (`firebase-tools` 15.31.0, 672 packages) audits within policy with 2 moderate
+findings requiring triage — `@opentelemetry/core` GHSA-8988-4f7v-96qf and `uuid` 9.0.1
+GHSA-w5hq-g745-h8pq. 15.31.0 already carries the fixed `csv-parse` and `stream-json`
+ranges. Nothing is triaged or excepted, and a record could not cover them anyway (record
+paths admit only `application:` and `scanner:`).
+
+## What consumes this evidence (D08 B2.2)
+
+The release path uses this directory three ways, and changes none of its rules:
+
+- **`certify` retains it WITH the candidate.** After the build, `release/cli.mjs stamp`
+  re-evaluates `evidence/` against the tree as it then stands (`reevaluate`) and refuses
+  to stamp if any dependency input moved; it then copies the retained `package.json`,
+  `package-lock.json`, snapshot, collection, result and raw outputs into
+  `dependency-evidence/` beside `dist/`, bound by `provenance.json`. The artifact
+  `dependency-audit-<run>-<attempt>` is still uploaded, but nothing selects it: "the
+  newest audit artifact" is not a binding.
+- **The gate re-derives it.** The raw outputs are re-read and re-evaluated under the
+  policy the evidence names; a result the raw answer does not reproduce is refused.
+- **The gate queries again.** `release/cli.mjs assess` runs `lib/retained.mjs` — new and
+  frontend-only; it composes the SHARED, unchanged `npm.mjs` reader, hardened scanner
+  environment and `core.mjs` evaluator, so `conformance.json` and the shared files stay
+  byte-identical with Admin and Backend — over a scan-only replay of the retained two
+  files, over the scanner's own graph and over the prepared publisher toolchain, with the
+  same pinned scanner and `--audit-level=low`, and decides under the TRUSTED checkout's
+  `policy.json` — never the candidate's retained copy.
+
+Two limits worth knowing. **Record paths admit only `application:` and `scanner:`**, so a
+PUBLISHER-graph finding cannot be excepted or triaged by a record: high/critical there
+blocks until the lock changes, and lower severity stays visible. And the B2.1 collection
+records one moment as its start, finish and decision; the certification evidence calls it
+`invokedAt`, while the fresh assessment records a real start and finish.
+
 ## What this does not cover
 
 Stated so none of it is inferred:
@@ -181,17 +215,14 @@ Stated so none of it is inferred:
   whatever `validate` or `certify` concluded. Until the reviewed cutover deletes it, this
   audit enforces what is VALIDATED and CERTIFIED, not what is live. A test pins that
   disclosure.
-- **Publisher tooling is not bound to any lockfile, so it is not certified here.**
-  `publish.yml` runs `firebase-tools` 15.30.2 and `deploy-prod.yml` runs
-  `firebase-tools@latest`, each resolved at run time by the hosting action with no
-  lockfile; the application lockfile's `firebase-tools` devDependency (and its
-  `overrides`) is a different graph that happens to share a name. A one-off scan of
-  15.30.2 as it resolved on 2026-09-24 (673 packages) found 7 moderate findings and no
-  high/critical — including `uuid` GHSA-w5hq-g745-h8pq, which the application graph's
-  `overrides` pin keeps out of the application graph but not out of the publisher's. That
-  scan describes that day's resolution, not what a publication installs. Binding the
-  publisher graph and re-auditing an unchanged retained candidate before promotion are the
-  next B2 delivery, as is the 24-hour promotion freshness window.
+- **The publisher toolchain is bound and assessed by the release path, not by this
+  audit's `validate`/`certify` run** (D08 B2.2). `publish.yml` no longer runs the hosting
+  action: its toolchain is the reviewed `release/publisher` lock (`firebase-tools`
+  15.31.0), installed in the gate by this directory's pinned npm with scripts disabled,
+  assessed there as a third graph under THIS policy, and run by the publisher from that
+  exact prepared tree — see `release/README.md` → "Dependencies". `deploy-prod.yml` still
+  runs `firebase-tools@latest`, resolved at run time with no lockfile, and nothing here
+  or there audits it.
 - **Not audited here:** the GitHub Actions used by the workflows (the hosting action's
   bundled code included), the runner image's tooling, and anything on a host.
 - **Branch protection is not changed.** "The audit is wired into `validate`" and "GitHub

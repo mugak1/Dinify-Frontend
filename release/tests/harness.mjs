@@ -28,6 +28,8 @@ import { createServer } from 'node:https';
 import { tmpdir } from 'node:os';
 import { dirname, join, posix } from 'node:path';
 
+import { applicationGraph, fixtureStore, installFakeNpm, publisherGraph, scannerGraph } from './fake-npm.mjs';
+
 export const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 export const REPOSITORY = 'mugak1/Dinify-Frontend';
 
@@ -278,6 +280,35 @@ export function certificationResponses({ repository = REPOSITORY, run, jobs = [{
   };
 }
 
+// ── the fresh half, as files a CLI `decide` reads ───────────────────────────────
+
+/**
+ * Write a fixture input's FRESH half the way the gate leaves it on disk — the assessment
+ * directory (the document plus the raw scanner output it names, the digests made to
+ * match) and tooling.json — and return the `decide` arguments that point at them.
+ */
+export function writeDependencyInputs(dir, input) {
+  const assessmentDir = join(dir, 'assessment');
+  mkdirSync(assessmentDir, { recursive: true });
+  const doc = JSON.parse(JSON.stringify(input.dependencies.assessment.doc));
+  for (const [graph, g] of Object.entries(doc.graphs)) {
+    for (const [file, key, text] of [[g.run.stdoutFile, 'stdoutSha256', `{"graph":"${graph}"}\n`], [g.run.stderrFile, 'stderrSha256', '']]) {
+      writeFileSync(join(assessmentDir, file), text);
+      g.run[key] = createHash('sha256').update(text).digest('hex');
+    }
+  }
+  writeFileSync(join(assessmentDir, 'assessment.json'), `${JSON.stringify(doc, null, 2)}\n`);
+  const toolingPath = join(dir, 'tooling.json');
+  writeFileSync(toolingPath, `${JSON.stringify(input.dependencies.tooling, null, 2)}\n`);
+  const up = input.dependencies.uploads;
+  return [
+    '--assessment', assessmentDir, '--tooling-facts', toolingPath,
+    '--evaluation-run-id', String(input.evaluation.runId), '--evaluation-run-attempt', String(input.evaluation.runAttempt),
+    '--tooling-artifact-id', String(up.tooling.id), '--tooling-artifact-digest', up.tooling.digest,
+    '--assessment-artifact-id', String(up.assessment.id), '--assessment-artifact-digest', up.assessment.digest,
+  ];
+}
+
 // ── artifacts ───────────────────────────────────────────────────────────────────
 
 function listFiles(root) {
@@ -336,8 +367,9 @@ export function artifactStore() {
 /**
  * Every file the release CLI reads at a certified commit, copied from THIS
  * repository, so the fixture's constants, environment, contracts, storage declaration
- * and hosting configuration are the real ones. The lockfile is the one stand-in: its
- * digest is recorded, its contents are never interpreted.
+ * and hosting configuration are the real ones. The package graphs (the application
+ * lock, the pinned scanner's, the reviewed publisher lock) are the fixture's own, small
+ * and real in shape — see writeDependencyFixture.
  */
 export const FRONTEND_FILES = Object.freeze([
   'angular.json',
@@ -357,6 +389,47 @@ export const FRONTEND_FILES = Object.freeze([
   '.github/workflows/certify.yml',
 ]);
 
+/**
+ * THE FIXTURE'S RUNTIME PIN. The publisher toolchain is pinned to one exact Node
+ * (release/policy.json → publisher.node) and prepare-publisher, preflight and publish all
+ * refuse any other. This suite cannot install a second Node, so a fixture's policy names
+ * the Node the suite is running on; that the WORKFLOW sets up exactly the committed pin is
+ * a separate, static fact pinned by workflow-drift.test.mjs.
+ */
+export function withFixtureRuntime(policy) {
+  const copy = JSON.parse(JSON.stringify(policy));
+  copy.publisher.node = process.versions.node;
+  return copy;
+}
+
+const writeJson = (dir, rel, value) => writeText(dir, rel, `${JSON.stringify(value, null, 2)}\n`);
+
+/**
+ * The real dependency-audit code, with the fixture graphs: the application lock the
+ * candidate certifies, the pinned scanner's lock, and the reviewed publisher lock — each
+ * small, real in shape, and installed by the recorded npm (fake-npm.mjs).
+ */
+function writeDependencyFixture(dir, policy) {
+  cpSync(join(ROOT, 'dependency-audit/lib'), join(dir, 'dependency-audit/lib'), { recursive: true });
+  for (const rel of ['dependency-audit/cli.mjs', 'dependency-audit/conformance.json']) cpSync(join(ROOT, rel), join(dir, rel));
+  const auditPolicy = JSON.parse(readFileSync(join(ROOT, 'dependency-audit/policy.json'), 'utf8'));
+  auditPolicy.target.nodeMajor = Number(process.versions.node.split('.')[0]);
+  writeJson(dir, 'dependency-audit/policy.json', auditPolicy);
+  const app = applicationGraph();
+  writeJson(dir, 'package.json', app.manifest);
+  writeJson(dir, 'package-lock.json', app.lock);
+  const scanner = scannerGraph();
+  writeJson(dir, 'dependency-audit/scanner/package.json', scanner.manifest);
+  writeJson(dir, 'dependency-audit/scanner/package-lock.json', scanner.lock);
+  const publisher = publisherGraph(policy.publisher.version);
+  writeJson(dir, `${policy.publisher.root}/package.json`, publisher.manifest);
+  writeJson(dir, `${policy.publisher.root}/package-lock.json`, publisher.lock);
+  writeText(dir, '.gitignore', [
+    'node_modules/', '/dist/', '/dependency-audit/evidence/', '/dependency-audit/scanner/node_modules/',
+    '/dependency-evidence/', '/provenance.json', '',
+  ].join('\n'));
+}
+
 export function fixtureFrontend({ policy, receipts = {}, legacyWorkflow = false, files = {} } = {}) {
   const dir = initRepo(tempDir('frontend'));
   for (const rel of FRONTEND_FILES) {
@@ -365,47 +438,117 @@ export function fixtureFrontend({ policy, receipts = {}, legacyWorkflow = false,
   }
   cpSync(join(ROOT, 'release/lib'), join(dir, 'release/lib'), { recursive: true });
   cpSync(join(ROOT, 'release/cli.mjs'), join(dir, 'release/cli.mjs'));
-  writeText(dir, 'release/policy.json', `${JSON.stringify(policy ?? JSON.parse(readFileSync(join(ROOT, 'release/policy.json'), 'utf8')), null, 2)}\n`);
+  const written = withFixtureRuntime(policy ?? JSON.parse(readFileSync(join(ROOT, 'release/policy.json'), 'utf8')));
+  writeJson(dir, 'release/policy.json', written);
   for (const [peer, list] of Object.entries(receipts)) {
-    for (const receipt of list) writeText(dir, `release/peers/${peer}-${receipt.commit}.json`, `${JSON.stringify(receipt, null, 2)}\n`);
+    for (const receipt of list) writeJson(dir, `release/peers/${peer}-${receipt.commit}.json`, receipt);
   }
-  writeText(dir, 'package-lock.json', '{"name":"release-fixture","lockfileVersion":3,"packages":{}}\n');
+  writeDependencyFixture(dir, written);
   if (legacyWorkflow) cpSync(join(ROOT, '.github/workflows/deploy-prod.yml'), join(dir, '.github/workflows/deploy-prod.yml'));
   for (const [rel, text] of Object.entries(files)) writeText(dir, rel, text);
-  return { dir, commit: commitAll(dir, 'fixture: initial') };
+  return { dir, commit: commitAll(dir, 'fixture: initial'), policy: written };
 }
 
 /**
- * Build a candidate the way certify.yml does: a checkout of exactly `commit`, a build
- * output (stand-in bytes, carrying the policy's API origin so the built-bytes check has
- * something real to find), and the REAL `stamp`. Returns the artifact directory
- * (`dist/` + `provenance.json`) and its identity.
+ * THE LAST PRE-B2.2 REVISION of this repository (the #701 merge). A candidate an older
+ * certify.yml produced was stamped by THIS release code, so the legacy-candidate tests
+ * stamp with it — the genuine old stamp, from git, rather than a hand-edited provenance.
  */
-export async function buildCandidate({ repo, commit, runId, runAttempt = 1, startedAt, marker = '', mutate }) {
+export const PRE_B22_REVISION = '69953f58abb6f824eb03e9212175e2c033c69fec';
+
+/**
+ * Commit the pre-B2.2 release code (lib, cli, policy) onto the fixture: the commit a
+ * legacy candidate is certified at. Then restore the current code in a second commit.
+ * Returns {legacy, restored}.
+ */
+export function commitPreB22Release(repo) {
+  const current = tempDir('release-now');
+  cpSync(join(repo, 'release'), current, { recursive: true });
+  const r = spawnSync('bash', ['-c', `git -C "${ROOT}" archive ${PRE_B22_REVISION} release/lib release/cli.mjs release/policy.json | tar -x -C "${repo}"`], { encoding: 'utf8' });
+  if (r.status !== 0) {
+    throw new Error(`could not extract the pre-B2.2 release code at ${PRE_B22_REVISION} — this suite needs the repository's history `
+      + `(a shallow clone lacks it; CI checks out with fetch-depth: 0): ${r.stderr}`);
+  }
+  rmSync(join(repo, 'release/lib/dependency-evidence.mjs'), { force: true });
+  rmSync(join(repo, 'release/lib/publisher.mjs'), { force: true });
+  const legacy = commitAll(repo, 'fixture: the pre-B2.2 release code');
+  rmSync(join(repo, 'release'), { recursive: true, force: true });
+  cpSync(current, join(repo, 'release'), { recursive: true });
+  const restored = commitAll(repo, 'fixture: the current release code');
+  return { legacy, restored };
+}
+
+let sharedNpm = null;
+/** The recorded npm a candidate is certified with when a test names none: no advisories. */
+export function defaultNpm() {
+  if (!sharedNpm) sharedNpm = installFakeNpm({ store: fixtureStore(JSON.parse(readFileSync(join(ROOT, 'release/policy.json'), 'utf8')).publisher.version) });
+  return sharedNpm;
+}
+
+/**
+ * Build a candidate the way certify.yml does, with every dependency step REAL except the
+ * package manager: a checkout of exactly `commit`; `npm ci` (the recorded npm, from the
+ * fixture store); the REAL `dependency-audit snapshot` and `audit` (the audit installs the
+ * pinned scanner and scans both graphs, answered by `npm`'s advisory table); a build
+ * output (stand-in bytes carrying the policy's API origin, so the built-bytes check has
+ * something real to find); and the REAL `stamp`, which re-evaluates that evidence after
+ * the build and binds it. Returns the artifact directory (`dist/` + `provenance.json` +
+ * `dependency-evidence/`) and its identity.
+ *
+ * `beforeStamp(work)` runs after the build and before the stamp — FAULT INJECTION for "a
+ * dependency input changed during the build"; a stamp refusal then throws, and
+ * `expectRefusal: true` returns it instead.
+ */
+export async function buildCandidate({
+  repo, commit, runId, runAttempt = 1, startedAt, stampedAt, marker = '', mutate, npm, beforeStamp, expectRefusal = false,
+}) {
+  // THE STAMP IS LATER THAN THE RUN'S START, as in certify.yml: the run installs, tests
+  // and builds first, and `--runStartedAt` is the stamp's own clock reading. A rule that
+  // compared it with the API's run_started_at would refuse every real candidate — so the
+  // fixture keeps the two apart rather than letting one value hide that.
+  const stamped = stampedAt ?? new Date(Date.parse(startedAt) + 5 * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const parent = tempDir('build');
   const work = join(parent, 'wt');
   git(repo, ['worktree', 'add', '--detach', '-q', work, commit]);
   try {
     const policy = JSON.parse(readFileSync(join(work, 'release/policy.json'), 'utf8'));
+    const env = childEnv((npm ?? defaultNpm()).env());
+    const step = async (what, command, args) => {
+      const r = await run(command, args, { cwd: work, env });
+      if (r.status !== 0) throw new Error(`certification step "${what}" failed (${r.status}):\n${r.stdout}\n${r.stderr}`);
+      return r;
+    };
+    await step('npm ci', 'npm', ['ci']);
+    await step('audit snapshot', process.execPath, [join(work, 'dependency-audit/cli.mjs'), 'snapshot']);
+    await step('audit', process.execPath, [join(work, 'dependency-audit/cli.mjs'), 'audit']);
     const tag = `${commit.slice(0, 8)} run ${runId}.${runAttempt}${marker}`;
     writeText(work, 'dist/index.html', `<!doctype html><title>fixture ${tag}</title>\n`);
     writeText(work, `dist/main-${commit.slice(0, 8)}.js`, `const api=${JSON.stringify(policy.build.expectedApiUrl)};/* ${tag} */\n`);
     writeText(work, 'dist/styles-fixture.css', `body{margin:0}/* ${tag} */\n`);
     writeText(work, 'dist/assets/icon.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>\n');
     if (mutate) mutate(join(work, 'dist'));
+    if (beforeStamp) await beforeStamp(work);
     const name = `frontend-release-${runId}-${runAttempt}`;
     const r = await run(process.execPath, [
       join(work, 'release/cli.mjs'), 'stamp', '--dist', join(work, 'dist'), '--out', join(work, 'provenance.json'),
-      '--commit', commit, '--ref', 'refs/heads/main', '--now', startedAt, '--runId', String(runId),
-      '--runAttempt', String(runAttempt), '--runStartedAt', startedAt, '--nodeVersion', process.version,
-      '--artifactName', name,
-    ], { cwd: work });
-    if (r.status !== 0) throw new Error(`stamp refused the fixture candidate:\n${r.stderr}`);
+      '--commit', commit, '--ref', 'refs/heads/main', '--now', stamped, '--runId', String(runId),
+      '--runAttempt', String(runAttempt), '--runStartedAt', stamped, '--nodeVersion', process.version,
+      '--artifactName', name, '--dependencyAudit', join(work, 'dependency-audit/evidence'),
+      '--evidenceOut', join(work, 'dependency-evidence'),
+    ], { cwd: work, env });
+    if (r.status !== 0) {
+      if (expectRefusal) return { refused: true, stderr: r.stderr, evidenceWritten: existsSync(join(work, 'dependency-evidence')), provenanceWritten: existsSync(join(work, 'provenance.json')) };
+      throw new Error(`stamp refused the fixture candidate:\n${r.stderr}`);
+    }
+    if (expectRefusal) throw new Error('the stamp was expected to refuse, and certified the candidate');
     const dir = tempDir('artifact');
-    cpSync(join(work, 'dist'), join(dir, 'dist'), { recursive: true });
-    cpSync(join(work, 'provenance.json'), join(dir, 'provenance.json'));
+    // A candidate stamped by the PRE-B2.2 stamp has no dependency-evidence/ to copy.
+    for (const entry of ['dist', 'provenance.json', 'dependency-evidence']) {
+      if (existsSync(join(work, entry))) cpSync(join(work, entry), join(dir, entry), { recursive: true });
+    }
     const manifest = JSON.parse(readFileSync(join(dir, 'dist/release.json'), 'utf8'));
-    return { name, runId: String(runId), runAttempt: String(runAttempt), commit, dir, manifest, digest: artifactDigest(dir) };
+    const stamp = JSON.parse(r.stdout);
+    return { name, runId: String(runId), runAttempt: String(runAttempt), commit, dir, manifest, stamp, digest: artifactDigest(dir) };
   } finally {
     git(repo, ['worktree', 'remove', '--force', work]);
   }

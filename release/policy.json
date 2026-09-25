@@ -12,7 +12,7 @@
     "and refuses (preflight.policy_advanced) if release/ on the default branch has moved",
     "since, so changing anything here takes effect only on a fresh publication run."
   ],
-  "schema": "dinify.release.policy/2",
+  "schema": "dinify.release.policy/3",
   "application": "dinify-frontend",
   "repository": "mugak1/Dinify-Frontend",
   "defaultBranch": "main",
@@ -35,16 +35,23 @@
   },
   "freshness": {
     "_note": [
-      "A certification describes a moment. A candidate older than this window is not",
-      "promoted on its old statement; it is re-certified.",
+      "A certification describes a moment. A candidate older than certificationWindowHours",
+      "is not promoted on its old statement; it is re-certified.",
       "",
-      "THIS IS A CONSERVATIVE LIMIT, NOT AUDIT EVIDENCE. Nothing in the gate proves the",
-      "certified dependency set was audited within this window: the candidate-inventory",
-      "rescan is B2, and has not been supplied. The window is kept as the limit until that",
-      "rescan is wired, and the certified payload is never rebuilt as a substitute for",
-      "scanning it."
+      "assessmentWindowHours is the MAXIMUM AGE of the fresh dependency assessment (D08",
+      "B2.2): the gate queries the advisory database again, over the candidate's RETAINED",
+      "lock graph, the pinned scanner and the prepared publisher toolchain, and the",
+      "publisher refuses to use the credential once that collection is older than this, or",
+      "once an applied exception record has lapsed — re-checked in its critical section and",
+      "again immediately before the credential is read. It is measured from when the",
+      "collection STARTED, never from a re-decision: re-deciding old evidence with today's",
+      "clock is not a fresh query. It cannot exceed 24 hours.",
+      "",
+      "Neither window is audit evidence on its own. The certified payload is never rebuilt",
+      "as a substitute for scanning what it was built from."
     ],
-    "certificationWindowHours": 24
+    "certificationWindowHours": 24,
+    "assessmentWindowHours": 24
   },
   "build": {
     "_note": [
@@ -89,10 +96,6 @@
       "diner QR URL stays valid, is an owner inventory item. Nothing here redirects,",
       "reroutes or reprints anything.",
       "",
-      "firebaseToolsVersion pins the tool the publisher runs. The oracle test reads the",
-      "version installed in this repository, which may differ; that difference is",
-      "recorded by release/tests/hosting-oracle.test.mjs rather than assumed away.",
-      "",
       "verification is how long the publisher waits for the origin to serve the admitted",
       "identity after the tool returns: `attempts` reads, the n-th after n x intervalMs.",
       "Only the WAIT is configurable — what counts as verified is not."
@@ -104,7 +107,6 @@
     "channelId": "live",
     "identityOrigin": "https://dinify-prod.web.app",
     "identityPath": "/release.json",
-    "firebaseToolsVersion": "15.30.2",
     "verification": {
       "attempts": 5,
       "intervalMs": 5000
@@ -114,6 +116,33 @@
       "**/.*",
       "**/node_modules/**"
     ]
+  },
+  "publisher": {
+    "_note": [
+      "THE PUBLICATION TOOLCHAIN, pinned as a reviewed graph rather than a version string.",
+      "release/publisher/package.json + package-lock.json are the ONLY source it is",
+      "installed from: by the gate (which holds no credential), with the pinned scanner's",
+      "npm and lifecycle scripts disabled. The gate measures the result (content tree,",
+      "entrypoint, installed inventory), assesses its graph under the dependency-audit",
+      "policy, and retains it as its own artifact; the publish job downloads THAT artifact",
+      "by id and runs `entrypoint` with the exact Node below. Nothing in the job that holds",
+      "the credential resolves, downloads or installs a tool — the app's own firebase-tools",
+      "devDependency certifies nothing about this one, and there is no `npx`, no `latest`",
+      "and no ambient `firebase` on PATH.",
+      "",
+      "A checksum identifies bytes; a passing scan is not proof of safety. Changing any of",
+      "these values, or the lock, is a reviewed change and advances the verifier, so a run",
+      "admitted under the old values is refused (preflight.policy_advanced).",
+      "",
+      "deployAgent is the FIREBASE_DEPLOY_AGENT label the tool is given, replacing the one",
+      "the retired action set; it is telemetry, not authority."
+    ],
+    "root": "release/publisher",
+    "package": "firebase-tools",
+    "version": "15.31.0",
+    "entrypoint": "node_modules/firebase-tools/lib/bin/firebase.js",
+    "node": "24.21.0",
+    "deployAgent": "dinify-release-publisher"
   },
   "storage": {
     "_note": [

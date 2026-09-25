@@ -16,8 +16,9 @@ import {
 import { canonicalJson, digestOfValue, treeDigest, contractDigest } from '../lib/canonical.mjs';
 import {
   manifestFor, provenanceFor, TREE_DIGEST, TARGET_SHA, SOURCE_TREE, CONSTANTS, STORAGE, POLICY,
-  D01_DIGEST, LOCK_DIGEST, RUN_STARTED,
+  D01_DIGEST, LOCK_DIGEST, STAMPED, evidenceFor, clone,
 } from './fixtures.mjs';
+import { EVIDENCE_SCHEMA } from '../lib/dependency-evidence.mjs';
 
 const problemCodes = (r) => r.problems.map((p) => p.code);
 
@@ -85,11 +86,41 @@ describe('manifest validation', () => {
 describe('provenance validation', () => {
   test('CONTROL: a provenance record built for a manifest validates against it', () => {
     const manifest = manifestFor();
+    const e = evidenceFor(manifest);
     const provenance = buildProvenance({
       manifest, artifactName: 'frontend-release', artifactTreeDigest: TREE_DIGEST, entryCount: 3,
+      dependencyEvidence: { schema: EVIDENCE_SCHEMA, recordDigest: e.recordDigest, treeDigest: e.treeDigest, entryCount: e.entryCount },
     });
     const r = validateProvenance(provenance, manifest);
     assert.equal(r.ok, true, JSON.stringify(r.problems));
+    assert.equal(r.legacy, false);
+  });
+
+  test('CONTRACT (B2.2): a current provenance record that binds no dependency evidence is refused', () => {
+    const manifest = manifestFor();
+    for (const mutate of [
+      (p) => { delete p.dependencyEvidence; },
+      (p) => { p.dependencyEvidence = null; },
+      (p) => { p.dependencyEvidence.recordDigest = 'sha256:abc'; },
+      (p) => { p.dependencyEvidence.schema = 'dinify.release.dependency-evidence/0'; },
+      (p) => { p.dependencyEvidence.entryCount = 0; },
+    ]) {
+      const provenance = provenanceFor(manifest, TREE_DIGEST);
+      mutate(provenance);
+      const r = validateProvenance(provenance, manifest);
+      assert.ok(problemCodes(r).includes('provenance.bad_dependency_evidence'), JSON.stringify(r.problems));
+      assert.equal(r.legacy, false, 'a broken current record is never read as a legacy one');
+    }
+  });
+
+  test('CONTRACT (B2.2): a pre-B2.2 provenance record is recognised as LEGACY — readable, and flagged so the decision can refuse it by name', () => {
+    const manifest = manifestFor();
+    const provenance = clone(provenanceFor(manifest, TREE_DIGEST));
+    provenance.schema = 'dinify.release.provenance/1';
+    delete provenance.dependencyEvidence;
+    const r = validateProvenance(provenance, manifest);
+    assert.equal(r.ok, true, JSON.stringify(r.problems));
+    assert.equal(r.legacy, true);
   });
 
   test('rejects a provenance record describing a different commit', () => {
@@ -183,11 +214,11 @@ describe('buildManifest — the shape stamp writes', () => {
     commit: TARGET_SHA,
     ref: 'refs/heads/main',
     sourceTree: SOURCE_TREE,
-    builtAt: RUN_STARTED,
+    builtAt: STAMPED,
     env: { apiUrl: 'https://api-test.dinifyapp.com/uat', dinerBaseUrl: 'https://order.dinifyapp.com', production: false },
     lockDigest: LOCK_DIGEST,
     nodeVersion: 'v24.21.0',
-    run: { runId: 4242, runAttempt: 1, runStartedAt: RUN_STARTED },
+    run: { runId: 4242, runAttempt: 1, runStartedAt: STAMPED },
     constants: { ...CONSTANTS },
     supportedQuotePolicyVersions: [1],
     storage: STORAGE,

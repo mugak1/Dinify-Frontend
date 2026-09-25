@@ -127,6 +127,17 @@ describe('the rest of the policy', () => {
     ['retention outside its vocabulary', 'policy.bad_retention', (p) => { p.prerequisites.retention.status = 'assumed'; }],
     ['single publisher outside its vocabulary', 'policy.bad_single_publisher', (p) => { p.prerequisites.singlePublisher.status = 'both'; }],
     ['an enablement variable that is not a variable name', 'policy.bad_enablement_variable', (p) => { p.publication.enablementVariable = 'enabled'; }],
+    // D08 B2.2 — the publisher toolchain is pinned as a reviewed graph, never a tag or range.
+    ['no publisher block', 'policy.no_publisher', (p) => { delete p.publisher; }],
+    ['a publisher version that is `latest`', 'policy.bad_tools_version', (p) => { p.publisher.version = 'latest'; }],
+    ['a publisher version that is a range', 'policy.bad_tools_version', (p) => { p.publisher.version = '^15.31.0'; }],
+    ['a publisher Node that is a major only', 'policy.bad_publisher_node', (p) => { p.publisher.node = '24'; }],
+    ['a publisher root other than the reviewed lock', 'policy.bad_publisher_root', (p) => { p.publisher.root = 'node_modules'; }],
+    ['an entrypoint outside the pinned package', 'policy.bad_publisher_entrypoint', (p) => { p.publisher.entrypoint = 'node_modules/other/lib/bin/firebase.js'; }],
+    ['an entrypoint that climbs', 'policy.bad_publisher_entrypoint', (p) => { p.publisher.entrypoint = 'node_modules/firebase-tools/../../x.js'; }],
+    ['a deploy agent with spaces', 'policy.bad_publisher_agent', (p) => { p.publisher.deployAgent = 'dinify release'; }],
+    ['an assessment window beyond 24 hours', 'policy.bad_assessment_window', (p) => { p.freshness.assessmentWindowHours = 25; }],
+    ['no assessment window', 'policy.bad_assessment_window', (p) => { delete p.freshness.assessmentWindowHours; }],
   ];
   for (const [name, code, mutate] of cases) test(`CONTRACT: ${name}`, () => rejected(mutate, code));
 });

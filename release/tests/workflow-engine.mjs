@@ -19,23 +19,33 @@
  *   actions/checkout          git init + fetch from the fixture repository + (sparse)
  *                             checkout; persist-credentials writes the extraheader the
  *                             real action writes, so leaving it on is OBSERVABLE
- *   actions/setup-node        records the version; the runner already has Node 24
+ *   actions/setup-node        records the version requested; the runner already has
+ *                             Node 24, and a fixture's policy pins THAT Node
+ *                             (harness.mjs, withFixtureRuntime) — that the workflow asks
+ *                             for exactly the committed pin is pinned statically
  *   actions/download-artifact name XOR artifact-ids, cross-run needs a token, an
  *                             expired upload fails, the bytes are re-digested and
  *                             compared with the listing (digest-mismatch: error), and
  *                             the v5+ layout for a single artifact / merge-multiple
- *   actions/upload-artifact   copies the named files into an evidence store
- *   FirebaseExtended/action-hosting-deploy
- *                             THE OBSERVABLE PUBLISHER. It resolves the destination
- *                             with firebase-tools' OWN functions (Command#applyRC,
- *                             hostingConfig, listFiles — the installed version, which
- *                             the oracle test records against the pinned one), lists
- *                             the upload with the tool's own ignore handling, and
- *                             "publishes" by serving exactly those files from a local
- *                             origin. It records the credential it received. It can be
- *                             told to fail, to fail after publishing, to drop a file,
- *                             or to publish something else — so the verification that
- *                             follows is tested against a publisher that misbehaves.
+ *   actions/upload-artifact   the v4+ root rule (one directory path uploads its
+ *                             CONTENTS; several paths keep their relative layout),
+ *                             hidden files dropped unless include-hidden-files, and the
+ *                             upload REGISTERED as an artifact of this run with the
+ *                             `artifact-id` / `artifact-digest` outputs the real action sets
+ *   package manager           a RECORDED npm on PATH (fake-npm.mjs): `ci` from a fixture
+ *                             store, `audit` from an advisory table a scenario controls.
+ *                             The only place a synthetic advisory enters.
+ *   THE PUBLISHER             not an action any more (D08 B2.2). The REAL `publish`
+ *                             command runs the admitted toolchain's entrypoint, which in
+ *                             the fixture store is a stub (fake-npm.mjs) that resolves the
+ *                             destination with firebase-tools' OWN functions and reports
+ *                             what it received — argv, cwd, the credential FILE, its mode,
+ *                             its environment — through $RUNNER_TEMP/sim-publisher/. This
+ *                             engine applies each report: it records the call and serves
+ *                             what was published. `world.publisher.mode` makes the stub
+ *                             misbehave: `fail-before`, `fail-after`, `partial`,
+ *                             `wrong-candidate`; `identity-cacheable` is applied here (an
+ *                             origin that ignores the configuration it was handed).
  *
  * WHAT IT IS NOT. Not GitHub: no queueing, no concurrency groups, no OIDC, no runner
  * images, no masking. The GitHub API is a RECORDED map (release/tests/harness.mjs). An
@@ -43,9 +53,9 @@
  * one must extend this file deliberately.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import { ROOT, artifactDigest, childEnv, git as fixtureGit, run, tempDir } from './harness.mjs';
 
@@ -398,7 +408,8 @@ const ACTION_REF = /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)@([^\s]+)$/;
  * @param {object} args.event   {name, ref, sha, runId, runAttempt, payload?, inputs?}
  * @param {object} args.world   see workflow-simulation.test.mjs
  * @param {object} [args.hooks] {betweenJobs: async ({after, jobs}) => {},
- *                               beforeStep: async ({job, step, workspace, world}) => {}}
+ *                               beforeStep: async ({job, step, workspace, world}) => {},
+ *                               stepEnv: ({job, step}) => ({...extra env for that step})}
  *   `beforeStep` is FAULT INJECTION: it runs before a step's condition is evaluated,
  *   with that job's workspace, so a scenario can corrupt what the step will read. A
  *   scenario using it says so in its title.
@@ -486,6 +497,7 @@ async function runJob({ jobName, job, workflow, github, inputs, secrets, vars, n
       },
     };
     world.log.push({ type: 'step', job: jobName, step: label });
+    writePublisherChannel(runnerTemp, world);
     if (hooks.beforeStep) await hooks.beforeStep({ job: jobName, step: label, workspace, world });
     let ran = evaluateCondition(step.if, scope);
     let outcome = 'skipped';
@@ -496,8 +508,12 @@ async function runJob({ jobName, job, workflow, github, inputs, secrets, vars, n
       for (const [k, v] of Object.entries(job.env ?? {})) env[k] = interpolate(String(v), scope);
       for (const [k, v] of Object.entries(step.env ?? {})) env[k] = interpolate(String(v), scope);
       record.env = env;
+      // FAULT INJECTION, labelled by the scenario: extra environment for ONE step (the
+      // simulated clock offset). Kept out of `record.env`, which is what the file says.
+      const injected = hooks.stepEnv?.({ job: jobName, step: label }) ?? {};
       if (step.run !== undefined) {
-        const r = await runScript({ step, scope, env, workspace, runnerTemp, github, world, index, jobName });
+        const r = await runScript({ step, scope, env: { ...env, ...injected }, workspace, runnerTemp, github, world, index, jobName });
+        applyPublisherReports(runnerTemp, world, { job: jobName, step: label });
         outcome = r.status === 0 ? 'success' : 'failure';
         outputs = r.outputs;
         summary += r.summary;
@@ -514,6 +530,7 @@ async function runJob({ jobName, job, workflow, github, inputs, secrets, vars, n
         const standIn = STAND_INS[action];
         if (!standIn) throw new Error(`the simulation does not model ${action}; extend release/tests/workflow-engine.mjs deliberately`);
         const r = await standIn({ inputs: withInputs, workspace, github, world, jobName, label });
+        if (r.ok && action === 'actions/upload-artifact') world.refreshApi?.();
         outcome = r.ok ? 'success' : 'failure';
         outputs = r.outputs ?? {};
         Object.assign(record, { detail: r.detail ?? null, observed: r.observed ?? null });
@@ -525,6 +542,12 @@ async function runJob({ jobName, job, workflow, github, inputs, secrets, vars, n
     if (conclusion === 'failure') jobFailed = true;
     if (step.id) stepsContext[step.id] = { outputs, outcome, conclusion };
     Object.assign(record, { outcome, conclusion });
+    // SIM_TRACE=1 prints every step as it finishes — for reading a scenario, never asserted.
+    if (process.env.SIM_TRACE && outcome !== 'skipped') {
+      process.stderr.write(`[sim] ${jobName} :: ${label} -> ${outcome}${record.status !== undefined ? ` (${record.status})` : ''}${record.detail ? ` ${record.detail}` : ''}\n`);
+      if (outcome === 'failure' && record.stderr) process.stderr.write(`${record.stderr.split('\n').slice(-25).join('\n')}\n`);
+      if (outcome === 'failure' && record.stdout) process.stderr.write(`${record.stdout.split('\n').filter((l) => l.includes('"code"') || l.includes('"detail"')).slice(0, 40).join('\n')}\n`);
+    }
     trace.push(record);
     result.steps.push(record);
   }
@@ -546,6 +569,27 @@ function truthyContinue(value, scope) {
   return truthy(interpolate(String(value), scope)) && interpolate(String(value), scope) !== 'false';
 }
 
+let clockBin = null;
+/**
+ * A `date` that defers to the real one unless SIM_CLOCK_OFFSET_SECONDS is set, and then
+ * answers the one form the workflow uses (`-u +FORMAT`) shifted by that many seconds.
+ * Set only through `hooks.stepEnv` — FAULT INJECTION for "this step ran later".
+ */
+function simulatedClock() {
+  if (clockBin) return clockBin;
+  const real = ['/usr/bin/date', '/bin/date'].find((p) => existsSync(p));
+  clockBin = tempDir('sim-clock');
+  writeFileSync(join(clockBin, 'date'), [
+    '#!/bin/bash',
+    'if [ -n "${SIM_CLOCK_OFFSET_SECONDS:-}" ]; then',
+    `  exec ${real} -d "@$(( $(${real} +%s) + SIM_CLOCK_OFFSET_SECONDS ))" "$@"`,
+    'fi',
+    `exec ${real} "$@"`,
+    '',
+  ].join('\n'), { mode: 0o755 });
+  return clockBin;
+}
+
 async function runScript({ step, scope, env, workspace, runnerTemp, github, world, index, jobName }) {
   const script = interpolate(String(step.run), scope);
   const file = join(runnerTemp, `step-${index}.sh`);
@@ -555,8 +599,9 @@ async function runScript({ step, scope, env, workspace, runnerTemp, github, worl
   writeFileSync(output, '');
   writeFileSync(summaryFile, '');
   const cwd = step['working-directory'] ? join(workspace, interpolate(String(step['working-directory']), scope)) : workspace;
-  const base = childEnv(world.gh.env());
-  base.PATH = `${world.gh.bin}:${dirname(process.execPath)}:${process.env.PATH}`;
+  const base = childEnv({ ...world.gh.env(), ...(world.npm ? world.npm.env() : {}) });
+  // The recorded gh and npm SHADOW anything real, including the npm beside this Node.
+  base.PATH = [simulatedClock(), world.gh.bin, world.npm?.bin, dirname(process.execPath), process.env.PATH].filter(Boolean).join(':');
   const fullEnv = {
     ...base,
     CI: 'true',
@@ -634,7 +679,9 @@ async function checkoutStandIn({ inputs, workspace, github, world }) {
 }
 
 async function setupNodeStandIn({ inputs }) {
-  return { ok: String(inputs['node-version']) === '24', observed: { nodeVersion: inputs['node-version'] }, detail: 'the runner already has Node 24' };
+  const requested = String(inputs['node-version']);
+  const ok = requested === '24' || /^24\.\d+\.\d+$/.test(requested);
+  return { ok, observed: { nodeVersion: requested, provides: process.version }, detail: 'the runner already has Node 24' };
 }
 
 async function downloadStandIn({ inputs, workspace, github, world }) {
@@ -672,87 +719,67 @@ async function downloadStandIn({ inputs, workspace, github, world }) {
   return { ok: true, observed };
 }
 
-async function uploadStandIn({ inputs, workspace, world }) {
+async function uploadStandIn({ inputs, workspace, github, world }) {
+  const paths = lines(inputs.path);
+  const hidden = bool(inputs['include-hidden-files'], false);
+  const dir = join(world.evidence, inputs.name);
+  if (existsSync(dir)) return { ok: false, detail: `an artifact named ${inputs.name} already exists in this run` };
+  mkdirSync(dir, { recursive: true });
+  const keep = (src) => hidden || !src.split('/').some((part) => part.startsWith('.') && part !== '.' && part !== '..');
   const stored = [];
   const missing = [];
-  const dir = join(world.evidence, inputs.name);
-  mkdirSync(dir, { recursive: true });
-  for (const rel of lines(inputs.path)) {
+  // THE ROOT RULE (upload-artifact v4+): ONE directory path uploads that directory's
+  // contents; otherwise each path keeps its layout under their common root (here, the
+  // workspace every path in this workflow is relative to).
+  const single = paths.length === 1 && existsSync(join(workspace, paths[0])) && statSync(join(workspace, paths[0])).isDirectory();
+  for (const rel of paths) {
     const from = join(workspace, rel);
-    if (existsSync(from)) {
-      cpSync(from, join(dir, rel), { recursive: true });
-      stored.push(rel);
-    } else {
-      missing.push(rel);
-    }
+    if (!existsSync(from)) { missing.push(rel); continue; }
+    const to = single ? dir : join(dir, rel);
+    cpSync(from, to, { recursive: true, filter: (src) => keep(relative(workspace, src)) });
+    stored.push(rel);
   }
-  if (missing.length && inputs['if-no-files-found'] === 'error') return { ok: false, detail: `missing ${missing.join(', ')}` };
-  return { ok: true, observed: { name: inputs.name, stored, missing } };
+  if (stored.length === 0) {
+    rmSync(dir, { recursive: true, force: true });
+    if (inputs['if-no-files-found'] === 'error') return { ok: false, detail: `missing ${missing.join(', ')}` };
+    return { ok: true, observed: { name: inputs.name, stored, missing }, outputs: {} };
+  }
+  const digest = artifactDigest(dir);
+  const entry = world.artifacts.add({ name: inputs.name, runId: github.run_id, commit: github.sha, digest, dir });
+  // The real action's outputs: the new artifact's id, and its SHA-256 as bare hex.
+  return { ok: true, observed: { name: inputs.name, stored, missing, id: entry.id }, outputs: { 'artifact-id': String(entry.id), 'artifact-digest': digest.replace(/^sha256:/, '') } };
+}
+
+const PUBLISHER_CHANNEL = 'sim-publisher';
+
+/** Tell the stub publisher how to behave, before every step (it only reads it when it runs). */
+function writePublisherChannel(runnerTemp, world) {
+  const dir = join(runnerTemp, PUBLISHER_CHANNEL);
+  mkdirSync(dir, { recursive: true });
+  const mode = world.publisher?.mode ?? 'ok';
+  writeFileSync(join(dir, 'mode.json'), JSON.stringify({ mode: mode === 'identity-cacheable' ? 'ok' : mode, substitute: world.publisher?.substitute ?? null }));
 }
 
 /**
- * THE OBSERVABLE PUBLISHER. Resolves the destination and the upload list with
- * firebase-tools' own functions, then serves exactly those files from the site's
- * local origin. `world.publisher.mode` makes it misbehave on purpose: `fail-before`,
- * `fail-after`, `partial`, `wrong-candidate`, and `identity-cacheable` (the origin
- * serves /release.json cacheable whatever configuration it was given).
+ * Apply what the stub publisher reported: one CALL per invocation (with the credential it
+ * read from its file), and, when it uploaded, a publication served from the site's origin.
  */
-async function hostingDeployStandIn({ inputs, workspace, world }) {
-  const received = inputs.firebaseServiceAccount ?? '';
-  world.publisher.calls.push({ received, inputs: { ...inputs, firebaseServiceAccount: received ? '<redacted>' : '' } });
-  if (!received) return { ok: false, detail: 'Input required and not supplied: firebaseServiceAccount' };
-  const mode = world.publisher.mode ?? 'ok';
-  if (mode === 'fail-before') return { ok: false, detail: 'simulated tool failure before any upload' };
-
-  process.noDeprecation = true;
-  const FT = join(ROOT, 'node_modules/firebase-tools/lib');
-  const { Command } = require(join(FT, 'command.js'));
-  const { hostingConfig } = require(join(FT, 'hosting/config.js'));
-  const { listFiles } = require(join(FT, 'listFiles.js'));
-
-  const cwd = join(workspace, inputs.entryPoint || '.');
-  let config;
-  try {
-    config = JSON.parse(readFileSync(join(cwd, 'firebase.json'), 'utf8'));
-  } catch (error) {
-    return { ok: false, detail: `no firebase.json at the entry point: ${error.message}` };
+function applyPublisherReports(runnerTemp, world, where) {
+  const dir = join(runnerTemp, PUBLISHER_CHANNEL);
+  if (!existsSync(dir)) return;
+  for (const name of readdirSync(dir).filter((n) => n.startsWith('request-')).sort()) {
+    const report = JSON.parse(readFileSync(join(dir, name), 'utf8'));
+    rmSync(join(dir, name));
+    world.publisher.calls.push({ ...where, ...report });
+    const p = report.published;
+    if (!p) continue;
+    world.publisher.published.push({ project: p.project, site: p.site, only: p.only, files: p.files, docroot: p.docroot });
+    const site = p.project === world.hosting.project ? world.hosting.sites[p.site] : null;
+    // FAULT INJECTION, labelled: an origin that does not apply the configuration it was
+    // handed to the identity file. The gate cannot prevent that — only observe it.
+    const served = world.publisher.mode === 'identity-cacheable' ? identityServedCacheable(p.config) : p.config;
+    if (site) site.serveSite(p.docroot, served);
   }
-  const options = { cwd, projectRoot: cwd, project: inputs.projectId, only: `hosting:${inputs.target}` };
-  try {
-    await new Command('deploy').applyRC(options);
-  } catch (error) {
-    return { ok: false, detail: `firebase-tools refused the project: ${error.message}` };
-  }
-  let entries;
-  try {
-    entries = hostingConfig({ ...options, config: { src: config, projectDir: cwd } });
-  } catch (error) {
-    return { ok: false, detail: `firebase-tools refused the hosting config: ${error.message}` };
-  }
-  if (entries.length !== 1) return { ok: false, detail: `${entries.length} hosting entries selected` };
-  const entry = entries[0];
-  const publicDir = join(cwd, entry.public);
-  let files = listFiles(publicDir, entry.ignore ?? []).sort();
-  const destination = { project: options.project, site: entry.site, channel: inputs.channelId, toolsVersion: inputs.firebaseToolsVersion };
-  const site = options.project === world.hosting.project ? world.hosting.sites[entry.site] : null;
-  let sourceDir = publicDir;
-  if (mode === 'partial') files = files.filter((f) => !f.endsWith('.css'));
-  if (mode === 'wrong-candidate') {
-    sourceDir = world.publisher.substitute;
-    files = listFiles(sourceDir, entry.ignore ?? []).sort();
-  }
-  const docroot = tempDir('sim-published');
-  for (const rel of files) {
-    mkdirSync(dirname(join(docroot, rel)), { recursive: true });
-    cpSync(join(sourceDir, rel), join(docroot, rel));
-  }
-  world.publisher.published.push({ ...destination, files, docroot });
-  // FAULT INJECTION, labelled: an origin that does not apply the configuration it was
-  // handed to the identity file. The gate cannot prevent that — only observe it.
-  const served = mode === 'identity-cacheable' ? identityServedCacheable(config) : config;
-  if (site) site.serveSite(docroot, served);
-  if (mode === 'fail-after') return { ok: false, detail: 'simulated tool failure AFTER the release went live', observed: destination };
-  return { ok: true, observed: { ...destination, files: files.length } };
 }
 
 function identityServedCacheable(config) {
@@ -768,7 +795,6 @@ const STAND_INS = {
   'actions/setup-node': setupNodeStandIn,
   'actions/download-artifact': downloadStandIn,
   'actions/upload-artifact': uploadStandIn,
-  'FirebaseExtended/action-hosting-deploy': hostingDeployStandIn,
 };
 
 export const MODELLED_ACTIONS = Object.freeze(Object.keys(STAND_INS));

@@ -24,44 +24,19 @@ import { cpSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
-import { decide, selectCertifiedArtifact } from '../lib/decide.mjs';
-import { RECORD_SCHEMA, buildRecord, decodeRecord, encodeRecord, recordDigest } from '../lib/record.mjs';
+import { RECORD_SCHEMA, decodeRecord, encodeRecord, recordDigest } from '../lib/record.mjs';
 import { preflightReasons } from '../lib/preflight.mjs';
 import { FAILING_OUTCOMES, OUTCOMES, classifyVerification, summarizeOutcome } from '../lib/outcome.mjs';
 import { digestOfValue } from '../lib/canonical.mjs';
+import { EVIDENCE_SCHEMA, TOOLING_SCHEMA } from '../lib/dependency-evidence.mjs';
 import { buildCandidate, cli, fixtureFrontend, startOrigin, tempDir } from './harness.mjs';
-import { ARTIFACT_ID, HOSTING_DIGEST, NOW, POLICY, TREE_DIGEST, ZIP_DIGEST, baseline, clone, codes } from './fixtures.mjs';
+import {
+  ARTIFACT_ID, HOSTING_DIGEST, NOW, POLICY, POLICY_FACTS, TREE_DIGEST, ZIP_DIGEST, admittedRecordFor, baseline, clone, codes,
+  unchangedPreflightFacts,
+} from './fixtures.mjs';
 
-const POLICY_FACTS = { revision: '9'.repeat(40), digest: `sha256:${'8'.repeat(64)}`, verifierTree: '7'.repeat(40) };
-
-/** The record the gate emits for an input, exactly as `decide` builds it. */
-function recordFor(input = baseline()) {
-  const decision = decide(input);
-  const listed = selectCertifiedArtifact(input.certification.artifacts, {
-    runId: input.certification.runId, runAttempt: input.certification.runAttempt,
-  }).artifact;
-  return buildRecord({
-    decision, request: input.request, policyFacts: POLICY_FACTS, certification: input.certification,
-    listedArtifact: listed, artifact: input.artifact, hosting: input.hosting, served: input.served,
-    peers: input.peers, policy: input.policy, now: input.now,
-  });
-}
-
-/** What the publisher observes when NOTHING has changed since the gate. */
-function unchangedFacts(record) {
-  return {
-    trusted: { verifierTree: record.policy.verifierTree, policyDigest: record.policy.digest },
-    current: { state: 'known', verifierTree: record.policy.verifierTree },
-    run: { present: true, conclusion: 'success', headSha: record.target.commit, runAttempt: record.certification.runAttempt },
-    artifacts: [{ id: record.artifact.id, name: record.artifact.name, expired: false, digest: record.artifact.digest, workflowRunId: Number(record.certification.runId) }],
-    candidate: { present: true, valid: true, treeDigest: record.artifact.treeDigest, manifestDigest: record.artifact.manifestDigest, unsafe: [] },
-    compare: { status: 'ahead' },
-    served: { state: record.served.state, servedCommit: record.served.commit, manifestDigest: record.served.manifestDigest },
-    adminServed: { state: 'known', commit: record.peers.adminServed },
-    hosting: { problems: [], digest: record.hosting.configDigest },
-    certifiedCheckout: { head: record.target.commit },
-  };
-}
+const recordFor = (input) => admittedRecordFor(input, { policyFacts: POLICY_FACTS });
+const unchangedFacts = unchangedPreflightFacts;
 
 const preflight = (record, mutate, { now = '2026-09-22T12:05:00Z', policy = POLICY } = {}) => {
   const facts = unchangedFacts(record);
@@ -81,8 +56,57 @@ describe('the admitted record', () => {
     assert.deepEqual(record.certification, { workflowPath: '.github/workflows/certify.yml', runId: '4242', runAttempt: '1', runStartedAt: '2026-09-22T11:30:00Z' });
     assert.deepEqual(record.policy, POLICY_FACTS);
     assert.equal(record.hosting.configDigest, HOSTING_DIGEST);
-    assert.equal(record.hosting.toolsVersion, POLICY.hosting.firebaseToolsVersion);
-    assert.equal(record.expiresAt, '2026-09-23T11:30:00Z', 'certification start + the policy window');
+    assert.equal(record.hosting.toolsVersion, POLICY.publisher.version);
+    assert.equal(record.expiresAt, '2026-09-23T11:30:00Z', 'certification start + the policy window, the earlier of the two windows');
+  });
+
+  test('CONTRACT (B2.2): the record binds the certification evidence, the fresh assessment and the exact toolchain — never an `auditPassed`', () => {
+    const input = baseline();
+    const record = recordFor(input);
+    const ev = input.artifact.dependencyEvidence;
+    const as = input.dependencies.assessment;
+    const t = input.dependencies.tooling;
+    assert.deepEqual(record.dependencies.evidence, {
+      schema: EVIDENCE_SCHEMA, recordDigest: ev.recordDigest, treeDigest: ev.treeDigest, entryCount: ev.entryCount,
+      lockDigest: ev.inputs.lockDigest, manifestSha256: ev.inputs.manifestSha256,
+      installedTreeSha256: ev.record.inventory.installedTreeSha256, environment: ev.record.environment,
+      certificationRun: { runId: '4242', runAttempt: '1' },
+    });
+    const a = record.dependencies.assessment;
+    assert.equal(a.digest, as.digest);
+    assert.deepEqual([a.runId, a.runAttempt, a.startedAt, a.finishedAt, a.decidedAt], [as.doc.assessor.runId, as.doc.assessor.runAttempt, as.doc.startedAt, as.doc.finishedAt, as.doc.decidedAt]);
+    assert.deepEqual(a.artifact, { id: input.dependencies.uploads.assessment.id, name: input.dependencies.uploads.assessment.name, digest: input.dependencies.uploads.assessment.digest });
+    assert.equal(a.outcome, 'within_policy');
+    assert.equal(a.policySha256, as.doc.policy.sha256);
+    assert.deepEqual(Object.keys(a.graphs), ['application', 'scanner', 'publisher']);
+    assert.deepEqual(record.publisher, {
+      schema: TOOLING_SCHEMA, package: t.package, version: t.version, node: t.node, deployAgent: POLICY.publisher.deployAgent,
+      entrypoint: t.entrypoint, treeDigest: t.treeDigest, entryCount: t.entryCount, lockfileSha256: t.lock.lockfileSha256,
+      installedTreeSha256: t.installedTreeSha256,
+      artifact: { id: input.dependencies.uploads.tooling.id, name: input.dependencies.uploads.tooling.name, digest: input.dependencies.uploads.tooling.digest },
+    });
+    assert.equal(JSON.stringify(record).includes('auditPassed'), false);
+  });
+
+  test('CONTRACT (B2.2): the record expires at the EARLIER of the certification window, the assessment window and an applied exception\'s lapse', () => {
+    const input = baseline();
+    input.policy.freshness.assessmentWindowHours = 2;
+    assert.equal(recordFor(input).expiresAt, '2026-09-22T13:50:00Z', 'assessment start + its window');
+    const withRecord = baseline();
+    withRecord.dependencies.assessment.doc.recordsApplied = [{ id: 'fixture-exception', expires: '2026-09-23' }];
+    assert.equal(recordFor(withRecord).expiresAt, '2026-09-23T00:00:00Z', 'the exception lapses at 00:00 UTC on its date');
+  });
+
+  test('CONTRACT (B2.2): two certifications, two assessments or two toolchains of ONE SHA are distinguishable in the record', () => {
+    const one = recordFor();
+    const otherRun = baseline();
+    otherRun.certification.runId = '4243';
+    otherRun.certification.artifacts = [{ ...otherRun.certification.artifacts[0], id: 778, name: 'frontend-release-4243-1', workflowRunId: 4243 }];
+    const otherTooling = baseline();
+    otherTooling.dependencies.tooling.treeDigest = `sha256:${'0'.repeat(64)}`;
+    const otherAssessment = baseline();
+    otherAssessment.dependencies.assessment.digest = `sha256:${'0'.repeat(64)}`;
+    for (const other of [otherRun, otherTooling, otherAssessment]) assert.notEqual(recordDigest(recordFor(other)), recordDigest(one));
   });
 
   test('CONTRACT: the record names the artifact THE RUN LISTS, not whatever was downloaded', () => {
@@ -135,9 +159,11 @@ describe('the publisher\'s critical section — the gate and the publisher agree
   });
 
   const cases = [
-    ['REGRESSION (R3.d): a verifier other than the admitting revision', 'preflight.policy_mismatch', (f) => { f.trusted.verifierTree = '0'.repeat(40); }],
+    ['REGRESSION (R3.d): a verifier other than the admitting revision', 'preflight.policy_mismatch', (f) => { f.trusted.verifierTree = { ...f.trusted.verifierTree, release: '0'.repeat(40) }; }],
+    ['CONTRACT (B2.2): an audit verifier other than the admitting revision', 'preflight.policy_mismatch', (f) => { f.trusted.verifierTree = { ...f.trusted.verifierTree, dependencyAudit: '0'.repeat(40) }; }],
     ['CONTRACT: a policy digest other than the admitted one', 'preflight.policy_mismatch', (f) => { f.trusted.policyDigest = `sha256:${'0'.repeat(64)}`; }],
-    ['CONTRACT: release/ advanced on the default branch since the gate — an explicit restart', 'preflight.policy_advanced', (f) => { f.current.verifierTree = '0'.repeat(40); }],
+    ['CONTRACT: release/ advanced on the default branch since the gate — an explicit restart', 'preflight.policy_advanced', (f) => { f.current.verifierTree = { ...f.current.verifierTree, release: '0'.repeat(40) }; }],
+    ['CONTRACT (B2.2): dependency-audit/ (the audit policy, the scanner lock) advanced since the gate — an explicit restart', 'preflight.policy_advanced', (f) => { f.current.verifierTree = { ...f.current.verifierTree, dependencyAudit: '0'.repeat(40) }; }],
     ['CONTRACT: the default branch could not be read', 'preflight.policy_unverifiable', (f) => { f.current = { state: 'unreadable' }; }],
     ['CONTRACT: the certifying run no longer reads success', 'preflight.certification_changed', (f) => { f.run.conclusion = 'failure'; }],
     ['CONTRACT: the certifying run now names a different head', 'preflight.certification_changed', (f) => { f.run.headSha = 'b'.repeat(40); }],
@@ -161,10 +187,28 @@ describe('the publisher\'s critical section — the gate and the publisher agree
     ['CONTRACT: the served release changed since the gate', 'preflight.served_changed', (f) => { f.served.servedCommit = 'c'.repeat(40); }],
     ['CONTRACT: the SAME commit is served with a different manifest now', 'preflight.served_changed', (f) => { f.served.manifestDigest = `sha256:${'d'.repeat(64)}`; }],
     ['CONTRACT: the served identity became unreadable', 'preflight.served_changed', (f) => { f.served = { state: 'unreadable' }; }],
+    // THE FRESH HALF, re-established from THIS job's own downloads.
+    ['CONTRACT (B2.2): a re-run of the publish job alone carries an assessment from an earlier attempt — a repeat re-assesses', 'preflight.assessment_not_current', (f) => { f.evaluation.runAttempt = '2'; }],
+    ['CONTRACT (B2.2): an assessment made by ANOTHER run', 'preflight.assessment_not_current', (f) => { f.evaluation.runId = '9999'; }],
+    ['CONTRACT (B2.2): the admitted assessment upload is no longer listed as admitted', 'preflight.assessment_replaced', (f) => { f.evaluationArtifacts[0].digest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT (B2.2): the admitted assessment upload expired', 'preflight.assessment_replaced', (f) => { f.evaluationArtifacts[0].expired = true; }],
+    ['CONTRACT (B2.2): the admitted toolchain upload is no longer listed as admitted', 'preflight.tooling_replaced', (f) => { f.evaluationArtifacts[1].name = 'publisher-tooling-other'; }],
+    ['CONTRACT (B2.2): the downloaded toolchain is not the admitted tree', 'preflight.tooling_mismatch', (f) => { f.tooling.treeDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT (B2.2): the downloaded toolchain has a different entrypoint', 'preflight.tooling_mismatch', (f) => { f.tooling.entrypointSha256 = '0'.repeat(64); }],
+    ['CONTRACT (B2.2): the downloaded toolchain carries a link or an unexpected entry', 'preflight.tooling_mismatch', (f) => { f.tooling.unsafe = ['symbolic link: node_modules/.bin/firebase']; }],
+    ['CONTRACT (B2.2): the downloaded toolchain has one more file', 'preflight.tooling_mismatch', (f) => { f.tooling.entryCount += 1; }],
+    ['CONTRACT (B2.2): this job runs another Node than the one the toolchain was admitted under', 'preflight.runtime_mismatch', (f) => { f.tooling.runtime = 'v24.0.0'; }],
+    ['CONTRACT (B2.2): the downloaded assessment is not the admitted document', 'preflight.assessment_mismatch', (f) => { f.assessment.digest = `sha256:${'0'.repeat(64)}`; }],
+    ['CONTRACT (B2.2): the downloaded assessment is incomplete (a raw output missing)', 'preflight.assessment_mismatch', (f) => { f.assessment.problems = [{ code: 'assessment.raw_missing', detail: 'publisher' }]; }],
+    ['CONTRACT (B2.2): nothing was downloaded where the assessment should be', 'preflight.assessment_mismatch', (f) => { f.assessment = { state: 'absent', problems: [] }; }],
   ];
   for (const [name, code, mutate] of cases) {
     test(name, () => { assert.deepEqual(preflight(recordFor(), mutate), [code]); });
   }
+
+  test('CONTRACT (B2.2): a run whose artifacts cannot be listed proves neither upload — both refused', () => {
+    assert.deepEqual(preflight(recordFor(), (f) => { f.evaluationArtifacts = null; }).sort(), ['preflight.assessment_replaced', 'preflight.tooling_replaced']);
+  });
 
   test('CONTRACT: a certification past its window is refused at the promotion boundary', () => {
     assert.deepEqual(preflight(recordFor(), null, { now: '2026-09-23T11:30:01Z' }), ['preflight.certification_stale']);
@@ -174,8 +218,28 @@ describe('the publisher\'s critical section — the gate and the publisher agree
     assert.deepEqual(preflight(recordFor(), null, { now: '2026-09-23T11:30:00Z' }), []);
   });
 
+  test('CONTRACT (B2.2): an assessment that aged out while the run waited is refused at the promotion boundary, by its own name', () => {
+    const policy = clone(POLICY);
+    policy.freshness.assessmentWindowHours = 1;
+    const input = baseline();
+    input.policy.freshness.assessmentWindowHours = 1;
+    // Admitted at 12:00 (collected 11:50); the publisher reaches the boundary at 12:51.
+    assert.deepEqual(preflight(recordFor(input), null, { now: '2026-09-22T12:51:00Z', policy }), ['preflight.assessment_stale']);
+    assert.deepEqual(preflight(recordFor(input), null, { now: '2026-09-22T12:50:00Z', policy }), [], 'CONTROL: the last moment inside it');
+  });
+
+  test('CONTRACT (B2.2): an exception that lapsed while the run waited is refused at the promotion boundary', () => {
+    const input = baseline();
+    input.dependencies.assessment.doc.recordsApplied = [{ id: 'fixture-exception', expires: '2026-09-23' }];
+    const record = recordFor(input);
+    assert.equal(record.admitted, true, 'admitted while the exception stood');
+    const at = (now) => preflight(record, (f) => { f.assessment = clone(input.dependencies.assessment); }, { now });
+    assert.deepEqual(at('2026-09-22T23:59:59Z'), []);
+    assert.deepEqual(at('2026-09-23T00:00:00Z'), ['preflight.exception_expired']);
+  });
+
   test('CONTRACT: every change is reported, not the first', () => {
-    const got = preflight(recordFor(), (f) => { f.run.runAttempt = '2'; f.current.verifierTree = '0'.repeat(40); f.hosting.digest = null; });
+    const got = preflight(recordFor(), (f) => { f.run.runAttempt = '2'; f.current.verifierTree = { release: '0'.repeat(40), dependencyAudit: '0'.repeat(40) }; f.hosting.digest = null; });
     assert.deepEqual(got.sort(), ['preflight.attempt_changed', 'preflight.hosting_mismatch', 'preflight.policy_advanced']);
   });
 
@@ -212,6 +276,9 @@ describe('outcomes — what happened, stated as what it is', () => {
     ['admitted and re-checked, publication not enabled', { decision: 'PROCEED', preflightOk: true, enabled: false }, 'WOULD_PUBLISH'],
     ['the tool failed and the origin does not serve the candidate', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'failure', verification: { servesCandidate: false } }, 'PUBLICATION_FAILED'],
     ['the tool failed but the origin serves the candidate', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'failure', verification: { servesCandidate: true } }, 'PUBLISHED_DEGRADED'],
+    ['the publish command refused at its last boundary and ran no tool', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'failure', boundaryRefused: true, verification: { servesCandidate: false } }, 'PREFLIGHT_REFUSED'],
+    ['a last-boundary refusal beside an origin that serves the candidate anyway', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'failure', boundaryRefused: true, verification: { servesCandidate: true } }, 'PUBLISHED_DEGRADED'],
+    ['a truthy non-boolean is not a boundary refusal', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'failure', boundaryRefused: 'true', verification: { servesCandidate: false } }, 'PUBLICATION_FAILED'],
     ['the tool succeeded and every file fetched back matches', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'success', verification: { verified: true } }, 'PUBLISHED_VERIFIED'],
     ['the tool succeeded and verification did not establish the candidate', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'success', verification: { verified: false } }, 'PUBLISHED_DEGRADED'],
     ['the tool succeeded and verification never ran', { decision: 'PROCEED', preflightOk: true, enabled: true, publishStep: 'success', verification: null }, 'PUBLISHED_DEGRADED'],

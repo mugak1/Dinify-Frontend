@@ -17,7 +17,7 @@ A commit SHA on its own is **not** a release. One commit produces different byte
 under different configurations, and the difference decides which API origin the
 bundle talks to. Two certifications of one commit are two candidates, too: they are
 different builds with different manifests. So the unit that is certified, admitted and
-published is one record (`lib/record.mjs`, `dinify.release.record/1`):
+published is one record (`lib/record.mjs`, `dinify.release.record/2`):
 
 | identity | bound to |
 |---|---|
@@ -25,6 +25,9 @@ published is one record (`lib/record.mjs`, `dinify.release.record/1`):
 | the certification | workflow path, run id, **run attempt**, run start (the certification window counts from it) |
 | the artifact | the upload's **artifact id** and the zip digest the API lists for it, the **manifest digest**, the **tree digest**, the entry count |
 | the build | configuration, the dependency-lock digest and the environment the stamp read from the built bytes — bound through the manifest digest, which carries all three and which the publisher recomputes from its own download |
+| the certification-time dependency evidence | the evidence record's digest, its bundle tree digest and entry count, the lock and manifest digests it retained, the installed-tree digest, the environment and the certifying run and attempt — bound by `provenance.json` (`dinify.release.provenance/2`) and re-derived by the gate from the candidate's own bytes |
+| the fresh assessment | the assessment artifact's id and listed digest, the document digest and bundle tree digest, the evaluation run and attempt, the collection's **start and finish** and the decision moment, the outcome and counts, the trusted audit policy digest, the scanner identity, the applied records and the three graphs' digests |
+| the publisher toolchain | package, version and exact Node; the reviewed lock's digest; the prepared tree's digest and entry count; the entrypoint's path and digest; the toolchain artifact's id and listed digest |
 | the destination | the project, site, target and channel, and the digest of the **regenerated** hosting configuration |
 | the peers | the approved receipt digests, and the Admin revision observed serving |
 | the served state | what `/release.json` answered when the gate decided |
@@ -36,12 +39,19 @@ says at promotion time. Nothing here claims an artifact **was** substituted — 
 artifacts are immutable once uploaded — the record is what makes "the same unit"
 checkable rather than assumed, across a re-run, an expired upload or a policy change.
 
-## The two artifact records, and why they are two
+## The artifact's records, and why the evidence is not in the payload
 
 | | where | what it is |
 |---|---|---|
 | `dist/release.json` | ships inside the artifact, served at `/release.json` | the release's own identity — who built it, from what, for where |
-| `provenance.json` | uploaded beside `dist/`, never shipped | binds that identity to the **artifact tree digest** and to the run that produced it |
+| `provenance.json` | uploaded beside `dist/`, never shipped | binds that identity to the **artifact tree digest**, to the run that produced it and (`/2`) to the dependency evidence bundle below |
+| `dependency-evidence/` | uploaded beside `dist/`, never shipped | the certification-time audit: the retained `package.json` + `package-lock.json`, the installed inventory, the pinned scanner's identity, the scanner's RAW output and the result — see "Dependencies" below |
+
+**No audit evidence or tool inventory is in the hosted payload.** `dist/` is what the
+public origin serves; what it was built from, what was installed and what the scanner
+said are statements ABOUT the payload and ride beside it. The inner/outer design is
+unchanged: `dist/release.json` carries no digest of itself, and `provenance.json`
+carries the digests of both `dist/` and `dependency-evidence/`.
 
 An artifact cannot contain its own final hash, so the digest lives outside the payload,
 over **every regular file under `dist/`**, each entry length-prefixed and NUL-delimited
@@ -55,16 +65,23 @@ push to main
  └─ Certify (certify.yml)        read-only, no secret, deploys nothing
       type-check · lint · release gate · tenant gate · full suite · production build
       build the SHIPPING configuration ONCE   ← the candidate
-      stamp dist/release.json + provenance.json (asserting the built bytes)
-      upload  frontend-release-<run id>-<run attempt>
+      npm ci · dependency-audit snapshot (proves node_modules IS the lock graph) ·
+      dependency-audit audit (the pinned scanner, a real advisory query) — BEFORE the build
+      stamp dist/release.json + provenance.json (asserting the built bytes), re-evaluating
+      the audit evidence AFTER the build against the tree as it now stands, and writing
+      dependency-evidence/ beside dist/ — refusing to stamp if any input moved
+      upload  frontend-release-<run id>-<run attempt>   (dist/ + provenance.json + dependency-evidence/)
  └─ Publish (publish.yml)        on a successful Certify of main, or a manual dispatch
       gate     no credential. Checks out ITS OWN revision (github.sha) with full
                history, resolves the certifying run through the API by workflow PATH,
                downloads the candidate BY ARTIFACT ID with digest-mismatch: error,
                measures it as data, reads the certified commit from git (source,
                storage declaration, firebase.json AND .firebaserc), the served
-               identity and the peers, and evaluates lib/decide.mjs. Emits the
-               decision and the admitted record. A REFUSE is asked one more question
+               identity and the peers; PREPARES the publisher toolchain from the
+               reviewed release/publisher lock (pinned npm, scripts disabled) and
+               ASSESSES, now, the candidate's retained lock graph, the pinned scanner
+               and that toolchain; retains both as their own artifacts; and evaluates
+               lib/decide.mjs. Emits the decision and the admitted record. A REFUSE is asked one more question
                (lib/readiness.mjs): is it exactly the recorded, still-pending
                prerequisites of an automatic evaluation with publication disabled?
                Only that ends the gate green — the decision is still REFUSE.
@@ -74,9 +91,13 @@ push to main
                PINNED to the gate's revision, main's release/ tree (to notice a policy
                that moved), the certified commit's two hosting files, and the admitted
                artifact by id. Inside one critical section it re-establishes the record
-               (lib/preflight.mjs), stages the payload beside a REGENERATED hosting
-               pair, publishes with a PINNED firebase-tools, then fetches the identity
-               AND every certified file back.
+               (lib/preflight.mjs) — the fresh assessment and the toolchain included,
+               from this job's OWN downloads — stages the payload beside a REGENERATED
+               hosting pair, re-checks the assessment's age, every applied exception
+               and the toolchain once more at the last boundary, and only then runs
+               the ADMITTED toolchain's entrypoint by path (no npx, no action that
+               fetches its own CLI), then fetches the identity AND every certified file
+               back.
 ```
 
 Every run ends in one outcome word (`lib/outcome.mjs`): `REFUSED`,
@@ -233,15 +254,221 @@ refused, and outside this change.
   part of the record (`lib/hosting.mjs`; the oracle test runs the installed
   firebase-tools' own resolution and records its version against the pinned one).
 - **One credential reference.** `FIREBASE_SERVICE_ACCOUNT` appears once in
-  `publish.yml`, in the tool step's `with`; it never reaches a shell. Every checkout in
-  `publish.yml` and `certify.yml` sets `persist-credentials: false`; `publish.yml` has
+  `publish.yml`, in the `env` of the step *Publish to Firebase Hosting*, whose script
+  never names it. The trusted `publish` command reads it only after its last-boundary
+  checks pass, writes it to a `0600` file in a fresh `0700` directory, hands the tool
+  that file's PATH (`GOOGLE_APPLICATION_CREDENTIALS`) in an environment built from
+  nothing, and removes the directory whatever the tool does — so the value is never in
+  the tool's environment, argv or output. (It replaced the Firebase action's `with:`
+  input, which was an environment variable of that action's process too.) Every checkout
+  in `publish.yml` and `certify.yml` sets `persist-credentials: false`; `publish.yml` has
   `permissions: {}` at the top and each job `contents: read` + `actions: read`. No
   expression is interpolated into a script in either file, or in `ci.yml`.
-- **Actions and `firebase-tools` are pinned.** A tag can be repointed; an unpinned
-  `firebase-tools` resolves `latest` at run time inside the job holding the credential.
+- **Actions are pinned by SHA, and the publisher is a REVIEWED GRAPH, not a version
+  string.** `FirebaseExtended/action-hosting-deploy` is gone: it ran
+  `npx firebase-tools@<version>`, resolving and installing a dependency graph over the
+  network inside the job holding the credential, which nothing reviewed or scanned. The
+  toolchain is now `release/publisher/package.json` + `package-lock.json` (one exact
+  dependency, `firebase-tools` 15.31.0), installed by the gate — which holds no
+  credential — and run by the publisher from that exact prepared tree. See
+  "Dependencies" below.
 
 These are pinned statically by `tests/workflow-drift.test.mjs` and executed by
 `tests/workflow-simulation.test.mjs`.
+
+## Dependencies: certification evidence, a fresh assessment, the admitted toolchain (D08 B2.2)
+
+The guarantee, stated as the task stated it: **the exact frontend bytes considered for
+promotion are associated with verifiable certification-time dependency evidence; a fresh
+assessment of that same dependency inventory and of the actual publication toolchain must
+be acceptable before publication authority is used.** Rebuilding the application,
+scanning current `main`, updating a timestamp or independently resolving the publisher's
+dependencies cannot substitute for any of those three.
+
+### The evidence flow, and where the privilege is
+
+```
+certify.yml                    (no secret; contents: read)
+  npm ci ─ snapshot ─ audit ────────────┐  the pinned scanner (npm 11.19.1, its own lock,
+  ng build --configuration=uat          │  scripts disabled) — a REAL advisory query
+  stamp ── re-evaluate after the build ─┘  refuses if any dependency input moved
+     └─ artifact = dist/ + provenance.json (/2) + dependency-evidence/
+
+publish.yml ─ gate             (no secret; contents: read, actions: read)
+  download the candidate BY ID (digest-mismatch: error)
+  prepare-publisher ── release/publisher lock ─► tooling/  (pinned npm, --ignore-scripts,
+  assess ── candidate's RETAINED lock (scan-only replay)    measured: tree, entrypoint,
+         ── the pinned scanner's graph                      installed inventory, Node)
+         ── the prepared toolchain's graph
+         └─► assessment/  (start, finish, raw output, trusted policy)
+  upload tooling/ + assessment/ as THIS run's artifacts ──► ids + digests
+  decide ── evidence + assessment + toolchain + everything else ─► admitted record /2
+
+publish.yml ─ publish          (the ONLY job that references the secret)
+  download candidate, toolchain, assessment BY THE RECORD'S IDS (digest-mismatch: error)
+  preflight ── re-derive every digest from its own downloads; the assessment is this
+               run's, inside its window, no applied exception lapsed; this Node
+  Publish ──── LAST BOUNDARY: the same checks again with a clock read now
+               └─ only then: read the credential ─► 0600 file ─► run the admitted
+                  entrypoint by path, in the stage, built environment, no retry
+  verify ───── fetch the identity and every certified file back
+```
+
+Nothing in the publish job resolves, downloads or installs a tool. Nothing in either job
+runs the candidate's npm scripts, lifecycle hooks or build to assess its graph: the
+assessment is a **scan-only replay** — a directory holding exactly the two files the
+evidence binds (`package.json`, `package-lock.json`), which `npm audit` reads as the
+lockfile graph, with nothing installed and no script run.
+
+### What each half is, and is not
+
+- **Certification evidence** (`dependency-evidence/record.json`,
+  `dinify.release.dependency-evidence/1`) binds repository, commit and tree, build
+  configuration, environment, workflow path, run and attempt, the manifest and lock
+  digests, the installed inventory (including explained optional absences), the scanner
+  and policy identity, the raw scanner outputs' digests and the candidate's `dist/` tree.
+  The gate re-derives all of it from the candidate's own bytes, re-evaluates the RAW
+  output under the policy the evidence names (so a self-consistent bundle whose result
+  contradicts its raw answer is `dependency.evidence_unreproducible`), and refuses a
+  result that is not `within_policy` or `exceptions_only`. **The installed-tree digest is
+  over installed PATHS AND VERSIONS, not every byte** — the record says so in
+  `inventory.observation`. The B2.1 collection records ONE moment as its start, finish
+  and decision; the record calls it `audit.invokedAt` and does not pretend it is a span.
+- **The fresh assessment** (`assessment.json`, `dinify.release.assessment/1`) is a real
+  query, now, by the pinned scanner, credential-free, over three graphs: the candidate's
+  retained application graph, the pinned scanner's own graph and the prepared publisher
+  toolchain's graph. It records the collection's actual **start and finish** (one-second
+  resolution, the workflow clock's) and the decision moment, the trusted audit policy's
+  digest, the raw outputs, and the outcome — never an `auditPassed: true`. The trusted
+  workflow supplies `now`. **Re-deciding old evidence with today's clock is not fresh**:
+  the window is measured from when the collection STARTED.
+- **The publisher toolchain** (`tooling.json`, `dinify.release.publisher-tooling/1`) is
+  the reviewed lock, installed by the pinned npm with `--ignore-scripts --no-audit`,
+  bin links removed, measured as data, and refused on any link, special file or
+  unexpected top-level entry. The app's own `firebase-tools` devDependency certifies
+  nothing about it. There is no `@latest`, no `npx`, no global `firebase` and no second
+  tool: the reviewed manifest holds one exact dependency and the lock one resolved
+  version with integrity.
+
+### The freshness policy
+
+| | limit | measured from | re-checked |
+|---|---|---|---|
+| certification | `freshness.certificationWindowHours` (24) | the certifying run's start | gate, preflight, last boundary |
+| fresh assessment | `freshness.assessmentWindowHours` (24, the validator's maximum) | the collection's START | gate, preflight, last boundary |
+| applied exception | the record's `expires` (lapses 00:00 UTC that day) | — | gate, preflight, last boundary |
+
+The record's `expiresAt` is the earliest of the three; each is refused under its own
+name, so a lapsed assessment is never reported as a stale certification.
+
+### Who enforces what
+
+| consumer | refuses |
+|---|---|
+| `stamp` (certify) | an audit that is not within policy after the build; any dependency input that moved between the audit and the stamp — the build's own output is re-inventoried, so no stale evidence is attached |
+| `assess` (gate) | writes NOTHING and exits 2 — *not performed* — for an old candidate, unusable evidence or no prepared toolchain; exit 1 blocking, exit 2 incomplete |
+| `decide` (gate) | `dependency.*`: evidence missing, unsupported (pre-B2.2), invalid, unreproducible, wrong commit/tree/lock/manifest/environment/configuration/run/attempt/candidate, not passing; assessment missing, invalid, not this run's, wrong candidate/graph/scanner/tooling, policy mismatch, out of order, stale, blocking, incomplete, unretained; toolchain missing, invalid, unreviewed, mismatched, unretained |
+| `preflight` (publish) | `preflight.assessment_not_current`, `assessment_replaced`, `tooling_replaced`, `tooling_mismatch`, `runtime_mismatch`, `assessment_mismatch`, `assessment_stale`, `exception_expired` — from its OWN downloads and the run's listing now; a moved `release/` or `dependency-audit/` tree on main is `preflight.policy_advanced` |
+| `publish` (last boundary) | `publisher.tooling_mismatch`, `runtime_mismatch`, `assessment_mismatch`, `assessment_stale`, `exception_expired`, `certification_stale` — **before** the credential is read; the outcome is then `PREFLIGHT_REFUSED`, never `PUBLICATION_FAILED`, because no tool ran |
+| `readiness` | nothing here is ever a wait: every `dependency.*` code beside the recorded six stays red, and a policy listing one does not validate |
+
+**A pass does not make an ineligible candidate promotable.** Every other rule — revocation,
+ancestry, peers, storage, the served state, the prerequisites — still applies, and the
+disabled path still stops before the publish job.
+
+### Old candidates, re-certification and recovery (release notes)
+
+- **A candidate stamped before this change is refused by name**, on every path —
+  deploy, redeploy and rollback alike: `dependency.evidence_unsupported` (its
+  `provenance.json` is `/1`) and `dependency.assessment_missing` (the assessment is *not
+  performed*: there is no retained inventory to assess). Nothing is retrofitted and there
+  is no "old artifact is safe" bypass. The remedy is to re-certify that commit — a new
+  Certify run of it produces a new candidate with evidence. (Separately, every candidate
+  older than the 24-hour certification window is still refused as
+  `certification.stale`; this change does not relax that.)
+- **Re-certification of the same SHA is a new candidate**: a new run, new evidence, a new
+  record. Two certifications are distinguishable by run, attempt, manifest digest and
+  evidence digest, and swapping evidence between them is refused.
+- **The evidence is retained with the candidate**, in the same upload (30 days), never
+  looked up as "the newest audit artifact". The fresh assessment and the toolchain are
+  retained by the evaluation run (90 days and 1 day), named by run and attempt.
+- **A refusal at the last boundary is recovered by a NEW run**, which prepares and
+  assesses afresh: a manual dispatch of the same SHA, or the next certification. The old
+  run is never re-read, and a re-run of the old attempt is a new attempt the preflight
+  refuses. A new advisory can refuse unchanged bytes; when that happens the remedy is a
+  dependency change and a new certification — never an exception approved to pass it.
+
+### What the suites simulate
+
+The advisory answers in the suites are **SYNTHETIC**, injected at ONE place: the recorded
+npm (`tests/fake-npm.mjs`), i.e. the scanner's process boundary, where the network's
+answer enters. Everything downstream is the real code. Tests that inject one say
+SYNTHETIC in their title. The real scanner against the real advisory database is the
+measurement below.
+
+### The fresh assessment, measured
+
+**Measured against the real advisory database** on 2026-09-25, credential-free, in a
+disposable worktree of `488c3d7` (the mechanism commit; the documentation commit after
+it changes no code), with the real registry, the pinned scanner (npm 11.19.1) and Node
+24.21.0. The run and attempt ids are local stand-ins (`424242`/`424243`), not CI runs.
+
+| step | result |
+|---|---|
+| `npm ci` → `audit:snapshot` | 1,274 locked, 1,140 installed; installed tree `b1869f07…5b85` |
+| `audit:deps` (certification) | within policy, 3 moderate tooling findings REQUIRE TRIAGE: `@opentelemetry/core` GHSA-8988-4f7v-96qf, `csv-parse` GHSA-8cw4-87c7-c6xx, `stream-json` GHSA-528h-pc64-c93x |
+| `ng build --configuration=uat` | byte-identical to `main`'s (`69953f5`) apart from the stamp's own `release.json` |
+| `stamp` | `provenance/2`; `dist/` tree `ce97d756…21b4`, 35 files; evidence record `faa49482…a802`, bundle `162f897e…6978` (13 files); nothing about dependencies in `dist/` |
+| `prepare-publisher` | `firebase-tools` 15.31.0 under v24.21.0; 672 locked, 671 installed (1 explained optional absence); 6 bin links removed; tree `f0f4fd22…6d39`, 20,272 files — the SAME digest an earlier preparation that day produced |
+| `assess` | within policy, 5 findings, all moderate tooling, triage required: the application's 3 above; the scanner's 144 packages clean; the publisher's `@opentelemetry/core` GHSA-8988-4f7v-96qf and `uuid` 9.0.1 GHSA-w5hq-g745-h8pq (the application graph's `overrides` pin keeps that one out of the application graph, not out of the publisher's). Collected 16:21:12Z → 16:21:15Z; the candidate's artifact digest unchanged |
+
+No record was approved for any of the five: they are visible as triage required, which
+is what the policy says a lower-severity tooling finding is.
+
+### Mutations: each B2.2 rule reverted alone
+
+Eighteen source mutations, each reverting ONE rule, each run against every unit suite and
+(where the rule reaches the workflow) the simulation's dependency scenarios, then
+restored. Every one fails a named subset; the count is failing entries (tests and the
+suites that roll them up).
+
+| mutation | fails | first failing test |
+|---|---|---|
+| a legacy (`/1`) candidate accepted | 3 | an OLD candidate is unsupported — no retrofit, no bypass |
+| the stamp skips the post-build re-evaluation | 1 | a dependency input that changes DURING the build attaches no evidence |
+| no assessment window | 6 | an assessment older than the window |
+| the toolchain installed without `--ignore-scripts` | 4 | every lifecycle script stayed un-run |
+| the toolchain upload drops hidden files | 9 | the gate prepares and assesses with the trusted CLI, retains both as this run's artifacts |
+| `toolingReasons` accepts anything | 12 | no toolchain was prepared |
+| the assessment clock at millisecond resolution | 1 | within policy, three graphs … and times that happened in order |
+| evidence run start compared with the API's `run_started_at` | 105 | an otherwise perfect candidate is refused, and exactly for the outstanding owner and peer facts |
+| the preflight does not require THIS run's assessment | 2 | a re-run of the publish job alone carries an earlier attempt's assessment — a repeat re-assesses |
+| the last boundary skips the dependency re-check | 4 | `publish` refuses at the last boundary without reading the credential |
+| the last boundary skips the certification window | 1 | (the same, for `certification_stale`) |
+| the evidence's raw output is not reproduced | 1 | a self-consistent bundle whose raw answer contradicts its result |
+| the tool inherits the step environment | 6 | the invocation is the admitted entrypoint by absolute path, with an environment built from nothing |
+| the outcome ignores a last-boundary refusal | 2 | the assessment ages out while the publisher waits |
+| a blocking assessment accepted | 5 | a new advisory refuses unchanged bytes |
+| the preflight does not compare the listed toolchain | 4 | the admitted toolchain upload is no longer listed |
+| an exception's lapse is not checked | 4 | an applied exception that has lapsed |
+| an assessment may name another candidate | 5 | an assessment of another commit |
+
+The `evidence run start` row is the defect this change almost shipped: the stamp's own
+clock reading is LATER than the API's run start, so comparing the two refuses every real
+candidate — the harness stamps five minutes after the run starts precisely so that
+mutation cannot pass.
+
+### Known limits
+
+- The dependency-audit record grammar admits only `application:` and `scanner:` paths, so
+  a finding in the PUBLISHER graph cannot be excepted or triaged by a record: a
+  high/critical there blocks until the lock changes, and lower severity stays visible as
+  triage required. That is conservative, and deliberate for now.
+- The toolchain's integrity is the reviewed lock plus npm's integrity check at install
+  plus a measured tree; it is not a reproducible build of firebase-tools, and a passing
+  scan is not proof of safety.
+- Nothing here binds a fresh audit to Backend or Admin promotion, and `deploy-prod.yml` —
+  still the live writer — consumes none of it.
 
 ## Compatibility
 
@@ -363,9 +590,12 @@ rollback to a candidate certified earlier needs that commit **re-certified**:
 re-running its Certify run produces a new attempt and a new candidate, which the gate
 treats as a different candidate. **That is a fresh build, not evidence that the old
 payload was audited**, and the 24-hour age of a certification is not a dependency
-audit either: it is a conservative limit, kept until B2's candidate-inventory rescan
-exists — which is what would let an already-certified payload be re-admitted without
-rebuilding it.
+audit either. Since B2.2 every promotion, a rollback included, also runs a FRESH
+assessment of the target candidate's retained inventory (see "Dependencies"), and a
+candidate stamped before B2.2 carries none and is refused by name. **The 24-hour
+certification window was deliberately NOT relaxed by that change**: re-admitting an
+older certified payload on the strength of a fresh rescan is now possible in principle,
+and doing so is its own reviewed policy decision.
 
 Firebase Hosting's own release retention is the owner's **fallback** when this path
 cannot publish at all, and is a named prerequisite (below). This path does not depend
@@ -464,7 +694,7 @@ desirable. `release/cli.mjs stamp` asserts the approved origin is present in the
 
 ## Tests, and what each kind proves
 
-`npm run test:release` runs the CLI self-test, then 580 tests in about 45 seconds
+`npm run test:release` runs the CLI self-test, then 749 tests in about 100 seconds
 (four cores; most of it is the workflow simulation). Each is labelled
 **REGRESSION** (pins a finding reproduced before its fix: on `3386724` for the
 baseline, on `ce6b892` for what review on #687 found), **CONTRACT** (a rule this
@@ -472,25 +702,29 @@ change introduces) or **CONTROL** (something that must not change).
 
 | file | tests | what it proves |
 |---|---|---|
-| `decide.test.mjs` | 125 | the refusal matrix: one allowed baseline, each case breaking exactly one fact |
-| `policy.test.mjs` | 43 | the policy is validated before anything is evaluated; every decision-bearing field |
-| `publisher.test.mjs` | 67 | the admitted record, the critical section, the outcome vocabulary (a recorded wait is its own word and only a refusal can be one), a `no-store` identity required for `PUBLISHED_VERIFIED` |
+| `decide.test.mjs` | 191 | the refusal matrix: one allowed baseline, each case breaking exactly one fact |
+| `policy.test.mjs` | 53 | the policy is validated before anything is evaluated; every decision-bearing field |
+| `publisher.test.mjs` | 91 | the admitted record, the critical section, the outcome vocabulary (a recorded wait is its own word and only a refusal can be one), a `no-store` identity required for `PUBLISHED_VERIFIED` |
 | `hosting.test.mjs` | 43 | destination resolution, the allow-list, the ignore proof, regeneration, the identity's `Cache-Control` before publishing |
 | `hosting-oracle.test.mjs` | 20 | the model against the installed firebase-tools' own functions, and the header model against superstatic's own matcher and middleware |
 | `storage.test.mjs` | 43 | set containment, the declaration, where the bytes are, the tripwire |
 | `peers.test.mjs` | 30 | receipts from real git, public verification, serving over real TLS |
-| `manifest.test.mjs` | 48 | the stamp and the manifest schema |
+| `manifest.test.mjs` | 50 | the stamp and the manifest schema |
 | `contract.test.mjs` | 9 | the D01 digest across languages |
-| `readiness.test.mjs` | 55 | the recorded wait against every way a refusal can differ from it, and the real `readiness` and `outcome` commands through files |
-| `workflow-simulation.test.mjs` | 47 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher — including the non-publishing evaluation matrix, both outcome steps and the publisher/credential counts |
-| `workflow-drift.test.mjs` | 24 | the three workflow files held to the policy, statically — the publish job keyed on the admitted decision, the readiness wrapper translating one status |
-| `committed-policy.test.mjs` | 26 | the committed policy's exact refusal set, through the real `decide`; the approved receipts; the readiness list equal to that set; the 2026-09-24 refresh replayed against what CI observed, with every other fact held fixed |
+| `dependency-evidence.test.mjs` | 43 | B2.2 through the real CLI: the stamp binding and its refusals (a mid-build input change, a blocking certification audit, a genuine pre-B2.2 stamp), `prepare-publisher` (pinned npm, scripts disabled, measured, unsafe entries refused), `assess` (three graphs, scan-only replay, trusted policy, blocking/incomplete/not performed) and the `publish` last boundary |
+| `readiness.test.mjs` | 56 | the recorded wait against every way a refusal can differ from it, and the real `readiness` and `outcome` commands through files |
+| `workflow-simulation.test.mjs` | 63 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher — including the non-publishing evaluation matrix, both outcome steps and the publisher/credential counts |
+| `workflow-drift.test.mjs` | 27 | the three workflow files held to the policy, statically — the publish job keyed on the admitted decision, the readiness wrapper translating one status |
+| `committed-policy.test.mjs` | 30 | the committed policy's exact refusal set, through the real `decide`; the approved receipts; the readiness list equal to that set; the 2026-09-24 refresh replayed against what CI observed, with every other fact held fixed |
 
 **The simulation is production-shaped, not GitHub.** It parses and runs `publish.yml`
-with GitHub's expression semantics; `actions/*` and the Firebase action are stand-ins
-that behave as documented (the publisher one resolves its destination with
-firebase-tools' own functions and can be told to fail, fail after publishing, drop a
-file or publish something else). It has no queueing, concurrency groups, OIDC, runner
+with GitHub's expression semantics; `actions/*` are stand-ins that behave as documented
+(the upload stand-in applies v4+'s root rule and excludes hidden files unless told
+otherwise), npm is a RECORDED npm (`tests/fake-npm.mjs`: `ci` from a package store,
+`audit` from a synthetic advisory table — the network seam), and the admitted toolchain's
+entrypoint is a stub publisher run by the REAL `publish` command. The stub resolves its
+destination with firebase-tools' own functions and can be told to fail, fail after
+publishing, drop a file or publish something else. It has no queueing, concurrency groups, OIDC, runner
 images or masking; the GitHub API is a recorded map. An action it does not model is an
 error, never a pass.
 
@@ -562,8 +796,12 @@ Both are now refused, and each finding is carried by tests labelled
 
 ## What is deliberately left for later
 
-- **B2** — a candidate-inventory rescan (dependency audit over the certified payload).
-  Until it exists the 24-hour window stays, and nothing here claims an audit.
+- **B2 beyond this path.** B2.2 binds certification evidence and a fresh assessment to
+  the FRONTEND candidate and its publisher toolchain. It does not bind anything to a
+  Backend or Admin promotion (their deploys consume no such record), it does not audit
+  the GitHub Actions or runner images the workflows use, it adds no self-test for the
+  gates' own scanners, and it does not touch `deploy-prod.yml`, which remains the live
+  writer and consumes none of it. The 24-hour certification window is unchanged.
 - **B3** — a served-revision identity for the backend. Until it exists this path
   refuses `peers.backend_serving_unverified` and cannot publish.
 - **B4** — anything beyond this path: the cutover itself, custom-domain inventory,

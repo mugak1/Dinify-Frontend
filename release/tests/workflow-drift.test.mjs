@@ -24,6 +24,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
 import { certifiedArtifactName } from '../lib/decide.mjs';
+import { assessmentArtifactName, toolingArtifactName } from '../lib/dependency-evidence.mjs';
 import { ROOT } from './harness.mjs';
 import { MODELLED_ACTIONS, parseWorkflow } from './workflow-engine.mjs';
 
@@ -68,15 +69,22 @@ describe('publish.yml, statically, against release/policy.json', () => {
     }
   });
 
-  it('REGRESSION (privilege separation): the service-account secret is referenced ONCE, by the tool step of the publish job', () => {
+  it('REGRESSION (privilege separation): the service-account secret is referenced ONCE, by the publish step of the publish job', () => {
     // Counted on the RAW text, comments included: a secret mentioned anywhere is a
     // secret one edit from being used there.
     const mentions = TEXT.publish.match(/secrets\./g) ?? [];
     assert.equal(mentions.length, 1, 'exactly one secrets.* reference in the file');
     const holders = stepsOf(PUBLISH).filter(({ step }) => JSON.stringify(step).includes('secrets.'));
     assert.deepEqual(holders.map(({ job, step }) => [job, step.name]), [['publish', 'Publish to Firebase Hosting']]);
-    assert.equal(holders[0].step.with.firebaseServiceAccount, '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}');
-    assert.equal(holders[0].step.env, undefined, 'the secret never reaches a shell environment');
+    // D08 B2.2: the action is gone, so the credential reaches exactly one process
+    // environment — the step that runs the TRUSTED `publish` command, which reads it last
+    // and writes it only to a 0600 file. The shell never expands it and nothing else is
+    // in that step's environment.
+    const holder = holders[0].step;
+    assert.equal(holder.uses, undefined, 'no action receives the credential');
+    assert.deepEqual(holder.env, { FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' });
+    assert.ok(!holder.run.includes('FIREBASE_SERVICE_ACCOUNT'), 'the script never names, prints or expands the credential');
+    assert.match(holder.run, /node trusted\/release\/cli\.mjs publish /);
   });
 
   it('CONTRACT: no expression is interpolated into a shell script — every value reaches a script through env', () => {
@@ -109,23 +117,101 @@ describe('publish.yml, statically, against release/policy.json', () => {
     for (const action of used) assert.ok(MODELLED_ACTIONS.includes(action), `${action} is not modelled in workflow-engine.mjs`);
   });
 
-  it('REGRESSION (R3): the tool is handed exactly the policy destination, the pinned tool version and the staged directory', () => {
-    const deploy = byName(PUBLISH, 'publish', 'Publish to Firebase Hosting');
-    assert.match(deploy.uses, /^FirebaseExtended\/action-hosting-deploy@[0-9a-f]{40}$/);
-    assert.deepEqual(Object.keys(deploy.with).sort(), [
-      'channelId', 'disableComment', 'entryPoint', 'firebaseServiceAccount', 'firebaseToolsVersion', 'projectId', 'target',
-    ], 'no repoToken, no expires, nothing that widens what the tool may do');
-    assert.equal(deploy.with.projectId, POLICY.hosting.project);
-    assert.equal(deploy.with.target, POLICY.hosting.target);
-    assert.equal(deploy.with.channelId, POLICY.hosting.channelId);
-    assert.equal(deploy.with.firebaseToolsVersion, POLICY.hosting.firebaseToolsVersion);
-    // entryPoint is the directory the preflight STAGES into — the regenerated
-    // configuration beside the verified payload, and nothing else.
+  it('REGRESSION (R3): the tool runs from the ADMITTED toolchain against exactly the staged directory — no action, no download', () => {
+    const publish = byName(PUBLISH, 'publish', 'Publish to Firebase Hosting');
+    assert.equal(publish.uses, undefined);
     const preflight = byName(PUBLISH, 'publish', 'Re-establish the admitted unit, then stage it');
     const staged = /--stage (\S+)/.exec(preflight.run)?.[1];
-    assert.equal(deploy.with.entryPoint, staged);
+    assert.ok(staged);
+    assert.equal(/--stage (\S+)/.exec(publish.run)?.[1], staged, 'the tool is pointed at the staged tree');
     const verify = byName(PUBLISH, 'publish', 'Verify what the origin serves');
     assert.equal(/--stage (\S+)/.exec(verify.run)?.[1], staged, 'verification reads the same staged tree');
+    // The toolchain and the assessment the publish step re-checks are the ones the
+    // preflight re-established — the same directories, downloaded by the record's ids.
+    for (const flag of ['--tooling', '--assessment']) {
+      assert.equal(new RegExp(`${flag} (\\S+)`).exec(publish.run)?.[1], new RegExp(`${flag} (\\S+)`).exec(preflight.run)?.[1], flag);
+    }
+    // THE LAST BOUNDARY'S CLOCK is read in the SAME step, immediately before the command.
+    assert.match(publish.run, /now="\$\(date -u \+%Y-%m-%dT%H:%M:%SZ\)"\n\s*node trusted\/release\/cli\.mjs publish[\s\S]*--now "\$now"/);
+    // Nothing in the file resolves a tool at run time. (The comments may say what the step
+    // REPLACED; no executable line may name it.)
+    const code = TEXT.publish.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+    assert.ok(!/FirebaseExtended|firebase-tools@|\bnpx\b|@latest/.test(code), 'publish.yml resolves a tool at run time');
+    assert.equal(POLICY.hosting.firebaseToolsVersion, undefined, 'the policy pins the toolchain, not an action input');
+  });
+
+  it('CONTRACT (B2.2): the reviewed publisher lock is the policy\'s pin — one tool, one version, every package from the registry with an integrity', () => {
+    const pin = POLICY.publisher;
+    const manifest = JSON.parse(readFileSync(join(ROOT, pin.root, 'package.json'), 'utf8'));
+    const lock = JSON.parse(readFileSync(join(ROOT, pin.root, 'package-lock.json'), 'utf8'));
+    assert.deepEqual(manifest.dependencies, { [pin.package]: pin.version }, 'exactly one pinned dependency, no range');
+    assert.equal(manifest.devDependencies, undefined);
+    assert.equal(manifest.scripts, undefined, 'no scripts in the reviewed manifest');
+    assert.deepEqual(lock.packages[''].dependencies, manifest.dependencies);
+    assert.equal(lock.packages[`node_modules/${pin.package}`].version, pin.version);
+    assert.match(pin.version, /^\d+\.\d+\.\d+$/);
+    const copies = Object.keys(lock.packages).filter((p) => p === `node_modules/${pin.package}` || p.endsWith(`/node_modules/${pin.package}`));
+    assert.deepEqual(copies, [`node_modules/${pin.package}`], 'no second copy of the tool anywhere in the graph');
+    for (const [path, entry] of Object.entries(lock.packages)) {
+      if (path === '') continue;
+      assert.ok(!entry.link, `${path} is a link`);
+      assert.match(String(entry.resolved), /^https:\/\/registry\.npmjs\.org\//, `${path} is not resolved from the public registry`);
+      assert.match(String(entry.integrity), /^sha512-/, `${path} carries no integrity`);
+    }
+    assert.ok(pin.entrypoint.startsWith(`node_modules/${pin.package}/`), 'the entrypoint lives inside the pinned package');
+    // The app's own devDependency certifies nothing about the publisher: the two are
+    // separate graphs, and nothing in the publication path reads the application lock
+    // to find the tool.
+    assert.ok(!TEXT.publish.includes('package-lock.json'), 'publish.yml reads an application lock');
+  });
+
+  it('CONTRACT (B2.2): the publisher runs under exactly the pinned Node, in both jobs; the audit targets its major', () => {
+    const setups = stepsOf(PUBLISH).filter(({ step }) => actionOf(step.uses) === 'actions/setup-node');
+    assert.deepEqual(setups.map(({ job }) => job), ['gate', 'publish']);
+    for (const { job, step } of setups) assert.equal(String(step.with['node-version']), POLICY.publisher.node, job);
+    const auditPolicy = JSON.parse(readFileSync(join(ROOT, 'dependency-audit/policy.json'), 'utf8'));
+    assert.equal(auditPolicy.target.nodeMajor, Number(POLICY.publisher.node.split('.')[0]));
+  });
+
+  it('CONTRACT (B2.2): the gate prepares and assesses with the TRUSTED CLI, retains both as this run\'s artifacts, and hands their ids to decide', () => {
+    const gate = PUBLISH.jobs.gate;
+    const prepare = byName(PUBLISH, 'gate', 'Prepare the publisher toolchain');
+    const assess = byName(PUBLISH, 'gate', 'Assess the candidate\'s dependencies now');
+    const decide = byName(PUBLISH, 'gate', 'Decide');
+    const order = (name) => gate.steps.findIndex((s) => s.name === name);
+    assert.ok(order('Download the candidate') < order('Prepare the publisher toolchain'));
+    assert.ok(order('Prepare the publisher toolchain') < order('Assess the candidate\'s dependencies now'));
+    assert.ok(order('Retain the fresh assessment') < order('Decide'));
+    assert.match(prepare.run, /node release\/cli\.mjs prepare-publisher --out tooling --facts tooling\.json/);
+    assert.match(assess.run, /node release\/cli\.mjs assess[\s\S]*--candidate candidate[\s\S]*--tooling tooling[\s\S]*--out assessment[\s\S]*--now "\$now"/);
+    assert.match(assess.run, /now="\$\(date -u \+%Y-%m-%dT%H:%M:%SZ\)"/, 'the trusted workflow supplies the collection start');
+    // A failure in either is DATA the decision refuses by name, never a skipped check.
+    assert.equal(prepare['continue-on-error'], true);
+    assert.equal(assess['continue-on-error'], true);
+    assert.equal(prepare.if, "steps.download.outcome == 'success'");
+    assert.equal(assess.if, "steps.prepare.outcome == 'success'");
+    // No package manager is invoked by the WORKFLOW in the gate: the CLI runs the pinned
+    // scanner's npm with scripts disabled, and nothing else installs.
+    for (const step of gate.steps) {
+      if (typeof step.run === 'string') assert.ok(!/\b(npm|npx|yarn|pnpm)\b/.test(step.run), `${step.name} runs a package manager`);
+    }
+    const retainTooling = byName(PUBLISH, 'gate', 'Retain the prepared toolchain');
+    const retainAssessment = byName(PUBLISH, 'gate', 'Retain the fresh assessment');
+    const resolve = (template) => template.replace('${{ github.run_id }}', '4242').replace('${{ github.run_attempt }}', '1');
+    assert.equal(resolve(retainTooling.with.name), toolingArtifactName('4242', '1'));
+    assert.equal(resolve(retainAssessment.with.name), assessmentArtifactName('4242', '1'));
+    assert.equal(retainTooling.with.path, 'tooling/');
+    assert.equal(retainAssessment.with.path, 'assessment/');
+    // npm writes node_modules/.package-lock.json; an upload that drops hidden files would
+    // hand the publisher a tree that does not reproduce the admitted digest.
+    assert.equal(retainTooling.with['include-hidden-files'], true);
+    assert.equal(retainTooling.with['if-no-files-found'], 'error');
+    assert.equal(decide.env.TOOLING_ID, '${{ steps.retain_tooling.outputs.artifact-id }}');
+    assert.equal(decide.env.TOOLING_DIGEST, '${{ steps.retain_tooling.outputs.artifact-digest }}');
+    assert.equal(decide.env.ASSESSMENT_ID, '${{ steps.retain_assessment.outputs.artifact-id }}');
+    assert.equal(decide.env.ASSESSMENT_DIGEST, '${{ steps.retain_assessment.outputs.artifact-digest }}');
+    assert.equal(decide.env.RUN_ID, '${{ github.run_id }}');
+    assert.equal(decide.env.RUN_ATTEMPT, '${{ github.run_attempt }}');
   });
 
   it('CONTRACT: publication is gated on the variable the policy names, and on nothing a candidate controls', () => {
@@ -159,7 +245,7 @@ describe('publish.yml, statically, against release/policy.json', () => {
     assert.equal(report.if, "always() && steps.decide.outputs.decision != 'PROCEED'");
     // No output the publish job reads is written by the readiness step.
     assert.deepEqual(Object.keys(PUBLISH.jobs.gate.outputs).sort(),
-      ['allow', 'artifact_id', 'decision', 'policy_revision', 'record', 'record_digest', 'run_id', 'sha']);
+      ['allow', 'artifact_id', 'assessment_artifact_id', 'decision', 'policy_revision', 'record', 'record_digest', 'run_id', 'sha', 'tooling_artifact_id']);
     for (const [name, value] of Object.entries(PUBLISH.jobs.gate.outputs)) {
       if (name !== 'sha') assert.match(value, /^\$\{\{ steps\.decide\.outputs\.[a-z_]+ \}\}$/, name);
     }
@@ -181,11 +267,14 @@ describe('publish.yml, statically, against release/policy.json', () => {
     const verifier = byName(PUBLISH, 'publish', 'Check out the verifier the gate ran');
     assert.equal(verifier.with.ref, '${{ needs.gate.outputs.policy_revision }}');
     assert.equal(verifier.with.path, 'trusted');
-    assert.equal(verifier.with['sparse-checkout'], 'release');
-    // The default branch's release tree, read only to NOTICE a policy that moved.
-    const current = byName(PUBLISH, 'publish', 'Check out the default branch\'s release tree');
+    const sparse = (step) => String(step.with['sparse-checkout']).trim().split('\n').map((l) => l.trim());
+    // release/ AND dependency-audit/: the audit policy and the scanner lock are part of
+    // the verifier, and release/lib reads dependency-audit/lib.
+    assert.deepEqual(sparse(verifier), ['release', 'dependency-audit']);
+    // The default branch's trees, read only to NOTICE a policy that moved.
+    const current = byName(PUBLISH, 'publish', 'Check out the default branch\'s release and audit trees');
     assert.equal(current.with.ref, POLICY.defaultBranch);
-    assert.equal(current.with['sparse-checkout'], 'release');
+    assert.deepEqual(sparse(current), ['release', 'dependency-audit']);
     // Every command the publish job runs is the pinned verifier's.
     for (const { job, step } of stepsOf(PUBLISH)) {
       if (job !== 'publish' || typeof step.run !== 'string' || !step.run.includes('cli.mjs')) continue;
@@ -221,17 +310,30 @@ describe('publish.yml, statically, against release/policy.json', () => {
 
   it('REGRESSION (R3.e): the candidate is downloaded BY ID from the certifying run, and a digest mismatch is an error', () => {
     const downloads = stepsOf(PUBLISH).filter(({ step }) => actionOf(step.uses) === 'actions/download-artifact');
-    assert.deepEqual(downloads.map(({ job }) => job), ['gate', 'publish']);
+    assert.deepEqual(downloads.map(({ job, step }) => [job, step.name]), [
+      ['gate', 'Download the candidate'],
+      ['publish', 'Download the admitted candidate'],
+      ['publish', 'Download the admitted toolchain'],
+      ['publish', 'Download the admitted assessment'],
+    ]);
     for (const { job, step } of downloads) {
       assert.equal(step.with.name, undefined, `${job} downloads by name`);
       assert.ok(step.with['artifact-ids'], `${job} names no artifact id`);
-      assert.ok(step.with['run-id'], `${job} names no run`);
-      assert.ok(step.with['github-token'], `${job} cannot read another run's artifact`);
       assert.equal(step.with['digest-mismatch'], 'error', job);
       assert.equal(step.with['merge-multiple'], true, job);
     }
+    // The candidate lives in the CERTIFYING run: named, with a token to read across runs.
+    for (const { job, step } of downloads.slice(0, 2)) {
+      assert.ok(step.with['run-id'], `${job} names no run`);
+      assert.ok(step.with['github-token'], `${job} cannot read another run's artifact`);
+    }
     assert.equal(downloads[1].step.with['artifact-ids'], '${{ needs.gate.outputs.artifact_id }}');
     assert.equal(downloads[1].step.with['run-id'], '${{ needs.gate.outputs.run_id }}');
+    // The toolchain and the assessment live in THIS run: by the record's ids, and no
+    // run-id, so an upload of another run cannot be substituted by naming it.
+    assert.equal(downloads[2].step.with['artifact-ids'], '${{ needs.gate.outputs.tooling_artifact_id }}');
+    assert.equal(downloads[3].step.with['artifact-ids'], '${{ needs.gate.outputs.assessment_artifact_id }}');
+    for (const { step } of downloads.slice(2)) assert.equal(step.with['run-id'], undefined, step.name);
   });
 
   it('CONTRACT: one concurrency group, never cancelled mid-flight (its pending-run limit is disclosed in the file)', () => {
@@ -259,6 +361,15 @@ describe('certify.yml and ci.yml, against the policy and each other', () => {
     assert.equal(resolve(upload.with.name), certifiedArtifactName('4242', '1'));
     const stamp = byName(CERTIFY, 'certify', 'Stamp the release identity and provenance');
     assert.match(stamp.run, /--artifactName "frontend-release-\$RUN_ID-\$RUN_ATTEMPT"/);
+    // D08 B2.2: the stamp binds the audit evidence this run produced, and writes it BESIDE
+    // dist/ — never inside the hosted payload — and the upload retains it with the candidate.
+    const dist = /--dist (\S+)/.exec(stamp.run)?.[1];
+    const evidence = /--evidenceOut (\S+)/.exec(stamp.run)?.[1];
+    assert.equal(/--dependencyAudit (\S+)/.exec(stamp.run)?.[1], 'dependency-audit/evidence');
+    assert.ok(evidence && dist && !evidence.startsWith(`${dist}/`) && evidence !== dist, `${evidence} is inside ${dist}`);
+    assert.deepEqual(String(upload.with.path).trim().split('\n').map((l) => l.trim()), [dist, 'provenance.json', evidence]);
+    const build = byName(CERTIFY, 'certify', 'Build the shipping candidate');
+    assert.match(build.run, new RegExp(`rm -rf ${dist} ${evidence} provenance\\.json`), 'nothing from an earlier stamp survives into this one');
     assert.equal(stamp.env.RUN_ID, '${{ github.run_id }}');
     assert.equal(stamp.env.RUN_ATTEMPT, '${{ github.run_attempt }}');
   });

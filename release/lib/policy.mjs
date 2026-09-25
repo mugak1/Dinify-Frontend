@@ -17,7 +17,12 @@
 import { supportedIgnorePattern } from './glob.mjs';
 import { WAITING_CODES } from './readiness.mjs';
 
-export const POLICY_SCHEMA = 'dinify.release.policy/2';
+// /3 (D08 B2.2): `publisher` pins the publication toolchain as a reviewed graph, and
+// `freshness.assessmentWindowHours` bounds the fresh dependency assessment. The tool
+// version moved from `hosting.firebaseToolsVersion` to `publisher.version`: one fact,
+// one place, checked against the lock that actually installs it.
+export const POLICY_SCHEMA = 'dinify.release.policy/3';
+export const MAX_ASSESSMENT_WINDOW_HOURS = 24;
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
@@ -67,6 +72,10 @@ export function validatePolicy(policy) {
 
   const hours = p.freshness?.certificationWindowHours;
   if (!(typeof hours === 'number' && Number.isFinite(hours) && hours > 0)) fail('policy.bad_freshness', hours);
+  const assessed = p.freshness?.assessmentWindowHours;
+  if (!(typeof assessed === 'number' && Number.isFinite(assessed) && assessed > 0 && assessed <= MAX_ASSESSMENT_WINDOW_HOURS)) {
+    fail('policy.bad_assessment_window', assessed);
+  }
 
   const b = p.build;
   if (!isObject(b)) {
@@ -90,13 +99,28 @@ export function validatePolicy(policy) {
     if (h.channelId !== 'live') fail('policy.bad_hosting_channel', h.channelId);
     if (!isHttpsOrigin(h.identityOrigin)) fail('policy.bad_identity_origin', h.identityOrigin);
     if (!String(h.identityPath).startsWith('/')) fail('policy.bad_identity_path', h.identityPath);
-    if (!SEMVER_RE.test(String(h.firebaseToolsVersion))) fail('policy.bad_tools_version', h.firebaseToolsVersion);
+    if ('firebaseToolsVersion' in h) fail('policy.bad_tools_version', 'the tool is pinned by publisher.version and the reviewed lock, not here');
     if (!Array.isArray(h.ignore) || !h.ignore.every(supportedIgnorePattern)) fail('policy.bad_hosting_ignore', JSON.stringify(h.ignore));
     const v = h.verification;
     if (!(Number.isInteger(v?.attempts) && v.attempts >= 1 && v.attempts <= 10
       && Number.isInteger(v?.intervalMs) && v.intervalMs >= 0 && v.intervalMs <= 60000)) {
       fail('policy.bad_verification_schedule', JSON.stringify(v));
     }
+  }
+
+  const pub = p.publisher;
+  if (!isObject(pub)) {
+    fail('policy.no_publisher', pub);
+  } else {
+    if (pub.root !== 'release/publisher') fail('policy.bad_publisher_root', pub.root);
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(String(pub.package))) fail('policy.bad_publisher_package', pub.package);
+    if (!SEMVER_RE.test(String(pub.version))) fail('policy.bad_tools_version', pub.version);
+    if (!SEMVER_RE.test(String(pub.node))) fail('policy.bad_publisher_node', pub.node);
+    if (!(typeof pub.entrypoint === 'string' && pub.entrypoint.startsWith(`node_modules/${pub.package}/`)
+        && SAFE_PATH_RE.test(pub.entrypoint) && pub.entrypoint.endsWith('.js'))) {
+      fail('policy.bad_publisher_entrypoint', pub.entrypoint);
+    }
+    if (!isString(pub.deployAgent) || !/^[a-z0-9-]+$/.test(pub.deployAgent)) fail('policy.bad_publisher_agent', pub.deployAgent);
   }
 
   if (!SAFE_PATH_RE.test(String(p.storage?.declarationPath))) fail('policy.bad_storage_declaration_path', p.storage?.declarationPath);

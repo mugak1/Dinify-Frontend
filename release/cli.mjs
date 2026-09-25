@@ -6,17 +6,24 @@
  * is what lets the whole refusal matrix run locally from fixtures, and what lets the
  * workflow simulation drive exactly these commands against recorded API answers.
  *
- *   stamp                 produce dist/release.json + provenance (certify.yml)
+ *   stamp                 produce dist/release.json, the dependency-evidence bundle and
+ *                         provenance (certify.yml)
  *   observe               measure a downloaded candidate, as DATA
  *   certification-facts   the certifying run, its jobs, its artifacts, its ancestry
  *   git-facts             the certified commit's source, hosting, storage, eligibility
  *   serve-state           read this site's served identity (+ relation, with git)
  *   peer-receipt          PRODUCE a peer receipt from that peer's own git
  *   peer-facts            read receipts, verify public ones, observe peer serving
+ *   prepare-publisher     install the reviewed publisher lock, scripts disabled, and
+ *                         measure it (the gate; no credential)
+ *   assess                a FRESH advisory query over the candidate's retained graph, the
+ *                         pinned scanner and the prepared toolchain (the gate)
  *   decide                the decision + the admitted record + a shadow-mode summary
  *   readiness             is a refusal EXACTLY the recorded waiting state of a
  *                         non-publishing evaluation? (asked only of a refusal)
  *   preflight             the publisher's critical-section recheck, then staging
+ *   publish               the last-boundary recheck, then the admitted toolchain — the
+ *                         ONLY command that reads the credential
  *   verify-served         fetch the identity and every certified file back
  *   outcome               the one outcome word for the whole run
  *   storage-reviewed      re-affirm (or check) the storage declaration's tripwire
@@ -27,11 +34,27 @@
  * must pass or fail; it is never swallowed by a pipeline here.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, appendFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync,
+  writeFileSync, appendFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { argv, exit, stderr, stdout } from 'node:process';
 
-import { contractDigest, digestOf, digestOfValue, treeDigest } from './lib/canonical.mjs';
+import { contractDigest, digestOf, digestOfValue, sha256Hex, treeDigest } from './lib/canonical.mjs';
+import {
+  ASSESSMENT_DOC, ASSESSMENT_SCHEMA, EVIDENCE_DIR, EVIDENCE_RECORD, EVIDENCE_SCHEMA, RETAINED, TOOLING_SCHEMA,
+  assessmentArtifactName, buildEvidenceRecord, inspectAssessment, inspectEvidenceBundle, toolingArtifactName, validateTooling,
+} from './lib/dependency-evidence.mjs';
+import { publishInvocation, readPublishResult } from './lib/publisher.mjs';
+import {
+  defaultInstallScanner, loadPolicy as loadAuditPolicy, reevaluate, spawnRunner, verifyScannerPin,
+} from '../dependency-audit/lib/audit.mjs';
+import { collect, retainedInventory, writeReplay } from '../dependency-audit/lib/retained.mjs';
+import { inventory, scannerEnvironment, toolingScope } from '../dependency-audit/lib/npm.mjs';
+import { evaluate, headline } from '../dependency-audit/lib/core.mjs';
 import { buildManifest, buildProvenance, validateManifest } from './lib/manifest.mjs';
 import { readEnvironmentLiteral, readIntArrayConstant, readIntConstant, hostingHooks } from './lib/source.mjs';
 import { decide, selectCertifiedArtifact } from './lib/decide.mjs';
@@ -39,14 +62,14 @@ import { validatePolicy } from './lib/policy.mjs';
 import { effectiveHosting } from './lib/hosting.mjs';
 import { manifestStorage, staleReviewedSources, validateStorageDeclaration, declarationDigest } from './lib/storage.mjs';
 import { PEER_NAMES, produceReceipt, receiptDigest } from './lib/peers.mjs';
-import { buildRecord, decodeRecord, encodeRecord, recordDigest } from './lib/record.mjs';
-import { preflightReasons } from './lib/preflight.mjs';
+import { buildRecord, decodeRecord, encodeRecord, recordDigest, validateRecord } from './lib/record.mjs';
+import { certificationWindowReasons, dependencyBoundaryReasons, preflightReasons } from './lib/preflight.mjs';
 import { FAILING_OUTCOMES, classifyVerification, summarizeOutcome } from './lib/outcome.mjs';
 import { AWAITING, classifyReadiness, readinessCovers, unclassifiable } from './lib/readiness.mjs';
 import { partitionByIgnore, supportedIgnorePattern, globToRegExp } from './lib/glob.mjs';
 import {
-  artifactFacts, fetchBackFiles, ghApi, git, gitShow, observeCandidate,
-  readPublicCommitIdentity, readServedIdentity, relationOf, runFacts, walkTree,
+  artifactFacts, fetchBackFiles, ghApi, git, gitShow, observeCandidate, readFilesUnder,
+  readPublicCommitIdentity, readServedIdentity, relationOf, runFacts, walkTooling, walkTree,
 } from './lib/io.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
@@ -66,6 +89,28 @@ const CONSTANT_SOURCES = Object.freeze([
 const SUPPORTED_VERSIONS_SOURCE = ['SUPPORTED_QUOTE_POLICY_VERSIONS', 'src/app/_shared/order/quote-transition.ts'];
 const D01_CONTRACT_PATH = 'src/app/_shared/order/checkout-limits.contract.json';
 const LOCK_PATH = 'package-lock.json';
+const MANIFEST_PATH = 'package.json';
+const AUDIT_POLICY_PATH = 'dependency-audit/policy.json';
+
+/**
+ * WHICH VERIFIER THIS IS: the trees of release/ and dependency-audit/ at a checkout's
+ * HEAD. Both are the gate — the audit policy and scanner lock decide what a fresh
+ * assessment means as surely as release/policy.json decides the rest — so a change to
+ * either advances the verifier (preflight.policy_advanced).
+ */
+function verifierIdentity(root) {
+  return {
+    release: git(root, ['rev-parse', 'HEAD:release']).trim(),
+    dependencyAudit: git(root, ['rev-parse', 'HEAD:dependency-audit']).trim(),
+  };
+}
+
+/** A fresh, empty directory; refuses one that already holds anything. */
+function freshDirectory(path, what) {
+  if (existsSync(path) && readdirSync(path).length > 0) fail(`refusing to reuse a non-empty ${what}: ${path}`);
+  mkdirSync(path, { recursive: true });
+  return path;
+}
 
 // ── small helpers ───────────────────────────────────────────────────────────────
 
@@ -124,6 +169,7 @@ function sourceFactsFrom(readText, readBytes, policy) {
     supportedQuotePolicyVersions,
     environment,
     lockDigest: digestOf(readBytes(LOCK_PATH)),
+    manifestDigest: digestOf(readBytes(MANIFEST_PATH)),
     d01Digest: contractDigest(JSON.parse(readText(D01_CONTRACT_PATH))),
   };
 }
@@ -234,14 +280,98 @@ function cmdStamp(args) {
   writeFileSync(join(dist, 'release.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   const walked = walkTree(dist);
   if (walked.unsafe.length > 0) fail(`built tree is not clean\n  - ${walked.unsafe.join('\n  - ')}`);
+  const artifactTreeDigest = treeDigest(walked.entries);
+  const outPath = String(f.out ?? join(ROOT, 'provenance.json'));
+  const evidence = stampDependencyEvidence({
+    policy,
+    commit,
+    sourceTree,
+    manifest,
+    certification: {
+      workflowPath: policy.certification.workflowPath,
+      runId: String(f.runId ?? ''),
+      runAttempt: String(f.runAttempt ?? ''),
+      runStartedAt: String(f.runStartedAt ?? ''),
+    },
+    candidate: { artifactTreeDigest, manifestDigest: digestOfValue(manifest), entryCount: walked.entries.length },
+    auditDir: String(f.dependencyAudit ?? join(ROOT, 'dependency-audit', 'evidence')),
+    outDir: String(f.evidenceOut ?? join(dirname(outPath), EVIDENCE_DIR)),
+    now: String(f.now ?? ''),
+  });
   const provenance = buildProvenance({
     manifest,
     artifactName: String(f.artifactName ?? ''),
-    artifactTreeDigest: treeDigest(walked.entries),
+    artifactTreeDigest,
     entryCount: walked.entries.length,
+    dependencyEvidence: { schema: EVIDENCE_SCHEMA, recordDigest: evidence.recordDigest, treeDigest: evidence.treeDigest, entryCount: evidence.entryCount },
   });
-  writeFileSync(String(f.out ?? join(ROOT, 'provenance.json')), `${JSON.stringify(provenance, null, 2)}\n`);
-  print({ manifest, provenance });
+  writeFileSync(outPath, `${JSON.stringify(provenance, null, 2)}\n`);
+  print({ manifest, provenance, dependencyEvidence: evidence.record });
+}
+
+/**
+ * THE CERTIFICATION DEPENDENCY EVIDENCE, bound to the candidate just stamped.
+ *
+ * Two things are proved before anything is written, and both are the reason this runs
+ * AFTER the build rather than before it:
+ *   1. The retained audit evidence is THIS checkout's, and still passes: `reevaluate`
+ *      re-captures the installed inventory NOW — after the build — and refuses when it
+ *      is not the inventory snapshotted right after `npm ci` and scanned. A dependency
+ *      input that changed during the build (an install, a removal, a lockfile or
+ *      package.json edit) therefore attaches no evidence at all: no candidate is stamped.
+ *   2. The raw scanner output is the bytes the collection recorded, and reads back as
+ *      the decision certification made (inspectEvidenceBundle, run over the bundle
+ *      exactly as a later gate will).
+ *
+ * What the installed-tree digest proves is PATHS AND VERSIONS as npm wrote them — not
+ * a hash of every executable byte — and the record says so.
+ */
+function stampDependencyEvidence({ policy, commit, sourceTree, manifest, certification, candidate, auditDir, outDir, now }) {
+  const reevaluation = reevaluate(ROOT, { evidenceDir: auditDir, now });
+  if (reevaluation.exitCode !== 0) {
+    fail(`refusing to stamp: the dependency audit evidence does not re-evaluate within policy for this checkout after the build\n  ${reevaluation.headline}\n  - ${reevaluation.reasons.map((r) => `${r.code}: ${r.detail}`).join('\n  - ')}`);
+  }
+  const readAudit = (name) => readJson(join(auditDir, name));
+  const snapshot = readAudit('snapshot.json');
+  const collection = readAudit('collection.json');
+  const result = readAudit('result.json');
+  if (snapshot.binding?.revision?.commit !== commit || snapshot.binding?.revision?.tree !== sourceTree) {
+    fail(`refusing to stamp: the dependency snapshot was taken at ${String(snapshot.binding?.revision?.commit)}, not ${commit}`);
+  }
+  freshDirectory(outDir, 'dependency-evidence directory');
+  const copies = [
+    [join(ROOT, MANIFEST_PATH), RETAINED.manifest],
+    [join(ROOT, LOCK_PATH), RETAINED.lockfile],
+    [join(ROOT, 'dependency-audit/scanner/package.json'), RETAINED.scannerManifest],
+    [join(ROOT, 'dependency-audit/scanner/package-lock.json'), RETAINED.scannerLockfile],
+    [join(ROOT, AUDIT_POLICY_PATH), RETAINED.policy],
+    [join(auditDir, 'snapshot.json'), RETAINED.snapshot],
+    [join(auditDir, 'collection.json'), RETAINED.collection],
+    [join(auditDir, 'result.json'), RETAINED.result],
+  ];
+  for (const graph of ['application', 'scanner']) {
+    const run = collection.graphs?.[graph]?.run;
+    if (!run) fail(`refusing to stamp: the audit collection recorded no ${graph} scan`);
+    copies.push([join(auditDir, run.stdoutFile), `audit/${run.stdoutFile}`], [join(auditDir, run.stderrFile), `audit/${run.stderrFile}`]);
+  }
+  const files = [];
+  for (const [from, to] of copies) {
+    const bytes = readFileSync(from);
+    mkdirSync(dirname(join(outDir, to)), { recursive: true });
+    writeFileSync(join(outDir, to), bytes);
+    files.push({ path: to, sha256: sha256Hex(bytes), bytes: bytes.length });
+  }
+  const record = buildEvidenceRecord({
+    repository: policy.repository, commit, tree: sourceTree, buildConfiguration: manifest.buildConfiguration,
+    certification, snapshot, collection, result, reevaluation, files, candidate,
+  });
+  writeFileSync(join(outDir, EVIDENCE_RECORD), `${JSON.stringify(record, null, 2)}\n`);
+  // SELF-CHECK: the bundle must survive the same inspection the gate will make of it.
+  const bundle = readFilesUnder(outDir);
+  const inspected = inspectEvidenceBundle(bundle.files, null);
+  const problems = [...bundle.unsafe.map((u) => ({ code: 'evidence.unsafe', detail: u })), ...inspected.problems];
+  if (problems.length > 0) fail(`refusing to stamp: the dependency evidence does not survive inspection\n  - ${problems.map((p) => `${p.code}: ${p.detail}`).join('\n  - ')}`);
+  return { record, recordDigest: inspected.recordDigest, treeDigest: inspected.treeDigest, entryCount: inspected.entryCount };
 }
 
 // ── observe ─────────────────────────────────────────────────────────────────────
@@ -324,7 +454,7 @@ function cmdGitFacts(args) {
   out.policy = {
     revision: git(ROOT, ['rev-parse', 'HEAD']).trim(),
     digest: digestOfValue(policy),
-    verifierTree: git(ROOT, ['rev-parse', 'HEAD:release']).trim(),
+    verifierTree: verifierIdentity(ROOT),
   };
 
   // THE CERTIFIED COMMIT, read by the TRUSTED verifier from git — never from the
@@ -387,7 +517,21 @@ function cmdGitFacts(args) {
       ? 'not-applicable'
       : relationOf(ROOT, policy.eligibility.minimumSafeTarget, commit),
   };
-  out.trusted = { legacyPublisherPresent: existsSync(join(ROOT, policy.prerequisites.singlePublisher.legacyWorkflow)) };
+  // THE TRUSTED CHECKOUT'S OWN REVIEWED INPUTS for the fresh half: the audit policy, the
+  // scanner lock and the publisher lock the gate is about to use — read from THIS
+  // checkout, never from the candidate, which could otherwise hand the gate its own. And
+  // read as COMMITTED at the gate's revision, not from the working tree: "reviewed" means
+  // what that revision holds, so a file edited in the workspace before the toolchain is
+  // prepared is not the reviewed one, and the decision says so (tooling_unreviewed).
+  const sha = (rel) => { const bytes = gitShow(ROOT, 'HEAD', rel); return bytes ? sha256Hex(bytes) : null; };
+  out.trusted = {
+    legacyPublisherPresent: existsSync(join(ROOT, policy.prerequisites.singlePublisher.legacyWorkflow)),
+    revision: out.policy.revision,
+    auditPolicySha256: sha(AUDIT_POLICY_PATH),
+    scannerLockfileSha256: sha('dependency-audit/scanner/package-lock.json'),
+    publisherLockfileSha256: sha(`${policy.publisher.root}/package-lock.json`),
+    publisherManifestSha256: sha(`${policy.publisher.root}/package.json`),
+  };
   print(out);
 }
 
@@ -503,7 +647,43 @@ const OPENING = {
   SKIP_STALE: ['A newer candidate is already served, so this older automatic run publishes nothing.'],
 };
 
-function shadowSummary({ decision, request, certification, observation, served, policyRevision, policy }) {
+/**
+ * THE DEPENDENCY HALF, stated as what was observed — never as a verdict the decision did
+ * not reach. Each row says what exists: a bound certification record and its outcome, a
+ * fresh assessment and its window, a prepared toolchain — or, where it does not exist,
+ * that it was NOT PERFORMED / NOT PREPARED. A skipped step is never rendered as a pass.
+ */
+function dependencyRows(observation, dependencies) {
+  const ev = observation?.dependencyEvidence;
+  let evidence = 'not observed — the candidate was not read';
+  if (observation?.present) {
+    if (observation.provenance?.legacy) evidence = 'none — a pre-B2.2 candidate (unsupported; never retrofitted)';
+    else if (!ev || ev.state === 'absent') evidence = 'absent';
+    else if (ev.problems?.length) evidence = `present but refused (${ev.problems.map((p) => p.code).join(', ')})`;
+    else evidence = `\`${ev.recordDigest}\` — certified ${ev.record?.audit?.outcome ?? '?'} at ${ev.record?.audit?.invokedAt ?? '?'}`;
+  }
+  const a = dependencies?.assessment;
+  let assessment = 'NOT PERFORMED';
+  if (a?.state === 'present' && a.doc && !(a.problems ?? []).length) {
+    assessment = `${a.doc.outcome} — collected ${a.doc.startedAt} → ${a.doc.finishedAt}, decided ${a.doc.decidedAt}`;
+  } else if (a?.state === 'present') {
+    assessment = `unreadable (${(a.problems ?? []).map((p) => p.code).join(', ')})`;
+  }
+  const t = dependencies?.tooling;
+  let tooling = 'NOT PREPARED';
+  if (t && t.schema !== 'unreadable') {
+    tooling = (t.problems ?? []).length
+      ? `refused (${t.problems.map((p) => p.code).join(', ')})`
+      : `${t.package}@${t.version} under ${t.node}, tree \`${t.treeDigest}\``;
+  } else if (t) tooling = 'unreadable';
+  return [
+    `| certification dependency evidence | ${evidence} |`,
+    `| fresh dependency assessment | ${assessment} |`,
+    `| publisher toolchain | ${tooling} |`,
+  ];
+}
+
+function shadowSummary({ decision, request, certification, observation, served, policyRevision, policy, dependencies }) {
   const lines = [];
   lines.push(`### Publication decision: ${decision.decision}`, '');
   lines.push(...(OPENING[decision.decision] ?? []), '');
@@ -520,6 +700,7 @@ function shadowSummary({ decision, request, certification, observation, served, 
   lines.push(`| candidate manifest | \`${observation?.manifestDigest ?? '—'}\` |`);
   lines.push(`| candidate tree | \`${observation?.observedTreeDigest ?? '—'}\` |`);
   lines.push(`| served | ${served?.state ?? '—'} ${served?.servedCommit ? `\`${served.servedCommit}\`` : ''} |`);
+  lines.push(...dependencyRows(observation, dependencies));
   lines.push(`| policy revision | \`${policyRevision ?? '—'}\` |`, '');
   if (decision.reasons.length === 0) {
     lines.push('No objections.');
@@ -537,6 +718,246 @@ function shadowSummary({ decision, request, certification, observation, served, 
   return `${lines.join('\n')}\n`;
 }
 
+// ── prepare-publisher ───────────────────────────────────────────────────────────
+
+/**
+ * THE PUBLICATION TOOLCHAIN, prepared in the job that holds NO credential.
+ *
+ * Installed ONLY from the trusted checkout's reviewed release/publisher lock, by the
+ * PINNED scanner's npm (the same npm the audit trusts, from its own lockfile), with
+ * lifecycle scripts disabled and against the public registry the audit policy names —
+ * so nothing the graph ships executes here, and nothing is resolved: `npm ci` refuses a
+ * lock that does not satisfy the manifest. The result is then measured as data:
+ *   - the installed tree must BE the lock graph (the audit's own inventory rule);
+ *   - npm's `.bin` links are removed — the only links npm writes — and any other link,
+ *     unusual name or unexpected top-level entry (an .npmrc, a hook) is refused;
+ *   - the pinned package, version and entrypoint must be what the policy names;
+ *   - the Node running this must be the exact version the publisher will run under.
+ * The measurement — content tree digest, entrypoint digest, installed inventory — is
+ * what the gate admits and the publisher re-derives from its own download.
+ */
+function cmdPreparePublisher(args) {
+  const f = flags(args);
+  const { policy, check } = readPolicy();
+  if (!check.ok) fail('the trusted policy is invalid');
+  const pin = policy.publisher;
+  const toolingDir = String(f.out);
+  const problems = [];
+  const problem = (code, detail) => problems.push({ code, detail: String(detail) });
+  if (process.version !== `v${pin.node}`) problem('tooling.runtime_mismatch', `this job runs Node ${process.version}; the publisher is pinned to v${pin.node}`);
+
+  const { policy: auditPolicy, problems: auditProblems } = loadAuditPolicy(ROOT);
+  problems.push(...auditProblems.map((p) => ({ code: `tooling.${p.code}`, detail: p.detail })));
+  let facts = {
+    schema: TOOLING_SCHEMA, package: pin.package, version: null, node: process.version, lock: null,
+    installedTreeSha256: null, locked: null, installed: null, absentOptional: null, treeDigest: null, entryCount: 0,
+    entrypoint: { path: pin.entrypoint, sha256: null }, removedLinks: 0, problems,
+  };
+  const finish = () => {
+    facts.problems = problems;
+    if (f.facts) writeFileSync(String(f.facts), `${JSON.stringify(facts, null, 2)}\n`);
+    print(facts);
+    exit(problems.length === 0 && validateTooling(facts).length === 0 ? 0 : 1);
+  };
+  if (!auditPolicy) return finish();
+
+  const scannerRoot = join(ROOT, auditPolicy.scanner.root);
+  const scanner = defaultInstallScanner({ root: ROOT, scannerRoot, policy: auditPolicy, runner: spawnRunner });
+  problems.push(...scanner.problems.map((p) => ({ code: `tooling.${p.code}`, detail: p.detail })));
+  if (problems.length > 0) return finish();
+
+  freshDirectory(toolingDir, 'toolchain directory');
+  const reviewed = join(ROOT, pin.root);
+  for (const name of ['package.json', 'package-lock.json']) cpSync(join(reviewed, name), join(toolingDir, name));
+  const manifest = readJson(join(toolingDir, 'package.json'));
+  const lock = readJson(join(toolingDir, 'package-lock.json'));
+  facts.lock = {
+    lockfileSha256: sha256Hex(readFileSync(join(toolingDir, 'package-lock.json'))),
+    manifestSha256: sha256Hex(readFileSync(join(toolingDir, 'package.json'))),
+  };
+  if (manifest.dependencies?.[pin.package] !== pin.version || Object.keys(manifest.dependencies ?? {}).length !== 1) {
+    problem('tooling.manifest_mismatch', `the reviewed manifest must depend on exactly ${pin.package}@${pin.version}`);
+  }
+  if (lock.packages?.[`node_modules/${pin.package}`]?.version !== pin.version) {
+    problem('tooling.lock_mismatch', `the reviewed lock locks ${pin.package}@${String(lock.packages?.[`node_modules/${pin.package}`]?.version)}, the policy ${pin.version}`);
+  }
+  if (problems.length > 0) return finish();
+
+  const npmCli = join(scannerRoot, 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  const install = spawnRunner({
+    command: process.execPath,
+    args: [npmCli, 'ci', '--ignore-scripts', '--no-audit', '--no-fund', '--no-update-notifier', `--registry=${auditPolicy.scanner.registry}`],
+    cwd: toolingDir,
+    env: scannerEnvironment(process.env).env,
+    timeoutMs: auditPolicy.scanner.timeoutSeconds * 1000,
+  });
+  if (install.status !== 0) {
+    problem('tooling.install_failed', `the reviewed lock could not be installed (status ${install.status}${install.timedOut ? ', timed out' : ''}): ${(install.stderr || install.error || '').slice(-400)}`);
+    return finish();
+  }
+  const inv = inventory(toolingDir, { graph: 'publisher', scopeOf: toolingScope });
+  problems.push(...inv.problems.map((p) => ({ code: `tooling.${p.code}`, detail: p.detail })));
+  facts.installedTreeSha256 = inv.digests.installedTreeSha256 ?? null;
+  facts.locked = inv.counts.locked ?? null;
+  facts.installed = inv.counts.installed ?? null;
+  facts.absentOptional = inv.counts.absentOptional ?? null;
+
+  // npm's generated bin links are the only links it writes; they are not part of the
+  // toolchain (the entrypoint is invoked by path) and are removed rather than shipped.
+  const removeBins = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      const st = lstatSync(full);
+      if (!st.isDirectory() || st.isSymbolicLink()) continue;
+      if (name === '.bin') {
+        for (const link of readdirSync(full)) {
+          if (!lstatSync(join(full, link)).isSymbolicLink()) problem('tooling.unexpected_bin', `${full}/${link} is not a link npm wrote`);
+        }
+        rmSync(full, { recursive: true, force: true });
+        facts.removedLinks += 1;
+        continue;
+      }
+      removeBins(full);
+    }
+  };
+  removeBins(join(toolingDir, 'node_modules'));
+  const walked = walkTooling(toolingDir);
+  problems.push(...walked.unsafe.map((u) => ({ code: 'tooling.unsafe', detail: u })));
+  facts.treeDigest = walked.treeDigest;
+  facts.entryCount = walked.entries.length;
+  const entry = walked.entries.find((e) => e.path === pin.entrypoint);
+  if (!entry) problem('tooling.no_entrypoint', `${pin.entrypoint} is not in the prepared toolchain`);
+  facts.entrypoint = { path: pin.entrypoint, sha256: entry?.sha256 ?? null };
+  try {
+    facts.version = readJson(join(toolingDir, 'node_modules', pin.package, 'package.json')).version ?? null;
+  } catch { /* reported below */ }
+  if (facts.version !== pin.version) problem('tooling.version_mismatch', `installed ${pin.package}@${String(facts.version)}, pinned ${pin.version}`);
+  return finish();
+}
+
+// ── assess ──────────────────────────────────────────────────────────────────────
+
+/**
+ * THE FRESH ASSESSMENT: a real advisory query, now, by the trusted pinned scanner, over
+ *   application  the candidate's RETAINED lock graph — a replay directory holding only
+ *                the two retained files, whose digests the evidence binds; what was
+ *                installed is the certification observation, labelled as such, never a
+ *                forged node_modules;
+ *   scanner      the pinned scanner's own installed graph;
+ *   publisher    the prepared toolchain's installed graph —
+ * decided under the TRUSTED dependency-audit policy (this checkout's, not the
+ * candidate's). No candidate script, hook or build runs. Each graph records its own
+ * start and finish from the clock; `--now` (the trusted workflow's reading) is the
+ * collection start. Writes nothing, and exits 2, when the evidence it needs is unusable:
+ * an assessment that could not be performed is recorded as not performed, never passed.
+ */
+function cmdAssess(args) {
+  const f = flags(args);
+  const { policy, check } = readPolicy();
+  if (!check.ok) fail('the trusted policy is invalid');
+  // ONE-SECOND RESOLUTION, truncated — the resolution of the workflow's own clock readings
+  // (`date -u +%Y-%m-%dT%H:%M:%SZ`), which every later boundary compares these times with.
+  // A millisecond reading here would put an assessment decided in the same second as the
+  // next step's reading AFTER that reading, and be refused as decided in the future.
+  const clock = () => new Date(Math.floor(Date.now() / 1000) * 1000).toISOString().replace(/\.000Z$/, 'Z');
+  const startedAt = String(f.now ?? '');
+  if (!Number.isFinite(Date.parse(startedAt)) || Date.parse(startedAt) > Date.now() + 60_000) fail('assess needs --now: the collection start, from the trusted workflow');
+  const candidateRoot = String(f.candidate);
+  const toolingDir = String(f.tooling);
+  const outDir = String(f.out);
+  const certification = readJson(f.certification);
+  const tooling = readJson(f['tooling-facts']);
+
+  const observation = observeCandidate(candidateRoot);
+  const evidence = observation.dependencyEvidence;
+  if (observation.provenance?.legacy || evidence.state !== 'present' || evidence.problems.length > 0 || evidence.unsafe.length > 0) {
+    stderr.write(`release: assessment NOT PERFORMED — the candidate's dependency evidence is unusable (${[
+      observation.provenance?.legacy ? 'legacy provenance' : '', evidence.state, ...evidence.problems.map((p) => p.code), ...evidence.unsafe,
+    ].filter(Boolean).join(', ')})\n`);
+    exit(2);
+  }
+  if (validateTooling(tooling).length > 0 || tooling.problems.length > 0) {
+    stderr.write('release: assessment NOT PERFORMED — the publisher toolchain was not prepared\n');
+    exit(2);
+  }
+  const listed = certification.present ? selectCertifiedArtifact(certification.artifacts, { runId: certification.runId, runAttempt: certification.runAttempt }).artifact : null;
+  if (!listed) {
+    stderr.write('release: assessment NOT PERFORMED — the certifying run lists no candidate artifact\n');
+    exit(2);
+  }
+
+  const { policy: auditPolicy, problems: auditProblems } = loadAuditPolicy(ROOT);
+  const incomplete = [...auditProblems];
+  freshDirectory(outDir, 'assessment directory');
+  const graphs = {};
+  const findings = [];
+  let walkedTooling = null;
+  if (auditPolicy) {
+    const scannerRoot = join(ROOT, auditPolicy.scanner.root);
+    incomplete.push(...verifyScannerPin(scannerRoot, auditPolicy));
+    const npmCli = join(scannerRoot, 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    const bundle = readFilesUnder(join(candidateRoot, EVIDENCE_DIR)).files;
+    const manifestBytes = bundle.get(RETAINED.manifest);
+    const lockBytes = bundle.get(RETAINED.lockfile);
+    const snapshot = JSON.parse(bundle.get(RETAINED.snapshot).toString('utf8'));
+    const replay = freshDirectory(String(f.replay ?? join(dirname(outDir), 'assessment-replay')), 'replay directory');
+    incomplete.push(...writeReplay(replay, { manifestBytes, lockBytes }));
+    walkedTooling = walkTooling(toolingDir);
+    if (walkedTooling.treeDigest !== tooling.treeDigest || walkedTooling.unsafe.length > 0) {
+      incomplete.push({ code: 'tooling_changed', detail: 'the toolchain is not the one prepared and measured' });
+    }
+    const plan = [
+      { graph: 'application', dir: replay, kind: 'retained', inv: retainedInventory({ graph: 'application', manifestBytes, lockBytes, snapshot }) },
+      { graph: 'scanner', dir: scannerRoot, kind: 'installed', scopeOf: toolingScope, inv: inventory(scannerRoot, { graph: 'scanner', scopeOf: toolingScope }) },
+      { graph: 'publisher', dir: toolingDir, kind: 'installed', scopeOf: toolingScope, inv: inventory(toolingDir, { graph: 'publisher', scopeOf: toolingScope }) },
+    ];
+    for (const g of plan) {
+      const c = collect({ ...g, npmCli, policy: auditPolicy, runner: spawnRunner, clock, evidenceDir: outDir });
+      incomplete.push(...c.problems);
+      findings.push(...c.findings);
+      graphs[g.graph] = c.record;
+    }
+  }
+  const finishedAt = clock();
+  const records = auditPolicy?.records ?? [];
+  const decidedAt = clock();
+  const result = evaluate({ incomplete, findings, records, now: decidedAt });
+  const applied = new Set(result.records.filter((r) => r.status === 'applied' && r.covers > 0).map((r) => r.id));
+  const doc = {
+    schema: ASSESSMENT_SCHEMA,
+    purpose: 'promotion',
+    repository: policy.repository,
+    assessor: { runId: String(f['run-id'] ?? ''), runAttempt: String(f['run-attempt'] ?? ''), revision: git(ROOT, ['rev-parse', 'HEAD']).trim() },
+    candidate: {
+      commit: observation.manifest?.commit ?? null,
+      runId: String(certification.runId),
+      runAttempt: String(certification.runAttempt),
+      artifactId: listed.id,
+      artifactDigest: listed.digest,
+      treeDigest: observation.observedTreeDigest,
+      manifestDigest: observation.manifestDigest,
+      evidenceRecordDigest: evidence.recordDigest,
+    },
+    policy: { path: AUDIT_POLICY_PATH, sha256: sha256Hex(readFileSync(join(ROOT, AUDIT_POLICY_PATH))) },
+    scanner: { package: 'npm', version: auditPolicy?.scanner?.version ?? null, registry: auditPolicy?.scanner?.registry ?? null },
+    tooling: { package: tooling.package, version: tooling.version, treeDigest: walkedTooling?.treeDigest ?? null },
+    startedAt,
+    finishedAt,
+    decidedAt,
+    graphs,
+    headline: headline(result),
+    ...result,
+    recordsApplied: records.filter((r) => applied.has(r.id)).map((r) => ({ id: r.id, expires: r.expires })),
+  };
+  writeFileSync(join(outDir, ASSESSMENT_DOC), `${JSON.stringify(doc, null, 2)}\n`);
+  stderr.write(`${doc.headline}\n`);
+  if (f.summary) {
+    appendFileSync(String(f.summary), `### Fresh dependency assessment\n\n**${doc.headline}**\n\nCollected ${startedAt} → ${finishedAt}, decided ${decidedAt}, by run ${doc.assessor.runId}.${doc.assessor.runAttempt} under the trusted audit policy. Graphs: ${Object.entries(graphs).map(([g, r]) => `${g} (${r.counts?.locked ?? '?'} locked, ${r.observation})`).join(', ')}.\n\n`);
+  }
+  print({ outcome: doc.outcome, exitCode: doc.exitCode, counts: doc.counts, startedAt, finishedAt, decidedAt });
+  exit(doc.exitCode);
+}
+
 function cmdDecide(args) {
   const f = flags(args);
   // THE POLICY IS THIS CHECKOUT'S, and only this checkout's. There is deliberately no
@@ -550,10 +971,32 @@ function cmdDecide(args) {
   const served = readJson(f.served);
   const peers = readJson(f.peers);
   const now = String(f.now);
+  // THE FRESH HALF. Each input is optional on the command line and ABSENT is data: an
+  // assessment or toolchain that was not produced is refused by name, never assumed.
+  const evaluation = { runId: String(f['evaluation-run-id'] ?? ''), runAttempt: String(f['evaluation-run-attempt'] ?? '') };
+  const assessmentDir = typeof f.assessment === 'string' ? f.assessment : null;
+  const assessmentFiles = assessmentDir ? readFilesUnder(assessmentDir) : { files: new Map(), unsafe: [] };
+  const assessment = inspectAssessment(assessmentFiles.files);
+  for (const u of assessmentFiles.unsafe) assessment.problems.push({ code: 'assessment.unsafe', detail: u });
+  let tooling = null;
+  if (typeof f['tooling-facts'] === 'string' && existsSync(f['tooling-facts'])) {
+    try { tooling = readJson(f['tooling-facts']); } catch { tooling = { schema: 'unreadable' }; }
+  }
+  const upload = (kind, name) => {
+    const id = Number(f[`${kind}-artifact-id`]);
+    const digest = String(f[`${kind}-artifact-digest`] ?? '');
+    return Number.isInteger(id) && id > 0 ? { id, name, digest: digest.startsWith('sha256:') ? digest : `sha256:${digest}` } : null;
+  };
+  const uploads = {
+    tooling: upload('tooling', toolingArtifactName(evaluation.runId, evaluation.runAttempt)),
+    assessment: upload('assessment', assessmentArtifactName(evaluation.runId, evaluation.runAttempt)),
+  };
+  const dependencies = { assessment, tooling, uploads };
 
   const decision = decide({
     policy, request, certification, artifact: observation, source: facts.source, hosting: facts.hosting,
-    served, baseline: facts.baseline, eligibility: facts.eligibility, peers, trusted: facts.trusted, now,
+    served, baseline: facts.baseline, eligibility: facts.eligibility, peers, trusted: facts.trusted,
+    dependencies, evaluation, now,
   });
 
   // The record names the artifact THE RUN'S LISTING names — the same selection the
@@ -567,7 +1010,7 @@ function cmdDecide(args) {
       : null;
     record = buildRecord({
       decision, request, policyFacts: facts.policy, certification, listedArtifact: listed,
-      artifact: observation, hosting: facts.hosting, served, peers, policy, now,
+      artifact: observation, hosting: facts.hosting, served, peers, policy, now, dependencies,
     });
     if (f['record-out']) writeFileSync(String(f['record-out']), `${JSON.stringify(record, null, 2)}\n`);
   }
@@ -579,10 +1022,12 @@ function cmdDecide(args) {
     artifact_id: record?.artifact.id ?? '',
     run_id: record?.certification.runId ?? '',
     policy_revision: facts.policy?.revision ?? '',
+    tooling_artifact_id: record?.publisher?.artifact?.id ?? '',
+    assessment_artifact_id: record?.dependencies?.assessment?.artifact?.id ?? '',
   });
   if (f.summary) {
     appendFileSync(String(f.summary), shadowSummary({
-      decision, request, certification, observation, served, policyRevision: facts.policy?.revision, policy,
+      decision, request, certification, observation, served, policyRevision: facts.policy?.revision, policy, dependencies,
     }));
   }
   print(decision);
@@ -694,7 +1139,14 @@ async function cmdPreflight(args) {
     const observation = observeCandidate(candidateRoot);
     const currentRoot = String(f.current);
     let currentTree = null;
-    try { currentTree = git(currentRoot, ['rev-parse', 'HEAD:release']).trim(); } catch { /* unreadable */ }
+    try { currentTree = verifierIdentity(currentRoot); } catch { /* unreadable */ }
+    const evaluationRun = String(f['run-id'] ?? '');
+    const evaluationArtifacts = /^[0-9]+$/.test(evaluationRun) ? ghApi(`repos/${repo}/actions/runs/${evaluationRun}/artifacts?per_page=100`) : { ok: false };
+    const toolingWalk = walkTooling(String(f.tooling));
+    const entrypoint = toolingWalk.entries.find((e) => e.path === record.publisher?.entrypoint?.path);
+    const assessmentFiles = readFilesUnder(String(f.assessment));
+    const assessment = inspectAssessment(assessmentFiles.files);
+    for (const u of assessmentFiles.unsafe) assessment.problems.push({ code: 'assessment.unsafe', detail: u });
     const run = ghApi(`repos/${repo}/actions/runs/${record.certification.runId}`);
     const artifacts = ghApi(`repos/${repo}/actions/runs/${record.certification.runId}/artifacts?per_page=100`);
     const compare = ghApi(`repos/${repo}/compare/${record.target.commit}...${policy.defaultBranch}`);
@@ -703,7 +1155,7 @@ async function cmdPreflight(args) {
     let certifiedHead = null;
     try { certifiedHead = git(certifiedRoot, ['rev-parse', 'HEAD']).trim(); } catch { /* reported by preflight */ }
     facts = {
-      trusted: { verifierTree: git(ROOT, ['rev-parse', 'HEAD:release']).trim(), policyDigest: digestOfValue(policy) },
+      trusted: { verifierTree: verifierIdentity(ROOT), policyDigest: digestOfValue(policy) },
       current: currentTree ? { state: 'known', verifierTree: currentTree } : { state: 'unreadable' },
       run: run.ok ? runFacts(run.json) : { present: false },
       artifacts: artifacts.ok && (artifacts.json.total_count ?? 0) <= (artifacts.json.artifacts ?? []).length
@@ -711,11 +1163,26 @@ async function cmdPreflight(args) {
       candidate: {
         present: observation.present,
         valid: observation.manifestValid === true && observation.provenanceValid === true
-          && observation.observedTreeDigest === observation.expectedTreeDigest,
+          && observation.observedTreeDigest === observation.expectedTreeDigest
+          && observation.provenance?.legacy === false
+          && observation.dependencyEvidence?.state === 'present' && observation.dependencyEvidence.problems.length === 0,
         treeDigest: observation.observedTreeDigest,
         manifestDigest: observation.manifestDigest,
-        unsafe: observation.unsafeEntries,
+        evidenceRecordDigest: observation.dependencyEvidence?.recordDigest ?? null,
+        evidenceTreeDigest: observation.dependencyEvidence?.treeDigest ?? null,
+        unsafe: [...observation.unsafeEntries, ...(observation.dependencyEvidence?.unsafe ?? [])],
       },
+      evaluation: { runId: evaluationRun, runAttempt: String(f['run-attempt'] ?? '') },
+      evaluationArtifacts: evaluationArtifacts.ok && (evaluationArtifacts.json.total_count ?? 0) <= (evaluationArtifacts.json.artifacts ?? []).length
+        ? (evaluationArtifacts.json.artifacts ?? []).map(artifactFacts) : null,
+      tooling: {
+        treeDigest: toolingWalk.treeDigest,
+        entryCount: toolingWalk.entries.length,
+        unsafe: toolingWalk.unsafe,
+        entrypointSha256: entrypoint?.sha256 ?? null,
+        runtime: process.version,
+      },
+      assessment,
       compare: compare.ok ? { status: compare.json.status } : { status: `unreadable (${compare.detail})` },
       served: await readServedIdentity(policy.hosting.identityOrigin, policy.hosting.identityPath),
       adminServed: policy.compatibleSet.peers.admin.serving.observation === 'public-identity'
@@ -745,6 +1212,82 @@ async function cmdPreflight(args) {
     }
   }
   const result = { ok: reasons.length === 0, reasons, record: record ? { target: record.target, artifact: record.artifact } : null };
+  if (f.out) writeFileSync(String(f.out), `${JSON.stringify(result, null, 2)}\n`);
+  print(result);
+  exit(result.ok ? 0 : 1);
+}
+
+// ── publish ─────────────────────────────────────────────────────────────────────
+
+/**
+ * THE LAST BOUNDARY, then the admitted toolchain. The ONLY command that reads the
+ * credential, and it reads it last.
+ *
+ * Immediately before the credential is read, with a clock reading the workflow takes at
+ * that moment: the toolchain is re-measured (content tree, entrypoint, the Node running
+ * this), the fresh assessment is re-read from this job's own download and re-checked
+ * against the record, and its age and every applied exception's expiry are re-evaluated
+ * — the preflight made the same checks minutes earlier, and time passed. Any refusal
+ * here publishes nothing and never touches the credential.
+ *
+ * Then the entrypoint the record names is run by path with a built environment
+ * (release/lib/publisher.mjs). The credential goes to a 0600 file in a fresh 0700
+ * directory that is removed whatever the tool does, and is never placed in the tool's
+ * environment, argv or output.
+ */
+function cmdPublish(args) {
+  const f = flags(args);
+  const { policy, check } = readPolicy();
+  const now = String(f.now ?? '');
+  const reasons = [];
+  let record = null;
+  try { record = readJson(f.record); } catch (error) { reasons.push({ code: 'publisher.record_unreadable', detail: error.message }); }
+  if (!check.ok) reasons.push({ code: 'publisher.policy_invalid', detail: check.problems.map((p) => p.code).join(',') });
+  if (record) reasons.push(...validateRecord(record).map((p) => ({ code: p.code.replace(/^preflight\./, 'publisher.'), detail: p.detail })));
+  const stage = String(f.stage);
+  const toolingRoot = String(f.tooling);
+  const result = { ok: false, reasons, tool: null };
+  if (reasons.length === 0) {
+    if (!existsSync(join(stage, 'firebase.json'))) reasons.push({ code: 'publisher.no_config', detail: `no firebase.json at ${stage}` });
+    const walked = walkTooling(toolingRoot);
+    const entry = walked.entries.find((e) => e.path === record.publisher.entrypoint.path);
+    const assessment = inspectAssessment(readFilesUnder(String(f.assessment)).files);
+    reasons.push(...dependencyBoundaryReasons({
+      record,
+      policy,
+      tooling: { treeDigest: walked.treeDigest, entryCount: walked.entries.length, unsafe: walked.unsafe, entrypointSha256: entry?.sha256 ?? null, runtime: process.version },
+      assessment,
+      now,
+      prefix: 'publisher',
+    }));
+    reasons.push(...certificationWindowReasons({ record, policy, now, prefix: 'publisher' }));
+  }
+  if (reasons.length === 0) {
+    const credential = process.env.FIREBASE_SERVICE_ACCOUNT ?? '';
+    if (credential === '') {
+      reasons.push({ code: 'publisher.no_credential', detail: 'FIREBASE_SERVICE_ACCOUNT is empty' });
+    } else {
+      const dir = mkdtempSync(join(String(f['temp-root'] ?? process.env.RUNNER_TEMP ?? tmpdir()), 'dinify-publish-'));
+      chmodSync(dir, 0o700);
+      const credentialPath = join(dir, 'service-account.json');
+      const home = join(dir, 'home');
+      try {
+        mkdirSync(home, { mode: 0o700 });
+        writeFileSync(credentialPath, credential, { mode: 0o600 });
+        const inv = publishInvocation({ policy, record, toolingRoot, stage, credentialPath, home, baseEnv: process.env });
+        const r = spawnSync(process.execPath, [inv.entrypoint, ...inv.args], {
+          cwd: inv.cwd, env: inv.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 15 * 60_000,
+        });
+        stderr.write(String(r.stderr ?? ''));
+        const read = readPublishResult({ status: r.status, stdout: r.stdout, signal: r.signal, error: r.error ? r.error.message : null });
+        result.tool = { argv: [inv.entrypoint, ...inv.args], state: read.state, detail: read.detail, status: r.status };
+        result.ok = read.ok;
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  }
+  result.ok = result.ok === true && reasons.length === 0;
   if (f.out) writeFileSync(String(f.out), `${JSON.stringify(result, null, 2)}\n`);
   print(result);
   exit(result.ok ? 0 : 1);
@@ -811,6 +1354,12 @@ function cmdOutcome(args) {
   const decision = typeof decisionObject?.decision === 'string' ? decisionObject.decision : word;
   const preflight = f.preflight && existsSync(String(f.preflight)) ? readJson(f.preflight) : null;
   const verification = f.verification && existsSync(String(f.verification)) ? readJson(f.verification) : null;
+  // THE LAST BOUNDARY: the publish command refused BEFORE it read the credential or ran
+  // the tool. Read strictly off its own result — reasons stated, no tool invocation — so a
+  // tool that ran and failed is never re-labelled a refusal.
+  const published = readable(f.publish);
+  const boundaryRefused = Boolean(published) && published.ok === false && published.tool === null
+    && Array.isArray(published.reasons) && published.reasons.length > 0;
   // A recorded wait counts only when the readiness record classifies EXACTLY the
   // decision in this file (bound by digest) — never on the word of a stray file.
   let readiness = null;
@@ -825,6 +1374,7 @@ function cmdOutcome(args) {
     preflightOk: preflight ? preflight.ok === true : null,
     enabled: String(f.enabled) === 'true',
     publishStep: String(f['publish-step'] ?? 'skipped'),
+    boundaryRefused,
     verification,
   });
   const lines = [
@@ -837,7 +1387,7 @@ function cmdOutcome(args) {
     // read: "is not set" beside a refused ENABLED release would be false. The gate's
     // own reading is the readiness line above.
     `| enabled | ${!Object.hasOwn(f, 'enabled') ? 'not read by this step' : String(f.enabled) === 'true' ? 'yes' : `no — ${policy?.publication?.enablementVariable ?? 'the enablement variable'} is not \`true\``} |`,
-    `| publication step | ${String(f['publish-step'] ?? 'skipped')} |`,
+    `| publication step | ${String(f['publish-step'] ?? 'skipped')}${boundaryRefused ? ` — refused at the last boundary before the credential was read (${published.reasons.map((r) => r.code).join(', ')}); the tool did not run` : ''} |`,
     `| served identity | ${verification ? `${verification.identity.state} ${verification.identity.manifestDigest ?? ''}, Cache-Control ${verification.identity.cacheControlNoStore === true ? 'no-store' : `${JSON.stringify(verification.identity.cacheControl ?? null).replace(/\|/g, '\\|')} — NOT no-store`}` : 'not observed'} |`,
     `| certified files fetched back | ${verification ? `${verification.files.checked} checked, ${verification.files.mismatched.length} mismatched, ${verification.files.unreachable.length} unreachable` : 'not observed'} |`,
     '',
@@ -927,9 +1477,12 @@ try {
     case 'serve-state': await cmdServeState(rest); break;
     case 'peer-receipt': cmdPeerReceipt(rest); break;
     case 'peer-facts': await cmdPeerFacts(rest); break;
+    case 'prepare-publisher': cmdPreparePublisher(rest); break;
+    case 'assess': cmdAssess(rest); break;
     case 'decide': cmdDecide(rest); break;
     case 'readiness': cmdReadiness(rest); break;
     case 'preflight': await cmdPreflight(rest); break;
+    case 'publish': cmdPublish(rest); break;
     case 'verify-served': await cmdVerifyServed(rest); break;
     case 'outcome': cmdOutcome(rest); break;
     case 'storage-reviewed': cmdStorageReviewed(rest); break;
