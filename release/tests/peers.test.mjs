@@ -29,7 +29,7 @@ import { preflightReasons } from '../lib/preflight.mjs';
 import {
   ROOT, cli, commitAll, fixtureFrontend, git, initRepo, installFakeGh, startOrigin, tempDir, writeDependencyInputs, writeText,
 } from './harness.mjs';
-import { POLICY, admittedRecordFor, baseline, clone, unchangedPreflightFacts } from './fixtures.mjs';
+import { POLICY, admittedRecordFor, baseline, clone, dependenciesFor, unchangedPreflightFacts } from './fixtures.mjs';
 
 const D01 = JSON.parse(readFileSync(join(ROOT, 'src/app/_shared/order/checkout-limits.contract.json'), 'utf8'));
 const CEILINGS = Object.fromEntries(Object.entries(D01).filter(([k]) => !k.startsWith('_')));
@@ -134,6 +134,11 @@ async function gatePeerHalf({
 
   const dir = tempDir('decide');
   const input = baseline();
+  // The dependency facts describe the FIXTURE's toolchain, under the policy the CLI decides
+  // with — `trusted.policy`, whose Node pin fixtureFrontend sets to the running Node. The
+  // baseline's own were built from the COMMITTED pin, so on any other Node 24 patch the
+  // positive controls would refuse dependency.tooling_mismatch (Codex P2 on #702).
+  input.dependencies = dependenciesFor({ policy: trusted.policy, manifest: input.artifact.manifest, evidence: input.artifact.dependencyEvidence });
   const write = (name, value) => { const p = join(dir, name); writeFileSync(p, json(value)); return p; };
   const args = [
     'decide',
