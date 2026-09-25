@@ -1,0 +1,9 @@
+{
+  "name": "dinify-frontend-publisher",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The reviewed publication toolchain for .github/workflows/publish.yml. It is installed ONLY from this lockfile, with the pinned scanner's npm and lifecycle scripts disabled, in the job that holds no credential; the publish job runs the prepared, admitted copy and never resolves a tool itself. See release/README.md.",
+  "dependencies": {
+    "firebase-tools": "15.31.0"
+  }
+}
