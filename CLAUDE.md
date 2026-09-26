@@ -3369,6 +3369,27 @@ so keep it current when conventions change.
   2026-09-24 block is kept as history pinned to its own set, so it no longer depends on
   what the policy approves today. Release suite 580 → **584**. Nothing was added to
   `publication.readiness.awaiting`
+- **THE B2.3 ADMIN MERGE, APPROVED ON REVIEW RATHER THAN ON A RED RUN (D08 receipt
+  refresh, 2026-09-26).** ✅ Compatible set **`2026-09-26-pilot-6`**: Admin `eb54c92`
+  (the #30 merge, receipt `sha256:ced21984…`, tree `f022909`) replaces `1993a08`. It was
+  produced by `peer-receipt` at the exact merged commit and re-derived by the independent
+  Python implementation over a second clone, with `1993a08`'s digest reproduced as the
+  control. **Only the Admin approval moved**: backend `a6b25a6` stands, and `deploy.yml`
+  is unchanged (blob `0e210bf`). **NO readiness run observed `eb54c92`**; the last one,
+  `36166963507`, predates its deployment. So its before/after test is a CONSTRUCTED
+  replay and says so, not a replayed record. The 2026-09-25 block became history pinned
+  to `pilot-5`, as the 2026-09-24 one had been before it. **Admin had already moved on
+  when this was written**: #31 (D08 B2.4, `a7ef20c`, `deploy.yml` → `3644dcd`) merged
+  and deployed, and a public read at 13:30:53Z returned it `no-store`. It is NOT
+  approved and needs its own reviewed refresh, so the next readiness run is expected to
+  refuse `peers.admin_serving_unapproved` for it. A test pins that. **The committed-state
+  tests default to that OBSERVED revision** (Codex P2 on #703, valid). They claim to model
+  what the next real run meets, and the approved `eb54c92` is not what is serving. So
+  their headline refusal is seven reasons, not a wait. The six-reason wait is asserted
+  under a CONSTRUCTED `servingApproved()`. The committed-policy suite went from 30 to
+  **37** tests (measured on both sides), and the release suite runs **756** (measured
+  here; 749 on `main` by subtraction). Nothing was added to
+  `publication.readiness.awaiting`
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
