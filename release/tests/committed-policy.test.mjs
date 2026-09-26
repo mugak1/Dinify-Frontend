@@ -22,13 +22,19 @@
  *                 produced and verified 2026-09-26 against two fresh clones,
  *                 an independent Python re-derivation and GitHub's contents
  *                 API (tree f022909…, deploy.yml blob 0e210bf…). NO frontend
- *                 readiness run has observed eb54c92 serving: the serving
- *                 input for it below is CONSTRUCTED, and is labelled so where
- *                 it is used. Superseded records: 1993a08 (tree 2efbbc9…,
+ *                 readiness run has observed eb54c92 serving: any serving input
+ *                 naming it is CONSTRUCTED (servingApproved(), below) and is
+ *                 labelled so where it is used. Superseded records: 1993a08 (tree 2efbbc9…,
  *                 logged serving by run 36146235129 on 3a16e84), 3521ebd
  *                 (tree 8a84439…, logged serving by run 36018365996 on
  *                 c32f383) and 38df037 (tree b75c951…, blob c1a5e7c…, served
  *                 no-store 2026-09-22)                                       RECORDED
+ *   admin serving the DEFAULT serving input is a7ef20c (the Admin #31 merge,
+ *                 D08 B2.4, not approved): a public read of admin.dinifyapp.com
+ *                 /release.txt from the environment that wrote this suite
+ *                 returned it, no-store, at 2026-09-26 13:30:53Z. It is what
+ *                 the next real run is expected to meet, so the headline
+ *                 committed-state tests use it                               OBSERVED
  *   legacy        whether deploy-prod.yml exists in THIS checkout            OBSERVED
  *   candidate     the fixture baseline's certification, artifact and source  FIXTURE
  *   dependencies  the fixture baseline's certification evidence, a PASSING
@@ -135,6 +141,7 @@ const B23_ADMIN = 'eb54c92c6706093f09847315d83b344e46180770';
 // so the next readiness run is expected to refuse peers.admin_serving_unapproved for
 // it until a separately reviewed receipt lands.
 const B24_ADMIN_UNREVIEWED = 'a7ef20c452062e95f24ecec2a506d27882db587b';
+const LIVE_ADMIN_OBSERVED = B24_ADMIN_UNREVIEWED;
 
 const receiptPath = (peer, commit) => `release/peers/${peer}-${commit}.json`;
 function committedReceiptEntry(peer, commit) {
@@ -174,13 +181,19 @@ function committedReceipts() {
   return out;
 }
 
-function recordedPeers({ adminServes = ADMIN } = {}) {
+/** Peer facts as the committed receipts state them. Serving defaults to the Admin
+ *  revision OBSERVED live (a7ef20c, unapproved) — what the next real run meets. */
+function recordedPeers({ adminServes = LIVE_ADMIN_OBSERVED } = {}) {
   return {
     receipts: committedReceipts(),
     verification: { admin: { [ADMIN]: { state: 'verified', detail: '' } } },
     serving: { admin: { state: 'known', commit: adminServes, noStore: true, cacheControl: 'no-store' } },
   };
 }
+
+/** CONSTRUCTED: Admin serving the approved revision. No run has observed this state
+ *  for eb54c92; it is the counterfactual that isolates every other fact. */
+const servingApproved = () => recordedPeers({ adminServes: ADMIN });
 
 let origin;
 let derivedServed;
@@ -286,7 +299,7 @@ function withHistoricalBackend() {
   policy.compatibleSet.peers.backend.approved = [
     { commit: HISTORICAL_BACKEND, receipt: HISTORICAL_RECEIPT_PATH, receiptDigest: receiptDigest(receipt) },
   ];
-  const peers = recordedPeers();
+  const peers = servingApproved();
   peers.receipts.backend = [
     { commit: HISTORICAL_BACKEND, path: HISTORICAL_RECEIPT_PATH, present: true, readable: true, receipt, digest: receiptDigest(receipt) },
   ];
@@ -299,8 +312,27 @@ describe('the committed release/policy.json, run through the real decide command
     assert.equal(derivedServed.status, 200, 'the rewrite answers 200 with HTML, not 404');
   });
 
-  test('CONTRACT: an otherwise perfect candidate is refused, and EXACTLY for the outstanding owner and peer facts', async () => {
-    const { status, decision, summary, hostingProblems } = await decideCommitted();
+  test('CONTRACT: as observed (Admin serving the unapproved a7ef20c), an otherwise perfect candidate is refused for the six outstanding facts AND the unapproved Admin — and that is NOT a wait', async () => {
+    const { status, decision } = await decideCommitted();
+    assert.equal(status, 1);
+    assert.equal(decision.decision, 'REFUSE');
+    assert.equal(decision.allow, false);
+    assert.deepEqual(codesOf(decision), [
+      'peers.admin_serving_unapproved',
+      'peers.backend_serving_unverified',
+      ...PREREQUISITES,
+      'served.bootstrap_unauthorized',
+    ].sort());
+    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
+    assert.equal(admin.detail, `admin serves ${LIVE_ADMIN_OBSERVED}, which is not in compatible set ${POLICY.compatibleSet.id}`);
+    const r = classifyWith({ decision });
+    assert.notEqual(r.kind, AWAITING, 'the next real run is expected to be red until a reviewed receipt for a7ef20c lands');
+    assert.equal(r.published, false);
+    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
+  });
+
+  test('CONTRACT (constructed: Admin serving the approved revision): an otherwise perfect candidate is refused, and EXACTLY for the outstanding owner and peer facts', async () => {
+    const { status, decision, summary, hostingProblems } = await decideCommitted({ peers: servingApproved() });
     assert.equal(status, 1, 'a refusal exits non-zero — the gate step goes red');
     assert.equal(decision.decision, 'REFUSE');
     assert.deepEqual(hostingProblems, [], 'the committed hosting pair raises nothing against a real file list');
@@ -328,6 +360,7 @@ describe('the committed release/policy.json, run through the real decide command
   test('CONTROL: if the origin answers something unreadable instead, only the served reason changes', async () => {
     const { decision } = await decideCommitted({ served: { state: 'unreadable', detail: 'CONNECT refused' } });
     assert.deepEqual(codesOf(decision), [
+      'peers.admin_serving_unapproved',
       'peers.backend_serving_unverified',
       ...PREREQUISITES,
       'served.unreadable',
@@ -388,7 +421,7 @@ describe('the approved backend receipt (a6b25a6, the #338 merge) — what approv
 
   test('CONTRACT: with every other fact held fixed, the new receipt removes peers.capabilities_unpublished and nothing else', () => {
     const before = codesOf(decidePure(withHistoricalBackend()));
-    const after = codesOf(decidePure());
+    const after = codesOf(decidePure({ peers: servingApproved() }));
     assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.capabilities_unpublished']);
     assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'approving the receipt introduced no new reason');
     assert.equal(before.length, 7);
@@ -453,17 +486,19 @@ describe('the committed readiness list, against what the committed policy actual
     const input = baseline();
     return classifyReadiness({
       policy: POLICY, request: input.request, enablement: '', decision,
-      facts: committedFacts(input), served: servedAtIdentity(), peers: recordedPeers(), ...over,
+      facts: committedFacts(input), served: servedAtIdentity(), peers: servingApproved(), ...over,
     });
   };
 
-  test('CONTRACT: the recorded wait is EXACTLY the committed refusal — no entry more, none fewer', async () => {
-    const { decision } = await decideCommitted();
+  test('CONTRACT: the recorded wait is EXACTLY the committed refusal while Admin serves an approved revision — and the observed a7ef20c adds only an unapproved-peer reason, which is not a wait', async () => {
+    const { decision } = await decideCommitted({ peers: servingApproved() });
     assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), codesOf(decision));
+    const observed = await decideCommitted();
+    assert.deepEqual(codesOf(observed.decision), [...POLICY.publication.readiness.awaiting, 'peers.admin_serving_unapproved'].sort());
   });
 
-  test('CONTRACT: that refusal, automatic with publication unset or `false`, is the recorded wait — and still REFUSE', async () => {
-    const { status, decision } = await decideCommitted();
+  test('CONTRACT (constructed: Admin serving the approved revision): that refusal, automatic with publication unset or `false`, is the recorded wait — and still REFUSE', async () => {
+    const { status, decision } = await decideCommitted({ peers: servingApproved() });
     assert.equal(status, 1, 'decide itself still exits non-zero; only the workflow wrapper asks the further question');
     for (const enablement of ['', 'false']) {
       const r = classify(decision, { enablement });
@@ -475,7 +510,7 @@ describe('the committed readiness list, against what the committed policy actual
   });
 
   test('CONTROL: the same refusal enabled, invalid, manual, or read at another origin is not a wait', async () => {
-    const { decision } = await decideCommitted();
+    const { decision } = await decideCommitted({ peers: servingApproved() });
     assert.deepEqual(classify(decision, { enablement: 'true' }).problems.map((p) => p.code), ['readiness.publication_enabled']);
     assert.deepEqual(classify(decision, { enablement: 'on' }).problems.map((p) => p.code), ['readiness.enablement_invalid']);
     const manual = { ...decision, trigger: 'manual' };
@@ -647,6 +682,8 @@ describe('the 2026-09-26 receipt refresh (Admin eb54c92, D08 B2.3) — a reviewe
   // a record of any run. The remedy is this reviewed receipt, never a new entry in
   // publication.readiness.awaiting.
   const beforeRefresh = () => withApproved({ admin: CI_OBSERVED_ADMIN_0925, setId: SET_0925_ID, adminServes: B23_ADMIN });
+  // CONSTRUCTED: Admin serving eb54c92 — the literal commit, NOT servingApproved(), so
+  // this block cannot pass by reading whatever a different policy approves.
   const servingB23 = () => recordedPeers({ adminServes: B23_ADMIN });
 
   test('CONTRACT: the committed pin is the receipt produced by peer-receipt at eb54c92 and independently re-derived on 2026-09-26', () => {
@@ -758,7 +795,7 @@ describe('the 2026-09-26 receipt refresh (Admin eb54c92, D08 B2.3) — a reviewe
       'served identity cacheable': ['peers.admin_serving_cacheable', (p) => { p.serving.admin = { ...p.serving.admin, noStore: false, cacheControl: 'public, max-age=300' }; }],
     };
     for (const [label, [code, breakIt]] of Object.entries(cases)) {
-      const peers = recordedPeers();
+      const peers = servingApproved();
       breakIt(peers);
       const decision = decidePure({ peers });
       assert.ok(codesOf(decision).includes(code), `${label}: ${JSON.stringify(codesOf(decision))}`);
@@ -768,10 +805,11 @@ describe('the 2026-09-26 receipt refresh (Admin eb54c92, D08 B2.3) — a reviewe
     // And the other direction: an intact file whose digest the POLICY does not pin.
     const policy = clone(POLICY);
     policy.compatibleSet.peers.admin.approved[0].receiptDigest = `sha256:${'0'.repeat(64)}`;
-    const decision = decidePure({ policy });
+    const decision = decidePure({ policy, peers: servingApproved() });
     assert.ok(codesOf(decision).includes('peers.receipt_mismatch'), JSON.stringify(codesOf(decision)));
+    assert.ok(!codesOf(decision).includes('peers.admin_serving_unapproved'), 'isolated: not refused for serving');
     assert.equal(decision.allow, false);
-    assert.notEqual(classifyWith({ policy, decision }).kind, AWAITING);
+    assert.notEqual(classifyWith({ policy, peers: servingApproved(), decision }).kind, AWAITING);
   });
 
   test('REGRESSION: a blocking or incomplete dependency assessment stays red beside the refreshed receipt — the source approval bypasses nothing', () => {
@@ -797,7 +835,7 @@ describe('the 2026-09-26 receipt refresh (Admin eb54c92, D08 B2.3) — a reviewe
   });
 
   test('REGRESSION: the approved backend receipt, edited without re-approval, is refused — and the missing serving identity still stands', () => {
-    const peers = recordedPeers();
+    const peers = servingApproved();
     const receipt = clone(peers.receipts.backend[0].receipt);
     receipt.publishes.quote_protocol = 1;
     peers.receipts.backend[0] = { ...peers.receipts.backend[0], receipt, digest: receiptDigest(receipt) };

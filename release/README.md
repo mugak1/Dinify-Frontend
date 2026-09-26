@@ -958,6 +958,10 @@ stays `a6b25a6`.
   that reason. It refuses the six recorded conditions as a completed, non-publishing
   wait: `REFUSE`, `allow: false`, nothing published. A blocking or incomplete dependency
   assessment still refuses beside it, and is never a wait.
+- **The committed-state tests default to the OBSERVED Admin revision, `a7ef20c`**, not
+  the approved one. That suite claims to model what the next real run meets, so its
+  headline refusal is seven reasons and not a wait. The six-reason wait is asserted
+  under an explicitly CONSTRUCTED "Admin serves the approved revision" state.
 - **Admin has ALREADY moved past it.** Admin #31 (D08 B2.4) merged as `a7ef20c` and was
   deployed (Deploy Admin run `36245215836`, finished 13:28:29Z on 2026-09-26). A public
   read of `https://admin.dinifyapp.com/release.txt` at 13:30:53Z returned `a7ef20c…`

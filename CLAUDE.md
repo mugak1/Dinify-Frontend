@@ -3382,9 +3382,13 @@ so keep it current when conventions change.
   when this was written**: #31 (D08 B2.4, `a7ef20c`, `deploy.yml` → `3644dcd`) merged
   and deployed, and a public read at 13:30:53Z returned it `no-store`. It is NOT
   approved and needs its own reviewed refresh, so the next readiness run is expected to
-  refuse `peers.admin_serving_unapproved` for it. A test pins that. The committed-policy
-  suite went from 30 to **36** tests (measured on both sides), and the release suite runs
-  **755** (measured here; 749 on `main` by subtraction). Nothing was added to
+  refuse `peers.admin_serving_unapproved` for it. A test pins that. **The committed-state
+  tests default to that OBSERVED revision** (Codex P2 on #703, valid). They claim to model
+  what the next real run meets, and the approved `eb54c92` is not what is serving. So
+  their headline refusal is seven reasons, not a wait. The six-reason wait is asserted
+  under a CONSTRUCTED `servingApproved()`. The committed-policy suite went from 30 to
+  **37** tests (measured on both sides), and the release suite runs **756** (measured
+  here; 749 on `main` by subtraction). Nothing was added to
   `publication.readiness.awaiting`
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
