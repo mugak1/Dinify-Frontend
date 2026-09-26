@@ -200,7 +200,7 @@
       "The frontend's own commit is deliberately not pinned: a file cannot contain the",
       "SHA of the commit that introduces it."
     ],
-    "id": "2026-09-25-pilot-5",
+    "id": "2026-09-26-pilot-6",
     "frontendRequires": {
       "buildConfiguration": "uat"
     },
@@ -225,12 +225,12 @@
       "admin": {
         "repository": "mugak1/Dinify-Admin",
         "receiptVerification": "public-repository",
-        "_approvedHistory": "38df037 (the Admin #25 merge) was the first approved Admin revision. It was REPLACED on 2026-09-24 by 3521ebd (the Admin #27 merge) after review of the two merges between them: #26 moved the SHA-pinned aws-actions/configure-aws-credentials in deploy.yml from v6.2.4 to v6.3.0 (the receipt-bearing blob, c1a5e7c -> 0e210bf), and #27 changed test-restaurant wording, comments and specs only. 3521ebd was in turn REPLACED on 2026-09-25 by 1993a08 (the Admin #29 merge) after review of #28 and #29: the receipt-bearing deploy.yml blob is unchanged (0e210bf); #28 added the dependency audit to ci.yml, rewrote the scheduled audit.yml, added three package.json scripts and moved five dev-tooling lock entries within range (fast-uri, js-yaml, hono, qs, karma's body-parser), and #29 changed only the audit's report reader, its tests and docs. ad4a7f8 (the #28 merge) was deployed between them and was never approved: no readiness run observed it. The 38df037 and 3521ebd receipts stay under release/peers/ as history and neither is approved, so an Admin rollback to either is refused as peers.admin_serving_unapproved until it is approved again in a reviewed change.",
+        "_approvedHistory": "38df037 (the Admin #25 merge) was the first approved Admin revision. It was REPLACED on 2026-09-24 by 3521ebd (the Admin #27 merge) after review of the two merges between them: #26 moved the SHA-pinned aws-actions/configure-aws-credentials in deploy.yml from v6.2.4 to v6.3.0 (the receipt-bearing blob, c1a5e7c -> 0e210bf), and #27 changed test-restaurant wording, comments and specs only. 3521ebd was in turn REPLACED on 2026-09-25 by 1993a08 (the Admin #29 merge) after review of #28 and #29: the receipt-bearing deploy.yml blob is unchanged (0e210bf); #28 added the dependency audit to ci.yml, rewrote the scheduled audit.yml, added three package.json scripts and moved five dev-tooling lock entries within range (fast-uri, js-yaml, hono, qs, karma's body-parser), and #29 changed only the audit's report reader, its tests and docs. ad4a7f8 (the #28 merge) was deployed between them and was never approved: no readiness run observed it. 1993a08 was in turn REPLACED on 2026-09-26 by eb54c92 (the Admin #30 merge, D08 B2.3) after review of #30 alone: the receipt-bearing deploy.yml blob is unchanged (0e210bf); #30 rewrote the mock-isolation gate (production module-graph walk, output coverage, self-test wiring, and the replacement-edge correction), added its qualification suite as a ci.yml step and a package.json script, and changed one comment in src/app/dev/dev-tools.ts. a7ef20c (the #31 merge, D08 B2.4, which rewrites deploy.yml to blob 3644dcd) merged and was deployed after it and is NOT approved: it needs its own reviewed refresh. The 38df037, 3521ebd and 1993a08 receipts stay under release/peers/ as history and none is approved, so an Admin rollback to any of them is refused as peers.admin_serving_unapproved until it is approved again in a reviewed change.",
         "approved": [
           {
-            "commit": "1993a087b2f2a37cbce8cf97c5c55c55b804e8ca",
-            "receipt": "release/peers/admin-1993a087b2f2a37cbce8cf97c5c55c55b804e8ca.json",
-            "receiptDigest": "sha256:96df2207aa3cf5fd94b3c10946a543d950f18dd1db9a844669ca97ebc81e5538"
+            "commit": "eb54c92c6706093f09847315d83b344e46180770",
+            "receipt": "release/peers/admin-eb54c92c6706093f09847315d83b344e46180770.json",
+            "receiptDigest": "sha256:ced2198497e23ac4aaa13d7947aae127973abfaded5b18a122ead014a5dc07f6"
           }
         ],
         "serving": {
