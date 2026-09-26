@@ -3412,6 +3412,28 @@ so keep it current when conventions change.
   from 37 to **40** tests, and 14 of them fail with `main`'s `pilot-6` policy put back.
   Seen in passing and left alone: Admin's scheduled `audit.yml` (untouched by #31,
   consumed by nothing) still names `actions/checkout@v7` and `actions/setup-node@v7` by tag
+- **A DOCUMENTATION-ONLY ADMIN MERGE STILL NEEDS A RECEIPT (D08 receipt refresh,
+  2026-09-26).** ✅ Compatible set **`2026-09-26-pilot-8`**: Admin `abdacda` (the #32
+  merge, receipt `sha256:18b256ce…`, tree `f063b6d`) replaces `a7ef20c`. #32 changed
+  ONLY `CLAUDE.md` and `release/README.md` — it records #31's first live certified
+  promotion and what has still not run live — and the receipt-bearing `deploy.yml` is
+  byte-identical (`3644dcd`). It still changes the Admin commit that `/release.txt`
+  serves, and the gate approves commits, not diffs, so it needed its own reviewed
+  receipt. Produced by `peer-receipt` at the exact merged commit, re-derived by the
+  independent Python implementation over a bare clone (the `a7ef20c` and `eb54c92`
+  digests reproduced as controls), and answered `verified` by the real `peer-facts`
+  public re-derivation. **No frontend readiness run has observed `abdacda`**: the last,
+  `36249940983`, finished at 14:52:29Z, before #32 merged. So the `pilot-7` refusal is a
+  CONSTRUCTED replay (seven reasons, not a wait), and the refresh removes exactly
+  `peers.admin_serving_unapproved`. A public read at 20:20:27Z returned `abdacda`
+  `no-store`, so it is also the committed-state default and the headline stays the
+  six-reason wait. The `a7ef20c` block became history pinned to `pilot-7`, and the
+  current-set regressions moved to the new block. **Only the Admin approval moved**:
+  backend `a6b25a6` stands (Backend `main` is `9a6a7e8`, deliberately not approved), and
+  nothing was added to `publication.readiness.awaiting`. The committed-policy suite went
+  from 40 to **44** tests, and 14 of them fail with `main`'s `pilot-7` policy put back.
+  The release suite measured **759** on `main` and **763** on the branch in the
+  environment that produced this refresh (Node 24.15.0)
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
