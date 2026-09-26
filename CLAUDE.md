@@ -3390,6 +3390,28 @@ so keep it current when conventions change.
   **37** tests (measured on both sides), and the release suite runs **756** (measured
   here; 749 on `main` by subtraction). Nothing was added to
   `publication.readiness.awaiting`
+- **B2.4 APPROVED THE SAME DAY, ON A REPLAYED RED RUN (D08 receipt refresh,
+  2026-09-26).** ✅ Compatible set **`2026-09-26-pilot-7`**: Admin `a7ef20c` (the #31
+  merge, D08 B2.4 certified promotion, receipt `sha256:c21ad7c5…`, tree `a9f9846`)
+  replaces `eb54c92`. Produced by `peer-receipt` at the exact merged commit and
+  re-derived by the independent Python implementation over a second, bare clone, with
+  `eb54c92`'s and `1993a08`'s digests reproduced as controls. **Unlike B2.3, #31
+  REWRITES the receipt-bearing `deploy.yml`** (`0e210bf` → `3644dcd`) to promote a
+  `validate`-certified candidate after a fresh assessment and a privileged re-decision.
+  It was reviewed for what THIS gate relies on, and all of it holds: `release.txt` is
+  still exactly the commit, asserted `no-store` from the public origin after every
+  promotion; the credential-holding job runs no npm; no workflow reads a secret. No
+  `src/`, `angular.json`, `tsconfig` or lock change. Readiness run `36247543634` (on
+  `485e9e9`) observed it and refused `peers.admin_serving_unapproved` under `pilot-6`;
+  that decision is replayed WHOLE (digest `sha256:6aecf748…`, the run's
+  `decisionDigest`), and the refresh removes exactly that reason. **The observed revision
+  is now the approved one**, so the committed-state headline is the six-reason wait. The
+  `eb54c92` block became history pinned to `pilot-6`. **Only the Admin approval moved**:
+  backend `a6b25a6` stands (Backend `main` is `80b86e1`, deliberately not approved), and
+  nothing was added to `publication.readiness.awaiting`. The committed-policy suite went
+  from 37 to **40** tests, and 14 of them fail with `main`'s `pilot-6` policy put back.
+  Seen in passing and left alone: Admin's scheduled `audit.yml` (untouched by #31,
+  consumed by nothing) still names `actions/checkout@v7` and `actions/setup-node@v7` by tag
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a

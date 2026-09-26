@@ -488,7 +488,7 @@ where a peer publishes one, and refused by name where it does not.
 | peer | selection | serving |
 |---|---|---|
 | backend (`a6b25a6`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
-| admin (`eb54c92`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
+| admin (`a7ef20c`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
 path that consults `compatibleSet`; the backend's own deploy and `deploy-prod.yml` make
@@ -516,13 +516,13 @@ that receipt here in a reviewed pull request. Two consequences of the committed 
   and was classified `not-a-waiting-state` — correctly. The remedy was a reviewed
   receipt refresh (below), **never** an entry in `publication.readiness.awaiting`. It
   happened again on 2026-09-25: Admin #28 and #29 were deployed, and readiness run
-  `36146235129` (on `3a16e84`) refused the same way for `1993a08`. The approved Admin
-  revision is now `eb54c92` (the #30 merge, 2026-09-26), replacing `1993a08`, which had
-  replaced `3521ebd` and `38df037` in turn, rather than joining them. An Admin rollback
-  to any of those, or to `ad4a7f8` (the #28 merge, deployed for about two and a half
-  hours and never approved), is refused the same way until approved again — and so is
-  `a7ef20c`, the #31 merge that was deployed after `eb54c92` and has not been reviewed
-  (see the 2026-09-26 section).
+  `36146235129` (on `3a16e84`) refused the same way for `1993a08`, and on 2026-09-26
+  readiness run `36247543634` (on `485e9e9`) refused the same way for `a7ef20c`. The
+  approved Admin revision is now `a7ef20c` (the #31 merge, D08 B2.4, 2026-09-26),
+  replacing `eb54c92`, which had replaced `1993a08`, `3521ebd` and `38df037` in turn,
+  rather than joining them. An Admin rollback to any of those, or to `ad4a7f8` (the #28
+  merge, deployed for about two and a half hours and never approved), is refused the
+  same way until approved again (see the two 2026-09-26 sections).
 
 ### The D01 ceiling contract
 
@@ -925,6 +925,10 @@ Only the Admin approval moves; the backend stays `a6b25a6`.
 
 ### The 2026-09-26 refresh (compatible set `2026-09-26-pilot-6`)
 
+*History: its Admin approval was superseded the same day by `a7ef20c` (next section);
+its backend approval, `a6b25a6`, still stands. The bullets below describe the state when
+it was committed.*
+
 Admin #30 (D08 B2.3, the mock-isolation gate's qualification) merged as `eb54c92` and
 was deployed automatically: Deploy Admin run `36196825836` finished promoting it at
 22:29:00Z on 2026-09-25. **No frontend readiness run observed it.** The last one,
@@ -974,6 +978,77 @@ stays `a6b25a6`.
 - **Nothing else moved**: `publication.readiness.awaiting` is unchanged and gains no
   `peers.*` entry. No owner prerequisite, bootstrap setting, enablement, audit policy or
   B2.2 evidence mechanism changed, and publication stays disabled.
+
+### The second 2026-09-26 refresh (compatible set `2026-09-26-pilot-7`)
+
+Admin #31 (D08 B2.4, certified promotion) merged as `a7ef20c` and was deployed
+automatically. Deploy Admin run `36245215836` finished promoting it at 13:28:29Z; that is
+a deployment record, not an origin read. The frontend readiness run `36247543634` (job
+`108419421080`, on `485e9e9`, the merge of the `pilot-6` refresh) then read the identity
+and logged `a7ef20c` serving at 14:10:16Z. `pilot-6` did not approve it, so that run
+refused `peers.admin_serving_unapproved` beside the six prerequisites
+(`not-a-waiting-state`, `published: false`, the publish job skipped): the gate working.
+Public reads of `https://admin.dinifyapp.com/release.txt` from the environment that
+produced this refresh returned `a7ef20c…` with `Cache-Control: no-store` at 14:13:12Z and
+14:20:29Z. Only the Admin approval moves; the backend stays `a6b25a6` (Backend `main` is
+`80b86e1`, and the approval was deliberately not moved to the tip).
+
+| peer | commit | tree | source blob(s) | receipt digest |
+|---|---|---|---|---|
+| admin | `a7ef20c452062e95f24ecec2a506d27882db587b` (#31) | `a9f98461…` | `deploy.yml` `3644dcdb…` (changed) | `sha256:c21ad7c5142e05dcd7020545a3f71ee3e92e612f7a4499d7002c25abb16381e2` |
+
+- **Source verification.** `peer-receipt` produced the receipt from a fresh clone at the
+  exact merged commit, which is Admin `main`; `eb54c92` is its ancestor. The independent
+  Python re-derivation, run over a second, bare clone, hashes the commit, the trees on
+  the path and the blob itself, and computes the canonical digest. The digests agree,
+  and the same implementation reproduces both retained digests as controls: `eb54c92`
+  (`ced21984…`) and `1993a08` (`96df2207…`). GitHub's contents API reports the same
+  `deploy.yml` blob at `a7ef20c`. This verifies the SOURCE of the approved revision, not
+  what is serving; the gate reads serving at decision time.
+- **Admin `eb54c92..a7ef20c` is #31 alone** (`a3c1f96`, `7a37ca1`, `85dd5fe`, `51c346a`,
+  `f43fa12` and the merge), 30 files. **It rewrites the receipt-bearing `deploy.yml`**
+  (blob `0e210bf` → `3644dcd`, about 1,240 lines changed). The workflow now promotes a
+  candidate that `ci.yml`'s `validate` job certified (`release:prebuild` / `freeze` /
+  `certify`, uploaded as `admin-candidate-<run>-<attempt>`), after a fresh dependency
+  assessment and a re-decision in the credential-holding job, into host directories named
+  `<sha>-<tree>`. A labelled legacy rollback path covers releases that predate the
+  contract. It also SHA-pins `ci.yml`'s actions, adds the Admin `release/` tree (with an
+  Admin-only `release/policy.json` that names no Frontend or Backend revision), a
+  retained-evidence reader under `dependency-audit/`, `package.json` scripts, a
+  `.gitignore` entry and docs. It changes no `src/` file, `angular.json`, `tsconfig` or
+  the lock file.
+- **What this gate relies on is intact.** Admin is identity-only here: the receipt binds
+  `deploy.yml`, and the gate reads `/release.txt`. At `a7ef20c` the certified payload
+  still carries `release.txt` as exactly `<commit>\n`. The deploy job still asserts, from
+  the public origin after every promotion, that it holds exactly the requested SHA and is
+  served `no-store`. Its forward-only guard still reads that same file. The
+  credential-holding job runs no `npm` and checks out only the workflow's own `release/`
+  and `dependency-audit/` trees at `github.sha`. `ci.yml` and `deploy.yml` pin every
+  action by SHA, and no workflow references a stored secret. So `policy.json`'s three
+  Admin assumptions and the `public-identity` serving contract are unchanged. (One
+  observation outside the receipt: the scheduled `audit.yml`, which #31 did not touch and
+  nothing consumes, still names `actions/checkout@v7` and `actions/setup-node@v7` by tag.)
+- **Before/after, every other fact held fixed** (committed-policy suite, replaying the
+  serving fact run `36247543634` logged). The `pilot-6` set reproduces that run's decision
+  as a whole value: its digest is the `decisionDigest` the run's readiness record carries
+  (`sha256:6aecf748…`), so reason order and every detail agree, not only the codes. The
+  refreshed set removes exactly `peers.admin_serving_unapproved`. Through the real
+  `decide` command it refuses the six recorded conditions as a completed, non-publishing
+  wait: `REFUSE`, `allow: false`, nothing published. A blocking or incomplete dependency
+  assessment still refuses beside it and is never a wait, and every superseded Admin
+  revision (`eb54c92`, `1993a08`, `3521ebd`, `38df037`, the never-approved `ad4a7f8`) is
+  refused as unapproved, so an Admin rollback to any of them turns the next readiness run
+  red until it is approved again.
+- **The committed-state tests now default to an OBSERVED revision that is also the
+  approved one**, so their headline result is the six-reason wait rather than a
+  seven-reason refusal. The `pilot-6` block keeps selecting its own set from retained
+  receipts, as the older blocks do.
+- **Nothing else moved**: `publication.readiness.awaiting` is unchanged and gains no
+  `peers.*` entry. No owner prerequisite, bootstrap setting, enablement, audit policy or
+  B2.2 evidence mechanism changed, and publication stays disabled.
+- **The next Admin deployment will turn the next readiness run red again** until its own
+  receipt is reviewed and approved from its final merged source. That is the ordered,
+  manual coordination working, not a defect.
 
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
