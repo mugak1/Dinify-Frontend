@@ -3512,6 +3512,28 @@ so keep it current when conventions change.
   tests, and 14 of them fail with `main`'s `pilot-8` policy put back. The release suite
   measured **763** on `main` (`44c4fc3`) and **767** on the branch (Node 24.15.0; the
   suite needs `node_modules` for `yaml` and `firebase-tools`)
+- **A DIAGNOSTICS PORT IS STILL AN ADMIN PROMOTION (D08 receipt refresh, 2026-09-27).** ✅
+  Compatible set **`2026-09-27-pilot-10`**: Admin `9cf8c83` (the #36 merge, receipt
+  `sha256:05b8c83b…`, tree `85b0173`) replaces `9ec02fe`. #35 corrected Admin's docs,
+  and #36 ported Frontend #709's bounded, sanitized npm diagnostics into Admin's fresh
+  assessment (`dependency-audit/lib/retained.mjs`, `release/lib/assessment.mjs`,
+  `release/cli.mjs`, their tests and docs). The receipt-bearing `deploy.yml` is
+  byte-identical (`2618d1e`). The trusted verifier it checks out now also checks a
+  declared diagnostic file by digest, and changes no verdict, retry or timeout.
+  **Observed red first, twice.** Runs `36337180856`, `36338571396` and `36339569844`
+  refused `3170e8f` (the #35 merge; never approved, `decisionDigest`
+  `sha256:1ce0b730…`), and run `36342248520` (on `ba8e4eb`) refused `9cf8c83`
+  (`sha256:3afaa292…`). Both decisions are replayed WHOLE under `pilot-9`, and the
+  refresh removes exactly `peers.admin_serving_unapproved`, returning the six-reason wait
+  (`sha256:604dcb5e…`). The receipt was produced by `peer-receipt` at the exact merged
+  commit and re-derived by the independent Python implementation over a bare clone (the
+  `9ec02fe` and `abdacda` digests reproduced as controls). The real `peer-facts` public
+  re-derivation answered `verified`, and a public read at 18:58Z returned `9cf8c83`
+  `no-store`. The `9ec02fe` block became history pinned to `pilot-9`. **Only the Admin
+  approval moved**: backend `a6b25a6` stands, and nothing was added to
+  `publication.readiness.awaiting`. The committed-policy suite went from 48 to **52**
+  tests, and 14 of them fail with `main`'s `pilot-9` policy put back. The release suite
+  measured **811** on the branch (Node 24.21.0)
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
