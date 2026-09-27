@@ -448,7 +448,7 @@ describe('CheckoutCoordinatorService through the real interceptor', () => {
         {
           provide: AuthenticationService,
           useValue: jasmine.createSpyObj(
-            'AuthenticationService', ['logout', 'attemptTokenRefresh'],
+            'AuthenticationService', ['logout', 'captureRequestOwner'],
             { userValue: null }),
         },
         { provide: Router, useValue: { url: '/diner/basket' } },
@@ -567,7 +567,7 @@ describe('CheckoutCoordinatorService — recovery evidence (D04 R1)', () => {
         {
           provide: AuthenticationService,
           useValue: jasmine.createSpyObj(
-            'AuthenticationService', ['logout', 'attemptTokenRefresh'],
+            'AuthenticationService', ['logout', 'captureRequestOwner'],
             { userValue: null }),
         },
         { provide: Router, useValue: { url: '/diner/basket' } },

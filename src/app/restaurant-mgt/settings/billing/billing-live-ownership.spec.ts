@@ -124,6 +124,7 @@ describe('D07/B1 — billing reads are owned by the live context', () => {
       userValue: { profile: { id: 'user-1' }, token: 'tkn-1' },
       currentRestaurantRole: { restaurant_id: 'rest-1' },
       currentRestaurant: { id: 'rest-1' },
+      captureRequestOwner: () => null,
     };
 
     await TestBed.configureTestingModule({
