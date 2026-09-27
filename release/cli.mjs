@@ -52,7 +52,7 @@ import { publishInvocation, readPublishResult } from './lib/publisher.mjs';
 import {
   defaultInstallScanner, loadPolicy as loadAuditPolicy, reevaluate, spawnRunner, verifyScannerPin,
 } from '../dependency-audit/lib/audit.mjs';
-import { collect, retainedInventory, writeReplay } from '../dependency-audit/lib/retained.mjs';
+import { DIAGNOSTIC_MAX_BYTES, collect, readDiagnosticEvents, retainedInventory, writeReplay } from '../dependency-audit/lib/retained.mjs';
 import { inventory, scannerEnvironment, toolingScope } from '../dependency-audit/lib/npm.mjs';
 import { evaluate, headline } from '../dependency-audit/lib/core.mjs';
 import { buildManifest, buildProvenance, validateManifest } from './lib/manifest.mjs';
@@ -838,6 +838,55 @@ function cmdPreparePublisher(args) {
 // ── assess ──────────────────────────────────────────────────────────────────────
 
 /**
+ * For each graph that did not complete cleanly: the LAST OBSERVED npm EVENTS, read back
+ * from its FINALIZED diagnostic (the very bytes the assessment hashes, re-checked against
+ * the descriptor before use), for the step summary (Markdown) and the job log (plain,
+ * every line prefixed so none can be read as a workflow command). Bounded, reduced to
+ * printable ASCII, and worded as what the log records — never as the cause, and never
+ * naming the last completed request as the one that stalled.
+ */
+function diagnosticNotes({ outDir, graphs, unfinished }) {
+  const plain = [];
+  const md = [];
+  const flat = (s) => String(s).replace(/[^\x20-\x7e]/g, '?').slice(0, 300);
+  const code = (s) => `\`${flat(s).replace(/`/g, "'")}\``;
+  for (const graph of unfinished) {
+    const d = graphs[graph]?.diagnostics;
+    let events = null;
+    if (d?.state === 'retained') {
+      try {
+        const path = join(outDir, d.file);
+        if (lstatSync(path).isFile() && lstatSync(path).size === d.bytes && d.bytes <= DIAGNOSTIC_MAX_BYTES) {
+          const bytes = readFileSync(path);
+          if (sha256Hex(bytes) === d.sha256) events = readDiagnosticEvents(bytes.toString('latin1'));
+        }
+      } catch { events = null; }
+    }
+    if (!events) {
+      const why = d?.state === 'unavailable' ? d.reason : 'not retained';
+      plain.push(`release: ${graph}: last observed npm events UNAVAILABLE (${flat(why)}); nothing is known about what the scanner was doing`);
+      md.push(`**${graph}: last observed npm events: unavailable** (${code(why)}). Nothing is known about what the scanner was doing.\n\n`);
+      continue;
+    }
+    const caveat = 'these are what npm had logged when the scan ended, not a finding: npm logs a request when its response ends,'
+      + ' several requests can be outstanding at once, and the last line is not evidence of which request, if any, stalled';
+    plain.push(`release: ${graph}: last observed npm events (sanitized, ${events.count} kept${d.truncated ? ', truncated' : ''}; ${caveat}):`);
+    for (const e of events.last) plain.push(`release:   ${flat(e)}`);
+    md.push(`**${graph}: last observed npm events** (sanitized; ${code(d.file)} in this run's assessment artifact; ${events.count} kept${d.truncated ? ', truncated' : ''}). ${caveat[0].toUpperCase()}${caveat.slice(1)}.\n\n`);
+    md.push(`${events.last.map((e) => `- ${code(e)}`).join('\n')}\n\n`);
+    if (events.unfinished.length) {
+      const more = events.moreUnfinished ? ` (and ${events.moreUnfinished} more)` : '';
+      plain.push(`release:   logged as started with no logged completion: ${events.unfinished.map(flat).join('; ')}${more}`);
+      md.push(`Logged as started, with no logged completion before the log ends: ${events.unfinished.map(code).join(', ')}${more}. That is what the log records, not which request stalled.\n\n`);
+    } else {
+      plain.push('release:   no request is logged as started without a logged completion; the log does not show what the scanner was waiting on');
+      md.push('No request is logged as started without a logged completion: the log does not show what the scanner was waiting on.\n\n');
+    }
+  }
+  return { plain, markdown: md.join('') };
+}
+
+/**
  * THE FRESH ASSESSMENT: a real advisory query, now, by the trusted pinned scanner, over
  *   application  the candidate's RETAINED lock graph — a replay directory holding only
  *                the two retained files, whose digests the evidence binds; what was
@@ -891,6 +940,7 @@ function cmdAssess(args) {
   freshDirectory(outDir, 'assessment directory');
   const graphs = {};
   const findings = [];
+  const unfinishedGraphs = [];
   let walkedTooling = null;
   if (auditPolicy) {
     const scannerRoot = join(ROOT, auditPolicy.scanner.root);
@@ -911,11 +961,25 @@ function cmdAssess(args) {
       { graph: 'scanner', dir: scannerRoot, kind: 'installed', scopeOf: toolingScope, inv: inventory(scannerRoot, { graph: 'scanner', scopeOf: toolingScope }) },
       { graph: 'publisher', dir: toolingDir, kind: 'installed', scopeOf: toolingScope, inv: inventory(toolingDir, { graph: 'publisher', scopeOf: toolingScope }) },
     ];
-    for (const g of plan) {
-      const c = collect({ ...g, npmCli, policy: auditPolicy, runner: spawnRunner, clock, evidenceDir: outDir });
-      incomplete.push(...c.problems);
-      findings.push(...c.findings);
-      graphs[g.graph] = c.record;
+    // THE SCANNER'S OWN LOG, kept per graph (dependency-audit/lib/retained.mjs). Its root is
+    // THIS invocation's own ABSOLUTE scratch directory — `--out` is commonly relative and npm
+    // resolves a log path against each graph's directory — outside the candidate, the
+    // replay, both toolchains and the output, and removed here whatever happens.
+    let diagnosticsRoot = null;
+    try { diagnosticsRoot = mkdtempSync(join(tmpdir(), 'dinify-assess-npm-logs-')); } catch { /* each graph records setup_failed */ }
+    try {
+      for (const g of plan) {
+        const c = collect({
+          ...g, npmCli, policy: auditPolicy, runner: spawnRunner, clock, evidenceDir: outDir,
+          diagnostics: { root: diagnosticsRoot, forbidden: [candidateRoot, replay, scannerRoot, toolingDir, outDir] },
+        });
+        incomplete.push(...c.problems);
+        findings.push(...c.findings);
+        graphs[g.graph] = c.record;
+        if (c.problems.length > 0) unfinishedGraphs.push(g.graph);
+      }
+    } finally {
+      if (diagnosticsRoot) rmSync(diagnosticsRoot, { recursive: true, force: true });
     }
   }
   const finishedAt = clock();
@@ -951,8 +1015,10 @@ function cmdAssess(args) {
   };
   writeFileSync(join(outDir, ASSESSMENT_DOC), `${JSON.stringify(doc, null, 2)}\n`);
   stderr.write(`${doc.headline}\n`);
+  const notes = diagnosticNotes({ outDir, graphs, unfinished: unfinishedGraphs });
+  for (const line of notes.plain) stderr.write(`${line}\n`);
   if (f.summary) {
-    appendFileSync(String(f.summary), `### Fresh dependency assessment\n\n**${doc.headline}**\n\nCollected ${startedAt} → ${finishedAt}, decided ${decidedAt}, by run ${doc.assessor.runId}.${doc.assessor.runAttempt} under the trusted audit policy. Graphs: ${Object.entries(graphs).map(([g, r]) => `${g} (${r.counts?.locked ?? '?'} locked, ${r.observation})`).join(', ')}.\n\n`);
+    appendFileSync(String(f.summary), `### Fresh dependency assessment\n\n**${doc.headline}**\n\nCollected ${startedAt} → ${finishedAt}, decided ${decidedAt}, by run ${doc.assessor.runId}.${doc.assessor.runAttempt} under the trusted audit policy. Graphs: ${Object.entries(graphs).map(([g, r]) => `${g} (${r.counts?.locked ?? '?'} locked, ${r.observation})`).join(', ')}.\n\n${notes.markdown}`);
   }
   print({ outcome: doc.outcome, exitCode: doc.exitCode, counts: doc.counts, startedAt, finishedAt, decidedAt });
   exit(doc.exitCode);

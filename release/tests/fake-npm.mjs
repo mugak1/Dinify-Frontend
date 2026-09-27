@@ -29,8 +29,13 @@
  *           an `npm audit --json` report shaped as npm 11 writes one: vulnerabilities by
  *           name with nodes and via, counters by severity, the dependency total, and
  *           exit 1 when anything at or above `low` is listed. The table can also answer
- *           with an error body, an unreadable body, or a hang past the timeout.
+ *           with an error body, an unreadable body, or a hang past the timeout. Given
+ *           `--logs-dir`, it also writes npm 11's debug-log lines there as it goes,
+ *           resolving the value against its own cwd as npm does — so a hang leaves a
+ *           partial log, and a relative value lands inside the graph being scanned.
  * It is NOT npm: no resolution, no cache, no integrity check (the lock is the input).
+ * Its log lines are npm's FORMAT, not proof of npm's logging; the real pinned npm writing
+ * a real log on termination is recorded in release/README.md ("Scanner diagnostics").
  *
  * The stub PUBLISHER (the store's firebase-tools entrypoint) is the observable publisher
  * the workflow simulation drives: it resolves the destination with firebase-tools' OWN
@@ -106,12 +111,53 @@ if (command === 'audit') {
   const table = process.env.FAKE_ADVISORIES && fs.existsSync(process.env.FAKE_ADVISORIES) ? readJson(process.env.FAKE_ADVISORIES) : { advisories: [] };
   const names = new Set(Object.entries(lock.packages).filter(([p]) => p).map(([p, e]) => e.name || p.slice(p.lastIndexOf('node_modules/') + 13)));
   const failure = (table.failures || []).find((f) => names.has(f.whenPackage));
-  if (failure && failure.mode === 'network') {
-    process.stdout.write(JSON.stringify({ message: 'request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org', error: { code: 'ENOTFOUND', summary: '', detail: '' } }) + '\\n');
-    process.exit(1);
+  // npm's DEBUG LOG, as npm 11 writes one — only when --logs-dir names a directory, which
+  // npm (a path-typed config) resolves against ITS OWN cwd: a relative value therefore
+  // lands inside the directory being scanned, exactly as it would with the real npm. The
+  // lines are the formats npm 11.19.1 writes (numbered, level, then the message; a
+  // multi-line entry repeats its number), written as they happen, so a hang leaves a
+  // partial log behind — also as npm does.
+  const logsArg = args.find((a) => a.startsWith('--logs-dir='));
+  let debugLog = null;
+  let seq = 0;
+  if (logsArg) {
+    const dir = path.resolve(cwd, logsArg.slice('--logs-dir='.length));
+    fs.mkdirSync(dir, { recursive: true });
+    debugLog = path.join(dir, new Date().toISOString().replace(/[.:]/g, '_') + '-debug-0.log');
   }
-  if (failure && failure.mode === 'garbage') { process.stdout.write('<html>502 Bad Gateway</html>\\n'); process.exit(1); }
-  if (failure && failure.mode === 'hang') { setTimeout(() => {}, 1e9); return; }
+  const say = (lines) => { if (debugLog) { const n = seq++; fs.appendFileSync(debugLog, [].concat(lines).map((l) => n + ' ' + l + '\\n').join('')); } };
+  const REGISTRY = 'https://registry.npmjs.org/';
+  const BULK = REGISTRY + '-/npm/v1/security/advisories/bulk';
+  const finish = (code) => { say('verbose cwd ' + cwd); say('verbose exit ' + code); say('verbose code ' + code); process.exit(code); };
+  say('verbose cli ' + process.execPath + ' ' + __filename);
+  say('info using npm@11.19.1');
+  say('verbose title npm audit');
+  say('verbose argv ' + args.map((a) => JSON.stringify(a)).join(' '));
+  say(['silly audit bulk request {', ...[...names].sort().map((n) => "silly audit bulk request   '" + n + "': [ 'x' ],"), 'silly audit bulk request }']);
+  if (failure && failure.mode === 'network') {
+    say(['verbose audit error FetchError: request to ' + BULK + ' failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org', "verbose audit error   code: 'ENOTFOUND',"]);
+    say('warn audit request to ' + BULK + ' failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org');
+    say('error audit endpoint returned an error');
+    process.stdout.write(JSON.stringify({ message: 'request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org', error: { code: 'ENOTFOUND', summary: '', detail: '' } }) + '\\n');
+    finish(1);
+  }
+  say('http fetch POST 200 ' + BULK + ' 12ms');
+  if (failure && failure.mode === 'garbage') { process.stdout.write('<html>502 Bad Gateway</html>\\n'); finish(1); }
+  if (failure && failure.mode === 'hang') {
+    // One request answered, then one that never is: the log shows the first COMPLETING
+    // and the second only STARTING. Which one the process was waiting on is exactly what
+    // a log cannot prove — a test that reads this must not claim it.
+    say(['silly audit report {', 'silly audit report }']);
+    say('silly packumentCache corgi:' + REGISTRY + 'already-answered cache-miss');
+    say('http fetch GET 200 ' + REGISTRY + 'already-answered 9ms (cache miss)');
+    say('silly packumentCache corgi:' + REGISTRY + failure.whenPackage + ' cache-miss');
+    // Hostile lines a scenario supplies (credentials, markup, control characters): what
+    // the diagnostic must NOT carry through to the evidence, the summary or the job log.
+    for (const line of failure.extraLog || []) say(line);
+    setTimeout(() => {}, 1e9);
+    return;
+  }
+  say(['silly audit report {', 'silly audit report }']);
   const vulnerabilities = {};
   const counted = { info: 0, low: 0, moderate: 0, high: 0, critical: 0 };
   let source = 5000;
@@ -137,7 +183,7 @@ if (command === 'audit') {
     metadata: { vulnerabilities: { ...counted, total: Object.keys(vulnerabilities).length },
       dependencies: { prod: total, dev: 0, optional: 0, peer: 0, peerOptional: 0, total } } };
   process.stdout.write(JSON.stringify(report, null, 2) + '\\n');
-  process.exit(Object.values(vulnerabilities).some((v) => rank.indexOf(v.severity) >= 1) ? 1 : 0);
+  finish(Object.values(vulnerabilities).some((v) => rank.indexOf(v.severity) >= 1) ? 1 : 0);
 }
 
 process.stderr.write('fake npm: unsupported command ' + JSON.stringify(args) + '\\n');

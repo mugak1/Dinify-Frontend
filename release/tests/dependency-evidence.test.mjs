@@ -21,7 +21,7 @@ import { strict as assert } from 'node:assert';
 import {
   chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { before, describe, test } from 'node:test';
 
 import { digestOf, digestOfValue, sha256Hex } from '../lib/canonical.mjs';
@@ -388,6 +388,35 @@ describe('assess — a real query, now, over the candidate\'s RETAINED graph, th
     assert.match(a.summary, /### Fresh dependency assessment/);
   });
 
+  test('REGRESSION (run 36283185235; relative --out, as the workflow passes it): every graph keeps the scanner\'s sanitized diagnostics, and nothing lands in what was scanned', async () => {
+    const dir = tempDir('assess-relative');
+    const candidate = join(dir, 'candidate');
+    cpSync(w.candidate.dir, candidate, { recursive: true });
+    const scannerRoot = join(w.fixture.dir, 'dependency-audit/scanner');
+    const before = { candidate: artifactDigest(candidate), tooling: walkTooling(t.out).treeDigest, scanner: walkTooling(scannerRoot).treeDigest };
+    const r = await cli([
+      'assess', '--candidate', 'candidate', '--tooling', t.out, '--tooling-facts', t.facts,
+      '--certification', w.certificationPath, '--out', 'assessment', '--run-id', '9200', '--run-attempt', '1', '--now', iso(Date.now()),
+    ], { root: w.fixture.dir, env: w.npm.env(), cwd: dir });
+    assert.equal(r.status, 0, r.stderr);
+    const inspected = inspectAssessment(readFilesUnder(join(dir, 'assessment')).files);
+    assert.deepEqual(inspected.problems, [], JSON.stringify(inspected.problems));
+    for (const graph of ['application', 'scanner', 'publisher']) {
+      const g = inspected.doc.graphs[graph];
+      assert.equal(g.diagnostics?.state, 'retained', `${graph}: ${JSON.stringify(g.diagnostics)}`);
+      assert.equal(g.diagnostics.file, `${graph}.npm-diagnostics.txt`);
+      const arg = g.run.argv.find((a) => a.startsWith('--logs-dir='));
+      assert.ok(arg && isAbsolute(arg.slice('--logs-dir='.length)), `${graph}: npm was given an absolute log directory (${arg})`);
+      assert.ok(!arg.slice('--logs-dir='.length).startsWith(dir), `${graph}: the log directory is outside the assessment's working tree`);
+    }
+    // What was scanned or uploaded is exactly what it was — no log inside any of it.
+    assert.deepEqual(readdirSync(join(dir, 'assessment-replay')).sort(), ['package-lock.json', 'package.json']);
+    assert.equal(artifactDigest(candidate), before.candidate);
+    assert.equal(walkTooling(t.out).treeDigest, before.tooling);
+    assert.equal(walkTooling(scannerRoot).treeDigest, before.scanner);
+    assert.deepEqual(readdirSync(dir).sort(), ['assessment', 'assessment-replay', 'candidate']);
+  });
+
   test('CONTRACT: the candidate\'s own scripts never run — the replay holds its manifest and lock and nothing is installed from them', async () => {
     const hooked = await world({ files: {} });
     // A candidate whose package.json carries an install script and whose lock marks one.
@@ -506,6 +535,221 @@ describe('assess — a real query, now, over the candidate\'s RETAINED graph, th
 });
 
 // ── the last boundary ───────────────────────────────────────────────────────────
+
+// ── the scanner's diagnostics as EVIDENCE (D08 lane A) ───────────────────────────
+
+/** A copy of an assessment directory's files, with the document and/or files changed. */
+function variant(files, mutate) {
+  const copy = new Map([...files].map(([k, v]) => [k, Buffer.from(v)]));
+  const doc = JSON.parse(copy.get('assessment.json').toString('utf8'));
+  mutate(doc, copy);
+  copy.set('assessment.json', Buffer.from(`${JSON.stringify(doc, null, 2)}\n`));
+  return copy;
+}
+const problemCodes = (files) => inspectAssessment(files).problems.map((p) => p.code);
+
+/** The publisher's own boundary (the preflight's rule) over `files`, against an ADMITTED identity. */
+function atBoundary(files, admitted, now) {
+  const record = admittedRecordFor();
+  record.dependencies.assessment.digest = admitted.digest;
+  record.dependencies.assessment.treeDigest = admitted.treeDigest;
+  const tooling = { treeDigest: record.publisher.treeDigest, entryCount: record.publisher.entryCount, unsafe: [], entrypointSha256: record.publisher.entrypoint.sha256, runtime: record.publisher.node };
+  return dependencyBoundaryReasons({ record, policy: POLICY, tooling, assessment: inspectAssessment(files), now, prefix: 'publisher' }).map((r) => r.code);
+}
+
+describe('the scanner\'s diagnostics as evidence — declared, hashed, and refused when they are not what they say', () => {
+  let files;
+  let now;
+  before(async () => {
+    const w = await world();
+    const t = await prepare(w);
+    assert.equal(t.r.status, 0, t.r.stderr);
+    const a = await assess(w, t);
+    assert.equal(a.r.status, 0, a.r.stderr);
+    files = readFilesUnder(a.out).files;
+    now = iso(Date.parse(a.doc.decidedAt) + MINUTE);
+  });
+
+  test('CONTROL (the passing baseline every case below breaks ONE fact of): a new complete assessment inspects clean, with every graph\'s diagnostic retained', () => {
+    const inspected = inspectAssessment(files);
+    assert.deepEqual(inspected.problems, []);
+    for (const graph of ['application', 'scanner', 'publisher']) assert.equal(inspected.doc.graphs[graph].diagnostics.state, 'retained', graph);
+    assert.deepEqual([...files.keys()].filter((k) => k.endsWith('.npm-diagnostics.txt')).sort(),
+      ['application.npm-diagnostics.txt', 'publisher.npm-diagnostics.txt', 'scanner.npm-diagnostics.txt']);
+    assert.deepEqual(atBoundary(files, inspected, now), [], 'and it passes the publisher\'s boundary against its own admitted identity');
+  });
+
+  test('CONTROL: an OLD assessment — made before diagnostics existed — still inspects clean and passes the boundary', () => {
+    const legacy = variant(files, (doc, f) => {
+      for (const g of Object.values(doc.graphs)) { f.delete(g.diagnostics.file); delete g.diagnostics; }
+    });
+    const inspected = inspectAssessment(legacy);
+    assert.deepEqual(inspected.problems, []);
+    assert.deepEqual(atBoundary(legacy, inspected, now), []);
+  });
+
+  test('CONTROL: a diagnostic stated UNAVAILABLE leaves an otherwise complete assessment exactly as valid, and its outcome unchanged', () => {
+    const v = variant(files, (doc, f) => { f.delete(doc.graphs.application.diagnostics.file); doc.graphs.application.diagnostics = { state: 'unavailable', reason: 'no_log' }; });
+    const inspected = inspectAssessment(v);
+    assert.deepEqual(inspected.problems, []);
+    assert.equal(inspected.doc.outcome, inspectAssessment(files).doc.outcome);
+    assert.deepEqual(atBoundary(v, inspected, now), []);
+  });
+
+  const app = (doc) => doc.graphs.application.diagnostics;
+  const cases = [
+    ['a declared file that is missing', (doc, f) => f.delete(app(doc).file), 'assessment.diagnostics_missing'],
+    ['a hash that does not match the bytes', (doc) => { app(doc).sha256 = '0'.repeat(64); }, 'assessment.diagnostics_mismatch'],
+    ['a byte count that does not match the bytes', (doc) => { app(doc).bytes += 1; }, 'assessment.diagnostics_mismatch'],
+    ['a size over the 1 MiB bound', (doc) => { app(doc).bytes = 1024 * 1024 + 1; }, 'assessment.bad_diagnostics'],
+    ['a byte count that is not an integer', (doc) => { app(doc).bytes = String(app(doc).bytes); }, 'assessment.bad_diagnostics'],
+    ['a truncation state that is not a boolean', (doc) => { app(doc).truncated = 'no'; }, 'assessment.bad_diagnostics'],
+    ['an unknown state', (doc) => { app(doc).state = 'kept'; }, 'assessment.bad_diagnostics'],
+    ['another graph\'s file name', (doc) => { app(doc).file = 'scanner.npm-diagnostics.txt'; }, 'assessment.bad_diagnostics'],
+    ['a path that escapes the directory', (doc) => { app(doc).file = '../application.npm-diagnostics.txt'; }, 'assessment.bad_diagnostics'],
+    ['a path into a subdirectory', (doc) => { app(doc).file = 'npm-logs/application.npm-diagnostics.txt'; }, 'assessment.bad_diagnostics'],
+    ['an extra field beside a retained descriptor', (doc) => { app(doc).lastLine = 'x'; }, 'assessment.bad_diagnostics'],
+    ['an unavailable descriptor with an unknown reason', (doc, f) => { f.delete(app(doc).file); doc.graphs.application.diagnostics = { state: 'unavailable', reason: 'it was fine' }; }, 'assessment.bad_diagnostics'],
+    ['an unavailable descriptor carrying free text', (doc, f) => { f.delete(app(doc).file); doc.graphs.application.diagnostics = { state: 'unavailable', reason: 'no_log', detail: '/home/runner' }; }, 'assessment.bad_diagnostics'],
+    ['a descriptor that is not an object', (doc, f) => { f.delete(app(doc).file); doc.graphs.application.diagnostics = 'retained'; }, 'assessment.bad_diagnostics'],
+    ['an UNDECLARED diagnostic file beside an unavailable descriptor', (doc) => { doc.graphs.application.diagnostics = { state: 'unavailable', reason: 'no_log' }; }, 'assessment.unexpected_file'],
+    ['a raw log directory riding along', (doc, f) => { f.set('npm-logs/2026-09-27T00_00_00_000Z-debug-0.log', Buffer.from('0 verbose exit 0\n')); }, 'assessment.unexpected_file'],
+    ['bytes that are not a sanitized projection, re-hashed to match', (doc, f) => {
+      const bad = Buffer.from(`${f.get(app(doc).file).toString('latin1')}9 verbose argv "--registry" "https://u:p@x"\u001b[31m\n`, 'latin1');
+      f.set(app(doc).file, bad);
+      app(doc).bytes = bad.length;
+      app(doc).sha256 = sha256Hex(bad);
+    }, 'assessment.diagnostics_unsafe'],
+  ];
+  for (const [what, mutate, code] of cases) {
+    test(`CONTRACT: ${what} is refused as ${code}`, () => {
+      assert.deepEqual(problemCodes(variant(files, mutate)), [code]);
+    });
+  }
+
+  // PRINTABLE is not SANITIZED (Codex P2 on #709, valid). Every case below is printable
+  // ASCII and re-hashed to match its descriptor, so the old header-and-character-set check
+  // accepted all of them; only the format's own grammar can refuse them. A producer
+  // regression that wrote a raw npm line would otherwise carry it into the artifact.
+  const rewrite = (doc, f, edit) => {
+    const bad = Buffer.from(edit(f.get(app(doc).file).toString('latin1')), 'latin1');
+    f.set(app(doc).file, bad);
+    app(doc).bytes = bad.length;
+    app(doc).sha256 = sha256Hex(bad);
+  };
+  const grammarCases = [
+    ['a raw printable npm line', (t) => `${t}9 verbose argv "--token=secret"\n`, 'assessment.diagnostics_unsafe'],
+    ['an event carrying a query string', (t) => `${t}9 http-complete GET 200 https://registry.npmjs.org/x?token=abc 5ms\n`, 'assessment.diagnostics_unsafe'],
+    ['an event carrying credentials in its URL', (t) => `${t}9 packument-request-start GET https://alice:pw@registry.npmjs.org/x\n`, 'assessment.diagnostics_unsafe'],
+    ['an event with trailing free text', (t) => `${t}9 exit 0 token=secret\n`, 'assessment.diagnostics_unsafe'],
+    ['a comment line after the header', (t) => `${t}# note: token=secret\n`, 'assessment.diagnostics_unsafe'],
+    ['a header naming another graph', (t) => t.replace('# graph: application\n', '# graph: scanner\n'), 'assessment.diagnostics_unsafe'],
+    ['a header whose counts disagree with the events', (t) => t.replace(/kept as events: (\d+)/, (_m, n) => `kept as events: ${Number(n) + 1}`), 'assessment.diagnostics_unsafe'],
+    ['a reading line that is not the format\'s own', (t) => t.replace(/^# reading: .*$/m, '# reading: the last line is the request that stalled.'), 'assessment.diagnostics_unsafe'],
+    ['an empty line between events', (t) => `${t}\n9 exit 0\n`, 'assessment.diagnostics_unsafe'],
+  ];
+  for (const [what, edit, code] of grammarCases) {
+    test(`REGRESSION (printable is not sanitized): ${what}, re-hashed to match, is refused as ${code}`, () => {
+      assert.deepEqual(problemCodes(variant(files, (doc, f) => rewrite(doc, f, edit))), [code]);
+    });
+  }
+
+  test('REGRESSION: a truncation flag the bytes contradict is refused as assessment.diagnostics_mismatch', () => {
+    assert.equal(app(inspectAssessment(files).doc).truncated, false, 'premise: the baseline diagnostic is complete');
+    assert.deepEqual(problemCodes(variant(files, (doc) => { app(doc).truncated = true; })), ['assessment.diagnostics_mismatch']);
+  });
+
+  test('CONTROL: an event appended in the format\'s own grammar, with the counts kept true, is still accepted', () => {
+    const v = variant(files, (doc, f) => rewrite(doc, f, (t) => t
+      .replace(/kept as events: (\d+)/, (_m, n) => `kept as events: ${Number(n) + 1}`)
+      .replace(/lines examined: (\d+)/, (_m, n) => `lines examined: ${Number(n) + 1}`)
+      .concat('99 http-complete GET 200 https://registry.npmjs.org/<path-omitted> 5ms cache-miss\n')));
+    assert.deepEqual(problemCodes(v), []);
+  });
+
+  test('CONTRACT: bytes changed AFTER admission are refused at the publisher\'s boundary — whether or not the descriptor was changed to match', () => {
+    const admitted = inspectAssessment(files);
+    const file = admitted.doc.graphs.application.diagnostics.file;
+    const flipped = new Map(files);
+    const bytes = Buffer.from(files.get(file));
+    bytes[bytes.length - 2] = bytes[bytes.length - 2] === 0x31 ? 0x32 : 0x31;
+    flipped.set(file, bytes);
+    assert.deepEqual(atBoundary(flipped, admitted, now), ['publisher.assessment_mismatch']);
+    const rehashed = variant(files, (doc, f) => { f.set(file, bytes); doc.graphs.application.diagnostics.sha256 = sha256Hex(bytes); });
+    assert.deepEqual(problemCodes(rehashed), [], 'internally consistent — only the admitted identity can tell');
+    assert.deepEqual(atBoundary(rehashed, admitted, now), ['publisher.assessment_mismatch']);
+  });
+});
+
+describe('a permanent application hang — the real CLI, a valid 30-second policy, one real subprocess timeout', () => {
+  const HOSTILE = [
+    'verbose argv "audit" "--registry" "https://alice:s3cr3t-pw@registry.example.com/"',
+    'http fetch GET 200 https://bob:hunter2@registry.npmjs.org/pkg?token=qs-secret 5ms',
+    'warn audit request to https://registry.npmjs.org/x failed, reason: <img src=x onerror=alert(1)> `rm -rf` \u001b[31mECONNRESET',
+    '::add-mask::not-a-command',
+  ];
+  let w;
+  let t;
+  let a;
+  before(async () => {
+    const auditPolicy = JSON.parse(readFileSync(join(ROOT, 'dependency-audit/policy.json'), 'utf8'));
+    auditPolicy.scanner.timeoutSeconds = 30; // the policy's own minimum — valid, not weakened
+    w = await world({ files: { 'dependency-audit/policy.json': `${JSON.stringify(auditPolicy, null, 2)}\n` } });
+    t = await prepare(w);
+    assert.equal(t.r.status, 0, t.r.stderr);
+    w.npm.setAdvisories({ failures: [{ whenPackage: 'shipped', mode: 'hang', extraLog: HOSTILE }] });
+    try { a = await assess(w, t); } finally { w.npm.setAdvisories({}); }
+  });
+
+  test('CONTRACT: scanner_timeout, INCOMPLETE, exit 2 — and all three graph records, in order, each with its own times', () => {
+    assert.equal(a.r.status, 2, a.r.stderr);
+    assert.equal(a.doc.outcome, 'incomplete');
+    assert.ok(a.doc.reasons.some((r) => r.code === 'scanner_timeout'), JSON.stringify(a.doc.reasons));
+    const app = a.doc.graphs.application.run;
+    assert.deepEqual([app.timedOut, app.signal, app.status, app.stdoutBytes], [true, 'SIGTERM', null, 0]);
+    assert.ok(app.durationMs >= 30_000, `${app.durationMs}ms`);
+    assert.deepEqual(Object.keys(a.doc.graphs), ['application', 'scanner', 'publisher']);
+    for (const graph of ['scanner', 'publisher']) assert.equal(a.doc.graphs[graph].run.timedOut, false, graph);
+    const times = [a.doc.startedAt, ...Object.values(a.doc.graphs).flatMap((g) => [g.startedAt, g.finishedAt]), a.doc.finishedAt, a.doc.decidedAt];
+    assert.deepEqual([...times].sort(), times);
+    assert.ok(Date.parse(a.doc.graphs.application.finishedAt) - Date.parse(a.doc.graphs.application.startedAt) >= 29_000, 'the application graph\'s own times span the hang');
+  });
+
+  test('CONTRACT: the incomplete assessment is still VALID evidence of that result, and nothing it read was changed', () => {
+    assert.deepEqual(inspectAssessment(readFilesUnder(a.out).files).problems, []);
+    assert.equal(a.after, a.before);
+    assert.deepEqual(readdirSync(a.replay).sort(), ['package-lock.json', 'package.json']);
+    assert.equal(walkTooling(t.out).treeDigest, t.value.treeDigest);
+  });
+
+  test('CONTRACT: the summary and job log give the LAST OBSERVED npm events — sanitized, and never naming the completed request as the stall', () => {
+    const d = a.doc.graphs.application.diagnostics;
+    assert.equal(d.state, 'retained');
+    const kept = readFileSync(join(a.out, d.file), 'latin1');
+    for (const out of [a.summary, a.r.stderr, kept]) {
+      for (const secret of ['s3cr3t', 'hunter2', 'qs-secret', 'onerror', 'rm -rf', '\u001b', 'alice', 'registry.example.com']) {
+        assert.ok(!out.includes(secret), `${JSON.stringify(secret)} leaked`);
+      }
+    }
+    assert.ok(!a.r.stderr.split('\n').some((l) => l.startsWith('::')), 'no line of the job log can be read as a workflow command');
+    assert.match(a.summary, /\*\*application: last observed npm events\*\*/);
+    assert.match(a.summary, /not evidence of which request, if any, stalled/);
+    assert.match(a.summary, /Logged as started, with no logged completion before the log ends: `GET https:\/\/registry\.npmjs\.org\/shipped`/);
+    const started = a.summary.slice(a.summary.indexOf('Logged as started'));
+    assert.ok(!started.split('\n')[0].includes('already-answered'), 'the completed request is not listed as unfinished');
+    assert.match(a.summary, /`\d+ http-complete GET 200 https:\/\/registry\.npmjs\.org\/already-answered 9ms cache-miss`/);
+    assert.match(a.r.stderr, /release: application: last observed npm events \(sanitized/);
+    assert.ok(!/stalled on|the stalled request|caused by/i.test(a.summary), 'no cause is asserted');
+  });
+
+  test('CONTROL (recovery is a SEPARATE evaluation, never a retry inside this one): once the scanner answers, a new assessment completes', async () => {
+    const again = await assess(w, t);
+    assert.equal(again.r.status, 0, again.r.stderr);
+    assert.equal(again.doc.outcome, 'within_policy');
+    assert.equal(a.doc.outcome, 'incomplete', 'the failed one is not erased');
+    assert.notEqual(again.out, a.out);
+  });
+});
 
 describe('publish — the last boundary, before the credential is read', () => {
   test('CONTRACT: the invocation is the admitted entrypoint BY ABSOLUTE PATH, in the stage, with an environment built from nothing', () => {
