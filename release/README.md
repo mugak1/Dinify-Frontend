@@ -488,7 +488,7 @@ where a peer publishes one, and refused by name where it does not.
 | peer | selection | serving |
 |---|---|---|
 | backend (`a6b25a6`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
-| admin (`abdacda`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
+| admin (`9ec02fe`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
 path that consults `compatibleSet`; the backend's own deploy and `deploy-prod.yml` make
@@ -516,14 +516,15 @@ that receipt here in a reviewed pull request. Two consequences of the committed 
   and was classified `not-a-waiting-state` — correctly. The remedy was a reviewed
   receipt refresh (below), **never** an entry in `publication.readiness.awaiting`. It
   happened again on 2026-09-25: Admin #28 and #29 were deployed, and readiness run
-  `36146235129` (on `3a16e84`) refused the same way for `1993a08`, and on 2026-09-26
-  readiness run `36247543634` (on `485e9e9`) refused the same way for `a7ef20c`. The
-  approved Admin revision is now `abdacda` (the #32 merge, documentation only,
-  2026-09-26), replacing `a7ef20c`, which had replaced `eb54c92`, `1993a08`, `3521ebd`
-  and `38df037` in turn, rather than joining them. An Admin rollback to any of those, or
-  to `ad4a7f8` (the #28 merge, deployed for about two and a half hours and never
-  approved), is refused the same way until approved again (see the three 2026-09-26
-  sections).
+  `36146235129` (on `3a16e84`) refused the same way for `1993a08`; on 2026-09-26
+  readiness run `36247543634` (on `485e9e9`) refused the same way for `a7ef20c`, and
+  readiness run `36273728448` (on `44c4fc3`) for `9ec02fe`. The approved Admin revision
+  is now `9ec02fe` (the #34 merge, which with #33 added the Claude Code workflows,
+  2026-09-26), replacing `abdacda`, which had replaced `a7ef20c`, `eb54c92`, `1993a08`,
+  `3521ebd` and `38df037` in turn, rather than joining them. An Admin rollback to any of
+  those, or to `ad4a7f8` (the #28 merge, deployed for about two and a half hours and
+  never approved), is refused the same way until approved again (see the four
+  2026-09-26 sections).
 
 ### The D01 ceiling contract
 
@@ -1057,6 +1058,15 @@ produced this refresh returned `a7ef20c…` with `Cache-Control: no-store` at 14
 
 ### The third 2026-09-26 refresh (compatible set `2026-09-26-pilot-8`)
 
+*History: its Admin approval was superseded the same day by `9ec02fe` (next section);
+its backend approval, `a6b25a6`, still stands. The bullets below describe the state when
+it was committed. After it merged, two readiness runs did observe `abdacda`: `36270515216`
+(on `9a11385`, its own merge) and `36272139246` (on `349e97b`, the #706 merge). Each
+retained a `peers.json` stating Admin serving `abdacda`, verified and `no-store`, and each
+completed as the six-reason wait (`awaiting-prerequisites`, `published: false`,
+`decisionDigest` `sha256:604dcb5e…`). The "no frontend readiness run has observed it"
+below was true when written and is not true now.*
+
 Admin #32 merged as `abdacda` at 18:59:38Z (parent `a7ef20c`, implementation head
 `7156067`) and was deployed automatically: the Admin `validate` run `36264479698` and
 Deploy Admin run `36264601950` (finished 19:02:54Z) both concluded `success`. Those are
@@ -1110,6 +1120,95 @@ the approval was deliberately not moved to the tip).
   (`a7ef20c`, `eb54c92`, `1993a08`, `3521ebd`, `38df037`, the never-approved `ad4a7f8`)
   and any later unknown one is refused as unapproved. The `pilot-7` block now selects its
   own set from retained receipts, as the older blocks do.
+- **Nothing else moved**: `publication.readiness.awaiting` is unchanged and gains no
+  `peers.*` or `dependency.*` entry. No owner prerequisite, bootstrap setting,
+  enablement, audit policy, B2.2 evidence mechanism or backend selection changed, and
+  publication stays disabled.
+- **The next Admin deployment will turn the next readiness run red again** until its own
+  receipt is reviewed and approved from its final merged source.
+
+### The fourth 2026-09-26 refresh (compatible set `2026-09-26-pilot-9`)
+
+Admin #33 merged as `5dab122` at 21:24:12Z and #34 as `9ec02fe` at 21:35:44Z (parents
+`5dab122` and `d88d32e`), and `9ec02fe` was deployed automatically: Deploy Admin run
+`36273633936` finished promoting it at 21:40:17Z. That is a deployment record, not an
+origin read. The frontend readiness run `36273728448` (job `108492367222`, on `44c4fc3`,
+the #707 merge) then read the identity and logged `9ec02fe` serving. `pilot-8` did not
+approve it, so that run refused `peers.admin_serving_unapproved` beside the six
+prerequisites (`not-a-waiting-state`, `published: false`, the publish job skipped): the
+gate working, OBSERVED rather than constructed. Public reads of
+`https://admin.dinifyapp.com/release.txt` from the environment that produced this
+refresh returned `9ec02fe…` with `Cache-Control: no-store` at 23:58:21Z and 23:59:14Z,
+the second through the real `peer-facts` command. Only the Admin approval moves; the
+backend stays `a6b25a6` (Backend `main` is `7e16d4b`, and the approval was deliberately
+not moved to the tip).
+
+| peer | commit | tree | source blob(s) | receipt digest |
+|---|---|---|---|---|
+| admin | `9ec02fed9b6ab061879d838511214e907b7269ed` (#33/#34) | `7f27fdd3…` | `deploy.yml` `2618d1ee…` (changed, comment only) | `sha256:f396dc77139cc1a6dc2247f8ed40c4ec07fd86532e881c50b0575c33bf37cce7` |
+
+- **Source verification.** `peer-receipt` produced the receipt from a fresh clone at the
+  exact merged commit, which is Admin `main`; `abdacda` is its ancestor. The independent
+  Python re-derivation, over a second, bare clone, computes the commit's tree, the
+  `deploy.yml` blob and the canonical digest; the digests agree, and the same
+  implementation reproduces the retained `abdacda` (`18b256ce…`) and `a7ef20c`
+  (`c21ad7c5…`) digests as controls. The existing public verification path —
+  `peer-facts`, through the same unauthenticated stand-in for the `gh` binary — answered
+  `verified` for `9ec02fe` (tree and `deploy.yml` blob). The blob was re-derived at the
+  commit, not copied from the `abdacda` receipt. This verifies the SOURCE of the approved
+  revision, not what is serving; the gate reads serving at decision time.
+- **Admin `abdacda..9ec02fe` is #33 and #34** (`3017e4d`, `923f671`, `5dab122`,
+  `df284de`, `d88d32e` and the merge), eight files. It adds two workflows:
+  - `claude.yml`, run on a human `@claude` mention in an issue, a comment or a review,
+    with `contents: write`, `pull-requests: write`, `issues: write` and
+    `actions: read`;
+  - `claude-code-review.yml`, run when a same-repository, human-authored pull request
+    is opened or marked ready, with `contents: read`, `pull-requests: write` and
+    `issues: read`.
+
+  **Neither grants `id-token`.** Both pin `actions/checkout` and
+  `anthropics/claude-code-action` by SHA, pass `github.token`, and read the one stored
+  secret, `CLAUDE_CODE_OAUTH_TOKEN`. The interval also vendors a review plugin under
+  `.claude/review-marketplace/` and updates `CLAUDE.md`. According to the review
+  workflow's own comment, the action replaces `.claude/` with the base branch's copy
+  before installing plugins; that is the workflow's statement, not something verified
+  here, and it does not cover a pull request that edits the workflow itself. **The receipt-bearing `deploy.yml` changed by a header
+  COMMENT only** (blob `3644dcd` → `2618d1e`): the sentence that said no workflow
+  references `secrets.` now scopes that to the deploy, CI and audit workflows and names
+  the Claude secret. No step, job, permission, trigger or pin in `deploy.yml` moved, and
+  its `deploy` job is still the only job in the repository granted `id-token: write`. No
+  `src/` file, `package.json`, lock file, `release/`, `dependency-audit/`, `scripts/`,
+  `ci.yml` or `audit.yml` changed. This is a review of what this gate relies on, not a
+  security certification of the Claude integration.
+- **What this gate relies on is unchanged.** At `9ec02fe`, `deploy.yml` still promotes
+  only a certified candidate. It still asserts from the public origin after every
+  promotion that `/release.txt` holds exactly the requested SHA and is served
+  `no-store`, and its forward-only guard reads the same file. Deployment stays OIDC-only,
+  with no stored deploy credential, and Admin remains its own origin. `policy.json`'s
+  three Admin assumptions and the `public-identity` serving contract are unchanged.
+  (Still outside the receipt: the scheduled `audit.yml` names `actions/checkout@v7` and
+  `actions/setup-node@v7` by tag.)
+- **Before/after, every other fact held fixed** (committed-policy suite, replaying the
+  serving fact run `36273728448` logged). The `pilot-8` set reproduces that run's decision
+  as a whole value: its digest is the `decisionDigest` the run's readiness record carries
+  (`sha256:f945b541…`). The refreshed set removes exactly `peers.admin_serving_unapproved`.
+  Through the real `decide` command it refuses the six recorded conditions as a
+  completed, non-publishing wait: `REFUSE`, `allow: false`, nothing published. Its
+  decision digests to `sha256:604dcb5e…`, the very decision runs `36270515216` and
+  `36272139246` recorded as the wait under `pilot-8`, so the refresh restores that
+  decision rather than producing a new or wider one. The following still refuse, and none
+  of them is a wait:
+  - a blocking or incomplete dependency assessment;
+  - broken Admin evidence: an edited tree or blob, the pre-#33 blob, a wrong-revision
+    receipt, the `abdacda` or `a7ef20c` receipt relabelled as the approved one, a missing
+    or unreadable receipt, an unpinned digest, a disagreeing or unavailable public
+    re-derivation, and an unreadable or cacheable served identity;
+  - every superseded Admin revision (`abdacda`, `a7ef20c`, `eb54c92`, `1993a08`,
+    `3521ebd`, `38df037`, the never-approved `ad4a7f8`) and any later unknown one,
+    refused as unapproved.
+
+  The `pilot-8` block now selects its own set from retained receipts, as the older
+  blocks do.
 - **Nothing else moved**: `publication.readiness.awaiting` is unchanged and gains no
   `peers.*` or `dependency.*` entry. No owner prerequisite, bootstrap setting,
   enablement, audit policy, B2.2 evidence mechanism or backend selection changed, and
