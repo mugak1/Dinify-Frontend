@@ -29,11 +29,13 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { cpSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
 import { digestOfValue } from '../lib/canonical.mjs';
+import { inspectAssessment } from '../lib/dependency-evidence.mjs';
+import { readFilesUnder } from '../lib/io.mjs';
 import { receiptDigest } from '../lib/peers.mjs';
 import { AWAITING } from '../lib/readiness.mjs';
 import {
@@ -1127,6 +1129,62 @@ describe('publish.yml — the dependency half: certification evidence, a fresh a
     assert.match(result.jobs.gate.summary, /triage/i);
     assertCandidateUnchanged(world, world.ids.c2);
     assertCredentialConfined(world, result);
+  });
+
+  test('CONTROL: a complete assessment CARRYING scanner diagnostics passes the fixture-enabled gate, the publisher\'s preflight and its last boundary', async () => {
+    const world = await makeWorld();
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assert.equal(decisionOf(result).decision, 'PROCEED', JSON.stringify(codesOf(decisionOf(result))));
+    assert.equal(preflightOf(result).ok, true);
+    assert.equal(outcomeOf(result), 'PUBLISHED_VERIFIED');
+    const dir = join(world.evidence, `publish-assessment-${event.runId}-1`);
+    const inspected = inspectAssessment(readFilesUnder(dir).files);
+    assert.deepEqual(inspected.problems, []);
+    for (const graph of ['application', 'scanner', 'publisher']) assert.equal(inspected.doc.graphs[graph].diagnostics.state, 'retained', graph);
+    assertCandidateUnchanged(world, world.ids.c2);
+    assertCredentialConfined(world, result);
+  });
+
+  test('CONTROL: an OLD-FORMAT assessment (no diagnostics) is still admitted and published by this verifier', async () => {
+    const world = await makeWorld();
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event, {
+      beforeStep: async ({ job, step: name, workspace }) => {
+        if (job !== 'gate' || name !== 'Retain the fresh assessment') return;
+        const path = join(workspace, 'assessment', 'assessment.json');
+        const doc = JSON.parse(readFileSync(path, 'utf8'));
+        for (const g of Object.values(doc.graphs)) { rmSync(join(workspace, 'assessment', g.diagnostics.file)); delete g.diagnostics; }
+        writeFileSync(path, `${JSON.stringify(doc, null, 2)}\n`);
+      },
+    });
+    assert.equal(decisionOf(result).decision, 'PROCEED', JSON.stringify(codesOf(decisionOf(result))));
+    assert.equal(outcomeOf(result), 'PUBLISHED_VERIFIED');
+    assert.ok(Object.values(assessmentOf(world, event).graphs).every((g) => !Object.hasOwn(g, 'diagnostics')), 'what was admitted is the old format');
+  });
+
+  test('CONTRACT (a real subprocess hang at the policy\'s own 30-second minimum): a permanent application hang is RED, allow:false, and nothing is published', async () => {
+    const auditPolicy = JSON.parse(readFileSync(join(ROOT, 'dependency-audit/policy.json'), 'utf8'));
+    auditPolicy.scanner.timeoutSeconds = 30;
+    const world = await committedWorld({ c2Files: { 'dependency-audit/policy.json': `${JSON.stringify(auditPolicy, null, 2)}\n` } });
+    world.npm.setAdvisories({ failures: [{ whenPackage: 'shipped', mode: 'hang' }] });
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assert.equal(step(result, 'gate', 'Assess the candidate\'s dependencies now').status, 2);
+    const assessment = assessmentOf(world, event);
+    assert.equal(assessment.outcome, 'incomplete');
+    assert.ok(assessment.reasons.some((r) => r.code === 'scanner_timeout'));
+    assert.deepEqual(Object.keys(assessment.graphs), ['application', 'scanner', 'publisher']);
+    assert.equal(assessment.graphs.application.run.timedOut, true);
+    for (const graph of ['scanner', 'publisher']) assert.equal(assessment.graphs[graph].run.timedOut, false, graph);
+    assert.equal(assessment.graphs.application.diagnostics.state, 'retained');
+    assert.deepEqual(inspectAssessment(readFilesUnder(join(world.evidence, `publish-assessment-${event.runId}-1`)).files).problems, []);
+    assert.deepEqual(codesOf(decisionOf(result)).sort(), [...EXPECTED_WAIT, 'dependency.assessment_incomplete'].sort());
+    assert.equal(decisionOf(result).allow, false);
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+    assert.match(result.jobs.gate.summary, /application: last observed npm events/);
+    assert.match(result.jobs.gate.summary, /not evidence of which request, if any, stalled/);
+    assertCandidateUnchanged(world, world.ids.c2);
   });
 
   test('CONTRACT (SYNTHETIC advisory): a NEW advisory refuses UNCHANGED bytes — the gate stops before any credential', async () => {

@@ -470,6 +470,126 @@ mutation cannot pass.
 - Nothing here binds a fresh audit to Backend or Admin promotion, and `deploy-prod.yml` —
   still the live writer — consumes none of it.
 
+### Scanner diagnostics: the last observed npm events (frontend-only)
+
+Readiness run `36283185235` (job `108518857938`) went red because the fresh assessment's
+APPLICATION scan reached the policy's `timeoutSeconds` (300) and was killed. What it kept
+was an empty stdout, an empty stderr and a SIGTERM: npm writes its record of what it was
+doing to a debug log, and nothing kept that log. **The cause of that run is unknown and
+stays unknown.** This change does not diagnose it, does not fix it, and changes no
+timeout, retry, cache, registry or classification. It makes the NEXT such run leave
+evidence: a bounded, sanitized projection of the scanner's own log, per graph.
+
+**How it is captured.** `collect()` (`dependency-audit/lib/retained.mjs`), when given a
+`diagnostics` root, passes npm ONE extra flag, `--logs-dir=<directory>`; the scanner, its
+version, the registry, every other argument, the timeout, the environment scrub and the
+cache are exactly what they were. The directory is created fresh (`mkdtemp`) per
+invocation under a root `assess` makes for itself in the OS temp directory, outside the
+candidate, the replay, the scanner, the publisher tree and the output, and removed
+however the run ends. It is ABSOLUTE on purpose: npm resolves `--logs-dir` against the
+scan's own cwd, and the workflow passes `--out` relative. A root that is relative, a
+link, missing, or inside or around anything scanned or uploaded is refused before npm is
+given any flag at all.
+
+**What is kept.** After the scan, exactly one regular file named as npm names its logs is
+read — only its last 2 MiB, whatever its size — and re-rendered through an allowlist of
+npm's event shapes into `<graph>.npm-diagnostics.txt` beside the raw outputs, at most
+1 MiB, oldest events dropped first. It is not the raw log, and its first line says so
+(`SANITIZED npm events, NOT a complete raw log`): argv, config, cwd, paths, stack traces,
+credentials in URLs, query strings, unusual URL paths, markup and control characters do
+not survive, and the file is printable ASCII by construction. `~/.npm/_logs` is never
+read, a log this invocation did not ask for is never read, and nothing the invocation
+did not create is removed.
+
+**What the record says.** Each graph gains an OPTIONAL `diagnostics` key:
+
+- `{state: 'retained', file, sha256, bytes, truncated}` — the graph-bound file name,
+  the digest and length of the bytes written, and whether anything was left out (the
+  head of an over-window log, or events dropped to fit);
+- `{state: 'unavailable', reason}` — one of `unsafe_location`, `setup_failed`, `no_log`,
+  `multiple_logs`, `unsafe_entry`, `unreadable`, `write_failed`, `capture_failed`.
+
+**It never changes a verdict.** A scan killed at the limit is `scanner_timeout` →
+INCOMPLETE → exit 2 → readiness red with `allow: false`, whether the diagnostic was kept
+or not; an unavailable diagnostic adds no problem and removes none. `continue-on-error`
+and every workflow file are unchanged.
+
+**The receiving side.** An assessment WITHOUT the key is one made before this change and
+stays valid. PRESENT, `validateAssessment` holds it to its exact shape
+(`assessment.bad_diagnostics`), and `inspectAssessment` requires the declared file to
+exist (`assessment.diagnostics_missing`), to match its length and digest
+(`assessment.diagnostics_mismatch`) and to be a sanitized projection
+(`assessment.diagnostics_unsafe`); an undeclared file is still `assessment.unexpected_file`.
+Bytes changed after admission are caught by the admitted identity the publisher already
+compares — the document digest and the tree digest — as `publisher.assessment_mismatch`,
+even when the descriptor is rewritten to match.
+
+**How it is read.** For each graph whose scan did not complete, `assess` prints (job log
+and summary, every line escaped) the **last observed npm events** and the requests the log
+shows as STARTED with no logged completion before it ends: a packument fetch with neither
+a completion nor a cache hit, and the bulk advisory POST with no completion. That wording
+is the whole contract. npm logs a request's `http fetch` line when its response body ENDS
+(`npm-registry-fetch`'s `check-response.js`; for an error status, when the status
+arrives), not when it starts; several can be outstanding at once; a request can still be
+waiting on a lock, a socket or a retry; and the last line in the file is not evidence of
+which request, if any, stalled. Reading that source also corrected the reader: a bulk POST
+whose completion IS logged is no longer listed as started-without-completion merely
+because the log ends before the `audit report` line.
+
+**Frontend-only.** Dinify-Admin's `dependency-audit/lib/retained.mjs` is the file before
+this extension (`5453f5f2…7ab5`, pinned by Admin's own test as Frontend's file at
+`4ce0183`) and is deliberately not changed here; `dependency-audit/README.md` records the
+divergence.
+
+#### Measured: the real pinned scanner, locally
+
+A bounded, credential-free probe on 2026-09-27 ran THIS `collect()` with the real npm
+11.19.1 (`npm-cli.js` `8e5f6f34…ebe7`, installed from `dependency-audit/scanner`'s lock
+`a5603833…6c72`) on Node v24.21.0 (the official linux-x64 tarball, its SHASUMS256 entry
+`fd8e59d5…d2b6` verified) against a disposable stub registry on `127.0.0.1`: a two-package
+retained replay (`alpha@1.0.0`, `beta@1.0.0`), the policy's minimum `timeoutSeconds` (30),
+an environment of `PATH`, `HOME` (empty scratch) and `LANG` only — no proxy, no npmrc.
+The argv was the gate's own, plus `--logs-dir=<absolute>`.
+
+| stub behaviour | run | kept | read back |
+|---|---|---|---|
+| everything answered (CONTROL) | exit 1 (2 synthetic advisories), 0.4 s | retained, 1,071 B | nothing started without a completion |
+| bulk POST answered, `GET /beta` never answered | SIGTERM at 30.0 s, `scanner_timeout` | retained, 981 B | `GET …/beta` started, no completion; the completed `GET …/alpha` is not listed |
+| bulk POST never answered | SIGTERM at 30.0 s, `scanner_timeout` | retained, 679 B | the bulk POST started, no completion |
+
+In all three the replay's two files were byte-identical before and after, npm wrote no
+log under `HOME/.npm/_logs` (it still made its cache under `HOME/.npm`, as it always
+does — the cache is not this change's), the owned log directory was gone afterwards, and
+the kept bytes matched their descriptor and were printable ASCII.
+
+**The probe found a defect the fixtures could not.** npm logs an object through
+`util.inspect`, so a SMALL bulk request is ONE line (`silly audit bulk request { alpha:
+[ '1.0.0' ], … }`) and an empty report is `{}`. The first cut recognised only the
+multi-line opening `{`, and the POST-stall probe therefore kept no bulk-request event at
+all. The allowlist now accepts all three shapes (never their contents), a regression test
+pins the real lines, and the table above is the re-run.
+
+**What the probe does not show.** It is a loopback stub, not `registry.npmjs.org`: no TLS,
+no proxy, no DNS, no real advisory data, a two-package graph where the real application
+graph is ~1,274 packages, one run per mode, and a stall made by never answering. npm's own
+`fetch-timeout` (5 minutes) and retry path were not reached, because the 30-second limit
+fired first; production's limit is 300 seconds. It shows that the flag produces a usable
+kept diagnostic when the scanner is killed at these two points — not what happened in run
+`36283185235`.
+
+#### Mutations
+
+Each rule reverted alone, run against the suites that own it, then restored byte for
+byte (digest checked).
+
+| mutation | fails |
+|---|---|
+| retention disabled (every scan `unavailable`) | 19 `retained`, 9 `dependency-evidence`, the workflow CONTROL |
+| receiving integrity bypassed (a declared file accepted unchecked) | 4 `dependency-evidence` (missing, length, digest, unsanitized); the after-admission case still refuses, through the admitted identity |
+| a kept diagnostic softens a timeout | 1 `retained`, 3 `dependency-evidence` (the CLI hang, its summary, the recovery control), the workflow's real hang |
+| a relative root accepted | 1 `retained` |
+| unmatched lines kept raw | 2 `retained` (sanitization, the real line shapes) |
+
 ## Compatibility
 
 ### Peers: selection evidence and serving evidence are different things
@@ -698,7 +818,7 @@ desirable. `release/cli.mjs stamp` asserts the approved origin is present in the
 
 ## Tests, and what each kind proves
 
-`npm run test:release` runs the CLI self-test, then 749 tests in about 100 seconds
+`npm run test:release` runs the CLI self-test, then 796 tests in about 110 seconds
 (four cores; most of it is the workflow simulation). Each is labelled
 **REGRESSION** (pins a finding reproduced before its fix: on `3386724` for the
 baseline, on `ce6b892` for what review on #687 found), **CONTRACT** (a rule this
@@ -715,9 +835,9 @@ change introduces) or **CONTROL** (something that must not change).
 | `peers.test.mjs` | 30 | receipts from real git, public verification, serving over real TLS |
 | `manifest.test.mjs` | 50 | the stamp and the manifest schema |
 | `contract.test.mjs` | 9 | the D01 digest across languages |
-| `dependency-evidence.test.mjs` | 43 | B2.2 through the real CLI: the stamp binding and its refusals (a mid-build input change, a blocking certification audit, a genuine pre-B2.2 stamp), `prepare-publisher` (pinned npm, scripts disabled, measured, unsafe entries refused), `assess` (three graphs, scan-only replay, trusted policy, blocking/incomplete/not performed) and the `publish` last boundary |
+| `dependency-evidence.test.mjs` | 69 | B2.2 through the real CLI: the stamp binding and its refusals (a mid-build input change, a blocking certification audit, a genuine pre-B2.2 stamp), `prepare-publisher` (pinned npm, scripts disabled, measured, unsafe entries refused), `assess` (three graphs, scan-only replay, trusted policy, blocking/incomplete/not performed) and the `publish` last boundary; the scanner diagnostics as evidence (a relative `--out`, every single-fact refusal, bytes changed after admission) and a real 30-second hang through the CLI |
 | `readiness.test.mjs` | 56 | the recorded wait against every way a refusal can differ from it, and the real `readiness` and `outcome` commands through files |
-| `workflow-simulation.test.mjs` | 63 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher — including the non-publishing evaluation matrix, both outcome steps and the publisher/credential counts |
+| `workflow-simulation.test.mjs` | 66 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher — including the non-publishing evaluation matrix, both outcome steps and the publisher/credential counts, an assessment with and without scanner diagnostics, and a real 30-second application hang |
 | `workflow-drift.test.mjs` | 27 | the three workflow files held to the policy, statically — the publish job keyed on the admitted decision, the readiness wrapper translating one status |
 | `committed-policy.test.mjs` | 30 | the committed policy's exact refusal set, through the real `decide`; the approved receipts; the readiness list equal to that set; the 2026-09-24 refresh replayed against what CI observed, with every other fact held fixed |
 
