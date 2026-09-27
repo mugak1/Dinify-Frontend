@@ -606,6 +606,24 @@ describe('AuthenticationService', () => {
       expect(svc.ownerIsCurrent(fresh)).toBeTrue();
     });
 
+    // Codex P2 on #710: the login screen clears storage, so the shell's first
+    // detail hydration finds no stored detail. That is not a restaurant change
+    // when it hydrates the restaurant the membership already selects.
+    it('the FIRST detail hydration of the already-selected restaurant is not a context change', () => {
+      const svc = makeService();
+      expect(localStorage.getItem('current_resta')).toBeNull();
+      const owner = svc.captureRequestOwner(req(`${base}/x/`))!;
+      svc.setCurrentRestaurant({ id: 'r1', name: 'Selected' });
+      expect(svc.ownerIsCurrent(owner)).toBeTrue();
+    });
+
+    it('CONTROL: a first detail hydration of a DIFFERENT restaurant than the one selected still ends ownership', () => {
+      const svc = makeService();
+      const owner = svc.captureRequestOwner(req(`${base}/x/`))!;
+      svc.setCurrentRestaurant({ id: 'r2', name: 'Other' });
+      expect(svc.ownerIsCurrent(owner)).toBeFalse();
+    });
+
     it('re-storing the SAME restaurant (refreshed detail, same membership) is not a context change', () => {
       const svc = makeService();
       svc.setCurrentRestaurant({ id: 'r1', name: 'Old' });

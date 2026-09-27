@@ -385,10 +385,19 @@ this.userSubject.next(u as any)
    * Store the selected restaurant's DETAIL record. The shell re-fetches and
    * re-stores it on every load, so only a change of restaurant identity counts
    * as a context change — refreshed detail for the same restaurant does not.
+   *
+   * The identity it is compared with is the one this detail REPLACES: the
+   * stored detail's, or — when none is stored yet — the canonical selected
+   * membership's (`rest_role`). The login screen clears storage before every
+   * attempt, so the shell's FIRST hydration after sign-in finds no detail;
+   * comparing that absence with the restaurant that was already selected
+   * would read as a restaurant change, and every request captured just before
+   * it would lose its recovery for a context that never moved.
    */
   setCurrentRestaurant(restaurant:any){
-    if (this.restaurantIdOf(this.readStored('current_resta'), 'id')
-        !== this.restaurantIdOf(restaurant, 'id')) {
+    const previous = this.restaurantIdOf(this.readStored('current_resta'), 'id')
+      ?? this.currentRestaurantId();
+    if (previous !== this.restaurantIdOf(restaurant, 'id')) {
       this.contextGeneration += 1;
     }
     localStorage.setItem('current_resta', JSON.stringify((restaurant)));    

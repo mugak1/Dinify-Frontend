@@ -472,6 +472,23 @@ describe('D09 — error recovery through the real interceptor chain', () => {
       expect(mock.match(`${API}/kitchen/orders/o1/priority/`).length).toBe(0);
     });
 
+    // Codex P2 on #710. Passes on the baseline (which has no context concept)
+    // and must keep passing: it failed on c59899c, where the first hydration
+    // compared an absent detail with the selected restaurant.
+    it('CONTROL: the shell\'s FIRST detail hydration after sign-in does not cost an in-flight request its renewal', () => {
+      boot(user('a1', 'r1'));
+      expect(localStorage.getItem('current_resta')).toBeNull();
+      const w = watch(http.get(`${API}/x`));
+      auth.setCurrentRestaurant({ id: 'r1', name: 'R' });
+      expire(`${API}/x`);
+      mock.expectOne(REFRESH).flush({ access: 'a2', refresh: 'r2' });
+      const replay = mock.expectOne(`${API}/x`);
+      expect(replay.request.headers.get('Authorization')).toBe('Bearer a2');
+      replay.flush({ ok: true });
+      expect(w.value?.ok).toBeTrue();
+      expect(logout).not.toHaveBeenCalled();
+    });
+
     it('CONTROL: re-storing the same restaurant\'s refreshed detail is not a context change', () => {
       boot(user('a1', 'r1'));
       auth.setCurrentRestaurant({ id: 'r1', name: 'R' });
