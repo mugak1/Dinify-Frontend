@@ -433,10 +433,23 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
     if (!this.cmpOpen) this.toggleComparison();
   }
 
-  /** Roving focus inside the menu, plus Escape to dismiss. */
+  /** Roving focus inside the menu, plus Escape and Tab to dismiss. */
   onMenuKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       event.preventDefault();
+      this.closeComparison();
+      return;
+    }
+
+    // Tab (and Shift+Tab) close the menu and put focus back on the trigger. The menu lives
+    // in the CDK overlay container at the end of <body>, so letting Tab through left focus
+    // past the end of the document while the menu and its backdrop stayed open over the
+    // page. The default action is deliberately NOT prevented: the browser then moves focus
+    // on from the trigger, to the next control (or the previous one on Shift+Tab), which
+    // is where Tab would have gone had the menu never opened. It commits nothing. Arrow
+    // keys only move focus between options, so the focused option is not a choice the
+    // user made, and Tab reads as leaving the menu, the same as Escape.
+    if (event.key === 'Tab') {
       this.closeComparison();
       return;
     }

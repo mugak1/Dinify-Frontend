@@ -3912,7 +3912,20 @@ writing new tag, price/menu or date-range logic:
     runs in the change-detection pass AFTER `close()` returns and overrides it. Pinned by
     the "focus return on close" block in `timeframe-picker.component.spec.ts`, whose specs
     start with focus off the trigger (`HTMLElement.click()` does not focus, as a Safari
-    click does not)
+    click does not). **THE COMPARISON MENU GOT THE SAME TREATMENT
+    (PICKER-FOCUS-RESTORE-01), and only one of its paths needed it.** Probed on every
+    close path, on both widths and from both starting points, Escape, a backdrop click,
+    picking a basis and both custom-period exits already returned focus through
+    `closeComparison` / `pickComparison`. **Tab did not**: the menu lives in the overlay
+    container at the end of `<body>`, so Tab from an option left focus past the end of
+    the document (measured in real Chromium: `<body>`) with the menu and its backdrop
+    still open. `onMenuKeydown` now closes the menu on Tab and Shift+Tab and focuses the
+    trigger WITHOUT preventing the default action, so the browser carries focus on from
+    the trigger to the next (or previous) control, which is where Tab would have gone
+    had the menu never opened (checked in real Chromium with trusted key presses, since
+    no synthetic event can produce it). **Tab commits nothing**: arrow keys only move
+    focus between options, so the focused option is not a choice, and a spec pins that
+    arrowing then tabbing leaves the basis unchanged
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.

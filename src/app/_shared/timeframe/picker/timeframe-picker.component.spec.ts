@@ -1,6 +1,6 @@
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { CdkConnectedOverlay, Overlay } from '@angular/cdk/overlay';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { format } from 'date-fns';
 import { BehaviorSubject } from 'rxjs';
@@ -903,6 +903,126 @@ describe('TimeframePickerComponent', () => {
 
       expect(cmpPanel()).not.toBeNull();
       expect(overlayPanel()).toBeNull(); // the date-range panel never opened
+    });
+
+    // ─── Focus return on close (PICKER-FOCUS-RESTORE-01) ──────────────────────────
+    //
+    // Every way the menu closes returns focus to its trigger. Each spec starts with focus
+    // on ANOTHER control, because `HTMLElement.click()` does not focus the trigger (as a
+    // Safari click does not), so nothing but the component can put focus back on it.
+    //
+    // Tab was the one path that did not: the menu lives in the overlay container at the
+    // end of <body>, so Tab from an option left focus past the end of the document with
+    // the menu and its backdrop still open. The browser half of the fix (Tab carrying on
+    // from the trigger to the next control, Shift+Tab to the previous one) cannot be
+    // produced by a synthetic event; it was checked against real Chromium with trusted
+    // key presses.
+    describe('focus return on close', () => {
+      const press = (key: string, init: KeyboardEventInit = {}): KeyboardEvent => {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });
+        cmpPanel()!.dispatchEvent(event);
+        return event;
+      };
+      const option = (text: string): HTMLButtonElement =>
+        cmpOptions().find((o) => (o.textContent ?? '').includes(text))!;
+
+      function openFromElsewhere(desktop: boolean): void {
+        bp$.next({ matches: desktop, breakpoints: {} });
+        fixture.componentRef.setInput('comparison', 'prev-month-by-day');
+        fixture.detectChanges();
+        arrow('Previous period').focus();
+        cmpTrigger()!.click();
+        fixture.detectChanges();
+        tick(); // the menu focuses its selected option on the next macrotask
+        expect(document.activeElement).toBe(option('Previous month by day'));
+      }
+
+      for (const desktop of [true, false]) {
+        const host = desktop ? 'desktop' : 'mobile';
+
+        it(`${host}: Tab closes the menu and returns focus to the trigger`, fakeAsync(() => {
+          openFromElsewhere(desktop);
+          press('Tab');
+          fixture.detectChanges();
+          expect(cmpPanel()).toBeNull();
+          expect(cmpTrigger()!.getAttribute('aria-expanded')).toBe('false');
+          expect(document.activeElement).toBe(cmpTrigger());
+        }));
+
+        it(`${host}: Shift+Tab does the same`, fakeAsync(() => {
+          openFromElsewhere(desktop);
+          press('Tab', { shiftKey: true });
+          fixture.detectChanges();
+          expect(cmpPanel()).toBeNull();
+          expect(document.activeElement).toBe(cmpTrigger());
+        }));
+
+        // CONTROLS: the other close paths already returned focus. Pinned here so the
+        // whole set is stated in one place, from the same starting point.
+        it(`CONTROL ${host}: Escape`, fakeAsync(() => {
+          openFromElsewhere(desktop);
+          press('Escape');
+          fixture.detectChanges();
+          expect(document.activeElement).toBe(cmpTrigger());
+        }));
+
+        it(`CONTROL ${host}: a backdrop click`, fakeAsync(() => {
+          openFromElsewhere(desktop);
+          (document.querySelector('.cdk-overlay-backdrop') as HTMLElement).dispatchEvent(
+            new MouseEvent('click'),
+          );
+          fixture.detectChanges();
+          expect(document.activeElement).toBe(cmpTrigger());
+        }));
+
+        it(`CONTROL ${host}: picking a different basis`, fakeAsync(() => {
+          openFromElsewhere(desktop);
+          option('Previous year by day').click();
+          fixture.detectChanges();
+          expect(document.activeElement).toBe(cmpTrigger());
+        }));
+
+        it(`CONTROL ${host}: re-picking the current basis`, fakeAsync(() => {
+          openFromElsewhere(desktop);
+          option('Previous month by day').click();
+          fixture.detectChanges();
+          expect(document.activeElement).toBe(cmpTrigger());
+        }));
+
+        it(`CONTROL ${host}: 'Custom period' then Cancel`, fakeAsync(() => {
+          openFromElsewhere(desktop);
+          option('Custom period').click();
+          fixture.detectChanges();
+          const panel =
+            document.querySelector('.dn-comparison-start-overlay-panel') ??
+            fixture.nativeElement.querySelector('app-comparison-start-panel');
+          (Array.from(panel!.querySelectorAll('button')) as HTMLButtonElement[])
+            .find((b) => (b.textContent ?? '').trim() === 'Cancel')!
+            .click();
+          fixture.detectChanges();
+          expect(document.activeElement).toBe(cmpTrigger());
+        }));
+      }
+
+      it('Tab leaves the default action alone, so the browser moves on from the trigger', fakeAsync(() => {
+        openFromElsewhere(true);
+        expect(press('Tab').defaultPrevented).toBeFalse();
+      }));
+
+      it('CONTROL: Escape still prevents its default action', fakeAsync(() => {
+        openFromElsewhere(true);
+        expect(press('Escape').defaultPrevented).toBeTrue();
+      }));
+
+      it('Tab commits nothing, even after arrowing to another option', fakeAsync(() => {
+        openFromElsewhere(true);
+        press('ArrowDown');
+        expect(document.activeElement).not.toBe(option('Previous month by day'));
+        press('Tab');
+        fixture.detectChanges();
+        expect(picked).toEqual([]);
+        expect(cmpTrigger()!.textContent).toContain('Previous month by day');
+      }));
     });
   });
 
