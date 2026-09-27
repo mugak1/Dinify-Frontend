@@ -3933,11 +3933,14 @@ writing new tag, price/menu or date-range logic:
     breakpoint flip, and reopening to edit a placed start) already returned focus to the
     comparison trigger on both hosts, and ten regression specs now pin that. What makes
     it hold is `pickComparison` focusing the trigger BEFORE the panel opens, so both hosts'
-    traps capture the trigger. Removing that call fails the five mobile specs; removing
-    the explicit `focus()` in `closeCustomStart` ALONE fails none, because the trap
-    already restores the trigger. The call was left in place (these were spec-only
-    changes); it is the same redundancy PICKER-FOCUS-RESTORE-00 removed from the range
-    calendar's `close()`
+    traps capture the trigger. **The explicit `focus()` that `closeCustomStart` used to
+    make is REMOVED**: removing it alone failed none of those specs, because the trap
+    already restores the trigger, which is the same redundancy PICKER-FOCUS-RESTORE-00
+    removed from the range calendar's `close()`. With it gone, `pickComparison`'s call is
+    the only one this panel's focus return rests on: removing it fails all ten specs, on
+    both hosts, plus the dropdown's own pick and custom-Cancel controls. Both staged calendars now return focus
+    the same way, through their host's trap. `closeComparison` KEEPS its explicit call,
+    and must: the comparison menu has no focus trap, so nothing else would restore it
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.
