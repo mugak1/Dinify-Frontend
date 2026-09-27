@@ -43,9 +43,34 @@ so keep it current when conventions change.
   mount, resolved via `resolveDinerMountEmbedded` (`diner-app/diner-mount.ts`,
   walking up the snapshot chain since `paramsInheritanceStrategy` stays at the
   default `'emptyOnly'`; no-flag defaults to standalone) — never sniffed from
-  `router.url`, which is stale mid-navigation. There are now TWO diner mounts —
-  the standalone `/diner` shell and the portal child `rest-app-ordering`; the
-  third (the admin embed) went with the admin plane in PR-6
+  `router.url`, which is stale mid-navigation. There is now ONE diner mount —
+  the standalone `/diner` shell. The admin embed went with the admin plane in
+  PR-6 and the portal child `rest-app-ordering` was retired (next bullet), so
+  the flag, the resolver and the menu's `isInRestApp` branches are DORMANT
+- **THE PORTAL DOES NOT MOUNT THE DINER APP; `rest-app-ordering` IS RETIRED
+  (EMBED-RETIRE-00).** The route loaded `DinerAppModule` inside the portal with
+  the embed flag set, and it could never take an order. Checkout failed every
+  time with 400 "A diner capability is required.": `DinerSessionInterceptor`
+  attaches no diner session while a staff user is signed in, and the embed sent
+  no `source:'admin'`, the one staff contract `orders/initiate/` accepts. It
+  was also unreachable in practice. Nothing in the app linked to it, and the
+  menu read `restaurant`/`Table` from session storage that only the diner shell
+  writes, after a QR scan, so a fresh visit went straight to its error page.
+  The owner chose to RETIRE it rather than wire the staff channel or relabel a
+  Checkout that cannot work. Staff preview the menu with
+  `PreviewMenuDrawerComponent` on the Menu page, and staff-taken orders are NOT
+  a portal feature today. If one is wanted, it is a new build: send
+  `source:'admin'` + restaurant + table through the real interceptor chain,
+  keep every checkout invariant, and change nothing in the diner capability
+  contract without `docs/TENANT_ISOLATION_CLOSURE.md`. Consequences worth
+  knowing: `/rest-app-ordering` (and legacy `/rest-app/rest-app-ordering`) now
+  falls through the portal wildcard to the dashboard; `diner-mount.spec.ts`
+  asserts the portal route tree carries no diner mount at any depth, and keeps
+  the resolver pinned against a SYNTHETIC embedded mount. **The dormant embed
+  machinery was deliberately NOT removed here**: `DINER_MOUNT_EMBEDDED`,
+  `resolveDinerMountEmbedded`, `isInRestApp` in the menu (the fixed bar,
+  `pb-24`, the `[router.url, 'error']` redirect) and its spec are a separate
+  cleanup, not part of the route retirement
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
 - Phase 2 (Dashboard): ✅ Complete — `USE_MOCK_DATA` still true in DashboardService
   for the core metrics, but TWO cards are real-wired exceptions: the Popular Items
@@ -114,8 +139,9 @@ so keep it current when conventions change.
   host through an attribute binding on the same signal as `[open]`), and a new basket
   overlay must carry it too. A browser without `:has()` just never raises the aside,
   which is the behaviour from before the raise. The sheet is NOT rendered by the shell:
-  the portal's `rest-app-ordering` embed loads the diner routes WITHOUT the shell, so a
-  shell-owned sheet would leave the embed's link dead. Pinned from both halves: the
+  it was placed so when the portal's `rest-app-ordering` embed loaded the diner routes
+  WITHOUT the shell, where a shell-owned sheet would have left the link dead. That embed
+  is retired, and the page-owned placement is still correct, so it stays. Pinned from both halves: the
   markers by `basket-body.allergen-info.spec.ts`, and the compiled rule by
   `diner-app.component.spec.ts`, which reads the stylesheet and asks the aside whether it
   MATCHES rather than measuring it, because Karma's window is below `lg`. Both
@@ -133,9 +159,10 @@ so keep it current when conventions change.
   the screen rather than straight under the last dish. **A FIRST CUT KEPT THE BAR FIXED
   AND RESERVED ITS HEIGHT AFTER THE FOOTER** (a ResizeObserver feeding a shell spacer),
   which put the footer ABOVE the bar at the end of the page. The owner rejected that,
-  and it is gone; do not bring it back. **THE PORTAL EMBED IS UNCHANGED**: it has no
-  shell and so no footer, so there the bar stays `fixed` and the lists keep `pb-24`
-  (both keyed on `isInRestApp`). The footer itself is compact, `pt-4 pb-3` with an
+  and it is gone; do not bring it back. **THE EMBEDDED BRANCH IS DORMANT**: a mount
+  with no shell has no footer, so there the bar stays `fixed` and the lists keep
+  `pb-24` (both keyed on `isInRestApp`). No such mount exists since `rest-app-ordering`
+  was retired, and the branch awaits its own cleanup. The footer itself is compact, `pt-4 pb-3` with an
   `mb-1.5` gap (59px, down from 82px), so its links sit close to the bottom edge.
   Pinned by `menu.component.spec.ts` and `diner-app.component.spec.ts`
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,
@@ -845,7 +872,8 @@ so keep it current when conventions change.
   EVERY key on the origin — prefixed or not, this app's or not — and then put two
   diner tokens back by hand. That is a restore list maintained against a wipe that
   keeps widening, and it was already wrong for the portal-embedded diner mount
-  (`rest-app-ordering`), where an operator's own session keys sit in the same store.
+  (`rest-app-ordering`, since retired), where an operator's own session keys sat in the
+  same store.
   `resetDinerOrderContext()` removes exactly what a finished order makes stale
   (`upsellConfig`, `diner.menu.scrollY`) and KEEPS the diner's table, restaurant and
   capability tokens — which the wipe used to destroy and then partially rebuild, so

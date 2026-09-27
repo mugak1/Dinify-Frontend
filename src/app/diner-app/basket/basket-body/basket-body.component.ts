@@ -2464,9 +2464,8 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * on the origin — prefixed or not, this app's or not — and then put two
    * diner tokens back through `retainSessionThrough`. That is a restore list
    * that has to be maintained by hand against a wipe that keeps widening, and
-   * it was already wrong for the portal-embedded diner mount
-   * (`rest-app-ordering`), where an operator's own session keys sit in the
-   * same store.
+   * it was already wrong for the portal-embedded diner mount (since
+   * retired), where an operator's own session keys sat in the same store.
    *
    * WHAT IS REMOVED is exactly what a finished order makes stale: the menu's
    * upsell configuration and the menu scroll position. WHAT IS KEPT is the

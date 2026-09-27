@@ -259,7 +259,8 @@ export class DinersMenuComponent implements OnInit, AfterViewInit, OnDestroy {
       this.loadMenu();
     } else {
       // Standalone diner shell → the diner error page; an embedded mount
-      // (portal preview / admin embed) appends 'error' to its own URL instead.
+      // appends 'error' to its own URL instead. No embedded mount exists today
+      // (both were retired), so that branch is dormant — see diner-mount.ts.
       // Reuses the route-resolved flag from ngOnInit — do not re-derive here.
       if (!this.isInRestApp) {
         this.router.navigate(['/diner', 'error']);
