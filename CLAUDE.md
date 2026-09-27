@@ -3925,7 +3925,16 @@ writing new tag, price/menu or date-range logic:
     had the menu never opened (checked in real Chromium with trusted key presses, since
     no synthetic event can produce it). **Tab commits nothing**: arrow keys only move
     focus between options, so the focused option is not a choice, and a spec pins that
-    arrowing then tabbing leaves the basis unchanged
+    arrowing then tabbing leaves the basis unchanged. **The custom-period panel needed nothing
+    (PICKER-FOCUS-RESTORE-02)**: every close path (Apply, Cancel, Escape, backdrop, a
+    breakpoint flip, and reopening to edit a placed start) already returned focus to the
+    comparison trigger on both hosts, and ten regression specs now pin that. What makes
+    it hold is `pickComparison` focusing the trigger BEFORE the panel opens, so both hosts'
+    traps capture the trigger. Removing that call fails the five mobile specs; removing
+    the explicit `focus()` in `closeCustomStart` ALONE fails none, because the trap
+    already restores the trigger. The call was left in place (these were spec-only
+    changes); it is the same redundancy PICKER-FOCUS-RESTORE-00 removed from the range
+    calendar's `close()`
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.

@@ -508,6 +508,82 @@ describe('TimeframePickerComponent', () => {
         fixture.detectChanges();
       }
 
+      // ─── Focus return on close (PICKER-FOCUS-RESTORE-02) ────────────────────────
+      //
+      // Regression pins for behaviour that already held: every way this panel closes
+      // returns focus to the COMPARISON trigger, on both hosts. (Cancel is pinned beside
+      // the dropdown's own close paths below.) Each spec starts with focus on another
+      // control, because `HTMLElement.click()` does not focus a button, just as a Safari
+      // click does not.
+      describe('focus return on close', () => {
+        function openFromElsewhere(desktop: boolean, reopen = false): void {
+          bp$.next({ matches: desktop, breakpoints: {} });
+          fixture.componentRef.setInput('comparison', reopen ? 'custom' : 'prev-month-by-day');
+          if (reopen) fixture.componentRef.setInput('customComparisonFrom', '2026-04-01');
+          fixture.detectChanges();
+          arrow('Previous period').focus();
+          pickCustom();
+          tick();
+          expect(startPanelAnywhere()).not.toBeNull();
+        }
+
+        /** Runs the change-detection pass that tears the sheet host down, then asserts. */
+        function expectClosedOnTrigger(): void {
+          fixture.detectChanges();
+          tick();
+          fixture.detectChanges();
+          expect(startPanelAnywhere()).toBeNull();
+          expect(document.activeElement).toBe(cmpTrigger());
+        }
+
+        for (const desktop of [true, false]) {
+          const host = desktop ? 'desktop' : 'mobile';
+
+          it(`${host}: after Apply`, fakeAsync(() => {
+            openFromElsewhere(desktop);
+            panelDay('2026-05-01').click();
+            fixture.detectChanges();
+            panelButton('Apply').click();
+            expectClosedOnTrigger();
+            expect(emitted.length).toBe(1);
+          }));
+
+          it(`${host}: after Escape`, fakeAsync(() => {
+            openFromElsewhere(desktop);
+            if (desktop) {
+              startPanel()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            } else {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            }
+            expectClosedOnTrigger();
+          }));
+
+          it(`${host}: after a backdrop click`, fakeAsync(() => {
+            openFromElsewhere(desktop);
+            if (desktop) {
+              (document.querySelector('.cdk-overlay-backdrop') as HTMLElement).dispatchEvent(
+                new MouseEvent('click'),
+              );
+            } else {
+              (fixture.nativeElement.querySelector('app-dn-sheet .bg-black\\/50') as HTMLElement).click();
+            }
+            expectClosedOnTrigger();
+          }));
+
+          it(`${host}: when a breakpoint flip discards it`, fakeAsync(() => {
+            openFromElsewhere(desktop);
+            bp$.next({ matches: !desktop, breakpoints: {} });
+            expectClosedOnTrigger();
+          }));
+
+          it(`${host}: reopened to edit a placed start, then Cancel`, fakeAsync(() => {
+            openFromElsewhere(desktop, true);
+            panelButton('Cancel').click();
+            expectClosedOnTrigger();
+          }));
+        }
+      });
+
       it('opens a staged calendar instead of committing the basis', () => {
         pickCustom();
 
