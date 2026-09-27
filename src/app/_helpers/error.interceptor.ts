@@ -13,8 +13,7 @@ import { ConnectivityService } from '../_services/connectivity.service';
  * First URL segments that are NOT back-office banner shells. Now that the
  * restaurant portal lives at the URL ROOT, the banner-shell check is INVERTED
  * into this deny-list: a positive list of portal segments would drift (the
- * portal owns support/notifications/account/rest-app-ordering, which are not
- * RBAC modules, while kitchen IS a module but renders no OfflineBanner), so a
+ * portal owns support/notifications/account, which are not RBAC modules, while kitchen IS a module but renders no OfflineBanner), so a
  * URL counts as a banner shell UNLESS its first segment is one of these known
  * bannerless surfaces — the auth/legal/lock screens, the standalone diner app,
  * and the Kitchen board. A NEW root-level surface without an

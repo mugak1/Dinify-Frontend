@@ -1,5 +1,4 @@
 import { NgModule } from '@angular/core';
-import { DINER_MOUNT_EMBEDDED } from '../diner-app/diner-mount';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './dashboard/dashboard.component';
@@ -72,8 +71,10 @@ import { AccountComponent } from './account/account.component';
 // and a team/billing-only user must reach those children, so each LEAF is gated
 // instead. R3 — `reports` is guarded on the PARENT only (children inherit).
 // R2 — `reviews/feed` is a SIBLING route, so it carries its own guard.
-// Exported so diner-mount.spec.ts can assert the real `rest-app-ordering`
-// mount declaration (its DINER_MOUNT_EMBEDDED data) by reference.
+// Exported so diner-mount.spec.ts can assert, against the real config, that the
+// portal mounts NO diner surface. The `rest-app-ordering` embed was retired
+// (CLAUDE.md, EMBED-RETIRE-00): nothing linked to it, it errored without
+// a prior QR scan, and its staff checkout could never succeed.
 export const restaurantMgtRoutes: Routes = [
   {path: "", redirectTo: "dashboard", pathMatch: "full"},
   // Second TimeframeService host (TIMEFRAME-01B). Same route-scoping rationale as
@@ -116,7 +117,6 @@ export const restaurantMgtRoutes: Routes = [
   ]},
   {path:'support',component:SupportComponent,title:'Support'},
   {path:'notifications',component:RestNotificationsComponent,title:'Notifications'},
-  { path: 'rest-app-ordering', data: {[DINER_MOUNT_EMBEDDED]: true}, loadChildren: () => import('../diner-app/diner-app.module').then(m => m.DinerAppModule) }, // DinerApp as the portal's embedded ordering preview
   { path: '**', redirectTo: '' }
   ];
 
