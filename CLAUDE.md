@@ -3434,6 +3434,42 @@ so keep it current when conventions change.
   from 40 to **44** tests, and 14 of them fail with `main`'s `pilot-7` policy put back.
   The release suite measured **759** on `main` and **763** on the branch in the
   environment that produced this refresh (Node 24.15.0)
+- **A COMMENT IN THE RECEIPT-BEARING FILE STILL MOVES THE RECEIPT (D08 receipt refresh,
+  2026-09-26).** ✅ Compatible set **`2026-09-26-pilot-9`**: Admin `9ec02fe` (the #34
+  merge; with #33 it added the Claude Code workflows; receipt `sha256:f396dc77…`, tree
+  `7f27fdd`) replaces `abdacda`. #33/#34 add `claude.yml` and `claude-code-review.yml`.
+  **Neither grants `id-token`**: both pin their actions by SHA, pass `github.token` and
+  read the one stored secret, `CLAUDE_CODE_OAUTH_TOKEN`. They also add a vendored review
+  plugin under `.claude/` and a `CLAUDE.md` update, and they narrow a header COMMENT in
+  `deploy.yml`. That comment alone moved the receipt-bearing blob `3644dcd` →
+  `2618d1e`, so the blob was re-derived at the commit, never copied. No step,
+  permission, trigger or pin in `deploy.yml` moved, and its `deploy` job is still the
+  only `id-token: write` job. The certified-promotion, `/release.txt` exact-commit
+  `no-store`, OIDC-only and separate-origin properties this gate relies on are unchanged.
+  This is not a security certification of the Claude integration.
+  The receipt was produced by `peer-receipt` at the exact merged commit and re-derived by
+  the independent Python implementation over a bare clone (the `abdacda` and `a7ef20c`
+  digests reproduced as controls). The real `peer-facts` public re-derivation answered
+  `verified`.
+  **This one was OBSERVED red first**: readiness run `36273728448` (on `44c4fc3`) read
+  `9ec02fe` serving and refused `peers.admin_serving_unapproved` under `pilot-8`
+  (`not-a-waiting-state`, publisher skipped). That decision is replayed WHOLE (digest
+  `sha256:f945b541…`, the run's `decisionDigest`), and the refresh removes exactly that
+  reason. The observed revision is now the approved one, so the committed-state headline
+  is the six-reason wait. That wait digests to `sha256:604dcb5e…`, the decision that
+  runs `36270515216` and `36272139246` recorded while `pilot-8` was committed.
+  **Correction:** the `pilot-8` bullet above says no readiness run observed `abdacda`.
+  That was true when it was written. Afterwards, both of those runs read `abdacda`
+  serving (their retained `peers.json`), so the `abdacda` test block now replays that
+  observed wait; its `pilot-7` refusal stays CONSTRUCTED. The `abdacda` block became
+  history pinned to `pilot-8`, and the current-set regressions moved to the new block,
+  including a blocking or incomplete dependency assessment that stays red.
+  **Only the Admin approval moved**: backend `a6b25a6` stands (Backend `main` is
+  `7e16d4b`, deliberately not approved), and nothing was added to
+  `publication.readiness.awaiting`. The committed-policy suite went from 44 to **48**
+  tests, and 14 of them fail with `main`'s `pilot-8` policy put back. The release suite
+  measured **763** on `main` (`44c4fc3`) and **767** on the branch (Node 24.15.0; the
+  suite needs `node_modules` for `yaml` and `firebase-tools`)
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
