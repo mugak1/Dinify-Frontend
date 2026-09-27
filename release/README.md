@@ -470,7 +470,7 @@ mutation cannot pass.
 - Nothing here binds a fresh audit to Backend or Admin promotion, and `deploy-prod.yml` —
   still the live writer — consumes none of it.
 
-### Scanner diagnostics: the last observed npm events (frontend-only)
+### Scanner diagnostics: the last observed npm events
 
 Readiness run `36283185235` (job `108518857938`) went red because the fresh assessment's
 APPLICATION scan reached the policy's `timeoutSeconds` (300) and was killed. What it kept
@@ -552,10 +552,12 @@ counts — up to a few digits wider — so a cap landing in that gap discarded t
 diagnostic as `capture_failed` instead of truncating it. The written bytes are now
 re-measured and further oldest events dropped until they fit.
 
-**Frontend-only.** Dinify-Admin's `dependency-audit/lib/retained.mjs` is the file before
-this extension (`5453f5f2…7ab5`, pinned by Admin's own test as Frontend's file at
-`4ce0183`) and is deliberately not changed here; `dependency-audit/README.md` records the
-divergence.
+**Shared with Admin.** This extension was introduced here as frontend-only. Dinify-Admin
+now carries the same `dependency-audit/lib/retained.mjs` and `tests/retained.test.mjs`
+(mugak1/Dinify-Admin#36), wired into its own fresh assessment and receiving checks. The
+module's three comments that said "frontend-only" were made repository-neutral in both
+repositories, so the two files are byte-identical (`83df67e2…be37`, which Admin's tests
+pin).
 
 #### Measured: the real pinned scanner, locally
 
