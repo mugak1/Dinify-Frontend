@@ -32,7 +32,9 @@
  */
 
 import { canonicalJson, digestOf, digestOfValue, sha256Hex, treeDigest } from './canonical.mjs';
-import { retainedInventory, RETAINED_OBSERVATION, INSTALLED_OBSERVATION } from '../../dependency-audit/lib/retained.mjs';
+import {
+  DIAGNOSTIC_MAX_BYTES, DIAGNOSTIC_REASONS, INSTALLED_OBSERVATION, RETAINED_OBSERVATION, checkDiagnosticProjection, diagnosticFileName, retainedInventory,
+} from '../../dependency-audit/lib/retained.mjs';
 import { readReport, toolingScope } from '../../dependency-audit/lib/npm.mjs';
 import { evaluate } from '../../dependency-audit/lib/core.mjs';
 
@@ -481,6 +483,10 @@ export function validateAssessment(doc) {
       }
     }
     for (const graph of Object.keys(doc.graphs)) if (!ASSESSED_GRAPHS.includes(graph)) p('assessment.bad_graph', `unexpected ${graph}`);
+    for (const graph of ASSESSED_GRAPHS) {
+      const g = doc.graphs[graph];
+      if (isObject(g) && Object.hasOwn(g, 'diagnostics')) problems.push(...validateDiagnostic(graph, g.diagnostics));
+    }
   }
   if (typeof doc.outcome !== 'string' || !Number.isInteger(doc.exitCode) || !isObject(doc.counts)) p('assessment.bad_result', `${String(doc.outcome)} ${String(doc.exitCode)}`);
   if (!Array.isArray(doc.recordsApplied) || !doc.recordsApplied.every((r) => isObject(r) && typeof r.id === 'string' && DATE_RE.test(String(r.expires)))) {
@@ -490,8 +496,38 @@ export function validateAssessment(doc) {
 }
 
 /**
+ * A graph's OPTIONAL scanner diagnostic descriptor (dependency-audit/lib/retained.mjs,
+ * "the scanner's own record"). Absent is an assessment made before it existed and stays
+ * valid; PRESENT is held to its exact shape — optional is not the same as unchecked.
+ *   retained     {state, file, sha256, bytes, truncated}: the canonical graph-bound name,
+ *                a SHA-256, 1..DIAGNOSTIC_MAX_BYTES bytes, and a boolean truncation state
+ *   unavailable  {state, reason}: one of the closed reasons, and nothing else
+ */
+function validateDiagnostic(graph, d) {
+  const bad = (detail) => [{ code: 'assessment.bad_diagnostics', detail: `${graph}: ${detail}` }];
+  if (!isObject(d)) return bad('not an object');
+  const keys = Object.keys(d).sort().join(',');
+  if (d.state === 'retained') {
+    if (keys !== 'bytes,file,sha256,state,truncated') return bad(`retained with keys ${keys}`);
+    if (d.file !== diagnosticFileName(graph)) return bad(`file ${JSON.stringify(d.file)} is not ${diagnosticFileName(graph)}`);
+    if (!HEX_RE.test(String(d.sha256))) return bad('sha256 is not a SHA-256');
+    if (!Number.isInteger(d.bytes) || d.bytes < 1 || d.bytes > DIAGNOSTIC_MAX_BYTES) return bad(`bytes ${JSON.stringify(d.bytes)} outside 1..${DIAGNOSTIC_MAX_BYTES}`);
+    if (typeof d.truncated !== 'boolean') return bad('truncated is not a boolean');
+    return [];
+  }
+  if (d.state === 'unavailable') {
+    if (keys !== 'reason,state') return bad(`unavailable with keys ${keys}`);
+    if (!DIAGNOSTIC_REASONS.includes(d.reason)) return bad(`reason ${JSON.stringify(d.reason)} is not a known reason`);
+    return [];
+  }
+  return bad(`state ${JSON.stringify(d.state)}`);
+}
+
+/**
  * The assessment directory as data: the document, its digest, the tree digest, and every
- * raw output re-checked against the digest the document recorded.
+ * raw output re-checked against the digest the document recorded — and every DECLARED
+ * scanner diagnostic re-checked the same way. An undeclared file is refused whatever its
+ * name, so a diagnostic cannot ride along without its descriptor.
  */
 export function inspectAssessment(files) {
   const out = { state: 'present', problems: [], doc: null, digest: null, treeDigest: null, entryCount: 0 };
@@ -515,6 +551,20 @@ export function inspectAssessment(files) {
       const raw = files.get(file);
       if (!raw) problem('assessment.raw_missing', `${graph}: ${file}`);
       else if (sha256Hex(raw) !== digest) problem('assessment.raw_mismatch', `${graph}: ${file}`);
+    }
+    const d = out.doc.graphs[graph].diagnostics;
+    if (d?.state === 'retained') {
+      expected.add(d.file);
+      const raw = files.get(d.file);
+      if (!raw) problem('assessment.diagnostics_missing', `${graph}: ${d.file}`);
+      else if (raw.length !== d.bytes || sha256Hex(raw) !== d.sha256) problem('assessment.diagnostics_mismatch', `${graph}: ${d.file}`);
+      else {
+        // Printable is not sanitized: every line is checked against the format's own
+        // grammar (dependency-audit/lib/retained.mjs), the one the producer writes to.
+        const check = checkDiagnosticProjection(raw, { graph });
+        if (!check.ok) problem('assessment.diagnostics_unsafe', `${graph}: ${d.file} is not a diagnostic in the sanitized format`);
+        else if (check.truncated !== d.truncated) problem('assessment.diagnostics_mismatch', `${graph}: ${d.file} truncation is not what the descriptor states`);
+      }
     }
   }
   for (const path of files.keys()) if (!expected.has(path)) problem('assessment.unexpected_file', path);
