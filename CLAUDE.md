@@ -3940,7 +3940,18 @@ writing new tag, price/menu or date-range logic:
     the only one this panel's focus return rests on: removing it fails all ten specs, on
     both hosts, plus the dropdown's own pick and custom-Cancel controls. Both staged calendars now return focus
     the same way, through their host's trap. `closeComparison` KEEPS its explicit call,
-    and must: the comparison menu has no focus trap, so nothing else would restore it
+    and must: the comparison menu has no focus trap, so nothing else would restore it.
+    **THE RANGE CALENDAR DELIBERATELY DOES NOT CLOSE ON TAB (PICKER-FOCUS-RESTORE-03).**
+    It is a modal dialog on both hosts, so Tab WRAPS inside it (past the last control to
+    the first, Shift+Tab the other way) and it closes only through Apply, Cancel, Escape
+    or the backdrop. Closing on Tab would discard the staged selection; the comparison
+    menu differs because it has no trap and commits on pick, so leaving it loses nothing.
+    Six regression specs pin the wrap on both hosts by focusing the trap's edge anchors
+    (a synthetic Tab moves no focus, and a real Tab lands on an anchor). Mutations:
+    switching off the popover panel's trap fails the three desktop specs, the sheet's
+    trap the three mobile ones, and turning the panel's trap ON inside the sheet (two
+    traps nested) fails the mobile three, which is what the "exactly one enabled trap"
+    spec is for
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.

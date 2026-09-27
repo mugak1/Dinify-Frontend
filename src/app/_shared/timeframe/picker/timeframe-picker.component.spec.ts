@@ -395,6 +395,75 @@ describe('TimeframePickerComponent', () => {
     });
   });
 
+  // ─── Tab stays inside the range calendar (PICKER-FOCUS-RESTORE-03) ────────────────
+  //
+  // Regression pins for behaviour that already held. The calendar is a MODAL dialog on
+  // both hosts, so Tab wraps inside it rather than leaving; it closes only through Apply,
+  // Cancel, Escape or the backdrop. Closing on Tab, as the comparison menu now does, would
+  // discard the staged selection, and the menu differs because it has no trap and commits
+  // on pick.
+  //
+  // A synthetic Tab keydown moves no focus, so these specs do what a real Tab does inside a
+  // CDK focus trap: it lands on one of the trap's edge anchors, and the anchor sends focus
+  // to the far end. Popover: the panel's own trap. Sheet: the sheet's trap (the panel's is
+  // switched off there, which is why only one enabled pair is expected).
+  describe('Tab stays inside the range calendar', () => {
+    function openCalendar(desktop: boolean): { dialog: HTMLElement; anchors: HTMLElement[] } {
+      bp$.next({ matches: desktop, breakpoints: {} });
+      fixture.detectChanges();
+      trigger().click();
+      fixture.detectChanges();
+      const dialog = (
+        desktop
+          ? overlayPanel()!.querySelector('[role="dialog"]')
+          : fixture.nativeElement.querySelector('[role="dialog"]')
+      ) as HTMLElement;
+      const scope = desktop ? overlayPanel()! : fixture.nativeElement;
+      const anchors = (
+        Array.from(scope.querySelectorAll('.cdk-focus-trap-anchor')) as HTMLElement[]
+      ).filter((a) => a.getAttribute('tabindex') === '0');
+      return { dialog, anchors };
+    }
+
+    /** What Tab can land on inside the dialog, in DOM order. */
+    function tabStops(dialog: HTMLElement): HTMLElement[] {
+      return (Array.from(dialog.querySelectorAll('button, [tabindex]')) as HTMLElement[]).filter(
+        (el) =>
+          !(el as HTMLButtonElement).disabled &&
+          el.getAttribute('tabindex') !== '-1' &&
+          !el.classList.contains('cdk-focus-trap-anchor'),
+      );
+    }
+
+    for (const desktop of [true, false]) {
+      const host = desktop ? 'desktop' : 'mobile';
+
+      it(`${host}: exactly one enabled trap surrounds the calendar`, () => {
+        const { dialog, anchors } = openCalendar(desktop);
+        expect(dialog).toBeTruthy();
+        expect(anchors.length).toBe(2);
+        expect(dialog.contains(document.activeElement)).toBeTrue();
+      });
+
+      it(`${host}: Tab past the last control wraps to the first`, () => {
+        const { dialog, anchors } = openCalendar(desktop);
+        const stops = tabStops(dialog);
+        anchors[anchors.length - 1].focus();
+        expect(document.activeElement).toBe(stops[0]);
+        expect(overlayPanel() ?? fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
+        expect(emitted.length).toBe(0);
+      });
+
+      it(`${host}: Shift+Tab past the first control wraps to the last`, () => {
+        const { dialog, anchors } = openCalendar(desktop);
+        const stops = tabStops(dialog);
+        anchors[0].focus();
+        expect(document.activeElement).toBe(stops[stops.length - 1]);
+        expect(emitted.length).toBe(0);
+      });
+    }
+  });
+
   // ─── Comparison dropdown (TIMEFRAME-02A) ───────────────────────────────────────────
   //
   // A SECOND overlay on this component, with its own panelClass — `overlayPanel()` above
