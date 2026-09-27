@@ -497,9 +497,10 @@ npm's event shapes into `<graph>.npm-diagnostics.txt` beside the raw outputs, at
 1 MiB, oldest events dropped first. It is not the raw log, and its first line says so
 (`SANITIZED npm events, NOT a complete raw log`): argv, config, cwd, paths, stack traces,
 credentials in URLs, query strings, unusual URL paths, markup and control characters do
-not survive, and the file is printable ASCII by construction. `~/.npm/_logs` is never
-read, a log this invocation did not ask for is never read, and nothing the invocation
-did not create is removed.
+not survive, and the file is printable ASCII by construction. Before writing, the
+producer checks its own bytes against the format's grammar (below) and keeps nothing it
+would not accept (`capture_failed`). `~/.npm/_logs` is never read, a log this invocation
+did not ask for is never read, and nothing the invocation did not create is removed.
 
 **What the record says.** Each graph gains an OPTIONAL `diagnostics` key:
 
@@ -518,8 +519,18 @@ and every workflow file are unchanged.
 stays valid. PRESENT, `validateAssessment` holds it to its exact shape
 (`assessment.bad_diagnostics`), and `inspectAssessment` requires the declared file to
 exist (`assessment.diagnostics_missing`), to match its length and digest
-(`assessment.diagnostics_mismatch`) and to be a sanitized projection
+(`assessment.diagnostics_mismatch`) and to be a diagnostic in the sanitized format
 (`assessment.diagnostics_unsafe`); an undeclared file is still `assessment.unexpected_file`.
+**Printable is not sanitized**: a raw npm line such as `9 verbose argv "--token=…"` is
+printable ASCII too, and the first cut accepted it (Codex P2 on #709, valid). The format
+is therefore checked line by line against ONE grammar, `checkDiagnosticProjection` in
+`dependency-audit/lib/retained.mjs`: the five header lines exactly (the graph named must
+be the descriptor's, and the stated counts must agree with the events), then only event
+lines in exactly the shapes the renderer writes, every URL in `safeUrl`'s output form. The
+truncation the bytes state must equal the descriptor's (`assessment.diagnostics_mismatch`).
+It checks shape, not meaning: text that fits an allowed field (a registry host, a timing
+name) is not detectable by a grammar; the producer fills those fields only from the
+matching fields of npm's own event lines.
 Bytes changed after admission are caught by the admitted identity the publisher already
 compares — the document digest and the tree digest — as `publisher.assessment_mismatch`,
 even when the descriptor is rewritten to match.
@@ -534,7 +545,12 @@ arrives), not when it starts; several can be outstanding at once; a request can 
 waiting on a lock, a socket or a retry; and the last line in the file is not evidence of
 which request, if any, stalled. Reading that source also corrected the reader: a bulk POST
 whose completion IS logged is no longer listed as started-without-completion merely
-because the log ends before the `audit report` line.
+because the log ends before the `audit report` line. Review on #709 found the other two
+corrections in this section: the receiving grammar (above), and that the byte budget was
+measured against a header stating `kept 0` while the written header states the real
+counts — up to a few digits wider — so a cap landing in that gap discarded the whole
+diagnostic as `capture_failed` instead of truncating it. The written bytes are now
+re-measured and further oldest events dropped until they fit.
 
 **Frontend-only.** Dinify-Admin's `dependency-audit/lib/retained.mjs` is the file before
 this extension (`5453f5f2…7ab5`, pinned by Admin's own test as Frontend's file at
@@ -584,11 +600,14 @@ restored byte for byte (digest checked). The count is failing tests.
 
 | mutation | fails |
 |---|---|
-| retention disabled (every scan `unavailable`) | 20 `retained`, 9 `dependency-evidence`, the workflow CONTROL |
-| receiving integrity bypassed (a declared file accepted unchecked) | 4 `dependency-evidence` (missing, length, digest, unsanitized); the after-admission case still refuses, through the admitted identity |
+| retention disabled (every scan `unavailable`) | 23 `retained`, 20 `dependency-evidence`, the workflow CONTROL |
+| receiving integrity bypassed (a declared file accepted unchecked) | 14 `dependency-evidence` (missing, length, digest, grammar, truncation); the after-admission case still refuses, through the admitted identity |
+| the receiver back to header-and-printable only (the Codex finding) | 10 `dependency-evidence` (every grammar regression and the truncation contradiction) |
+| the producer writes without checking its own bytes | none — defence in depth: it can only refuse what a renderer defect produced, and the row below is that case |
+| unmatched lines kept raw | 8 `retained`: the producer's check refuses its own output (`capture_failed`), so nothing raw is written and every scenario expecting a kept diagnostic fails |
+| the written header not re-measured (the Claude review finding) | 1 `retained` (the cap sweep) |
 | a kept diagnostic softens a timeout | 1 `retained`, 3 `dependency-evidence` (the CLI hang, its summary, the recovery control), the workflow's real hang |
 | a relative root accepted | 1 `retained` |
-| unmatched lines kept raw | 2 `retained` (sanitization, the real line shapes) |
 | the one-line bulk request and `{}` report not recognised (the probe's defect) | 1 `retained` (the real line shapes) |
 | a logged bulk POST completion not clearing its marker | 1 `retained` |
 
@@ -820,7 +839,7 @@ desirable. `release/cli.mjs stamp` asserts the approved origin is present in the
 
 ## Tests, and what each kind proves
 
-`npm run test:release` runs the CLI self-test, then 796 tests in about 110 seconds
+`npm run test:release` runs the CLI self-test, then 807 tests in about 110 seconds
 (four cores; most of it is the workflow simulation). Each is labelled
 **REGRESSION** (pins a finding reproduced before its fix: on `3386724` for the
 baseline, on `ce6b892` for what review on #687 found), **CONTRACT** (a rule this
@@ -837,7 +856,7 @@ change introduces) or **CONTROL** (something that must not change).
 | `peers.test.mjs` | 30 | receipts from real git, public verification, serving over real TLS |
 | `manifest.test.mjs` | 50 | the stamp and the manifest schema |
 | `contract.test.mjs` | 9 | the D01 digest across languages |
-| `dependency-evidence.test.mjs` | 69 | B2.2 through the real CLI: the stamp binding and its refusals (a mid-build input change, a blocking certification audit, a genuine pre-B2.2 stamp), `prepare-publisher` (pinned npm, scripts disabled, measured, unsafe entries refused), `assess` (three graphs, scan-only replay, trusted policy, blocking/incomplete/not performed) and the `publish` last boundary; the scanner diagnostics as evidence (a relative `--out`, every single-fact refusal, bytes changed after admission) and a real 30-second hang through the CLI |
+| `dependency-evidence.test.mjs` | 80 | B2.2 through the real CLI: the stamp binding and its refusals (a mid-build input change, a blocking certification audit, a genuine pre-B2.2 stamp), `prepare-publisher` (pinned npm, scripts disabled, measured, unsafe entries refused), `assess` (three graphs, scan-only replay, trusted policy, blocking/incomplete/not performed) and the `publish` last boundary; the scanner diagnostics as evidence (a relative `--out`, every single-fact refusal, bytes changed after admission) and a real 30-second hang through the CLI |
 | `readiness.test.mjs` | 56 | the recorded wait against every way a refusal can differ from it, and the real `readiness` and `outcome` commands through files |
 | `workflow-simulation.test.mjs` | 66 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher — including the non-publishing evaluation matrix, both outcome steps and the publisher/credential counts, an assessment with and without scanner diagnostics, and a real 30-second application hang |
 | `workflow-drift.test.mjs` | 27 | the three workflow files held to the policy, statically — the publish job keyed on the admitted decision, the readiness wrapper translating one status |

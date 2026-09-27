@@ -627,6 +627,46 @@ describe('the scanner\'s diagnostics as evidence — declared, hashed, and refus
     });
   }
 
+  // PRINTABLE is not SANITIZED (Codex P2 on #709, valid). Every case below is printable
+  // ASCII and re-hashed to match its descriptor, so the old header-and-character-set check
+  // accepted all of them; only the format's own grammar can refuse them. A producer
+  // regression that wrote a raw npm line would otherwise carry it into the artifact.
+  const rewrite = (doc, f, edit) => {
+    const bad = Buffer.from(edit(f.get(app(doc).file).toString('latin1')), 'latin1');
+    f.set(app(doc).file, bad);
+    app(doc).bytes = bad.length;
+    app(doc).sha256 = sha256Hex(bad);
+  };
+  const grammarCases = [
+    ['a raw printable npm line', (t) => `${t}9 verbose argv "--token=secret"\n`, 'assessment.diagnostics_unsafe'],
+    ['an event carrying a query string', (t) => `${t}9 http-complete GET 200 https://registry.npmjs.org/x?token=abc 5ms\n`, 'assessment.diagnostics_unsafe'],
+    ['an event carrying credentials in its URL', (t) => `${t}9 packument-request-start GET https://alice:pw@registry.npmjs.org/x\n`, 'assessment.diagnostics_unsafe'],
+    ['an event with trailing free text', (t) => `${t}9 exit 0 token=secret\n`, 'assessment.diagnostics_unsafe'],
+    ['a comment line after the header', (t) => `${t}# note: token=secret\n`, 'assessment.diagnostics_unsafe'],
+    ['a header naming another graph', (t) => t.replace('# graph: application\n', '# graph: scanner\n'), 'assessment.diagnostics_unsafe'],
+    ['a header whose counts disagree with the events', (t) => t.replace(/kept as events: (\d+)/, (_m, n) => `kept as events: ${Number(n) + 1}`), 'assessment.diagnostics_unsafe'],
+    ['a reading line that is not the format\'s own', (t) => t.replace(/^# reading: .*$/m, '# reading: the last line is the request that stalled.'), 'assessment.diagnostics_unsafe'],
+    ['an empty line between events', (t) => `${t}\n9 exit 0\n`, 'assessment.diagnostics_unsafe'],
+  ];
+  for (const [what, edit, code] of grammarCases) {
+    test(`REGRESSION (printable is not sanitized): ${what}, re-hashed to match, is refused as ${code}`, () => {
+      assert.deepEqual(problemCodes(variant(files, (doc, f) => rewrite(doc, f, edit))), [code]);
+    });
+  }
+
+  test('REGRESSION: a truncation flag the bytes contradict is refused as assessment.diagnostics_mismatch', () => {
+    assert.equal(app(inspectAssessment(files).doc).truncated, false, 'premise: the baseline diagnostic is complete');
+    assert.deepEqual(problemCodes(variant(files, (doc) => { app(doc).truncated = true; })), ['assessment.diagnostics_mismatch']);
+  });
+
+  test('CONTROL: an event appended in the format\'s own grammar, with the counts kept true, is still accepted', () => {
+    const v = variant(files, (doc, f) => rewrite(doc, f, (t) => t
+      .replace(/kept as events: (\d+)/, (_m, n) => `kept as events: ${Number(n) + 1}`)
+      .replace(/lines examined: (\d+)/, (_m, n) => `lines examined: ${Number(n) + 1}`)
+      .concat('99 http-complete GET 200 https://registry.npmjs.org/<path-omitted> 5ms cache-miss\n')));
+    assert.deepEqual(problemCodes(v), []);
+  });
+
   test('CONTRACT: bytes changed AFTER admission are refused at the publisher\'s boundary — whether or not the descriptor was changed to match', () => {
     const admitted = inspectAssessment(files);
     const file = admitted.doc.graphs.application.diagnostics.file;

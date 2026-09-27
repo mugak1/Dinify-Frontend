@@ -224,6 +224,8 @@ function replayState(dir) {
 
 export const DIAGNOSTIC_FORMAT = 'dinify.npm-diagnostic-events/1';
 export const DIAGNOSTIC_HEADER = `# ${DIAGNOSTIC_FORMAT}: SANITIZED npm events, NOT a complete raw log`;
+const DIAGNOSTIC_READING = '# reading: these are the LAST OBSERVED npm events. npm logs an http-complete line when a response body ENDS (for an error status, when the status arrives);'
+  + ' a request still in flight when the scanner stopped has no such line, several requests can be outstanding at once, and the last line is not evidence of which request, if any, stalled.';
 /** The most retained bytes per graph. The receiving side refuses anything larger. */
 export const DIAGNOSTIC_MAX_BYTES = 1024 * 1024;
 /** How much of a log's END is read. A log is never read whole just to be sliced. */
@@ -362,8 +364,7 @@ function renderDiagnostics({ graph, text, sourceBytes, readBytes, headUnread, ma
     `# graph: ${graph}`,
     `# source: npm debug log, ${sourceBytes} bytes; ${headUnread ? `only its last ${readBytes} bytes were read` : 'read whole'}`,
     `# lines examined: ${lines.length}; kept as events: ${events.length - dropped}; omitted (not on the allowlist): ${omitted}; oldest events dropped to fit ${maxBytes} bytes: ${dropped}`,
-    '# reading: these are the LAST OBSERVED npm events. npm logs an http-complete line when a response body ENDS (for an error status, when the status arrives); a request still in flight when the scanner stopped has no such line,'
-      + ' several requests can be outstanding at once, and the last line is not evidence of which request, if any, stalled.',
+    DIAGNOSTIC_READING,
   ].map((l) => `${l}\n`).join('');
   const budget = maxBytes - Buffer.byteLength(header(events.length));
   let kept = 0;
@@ -374,9 +375,70 @@ function renderDiagnostics({ graph, text, sourceBytes, readBytes, headUnread, ma
     used += size;
     kept += 1;
   }
-  const dropped = events.length - kept;
-  const bytes = Buffer.from(header(dropped) + events.slice(dropped).map((e) => `${e}\n`).join(''), 'latin1');
+  // The budget above was measured with the header stating `kept 0 / dropped N`; the header
+  // written states the REAL counts, which can be a few digits wider. Measure what is
+  // actually written, and drop further oldest events until it fits. Bounded: the overshoot
+  // is a few digits, and each drop removes a whole event line (>= 9 bytes) while the header
+  // grows by at most one byte.
+  const render = (d) => Buffer.from(header(d) + events.slice(d).map((e) => `${e}\n`).join(''), 'latin1');
+  let dropped = events.length - kept;
+  let bytes = render(dropped);
+  while (bytes.length > maxBytes && dropped < events.length) {
+    dropped += 1;
+    bytes = render(dropped);
+  }
   return { bytes, truncated: headUnread || dropped > 0 };
+}
+
+// THE FORMAT'S GRAMMAR — what a retained diagnostic may contain, line by line. Printable
+// ASCII is necessary and NOT sufficient: a raw npm line (`9 verbose argv "--token=..."`) is
+// printable too. Every line must be one of the five header lines, stating counts that agree
+// with the events, or an event in EXACTLY the shape renderDiagnostics writes, with every
+// URL in safeUrl's output form. The producer checks its own bytes against this before
+// writing and the receiving side (release/lib/dependency-evidence.mjs) checks them again,
+// so the two cannot disagree about what "sanitized" means.
+const U = String.raw`(?:<url-omitted>|https?://(?:<credentials-omitted>@)?[A-Za-z0-9.-]{1,253}(?::\d{1,5})?(?:/<path-omitted>|/[A-Za-z0-9%._~@+/-]{0,512})(?:\?<query-omitted>)?)`;
+const EVENT_SHAPES = [
+  String.raw`using (?:npm|node) \d{1,4}\.\d{1,4}\.\d{1,4}`,
+  'audit-bulk-request-start',
+  'audit-report-(?:received|absent)',
+  `packument-request-start GET ${U}`,
+  String.raw`http-complete [A-Z]{3,7} \d{3} ${U} \d{1,9}ms(?: attempt-\d{1,3})?(?: cache-[a-z]{1,20})?`,
+  String.raw`http-cache-hit ${U} \d{1,9}ms`,
+  String.raw`http-attempt-failed [A-Z]{3,7} ${U} attempt-\d{1,3} [A-Z0-9_]{1,40}`,
+  '(?:audit-error [A-Za-z]{1,40}Error)',
+  'audit-error-code [A-Z0-9_]{2,40}',
+  'audit-error-type [a-z][a-z-]{1,39}',
+  `audit-request-failed ${U} (?:reason-omitted|E[A-Z0-9_]{2,40}(?: E[A-Z0-9_]{2,40}){0,2})`,
+  'audit-endpoint-error',
+  String.raw`timing [A-Za-z0-9:._-]{1,80} \d{1,9}ms`,
+  String.raw`(?:exit|code) -?\d{1,5}`,
+];
+const EVENT_LINE_RE = new RegExp(String.raw`^\d{1,9} (?:${EVENT_SHAPES.join('|')})$`);
+const SOURCE_RE = /^# source: npm debug log, (\d{1,15}) bytes; (?:read whole|only its last (\d{1,9}) bytes were read)$/;
+const COUNTS_RE = /^# lines examined: (\d{1,9}); kept as events: (\d{1,9}); omitted \(not on the allowlist\): (\d{1,9}); oldest events dropped to fit (\d{1,9}) bytes: (\d{1,9})$/;
+
+/**
+ * Is `bytes` a diagnostic this format could have produced for `graph`? Returns
+ * {ok, truncated}: `truncated` is what the bytes themselves state (a partial read or
+ * dropped events), for the caller to compare with a descriptor. Never throws.
+ */
+export function checkDiagnosticProjection(bytes, { graph }) {
+  const no = { ok: false, truncated: null };
+  const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(String(bytes), 'latin1');
+  if (buf.length === 0 || buf.length > DIAGNOSTIC_MAX_BYTES || buf[buf.length - 1] !== 0x0a) return no;
+  if (!buf.every((b) => b === 0x0a || (b >= 0x20 && b <= 0x7e))) return no;
+  const lines = buf.toString('latin1').slice(0, -1).split('\n');
+  if (lines.length < 5 || lines[0] !== DIAGNOSTIC_HEADER || lines[1] !== `# graph: ${graph}` || lines[4] !== DIAGNOSTIC_READING) return no;
+  const source = SOURCE_RE.exec(lines[2]);
+  const counts = COUNTS_RE.exec(lines[3]);
+  if (!source || !counts) return no;
+  const [examined, kept, omitted, fit, dropped] = counts.slice(1).map(Number);
+  const events = lines.slice(5);
+  if (events.length !== kept || kept + dropped + omitted !== examined || fit > DIAGNOSTIC_MAX_BYTES) return no;
+  if (source[2] !== undefined && Number(source[2]) > DIAGNOSTIC_READ_WINDOW) return no;
+  if (!events.every((e) => EVENT_LINE_RE.test(e))) return no;
+  return { ok: true, truncated: source[2] !== undefined || dropped > 0 };
 }
 
 /**
@@ -399,6 +461,9 @@ function captureDiagnostics({ graph, logsDir, root, evidenceDir, limits }) {
   try { tail = readTail(join(logsDir, entries[0].name), limits.readWindow); } catch { return unavailable('unreadable'); }
   const { bytes, truncated } = renderDiagnostics({ graph, ...tail, maxBytes: limits.maxBytes });
   if (bytes.length > limits.maxBytes) return unavailable('capture_failed');
+  // Written only if the receiving side would accept it: the grammar is the one definition.
+  const check = checkDiagnosticProjection(bytes, { graph });
+  if (!check.ok || check.truncated !== truncated) return unavailable('capture_failed');
   const file = diagnosticFileName(graph);
   const path = join(evidenceDir, file);
   let created = false;

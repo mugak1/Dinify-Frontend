@@ -23,7 +23,9 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { DIAGNOSTIC_MAX_BYTES, DIAGNOSTIC_READ_WINDOW, collect, readDiagnosticEvents } from '../lib/retained.mjs';
+import {
+  DIAGNOSTIC_MAX_BYTES, DIAGNOSTIC_READ_WINDOW, checkDiagnosticProjection, collect, readDiagnosticEvents,
+} from '../lib/retained.mjs';
 import { inventory, sha256 } from '../lib/npm.mjs';
 import { makeProject, npmReport } from './project.mjs';
 
@@ -355,6 +357,30 @@ describe('bounded: a log is read from its END within a fixed window, and at most
     } finally { s.cleanup(); }
   });
 
+  // The budget used to be measured against the header written with `kept 0 / dropped N`,
+  // while the header actually written states the REAL kept and dropped counts — which can
+  // be wider (500 kept + 1,500 dropped is 3+4 digits; 0 + 2,000 is 1+4). A budget landing
+  // in that gap produced bytes over the cap, and the whole diagnostic was then discarded
+  // as capture_failed: the over-full case this change exists for (Claude review on #709).
+  it('REGRESSION: whatever the cap, an over-full log is TRUNCATED to fit it — never discarded because the real counts are wider than the budgeted ones', () => {
+    const s = setup();
+    try {
+      const lines = Array.from({ length: 2000 }, (_, i) => `http fetch GET 200 https://registry.npmjs.org/p-${String(i).padStart(5, '0')} 1ms`);
+      const width = '1999 http-complete GET 200 https://registry.npmjs.org/p-01999 1ms\n'.length;
+      const lost = [];
+      for (let maxBytes = 32000; maxBytes < 32000 + 2 * width; maxBytes += 1) {
+        const c = run(s, npmLike({ lines }), { diagnostics: { root: s.logsRoot, forbidden: [s.root, s.evidence], limits: { maxBytes } } });
+        const d = c.record.diagnostics;
+        if (d.state !== 'retained') { lost.push(`${maxBytes}: ${d.reason}`); continue; }
+        assert.ok(d.bytes <= maxBytes, `${d.bytes} bytes kept under a cap of ${maxBytes}`);
+        assert.ok(d.bytes > maxBytes - width - 8, `${d.bytes} bytes under a cap of ${maxBytes}: more was dropped than the cap required`);
+        assert.equal(d.truncated, true);
+        rmSync(join(s.evidence, d.file));
+      }
+      assert.deepEqual(lost, [], 'no cap loses the diagnostic');
+    } finally { s.cleanup(); }
+  });
+
   it('CONTRACT: a window that starts mid-line drops the partial line, and a caller cannot raise the cap', () => {
     const s = setup();
     try {
@@ -435,5 +461,54 @@ describe('reading a kept diagnostic back: the last events, and what the log show
     ]));
     assert.deepEqual(r.unfinished, []);
     assert.equal(r.count, 7);
+  });
+});
+
+describe('the format\'s grammar — ONE definition, which the producer writes to and the receiver checks', () => {
+  const keep = (lines, limits) => {
+    const s = setup();
+    try {
+      const c = run(s, npmLike({ lines }), limits ? { diagnostics: { root: s.logsRoot, forbidden: [s.root, s.evidence], limits } } : {});
+      assert.equal(c.record.diagnostics.state, 'retained', JSON.stringify(c.record.diagnostics));
+      return { d: c.record.diagnostics, bytes: readFileSync(join(s.evidence, c.record.diagnostics.file)) };
+    } finally { s.cleanup(); }
+  };
+
+  it('CONTRACT: whatever the producer keeps — ordinary, hostile, over-full or read from a window — the grammar accepts, stating the descriptor\'s own truncation', () => {
+    const many = Array.from({ length: 30000 }, (_, i) => `http fetch GET 200 https://registry.npmjs.org/pkg-${i} 1ms`);
+    for (const [what, lines, limits] of [
+      ['ordinary', HEALTHY_LOG],
+      ['every event shape', [
+        'info using npm@11.19.1', 'info using node@v24.21.0', "silly audit bulk request { a: [ '1.0.0' ] }", 'silly audit report {}', 'silly audit report null',
+        'silly packumentCache corgi:https://registry.npmjs.org/a cache-miss', 'http fetch GET 200 https://registry.npmjs.org/a 9ms attempt #2 (cache miss)',
+        'http cache https://registry.npmjs.org/b 1ms (cache hit)', 'http fetch GET https://registry.npmjs.org/c attempt 1 failed with ETIMEDOUT',
+        'verbose audit error FetchError: x', "verbose audit error   code: 'ECONNRESET',", "verbose audit error   type: 'system',",
+        `warn audit request to ${BULK} failed, reason: socket hang up ECONNRESET`, `warn audit request to ${BULK} failed, reason: gone`,
+        'error audit endpoint returned an error', 'timing command:audit Completed in 42ms', 'verbose exit 1', 'verbose code 1',
+        'http fetch GET 200 https://u:p@registry.npmjs.org/x?q=1 3ms', 'http fetch GET 200 https://registry.npmjs.org/<x> 3ms', 'http fetch GET 200 ftp://x/y 3ms',
+      ]],
+      ['over-full', many],
+      ['read from a window', many, { readWindow: 300 }],
+    ]) {
+      const { d, bytes } = keep(lines, limits);
+      assert.deepEqual(checkDiagnosticProjection(bytes, { graph: 'application' }), { ok: true, truncated: d.truncated }, what);
+    }
+  });
+
+  it('CONTRACT: printable is not sanitized — a raw npm line, a foreign graph, false counts or a stray comment are each refused', () => {
+    const { bytes } = keep(HEALTHY_LOG);
+    const text = bytes.toString('latin1');
+    assert.equal(checkDiagnosticProjection(bytes, { graph: 'application' }).ok, true, 'premise: the original is accepted');
+    for (const [what, edited] of [
+      ['a raw npm line', `${text}9 verbose argv "--token=secret"\n`],
+      ['an allowlisted event with free text after it', `${text}9 exit 0 token=secret\n`],
+      ['a URL outside safeUrl\'s form', `${text}9 http-cache-hit https://registry.npmjs.org/x?token=abc 1ms\n`],
+      ['a stray comment', `${text}# token=secret\n`],
+      ['false counts', text.replace(/kept as events: (\d+)/, (_m, n) => `kept as events: ${Number(n) - 1}`)],
+      ['no final newline', text.slice(0, -1)],
+    ]) {
+      assert.equal(checkDiagnosticProjection(Buffer.from(edited, 'latin1'), { graph: 'application' }).ok, false, what);
+    }
+    assert.equal(checkDiagnosticProjection(bytes, { graph: 'scanner' }).ok, false, 'another graph\'s name');
   });
 });

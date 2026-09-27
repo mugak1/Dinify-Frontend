@@ -33,7 +33,7 @@
 
 import { canonicalJson, digestOf, digestOfValue, sha256Hex, treeDigest } from './canonical.mjs';
 import {
-  DIAGNOSTIC_HEADER, DIAGNOSTIC_MAX_BYTES, DIAGNOSTIC_REASONS, INSTALLED_OBSERVATION, RETAINED_OBSERVATION, diagnosticFileName, retainedInventory,
+  DIAGNOSTIC_MAX_BYTES, DIAGNOSTIC_REASONS, INSTALLED_OBSERVATION, RETAINED_OBSERVATION, checkDiagnosticProjection, diagnosticFileName, retainedInventory,
 } from '../../dependency-audit/lib/retained.mjs';
 import { readReport, toolingScope } from '../../dependency-audit/lib/npm.mjs';
 import { evaluate } from '../../dependency-audit/lib/core.mjs';
@@ -523,10 +523,6 @@ function validateDiagnostic(graph, d) {
   return bad(`state ${JSON.stringify(d.state)}`);
 }
 
-/** Printable ASCII and newlines only, opening with the format's header line. */
-const isSanitizedDiagnostic = (bytes) => bytes.subarray(0, Buffer.byteLength(DIAGNOSTIC_HEADER) + 1).toString('latin1') === `${DIAGNOSTIC_HEADER}\n`
-  && bytes.every((b) => b === 0x0a || (b >= 0x20 && b <= 0x7e));
-
 /**
  * The assessment directory as data: the document, its digest, the tree digest, and every
  * raw output re-checked against the digest the document recorded — and every DECLARED
@@ -562,7 +558,13 @@ export function inspectAssessment(files) {
       const raw = files.get(d.file);
       if (!raw) problem('assessment.diagnostics_missing', `${graph}: ${d.file}`);
       else if (raw.length !== d.bytes || sha256Hex(raw) !== d.sha256) problem('assessment.diagnostics_mismatch', `${graph}: ${d.file}`);
-      else if (!isSanitizedDiagnostic(raw)) problem('assessment.diagnostics_unsafe', `${graph}: ${d.file} is not a sanitized diagnostic`);
+      else {
+        // Printable is not sanitized: every line is checked against the format's own
+        // grammar (dependency-audit/lib/retained.mjs), the one the producer writes to.
+        const check = checkDiagnosticProjection(raw, { graph });
+        if (!check.ok) problem('assessment.diagnostics_unsafe', `${graph}: ${d.file} is not a diagnostic in the sanitized format`);
+        else if (check.truncated !== d.truncated) problem('assessment.diagnostics_mismatch', `${graph}: ${d.file} truncation is not what the descriptor states`);
+      }
     }
   }
   for (const path of files.keys()) if (!expected.has(path)) problem('assessment.unexpected_file', path);
