@@ -236,6 +236,165 @@ describe('TimeframePickerComponent', () => {
       expect(emitted[0].preset).toBe('today');
     });
   });
+  // ─── Focus return on close (PICKER-FOCUS-RESTORE-00) ──────────────────────────────
+  //
+  // Every way the range calendar closes returns focus to the date trigger, on both hosts.
+  // `HTMLElement.click()` does NOT focus a button, which is exactly what a pointer click
+  // does in Safari and in Firefox on macOS, so these specs start with focus on <body>.
+  // Before the fix the panel's focus trap captured <body> at open and restored it at
+  // close, and the user was dropped out of the header.
+  describe('focus return on close', () => {
+    function startUnfocused(): void {
+      (document.activeElement as HTMLElement | null)?.blur();
+      expect(document.activeElement).not.toBe(trigger());
+    }
+
+    describe('desktop (popover)', () => {
+      beforeEach(() => {
+        bp$.next({ matches: true, breakpoints: {} });
+        fixture.detectChanges();
+        startUnfocused();
+        trigger().click();
+        fixture.detectChanges();
+      });
+
+      it('after Apply', () => {
+        overlayButton('Today')!.click();
+        fixture.detectChanges();
+        overlayButton('Apply')!.click();
+        fixture.detectChanges();
+        expect(overlayPanel()).toBeNull();
+        expect(document.activeElement).toBe(trigger());
+      });
+
+      it('after Cancel', () => {
+        overlayButton('Cancel')!.click();
+        fixture.detectChanges();
+        expect(document.activeElement).toBe(trigger());
+      });
+
+      it('after a backdrop click', () => {
+        (document.querySelector('.cdk-overlay-backdrop') as HTMLElement).dispatchEvent(
+          new MouseEvent('click'),
+        );
+        fixture.detectChanges();
+        expect(document.activeElement).toBe(trigger());
+      });
+
+      it('after Escape', () => {
+        overlayPanel()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        fixture.detectChanges();
+        expect(document.activeElement).toBe(trigger());
+      });
+
+      it('when a breakpoint flip discards the open popover', () => {
+        bp$.next({ matches: false, breakpoints: {} });
+        fixture.detectChanges();
+        expect(overlayPanel()).toBeNull();
+        expect(document.activeElement).toBe(trigger());
+      });
+    });
+
+    describe('mobile (bottom sheet)', () => {
+      const sheetButton = (text: string): HTMLButtonElement =>
+        (
+          Array.from(
+            fixture.nativeElement.querySelectorAll('app-date-range-panel button'),
+          ) as HTMLButtonElement[]
+        ).find((b) => (b.textContent ?? '').trim() === text)!;
+
+      beforeEach(() => {
+        bp$.next({ matches: false, breakpoints: {} });
+        fixture.detectChanges();
+        startUnfocused();
+        trigger().click();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
+      });
+
+      // Each spec runs change detection after the close, because that pass is where the
+      // sheet's focus trap is destroyed and restores what it captured. Asserting before it
+      // would pass against the unfixed code and prove nothing.
+      it('after Apply', () => {
+        sheetButton('Today').click();
+        fixture.detectChanges();
+        sheetButton('Apply').click();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.activeElement).toBe(trigger());
+      });
+
+      it('after Cancel', () => {
+        sheetButton('Cancel').click();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.activeElement).toBe(trigger());
+      });
+
+      it('after Escape', () => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.activeElement).toBe(trigger());
+      });
+
+      it('after a backdrop tap', () => {
+        (fixture.nativeElement.querySelector('.bg-black\\/50') as HTMLElement).click();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.activeElement).toBe(trigger());
+      });
+    });
+
+    // A pointer click that does not focus the button leaves focus wherever it already was,
+    // and the host's focus trap captures THAT element at open and restores it at close.
+    // What makes the trigger win is focusing it in `open()`, before either host captures
+    // anything. A focus call inside `close()` would not help on the sheet path: the sheet's
+    // restore runs in the change-detection pass after `close()` returns, and overrides it.
+    describe('when focus was on another control before the click', () => {
+      function openFromElsewhere(): void {
+        arrow('Previous period').focus();
+        expect(document.activeElement).toBe(arrow('Previous period'));
+        trigger().click();
+        fixture.detectChanges();
+      }
+
+      it('mobile: Cancel returns focus to the trigger, not the control focused before', () => {
+        bp$.next({ matches: false, breakpoints: {} });
+        fixture.detectChanges();
+        openFromElsewhere();
+        (
+          Array.from(
+            fixture.nativeElement.querySelectorAll('app-date-range-panel button'),
+          ) as HTMLButtonElement[]
+        )
+          .find((b) => (b.textContent ?? '').trim() === 'Cancel')!
+          .click();
+        fixture.detectChanges();
+        expect(document.activeElement).toBe(trigger());
+      });
+
+      it('desktop: Cancel returns focus to the trigger, not the control focused before', () => {
+        bp$.next({ matches: true, breakpoints: {} });
+        fixture.detectChanges();
+        openFromElsewhere();
+        overlayButton('Cancel')!.click();
+        fixture.detectChanges();
+        expect(document.activeElement).toBe(trigger());
+      });
+    });
+
+    it('CONTROL: an arrow step opens nothing and moves no focus', () => {
+      bp$.next({ matches: true, breakpoints: {} });
+      fixture.detectChanges();
+      startUnfocused();
+      arrow('Previous period').click();
+      fixture.detectChanges();
+      expect(overlayPanel()).toBeNull();
+      expect(document.activeElement).not.toBe(trigger());
+    });
+  });
+
   // ─── Comparison dropdown (TIMEFRAME-02A) ───────────────────────────────────────────
   //
   // A SECOND overlay on this component, with its own panelClass — `overlayPanel()` above
