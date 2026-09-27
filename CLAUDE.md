@@ -3913,10 +3913,13 @@ writing new tag, price/menu or date-range logic:
     the "focus return on close" block in `timeframe-picker.component.spec.ts`, whose specs
     start with focus off the trigger (`HTMLElement.click()` does not focus, as a Safari
     click does not). **THE COMPARISON MENU GOT THE SAME TREATMENT
-    (PICKER-FOCUS-RESTORE-01), and only one of its paths needed it.** Probed on every
-    close path, on both widths and from both starting points, Escape, a backdrop click,
-    picking a basis and both custom-period exits already returned focus through
-    `closeComparison` / `pickComparison`. **Tab did not**: the menu lives in the overlay
+    (PICKER-FOCUS-RESTORE-01), and only one of its paths needed it.** A temporary probe
+    against `main`, on both widths and from both starting points (focus on `<body>` and
+    focus on another control), found that Escape, a backdrop click, picking a basis and
+    both custom-period exits already returned focus through `closeComparison` /
+    `pickComparison`. The probe was not kept: the permanent specs cover both widths but
+    start ONLY from another focused control, the stricter of the two, so a `<body>`-start
+    regression on this menu is not pinned. **Tab did not**: the menu lives in the overlay
     container at the end of `<body>`, so Tab from an option left focus past the end of
     the document (measured in real Chromium: `<body>`) with the menu and its backdrop
     still open. `onMenuKeydown` now closes the menu on Tab and Shift+Tab and focuses the
