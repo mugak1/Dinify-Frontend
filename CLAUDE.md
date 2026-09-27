@@ -3917,9 +3917,9 @@ writing new tag, price/menu or date-range logic:
     against `main`, on both widths and from both starting points (focus on `<body>` and
     focus on another control), found that Escape, a backdrop click, picking a basis and
     both custom-period exits already returned focus through `closeComparison` /
-    `pickComparison`. The probe was not kept: the permanent specs cover both widths but
-    start ONLY from another focused control, the stricter of the two, so a `<body>`-start
-    regression on this menu is not pinned. **Tab did not**: the menu lives in the overlay
+    `pickComparison`. The permanent specs cover both widths AND both starting points:
+    the main block starts from another focused control, and a `from <body>` block pins
+    Tab, Shift+Tab, Escape, the backdrop and a pick from `<body>`. **Tab did not**: the menu lives in the overlay
     container at the end of `<body>`, so Tab from an option left focus past the end of
     the document (measured in real Chromium: `<body>`) with the menu and its backdrop
     still open. `onMenuKeydown` now closes the menu on Tab and Shift+Tab and focuses the
@@ -3951,7 +3951,10 @@ writing new tag, price/menu or date-range logic:
     switching off the popover panel's trap fails the three desktop specs, the sheet's
     trap the three mobile ones, and turning the panel's trap ON inside the sheet (two
     traps nested) fails the mobile three, which is what the "exactly one enabled trap"
-    spec is for
+    spec is for. **The custom-period panel is the same, and pinned the same way**: a modal
+    dialog on both hosts where Tab wraps and nothing is committed, with six specs in its
+    own `Tab stays inside the panel` block that fail the same way under the same two
+    mutations (its popover trap off, its trap nested inside the sheet)
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.
