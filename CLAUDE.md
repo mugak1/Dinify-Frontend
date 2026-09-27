@@ -3934,7 +3934,49 @@ writing new tag, price/menu or date-range logic:
     runs in the change-detection pass AFTER `close()` returns and overrides it. Pinned by
     the "focus return on close" block in `timeframe-picker.component.spec.ts`, whose specs
     start with focus off the trigger (`HTMLElement.click()` does not focus, as a Safari
-    click does not)
+    click does not). **THE COMPARISON MENU GOT THE SAME TREATMENT
+    (PICKER-FOCUS-RESTORE-01), and only one of its paths needed it.** A temporary probe
+    against `main`, on both widths and from both starting points (focus on `<body>` and
+    focus on another control), found that Escape, a backdrop click, picking a basis and
+    both custom-period exits already returned focus through `closeComparison` /
+    `pickComparison`. The permanent specs cover both widths AND both starting points:
+    the main block starts from another focused control, and a `from <body>` block pins
+    Tab, Shift+Tab, Escape, the backdrop and a pick from `<body>`. **Tab did not**: the menu lives in the overlay
+    container at the end of `<body>`, so Tab from an option left focus past the end of
+    the document (measured in real Chromium: `<body>`) with the menu and its backdrop
+    still open. `onMenuKeydown` now closes the menu on Tab and Shift+Tab and focuses the
+    trigger WITHOUT preventing the default action, so the browser carries focus on from
+    the trigger to the next (or previous) control, which is where Tab would have gone
+    had the menu never opened (checked in real Chromium with trusted key presses, since
+    no synthetic event can produce it). **Tab commits nothing**: arrow keys only move
+    focus between options, so the focused option is not a choice, and a spec pins that
+    arrowing then tabbing leaves the basis unchanged. **The custom-period panel needed nothing
+    (PICKER-FOCUS-RESTORE-02)**: every close path (Apply, Cancel, Escape, backdrop, a
+    breakpoint flip, and reopening to edit a placed start) already returned focus to the
+    comparison trigger on both hosts, and ten regression specs now pin that. What makes
+    it hold is `pickComparison` focusing the trigger BEFORE the panel opens, so both hosts'
+    traps capture the trigger. **The explicit `focus()` that `closeCustomStart` used to
+    make is REMOVED**: removing it alone failed none of those specs, because the trap
+    already restores the trigger, which is the same redundancy PICKER-FOCUS-RESTORE-00
+    removed from the range calendar's `close()`. With it gone, `pickComparison`'s call is
+    the only one this panel's focus return rests on: removing it fails all ten specs, on
+    both hosts, plus the dropdown's own pick and custom-Cancel controls. Both staged calendars now return focus
+    the same way, through their host's trap. `closeComparison` KEEPS its explicit call,
+    and must: the comparison menu has no focus trap, so nothing else would restore it.
+    **THE RANGE CALENDAR DELIBERATELY DOES NOT CLOSE ON TAB (PICKER-FOCUS-RESTORE-03).**
+    It is a modal dialog on both hosts, so Tab WRAPS inside it (past the last control to
+    the first, Shift+Tab the other way) and it closes only through Apply, Cancel, Escape
+    or the backdrop. Closing on Tab would discard the staged selection; the comparison
+    menu differs because it has no trap and commits on pick, so leaving it loses nothing.
+    Six regression specs pin the wrap on both hosts by focusing the trap's edge anchors
+    (a synthetic Tab moves no focus, and a real Tab lands on an anchor). Mutations:
+    switching off the popover panel's trap fails the three desktop specs, the sheet's
+    trap the three mobile ones, and turning the panel's trap ON inside the sheet (two
+    traps nested) fails the mobile three, which is what the "exactly one enabled trap"
+    spec is for. **The custom-period panel is the same, and pinned the same way**: a modal
+    dialog on both hosts where Tab wraps and nothing is committed, with six specs in its
+    own `Tab stays inside the panel` block that fail the same way under the same two
+    mutations (its popover trap off, its trap nested inside the sheet)
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.

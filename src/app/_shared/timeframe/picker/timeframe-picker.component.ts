@@ -402,6 +402,9 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
 
   pickComparison(option: ComparisonOption): void {
     this.cmpOpen = false;
+    // Focus the trigger BEFORE anything opens. This is load-bearing twice: it is where focus
+    // lands for every ordinary pick, and for 'custom' it is the element the custom-start
+    // host's focus trap captures and restores when that panel closes.
     this.cmpTriggerEl?.nativeElement.focus();
 
     // 'custom' is the ONE entry that does not commit on pick — it needs a start date, so it
@@ -433,10 +436,23 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
     if (!this.cmpOpen) this.toggleComparison();
   }
 
-  /** Roving focus inside the menu, plus Escape to dismiss. */
+  /** Roving focus inside the menu, plus Escape and Tab to dismiss. */
   onMenuKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       event.preventDefault();
+      this.closeComparison();
+      return;
+    }
+
+    // Tab (and Shift+Tab) close the menu and put focus back on the trigger. The menu lives
+    // in the CDK overlay container at the end of <body>, so letting Tab through left focus
+    // past the end of the document while the menu and its backdrop stayed open over the
+    // page. The default action is deliberately NOT prevented: the browser then moves focus
+    // on from the trigger, to the next control (or the previous one on Shift+Tab), which
+    // is where Tab would have gone had the menu never opened. It commits nothing. Arrow
+    // keys only move focus between options, so the focused option is not a choice the
+    // user made, and Tab reads as leaving the menu, the same as Escape.
+    if (event.key === 'Tab') {
       this.closeComparison();
       return;
     }
@@ -623,10 +639,16 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
     return current?.from ?? null;
   }
 
-  /** Closes whichever host is mounted. Both paths return focus to the button that opened them. */
+  /**
+   * Closes whichever host is mounted. Focus goes back to the comparison trigger through the
+   * host's own focus trap, which restores the element it captured at open; `pickComparison`
+   * focuses the trigger before opening, so that element is the trigger. An explicit
+   * `focus()` here was removed for the reason the range calendar's `close()` has none: with
+   * the capture right it changed no outcome, and no spec could fail without it.
+   */
   private closeCustomStart(): void {
-    // Guard on BOTH, so the idempotent call at the top of `openCustomStart` — and the one in
-    // `ngOnDestroy` — stays a no-op rather than firing a spurious focus.
+    // Guard on BOTH, so the idempotent calls (at the top of `openCustomStart`, on a
+    // breakpoint flip, in `ngOnDestroy`) are no-ops when nothing is open.
     if (!this.customStartRef && !this.customStartOpen) return;
     this.customStartOpen = false;
     if (this.customStartRef) {
@@ -634,7 +656,6 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
       this.customStartRef.dispose();
       this.customStartRef = undefined;
     }
-    this.cmpTriggerEl?.nativeElement.focus();
   }
 
   private openOverlay(): void {
