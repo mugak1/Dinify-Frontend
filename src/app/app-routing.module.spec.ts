@@ -6,6 +6,7 @@ import { provideRouter, Route, Router, RouterOutlet, Routes } from '@angular/rou
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { routes } from './app-routing.module';
+import { restaurantMgtRoutes } from './restaurant-mgt/restaurant-mgt.module';
 
 /**
  * Pins the two invariants the portal hoist introduced:
@@ -127,6 +128,28 @@ describe('app routes — ordering ratchet (static, real config)', () => {
     expect(portal.loadChildren).toBeTruthy();
     expect(portal.canActivate?.length).toBe(1);
     expect(portal.data?.['roles']).toEqual(['restaurant_staff']);
+  });
+});
+
+// The diner app has ONE mount, the standalone /diner shell. The portal child
+// `rest-app-ordering` mounted DinerAppModule inside the restaurant portal and was
+// retired (CLAUDE.md, EMBED-RETIRE-00): nothing linked to it, it errored without a
+// prior QR scan, and its staff checkout could never succeed. The code that told an
+// embedded mount from a standalone one has since been removed too, so re-adding the
+// route would now render the diner shell's layout inside the portal with no shell
+// around it. This walks the REAL portal tree at every depth, so it cannot pass by
+// the route moving somewhere this file does not look.
+describe('app routes — the retired rest-app-ordering embed (static, real config)', () => {
+  const walk = (tree: Routes): Routes => tree.flatMap((route) => [route, ...walk(route.children ?? [])]);
+
+  it('declares no rest-app-ordering route anywhere in the restaurant portal', () => {
+    const portal = walk(restaurantMgtRoutes);
+    expect(portal.length).withContext('premise: the portal route table was read').toBeGreaterThan(5);
+    expect(portal.filter((route) => route.path === 'rest-app-ordering')).toEqual([]);
+  });
+
+  it('declares no rest-app-ordering route among the root routes either', () => {
+    expect(walk(routes).filter((route) => route.path === 'rest-app-ordering')).toEqual([]);
   });
 });
 

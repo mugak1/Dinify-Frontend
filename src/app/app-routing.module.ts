@@ -11,7 +11,6 @@ import { WelcomeComponent } from './auth/welcome/welcome.component';
 import { KitchenComponent } from './kitchen/kitchen.component';
 import { redirectLegacyRestAppUrl } from './_helpers/legacy-rest-app-redirect';
 import { loginRedirectGuard } from './_helpers/login-redirect.guard';
-import { DINER_MOUNT_EMBEDDED } from './diner-app/diner-mount';
 
 export const routes: Routes = [
   {path:'',redirectTo:'login',pathMatch:'full'},
@@ -30,7 +29,7 @@ export const routes: Routes = [
 // bounced to their existing landing). Like every root-level route it must stay ABOVE
 // the empty-path portal parent below, whose lazy wildcard would otherwise swallow it.
 { path: 'owner-claim', loadComponent: () => import('./auth/owner-claim/owner-claim.component').then(m => m.OwnerClaimComponent), title: 'Claim your restaurant' },
-{path:'diner',component:DinerAppComponent,data:{[DINER_MOUNT_EMBEDDED]: false},loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
+{path:'diner',component:DinerAppComponent,loadChildren: () => import('./diner-app/diner-app.module').then(m => m.DinerAppModule)},
 // Kitchen View — staff-only board on live order data. Admission is a restaurant
 // owner / manager / kitchen role on ANY membership, via data.restaurant_roles.
 // There is deliberately no data.roles here: profile.roles carries restaurant
