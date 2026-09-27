@@ -76,7 +76,14 @@ so keep it current when conventions change.
   `[router.url, 'error']` redirect. Each collapsed to its standalone side, so
   the `/diner` shell renders exactly as it did. Re-adding the route would now
   put the diner shell's layout inside the portal with no shell around it,
-  which is why the ratchet exists
+  which is why the ratchet exists. **The nav bar's opaque mode went next
+  (EMBED-CLEANUP-01)**: `MenuNavBarComponent` had lost its only non-frosted
+  caller, so its `frosted` and `stickyTop` inputs, its `ngOnInit`, its
+  component CSS and the filter row's `!frosted` band are gone, and
+  `MenuNavStateService.stickyTopPx` / `setStickyTopPx` with them (the
+  pre-measure `navStackHeight` fallback keeps the same 49px as a literal). The
+  host is a plain `block`; the enclosing `.menu-banner` owns the background,
+  shadow and sticky position. Pinned by `menu-nav-bar.component.spec.ts`
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
 - Phase 2 (Dashboard): ✅ Complete — `USE_MOCK_DATA` still true in DashboardService
   for the core metrics, but TWO cards are real-wired exceptions: the Popular Items
@@ -3892,10 +3899,20 @@ writing new tag, price/menu or date-range logic:
     anchored overlay at EVERY width, by the same 02A decision that created it: five short
     items, single-select, applying immediately — a menu, not a dialog, so it gets
     `role="listbox"` + roving tabindex and no sheet. A spec pins each half.
-    Known gap, NOT closed by that change: neither range-calendar path restores focus to the
-    trigger explicitly — both rely on `CdkTrapFocus.ngOnDestroy` doing it — whereas the
-    comparison menu and the custom-period panel both call `cmpTriggerEl.focus()` on close.
-    A code comment on `closeComparison` has named this since 02A; it is a separate follow-up
+    **THE RANGE CALENDAR RETURNS FOCUS TO ITS TRIGGER on every close, on both hosts
+    (PICKER-FOCUS-RESTORE-00).** Both paths rely on their focus trap's auto-capture
+    (`CdkTrapFocus.ngOnDestroy` restores what it captured at open), and that capture was
+    whatever held focus BEFORE the click: a pointer click does not focus a button in
+    Safari or in Firefox on macOS, so closing dropped the user on `<body>`, or sent focus
+    back to an unrelated control. `open()` now focuses the trigger before either host
+    mounts, the same move `pickComparison` makes before the custom-start calendar, so both
+    traps capture and restore the trigger. **An explicit `focus()` in `close()` was tried
+    and REMOVED**: once the capture is right it changes no outcome and no spec can fail
+    it; and on the sheet path it would not even work alone, because the sheet's restore
+    runs in the change-detection pass AFTER `close()` returns and overrides it. Pinned by
+    the "focus return on close" block in `timeframe-picker.component.spec.ts`, whose specs
+    start with focus off the trigger (`HTMLElement.click()` does not focus, as a Safari
+    click does not)
   The identifiers keep their `Report*` prefixes ON PURPOSE — they were named to avoid
   colliding with the dashboard's coarse enum. That enum is now gone (01B), so a rename
   is finally possible, but it is a wide mechanical diff and has not been done.

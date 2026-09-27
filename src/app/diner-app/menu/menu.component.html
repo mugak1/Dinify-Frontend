@@ -77,7 +77,7 @@
   identity (restaurant name + red table chip), collapsed over the hero and shown
   when condensed or when there's no hero — visibility lives in src/styles.css,
   keyed off the shell-root .has-hero / .is-condensed classes. Row 2 = the nav-bar,
-  made transparent + non-sticky so the banner's single blur reads through it with
+  which is transparent + non-sticky by construction so the banner's single blur reads through it with
   no seam. Sticky top: 0 online, 40px (below the offline strip) when offline. -->
   <div #menuBanner class="menu-banner" [style.top]="bannerTop">
     <div class="menu-banner__identity h-[48px] px-4 flex items-center gap-2">
@@ -92,7 +92,7 @@
         </span>
       }
     </div>
-    <app-menu-nav-bar [frosted]="true"></app-menu-nav-bar>
+    <app-menu-nav-bar></app-menu-nav-bar>
   </div>
 
   <!-- Heads-up: the scanned table already has an order still working through the
