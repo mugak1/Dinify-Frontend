@@ -192,7 +192,7 @@ function replayState(dir) {
   return { names, manifest: digest('package.json'), lock: digest('package-lock.json') };
 }
 
-// ── the scanner's own record of what it was doing (FRONTEND-ONLY, D08 lane A) ──────
+// ── the scanner's own record of what it was doing (D08 lane A) ─────────────────────
 //
 // WHY. Readiness run 36283185235 went red because the application scan reached the policy
 // timeout, and all it left was an empty stdout, an empty stderr and a SIGTERM. npm writes
@@ -219,8 +219,8 @@ function replayState(dir) {
 // A diagnostic is DIAGNOSTIC ONLY: whether it could be kept never changes a scan's
 // classification, and a failure to keep it never replaces the scan's own result.
 //
-// Admin carries an earlier, separately deployed copy of this module without this section:
-// the extension is deliberate and frontend-only (release/README.md, "Scanner diagnostics").
+// This section is shared: Dinify-Frontend and Dinify-Admin carry the same file, and each
+// repository's release/README.md ("Scanner diagnostics") says how its own gate uses it.
 
 export const DIAGNOSTIC_FORMAT = 'dinify.npm-diagnostic-events/1';
 export const DIAGNOSTIC_HEADER = `# ${DIAGNOSTIC_FORMAT}: SANITIZED npm events, NOT a complete raw log`;
@@ -517,7 +517,7 @@ export function readDiagnosticEvents(text, { last = 8, open = 5 } = {}) {
  * @param {string} input.evidenceDir  where the raw output is written
  * @param {object} [input.env]        environment facts for an installed re-inventory
  * @param {object} [input.diagnostics] {root, forbidden?, limits?}: keep the scanner's
- *                                    sanitized log events (FRONTEND-ONLY). `root` is an
+ *                                    sanitized log events. `root` is an
  *                                    ABSOLUTE directory the caller owns and removes;
  *                                    `forbidden` lists what it must not be inside or around
  */

@@ -3,9 +3,9 @@
 A required dependency audit (D08 B2.1): what was inspected, what the advisory data says
 about it, and one policy decision — enforced inside the existing pull-request `validate`
 check AND the merged-main `certify` job. The same policy runs in Dinify-Admin (this
-directory, byte-identical except `policy.json`, this README, `tests/workflow.test.mjs` and
-— deliberately, frontend-only — the scanner-diagnostics extension to `lib/retained.mjs`
-with its `tests/retained.test.mjs`; see `release/README.md` → "Scanner diagnostics")
+directory, byte-identical except `policy.json`, this README and `tests/workflow.test.mjs`;
+Admin carries the same `lib/retained.mjs`, scanner diagnostics included, and the same
+`tests/retained.test.mjs`, see `release/README.md` → "Scanner diagnostics")
 and in Dinify-Backend (`dependency_audit/`, the Python port). `conformance.json` is identical in all three, and each suite pins its
 digest.
 
@@ -195,9 +195,9 @@ The release path uses this directory three ways, and changes none of its rules:
 - **The gate re-derives it.** The raw outputs are re-read and re-evaluated under the
   policy the evidence names; a result the raw answer does not reproduce is refused.
 - **The gate queries again.** `release/cli.mjs assess` runs `lib/retained.mjs` — written
-  here for B2.2, copied byte for byte by Admin's B2.4 as it stood then, and since extended
-  HERE ONLY to keep a sanitized, bounded projection of the scanner's own debug log per
-  graph (`release/README.md` → "Scanner diagnostics"); it composes the SHARED, unchanged
+  here for B2.2, copied byte for byte by Admin's B2.4, and since extended to keep a
+  sanitized, bounded projection of the scanner's own debug log per graph (#709, carried
+  into Admin by mugak1/Dinify-Admin#36; `release/README.md` → "Scanner diagnostics"); it composes the SHARED, unchanged
   `npm.mjs` reader, hardened scanner
   environment and `core.mjs` evaluator, so `conformance.json` and the shared files stay
   byte-identical with Admin and Backend — over a scan-only replay of the retained two
