@@ -579,16 +579,18 @@ kept diagnostic when the scanner is killed at these two points — not what happ
 
 #### Mutations
 
-Each rule reverted alone, run against the suites that own it, then restored byte for
-byte (digest checked).
+Each rule reverted alone on the final code, run against the suites that own it, then
+restored byte for byte (digest checked). The count is failing tests.
 
 | mutation | fails |
 |---|---|
-| retention disabled (every scan `unavailable`) | 19 `retained`, 9 `dependency-evidence`, the workflow CONTROL |
+| retention disabled (every scan `unavailable`) | 20 `retained`, 9 `dependency-evidence`, the workflow CONTROL |
 | receiving integrity bypassed (a declared file accepted unchecked) | 4 `dependency-evidence` (missing, length, digest, unsanitized); the after-admission case still refuses, through the admitted identity |
 | a kept diagnostic softens a timeout | 1 `retained`, 3 `dependency-evidence` (the CLI hang, its summary, the recovery control), the workflow's real hang |
 | a relative root accepted | 1 `retained` |
 | unmatched lines kept raw | 2 `retained` (sanitization, the real line shapes) |
+| the one-line bulk request and `{}` report not recognised (the probe's defect) | 1 `retained` (the real line shapes) |
+| a logged bulk POST completion not clearing its marker | 1 `retained` |
 
 ## Compatibility
 
