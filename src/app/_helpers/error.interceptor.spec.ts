@@ -1,12 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ErrorInterceptor } from './error.interceptor';
+import {
+  ErrorInterceptor, SESSION_CHANGED_MESSAGE, SESSION_EXPIRED, SESSION_UNCONFIRMED_MESSAGE,
+} from './error.interceptor';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { ConnectivityService } from '../_services/connectivity.service';
 import { Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 
 describe('ErrorInterceptor', () => {
   let httpClient: HttpClient;
@@ -25,9 +27,14 @@ describe('ErrorInterceptor', () => {
   };
 
   beforeEach(() => {
-    const authSpy = jasmine.createSpyObj('AuthenticationService', ['logout', 'attemptTokenRefresh'], {
+    const authSpy = jasmine.createSpyObj('AuthenticationService', [
+      'logout', 'captureRequestOwner', 'ownerIsCurrent', 'currentAccessToken',
+      'renewSession', 'endOwnedSession',
+    ], {
       userValue: null
     });
+    // No owner unless a test says so: an anonymous request never recovers.
+    authSpy.captureRequestOwner.and.returnValue(null);
     const toastSpy = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning', 'info', 'clear', 'dismiss']);
     // Mutable stubs: the interceptor reads router.url + connectivity.isOffline() at
     // catch time, so tests set these before triggering the error. Default to a
@@ -234,88 +241,172 @@ describe('ErrorInterceptor', () => {
     });
   });
 
+  // ORACLE CORRECTION (D09). These used to pin "refresh → null ⇒ logout" and
+  // "refresh throws ⇒ logout". A renewal now returns a typed outcome, and only
+  // `rejected` ends the session — through the owning request's own check, once.
+  // The real service/interceptor interplay is pinned in
+  // `error-recovery.integration.spec.ts`; these isolate the interceptor.
   describe('401 handling', () => {
-    it('should call attemptTokenRefresh and logout when refresh returns null', (done) => {
-      setUser(mockUser);
-      authService.attemptTokenRefresh.and.returnValue(of(null));
+    const owner = { session: 1, context: 1, restaurantId: 'r1', token: 'test-token' };
+    const expired = { detail: 'Given token not valid for any token type', code: 'token_not_valid' };
 
+    function owned() {
+      setUser(mockUser);
+      authService.captureRequestOwner.and.returnValue(owner);
+      authService.ownerIsCurrent.and.returnValue(true);
+      authService.currentAccessToken.and.returnValue('test-token');
+      authService.endOwnedSession.and.returnValue(true);
+    }
+
+    it('reports an expired session, and ends nothing more, when the service ENDED it on the refusal', (done) => {
+      owned();
+      authService.renewSession.and.returnValue(of({ kind: 'rejected', ended: true } as const));
       httpClient.get('/api/test').subscribe({
         error: (err) => {
-          expect(authService.attemptTokenRefresh).toHaveBeenCalled();
-          expect(authService.logout).toHaveBeenCalled();
-          expect(err).toBe('Session expired');
+          expect(authService.endOwnedSession).not.toHaveBeenCalled();
+          expect(authService.logout).not.toHaveBeenCalled();
+          expect(err).toBe(SESSION_EXPIRED);
           done();
         }
       });
-
-      const req = httpMock.expectOne('/api/test');
-      req.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
     });
 
-    it('should not attempt refresh when user is not logged in', (done) => {
-      setUser(null);
-
+    it('ends the session exactly once when the renewal is REJECTED for want of a refresh token', (done) => {
+      owned();
+      authService.renewSession.and.returnValue(of({ kind: 'rejected', ended: false } as const));
       httpClient.get('/api/test').subscribe({
-        error: () => {
-          expect(authService.attemptTokenRefresh).not.toHaveBeenCalled();
+        error: (err) => {
+          expect(authService.renewSession).toHaveBeenCalledTimes(1);
+          expect(authService.endOwnedSession).toHaveBeenCalledOnceWith(owner as any, 'test-token');
           expect(authService.logout).not.toHaveBeenCalled();
+          expect(err).toBe(SESSION_EXPIRED);
           done();
         }
       });
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
+    });
 
-      const req = httpMock.expectOne('/api/test');
-      req.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+    it('should not attempt refresh when the request has no owner', (done) => {
+      setUser(mockUser);
+      httpClient.get('/api/test').subscribe({
+        error: () => {
+          expect(authService.renewSession).not.toHaveBeenCalled();
+          expect(authService.endOwnedSession).not.toHaveBeenCalled();
+          done();
+        }
+      });
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
     });
 
     it('should retry the request with new token when refresh succeeds', (done) => {
-      setUser(mockUser);
-      authService.attemptTokenRefresh.and.returnValue(of('new-token'));
-
+      owned();
+      authService.renewSession.and.returnValue(of({ kind: 'renewed', access: 'new-token' } as const));
       httpClient.get('/api/test').subscribe({
         next: (res: any) => {
           expect(res.data).toBe('success');
-          expect(authService.logout).not.toHaveBeenCalled();
+          expect(authService.endOwnedSession).not.toHaveBeenCalled();
           done();
         }
       });
-
-      // First request returns 401
-      const req1 = httpMock.expectOne('/api/test');
-      req1.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
-
-      // Retried request with new token should succeed
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
       const req2 = httpMock.expectOne('/api/test');
       expect(req2.request.headers.get('Authorization')).toBe('Bearer new-token');
       req2.flush({ data: 'success' });
     });
 
-    it('should logout when attemptTokenRefresh throws an error', (done) => {
-      setUser(mockUser);
-      authService.attemptTokenRefresh.and.returnValue(throwError(() => 'refresh failed'));
-
+    it('keeps the session when the renewal is UNAVAILABLE (a 503, a timeout, an unreadable answer)', (done) => {
+      owned();
+      authService.renewSession.and.returnValue(of({ kind: 'unavailable', cause: 'server' } as const));
       httpClient.get('/api/test').subscribe({
         error: (err) => {
-          expect(authService.logout).toHaveBeenCalled();
-          expect(err).toBe('Session expired');
+          expect(err).toBe(SESSION_UNCONFIRMED_MESSAGE);
+          expect(authService.endOwnedSession).not.toHaveBeenCalled();
+          expect(authService.logout).not.toHaveBeenCalled();
+          expect(toast.error).toHaveBeenCalledWith(SESSION_UNCONFIRMED_MESSAGE);
           done();
         }
       });
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
+    });
 
-      const req = httpMock.expectOne('/api/test');
-      req.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+    it('keeps the \'no network\' contract when the renewal got no HTTP answer', (done) => {
+      owned();
+      authService.renewSession.and.returnValue(of({ kind: 'unavailable', cause: 'transport' } as const));
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe('no network');
+          expect(authService.endOwnedSession).not.toHaveBeenCalled();
+          done();
+        }
+      });
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
+    });
+
+    it('says the context changed — not "Session expired" — when the renewal was SUPERSEDED', (done) => {
+      owned();
+      authService.renewSession.and.returnValue(of({ kind: 'superseded' } as const));
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(err).toBe(SESSION_CHANGED_MESSAGE);
+          expect(authService.endOwnedSession).not.toHaveBeenCalled();
+          done();
+        }
+      });
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
+    });
+
+    it('does NOT renew a code-less 401 envelope (a permission refusal) on any method', (done) => {
+      owned();
+      httpClient.post('/api/test', {}).subscribe({
+        error: (err) => {
+          expect(err).toBe('No permission.');
+          expect(authService.renewSession).not.toHaveBeenCalled();
+          expect(authService.endOwnedSession).not.toHaveBeenCalled();
+          done();
+        }
+      });
+      httpMock.expectOne('/api/test').flush({ status: 401, message: 'No permission.' }, { status: 401, statusText: 'Unauthorized' });
+    });
+
+    it('does NOT renew an unrecognised 401, even for a nominally safe GET', (done) => {
+      owned();
+      httpClient.get('/api/test').subscribe({
+        error: () => {
+          expect(authService.renewSession).not.toHaveBeenCalled();
+          expect(authService.endOwnedSession).not.toHaveBeenCalled();
+          done();
+        }
+      });
+      httpMock.expectOne('/api/test').flush({ detail: 'Something else', code: 'mystery' }, { status: 401, statusText: 'Unauthorized' });
+    });
+
+    it('a replay that is refused AGAIN is never renewed a second time', (done) => {
+      owned();
+      authService.renewSession.and.returnValue(of({ kind: 'renewed', access: 'new-token' } as const));
+      httpClient.get('/api/test').subscribe({
+        error: (err) => {
+          expect(authService.renewSession).toHaveBeenCalledTimes(1);
+          expect(authService.endOwnedSession).toHaveBeenCalledOnceWith(owner as any, 'new-token');
+          expect(err).toBe(SESSION_EXPIRED);
+          done();
+        }
+      });
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
+      httpMock.expectOne('/api/test').flush(expired, { status: 401, statusText: 'Unauthorized' });
     });
   });
 
   describe('403 handling (module/tenant denial — graceful, no logout)', () => {
     it('does NOT log out on 403 when logged in; surfaces the backend message and rethrows', (done) => {
       // 403 = authorized-failure (lacks the module/resource), not a dead session.
-      // The user must stay signed in; only 401 (via handle401) may log out.
+      // The user must stay signed in; only an owned 401 (via recover401) may log out.
       setUser(mockUser);
 
       httpClient.get('/api/test').subscribe({
         error: (err) => {
           expect(authService.logout).not.toHaveBeenCalled();
-          expect(authService.attemptTokenRefresh).not.toHaveBeenCalled();
+          expect(authService.renewSession).not.toHaveBeenCalled();
           expect(toast.error).toHaveBeenCalledWith('You cannot access this');
           expect(err).toBe('You cannot access this');
           done();
@@ -546,30 +637,6 @@ describe('ErrorInterceptor', () => {
         { status: 400, message: 'Something went wrong' },
         { status: 400, statusText: 'Bad Request' }
       );
-    });
-  });
-
-  describe('concurrent 401 handling', () => {
-    it('should retry failed request with refreshed token', (done) => {
-      setUser(mockUser);
-      authService.attemptTokenRefresh.and.returnValue(of('refreshed-token'));
-
-      httpClient.get('/api/test').subscribe({
-        next: (res: any) => {
-          expect(res.ok).toBe(true);
-          expect(authService.logout).not.toHaveBeenCalled();
-          done();
-        }
-      });
-
-      // First attempt returns 401
-      const req1 = httpMock.expectOne('/api/test');
-      req1.flush({}, { status: 401, statusText: 'Unauthorized' });
-
-      // Retry with refreshed token
-      const retry = httpMock.expectOne('/api/test');
-      expect(retry.request.headers.get('Authorization')).toBe('Bearer refreshed-token');
-      retry.flush({ ok: true });
     });
   });
 
