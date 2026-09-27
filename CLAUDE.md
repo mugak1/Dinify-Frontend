@@ -76,7 +76,14 @@ so keep it current when conventions change.
   `[router.url, 'error']` redirect. Each collapsed to its standalone side, so
   the `/diner` shell renders exactly as it did. Re-adding the route would now
   put the diner shell's layout inside the portal with no shell around it,
-  which is why the ratchet exists
+  which is why the ratchet exists. **The nav bar's opaque mode went next
+  (EMBED-CLEANUP-01)**: `MenuNavBarComponent` had lost its only non-frosted
+  caller, so its `frosted` and `stickyTop` inputs, its `ngOnInit`, its
+  component CSS and the filter row's `!frosted` band are gone, and
+  `MenuNavStateService.stickyTopPx` / `setStickyTopPx` with them (the
+  pre-measure `navStackHeight` fallback keeps the same 49px as a literal). The
+  host is a plain `block`; the enclosing `.menu-banner` owns the background,
+  shadow and sticky position. Pinned by `menu-nav-bar.component.spec.ts`
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
 - Phase 2 (Dashboard): ✅ Complete — `USE_MOCK_DATA` still true in DashboardService
   for the core metrics, but TWO cards are real-wired exceptions: the Popular Items

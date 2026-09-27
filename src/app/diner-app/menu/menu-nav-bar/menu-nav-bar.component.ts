@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Input, OnInit, Signal, computed, effect } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TagPillComponent } from 'src/app/_shared/tags';
@@ -10,20 +10,19 @@ import { MenuFilterOption, MenuNavStateService } from '../menu-nav-state.service
   standalone: true,
   imports: [CommonModule, FormsModule, TagPillComponent],
   templateUrl: './menu-nav-bar.component.html',
-  styleUrls: ['./menu-nav-bar.component.css'],
+  // The nav bar is row 2 INSIDE the diner menu's single .menu-banner
+  // (src/styles.css), which owns the background, the shadow and the sticky
+  // position for the whole banner. So the host carries none of its own: it is a
+  // plain, non-sticky block with no background, border or shadow. It used to
+  // have an opaque, independently-sticky mode (sticky at a `stickyTop` offset,
+  // white with a hairline) for the portal's embedded diner mount, switched off by
+  // `frosted`. That mount is retired (EMBED-RETIRE-00), the diner shell always
+  // passed `frosted`, and the mode was removed with its inputs.
   host: {
-    class: 'block sticky z-40 bg-white border-b border-gray-200',
-    '[class.is-frosted]': 'frosted',
-    '[style.top]': 'stickyTop',
+    class: 'block',
   },
 })
-export class MenuNavBarComponent implements OnInit {
-  @Input() stickyTop: string = '49px';
-
-  /** Diner app: render as a translucent frosted banner docked under the brand
-   *  strip (one continuous material with it). Default false keeps the opaque
-   *  white + hairline look for any other (e.g. rest-app) mount. */
-  @Input() frosted = false;
+export class MenuNavBarComponent {
 
   /** Chips shown in the active-filters row — dietary first, then allergens. */
   activeFilterChips: Signal<MenuFilterOption[]> = computed(() => {
@@ -51,11 +50,6 @@ export class MenuNavBarComponent implements OnInit {
       );
       pill?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
     });
-  }
-
-  ngOnInit(): void {
-    const px = parseInt(this.stickyTop, 10);
-    this.navState.setStickyTopPx(Number.isFinite(px) ? px : 49);
   }
 
   removeUnderscore(x: string): string {

@@ -99,13 +99,6 @@ export class MenuNavStateService {
   pendingClickTarget: WritableSignal<string | null> = signal<string | null>(null);
   private pendingClickTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /**
-   * Pixel offset at which the nav bar sticks to the viewport top. Set by
-   * MenuNavBarComponent from its `stickyTop` @Input on mount. Default 49 matches
-   * the rest-app inline nav bar; the diner shell overrides to 60.
-   */
-  stickyTopPx: WritableSignal<number> = signal(49);
-
   /** Total number of currently-applied filters across both dimensions. */
   activeFilterCount: Signal<number> = computed(
     () => this.selectedDietary().length + this.selectedAllergens().length,
@@ -116,9 +109,9 @@ export class MenuNavStateService {
   /**
    * Diner single-banner override for the scroll-margin stack height, in px
    * (the banner's sticky-top offset + its measured height). Set by the menu
-   * component's ResizeObserver while the banner is mounted; null elsewhere
-   * (e.g. the rest-app embed, or before first measure), where navStackHeight
-   * falls back to its constant pill/filter formula.
+   * component's ResizeObserver while the banner is mounted; null before the
+   * first measure and after the menu unmounts, where navStackHeight falls back
+   * to its constant search/pill/filter formula.
    */
   menuBannerStackHeight: WritableSignal<number | null> = signal<number | null>(null);
 
@@ -137,15 +130,19 @@ export class MenuNavStateService {
     // without per-frame reflow.
     const measured = this.menuBannerStackHeight();
     if (measured != null) return measured;
-    // Fallback (rest-app embed / pre-measure). Must equal the nav bar's own height
-    // so clicked sections land flush under it: the persistent search row + its gap,
-    // the pill/skeleton row, and the filter-badge row when active. Literal px
-    // because html{font-size:14px} shrinks rem-based Tailwind heights below their px name.
+    // Fallback (before the banner's first measure). An estimate of the nav stack:
+    // a top offset, the persistent search row + its gap, the pill/skeleton row, and
+    // the filter-badge row when active. Literal px because html{font-size:14px}
+    // shrinks rem-based Tailwind heights below their px name. The 49px top offset
+    // is the value the nav bar's retired `stickyTop` input always supplied (its
+    // default, which the diner menu never overrode); it is kept so this estimate
+    // is unchanged.
+    const TOP_OFFSET_PX = 49;
     const SEARCH_ROW_PX = 44;
     const PILL_ROW_PX = 36;
     const FILTER_ROW_PX = 32;
     return (
-      this.stickyTopPx() +
+      TOP_OFFSET_PX +
       SEARCH_ROW_PX +
       PILL_ROW_PX +
       (this.hasActiveFilters() ? FILTER_ROW_PX : 0)
@@ -170,8 +167,8 @@ export class MenuNavStateService {
     // Mirror navStackHeight into a CSS custom property on :root so that
     // section `scroll-mt-[var(--menu-nav-stack-height)]` tracks the real
     // nav bar height reactively. Effect runs on service instantiation
-    // (setting an initial value) and on every change to stickyTopPx or
-    // the active-filter count. The service is providedIn:'root', so the
+    // (setting an initial value) and on every change to the measured banner
+    // height or the active-filter count. The service is providedIn:'root', so the
     // effect's lifetime matches the app's.
     effect(() => {
       document.documentElement.style.setProperty(
@@ -341,10 +338,6 @@ export class MenuNavStateService {
 
   setCurrentSection(name: string): void {
     this.currentSection.set(name);
-  }
-
-  setStickyTopPx(px: number): void {
-    this.stickyTopPx.set(px);
   }
 
   /** Set (or clear, with null) the diner banner's measured scroll-margin stack
