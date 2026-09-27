@@ -112,13 +112,10 @@
     </div>
   }
 
-  <!-- Active filter badges (dietary + allergen). When frosted (diner app) the
-  gray band + border drop so the host frost reads continuously through this
-  row; non-frosted mounts keep the original bg-gray-50 + hairline. -->
+  <!-- Active filter badges (dietary + allergen). No band or border of its own,
+  so the enclosing .menu-banner reads continuously through this row. -->
   @if (navState.hasActiveFilters()) {
-    <div
-      class="mt-2 px-4 py-2 flex flex-wrap items-center gap-2"
-      [ngClass]="{ 'bg-gray-50 border-b border-gray-200': !frosted }">
+    <div class="mt-2 px-4 py-2 flex flex-wrap items-center gap-2">
       <span class="text-xs text-gray-500">Filters:</span>
       @for (opt of activeFilterChips(); track opt) {
         <app-tag-pill [name]="chipDisplayName(opt)"

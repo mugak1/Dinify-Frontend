@@ -394,8 +394,9 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
   closeComparison(): void {
     if (!this.cmpOpen) return;
     this.cmpOpen = false;
-    // Return focus to the trigger. The range popover does not do this (a pre-existing
-    // gap); a menu is worse for it, since dismissing one drops you at <body> mid-header.
+    // Return focus to the trigger. Dismissing a menu would otherwise drop you at <body>
+    // mid-header. (The range calendar gets the same result through its focus trap; see
+    // `open()`.)
     this.cmpTriggerEl?.nativeElement.focus();
   }
 
@@ -521,6 +522,15 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
 
   open(): void {
     if (this.isOpen) return;
+    // Focus the trigger BEFORE either host mounts. Both hosts auto-capture the focused
+    // element and restore it when they are destroyed: the popover's panel through its own
+    // `cdkTrapFocusAutoCapture`, the sheet through its wrapper. A pointer click does not
+    // focus a button in every browser (Safari, Firefox on macOS), so without this the
+    // capture is whatever held focus before the click: `<body>`, which drops the user out
+    // of the header on close, or another control, which sends focus back to it. Focusing
+    // here makes the captured element the trigger on both paths, so both traps restore
+    // to it. `pickComparison` does the same before it opens the custom-start calendar.
+    this.triggerEl?.nativeElement.focus();
     this.isOpen = true;
     if (this.isDesktop) this.openOverlay();
     // Mobile: the @if + [open] binding renders the sheet.
@@ -682,6 +692,12 @@ export class TimeframePickerComponent implements OnInit, OnDestroy {
     this.close();
   }
 
+  /**
+   * Closes whichever host is mounted. Focus goes back to the date trigger through the
+   * host's own focus trap, which restores the element it captured at open; `open()` makes
+   * sure that element is the trigger. An explicit `focus()` here was tried and removed:
+   * with the capture fixed it could not change any outcome, so no spec could pin it.
+   */
   private close(): void {
     this.isOpen = false;
     this.panelRef = undefined; // disposed with the overlay below
