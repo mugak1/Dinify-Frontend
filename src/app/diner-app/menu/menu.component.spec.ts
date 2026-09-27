@@ -104,8 +104,6 @@ describe('DinersMenuComponent', () => {
   it('positions the single menu banner flush online and below the offline strip offline', () => {
     // Diner shell banner: flush to the viewport top online, dropped 40px (clearing the
     // top offline strip) offline. bannerTop is a pure getter — no detectChanges needed.
-    // (The portal embed renders the bare nav-bar with a fixed 49px offset via a
-    // template literal, not this getter, so there's nothing to assert here for it.)
     isOfflineValue = false;
     expect(component.bannerTop).toBe('0px');
     isOfflineValue = true;
@@ -243,7 +241,7 @@ describe('DinersMenuComponent', () => {
       expect(bar()).toBeNull();
     });
 
-    it('the portal embed keeps the FIXED bar, and the list\'s own pb-24 to clear it', async () => {
+    it('the browse list takes no pb-24 for the bar, which takes its own room in the flow', async () => {
       // The skeleton stays up until the image preload resolves.
       const settle = async () => {
         for (let i = 0; i < 2; i++) await new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r)));
@@ -258,14 +256,8 @@ describe('DinersMenuComponent', () => {
       const list = () => (fixture.nativeElement as HTMLElement).querySelector('[appscrollspy]')!;
       expect(list()).withContext('premise: the browse list rendered').not.toBeNull();
       expect(list().classList.contains('pb-24')).withContext('diner shell').toBe(false);
-
-      component.isInRestApp = true;
-      fixture.detectChanges();
-      expect(list().classList.contains('pb-24')).withContext('portal embed').toBe(true);
-      expect(has(bar()!, 'fixed', 'bottom-0', 'left-0', 'right-0')).toEqual([true, true, true, true]);
-      expect(has(bar()!, 'sticky', 'mt-auto')).toEqual([false, false]);
-      expect(getComputedStyle(bar()!).position).toBe('fixed');
-      expect(root().classList.contains('min-h-screen')).withContext('no shell, no footer').toBe(false);
+      expect(has(bar()!, 'sticky', 'bottom-0', 'mt-auto')).toEqual([true, true, true]);
+      expect(has(bar()!, 'fixed', 'left-0', 'right-0')).toEqual([false, false, false]);
     });
   });
 });

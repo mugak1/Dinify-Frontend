@@ -38,15 +38,16 @@ so keep it current when conventions change.
   + fragment, one history entry — a mid-URL `rest-app` segment is never
   touched). `MODULE_ROUTES`/`NO_MODULE_ROUTE` are prefix-free; the error
   interceptor's banner-shell check is an inverted first-segment deny-list
-  (`NON_BANNER_SHELL_ROOTS` in `error.interceptor.ts`); the diner embed flag is
-  DECLARED ON THE ROUTE — `DINER_MOUNT_EMBEDDED` data on each DinerAppModule
-  mount, resolved via `resolveDinerMountEmbedded` (`diner-app/diner-mount.ts`,
-  walking up the snapshot chain since `paramsInheritanceStrategy` stays at the
-  default `'emptyOnly'`; no-flag defaults to standalone) — never sniffed from
-  `router.url`, which is stale mid-navigation. There is now ONE diner mount —
+  (`NON_BANNER_SHELL_ROOTS` in `error.interceptor.ts`). There is ONE diner mount —
   the standalone `/diner` shell. The admin embed went with the admin plane in
-  PR-6 and the portal child `rest-app-ordering` was retired (next bullet), so
-  the flag, the resolver and the menu's `isInRestApp` branches are DORMANT
+  PR-6 and the portal child `rest-app-ordering` was retired (next bullet), and
+  the code that told an embedded mount from a standalone one is GONE with them:
+  the route-declared `DINER_MOUNT_EMBEDDED` flag, `resolveDinerMountEmbedded`
+  (`diner-app/diner-mount.ts` and its spec) and the menu's `isInRestApp`
+  branches were removed (EMBED-CLEANUP-00). The menu renders its standalone
+  layout unconditionally. A new diner mount is a new design question, not a
+  flag to restore — and never a mount detected by sniffing `router.url`, which
+  is stale mid-navigation
 - **THE PORTAL DOES NOT MOUNT THE DINER APP; `rest-app-ordering` IS RETIRED
   (EMBED-RETIRE-00).** The route loaded `DinerAppModule` inside the portal with
   the embed flag set, and it could never take an order. Checkout failed every
@@ -64,13 +65,18 @@ so keep it current when conventions change.
   keep every checkout invariant, and change nothing in the diner capability
   contract without `docs/TENANT_ISOLATION_CLOSURE.md`. Consequences worth
   knowing: `/rest-app-ordering` (and legacy `/rest-app/rest-app-ordering`) now
-  falls through the portal wildcard to the dashboard; `diner-mount.spec.ts`
-  asserts the portal route tree carries no diner mount at any depth, and keeps
-  the resolver pinned against a SYNTHETIC embedded mount. **The dormant embed
-  machinery was deliberately NOT removed here**: `DINER_MOUNT_EMBEDDED`,
-  `resolveDinerMountEmbedded`, `isInRestApp` in the menu (the fixed bar,
-  `pb-24`, the `[router.url, 'error']` redirect) and its spec are a separate
-  cleanup, not part of the route retirement
+  falls through the portal wildcard to the dashboard, and
+  `app-routing.module.spec.ts` walks the real portal and root route trees at
+  every depth and fails if a `rest-app-ordering` route reappears. The embed
+  machinery the retirement left dormant was then REMOVED in its own change
+  (EMBED-CLEANUP-00): `DINER_MOUNT_EMBEDDED`, `resolveDinerMountEmbedded` and
+  `diner-mount.spec.ts`, the flag on the `diner` route, and `isInRestApp` in the
+  menu with every branch it gated — the fixed View Basket bar, the lists'
+  `pb-24`, the missing `min-h-screen`, the bare 49px nav bar and the
+  `[router.url, 'error']` redirect. Each collapsed to its standalone side, so
+  the `/diner` shell renders exactly as it did. Re-adding the route would now
+  put the diner shell's layout inside the portal with no shell around it,
+  which is why the ratchet exists
 - Phase 1 (Menu module, all sub-phases 1a–1d): ✅ Complete
 - Phase 2 (Dashboard): ✅ Complete — `USE_MOCK_DATA` still true in DashboardService
   for the core metrics, but TWO cards are real-wired exceptions: the Popular Items
@@ -159,10 +165,11 @@ so keep it current when conventions change.
   the screen rather than straight under the last dish. **A FIRST CUT KEPT THE BAR FIXED
   AND RESERVED ITS HEIGHT AFTER THE FOOTER** (a ResizeObserver feeding a shell spacer),
   which put the footer ABOVE the bar at the end of the page. The owner rejected that,
-  and it is gone; do not bring it back. **THE EMBEDDED BRANCH IS DORMANT**: a mount
-  with no shell has no footer, so there the bar stays `fixed` and the lists keep
-  `pb-24` (both keyed on `isInRestApp`). No such mount exists since `rest-app-ordering`
-  was retired, and the branch awaits its own cleanup. The footer itself is compact, `pt-4 pb-3` with an
+  and it is gone; do not bring it back. **THE EMBEDDED BRANCH IS GONE**: the portal
+  embed kept the bar `fixed` and the lists' `pb-24`, both keyed on `isInRestApp`,
+  because a mount with no shell has no footer. That mount was retired and the branch
+  was removed with the rest of the embed code (EMBED-CLEANUP-00), so the bar is
+  unconditionally `sticky bottom-0 mt-auto` and the lists carry no `pb-24`. The footer itself is compact, `pt-4 pb-3` with an
   `mb-1.5` gap (59px, down from 82px), so its links sit close to the bottom edge.
   Pinned by `menu.component.spec.ts` and `diner-app.component.spec.ts`
 - Diner discount/price UI: ✅ Complete — every diner price surface (item-detail,

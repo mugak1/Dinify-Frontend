@@ -1,4 +1,4 @@
-<div class="flex flex-col bg-stone-50" [class.min-h-screen]="!isInRestApp">
+<div class="flex flex-col bg-stone-50 min-h-screen">
 
   <!-- Optional cover-photo hero: the FIRST thing on the menu when the restaurant
   has a cover_photo. Full-bleed image dissolving into the white menu via the
@@ -79,23 +79,21 @@
   keyed off the shell-root .has-hero / .is-condensed classes. Row 2 = the nav-bar,
   made transparent + non-sticky so the banner's single blur reads through it with
   no seam. Sticky top: 0 online, 40px (below the offline strip) when offline. -->
-  @if (!isInRestApp) {
-    <div #menuBanner class="menu-banner" [style.top]="bannerTop">
-      <div class="menu-banner__identity h-[48px] px-4 flex items-center gap-2">
-        <span class="menu-banner__name font-display font-semibold text-gray-900 truncate min-w-0">{{ restaurantName }}</span>
-        @if (tableNumber) {
-          <span class="brand-strip__chip bg-d-red text-white">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
-            </svg>
-            Table {{ tableNumber }}
-          </span>
-        }
-      </div>
-      <app-menu-nav-bar [frosted]="true"></app-menu-nav-bar>
+  <div #menuBanner class="menu-banner" [style.top]="bannerTop">
+    <div class="menu-banner__identity h-[48px] px-4 flex items-center gap-2">
+      <span class="menu-banner__name font-display font-semibold text-gray-900 truncate min-w-0">{{ restaurantName }}</span>
+      @if (tableNumber) {
+        <span class="brand-strip__chip bg-d-red text-white">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          Table {{ tableNumber }}
+        </span>
+      }
     </div>
-  }
+    <app-menu-nav-bar [frosted]="true"></app-menu-nav-bar>
+  </div>
 
   <!-- Heads-up: the scanned table already has an order still working through the
   kitchen, so a new order can't be placed yet (the basket checkout is blocked
@@ -104,12 +102,6 @@
     <div class="px-4 pt-3">
       <app-ongoing-order-banner></app-ongoing-order-banner>
     </div>
-  }
-
-  <!-- Rest-app embed (staff ordering): no diner shell or hero — keep the original
-  opaque, independently-sticky nav-bar (its own 49px offset + hairline). -->
-  @if (isInRestApp) {
-    <app-menu-nav-bar [stickyTop]="'49px'" [frosted]="false"></app-menu-nav-bar>
   }
 
   <!-- Skeleton cards -->
@@ -144,11 +136,9 @@
   <!-- Search mode: flat, ranked results (no sections, no featured). Shown only while
   the query is non-blank; the browse view below handles the empty-query case. -->
   @if (!navState.isLoading() && navState.searchQuery().trim()) {
-    <!-- pb-24 clears the basket bar only in the portal embed, where the bar is
-    FIXED over the page. In the diner shell the bar is sticky and in the flow,
-    so it takes its own room at the end of the menu (see the bar below). -->
-    <div
-      class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0 && isInRestApp">
+    <!-- No bottom padding for the basket bar: it is sticky and in the flow, so it
+    takes its own room at the end of the menu (see the bar below). -->
+    <div class="flex flex-col px-6 pb-4">
       @if (navState.searchResults().length > 0) {
         <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-3">
           @for (i of navState.searchResults(); track trackItem($index, i)) {
@@ -166,7 +156,7 @@
   }
 
   @if (!navState.isLoading() && !navState.searchQuery().trim() && navState.filteredMenuList()) {
-    <div class="flex flex-col px-6 pb-4" [class.pb-24]="basketItems.length > 0 && isInRestApp" appScrollSpy [spiedTags]="['DIV']" [stickyOffset]="navState.navStackHeight()" (sectionChange)="onSectionChange($event)">
+    <div class="flex flex-col px-6 pb-4" appScrollSpy [spiedTags]="['DIV']" [stickyOffset]="navState.navStackHeight()" (sectionChange)="onSectionChange($event)">
       <!-- Featured Section: horizontal-scrolling carousel of items with is_featured.
       Items also continue to render in their natural category sections below
       (intentional merchandising parity).
@@ -251,15 +241,10 @@
   footer, which follows the menu and so is always at the very bottom of the page,
   in view only once the diner reaches the end. The menu is at least a screen tall
   here and the bar is pushed to its end (mt-auto), so on a short menu it still
-  sits at the bottom of the screen rather than straight under the last dish.
-  The portal embed keeps the bar FIXED to the window, with pb-24 on the lists so
-  the last dish clears it: there is no diner shell there, so no footer to sit
-  above. -->
+  sits at the bottom of the screen rather than straight under the last dish. -->
   @if (basketItems.length > 0) {
     <div data-testid="view-basket-bar"
-      class="bottom-0 z-30 p-3 bg-white border-t border-gray-200 shadow-lg lg:hidden"
-      [class.sticky]="!isInRestApp" [class.mt-auto]="!isInRestApp"
-      [class.fixed]="isInRestApp" [class.left-0]="isInRestApp" [class.right-0]="isInRestApp">
+      class="sticky bottom-0 mt-auto z-30 p-3 bg-white border-t border-gray-200 shadow-lg lg:hidden">
       <button app-dn-button variant="cta"
         [routerLink]="['/diner/basket']"
         [attr.aria-label]="'View basket, ' + QuantitySum + ' items, UGX ' + (totalAmount | number)"
