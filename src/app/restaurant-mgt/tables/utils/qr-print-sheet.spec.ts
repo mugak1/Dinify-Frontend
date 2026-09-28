@@ -183,3 +183,209 @@ describe('generateQRPrintSheet (local QR generation)', () => {
     expect(encoded.every(u => !u.endsWith('?c='))).toBeTrue();
   });
 });
+
+/**
+ * D14 B1 — operator-supplied labels reach the print document as TEXT.
+ *
+ * The sheet is written with `document.write` into a same-origin popup, so every
+ * dynamic label is HTML-encoded where it is interpolated. These tests parse the
+ * document the helper actually wrote (DOMParser executes nothing) and assert on
+ * the resulting DOM — title, text and element structure — rather than on
+ * substrings: a harmless marker element and title-closing content must stay
+ * literal text, with no injected element or attribute.
+ */
+describe('generateQRPrintSheet (dynamic labels are encoded as text)', () => {
+  const MARKER = '<dinify-probe data-d14="x">m</dinify-probe>';
+  const TITLE_BREAK = '</title><dinify-probe data-d14="t"></dinify-probe>';
+
+  function areaNamed(name: string): DiningArea {
+    return {
+      id: 'area-1',
+      name,
+      isIndoor: true,
+      smokingAllowed: false,
+      accessible: true,
+      isActive: true,
+      tableIds: [],
+    };
+  }
+
+  function makeTable(over: Partial<RestaurantTable>): RestaurantTable {
+    return {
+      id: 't1',
+      number: 1,
+      minCapacity: 2,
+      maxCapacity: 4,
+      shape: 'square',
+      status: 'available',
+      tags: [],
+      isActive: true,
+      hasQR: true,
+      qrMode: 'order_only',
+      qrCredential: 'CRED-1',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      ...over,
+    };
+  }
+
+  let fakeDoc: { write: jasmine.Spy; close: jasmine.Spy };
+  let openSpy: jasmine.Spy;
+
+  beforeEach(() => {
+    fakeDoc = {
+      write: jasmine.createSpy('write'),
+      close: jasmine.createSpy('close'),
+    };
+    openSpy = spyOn(window, 'open').and.returnValue(
+      { document: fakeDoc } as unknown as Window,
+    );
+    spyOn(QRCode, 'toDataURL').and.returnValue(
+      Promise.resolve('data:image/png;base64,FAKEQR') as unknown as void,
+    );
+  });
+
+  /** Parse the document the sheet wrote. DOMParser runs no script. */
+  function writtenDocument(): Document {
+    expect(fakeDoc.write).toHaveBeenCalledTimes(1);
+    const html = fakeDoc.write.calls.mostRecent().args[0] as string;
+    return new DOMParser().parseFromString(html, 'text/html');
+  }
+
+  function noInjectedMarkup(doc: Document): void {
+    expect(doc.querySelector('dinify-probe')).toBeNull();
+    expect(doc.querySelector('[data-d14]')).toBeNull();
+  }
+
+  it('REGRESSION: an area name is literal text in the title, the header and every card', async () => {
+    const tables = [
+      makeTable({ id: 'a', number: 1 }),
+      makeTable({ id: 'b', number: 2 }),
+    ];
+
+    await generateQRPrintSheet(tables, areaNamed(`Patio ${MARKER}`));
+
+    const doc = writtenDocument();
+    noInjectedMarkup(doc);
+    expect(doc.title).toBe(`QR Codes – Patio ${MARKER}`);
+    expect(doc.querySelector('.header h1')!.textContent).toBe(`Patio ${MARKER} – QR Codes`);
+    const cardAreas = Array.from(doc.querySelectorAll('.card .area-name'));
+    expect(cardAreas.length).toBe(2);
+    for (const el of cardAreas) {
+      expect(el.textContent).toBe(`Patio ${MARKER}`);
+      expect(el.children.length).toBe(0);
+    }
+  });
+
+  it('REGRESSION: title-closing content in the area name cannot leave the <title>', async () => {
+    await generateQRPrintSheet([makeTable({})], areaNamed(`Bar ${TITLE_BREAK}`));
+
+    const doc = writtenDocument();
+    noInjectedMarkup(doc);
+    expect(doc.title).toBe(`QR Codes – Bar ${TITLE_BREAK}`);
+    expect(doc.head.querySelectorAll('title').length).toBe(1);
+    // The sheet's own structure is intact: exactly one header and one card.
+    expect(doc.querySelectorAll('.header').length).toBe(1);
+    expect(doc.querySelectorAll('.card').length).toBe(1);
+  });
+
+  it('REGRESSION: a table displayName is literal text on its card', async () => {
+    await generateQRPrintSheet(
+      [makeTable({ id: 'a', number: 4, displayName: `Window ${MARKER}` })],
+      areaNamed('Main Hall'),
+    );
+
+    const doc = writtenDocument();
+    noInjectedMarkup(doc);
+    const label = doc.querySelector('.card .table-number')!;
+    expect(label.textContent).toBe(`Table Window ${MARKER}`);
+    expect(label.children.length).toBe(0);
+  });
+
+  it('falls back to the table number when displayName is empty, keeping numeric presentation', async () => {
+    await generateQRPrintSheet(
+      [
+        makeTable({ id: 'a', number: 7, displayName: '' }),
+        makeTable({ id: 'b', number: 12, displayName: undefined }),
+      ],
+      areaNamed('Main Hall'),
+    );
+
+    const doc = writtenDocument();
+    const labels = Array.from(doc.querySelectorAll('.card .table-number')).map(e => e.textContent);
+    // Cards are sorted by number; the fallback is the number itself.
+    expect(labels).toEqual(['Table 7', 'Table 12']);
+    const alts = Array.from(doc.querySelectorAll('.card img')).map(i => i.getAttribute('alt'));
+    expect(alts).toEqual(['QR code for table 7', 'QR code for table 12']);
+  });
+
+  it('keeps a falsy table number 0 as the fallback label under the current contract', async () => {
+    await generateQRPrintSheet(
+      [makeTable({ id: 'z', number: 0, displayName: '' })],
+      areaNamed('Main Hall'),
+    );
+
+    const doc = writtenDocument();
+    expect(doc.querySelector('.card .table-number')!.textContent).toBe('Table 0');
+  });
+
+  it('preserves ordinary names, Unicode, quotes, ampersands and entity-looking text as displayed text', async () => {
+    const name = `Café "Ndiizi" & Friends' Deck — &amp; 🍌`;
+    await generateQRPrintSheet(
+      [makeTable({ id: 'a', number: 1, displayName: `Bürgers & "Bites"` })],
+      areaNamed(name),
+    );
+
+    const doc = writtenDocument();
+    expect(doc.title).toBe(`QR Codes – ${name}`);
+    expect(doc.querySelector('.header h1')!.textContent).toBe(`${name} – QR Codes`);
+    expect(doc.querySelector('.card .area-name')!.textContent).toBe(name);
+    expect(doc.querySelector('.card .table-number')!.textContent).toBe(`Table Bürgers & "Bites"`);
+  });
+
+  it('keeps the trusted local QR data URL and the credential unmodified', async () => {
+    const credential = '.eyJ0Ijoi:sig-<&>"';
+    const result = await generateQRPrintSheet(
+      [makeTable({ id: 'abc', number: 3, qrCredential: credential })],
+      areaNamed(`Patio ${MARKER}`),
+    );
+
+    expect(result).toEqual({ printed: 1, skipped: 0, opened: true });
+    const encodedUrl = (QRCode.toDataURL as unknown as jasmine.Spy).calls.mostRecent().args[0];
+    expect(encodedUrl).toBe(
+      `${window.location.origin}/diner/h/abc?c=${encodeURIComponent(credential)}`,
+    );
+    const doc = writtenDocument();
+    expect(doc.querySelector('.card img')!.getAttribute('src')).toBe('data:image/png;base64,FAKEQR');
+    expect(doc.querySelector('.card .seats')!.textContent).toBe('4 seats · square');
+  });
+
+  it('counts printable and skipped rows with an encoded area name, and writes only printable cards', async () => {
+    const result = await generateQRPrintSheet(
+      [
+        makeTable({ id: 'ok-1', number: 1 }),
+        makeTable({ id: 'ok-2', number: 2, displayName: MARKER }),
+        makeTable({ id: 'no-cred', number: 3, qrCredential: '' }),
+        makeTable({ id: 'no-qr', number: 4, hasQR: false }),
+      ],
+      areaNamed(MARKER),
+    );
+
+    expect(result).toEqual({ printed: 2, skipped: 1, opened: true });
+    const doc = writtenDocument();
+    noInjectedMarkup(doc);
+    expect(doc.querySelectorAll('.card').length).toBe(2);
+    expect(doc.querySelector('.header p')!.textContent).toContain('2 tables');
+  });
+
+  it('returns opened:false and writes nothing when the popup is blocked', async () => {
+    openSpy.and.returnValue(null);
+
+    const result = await generateQRPrintSheet([makeTable({})], areaNamed(MARKER));
+
+    expect(result).toEqual({ printed: 1, skipped: 0, opened: false });
+    expect(fakeDoc.write).not.toHaveBeenCalled();
+  });
+});

@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import { RestaurantTable, DiningArea } from '../models/tables.models';
 import { environment } from 'src/environments/environment';
+import { escapeHtml } from '../../../_shared/utils/escape-html';
 
 /**
  * Opens a print-ready page with QR codes for all tables in an area,
@@ -40,6 +41,12 @@ export async function generateQRPrintSheet(
     return { printed: printable.length, skipped, opened: false };
   }
 
+  // The sheet is assembled as a string and written into a same-origin window,
+  // so every label that comes from the restaurant's own records is HTML-encoded
+  // where it is interpolated — once. The QR data URLs are NOT encoded: they are
+  // generated locally by the bundled `qrcode` library.
+  const areaName = escapeHtml(String(area.name));
+
   const tableCards = (
     await Promise.all(
       printable.map(async ({ table, url }) => {
@@ -52,10 +59,10 @@ export async function generateQRPrintSheet(
 
         return `
         <div class="card">
-          <div class="table-number">Table ${table.displayName || table.number}</div>
-          <div class="area-name">${area.name}</div>
-          <img src="${qrImageUrl}" alt="QR code for table ${table.number}" width="180" height="180" />
-          <div class="seats">${table.maxCapacity} seats &middot; ${table.shape}</div>
+          <div class="table-number">Table ${escapeHtml(String(table.displayName || table.number))}</div>
+          <div class="area-name">${areaName}</div>
+          <img src="${qrImageUrl}" alt="QR code for table ${escapeHtml(String(table.number))}" width="180" height="180" />
+          <div class="seats">${escapeHtml(String(table.maxCapacity))} seats &middot; ${escapeHtml(String(table.shape))}</div>
           <div class="scan-label">Scan to view menu &amp; order</div>
         </div>
       `;
@@ -67,7 +74,7 @@ export async function generateQRPrintSheet(
     <!DOCTYPE html>
     <html>
     <head>
-      <title>QR Codes – ${area.name}</title>
+      <title>QR Codes – ${areaName}</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -131,7 +138,7 @@ export async function generateQRPrintSheet(
     </head>
     <body>
       <div class="header">
-        <h1>${area.name} – QR Codes</h1>
+        <h1>${areaName} – QR Codes</h1>
         <p>${printable.length} tables &middot; Generated ${new Date().toLocaleDateString()}</p>
       </div>
       <div class="grid">

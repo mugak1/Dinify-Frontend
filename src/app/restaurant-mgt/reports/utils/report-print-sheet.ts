@@ -6,6 +6,7 @@
 
 import { format as formatDate, parseISO } from 'date-fns';
 import { formatUGX } from '../../../_shared/utils/price-utils';
+import { escapeHtml } from '../../../_shared/utils/escape-html';
 import { ReportColumn } from '../models/reports.models';
 import { ReportDateRange } from '../../../_shared/timeframe';
 
@@ -41,14 +42,6 @@ function displayCell(col: ReportColumn, value: unknown): string {
 function isRightAligned(col: ReportColumn): boolean {
   const align = col.align ?? (col.format === 'number' || col.format === 'ugx' ? 'right' : 'left');
   return align === 'right';
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 export function printReport(
