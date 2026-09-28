@@ -234,6 +234,55 @@ describe('planning the reads', () => {
     }
   });
 
+  test('REGRESSION: a recognised peer with a malformed NESTED value (source, run or receipt null, a string or a list) is a structured selection_invalid refusal in both modes — never a crash while the refusal is built, and no request', async () => {
+    const bad = {
+      'source null': { source: null },
+      'run null': { run: null },
+      'receipt null': { receipt: null },
+      'producer null': { producer: null },
+      'source a string': { source: 'HEAD' },
+      'run a list': { run: ['910000001', '1'] },
+      'receipt a number': { receipt: 7 },
+    };
+    for (const [label, over] of Object.entries(bad)) {
+      const expected = selection('backend', over);
+      const { result, log } = await metadata('backend', { expected });
+      assert.equal(log.length, 0, `${label}: no request`);
+      const offlineResult = observeBytes({
+        expected, receipt: approved('backend').receipt, policy: POLICY, saved: {}, archive: new Uint8Array(1), record: new Uint8Array(1), now: '2026-09-28T12:00:00Z',
+      });
+      for (const [mode, r] of [['metadata', result], ['bytes', offlineResult]]) {
+        assert.equal(r.outcome, 'refused', `${label} (${mode})`);
+        assert.equal(exitFor(r), 1, `${label} (${mode})`);
+        assert.deepEqual([...new Set(codes(r))], ['journey.observe.selection_invalid'], `${label} (${mode})`);
+        for (const k of ['peer', 'repository', 'source', 'run', 'receipt', 'level', 'descriptorDigest']) assert.equal(r[k], null, `${label} (${mode}): ${k}`);
+        assert.deepEqual(r.deferred, [], `${label} (${mode}): nothing is said about a selection that was not accepted`);
+      }
+    }
+  });
+
+  test('REGRESSION: a value that made a selection malformed is never echoed into the refusal', async () => {
+    const expected = selection('backend', { source: { commit: CANARY, tree: CANARY } });
+    const { result, log } = await metadata('backend', { expected });
+    assert.equal(log.length, 0);
+    assert.deepEqual([...new Set(codes(result))], ['journey.observe.selection_invalid']);
+    assert.equal(result.source, null);
+    noLeak(result, 'malformed source');
+  });
+
+  test('CONTROL: an ACCEPTED selection the policy does not approve still names itself in the refusal — its values matched a strict shape', async () => {
+    const a = approved('backend');
+    const other = 'e'.repeat(40);
+    const expected = selection('backend', { source: { commit: other, tree: a.receipt.tree }, receipt: { commit: other, digest: a.digest }, run: { id: '910000009', attempt: '2' } });
+    const { result, log } = await metadata('backend', { expected });
+    assert.equal(log.length, 0);
+    assert.deepEqual(codes(result), ['journey.observe.selection_not_approved']);
+    assert.equal(result.peer, 'backend');
+    assert.deepEqual(result.source, { commit: other, tree: a.receipt.tree });
+    assert.deepEqual(result.run, { id: '910000009', attempt: '2' });
+    assert.deepEqual(result.deferred, [...PEER_FORMATS.backend.deferred]);
+  });
+
   test('REGRESSION: a selection the committed policy does not approve is refused before any request — the replaced a6b25a6, another receipt digest, a receipt file that is not the approved one', async () => {
     const old = JSON.parse(readFileSync(join(ROOT, 'release/peers/backend-a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b.json'), 'utf8'));
     const oldSelection = selection('backend', {
@@ -461,6 +510,58 @@ describe('the run is re-read after collection', () => {
     });
   }
 
+  const contradictions = {
+    'a failed conclusion': { conclusion: 'failure' },
+    'another head': { head_sha: 'e'.repeat(40) },
+    'a run still in progress': { status: 'in_progress', conclusion: null },
+    'another workflow': { workflow_id: 999 },
+    'another workflow path': { path: '.github/workflows/other.yml' },
+    'another event': { event: 'workflow_dispatch' },
+    'another branch': { head_branch: 'release' },
+    'another repository': { head_repository: { id: 1, full_name: 'someone/Dinify-Backend' } },
+  };
+  for (const [label, change] of Object.entries(contradictions)) {
+    test(`REGRESSION: a STABLE current run naming the selected attempt with ${label} contradicts the attempt read, and is refused before B1 is asked — nothing is saved`, async () => {
+      const field = Object.keys(change)[0];
+      const { result, saved } = await metadata('backend', {
+        mutate: (routes, w) => { const current = { ...w.docs.run, ...change }; routes[w.plan.latestRun] = [{ body: current }, { body: current }]; },
+      });
+      assert.deepEqual(codes(result), ['journey.observe.run_contradicts_attempt']);
+      assert.ok(result.reasons[0].detail.includes(field === 'head_repository' ? 'head_repository.full_name' : field), result.reasons[0].detail);
+      assert.equal(result.outcome, 'refused');
+      assert.equal(saved, null);
+      assert.equal(result.collection.currentAttemptRechecked, false);
+    });
+  }
+
+  test('REGRESSION: the contradiction is refused in either direction — an attempt read saying failure beside a current run saying success', async () => {
+    const { result } = await metadata('admin', {
+      mutate: (routes, w) => { routes[w.plan.run] = { body: { ...w.docs.run, conclusion: 'failure' } }; },
+    });
+    assert.deepEqual(codes(result), ['journey.observe.run_contradicts_attempt']);
+  });
+
+  test('CONTROL: the agreement is asked only of the fields that describe the attempt — a later update time, another run number or display title on the current run still passes', async () => {
+    const { result } = await metadata('backend', {
+      mutate: (routes, w) => {
+        const current = { ...w.docs.run, updated_at: '2026-09-28T11:00:00Z', run_number: 413, display_title: 'another title' };
+        routes[w.plan.latestRun] = [{ body: current }, { body: current }];
+      },
+    });
+    assert.equal(result.outcome, 'metadata-only', JSON.stringify(result.reasons));
+    assert.equal(result.collection.currentAttemptRechecked, true);
+  });
+
+  test('CONTROL: a current run at a LATER attempt is not compared with the selected one — whatever it says, the answer is B1\'s attempt_superseded', async () => {
+    const { result } = await metadata('backend', {
+      mutate: (routes, w) => {
+        const later = { ...w.docs.run, run_attempt: 2, status: 'in_progress', conclusion: null, head_sha: 'e'.repeat(40) };
+        routes[w.plan.latestRun] = [{ body: later }, { body: later }];
+      },
+    });
+    assert.deepEqual(codes(result), ['journey.peers.attempt_superseded']);
+  });
+
   test('REGRESSION: a run already at a later attempt on BOTH reads is B1\'s attempt_superseded — the selection is never moved to the newer attempt', async () => {
     const { result, log } = await metadata('backend', {
       mutate: (routes, w) => { const later = { ...w.docs.run, run_attempt: 2 }; routes[w.plan.latestRun] = [{ body: later }, { body: later }]; },
@@ -635,6 +736,24 @@ describe('the offline bytes mode', () => {
       assert.equal(r.outcome, 'refused', label);
       assert.ok(codes(r)[0].startsWith('journey.observe.observations_'), `${label}: ${JSON.stringify(codes(r))}`);
     }
+  });
+
+  test('REGRESSION: saved observations whose current run contradicts the selected attempt are refused on the way back in — a file is not a way past the collection\'s rule', async () => {
+    const { saved, archive, record } = await offline('backend');
+    for (const [label, change] of Object.entries({
+      'a failed current run': (s) => { s.observations.latestRun.conclusion = 'failure'; },
+      'another head on the attempt read': (s) => { s.observations.run.head_sha = 'e'.repeat(40); },
+    })) {
+      const s = clone(saved);
+      change(s);
+      const back = readSaved(s, selection('backend'));
+      assert.equal(back.observations, null, label);
+      assert.equal(back.reason.code, 'journey.observe.run_contradicts_attempt', label);
+      assert.deepEqual(codes(bytesRun('backend', { saved: s, archive, record })), ['journey.observe.run_contradicts_attempt'], label);
+    }
+    const moved = clone(saved);
+    moved.observations.latestRun.updated_at = '2026-09-28T11:00:00Z';
+    assert.equal(bytesRun('backend', { saved: moved, archive, record }).outcome, 'bytes-correspond-consumer-checks-deferred', 'CONTROL: a field outside the agreement does not refuse');
   });
 
   test('CONTRACT: the exit statuses are distinct and none of them means verified — 0 bytes (deferred), 3 metadata, 1 refused, 2 usage', () => {

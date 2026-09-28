@@ -271,6 +271,41 @@ describe('journey-observe collect', () => {
     assert.deepEqual(r.out.reasons.map((x) => x.code), ['journey.observe.run_changed_during_collection']);
   });
 
+  test('REGRESSION: a stable current run that contradicts the selected attempt is exit 1 run_contradicts_attempt, and no file is left behind', async () => {
+    const t = setup('contradicts');
+    const fixture = { routes: routes('backend') };
+    const key = Object.keys(fixture.routes).find((k) => /\/runs\/[0-9]+$/.test(k));
+    const current = { ...fixture.routes[key][0].body, conclusion: 'failure' };
+    fixture.routes[key] = [{ body: current }, { body: current }];
+    const out = join(t.priv, 'contradicts.json');
+    const r = await observe(t, collectArgs(t, 'backend', { out }), { fixture });
+    assert.equal(r.status, 1, r.stderr);
+    assert.equal(r.stderr, 'journey-observe: refused\n');
+    assert.deepEqual(r.out.reasons.map((x) => x.code), ['journey.observe.run_contradicts_attempt']);
+    assert.ok(!existsSync(out));
+  });
+
+  test('REGRESSION: a selection with a malformed NESTED value is exit 1 selection_invalid in both modes — a structured refusal, not an internal error — and no request, nothing reserved', async () => {
+    for (const [label, over] of Object.entries({ 'source null': { source: null }, 'run null': { run: null }, 'receipt null': { receipt: null } })) {
+      const t = setup(`nested-${label.replace(/ /g, '-')}`);
+      const sel = writeSelection(t, 'backend', over);
+      const out = join(t.priv, 'nested.json');
+      const collected = await observe(t, collectArgs(t, 'backend', { out, selectionPath: sel }), { fixture: { routes: routes('backend') } });
+      const offline = await observe(t, [
+        'bytes', '--selection', sel, '--receipt', approved('backend').receiptFile, '--observations', sel, '--archive', sel, '--record', sel,
+      ], { fixture: { offline: true, routes: {} } });
+      for (const [mode, r] of [['collect', collected], ['bytes', offline]]) {
+        assert.equal(r.status, 1, `${label} (${mode}): ${r.stderr}`);
+        assert.equal(r.stderr, 'journey-observe: refused\n', `${label} (${mode})`);
+        assert.ok(r.out, `${label} (${mode}): stdout is one JSON document`);
+        assert.deepEqual([...new Set(r.out.reasons.map((x) => x.code))], ['journey.observe.selection_invalid'], `${label} (${mode})`);
+        assert.equal(r.out.source, null, `${label} (${mode})`);
+        assert.deepEqual(r.report.fetches, [], `${label} (${mode}): no request`);
+      }
+      assert.ok(!existsSync(out), `${label}: the reserved file is removed`);
+    }
+  });
+
   test('REGRESSION: the replaced backend a6b25a6 is refused before any request — the selection is never moved to what is approved', async () => {
     const t = setup('old');
     const old = JSON.parse(readFileSync(join(ROOT, 'release/peers/backend-a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b.json'), 'utf8'));

@@ -33,7 +33,9 @@
  *
  * NOT AN ATOMIC SNAPSHOT. Every document is a separate GET, answered at a separate moment.
  * The run is read FIRST and LAST, and a difference in its attempt, status, conclusion,
- * head or update time between the two refuses the collection; paged listings must agree
+ * head or update time between the two refuses the collection, as does a stable current run
+ * that contradicts the selected attempt it names (its head, status, conclusion, workflow,
+ * event, branch, path or repository); paged listings must agree
  * on their total, hold exactly the entries it implies, and never repeat an id. That bounds
  * what can change unnoticed; it does not make the reads one transaction.
  *
@@ -96,6 +98,12 @@ const SAVED_KEYS = Object.freeze(['workflow', 'run', 'latestRun', 'jobs', 'artif
 const SAVED_ENVELOPE_KEYS = Object.freeze(['schema', 'selectionDigest', 'peer', 'collection', 'observations']);
 // The fields that must be identical in the first and the final read of the run.
 const RUN_STABLE_FIELDS = Object.freeze(['id', 'run_attempt', 'status', 'conclusion', 'head_sha', 'updated_at']);
+// The fields on which the current run and the selected attempt must agree whenever both
+// name the selected attempt: then they are two reads of ONE attempt.
+const ATTEMPT_AGREEMENT_FIELDS = Object.freeze([
+  'id', 'run_attempt', 'head_sha', 'status', 'conclusion', 'workflow_id', 'event', 'head_branch', 'path',
+  'repository.full_name', 'head_repository.full_name',
+]);
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const own = (o, k) => isObject(o) && Object.prototype.hasOwnProperty.call(o, k);
@@ -106,6 +114,56 @@ class Refusal {
 }
 const refusal = (code, detail) => ({ ok: false, reason: new Refusal(code, detail) });
 const asReason = (r) => ({ code: r.code, detail: r.detail });
+
+/** A field's value, reached through own keys only; `a.b` names a nested field. */
+function pick(doc, path) {
+  let at = doc;
+  for (const key of path.split('.')) {
+    if (!own(at, key)) return undefined;
+    at = at[key];
+  }
+  return at;
+}
+
+/** The named fields on which two documents differ; an object where a value belongs counts. */
+function differing(a, b, fields) {
+  return fields.filter((f) => {
+    const x = pick(a, f);
+    const y = pick(b, f);
+    return x !== y || (x !== null && typeof x === 'object');
+  });
+}
+
+/**
+ * The fields on which the current run contradicts the selected attempt, or [] when there
+ * is nothing to compare. Only when BOTH documents name the selected attempt are they two
+ * reads of one attempt; a current run at a later attempt is B1's attempt_superseded and an
+ * attempt read naming another attempt is B1's attempt_mismatch, so neither is judged here.
+ * B1 reads only the current run's id and attempt, which is why the rest is checked here:
+ * a current run saying `failure`, or another head, beside an attempt read saying the
+ * opposite is evidence contradicting itself, whichever of the two is right.
+ */
+function attemptContradiction(run, latestRun, attempt) {
+  if (!isObject(run) || !isObject(latestRun)) return [];
+  if (String(run.run_attempt) !== attempt || String(latestRun.run_attempt) !== attempt) return [];
+  return differing(run, latestRun, ATTEMPT_AGREEMENT_FIELDS);
+}
+
+const contradictionReason = (fields) => asReason(new Refusal(
+  'run_contradicts_attempt',
+  `the current run and the selected attempt are the same attempt but disagree on ${fields.join(', ')}; the evidence contradicts itself`,
+));
+
+/**
+ * The selection B1's `checkSelection` accepted, as its peer format, or null. Anything a
+ * result echoes about the selection is read only through this: a malformed selection is
+ * reported by its `selection_invalid` reasons, never by printing (or dereferencing) the
+ * values that made it malformed.
+ */
+function acceptedFormat(expected) {
+  const { format, problems } = checkSelection(expected);
+  return problems.length === 0 ? format : null;
+}
 
 /** Is `token` a credential this module will attach? Shape only; the value is never shown. */
 export function credentialUsable(token) {
@@ -334,11 +392,7 @@ export async function collectObservations({ expected, fetchImpl, token, clock = 
   if (!finalRun.ok) return fail(finalRun);
 
   const pages = { jobs: jobs.pages.length, artifacts: artifacts.pages.length };
-  const changed = RUN_STABLE_FIELDS.filter((f) => {
-    const a = firstRun.value[f];
-    const b = finalRun.value[f];
-    return a !== b || (a !== null && typeof a === 'object');
-  });
+  const changed = differing(firstRun.value, finalRun.value, RUN_STABLE_FIELDS);
   if (changed.length > 0) {
     return {
       ok: false,
@@ -346,6 +400,12 @@ export async function collectObservations({ expected, fetchImpl, token, clock = 
       observations: null,
       collection: collection({ pages }),
     };
+  }
+  // STABLE IS NOT ENOUGH: a run that did not move while it was read must also be the
+  // attempt that was read, wherever both name it.
+  const contradicts = attemptContradiction(run.value, finalRun.value, expected.run.attempt);
+  if (contradicts.length > 0) {
+    return { ok: false, reasons: [contradictionReason(contradicts)], observations: null, collection: collection({ pages }) };
   }
   return {
     ok: true,
@@ -409,7 +469,7 @@ function result({ mode, expected, selected, reasons: given, collection }) {
   }
   const ok = reasons.length === 0 && selected?.ok === true;
   const kind = !ok ? 'refused' : selected.level;
-  const format = isObject(expected) && own(PEER_FORMATS, expected.peer) ? PEER_FORMATS[expected.peer] : null;
+  const format = acceptedFormat(expected);
   const descriptor = ok ? selected.descriptor : null;
   return {
     schema: RESULT_SCHEMA,
@@ -485,6 +545,10 @@ export function readSaved(saved, expected) {
     return { observations: null, reason: asReason(new Refusal('observations_invalid', `the saved observations must carry exactly ${SAVED_KEYS.join(', ')}`)) };
   }
   if (!Array.isArray(o.jobs) || !Array.isArray(o.artifacts)) return { observations: null, reason: asReason(new Refusal('observations_invalid', 'the saved listings are not page lists')) };
+  // The rule a collection applies before it saves anything holds for what is read back:
+  // a file is not a way past it.
+  const contradicts = attemptContradiction(o.run, o.latestRun, expected?.run?.attempt);
+  if (contradicts.length > 0) return { observations: null, reason: contradictionReason(contradicts) };
   return { observations: o, reason: null };
 }
 

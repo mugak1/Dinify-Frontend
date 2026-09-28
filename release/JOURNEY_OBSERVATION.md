@@ -56,6 +56,11 @@ The selection file is B1's `dinify.journey.peer-selection/1`, stated by the oper
 
 Nothing completes or corrects it:
 
+- A selection B1's `checkSelection` does not accept, including one with a malformed nested
+  value such as `"source": null`, is refused as `selection_invalid` (exit 1) before any
+  request. The refusal echoes nothing about that selection: `peer`, `source`, `run` and
+  `receipt` are `null`, so a value that made it malformed is never printed.
+
 - The committed `release/policy.json` must approve **exactly** this commit and receipt
   digest, and the supplied `--receipt` file must hash to that digest. Otherwise the answer
   is `selection_not_approved` or `receipt_not_approved`, before any request, naming the
@@ -107,9 +112,20 @@ following is refused:
 **Not an atomic snapshot.** Each document is a separate GET. The run is read first and
 last. If its `run_attempt`, `status`, `conclusion`, `head_sha` or `updated_at` differ
 between the two reads, the collection is refused as `run_changed_during_collection`, and
-collecting again is the operator's decision. That bounds what can change
-unnoticed. It does not make the reads one transaction: an artifact expiring between its
-listing and a later download is the downloader's problem to detect.
+collecting again is the operator's decision.
+
+**Stable is not enough.** When the current run and the selected attempt both name the
+selected attempt, they are two reads of one attempt. They must then agree on `id`,
+`run_attempt`, `head_sha`, `status`, `conclusion`, `workflow_id`, `event`, `head_branch`,
+`path` and both repository names, or the collection is refused as
+`run_contradicts_attempt`, in either direction, and nothing is saved. B1 reads only the
+current run's id and attempt, which is why this layer checks the rest. A current run at a
+later attempt is not compared: that is B1's `attempt_superseded`. The same check runs
+again when `bytes` reads saved observations back.
+
+That bounds what can change unnoticed. It does not make the reads one transaction: an
+artifact expiring between its listing and a later download is the downloader's problem
+to detect.
 
 **Transport failures are named and sanitized:**
 
