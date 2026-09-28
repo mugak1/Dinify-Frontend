@@ -631,7 +631,7 @@ where a peer publishes one, and refused by name where it does not.
 | peer | selection | serving |
 |---|---|---|
 | backend (`a6b25a6`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
-| admin (`9cf8c83`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
+| admin (`94001b7`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
 path that consults `compatibleSet`; the backend's own deploy and `deploy-prod.yml` make
@@ -664,12 +664,14 @@ that receipt here in a reviewed pull request. Two consequences of the committed 
   readiness run `36273728448` (on `44c4fc3`) for `9ec02fe`. On 2026-09-27 readiness runs
   `36337180856`, `36338571396` and `36339569844` refused the same way for `3170e8f`, and
   run `36342248520` (on `ba8e4eb`) for `9cf8c83`. The approved Admin revision is now
-  `9cf8c83` (the #36 merge, which ported the scanner diagnostics into Admin's fresh
-  assessment, 2026-09-27), replacing `9ec02fe`, which had replaced `abdacda`, `a7ef20c`,
-  `eb54c92`, `1993a08`, `3521ebd` and `38df037` in turn, rather than joining them. An
-  Admin rollback to any of those, or to `ad4a7f8` (the #28 merge) or `3170e8f` (the #35
-  merge), both deployed and never approved, is refused the same way until approved again
-  (see the four 2026-09-26 sections and the 2026-09-27 one).
+  `94001b7` (the #38 merge, D10 B2, 2026-09-28), replacing `9cf8c83`, which had replaced
+  `9ec02fe`, `abdacda`, `a7ef20c`, `eb54c92`, `1993a08`, `3521ebd` and `38df037` in
+  turn, rather than joining them. An Admin rollback to any of those, or to `ad4a7f8` (the
+  #28 merge), `3170e8f` (the #35 merge) or `8b7895b` (the #37 merge), all deployed and
+  never approved, is refused the same way until approved again (see the four 2026-09-26
+  sections and the 2026-09-27 and 2026-09-28 ones). No readiness run observed `8b7895b`
+  or `94001b7` before this approval, so this one was reviewed on source and compared on
+  constructed serving evidence rather than replayed from a red run.
 
 ### The D01 ceiling contract
 
@@ -1367,6 +1369,12 @@ not moved to the tip).
 
 ### The 2026-09-27 refresh (compatible set `2026-09-27-pilot-10`)
 
+*History: its Admin approval was superseded on 2026-09-28 by `94001b7` (next section);
+its backend approval, `a6b25a6`, still stands. After it merged, readiness run
+`36345382850` (job `108693388435`, on `e414547`) completed as the six-reason,
+non-publishing wait under it (`decisionDigest` `sha256:604dcb5e…`). The bullets below
+describe the state when it was committed.*
+
 Admin #35 merged as `3170e8f` at 16:45:17Z and Deploy Admin run `36334555985` promoted it
 by 16:48:57Z. Readiness runs `36337180856` (job `108670149634`, on `e7a3473`),
 `36338571396` (job `108674040280`, on `bb50491`) and `36339569844` (job `108676874582`, on
@@ -1445,6 +1453,87 @@ stays `a6b25a6`, and `3170e8f` is not approved.
 - **Nothing else moved**: `publication.readiness.awaiting` is unchanged and gains no
   `peers.*` or `dependency.*` entry. No owner prerequisite, bootstrap setting,
   enablement, audit policy or backend selection changed, and publication stays disabled.
+- **The next Admin deployment will turn the next readiness run red again** until its own
+  receipt is reviewed and approved from its final merged source.
+
+### The 2026-09-28 refresh (compatible set `2026-09-28-pilot-11`)
+
+Admin #37 (D10 B2: bind each admin command to the session that issued it) merged as
+`8b7895b`, and Deploy Admin run `36354242328` promoted it (22:08–22:09Z on 2026-09-27).
+Admin #38 (the correction: post-verify lifecycle recovery, re-admission after capability
+withdrawal, and typed not-run, outage and claim handling) merged as `94001b7` at 23:45:52Z
+(parents `8b7895b` and `a2fa81e`). Admin CI run `36359784403` passed on that push, and
+Deploy Admin run `36359914333` promoted `94001b7` over `8b7895b`. Its public verification
+logged `/release.txt` as `94001b7…` (`no-store`) at 23:49:29Z and 16/16 admitted files
+served byte for byte at 23:49:32Z. Those are Admin's own deployment records.
+**No frontend readiness run observed `8b7895b` or `94001b7`**: the last one,
+`36345382850`, ran at 19:43Z, before both deployments. So there is no red run to replay,
+and the before/after comparison below uses CONSTRUCTED serving evidence. The environment
+that produced this refresh made no live read of either origin. #37 and #38 were reviewed
+together as delivered by #38; `8b7895b` is not approved. Only the Admin approval moves,
+and the backend stays `a6b25a6`.
+
+| peer | commit | tree | source blob(s) | receipt digest |
+|---|---|---|---|---|
+| admin | `94001b7dc1a64df5296b2502bcc26f4f2543d77d` (#37/#38) | `dc905761…` | `deploy.yml` `2618d1ee…` (unchanged) | `sha256:d499e466c92f0b80b822ad39d05870aacca139d5a1592d10390bbba3a545b5b5` |
+
+- **Source verification.** `peer-receipt` produced the receipt from an isolated clone
+  pinned to the exact merged commit, which is Admin `main`. The same run reproduced the
+  retained `9cf8c83` receipt byte for byte as a positive control. The independent Python
+  re-derivation, over a second, bare clone, recomputes the tree, the `deploy.yml` blob
+  (from the blob's own bytes) and the canonical digest. The digests agree, and the same
+  implementation reproduces the retained `9cf8c83` (`05b8c83b…`) and `9ec02fe`
+  (`f396dc77…`) digests as controls. GitHub's commit and contents API report the same
+  tree and blob. The live-serving half of `peer-facts` was **not** run. This verifies
+  the SOURCE of the approved revision and says nothing about runtime trust or what is
+  serving; the gate reads serving at decision time.
+- **The approval is the merge, not the implementation head.** #38's final head `a2fa81e`
+  carries the identical tree (`dc90576`), but the gate approves commits, so a receipt
+  about `a2fa81e`, or `a2fa81e` serving, is refused. `8b7895b` has a different tree
+  (`56d5d83`).
+- **Admin `9cf8c83..94001b7` is #37 and #38**: 29 files, 28 under `src/app/` plus
+  `CLAUDE.md`. They add command-owner binding (the `X-Admin-Command-Owner` header, the
+  lifecycle generation, session-boundary handling, named sign-out and resume
+  revalidation) and #38's recovery corrections. **The receipt-bearing `deploy.yml` is
+  byte-identical** (`2618d1e`). No `release/`, `dependency-audit/`, `package.json`, lock
+  file, `ci.yml`, `audit.yml` or Angular configuration changed, so the executable
+  deployment procedure, the dependency inputs and the served identity this gate reads are
+  unchanged. This is a review of what this gate relies on, not a security certification
+  of the D10 implementation.
+- **What this approval does not establish.** It is a statement about source. It does not
+  show that the deployed backend enforces the command-owner header; that negative
+  capability check is still an owner-gated operational gap. Backend enforcement has to
+  stay in place through any Admin rollback, and a pre-D10 Admin bundle sends no owner
+  header, so it is exposed again under the headerless compatibility contract. It
+  authorizes no B3 cutover, and `peers.backend_serving_unverified` stands.
+- **Before/after, every other fact held fixed** (committed-policy suite, constructed
+  serving of `94001b7`):
+  - the `pilot-10` set refuses it as `peers.admin_serving_unapproved`, the same seven
+    reasons run `36342248520` logged for `9cf8c83`, and it is not a wait;
+  - the refreshed set removes exactly that reason;
+  - through the real `decide` command it refuses the six recorded conditions as a
+    completed, non-publishing wait: `REFUSE`, `allow: false`, nothing published. Its
+    decision digests to `sha256:604dcb5e…`, the wait CI has recorded since `pilot-8`,
+    because the six-reason decision names no Admin commit.
+
+  The following still refuse, and none of them is a wait:
+  - a blocking or incomplete dependency assessment;
+  - broken Admin evidence: an edited tree (including the `#37` tree) or blob, a receipt
+    about `8b7895b` or `a2fa81e`, the `9cf8c83` receipt relabelled as the approved one, a
+    missing or unreadable receipt, an unpinned digest (including the previous pin left in
+    place), a disagreeing or unavailable public re-derivation, and an unreadable or
+    cacheable served identity;
+  - every superseded Admin revision (`9cf8c83`, `9ec02fe`, `abdacda`, `a7ef20c`,
+    `eb54c92`, `1993a08`, `3521ebd`, `38df037`), the never-approved `8b7895b`, `3170e8f`
+    and `ad4a7f8`, `a2fa81e`, and any later unknown one, refused as unapproved.
+
+  The `pilot-10` block now selects its own set from retained receipts, as the older
+  blocks do. The committed-policy suite went from 52 to **55** tests, and 14 of them
+  fail with `main`'s `pilot-10` policy put back.
+- **Nothing else moved**: `publication.readiness.awaiting` is unchanged and gains no
+  `peers.*` or `dependency.*` entry. No owner prerequisite, bootstrap setting,
+  enablement, eligibility, publisher configuration, audit policy, serving contract or
+  backend selection changed, and publication stays disabled.
 - **The next Admin deployment will turn the next readiness run red again** until its own
   receipt is reviewed and approved from its final merged source.
 

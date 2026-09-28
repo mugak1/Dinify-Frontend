@@ -3534,6 +3534,38 @@ so keep it current when conventions change.
   `publication.readiness.awaiting`. The committed-policy suite went from 48 to **52**
   tests, and 14 of them fail with `main`'s `pilot-9` policy put back. The release suite
   measured **811** on the branch (Node 24.21.0)
+- **A SOURCE APPROVAL WITH NO RED RUN BEHIND IT (D08 receipt refresh, 2026-09-28).** ✅
+  Compatible set **`2026-09-28-pilot-11`**: Admin `94001b7` (the #38 merge, D10 B2,
+  receipt `sha256:d499e466…`, tree `dc90576`) replaces `9cf8c83`. #37 bound every
+  guarded admin write to the session that issued it, and #38 corrected its post-verify
+  recovery, re-admission after capability withdrawal, and not-run, outage and claim
+  handling. They were reviewed together as delivered by #38; the #37 merge `8b7895b` was
+  deployed (Deploy Admin run `36354242328`) and is **not** approved. #38's head
+  `a2fa81e` has the same tree but is a different commit, so it is not approved either.
+  Between `9cf8c83` and `94001b7` only `src/app/` (28 files) and `CLAUDE.md` changed. The
+  receipt-bearing `deploy.yml` is byte-identical (`2618d1e`), and no `release/`,
+  `dependency-audit/`, package, lock or workflow file moved.
+  **No readiness run observed it.** The last, `36345382850` (on `e414547`), predates
+  both Admin deployments and completed as the six-reason wait under `pilot-10`. So the
+  before/after is CONSTRUCTED serving evidence, and nothing here claims a red-before or
+  green-after run. Under `pilot-10` a served `94001b7` is refused as
+  `peers.admin_serving_unapproved`, and the refresh removes exactly that reason and
+  returns the six-reason wait (`sha256:604dcb5e…`). The default serving input is
+  `94001b7`, from Admin's own Deploy Admin run `36359914333`, which read it back
+  `no-store` at 2026-09-27T23:49:29Z. That run's record is not a frontend observation,
+  and this refresh made no live read. The receipt was produced by `peer-receipt` from an
+  isolated clone at the exact merge (the retained `9cf8c83` receipt reproduced byte for
+  byte), re-derived by the independent Python implementation over a bare clone (the
+  `9cf8c83` and `9ec02fe` digests reproduced as controls), and checked against GitHub's
+  commit and contents API. The live-serving half of `peer-facts` was not run.
+  **A source receipt is not the missing operational proof**: that the deployed backend
+  enforces the command-owner header is still owner-gated, backend enforcement has to
+  survive an Admin rollback (a pre-D10 Admin bundle sends no owner header), and nothing
+  here authorizes B3. The `9cf8c83` block became history pinned to `pilot-10`. **Only
+  the Admin approval moved**: backend `a6b25a6` stands (Backend `main` is `7845b1c`,
+  deliberately not re-selected), and nothing was added to
+  `publication.readiness.awaiting`. The committed-policy suite went from 52 to **55**
+  tests, and 14 of them fail with `main`'s `pilot-10` policy put back.
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
