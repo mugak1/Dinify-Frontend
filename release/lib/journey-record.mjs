@@ -41,8 +41,17 @@
  *
  * DATA IS MINIMAL. No cookie, token, OTP, claim or QR credential, private key or peer
  * inventory belongs in a record. The schema is strict (an unknown key is refused), and
- * key names and values that look like secrets are refused by name. A test-host profile
- * digest identifies the configuration used; it is not a verified live-host identity.
+ * there is NO free-text field: every string is a SHA, a digest, a numeric id, a word from
+ * a fixed vocabulary, a lowercase slug, a version number, an artifact name in its
+ * producer's own grammar, or a CI ref. Evidence references in particular are identifiers
+ * (a digest, or a job, step or artifact id), never text. Key names and values that look
+ * like secrets are refused by name as well, as a second guard. A test-host profile digest
+ * identifies the configuration used; it is not a verified live-host identity.
+ *
+ * PEER SELECTION IS BOUND BY DIGEST. A downloaded peer's `descriptorDigest` is the digest
+ * of the bytes-level descriptor journey-peers returned for it (`peerDescriptorDigest`
+ * there); certified acceptance refuses a downloaded peer without one, and a local build
+ * may not carry one.
  *
  * Pure. No clock, filesystem, network or environment.
  */
@@ -77,7 +86,6 @@ export const LIMITS = Object.freeze({
   maxContractBytes: 64 * 1024,
   maxOutcomes: 200,
   maxEvidencePerOutcome: 16,
-  maxString: 200,
   maxDepth: 8,
 });
 
@@ -86,12 +94,41 @@ const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
 const ID_RE = /^[1-9][0-9]{0,19}$/;
 const ATTEMPT_RE = /^[1-9][0-9]{0,3}$/;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
-const OUTCOME_ID_RE = /^J[0-9]\.[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
+const OUTCOME_ID_RE = /^(?=.{4,80}$)J[0-9]\.[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 const JOURNEY_RE = /^J[0-9]$/;
-const REF_RE = /^[a-z0-9][a-z0-9._:/-]{0,119}$/;
-const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$/;
-const VERSION_RE = /^v?[0-9]+(?:\.[0-9]+){0,3}(?:[-+][A-Za-z0-9.]+)?$/;
-const ARTIFACT_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
+const SLUG_RE = /^(?=.{1,64}$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const VERSION_RE = /^v?[0-9]{1,6}(?:\.[0-9]{1,6}){0,3}$/;
+const CI_REF_RE = /^refs\/(?:heads\/[A-Za-z0-9._/-]{1,100}|pull\/[1-9][0-9]{0,9}\/(?:merge|head))$/;
+const BROWSERS = Object.freeze(['chromium', 'chrome', 'firefox', 'webkit']);
+
+/**
+ * EVIDENCE REFERENCES ARE IDENTIFIERS, NEVER TEXT. A reference names a retained file by
+ * its digest, or a CI job, step or artifact by its numeric id, and nothing else can be
+ * spelled: a free-form reference is exactly where a credential would be pasted. The
+ * numeric ids are seven digits or more, as GitHub's job and artifact ids are, which also
+ * keeps a four- or six-digit verification code out of the id slot. Which schemes each
+ * evidence kind may use is fixed: CI evidence names a job or a step, synthetic evidence the
+ * digest of its fixture, candidate execution a trace digest, a step or an artifact.
+ */
+const REF_SCHEMES = Object.freeze({
+  sha256: /^sha256:[0-9a-f]{64}$/,
+  job: /^job:[1-9][0-9]{6,19}$/,
+  step: /^step:[1-9][0-9]{6,19}\/[1-9][0-9]{0,2}$/,
+  artifact: /^artifact:[1-9][0-9]{6,19}$/,
+});
+const REF_SCHEMES_BY_KIND = Object.freeze({
+  source: Object.freeze(['sha256']),
+  synthetic: Object.freeze(['sha256']),
+  'local-build': Object.freeze(['sha256']),
+  'candidate-execution': Object.freeze(['sha256', 'step', 'artifact']),
+  ci: Object.freeze(['job', 'step']),
+  live: Object.freeze(['sha256']),
+});
+const refAllowed = (kind, ref) => typeof ref === 'string' && (REF_SCHEMES_BY_KIND[kind] ?? []).some((scheme) => REF_SCHEMES[scheme].test(ref));
+
+/** Each artifact slot carries its own producer's name, `<prefix>-<run>-<attempt>`, only. */
+const ARTIFACT_PREFIXES = Object.freeze({ frontend: 'frontend-release', admin: 'admin-candidate', backend: 'backend-candidate' });
+const artifactNameRe = (prefix) => new RegExp(`^${prefix}-[1-9][0-9]{0,19}-[1-9][0-9]{0,3}$`);
 
 /** Key names that never belong in a retained record, whatever their value. */
 const SENSITIVE_KEY_RE = /(cookie|token|otp|passw|secret|credential|private.?key|authorization|bearer|claim.?code|csrf|session.?id|api.?key)/i;
@@ -203,7 +240,7 @@ export function validateContract(contract) {
     return [{ code: 'journey.record.contract_invalid', detail: 'unknown or missing contract fields' }];
   }
   if (contract.schema !== CONTRACT_SCHEMA) bad(`schema is not ${CONTRACT_SCHEMA}`);
-  if (typeof contract.id !== 'string' || !NAME_RE.test(contract.id) || !Number.isSafeInteger(contract.revision) || contract.revision < 1) bad('id or revision');
+  if (typeof contract.id !== 'string' || !SLUG_RE.test(contract.id) || !Number.isSafeInteger(contract.revision) || contract.revision < 1) bad('id or revision');
   if (!Array.isArray(contract.journeys) || contract.journeys.length === 0 || !contract.journeys.every((j) => JOURNEY_RE.test(String(j)))
       || new Set(contract.journeys).size !== contract.journeys.length) bad('journeys must be a non-empty list of distinct J<n>');
   const outcomes = contract.outcomes;
@@ -230,7 +267,7 @@ export function validateContract(contract) {
   if (contract.cleanup !== 'required') bad('cleanup must be required');
   if (!Array.isArray(contract.allowedEvidence) || !contract.allowedEvidence.every((k) => EVIDENCE_KINDS.includes(k))) bad('allowedEvidence must use the evidence vocabulary');
   if (Array.isArray(contract.allowedEvidence) && contract.allowedEvidence.includes('live')) bad('live evidence is not a B4 journey observation');
-  if (!Array.isArray(contract.notInJourneys) || !contract.notInJourneys.every((x) => exactKeys(x, ['id', 'layer']) && OUTCOME_ID_RE.test(String(x.id)) && NAME_RE.test(String(x.layer)))) {
+  if (!Array.isArray(contract.notInJourneys) || !contract.notInJourneys.every((x) => exactKeys(x, ['id', 'layer']) && OUTCOME_ID_RE.test(String(x.id)) && SLUG_RE.test(String(x.layer)))) {
     bad('notInJourneys must be a list of {id, layer}');
   }
   return problems;
@@ -296,12 +333,12 @@ function checkPeerInput(p, name, bad) {
       || !EXECUTION_STATES.includes(p.execution) || !(p.descriptorDigest === null || DIGEST_RE.test(String(p.descriptorDigest)))) {
     bad(`inputs.peers.${name} values`);
   }
-  if (p.artifact !== null) checkArtifact(p.artifact, `inputs.peers.${name}.artifact`, bad);
+  if (p.artifact !== null) checkArtifact(p.artifact, name, `inputs.peers.${name}.artifact`, bad);
 }
 
-function checkArtifact(a, where, bad) {
+function checkArtifact(a, slot, where, bad) {
   if (!exactKeys(a, ['id', 'name', 'listedDigest', 'measuredDigest']) || !Number.isSafeInteger(a.id) || a.id <= 0
-      || !ARTIFACT_NAME_RE.test(String(a.name)) || !DIGEST_RE.test(String(a.listedDigest))
+      || !artifactNameRe(ARTIFACT_PREFIXES[slot]).test(String(a.name)) || !DIGEST_RE.test(String(a.listedDigest))
       || !(a.measuredDigest === null || DIGEST_RE.test(String(a.measuredDigest)))) bad(where);
 }
 
@@ -322,7 +359,7 @@ export function validateJourneyRecord(record) {
   }
   if (record.schema !== RECORD_SCHEMA) bad(`schema is not ${RECORD_SCHEMA}`);
   const c = record.contract;
-  if (!exactKeys(c, ['id', 'revision', 'digest']) || !NAME_RE.test(String(c.id)) || !Number.isSafeInteger(c.revision) || !DIGEST_RE.test(String(c.digest))) bad('contract');
+  if (!exactKeys(c, ['id', 'revision', 'digest']) || !SLUG_RE.test(String(c.id)) || !Number.isSafeInteger(c.revision) || !DIGEST_RE.test(String(c.digest))) bad('contract');
   const p = record.producer;
   if (!exactKeys(p, ['kind', 'repository', 'workflowPath', 'runId', 'runAttempt', 'event', 'ref', 'checkout'])) {
     bad('producer fields');
@@ -330,7 +367,7 @@ export function validateJourneyRecord(record) {
     if ((p.kind !== 'ci' && p.kind !== 'local') || p.repository !== FRONTEND_REPOSITORY) bad('producer kind or repository');
     if (p.kind === 'ci' && (typeof p.workflowPath !== 'string' || !/^\.github\/workflows\/[a-z0-9_-]+\.ya?ml$/.test(p.workflowPath)
         || !ID_RE.test(String(p.runId)) || !ATTEMPT_RE.test(String(p.runAttempt)) || typeof p.runId !== 'string' || typeof p.runAttempt !== 'string'
-        || !['push', 'pull_request', 'workflow_dispatch'].includes(p.event) || typeof p.ref !== 'string' || !p.ref.startsWith('refs/'))) bad('producer run');
+        || !['push', 'pull_request', 'workflow_dispatch'].includes(p.event) || !CI_REF_RE.test(String(p.ref)))) bad('producer run');
     if (p.kind === 'local' && (p.workflowPath !== null || p.runId !== null || p.runAttempt !== null || p.event !== null || p.ref !== null)) bad('a local producer names no CI run');
     const co = p.checkout;
     if (!exactKeys(co, ['kind', 'commit', 'tree']) || !CHECKOUT_KINDS.includes(co.kind) || !SHA_RE.test(String(co.commit)) || !SHA_RE.test(String(co.tree))) bad('producer checkout');
@@ -343,14 +380,14 @@ export function validateJourneyRecord(record) {
     if (!exactKeys(f, ['kind', 'repository', 'commit', 'tree', 'artifact', 'payloadTreeDigest', 'execution'])
         || !INPUT_KINDS.includes(f.kind) || f.repository !== FRONTEND_REPOSITORY || !SHA_RE.test(String(f.commit)) || !SHA_RE.test(String(f.tree))
         || !DIGEST_RE.test(String(f.payloadTreeDigest)) || !EXECUTION_STATES.includes(f.execution)) bad('inputs.frontend');
-    else if (f.artifact !== null) checkArtifact(f.artifact, 'inputs.frontend.artifact', bad);
+    else if (f.artifact !== null) checkArtifact(f.artifact, 'frontend', 'inputs.frontend.artifact', bad);
     if (!exactKeys(i.peers, ['admin', 'backend'])) bad('inputs.peers must name admin and backend');
     else for (const name of ['admin', 'backend']) checkPeerInput(i.peers[name], name, bad);
     const h = i.harness;
     if (!exactKeys(h, ['repository', 'commit', 'tree']) || h.repository !== FRONTEND_REPOSITORY || !SHA_RE.test(String(h.commit)) || !SHA_RE.test(String(h.tree))) bad('inputs.harness');
     const t = i.toolchain;
     if (!exactKeys(t, ['lockDigest', 'node', 'browser']) || !DIGEST_RE.test(String(t.lockDigest)) || !VERSION_RE.test(String(t.node))
-        || !exactKeys(t.browser, ['name', 'version', 'archiveDigest']) || !NAME_RE.test(String(t.browser.name)) || !VERSION_RE.test(String(t.browser.version))
+        || !exactKeys(t.browser, ['name', 'version', 'archiveDigest']) || !BROWSERS.includes(t.browser.name) || !VERSION_RE.test(String(t.browser.version))
         || !(t.browser.archiveDigest === null || DIGEST_RE.test(String(t.browser.archiveDigest)))) bad('inputs.toolchain');
     const th = i.testHost;
     if (!exactKeys(th, ['kind', 'profileDigest']) || !['ci-runner', 'local'].includes(th.kind) || !DIGEST_RE.test(String(th.profileDigest))) bad('inputs.testHost');
@@ -367,7 +404,7 @@ export function validateJourneyRecord(record) {
       const pr = x.producerRun;
       if (!exactKeys(pr, ['runId', 'runAttempt']) || !(pr.runId === null || ID_RE.test(String(pr.runId))) || !(pr.runAttempt === null || ATTEMPT_RE.test(String(pr.runAttempt)))) bad(`outcomes[${n}].producerRun`);
       if (!Array.isArray(x.evidence) || x.evidence.length === 0 || x.evidence.length > LIMITS.maxEvidencePerOutcome
-          || !x.evidence.every((e) => exactKeys(e, ['kind', 'ref']) && EVIDENCE_KINDS.includes(e.kind) && REF_RE.test(String(e.ref)))) bad(`outcomes[${n}].evidence`);
+          || !x.evidence.every((e) => exactKeys(e, ['kind', 'ref']) && EVIDENCE_KINDS.includes(e.kind) && refAllowed(e.kind, e.ref))) bad(`outcomes[${n}].evidence`);
     });
   }
   const cl = record.cleanup;
@@ -394,6 +431,7 @@ export function truthfulnessProblems(record) {
   // A local build at the same commit does not inherit the candidate's identity.
   for (const [where, input] of [['frontend', f], ['peers.admin', peers.admin], ['peers.backend', peers.backend]]) {
     if (input.kind === 'local-build' && input.artifact !== null) bad('local_build_claims_candidate', `inputs.${where} is a local build carrying a candidate artifact identity`);
+    if (input.kind === 'local-build' && input.descriptorDigest != null) bad('local_build_claims_candidate', `inputs.${where} is a local build carrying a peer selection`);
     if (input.kind === 'local-build' && input.execution === 'downloaded-not-executed') bad('input_inconsistent', `inputs.${where} is a local build described as downloaded`);
     if (input.kind === 'downloaded-candidate' && input.artifact === null) bad('input_inconsistent', `inputs.${where} is a downloaded candidate with no artifact identity`);
   }
@@ -516,6 +554,15 @@ export function assessJourneyRecord({ record, contract, expectedInputs } = {}) {
     if (input.kind !== 'downloaded-candidate' || input.execution !== 'executed' || input.artifact === null
         || input.artifact.measuredDigest === null || input.artifact.measuredDigest !== input.artifact.listedDigest) {
       refuse('input_not_candidate_execution', `inputs.${where} is not a downloaded candidate whose measured bytes were executed`);
+    }
+  }
+  // A downloaded peer is bound to the result of peer selection, by digest. Without it
+  // the record names a candidate but not the receipt, run, attempt, jobs and companion
+  // artifacts it was selected by, and matching a null expectation proves nothing.
+  for (const name of ['admin', 'backend']) {
+    const peer = record.inputs.peers[name];
+    if (peer.kind === 'downloaded-candidate' && peer.descriptorDigest === null) {
+      refuse('peer_selection_unbound', `inputs.peers.${name} carries no peer-selection descriptor digest`);
     }
   }
   if (record.inputs.testHost.kind !== 'ci-runner') refuse('not_certified_producer', 'the test host is not a CI runner');

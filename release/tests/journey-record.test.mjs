@@ -38,9 +38,10 @@ function candidate(repository, commit, tree, name, id) {
 }
 
 const evidenceFor = (requirement) => {
-  if (requirement === 'environment') return [{ kind: 'ci', ref: 'synthetic:environment-check' }];
-  const base = [{ kind: 'candidate-execution', ref: 'synthetic:ui-and-api' }, { kind: 'ci', ref: 'synthetic:ci-log' }];
-  return requirement === 'synthetic-allowed' ? [...base, { kind: 'synthetic', ref: 'synthetic:unreadable-terms-response' }] : base;
+  // References are identifiers only: a CI job or step id, or the digest of a retained file.
+  if (requirement === 'environment') return [{ kind: 'ci', ref: 'step:9700000001/4' }];
+  const base = [{ kind: 'candidate-execution', ref: d('ui and api trace') }, { kind: 'ci', ref: 'job:9700000001' }];
+  return requirement === 'synthetic-allowed' ? [...base, { kind: 'synthetic', ref: d('unreadable-terms fixture') }] : base;
 };
 
 /** A complete SYNTHETIC model of a certified gate run against the B4 minimum. */
@@ -151,7 +152,7 @@ function localModel() {
   rec.inputs.testHost = { kind: 'local', profileDigest: d('laptop profile') };
   for (const x of rec.outcomes) {
     x.producerRun = { runId: null, runAttempt: null };
-    x.evidence = x.evidence.filter((e) => e.kind === 'synthetic').concat([{ kind: 'local-build', ref: 'synthetic:local-run' }]);
+    x.evidence = x.evidence.filter((e) => e.kind === 'synthetic').concat([{ kind: 'local-build', ref: d('local run log') }]);
   }
   return rec;
 }
@@ -324,13 +325,13 @@ const OUTCOME_CASES = [
     ['journey.record.outcome_unexpected']],
   ['an outcome reported as the wrong kind', (rec) => { outcome(rec, 'J4.positive.owner-read-carries-qr').kind = 'scenario'; },
     ['journey.record.outcome_kind_mismatch']],
-  ['synthetic evidence on a server scenario', (rec) => { outcome(rec, 'J1.diner.server-price-exact').evidence.push({ kind: 'synthetic', ref: 'synthetic:made-up' }); },
+  ['synthetic evidence on a server scenario', (rec) => { outcome(rec, 'J1.diner.server-price-exact').evidence.push({ kind: 'synthetic', ref: d('made-up response') }); },
     ['journey.record.synthetic_not_allowed']],
-  ['a synthetic response standing in for the server', (rec) => { outcome(rec, 'J3.billing.canonical-terms').evidence = [{ kind: 'synthetic', ref: 'synthetic:made-up' }, { kind: 'ci', ref: 'synthetic:ci' }]; },
+  ['a synthetic response standing in for the server', (rec) => { outcome(rec, 'J3.billing.canonical-terms').evidence = [{ kind: 'synthetic', ref: d('made-up response') }, { kind: 'ci', ref: 'job:9700000002' }]; },
     ['journey.record.candidate_execution_missing', 'journey.record.synthetic_not_allowed']],
-  ['live evidence', (rec) => { outcome(rec, 'J4.admin.scoped-read').evidence.push({ kind: 'live', ref: 'synthetic:live' }); },
+  ['live evidence', (rec) => { outcome(rec, 'J4.admin.scoped-read').evidence.push({ kind: 'live', ref: d('live page') }); },
     ['journey.record.evidence_kind_not_allowed']],
-  ['an egress check with no execution evidence of its own', (rec) => { outcome(rec, 'J0.egress.redirect-hop-denied').evidence = [{ kind: 'source', ref: 'synthetic:reasoning' }]; },
+  ['an egress check with no execution evidence of its own', (rec) => { outcome(rec, 'J0.egress.redirect-hop-denied').evidence = [{ kind: 'source', ref: d('reasoning') }]; },
     ['journey.record.execution_evidence_missing']],
 ];
 
@@ -367,6 +368,25 @@ describe('SYNTHETIC: the inputs are the ones the caller independently expected',
       assert.deepEqual(r.reasons, [{ code: 'journey.record.input_mismatch', detail: `${section} is not the expected one` }]);
     });
   }
+  test('REGRESSION: a downloaded peer with no selection descriptor, matched by a null expectation', () => {
+    const rec = certifiedModel();
+    rec.inputs.peers.backend.descriptorDigest = null;
+    const r = assess(rec, { expectedInputs: clone(rec.inputs) });
+    assert.equal(r.truthful, true);
+    assert.deepEqual(r.reasons, [{ code: 'journey.record.peer_selection_unbound', detail: 'inputs.peers.backend carries no peer-selection descriptor digest' }]);
+  });
+  test('REGRESSION: a local build carrying a peer selection is untruthful', () => {
+    const rec = localModel();
+    rec.inputs.peers.admin.descriptorDigest = d('a selection');
+    const r = assess(rec);
+    assert.equal(r.truthful, false);
+    assert.ok(r.reasons.some((x) => x.code === 'journey.record.local_build_claims_candidate' && x.detail === 'inputs.peers.admin is a local build carrying a peer selection'));
+    assert.deepEqual(uniq(codes(r)), [
+      'journey.record.candidate_execution_missing', 'journey.record.evidence_kind_not_allowed', 'journey.record.execution_evidence_missing',
+      'journey.record.input_mismatch', 'journey.record.input_not_candidate_execution', 'journey.record.local_build_claims_candidate',
+      'journey.record.not_certified_producer',
+    ]);
+  });
   test('REGRESSION: no expected inputs at all', () => {
     const r = assessJourneyRecord({ record: certifiedModel(), contract: B4_MINIMUM_CONTRACT });
     assert.deepEqual(codes(r), ['journey.record.inputs_missing']);
@@ -431,6 +451,18 @@ const STRUCTURE_CASES = [
   ['an unknown schema version', (rec) => { rec.schema = 'dinify.journey.record/2'; }, 'journey.record.structure_invalid'],
   ['an unknown evidence kind', (rec) => { rec.outcomes[0].evidence[0].kind = 'trust-me'; }, 'journey.record.structure_invalid'],
   ['a URL with query data as an evidence reference', (rec) => { rec.outcomes[0].evidence[0].ref = 'https://example.invalid/?q=1'; }, 'journey.record.structure_invalid'],
+  // Codex P1 on #719: an opaque credential matched the old free-form reference pattern.
+  ['an opaque QR-style credential as an evidence reference', (rec) => { outcome(rec, 'J1.diner.scan-menu-configure').evidence[0].ref = 'cred-abc'; }, 'journey.record.structure_invalid'],
+  ['a signed token as an evidence reference', (rec) => { outcome(rec, 'J1.diner.scan-menu-configure').evidence[0].ref = 'eyj9:1u2abc:zq-xy_z'; }, 'journey.record.structure_invalid'],
+  ['a verification-code-sized id as an evidence reference', (rec) => { outcome(rec, 'J1.diner.scan-menu-configure').evidence[1].ref = 'job:1234'; }, 'journey.record.structure_invalid'],
+  ['CI evidence citing a file digest instead of a job', (rec) => { outcome(rec, 'J1.diner.scan-menu-configure').evidence[1].ref = d('a log'); }, 'journey.record.structure_invalid'],
+  ['synthetic evidence citing a job instead of its fixture', (rec) => { outcome(rec, 'J3.billing.unreadable-terms').evidence[2].ref = 'job:9700000001'; }, 'journey.record.structure_invalid'],
+  ['a Frontend artifact named as another producer\'s', (rec) => { rec.inputs.frontend.artifact.name = 'admin-candidate-960001-1'; }, 'journey.record.structure_invalid'],
+  ['an artifact name carrying extra text', (rec) => { rec.inputs.peers.backend.artifact.name = 'backend-candidate-980002-1-tq1abc'; }, 'journey.record.structure_invalid'],
+  ['a version carrying a suffix', (rec) => { rec.inputs.toolchain.node = 'v24.21.0-abcdef0123'; }, 'journey.record.structure_invalid'],
+  ['an unknown browser', (rec) => { rec.inputs.toolchain.browser.name = 'token-abc'; }, 'journey.record.structure_invalid'],
+  ['a producer ref that is not a CI ref', (rec) => { rec.producer.ref = 'refs/credentials/abc'; }, 'journey.record.structure_invalid'],
+  ['a contract id that is not a slug', (rec) => { rec.contract.id = 'D08_B4:secret'; }, 'journey.record.structure_invalid'],
   ['a foreign peer repository', (rec) => { rec.inputs.peers.admin.repository = 'someone/Dinify-Admin'; }, 'journey.record.structure_invalid'],
   ['a local producer naming a CI run', (rec) => { rec.producer.kind = 'local'; }, 'journey.record.structure_invalid'],
   ['an unbounded outcome list', (rec) => { rec.outcomes = Array.from({ length: 201 }, () => clone(rec.outcomes[0])); }, 'journey.record.structure_invalid'],

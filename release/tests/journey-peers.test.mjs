@@ -18,10 +18,11 @@ import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { contractDigest, digestOf, treeDigest } from '../lib/canonical.mjs';
+import { contractDigest, digestOf, digestOfValue, treeDigest } from '../lib/canonical.mjs';
 import { receiptDigest } from '../lib/peers.mjs';
 import {
-  DESCRIPTOR_SCHEMA, PEER_FORMATS, SELECTION_SCHEMA, adminPathProblem, backendListingDigest, checkSelection, selectPeerCandidate,
+  DESCRIPTOR_SCHEMA, PEER_FORMATS, SELECTION_SCHEMA, adminPathProblem, backendListingDigest, checkSelection, peerDescriptorDigest,
+  selectPeerCandidate,
 } from '../lib/journey-peers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -253,6 +254,13 @@ describe('SYNTHETIC: sufficient evidence yields a descriptor, never a verificati
     assert.equal(d.claims.wheelCount, 2);
     assert.ok(!('packages' in d.claims));
   });
+  test('CONTROL: a newer glibc than the declared minimum is the same target', () => {
+    for (const libc of ['glibc 2.40', 'glibc 3.0']) {
+      const w = world('backend');
+      setRecord(w, 'backend', (r) => { r.target.libc = libc; });
+      assert.deepEqual(codes(run(w)), [], libc);
+    }
+  });
   test('CONTROL: an unrelated artifact and another attempt\'s candidate are not a second candidate', () => {
     const w = world('backend');
     const other = artifactEntry('backend', `backend-candidate-${WORLD.backend.runId}-2`, Buffer.from('SYNTHETIC later attempt'), 949999);
@@ -284,6 +292,17 @@ describe('SYNTHETIC: sufficient evidence yields a descriptor, never a verificati
     const strict = run(w);
     assert.deepEqual(codes(strict), ['journey.peers.bytes_not_observed', 'journey.peers.bytes_not_observed']);
     assert.equal(strict.descriptor, null);
+  });
+  test('CONTRACT: a journey record binds a peer by the digest of a BYTES-level descriptor only', () => {
+    const bytes = run(world('backend')).descriptor;
+    assert.equal(peerDescriptorDigest(bytes), digestOfValue(bytes));
+    const w = world('admin');
+    delete w.observations.archive;
+    delete w.observations.record;
+    // REGRESSION: a metadata-level selection cannot stand behind a certified record.
+    assert.equal(peerDescriptorDigest(run(w, { require: 'metadata' }).descriptor), null);
+    assert.equal(peerDescriptorDigest({ ...bytes, schema: 'dinify.journey.peer-descriptor/9' }), null);
+    assert.equal(peerDescriptorDigest(null), null);
   });
 });
 
@@ -384,6 +403,14 @@ const CASES = [
   ['backend', 'a wheelhouse digest that its files do not compose', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].size += 1; }), ['journey.peers.record_inconsistent']],
   ['admin', 'a record claiming an incomplete audit', (w) => setRecord(w, 'admin', (r) => { r.audit.outcome = 'incomplete'; }), ['journey.peers.record_audit_not_passing']],
   ['admin', 'a record with no audit claim', (w) => setRecord(w, 'admin', (r) => { delete r.audit; }), ['journey.peers.record_audit_not_passing']],
+  // Codex P2 on #719: a candidate built for another target cannot be reconstructed on the reviewed one.
+  ['backend', 'a record with no target', (w) => setRecord(w, 'backend', (r) => { delete r.target; }), ['journey.peers.record_target_unsupported']],
+  ['backend', 'a record built for ARM64', (w) => setRecord(w, 'backend', (r) => { r.target.machine = 'aarch64'; }), ['journey.peers.record_target_unsupported']],
+  ['backend', 'a record built for another Python', (w) => setRecord(w, 'backend', (r) => { r.target.python = '3.13.0'; }), ['journey.peers.record_target_unsupported']],
+  ['backend', 'a record built for another implementation', (w) => setRecord(w, 'backend', (r) => { r.target.implementation = 'PyPy'; }), ['journey.peers.record_target_unsupported']],
+  ['backend', 'a record built against an older glibc', (w) => setRecord(w, 'backend', (r) => { r.target.libc = 'glibc 2.35'; }), ['journey.peers.record_target_unsupported']],
+  ['backend', 'a record whose glibc only sorts above as text', (w) => setRecord(w, 'backend', (r) => { r.target.libc = 'glibc 2.4'; }), ['journey.peers.record_target_unsupported']],
+  ['backend', 'a record built against musl', (w) => setRecord(w, 'backend', (r) => { r.target.libc = 'musl 1.2'; }), ['journey.peers.record_target_unsupported']],
   ['backend', 'a record claiming a blocking audit', (w) => setRecord(w, 'backend', (r) => { r.audit.outcome = 'blocking'; }), ['journey.peers.record_audit_not_passing']],
   ['backend', 'record bytes that are not JSON', (w) => { w.observations.record = Buffer.from('SYNTHETIC not json'); }, ['journey.peers.record_unreadable']],
   ['backend', 'a record given as a string, not bytes', (w) => { w.observations.record = JSON.stringify(backendRecord()); }, ['journey.peers.record_unreadable']],

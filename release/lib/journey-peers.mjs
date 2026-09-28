@@ -67,7 +67,7 @@
 
 import { createHash } from 'node:crypto';
 
-import { canonicalJson, digestOf, treeDigest } from './canonical.mjs';
+import { canonicalJson, digestOf, digestOfValue, treeDigest } from './canonical.mjs';
 import { receiptDigest, validateReceipt } from './peers.mjs';
 
 export const SELECTION_SCHEMA = 'dinify.journey.peer-selection/1';
@@ -141,6 +141,10 @@ export const PEER_FORMATS = Object.freeze({
     contradictoryPrefixes: Object.freeze(['backend-candidate-nonpromotable']),
     recordFile: 'record.json',
     recordSchemas: Object.freeze(['dinify.backend.candidate/1']),
+    // The target the lock declares and the consumer reconstructs on (Dinify-Backend
+    // release/python-lock.json `target`, release/environment.py target_problems): the
+    // record's claimed target must be it, with glibc at least the declared version.
+    target: Object.freeze({ python: '3.12.3', implementation: 'CPython', platform: 'linux', machine: 'x86_64', glibcMinimum: Object.freeze([2, 39]) }),
     deferred: Object.freeze([
       'archive-members: the archive holds exactly record.json, source.tar and the listed wheelhouse and evidence files, each once, with no link or hidden member',
       'record-membership: the record bytes are the record.json inside THIS archive',
@@ -467,6 +471,17 @@ export function selectPeerCandidate({ expected, observations, now, require = 'by
   return done(archiveState === 'measured-match' && recordState === 'consistent' ? 'bytes' : 'metadata', descriptor);
 }
 
+/**
+ * The digest a journey record binds a downloaded peer to (`inputs.peers.<peer>.
+ * descriptorDigest`): the digest of a BYTES-level descriptor this module returned, or null
+ * for anything else, a metadata-level descriptor included. A caller deriving its expected
+ * inputs uses this, so a metadata-only selection cannot stand behind a certified record.
+ */
+export function peerDescriptorDigest(descriptor) {
+  if (!isObject(descriptor) || descriptor.schema !== DESCRIPTOR_SCHEMA || descriptor.status !== 'bytes-correspond-consumer-checks-deferred') return null;
+  return digestOfValue(descriptor);
+}
+
 /** One listed artifact, judged against the selection. Returns its facts or null. */
 function listedArtifact(a, { name, runId, commit, branch, run, nowMs, refuse }) {
   if (!Number.isSafeInteger(a.id) || a.id <= 0 || !DIGEST_RE.test(String(a.digest)) || !Number.isSafeInteger(a.size_in_bytes) || a.size_in_bytes < 0) {
@@ -653,8 +668,18 @@ function backendRecord(r, ctx) {
   if (!isObject(r.environment) || !HEX_RE.test(String(r.environment.digest))) bad('record_entry_invalid', 'the environment digest claim is malformed');
   const outcome = r.audit?.outcome;
   if (!PASSING_AUDIT.includes(outcome)) bad('record_audit_not_passing', 'the record does not claim a passing dependency audit');
-  if (problems.length > 0) return { problems, claims: null };
   const t = isObject(r.target) ? r.target : {};
+  const want = ctx.format.target;
+  const glibc = typeof t.libc === 'string' ? /^glibc ([0-9]{1,3})\.([0-9]{1,3})$/.exec(t.libc) : null;
+  const glibcOk = glibc !== null && (Number(glibc[1]) > want.glibcMinimum[0]
+    || (Number(glibc[1]) === want.glibcMinimum[0] && Number(glibc[2]) >= want.glibcMinimum[1]));
+  if (!isObject(r.target) || t.python !== want.python || t.implementation !== want.implementation || t.platform !== want.platform
+      || t.machine !== want.machine || !glibcOk) {
+    // A candidate built for another interpreter, machine or C library cannot be
+    // reconstructed on the reviewed target, so it is not selected.
+    bad('record_target_unsupported', `the record's target is not ${want.implementation} ${want.python} on ${want.platform} ${want.machine} with glibc ${want.glibcMinimum.join('.')} or later`);
+  }
+  if (problems.length > 0) return { problems, claims: null };
   return {
     problems,
     claims: {
@@ -667,13 +692,7 @@ function backendRecord(r, ctx) {
       lockSha256: lock.sha256,
       requirementsSha256: reqs.sha256,
       auditOutcome: outcome,
-      target: {
-        python: claimString(t.python),
-        implementation: claimString(t.implementation),
-        platform: claimString(t.platform),
-        machine: claimString(t.machine),
-        libc: claimString(t.libc),
-      },
+      target: { python: t.python, implementation: t.implementation, platform: t.platform, machine: t.machine, libc: t.libc },
     },
   };
 }
