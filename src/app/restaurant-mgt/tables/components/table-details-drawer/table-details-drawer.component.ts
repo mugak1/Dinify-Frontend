@@ -6,6 +6,7 @@ import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
 import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
+import { escapeHtml } from '../../../../_shared/utils/escape-html';
 import {
   RestaurantTable,
   DiningArea,
@@ -237,16 +238,23 @@ export class TableDetailsDrawerComponent {
 
   handlePrintBill(): void {
     if (!this.table || !this.party) return;
+    // The bill is assembled as a string and written into a same-origin window,
+    // so every table, area and order-item value is HTML-encoded where it is
+    // interpolated — once.
     const items = this.party.orderItems
-      .map(i => `<tr><td>${i.quantity}× ${i.name}</td><td style="text-align:right">${i.status}</td></tr>`)
+      .map(i => `<tr><td>${escapeHtml(String(i.quantity))}× ${escapeHtml(String(i.name))}</td><td style="text-align:right">${escapeHtml(String(i.status))}</td></tr>`)
       .join('');
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+    const tableName = escapeHtml(this.tableName);
+    const areaName = escapeHtml(String(this.area?.name ?? ''));
+    const partySize = escapeHtml(String(this.party.partySize));
+    const total = escapeHtml(this.party.currentCheck.toLocaleString());
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Bill – ${this.tableName}</title>
+        <title>Bill – ${tableName}</title>
         <style>
           body { font-family: 'Courier New', monospace; width: 300px; margin: 20px auto; font-size: 12px; }
           h2 { text-align: center; margin-bottom: 4px; }
@@ -259,12 +267,12 @@ export class TableDetailsDrawerComponent {
         </style>
       </head>
       <body>
-        <h2>${this.tableName}</h2>
-        <div class="sub">${this.area?.name ?? ''} &middot; Party of ${this.party.partySize}</div>
+        <h2>${tableName}</h2>
+        <div class="sub">${areaName} &middot; Party of ${partySize}</div>
         <hr/>
         <table>${items}</table>
         <hr/>
-        <table><tr class="total"><td>TOTAL</td><td style="text-align:right">UGX ${this.party.currentCheck.toLocaleString()}</td></tr></table>
+        <table><tr class="total"><td>TOTAL</td><td style="text-align:right">UGX ${total}</td></tr></table>
         <hr/>
         <div class="footer">Thank you for dining with us!</div>
         <script>window.onload = () => { window.print(); window.close(); };</script>

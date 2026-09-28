@@ -15,6 +15,7 @@ import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
 import { RestaurantTable, DiningArea } from '../../models/tables.models';
 import { getTableQRUrl } from '../../utils/qr-print-sheet';
+import { escapeHtml } from '../../../../_shared/utils/escape-html';
 import QRCode from 'qrcode';
 
 /**
@@ -143,11 +144,18 @@ export class QrCodePreviewModalComponent implements OnChanges {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    // The print document is assembled as a string and written into a
+    // same-origin window, so every label is HTML-encoded where it is
+    // interpolated. `rawSvg` is NOT encoded: it is markup this component
+    // generated locally with the bundled `qrcode` library.
+    const tableNumber = escapeHtml(String(this.table.number));
+    const areaName = escapeHtml(String(this.area?.name || 'Main Dining'));
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Table ${this.table.number} QR Code</title>
+        <title>Table ${tableNumber} QR Code</title>
         <style>
           body {
             display: flex;
@@ -184,8 +192,8 @@ export class QrCodePreviewModalComponent implements OnChanges {
       </head>
       <body>
         <div class="qr-container">
-          <div class="table-label">Table ${this.table.number}</div>
-          <div class="area-label">${this.area?.name || 'Main Dining'}</div>
+          <div class="table-label">Table ${tableNumber}</div>
+          <div class="area-label">${areaName}</div>
           ${this.rawSvg}
           <div class="scan-text">Scan to view menu & order</div>
         </div>

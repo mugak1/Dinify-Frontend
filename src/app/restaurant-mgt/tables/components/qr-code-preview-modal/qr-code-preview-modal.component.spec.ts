@@ -3,7 +3,7 @@ import { SimpleChange } from '@angular/core';
 import QRCode from 'qrcode';
 import { QrCodePreviewModalComponent } from './qr-code-preview-modal.component';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
-import { RestaurantTable } from '../../models/tables.models';
+import { DiningArea, RestaurantTable } from '../../models/tables.models';
 
 function table(over: Partial<RestaurantTable> = {}): RestaurantTable {
   return {
@@ -172,5 +172,163 @@ describe('QrCodePreviewModalComponent', () => {
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Old QR revoked');
+  });
+
+  /**
+   * D14 B1 — the single-table print document carries the area name and table
+   * number as TEXT. `handlePrint` writes into a same-origin popup, so the
+   * document it actually wrote is parsed (DOMParser runs nothing) and asserted
+   * on as DOM: a harmless marker element must stay literal text, with no
+   * injected element or attribute. The locally generated QR SVG is trusted
+   * markup and must still arrive as an element.
+   */
+  describe('handlePrint (dynamic labels are encoded as text)', () => {
+    const MARKER = '<dinify-probe data-d14="x">m</dinify-probe>';
+    let fakeDoc: { write: jasmine.Spy; close: jasmine.Spy };
+    let openSpy: jasmine.Spy;
+
+    function area(name: string): DiningArea {
+      return {
+        id: 'area-1',
+        name,
+        isIndoor: true,
+        smokingAllowed: false,
+        accessible: true,
+        isActive: true,
+        tableIds: ['t1'],
+      };
+    }
+
+    beforeEach(() => {
+      fakeDoc = {
+        write: jasmine.createSpy('write'),
+        close: jasmine.createSpy('close'),
+      };
+      openSpy = spyOn(window, 'open').and.returnValue(
+        { document: fakeDoc } as unknown as Window,
+      );
+    });
+
+    async function openPrintable(t: RestaurantTable, a?: DiningArea): Promise<void> {
+      component.area = a;
+      openWithTable(t);
+      // A stubbed render settles in a microtask or two; the real `qrcode`
+      // library takes longer, so wait (bounded) for the SVG to land.
+      for (let i = 0; i < 200 && component.qrUrl && !(component as any).rawSvg; i++) {
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      await flush();
+    }
+
+    function writtenDocument(): Document {
+      expect(fakeDoc.write).toHaveBeenCalledTimes(1);
+      const html = fakeDoc.write.calls.mostRecent().args[0] as string;
+      return new DOMParser().parseFromString(html, 'text/html');
+    }
+
+    it('REGRESSION: an area name is literal text in the printed body', async () => {
+      spyOn(QRCode, 'toString').and.returnValue(
+        Promise.resolve('<svg class="qr"><path d="M0 0h1"/></svg>') as unknown as void,
+      );
+      await openPrintable(table({ number: 9 }), area(`Patio ${MARKER}`));
+
+      component.handlePrint();
+
+      const doc = writtenDocument();
+      expect(doc.querySelector('dinify-probe')).toBeNull();
+      expect(doc.querySelector('[data-d14]')).toBeNull();
+      const label = doc.querySelector('.area-label')!;
+      expect(label.textContent).toBe(`Patio ${MARKER}`);
+      expect(label.children.length).toBe(0);
+    });
+
+    it('keeps the number-based title and label, and the trusted QR SVG as an element', async () => {
+      spyOn(QRCode, 'toString').and.returnValue(
+        Promise.resolve('<svg class="qr"><path d="M0 0h1"/></svg>') as unknown as void,
+      );
+      await openPrintable(table({ number: 9, displayName: 'Ignored here' }), area('Garden'));
+
+      component.handlePrint();
+
+      const doc = writtenDocument();
+      // Single preview stays number-based; displayName is not introduced here.
+      expect(doc.title).toBe('Table 9 QR Code');
+      expect(doc.querySelector('.table-label')!.textContent).toBe('Table 9');
+      expect(doc.querySelector('.area-label')!.textContent).toBe('Garden');
+      const svg = doc.querySelector('.qr-container svg.qr');
+      expect(svg).not.toBeNull();
+      expect(svg!.querySelector('path')!.getAttribute('d')).toBe('M0 0h1');
+      expect(fakeDoc.close).toHaveBeenCalled();
+    });
+
+    it('falls back to "Main Dining" when there is no area or its name is empty', async () => {
+      spyOn(QRCode, 'toString').and.returnValue(
+        Promise.resolve('<svg></svg>') as unknown as void,
+      );
+      await openPrintable(table(), undefined);
+      component.handlePrint();
+      expect(writtenDocument().querySelector('.area-label')!.textContent).toBe('Main Dining');
+
+      fakeDoc.write.calls.reset();
+      component.area = area('');
+      component.handlePrint();
+      expect(writtenDocument().querySelector('.area-label')!.textContent).toBe('Main Dining');
+    });
+
+    it('preserves Unicode, quotes, ampersands and entity-looking text as displayed text', async () => {
+      const name = `Café "Ndiizi" & Friends' — &lt;b&gt; 🍌`;
+      spyOn(QRCode, 'toString').and.returnValue(
+        Promise.resolve('<svg></svg>') as unknown as void,
+      );
+      await openPrintable(table({ number: 3 }), area(name));
+
+      component.handlePrint();
+
+      expect(writtenDocument().querySelector('.area-label')!.textContent).toBe(name);
+    });
+
+    it('prints the real locally generated QR unchanged and leaves the credential URL untouched', async () => {
+      await openPrintable(
+        table({ id: 'abc', number: 2, qrCredential: 'CRED-<&>"' }),
+        area(MARKER),
+      );
+      const url = `${window.location.origin}/diner/h/abc?c=${encodeURIComponent('CRED-<&>"')}`;
+      expect(component.qrUrl).toBe(url);
+      const rawSvg = (component as any).rawSvg as string;
+      expect(rawSvg).toContain('<svg');
+
+      component.handlePrint();
+
+      const doc = writtenDocument();
+      expect(doc.querySelector('dinify-probe')).toBeNull();
+      const printed = doc.querySelector('.qr-container svg')!;
+      const expected = new DOMParser()
+        .parseFromString(rawSvg, 'text/html')
+        .querySelector('svg')!;
+      expect(printed.outerHTML).toBe(expected.outerHTML);
+      expect(printed.querySelectorAll('path').length).toBeGreaterThan(0);
+      expect(component.qrUrl).toBe(url);
+    });
+
+    it('writes nothing when the popup is blocked', async () => {
+      spyOn(QRCode, 'toString').and.returnValue(
+        Promise.resolve('<svg></svg>') as unknown as void,
+      );
+      await openPrintable(table(), area(MARKER));
+      openSpy.and.returnValue(null);
+
+      expect(() => component.handlePrint()).not.toThrow();
+      expect(fakeDoc.write).not.toHaveBeenCalled();
+    });
+
+    it('opens no print window when the table has no usable credential', async () => {
+      spyOn(QRCode, 'toString');
+      await openPrintable(table({ qrCredential: '' }), area(MARKER));
+
+      component.handlePrint();
+
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(fakeDoc.write).not.toHaveBeenCalled();
+    });
   });
 });
