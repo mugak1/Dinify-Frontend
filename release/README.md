@@ -630,7 +630,7 @@ where a peer publishes one, and refused by name where it does not.
 
 | peer | selection | serving |
 |---|---|---|
-| backend (`a6b25a6`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until the backend publishes a served-revision identity (B3). Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
+| backend (`0513adb`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until a verified loaded-runtime identity of the backend is available (B3): its source now carries an identity endpoint and a staged installer, but neither serves yet. Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
 | admin (`94001b7`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
@@ -641,13 +641,14 @@ one-sided change unreleasable — the other side's own deploy can still ship it 
 order is: merge the peer, produce a receipt from its git at the merged commit, approve
 that receipt here in a reviewed pull request. Two consequences of the committed state:
 
-- the approved backend revision is `a6b25a6` (the #338 merge). `366b7e4` (the #331
-  merge, the first carrying `orders_app/contracts/published_capabilities.contract.json`)
-  REPLACED `9448f55` (the #330 merge) on 2026-09-23, and was itself replaced by
-  `a6b25a6` on 2026-09-24 — replaced rather than joined, because every approved backend
-  is checked for compatibility and an export-less revision left in the list would refuse
-  `peers.capabilities_unpublished` for ever. Both earlier receipts stay under `peers/`
-  as history and are no longer approved; the committed-policy suite selects them
+- the approved backend revision is `0513adb` (the #350 merge), which REPLACED `a6b25a6`
+  (the #338 merge) on 2026-09-28. `366b7e4` (the #331 merge, the first carrying
+  `orders_app/contracts/published_capabilities.contract.json`) REPLACED `9448f55` (the
+  #330 merge) on 2026-09-23, and was itself replaced by `a6b25a6` on 2026-09-24. Each
+  was replaced rather than joined, because every approved backend is checked for
+  compatibility and an export-less revision left in the list would refuse
+  `peers.capabilities_unpublished` for ever. The three earlier receipts stay under
+  `peers/` as history and are no longer approved; the committed-policy suite selects them
   deliberately as negative controls. **Approving a receipt is a statement about SOURCE**, and
   `peers.backend_serving_unverified` stands until B3 — a deployment log is not a
   served-revision identity;
@@ -798,7 +799,7 @@ by running the real `decide` against the committed file:
 | `prerequisite.retention_unverified` | establishing what Firebase Hosting retains for this site — the owner's fallback — in `prerequisites.retention` |
 | `prerequisite.legacy_publisher_active` | the cutover change setting `prerequisites.singlePublisher` |
 | `prerequisite.legacy_publisher_present` | the same change **deleting** `deploy-prod.yml` — this one is observed from the checkout, so the policy cannot claim it |
-| `peers.backend_serving_unverified` | B3: the backend publishing a served-revision identity |
+| `peers.backend_serving_unverified` | B3: a verified loaded-runtime identity of the backend |
 | `served.bootstrap_unauthorized` | an explicit, reviewed `bootstrap.authorized: true` with `servedBaseline` naming the live commit. That commit must carry a valid storage declaration, one that states where its bytes are (physical key and encoding) — i.e. be at or after the merge that introduced them. The live path publishes every merge, so by the time a bootstrap is authorized the live commit will be |
 
 `peers.capabilities_unpublished` was the seventh until the 2026-09-23 follow-up approved
@@ -953,7 +954,7 @@ Both are now refused, and each finding is carried by tests labelled
   the GitHub Actions or runner images the workflows use, it adds no self-test for the
   gates' own scanners, and it does not touch `deploy-prod.yml`, which remains the live
   writer and consumes none of it. The 24-hour certification window is unchanged.
-- **B3** — a served-revision identity for the backend. Until it exists this path
+- **B3** — a verified loaded-runtime identity for the backend. Until it exists this path
   refuses `peers.backend_serving_unverified` and cannot publish.
 - **B4** — anything beyond this path: the cutover itself, custom-domain inventory,
   QR URL continuity, and pinning `firebase-tools` on the legacy path, which still
@@ -996,7 +997,7 @@ origin, and the four levels match the backend's source constants at that commit.
 ### The 2026-09-24 refresh (compatible set `2026-09-24-pilot-4`)
 
 *History: its Admin approval was superseded on 2026-09-25 (next section); its backend
-approval, `a6b25a6`, still stands.*
+approval, `a6b25a6`, stood until 2026-09-28 (`0513adb`, `pilot-12`).*
 
 Both peers moved after `2026-09-23-pilot-3` was approved. Each new receipt was produced
 by `peer-receipt` from the exact merged commit and re-derived by an independent Python
@@ -1031,7 +1032,7 @@ objects itself; the digests agree.
 ### The 2026-09-25 refresh (compatible set `2026-09-25-pilot-5`)
 
 *History: its Admin approval was superseded on 2026-09-26 (next section); its backend
-approval, `a6b25a6`, still stands.*
+approval, `a6b25a6`, stood until 2026-09-28 (`0513adb`, `pilot-12`).*
 
 Admin #28 (the dependency audit inside `validate`) and #29 (npm report completeness)
 merged and were deployed automatically. `ad4a7f8` (#28) served from about 11:40Z to
@@ -1075,7 +1076,7 @@ Only the Admin approval moves; the backend stays `a6b25a6`.
 ### The 2026-09-26 refresh (compatible set `2026-09-26-pilot-6`)
 
 *History: its Admin approval was superseded the same day by `a7ef20c` (next section);
-its backend approval, `a6b25a6`, still stands. The bullets below describe the state when
+its backend approval, `a6b25a6`, stood until 2026-09-28 (`0513adb`, `pilot-12`). The bullets below describe the state when
 it was committed.*
 
 Admin #30 (D08 B2.3, the mock-isolation gate's qualification) merged as `eb54c92` and
@@ -1131,7 +1132,7 @@ stays `a6b25a6`.
 ### The second 2026-09-26 refresh (compatible set `2026-09-26-pilot-7`)
 
 *History: its Admin approval was superseded the same day by `abdacda` (next section);
-its backend approval, `a6b25a6`, still stands. The bullets below describe the state when
+its backend approval, `a6b25a6`, stood until 2026-09-28 (`0513adb`, `pilot-12`). The bullets below describe the state when
 it was committed.*
 
 Admin #31 (D08 B2.4, certified promotion) merged as `a7ef20c` and was deployed
@@ -1206,7 +1207,7 @@ produced this refresh returned `a7ef20c…` with `Cache-Control: no-store` at 14
 ### The third 2026-09-26 refresh (compatible set `2026-09-26-pilot-8`)
 
 *History: its Admin approval was superseded the same day by `9ec02fe` (next section);
-its backend approval, `a6b25a6`, still stands. The bullets below describe the state when
+its backend approval, `a6b25a6`, stood until 2026-09-28 (`0513adb`, `pilot-12`). The bullets below describe the state when
 it was committed. After it merged, two readiness runs did observe `abdacda`: `36270515216`
 (on `9a11385`, its own merge) and `36272139246` (on `349e97b`, the #706 merge). Each
 retained a `peers.json` stating Admin serving `abdacda`, verified and `no-store`, and each
@@ -1277,7 +1278,7 @@ the approval was deliberately not moved to the tip).
 ### The fourth 2026-09-26 refresh (compatible set `2026-09-26-pilot-9`)
 
 *History: its Admin approval was superseded on 2026-09-27 by `9cf8c83` (next section);
-its backend approval, `a6b25a6`, still stands. The bullets below describe the state when
+its backend approval, `a6b25a6`, stood until 2026-09-28 (`0513adb`, `pilot-12`). The bullets below describe the state when
 it was committed.*
 
 Admin #33 merged as `5dab122` at 21:24:12Z and #34 as `9ec02fe` at 21:35:44Z (parents
@@ -1370,7 +1371,7 @@ not moved to the tip).
 ### The 2026-09-27 refresh (compatible set `2026-09-27-pilot-10`)
 
 *History: its Admin approval was superseded on 2026-09-28 by `94001b7` (next section);
-its backend approval, `a6b25a6`, still stands. After it merged, readiness run
+its backend approval, `a6b25a6`, stood until 2026-09-28 (`0513adb`, `pilot-12`). After it merged, readiness run
 `36345382850` (job `108693388435`, on `e414547`) completed as the six-reason,
 non-publishing wait under it (`decisionDigest` `sha256:604dcb5e…`). The bullets below
 describe the state when it was committed.*
@@ -1458,6 +1459,10 @@ stays `a6b25a6`, and `3170e8f` is not approved.
 
 ### The 2026-09-28 refresh (compatible set `2026-09-28-pilot-11`)
 
+*History: its backend approval, `a6b25a6`, was superseded the same day by `0513adb`
+(next section); its Admin approval, `94001b7`, still stands. The bullets below describe
+the state when it was committed.*
+
 Admin #37 (D10 B2: bind each admin command to the session that issued it) merged as
 `8b7895b`, and Deploy Admin run `36354242328` promoted it (22:08–22:09Z on 2026-09-27).
 Admin #38 (the correction: post-verify lifecycle recovery, re-admission after capability
@@ -1536,6 +1541,66 @@ and the backend stays `a6b25a6`.
   backend selection changed, and publication stays disabled.
 - **The next Admin deployment will turn the next readiness run red again** until its own
   receipt is reviewed and approved from its final merged source.
+
+### The 2026-09-28 backend refresh (compatible set `2026-09-28-pilot-12`)
+
+Backend #339–#350 merged after `a6b25a6` was approved, and `0513adb` (the #350 merge) is
+Backend `main`. This refresh selects it as the approved backend SOURCE revision. Only the
+backend approval, its serving note and the set id move; Admin `94001b7` is unchanged. No
+frontend readiness run had evaluated `pilot-12` when it was committed.
+
+| peer | commit | tree | source blob(s) | receipt digest |
+|---|---|---|---|---|
+| backend | `0513adb441828d62faadc1c67799c5432868c33a` (#350) | `d263ada8…` | D01 `1cb6a6db…`, capabilities `cc916050…` (both unchanged) | `sha256:78795d4ddc8f3b6351260a6cd4c00bc313998958ef4cec0a86b33522d1581558` |
+
+- **Source verification.** `peer-receipt --write` produced the receipt from a private
+  clone pinned to the exact merged commit; the file is byte-identical to what it printed.
+  An independent Python re-derivation over a second, bare clone recomputes the tree, both
+  export blob ids from the blobs' own bytes, the D01 digest and the receipt digest. The
+  digests agree, and the same implementation reproduces `a6b25a6`'s `c1355f50…` as a
+  control. GitHub's commit and contents API report the same tree and both blobs. The
+  receipt carries blob ids and exported contract values only; no backend source entered
+  this repository.
+- **Backend `a6b25a6..0513adb` (#339–#350) moved neither export.** Both blobs are
+  byte-identical, so the D01 digest (`sha256:1441d038…`) and the four published levels
+  (`checkout_protocol 3`, `quote_protocol 2`, `kitchen_protocol 1`,
+  `quote_policy_version 1`) are unchanged. This is a source selection following accepted
+  merges; matching exported contracts is not proof of every cross-application behaviour.
+- **Replaced, not joined.** The `a6b25a6`, `366b7e4` and `9448f55` receipts stay under
+  `peers/` as history. Every committed-policy block for an earlier set now replays
+  against that set's own snapshot (`HISTORICAL_SETS`: its backend and the serving note its
+  decisions printed), so every decision digest CI recorded still reproduces byte for byte.
+- **The serving note is corrected, and serving is still unavailable.** The note said the
+  backend "publishes no served-revision identity". Its source now carries a release
+  identity endpoint and a staged installer, but the installer is not active, the legacy
+  `deploy-uat.yml` still serves, and by that source a process the legacy deploy starts
+  answers the endpoint as unavailable. What is missing is a *verified loaded-runtime
+  identity*. `observation` stays `unavailable`, the refusal stays
+  `peers.backend_serving_unverified`, and an operator statement is still not accepted as
+  serving evidence. The readiness description of that code (`lib/readiness.mjs`) says
+  the same.
+- **Before/after, every other fact held fixed** (committed-policy suite, CONSTRUCTED):
+  `pilot-11` → `pilot-12` changes no reason code, and the backend swap alone changes no
+  byte of the decision. The corrected note is the detail of
+  `peers.backend_serving_unverified`, so the six-reason wait's decision digest moves from
+  `sha256:604dcb5e…` to `sha256:79ff3fea…`. Through the real `decide` command it is still
+  a completed, non-publishing wait: `REFUSE`, `allow: false`, nothing published. No run
+  had recorded `79ff3fea…` when this was committed; the next readiness run with Admin
+  still serving `94001b7` is expected to.
+
+  The following still refuse, and none of them is a wait: the approved backend receipt
+  edited without re-approval, an unpinned or wrong digest, the replaced `a6b25a6` and
+  every earlier backend, an operator statement of which backend is serving, and an Admin
+  revision `pilot-12` does not approve. The committed-policy suite went from 55 to
+  **64** tests, and 11 of them fail with `main`'s `pilot-11` policy put back.
+- **Also in this change: `journey-observe.mjs`.** It collects GitHub metadata for an
+  approved peer selection and, offline, hands local candidate bytes to the B1 journey
+  selector (`lib/journey-peers.mjs`); `JOURNEY_OBSERVATION.md` is its contract. It is not
+  a serving observation, nothing calls it yet, and this gate does not consult it.
+- **Nothing else moved**: `publication.readiness.awaiting` is unchanged and gains no
+  `peers.*` or `dependency.*` entry. No owner prerequisite, bootstrap setting,
+  enablement, eligibility, publisher configuration, audit policy, Admin approval or
+  serving observation changed, and publication stays disabled.
 
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The

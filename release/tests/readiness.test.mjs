@@ -39,7 +39,7 @@ const IDENTITY_URL = `${POLICY.hosting.identityOrigin}${POLICY.hosting.identityP
 const COMMITTED_AWAITING = POLICY.publication.readiness.awaiting;
 
 const DETAILS = {
-  'peers.backend_serving_unverified': 'the backend publishes no served-revision identity (B3)',
+  'peers.backend_serving_unverified': 'no verified loaded-runtime identity of the backend is available (B3)',
   'prerequisite.legacy_publisher_active': '.github/workflows/deploy-prod.yml still publishes independently',
   'prerequisite.legacy_publisher_present': '.github/workflows/deploy-prod.yml exists on the default branch',
   'prerequisite.retention_unverified': 'what Firebase Hosting retains for this site has not been established',

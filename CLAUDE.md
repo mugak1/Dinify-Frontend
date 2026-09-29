@@ -3566,6 +3566,39 @@ so keep it current when conventions change.
   deliberately not re-selected), and nothing was added to
   `publication.readiness.awaiting`. The committed-policy suite went from 52 to **55**
   tests, and 14 of them fail with `main`'s `pilot-10` policy put back.
+- **A BACKEND SOURCE SELECTION, AND A CORRECTED SERVING NOTE (D08 receipt refresh,
+  2026-09-28, with D16 B4 B2).** ✅ Compatible set **`2026-09-28-pilot-12`**: backend
+  `0513adb` (the #350 merge, receipt `sha256:78795d4d…`, tree `d263ada`) REPLACES
+  `a6b25a6`, following the accepted Backend #339–#350 merges. Admin `94001b7` is
+  unchanged. The receipt was produced by `peer-receipt --write` from a private clone
+  pinned to the merge and re-derived by an independent Python implementation over a bare
+  clone (`a6b25a6`'s `c1355f50…` reproduced as the control); GitHub's API reports the same
+  tree and blobs. **Both export blobs are byte-identical to `a6b25a6`'s**, so the D01
+  values and the four published levels are unchanged. It is a SOURCE selection, and
+  matching exported contracts is not proof of every cross-application behaviour.
+  **The serving note was wrong and is corrected**: it said the backend "publishes no
+  served-revision identity", but the backend's source now carries an identity endpoint
+  and a staged installer. The installer is not active, the legacy deploy still serves,
+  and by that source a legacy-started process answers the endpoint as unavailable. What
+  is missing is a *verified loaded-runtime identity*, so `observation` stays
+  `unavailable` and `peers.backend_serving_unverified` stands (the `lib/readiness.mjs`
+  description now says the same). That note is the refusal's DETAIL, so the six-reason
+  wait's decision digest moves `sha256:604dcb5e…` → `sha256:79ff3fea…` (CONSTRUCTED: no
+  run had recorded it at merge) while no reason code changes; the backend swap alone
+  changes no byte. **Every earlier set's replay is bound to its own snapshot**
+  (`HISTORICAL_SETS` in `committed-policy.test.mjs`: that set's backend and the note its
+  decisions printed), so every digest CI recorded still reproduces. The `a6b25a6`,
+  `366b7e4` and `9448f55` receipts stay under `release/peers/` as history. Nothing was
+  added to `publication.readiness.awaiting`, and no owner prerequisite, bootstrap setting
+  or enablement moved. The committed-policy suite went from 55 to **64** tests, and 11 of
+  them fail with `main`'s `pilot-11` policy put back. **The same change added
+  `release/journey-observe.mjs`** (contract: `release/JOURNEY_OBSERVATION.md`): a
+  bounded, GET-only collector of GitHub metadata for an approved peer selection, plus an
+  offline bytes mode, feeding the B1 journey selector (`release/lib/journey-peers.mjs`).
+  Its best answers are `metadata-only` (exit 3) and
+  `bytes-correspond-consumer-checks-deferred` (exit 0), never verified or admitted.
+  **Nothing calls it yet**, and it is not a serving observation. Release suite 1000 →
+  **1106**.
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
