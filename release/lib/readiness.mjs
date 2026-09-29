@@ -97,9 +97,11 @@ export const WAITING_CONDITIONS = Object.freeze({
   }),
   // "Not implemented yet" — the policy declares NO serving observation for the backend
   // (B3). An implemented observation that failed is peers.backend_serving_unreadable,
-  // a different code, and never a wait.
+  // a different code, and never a wait. The backend's SOURCE now carries an identity
+  // endpoint and a staged installer; what is still missing is a verified identity of
+  // the process actually serving.
   'peers.backend_serving_unverified': Object.freeze({
-    means: 'the backend publishes no served-revision identity yet (B3)',
+    means: 'no verified loaded-runtime identity of the backend is available yet (B3)',
     pending: (policy) => policy.compatibleSet.peers.backend.serving.observation === 'unavailable',
     observed: ({ peers }) => peers?.serving?.backend === undefined,
   }),
