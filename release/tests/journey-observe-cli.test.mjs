@@ -60,6 +60,16 @@ globalThis.fetch = async (url, init = {}) => {
   const body = typeof spec.raw === 'string' ? spec.raw : JSON.stringify(spec.body);
   return new Response(body, { status: spec.status || 200, headers: Object.assign({ 'content-type': 'application/json; charset=utf-8' }, spec.headers || {}) });
 };
+if (fixture.slowStdout) {
+  // A reader slower than the writer: each stdout write completes only later, as a write
+  // to a full pipe does. Anything still queued when the process exits is lost.
+  const write = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk, encoding, callback) => {
+    const done = typeof encoding === 'function' ? encoding : callback;
+    setTimeout(() => write(chunk, typeof encoding === 'string' ? encoding : undefined, done), 150);
+    return false;
+  };
+}
 for (const [mod, names] of Object.entries({
   'node:child_process': ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork'],
   'node:net': ['connect', 'createConnection'],
@@ -320,6 +330,26 @@ describe('journey-observe collect', () => {
   });
 });
 
+// ── a slow reader ───────────────────────────────────────────────────────────────
+
+describe('journey-observe output reaches a slow reader', () => {
+  test('REGRESSION: when every stdout write completes only later, the whole JSON document still arrives and the exit status is kept — metadata-only (3), refused (1), usage (2)', async () => {
+    const cases = [
+      ['metadata-only', 3, (t) => collectArgs(t, 'admin', { out: null }), { routes: routes('admin') }],
+      ['refused', 1, (t) => collectArgs(t, 'backend', { out: null, selectionPath: writeSelection(t, 'backend', { run: null }) }), { routes: routes('backend') }],
+      ['usage', 2, (t) => [...collectArgs(t, 'admin', { out: null }), '--url', 'x'], { routes: routes('admin') }],
+    ];
+    for (const [outcome, status, argsFor, fixture] of cases) {
+      const t = setup(`slow-${outcome}`);
+      const r = await observe(t, argsFor(t), { fixture: { ...fixture, slowStdout: true } });
+      assert.equal(r.status, status, `${outcome}: ${r.stderr}`);
+      assert.ok(r.out, `${outcome}: stdout is one complete JSON document (${r.stdout.length} bytes arrived)`);
+      assert.equal(r.out.outcome, outcome);
+      assert.match(r.stderr, new RegExp(`^journey-observe: ${outcome}`), outcome);
+    }
+  });
+});
+
 // ── usage: what the command does not take ───────────────────────────────────────
 
 describe('journey-observe usage', () => {
@@ -399,6 +429,15 @@ describe('journey-observe bytes (offline)', () => {
       leakFree(r, peer);
     });
   }
+
+  test('REGRESSION: a slow reader still receives the whole bytes answer, and the status is still 0', async () => {
+    const { t, args } = await prepared('admin', 'bytes-slow');
+    const r = await observe(t, args(), { fixture: { offline: true, routes: {}, slowStdout: true } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(r.out, `stdout is one complete JSON document (${r.stdout.length} bytes arrived)`);
+    assert.equal(r.out.outcome, 'bytes-correspond-consumer-checks-deferred');
+    assert.deepEqual(r.report.fetches, []);
+  });
 
   test('REGRESSION: a tampered archive is exit 1 archive_digest_mismatch', async () => {
     const { t, args, archive, archivePath } = await prepared('backend', 'bytes-tamper');

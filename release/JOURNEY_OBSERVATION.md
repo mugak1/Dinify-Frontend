@@ -35,7 +35,8 @@ node release/journey-observe.mjs bytes   --selection <file> --receipt <file> --o
 `peerDescriptorDigest`) is non-null only for a bytes-level answer.
 
 stdout is one JSON document (`dinify.journey.peer-observation-result/1`). stderr is one
-fixed line, `journey-observe: <outcome>`.
+fixed line, `journey-observe: <outcome>`. The command exits only after both writes have
+completed, so a reader slower than the writer still receives the whole document.
 
 ## The expected selection
 

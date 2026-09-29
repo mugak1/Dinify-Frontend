@@ -27,6 +27,11 @@
  *
  * `bytes` reads local files only: no network, no extraction and no execution of anything
  * it reads.
+ *
+ * HOW IT ENDS. Every outcome, usage and internal error included, unwinds to one place
+ * (`emit`), which writes the JSON document and the stderr line and exits only once both
+ * writes have completed. `process.exit()` with a write still queued drops the rest of it:
+ * stdout to a pipe completes asynchronously when the reader is slower than the writer.
  */
 
 import {
@@ -56,14 +61,21 @@ const INPUT_BOUNDS = Object.freeze({
 
 const OPTION_RE = /^--[a-z][a-z-]{0,39}$/;
 
+/** How the command ends: thrown, never returned, so no code after it can run. */
+class Exit {
+  constructor(document, line, code) {
+    this.document = document;
+    this.line = line;
+    this.code = code;
+  }
+}
+
 function usage(detail) {
-  process.stdout.write(`${JSON.stringify({
+  throw new Exit({
     schema: RESULT_SCHEMA,
     outcome: OUTCOMES.usage.outcome,
     reasons: [{ code: 'journey.observe.usage', detail }],
-  }, null, 2)}\n`);
-  process.stderr.write(`journey-observe: usage: ${detail}\n`);
-  process.exit(OUTCOMES.usage.exit);
+  }, `journey-observe: usage: ${detail}`, OUTCOMES.usage.exit);
 }
 
 function parse(argv) {
@@ -170,9 +182,25 @@ function writeAll(fd, text) {
 }
 
 function finish(result) {
-  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-  process.stderr.write(`journey-observe: ${result.outcome}\n`);
-  process.exit(exitFor(result));
+  throw new Exit(result, `journey-observe: ${result.outcome}`, exitFor(result));
+}
+
+/**
+ * THE ONE EXIT. The status is set first, so even a stream that never reports back ends
+ * with the right one when the event loop drains. The process then exits only from the
+ * stderr write's callback, which runs after the stdout write's has: nothing queued is
+ * dropped, and no handle left open by the HTTP client can keep the command alive.
+ */
+function emit({ document, line, code }) {
+  process.exitCode = code;
+  const done = () => process.stderr.write(`${line}\n`, () => process.exit(code));
+  if (document === null) done();
+  else process.stdout.write(`${JSON.stringify(document, null, 2)}\n`, done);
+}
+
+function internalError(error) {
+  const name = error?.name === 'Error' || typeof error?.name !== 'string' ? 'Error' : error.name.replace(/[^A-Za-z]/g, '').slice(0, 40);
+  return new Exit(null, `journey-observe: internal error (${name})`, OUTCOMES.usage.exit);
 }
 
 function refused(mode, reasons) {
@@ -237,11 +265,14 @@ function bytes(args) {
   }));
 }
 
+let ending;
 try {
   const { mode, args } = parse(process.argv.slice(2));
   if (mode === 'collect') await collect(args);
   else bytes(args);
+  // Every mode ends by throwing its Exit; reaching here is itself a defect.
+  ending = internalError(new Error('no outcome'));
 } catch (error) {
-  process.stderr.write(`journey-observe: internal error (${error?.name === 'Error' || typeof error?.name !== 'string' ? 'Error' : error.name.replace(/[^A-Za-z]/g, '').slice(0, 40)})\n`);
-  process.exit(OUTCOMES.usage.exit);
+  ending = error instanceof Exit ? error : internalError(error);
 }
+emit(ending);
