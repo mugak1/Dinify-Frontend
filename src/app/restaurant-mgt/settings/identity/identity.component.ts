@@ -34,6 +34,27 @@ import { CUISINE_OPTIONS } from './cuisine-options';
 const DEFAULT_BRAND_COLOR = '#171717';
 
 /**
+ * The compressed cover as a real `File`, ready for the multipart upload.
+ *
+ * browser-image-compression declares `Promise<File>` but resolves with a `Blob`
+ * carrying `name` and `lastModified` properties. `ApiService.toFormData` sends a
+ * value as a file part only when it is a `File` and JSON-stringifies any other
+ * object, so the unwrapped Blob went out as the text `{"name":…,"lastModified":…}`
+ * instead of the photo. The menu item dialog wraps its output the same way.
+ *
+ * The output is JPEG (`fileType` below), so a name with another extension is
+ * given `.jpg` rather than claiming a type the bytes do not have.
+ */
+function asUploadFile(out: Blob, original: File): File {
+  const type = out.type || original.type;
+  const name =
+    type === 'image/jpeg' && !/\.jpe?g$/i.test(original.name)
+      ? `${original.name.replace(/\.[^.]*$/, '') || 'cover'}.jpg`
+      : original.name;
+  return new File([out], name, { type, lastModified: original.lastModified });
+}
+
+/**
  * Restaurant identity & branding — the first real Settings section. Edits the
  * restaurant's public-facing identity (name, tagline, cuisine, contact,
  * location, cover photo, socials) inside the shared section-page
@@ -73,6 +94,12 @@ export class IdentityComponent implements OnInit, OnDestroy, HasUnsavedChanges {
   private coverObjectUrl: string | null = null;
   /** Owner removed the existing cover (and staged no replacement). */
   coverCleared = false;
+
+  /**
+   * The compressor, held as a field so a spec can substitute it without touching
+   * the module. Production always calls the library itself.
+   */
+  private readonly imageCompression = imageCompression;
 
   private restaurantId = '';
   private loadedDetail?: RestaurantDetail;
@@ -276,7 +303,8 @@ export class IdentityComponent implements OnInit, OnDestroy, HasUnsavedChanges {
     // Skip tiny files; compression overhead isn't worth it.
     if (file.size <= 200 * 1024) return file;
     try {
-      const out = await imageCompression(file, {
+      // Typed as a Blob on purpose: the library declares `File` but returns a Blob.
+      const out: Blob = await this.imageCompression(file, {
         maxSizeMB: 0.5,
         maxWidthOrHeight: 1280,
         useWebWorker: true,
@@ -284,7 +312,7 @@ export class IdentityComponent implements OnInit, OnDestroy, HasUnsavedChanges {
         fileType: 'image/jpeg',
       });
       // If compression somehow inflated the file, keep the original.
-      return out.size < file.size ? out : file;
+      return out.size < file.size ? asUploadFile(out, file) : file;
     } catch {
       return file;
     }
