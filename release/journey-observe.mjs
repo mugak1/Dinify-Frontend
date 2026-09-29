@@ -22,8 +22,10 @@
  * WHAT IS NEVER PRINTED: a credential, a response body, a provider message, raw exception
  * text, a local path. The raw API documents a collection read (author names and e-mail
  * addresses included) go only to `--observations-out`, which must be a NEW file in a
- * directory only this user can enter (mode 0700), and is created mode 0600. Removing it is
- * the operator's responsibility; this command never deletes a file it did not just create.
+ * directory only this user can enter (mode 0700), and is created mode 0600. It is kept only
+ * once fully written and closed, and only if it is within the size bytes mode reads back;
+ * otherwise the file this run reserved is removed. Removing a kept file is the operator's
+ * responsibility; this command never deletes a file it did not just create.
  *
  * `bytes` reads local files only: no network, no extraction and no execution of anything
  * it reads.
@@ -207,34 +209,62 @@ function refused(mode, reasons) {
   return { schema: RESULT_SCHEMA, mode, outcome: OUTCOMES.refused.outcome, reasons };
 }
 
+/** Close (if still open) and remove the file this run reserved. Nothing else is ever removed. */
+function discard(out) {
+  if (!out.closed) {
+    out.closed = true;
+    try { closeSync(out.fd); } catch { /* the descriptor is gone either way */ }
+  }
+  try { unlinkSync(out.target); } catch { /* already absent */ }
+}
+
 async function collect(args) {
   const out = args['observations-out'] ? reserveOutput(args['observations-out']) : null;
-  const release = () => {
-    if (!out) return;
-    closeSync(out.fd);
-    unlinkSync(out.target);
-  };
-  const inputs = {};
-  for (const name of ['selection', 'receipt']) {
-    const r = readJson(name, args[name]);
-    if (r.reason) { release(); finish(refused('metadata', [r.reason])); }
-    inputs[name] = r.value;
-  }
-  const policy = readJson('policy', POLICY_PATH);
-  if (policy.reason) { release(); finish(refused('metadata', [policy.reason])); }
-  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || null;
-  const { result, saved } = await observeMetadata({
-    expected: inputs.selection, receipt: inputs.receipt, policy: policy.value, fetchImpl: globalThis.fetch, token,
-  });
-  if (out) {
-    if (saved) {
-      writeAll(out.fd, `${JSON.stringify(saved, null, 2)}\n`);
-      closeSync(out.fd);
-    } else {
-      release();
+  // The reserved file is KEPT only once it is fully written and closed. Every other way
+  // out of this function (a refusal, a write or close that fails, an unexpected
+  // exception) removes it, so a retry can use the same destination.
+  let kept = false;
+  try {
+    const inputs = {};
+    for (const name of ['selection', 'receipt']) {
+      const r = readJson(name, args[name]);
+      if (r.reason) finish(refused('metadata', [r.reason]));
+      inputs[name] = r.value;
     }
+    const policy = readJson('policy', POLICY_PATH);
+    if (policy.reason) finish(refused('metadata', [policy.reason]));
+    const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || null;
+    const { result, saved } = await observeMetadata({
+      expected: inputs.selection, receipt: inputs.receipt, policy: policy.value, fetchImpl: globalThis.fetch, token,
+    });
+    if (out && saved) {
+      const text = `${JSON.stringify(saved, null, 2)}\n`;
+      // ONE bound in both directions: what bytes mode will read is what may be written.
+      // A collection may hold up to 25 answers of up to 4 MiB each, so a complete one
+      // can exceed it.
+      const size = Buffer.byteLength(text, 'utf8');
+      if (size > OBSERVE_LIMITS.maxSavedBytes) {
+        finish(refused('metadata', [{
+          code: 'journey.observe.observations_too_large',
+          detail: `the collected observations are ${size} bytes, more than the ${OBSERVE_LIMITS.maxSavedBytes} bytes bytes mode reads; nothing was written`,
+        }]));
+      }
+      try {
+        writeAll(out.fd, text);
+        out.closed = true;
+        closeSync(out.fd);
+      } catch {
+        finish(refused('metadata', [{
+          code: 'journey.observe.observations_unwritable',
+          detail: 'the --observations-out file could not be written in full; nothing was kept',
+        }]));
+      }
+      kept = true;
+    }
+    finish(result);
+  } finally {
+    if (out && !kept) discard(out);
   }
-  finish(result);
 }
 
 function bytes(args) {

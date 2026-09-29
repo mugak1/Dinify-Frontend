@@ -155,7 +155,12 @@ later `bytes` run is bound to. They include commit author names and e-mail addre
 - its directory must be owned by the user and closed to everyone else (mode `0700`);
 - it is created mode `0600`;
 - it is written only after a complete collection. A collection that failed removes the
-  file it reserved.
+  file it reserved;
+- it is kept only if it fits the 64 MiB that `bytes` reads back and is written and closed
+  in full. Otherwise the command refuses (`observations_too_large` or
+  `observations_unwritable`) and removes the file it reserved, so the same destination
+  can be used again. A complete collection can exceed that size: it may hold up to 25
+  answers of up to 4 MiB each.
 
 **Removing it is the operator's responsibility.** The command never deletes a file it did
 not just create.

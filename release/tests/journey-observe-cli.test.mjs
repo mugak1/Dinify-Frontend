@@ -57,6 +57,11 @@ globalThis.fetch = async (url, init = {}) => {
   let spec = path === null ? undefined : fixture.routes[path];
   if (Array.isArray(spec)) spec = spec.length > 1 ? spec.shift() : spec[0];
   if (spec === undefined) return new Response(JSON.stringify({ message: ${JSON.stringify(CANARY)} }), { status: 404, headers: { 'content-type': 'application/json' } });
+  if (spec.pad && spec.body) {
+    // Grow every listed entry by spec.pad bytes, so a listing can be made large without a
+    // large fixture file.
+    for (const list of Object.values(spec.body)) if (Array.isArray(list)) for (const e of list) e.padding = 'x'.repeat(spec.pad);
+  }
   const body = typeof spec.raw === 'string' ? spec.raw : JSON.stringify(spec.body);
   return new Response(body, { status: spec.status || 200, headers: Object.assign({ 'content-type': 'application/json; charset=utf-8' }, spec.headers || {}) });
 };
@@ -68,6 +73,15 @@ if (fixture.slowStdout) {
     const done = typeof encoding === 'function' ? encoding : callback;
     setTimeout(() => write(chunk, typeof encoding === 'string' ? encoding : undefined, done), 150);
     return false;
+  };
+}
+if (fixture.failWrite) {
+  // A full disk: every write to a file this process opened fails, as ENOSPC does.
+  const fs = require('node:fs');
+  const real = fs.writeSync;
+  fs.writeSync = (fd, ...rest) => {
+    if (fd > 2) { const e = new Error('no space left on device'); e.code = 'ENOSPC'; throw e; }
+    return real(fd, ...rest);
   };
 }
 for (const [mod, names] of Object.entries({
@@ -314,6 +328,57 @@ describe('journey-observe collect', () => {
       }
       assert.ok(!existsSync(out), `${label}: the reserved file is removed`);
     }
+  });
+
+  test('REGRESSION: observations larger than bytes mode will read are refused before they are written — nothing is kept at the destination', async () => {
+    // 1000 jobs and 1000 artifacts over ten full pages each, every page just under the
+    // 4 MiB answer bound: a complete collection of about 80 MB, above the 64 MiB that
+    // bytes mode accepts as saved observations.
+    const t = setup('too-large');
+    const peer = 'backend';
+    const f = PEER_FORMATS[peer];
+    const { runId, repoId } = RUNS[peer];
+    const a = approved(peer);
+    const base = `/repos/${f.repository}`;
+    const fixture = { routes: routes(peer) };
+    const jobsKey = (n) => `${base}/actions/runs/${runId}/attempts/1/jobs?per_page=100&page=${n}`;
+    const artifactsKey = (n) => `${base}/actions/runs/${runId}/artifacts?per_page=100&page=${n}`;
+    const firstJobs = fixture.routes[jobsKey(1)].body.jobs;
+    const firstArtifacts = fixture.routes[artifactsKey(1)].body.artifacts;
+    const jobs = [...firstJobs, ...Array.from({ length: 1000 - firstJobs.length }, (_, i) => ({
+      id: 50000 + i, run_id: Number(runId), run_attempt: 1, head_sha: a.commit, name: `filler ${i}`, status: 'completed', conclusion: 'success',
+    }))];
+    const artifacts = [...firstArtifacts, ...Array.from({ length: 1000 - firstArtifacts.length }, (_, i) => ({
+      id: 90000 + i, name: `filler-${i}`, size_in_bytes: 1, digest: `sha256:${hex(`filler ${i}`)}`, expired: false, expires_at: '2099-01-01T00:00:00Z',
+      workflow_run: { id: Number(runId), repository_id: repoId, head_repository_id: repoId, head_branch: 'main', head_sha: a.commit },
+    }))];
+    for (let n = 1; n <= 10; n += 1) {
+      fixture.routes[jobsKey(n)] = { pad: 40000, body: { total_count: 1000, jobs: jobs.slice((n - 1) * 100, n * 100) } };
+      fixture.routes[artifactsKey(n)] = { pad: 40000, body: { total_count: 1000, artifacts: artifacts.slice((n - 1) * 100, n * 100) } };
+    }
+    const out = join(t.priv, 'large.json');
+    const r = await observe(t, collectArgs(t, peer, { out }), { fixture });
+    assert.equal(r.status, 1, r.stderr);
+    assert.deepEqual(r.out.reasons.map((x) => x.code), ['journey.observe.observations_too_large']);
+    assert.ok(!existsSync(out), 'nothing unusable is left at the destination');
+    assert.equal(r.report.fetches.length, 25, 'the collection itself completed');
+    // CONTROL: the same collection without an output file is not refused for its size.
+    const c = await observe(t, collectArgs(t, peer, { out: null }), { fixture });
+    assert.ok(c.out && !c.out.reasons.some((x) => x.code === 'journey.observe.observations_too_large'), c.stderr);
+  });
+
+  test('REGRESSION: a write that fails (a full disk) is exit 1 observations_unwritable, the reserved file is removed, and the same destination works on retry', async () => {
+    const t = setup('unwritable');
+    const out = join(t.priv, 'admin.json');
+    const r = await observe(t, collectArgs(t, 'admin', { out }), { fixture: { routes: routes('admin'), failWrite: true } });
+    assert.equal(r.status, 1, r.stderr);
+    assert.ok(r.out, 'a structured answer, not an internal error');
+    assert.deepEqual(r.out.reasons.map((x) => x.code), ['journey.observe.observations_unwritable']);
+    assert.ok(!existsSync(out), 'the partly written file is removed');
+    assert.ok(!r.stdout.includes(t.dir), 'no local path is printed');
+    const retry = await observe(t, collectArgs(t, 'admin', { out }), { fixture: { routes: routes('admin') } });
+    assert.equal(retry.status, 3, retry.stderr);
+    assert.equal(JSON.parse(readFileSync(out, 'utf8')).schema, 'dinify.journey.peer-observations/1');
   });
 
   test('REGRESSION: the replaced backend a6b25a6 is refused before any request — the selection is never moved to what is approved', async () => {
