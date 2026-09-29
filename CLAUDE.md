@@ -3598,7 +3598,7 @@ so keep it current when conventions change.
   Its best answers are `metadata-only` (exit 3) and
   `bytes-correspond-consumer-checks-deferred` (exit 0), never verified or admitted.
   **Nothing calls it yet**, and it is not a serving observation. Release suite 1000 →
-  **1106**.
+  **1110**.
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
