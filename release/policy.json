@@ -200,7 +200,7 @@
       "The frontend's own commit is deliberately not pinned: a file cannot contain the",
       "SHA of the commit that introduces it."
     ],
-    "id": "2026-09-28-pilot-11",
+    "id": "2026-09-28-pilot-12",
     "frontendRequires": {
       "buildConfiguration": "uat"
     },
@@ -209,17 +209,17 @@
         "repository": "mugak1/Dinify-Backend",
         "receiptVerification": "operator",
         "_receiptVerification": "The backend repository is private, so its receipt cannot be re-derived from a public API at decision time. It is produced by an operator from the backend's git and reviewed as a file; its digest is what is approved.",
-        "_approvedHistory": "9448f55 (the #330 merge) was the first approved backend revision. It predates orders_app/contracts/published_capabilities.contract.json, so it was REPLACED by 366b7e4 (the #331 merge) rather than kept beside it: every approved backend is checked for compatibility, and an export-less revision left in this list would refuse peers.capabilities_unpublished for ever. 366b7e4 was in turn REPLACED on 2026-09-24 by a6b25a6 (the #338 merge) after review of #332-#338: both export files are byte-identical between the two (D01 blob 1cb6a6d, capability blob cc91605), so the D01 values and the four capability levels are unchanged. Both earlier receipts stay under release/peers/ as history; neither is approved. Approving a receipt is a statement about SOURCE and says nothing about which backend revision is live.",
+        "_approvedHistory": "9448f55 (the #330 merge) was the first approved backend revision. It predates orders_app/contracts/published_capabilities.contract.json, so it was REPLACED by 366b7e4 (the #331 merge) rather than kept beside it: every approved backend is checked for compatibility, and an export-less revision left in this list would refuse peers.capabilities_unpublished for ever. 366b7e4 was in turn REPLACED on 2026-09-24 by a6b25a6 (the #338 merge) after review of #332-#338: both export files are byte-identical between the two (D01 blob 1cb6a6d, capability blob cc91605), so the D01 values and the four capability levels are unchanged. Both earlier receipts stay under release/peers/ as history; neither is approved. Approving a receipt is a statement about SOURCE and says nothing about which backend revision is live. a6b25a6 was in turn REPLACED on 2026-09-28 by 0513adb (the #350 merge), a source selection following the accepted #339-#350 merges: the D08 B2.1-B3 release work (the dependency audit in the required check, the qualified guards, the certified candidate, the non-deploying preflight, and an immutable installation with a process-bound release-identity endpoint, staged and not active), D10 B1 (the command-owner header), D11 B1, D12 B-1 (historical order-line names), D15 R1 (the readiness endpoint), a dashboard EAT correction and the Claude Code workflows. Both export files are byte-identical to a6b25a6's (D01 blob 1cb6a6d, capability blob cc91605), so the D01 values and the four capability levels are unchanged. The receipt was produced by peer-receipt from a private clone pinned to 0513adb (tree d263ada) and re-derived independently. Matching exported contracts is not proof of every cross-application behaviour, and this approval says nothing about which backend revision is live. The 9448f55, 366b7e4 and a6b25a6 receipts stay under release/peers/ as history; none is approved.",
         "approved": [
           {
-            "commit": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b",
-            "receipt": "release/peers/backend-a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b.json",
-            "receiptDigest": "sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920"
+            "commit": "0513adb441828d62faadc1c67799c5432868c33a",
+            "receipt": "release/peers/backend-0513adb441828d62faadc1c67799c5432868c33a.json",
+            "receiptDigest": "sha256:78795d4ddc8f3b6351260a6cd4c00bc313998958ef4cec0a86b33522d1581558"
           }
         ],
         "serving": {
           "observation": "unavailable",
-          "reason": "the backend publishes no served-revision identity (B3); which backend revision is live cannot be observed, and an operator statement is not accepted as serving evidence"
+          "reason": "no verified loaded-runtime identity of the backend is available (B3): its source carries a release-identity endpoint and a staged installer, but the installer is not active, the legacy deploy-uat.yml still serves, and by that source a process the legacy deploy starts answers the endpoint as unavailable; which backend revision is live therefore cannot be observed, and an operator statement is not accepted as serving evidence"
         }
       },
       "admin": {

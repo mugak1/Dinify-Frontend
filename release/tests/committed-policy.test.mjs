@@ -56,6 +56,20 @@
  *                 so the headline committed-state tests use it; every
  *                 comparison against pilot-10 names it as CONSTRUCTED
  *                 serving evidence                          RECORDED (Admin run)
+ *   backend       receipt for 0513adb (the Backend #350 merge), approved in
+ *                 pilot-12 as a SOURCE selection following the accepted
+ *                 #339-#350 merges, produced by peer-receipt on 2026-09-28
+ *                 from a private clone pinned to the merge and re-derived by an
+ *                 independent Python implementation over a bare clone (tree
+ *                 d263ada…; both export blobs, 1cb6a6d… and cc91605…,
+ *                 byte-identical to a6b25a6's). Superseded record: a6b25a6
+ *                 (tree d6d1f83…), approved from pilot-4 through pilot-11. A
+ *                 replay of any set before pilot-12 is bound to THAT set's
+ *                 backend and to the serving reason its decisions printed
+ *                 (HISTORICAL_SETS, below), never to today's      RECORDED
+ *   backend serving  unavailable, as the policy declares it: no verified
+ *                 loaded-runtime identity; nothing here observes which backend
+ *                 revision is live                                  POLICY
  *   legacy        whether deploy-prod.yml exists in THIS checkout            OBSERVED
  *   candidate     the fixture baseline's certification, artifact and source  FIXTURE
  *   dependencies  the fixture baseline's certification evidence, a PASSING
@@ -282,6 +296,50 @@ const D10_38_HEAD = 'a2fa81ecf1d45044bb45fc07be1152f5035905e2';
 const SET_0928_ID = '2026-09-28-pilot-11';
 const LIVE_ADMIN_OBSERVED = D10_38_ADMIN;
 
+// The backend revision approved from 2026-09-24-pilot-4 through 2026-09-28-pilot-11 (the
+// #338 merge). REPLACED on 2026-09-28 in 2026-09-28-pilot-12 by 0513adb (below), not kept
+// beside it; its receipt is retained under release/peers/ as history.
+const PILOT11_BACKEND = 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b';
+const PILOT11_BACKEND_RECEIPT_DIGEST = 'sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920';
+
+// The Backend #350 merge, approved on 2026-09-28 in 2026-09-28-pilot-12: a SOURCE
+// selection following the accepted #339-#350 merges (D08 B2.1-B3 release work, D10 B1,
+// D11 B1, D12 B-1, D15 R1, a dashboard EAT correction and the Claude Code workflows).
+// Both export files are byte-identical to a6b25a6's, so the D01 values and the four
+// capability levels are unchanged. It says nothing about which backend revision is live.
+const B2_BACKEND = '0513adb441828d62faadc1c67799c5432868c33a';
+const B2_BACKEND_TREE = 'd263ada82b4da55e18455525e9955c809d8b8f4f';
+const B2_BACKEND_RECEIPT_DIGEST = 'sha256:78795d4ddc8f3b6351260a6cd4c00bc313998958ef4cec0a86b33522d1581558';
+const SET_0928B_ID = '2026-09-28-pilot-12';
+// The six-reason decision under pilot-12, CONSTRUCTED from the rule: no readiness run has
+// recorded it yet. It differs from CI_WAIT_DIGEST_PILOT8 only by the corrected serving note.
+const PILOT12_WAIT_DIGEST_CONSTRUCTED = 'sha256:79ff3fea82b3c6d32c0671521fd43fa5b81d92da4c1c236c675df3f7849e5c3d';
+
+// The backend serving reason every decision through pilot-11 printed, and therefore every
+// decisionDigest a readiness run recorded (it was the policy text from e73bd70 until
+// pilot-12). pilot-12 CORRECTED it: an identity endpoint and a staged installer now exist
+// in the backend's source, so "publishes no served-revision identity" was no longer
+// true of the source, while a verified loaded-runtime identity is still unavailable. The
+// correction changes the reason's DETAIL and therefore the six-reason wait's digest; it
+// changes no reason CODE.
+const HISTORICAL_BACKEND_SERVING_REASON = 'the backend publishes no served-revision identity (B3); which backend revision is live cannot be observed, and an operator statement is not accepted as serving evidence';
+
+// THE HISTORICAL POLICY SNAPSHOTS a replay is bound to: the backend each earlier set
+// approved. A replay of one of these sets takes ITS backend and the serving reason its
+// decisions printed, so it keeps proving what that change did and reproduces what CI
+// recorded byte for byte — rather than silently re-running under today's backend.
+const HISTORICAL_SETS = Object.freeze({
+  [PREVIOUS_SET_ID]: PREVIOUS_BACKEND,
+  [SET_0924_ID]: PILOT11_BACKEND,
+  [SET_0925_ID]: PILOT11_BACKEND,
+  [SET_0926_ID]: PILOT11_BACKEND,
+  [SET_0926B_ID]: PILOT11_BACKEND,
+  [SET_0926C_ID]: PILOT11_BACKEND,
+  [SET_0926D_ID]: PILOT11_BACKEND,
+  [SET_0927_ID]: PILOT11_BACKEND,
+  [SET_0928_ID]: PILOT11_BACKEND,
+});
+
 const receiptPath = (peer, commit) => `release/peers/${peer}-${commit}.json`;
 function committedReceiptEntry(peer, commit) {
   const path = receiptPath(peer, commit);
@@ -296,6 +354,14 @@ function withApproved({ backend, admin, setId, adminServes } = {}) {
   const policy = clone(POLICY);
   const peers = recordedPeers(adminServes ? { adminServes } : {});
   if (setId) policy.compatibleSet.id = setId;
+  if (setId && setId !== POLICY.compatibleSet.id) {
+    // A historical set: its own backend (unless the caller names one to vary) and the
+    // serving reason its decisions printed. An unknown set id is a test error, never a
+    // silent replay under today's policy.
+    assert.ok(Object.hasOwn(HISTORICAL_SETS, setId), `no historical snapshot is recorded for ${setId}`);
+    backend ??= HISTORICAL_SETS[setId];
+    policy.compatibleSet.peers.backend.serving.reason = HISTORICAL_BACKEND_SERVING_REASON;
+  }
   for (const [name, commit] of Object.entries({ backend, admin })) {
     if (!commit) continue;
     const entry = committedReceiptEntry(name, commit);
@@ -477,7 +543,7 @@ describe('the committed release/policy.json, run through the real decide command
     assert.equal(decision.decision, 'REFUSE');
     assert.deepEqual(hostingProblems, [], 'the committed hosting pair raises nothing against a real file list');
     assert.deepEqual(codesOf(decision), [
-      // SELECTION IS NOT SERVING. The approved backend (a6b25a6, the #338 merge)
+      // SELECTION IS NOT SERVING. The approved backend (0513adb, the #350 merge)
       // publishes its capability export, so peers.capabilities_unpublished stays gone —
       // but which backend revision is LIVE is still unobservable until B3, and a
       // successful deployment log is not accepted in place of a serving identity.
@@ -486,7 +552,9 @@ describe('the committed release/policy.json, run through the real decide command
       'served.bootstrap_unauthorized',
     ].sort());
     const detail = (code) => decision.reasons.find((r) => r.code === code).detail;
-    assert.match(detail('peers.backend_serving_unverified'), /no served-revision identity \(B3\)/);
+    assert.match(detail('peers.backend_serving_unverified'), /^no verified loaded-runtime identity of the backend is available \(B3\)/);
+    assert.doesNotMatch(detail('peers.backend_serving_unverified'), /publishes no served-revision identity/,
+      'pilot-12 corrected the note: an identity endpoint exists in the source, a verified loaded-runtime identity does not');
     assert.match(detail('prerequisite.legacy_publisher_present'), /deploy-prod\.yml exists on the default branch/);
 
     // The operator reads the summary, not the JSON: the prerequisites are grouped under
@@ -511,7 +579,7 @@ describe('the committed release/policy.json, run through the real decide command
     const reasons = decision.reasons.filter((r) => r.code.startsWith('peers.admin'));
     assert.deepEqual(reasons.map((r) => r.code), ['peers.admin_serving_unapproved']);
     assert.match(reasons[0].detail, new RegExp(`not in compatible set ${POLICY.compatibleSet.id}$`));
-    assert.equal(POLICY.compatibleSet.id, SET_0928_ID);
+    assert.equal(POLICY.compatibleSet.id, SET_0928B_ID);
   });
 
   test('CONTROL: the committed receipts are the approved ones, byte for byte', () => {
@@ -527,12 +595,14 @@ describe('the committed release/policy.json, run through the real decide command
   });
 });
 
-describe('the approved backend receipt (a6b25a6, the #338 merge) — what approving it changes, and what it does not', () => {
-  test('CONTRACT: the approved receipt is the source-derived one — export present, D01 unchanged, levels as the backend publishes them', () => {
-    assert.equal(BACKEND, 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b');
-    const approved = POLICY.compatibleSet.peers.backend.approved;
-    assert.equal(approved.length, 1, 'the previous revision is REPLACED, not kept beside it — every approved backend is checked');
-    const receipt = JSON.parse(readFileSync(join(ROOT, approved[0].receipt), 'utf8'));
+describe('the backend receipt approved from pilot-4 through pilot-11 (a6b25a6, the #338 merge) — what approving a backend receipt changes, and what it does not', () => {
+  // HISTORY for the a6b25a6 pin: it was REPLACED in pilot-12 by 0513adb (below). The first
+  // two tests read its RETAINED receipt; the rest read the committed policy and therefore
+  // now exercise its successor, which states the same contracts.
+  test('CONTRACT: the receipt approved through pilot-11 is the source-derived one — export present, D01 unchanged, levels as the backend publishes them — retained as history', () => {
+    assert.equal(HISTORICAL_SETS[SET_0928_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b');
+    assert.notEqual(BACKEND, PILOT11_BACKEND, 'superseded in pilot-12 — no longer the approved backend revision');
+    const receipt = committedReceiptEntry('backend', PILOT11_BACKEND).receipt;
     assert.equal(receiptDigest(receipt), 'sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920');
     assert.equal(receipt.tree, 'd6d1f838e931f89d68e5bcafec43a84fd1b6f538');
     assert.deepEqual(receipt.unavailable, []);
@@ -544,7 +614,7 @@ describe('the approved backend receipt (a6b25a6, the #338 merge) — what approv
 
   test('CONTRACT: #332-#338 moved neither export — the refreshed receipt states exactly what 366b7e4 stated, read from its own files', () => {
     const previous = committedReceiptEntry('backend', PREVIOUS_BACKEND).receipt;
-    const current = committedReceiptEntry('backend', BACKEND).receipt;
+    const current = committedReceiptEntry('backend', PILOT11_BACKEND).receipt;
     assert.equal(receiptDigest(previous), 'sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63', 'the retained history is the receipt approved on 2026-09-23');
     assert.deepEqual(current.sources, previous.sources, 'both export blobs are byte-identical between the two merges');
     assert.deepEqual(current.contracts, previous.contracts);
@@ -841,7 +911,7 @@ describe('the 2026-09-26 receipt refresh (Admin eb54c92, D08 B2.3) — a reviewe
     assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere — this is a different revision, not a relabel');
     assert.notEqual(admin.digest, previous.digest);
     assert.notEqual(ADMIN, B23_ADMIN, 'superseded on 2026-09-26 by a7ef20c — no longer the approved Admin revision');
-    assert.equal(BACKEND, 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
+    assert.equal(HISTORICAL_SETS[SET_0926_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
   });
 
   test('CONTRACT (constructed serving): under the 2026-09-25 set an observed eb54c92 was refused as unapproved — seven reasons, and not a wait', () => {
@@ -919,7 +989,7 @@ describe('the 2026-09-26 receipt refresh (Admin a7ef20c, D08 B2.4) — replayed 
     assert.notEqual(admin.receipt.tree, previous.receipt.tree);
     assert.notEqual(admin.digest, previous.digest);
     assert.notEqual(ADMIN, B24_ADMIN, 'superseded on 2026-09-26 by abdacda — no longer the approved Admin revision');
-    assert.equal(BACKEND, 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
+    assert.equal(HISTORICAL_SETS[SET_0926B_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
   });
 
   test('CONTRACT: the 2026-09-26 pilot-6 set, replayed with CI\'s observation, reproduces run 36247543634\'s decision byte for byte — and it was not a wait', () => {
@@ -998,7 +1068,7 @@ describe('the 2026-09-26 receipt refresh (Admin abdacda, the documentation-only 
     assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere (two documentation files) — a different revision, not a relabel');
     assert.notEqual(admin.digest, previous.digest);
     assert.notEqual(ADMIN, DOCS32_ADMIN, 'superseded on 2026-09-26 by 9ec02fe — no longer the approved Admin revision');
-    assert.equal(BACKEND, 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
+    assert.equal(HISTORICAL_SETS[SET_0926C_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
   });
 
   test('CONTRACT (constructed serving): under pilot-7 an observed abdacda was refused as unapproved — seven reasons, and not a wait', () => {
@@ -1203,13 +1273,18 @@ describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a r
   // hands the decision a constructed observation of Admin serving 94001b7, every other
   // fact held fixed — the same labelling the eb54c92 and abdacda blocks use.
   const beforeD10 = () => withApproved({ admin: DIAG36_ADMIN, setId: SET_0927_ID, adminServes: D10_38_ADMIN });
+  // HISTORY since pilot-12: the set this refresh committed approved backend a6b25a6, which
+  // pilot-12 replaced. A comparison that pins what the refresh itself did therefore
+  // selects pilot-11 explicitly (its backend and the serving reason its decisions
+  // printed); tests that read the committed policy exercise pilot-12.
+  const refreshedD10 = () => withApproved({ admin: D10_38_ADMIN, setId: SET_0928_ID, adminServes: D10_38_ADMIN });
   // Admin serving 94001b7 — the literal commit, NOT servingApproved(), so this block
   // cannot pass by reading whatever a different policy approves.
   const servingD10 = () => recordedPeers({ adminServes: D10_38_ADMIN });
 
   test('CONTRACT: the committed pin is the receipt produced by peer-receipt at 94001b7 and independently re-derived on 2026-09-28', () => {
     assert.equal(ADMIN, D10_38_ADMIN);
-    assert.equal(POLICY.compatibleSet.id, SET_0928_ID);
+    assert.equal(POLICY.compatibleSet.id, SET_0928B_ID, 'the Admin approval pilot-11 made stands in pilot-12, which moved only the backend');
     const approved = POLICY.compatibleSet.peers.admin.approved;
     assert.equal(approved.length, 1, 'the previous Admin revision is replaced, not kept approved beside it');
     const admin = committedReceiptEntry('admin', ADMIN);
@@ -1231,7 +1306,7 @@ describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a r
     assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere (src/app/ and CLAUDE.md) — a different revision, not a relabel');
     assert.notEqual(admin.receipt.tree, D10_37_TREE, 'nor is it the #37 merge\'s tree');
     assert.notEqual(admin.digest, previous.digest);
-    assert.equal(BACKEND, 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh does not move the backend approval');
+    assert.equal(HISTORICAL_SETS[SET_0928_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh does not move the backend approval');
   });
 
   test('CONTRACT (constructed serving): under pilot-10 an observed 94001b7 is refused as unapproved — seven reasons, REFUSE, and not a wait', () => {
@@ -1252,7 +1327,7 @@ describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a r
 
   test('CONTRACT (constructed serving): with every other fact held fixed, the refresh removes peers.admin_serving_unapproved and nothing else', () => {
     const before = codesOf(decidePure(beforeD10()));
-    const refreshed = decidePure({ peers: servingD10() });
+    const refreshed = decidePure(refreshedD10());
     const after = codesOf(refreshed);
     assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
     assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
@@ -1284,13 +1359,15 @@ describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a r
 
   test('REGRESSION: an Admin revision the set does not approve is refused and is NOT a wait — the just-superseded 9cf8c83, the deployed-but-never-approved #37 merge 8b7895b, #38\'s same-tree head a2fa81e, every older approval, 3170e8f and ad4a7f8, or any later one', () => {
     for (const serves of [DIAG36_ADMIN, D10_37_ADMIN, D10_38_HEAD, CLAUDE34_ADMIN, DOCS35_ADMIN, DOCS32_ADMIN, B24_ADMIN, B23_ADMIN, CI_OBSERVED_ADMIN_0925, CI_OBSERVED_ADMIN, PREVIOUS_ADMIN, DEPLOYED_NEVER_APPROVED_ADMIN, 'a'.repeat(40)]) {
-      const peers = recordedPeers({ adminServes: serves });
-      const decision = decidePure({ peers });
+      // Bound to the pilot-11 snapshot, which this detail names; pilot-12 refuses the same
+      // revisions under its own id (the pilot-12 block, below).
+      const { policy, peers } = withApproved({ admin: D10_38_ADMIN, setId: SET_0928_ID, adminServes: serves });
+      const decision = decidePure({ policy, peers });
       const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
       assert.ok(reason, `${serves}: ${JSON.stringify(codesOf(decision))}`);
       assert.equal(reason.detail, `admin serves ${serves}, which is not in compatible set ${SET_0928_ID}`);
       assert.equal(decision.allow, false, serves);
-      const r = classifyWith({ peers, decision });
+      const r = classifyWith({ policy, peers, decision });
       assert.notEqual(r.kind, AWAITING, serves);
       assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
     }
@@ -1379,7 +1456,7 @@ describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a r
   });
 
   test('CONTROL: the refresh moved no owner setting, no enablement, no backend, no Admin serving contract and no waiting entry — only the Admin approval and the set id', () => {
-    assert.equal(POLICY.compatibleSet.id, SET_0928_ID);
+    assert.equal(HISTORICAL_SETS[SET_0927_ID], HISTORICAL_SETS[SET_0928_ID], 'pilot-10 and pilot-11 approved the same backend');
     assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [
       'peers.backend_serving_unverified',
       ...PREREQUISITES,
@@ -1389,12 +1466,202 @@ describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a r
     assert.ok(!POLICY.publication.readiness.awaiting.some((c) => c.startsWith('dependency.')));
     assert.equal(POLICY.bootstrap.authorized, false);
     assert.equal(POLICY.bootstrap.servedBaseline, null);
-    assert.deepEqual(POLICY.compatibleSet.peers.backend.approved.map((a) => a.commit), ['a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b']);
+    assert.equal(HISTORICAL_SETS[SET_0928_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b');
+    assert.equal(committedReceiptEntry('backend', PILOT11_BACKEND).digest, PILOT11_BACKEND_RECEIPT_DIGEST, 'the backend pilot-11 kept is retained byte for byte');
     assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable');
     assert.deepEqual(POLICY.compatibleSet.peers.admin.serving, {
       observation: 'public-identity', origin: 'https://admin.dinifyapp.com', path: '/release.txt',
     }, '#37/#38 kept the identity this gate reads: the exact commit at /release.txt, no-store');
     assert.equal(POLICY.compatibleSet.peers.admin.receiptVerification, 'public-repository');
     assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
+  });
+});
+
+describe('the 2026-09-28 backend receipt refresh (0513adb, the #350 merge, pilot-12) — a reviewed SOURCE selection, and a corrected serving note', () => {
+  // WHAT CHANGED. The backend approval moved from a6b25a6 (the #338 merge) to 0513adb
+  // (the #350 merge), a source selection following the accepted #339-#350 merges, and
+  // the backend's serving note was corrected. Nothing else moved: the Admin approval
+  // (94001b7), every owner setting, the enablement variable, the serving observation
+  // (still `unavailable`) and the six waiting entries are pilot-11's.
+  //
+  // WHAT IT DOES NOT SAY. A receipt proves what a revision's SOURCE exports. Matching
+  // exported contracts is not proof of every cross-application behaviour, and nothing here
+  // observes which backend revision is live: no run has recorded a decision under pilot-12,
+  // so its six-reason decision below is CONSTRUCTED from the rule and labelled so.
+  const pilot11 = () => withApproved({ admin: D10_38_ADMIN, setId: SET_0928_ID, adminServes: D10_38_ADMIN });
+
+  test('CONTRACT: the committed backend pin is the receipt produced by peer-receipt at 0513adb and independently re-derived on 2026-09-28 — a6b25a6 replaced, not kept beside it', () => {
+    assert.equal(POLICY.compatibleSet.id, SET_0928B_ID);
+    assert.equal(BACKEND, B2_BACKEND);
+    assert.deepEqual(POLICY.compatibleSet.peers.backend.approved, [
+      { commit: B2_BACKEND, receipt: receiptPath('backend', B2_BACKEND), receiptDigest: B2_BACKEND_RECEIPT_DIGEST },
+    ], 'exactly one approved backend: every approved backend is checked, so a6b25a6 is replaced rather than approved beside it');
+    const entry = committedReceiptEntry('backend', B2_BACKEND);
+    assert.equal(entry.digest, B2_BACKEND_RECEIPT_DIGEST);
+    assert.equal(entry.receipt.commit, B2_BACKEND);
+    assert.equal(entry.receipt.tree, B2_BACKEND_TREE);
+    assert.deepEqual(entry.receipt.sources, [
+      { name: 'd01CheckoutLimits', path: 'orders_app/contracts/checkout_limits.contract.json', blob: '1cb6a6db203edb2615668683d6426e0b972cdc31' },
+      { name: 'publishedCapabilities', path: 'orders_app/contracts/published_capabilities.contract.json', blob: 'cc9160508888e2daff083ef96348a501c37fe702' },
+    ]);
+    assert.deepEqual(entry.receipt.publishes, { checkout_protocol: 3, quote_protocol: 2, kitchen_protocol: 1, quote_policy_version: 1 });
+    assert.deepEqual(entry.receipt.unavailable, []);
+    assert.deepEqual(entry.receipt.producer, { tool: 'release/cli.mjs peer-receipt', revision: 1 }, 'produced by the existing command, not hand-authored');
+    const d01 = entry.receipt.contracts.d01CheckoutLimits;
+    assert.equal(d01.digest, contractDigest(d01.values), 'the D01 digest is the one its own values compose');
+    const frontendD01 = JSON.parse(readFileSync(join(ROOT, 'src/app/_shared/order/checkout-limits.contract.json'), 'utf8'));
+    assert.equal(contractDigest(frontendD01), d01.digest, 'the frontend\'s compiled D01 copy agrees with the selected backend\'s export');
+    const previous = committedReceiptEntry('backend', PILOT11_BACKEND);
+    assert.equal(previous.digest, PILOT11_BACKEND_RECEIPT_DIGEST, 'the replaced receipt is retained byte for byte, as history');
+    assert.deepEqual(entry.receipt.sources, previous.receipt.sources, '#339-#350 moved neither export file');
+    assert.deepEqual(entry.receipt.contracts, previous.receipt.contracts);
+    assert.deepEqual(entry.receipt.publishes, previous.receipt.publishes);
+    assert.notEqual(entry.receipt.tree, previous.receipt.tree, 'the source did change elsewhere — a different revision, not a relabel');
+    for (const commit of [PREVIOUS_BACKEND, HISTORICAL_BACKEND]) {
+      assert.ok(existsSync(join(ROOT, receiptPath('backend', commit))), `${commit} stays under release/peers/ as history`);
+    }
+    assert.equal(POLICY.compatibleSet.peers.backend.receiptVerification, 'operator', 'still an operator-reviewed receipt: repository visibility metadata changes nothing here');
+  });
+
+  test('CONTRACT: the Admin approval is pilot-11\'s, unchanged', () => {
+    assert.equal(ADMIN, D10_38_ADMIN);
+    assert.deepEqual(POLICY.compatibleSet.peers.admin.approved, [{
+      commit: D10_38_ADMIN,
+      receipt: receiptPath('admin', D10_38_ADMIN),
+      receiptDigest: 'sha256:d499e466c92f0b80b822ad39d05870aacca139d5a1592d10390bbba3a545b5b5',
+    }]);
+  });
+
+  test('CONTRACT: the serving note says what is true now — an identity endpoint and a staged installer exist in the source, a verified loaded-runtime identity does not — and serving stays unavailable', () => {
+    const serving = POLICY.compatibleSet.peers.backend.serving;
+    assert.deepEqual(Object.keys(serving).sort(), ['observation', 'reason']);
+    assert.equal(serving.observation, 'unavailable');
+    assert.match(serving.reason, /^no verified loaded-runtime identity of the backend is available \(B3\)/);
+    assert.match(serving.reason, /release-identity endpoint and a staged installer/);
+    assert.match(serving.reason, /the installer is not active, the legacy deploy-uat\.yml still serves/);
+    assert.match(serving.reason, /an operator statement is not accepted as serving evidence$/);
+    assert.doesNotMatch(serving.reason, /publishes no served-revision identity/, 'the stale claim equated an absent endpoint with absent serving evidence');
+    assert.notEqual(serving.reason, HISTORICAL_BACKEND_SERVING_REASON);
+    const decision = decidePure({ peers: servingApproved() });
+    assert.equal(decision.reasons.find((r) => r.code === 'peers.backend_serving_unverified').detail, serving.reason, 'the corrected note is what an operator reads in the refusal');
+  });
+
+  test('CONTRACT (constructed): with every other fact held fixed, pilot-11 -> pilot-12 changes no reason CODE — the backend swap alone changes no byte, the note correction changes one detail', () => {
+    const before = decidePure(pilot11());
+    const after = decidePure({ peers: servingApproved() });
+    assert.equal(digestOfValue(before), CI_WAIT_DIGEST_PILOT8, 'pilot-11, replayed, is the wait CI recorded');
+    assert.deepEqual(codesOf(after), codesOf(before));
+    assert.deepEqual(codesOf(after), [...POLICY.publication.readiness.awaiting].sort(), 'still exactly the six waiting entries, nothing hidden');
+    const changed = after.reasons
+      .map((r, i) => ({ code: r.code, was: before.reasons[i].detail, now: r.detail, sameCode: before.reasons[i].code === r.code }))
+      .filter((c) => !c.sameCode || c.was !== c.now);
+    assert.deepEqual(changed, [{ code: 'peers.backend_serving_unverified', was: HISTORICAL_BACKEND_SERVING_REASON, now: POLICY.compatibleSet.peers.backend.serving.reason, sameCode: true }]);
+    // The backend selection ALONE — 0513adb with the pilot-11 note — is byte-identical to
+    // the recorded wait: the decision names no backend commit, so only the note moved it.
+    const selectionOnly = clone(POLICY);
+    selectionOnly.compatibleSet.peers.backend.serving.reason = HISTORICAL_BACKEND_SERVING_REASON;
+    assert.equal(digestOfValue(decidePure({ policy: selectionOnly, peers: servingApproved() })), CI_WAIT_DIGEST_PILOT8);
+    assert.notEqual(digestOfValue(after), CI_WAIT_DIGEST_PILOT8, 'the next readiness run records a new decisionDigest for the same six codes');
+    assert.equal(digestOfValue(after), PILOT12_WAIT_DIGEST_CONSTRUCTED, 'constructed from the rule; no run has recorded it yet');
+  });
+
+  test('CONTRACT: through the real decide command, pilot-12 is the same completed, non-publishing wait — REFUSE, allow:false, published:false — and the CLI and the pure decision agree byte for byte', async () => {
+    const { status, decision } = await decideCommitted({ peers: servingApproved() });
+    assert.equal(status, 1);
+    assert.equal(decision.decision, 'REFUSE');
+    assert.equal(decision.allow, false);
+    assert.equal(digestOfValue(decision), digestOfValue(decidePure({ peers: servingApproved() })));
+    for (const enablement of ['', 'false']) {
+      const r = classifyWith({ peers: servingApproved(), decision, enablement });
+      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
+      assert.equal(r.published, false);
+      assert.equal(r.decisionDigest, PILOT12_WAIT_DIGEST_CONSTRUCTED);
+    }
+  });
+
+  test('REGRESSION: the selected backend evidence, broken one fact at a time, is refused and is never a wait — a new reason still fails readiness', () => {
+    const edit = (change) => (p) => { const r = clone(p.receipts.backend[0].receipt); change(r); p.receipts.backend[0] = { ...p.receipts.backend[0], receipt: r, digest: receiptDigest(r) }; };
+    const cases = {
+      'receipt tree set to a6b25a6\'s': ['peers.receipt_mismatch', edit((r) => { r.tree = 'd6d1f838e931f89d68e5bcafec43a84fd1b6f538'; })],
+      'capability export blob edited': ['peers.receipt_mismatch', edit((r) => { r.sources[1].blob = 'f'.repeat(40); })],
+      'a capability level edited': ['peers.receipt_mismatch', edit((r) => { r.publishes.quote_protocol = 1; })],
+      'a D01 value edited, digest recomputed': ['peers.receipt_mismatch', edit((r) => {
+        r.contracts.d01CheckoutLimits.values.MAX_QUANTITY_PER_LINE = 100;
+        r.contracts.d01CheckoutLimits.digest = contractDigest(r.contracts.d01CheckoutLimits.values);
+      })],
+      'a D01 value edited, digest left': ['peers.receipt_inconsistent', edit((r) => { r.contracts.d01CheckoutLimits.values.MAX_QUANTITY_PER_LINE = 100; })],
+      'receipt about the replaced a6b25a6': ['peers.receipt_wrong_revision', edit((r) => { r.commit = PILOT11_BACKEND; })],
+      'the retained a6b25a6 receipt relabelled as 0513adb (SAME export blobs)': ['peers.receipt_mismatch', (p) => {
+        const r = clone(committedReceiptEntry('backend', PILOT11_BACKEND).receipt);
+        r.commit = B2_BACKEND;
+        p.receipts.backend[0] = { ...p.receipts.backend[0], receipt: r, digest: receiptDigest(r) };
+      }],
+      'receipt file missing': ['peers.receipt_missing', (p) => { p.receipts.backend[0] = { commit: B2_BACKEND, path: receiptPath('backend', B2_BACKEND), present: false }; }],
+      'receipt file unreadable': ['peers.receipt_unreadable', (p) => { p.receipts.backend[0] = { commit: B2_BACKEND, path: receiptPath('backend', B2_BACKEND), present: true, readable: false, detail: 'Unexpected token' }; }],
+    };
+    for (const [label, [code, breakIt]] of Object.entries(cases)) {
+      const peers = servingApproved();
+      breakIt(peers);
+      const decision = decidePure({ peers });
+      assert.ok(codesOf(decision).includes(code), `${label}: ${JSON.stringify(codesOf(decision))}`);
+      assert.ok(codesOf(decision).includes('peers.backend_serving_unverified'), `${label}: the missing serving identity still stands`);
+      assert.equal(decision.allow, false, label);
+      const r = classifyWith({ peers, decision });
+      assert.notEqual(r.kind, AWAITING, label);
+      assert.ok(r.problems.some((p) => p.code === 'readiness.unexpected_reason'), `${label}: ${JSON.stringify(r.problems)}`);
+    }
+    // An intact file whose digest the POLICY does not pin — including the replaced pin left
+    // behind by a half-applied edit.
+    for (const wrong of [`sha256:${'0'.repeat(64)}`, PILOT11_BACKEND_RECEIPT_DIGEST]) {
+      const policy = clone(POLICY);
+      policy.compatibleSet.peers.backend.approved[0].receiptDigest = wrong;
+      const decision = decidePure({ policy, peers: servingApproved() });
+      assert.ok(codesOf(decision).includes('peers.receipt_mismatch'), `${wrong}: ${JSON.stringify(codesOf(decision))}`);
+      assert.notEqual(classifyWith({ policy, peers: servingApproved(), decision }).kind, AWAITING);
+    }
+  });
+
+  test('REGRESSION: an operator statement of which backend is serving is not accepted — the refusal stands and the evaluation is no longer a wait', () => {
+    const peers = servingApproved();
+    peers.serving.backend = { state: 'known', commit: B2_BACKEND, noStore: true, cacheControl: 'no-store' };
+    const decision = decidePure({ peers });
+    assert.ok(codesOf(decision).includes('peers.backend_serving_unverified'));
+    assert.equal(decision.allow, false);
+    const r = classifyWith({ peers, decision });
+    assert.notEqual(r.kind, AWAITING);
+    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.context_mismatch']);
+  });
+
+  test('REGRESSION: an Admin revision pilot-12 does not approve is refused under pilot-12\'s id and is NOT a wait', () => {
+    for (const serves of [DIAG36_ADMIN, D10_37_ADMIN, D10_38_HEAD, 'a'.repeat(40)]) {
+      const peers = recordedPeers({ adminServes: serves });
+      const decision = decidePure({ peers });
+      const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
+      assert.equal(reason?.detail, `admin serves ${serves}, which is not in compatible set ${SET_0928B_ID}`, serves);
+      assert.deepEqual(classifyWith({ peers, decision }).problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
+    }
+  });
+
+  test('CONTROL: the refresh moved no owner setting, no enablement, no Admin approval or serving contract and no waiting entry — only the backend approval, its serving note and the set id', () => {
+    assert.equal(POLICY.compatibleSet.id, SET_0928B_ID);
+    assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [
+      'peers.backend_serving_unverified',
+      ...PREREQUISITES,
+      'served.bootstrap_unauthorized',
+    ].sort(), 'the six waiting entries, no peers.admin_* entry, no wildcard, no new waiting reason');
+    assert.equal(POLICY.bootstrap.authorized, false);
+    assert.equal(POLICY.bootstrap.servedBaseline, null);
+    assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded');
+    assert.equal(POLICY.prerequisites.retention.status, 'unverified');
+    assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
+    assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
+    assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
+    assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
+    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable');
+    assert.equal(POLICY.compatibleSet.peers.backend.receiptVerification, 'operator');
+    assert.deepEqual(POLICY.compatibleSet.peers.admin.serving, {
+      observation: 'public-identity', origin: 'https://admin.dinifyapp.com', path: '/release.txt',
+    });
+    assert.equal(POLICY.compatibleSet.peers.admin.receiptVerification, 'public-repository');
   });
 });
