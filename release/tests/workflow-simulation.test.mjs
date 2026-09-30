@@ -1166,6 +1166,7 @@ describe('publish.yml — the dependency half: certification evidence, a fresh a
   test('CONTRACT (a real subprocess hang at the policy\'s own 30-second minimum): a permanent application hang is RED, allow:false, and nothing is published', async () => {
     const auditPolicy = JSON.parse(readFileSync(join(ROOT, 'dependency-audit/policy.json'), 'utf8'));
     auditPolicy.scanner.timeoutSeconds = 30;
+    auditPolicy.records = []; // committed records name real-graph paths; these graphs are fixtures
     const world = await committedWorld({ c2Files: { 'dependency-audit/policy.json': `${JSON.stringify(auditPolicy, null, 2)}\n` } });
     world.npm.setAdvisories({ failures: [{ whenPackage: 'shipped', mode: 'hang' }] });
     const event = automaticEvent(world, 5102);

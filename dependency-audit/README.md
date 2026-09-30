@@ -99,7 +99,18 @@ outranks every npmrc, so the invocation and the check cannot disagree.
 
 ## Exceptions and triage records
 
-`policy.json → records` is empty, and **nothing in this change approves anything.** A record
+**Three records are approved (2026-09-30), and all three are exceptions on the SCANNER
+graph** — the `undici` 6.28.0 (GHSA-rfgv-xxqx-mfg5) and `brace-expansion` 5.0.9
+(GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) that npm 11.19.1 BUNDLES. No npm release
+(11.19.1, 11.20.0, 12.1.0) bundles a fixed copy of either, and a bundled dependency cannot
+be replaced through the scanner lockfile or `overrides`, so without them every `validate`
+and `certify` run was blocked. Each record's `applicability` states why the scanner cannot
+reach the vulnerable code with outside input, and each expires on 2026-10-30. **They come
+out in the same change that moves the scanner pin to an npm release bundling fixed
+copies** — from then on they match nothing, and the audit refuses a stale record rather
+than ignoring it. No application-graph finding is excepted, and nothing is triaged.
+
+A record
 is refused — and the audit is `blocking` — unless it names the advisory (and aliases),
 the exact package, the exact version, the exact graph paths and the scope; carries
 applicability evidence and a reason; names an owner; links the mugak1 pull request or issue
