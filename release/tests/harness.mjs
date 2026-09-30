@@ -414,6 +414,10 @@ function writeDependencyFixture(dir, policy) {
   for (const rel of ['dependency-audit/cli.mjs', 'dependency-audit/conformance.json']) cpSync(join(ROOT, rel), join(dir, rel));
   const auditPolicy = JSON.parse(readFileSync(join(ROOT, 'dependency-audit/policy.json'), 'utf8'));
   auditPolicy.target.nodeMajor = Number(process.versions.node.split('.')[0]);
+  // The committed records approve findings at exact paths in THIS repository's real graphs.
+  // The graphs here are fixtures, so a committed record matches nothing and would be refused
+  // as stale; a test that exercises a record commits its own (commitFixtureException).
+  auditPolicy.records = [];
   writeJson(dir, 'dependency-audit/policy.json', auditPolicy);
   const app = applicationGraph();
   writeJson(dir, 'package.json', app.manifest);

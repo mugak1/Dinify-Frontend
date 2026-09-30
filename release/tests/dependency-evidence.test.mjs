@@ -694,6 +694,7 @@ describe('a permanent application hang — the real CLI, a valid 30-second polic
   before(async () => {
     const auditPolicy = JSON.parse(readFileSync(join(ROOT, 'dependency-audit/policy.json'), 'utf8'));
     auditPolicy.scanner.timeoutSeconds = 30; // the policy's own minimum — valid, not weakened
+    auditPolicy.records = []; // committed records name real-graph paths; these graphs are fixtures
     w = await world({ files: { 'dependency-audit/policy.json': `${JSON.stringify(auditPolicy, null, 2)}\n` } });
     t = await prepare(w);
     assert.equal(t.r.status, 0, t.r.stderr);
