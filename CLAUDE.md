@@ -4759,7 +4759,7 @@ publisher call). `conformance.json` is byte-identical in the three
 repos and its digest is pinned in each suite. In `certify` it runs BEFORE the candidate
 is built, so a blocking or incomplete audit leaves no candidate; the release suite's
 existing CONTROL (identical `npm` command sequences in `certify` and `validate`) now
-guards the audit too. `policy.json → records` is empty — nothing is pre-approved. Main
+guards the audit too. `policy.json → records` holds exactly three owner-approved EXCEPTIONS (2026-09-30, expiring 2026-10-30), all on the SCANNER graph: npm 11.19.1's BUNDLED `undici` 6.28.0 (GHSA-rfgv-xxqx-mfg5) and `brace-expansion` 5.0.9 (GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p). No npm release bundles fixed copies and a bundled dependency cannot be reached by the lockfile or `overrides`, so nothing else could unblock `validate`. Remove them in the same change that bumps the scanner to an npm release bundling fixed copies (a record that matches nothing is refused as stale); a CONTRACT test in `dependency-audit/tests/audit.test.mjs` pins the approved set by id. Nothing else is pre-approved, and no application-graph finding is excepted. Main
 (1d22826) audits within policy with 15 lower-severity tooling findings requiring triage
 (firebase-tools / karma / exegesis paths); an in-range lock correction (nested
 `body-parser` 1.20.8, `express` 4.22.3, the stale `qs` copies deduped; both builds
