@@ -331,6 +331,7 @@ const CASES = [
   ['admin', 'the admitted record filename disagrees', (h) => { h.admission.candidate.record.file = 'record.json'; }, 'record_file_mismatch'],
   ['backend', 'the admitted archive digest disagrees', (h) => { h.admission.candidate.measuredDigest = dg('wrong-archive'); }, 'archive_digest_mismatch'],
   ['backend', 'the admission processed another commit', (h) => { h.admission.inputs.expect.commit = sha1ish('7'); }, 'admission_commit_mismatch'],
+  ['backend', 'the admission processed another repository', (h) => { h.admission.inputs.expect.repository = 'mugak1/Dinify-Admin'; }, 'admission_repository_mismatch'],
   // the consumer closure against the independent plan
   ['backend', 'the expected consumer commit differs', (h) => { h.expected.consumer.commit = sha1ish('e'); }, 'consumer_commit_mismatch'],
   ['backend', 'a consumer subtree disagrees', (h) => { h.expected.consumer.subtrees.release = sha1ish('f'); }, 'consumer_subtree_mismatch'],

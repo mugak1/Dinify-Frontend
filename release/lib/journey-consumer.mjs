@@ -188,6 +188,7 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   bind('admission_tree_mismatch', ae.tree, descriptor.source?.tree, "the admission's processed tree and the descriptor tree");
   bindId('admission_run_mismatch', ae.runId, descriptor.run?.id, "the admission's processed run id");
   bindId('admission_attempt_mismatch', ae.runAttempt, descriptor.run?.attempt, "the admission's processed attempt");
+  bind('admission_repository_mismatch', ae.repository, descriptor.repository, "the admission's processed repository and the descriptor repository");
 
   // ── 6b. The candidate's OWN recorded facts (Backend) against the producer's descriptor claims:
   //        the consumer's reading of what was built must agree with what the producer claimed. Both
