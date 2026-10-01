@@ -98,9 +98,14 @@ function adminRecord() {
 
 function backendRecord() {
   const w = WORLD.backend;
+  // The canonical dinify.backend.candidate/1 wheelhouse entry is six fields, exactly as
+  // Dinify-Backend@0513adb release/environment.py verify_wheelhouse (175-176) emits it and
+  // release/candidate.py package places it unchanged: filename, the PEP 503 normalized
+  // name, the wheel version, the role lockfile.entries tags it with (packages ->
+  // 'application', the pip installer -> 'bootstrap'), and the byte-listing sha256/size.
   const wheels = [
-    { filename: 'synthetic_pkg-1.0.0-py3-none-any.whl', sha256: hex('wheel-1'), size: 10 },
-    { filename: 'other_synthetic-2.0.0-cp312-cp312-manylinux_2_17_x86_64.whl', sha256: hex('wheel-2'), size: 20 },
+    { filename: 'synthetic_pkg-1.0.0-py3-none-any.whl', name: 'synthetic-pkg', version: '1.0.0', role: 'application', sha256: hex('wheel-1'), size: 10 },
+    { filename: 'pip-25.2-py3-none-any.whl', name: 'pip', version: '25.2', role: 'bootstrap', sha256: hex('wheel-2'), size: 20 },
   ];
   return {
     schema: 'dinify.backend.candidate/1', repository: w.repository, commit: w.commit, tree: w.tree, createdAt: NOW,
@@ -254,6 +259,23 @@ describe('SYNTHETIC: sufficient evidence yields a descriptor, never a verificati
     assert.equal(d.claims.wheelCount, 2);
     assert.ok(!('packages' in d.claims));
   });
+  test('CONTRACT (B1 compatibility): the canonical six-field Backend wheelhouse is accepted, both roles', () => {
+    // Unmodified B1 required a three-field {filename, sha256, size} entry and refused this
+    // canonical record record_entry_invalid, so this is the positive that fails before the
+    // fix and passes after it. The fixture carries one 'application' and one 'bootstrap'
+    // entry, so acceptance covers the whole role vocabulary.
+    const rec = backendRecord();
+    assert.deepEqual(rec.wheelhouse.files.map((f) => f.role).sort(), ['application', 'bootstrap']);
+    for (const f of rec.wheelhouse.files) {
+      assert.deepEqual(Object.keys(f).sort(), ['filename', 'name', 'role', 'sha256', 'size', 'version']);
+    }
+    const r = run(world('backend'));
+    assert.deepEqual(codes(r), []);
+    assert.equal(r.ok, true);
+    assert.equal(r.level, 'bytes');
+    assert.equal(r.descriptor.bytes.record.state, 'consistent');
+    assert.equal(r.descriptor.claims.wheelCount, 2);
+  });
   test('CONTROL: a newer glibc than the declared minimum is the same target', () => {
     for (const libc of ['glibc 2.40', 'glibc 3.0']) {
       const w = world('backend');
@@ -401,6 +423,15 @@ const CASES = [
   ['backend', 'a wheel entry that is a path', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].filename = 'dir/evil.whl'; }), ['journey.peers.record_entry_invalid']],
   ['backend', 'a wheel listed twice', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files.push(clone(r.wheelhouse.files[0])); }), ['journey.peers.record_entry_invalid']],
   ['backend', 'a wheelhouse digest that its files do not compose', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].size += 1; }), ['journey.peers.record_inconsistent']],
+  // B1 compatibility: the canonical producer emits six fields; the retired three-field
+  // shape (which unmodified B1 required) is now refused, and the extra claims are validated.
+  ['backend', 'a wheel in the retired three-field shape', (w) => setRecord(w, 'backend', (r) => { const f = r.wheelhouse.files[0]; delete f.name; delete f.version; delete f.role; }), ['journey.peers.record_entry_invalid']],
+  ['backend', 'a wheel with an unsupported role', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].role = 'runtime'; }), ['journey.peers.record_entry_invalid']],
+  ['backend', 'a wheel role given as a boolean', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].role = true; }), ['journey.peers.record_entry_invalid']],
+  ['backend', 'a wheel carrying an extra key', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].extra = 'SYNTHETIC'; }), ['journey.peers.record_entry_invalid']],
+  ['backend', 'a wheel name that is not PEP 503 normalized', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].name = 'Synthetic_Pkg'; }), ['journey.peers.record_entry_invalid']],
+  ['backend', 'a wheel name given as a number', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].name = 12345; }), ['journey.peers.record_entry_invalid']],
+  ['backend', 'a wheel with a blank version', (w) => setRecord(w, 'backend', (r) => { r.wheelhouse.files[0].version = ''; }), ['journey.peers.record_entry_invalid']],
   ['admin', 'a record claiming an incomplete audit', (w) => setRecord(w, 'admin', (r) => { r.audit.outcome = 'incomplete'; }), ['journey.peers.record_audit_not_passing']],
   ['admin', 'a record with no audit claim', (w) => setRecord(w, 'admin', (r) => { delete r.audit; }), ['journey.peers.record_audit_not_passing']],
   // Codex P2 on #719: a candidate built for another target cannot be reconstructed on the reviewed one.

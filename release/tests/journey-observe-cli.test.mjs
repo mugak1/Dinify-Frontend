@@ -147,7 +147,7 @@ function routes(peer, archive) {
 function record(peer) {
   const s = selection(peer);
   if (peer === 'backend') {
-    const files = [{ filename: 'synthetic_pkg-1.0-py3-none-any.whl', sha256: hex('wheel'), size: 12 }];
+    const files = [{ filename: 'synthetic_pkg-1.0-py3-none-any.whl', name: 'synthetic-pkg', version: '1.0', role: 'application', sha256: hex('wheel'), size: 12 }];
     return {
       schema: 'dinify.backend.candidate/1', repository: s.repository, commit: s.source.commit, tree: s.source.tree,
       eligibility: { promotable: true }, artifact: { name: `backend-candidate-${s.run.id}-1` },
