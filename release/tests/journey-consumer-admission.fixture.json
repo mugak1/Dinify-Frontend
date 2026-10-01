@@ -322,7 +322,8 @@
         "run": {
           "id": "9001",
           "attempt": "1"
-        }
+        },
+        "requiredJobs": ["suite (3.12.3)", "reconstruct", "test"]
       },
       "consumer": {
         "repository": "mugak1/Dinify-Backend",

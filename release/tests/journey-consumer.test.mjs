@@ -203,7 +203,7 @@ function expectedFor(peer) {
       peer, repository: w.repository, source: { commit: w.commit, tree: w.tree },
       receipt: { commit: w.commit, digest: receiptDigest(receiptFor(peer)) },
       producer: { workflowPath: '.github/workflows/ci.yml', event: 'push', ref: 'refs/heads/main' },
-      run: { id: w.runId, attempt: w.attempt },
+      run: { id: w.runId, attempt: w.attempt }, requiredJobs: [...w.jobs],
     },
     consumer: clone(CONSUMER[peer]),
     adapters: clone(ADAPTERS[peer]),
@@ -331,6 +331,9 @@ const CASES = [
   // the expected plan's pinned identities must be well-formed shas/digests, not merely present
   ['backend', 'an expected consumer commit that is not a sha', (h) => { h.expected.consumer.commit = 'bad'; }, 'expected_unpinned'],
   ['backend', 'an expected adapter hash that is not a digest', (h) => { h.expected.adapters['trusted_closure.py'] = 'bad'; }, 'expected_unpinned'],
+  // the selection's required-job set must be present and every job must appear in the descriptor run
+  ['backend', 'an expected selection with an empty required-job set', (h) => { h.expected.selection.requiredJobs = []; }, 'expected_incomplete'],
+  ['backend', 'the selection requires a job the descriptor run lacks', (h) => { h.expected.selection.requiredJobs = [...h.expected.selection.requiredJobs, 'security-scan']; }, 'required_job_missing'],
   // the admission's self-report against the descriptor
   ['backend', 'the admitted candidate name disagrees', (h) => { h.admission.candidate.name = 'backend-candidate-1-1'; }, 'artifact_name_mismatch'],
   ['backend', 'the admitted record sha disagrees with the descriptor', (h) => { h.admission.candidate.record.sha256 = dg('wrong-record'); }, 'record_digest_mismatch'],
@@ -349,6 +352,7 @@ const CASES = [
   // the admin unpacker dependency
   ['admin', 'the pinned unpacker is not Dinify-Backend', (h) => { h.expected.unpacker.repository = 'mugak1/Dinify-Admin'; }, 'unpacker_repository_mismatch'],
   ['admin', 'the pinned unpacker adapter is not among the bound adapters', (h) => { h.expected.unpacker.adapter = 'ghost_unpack.py'; }, 'unpacker_unbound'],
+  ['admin', 'an unpacker adapter inherited from Object.prototype (in vs hasOwn)', (h) => { h.expected.unpacker.adapter = 'toString'; }, 'unpacker_unbound'],
   // the backend companion, full identity
   ['backend', 'the companion listed digest disagrees', (h) => { h.expected.companion.listedDigest = dg('wrong-companion'); }, 'companion_listed_mismatch'],
   ['backend', 'the admission companion is not bound to the record', (h) => { h.admission.reconstructionCompanion.boundToRecord = false; }, 'companion_unbound'],

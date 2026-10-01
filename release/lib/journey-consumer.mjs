@@ -104,7 +104,7 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   if (admission.peer !== peer) { refuse('admission_invalid', 'the admission names another peer than the descriptor'); return fail(); }
   if (admission.decision !== 'admitted') { refuse('admission_not_admitted', `the admission decision is ${safe(admission.decision)}`); return fail(); }
   for (const k of VERDICT_KEYS) {
-    if (k in admission) { refuse('admission_asserts_verdict', `the admission carries a ${k} key; a Stage-1 admission reaches no verdict`); return fail(); }
+    if (Object.hasOwn(admission, k)) { refuse('admission_asserts_verdict', `the admission carries a ${k} key; a Stage-1 admission reaches no verdict`); return fail(); }
   }
   if (admission.inputs?.descriptorDigest !== descriptorDigest) { refuse('admission_foreign', 'the admission was produced for another descriptor'); return fail(); }
   // The caller's independently measured digest of THIS admission document. The binder holds the
@@ -118,8 +118,8 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   // ── 3. The independent expectation is COMPLETE, or the binding refuses (never vacuous). ──
   if (!isObject(expected)) { refuse('expected_missing', 'no independent expectation was supplied'); return fail(); }
   const sel = expected.selection;
-  if (!isObject(sel) || !isObject(sel.source) || !isObject(sel.receipt) || !isObject(sel.producer) || !isObject(sel.run)) {
-    refuse('expected_incomplete', 'expected.selection must carry peer, repository, source, receipt, producer and run');
+  if (!isObject(sel) || !isObject(sel.source) || !isObject(sel.receipt) || !isObject(sel.producer) || !isObject(sel.run) || !Array.isArray(sel.requiredJobs) || sel.requiredJobs.length === 0) {
+    refuse('expected_incomplete', 'expected.selection must carry peer, repository, source, receipt, producer, run and a non-empty requiredJobs');
     return fail();
   }
   const econ = expected.consumer;
@@ -149,7 +149,7 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     if (!ids.includes(id)) { refuse('check_unknown', `${safe(id)} is not a ${peer} reviewed check`); return fail(); }
   }
   for (const id of ids) {
-    if (!(id in admissionChecks)) { refuse('check_missing', `the admission does not account for ${id}`); return fail(); }
+    if (!Object.hasOwn(admissionChecks, id)) { refuse('check_missing', `the admission does not account for ${id}`); return fail(); }
   }
 
   // Everything past here ACCUMULATES: a single injected fault yields exactly its own
@@ -189,6 +189,13 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   bind('producer_ref_mismatch', descriptor.producer?.ref, sel.producer.ref, 'the producer ref');
   bindId('run_mismatch', descriptor.run?.id, sel.run.id, 'the run id');
   bindId('attempt_mismatch', descriptor.run?.attempt, sel.run.attempt, 'the run attempt');
+  // Every job the independent selection REQUIRED must appear in the descriptor's run jobs —
+  // selectPeerCandidate supports a required-job list, and a descriptor that omits a caller-required
+  // security or validation job must not bind as the same candidate.
+  const descriptorJobNames = new Set((Array.isArray(descriptor.jobs) ? descriptor.jobs : []).map((j) => (isObject(j) ? j.name : undefined)));
+  for (const jobName of sel.requiredJobs) {
+    if (!descriptorJobNames.has(jobName)) refuse('required_job_missing', `the descriptor run does not include the required job ${safe(jobName)}`);
+  }
 
   // ── 6. The admission's self-reported identities against the descriptor. ──
   const bytes = descriptor.bytes ?? {};
@@ -260,7 +267,7 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   if (peer === 'admin') {
     bind('unpacker_repository_mismatch', expected.unpacker.repository, BACKEND_REPOSITORY, 'the pinned unpacker repository and Dinify-Backend');
     if (!SHA.test(String(expected.unpacker.commit))) refuse('unpacker_commit_invalid', 'the pinned unpacker commit is not a full sha');
-    if (!(expected.unpacker.adapter in expected.adapters)) refuse('unpacker_unbound', 'the pinned unpacker adapter is not among the bound adapter hashes');
+    if (!Object.hasOwn(expected.adapters, expected.unpacker.adapter)) refuse('unpacker_unbound', 'the pinned unpacker adapter is not among the bound adapter hashes');
   }
 
   // ── 8. The companion (Backend): its full identity against the descriptor and the plan. ──
