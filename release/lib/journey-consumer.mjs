@@ -103,6 +103,14 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   if (!isObject(admission) || admission.schema !== ADMISSION_SCHEMA[peer]) { refuse('admission_invalid', `not a ${ADMISSION_SCHEMA[peer]} document`); return fail(); }
   if (admission.peer !== peer) { refuse('admission_invalid', 'the admission names another peer than the descriptor'); return fail(); }
   if (admission.decision !== 'admitted') { refuse('admission_not_admitted', `the admission decision is ${safe(admission.decision)}`); return fail(); }
+  // An ADMITTED Stage-1 result reports no problems — residual qualifications have their own field.
+  // A document that says `admitted` while also carrying a non-empty `problems` array (an archive or
+  // audit verification failure, say) is internally contradictory and must not be trusted as admitted,
+  // however consistent the rest of its identities are. An absent/empty problems list is fine.
+  const aProblems = admission.problems;
+  if (aProblems !== undefined && aProblems !== null && (!Array.isArray(aProblems) || aProblems.length > 0)) {
+    refuse('admission_reports_problems', 'an admitted admission carries problems; an admitted Stage-1 result reports none'); return fail();
+  }
   for (const k of VERDICT_KEYS) {
     if (Object.hasOwn(admission, k)) { refuse('admission_asserts_verdict', `the admission carries a ${k} key; a Stage-1 admission reaches no verdict`); return fail(); }
   }
@@ -130,6 +138,22 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   for (const job of PEER_FORMATS[peer].requiredJobs) {
     if (!sel.requiredJobs.includes(job)) { refuse('expected_jobs_narrowed', `the expected plan omits the ${peer}-mandatory job ${safe(job)}`); return fail(); }
   }
+  // The selection must be ANCHORED to the reviewed peer format, not merely internally consistent with
+  // the other documents. The step-5/6 binds cross-check selection ↔ descriptor ↔ admission ↔ custody
+  // field to field, so a whole set that names `evil/Other` (with the unkeyed descriptor digest
+  // recomputed to match) would agree and bind. The repository a candidate is permitted on, and its CI
+  // anchors, are FIXED by PEER_FORMATS — exactly what journey-peers.checkSelection enforces — and the
+  // independent plan is NOT validated by selectPeerCandidate, so a well-formed-but-wrong-peer plan, or
+  // a malformed sha/digest/id, must be caught here rather than relied on to diverge from a genuine
+  // descriptor (the descriptor is attacker-controlled in the same breath).
+  const fmt = PEER_FORMATS[peer];
+  if (sel.repository !== fmt.repository) { refuse('selection_repository_unanchored', `the expected repository ${safe(sel.repository)} is not the ${peer} format repository`); return fail(); }
+  if (sel.producer.workflowPath !== fmt.workflowPath || sel.producer.event !== fmt.event || sel.producer.ref !== fmt.ref) {
+    refuse('selection_producer_unanchored', `the expected producer is not the ${peer} format (${fmt.workflowPath} on ${fmt.event} to ${fmt.ref})`); return fail();
+  }
+  if (!SHA.test(String(sel.source.commit)) || !SHA.test(String(sel.source.tree))) { refuse('selection_unpinned', 'expected.selection.source must be {commit, tree} as full git shas'); return fail(); }
+  if (!DIGEST.test(String(sel.receipt.digest))) { refuse('selection_unpinned', 'expected.selection.receipt.digest must be a sha256 digest'); return fail(); }
+  if (!ID.test(String(sel.run.id)) || !ID.test(String(sel.run.attempt))) { refuse('selection_unpinned', 'expected.selection.run must be {id, attempt} as decimal ids'); return fail(); }
   const econ = expected.consumer;
   if (!isObject(econ) || !nonEmptyObject(econ.subtrees)) {
     refuse('expected_incomplete', 'expected.consumer must carry repository, commit, tree and a non-empty subtree set');
@@ -148,6 +172,18 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     if (!DIGEST.test(String(v))) { refuse('expected_unpinned', `expected.adapters ${safe(name)} is not a sha256 digest`); return fail(); }
   }
   if (peer === 'backend' && !nonEmptyObject(expected.companion)) { refuse('expected_incomplete', 'a backend expectation must pin the reconstruction companion'); return fail(); }
+  // A present companion object is not a complete PIN unless its identity fields are well formed — the
+  // same precedent as expected_unpinned for the consumer subtrees and adapter hashes. A companion
+  // whose listedDigest is 'bad' (or a non-positive id, or a negative/non-integer size) pins nothing,
+  // yet the field-to-field binds in step 8 would still agree if the descriptor and admission carried
+  // the same malformed value. (The admin unpacker's own fields are already format-checked in step 7.)
+  if (peer === 'backend') {
+    const wc = expected.companion;
+    if (!NAME.test(String(wc.name))) { refuse('expected_unpinned', 'the companion name is not well formed'); return fail(); }
+    if (!ID.test(String(wc.id))) { refuse('expected_unpinned', 'the companion id is not a positive id'); return fail(); }
+    if (!DIGEST.test(String(wc.listedDigest))) { refuse('expected_unpinned', 'the companion listed digest is not a sha256 digest'); return fail(); }
+    if (!Number.isInteger(wc.size) || wc.size < 0) { refuse('expected_unpinned', 'the companion size is not a non-negative integer'); return fail(); }
+  }
   if (peer === 'admin' && !nonEmptyObject(expected.unpacker)) { refuse('expected_incomplete', 'an admin expectation must pin the Backend unpacker it depends on'); return fail(); }
 
   // ── 4. The deferred-check id set is exactly the peer's; each known, none foreign. ──

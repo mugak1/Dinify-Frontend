@@ -311,6 +311,7 @@ const CASES = [
   ['backend', 'an admission asserting a verdict key', (h) => { h.admission.accepted = true; }, 'admission_asserts_verdict'],
   ['admin', 'an admission asserting provenance', (h) => { h.admission.provenance = 'established'; }, 'admission_asserts_verdict'],
   ['backend', 'an admission produced for another descriptor', (h) => { h.admission.inputs.descriptorDigest = dg('other'); }, 'admission_foreign'],
+  ['backend', 'an admitted admission that also reports problems', (h) => { h.admission.problems = ['SYNTHETIC verification failure']; }, 'admission_reports_problems'],
   // the deferred-check id set
   ['backend', 'an admission that clears environment-reconstruction', (h) => { h.admission.checks['environment-reconstruction'] = { status: 'checked', by: 'forged' }; }, 'check_overcleared'],
   ['backend', 'an admission with a foreign (Admin) discharge id', (h) => { h.admission.checks['payload-tree'] = { status: 'checked' }; }, 'check_unknown'],
@@ -326,11 +327,19 @@ const CASES = [
   // the descriptor against the independent selection
   ['backend', 'the expected source commit differs', (h) => { h.expected.selection.source.commit = sha1ish('7'); }, 'source_commit_mismatch'],
   ['backend', 'the expected receipt digest differs', (h) => { h.expected.selection.receipt.digest = dg('other-receipt'); }, 'receipt_digest_mismatch'],
-  ['admin', 'the expected producer event differs', (h) => { h.expected.selection.producer.event = 'pull_request'; }, 'producer_event_mismatch'],
+  // §5 producer binds are now exercised DESCRIPTOR-side: a selection-side producer change trips the
+  // §3 format anchor below first, so the descriptor must disagree with the (anchored) selection here
+  ['admin', 'the descriptor producer event differs from the anchored selection', (h) => { const d = clone(h.descriptor); d.producer.event = 'pull_request'; h.descriptorDigest = peerDescriptorDigest(d); h.descriptor = d; h.admission.inputs.descriptorDigest = h.descriptorDigest; h.custody.descriptorDigest = h.descriptorDigest; h.custody.admission.descriptorDigest = h.descriptorDigest; }, 'producer_event_mismatch'],
   ['backend', 'the expected run attempt differs', (h) => { h.expected.selection.run.attempt = '2'; }, 'attempt_mismatch'],
+  // the selection must be ANCHORED to the fixed peer format, not merely agree with the other documents
+  // (a whole set naming evil/Other, descriptor digest recomputed, would otherwise bind consistently)
+  ['backend', 'a selection naming a foreign repository', (h) => { h.expected.selection.repository = 'evil/Other'; }, 'selection_repository_unanchored'],
+  ['admin', 'a selection whose producer is not the peer format', (h) => { h.expected.selection.producer.event = 'pull_request'; }, 'selection_producer_unanchored'],
+  ['backend', 'a selection whose source commit is not a sha', (h) => { h.expected.selection.source.commit = 'bad'; }, 'selection_unpinned'],
   // the expected plan's pinned identities must be well-formed shas/digests, not merely present
   ['backend', 'an expected consumer commit that is not a sha', (h) => { h.expected.consumer.commit = 'bad'; }, 'expected_unpinned'],
   ['backend', 'an expected adapter hash that is not a digest', (h) => { h.expected.adapters['trusted_closure.py'] = 'bad'; }, 'expected_unpinned'],
+  ['backend', 'a companion pin whose listed digest is malformed', (h) => { h.expected.companion.listedDigest = 'bad'; }, 'expected_unpinned'],
   // the selection's required-job set must be present and every job must appear in the descriptor run
   ['backend', 'an expected selection with an empty required-job set', (h) => { h.expected.selection.requiredJobs = []; }, 'expected_incomplete'],
   ['backend', 'the selection requires a job the descriptor run lacks', (h) => { h.expected.selection.requiredJobs = [...h.expected.selection.requiredJobs, 'security-scan']; }, 'required_job_missing'],
@@ -406,8 +415,10 @@ const CASES = [
   ['backend', 'a custody closure manifest digest that disagrees with the admission', (h) => { h.custody.closure.manifestDigest = dg('wrong-closure'); }, 'custody_closure_manifest_mismatch'],
   ['backend', 'a custody closure subtree that disagrees with the admission', (h) => { h.custody.closure.subtrees.release = sha1ish('f'); }, 'custody_closure_subtree_mismatch'],
   ['admin', 'a custody closure subtree set that drops a subtree (admin)', (h) => { delete h.custody.closure.subtrees.release; }, 'custody_closure_subtree_mismatch'],
-  // an id absent on BOTH sides must refuse, never collapse to 'undefined' === 'undefined' (bindId)
-  ['backend', 'a run id absent on both the descriptor and the expectation', (h) => { const d = { ...clone(h.descriptor), run: {} }; h.descriptorDigest = peerDescriptorDigest(d); h.descriptor = d; h.admission.inputs.descriptorDigest = h.descriptorDigest; h.custody.descriptorDigest = h.descriptorDigest; h.custody.admission.descriptorDigest = h.descriptorDigest; h.expected.selection.run = {}; }, 'run_mismatch'],
+  // an id absent on BOTH sides must refuse, never collapse to 'undefined' === 'undefined' (bindId).
+  // Uses the candidate artifact id: §3 now format-checks sel.run.id, so the run id can no longer be
+  // made absent on the selection to exercise this — the artifact id is cross-checked (§6) and not §3-guarded.
+  ['backend', 'an id absent on both the descriptor and the admission', (h) => { const d = clone(h.descriptor); delete d.artifacts.candidate.id; h.descriptorDigest = peerDescriptorDigest(d); h.descriptor = d; h.admission.inputs.descriptorDigest = h.descriptorDigest; delete h.admission.candidate.id; h.custody.descriptorDigest = h.descriptorDigest; h.custody.admission.descriptorDigest = h.descriptorDigest; }, 'artifact_id_mismatch'],
 ];
 
 describe('SYNTHETIC: each single inconsistency is refused by name, and never accepts', () => {
