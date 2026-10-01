@@ -192,6 +192,16 @@ GHSA-w5hq-g745-h8pq. 15.31.0 already carries the fixed `csv-parse` and `stream-j
 ranges. Nothing is triaged or excepted, and a record could not cover them anyway (record
 paths admit only `application:` and `scanner:`).
 
+**Re-measured 2026-10-01, after the `uuid` override.** `release/publisher/package.json`
+now carries the same scoped override the application graph has (`gaxios` → `uuid`
+11.1.1), so that graph's only `uuid` 9.0.1, which `gaxios` 6.7.1 asks for as `^9.0.1`, is
+11.1.1. The lockfile diff is that one entry. The graph now audits within policy with ONE
+moderate finding requiring triage, `@opentelemetry/core` GHSA-8988-4f7v-96qf, which still
+has no fix this graph can take (see the table above). `gaxios` uses `uuid` only for
+`v4()` as a multipart boundary; a request built with 11.1.1 in the prepared toolchain was
+checked against a local server, and `prepare-publisher` still installs 672 locked packages
+with no problems.
+
 ## What consumes this evidence (D08 B2.2)
 
 The release path uses this directory three ways, and changes none of its rules:

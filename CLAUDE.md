@@ -4791,7 +4791,10 @@ merges. It is not a required check and nothing triggers on it. package.json keep
 small `overrides` block (`lodash-es`, gaxios's `uuid`, `@grpc/grpc-js`) to hold the
 high/critical-zero baseline — don't strip it wholesale. ("Audit-zero" was never true at
 full scope: lower-severity tooling findings exist and are reported as triage required.) Only gaxios's `uuid` raises a version BEYOND its dependent's declared
-range (gaxios asks for `^9.0.1`, the override forces `11.1.1`); `lodash-es` and
+range (gaxios asks for `^9.0.1`, the override forces `11.1.1`). **The reviewed
+publisher lock carries the same `gaxios` → `uuid` override** in
+`release/publisher/package.json`, beside its one pinned dependency, because that graph
+is a separate lockfile and the root override never reached it; `lodash-es` and
 `@grpc/grpc-js` sit inside their dependents' ranges (`ng2-charts` wants
 `^4.17.15`, `google-gax` wants `^1.12.6`) and act as floors. **The `esbuild`
 entry is GONE** — its documented exit condition was met, and the Angular 22
