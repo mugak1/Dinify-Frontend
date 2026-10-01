@@ -171,13 +171,16 @@ function admissionFor(peer) {
   };
   if (peer === 'backend') {
     const rc = descriptor.artifacts.reconstruction;
-    a.reconstructionCompanion = { name: rc.name, id: rc.id, listedDigest: rc.listedDigest, size: rc.size, boundToRecord: true };
+    a.reconstructionCompanion = { name: rc.name, id: rc.id, listedDigest: rc.listedDigest, measuredDigest: rc.listedDigest, size: rc.size, boundToRecord: true };
     // The candidate's own recorded facts, taken from the producer's descriptor claims so a
     // consistent handoff agrees with them (the real adapter re-derives these from the record bytes).
     const cl = descriptor.claims;
     a.candidate.facts = { tree: descriptor.source.tree, sourceArchiveSha256: cl.sourceArchiveSha256, wheelhouseDigest: cl.wheelhouseDigest, environmentDigest: cl.environmentDigest, auditOutcome: cl.auditOutcome, target: { ...cl.target } };
     // The consumer closure's manifest digest, matching the custody record's closure.manifestDigest.
     a.consumer.closureManifestDigest = dg('closure-manifest');
+    // The consumer verifier's echoed account of what it processed (verifyExpect), consistent with
+    // the descriptor and selection so a well-formed backend handoff binds.
+    a.verifyExpect = { repository: w.repository, commit: w.commit, tree: w.tree, workflowPath: '.github/workflows/ci.yml', event: 'push', ref: 'refs/heads/main', runId: w.runId, runAttempt: w.attempt, artifact: art.name, local: false };
   }
   return a;
 }
@@ -325,6 +328,9 @@ const CASES = [
   ['backend', 'the expected receipt digest differs', (h) => { h.expected.selection.receipt.digest = dg('other-receipt'); }, 'receipt_digest_mismatch'],
   ['admin', 'the expected producer event differs', (h) => { h.expected.selection.producer.event = 'pull_request'; }, 'producer_event_mismatch'],
   ['backend', 'the expected run attempt differs', (h) => { h.expected.selection.run.attempt = '2'; }, 'attempt_mismatch'],
+  // the expected plan's pinned identities must be well-formed shas/digests, not merely present
+  ['backend', 'an expected consumer commit that is not a sha', (h) => { h.expected.consumer.commit = 'bad'; }, 'expected_unpinned'],
+  ['backend', 'an expected adapter hash that is not a digest', (h) => { h.expected.adapters['trusted_closure.py'] = 'bad'; }, 'expected_unpinned'],
   // the admission's self-report against the descriptor
   ['backend', 'the admitted candidate name disagrees', (h) => { h.admission.candidate.name = 'backend-candidate-1-1'; }, 'artifact_name_mismatch'],
   ['backend', 'the admitted record sha disagrees with the descriptor', (h) => { h.admission.candidate.record.sha256 = dg('wrong-record'); }, 'record_digest_mismatch'],
@@ -332,6 +338,10 @@ const CASES = [
   ['backend', 'the admitted archive digest disagrees', (h) => { h.admission.candidate.measuredDigest = dg('wrong-archive'); }, 'archive_digest_mismatch'],
   ['backend', 'the admission processed another commit', (h) => { h.admission.inputs.expect.commit = sha1ish('7'); }, 'admission_commit_mismatch'],
   ['backend', 'the admission processed another repository', (h) => { h.admission.inputs.expect.repository = 'mugak1/Dinify-Admin'; }, 'admission_repository_mismatch'],
+  // the consumer verifier's echoed expectation (verifyExpect) bound to the descriptor/selection
+  ['backend', 'the verifier echo names another repository', (h) => { h.admission.verifyExpect.repository = 'mugak1/Dinify-Admin'; }, 'verify_expect_repository_mismatch'],
+  ['backend', 'the verifier echo names another artifact', (h) => { h.admission.verifyExpect.artifact = 'backend-candidate-9999-9'; }, 'verify_expect_artifact_mismatch'],
+  ['backend', 'a backend admission with no verifier echo', (h) => { delete h.admission.verifyExpect; }, 'verify_expect_missing'],
   // the consumer closure against the independent plan
   ['backend', 'the expected consumer commit differs', (h) => { h.expected.consumer.commit = sha1ish('e'); }, 'consumer_commit_mismatch'],
   ['backend', 'a consumer subtree disagrees', (h) => { h.expected.consumer.subtrees.release = sha1ish('f'); }, 'consumer_subtree_mismatch'],
@@ -342,6 +352,7 @@ const CASES = [
   // the backend companion, full identity
   ['backend', 'the companion listed digest disagrees', (h) => { h.expected.companion.listedDigest = dg('wrong-companion'); }, 'companion_listed_mismatch'],
   ['backend', 'the admission companion is not bound to the record', (h) => { h.admission.reconstructionCompanion.boundToRecord = false; }, 'companion_unbound'],
+  ['backend', 'the admission companion measured digest disagrees with the listed', (h) => { h.admission.reconstructionCompanion.measuredDigest = dg('wrong-companion-bytes'); }, 'companion_measured_mismatch'],
   // the reconstruction report
   ['backend', 'a stub reconstruction offered as production', (h) => { h.reconstruction = reconstructionFor({ startup: { kind: 'synthetic-stub' } }); }, 'reconstruction_stub'],
   ['backend', 'a reconstruction bound to another descriptor', (h) => { h.reconstruction = reconstructionFor({ inputs: { admissionDescriptorDigest: dg('other') } }); }, 'reconstruction_foreign'],

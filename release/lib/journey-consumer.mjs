@@ -128,6 +128,17 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     return fail();
   }
   if (!nonEmptyObject(expected.adapters)) { refuse('expected_incomplete', 'expected.adapters must pin at least one adapter hash'); return fail(); }
+  // The expectation is documented as PINNING git shas and adapter digests. Non-emptiness above is
+  // necessary but not sufficient: all three documents could carry the SAME malformed value (e.g.
+  // "bad") and bind field-to-field. A present-but-malformed pin pins nothing, so a plan whose
+  // consumer identities and adapter hashes are not well formed is not a complete plan.
+  if (!SHA.test(String(econ.commit)) || !SHA.test(String(econ.tree))) { refuse('expected_unpinned', 'expected.consumer.commit and .tree must be full git shas'); return fail(); }
+  for (const [name, v] of Object.entries(econ.subtrees)) {
+    if (!SHA.test(String(v))) { refuse('expected_unpinned', `expected.consumer subtree ${safe(name)} is not a full git sha`); return fail(); }
+  }
+  for (const [name, v] of Object.entries(expected.adapters)) {
+    if (!DIGEST.test(String(v))) { refuse('expected_unpinned', `expected.adapters ${safe(name)} is not a sha256 digest`); return fail(); }
+  }
   if (peer === 'backend' && !nonEmptyObject(expected.companion)) { refuse('expected_incomplete', 'a backend expectation must pin the reconstruction companion'); return fail(); }
   if (peer === 'admin' && !nonEmptyObject(expected.unpacker)) { refuse('expected_incomplete', 'an admin expectation must pin the Backend unpacker it depends on'); return fail(); }
 
@@ -215,6 +226,27 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     for (const k of ['python', 'implementation', 'platform', 'machine', 'libc']) bind('facts_target_mismatch', ft[k], ct[k], `the candidate target ${safe(k)} and the producer claim`);
   }
 
+  // ── 6c. The consumer VERIFIER's echoed expectation (verifyExpect) — its own account of what it
+  //        processed — bound to the descriptor and selection, not only to inputs.expect. A
+  //        contradiction between the wrapper request and the verifier invocation must not bind as
+  //        one candidate. Backend only: the backend consumer verifier emits this echo; admin does not.
+  if (peer === 'backend') {
+    const ve = admission.verifyExpect;
+    if (!isObject(ve)) {
+      refuse('verify_expect_missing', 'the backend admission carries no verifyExpect echo');
+    } else {
+      bind('verify_expect_repository_mismatch', ve.repository, descriptor.repository, "the verifier's repository and the descriptor repository");
+      bind('verify_expect_commit_mismatch', ve.commit, descriptor.source?.commit, "the verifier's commit and the descriptor commit");
+      bind('verify_expect_tree_mismatch', ve.tree, descriptor.source?.tree, "the verifier's tree and the descriptor tree");
+      bind('verify_expect_workflow_mismatch', ve.workflowPath, descriptor.producer?.workflowPath, "the verifier's workflow path and the descriptor producer");
+      bind('verify_expect_event_mismatch', ve.event, descriptor.producer?.event, "the verifier's event and the descriptor producer");
+      bind('verify_expect_ref_mismatch', ve.ref, descriptor.producer?.ref, "the verifier's ref and the descriptor producer");
+      bindId('verify_expect_run_mismatch', ve.runId, descriptor.run?.id, "the verifier's run id");
+      bindId('verify_expect_attempt_mismatch', ve.runAttempt, descriptor.run?.attempt, "the verifier's run attempt");
+      bind('verify_expect_artifact_mismatch', ve.artifact, descriptor.artifacts?.candidate?.name, "the verifier's artifact and the candidate artifact name");
+    }
+  }
+
   // ── 7. The admission's consumer closure against the independent consumer plan. ──
   const con = admission.consumer ?? {};
   bind('consumer_repository_mismatch', con.repository, econ.repository, 'the consumer repository');
@@ -247,6 +279,10 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     bindId('companion_admission_id_mismatch', ac.id, wantComp.id, 'the reconstruction companion id (admission)');
     bind('companion_admission_listed_mismatch', ac.listedDigest, wantComp.listedDigest, 'the reconstruction companion listed digest (admission)');
     bind('companion_admission_size_mismatch', ac.size, wantComp.size, 'the reconstruction companion size (admission)');
+    // The companion's MEASURED digest (the downloaded reconstruction bytes) must agree with the
+    // bound listed digest, exactly as the candidate archive path checks cand.measuredDigest — a
+    // companion whose measured bytes differ from the selected artifact must not bind.
+    bind('companion_measured_mismatch', ac.measuredDigest, wantComp.listedDigest, 'the reconstruction companion measured digest and the bound listed digest (admission)');
     if (ac.boundToRecord !== true) refuse('companion_unbound', 'the admission does not record the reconstruction companion bound to this record');
   }
 
