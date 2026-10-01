@@ -172,6 +172,12 @@ function admissionFor(peer) {
   if (peer === 'backend') {
     const rc = descriptor.artifacts.reconstruction;
     a.reconstructionCompanion = { name: rc.name, id: rc.id, listedDigest: rc.listedDigest, size: rc.size, boundToRecord: true };
+    // The candidate's own recorded facts, taken from the producer's descriptor claims so a
+    // consistent handoff agrees with them (the real adapter re-derives these from the record bytes).
+    const cl = descriptor.claims;
+    a.candidate.facts = { tree: descriptor.source.tree, sourceArchiveSha256: cl.sourceArchiveSha256, wheelhouseDigest: cl.wheelhouseDigest, environmentDigest: cl.environmentDigest, auditOutcome: cl.auditOutcome, target: { ...cl.target } };
+    // The consumer closure's manifest digest, matching the custody record's closure.manifestDigest.
+    a.consumer.closureManifestDigest = dg('closure-manifest');
   }
   return a;
 }
@@ -349,6 +355,23 @@ const CASES = [
   ['backend', 'a custody closure commit that disagrees', (h) => { h.custody.closure.commit = sha1ish('e'); }, 'custody_closure_commit_mismatch'],
   ['backend', 'a tampered custody adapter hash', (h) => { h.custody.adapters['trusted_closure.py'] = dg('tampered'); }, 'adapter_hash_mismatch'],
   ['backend', 'a custody adapter set that drops an adapter', (h) => { delete h.custody.adapters['trusted_closure.py']; }, 'adapter_set_mismatch'],
+  // the candidate's OWN recorded facts against the producer's descriptor claims (step 6b, backend)
+  ['backend', 'the candidate wheelhouse digest disagrees with the producer claim', (h) => { h.admission.candidate.facts.wheelhouseDigest = hex('wrong-wheelhouse'); }, 'facts_wheelhouse_mismatch'],
+  ['backend', 'the candidate environment digest disagrees with the producer claim', (h) => { h.admission.candidate.facts.environmentDigest = hex('wrong-environment'); }, 'facts_environment_mismatch'],
+  ['backend', 'the candidate source-archive digest disagrees with the producer claim', (h) => { h.admission.candidate.facts.sourceArchiveSha256 = dg('wrong-source'); }, 'facts_source_archive_mismatch'],
+  ['backend', 'the candidate audit outcome disagrees with the producer claim', (h) => { h.admission.candidate.facts.auditOutcome = 'blocking'; }, 'facts_audit_mismatch'],
+  ['backend', 'the candidate record tree disagrees with the descriptor', (h) => { h.admission.candidate.facts.tree = sha1ish('7'); }, 'facts_tree_mismatch'],
+  ['backend', 'the candidate target python disagrees with the producer claim', (h) => { h.admission.candidate.facts.target.python = '3.13.0'; }, 'facts_target_mismatch'],
+  // the ADMISSION companion's full identity, not just its name (step 8, backend)
+  ['backend', 'the admission companion id disagrees with the plan', (h) => { h.admission.reconstructionCompanion.id = 999999; }, 'companion_admission_id_mismatch'],
+  ['backend', 'the admission companion listed digest disagrees with the plan', (h) => { h.admission.reconstructionCompanion.listedDigest = dg('wrong-companion'); }, 'companion_admission_listed_mismatch'],
+  ['backend', 'the admission companion size disagrees with the plan', (h) => { h.admission.reconstructionCompanion.size = 2; }, 'companion_admission_size_mismatch'],
+  // the custody closure's full identity against the admission's consumer closure (step 10)
+  ['backend', 'a custody closure manifest digest that disagrees with the admission', (h) => { h.custody.closure.manifestDigest = dg('wrong-closure'); }, 'custody_closure_manifest_mismatch'],
+  ['backend', 'a custody closure subtree that disagrees with the admission', (h) => { h.custody.closure.subtrees.release = sha1ish('f'); }, 'custody_closure_subtree_mismatch'],
+  ['admin', 'a custody closure subtree set that drops a subtree (admin)', (h) => { delete h.custody.closure.subtrees.release; }, 'custody_closure_subtree_mismatch'],
+  // an id absent on BOTH sides must refuse, never collapse to 'undefined' === 'undefined' (bindId)
+  ['backend', 'a run id absent on both the descriptor and the expectation', (h) => { const d = { ...clone(h.descriptor), run: {} }; h.descriptorDigest = peerDescriptorDigest(d); h.descriptor = d; h.admission.inputs.descriptorDigest = h.descriptorDigest; h.custody.descriptorDigest = h.descriptorDigest; h.custody.admission.descriptorDigest = h.descriptorDigest; h.expected.selection.run = {}; }, 'run_mismatch'],
 ];
 
 describe('SYNTHETIC: each single inconsistency is refused by name, and never accepts', () => {

@@ -152,6 +152,11 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   }
 
   const bind = (code, a, b, what) => { if (a === undefined || a === null || a !== b) refuse(code, `${what} disagree (${safe(a)} vs ${safe(b)})`); };
+  // An id may arrive as a number on one side and a decimal string on the other, so ids are
+  // compared as strings. But an id ABSENT ON BOTH SIDES must still refuse: String(undefined) is
+  // 'undefined', and 'undefined' === 'undefined' would otherwise pass vacuously — the exact
+  // "never vacuous" failure this binder exists to avoid. So presence is checked before stringifying.
+  const bindId = (code, a, b, what) => { if (a === undefined || a === null || b === undefined || b === null || String(a) !== String(b)) refuse(code, `${what} disagree (${safe(a)} vs ${safe(b)})`); };
 
   // ── 5. The descriptor against the SEPARATELY supplied selection plan. ──
   bind('selection_peer_mismatch', peer, sel.peer, 'the descriptor peer and the expected peer');
@@ -164,14 +169,14 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   bind('producer_workflow_mismatch', descriptor.producer?.workflowPath, sel.producer.workflowPath, 'the producer workflow path');
   bind('producer_event_mismatch', descriptor.producer?.event, sel.producer.event, 'the producer event');
   bind('producer_ref_mismatch', descriptor.producer?.ref, sel.producer.ref, 'the producer ref');
-  bind('run_mismatch', String(descriptor.run?.id), String(sel.run.id), 'the run id');
-  bind('attempt_mismatch', String(descriptor.run?.attempt), String(sel.run.attempt), 'the run attempt');
+  bindId('run_mismatch', descriptor.run?.id, sel.run.id, 'the run id');
+  bindId('attempt_mismatch', descriptor.run?.attempt, sel.run.attempt, 'the run attempt');
 
   // ── 6. The admission's self-reported identities against the descriptor. ──
   const bytes = descriptor.bytes ?? {};
   const cand = admission.candidate ?? {};
   const art = descriptor.artifacts?.candidate ?? {};
-  bind('artifact_id_mismatch', String(cand.id), String(art.id), 'the candidate artifact id');
+  bindId('artifact_id_mismatch', cand.id, art.id, 'the candidate artifact id');
   bind('artifact_name_mismatch', cand.name, art.name, 'the candidate artifact name');
   bind('artifact_listed_mismatch', cand.listedDigest, art.listedDigest, 'the candidate listed digest');
   bind('artifact_size_mismatch', cand.size, art.size, 'the candidate size');
@@ -181,8 +186,26 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   const ae = admission.inputs?.expect ?? {};
   bind('admission_commit_mismatch', ae.commit, descriptor.source?.commit, "the admission's processed commit and the descriptor commit");
   bind('admission_tree_mismatch', ae.tree, descriptor.source?.tree, "the admission's processed tree and the descriptor tree");
-  bind('admission_run_mismatch', String(ae.runId), String(descriptor.run?.id), "the admission's processed run id");
-  bind('admission_attempt_mismatch', String(ae.runAttempt), String(descriptor.run?.attempt), "the admission's processed attempt");
+  bindId('admission_run_mismatch', ae.runId, descriptor.run?.id, "the admission's processed run id");
+  bindId('admission_attempt_mismatch', ae.runAttempt, descriptor.run?.attempt, "the admission's processed attempt");
+
+  // ── 6b. The candidate's OWN recorded facts (Backend) against the producer's descriptor claims:
+  //        the consumer's reading of what was built must agree with what the producer claimed. Both
+  //        documents carry these, so leaving them uncompared would let a contradictory wheelhouse,
+  //        environment, source, audit or target bind as "one candidate" — the cross-check is exactly
+  //        what "describe ONE candidate consistently" means. (Admin carries no such candidate facts.)
+  if (peer === 'backend') {
+    const facts = isObject(cand.facts) ? cand.facts : {};
+    const claims = isObject(descriptor.claims) ? descriptor.claims : {};
+    bind('facts_tree_mismatch', facts.tree, descriptor.source?.tree, 'the candidate record tree and the descriptor tree');
+    bind('facts_source_archive_mismatch', facts.sourceArchiveSha256, claims.sourceArchiveSha256, 'the candidate source-archive digest and the producer claim');
+    bind('facts_wheelhouse_mismatch', facts.wheelhouseDigest, claims.wheelhouseDigest, 'the candidate wheelhouse digest and the producer claim');
+    bind('facts_environment_mismatch', facts.environmentDigest, claims.environmentDigest, 'the candidate environment digest and the producer claim');
+    bind('facts_audit_mismatch', facts.auditOutcome, claims.auditOutcome, 'the candidate audit outcome and the producer claim');
+    const ft = isObject(facts.target) ? facts.target : {};
+    const ct = isObject(claims.target) ? claims.target : {};
+    for (const k of ['python', 'implementation', 'platform', 'machine', 'libc']) bind('facts_target_mismatch', ft[k], ct[k], `the candidate target ${safe(k)} and the producer claim`);
+  }
 
   // ── 7. The admission's consumer closure against the independent consumer plan. ──
   const con = admission.consumer ?? {};
@@ -206,10 +229,16 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     const dc = descriptor.artifacts?.reconstruction ?? {};
     const ac = admission.reconstructionCompanion ?? {};
     bind('companion_name_mismatch', dc.name, wantComp.name, 'the reconstruction companion name (descriptor)');
-    bind('companion_id_mismatch', String(dc.id), String(wantComp.id), 'the reconstruction companion id');
+    bindId('companion_id_mismatch', dc.id, wantComp.id, 'the reconstruction companion id');
     bind('companion_listed_mismatch', dc.listedDigest, wantComp.listedDigest, 'the reconstruction companion listed digest');
     bind('companion_size_mismatch', dc.size, wantComp.size, 'the reconstruction companion size');
+    // The ADMISSION carries the companion's full identity too (id, listed digest, size), not just
+    // its name — so a companion that described another artifact would otherwise bind. Each admission
+    // field is bound to the plan the descriptor's companion is already bound to.
     bind('companion_admission_name_mismatch', ac.name, wantComp.name, 'the reconstruction companion name (admission)');
+    bindId('companion_admission_id_mismatch', ac.id, wantComp.id, 'the reconstruction companion id (admission)');
+    bind('companion_admission_listed_mismatch', ac.listedDigest, wantComp.listedDigest, 'the reconstruction companion listed digest (admission)');
+    bind('companion_admission_size_mismatch', ac.size, wantComp.size, 'the reconstruction companion size (admission)');
     if (ac.boundToRecord !== true) refuse('companion_unbound', 'the admission does not record the reconstruction companion bound to this record');
   }
 
@@ -255,6 +284,15 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     const cc = isObject(custody.closure) ? custody.closure : {};
     bind('custody_closure_commit_mismatch', cc.commit, con.commit, 'the custody and admission consumer commits');
     bind('custody_closure_tree_mismatch', cc.tree, con.tree, 'the custody and admission consumer trees');
+    // The custody closure's full identity — its subtrees, and (Backend) its closure-manifest
+    // digest — against the admission's consumer closure. The root tree does not subsume these: a
+    // custody record naming different subtree shas or a different trusted-consumer closure manifest
+    // identifies other code than the admission admitted, and must not bind as one candidate.
+    const ccSub = isObject(cc.subtrees) ? cc.subtrees : {};
+    const conSub = isObject(con.subtrees) ? con.subtrees : {};
+    for (const name of Object.keys(conSub)) bind('custody_closure_subtree_mismatch', ccSub[name], conSub[name], `the custody and admission consumer ${safe(name)} subtree`);
+    if (Object.keys(ccSub).length !== Object.keys(conSub).length) refuse('custody_closure_subtree_mismatch', 'the custody closure subtree set is not the admission consumer one');
+    if (peer === 'backend') bind('custody_closure_manifest_mismatch', cc.manifestDigest, con.closureManifestDigest, 'the custody and admission consumer closure-manifest digests');
     // The adapters: exactly the expected set, each hash equal. An empty expected set was
     // already refused at step 3, so this is never a vacuous match.
     const wantAd = expected.adapters;

@@ -27,7 +27,7 @@
       "note": "sha256 of the code that produced this fixture AT GENERATION TIME; a record of provenance, not a pin — the replay test asserts behaviour (digest re-derivation and binding), never that the committed lib still hashes to these values",
       "committed": {
         "release/lib/journey-peers.mjs": "sha256:3b34295f4afd34176a479565266c69a41f252dbdc2cad8c1556c851a90b07784",
-        "release/lib/journey-consumer.mjs": "sha256:cd3978eeb139c250f9e6b8a655e911bd49dca8568d89818364bdbb703bd0e370"
+        "release/lib/journey-consumer.mjs": "sha256:9d76d8eac0cdcac5063bba4fb38bbbfa0fc5457b51d0bde3c190eb8627a9c72f"
       },
       "privateAdapters": {
         "b1_handoff.mjs": "sha256:543bca80e13027dbd190cb671c7dc86d1705cf11ea1d7b21ce9d98d938662280",
