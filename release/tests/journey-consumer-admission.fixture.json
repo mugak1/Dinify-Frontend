@@ -1,0 +1,404 @@
+{
+  "schema": "dinify.journey.consumer-admission-fixture/1",
+  "revision": 1,
+  "provenance": {
+    "note": "A CI-REPLAYABLE synthetic handoff. The descriptor and descriptorDigest are produced by the REAL committed release/lib/journey-peers.mjs (selectPeerCandidate, require \"bytes\"; peerDescriptorDigest) over a synthetic Dinify-Backend candidate whose record.json carries the canonical six-key wheelhouse the producer writes. The admission is produced by the REAL private Backend Stage-1 adapter (backend_admit.py) over its verified trusted-consumer closure and the candidate bytes; it echoes descriptorDigest and re-derives every measured digest from bytes. The custody and the independent expectation are schema-faithful supervisor artifacts. The verdict is the output of the REAL committed release/lib/journey-consumer.mjs over exactly these inputs. NO wheel install, NO application start and NO Pass C (contained reconstruction) were run. The private adapters, Backend source, inventories and payloads are NOT committed; only their sha256 identities are.",
+    "synthetic": true,
+    "candidate": {
+      "commit": "63bc87a17f8e1799a069b8cdde88a8cb29623006",
+      "tree": "1fa18f8a019ac292b534f07c3da3eb5b44f9f514",
+      "runId": "9001",
+      "runAttempt": "1",
+      "recordDigest": "sha256:6ec1b0d7ee4da4ba68bf0d7927a1ba11ad670c4ac32fed13f02f81c25e9dbfdc",
+      "archiveDigest": "sha256:49e05f3c598651eeeb62269af9117a39b231d50a80b71cca445320977c8d23c3"
+    },
+    "trustedConsumer": {
+      "repository": "mugak1/Dinify-Backend",
+      "commit": "0513adb441828d62faadc1c67799c5432868c33a",
+      "tree": "d263ada82b4da55e18455525e9955c809d8b8f4f",
+      "subtrees": {
+        "dependency_audit": "b9b5d48fb95c47aec152c88bd480dd0450b650c5",
+        "release": "6602136fb1d155db8045c4e28aeb9ba01b1f91e2"
+      },
+      "closureManifestDigest": "sha256:e6c6c0dacc73319a7af2e08b86f0ec5db896a8b78b5c9188c4c670d79744512e",
+      "note": "the approved pilot-12 Dinify-Backend peer (0513adb) materialized from hash-verified git objects"
+    },
+    "generatedWith": {
+      "note": "sha256 of the code that produced this fixture AT GENERATION TIME; a record of provenance, not a pin — the replay test asserts behaviour (digest re-derivation and binding), never that the committed lib still hashes to these values",
+      "committed": {
+        "release/lib/journey-peers.mjs": "sha256:3b34295f4afd34176a479565266c69a41f252dbdc2cad8c1556c851a90b07784",
+        "release/lib/journey-consumer.mjs": "sha256:cd3978eeb139c250f9e6b8a655e911bd49dca8568d89818364bdbb703bd0e370"
+      },
+      "privateAdapters": {
+        "b1_handoff.mjs": "sha256:543bca80e13027dbd190cb671c7dc86d1705cf11ea1d7b21ce9d98d938662280",
+        "backend_admit.py": "sha256:bbd73ef67a3cdfe2572a2ba499887210e514a7055cc805c55bf47c2550203d48",
+        "trusted_closure.py": "sha256:453585e462035500c19249431a05133d8955bda3588c9b06df3630a6945c6273",
+        "peer_unpack.py": "sha256:deec97e06fe13546596d698b4b0d8e968ee638aa625cb27e868a0233f7261209"
+      }
+    }
+  },
+  "binding": {
+    "descriptor": {
+      "schema": "dinify.journey.peer-descriptor/1",
+      "peer": "backend",
+      "repository": "mugak1/Dinify-Backend",
+      "source": {
+        "commit": "63bc87a17f8e1799a069b8cdde88a8cb29623006",
+        "tree": "1fa18f8a019ac292b534f07c3da3eb5b44f9f514"
+      },
+      "receipt": {
+        "commit": "63bc87a17f8e1799a069b8cdde88a8cb29623006",
+        "digest": "sha256:99615fde8bb56bc6018a2c64734dd2b2bc89cc3152d0ee8ce300647080cea2c7",
+        "validated": true
+      },
+      "producer": {
+        "workflowPath": ".github/workflows/ci.yml",
+        "workflowId": 920002,
+        "event": "push",
+        "ref": "refs/heads/main"
+      },
+      "run": {
+        "id": "9001",
+        "attempt": "1"
+      },
+      "jobs": [
+        {
+          "name": "suite (3.12.3)",
+          "id": "950100"
+        },
+        {
+          "name": "reconstruct",
+          "id": "950101"
+        },
+        {
+          "name": "test",
+          "id": "950102"
+        }
+      ],
+      "artifacts": {
+        "candidate": {
+          "id": 940101,
+          "name": "backend-candidate-9001-1",
+          "listedDigest": "sha256:49e05f3c598651eeeb62269af9117a39b231d50a80b71cca445320977c8d23c3",
+          "size": 1876824,
+          "expiresAt": "2026-10-27T19:38:19.000Z"
+        },
+        "reconstruction": {
+          "id": 940102,
+          "name": "backend-reconstruction-9001-1",
+          "listedDigest": "sha256:23bf1ec2569124b7473461014852a089001efd950c44f7f596a6c67cccdea77c",
+          "size": 1142,
+          "expiresAt": "2026-10-27T19:38:19.000Z"
+        }
+      },
+      "bytes": {
+        "archive": {
+          "listedDigest": "sha256:49e05f3c598651eeeb62269af9117a39b231d50a80b71cca445320977c8d23c3",
+          "measuredDigest": "sha256:49e05f3c598651eeeb62269af9117a39b231d50a80b71cca445320977c8d23c3",
+          "state": "measured-match"
+        },
+        "record": {
+          "file": "record.json",
+          "measuredDigest": "sha256:6ec1b0d7ee4da4ba68bf0d7927a1ba11ad670c4ac32fed13f02f81c25e9dbfdc",
+          "state": "consistent"
+        }
+      },
+      "claims": {
+        "kind": "producer-claims",
+        "sourceArchiveSha256": "sha256:97793c0c878b1cb10c2fe90c8aac413aaf5d66f07d2dcb4d3753de35cc6f63ba",
+        "sourceContentSha256": "ed1922e3cb2ad0b7f37f6d7961755916966724de4d4e0d9746cbdafcb7221000",
+        "wheelhouseDigest": "5bc9e42ccb6ae3ff92274deb2b294d1ffb3d92f170e027e44ea1debf50ea2a91",
+        "wheelCount": 3,
+        "environmentDigest": "448529b4da2918e953a43beed704ea3ea5b3d071c3cde759c6557125f42bf53f",
+        "lockSha256": "67b76b5a3043916e953289191041aceda4064ccb0659d12400f4b5f6896ea34d",
+        "requirementsSha256": "49b5a6a41a0c2d20d4071443fbe9715f520ec690aa5d02d18616abe52a80165d",
+        "auditOutcome": "within_policy",
+        "target": {
+          "python": "3.12.3",
+          "implementation": "CPython",
+          "platform": "linux",
+          "machine": "x86_64",
+          "libc": "glibc 2.39"
+        }
+      },
+      "deferred": [
+        "archive-members: the archive holds exactly record.json, source.tar and the listed wheelhouse and evidence files, each once, with no link or hidden member",
+        "record-membership: the record bytes are the record.json inside THIS archive",
+        "source-archive: source.tar bytes and the tree they export, against the commit",
+        "wheelhouse-bytes: every wheel file against the lock and the record",
+        "evidence-and-audit: the evidence files and the audit re-decision from their raw output",
+        "environment-reconstruction: the offline rebuild by the trusted consumer checkout on the target (CPython 3.12.3, Linux x86_64, glibc 2.39 minimum)",
+        "reconstruction-report: the backend-reconstruction artifact bound to this record"
+      ],
+      "status": "bytes-correspond-consumer-checks-deferred"
+    },
+    "descriptorDigest": "sha256:1d545797b0a060311c085548d6ecfa81b0ceaec62717125aad4b52377edcaa95",
+    "admission": {
+      "admitted": {
+        "directory": "<work>/candidate",
+        "files": 14,
+        "manifestDigest": "sha256:25a370bbad7eb418b69e51c8208f9df3b0ad69da13169923f35cd0cebd3ce706"
+      },
+      "candidate": {
+        "facts": {
+          "auditOutcome": "within_policy",
+          "environmentDigest": "448529b4da2918e953a43beed704ea3ea5b3d071c3cde759c6557125f42bf53f",
+          "sourceArchiveSha256": "sha256:97793c0c878b1cb10c2fe90c8aac413aaf5d66f07d2dcb4d3753de35cc6f63ba",
+          "target": {
+            "implementation": "CPython",
+            "libc": "glibc 2.39",
+            "machine": "x86_64",
+            "platform": "linux",
+            "python": "3.12.3"
+          },
+          "tree": "1fa18f8a019ac292b534f07c3da3eb5b44f9f514",
+          "wheelhouseDigest": "5bc9e42ccb6ae3ff92274deb2b294d1ffb3d92f170e027e44ea1debf50ea2a91"
+        },
+        "files": 14,
+        "id": "940101",
+        "listedDigest": "sha256:49e05f3c598651eeeb62269af9117a39b231d50a80b71cca445320977c8d23c3",
+        "measuredDigest": "sha256:49e05f3c598651eeeb62269af9117a39b231d50a80b71cca445320977c8d23c3",
+        "name": "backend-candidate-9001-1",
+        "record": {
+          "file": "record.json",
+          "sha256": "sha256:6ec1b0d7ee4da4ba68bf0d7927a1ba11ad670c4ac32fed13f02f81c25e9dbfdc",
+          "size": 10642
+        },
+        "size": 1876824
+      },
+      "checks": {
+        "archive-members": {
+          "by": "preflight.unpack (listed digest first; regular members, canonical, once, bounded, no link) + member accounting (no empty directory member, extracted == file members) + consumer.verify container rule",
+          "status": "checked"
+        },
+        "environment-reconstruction": {
+          "reason": "needs the contained reconstruction stage (backend_reconstruct.py)",
+          "status": "deferred"
+        },
+        "evidence-and-audit": {
+          "by": "consumer.verify (_evidence_state: evidence listing and binding, audit re-decided from retained raw output)",
+          "status": "checked"
+        },
+        "reconstruction-report": {
+          "by": "preflight.reconstruction_problems (the CI reconstruction report bound to this record sha256 and run)",
+          "status": "checked"
+        },
+        "record-membership": {
+          "by": "record.json read from THIS archive's extraction; its sha256 is reported for the binder to compare with the descriptor's measured record digest",
+          "status": "checked"
+        },
+        "source-archive": {
+          "by": "consumer.verify (source.tar sha256/size, exported tree == EXPECTED tree, content digest)",
+          "status": "checked"
+        },
+        "wheelhouse-bytes": {
+          "by": "consumer.verify (environment.verify_wheelhouse against the verified lock and the record)",
+          "status": "checked"
+        }
+      },
+      "consumer": {
+        "closureManifestDigest": "sha256:e6c6c0dacc73319a7af2e08b86f0ec5db896a8b78b5c9188c4c670d79744512e",
+        "commit": "0513adb441828d62faadc1c67799c5432868c33a",
+        "loaded": [
+          "dependency_audit",
+          "dependency_audit.core",
+          "dependency_audit.orchestrate",
+          "dependency_audit.pip_adapter",
+          "release",
+          "release.candidate",
+          "release.consumer",
+          "release.environment",
+          "release.lockfile",
+          "release.preflight",
+          "release.sourcetree"
+        ],
+        "python": {
+          "implementation": "cpython",
+          "libc": "glibc 2.39",
+          "machine": "x86_64",
+          "platform": "linux",
+          "version": "3.12.3"
+        },
+        "repository": "mugak1/Dinify-Backend",
+        "subtrees": {
+          "dependency_audit": "b9b5d48fb95c47aec152c88bd480dd0450b650c5",
+          "release": "6602136fb1d155db8045c4e28aeb9ba01b1f91e2"
+        },
+        "tree": "d263ada82b4da55e18455525e9955c809d8b8f4f"
+      },
+      "decision": "admitted",
+      "inputs": {
+        "descriptorDigest": "sha256:1d545797b0a060311c085548d6ecfa81b0ceaec62717125aad4b52377edcaa95",
+        "expect": {
+          "commit": "63bc87a17f8e1799a069b8cdde88a8cb29623006",
+          "repository": "mugak1/Dinify-Backend",
+          "runAttempt": "1",
+          "runId": "9001",
+          "tree": "1fa18f8a019ac292b534f07c3da3eb5b44f9f514"
+        },
+        "requestSha256": "sha256:cb44dccefc3091dc7c8afd3905e257217be6c047dc2c9b05fb9f020c6564d635"
+      },
+      "peer": "backend",
+      "problems": [],
+      "reconstructionCompanion": {
+        "boundToRecord": true,
+        "id": "940102",
+        "listedDigest": "sha256:23bf1ec2569124b7473461014852a089001efd950c44f7f596a6c67cccdea77c",
+        "measuredDigest": "sha256:23bf1ec2569124b7473461014852a089001efd950c44f7f596a6c67cccdea77c",
+        "name": "backend-reconstruction-9001-1",
+        "reportSha256": "sha256:8b7401822f4af4e14719779a5fb987333ab0b1e76a832d007605653c6abb8851",
+        "size": 1142
+      },
+      "residuals": [
+        "historical audit verified; fresh assessment not performed; no release admission",
+        "this document reports checks this process ran; it is not evidence of where or by whom it was run",
+        "artifact run, attempt and expiry were checked by B1 at descriptor time; they must be re-read at the next custody boundary"
+      ],
+      "schema": "dinify.journey.backend-admission/2",
+      "verifyExpect": {
+        "artifact": "backend-candidate-9001-1",
+        "commit": "63bc87a17f8e1799a069b8cdde88a8cb29623006",
+        "event": "push",
+        "local": false,
+        "ref": "refs/heads/main",
+        "repository": "mugak1/Dinify-Backend",
+        "runAttempt": "1",
+        "runId": "9001",
+        "tree": "1fa18f8a019ac292b534f07c3da3eb5b44f9f514",
+        "workflowPath": ".github/workflows/ci.yml"
+      }
+    },
+    "custody": {
+      "schema": "dinify.journey.custody/1",
+      "descriptorDigest": "sha256:1d545797b0a060311c085548d6ecfa81b0ceaec62717125aad4b52377edcaa95",
+      "admission": {
+        "descriptorDigest": "sha256:1d545797b0a060311c085548d6ecfa81b0ceaec62717125aad4b52377edcaa95",
+        "decision": "admitted",
+        "sha256": "sha256:194dbd1724d5be766ee24b184bf725cae4ba084e8673f7989098cb45e8326cf6"
+      },
+      "admitted": {
+        "manifestDigest": "sha256:25a370bbad7eb418b69e51c8208f9df3b0ad69da13169923f35cd0cebd3ce706",
+        "recordSha256": "sha256:6ec1b0d7ee4da4ba68bf0d7927a1ba11ad670c4ac32fed13f02f81c25e9dbfdc"
+      },
+      "closure": {
+        "commit": "0513adb441828d62faadc1c67799c5432868c33a",
+        "tree": "d263ada82b4da55e18455525e9955c809d8b8f4f",
+        "manifestDigest": "sha256:e6c6c0dacc73319a7af2e08b86f0ec5db896a8b78b5c9188c4c670d79744512e",
+        "subtrees": {
+          "dependency_audit": "b9b5d48fb95c47aec152c88bd480dd0450b650c5",
+          "release": "6602136fb1d155db8045c4e28aeb9ba01b1f91e2"
+        }
+      },
+      "adapters": {
+        "backend_admit.py": "sha256:bbd73ef67a3cdfe2572a2ba499887210e514a7055cc805c55bf47c2550203d48",
+        "trusted_closure.py": "sha256:453585e462035500c19249431a05133d8955bda3588c9b06df3630a6945c6273",
+        "peer_unpack.py": "sha256:deec97e06fe13546596d698b4b0d8e968ee638aa625cb27e868a0233f7261209",
+        "backend_reconstruct.py": "sha256:76526b70f5328cd11a4700002daf6db98dec6a7375e6d1a4ad2472be79558e04"
+      },
+      "reconstruction": {
+        "ran": false
+      },
+      "label": "operator-local custody record; attests what this boundary observed, not where or by whom it ran; provenance is not independently attested",
+      "problems": []
+    },
+    "expected": {
+      "selection": {
+        "peer": "backend",
+        "repository": "mugak1/Dinify-Backend",
+        "source": {
+          "commit": "63bc87a17f8e1799a069b8cdde88a8cb29623006",
+          "tree": "1fa18f8a019ac292b534f07c3da3eb5b44f9f514"
+        },
+        "receipt": {
+          "commit": "63bc87a17f8e1799a069b8cdde88a8cb29623006",
+          "digest": "sha256:99615fde8bb56bc6018a2c64734dd2b2bc89cc3152d0ee8ce300647080cea2c7"
+        },
+        "producer": {
+          "workflowPath": ".github/workflows/ci.yml",
+          "event": "push",
+          "ref": "refs/heads/main"
+        },
+        "run": {
+          "id": "9001",
+          "attempt": "1"
+        }
+      },
+      "consumer": {
+        "repository": "mugak1/Dinify-Backend",
+        "commit": "0513adb441828d62faadc1c67799c5432868c33a",
+        "tree": "d263ada82b4da55e18455525e9955c809d8b8f4f",
+        "subtrees": {
+          "dependency_audit": "b9b5d48fb95c47aec152c88bd480dd0450b650c5",
+          "release": "6602136fb1d155db8045c4e28aeb9ba01b1f91e2"
+        }
+      },
+      "adapters": {
+        "backend_admit.py": "sha256:bbd73ef67a3cdfe2572a2ba499887210e514a7055cc805c55bf47c2550203d48",
+        "trusted_closure.py": "sha256:453585e462035500c19249431a05133d8955bda3588c9b06df3630a6945c6273",
+        "peer_unpack.py": "sha256:deec97e06fe13546596d698b4b0d8e968ee638aa625cb27e868a0233f7261209",
+        "backend_reconstruct.py": "sha256:76526b70f5328cd11a4700002daf6db98dec6a7375e6d1a4ad2472be79558e04"
+      },
+      "companion": {
+        "name": "backend-reconstruction-9001-1",
+        "id": 940102,
+        "listedDigest": "sha256:23bf1ec2569124b7473461014852a089001efd950c44f7f596a6c67cccdea77c",
+        "size": 1142
+      }
+    }
+  },
+  "verdict": {
+    "schema": "dinify.journey.consumer-binding/1",
+    "peer": "backend",
+    "consistent": true,
+    "accepted": false,
+    "provenance": "unestablished",
+    "descriptorDigest": "sha256:1d545797b0a060311c085548d6ecfa81b0ceaec62717125aad4b52377edcaa95",
+    "checks": {
+      "archive-members": {
+        "text": "archive-members: the archive holds exactly record.json, source.tar and the listed wheelhouse and evidence files, each once, with no link or hidden member",
+        "status": "consumer-checked",
+        "by": "preflight.unpack (listed digest first; regular members, canonical, once, bounded, no link) + member accounting (no empty directory member, extracted == file members) + consumer.verify container rule"
+      },
+      "record-membership": {
+        "text": "record-membership: the record bytes are the record.json inside THIS archive",
+        "status": "consumer-checked",
+        "by": "record.json read from THIS archive's extraction; its sha256 is reported for the binder to compare with the descriptor's measured record digest"
+      },
+      "source-archive": {
+        "text": "source-archive: source.tar bytes and the tree they export, against the commit",
+        "status": "consumer-checked",
+        "by": "consumer.verify (source.tar sha256/size, exported tree == EXPECTED tree, content digest)"
+      },
+      "wheelhouse-bytes": {
+        "text": "wheelhouse-bytes: every wheel file against the lock and the record",
+        "status": "consumer-checked",
+        "by": "consumer.verify (environment.verify_wheelhouse against the verified lock and the record)"
+      },
+      "evidence-and-audit": {
+        "text": "evidence-and-audit: the evidence files and the audit re-decision from their raw output",
+        "status": "consumer-checked",
+        "by": "consumer.verify (_evidence_state: evidence listing and binding, audit re-decided from retained raw output)"
+      },
+      "environment-reconstruction": {
+        "text": "environment-reconstruction: the offline rebuild by the trusted consumer checkout on the target (CPython 3.12.3, Linux x86_64, glibc 2.39 minimum)",
+        "status": "deferred",
+        "by": "contained reconstruction, corroboration only"
+      },
+      "reconstruction-report": {
+        "text": "reconstruction-report: the backend-reconstruction artifact bound to this record",
+        "status": "consumer-checked",
+        "by": "preflight.reconstruction_problems (the CI reconstruction report bound to this record sha256 and run)"
+      }
+    },
+    "deferred": [
+      "environment-reconstruction: the offline rebuild by the trusted consumer checkout on the target (CPython 3.12.3, Linux x86_64, glibc 2.39 minimum)"
+    ],
+    "residuals": [
+      "consistent means these documents describe one candidate; it is not acceptance and not provenance",
+      "historical audit verified; fresh assessment not performed; no release admission",
+      "one digest is recomputed here — the canonical descriptor digest; every other digest is a self-report cross-checked field-to-field, never recomputed over bytes this pure function never sees",
+      "environment-reconstruction stays deferred; a present reconstruction is corroboration produced beside candidate code, not independent evidence"
+    ],
+    "problems": []
+  }
+}

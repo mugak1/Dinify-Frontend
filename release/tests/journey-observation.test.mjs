@@ -624,7 +624,7 @@ describe('B1\'s refusals reach the answer unchanged', () => {
 // ── bytes, offline ──────────────────────────────────────────────────────────────
 
 function backendRecord(s) {
-  const files = [{ filename: 'synthetic_pkg-1.0-py3-none-any.whl', sha256: hex('wheel'), size: 1234 }];
+  const files = [{ filename: 'synthetic_pkg-1.0-py3-none-any.whl', name: 'synthetic-pkg', version: '1.0', role: 'application', sha256: hex('wheel'), size: 1234 }];
   return {
     schema: 'dinify.backend.candidate/1', repository: s.repository, commit: s.source.commit, tree: s.source.tree,
     eligibility: { promotable: true }, artifact: { name: `backend-candidate-${s.run.id}-${s.run.attempt}` },

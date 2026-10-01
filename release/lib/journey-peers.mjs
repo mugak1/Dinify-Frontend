@@ -88,6 +88,17 @@ const ADMIN_COMPONENT_RE = /^[A-Za-z0-9._@+~-]+$/;
 const ADMIN_MAX_PATH_BYTES = 240;
 // A Backend wheelhouse entry is ONE file name, never a path.
 const WHEEL_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\.whl$/;
+// A wheelhouse entry's package metadata, as Dinify-Backend release/environment.py
+// verify_wheelhouse emits it (lines 175-176) straight into record.wheelhouse.files via
+// release/candidate.py package: {filename, name, version, role, sha256, size}. `name` is
+// the PEP 503 normalized name (lockfile.normalize, enforced by lockfile.entries), `version`
+// is the wheel version (lockfile _WHEEL version class), and `role` is drawn from the lock
+// by lockfile.entries — 'application' (lock `packages`) or 'bootstrap' (lock `bootstrap`),
+// and nothing else. These extra claims never enter backendListingDigest, which composes
+// filename\0sha256\0size exactly as the producer's listing_digest does.
+const WHEEL_META_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const WHEEL_META_VERSION_RE = /^[A-Za-z0-9_.!+]{1,64}$/;
+export const WHEEL_ROLES = Object.freeze(['application', 'bootstrap']);
 // The audit outcomes both producers certify under (Dinify-Admin certification.mjs
 // PASSING; Dinify-Backend candidate.py ACCEPTED_AUDIT_OUTCOMES). A CLAIM, re-decided from
 // the raw output only by the peer's own consumer.
@@ -529,6 +540,7 @@ function readRecordBytes(bytes) {
 // ── the peers' own records: only the fields this selection depends on ──────────
 
 const claimString = (v) => (typeof v === 'string' && v.length <= LIMITS.maxClaimString ? v : null);
+const wheelMeta = (v, re) => typeof v === 'string' && v.length <= LIMITS.maxClaimString && re.test(v);
 
 function entryList(list, { max = LIMITS.maxEntries } = {}) {
   return Array.isArray(list) && list.length > 0 && list.length <= max ? list : null;
@@ -650,8 +662,14 @@ function backendRecord(r, ctx) {
     const seen = new Set();
     let entryProblem = null;
     for (const f of files) {
-      if (!sameKeys(f, ['filename', 'sha256', 'size']) || !WHEEL_NAME_RE.test(String(f.filename)) || !HEX_RE.test(String(f.sha256))
-          || !Number.isSafeInteger(f.size) || f.size < 0) { entryProblem = 'has an entry that is not exactly {filename, sha256, size} naming one wheel'; break; }
+      if (!sameKeys(f, ['filename', 'name', 'version', 'role', 'sha256', 'size'])
+          || !WHEEL_NAME_RE.test(String(f.filename)) || !HEX_RE.test(String(f.sha256))
+          || !Number.isSafeInteger(f.size) || f.size < 0
+          || !wheelMeta(f.name, WHEEL_META_NAME_RE) || !wheelMeta(f.version, WHEEL_META_VERSION_RE)
+          || !WHEEL_ROLES.includes(f.role)) {
+        entryProblem = 'has an entry that is not exactly {filename, name, version, role, sha256, size} naming one wheel with a supported role';
+        break;
+      }
       if (seen.has(f.filename)) { entryProblem = 'lists a wheel twice'; break; }
       seen.add(f.filename);
     }
