@@ -122,6 +122,14 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     refuse('expected_incomplete', 'expected.selection must carry peer, repository, source, receipt, producer, run and a non-empty requiredJobs');
     return fail();
   }
+  // A plan may REQUIRE more than the peer format's minimum, but never less. Dropping below the
+  // mandatory set — e.g. requiredJobs: ['test'] on a backend plan, omitting the suite and reconstruct
+  // jobs — is a NARROWED selection that journey-peers.checkSelection explicitly rejects. The step-5
+  // loop below proves only expected ⊆ descriptor, so it cannot see the narrowing (every listed job
+  // is in the descriptor); the plan is incomplete until it pins at least the peer's mandatory jobs.
+  for (const job of PEER_FORMATS[peer].requiredJobs) {
+    if (!sel.requiredJobs.includes(job)) { refuse('expected_jobs_narrowed', `the expected plan omits the ${peer}-mandatory job ${safe(job)}`); return fail(); }
+  }
   const econ = expected.consumer;
   if (!isObject(econ) || !nonEmptyObject(econ.subtrees)) {
     refuse('expected_incomplete', 'expected.consumer must carry repository, commit, tree and a non-empty subtree set');
@@ -206,6 +214,13 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   bind('artifact_listed_mismatch', cand.listedDigest, art.listedDigest, 'the candidate listed digest');
   bind('artifact_size_mismatch', cand.size, art.size, 'the candidate size');
   bind('archive_digest_mismatch', cand.measuredDigest, bytes.archive?.measuredDigest, 'the admitted and descriptor archive digests');
+  // The candidate's MEASURED digest (the downloaded archive bytes) must equal its LISTED digest
+  // (what the provider's artifact listing claimed) — exactly as the companion path binds
+  // ac.measuredDigest to its listed digest. Binding listed-to-listed and measured-to-measured across
+  // the admission and the descriptor is not enough on its own: changing BOTH listed digests together
+  // while BOTH measured digests keep the original value leaves an archive whose downloaded bytes do
+  // not match the provider-listed artifact, yet every cross-document pair still agrees.
+  bind('candidate_measured_mismatch', cand.measuredDigest, cand.listedDigest, 'the candidate measured digest and its listed digest');
   bind('record_file_mismatch', cand.record?.file, bytes.record?.file, 'the embedded record filename');
   bind('record_digest_mismatch', cand.record?.sha256, bytes.record?.measuredDigest, 'the admitted record sha and the descriptor record digest');
   const ae = admission.inputs?.expect ?? {};

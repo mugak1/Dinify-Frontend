@@ -334,11 +334,30 @@ const CASES = [
   // the selection's required-job set must be present and every job must appear in the descriptor run
   ['backend', 'an expected selection with an empty required-job set', (h) => { h.expected.selection.requiredJobs = []; }, 'expected_incomplete'],
   ['backend', 'the selection requires a job the descriptor run lacks', (h) => { h.expected.selection.requiredJobs = [...h.expected.selection.requiredJobs, 'security-scan']; }, 'required_job_missing'],
+  // a NARROWED selection drops BELOW the peer's mandatory job set: every listed job is still in the
+  // descriptor (so the step-5 expected ⊆ descriptor loop cannot see it), but a mandatory job is gone
+  ['backend', 'a narrowed selection dropping the backend-mandatory suite/reconstruct jobs', (h) => { h.expected.selection.requiredJobs = ['test']; }, 'expected_jobs_narrowed'],
+  ['admin', 'a narrowed selection dropping the admin-mandatory validate job', (h) => { h.expected.selection.requiredJobs = ['build']; }, 'expected_jobs_narrowed'],
   // the admission's self-report against the descriptor
   ['backend', 'the admitted candidate name disagrees', (h) => { h.admission.candidate.name = 'backend-candidate-1-1'; }, 'artifact_name_mismatch'],
   ['backend', 'the admitted record sha disagrees with the descriptor', (h) => { h.admission.candidate.record.sha256 = dg('wrong-record'); }, 'record_digest_mismatch'],
   ['admin', 'the admitted record filename disagrees', (h) => { h.admission.candidate.record.file = 'record.json'; }, 'record_file_mismatch'],
   ['backend', 'the admitted archive digest disagrees', (h) => { h.admission.candidate.measuredDigest = dg('wrong-archive'); }, 'archive_digest_mismatch'],
+  // the candidate's LISTED digest moved on BOTH sides while the measured bytes stayed: listed-to-listed
+  // and measured-to-measured still agree, but the archive's downloaded bytes no longer match what the
+  // provider listed. Moving the descriptor's listed digest re-derives the descriptor digest, so the
+  // admission/custody digest references are re-pinned too (mirroring the absent-run-id case below).
+  ['backend', 'the candidate listed digest moved on both sides while measured stayed', (h) => {
+    const d = clone(h.descriptor);
+    const X = dg('relisted-archive');
+    d.artifacts.candidate.listedDigest = X;
+    h.descriptorDigest = peerDescriptorDigest(d);
+    h.descriptor = d;
+    h.admission.inputs.descriptorDigest = h.descriptorDigest;
+    h.admission.candidate.listedDigest = X;
+    h.custody.descriptorDigest = h.descriptorDigest;
+    h.custody.admission.descriptorDigest = h.descriptorDigest;
+  }, 'candidate_measured_mismatch'],
   ['backend', 'the admission processed another commit', (h) => { h.admission.inputs.expect.commit = sha1ish('7'); }, 'admission_commit_mismatch'],
   ['backend', 'the admission processed another repository', (h) => { h.admission.inputs.expect.repository = 'mugak1/Dinify-Admin'; }, 'admission_repository_mismatch'],
   // the consumer verifier's echoed expectation (verifyExpect) bound to the descriptor/selection
