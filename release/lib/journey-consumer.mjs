@@ -1,7 +1,7 @@
 /**
  * CONSUMER EVIDENCE BINDER (D16 / D08 B4, consumer slice).
  *
- * `bindConsumerEvidence({ descriptor, descriptorDigest, admission, reconstruction, custody, expected })`
+ * `bindConsumerEvidence({ descriptor, descriptorDigest, admission, admissionDigest, reconstruction, custody, expected })`
  *
  * A PURE function. It takes the B1 bytes-level peer descriptor
  * (journey-peers.selectPeerCandidate), a Stage-1 consumer ADMISSION document (the peer's
@@ -80,7 +80,7 @@ function formatChecks(peer) {
   return { ids, deferredAfterConsumer, text };
 }
 
-export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, reconstruction, custody, expected } = {}) {
+export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, admissionDigest, reconstruction, custody, expected } = {}) {
   const problems = [];
   const refuse = (code, detail) => { problems.push({ code: `journey.consumer.${code}`, detail: String(detail) }); };
   // A refusal is UNAMBIGUOUS: it exposes no apparently-successful comparisons as a usable
@@ -107,6 +107,13 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     if (k in admission) { refuse('admission_asserts_verdict', `the admission carries a ${k} key; a Stage-1 admission reaches no verdict`); return fail(); }
   }
   if (admission.inputs?.descriptorDigest !== descriptorDigest) { refuse('admission_foreign', 'the admission was produced for another descriptor'); return fail(); }
+  // The caller's independently measured digest of THIS admission document. The binder holds the
+  // admission as a decoded object and never recomputes its digest (only the canonical descriptor
+  // digest is recomputed here), so this is a required caller measurement — like descriptorDigest,
+  // but unverifiable here. It is format-checked now and cross-checked against the custody record's
+  // own admission sha in step 10, so custody is bound to the admission actually evaluated rather
+  // than merely to a shared descriptor.
+  if (!DIGEST.test(String(admissionDigest))) { refuse('admission_digest_invalid', 'no well-formed independently measured admission digest was supplied'); return fail(); }
 
   // ── 3. The independent expectation is COMPLETE, or the binding refuses (never vacuous). ──
   if (!isObject(expected)) { refuse('expected_missing', 'no independent expectation was supplied'); return fail(); }
@@ -278,6 +285,7 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     bind('custody_foreign', custody.descriptorDigest, descriptorDigest, 'the custody and binding descriptor digests');
     const ca = isObject(custody.admission) ? custody.admission : {};
     bind('custody_admission_foreign', ca.descriptorDigest, descriptorDigest, 'the custody admission descriptor digest');
+    bind('custody_admission_sha_mismatch', ca.sha256, admissionDigest, 'the custody and the independently measured admission digests');
     if (ca.decision !== 'admitted') refuse('custody_admission_not_admitted', 'the custody record does not record an admitted admission');
     const cad = isObject(custody.admitted) ? custody.admitted : {};
     bind('custody_manifest_mismatch', cad.manifestDigest, admission.admitted?.manifestDigest, 'the custody and admission admitted-manifest digests');

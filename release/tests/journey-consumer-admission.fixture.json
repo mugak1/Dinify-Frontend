@@ -133,6 +133,7 @@
       "status": "bytes-correspond-consumer-checks-deferred"
     },
     "descriptorDigest": "sha256:1d545797b0a060311c085548d6ecfa81b0ceaec62717125aad4b52377edcaa95",
+    "admissionDigest": "sha256:194dbd1724d5be766ee24b184bf725cae4ba084e8673f7989098cb45e8326cf6",
     "admission": {
       "admitted": {
         "directory": "<work>/candidate",

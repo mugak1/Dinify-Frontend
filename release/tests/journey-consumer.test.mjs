@@ -217,7 +217,7 @@ function expectedFor(peer) {
 function handoff(peer) {
   const { descriptor, descriptorDigest } = DESC[peer];
   const admission = admissionFor(peer);
-  return { descriptor, descriptorDigest, admission, custody: custodyFor(peer, admission), expected: expectedFor(peer) };
+  return { descriptor, descriptorDigest, admission, admissionDigest: dg('admission-bytes'), custody: custodyFor(peer, admission), expected: expectedFor(peer) };
 }
 
 function reconstructionFor(over = {}) {
@@ -352,6 +352,7 @@ const CASES = [
   ['backend', 'a custody record with the wrong schema', (h) => { h.custody.schema = 'dinify.journey.custody/2'; }, 'custody_invalid'],
   ['backend', 'a custody record omitting its descriptor identity', (h) => { delete h.custody.descriptorDigest; }, 'custody_foreign'],
   ['backend', 'a custody record for another descriptor', (h) => { h.custody.descriptorDigest = dg('other'); }, 'custody_foreign'],
+  ['backend', "a custody record naming another admission's digest", (h) => { h.custody.admission.sha256 = dg('other-admission'); }, 'custody_admission_sha_mismatch'],
   ['backend', 'a custody admitted-manifest that disagrees', (h) => { h.custody.admitted.manifestDigest = dg('wrong-manifest'); }, 'custody_manifest_mismatch'],
   ['backend', 'a custody closure commit that disagrees', (h) => { h.custody.closure.commit = sha1ish('e'); }, 'custody_closure_commit_mismatch'],
   ['backend', 'a tampered custody adapter hash', (h) => { h.custody.adapters['trusted_closure.py'] = dg('tampered'); }, 'adapter_hash_mismatch'],
@@ -447,8 +448,8 @@ describe('CI replay: the committed synthetic admission fixture binds with the re
   });
 
   test('the committed binder reproduces the recorded verdict: consistent, never accepted, no provenance', () => {
-    const { descriptor, descriptorDigest, admission, custody, expected } = fixture.binding;
-    const r = bindConsumerEvidence({ descriptor, descriptorDigest, admission, custody, expected });
+    const { descriptor, descriptorDigest, admission, admissionDigest, custody, expected } = fixture.binding;
+    const r = bindConsumerEvidence({ descriptor, descriptorDigest, admission, admissionDigest, custody, expected });
     assert.deepEqual(r, fixture.verdict);
     assert.equal(r.schema, BINDING_SCHEMA);
     assert.equal(r.consistent, true);
