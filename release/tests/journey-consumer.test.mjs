@@ -325,7 +325,7 @@ const CASES = [
   ['backend', 'a backend expectation with no companion', (h) => { delete h.expected.companion; }, 'expected_incomplete'],
   ['admin', 'an admin expectation with no pinned unpacker', (h) => { delete h.expected.unpacker; }, 'expected_incomplete'],
   // the descriptor against the independent selection
-  ['backend', 'the expected source commit differs', (h) => { h.expected.selection.source.commit = sha1ish('7'); }, 'source_commit_mismatch'],
+  ['backend', 'the selection names a different source commit than the descriptor', (h) => { const c = sha1ish('7'); h.expected.selection.source.commit = c; h.expected.selection.receipt.commit = c; }, 'source_commit_mismatch'],
   ['backend', 'the expected receipt digest differs', (h) => { h.expected.selection.receipt.digest = dg('other-receipt'); }, 'receipt_digest_mismatch'],
   // §5 producer binds are now exercised DESCRIPTOR-side: a selection-side producer change trips the
   // §3 format anchor below first, so the descriptor must disagree with the (anchored) selection here
@@ -336,6 +336,9 @@ const CASES = [
   ['backend', 'a selection naming a foreign repository', (h) => { h.expected.selection.repository = 'evil/Other'; }, 'selection_repository_unanchored'],
   ['admin', 'a selection whose producer is not the peer format', (h) => { h.expected.selection.producer.event = 'pull_request'; }, 'selection_producer_unanchored'],
   ['backend', 'a selection whose source commit is not a sha', (h) => { h.expected.selection.source.commit = 'bad'; }, 'selection_unpinned'],
+  // a receipt for ANOTHER revision — both receipt commits moved together so §5 receipt_commit_mismatch
+  // still agrees; only the §3 receipt.commit === source.commit invariant catches it
+  ['backend', 'a receipt naming a different commit than the source (both sides, digest recomputed)', (h) => { const c = sha1ish('7'); const d = clone(h.descriptor); d.receipt.commit = c; h.descriptorDigest = peerDescriptorDigest(d); h.descriptor = d; h.admission.inputs.descriptorDigest = h.descriptorDigest; h.custody.descriptorDigest = h.descriptorDigest; h.custody.admission.descriptorDigest = h.descriptorDigest; h.expected.selection.receipt.commit = c; }, 'selection_unpinned'],
   // the expected plan's pinned identities must be well-formed shas/digests, not merely present
   ['backend', 'an expected consumer commit that is not a sha', (h) => { h.expected.consumer.commit = 'bad'; }, 'expected_unpinned'],
   ['backend', 'an expected adapter hash that is not a digest', (h) => { h.expected.adapters['trusted_closure.py'] = 'bad'; }, 'expected_unpinned'],
@@ -367,6 +370,11 @@ const CASES = [
     h.custody.descriptorDigest = h.descriptorDigest;
     h.custody.admission.descriptorDigest = h.descriptorDigest;
   }, 'candidate_measured_mismatch'],
+  // the candidate artifact identity must be WELL FORMED, not merely agree between admission and
+  // descriptor — malformed values moved together (digest recomputed) would otherwise masquerade as a
+  // selected artifact. Same precedent as the companion pin.
+  ['backend', 'a candidate artifact id that is not a positive id (both sides)', (h) => { const d = clone(h.descriptor); d.artifacts.candidate.id = 'bad'; h.descriptorDigest = peerDescriptorDigest(d); h.descriptor = d; h.admission.inputs.descriptorDigest = h.descriptorDigest; h.admission.candidate.id = 'bad'; h.custody.descriptorDigest = h.descriptorDigest; h.custody.admission.descriptorDigest = h.descriptorDigest; }, 'artifact_unpinned'],
+  ['admin', 'a candidate artifact name that is not the deterministic name (both sides)', (h) => { const d = clone(h.descriptor); d.artifacts.candidate.name = 'totally-arbitrary'; h.descriptorDigest = peerDescriptorDigest(d); h.descriptor = d; h.admission.inputs.descriptorDigest = h.descriptorDigest; h.admission.candidate.name = 'totally-arbitrary'; h.custody.descriptorDigest = h.descriptorDigest; h.custody.admission.descriptorDigest = h.descriptorDigest; }, 'artifact_unpinned'],
   ['backend', 'the admission processed another commit', (h) => { h.admission.inputs.expect.commit = sha1ish('7'); }, 'admission_commit_mismatch'],
   ['backend', 'the admission processed another repository', (h) => { h.admission.inputs.expect.repository = 'mugak1/Dinify-Admin'; }, 'admission_repository_mismatch'],
   // the consumer verifier's echoed expectation (verifyExpect) bound to the descriptor/selection

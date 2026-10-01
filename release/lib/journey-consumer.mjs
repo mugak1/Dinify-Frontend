@@ -152,7 +152,7 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
     refuse('selection_producer_unanchored', `the expected producer is not the ${peer} format (${fmt.workflowPath} on ${fmt.event} to ${fmt.ref})`); return fail();
   }
   if (!SHA.test(String(sel.source.commit)) || !SHA.test(String(sel.source.tree))) { refuse('selection_unpinned', 'expected.selection.source must be {commit, tree} as full git shas'); return fail(); }
-  if (!DIGEST.test(String(sel.receipt.digest))) { refuse('selection_unpinned', 'expected.selection.receipt.digest must be a sha256 digest'); return fail(); }
+  if (!DIGEST.test(String(sel.receipt.digest)) || sel.receipt.commit !== sel.source.commit) { refuse('selection_unpinned', 'expected.selection.receipt must carry a sha256 digest and name the same commit as source'); return fail(); }
   if (!ID.test(String(sel.run.id)) || !ID.test(String(sel.run.attempt))) { refuse('selection_unpinned', 'expected.selection.run must be {id, attempt} as decimal ids'); return fail(); }
   const econ = expected.consumer;
   if (!isObject(econ) || !nonEmptyObject(econ.subtrees)) {
@@ -245,6 +245,19 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   const bytes = descriptor.bytes ?? {};
   const cand = admission.candidate ?? {};
   const art = descriptor.artifacts?.candidate ?? {};
+  // The candidate artifact identity must be WELL FORMED, not merely agree between the admission and the
+  // descriptor — the same precedent as the companion pin (step 3). Coordinated malformed values (id
+  // 'bad', an arbitrary name, a non-digest listed/measured value, a negative size), with the descriptor
+  // digest recomputed to match, would otherwise masquerade as a selected artifact. The name is the
+  // DETERMINISTIC one selectPeerCandidate requires for the selected run/attempt
+  // (`<candidatePrefix>-<run>-<attempt>`, filtered `a.name === name` there); run id/attempt are the
+  // selection's, already format-checked in step 3 and bound to the descriptor just above.
+  const wantCandidateName = `${fmt.candidatePrefix}-${sel.run.id}-${sel.run.attempt}`;
+  if (!ID.test(String(art.id))) refuse('artifact_unpinned', 'the candidate artifact id is not a positive id');
+  if (art.name !== wantCandidateName) refuse('artifact_unpinned', `the candidate artifact name is not the deterministic ${safe(wantCandidateName)}`);
+  if (!DIGEST.test(String(art.listedDigest))) refuse('artifact_unpinned', 'the candidate listed digest is not a sha256 digest');
+  if (!DIGEST.test(String(bytes.archive?.measuredDigest))) refuse('artifact_unpinned', 'the candidate measured digest is not a sha256 digest');
+  if (!Number.isInteger(art.size) || art.size < 0) refuse('artifact_unpinned', 'the candidate size is not a non-negative integer');
   bindId('artifact_id_mismatch', cand.id, art.id, 'the candidate artifact id');
   bind('artifact_name_mismatch', cand.name, art.name, 'the candidate artifact name');
   bind('artifact_listed_mismatch', cand.listedDigest, art.listedDigest, 'the candidate listed digest');
