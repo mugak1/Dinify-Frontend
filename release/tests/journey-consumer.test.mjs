@@ -647,10 +647,14 @@ const EXACT_CASES = [
   ['backend', 'C2: malformed — the report names a malformed admission digest', (h) => { withStage2(h, { mutate: (r) => { r.inputs.admissionSha256 = 'bad'; } }); }, ['reconstruction_invalid']],
   ['backend', 'C2: malformed — the report names no admitted manifest', (h) => { withStage2(h, { mutate: (r) => { delete r.admitted; } }); }, ['reconstruction_invalid']],
   ['backend', 'C2: malformed — not a reconstruction document', (h) => { withStage2(h, { mutate: (r) => { r.schema = 'dinify.journey.backend-reconstruction-stub/1'; } }); }, ['reconstruction_invalid']],
-  // Every field the report is compared on is validated first: each of these would otherwise reach a
-  // comparison (stub, foreign, contradictory, consumer or outcome) and refuse for a coincidental reason.
+  // Every field the report is compared on is validated first: without that, each of these would
+  // reach a comparison (stub, foreign, contradictory, consumer or outcome) and refuse for a
+  // coincidental reason, or dereference a field that is not there.
   ['backend', 'C2: malformed — the report states no startup', (h) => { withStage2(h, { mutate: (r) => { delete r.startup; } }); }, ['reconstruction_invalid']],
-  ['backend', 'C2: malformed — the report startup kind is not a statement (the boundary could not read one)', (h) => { withStage2(h, { mutate: (r) => { r.startup.kind = 42; } }); h.custody.reconstruction.startupKind = null; }, ['reconstruction_invalid']],
+  // The custody record is held to a well-formed null here, so the report's own shape is the only
+  // fault. supervise.py would instead record the 42 it read: that record refuses (case below).
+  ['backend', 'C2: malformed — the report startup kind is not a statement', (h) => { withStage2(h, { mutate: (r) => { r.startup.kind = 42; } }); h.custody.reconstruction.startupKind = null; }, ['reconstruction_invalid']],
+  ['backend', 'C2: the custody record carries the non-statement startup kind it read from the report (as supervise.py would)', (h) => { withStage2(h, { mutate: (r) => { r.startup.kind = 42; } }); }, ['custody_reconstruction_invalid']],
   ['backend', 'C2: malformed — the report outcome is empty', (h) => { withStage2(h, { mutate: (r) => { r.outcome = ''; } }); }, ['reconstruction_invalid']],
   ['backend', 'C2: malformed — the report names a malformed descriptor digest', (h) => { withStage2(h, { mutate: (r) => { r.inputs.admissionDescriptorDigest = 'bad'; } }); }, ['reconstruction_invalid']],
   ['backend', 'C2: malformed — the report names a malformed admitted manifest', (h) => { withStage2(h, { mutate: (r) => { r.admitted.manifestDigest = 'bad'; } }); }, ['reconstruction_invalid']],
@@ -661,8 +665,13 @@ const EXACT_CASES = [
   ['backend', 'C2: malformed — the report consumer closure manifest is not a digest', (h) => { withStage2(h, { mutate: (r) => { r.consumer.closureManifestDigest = 'bad'; } }); }, ['reconstruction_invalid']],
   ['admin', 'C2: a reconstruction digest offered for an admin binding', (h) => { h.reconstructionDigest = dg('a-reconstruction'); }, ['reconstruction_peer_inappropriate']],
   ['admin', 'C2: an admin custody record of a requested Stage 2', (h) => { h.custody.reconstruction = { sha256: dg('a-reconstruction'), ran: true, closureUnchanged: true, admittedUnchanged: true, startupKind: 'pinned-consumer-startup' }; }, ['reconstruction_peer_inappropriate']],
-  // A requested-stage record states no deferral: the boundary either captured the stage or did not.
+  // A stage record is one of two CLOSED shapes (supervise.py's): a requested record states no
+  // deferral — the boundary either captured the stage or did not — and neither shape carries a key
+  // the binder does not read, since an unread statement (problems, say) would otherwise be ignored.
   ['backend', 'C2: a requested-stage custody record that ALSO states a deferral', (h) => { withStage2(h); h.custody.reconstruction.deferred = 'SYNTHETIC: the contained reconstruction was not run'; }, ['custody_reconstruction_invalid']],
+  ['backend', 'C2: a requested-stage custody record whose deferral is null', (h) => { withStage2(h); h.custody.reconstruction.deferred = null; }, ['custody_reconstruction_invalid']],
+  ['backend', 'C2: a requested-stage custody record that ALSO states problems (a key no captured stage record carries)', (h) => { withStage2(h); h.custody.reconstruction.problems = ['SYNTHETIC stage problem']; }, ['custody_reconstruction_invalid']],
+  ['backend', 'C2: a not-requested custody record carrying a report digest under another key', (h) => { h.custody.reconstruction = { ran: false, reportSha256: dg('a-report') }; }, ['custody_reconstruction_invalid']],
   // The binder cannot see which bytes a claimant hashed, only whether the claims agree; what it can
   // see is that different documents cannot share a digest. Each case keeps the claims in agreement,
   // so the only fault is the collision.
@@ -686,6 +695,10 @@ const EXACT_CASES = [
   ['admin', 'C3: admin_admit.mjs dropped from the plan and the custody together', HELPER_DROP('admin_admit.mjs'), ['expected_helper_missing']],
   ['backend', 'C3: Stage 2 in play while the plan and the custody omit its helper', (h) => { withStage2(h); HELPER_DROP('backend_reconstruct.py')(h); }, ['expected_helper_missing']],
   ['backend', 'C3: the custody record alone puts Stage 2 in play (no report offered) while the plan and the custody omit its helper', (h) => { withStage2(h); delete h.reconstruction; delete h.reconstructionDigest; HELPER_DROP('backend_reconstruct.py')(h); }, ['expected_helper_missing']],
+  // Only a REQUESTED record puts Stage 2 in play: on a Stage-1-only plan, an absent or malformed stage
+  // record is the custody record's fault, never a plan that omits the Stage-2 helper.
+  ['backend', 'C3: a Stage-1-only plan whose custody record has NO stage record is a custody fault, not a plan fault', (h) => { HELPER_DROP('backend_reconstruct.py')(h); delete h.custody.reconstruction; }, ['custody_reconstruction_invalid']],
+  ['backend', 'C3: a Stage-1-only plan whose custody stage record is MALFORMED is a custody fault, not a plan fault', (h) => { HELPER_DROP('backend_reconstruct.py')(h); h.custody.reconstruction = { ran: 'no' }; }, ['custody_reconstruction_invalid']],
   ['backend', 'C3: a helper no backend stage executes, pinned in the plan and the custody', (h) => { h.expected.adapters['ghost.py'] = dg('ghost'); h.custody.adapters['ghost.py'] = dg('ghost'); }, ['expected_helper_unknown']],
   ['admin', 'C3: the backend-only Stage-2 helper pinned on an admin plan and custody', (h) => { h.expected.adapters['backend_reconstruct.py'] = dg('recon'); h.custody.adapters['backend_reconstruct.py'] = dg('recon'); }, ['expected_helper_unknown']],
   ['backend', 'C3: a COORDINATED foreign consumer repository (plan and admission together)', (h) => { h.expected.consumer.repository = 'evil/Other'; h.admission.consumer.repository = 'evil/Other'; }, ['expected_consumer_unanchored']],

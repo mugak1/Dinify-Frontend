@@ -55,13 +55,15 @@
  *
  * ONE DIGEST IS RECOMPUTED, AND EXACTLY ONE. `peerDescriptorDigest(descriptor)` is the
  * CANONICAL digest of the descriptor value (release/lib/canonical.digestOfValue). Every
- * `descriptorDigest` CLAIM — the argument, the admission's, and the custody's — is compared
- * against it. Every OTHER digest here (manifest, record sha, archive measured digest,
- * closure manifest, adapter hashes) is a self-report produced elsewhere over bytes this
- * pure function never sees; it is cross-checked field-to-field between the documents that
- * carry it, and is NEVER recomputed here. Raw-byte vs canonical-JSON digests are therefore
- * never compared across representations: the one representation this module hashes is the
- * canonical descriptor, and it compares that only with other canonical descriptor digests.
+ * `descriptorDigest` CLAIM — the argument, the admission's, the custody record's two and the
+ * reconstruction's — is compared against it. Every OTHER digest here (manifest, record sha,
+ * archive measured digest, closure manifest, adapter hashes, and the two stage-document digests
+ * below) is a self-report or a caller measurement over bytes this pure function never sees; it is
+ * cross-checked field-to-field between the documents that carry it, and is NEVER recomputed here.
+ * No raw-byte digest is ever compared for EQUALITY with a canonical-JSON digest: the one
+ * representation this module hashes is the canonical descriptor, and it is equated only with
+ * other canonical descriptor digests. The one comparison across the two representations is the
+ * distinctness rule below, which requires them to DIFFER.
  *
  * THE STAGE-DOCUMENT DIGESTS HAVE ONE DEFINED REPRESENTATION: THE EMITTED BYTES. Two
  * caller-supplied measurements are compared, never recomputed: `admissionDigest` and
@@ -76,8 +78,10 @@
  * it requires the claims to AGREE. A claimant that hashed another serialisation disagrees with
  * one that hashed the emitted bytes, and the binding refuses; claims that all hashed the same
  * other serialisation would agree, which is why every producer must hash the captured bytes.
- * What the binder can see without hashing, it does refuse: the descriptor, the admission and the
- * reconstruction are different documents, so their digests must be pairwise distinct.
+ * One collision it can see without hashing, it refuses: the descriptor, the admission and the
+ * reconstruction are three different documents, so those three digests must be pairwise
+ * distinct. That is a sanity check on the claims, not a proof of their representation, and it
+ * does not compare them with the other digests the evidence carries.
  *
  * IT CONSUMES ALREADY-DECODED OBJECTS. Duplicate JSON members are collapsed by the decoder
  * before this function sees them (JSON.parse keeps the last), so this module cannot and does
@@ -144,15 +148,21 @@ function keySetDiff(m, want) {
   return [want.filter((k) => !have.includes(k)), have.filter((k) => !want.includes(k))];
 }
 
+// The two shapes the custody boundary writes for Stage 2 (supervise.py), as CLOSED key sets: a stage
+// record carrying any other key states something the binder does not read, and a statement it does
+// not read is not evidence it may bind past (a `problems` key, say, would otherwise be ignored).
+const STAGE2_NOT_REQUESTED_KEYS = Object.freeze(['ran', 'deferred']);
+const STAGE2_REQUESTED_KEYS = Object.freeze(['sha256', 'ran', 'closureUnchanged', 'admittedUnchanged', 'startupKind']);
+
 /**
  * The custody boundary's own record of the contained Stage 2, read in its actual shape
- * (supervise.py). A stage that was NOT requested records `{ran: false}` (an explanatory
- * `deferred` sentence is optional) and captured no report. A REQUESTED stage records the digest of
- * the report it captured (`sha256`), whether the stage completed (`ran`: exit 0), the two unchanged
- * assertions it re-verified afterwards, and the startup kind it read from that report (null when the
- * report was unreadable) — and states no deferral. Anything else is malformed: a record claiming a
- * completed stage without a captured report, or a deferral beside a captured one, is a
- * contradiction, not a deferral.
+ * (supervise.py). A stage that was NOT requested records `{ran: false}` — with an optional
+ * explanatory `deferred` sentence and nothing else — and captured no report. A REQUESTED stage
+ * records exactly the digest of the report it captured (`sha256`), whether the stage completed
+ * (`ran`: exit 0), the two unchanged assertions it re-verified afterwards, and the startup kind it
+ * read from that report (null when the report was unreadable). Anything else is malformed: a record
+ * claiming a completed stage without a captured report, a deferral beside a captured one, or any
+ * key outside the shape it claims is a contradiction, not a deferral.
  */
 function stage2Of(custody) {
   if (!isObject(custody) || custody.reconstruction === undefined) return { state: 'absent', detail: 'the custody record has no reconstruction stage record' };
@@ -161,14 +171,16 @@ function stage2Of(custody) {
   if (!isObject(r) || typeof r.ran !== 'boolean') return malformed('the custody reconstruction record does not state ran as a boolean');
   if (r.sha256 === undefined) {
     if (r.ran !== false) return malformed('the custody record claims a completed contained reconstruction but captured no report');
-    for (const k of ['closureUnchanged', 'admittedUnchanged', 'startupKind']) {
-      if (Object.hasOwn(r, k)) return malformed(`the custody record states ${k} for a contained reconstruction it never requested`);
+    for (const k of Object.keys(r)) {
+      if (!STAGE2_NOT_REQUESTED_KEYS.includes(k)) return malformed(`the custody record states ${safe(k)} for a contained reconstruction it never requested`);
     }
     if (r.deferred !== undefined && typeof r.deferred !== 'string') return malformed('the custody reconstruction deferral is not a statement');
     return { state: 'not-requested' };
   }
   if (!DIGEST.test(String(r.sha256))) return malformed('the custody reconstruction report digest is not a sha256 digest');
-  if (Object.hasOwn(r, 'deferred')) return malformed('the custody record states a deferral beside a contained reconstruction it captured');
+  for (const k of Object.keys(r)) {
+    if (!STAGE2_REQUESTED_KEYS.includes(k)) return malformed(`the custody record of a contained reconstruction it captured also states ${safe(k)}, which a captured stage record does not carry`);
+  }
   if (typeof r.closureUnchanged !== 'boolean' || typeof r.admittedUnchanged !== 'boolean') return malformed('the custody record does not state both unchanged assertions as booleans');
   if (r.startupKind !== null && typeof r.startupKind !== 'string') return malformed('the custody record does not state the startup kind of the report it captured');
   return { state: 'requested', ran: r.ran, sha256: r.sha256, closureUnchanged: r.closureUnchanged, admittedUnchanged: r.admittedUnchanged, startupKind: r.startupKind };
@@ -352,10 +364,13 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   for (const helper of Object.keys(expected.adapters)) {
     if (!knownHelpers.includes(helper)) { refuse('expected_helper_unknown', `the expected plan pins ${safe(helper)}, which no ${peer} stage executes`); return fail(); }
   }
-  // Stage 2 is IN PLAY when the custody boundary recorded it as requested; only then must the plan
-  // pin the Stage-2 helper. A report or digest offered WITHOUT a custody record of the stage is
-  // refused in step 9 as uncustodied, whatever the plan pins. A Stage-1-only binding is never made
-  // to pin code that did not run (the plan MAY still pin it: the boundary hashes it).
+  // Stage 2 is IN PLAY only when the custody boundary recorded it as REQUESTED; only then must the
+  // plan pin the Stage-2 helper. Whatever the plan pins, an offered report or digest is otherwise
+  // refused through the custody record's own state: as uncustodied in step 9 when its stage record
+  // says the stage was not requested; in step 10 when a Backend custody record has no stage record
+  // or a malformed one (custody_reconstruction_invalid), or there is no custody record at all
+  // (custody_missing); and as peer-inappropriate in step 9 on Admin. A Stage-1-only binding is
+  // never made to pin code that did not run (the plan MAY still pin it: the boundary hashes it).
   const s2 = stage2Of(custody);
   const reconstructionOffered = reconstruction !== undefined && reconstruction !== null;
   const reconstructionDigestOffered = reconstructionDigest !== undefined && reconstructionDigest !== null;
