@@ -66,14 +66,18 @@
  * THE STAGE-DOCUMENT DIGESTS HAVE ONE DEFINED REPRESENTATION: THE EMITTED BYTES. Two
  * caller-supplied measurements are compared, never recomputed: `admissionDigest` and
  * `reconstructionDigest`. Each — and the custody record's `admission.sha256` /
- * `reconstruction.sha256`, and the reconstruction's `inputs.admissionSha256` — is SHA-256 over
- * the EXACT bytes that stage's adapter wrote to stdout and the custody boundary captured: never a
- * re-serialisation of a decoded object, never a canonical form computed here, and never a digest
- * a document states about ITSELF (none is accepted). For the reviewed Backend Stage-1 adapter
+ * `reconstruction.sha256`, and the reconstruction's `inputs.admissionSha256` — is DEFINED as
+ * SHA-256 over the EXACT bytes that stage's adapter wrote to stdout and the custody boundary
+ * captured: never a re-serialisation of a decoded object, never a canonical form computed here,
+ * and never a digest a document states about ITSELF. For the reviewed Backend Stage-1 adapter
  * those bytes are UTF-8 JSON with keys sorted, two-space indentation and one final LF — the
- * representation the committed fixture's recorded admission digest is over. A producer that
- * hashes any other serialisation of the same document disagrees with these claims and REFUSES
- * (fail-closed); it can never bind by accident.
+ * representation the committed fixture's recorded admission digest is over (its replay test
+ * asserts it). The binder holds decoded objects, so it CANNOT tell which bytes a claimant hashed;
+ * it requires the claims to AGREE. A claimant that hashed another serialisation disagrees with
+ * one that hashed the emitted bytes, and the binding refuses; claims that all hashed the same
+ * other serialisation would agree, which is why every producer must hash the captured bytes.
+ * What the binder can see without hashing, it does refuse: the descriptor, the admission and the
+ * reconstruction are different documents, so their digests must be pairwise distinct.
  *
  * IT CONSUMES ALREADY-DECODED OBJECTS. Duplicate JSON members are collapsed by the decoder
  * before this function sees them (JSON.parse keeps the last), so this module cannot and does
@@ -83,7 +87,7 @@
  * proves those bytes decode to the object supplied only if that boundary rejected duplicates.
  *
  * Pure: no network, filesystem, subprocess, credential, environment read or clock. It
- * imports only release/lib/journey-peers.mjs (and, transitively, canonical.mjs).
+ * imports only release/lib/journey-peers.mjs (and, through it, that module's own imports).
  */
 import { DESCRIPTOR_SCHEMA, PEER_FORMATS, peerDescriptorDigest } from './journey-peers.mjs';
 
@@ -146,8 +150,9 @@ function keySetDiff(m, want) {
  * `deferred` sentence is optional) and captured no report. A REQUESTED stage records the digest of
  * the report it captured (`sha256`), whether the stage completed (`ran`: exit 0), the two unchanged
  * assertions it re-verified afterwards, and the startup kind it read from that report (null when the
- * report was unreadable). Anything else is malformed: a record claiming a completed stage without a
- * captured report is a contradiction, not a deferral.
+ * report was unreadable) — and states no deferral. Anything else is malformed: a record claiming a
+ * completed stage without a captured report, or a deferral beside a captured one, is a
+ * contradiction, not a deferral.
  */
 function stage2Of(custody) {
   if (!isObject(custody) || custody.reconstruction === undefined) return { state: 'absent', detail: 'the custody record has no reconstruction stage record' };
@@ -163,6 +168,7 @@ function stage2Of(custody) {
     return { state: 'not-requested' };
   }
   if (!DIGEST.test(String(r.sha256))) return malformed('the custody reconstruction report digest is not a sha256 digest');
+  if (Object.hasOwn(r, 'deferred')) return malformed('the custody record states a deferral beside a contained reconstruction it captured');
   if (typeof r.closureUnchanged !== 'boolean' || typeof r.admittedUnchanged !== 'boolean') return malformed('the custody record does not state both unchanged assertions as booleans');
   if (r.startupKind !== null && typeof r.startupKind !== 'string') return malformed('the custody record does not state the startup kind of the report it captured');
   return { state: 'requested', ran: r.ran, sha256: r.sha256, closureUnchanged: r.closureUnchanged, admittedUnchanged: r.admittedUnchanged, startupKind: r.startupKind };
@@ -261,6 +267,8 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   // reconstruction names in step 9), so custody is bound to the admission bytes actually measured
   // rather than merely to a shared descriptor.
   if (!DIGEST.test(String(admissionDigest))) { refuse('admission_digest_invalid', 'no well-formed independently measured admission digest was supplied'); return fail(); }
+  // The admission and the descriptor are different documents: their digests cannot be one value.
+  if (admissionDigest === descriptorDigest) { refuse('admission_digest_invalid', 'the measured admission digest is the descriptor digest; two different documents cannot share bytes'); return fail(); }
 
   // ── 3. The independent expectation is COMPLETE, or the binding refuses (never vacuous). ──
   if (!isObject(expected)) { refuse('expected_missing', 'no independent expectation was supplied'); return fail(); }
@@ -344,13 +352,14 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   for (const helper of Object.keys(expected.adapters)) {
     if (!knownHelpers.includes(helper)) { refuse('expected_helper_unknown', `the expected plan pins ${safe(helper)}, which no ${peer} stage executes`); return fail(); }
   }
-  // Stage 2 is IN PLAY when the custody boundary recorded it as requested or the handoff offers its
-  // report or digest; only then must the plan pin the Stage-2 helper. A Stage-1-only binding is
-  // never made to pin code that did not run (the plan MAY still pin it: the boundary hashes it).
+  // Stage 2 is IN PLAY when the custody boundary recorded it as requested; only then must the plan
+  // pin the Stage-2 helper. A report or digest offered WITHOUT a custody record of the stage is
+  // refused in step 9 as uncustodied, whatever the plan pins. A Stage-1-only binding is never made
+  // to pin code that did not run (the plan MAY still pin it: the boundary hashes it).
   const s2 = stage2Of(custody);
   const reconstructionOffered = reconstruction !== undefined && reconstruction !== null;
   const reconstructionDigestOffered = reconstructionDigest !== undefined && reconstructionDigest !== null;
-  if (s2.state === 'requested' || reconstructionOffered || reconstructionDigestOffered) {
+  if (s2.state === 'requested') {
     for (const helper of STAGE2_HELPERS[peer]) {
       if (!Object.hasOwn(expected.adapters, helper)) { refuse('expected_helper_missing', `the contained reconstruction is in play, but the expected plan does not pin its helper ${safe(helper)}`); return fail(); }
     }
@@ -568,9 +577,9 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
   //   requested, malformed / stub / any identity disagreement / outcome contradicting custody → refused
   //   requested, everything agrees, not successful  → no refusal; deferred, corroboration withheld
   //   requested, everything agrees, successful      → corroborated — still in the deferred list
-  //   Admin: any report, digest or custody-recorded Stage 2 → refused (peer-inappropriate)
-  // A Backend custody record that is absent or malformed is refused in step 10, and nothing
-  // here corroborates without one.
+  //   Admin: any report, digest or REQUESTED custody record → refused (peer-inappropriate)
+  // A malformed custody stage record (either peer) and an absent Backend one are refused in
+  // step 10, and nothing here corroborates without a requested one.
   if (peer !== 'backend') {
     if (reconstructionOffered || reconstructionDigestOffered || s2.state === 'requested') {
       refuse('reconstruction_peer_inappropriate', 'only a backend binding has a contained reconstruction');
@@ -594,6 +603,7 @@ export function bindConsumerEvidence({ descriptor, descriptorDigest, admission, 
         // The report supplied IS the report the custody boundary captured: both digests are over
         // the stage adapter's emitted bytes (header). A document never states its own digest.
         if (!DIGEST.test(String(reconstructionDigest))) refuse('reconstruction_digest_invalid', 'no well-formed independently measured reconstruction digest was supplied');
+        else if (reconstructionDigest === admissionDigest || reconstructionDigest === descriptorDigest) refuse('reconstruction_digest_invalid', 'the measured reconstruction digest is the admission or descriptor digest; different documents cannot share bytes');
         else bind('reconstruction_digest_mismatch', s2.sha256, reconstructionDigest, 'the custody and the independently measured reconstruction digests');
         // The admission it reconstructed: this descriptor, this admission document, this manifest.
         if (reconstruction.inputs.admissionDescriptorDigest !== descriptorDigest) refuse('reconstruction_foreign', 'the reconstruction is bound to another descriptor');

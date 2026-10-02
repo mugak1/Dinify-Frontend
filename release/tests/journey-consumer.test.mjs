@@ -404,7 +404,7 @@ describe('SYNTHETIC: a consistent handoff binds, and never asserts a verdict', (
   });
 
   test('the binder reaches no verdict key', () => {
-    // Structural: the binder imports only journey-peers.mjs (and, transitively, canonical.mjs).
+    // Structural: the binder imports only journey-peers.mjs (and, through it, that module's own imports).
     // Here we only pin that the result object exposes no verdict and stays unestablished.
     const r = bindConsumerEvidence(handoff('admin'));
     assert.ok(!('released' in r) && !('admittedForRelease' in r));
@@ -592,6 +592,17 @@ const EXACT_CASES = [
   ['admin', 'C1: a COORDINATED omission of dependency_audit from the pinned, materialised and measured closure', (h) => { delete h.expected.unpacker.subtrees.dependency_audit; delete h.custody.unpacker.subtrees.dependency_audit; delete h.admission.unpacker.closure.subtrees.dependency_audit; }, ['unpacker_closure_incomplete']],
   ['admin', 'C1: the plan names the trusted-closure helper as the unpacker', (h) => { h.expected.unpacker.adapter = 'trusted_closure.py'; }, ['unpacker_unbound']],
   ['admin', 'C1: a malformed pinned unpacker root tree', (h) => { h.expected.unpacker.tree = 'bad'; }, ['unpacker_commit_invalid']],
+  ['admin', 'C1: a pinned unpacker subtree that is not a sha', (h) => { h.expected.unpacker.subtrees.release = 'bad'; }, ['unpacker_closure_incomplete']],
+  // Each observation is VALIDATED before it is compared: a malformed one refuses as malformed, never
+  // as a coincidental disagreement with the plan.
+  ['admin', 'C1: the observation states no measured closure at all', (h) => { delete h.admission.unpacker.closure; }, ['unpacker_observation_invalid']],
+  ['admin', 'C1: the observation states an EMPTY measured closure', (h) => { h.admission.unpacker.closure.subtrees = {}; }, ['unpacker_observation_invalid']],
+  ['admin', 'C1: an observed closure subtree that is not a sha', (h) => { h.admission.unpacker.closure.subtrees.release = 'bad'; }, ['unpacker_observation_invalid']],
+  ['admin', 'C1: the custody unpacker repository is not a statement', (h) => { h.custody.unpacker.repository = 42; }, ['custody_unpacker_invalid']],
+  ['admin', 'C1: the custody unpacker root tree is not a sha', (h) => { h.custody.unpacker.tree = 'bad'; }, ['custody_unpacker_invalid']],
+  ['admin', 'C1: the custody unpacker states an EMPTY materialised closure', (h) => { h.custody.unpacker.subtrees = {}; }, ['custody_unpacker_invalid']],
+  ['admin', 'C1: a materialised closure subtree that is not a sha', (h) => { h.custody.unpacker.subtrees.release = 'bad'; }, ['custody_unpacker_invalid']],
+  ['admin', 'C1: the custody unpacker closure manifest is not a digest', (h) => { h.custody.unpacker.manifestDigest = 'bad'; }, ['custody_unpacker_invalid']],
   // ── C2: Stage 2 is custody-bound corroboration ──
   ['backend', 'C2: a successful report the custody record never captured (custody: not run)', (h) => { withStage2(h); h.custody.reconstruction = { ran: false }; }, ['reconstruction_uncustodied']],
   ['backend', 'C2: a reconstruction digest offered with no report and no custody record of the stage', (h) => { h.reconstructionDigest = dg('a-reconstruction'); }, ['reconstruction_uncustodied']],
@@ -636,8 +647,31 @@ const EXACT_CASES = [
   ['backend', 'C2: malformed — the report names a malformed admission digest', (h) => { withStage2(h, { mutate: (r) => { r.inputs.admissionSha256 = 'bad'; } }); }, ['reconstruction_invalid']],
   ['backend', 'C2: malformed — the report names no admitted manifest', (h) => { withStage2(h, { mutate: (r) => { delete r.admitted; } }); }, ['reconstruction_invalid']],
   ['backend', 'C2: malformed — not a reconstruction document', (h) => { withStage2(h, { mutate: (r) => { r.schema = 'dinify.journey.backend-reconstruction-stub/1'; } }); }, ['reconstruction_invalid']],
+  // Every field the report is compared on is validated first: each of these would otherwise reach a
+  // comparison (stub, foreign, contradictory, consumer or outcome) and refuse for a coincidental reason.
+  ['backend', 'C2: malformed — the report states no startup', (h) => { withStage2(h, { mutate: (r) => { delete r.startup; } }); }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — the report startup kind is not a statement (the boundary could not read one)', (h) => { withStage2(h, { mutate: (r) => { r.startup.kind = 42; } }); h.custody.reconstruction.startupKind = null; }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — the report outcome is empty', (h) => { withStage2(h, { mutate: (r) => { r.outcome = ''; } }); }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — the report names a malformed descriptor digest', (h) => { withStage2(h, { mutate: (r) => { r.inputs.admissionDescriptorDigest = 'bad'; } }); }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — the report names a malformed admitted manifest', (h) => { withStage2(h, { mutate: (r) => { r.admitted.manifestDigest = 'bad'; } }); }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — the report consumer repository is not a statement', (h) => { withStage2(h, { mutate: (r) => { r.consumer.repository = 42; } }); }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — the report consumer commit is not a sha', (h) => { withStage2(h, { mutate: (r) => { r.consumer.commit = 'bad'; } }); }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — the report consumer root tree is not a sha', (h) => { withStage2(h, { mutate: (r) => { r.consumer.tree = 'bad'; } }); }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — a report consumer subtree is not a sha', (h) => { withStage2(h, { mutate: (r) => { r.consumer.subtrees.release = 'bad'; } }); }, ['reconstruction_invalid']],
+  ['backend', 'C2: malformed — the report consumer closure manifest is not a digest', (h) => { withStage2(h, { mutate: (r) => { r.consumer.closureManifestDigest = 'bad'; } }); }, ['reconstruction_invalid']],
   ['admin', 'C2: a reconstruction digest offered for an admin binding', (h) => { h.reconstructionDigest = dg('a-reconstruction'); }, ['reconstruction_peer_inappropriate']],
   ['admin', 'C2: an admin custody record of a requested Stage 2', (h) => { h.custody.reconstruction = { sha256: dg('a-reconstruction'), ran: true, closureUnchanged: true, admittedUnchanged: true, startupKind: 'pinned-consumer-startup' }; }, ['reconstruction_peer_inappropriate']],
+  // A requested-stage record states no deferral: the boundary either captured the stage or did not.
+  ['backend', 'C2: a requested-stage custody record that ALSO states a deferral', (h) => { withStage2(h); h.custody.reconstruction.deferred = 'SYNTHETIC: the contained reconstruction was not run'; }, ['custody_reconstruction_invalid']],
+  // The binder cannot see which bytes a claimant hashed, only whether the claims agree; what it can
+  // see is that different documents cannot share a digest. Each case keeps the claims in agreement,
+  // so the only fault is the collision.
+  ['backend', 'C2: the measured admission digest IS the descriptor digest (the custody record agrees)', (h) => { h.admissionDigest = h.descriptorDigest; h.custody.admission.sha256 = h.descriptorDigest; }, ['admission_digest_invalid']],
+  ['backend', 'C2: the measured reconstruction digest IS the admission digest (the custody record agrees)', (h) => { withStage2(h); h.reconstructionDigest = h.admissionDigest; h.custody.reconstruction.sha256 = h.admissionDigest; }, ['reconstruction_digest_invalid']],
+  ['backend', 'C2: the measured reconstruction digest IS the descriptor digest (the custody record agrees)', (h) => { withStage2(h); h.reconstructionDigest = h.descriptorDigest; h.custody.reconstruction.sha256 = h.descriptorDigest; }, ['reconstruction_digest_invalid']],
+  // Only a CUSTODY record of the stage puts Stage 2 in play: a stray report on a Stage-1-only plan is
+  // refused as uncustodied — the plan, which correctly pins no Stage-2 helper, is not the fault.
+  ['backend', 'C2: a stray report on a Stage-1-only plan without the Stage-2 helper is uncustodied, not a plan fault', (h) => { withStage2(h); h.custody.reconstruction = { ran: false }; HELPER_DROP('backend_reconstruct.py')(h); }, ['reconstruction_uncustodied']],
   // ── C3: the complete pinned Stage-1 invocation contract ──
   ['backend', 'C3: dependency_audit dropped from the plan, the admission and the custody TOGETHER (the reviewed gap)', SUBTREE_DROP('dependency_audit'), ['expected_subtree_missing']],
   ['backend', 'C3: release dropped from the plan, the admission and the custody together', SUBTREE_DROP('release'), ['expected_subtree_missing']],
@@ -651,6 +685,7 @@ const EXACT_CASES = [
   ['admin', 'C3: peer_unpack.py dropped from the plan and the custody together (admin)', HELPER_DROP('peer_unpack.py'), ['expected_helper_missing']],
   ['admin', 'C3: admin_admit.mjs dropped from the plan and the custody together', HELPER_DROP('admin_admit.mjs'), ['expected_helper_missing']],
   ['backend', 'C3: Stage 2 in play while the plan and the custody omit its helper', (h) => { withStage2(h); HELPER_DROP('backend_reconstruct.py')(h); }, ['expected_helper_missing']],
+  ['backend', 'C3: the custody record alone puts Stage 2 in play (no report offered) while the plan and the custody omit its helper', (h) => { withStage2(h); delete h.reconstruction; delete h.reconstructionDigest; HELPER_DROP('backend_reconstruct.py')(h); }, ['expected_helper_missing']],
   ['backend', 'C3: a helper no backend stage executes, pinned in the plan and the custody', (h) => { h.expected.adapters['ghost.py'] = dg('ghost'); h.custody.adapters['ghost.py'] = dg('ghost'); }, ['expected_helper_unknown']],
   ['admin', 'C3: the backend-only Stage-2 helper pinned on an admin plan and custody', (h) => { h.expected.adapters['backend_reconstruct.py'] = dg('recon'); h.custody.adapters['backend_reconstruct.py'] = dg('recon'); }, ['expected_helper_unknown']],
   ['backend', 'C3: a COORDINATED foreign consumer repository (plan and admission together)', (h) => { h.expected.consumer.repository = 'evil/Other'; h.admission.consumer.repository = 'evil/Other'; }, ['expected_consumer_unanchored']],
