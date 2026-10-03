@@ -99,16 +99,31 @@ outranks every npmrc, so the invocation and the check cannot disagree.
 
 ## Exceptions and triage records
 
-**Three records are approved (2026-09-30), and all three are exceptions on the SCANNER
-graph** — the `undici` 6.28.0 (GHSA-rfgv-xxqx-mfg5) and `brace-expansion` 5.0.9
-(GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) that npm 11.19.1 BUNDLES. No npm release
-(11.19.1, 11.20.0, 12.1.0) bundles a fixed copy of either, and a bundled dependency cannot
-be replaced through the scanner lockfile or `overrides`, so without them every `validate`
-and `certify` run was blocked. Each record's `applicability` states why the scanner cannot
-reach the vulnerable code with outside input, and each expires on 2026-10-30. **They come
-out in the same change that moves the scanner pin to an npm release bundling fixed
-copies** — from then on they match nothing, and the audit refuses a stale record rather
-than ignoring it. No application-graph finding is excepted, and nothing is triaged.
+**Five records are approved, all exceptions and all TOOLING scope.** Three, approved
+2026-09-30, are on the SCANNER graph — the `undici` 6.28.0 (GHSA-rfgv-xxqx-mfg5) and
+`brace-expansion` 5.0.9 (GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) that npm 11.19.1
+BUNDLES. When they were approved, no npm release (11.19.1, 11.20.0, 12.1.0) bundled a fixed
+copy of either, and a bundled dependency cannot be replaced through the scanner lockfile or
+`overrides`, so without them every `validate` and `certify` run was blocked.
+
+Two more were approved on 2026-10-03, through the implementation pull request each names in
+`approval.reference`, for advisories where that day's dated package and version
+investigation found no supported, compatible fixed route: the scanner-bundled
+`http-cache-semantics` 4.2.0 (GHSA-ch52-4w7c-c8xp) and — the first APPLICATION-graph
+record — the development-tooling `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm). They are bounded
+acceptances of residual risk, not proofs of unreachability. The braces record accepts
+residual denial-of-service risk in development and CI tooling. The http-cache-semantics
+record covers the advisory's shared-cache disclosure mechanism and does not claim that every
+scanner invocation is credential-free or that every audit input is independent of the npm
+cache. Each record's `applicability` states what was inspected and what it does not
+establish.
+
+All five expire at 00:00 UTC on 2026-10-30, with no automatic extension. **Each comes out
+in the same change that fixes or removes its affected dependency** — from then on it
+matches nothing, and the audit refuses a stale record rather than ignoring it. **The same
+`braces` 3.0.3 in the publisher toolchain is NOT excepted and cannot be**: record paths
+admit only `application:` and `scanner:`, so the release gate's fresh assessment reports it
+as blocking until that lock changes. No runtime finding is excepted, and nothing is triaged.
 
 A record
 is refused — and the audit is `blocking` — unless it names the advisory (and aliases),
