@@ -23,8 +23,9 @@ let starInstanceCounter = 0;
  *   (valueChange)="overall.set($event)"`.
  * - `interactive=false` renders a static, non-button recap (thank-you state).
  *
- * The star is the custom rounded path; filled = vertical gold gradient
- * (#FCC419→#F08C00, an intentional one-off, not a token) with a warm drop-shadow;
+ * The star is the custom rounded path; filled = vertical yellow gradient
+ * (#FFD43B→#FAB005, an intentional one-off, not a token — moved yellower than the
+ * original #FCC419→#F08C00 gold at the owner's request) with a warm drop-shadow;
  * empty = hairline stroke at a hair-smaller scale so fills "pop".
  */
 @Component({
@@ -37,8 +38,8 @@ let starInstanceCounter = 0;
     <svg aria-hidden="true" focusable="false" width="0" height="0" class="grad-host">
       <defs>
         <linearGradient [attr.id]="gradId" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#FCC419" />
-          <stop offset="1" stop-color="#F08C00" />
+          <stop offset="0" stop-color="#FFD43B" />
+          <stop offset="1" stop-color="#FAB005" />
         </linearGradient>
       </defs>
     </svg>
@@ -120,7 +121,7 @@ let starInstanceCounter = 0;
       }
       .star.is-filled {
         transform: scale(1);
-        filter: drop-shadow(0 3px 5px rgba(240, 140, 0, 0.38));
+        filter: drop-shadow(0 3px 5px rgba(250, 176, 5, 0.38));
       }
       @media (prefers-reduced-motion: reduce) {
         .star {
