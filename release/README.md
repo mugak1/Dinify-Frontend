@@ -697,7 +697,7 @@ where a peer publishes one, and refused by name where it does not.
 | peer | selection | serving |
 |---|---|---|
 | backend (`0513adb`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until a verified loaded-runtime identity of the backend is available (B3): its source now carries an identity endpoint and a staged installer, but neither serves yet. Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
-| admin (`94001b7`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
+| admin (`89d2cf1`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
 path that consults `compatibleSet`; the backend's own deploy and `deploy-prod.yml` make
@@ -730,15 +730,16 @@ that receipt here in a reviewed pull request. Two consequences of the committed 
   readiness run `36247543634` (on `485e9e9`) refused the same way for `a7ef20c`, and
   readiness run `36273728448` (on `44c4fc3`) for `9ec02fe`. On 2026-09-27 readiness runs
   `36337180856`, `36338571396` and `36339569844` refused the same way for `3170e8f`, and
-  run `36342248520` (on `ba8e4eb`) for `9cf8c83`. The approved Admin revision is now
-  `94001b7` (the #38 merge, D10 B2, 2026-09-28), replacing `9cf8c83`, which had replaced
-  `9ec02fe`, `abdacda`, `a7ef20c`, `eb54c92`, `1993a08`, `3521ebd` and `38df037` in
-  turn, rather than joining them. An Admin rollback to any of those, or to `ad4a7f8` (the
-  #28 merge), `3170e8f` (the #35 merge) or `8b7895b` (the #37 merge), all deployed and
-  never approved, is refused the same way until approved again (see the four 2026-09-26
-  sections and the 2026-09-27 and 2026-09-28 ones). No readiness run observed `8b7895b`
-  or `94001b7` before this approval, so this one was reviewed on source and compared on
-  constructed serving evidence rather than replayed from a red run.
+  run `36342248520` (on `ba8e4eb`) for `9cf8c83`. On 2026-10-01 readiness run
+  `36881809186` (on `1527c6b`) refused the same way for `042e803`, and runs
+  `36919953847` (on `229c0b1`) and `36936713667` (on `73ec2d8`) for `89d2cf1`. The
+  approved Admin revision is now `89d2cf1` (the #39 merge, 2026-10-03), replacing
+  `94001b7`, which had replaced `9cf8c83`, `9ec02fe`, `abdacda`, `a7ef20c`, `eb54c92`,
+  `1993a08`, `3521ebd` and `38df037` in turn, rather than joining them. An Admin rollback
+  to any of those, or to `ad4a7f8` (the #28 merge), `3170e8f` (the #35 merge), `8b7895b`
+  (the #37 merge) or `042e803` (the #40 merge), all deployed and never approved, is
+  refused the same way until approved again (see the four 2026-09-26 sections and the
+  2026-09-27, 2026-09-28 and 2026-10-03 ones).
 
 ### The D01 ceiling contract
 
@@ -1526,7 +1527,7 @@ stays `a6b25a6`, and `3170e8f` is not approved.
 ### The 2026-09-28 refresh (compatible set `2026-09-28-pilot-11`)
 
 *History: its backend approval, `a6b25a6`, was superseded the same day by `0513adb`
-(next section); its Admin approval, `94001b7`, still stands. The bullets below describe
+(next section); its Admin approval, `94001b7`, stood until 2026-10-03 (`pilot-13`). The bullets below describe
 the state when it was committed.*
 
 Admin #37 (D10 B2: bind each admin command to the session that issued it) merged as
@@ -1652,7 +1653,8 @@ frontend readiness run had evaluated `pilot-12` when it was committed.
   `sha256:604dcb5e…` to `sha256:79ff3fea…`. Through the real `decide` command it is still
   a completed, non-publishing wait: `REFUSE`, `allow: false`, nothing published. No run
   had recorded `79ff3fea…` when this was committed; the next readiness run with Admin
-  still serving `94001b7` is expected to.
+  still serving `94001b7` was expected to, and did: run `36741006888` (on `5bd99b3`,
+  2026-09-30) recorded exactly `79ff3fea…` as `awaiting-prerequisites`.
 
   The following still refuse, and none of them is a wait: the approved backend receipt
   edited without re-approval, an unpinned or wrong digest, the replaced `a6b25a6` and
@@ -1667,6 +1669,55 @@ frontend readiness run had evaluated `pilot-12` when it was committed.
   `peers.*` or `dependency.*` entry. No owner prerequisite, bootstrap setting,
   enablement, eligibility, publisher configuration, audit policy, Admin approval or
   serving observation changed, and publication stays disabled.
+
+### The 2026-10-03 Admin refresh (compatible set `2026-10-03-pilot-13`)
+
+Admin #40 merged as `042e803` and #39 as `89d2cf1` on 2026-10-01, and Admin deployed
+both (Deploy Admin runs `36881603916` and `36882599969`, the second a certified forward
+promotion verifying 16/16 admitted files from the public origin). Readiness run
+`36881809186` (on `1527c6b`) refused `peers.admin_serving_unapproved` for `042e803`, and
+runs `36919953847` (on `229c0b1`) and `36936713667` (on `73ec2d8`) for `89d2cf1` — each
+`not-a-waiting-state`, publisher skipped, and that its ONE unexpected reason. This
+refresh approves `89d2cf1`. Only the Admin approval and the set id move; backend `0513adb`
+and its serving note are `pilot-12`'s.
+
+| peer | commit | tree | source blob | receipt digest |
+|---|---|---|---|---|
+| admin | `89d2cf1a9ce8d44ec4d0fcad9865df96053b3bc6` (#40/#39) | `b85bbcc8…` | `deploy.yml` `2618d1ee…` (unchanged) | `sha256:0905b63556e9d4e487e8c4a2b0e79207c03ef6214ce1361bf31a5528f8e857d6` |
+
+- **Source verification.** `peer-receipt --write` produced the receipt from a bare clone
+  of the public repository at the exact merged commit; an independent Python
+  re-derivation over the same clone recomputes the tree, the `deploy.yml` blob and the
+  digest, and reproduces `94001b7`'s `d499e466…` and `9cf8c83`'s `05b8c83b…` as controls.
+- **Admin `94001b7..89d2cf1` is #40 and #39**: `package.json` and `package-lock.json`
+  (runtime `@angular/*` 21.2.20 → 21.2.24 within the patch line; the 21.2.x CLI/build
+  tooling to 21.2.24; in-range dev-tooling bumps of `brace-expansion`, `engine.io` and
+  `undici`), `dependency-audit/` (three scanner-bundled exceptions Frontend already
+  carries; a string `os`/`cpu`/`libc` constraint read the way npm reads it) and
+  `CLAUDE.md`. No `src/`, `angular.json`, `release/`, CI or audit workflow changed, and
+  `deploy.yml` is byte-identical, so the identity this gate reads is unchanged: the exact
+  commit at `/release.txt`, served `no-store`. The Angular patch bump does change the
+  served bytes; this gate assumes no Admin protocol and pins none.
+- **Replayed, not constructed.** The `pilot-12` set with Admin serving `89d2cf1`
+  reproduces the decision runs `36919953847` and `36936713667` bound
+  (`sha256:b1b57046…`) byte for byte, and with `042e803` the decision run `36881809186`
+  bound (`sha256:bd8a5733…`). With every other fact held fixed the refresh removes
+  `peers.admin_serving_unapproved` and nothing else, leaving the six-reason wait
+  `sha256:79ff3fea…` that run `36741006888` recorded under `pilot-12`. That is a replay
+  over fixture inputs. A real run reaches the same wait only if its fresh assessment
+  and peer reads succeed, every other fact is unchanged and publication stays disabled.
+- **What it does not resolve.** Readiness runs `37137245529` (on `e553faf`) and
+  `37205168076` (on `63d6166`) also observed `89d2cf1`. Each of them completed a fresh
+  dependency assessment that was BLOCKING (`dependency.assessment_blocking`: 18
+  findings, 1 blocking). Those two CI runs establish the blocking assessment and the
+  Admin mismatch, and nothing more. Their retained assessment bytes could not be
+  inspected from the environment that prepared this refresh. The specific publisher
+  advisory, `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm), was identified by a LOCAL REPRODUCTION
+  of the assessment, not by reading CI's retained record. **This receipt change alone
+  does not resolve the dependency refusal**, and no `dependency.*` code is ever a wait.
+- **Replaced, not joined.** The `94001b7` receipt stays under `peers/` as history.
+  `042e803` was deployed and never approved. The committed-policy suite went from 64 to
+  **70** tests, and 15 of them fail with `main`'s `pilot-12` policy put back.
 
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The

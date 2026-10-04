@@ -293,7 +293,7 @@ describe('planning the reads', () => {
     let log = [];
     let r = await observeMetadata({ expected: oldSelection, receipt: old, policy: POLICY, fetchImpl: fakeFetch(w.routes, log), token: TOKEN, clock: () => NOW_MS });
     assert.deepEqual(codes(r.result), ['journey.observe.selection_not_approved']);
-    assert.match(r.result.reasons[0].detail, /a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b is not approved in compatible set 2026-09-28-pilot-12; the selection needs review/);
+    assert.match(r.result.reasons[0].detail, /a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b is not approved in compatible set 2026-10-03-pilot-13; the selection needs review/);
     assert.equal(log.length, 0);
 
     log = [];
@@ -310,10 +310,10 @@ describe('planning the reads', () => {
     assert.equal(log.length, 0);
   });
 
-  test('CONTROL: both approved selections — backend 0513adb and admin 94001b7 — pass the approval check against the committed policy', () => {
+  test('CONTROL: both approved selections — backend 0513adb and admin 89d2cf1 — pass the approval check against the committed policy', () => {
     for (const peer of ['backend', 'admin']) assert.equal(approvalProblem({ policy: POLICY, expected: selection(peer), receipt: approved(peer).receipt }), null, peer);
     assert.equal(approved('backend').commit, '0513adb441828d62faadc1c67799c5432868c33a');
-    assert.equal(approved('admin').commit, '94001b7dc1a64df5296b2502bcc26f4f2543d77d');
+    assert.equal(approved('admin').commit, '89d2cf1a9ce8d44ec4d0fcad9865df96053b3bc6');
   });
 });
 

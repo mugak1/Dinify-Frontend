@@ -3599,6 +3599,33 @@ so keep it current when conventions change.
   `bytes-correspond-consumer-checks-deferred` (exit 0), never verified or admitted.
   **Nothing calls it yet**, and it is not a serving observation. Release suite 1000 →
   **1110**.
+- **A PATCH-LINE FRAMEWORK BUMP IS STILL AN ADMIN PROMOTION (D08 receipt refresh,
+  2026-10-03).** ✅ Compatible set **`2026-10-03-pilot-13`**: Admin `89d2cf1` (the #39
+  merge, receipt `sha256:0905b635…`, tree `b85bbcc`) replaces `94001b7`. #40 moved
+  runtime `@angular/*` 21.2.20 → 21.2.24 within the patch line, made in-range dev-tooling
+  lock updates and approved Admin's three scanner-bundled audit exceptions; #39 made the
+  audit read a string `os`/`cpu`/`libc` constraint the way npm does. No `src/`,
+  `angular.json`, `release/` or workflow changed, and the receipt-bearing `deploy.yml` is
+  byte-identical (`2618d1e`). **Observed red first**: run `36881809186` refused `042e803`
+  (the #40 merge, deployed, never approved; `decisionDigest` `sha256:bd8a5733…`), and
+  runs `36919953847` and `36936713667` refused `89d2cf1` (`sha256:b1b57046…`). Both
+  decisions are replayed WHOLE under `pilot-12`. In that replay the refresh removes
+  exactly `peers.admin_serving_unapproved` and returns the six-reason wait
+  `sha256:79ff3fea…`. A real run returns it only if its fresh assessment and peer reads
+  succeed and every other fact is unchanged.
+  **Correction:** the `pilot-12` bullet calls that wait CONSTRUCTED; readiness run
+  `36741006888` (on `5bd99b3`, 2026-09-30) has since RECORDED it. Produced by
+  `peer-receipt` at the exact merged commit and re-derived by the independent Python
+  implementation (the `94001b7` and `9cf8c83` digests reproduced as controls). **This
+  receipt change alone does not resolve the dependency refusal.** Readiness runs
+  `37137245529` and `37205168076` completed a BLOCKING fresh dependency assessment
+  (`dependency.assessment_blocking`) beside the Admin mismatch. That is what those CI
+  runs establish. The publisher advisory behind it, `braces` 3.0.3, was identified by
+  local reproduction, because the runs' retained assessment bytes could not be
+  inspected. **Only the Admin approval moved**: backend `0513adb`
+  stands, and nothing was added to `publication.readiness.awaiting`. The committed-policy
+  suite went from 64 to **70** tests, and 15 of them fail with `main`'s `pilot-12` policy
+  put back; the release suite runs **1361** (1355 on `main`).
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
