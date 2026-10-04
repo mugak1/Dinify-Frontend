@@ -4827,7 +4827,24 @@ is a separate lockfile and the root override never reached it; `lodash-es` and
 entry is GONE** — its documented exit condition was met, and the Angular 22
 upgrade turned it from a no-op into a hazard: `@angular/build` 22.1.6 pins
 `esbuild` 0.28.2, which the `0.28.1` override would have DOWNGRADED. That is the
-standing lesson — re-check this block whenever `@angular/build` moves. All three
+standing lesson — re-check this block whenever `@angular/build` moves. **The publisher
+lock also overrides `chokidar` → `4.0.3`** (2026-10-03), which is OUTSIDE
+`firebase-tools`' declared `^3.6.0`.
+- **Why.** It removes `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm). No fixed `braces` exists, and
+  a publisher-graph finding cannot be excepted.
+- **Scope.** Compatibility is claimed ONLY for the restricted static-hosting `deploy
+  --only hosting:<target>` invocation. Emulator use with this toolchain is unsupported.
+  Any change to the invocation, its configuration or the `firebase-tools` version
+  requires reassessment.
+- **Evidence.** Readiness runs `37137245529` and `37205168076` establish the BLOCKING
+  assessment. The specific advisory was identified by local reproduction, because the
+  retained assessment bytes could not be inspected.
+- **Not verified.** Successful authenticated upload remains unverified. `--dry-run` is
+  not a substitute, because its preparation can create a hosting version.
+- **Exit.** Remove the override only when the native graph without it is verified free
+  of this blocker and compatible with that invocation.
+
+See `release/README.md` → "The publisher's `chokidar` override". All three
 workflows install with a plain `npm ci` — **no `--legacy-peer-deps`** (DEPS-HYGIENE-01).
 The flag was needed while the Angular 21 tree had peer conflicts; the v22 tree
 resolves strictly, so it now only HIDES future ones. That matters concretely: a

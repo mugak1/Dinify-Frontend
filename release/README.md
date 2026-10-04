@@ -470,6 +470,72 @@ mutation cannot pass.
 - Nothing here binds a fresh audit to Backend or Admin promotion, and `deploy-prod.yml` —
   still the live writer — consumes none of it.
 
+### The publisher's `chokidar` override (2026-10-03)
+
+Readiness runs `37137245529` (on `e553faf`) and `37205168076` (on `63d6166`) each
+completed a fresh dependency assessment that was BLOCKING (`dependency.assessment_blocking`:
+18 findings, 1 blocking, 5 under approved exception, 12 requiring triage). That is what
+those CI runs establish. Their retained assessment bytes could not be inspected from the
+environment that prepared this change. The blocking finding was identified by a LOCAL
+REPRODUCTION of the same assessment, which reproduced the runs' headline exactly. It used
+the trusted `prepare-publisher` command (pinned npm, lifecycle scripts disabled), the same
+three graphs and the committed policy. The finding is `publisher:node_modules/braces`
+3.0.3, GHSA-vfj7-8cjw-p6xm (high). That is a reproduction, not a reading of CI's retained
+record.
+
+- **Why not an exception.** The record grammar (Known limits, above) cannot name a
+  publisher path. This change leaves that alone: it adds no publisher exception, widens no
+  grammar, downgrades no finding and relaxes no gate. The five existing exceptions and
+  their 2026-10-30 expiry are unchanged.
+- **Why an override.** No fixed `braces` is published: the advisory covers `<=3.0.3`, and
+  3.0.3 is the latest release. Every `firebase-tools` 15.x through 15.32.1 declares
+  `chokidar ^3.6.0`. In this graph the only path to `braces` is
+  `firebase-tools → chokidar 3.6.0 → braces`, and `chokidar` 4.0.3 does not depend on
+  `braces`.
+- **What changed.** `release/publisher/package.json` gains `"chokidar": "4.0.3"` in its
+  `overrides`. In the lock, `chokidar` moves 3.6.0 → 4.0.3 and `readdirp` 3.6.0 → 4.1.2,
+  and twelve entries are removed: `anymatch`, `binary-extensions`, `braces`,
+  `fill-range`, `fsevents`, `glob-parent`, `is-binary-path`, `is-extglob`, `is-glob`,
+  `is-number`, `picomatch` and `to-regex-range`. `firebase-tools` stays 15.31.0, and no
+  other entry moves.
+- **IT IS OUTSIDE FIREBASE'S DECLARED RANGE.** `firebase-tools` declares
+  `chokidar ^3.6.0`, and 4.x dropped glob support. Compatibility is claimed only for
+  Dinify's existing restricted static-hosting publisher: `deploy --only
+  hosting:<target> --project <project> --non-interactive --json`, run with the
+  configuration `lib/publisher.mjs` builds. **Emulator use with this toolchain is
+  unsupported.**
+  - Source trace in 15.31.0: `chokidar` is required only by the emulator modules
+    (`emulator/{firestore,database,functions}Emulator.js`,
+    `emulator/storage/rules/manager.js`). Nothing under `deploy/` calls it.
+  - The deploy command's static require graph still reaches one of them
+    (`commands/deploy.js → deploy/index.js → … → emulator/functionsEmulator.js`, which
+    requires `chokidar` at top level). Treat `chokidar` as loaded when the publisher runs.
+  - This is a source trace, not an execution.
+  - Any change to the invocation, to the configuration it is handed or to the
+    `firebase-tools` version requires this compatibility to be reassessed.
+- **SUCCESSFUL AUTHENTICATED UPLOAD REMAINS UNVERIFIED.** What was verified when this
+  change was prepared:
+  - the exact lock delta;
+  - the trusted `prepare-publisher`, with lifecycle scripts disabled;
+  - a local fresh assessment of the three graphs, which answered `exceptions_only` (17
+    findings, 0 blocking);
+  - the release suite.
+
+  None of it is evidence of a hosting upload. Pre-authentication behaviour would not be
+  either.
+
+  `firebase deploy --dry-run` is NOT a substitute: it skips upload and release but still
+  runs preparation, which can create a hosting version. It neither proves upload
+  compatibility nor is guaranteed to be read-only. Any real publication rehearsal is a
+  separate, explicitly authorized task before activation, and nothing here performs one.
+- **Removing it.** Remove the override only when the resulting native dependency graph
+  (without it) is verified free of this blocker AND compatible with the supported
+  invocation, for example a `firebase-tools` whose declared `chokidar` no longer pulls
+  `braces`, or a fixed `braces`. Removing it is then a reviewed lock change like this one.
+- **Changing the lock advances the verifier.** A run admitted under the previous lock is
+  refused as `preflight.policy_advanced`, and readiness still has to complete a fresh
+  assessment on its own.
+
 ### Scanner diagnostics: the last observed npm events
 
 Readiness run `36283185235` (job `108518857938`) went red because the fresh assessment's
