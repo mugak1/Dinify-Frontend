@@ -2954,6 +2954,16 @@ so keep it current when conventions change.
   `ToastService` (the legacy
   `MessageService` banner is retired) and suppresses its global 'no network' toast
   where a banner already shows (see error-handling note below)
+- Forgot-password wording is CONDITIONAL (D11 E-R1): ✅ the reset screens no longer
+  claim a code was sent. The intro reads "Enter your email address or phone number to
+  request a reset code." and the confirmation, for BOTH methods, "If these details match
+  an eligible account, check its registered phone or email for a reset code." — because
+  the paired Backend change answers initiation identically whether or not the details
+  match an eligible account (no `user_id`), and the screen cannot know which channel was
+  used. **No TypeScript changed**: the component already ignored the initiation body,
+  and errors, the rate-limit notice, resend and the `lock-otp-exp` navigation are as
+  before, pinned by `forgot-password.component.spec.ts`. This PR merges BEFORE the
+  Backend one; the wording is true of both the old and the new server answers
 - Owner claim (route `/owner-claim`): ✅ the restaurant-portal half of backend Phase-1
   Step 2F. A PUBLIC, standalone, lazy `OwnerClaimComponent` (`src/app/auth/owner-claim/`)
   that turns a raw claim code plus an OTP into a fully bootstrapped portal session:
