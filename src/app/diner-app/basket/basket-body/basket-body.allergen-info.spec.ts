@@ -14,12 +14,10 @@
  * paint beneath the basket's sticky header. The pop-up is mounted at the root of
  * the basket template, beside the checkout overlays, and never inside the bar.
  *
- * EVERY OVERLAY THE BASKET OPENS IS MARKED WHILE IT IS OPEN. The desktop
- * sidebar is sticky too, and it raises its own layer (`z-[45]` through
- * `:has([data-basket-overlay])`) only while one of these is open, so an overlay
- * opened from the sidebar covers the page, and the rest of the time the sidebar
- * stays beneath the page's sticky strips. The marker is that contract's basket
- * half; `diner-app.component.spec.ts` pins the stylesheet half.
+ * FROM THE DESKTOP SIDEBAR IT IS RENDERED UNDER `<body>`, with the checkout
+ * overlays, because the sidebar clips fixed overlays in Safari. So these specs
+ * read the pop-up from the document, not from the component.
+ * `basket-body.overlay-placement.spec.ts` pins where each overlay goes.
  *
  * Both mounts are driven: the routed basket page and the desktop sidebar.
  */
@@ -106,8 +104,8 @@ describe('BasketBodyComponent: allergen information', () => {
   const totalLabel = (root: HTMLElement) => Array.from(root.querySelectorAll('span'))
     .find((s) => text(s) === 'Total to pay') ?? null;
   const follows = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-  const dialog = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="dialog"]');
-  const markers = (root: HTMLElement) => root.querySelectorAll('[data-basket-overlay]');
+  /** From the document: opened from the sidebar, the pop-up is rendered under `<body>`. */
+  const dialog = () => document.querySelector<HTMLElement>('app-allergen-info-sheet [role="dialog"]');
 
   for (const sidebar of [false, true]) {
     const where = sidebar ? 'sidebar' : 'basket page';
@@ -137,70 +135,45 @@ describe('BasketBodyComponent: allergen information', () => {
 
     it(`(${where}) the link opens the basket pop-up, led by the no-special-requests sentence`, () => {
       const root = mount(sidebar);
-      expect(dialog(root)).toBeNull();
+      expect(dialog()).toBeNull();
       link(root)!.click();
       fixture.detectChanges();
-      expect(text(dialog(root))).toContain("We're unable to take custom dietary or special-prep requests.");
-      expect(root.querySelector('[data-testid="allergen-basket-guidance"]')).not.toBeNull();
+      expect(text(dialog())).toContain("We're unable to take custom dietary or special-prep requests.");
+      expect(dialog()!.querySelector('[data-testid="allergen-basket-guidance"]')).not.toBeNull();
     });
 
     it(`(${where}) THE POP-UP IS NOT INSIDE THE STICKY BAR, whose stacking context would bury it`, () => {
       const root = mount(sidebar);
       link(root)!.click();
       fixture.detectChanges();
-      expect(dialog(root)!.closest('.sticky')).toBeNull();
-      expect(bar(root)!.contains(dialog(root))).toBe(false);
+      expect(dialog()!.closest('.sticky')).toBeNull();
+      expect(bar(root)!.contains(dialog())).toBe(false);
     });
 
-    it(`(${where}) the pop-up is marked as a basket overlay only while it is open`, () => {
+    it(`(${where}) Escape closes it, through the sheet itself`, () => {
       const root = mount(sidebar);
-      expect(markers(root).length).withContext('nothing is open').toBe(0);
       link(root)!.click();
       fixture.detectChanges();
-      expect(markers(root).length).toBe(1);
-      expect(markers(root)[0].contains(dialog(root))).withContext('the marker holds the dialog').toBe(true);
+      expect(dialog()).withContext('premise: it is open').not.toBeNull();
       // Escape closes it through the sheet itself, not through our close button.
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       fixture.detectChanges();
-      expect(dialog(root)).toBeNull();
-      expect(markers(root).length).withContext('closed again').toBe(0);
+      expect(dialog()).toBeNull();
+      expect(fixture.componentInstance.allergenInfoOpen()).toBe(false);
     });
   }
-
-  it('the checkout prompt and the itemised review are marked as basket overlays too', () => {
-    const root = mount(true);
-    const component = fixture.componentInstance;
-    const needsReview = spyOnProperty(component, 'quoteNeedsReview', 'get').and.returnValue(false);
-    component.showQuoteSheet = true;
-    fixture.detectChanges();
-    const prompt = root.querySelector('[data-testid="checkout-confirm"]');
-    expect(prompt).withContext('premise: the plain prompt is up').not.toBeNull();
-    expect(prompt!.hasAttribute('data-basket-overlay')).toBe(true);
-    expect(markers(root).length).toBe(1);
-
-    needsReview.and.returnValue(true);
-    fixture.detectChanges();
-    const heading = Array.from(root.querySelectorAll('h3')).find((h) => text(h) === 'Review your order');
-    expect(heading).withContext('premise: the itemised review is up').toBeDefined();
-    expect(heading!.closest('[data-basket-overlay]')).not.toBeNull();
-    expect(markers(root).length).toBe(1);
-
-    component.showQuoteSheet = false;
-    fixture.detectChanges();
-    expect(markers(root).length).withContext('closed again').toBe(0);
-  });
 
   it('closing hands the basket back, and the link opens it again', () => {
     const root = mount(false);
     link(root)!.click();
     fixture.detectChanges();
-    root.querySelector<HTMLButtonElement>('button[aria-label="Close allergen information"]')!.click();
+    dialog()!.querySelector<HTMLButtonElement>('button[aria-label="Close allergen information"]')!.click();
     fixture.detectChanges();
-    expect(dialog(root)).toBeNull();
+    expect(dialog()).toBeNull();
     expect(fixture.componentInstance.allergenInfoOpen()).toBe(false);
     link(root)!.click();
     fixture.detectChanges();
-    expect(dialog(root)).not.toBeNull();
+    expect(dialog()).not.toBeNull();
   });
 
   it('CONTROL: a deal still states its saving, just above the one total', () => {

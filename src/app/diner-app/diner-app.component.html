@@ -64,26 +64,26 @@ On non-menu routes the class is inert — the brand-strip pins opaque regardless
           <router-outlet></router-outlet>
         </div>
         <!-- Persistent basket sidebar, lg:+ only.
-        THE z-[45] IS LOAD-BEARING, AND SO IS ITS CONDITION. `sticky` makes this
-        aside its own stacking context, so every overlay the basket opens from
-        here (the checkout prompt, the review sheet, the allergen pop-up) is
-        painted AT THE ASIDE'S LAYER, whatever its own z-index. At the default
-        layer the menu's z-10 quick-add buttons and z-40 nav bar painted over
-        them: a "+" landed on top of the prompt's Order button. 45 clears those
-        and stays below every page-level overlay (z-50 sheets, the z-[60] filter
-        sheet, z-[100] toasts).
-        It applies ONLY WHILE ONE OF THOSE OVERLAYS IS OPEN (each carries
-        `data-basket-overlay`). The rest of the time the aside stays at the
-        default layer, UNDER the page's sticky strips, and that matters at the
-        bottom of a long page: the footer pushes a full-height aside up to 53px
-        from the top, into the band where the offline strip sits (48-90px, z-30)
-        on every route but the menu and the basket. Raised permanently, the
-        aside covered the end of "You're offline…" there. A browser without
-        `:has()` just never raises it, which is how this aside behaved before
-        the raise existed. -->
+        NOTHING THE BASKET OPENS IS PAINTED INSIDE IT. `sticky` plus
+        `overflow-y-auto` make this aside a stacking context that clips, and
+        Safari paints a fixed overlay inside such an element only within its box
+        (WebKit bug 160953). The checkout prompt greyed only this column, and
+        its Order and Cancel buttons were invisible but still clickable. So the
+        basket rendered here (`[sidebar]="true"`) puts its overlays (the checkout
+        prompt, the review sheet, the allergen pop-up) under <body>. There z-50
+        is in the root layer: above the menu's z-10 quick-add buttons and z-40
+        nav bar, below the z-[60] filter sheet and z-[100] toasts.
+        SO THIS ASIDE HAS NO z-index. It used to be raised to z-[45] while one of
+        those overlays was open in it, to lift them over the menu's buttons;
+        Safari clips them with or without that. At its default layer the aside
+        stays UNDER the page's sticky strips, and that matters at the bottom of
+        a long page: the footer pushes a full-height aside up to 53px from the
+        top, into the band where the offline strip sits (48-90px, z-30) on every
+        route but the menu and the basket, and a raised aside covered the end of
+        "You're offline…" there. -->
       <aside class="hidden lg:block lg:w-1/3 lg:min-w-[360px] lg:max-w-[480px]
                     lg:mr-4 lg:ml-4
-                    lg:sticky lg:top-[100px] lg:has-[[data-basket-overlay]]:z-[45]
+                    lg:sticky lg:top-[100px]
                     lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto
                     lg:bg-white lg:rounded-none lg:shadow-sm
                     lg:border lg:border-gray-200">

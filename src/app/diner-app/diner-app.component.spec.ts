@@ -212,10 +212,13 @@ describe('DinerAppComponent', () => {
   });
 
   // ── the desktop sidebar's layer ──────────────────────────────────────────
-  // The sticky sidebar is its own stacking context, so the overlays the basket
-  // opens from it paint at ITS layer. It is raised to 45 only while one of them
-  // is open (`data-basket-overlay`, pinned in basket-body.allergen-info.spec.ts).
-  // Raised permanently, it covered the offline strip at the bottom of a long
+  // The sidebar is sticky and scrolls, so it is a stacking context that clips,
+  // and Safari paints a fixed overlay inside such an element only within its
+  // box (WebKit bug 160953). So the basket rendered here puts its overlays
+  // under <body> (`[sidebar]="true"`, pinned in
+  // basket-body.overlay-placement.spec.ts), and the aside has no z-index of its
+  // own. It used to be raised to 45 while an overlay was open in it; raised at
+  // the wrong moment, it covered the offline strip at the bottom of a long
   // page. Karma's window is narrower than `lg:`, so these read the COMPILED
   // stylesheet and ask the aside whether it matches, instead of measuring it.
   describe('the desktop basket sidebar\'s layer', () => {
@@ -244,26 +247,16 @@ describe('DinerAppComponent', () => {
     const matches = (el: Element, selector: string) => {
       try { return el.matches(selector); } catch { return false; }
     };
-    const withMarker = <T>(fn: () => T): T => {
-      const marker = document.createElement('div');
-      marker.setAttribute('data-basket-overlay', '');
-      aside().appendChild(marker);
-      try { return fn(); } finally { marker.remove(); }
-    };
-
-    it('is raised to 45 at lg: while a basket overlay is open inside it', () => {
+    it('renders its basket as the sidebar, which puts the basket\'s overlays under <body>', () => {
       scan();
-      const raises = styleRules().filter(({ rule }) =>
-        rule.style.zIndex !== '' && rule.selectorText.includes(':has([data-basket-overlay])'));
-      expect(raises.length).withContext('the compiled stylesheet carries the raise').toBe(1);
-      const [{ rule, media }] = raises;
-      expect(rule.style.zIndex).toBe('45');
-      expect(media).toContain('min-width: 1024px');
-      expect(matches(aside(), rule.selectorText)).withContext('nothing open').toBe(false);
-      expect(withMarker(() => matches(aside(), rule.selectorText))).withContext('an overlay open').toBe(true);
+      // The basket is not compiled into this spec (NO_ERRORS_SCHEMA), so the
+      // binding lands as a plain property on its element.
+      const basket = aside().querySelector('app-basket-body') as (HTMLElement & { sidebar?: unknown }) | null;
+      expect(basket).withContext('premise: the basket is in the aside').not.toBeNull();
+      expect(basket!.sidebar).toBe(true);
     });
 
-    it('REGRESSION: with nothing open, no rule gives the aside a z-index at any width', () => {
+    it('REGRESSION: no rule gives the aside a z-index at any width', () => {
       scan();
       const idle = styleRules().filter(({ rule }) =>
         rule.style.zIndex !== '' && matches(aside(), rule.selectorText));

@@ -139,7 +139,9 @@ describe('BasketBodyComponent — plain prompt only for an unchanged purchase', 
     fixture.detectChanges();
   }
 
-  /** Put `lines` in the basket, press Checkout, and answer with `body`. */
+  /** Put `lines` in the basket, press Checkout, and answer with `body`.
+   *  Returns `document.body`: opened from the sidebar, the confirmation is
+   *  rendered there (`appBodyPortal`), outside the component. */
   function price(lines: any[], body: any, sidebar = true): HTMLElement {
     basket.items = lines as BasketItem[];
     mount(sidebar);
@@ -149,7 +151,7 @@ describe('BasketBodyComponent — plain prompt only for an unchanged purchase', 
     http.expectOne(`${API}/v2/orders/initiate/`).flush({ status: 200, data: body });
     fixture.detectChanges();
     expect(component.showQuoteSheet).withContext('premise: a confirmation opened').toBe(true);
-    return fixture.nativeElement as HTMLElement;
+    return document.body;
   }
 
   /** The premise of every changed-purchase case: nothing else would object. */
