@@ -67,6 +67,7 @@ import { MenuNavStateService } from '../../menu/menu-nav-state.service';
 import { ButtonComponent } from '../../../_shared/ui/button/button.component';
 import { AllergenInfoLinkComponent } from '../../../_shared/ui/allergen-info/allergen-info-link.component';
 import { AllergenInfoSheetComponent } from '../../../_shared/ui/allergen-info/allergen-info-sheet.component';
+import { BodyPortalDirective } from '../../../_shared/ui/body-portal/body-portal.directive';
 import {
   addMinorUnits, formatAmount, formatMinorUnits, fromMinorUnits, sameAmount,
   toMinorUnits,
@@ -106,13 +107,18 @@ interface ReviewedQuote {
     styleUrls: ['./basket-body.component.css'],
     standalone: true,
     imports: [CommonModule, PriceDisplayComponent, OngoingOrderBannerComponent, ButtonComponent,
-      AllergenInfoLinkComponent, AllergenInfoSheetComponent]
+      AllergenInfoLinkComponent, AllergenInfoSheetComponent, BodyPortalDirective]
 })
 export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
   table?: TableScan|any;
   /** True only at the desktop-sidebar call site (diner-app.component.html). Gates the
    *  centered "Table N" label — on the basket PAGE that's replaced by the header chip,
-   *  but in the always-mounted sidebar it's the only table indicator. */
+   *  but in the always-mounted sidebar it's the only table indicator.
+   *
+   *  It also renders this instance's overlays (the checkout prompt, the review sheet
+   *  and the allergen pop-up) under `<body>`, because the sidebar clips them in
+   *  Safari. See the overlay wrapper in the template. Read once, when the view is
+   *  created. */
   @Input() sidebar = false;
   order_initiated?: OrderInitiated;
   /** The ONE authoritative review: the server's priced lines and total. */

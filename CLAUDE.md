@@ -133,32 +133,57 @@ so keep it current when conventions change.
   price. The link opens the same sheet with `context="basket"`, which leads with the
   special-requests sentence, keeps the two shared safety sentences, and points to each
   dish's own info and the menu Filters (conditionally, because the Filters button only
-  exists when something is tagged) instead of listing tags. Two layering rules, both
+  exists when something is tagged) instead of listing tags. Two placement rules, both
   load-bearing: **THE SHEET IS MOUNTED AT THE BASKET TEMPLATE'S ROOT**, beside the two
   checkout overlays and never inside a sticky or z-indexed box such as the Checkout bar,
-  whose stacking context would paint it beneath the basket header; and **THE DESKTOP SIDEBAR
-  `<aside>` IS RAISED TO `z-[45]` WHILE, AND ONLY WHILE, AN OVERLAY IS OPEN IN IT**
-  (`lg:has-[[data-basket-overlay]]:z-[45]`). `sticky` makes the aside a stacking
-  context too, so every overlay the sidebar basket opens (the checkout prompt, the
-  review sheet, this sheet) paints at the aside's layer. At the default layer the
-  menu's z-10 quick-add buttons and z-40 nav bar painted over them: a "+" landed on top
-  of the checkout prompt's Order button on desktop. 45 clears those and stays under every
-  page-level overlay (z-50 sheets, the z-[60] filter sheet, z-[100] toasts). **THE
-  CONDITION IS LOAD-BEARING TOO**: at the bottom of a long page the footer pushes a
-  full-height aside up to 53px from the top, into the offline strip's band (48-90px,
-  z-30, on every route but the menu and the basket), so a PERMANENT raise covered the end
-  of "You're offline…" there, where the strips used to paint over the aside. Every
-  overlay root carries `data-basket-overlay` while it is open (the sheet's always-present
-  host through an attribute binding on the same signal as `[open]`), and a new basket
-  overlay must carry it too. A browser without `:has()` just never raises the aside,
-  which is the behaviour from before the raise. The sheet is NOT rendered by the shell:
-  it was placed so when the portal's `rest-app-ordering` embed loaded the diner routes
-  WITHOUT the shell, where a shell-owned sheet would have left the link dead. That embed
-  is retired, and the page-owned placement is still correct, so it stays. Pinned from both halves: the
-  markers by `basket-body.allergen-info.spec.ts`, and the compiled rule by
-  `diner-app.component.spec.ts`, which reads the stylesheet and asks the aside whether it
-  MATCHES rather than measuring it, because Karma's window is below `lg`. Both
-  directions were also proved in a real browser
+  whose stacking context would paint it beneath the basket header; and **FROM THE DESKTOP
+  SIDEBAR IT IS RENDERED UNDER `<body>`**, with the checkout overlays. That replaced the
+  aside's `z-[45]` raise and the `data-basket-overlay` markers this bullet used to
+  describe: see DINER-OVERLAY-PORTAL-00, the next bullet. The sheet is NOT rendered by
+  the shell: it was placed so when the portal's `rest-app-ordering` embed loaded the
+  diner routes WITHOUT the shell, where a shell-owned sheet would have left the link dead.
+  That embed is retired, and the page-owned placement is still correct, so it stays.
+  Pinned by `basket-body.allergen-info.spec.ts`
+- **THE SIDEBAR BASKET'S OVERLAYS ARE RENDERED UNDER `<body>` (DINER-OVERLAY-PORTAL-00).**
+  ✅ The defect, as a diner reported it: on desktop, pressing Checkout in the basket
+  sidebar turned the sidebar grey, nothing could be pressed, and the order was not
+  placed; after a reload it could be placed. **THE CAUSE IS WEBKIT BUG 160953.** The
+  sidebar `<aside>` is `sticky` and `overflow-y-auto`, so it is a stacking context that
+  clips, and Safari paints a `position: fixed` descendant of such an element only inside
+  that element's box, while still laying it out and hit-testing it over the whole page.
+  The plain "Are you sure?" prompt (DINER-CONFIRM-00) opens after pricing, so it showed
+  only its 60% backdrop, clipped to the sidebar. Its Order and Cancel buttons, centred on
+  the page, were invisible but LIVE: a click there could place the order unseen, and the
+  draft otherwise stayed unsubmitted until a reload reset the page. The itemised review
+  and the allergen pop-up had the same defect. Chromium paints these correctly, which is
+  why it looked intermittent: it depends on the browser, and at around 1024px the dialog
+  overlaps the sidebar and is partly painted. The `z-[45]` raise neither caused it nor
+  could fix it: the clip happens with or without it. **THE FIX:** `BodyPortalDirective`
+  (`[appBodyPortal]`, `_shared/ui/body-portal/`) moves the basket template's overlay
+  wrapper (`div.contents`) under `<body>` when `sidebar` is true, decided once on init
+  and removed from `<body>` on destroy. Bindings, listeners, change detection and `@if`
+  blocks follow the node. On the basket page the overlays stay in place. Under `<body>`
+  their z-50 is in the root stacking context: above the menu's z-10 quick-add buttons
+  and z-40 nav bar, below the z-[60] filter sheet and z-[100] toasts. So the aside's
+  `lg:has-[[data-basket-overlay]]:z-[45]` raise and the `data-basket-overlay` markers are
+  GONE. **THE ASIDE HAS NO z-index, AND THAT STILL MATTERS**: at the bottom of a long
+  page the footer pushes a full-height aside up to 53px from the top, into the offline
+  strip's band (48-90px, z-30, on every route but the menu and the basket), and a raised
+  aside covered the end of "You're offline…" there. Three rules: **A NEW OVERLAY THE
+  BASKET OPENS GOES INSIDE THE WRAPPER**; **DO NOT TRY TO FIX A LAYERING PROBLEM HERE
+  WITH A z-index ON THE ASIDE**, since Safari clips with or without one; and know that the
+  sidebar's basket exists at every width (the aside is only `hidden` below `lg`), so its
+  wrapper sits in `<body>` on phones too, rendering nothing while closed. Pinned by
+  `basket-body.overlay-placement.spec.ts`, which asserts Safari's CONDITION (no ancestor
+  of an open overlay is a stacking context that clips) rather than pixels, because Karma
+  runs Chromium, with a control proving the harness reproduces the condition;
+  `body-portal.directive.spec.ts`; and `diner-app.component.spec.ts`, which pins that the
+  sidebar's basket is created with `sidebar` set. Reverting the portal fails exactly the
+  7 sidebar placement specs, with every control holding. Verified in a real WebKit
+  (WebKitGTK 2.52.6, which has the same bug) against the real app and backend: before
+  the fix the page was pixel-identical to the report; after it, all three overlays cover
+  the page with their buttons painted, and no menu control can be clicked through them
+  at 1024 or 1728px. macOS Safari itself was not available to test
 - The diner footer is ALWAYS THE VERY BOTTOM OF THE PAGE, UNDER EVERY STICKY BAR
   (DINER-FOOTER-00): ✅ the owner's rule, modelled on Nando's: a page's sticky bottom
   bar rides the bottom of the screen while the page scrolls and comes to rest ABOVE the
@@ -3805,7 +3830,9 @@ no-baseline-chip (`app-no-baseline-chip`), offline-banner,
 page-header (`app-page-header`), price-display, savings-indicator,
 segmented (`app-dn-segmented`), sheet, switch (`app-dn-switch`; supports a
 `disabled` input for locked toggles, e.g. the Roles & access owner row), toast —
-plus the `tooltip` directive (`[appTooltip]`, not a component), the
+plus the `tooltip` directive (`[appTooltip]`, not a component), the body-portal
+directive (`[appBodyPortal]`: renders its host under `<body>`, for a viewport
+overlay whose ancestor would clip it in Safari; see DINER-OVERLAY-PORTAL-00), the
 `SafeArrayPipe`, and the `HighlightPipe` (search-term highlighting). The
 `toast/` folder also exports the injectable `ToastService` (the app-wide toast
 queue), re-exported from the barrel.
@@ -3862,8 +3889,8 @@ them on both the diner item-detail and the preview drawer so the two surfaces
 never drift.
 
 Re-exports live in `src/app/_shared/ui/index.ts` — but the barrel does NOT
-re-export `FeaturedCarouselComponent`, the tooltip directive, or
-`HighlightPipe`; import those from their own file paths. Always use these
+re-export `FeaturedCarouselComponent`, the tooltip directive, the body-portal
+directive, or `HighlightPipe`; import those from their own file paths. Always use these
 existing components before creating new ones. They are all standalone and
 go in the module `imports` array.
 
