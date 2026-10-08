@@ -4881,7 +4881,13 @@ lock also overrides `chokidar` → `4.0.3`** (2026-10-03), which is OUTSIDE
 - **Exit.** Remove the override only when the native graph without it is verified free
   of this blocker and compatible with that invocation.
 
-See `release/README.md` → "The publisher's `chokidar` override". All three
+See `release/README.md` → "The publisher's `chokidar` override". **Both locks carry
+`@modelcontextprotocol/sdk` 1.31.0** (2026-10-08, GHSA-6qxp-vccf-f47h), a lock-only move
+inside `firebase-tools`' declared `^1.24.0`: one entry per lock, no manifest or override
+change. The advisory's consumer caveats concern the SDK's OAuth CLIENT, which
+`firebase-tools` never imports (server modules only, and only for its `mcp` command), so
+no authentication change applies. See `release/README.md` →
+"`@modelcontextprotocol/sdk` 1.31.0 in both graphs". All three
 workflows install with a plain `npm ci` — **no `--legacy-peer-deps`** (DEPS-HYGIENE-01).
 The flag was needed while the Angular 21 tree had peer conflicts; the v22 tree
 resolves strictly, so it now only HIDES future ones. That matters concretely: a

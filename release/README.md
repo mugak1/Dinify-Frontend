@@ -536,6 +536,41 @@ record.
   refused as `preflight.policy_advanced`, and readiness still has to complete a fresh
   assessment on its own.
 
+### `@modelcontextprotocol/sdk` 1.31.0 in both graphs (2026-10-08)
+
+CI run `37607215661` (job `112745524107`) failed `audit:deps` on GHSA-6qxp-vccf-f47h (high;
+affected `>=1.12.0 <1.31.0`, patched 1.31.0): the root lock carried the SDK at 1.30.0
+under `firebase-tools` 15.28.2. The publisher lock carried 1.30.1 under 15.31.0. Both
+`firebase-tools` versions declare `^1.24.0`, so the fix is **lock-only**.
+
+- **What changed.** In each lock exactly one entry moves, the SDK, to 1.31.0 (version,
+  `resolved`, and the registry's own `integrity`). 1.31.0 declares the same dependency and
+  peer ranges as 1.30.x, so nothing else in either closure moves. No manifest, override,
+  `firebase-tools` version or audit record changed.
+- **Applicability.** The advisory concerns the SDK's OAuth CLIENT (`authProvider`,
+  `withOAuth()`, `auth()`, `fetchToken()`), and its consumer caveats (`expectedIssuer`,
+  re-binding or clearing previously stored credentials) apply to code that uses it.
+  `firebase-tools` 15.28.2 and 15.31.0 import only the SDK's SERVER modules
+  (`server/index`, `server/stdio`, `server/sse`, `types`), and only when `argv[2]` is
+  `mcp` or `experimental:mcp`. Nothing in either imports a `client/` module. Loading the
+  supported deploy module graph from the prepared toolchain loads no SDK file at all. So
+  no consumer authentication change applies to this use, and no credential was inspected,
+  cleared or rotated. That is a source trace plus a module-loading probe, not an
+  execution of a deploy.
+- **What was verified locally** (Node 24.21.0, scanner npm 11.19.1, credential-free, run
+  ids `424242`/`1` are local stand-ins, not CI provenance):
+  - the trusted `prepare-publisher` (lifecycle scripts disabled): 660 locked, 660
+    installed. The prepared tree differs from the previous lock's only in the SDK package;
+  - `hosting-oracle.test.mjs` run against the PREPARED publisher tree instead of the root
+    install, with outbound connections refused: 20/20;
+  - a fresh `assess` of the three graphs: `exceptions_only`, 21 findings, 0 blocking, 5
+    under the existing exceptions, 16 requiring triage (the publisher's one is
+    `@opentelemetry/core`). The same assessment with the previous publisher lock is
+    `blocking` on this advisory.
+- **Not verified.** Successful authenticated upload, as before. No deploy or `--dry-run`
+  was run.
+- **Changing the lock advances the verifier**, exactly as for the `chokidar` override.
+
 ### Scanner diagnostics: the last observed npm events
 
 Readiness run `36283185235` (job `108518857938`) went red because the fresh assessment's
