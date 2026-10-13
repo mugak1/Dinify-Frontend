@@ -3661,6 +3661,32 @@ so keep it current when conventions change.
   stands, and nothing was added to `publication.readiness.awaiting`. The committed-policy
   suite went from 64 to **70** tests, and 15 of them fail with `main`'s `pilot-12` policy
   put back; the release suite runs **1361** (1355 on `main`).
+- **A RUNTIME PATCH AND A UI FIX MOVE THE RECEIPT EVEN WHEN THE DEPLOY FILE DOES NOT
+  (D08 receipt refresh, 2026-10-13).** ✅ Compatible set **`2026-10-13-pilot-14`**: Admin
+  `1fa89cb` (the #41 merge, receipt `sha256:49bb690e…`, tree `dc98089`) replaces
+  `89d2cf1`. The range is #42, #43 and #41, and it is **not tooling-only**: #42 moved
+  runtime `@angular/*` 21.2.24 → 21.2.25 (the router among them) beside dev-tooling lock
+  moves, and recorded three owner-approved tooling exceptions in Admin's audit policy,
+  keeping the existing ones; #43 made the directory's Lifecycle select reflect the URL on
+  a direct load; #41 moved the pinned `claude-code-action` in two workflows. The
+  receipt-bearing `deploy.yml` is byte-identical (`2618d1e`) and Admin's `release/`,
+  `src/app/core` and `angular.json` are unchanged. **Observed red first**: readiness
+  runs `37864171285` (on `aa0b958`) and `38386816091` (on `386c432`) read `1fa89cb`
+  serving and refused `peers.admin_serving_unapproved` under `pilot-13`, both binding
+  `sha256:f957895f…`; that decision is replayed WHOLE, and the refresh removes exactly
+  that reason, returning the six-reason wait `sha256:79ff3fea…` in the replay. Deploy
+  Admin run `37662260854` promoted `1fa89cb` with 16/16 admitted files; `15eac1b` (#42)
+  and `85947ca` (#43) were deployed and never approved. Produced by the unchanged
+  `peer-receipt` at the exact commit and re-derived independently (the `89d2cf1` and
+  `94001b7` digests reproduced as controls). The `89d2cf1` block became history pinned to
+  `pilot-13` (in `HISTORICAL_SETS` and `CORRECTED_NOTE_SETS`), with its CLI check split
+  from the new `pilot-14` CLI coverage, and `journey-observation.test.mjs`, which names
+  the approved set, moved with it. **Only the Admin approval moved**: backend `0513adb`
+  stands, the six commissioning conditions stand, nothing was added to
+  `publication.readiness.awaiting`, and a blocking or incomplete dependency assessment
+  is still a hard refusal. The committed-policy suite went from 70 to **77** tests, and
+  16 of them fail with `main`'s `pilot-13` policy put back; the release suite runs
+  **1368** (1361 on `main`).
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
