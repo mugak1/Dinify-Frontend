@@ -102,8 +102,27 @@ describe('ReportExportBarComponent', () => {
   });
 
   it('Print opens a self-contained print window with the report + restaurant name', () => {
-    const fakeDoc = { write: jasmine.createSpy('write'), close: jasmine.createSpy('close') };
-    const openSpy = spyOn(window, 'open').and.returnValue({ document: fakeDoc } as unknown as Window);
+    // A stand-in popup that behaves as a real one does where it matters here:
+    // document.open() erases the window's listeners, and nothing prints until
+    // the popup's load event fires.
+    let listeners: { type: string; fn: () => void }[] = [];
+    const fakeDoc = {
+      open: jasmine.createSpy('open').and.callFake(() => {
+        listeners = [];
+      }),
+      write: jasmine.createSpy('write'),
+      close: jasmine.createSpy('close'),
+    };
+    const fakeWin = {
+      document: fakeDoc,
+      closed: false,
+      addEventListener: jasmine
+        .createSpy('addEventListener')
+        .and.callFake((type: string, fn: () => void) => listeners.push({ type, fn })),
+      print: jasmine.createSpy('print'),
+      close: jasmine.createSpy('windowClose'),
+    };
+    const openSpy = spyOn(window, 'open').and.returnValue(fakeWin as unknown as Window);
 
     buttons()[2].click();
 
@@ -111,6 +130,12 @@ describe('ReportExportBarComponent', () => {
     const html = fakeDoc.write.calls.mostRecent().args[0] as string;
     expect(html).toContain('Sales');
     expect(html).toContain('Test Bistro');
+    // The document carries no script; the print happens from here, on load.
+    expect(new DOMParser().parseFromString(html, 'text/html').querySelectorAll('script').length).toBe(0);
+    expect(fakeWin.print).not.toHaveBeenCalled();
+    listeners.filter(l => l.type === 'load').forEach(l => l.fn());
+    expect(fakeWin.print).toHaveBeenCalledTimes(1);
+    expect(fakeWin.close).toHaveBeenCalledTimes(1);
   });
 
   it('does not act when disabled', () => {

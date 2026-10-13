@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { RestaurantTable, DiningArea } from '../models/tables.models';
 import { environment } from 'src/environments/environment';
 import { escapeHtml } from '../../../_shared/utils/escape-html';
+import { printDocument } from '../../../_shared/utils/print-document';
 
 /**
  * Opens a print-ready page with QR codes for all tables in an area,
@@ -70,7 +71,10 @@ export async function generateQRPrintSheet(
     )
   ).join('');
 
-  printWindow.document.write(`
+  // The sheet carries no script. printDocument prints it from here once the
+  // popup's load event fires, which waits for every QR image to load or fail.
+  // It is left open afterwards, as before.
+  const html = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -144,21 +148,14 @@ export async function generateQRPrintSheet(
       <div class="grid">
         ${tableCards}
       </div>
-      <script>
-        Promise.all(
-          Array.from(document.images).map(img =>
-            img.complete
-              ? Promise.resolve()
-              : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })
-          )
-        ).then(() => {
-          window.print();
-        });
-      </script>
     </body>
     </html>
-  `);
-  printWindow.document.close();
+  `;
+  // If the operator closed the popup while the QR images were being
+  // generated, printDocument writes and prints nothing. The result still
+  // reports `opened`, as it did before: the popup was opened, and telling the
+  // operator to allow pop-ups would be wrong.
+  printDocument(printWindow, html, { closeAfterPrint: false });
   return { printed: printable.length, skipped, opened: true };
 }
 

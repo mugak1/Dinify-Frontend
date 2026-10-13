@@ -16,6 +16,7 @@ import { ToastService } from '../../../../_shared/ui/toast/toast.service';
 import { RestaurantTable, DiningArea } from '../../models/tables.models';
 import { getTableQRUrl } from '../../utils/qr-print-sheet';
 import { escapeHtml } from '../../../../_shared/utils/escape-html';
+import { printDocument } from '../../../../_shared/utils/print-document';
 import QRCode from 'qrcode';
 
 /**
@@ -147,11 +148,12 @@ export class QrCodePreviewModalComponent implements OnChanges {
     // The print document is assembled as a string and written into a
     // same-origin window, so every label is HTML-encoded where it is
     // interpolated. `rawSvg` is NOT encoded: it is markup this component
-    // generated locally with the bundled `qrcode` library.
+    // generated locally with the bundled `qrcode` library. The document carries
+    // no script: printDocument prints and closes it from here, once it loads.
     const tableNumber = escapeHtml(String(this.table.number));
     const areaName = escapeHtml(String(this.area?.name || 'Main Dining'));
 
-    printWindow.document.write(`
+    const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -197,13 +199,10 @@ export class QrCodePreviewModalComponent implements OnChanges {
           ${this.rawSvg}
           <div class="scan-text">Scan to view menu & order</div>
         </div>
-        <script>
-          window.onload = () => { window.print(); window.close(); };
-        </script>
       </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+    printDocument(printWindow, html, { closeAfterPrint: true });
   }
 
   async handleCopyLink(): Promise<void> {

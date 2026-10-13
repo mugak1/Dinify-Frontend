@@ -2,6 +2,45 @@ import QRCode from 'qrcode';
 import { generateQRPrintSheet, getTableQRUrl } from './qr-print-sheet';
 import { DiningArea, RestaurantTable } from '../models/tables.models';
 
+/**
+ * A stand-in print popup. HTML's document-open steps erase every event listener
+ * on the document and its window, so this fake's `document.open()` erases the
+ * load listener too: a lifecycle that listens before it opens never prints,
+ * here as in a real frame (`print-document.spec.ts` proves the real one).
+ */
+function fakePrintWindow() {
+  let listeners: { type: string; fn: () => void }[] = [];
+  const document = {
+    open: jasmine.createSpy('open').and.callFake(() => {
+      listeners = [];
+    }),
+    write: jasmine.createSpy('write'),
+    close: jasmine.createSpy('close'),
+  };
+  return {
+    document,
+    closed: false,
+    addEventListener: jasmine
+      .createSpy('addEventListener')
+      .and.callFake((type: string, fn: () => void) => listeners.push({ type, fn })),
+    print: jasmine.createSpy('print'),
+    close: jasmine.createSpy('windowClose'),
+    /** Fire the popup's `load` event, as the browser does once it has loaded. */
+    fireLoad(): void {
+      listeners.filter(l => l.type === 'load').forEach(l => l.fn());
+    },
+  };
+}
+type FakePrintWindow = ReturnType<typeof fakePrintWindow>;
+
+/** Script elements plus inline `on*` handlers: neither runs under `script-src 'self'`. */
+function scriptsIn(doc: Document): number {
+  const handlers = Array.from(doc.querySelectorAll('*')).filter(el =>
+    Array.from(el.attributes).some(a => a.name.toLowerCase().startsWith('on')),
+  );
+  return doc.querySelectorAll('script').length + handlers.length;
+}
+
 function baseTable(over: Partial<RestaurantTable>): RestaurantTable {
   return {
     id: 't1',
@@ -105,18 +144,15 @@ describe('generateQRPrintSheet (local QR generation)', () => {
     };
   }
 
-  let fakeDoc: { write: jasmine.Spy; close: jasmine.Spy };
+  let fakeWin: FakePrintWindow;
+  let fakeDoc: FakePrintWindow['document'];
   let openSpy: jasmine.Spy;
   let toDataURLSpy: jasmine.Spy;
 
   beforeEach(() => {
-    fakeDoc = {
-      write: jasmine.createSpy('write'),
-      close: jasmine.createSpy('close'),
-    };
-    openSpy = spyOn(window, 'open').and.returnValue(
-      { document: fakeDoc } as unknown as Window,
-    );
+    fakeWin = fakePrintWindow();
+    fakeDoc = fakeWin.document;
+    openSpy = spyOn(window, 'open').and.returnValue(fakeWin as unknown as Window);
     // `toDataURL` is overloaded (one signature returns void), so jasmine infers
     // a void return for the spy — cast the resolved data URL past that.
     toDataURLSpy = spyOn(QRCode, 'toDataURL').and.returnValue(
@@ -155,6 +191,39 @@ describe('generateQRPrintSheet (local QR generation)', () => {
     expect(html).toContain('data:image/png;base64,FAKEQR');
     expect(html).not.toContain('api.qrserver.com');
     expect(fakeDoc.close).toHaveBeenCalled();
+  });
+
+  it('writes no script, prints once the popup has loaded, and leaves the sheet open', async () => {
+    await generateQRPrintSheet([makeTable({ id: 'abc', number: 2, qrCredential: 'CRED-abc' })], area);
+
+    const html = fakeDoc.write.calls.mostRecent().args[0] as string;
+    expect(scriptsIn(new DOMParser().parseFromString(html, 'text/html'))).toBe(0);
+    expect(fakeDoc.open).toHaveBeenCalledBefore(fakeDoc.write);
+    expect(fakeWin.print).not.toHaveBeenCalled();
+
+    fakeWin.fireLoad();
+
+    expect(fakeWin.print).toHaveBeenCalledTimes(1);
+    expect(fakeWin.close).not.toHaveBeenCalled();
+  });
+
+  it('writes and prints nothing when the popup was closed while the QR codes were generated', async () => {
+    toDataURLSpy.and.callFake(() => {
+      fakeWin.closed = true;
+      return Promise.resolve('data:image/png;base64,FAKEQR');
+    });
+
+    const result = await generateQRPrintSheet(
+      [makeTable({ id: 'abc', number: 2, qrCredential: 'CRED-abc' })],
+      area,
+    );
+    fakeWin.fireLoad();
+
+    expect(fakeDoc.open).not.toHaveBeenCalled();
+    expect(fakeDoc.write).not.toHaveBeenCalled();
+    expect(fakeWin.print).not.toHaveBeenCalled();
+    // The popup WAS opened, so the result still says so, as it did before.
+    expect(result).toEqual({ printed: 1, skipped: 0, opened: true });
   });
 
   it('opens nothing when no table in the area has a QR code', async () => {
@@ -231,17 +300,14 @@ describe('generateQRPrintSheet (dynamic labels are encoded as text)', () => {
     };
   }
 
-  let fakeDoc: { write: jasmine.Spy; close: jasmine.Spy };
+  let fakeWin: FakePrintWindow;
+  let fakeDoc: FakePrintWindow['document'];
   let openSpy: jasmine.Spy;
 
   beforeEach(() => {
-    fakeDoc = {
-      write: jasmine.createSpy('write'),
-      close: jasmine.createSpy('close'),
-    };
-    openSpy = spyOn(window, 'open').and.returnValue(
-      { document: fakeDoc } as unknown as Window,
-    );
+    fakeWin = fakePrintWindow();
+    fakeDoc = fakeWin.document;
+    openSpy = spyOn(window, 'open').and.returnValue(fakeWin as unknown as Window);
     spyOn(QRCode, 'toDataURL').and.returnValue(
       Promise.resolve('data:image/png;base64,FAKEQR') as unknown as void,
     );
@@ -387,5 +453,6 @@ describe('generateQRPrintSheet (dynamic labels are encoded as text)', () => {
 
     expect(result).toEqual({ printed: 1, skipped: 0, opened: false });
     expect(fakeDoc.write).not.toHaveBeenCalled();
+    expect(fakeWin.print).not.toHaveBeenCalled();
   });
 });
