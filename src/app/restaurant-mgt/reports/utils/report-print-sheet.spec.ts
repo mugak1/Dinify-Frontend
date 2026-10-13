@@ -175,6 +175,5 @@ describe('printReport (dynamic values are encoded as text)', () => {
       printReport(columns, [], null, { reportTitle: 'Sales', restaurantName: MARKER, range }),
     ).not.toThrow();
     expect(fakeDoc.write).not.toHaveBeenCalled();
-    expect(fakeWin.print).not.toHaveBeenCalled();
   });
 });

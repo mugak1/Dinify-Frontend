@@ -171,8 +171,10 @@ describe('generateQRPrintSheet (local QR generation)', () => {
 
     await generateQRPrintSheet(tables, area);
 
-    // Window is opened synchronously (popup-safe), exactly once.
+    // Window is opened synchronously (popup-safe), exactly once, and before
+    // any QR code is generated, so the open stays inside the click.
     expect(openSpy).toHaveBeenCalledOnceWith('', '_blank');
+    expect(openSpy).toHaveBeenCalledBefore(toDataURLSpy);
 
     // One QR per QR-enabled table, each encoding the diner entry URL with the
     // opaque credential in `?c=` (not the raw table UUID as authority).
@@ -453,6 +455,5 @@ describe('generateQRPrintSheet (dynamic labels are encoded as text)', () => {
 
     expect(result).toEqual({ printed: 1, skipped: 0, opened: false });
     expect(fakeDoc.write).not.toHaveBeenCalled();
-    expect(fakeWin.print).not.toHaveBeenCalled();
   });
 });

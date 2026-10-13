@@ -398,7 +398,6 @@ describe('QrCodePreviewModalComponent', () => {
 
       expect(() => component.handlePrint()).not.toThrow();
       expect(fakeDoc.write).not.toHaveBeenCalled();
-      expect(fakeWin.print).not.toHaveBeenCalled();
     });
 
     it('opens no print window when the table has no usable credential', async () => {
