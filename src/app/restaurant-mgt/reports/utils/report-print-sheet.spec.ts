@@ -3,6 +3,45 @@ import { ReportColumn } from '../models/reports.models';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 
 /**
+ * A stand-in print popup. HTML's document-open steps erase every event listener
+ * on the document and its window, so this fake's `document.open()` erases the
+ * load listener too: a lifecycle that listens before it opens never prints,
+ * here as in a real frame (`print-document.spec.ts` proves the real one).
+ */
+function fakePrintWindow() {
+  let listeners: { type: string; fn: () => void }[] = [];
+  const document = {
+    open: jasmine.createSpy('open').and.callFake(() => {
+      listeners = [];
+    }),
+    write: jasmine.createSpy('write'),
+    close: jasmine.createSpy('close'),
+  };
+  return {
+    document,
+    closed: false,
+    addEventListener: jasmine
+      .createSpy('addEventListener')
+      .and.callFake((type: string, fn: () => void) => listeners.push({ type, fn })),
+    print: jasmine.createSpy('print'),
+    close: jasmine.createSpy('windowClose'),
+    /** Fire the popup's `load` event, as the browser does once it has loaded. */
+    fireLoad(): void {
+      listeners.filter(l => l.type === 'load').forEach(l => l.fn());
+    },
+  };
+}
+type FakePrintWindow = ReturnType<typeof fakePrintWindow>;
+
+/** Script elements plus inline `on*` handlers: neither runs under `script-src 'self'`. */
+function scriptsIn(doc: Document): number {
+  const handlers = Array.from(doc.querySelectorAll('*')).filter(el =>
+    Array.from(el.attributes).some(a => a.name.toLowerCase().startsWith('on')),
+  );
+  return doc.querySelectorAll('script').length + handlers.length;
+}
+
+/**
  * The report print sheet already HTML-encoded every dynamic value before D14
  * B1; its private encoder was only moved to `_shared/utils/escape-html.ts` so
  * the table print documents could reuse it. These tests are the POSITIVE
@@ -23,17 +62,14 @@ describe('printReport (dynamic values are encoded as text)', () => {
 
   const range = { preset: 'custom' as const, from: '2026-07-01', to: '2026-07-31' };
 
-  let fakeDoc: { write: jasmine.Spy; close: jasmine.Spy };
+  let fakeWin: FakePrintWindow;
+  let fakeDoc: FakePrintWindow['document'];
   let openSpy: jasmine.Spy;
 
   beforeEach(() => {
-    fakeDoc = {
-      write: jasmine.createSpy('write'),
-      close: jasmine.createSpy('close'),
-    };
-    openSpy = spyOn(window, 'open').and.returnValue(
-      { document: fakeDoc } as unknown as Window,
-    );
+    fakeWin = fakePrintWindow();
+    fakeDoc = fakeWin.document;
+    openSpy = spyOn(window, 'open').and.returnValue(fakeWin as unknown as Window);
   });
 
   function writtenDocument(): Document {
@@ -111,6 +147,25 @@ describe('printReport (dynamic values are encoded as text)', () => {
     ]);
     expect(doc.querySelector('.meta')!.textContent).toContain('1 Jul 2026 – 31 Jul 2026');
     expect(fakeDoc.close).toHaveBeenCalled();
+  });
+
+  it('writes no script, and prints then closes the popup only once it has loaded', () => {
+    printReport(columns, [{ item: 'Tea', qty: 1, revenue: 100, status: 'paid' }], null, {
+      reportTitle: 'Sales',
+      restaurantName: 'Café',
+      range,
+    });
+
+    expect(scriptsIn(writtenDocument())).toBe(0);
+    expect(fakeDoc.open).toHaveBeenCalledBefore(fakeDoc.write);
+    expect(fakeWin.print).not.toHaveBeenCalled();
+    expect(fakeWin.close).not.toHaveBeenCalled();
+
+    fakeWin.fireLoad();
+
+    expect(fakeWin.print).toHaveBeenCalledTimes(1);
+    expect(fakeWin.close).toHaveBeenCalledTimes(1);
+    expect(fakeWin.print).toHaveBeenCalledBefore(fakeWin.close);
   });
 
   it('writes nothing when the popup is blocked', () => {

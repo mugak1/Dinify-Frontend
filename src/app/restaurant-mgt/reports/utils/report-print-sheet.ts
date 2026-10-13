@@ -7,6 +7,7 @@
 import { format as formatDate, parseISO } from 'date-fns';
 import { formatUGX } from '../../../_shared/utils/price-utils';
 import { escapeHtml } from '../../../_shared/utils/escape-html';
+import { printDocument } from '../../../_shared/utils/print-document';
 import { ReportColumn } from '../models/reports.models';
 import { ReportDateRange } from '../../../_shared/timeframe';
 
@@ -84,7 +85,9 @@ export function printReport(
   )}`;
   const generated = new Date().toLocaleString();
 
-  printWindow.document.write(`
+  // The document carries no script: printDocument prints and closes it from
+  // here once it has loaded.
+  const html = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -118,9 +121,8 @@ export function printReport(
         <thead><tr>${headCells}</tr></thead>
         <tbody>${bodyRows}${totalsRow}</tbody>
       </table>
-      <script>window.onload = function () { window.print(); window.close(); };</script>
     </body>
     </html>
-  `);
-  printWindow.document.close();
+  `;
+  printDocument(printWindow, html, { closeAfterPrint: true });
 }

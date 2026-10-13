@@ -5,6 +5,45 @@ import { QrCodePreviewModalComponent } from './qr-code-preview-modal.component';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
 import { DiningArea, RestaurantTable } from '../../models/tables.models';
 
+/**
+ * A stand-in print popup. HTML's document-open steps erase every event listener
+ * on the document and its window, so this fake's `document.open()` erases the
+ * load listener too: a lifecycle that listens before it opens never prints,
+ * here as in a real frame (`print-document.spec.ts` proves the real one).
+ */
+function fakePrintWindow() {
+  let listeners: { type: string; fn: () => void }[] = [];
+  const document = {
+    open: jasmine.createSpy('open').and.callFake(() => {
+      listeners = [];
+    }),
+    write: jasmine.createSpy('write'),
+    close: jasmine.createSpy('close'),
+  };
+  return {
+    document,
+    closed: false,
+    addEventListener: jasmine
+      .createSpy('addEventListener')
+      .and.callFake((type: string, fn: () => void) => listeners.push({ type, fn })),
+    print: jasmine.createSpy('print'),
+    close: jasmine.createSpy('windowClose'),
+    /** Fire the popup's `load` event, as the browser does once it has loaded. */
+    fireLoad(): void {
+      listeners.filter(l => l.type === 'load').forEach(l => l.fn());
+    },
+  };
+}
+type FakePrintWindow = ReturnType<typeof fakePrintWindow>;
+
+/** Script elements plus inline `on*` handlers: neither runs under `script-src 'self'`. */
+function scriptsIn(doc: Document): number {
+  const handlers = Array.from(doc.querySelectorAll('*')).filter(el =>
+    Array.from(el.attributes).some(a => a.name.toLowerCase().startsWith('on')),
+  );
+  return doc.querySelectorAll('script').length + handlers.length;
+}
+
 function table(over: Partial<RestaurantTable> = {}): RestaurantTable {
   return {
     id: 't1',
@@ -184,7 +223,8 @@ describe('QrCodePreviewModalComponent', () => {
    */
   describe('handlePrint (dynamic labels are encoded as text)', () => {
     const MARKER = '<dinify-probe data-d14="x">m</dinify-probe>';
-    let fakeDoc: { write: jasmine.Spy; close: jasmine.Spy };
+    let fakeWin: FakePrintWindow;
+    let fakeDoc: FakePrintWindow['document'];
     let openSpy: jasmine.Spy;
 
     function area(name: string): DiningArea {
@@ -200,13 +240,9 @@ describe('QrCodePreviewModalComponent', () => {
     }
 
     beforeEach(() => {
-      fakeDoc = {
-        write: jasmine.createSpy('write'),
-        close: jasmine.createSpy('close'),
-      };
-      openSpy = spyOn(window, 'open').and.returnValue(
-        { document: fakeDoc } as unknown as Window,
-      );
+      fakeWin = fakePrintWindow();
+      fakeDoc = fakeWin.document;
+      openSpy = spyOn(window, 'open').and.returnValue(fakeWin as unknown as Window);
     });
 
     async function openPrintable(t: RestaurantTable, a?: DiningArea): Promise<void> {
@@ -308,6 +344,49 @@ describe('QrCodePreviewModalComponent', () => {
       expect(printed.outerHTML).toBe(expected.outerHTML);
       expect(printed.querySelectorAll('path').length).toBeGreaterThan(0);
       expect(component.qrUrl).toBe(url);
+    });
+
+    it('writes no script, and prints then closes the popup only once it has loaded', async () => {
+      spyOn(QRCode, 'toString').and.returnValue(
+        Promise.resolve('<svg class="qr"><path d="M0 0h1"/></svg>') as unknown as void,
+      );
+      await openPrintable(table({ number: 9 }), area('Garden'));
+
+      component.handlePrint();
+
+      expect(scriptsIn(writtenDocument())).toBe(0);
+      expect(fakeDoc.open).toHaveBeenCalledBefore(fakeDoc.write);
+      expect(fakeWin.print).not.toHaveBeenCalled();
+      expect(fakeWin.close).not.toHaveBeenCalled();
+
+      fakeWin.fireLoad();
+
+      expect(fakeWin.print).toHaveBeenCalledTimes(1);
+      expect(fakeWin.close).toHaveBeenCalledTimes(1);
+      expect(fakeWin.print).toHaveBeenCalledBefore(fakeWin.close);
+    });
+
+    it('prints each Print press in its own popup, once', async () => {
+      spyOn(QRCode, 'toString').and.returnValue(
+        Promise.resolve('<svg></svg>') as unknown as void,
+      );
+      await openPrintable(table(), area('Garden'));
+      const popups: FakePrintWindow[] = [];
+      openSpy.and.callFake(() => {
+        popups.push(fakePrintWindow());
+        return popups[popups.length - 1] as unknown as Window;
+      });
+
+      component.handlePrint();
+      component.handlePrint();
+      popups.forEach(p => p.fireLoad());
+
+      expect(popups.length).toBe(2);
+      for (const p of popups) {
+        expect(p.document.write).toHaveBeenCalledTimes(1);
+        expect(p.print).toHaveBeenCalledTimes(1);
+        expect(p.close).toHaveBeenCalledTimes(1);
+      }
     });
 
     it('writes nothing when the popup is blocked', async () => {
