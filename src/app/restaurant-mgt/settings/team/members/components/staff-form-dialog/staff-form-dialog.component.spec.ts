@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient, withXhr } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { StaffFormDialogComponent } from './staff-form-dialog.component';
 import { ApiService } from 'src/app/_services/api.service';
@@ -18,6 +18,24 @@ function makeUser(over: Partial<EmployeeListUser> = {}): EmployeeListUser {
     active: true,
     ...over,
   };
+}
+
+/**
+ * The lookup's "no account" answer as `ErrorInterceptor` forwards it: the
+ * untouched HTTP 404 with `UserLookupEndpoint`'s own envelope.
+ *
+ * CORRECTED ORACLE. These specs used to stub the lookup with
+ * `of({status: 400})`, the pre-`a2f7f8c` shape (HTTP 200 with `status: 400` in
+ * the body) that no deployed server has sent since 2026-03-16. Against that
+ * stub the component looked correct while every real unknown number reached
+ * the error path. The real-chain proof is `staff-form-dialog.user-lookup.spec.ts`.
+ */
+function noAccount() {
+  return throwError(() => new HttpErrorResponse({
+    status: 404,
+    statusText: 'Not Found',
+    error: { status: 404, message: 'User not found' },
+  }));
 }
 
 describe('StaffFormDialogComponent', () => {
@@ -109,9 +127,9 @@ describe('StaffFormDialogComponent', () => {
     expect(c.user_id).toBe('existing-user');
   });
 
-  it('looks up an unknown number (status 400) and reveals the new-user step', () => {
+  it('looks up an unknown number (HTTP 404) and reveals the new-user step', () => {
     const c = build();
-    api.get.and.returnValue(of({ status: 400 } as any));
+    api.get.and.returnValue(noAccount());
     open(c, null);
     c.RegisterForm.get('phone_number')?.setValue('256700111222');
     c.submit();
@@ -147,7 +165,7 @@ describe('StaffFormDialogComponent', () => {
     let saved = false;
     c.created.subscribe((r) => (createdResp = r));
     c.saved.subscribe(() => (saved = true));
-    api.get.and.returnValue(of({ status: 400 } as any));
+    api.get.and.returnValue(noAccount());
     open(c, null);
     c.RegisterForm.get('phone_number')?.setValue('256700111222');
     c.submit(); // lookup → not found
@@ -185,7 +203,7 @@ describe('StaffFormDialogComponent', () => {
 
   it('blocks save until a role is chosen', () => {
     const c = build();
-    api.get.and.returnValue(of({ status: 400 } as any));
+    api.get.and.returnValue(noAccount());
     open(c, null);
     c.RegisterForm.get('phone_number')?.setValue('256700111222');
     c.submit(); // lookup

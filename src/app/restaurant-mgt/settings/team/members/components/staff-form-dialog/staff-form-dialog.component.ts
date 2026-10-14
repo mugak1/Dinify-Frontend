@@ -14,6 +14,7 @@ import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/din
 import { CreateEmployeeResponse, EmployeeListUser } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
+import { isNoAccountAnswer } from 'src/app/_helpers/account-lookup';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import {
@@ -214,17 +215,21 @@ export class StaffFormDialogComponent implements OnChanges {
           this.user_id = (x.data as any)?.id ?? null;
           this.submitted = false;
           this.checked = true;
-        } else if (x.status === 400) {
-          this.user_id = null;
-          this.submitted = false;
-          this.checked = true;
         } else {
           this.toast.clear();
           this.toast.error('Could not look up that number. Please try again.');
         }
       },
-      error: () => {
+      error: (err) => {
         this.saving = false;
+        if (isNoAccountAnswer(err)) {
+          // No Dinify account holds this contact: the lookup answers HTTP 404
+          // (see account-lookup.ts), so offer to create a new employee.
+          this.user_id = null;
+          this.submitted = false;
+          this.checked = true;
+          return;
+        }
         this.toast.clear();
         this.toast.error('Could not look up that number. Please try again.');
       },
