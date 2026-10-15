@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClient, HttpErrorResponse, provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import {
   ErrorInterceptor, SESSION_CHANGED_MESSAGE, SESSION_EXPIRED, SESSION_UNCONFIRMED_MESSAGE,
@@ -564,6 +564,75 @@ describe('ErrorInterceptor', () => {
       );
       expect(caught).toBe('Order not found');
       expect(toast.error).toHaveBeenCalledWith('Order not found');
+    });
+  });
+
+  describe('account lookups: "no account" is a 404 the caller handles', () => {
+    // `users/msisdn-lookup/` (sign-up) and `users/user-lookup/` (add staff)
+    // answer a contact with no account with HTTP 404 and their own
+    // `{status: 404}` envelope. That is the answer each caller asked for, so it
+    // is forwarded untouched and never toasted. Anything else keeps the string
+    // + toast behaviour. The component halves are pinned through the real chain
+    // in `register.msisdn-lookup.spec.ts` and
+    // `staff-form-dialog.user-lookup.spec.ts`.
+    const MSISDN_LOOKUP = '/api/v1/users/msisdn-lookup/?msisdn=256700111222';
+    const USER_LOOKUP = '/api/v1/users/user-lookup/?contact=256700111222';
+    const NO_ACCOUNT = { status: 404, message: 'User not found' };
+
+    /** Send one request, answer it, and return what reached the subscriber. */
+    function answer(
+      method: 'GET' | 'POST', url: string, body: unknown, status: number, statusText: string,
+    ): any {
+      let caught: any = null;
+      const sent = method === 'GET' ? httpClient.get(url) : httpClient.post(url, {});
+      sent.subscribe({ error: (e) => (caught = e) });
+      httpMock.expectOne(url).flush(body as object, { status, statusText });
+      return caught;
+    }
+
+    for (const url of [MSISDN_LOOKUP, USER_LOOKUP]) {
+      it(`forwards the "no account" 404 untouched, without a toast: ${url.split('?')[0]}`, () => {
+        const caught = answer('GET', url, NO_ACCOUNT, 404, 'Not Found');
+        expect(caught instanceof HttpErrorResponse).toBeTrue();
+        expect(caught?.status).toBe(404);
+        expect(caught?.error).toEqual(NO_ACCOUNT);
+        expect(toast.error).not.toHaveBeenCalled();
+      });
+    }
+
+    it('keeps a 404 that is not the lookup\'s own answer on the generic path', () => {
+      // A missing route or a proxy's page is not "no account".
+      const caught = answer('GET', USER_LOOKUP, { detail: 'Not found.' }, 404, 'Not Found');
+      expect(caught).toBe('Not Found');
+      expect(toast.error).toHaveBeenCalledWith('Not Found');
+    });
+
+    it('keeps a lookup server failure on the generic path', () => {
+      const caught = answer(
+        'GET', MSISDN_LOOKUP, { status: 500, message: 'Something went wrong' }, 500, 'Server Error',
+      );
+      expect(caught).toBe('Something went wrong');
+      expect(toast.error).toHaveBeenCalledWith('Something went wrong');
+    });
+
+    it('keeps the same envelope on any other route on the generic path', () => {
+      const url = '/api/v1/users/user-profile/';
+      const caught = answer('GET', url, NO_ACCOUNT, 404, 'Not Found');
+      expect(caught).toBe('User not found');
+      expect(toast.error).toHaveBeenCalledWith('User not found');
+    });
+
+    it('is method-exact: a POST to the lookup path keeps the generic path', () => {
+      const caught = answer('POST', USER_LOOKUP, NO_ACCOUNT, 404, 'Not Found');
+      expect(caught).toBe('User not found');
+      expect(toast.error).toHaveBeenCalledWith('User not found');
+    });
+
+    it('matches the path, not a query parameter that mentions it', () => {
+      const url = '/api/v1/users/user-profile/?next=/api/v1/users/user-lookup/';
+      const caught = answer('GET', url, NO_ACCOUNT, 404, 'Not Found');
+      expect(caught).toBe('User not found');
+      expect(toast.error).toHaveBeenCalledWith('User not found');
     });
   });
 

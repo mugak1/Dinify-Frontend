@@ -4361,6 +4361,25 @@ writing new tag, price/menu or date-range logic:
   the back-office `OfflineBannerComponent` and the diner `OfflineStripComponent`,
   and the interceptor suppresses its global 'no network' toast on those surfaces
   (it still fires for login/auth and for a server-down-while-online status 0)
+- **"No account" is an HTTP 404, and two flows depend on reading it**
+  (LOOKUP-404-00). `GET users/msisdn-lookup/` (sign-up, `RegisterComponent`) and
+  `GET users/user-lookup/` (add staff, `StaffFormDialogComponent`) answer a contact
+  with no account with HTTP 404 `{status: 404, message: 'User not found'}`. That has
+  been true since backend `a2f7f8c` (2026-03-16). Before it, the answer was HTTP 200
+  with `status: 400` in the BODY. Both callers kept checking for that in `next`, so
+  against any backend since `a2f7f8c` a new number could not sign up (a "User not
+  found" toast and no OTP) and an owner could not reach the create-new-employee
+  path. The two callers'
+  specs stubbed `ApiService` with that dead shape, which is how it stayed hidden.
+  `_helpers/account-lookup.ts` is now the ONE reading, shared by `ErrorInterceptor`
+  and both callers. The interceptor forwards that 404 untouched and does NOT toast
+  it. Sign-up then sends the OTP, and the staff form opens the new-employee
+  fields. **The body's `status: 404` is part of the answer.** A 404 without it is a
+  missing route or a proxy page, not "no account", so it keeps the generic toast
+  path. Treating it as "no account" would send an OTP, or offer a second account for
+  a number that may already have one. Every other status keeps its existing path.
+  Pinned through the real chain by `register.msisdn-lookup.spec.ts` and
+  `staff-form-dialog.user-lookup.spec.ts`
 - Diner table-session capability (opaque QR, backend PR 7A) — the anonymous diner
   journey is gated by two opaque, signed tokens owned by `DinerSessionService`
   (`_services/diner-session.service.ts`):

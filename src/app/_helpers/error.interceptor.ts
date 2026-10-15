@@ -8,6 +8,7 @@ import {
 } from '../_services/authentication.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { ConnectivityService } from '../_services/connectivity.service';
+import { isAccountLookup, isNoAccountAnswer } from './account-lookup';
 
 /**
  * First URL segments that are NOT back-office banner shells. Now that the
@@ -247,6 +248,22 @@ export class ErrorInterceptor implements HttpInterceptor {
         // keeps its existing string + toast behaviour exactly.
         if (request.url.includes('orders/journey/order-details/')
             && request.url.includes('intent=')) {
+            return throwError(() => err);
+        }
+
+        // Account lookup, "no account". `users/msisdn-lookup/` (sign-up)
+        // and `users/user-lookup/` (add staff) answer a contact with no
+        // account with HTTP 404 {status: 404, message: 'User not found'}.
+        // For both callers that is the answer they asked for, not a
+        // failure: sign-up sends the OTP, and the staff form offers to
+        // create a new employee. Forward the response untouched and do NOT
+        // toast it. Flattened below, it became a "User not found" toast
+        // and a string the caller could not tell from any other failure.
+        //
+        // Scoped by `account-lookup.ts` to that envelope on those two GET
+        // routes. Every other status there, and a 404 that is not the
+        // lookup's own answer, keeps the string + toast behaviour below.
+        if (isAccountLookup(request) && isNoAccountAnswer(err)) {
             return throwError(() => err);
         }
 
