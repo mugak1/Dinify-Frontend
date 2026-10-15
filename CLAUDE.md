@@ -4374,7 +4374,9 @@ writing new tag, price/menu or date-range logic:
   `_helpers/account-lookup.ts` is now the ONE reading, shared by `ErrorInterceptor`
   and both callers. The interceptor forwards that 404 untouched and does NOT toast
   it. Sign-up then sends the OTP, and the staff form opens the new-employee
-  fields. **The body's `status: 404` is part of the answer.** A 404 without it is a
+  fields. **The OTP step's Verify button also had to be fixed** (`onSubmit()`):
+  the form's submit required the phone input's validity, the OTP step removes
+  that input, and so Verify never sent the registration. **The body's `status: 404` is part of the answer.** A 404 without it is a
   missing route or a proxy page, not "no account", so it keeps the generic toast
   path. Treating it as "no account" would send an OTP, or offer a second account for
   a number that may already have one. Every other status keeps its existing path.

@@ -48,6 +48,21 @@ export class RegisterComponent {
 get newpassword() {
     return this.RegisterForm.get("password")
 }
+  /**
+   * The form's submit, for both steps. The first step also needs the phone
+   * input's own validity. The OTP step removes that input, so `phoneComponent`
+   * is undefined there; requiring it made Verify only set `is_submitted` and
+   * never send the registration. The number was validated before the OTP was
+   * sent and cannot change on that step.
+   */
+  onSubmit(){
+    const phoneValid = this.require_otp || !!this.phoneComponent?.isValid;
+    if (this.RegisterForm.valid && phoneValid) {
+      this.Register();
+    } else {
+      this.is_submitted = true;
+    }
+  }
   Register(){
     if(this.RegisterForm.get('phone_number')?.value&&!this.require_otp){
       const msisdn = this.RegisterForm.get('phone_number')?.value;
@@ -78,12 +93,20 @@ get newpassword() {
 
   }
   RegisterUser(){
-    this.api.postPatch('users/auth/register/',this.RegisterForm.value,'post').subscribe((x:any)=>{
-  
-      this.toast.success(x.message);
-      this.RegisterForm=this.initRegisterForm();
-      this.data='';
-      this.saved.emit(x);
+    this.api.postPatch('users/auth/register/',this.RegisterForm.value,'post').subscribe({
+      next: (x:any)=>{
+        this.toast.success(x.message);
+        this.RegisterForm=this.initRegisterForm();
+        this.data='';
+        this.saved.emit(x);
+      },
+      error: () => {
+        // Nothing to undo. A refusal (a number that already has an account, a
+        // wrong or expired OTP) or a failed request is reported by
+        // ErrorInterceptor, and the form keeps what was entered so the person
+        // can correct it and try again. Handling it here stops the failure
+        // reaching RxJS as an unhandled error.
+      },
     })
   }
 
