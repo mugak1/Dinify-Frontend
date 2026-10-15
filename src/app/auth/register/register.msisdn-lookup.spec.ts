@@ -31,10 +31,18 @@
  *
  * UNHANDLED ERRORS ARE CAPTURED, NOT LEFT TO ESCAPE. A subscription with no
  * error callback hands its error to RxJS, which rethrows it from a later
- * `setTimeout` — into whichever spec happens to be running then. `RegisterUser()`
- * still has no error callback of its own (its existing-account path is out of
- * scope and unchanged), so this file routes those errors through
- * `config.onUnhandledError` and drains the queue before each spec ends.
+ * `setTimeout` — into whichever spec happens to be running then. This file
+ * routes those errors through `config.onUnhandledError` and drains the queue
+ * before each spec ends, so a spec can assert that none occurred.
+ *
+ * `RegisterUser()` FAILURES ARE PINNED HERE TOO, on the same harness. It had no
+ * error callback, so every refused registration reached RxJS as unhandled: the
+ * interceptor's toast was right and the error still escaped. Those specs drive
+ * the existing-number path through the DOM. The OTP path is driven by calling
+ * `Register()`, the method the Verify button is meant to reach. The template's
+ * submit condition requires the phone input, which the OTP step removes, so
+ * the button does not reach it today. That is a separate defect, left alone
+ * here.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -44,7 +52,7 @@ import {
   withInterceptorsFromDi,
   withXhr,
 } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { RouterLink, provideRouter } from '@angular/router';
 import { config } from 'rxjs';
 
@@ -74,6 +82,8 @@ const PHONE_EXISTS = {
   status: 400,
   message: 'Sorry, a user with this phone number already exists!',
 };
+// What `register` answers when the OTP does not verify (`self_register`).
+const INVALID_OTP = { status: 400, message: 'Invalid OTP.' };
 
 const OFFLINE = "You're offline — check your connection.";
 
@@ -283,5 +293,120 @@ describe('Sign-up: the msisdn lookup through the real interceptor chain', () => 
     expect(http.match(RESEND_OTP).length).toBe(0);
     expect(component.require_otp).toBeFalse();
     expect(toast.error).toHaveBeenCalled();
+  });
+
+  describe('RegisterUser failures', () => {
+    let saved: unknown[];
+
+    beforeEach(() => {
+      saved = [];
+      component.saved.subscribe((x) => saved.push(x));
+    });
+
+    /** The existing-number path: the lookup finds the number, then `register`. */
+    function registerExistingNumber() {
+      fillAndSubmit();
+      answerLookup(FOUND, 200, 'OK');
+      return http.expectOne(REGISTER);
+    }
+
+    /**
+     * The OTP path: no account, OTP sent, four digits typed into the real OTP
+     * input, then `Register()` (see the file header for why it is called
+     * directly rather than through the Verify button). The OTP input publishes
+     * its value from a `setTimeout`, hence the `settle()` after typing.
+     */
+    async function registerWithOtp(code: string): Promise<TestRequest> {
+      if (!component.require_otp) {
+        fillAndSubmit();
+        answerLookup(NOT_FOUND, 404, 'Not Found');
+        http.expectOne(RESEND_OTP).flush({ status: 200, message: 'OTP sent' });
+        fixture.detectChanges();
+        // Let ngModel's initial (empty) write land before typing, as it does
+        // for a person; typed earlier, it would clear the boxes.
+        await settle();
+        fixture.detectChanges();
+      }
+      const boxes = Array.from(
+        fixture.nativeElement.querySelectorAll('app-otp-input input'),
+      ) as HTMLInputElement[];
+      expect(boxes.length).withContext('OTP boxes rendered').toBe(4);
+      code.split('').forEach((digit, i) => {
+        boxes[i].value = digit;
+        boxes[i].dispatchEvent(new Event('input'));
+      });
+      await settle();
+      fixture.detectChanges();
+      expect(component.data).withContext('OTP entered').toBe(code);
+
+      component.Register();
+      const register = http.expectOne(REGISTER);
+      expect(register.request.body).toEqual(jasmine.objectContaining({ otp: code }));
+      return register;
+    }
+
+    it('REGRESSION: a refused registration is handled — shown once, nothing escapes, the form is kept', async () => {
+      registerExistingNumber().flush(PHONE_EXISTS, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+      await settle();
+
+      expect(unhandled).withContext('the refusal reached no handler').toEqual([]);
+      expect(toast.toasts.map((t) => t.message)).toEqual([PHONE_EXISTS.message]);
+      expect(component.RegisterForm.get('first_name')?.value).toBe('Amara');
+      expect(component.RegisterForm.get('phone_number')?.value).toBe(MSISDN);
+      expect(saved).toEqual([]);
+    });
+
+    it('REGRESSION: a wrong OTP is handled, stays on the OTP step, and the person can try again', async () => {
+      (await registerWithOtp('1234')).flush(INVALID_OTP, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+      await settle();
+
+      expect(unhandled).withContext('the refusal reached no handler').toEqual([]);
+      expect(toast.toasts.map((t) => t.message)).toEqual([INVALID_OTP.message]);
+      expect(component.require_otp).withContext('still on the OTP step').toBeTrue();
+      expect(saved).toEqual([]);
+
+      // A corrected code goes out as a fresh request and completes.
+      (await registerWithOtp('5678')).flush({ status: 200, message: 'Registration successful' });
+      expect(saved.length).toBe(1);
+    });
+
+    it('REGRESSION: a network failure on register is handled — the offline toast, nothing escapes', async () => {
+      registerExistingNumber().error(new ProgressEvent('error'), {
+        status: 0,
+        statusText: 'Unknown Error',
+      });
+      await settle();
+
+      expect(unhandled).withContext('the failure reached no handler').toEqual([]);
+      expect(toast.error).toHaveBeenCalledWith(OFFLINE);
+      expect(component.RegisterForm.get('first_name')?.value).toBe('Amara');
+      expect(saved).toEqual([]);
+    });
+
+    it('REGRESSION: a server failure on register is handled — the server message, nothing escapes', async () => {
+      registerExistingNumber().flush(
+        { status: 500, message: 'Something went wrong' },
+        { status: 500, statusText: 'Internal Server Error' },
+      );
+      await settle();
+
+      expect(unhandled).withContext('the failure reached no handler').toEqual([]);
+      expect(toast.error).toHaveBeenCalledWith('Something went wrong');
+      expect(saved).toEqual([]);
+    });
+
+    it('CONTROL: a successful registration still toasts, resets the form and emits saved', async () => {
+      const response = { status: 200, message: 'Registration successful' };
+      (await registerWithOtp('1234')).flush(response);
+      await settle();
+
+      expect(unhandled).toEqual([]);
+      expect(toast.toasts.map((t) => t.message)).toEqual([response.message]);
+      expect(component.RegisterForm.get('first_name')?.value).toBe('');
+      expect(component.data).toBe('');
+      expect(saved).toEqual([response]);
+    });
   });
 });

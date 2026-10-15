@@ -78,12 +78,20 @@ get newpassword() {
 
   }
   RegisterUser(){
-    this.api.postPatch('users/auth/register/',this.RegisterForm.value,'post').subscribe((x:any)=>{
-  
-      this.toast.success(x.message);
-      this.RegisterForm=this.initRegisterForm();
-      this.data='';
-      this.saved.emit(x);
+    this.api.postPatch('users/auth/register/',this.RegisterForm.value,'post').subscribe({
+      next: (x:any)=>{
+        this.toast.success(x.message);
+        this.RegisterForm=this.initRegisterForm();
+        this.data='';
+        this.saved.emit(x);
+      },
+      error: () => {
+        // Nothing to undo. A refusal (a number that already has an account, a
+        // wrong or expired OTP) or a failed request is reported by
+        // ErrorInterceptor, and the form keeps what was entered so the person
+        // can correct it and try again. Handling it here stops the failure
+        // reaching RxJS as an unhandled error.
+      },
     })
   }
 
