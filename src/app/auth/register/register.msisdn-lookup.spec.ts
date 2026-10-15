@@ -363,6 +363,25 @@ describe('Sign-up: the msisdn lookup through the real interceptor chain', () => 
     expect(toast.warning).toHaveBeenCalledWith('Too many attempts.');
   });
 
+  it('CONTROL: a number the lookup refuses is not "no account" — no OTP, the server\'s reason is shown once', () => {
+    // The page validates the number first, so this is the backend's last word
+    // on a number the phone input accepted. It is shown exactly as written.
+    fillAndSubmit();
+    answerLookup(
+      { status: 400, message: 'Please provide a valid Ugandan phone number.' },
+      400,
+      'Bad Request',
+    );
+    fixture.detectChanges();
+
+    expect(http.match(RESEND_OTP).length).toBe(0);
+    expect(http.match(REGISTER).length).toBe(0);
+    expect(component.require_otp).toBeFalse();
+    expect(toast.toasts.map((t) => t.message))
+      .toEqual(['Please provide a valid Ugandan phone number.']);
+    expect(unhandled).withContext('the refusal reached no handler').toEqual([]);
+  });
+
   it('CONTROL: a 404 that is not the lookup\'s own answer is not "no account"', () => {
     // A 404 with no `{status: 404}` envelope is not MsisdnLookupEndpoint saying
     // "no such user" — it is a missing route or a proxy's page. Sending an OTP

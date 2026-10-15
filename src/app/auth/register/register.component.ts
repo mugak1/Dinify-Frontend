@@ -3,7 +3,7 @@ import { FormBuilder, FormGroup, UntypedFormGroup, Validators } from '@angular/f
 import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import { ApiService } from 'src/app/_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
-import { isNoAccountAnswer } from 'src/app/_helpers/account-lookup';
+import { isNoAccountAnswer, lookupRefusalMessage } from 'src/app/_helpers/account-lookup';
 
 @Component({
     changeDetection: ChangeDetectionStrategy.Eager,
@@ -78,6 +78,13 @@ get newpassword() {
           // the number that was looked up.
           if (isNoAccountAnswer(err)) {
             this.sendOtp('msisdn', msisdn, null);
+            return;
+          }
+          // The lookup refused the number and said why. ErrorInterceptor
+          // forwards that answer rather than reporting it, so show it here.
+          const refusal = lookupRefusalMessage(err);
+          if (refusal) {
+            this.toast.error(refusal);
           }
           // Any other failure is not "no account". Reporting it is
           // ErrorInterceptor's job, as it was before.

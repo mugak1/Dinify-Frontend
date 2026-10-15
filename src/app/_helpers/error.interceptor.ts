@@ -8,7 +8,7 @@ import {
 } from '../_services/authentication.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { ConnectivityService } from '../_services/connectivity.service';
-import { isAccountLookup, isNoAccountAnswer } from './account-lookup';
+import { isAccountLookup, isNoAccountAnswer, lookupRefusalMessage } from './account-lookup';
 
 /**
  * First URL segments that are NOT back-office banner shells. Now that the
@@ -260,10 +260,16 @@ export class ErrorInterceptor implements HttpInterceptor {
         // toast it. Flattened below, it became a "User not found" toast
         // and a string the caller could not tell from any other failure.
         //
-        // Scoped by `account-lookup.ts` to that envelope on those two GET
-        // routes. Every other status there, and a 404 that is not the
-        // lookup's own answer, keeps the string + toast behaviour below.
-        if (isAccountLookup(request) && isNoAccountAnswer(err)) {
+        // Their own 400 refusal ({status: 400, message}, e.g. not a valid
+        // Ugandan number) is forwarded the same way, and each caller shows
+        // the message itself. Flattened, the staff form could not tell the
+        // server's reason from a status text and replaced it with its own.
+        //
+        // Scoped by `account-lookup.ts` to those envelopes on those two GET
+        // routes. Every other status there, and a 404 or 400 without the
+        // lookup's envelope, keeps the string + toast behaviour below.
+        if (isAccountLookup(request)
+            && (isNoAccountAnswer(err) || lookupRefusalMessage(err) !== null)) {
             return throwError(() => err);
         }
 
