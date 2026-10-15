@@ -3687,6 +3687,50 @@ so keep it current when conventions change.
   is still a hard refusal. The committed-policy suite went from 70 to **77** tests, and
   16 of them fail with `main`'s `pilot-13` policy put back; the release suite runs
   **1368** (1361 on `main`).
+- **A WORKFLOW-ONLY DEPENDABOT BUMP STILL MOVES THE RECEIPT (D08 receipt refresh,
+  2026-10-15).** ✅ Compatible set **`2026-10-15-pilot-15`**: Admin `033c49a` (the #44
+  merge, receipt `sha256:524ff827…`, tree `a15befd`) replaces `1fa89cb`. #44 moved four
+  SHA-pinned actions (`setup-node` v7.1.0, `upload-artifact` v7.0.2, `download-artifact`
+  v8.0.2, `claude-code-action` v1.0.248) across five workflow files, and only `uses:` lines
+  changed. **Unlike #41–#43 it changes the receipt-bearing `deploy.yml`** (`2618d1e` →
+  `94f7d41`), in six `uses:` lines and nothing else: the `prepare` / `deploy` split, the
+  trusted-verifier checkout, the digest-enforced downloads, the privileged re-decision and
+  the exact-commit `no-store` `/release.txt` check are unchanged. The merge tree equals the
+  PR head `9337f55`'s, which is a different commit and is not approved. Deploy Admin run
+  `38752134201` promoted `033c49a` with 16/16 admitted files. **Observed red first**:
+  readiness run `38763144686` (on `5015b33`) read `033c49a` serving and refused
+  `peers.admin_serving_unapproved` under `pilot-14`, binding `sha256:b100feda…`. That
+  decision is replayed WHOLE, and the refresh removes exactly that reason, returning the
+  six-reason wait `sha256:79ff3fea…` in the replay; no real run has recorded it yet.
+  Produced by the unchanged `peer-receipt` at the exact merge and re-derived independently
+  (the `1fa89cb` digest reproduced as the control). The `1fa89cb` block became history
+  pinned to `pilot-14`, and `journey-observation.test.mjs`, which names the approved set,
+  moved with it (3 lines). **Only the Admin approval moved**: backend `0513adb` stands, the
+  six commissioning conditions stand, and nothing was added to
+  `publication.readiness.awaiting`. The committed-policy suite went from 77 to **87** tests
+  (83 for the refresh, 4 for SP-1 below), and 17 of them fail with `pilot-14`'s compatible
+  set put back; the release suite runs **1388** (1368 on `5015b33`).
+- **SP-1: HOW `main` IS PROTECTED IS RECORDED, AND THE STATUS DOES NOT MOVE (2026-10-15).**
+  `prerequisites.sourceProtection.observation` records one read-only reading of `main`:
+  ruleset `15107355` ("main protection", active, `refs/heads/main` only) with
+  `non_fast_forward`, `deletion`, a strict required `validate` check, a pull request with
+  **zero** required approvals and an advisory Copilot review. Classic branch protection is
+  not enabled, and the ruleset is the only protection observed. Seven limitations are
+  recorded beside it: it is a single read the gate never repeats; enforcement is as GitHub
+  reports it, since no push, force-push, deletion or merge probe was attempted; an empty
+  bypass list seen by a non-admin token does not prove there are none; `certify.yml` and
+  readiness are not merge preconditions; no human review is required; and other branches
+  are unprotected. **`status` stays `unrecorded`**, so
+  `prerequisite.source_protection_unrecorded` still refuses, and moving it is the owner's
+  reviewed decision. `decide` reads `status` alone; a synthetic test holds the decision
+  byte-identical with and without the observation. The response digests are of the bodies
+  actually received and depend on the reading identity, so a re-read replaces the date and
+  every digest together. The validator answers
+  `policy.bad_source_protection_observation` for a bad digest or date, and checks that the
+  parsed date is valid BEFORE formatting it, because `toISOString()` on an Invalid Date
+  throws rather than refusing. It also requires an exact calendar round trip, so
+  `2026-02-29` is refused rather than rolled over to 1 March. `policy.test.mjs` went from
+  53 to 63 tests.
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
