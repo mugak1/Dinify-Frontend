@@ -2188,3 +2188,73 @@ describe('the 2026-10-15 receipt refresh (Admin 033c49a, the #44 Dependabot acti
     assert.deepEqual(Object.keys(now).sort(), Object.keys(then).sort());
   });
 });
+
+describe('the source-protection observation (SP-1) — recorded evidence that moves no decision', () => {
+  // WHAT THIS IS. prerequisites.sourceProtection.observation records how `main` was
+  // protected when read on 2026-10-15 (a repository ruleset: no force-push, no deletion,
+  // `validate` required and strict, a pull request with no required approval) together
+  // with what that reading cannot establish. The status stays `unrecorded`: recording or
+  // disclosing is the owner's reviewed decision, not this record's.
+  //
+  // WHAT THE INVARIANT BELOW IS, AND IS NOT. It is SYNTHETIC: the fixture candidate, the
+  // committed receipts and identical peer facts, decided with and without the observation.
+  // It shows the observation is inert to the decision rule. It says nothing about what a
+  // real readiness run will meet — that depends on a fresh assessment, live peer reads
+  // and the served identity, none of which this replay observes.
+  const withoutObservation = () => {
+    const policy = clone(POLICY);
+    delete policy.prerequisites.sourceProtection.observation;
+    return policy;
+  };
+
+  test('CONTRACT: the committed observation leaves the status unrecorded, the refusal standing and the recorded wait unchanged', async () => {
+    const sp = POLICY.prerequisites.sourceProtection;
+    assert.equal(sp.status, 'unrecorded');
+    assert.equal(sp.observation.branch, POLICY.certification.branch);
+    assert.ok(POLICY.publication.readiness.awaiting.includes('prerequisite.source_protection_unrecorded'));
+    assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [
+      'peers.backend_serving_unverified',
+      ...PREREQUISITES,
+      'served.bootstrap_unauthorized',
+    ].sort(), 'the awaiting list is unchanged by SP-1');
+    const { decision } = await decideCommitted();
+    assert.equal(decision.reasons.find((r) => r.code === 'prerequisite.source_protection_unrecorded')?.detail,
+      'branch protection on the certified branch has not been recorded or disclosed as a limitation');
+    assert.equal(decision.allow, false);
+  });
+
+  test('CONTRACT (SYNTHETIC): under identical peer facts the decision is byte-identical with and without the observation — and so is its readiness classification', () => {
+    for (const peers of [servingApproved, () => recordedPeers({ adminServes: CLAUDE41_ADMIN })]) {
+      const withIt = decidePure({ peers: peers() });
+      const without = decidePure({ policy: withoutObservation(), peers: peers() });
+      assert.equal(digestOfValue(withIt), digestOfValue(without));
+      assert.deepEqual(withIt, without);
+      const a = classifyWith({ peers: peers(), decision: withIt });
+      const b = classifyWith({ policy: withoutObservation(), peers: peers(), decision: without });
+      assert.equal(a.kind, b.kind);
+      assert.equal(a.decisionDigest, b.decisionDigest);
+      assert.deepEqual(a.problems, b.problems);
+    }
+    assert.equal(digestOfValue(decidePure({ peers: servingApproved() })), PILOT12_WAIT_DIGEST_CONSTRUCTED,
+      'as observed, still the six-reason wait the earlier sets recorded');
+  });
+
+  test('CONTROL: only `status` moves the decision — the same observation beside `recorded` drops exactly the source-protection refusal', () => {
+    const recorded = clone(POLICY);
+    recorded.prerequisites.sourceProtection.status = 'recorded';
+    const before = codesOf(decidePure({ peers: servingApproved() }));
+    const after = codesOf(decidePure({ policy: recorded, peers: servingApproved() }));
+    assert.deepEqual(before.filter((c) => !after.includes(c)), ['prerequisite.source_protection_unrecorded']);
+    assert.deepEqual(after.filter((c) => !before.includes(c)), []);
+    assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded', 'and the committed status is not that');
+  });
+
+  test('CONTROL: a malformed observation in the committed shape is refused as an invalid policy, never as a wait', () => {
+    const policy = clone(POLICY);
+    policy.prerequisites.sourceProtection.observation.observedOn = '2026-00-01';
+    const decision = decidePure({ policy, peers: servingApproved() });
+    assert.deepEqual(codesOf(decision), ['policy.invalid']);
+    assert.match(decision.reasons[0].detail, /policy\.bad_source_protection_observation/);
+    assert.notEqual(classifyWith({ policy, peers: servingApproved(), decision }).kind, AWAITING);
+  });
+});

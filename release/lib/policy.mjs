@@ -158,6 +158,9 @@ export function validatePolicy(policy) {
     if (!['unrecorded', 'recorded', 'limitation-disclosed'].includes(pre.sourceProtection?.status)) {
       fail('policy.bad_source_protection', pre.sourceProtection?.status);
     }
+    if (isObject(pre.sourceProtection) && 'observation' in pre.sourceProtection) {
+      validateSourceProtectionObservation(pre.sourceProtection.observation, c?.branch, fail);
+    }
     if (!['unverified', 'verified'].includes(pre.retention?.status)) fail('policy.bad_retention', pre.retention?.status);
     const single = pre.singlePublisher;
     if (!['legacy-writer-active', 'single-publisher'].includes(single?.status)) fail('policy.bad_single_publisher', single?.status);
@@ -180,6 +183,56 @@ export function validatePolicy(policy) {
   }
 
   return { ok: problems.length === 0, problems };
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Is `v` a real calendar date written exactly as `YYYY-MM-DD`?
+ *
+ * The validity check comes BEFORE any formatting, and that order is the point:
+ * `new Date('2026-13-01T00:00:00Z')` is an Invalid Date, and calling `toISOString()` on
+ * one throws a RangeError — which would turn a typo in the policy into a crash rather
+ * than a named problem. The exact round trip then refuses what Date silently rolls
+ * over: `2026-02-29` becomes 1 March and `2026-04-31` becomes 1 May, so neither reads
+ * back as itself. Never throws.
+ */
+export function isCalendarDate(v) {
+  if (typeof v !== 'string' || !ISO_DATE_RE.test(v)) return false;
+  const parsed = new Date(`${v}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.toISOString().slice(0, 10) === v;
+}
+
+/**
+ * What was OBSERVED about the certified branch's protection, kept beside the status
+ * rather than instead of it. An observation is evidence an owner can review; it is not
+ * the decision. `decide` reads `status` alone, so an observation can neither resolve
+ * `prerequisite.source_protection_unrecorded` nor add a refusal — only the reviewed
+ * change that moves `status` does either. What is validated here is that the record is
+ * readable and about the right branch: a date that is a real day, the branch the
+ * certification names, the rules as an object, at least one stated limitation, and
+ * any response digest in the digest form.
+ */
+function validateSourceProtectionObservation(o, certifiedBranch, fail) {
+  const bad = (detail) => fail('policy.bad_source_protection_observation', detail);
+  if (!isObject(o)) {
+    bad(`not an object: ${JSON.stringify(o)}`);
+    return;
+  }
+  if (!isCalendarDate(o.observedOn)) bad(`observedOn is not a YYYY-MM-DD calendar date: ${JSON.stringify(o.observedOn)}`);
+  if (!isString(o.branch) || o.branch !== certifiedBranch) bad(`branch ${JSON.stringify(o.branch)} is not the certified branch ${JSON.stringify(certifiedBranch)}`);
+  if (!isString(o.method)) bad('no method: how the observation was made must be stated');
+  if (!isObject(o.rules)) bad('no rules object');
+  if (!(Array.isArray(o.limitations) && o.limitations.length > 0 && o.limitations.every(isString))) {
+    bad('limitations must be a non-empty list of statements');
+  }
+  if ('responseSha256' in o) {
+    const r = o.responseSha256;
+    if (!isObject(r) || Object.keys(r).length === 0 || !Object.values(r).every((d) => DIGEST_RE.test(String(d)))) {
+      bad(`responseSha256 must map each read to a sha256: digest: ${JSON.stringify(r)}`);
+    }
+  }
 }
 
 function validatePeer(peer, name, fail) {

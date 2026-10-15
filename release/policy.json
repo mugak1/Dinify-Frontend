@@ -265,7 +265,68 @@
       "in the same change that enables this path."
     ],
     "sourceProtection": {
-      "status": "unrecorded"
+      "status": "unrecorded",
+      "observation": {
+        "_note": [
+          "WHAT WAS OBSERVED, NOT WHAT IS DECIDED. decide reads `status` alone, so this",
+          "record neither resolves prerequisite.source_protection_unrecorded nor adds a",
+          "refusal. Moving `status` to `recorded` or `limitation-disclosed` is the owner's",
+          "reviewed decision; this is the evidence that decision would read.",
+          "",
+          "responseSha256 digests the response BODIES the observer received, byte for",
+          "byte. They are requester-dependent (the ruleset read carries",
+          "`current_user_can_bypass` for the reading identity), so a re-read by another",
+          "identity may differ without the configuration having changed. A re-read",
+          "replaces observedOn and every digest together, or drops the digests."
+        ],
+        "observedOn": "2026-10-15",
+        "branch": "main",
+        "method": "Read-only GitHub REST GETs from an integration token: /repos/mugak1/Dinify-Frontend/rulesets, /rulesets/15107355, /rules/branches/main and /branches/main. No write, push, force-push, merge or enforcement probe was attempted.",
+        "mechanism": "repository ruleset",
+        "ruleset": {
+          "id": 15107355,
+          "name": "main protection",
+          "target": "branch",
+          "sourceType": "Repository",
+          "enforcement": "active",
+          "include": ["refs/heads/main"],
+          "exclude": [],
+          "bypassActorsAsReported": [],
+          "updatedAt": "2026-06-08T18:38:14.709+01:00"
+        },
+        "rules": {
+          "nonFastForward": true,
+          "deletion": true,
+          "requiredStatusChecks": {
+            "strict": true,
+            "doNotEnforceOnCreate": false,
+            "checks": [{ "context": "validate", "integrationId": 15368 }]
+          },
+          "pullRequest": {
+            "requiredApprovingReviewCount": 0,
+            "dismissStaleReviewsOnPush": false,
+            "requireCodeOwnerReview": false,
+            "requireLastPushApproval": false,
+            "requiredReviewThreadResolution": false,
+            "allowedMergeMethods": ["merge", "squash", "rebase"]
+          },
+          "copilotCodeReview": { "reviewOnPush": true, "reviewDraftPullRequests": false }
+        },
+        "classicBranchProtection": "not enabled: /branches/main reports protection.enabled false; /branches/main/protection answered 403 to the reading token",
+        "responseSha256": {
+          "GET /repos/mugak1/Dinify-Frontend/rulesets/15107355": "sha256:5c9fbd7188ecb0021ef94d7df69817f77b1f16894c377d909725e3286fb4d250",
+          "GET /repos/mugak1/Dinify-Frontend/rules/branches/main": "sha256:56cdcfdb7dead41b71bb442563ebbea41be6e0533d8832464dde3399eb566dff"
+        },
+        "limitations": [
+          "A single read on 2026-10-15. The gate does not re-read the configuration, and the repository owner can edit, disable or delete the ruleset at any time without this file changing.",
+          "Configured, not demonstrated: no push, force-push, deletion or failed-merge probe was attempted, so enforcement is stated as GitHub reports it, not as observed under test.",
+          "bypass_actors was reported as an empty list to a non-admin integration token. That reading identity may not see the owner-visible bypass list, so the absence of bypass actors is not established.",
+          "The one required status check is `validate` from GitHub Actions (integration 15368), strict (the branch must be up to date). certify.yml and the readiness evaluation run after a merge and are not merge preconditions.",
+          "A pull request is required but no approving review is (required_approving_review_count 0): an author with write access can merge their own pull request once `validate` passes. Copilot review is advisory.",
+          "The rules target refs/heads/main only. Other branches carry none of them; only main is certified.",
+          "Classic branch protection is not enabled, and its endpoint was not readable by the observing token; the ruleset is the only protection observed."
+        ]
+      }
     },
     "retention": {
       "status": "unverified"

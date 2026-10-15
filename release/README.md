@@ -909,6 +909,38 @@ by running the real `decide` against the committed file:
 | `peers.backend_serving_unverified` | B3: a verified loaded-runtime identity of the backend |
 | `served.bootstrap_unauthorized` | an explicit, reviewed `bootstrap.authorized: true` with `servedBaseline` naming the live commit. That commit must carry a valid storage declaration, one that states where its bytes are (physical key and encoding) — i.e. be at or after the merge that introduced them. The live path publishes every merge, so by the time a bootstrap is authorized the live commit will be |
 
+### What has been observed about source protection (SP-1)
+
+`prerequisites.sourceProtection.observation` records how `main` was protected when it
+was read on 2026-10-15, and what that reading cannot establish. **The status stays
+`unrecorded`**, so `prerequisite.source_protection_unrecorded` stands and the awaiting
+list is unchanged: moving the status to `recorded` or `limitation-disclosed` is the
+owner's reviewed decision, and this record is the evidence that decision would read.
+`decide` reads only `status`; a test holds the decision byte-identical with and without
+the observation under identical peer facts. That test is a **synthetic** invariant over
+the fixture candidate; it says nothing about what a real readiness run will meet.
+
+What was read, with read-only REST GETs from an integration token (no push, force-push,
+deletion or merge probe was attempted):
+
+- **One repository ruleset**, `main protection` (id `15107355`), enforcement `active`,
+  targeting `refs/heads/main` only: `non_fast_forward` (no force-push), `deletion`, a
+  required status check `validate` from GitHub Actions in strict mode, a pull request
+  with **zero** required approving reviews, and an advisory Copilot review.
+- **Classic branch protection is not enabled**; its endpoint answered 403 to the
+  reading token.
+- **Limitations, recorded beside the rules:** a single read that the gate does not
+  repeat; configured rather than demonstrated enforcement; bypass actors reported empty
+  to a non-admin identity, which does not establish there are none; `certify.yml` and
+  readiness are not merge preconditions; no independent human review is required; other
+  branches are unprotected.
+
+The response digests in the record are of the bodies actually received and depend on
+the reading identity. A re-read replaces the date and every digest together, or drops
+the digests; the validator refuses a digest that is not in `sha256:` form and a date that
+is not a real calendar day (`2026-13-01`, `2026-00-01` and `2026-02-29` are each one
+named problem, `policy.bad_source_protection_observation`, never an exception).
+
 `peers.capabilities_unpublished` was the seventh until the 2026-09-23 follow-up approved
 the receipt for backend `366b7e4`; it reappears — and is not an expected wait — if an
 export-less backend is ever approved again.
