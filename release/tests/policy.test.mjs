@@ -11,7 +11,7 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 
-import { validatePolicy, POLICY_SCHEMA } from '../lib/policy.mjs';
+import { isCalendarDate, validatePolicy, POLICY_SCHEMA } from '../lib/policy.mjs';
 import { decide } from '../lib/decide.mjs';
 import { POLICY, allowedPolicy, baseline, clone, codes } from './fixtures.mjs';
 
@@ -140,6 +140,101 @@ describe('the rest of the policy', () => {
     ['no assessment window', 'policy.bad_assessment_window', (p) => { delete p.freshness.assessmentWindowHours; }],
   ];
   for (const [name, code, mutate] of cases) test(`CONTRACT: ${name}`, () => rejected(mutate, code));
+});
+
+describe('the source-protection observation (SP-1) — evidence beside the status, validated without throwing', () => {
+  const observation = (mutate) => (p) => mutate(p.prerequisites.sourceProtection.observation);
+  // Validation must ANSWER for a bad date, never throw: a RangeError out of validatePolicy
+  // would take decide() down instead of producing one named policy.invalid refusal.
+  const refusedWithoutThrowing = (mutate, label) => {
+    let r;
+    assert.doesNotThrow(() => { r = rejected(observation(mutate), 'policy.bad_source_protection_observation'); }, label);
+    return r;
+  };
+
+  test('CONTROL: the committed observation validates, is about the certified branch, and leaves the status unrecorded', () => {
+    const r = validatePolicy(POLICY);
+    assert.equal(r.ok, true, JSON.stringify(r.problems));
+    const sp = POLICY.prerequisites.sourceProtection;
+    assert.equal(sp.status, 'unrecorded', 'SP-1 records evidence; it does not move the status');
+    assert.equal(sp.observation.branch, POLICY.certification.branch);
+    assert.ok(sp.observation.limitations.length > 0);
+  });
+
+  test('CONTROL: a policy with no observation at all still validates — the field is optional', () => {
+    const policy = clone(POLICY);
+    delete policy.prerequisites.sourceProtection.observation;
+    const r = validatePolicy(policy);
+    assert.equal(r.ok, true, JSON.stringify(r.problems));
+  });
+
+  test('REGRESSION: month 13 and month 00 are refused by name — no RangeError escapes', () => {
+    for (const bad of ['2026-13-01', '2026-00-01', '2026-99-15']) {
+      // The flaw being pinned: formatting an Invalid Date throws.
+      assert.throws(() => new Date(`${bad}T00:00:00Z`).toISOString(), RangeError, `premise: ${bad} is an Invalid Date`);
+      assert.equal(isCalendarDate(bad), false, bad);
+      refusedWithoutThrowing((o) => { o.observedOn = bad; }, bad);
+    }
+  });
+
+  test('REGRESSION: a day the month does not have is refused, not rolled over — 29 February in a non-leap year, 30 February, 31 April, day 00', () => {
+    for (const bad of ['2026-02-29', '2027-02-29', '2100-02-29', '2026-02-30', '2026-04-31', '2026-10-00', '2026-10-32']) {
+      assert.equal(isCalendarDate(bad), false, bad);
+      refusedWithoutThrowing((o) => { o.observedOn = bad; }, bad);
+    }
+  });
+
+  test('CONTROL: a real leap day is accepted, and so is every ordinary boundary', () => {
+    for (const good of ['2024-02-29', '2028-02-29', '2000-02-29', '2026-02-28', '2026-04-30', '2026-12-31', '2026-01-01', '2026-10-15']) {
+      assert.equal(isCalendarDate(good), true, good);
+      const policy = clone(POLICY);
+      policy.prerequisites.sourceProtection.observation.observedOn = good;
+      const r = validatePolicy(policy);
+      assert.equal(r.ok, true, `${good}: ${JSON.stringify(r.problems)}`);
+    }
+  });
+
+  test('CONTRACT: a date in any other form is refused — a timestamp, single digits, a number, absence', () => {
+    for (const bad of ['2026-10-15T00:00:00Z', '2026-1-5', '15/10/2026', '20261015', ' 2026-10-15', 20261015, null, undefined]) {
+      assert.equal(isCalendarDate(bad), false, String(bad));
+      refusedWithoutThrowing((o) => { if (bad === undefined) delete o.observedOn; else o.observedOn = bad; }, String(bad));
+    }
+  });
+
+  test('CONTRACT: the observation must be about the certified branch, say how it was made, carry the rules and state at least one limitation', () => {
+    refusedWithoutThrowing((o) => { o.branch = 'develop'; }, 'another branch');
+    refusedWithoutThrowing((o) => { delete o.branch; }, 'no branch');
+    refusedWithoutThrowing((o) => { o.method = ''; }, 'no method');
+    refusedWithoutThrowing((o) => { delete o.rules; }, 'no rules');
+    refusedWithoutThrowing((o) => { o.limitations = []; }, 'no limitations');
+    refusedWithoutThrowing((o) => { o.limitations = ['ok', 7]; }, 'a limitation that is not a statement');
+  });
+
+  test('CONTRACT: a response digest is a sha256: digest or absent — never an arbitrary string', () => {
+    refusedWithoutThrowing((o) => { o.responseSha256 = { 'GET /x': 'abc' }; }, 'not a digest');
+    refusedWithoutThrowing((o) => { o.responseSha256 = {}; }, 'an empty map claims nothing');
+    refusedWithoutThrowing((o) => { o.responseSha256 = 'sha256:' + '0'.repeat(64); }, 'not a map');
+    const policy = clone(POLICY);
+    delete policy.prerequisites.sourceProtection.observation.responseSha256;
+    assert.equal(validatePolicy(policy).ok, true, 'dropping the digests is allowed; inventing one is not');
+  });
+
+  test('CONTRACT: an observation that is not an object is one named problem', () => {
+    for (const bad of [null, 'recorded', [], 7]) {
+      assert.doesNotThrow(() => rejected((p) => { p.prerequisites.sourceProtection.observation = bad; }, 'policy.bad_source_protection_observation'), String(bad));
+    }
+  });
+
+  test('CONTRACT: through decide(), a malformed observation is ONE policy.invalid refusal — not a crash', () => {
+    const input = baseline();
+    input.policy.prerequisites.sourceProtection.observation = clone(POLICY.prerequisites.sourceProtection.observation);
+    input.policy.prerequisites.sourceProtection.observation.observedOn = '2026-13-01';
+    let r;
+    assert.doesNotThrow(() => { r = decide(input); });
+    assert.equal(r.decision, 'REFUSE');
+    assert.deepEqual(codes(r), ['policy.invalid']);
+    assert.match(r.reasons[0].detail, /policy\.bad_source_protection_observation/);
+  });
 });
 
 describe('what decide() does with an invalid policy', () => {
