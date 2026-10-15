@@ -567,17 +567,20 @@ describe('ErrorInterceptor', () => {
     });
   });
 
-  describe('account lookups: "no account" is a 404 the caller handles', () => {
+  describe('account lookups: the lookup\'s own answers go to the caller', () => {
     // `users/msisdn-lookup/` (sign-up) and `users/user-lookup/` (add staff)
     // answer a contact with no account with HTTP 404 and their own
     // `{status: 404}` envelope. That is the answer each caller asked for, so it
-    // is forwarded untouched and never toasted. Anything else keeps the string
+    // is forwarded untouched and never toasted. So is their own 400 refusal, a
+    // `{status: 400, message}` envelope saying why the contact will not be
+    // looked up, which each caller shows itself. Anything else keeps the string
     // + toast behaviour. The component halves are pinned through the real chain
     // in `register.msisdn-lookup.spec.ts` and
     // `staff-form-dialog.user-lookup.spec.ts`.
     const MSISDN_LOOKUP = '/api/v1/users/msisdn-lookup/?msisdn=256700111222';
     const USER_LOOKUP = '/api/v1/users/user-lookup/?contact=256700111222';
     const NO_ACCOUNT = { status: 404, message: 'User not found' };
+    const REFUSED = { status: 400, message: 'Please provide a valid Ugandan phone number.' };
 
     /** Send one request, answer it, and return what reached the subscriber. */
     function answer(
@@ -599,6 +602,33 @@ describe('ErrorInterceptor', () => {
         expect(toast.error).not.toHaveBeenCalled();
       });
     }
+
+    for (const url of [MSISDN_LOOKUP, USER_LOOKUP]) {
+      it(`forwards the lookup's own 400 refusal untouched, without a toast: ${url.split('?')[0]}`, () => {
+        const caught = answer('GET', url, REFUSED, 400, 'Bad Request');
+        expect(caught instanceof HttpErrorResponse).toBeTrue();
+        expect(caught?.status).toBe(400);
+        expect(caught?.error).toEqual(REFUSED);
+        expect(toast.error).not.toHaveBeenCalled();
+      });
+    }
+
+    it('keeps a 400 that is not the lookup\'s own refusal on the generic path', () => {
+      // No `{status: 400}` envelope, or no message to show: nothing the caller
+      // could render as the server's reason.
+      for (const body of [{ detail: 'Bad request.' }, { status: 400 }, { status: 400, message: ' ' }]) {
+        (toast.error as jasmine.Spy).calls.reset();
+        const caught = answer('GET', USER_LOOKUP, body, 400, 'Bad Request');
+        expect(typeof caught).withContext(JSON.stringify(body)).toBe('string');
+        expect(toast.error).withContext(JSON.stringify(body)).toHaveBeenCalled();
+      }
+    });
+
+    it('keeps the same 400 refusal on any other route on the generic path', () => {
+      const caught = answer('GET', '/api/v1/users/user-profile/', REFUSED, 400, 'Bad Request');
+      expect(caught).toBe(REFUSED.message);
+      expect(toast.error).toHaveBeenCalledWith(REFUSED.message);
+    });
 
     it('keeps a 404 that is not the lookup\'s own answer on the generic path', () => {
       // A missing route or a proxy's page is not "no account".

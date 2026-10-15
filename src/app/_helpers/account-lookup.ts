@@ -24,6 +24,15 @@ import { HttpErrorResponse, HttpRequest } from '@angular/common/http';
  * already have one, on the strength of something the lookup never said. The
  * endpoint's own `status: 404` in the body is what makes it the lookup's answer.
  * It is a machine field; the human message is deliberately not matched.
+ *
+ * THE LOOKUP ALSO REFUSES, AND SAYS WHY. A 400 with the endpoint's own
+ * `{status: 400, message}` envelope means it would not look the contact up: no
+ * contact was sent, or (since the backend canonicalises it) the value is not a
+ * valid Ugandan number. `ErrorInterceptor` forwards that answer too, and each
+ * caller shows its message. The staff form used to replace it with "Could not
+ * look up that number. Please try again.", which is wrong for a number that
+ * will never be valid. The same envelope rule applies: a 400 without it is not
+ * the lookup explaining itself.
  */
 
 /**
@@ -44,4 +53,19 @@ export function isNoAccountAnswer(err: unknown): err is HttpErrorResponse {
   return typeof body === 'object'
     && body !== null
     && (body as Record<string, unknown>)['status'] === 404;
+}
+
+/**
+ * The lookup's own refusal (see the file header): its message when the error is
+ * an HTTP 400 carrying the endpoint's `{status: 400, message}` envelope with a
+ * message to show, otherwise `null`.
+ */
+export function lookupRefusalMessage(err: unknown): string | null {
+  if (!(err instanceof HttpErrorResponse) || err.status !== 400) return null;
+  const body: unknown = err.error;
+  if (typeof body !== 'object' || body === null) return null;
+  const { status, message } = body as Record<string, unknown>;
+  return status === 400 && typeof message === 'string' && message.trim() !== ''
+    ? message
+    : null;
 }

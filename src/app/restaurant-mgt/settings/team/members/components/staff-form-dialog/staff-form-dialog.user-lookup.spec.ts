@@ -9,6 +9,7 @@
  *   found      HTTP 200  {status: 200, message: 'User found', data: {id, first_name, last_name}}
  *   not found  HTTP 404  {status: 404, message: 'User not found'}
  *   no contact HTTP 400  {status: 400, message: 'A contact query parameter is required.'}
+ *   bad number HTTP 400  {status: 400, message: 'Please provide a valid Ugandan phone number.'}
  *   not owner  HTTP 403  {status: 403, message: 'Not authorised.'}
  *
  * The not-found answer has been an HTTP 404 since `a2f7f8c` (2026-03-16); before
@@ -26,6 +27,14 @@
  * `AuthenticationService` (an owner seeded into storage), `ApiService` and
  * `ToastService`, and the dialog is driven through its rendered DOM. Server
  * answers are SYNTHETIC; their bodies are the ones the endpoint above writes.
+ *
+ * A 400 WITH THE LOOKUP'S OWN ENVELOPE IS THE SERVER EXPLAINING WHY IT WILL NOT
+ * LOOK THE CONTACT UP, so the dialog shows that explanation. It used to replace
+ * it with "Could not look up that number. Please try again.", and "try again"
+ * is wrong for a number that is simply not a valid Ugandan number: the backend
+ * answers that with a 400 since it began canonicalising the contact. A 403, a
+ * server or network failure, and a 400 without the envelope still get the
+ * dialog's own message.
  *
  * THIS FILE IMPORTS NOTHING THE FIX ADDED, so the same file compiles against
  * the unmodified baseline. Specs marked REGRESSION fail there; specs marked
@@ -80,6 +89,7 @@ const FOUND = {
 };
 
 const COULD_NOT_LOOK_UP = 'Could not look up that number. Please try again.';
+const INVALID_NUMBER = { status: 400, message: 'Please provide a valid Ugandan phone number.' };
 const NEW_MEMBER_SUBTITLE = 'Add the new team member’s details.';
 
 describe('Add staff: the user lookup through the real interceptor chain', () => {
@@ -251,13 +261,19 @@ describe('Add staff: the user lookup through the real interceptor chain', () => 
     expect(http.match(CREATE_EMPLOYEE).length).toBe(0);
   });
 
-  function expectLookupFailed(): void {
+  /** Not "no account": the dialog stays on the lookup step with one toast. */
+  function expectLookupFailed(message = COULD_NOT_LOOK_UP): void {
     expect(component.checked).withContext('checked').toBeFalse();
     expect(component.user_id).toBeNull();
     expect(component.saving).toBeFalse();
     expect($('#staff-first')).toBeNull();
-    expect(visibleToasts()).toEqual([COULD_NOT_LOOK_UP]);
+    expect(visibleToasts()).toEqual([message]);
   }
+
+  it('REGRESSION: a number the lookup refuses shows the server\'s reason, not "try again"', () => {
+    lookUp(INVALID_NUMBER, 400, 'Bad Request');
+    expectLookupFailed(INVALID_NUMBER.message);
+  });
 
   it('CONTROL: a 403 (not an owner) is a lookup failure, not "no account"', () => {
     lookUp({ status: 403, message: 'Not authorised.' }, 403, 'Forbidden');
@@ -283,14 +299,24 @@ describe('Add staff: the user lookup through the real interceptor chain', () => 
     expectLookupFailed();
   });
 
-  it('CONTROL: an HTTP 400 is a lookup failure, not "no account"', () => {
+  it('REGRESSION: the lookup\'s own 400 is not "no account", and its message is shown', () => {
     // The endpoint's own 400 means the request named no contact. It used to be
     // the BODY status of the not-found answer, which is why it is pinned here.
+    // The "not no account" half is unchanged. The toast half was corrected: this
+    // spec used to expect "Could not look up that number", and the server's own
+    // reason replaces it, as for the invalid-number refusal above.
     lookUp(
       { status: 400, message: 'A contact query parameter is required.' },
       400,
       'Bad Request',
     );
+    expectLookupFailed('A contact query parameter is required.');
+  });
+
+  it('CONTROL: a 400 without the lookup\'s envelope keeps the dialog\'s own message', () => {
+    // No `{status: 400}` body: not UserLookupEndpoint explaining itself, so
+    // there is no reason of the server's to show.
+    lookUp({ detail: 'Bad request.' }, 400, 'Bad Request');
     expectLookupFailed();
   });
 

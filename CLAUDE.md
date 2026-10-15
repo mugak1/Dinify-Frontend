@@ -4379,7 +4379,14 @@ writing new tag, price/menu or date-range logic:
   that input, and so Verify never sent the registration. **The body's `status: 404` is part of the answer.** A 404 without it is a
   missing route or a proxy page, not "no account", so it keeps the generic toast
   path. Treating it as "no account" would send an OTP, or offer a second account for
-  a number that may already have one. Every other status keeps its existing path.
+  a number that may already have one. **The lookups' own 400 refusal is forwarded the
+  same way** (`lookupRefusalMessage`, same envelope rule): a `{status: 400,
+  message}` body, such as the backend's "Please provide a valid Ugandan phone
+  number." for a contact it cannot canonicalise, is shown as the server wrote it.
+  The staff form used to replace it with "Could not look up that number. Please try
+  again.", and sign-up now shows it itself instead of through the interceptor's
+  toast. Every other status keeps its existing path, including the staff form's own
+  message for a 403, a server or network failure, or a 400 without the envelope.
   Pinned through the real chain by `register.msisdn-lookup.spec.ts` and
   `staff-form-dialog.user-lookup.spec.ts`
 - Diner table-session capability (opaque QR, backend PR 7A) — the anonymous diner
