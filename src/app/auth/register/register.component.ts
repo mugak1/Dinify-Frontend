@@ -3,6 +3,7 @@ import { FormBuilder, FormGroup, UntypedFormGroup, Validators } from '@angular/f
 import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import { ApiService } from 'src/app/_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
+import { isNoAccountAnswer } from 'src/app/_helpers/account-lookup';
 
 @Component({
     changeDetection: ChangeDetectionStrategy.Eager,
@@ -49,13 +50,23 @@ get newpassword() {
 }
   Register(){
     if(this.RegisterForm.get('phone_number')?.value&&!this.require_otp){
-      this.api.get<any>(null,'users/msisdn-lookup/?msisdn='+this.RegisterForm.get('phone_number')?.value).subscribe((x)=>{
-        if(x.status==400){
-        // this.require_otp=true
-         this.sendOtp('msisdn',this.RegisterForm.get('phone_number')?.value,null);
-        }else if(x.status==200){
-  this.RegisterUser();
-        }
+      const msisdn = this.RegisterForm.get('phone_number')?.value;
+      this.api.get<any>(null,'users/msisdn-lookup/?msisdn='+msisdn).subscribe({
+        next: (x) => {
+          if(x.status==200){
+            this.RegisterUser();
+          }
+        },
+        error: (err) => {
+          // No account holds this number yet: the lookup answers HTTP 404
+          // (see account-lookup.ts), so start sign-up by sending the OTP to
+          // the number that was looked up.
+          if (isNoAccountAnswer(err)) {
+            this.sendOtp('msisdn', msisdn, null);
+          }
+          // Any other failure is not "no account". Reporting it is
+          // ErrorInterceptor's job, as it was before.
+        },
       })
     }else{
       if(this.data){
