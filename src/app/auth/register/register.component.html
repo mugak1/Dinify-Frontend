@@ -16,7 +16,7 @@
           Create an account
         </h1>
 
-        <form [formGroup]="RegisterForm" (ngSubmit)="RegisterForm.valid && phoneComponent?.isValid?Register():is_submitted=true" class="space-y-2 md:space-y-4">
+        <form [formGroup]="RegisterForm" (ngSubmit)="onSubmit()" class="space-y-2 md:space-y-4">
           @if (!require_otp) {
             <div>
               <label for="first_name" class="block mb-1 text-sm font-medium text-gray-900">First name <span class="text-d-red">*</span></label>

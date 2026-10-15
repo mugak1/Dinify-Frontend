@@ -38,11 +38,15 @@
  * `RegisterUser()` FAILURES ARE PINNED HERE TOO, on the same harness. It had no
  * error callback, so every refused registration reached RxJS as unhandled: the
  * interceptor's toast was right and the error still escaped. Those specs drive
- * the existing-number path through the DOM. The OTP path is driven by calling
- * `Register()`, the method the Verify button is meant to reach. The template's
- * submit condition requires the phone input, which the OTP step removes, so
- * the button does not reach it today. That is a separate defect, left alone
- * here.
+ * both paths through the DOM: the existing-number path, and the OTP path by
+ * typing the code and pressing Verify.
+ *
+ * AND THE VERIFY BUTTON NOW SUBMITS. The form's submit required the phone
+ * input's validity on both steps, but the OTP step removes that input, so
+ * `phoneComponent` was undefined there and Verify only set `is_submitted`.
+ * No registration was ever sent. `onSubmit()` waives the phone check on the
+ * OTP step only, and a CONTROL pins that the first step still refuses an
+ * invalid number.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -86,6 +90,7 @@ const PHONE_EXISTS = {
 const INVALID_OTP = { status: 400, message: 'Invalid OTP.' };
 
 const OFFLINE = "You're offline — check your connection.";
+const VERIFY = 'Verify OTP & Complete Registration';
 
 describe('Sign-up: the msisdn lookup through the real interceptor chain', () => {
   let fixture: ComponentFixture<RegisterComponent>;
@@ -186,6 +191,81 @@ describe('Sign-up: the msisdn lookup through the real interceptor chain', () => 
     expect(lookup.request.method).toBe('GET');
     lookup.flush(body, { status, statusText });
   }
+
+  /** A number with no account: the lookup answers 404 and the OTP is sent. */
+  async function reachOtpStep(): Promise<void> {
+    fillAndSubmit();
+    answerLookup(NOT_FOUND, 404, 'Not Found');
+    http.expectOne(RESEND_OTP).flush({ status: 200, message: 'OTP sent' });
+    fixture.detectChanges();
+    // Let ngModel's initial (empty) write land before typing, as it does for a
+    // person; typed earlier, it would clear the boxes.
+    await settle();
+    fixture.detectChanges();
+    expect(component.require_otp).withContext('OTP step open').toBeTrue();
+  }
+
+  /**
+   * Type a code into the real OTP input. It publishes its value from a
+   * `setTimeout`, hence the `settle()` after typing.
+   */
+  async function enterOtp(code: string): Promise<void> {
+    const boxes = Array.from(
+      fixture.nativeElement.querySelectorAll('app-otp-input input'),
+    ) as HTMLInputElement[];
+    expect(boxes.length).withContext('OTP boxes rendered').toBe(4);
+    code.split('').forEach((digit, i) => {
+      boxes[i].value = digit;
+      boxes[i].dispatchEvent(new Event('input'));
+    });
+    await settle();
+    fixture.detectChanges();
+    expect(component.data).withContext('OTP entered').toBe(code);
+  }
+
+  it('REGRESSION: on the OTP step, pressing Verify sends the registration with the code', async () => {
+    await reachOtpStep();
+    // CONTROL: the button stays disabled until a whole code is entered.
+    expect(buttonLabelled(VERIFY).disabled).withContext('disabled before a code').toBeTrue();
+
+    await enterOtp('1234');
+    const verify = buttonLabelled(VERIFY);
+    expect(verify.disabled).withContext('enabled with a code').toBeFalse();
+    verify.click();
+    fixture.detectChanges();
+
+    const register = http.match(REGISTER);
+    expect(register.length).withContext('Verify sent the registration').toBe(1);
+    if (register.length === 1) {
+      expect(register[0].request.method).toBe('POST');
+      expect(register[0].request.body).toEqual(jasmine.objectContaining({
+        first_name: 'Amara',
+        last_name: 'Okello',
+        phone_number: MSISDN,
+        otp: '1234',
+      }));
+      register[0].flush({ status: 200, message: 'Registration successful' });
+    }
+  });
+
+  it('CONTROL: on the first step, an invalid phone number still blocks the submission', () => {
+    type('#first_name', 'Amara');
+    type('#last_name', 'Okello');
+    type('#phone', '07001');
+    type('#password', 'Secret#123');
+    type('#confirm-password', 'Secret#123');
+    (fixture.nativeElement.querySelector('#terms') as HTMLInputElement).click();
+    fixture.detectChanges();
+    // PREMISE: everything else is valid, so only the phone check can stop it.
+    expect(component.RegisterForm.valid).withContext('form valid').toBeTrue();
+    expect(component.phoneComponent?.isValid).withContext('phone invalid').toBeFalse();
+
+    buttonLabelled('Create an account').click();
+    fixture.detectChanges();
+
+    expect(http.match(() => true).length).withContext('no request at all').toBe(0);
+    expect(component.is_submitted).toBeTrue();
+  });
 
   it('REGRESSION: a number with no account (HTTP 404) requests the OTP and opens the OTP step', async () => {
     fillAndSubmit();
@@ -310,36 +390,14 @@ describe('Sign-up: the msisdn lookup through the real interceptor chain', () => 
       return http.expectOne(REGISTER);
     }
 
-    /**
-     * The OTP path: no account, OTP sent, four digits typed into the real OTP
-     * input, then `Register()` (see the file header for why it is called
-     * directly rather than through the Verify button). The OTP input publishes
-     * its value from a `setTimeout`, hence the `settle()` after typing.
-     */
+    /** The OTP path: no account, OTP sent, a code typed, Verify pressed. */
     async function registerWithOtp(code: string): Promise<TestRequest> {
       if (!component.require_otp) {
-        fillAndSubmit();
-        answerLookup(NOT_FOUND, 404, 'Not Found');
-        http.expectOne(RESEND_OTP).flush({ status: 200, message: 'OTP sent' });
-        fixture.detectChanges();
-        // Let ngModel's initial (empty) write land before typing, as it does
-        // for a person; typed earlier, it would clear the boxes.
-        await settle();
-        fixture.detectChanges();
+        await reachOtpStep();
       }
-      const boxes = Array.from(
-        fixture.nativeElement.querySelectorAll('app-otp-input input'),
-      ) as HTMLInputElement[];
-      expect(boxes.length).withContext('OTP boxes rendered').toBe(4);
-      code.split('').forEach((digit, i) => {
-        boxes[i].value = digit;
-        boxes[i].dispatchEvent(new Event('input'));
-      });
-      await settle();
+      await enterOtp(code);
+      buttonLabelled(VERIFY).click();
       fixture.detectChanges();
-      expect(component.data).withContext('OTP entered').toBe(code);
-
-      component.Register();
       const register = http.expectOne(REGISTER);
       expect(register.request.body).toEqual(jasmine.objectContaining({ otp: code }));
       return register;
