@@ -14,7 +14,7 @@ import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/din
 import { CreateEmployeeResponse, EmployeeListUser } from 'src/app/_models/app.models';
 import { ApiService } from 'src/app/_services/api.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
-import { isNoAccountAnswer } from 'src/app/_helpers/account-lookup';
+import { isNoAccountAnswer, lookupRefusalMessage } from 'src/app/_helpers/account-lookup';
 import { DialogComponent } from 'src/app/_shared/ui/dialog/dialog.component';
 import { ButtonComponent } from 'src/app/_shared/ui/button/button.component';
 import {
@@ -230,8 +230,13 @@ export class StaffFormDialogComponent implements OnChanges {
           this.checked = true;
           return;
         }
+        // The lookup refused the contact and said why (e.g. not a valid
+        // Ugandan number): show its reason. "Try again" is for failures that
+        // say nothing about the number.
         this.toast.clear();
-        this.toast.error('Could not look up that number. Please try again.');
+        this.toast.error(
+          lookupRefusalMessage(err) ?? 'Could not look up that number. Please try again.',
+        );
       },
     });
   }
