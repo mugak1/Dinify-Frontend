@@ -85,6 +85,7 @@ import { effectiveHosting } from '../lib/hosting.mjs';
 import { receiptDigest } from '../lib/peers.mjs';
 import { contractDigest, digestOfValue } from '../lib/canonical.mjs';
 import { AWAITING, classifyReadiness } from '../lib/readiness.mjs';
+import { validatePolicy } from '../lib/policy.mjs';
 import { POLICY, assessmentFor, baseline, clone, dependenciesFor } from './fixtures.mjs';
 import { ROOT, cli, startOrigin, tempDir, writeDependencyInputs } from './harness.mjs';
 
@@ -426,6 +427,36 @@ const HISTORICAL_SETS = Object.freeze({
   [SET_1013_ID]: B2_BACKEND,
 });
 
+// THE PRE-RETENTION STATE (R-1, 2026-10-15). Until R-1, every committed set refused
+// prerequisite.retention_unverified and listed it as a wait. R-1 moved the committed
+// retention status to `verified` and removed that one entry — and changed nothing else, the
+// compatible-set id included (pilot-15 is the set either side of it). A historical replay is
+// therefore bound to THIS snapshot, so the decisions CI recorded under the six-entry list
+// keep reproducing byte for byte instead of silently re-running under today's five.
+const PRE_RETENTION_AWAITING = Object.freeze([
+  'peers.backend_serving_unverified',
+  'prerequisite.legacy_publisher_active',
+  'prerequisite.legacy_publisher_present',
+  'prerequisite.retention_unverified',
+  'prerequisite.source_protection_unrecorded',
+  'served.bootstrap_unauthorized',
+]);
+// What R-1 leaves: the same list without the retention entry.
+const R1_REMAINING_WAIT = Object.freeze(PRE_RETENTION_AWAITING.filter((c) => c !== 'prerequisite.retention_unverified'));
+// The five-reason decision under the committed policy (Admin serving the approved 033c49a).
+// SYNTHETIC: computed from the rule over the fixture candidate; no readiness run had recorded
+// it when R-1 was written.
+const R1_WAIT_DIGEST_SYNTHETIC = 'sha256:8ecab1b23fb982208d71918725f316ccd482ba241029a221d326ef38ed7e5677';
+
+/** A copy of `policy` (default: the committed one) with the pre-R-1 retention state restored:
+ *  status `unverified` and the original six-entry awaiting list. Nothing else is touched. */
+function preRetentionPolicy(policy = POLICY) {
+  const p = clone(policy);
+  p.prerequisites.retention = { status: 'unverified' };
+  p.publication.readiness.awaiting = [...PRE_RETENTION_AWAITING];
+  return p;
+}
+
 const receiptPath = (peer, commit) => `release/peers/${peer}-${commit}.json`;
 function committedReceiptEntry(peer, commit) {
   const path = receiptPath(peer, commit);
@@ -435,12 +466,18 @@ function committedReceiptEntry(peer, commit) {
 
 /** The committed policy and peer facts with the approved revision of each named peer
  *  replaced by a committed historical receipt. Serving and verification are held to
- *  what `recordedPeers` states unless overridden. */
-function withApproved({ backend, admin, setId, adminServes } = {}) {
-  const policy = clone(POLICY);
+ *  what `recordedPeers` states unless overridden.
+ *
+ *  Every historical set predates R-1, so a historical replay also takes the pre-retention
+ *  state (preRetentionPolicy). pilot-15 is the set on BOTH sides of R-1 — its id did not
+ *  change — so a pilot-15 replay of the state CI observed before R-1 says so explicitly
+ *  with `preRetention: true`. */
+function withApproved({ backend, admin, setId, adminServes, preRetention } = {}) {
+  const historical = Boolean(setId) && setId !== POLICY.compatibleSet.id;
+  const policy = (preRetention ?? historical) ? preRetentionPolicy() : clone(POLICY);
   const peers = recordedPeers(adminServes ? { adminServes } : {});
   if (setId) policy.compatibleSet.id = setId;
-  if (setId && setId !== POLICY.compatibleSet.id) {
+  if (historical) {
     // A historical set: its own backend (unless the caller names one to vary) and the
     // serving reason its decisions printed. An unknown set id is a test error, never a
     // silent replay under today's policy.
@@ -547,10 +584,11 @@ async function decideCommitted({ served = derivedServed, peers = recordedPeers()
 
 const codesOf = (decision) => decision.reasons.map((r) => r.code).sort();
 
+// The owner prerequisites the COMMITTED policy still refuses. Since R-1 that is three:
+// retention is verified. A replay of an earlier set reads PRE_RETENTION_AWAITING instead.
 const PREREQUISITES = [
   'prerequisite.legacy_publisher_active',
   'prerequisite.legacy_publisher_present',
-  'prerequisite.retention_unverified',
   'prerequisite.source_protection_unrecorded',
 ];
 
@@ -587,9 +625,9 @@ function classifyWith({ policy = POLICY, peers = recordedPeers(), decision, enab
 
 /** The committed policy and peer facts with ONE change: the approved backend is the
  *  retained historical receipt, read from its committed file. */
-function withHistoricalBackend() {
+function withHistoricalBackend(base = POLICY) {
   const receipt = JSON.parse(readFileSync(join(ROOT, HISTORICAL_RECEIPT_PATH), 'utf8'));
-  const policy = clone(POLICY);
+  const policy = clone(base);
   policy.compatibleSet.peers.backend.approved = [
     { commit: HISTORICAL_BACKEND, receipt: HISTORICAL_RECEIPT_PATH, receiptDigest: receiptDigest(receipt) },
   ];
@@ -606,7 +644,7 @@ describe('the committed release/policy.json, run through the real decide command
     assert.equal(derivedServed.status, 200, 'the rewrite answers 200 with HTML, not 404');
   });
 
-  test('CONTRACT: as observed (Admin serving 033c49a, approved in pilot-15), an otherwise perfect candidate is refused for the six outstanding facts alone — and that IS the recorded, non-publishing wait', async () => {
+  test('CONTRACT: as observed (Admin serving 033c49a, approved in pilot-15), an otherwise perfect candidate is refused for the five outstanding facts alone — and that IS the recorded, non-publishing wait', async () => {
     const { status, decision } = await decideCommitted();
     assert.equal(status, 1);
     assert.equal(decision.decision, 'REFUSE');
@@ -715,8 +753,9 @@ describe('the backend receipt approved from pilot-4 through pilot-11 (a6b25a6, t
   });
 
   test('CONTRACT: with every other fact held fixed, the new receipt removes peers.capabilities_unpublished and nothing else', () => {
-    const before = codesOf(decidePure(withHistoricalBackend()));
-    const after = codesOf(decidePure({ peers: servingApproved() }));
+    // Bound to the pre-R-1 snapshot: the counts below are what that approval changed then.
+    const before = codesOf(decidePure(withHistoricalBackend(preRetentionPolicy())));
+    const after = codesOf(decidePure({ policy: preRetentionPolicy(), peers: servingApproved() }));
     assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.capabilities_unpublished']);
     assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'approving the receipt introduced no new reason');
     assert.equal(before.length, 7);
@@ -760,14 +799,17 @@ describe('the backend receipt approved from pilot-4 through pilot-11 (a6b25a6, t
   });
 
   test('CONTROL: approving the receipt changed no owner setting — bootstrap, source protection, retention, legacy publisher, enablement, backend serving', () => {
-    assert.deepEqual(POLICY.bootstrap.authorized, false);
-    assert.equal(POLICY.bootstrap.servedBaseline, null);
-    assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded');
-    assert.equal(POLICY.prerequisites.retention.status, 'unverified');
-    assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
-    assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
-    assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
-    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable');
+    // A statement about that approval, so it reads the policy as committed before R-1
+    // (which, later and separately, moved retention to verified).
+    const committed = preRetentionPolicy();
+    assert.deepEqual(committed.bootstrap.authorized, false);
+    assert.equal(committed.bootstrap.servedBaseline, null);
+    assert.equal(committed.prerequisites.sourceProtection.status, 'unrecorded');
+    assert.equal(committed.prerequisites.retention.status, 'unverified');
+    assert.equal(committed.prerequisites.singlePublisher.status, 'legacy-writer-active');
+    assert.equal(committed.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
+    assert.equal(committed.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
+    assert.equal(committed.compatibleSet.peers.backend.serving.observation, 'unavailable');
     assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
   });
 });
@@ -1023,7 +1065,7 @@ describe('the 2026-09-26 receipt refresh (Admin eb54c92, D08 B2.3) — a reviewe
     assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
     assert.equal(before.length, 7);
     assert.equal(after.length, 6);
-    assert.deepEqual(after, [...POLICY.publication.readiness.awaiting].sort(), 'what remained was exactly the recorded wait, nothing hidden');
+    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remained was exactly the recorded wait, nothing hidden');
   });
 
   test('CONTRACT: once it was committed, the six commissioning conditions were a completed, non-publishing wait — REFUSE, allow:false, published:false', () => {
@@ -1104,7 +1146,7 @@ describe('the 2026-09-26 receipt refresh (Admin a7ef20c, D08 B2.4) — replayed 
     assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
     assert.equal(before.length, 7);
     assert.equal(after.length, 6);
-    assert.deepEqual(after, [...POLICY.publication.readiness.awaiting].sort(), 'what remained was exactly the recorded wait, nothing hidden');
+    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remained was exactly the recorded wait, nothing hidden');
   });
 
   test('CONTRACT: once it was committed, the six commissioning conditions were a completed, non-publishing wait — REFUSE, allow:false, published:false', () => {
@@ -1180,7 +1222,7 @@ describe('the 2026-09-26 receipt refresh (Admin abdacda, the documentation-only 
     assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
     assert.equal(before.length, 7);
     assert.equal(after.length, 6);
-    assert.deepEqual(after, [...POLICY.publication.readiness.awaiting].sort(), 'what remained was exactly the recorded wait, nothing hidden');
+    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remained was exactly the recorded wait, nothing hidden');
   });
 
   test('CONTRACT: once it was committed, the six commissioning conditions were a completed, non-publishing wait — REFUSE, allow:false, published:false — and runs 36270515216 and 36272139246 recorded exactly that decision', () => {
@@ -1415,7 +1457,7 @@ describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a r
     assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
     assert.equal(before.length, 7);
     assert.equal(after.length, 6);
-    assert.deepEqual(after, [...POLICY.publication.readiness.awaiting].sort(), 'what remains is exactly the recorded wait, nothing hidden');
+    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remains is exactly the recorded wait, nothing hidden');
     assert.equal(refreshed.decision, 'REFUSE');
     assert.equal(refreshed.allow, false);
     assert.equal(digestOfValue(refreshed), CI_WAIT_DIGEST_PILOT8,
@@ -1458,13 +1500,11 @@ describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a r
 
   test('CONTROL: the refresh moved no owner setting, no enablement, no backend, no Admin serving contract and no waiting entry — only the Admin approval and the set id', () => {
     assert.equal(HISTORICAL_SETS[SET_0927_ID], HISTORICAL_SETS[SET_0928_ID], 'pilot-10 and pilot-11 approved the same backend');
-    assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [
-      'peers.backend_serving_unverified',
-      ...PREREQUISITES,
-      'served.bootstrap_unauthorized',
-    ].sort(), 'no peers.admin_* entry, no wildcard, no new waiting reason');
-    assert.ok(!POLICY.publication.readiness.awaiting.some((c) => c.startsWith('peers.admin')));
-    assert.ok(!POLICY.publication.readiness.awaiting.some((c) => c.startsWith('dependency.')));
+    // The list as this refresh committed it (before R-1 removed the retention entry).
+    const listed = preRetentionPolicy().publication.readiness.awaiting;
+    assert.deepEqual([...listed].sort(), [...PRE_RETENTION_AWAITING].sort(), 'no peers.admin_* entry, no wildcard, no new waiting reason');
+    assert.ok(!listed.some((c) => c.startsWith('peers.admin')));
+    assert.ok(!listed.some((c) => c.startsWith('dependency.')));
     assert.equal(POLICY.bootstrap.authorized, false);
     assert.equal(POLICY.bootstrap.servedBaseline, null);
     assert.equal(HISTORICAL_SETS[SET_0928_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b');
@@ -1552,31 +1592,30 @@ describe('the 2026-09-28 backend receipt refresh (0513adb, the #350 merge, pilot
 
   test('CONTRACT (constructed): with every other fact held fixed, pilot-11 -> pilot-12 changes no reason CODE — the backend swap alone changes no byte, the note correction changes one detail', () => {
     const before = decidePure(pilot11());
-    const after = decidePure({ peers: servingApproved() });
+    const after = decidePure({ policy: preRetentionPolicy(), peers: servingApproved() });
     assert.equal(digestOfValue(before), CI_WAIT_DIGEST_PILOT8, 'pilot-11, replayed, is the wait CI recorded');
     assert.deepEqual(codesOf(after), codesOf(before));
-    assert.deepEqual(codesOf(after), [...POLICY.publication.readiness.awaiting].sort(), 'still exactly the six waiting entries, nothing hidden');
+    assert.deepEqual(codesOf(after), [...PRE_RETENTION_AWAITING].sort(), 'still exactly the six waiting entries, nothing hidden');
     const changed = after.reasons
       .map((r, i) => ({ code: r.code, was: before.reasons[i].detail, now: r.detail, sameCode: before.reasons[i].code === r.code }))
       .filter((c) => !c.sameCode || c.was !== c.now);
     assert.deepEqual(changed, [{ code: 'peers.backend_serving_unverified', was: HISTORICAL_BACKEND_SERVING_REASON, now: POLICY.compatibleSet.peers.backend.serving.reason, sameCode: true }]);
     // The backend selection ALONE — 0513adb with the pilot-11 note — is byte-identical to
     // the recorded wait: the decision names no backend commit, so only the note moved it.
-    const selectionOnly = clone(POLICY);
+    const selectionOnly = preRetentionPolicy();
     selectionOnly.compatibleSet.peers.backend.serving.reason = HISTORICAL_BACKEND_SERVING_REASON;
     assert.equal(digestOfValue(decidePure({ policy: selectionOnly, peers: servingApproved() })), CI_WAIT_DIGEST_PILOT8);
     assert.notEqual(digestOfValue(after), CI_WAIT_DIGEST_PILOT8, 'the next readiness run records a new decisionDigest for the same six codes');
     assert.equal(digestOfValue(after), PILOT12_WAIT_DIGEST_CONSTRUCTED, 'constructed from the rule, and since recorded by readiness run 36741006888');
   });
 
-  test('CONTRACT: through the real decide command, pilot-12 is the same completed, non-publishing wait — REFUSE, allow:false, published:false — and the CLI and the pure decision agree byte for byte', async () => {
-    const { status, decision } = await decideCommitted({ peers: servingApproved() });
-    assert.equal(status, 1);
+  test('CONTRACT: pilot-12 was the same completed, non-publishing wait — REFUSE, allow:false, published:false — replayed under the pre-R-1 snapshot (the real CLI reads only the committed policy; the R-1 block pins that the CLI and the pure decision agree on it byte for byte)', () => {
+    const policy = preRetentionPolicy();
+    const decision = decidePure({ policy, peers: servingApproved() });
     assert.equal(decision.decision, 'REFUSE');
     assert.equal(decision.allow, false);
-    assert.equal(digestOfValue(decision), digestOfValue(decidePure({ peers: servingApproved() })));
     for (const enablement of ['', 'false']) {
-      const r = classifyWith({ peers: servingApproved(), decision, enablement });
+      const r = classifyWith({ policy, peers: servingApproved(), decision, enablement });
       assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
       assert.equal(r.published, false);
       assert.equal(r.decisionDigest, PILOT12_WAIT_DIGEST_CONSTRUCTED);
@@ -1650,15 +1689,14 @@ describe('the 2026-09-28 backend receipt refresh (0513adb, the #350 merge, pilot
 
   test('CONTROL: the refresh moved no owner setting, no enablement, no Admin approval or serving contract and no waiting entry — only the backend approval, its serving note and the set id', () => {
     assert.equal(BACKEND, HISTORICAL_SETS[SET_0928B_ID], 'the backend pilot-12 selected is still the approved one');
-    assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [
-      'peers.backend_serving_unverified',
-      ...PREREQUISITES,
-      'served.bootstrap_unauthorized',
-    ].sort(), 'the six waiting entries, no peers.admin_* entry, no wildcard, no new waiting reason');
+    // The policy as pilot-12 committed it: before R-1, so retention unverified and six entries.
+    const committed = preRetentionPolicy();
+    assert.deepEqual([...committed.publication.readiness.awaiting].sort(), [...PRE_RETENTION_AWAITING].sort(),
+      'the six waiting entries, no peers.admin_* entry, no wildcard, no new waiting reason');
     assert.equal(POLICY.bootstrap.authorized, false);
     assert.equal(POLICY.bootstrap.servedBaseline, null);
     assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded');
-    assert.equal(POLICY.prerequisites.retention.status, 'unverified');
+    assert.equal(committed.prerequisites.retention.status, 'unverified');
     assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
     assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
     assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
@@ -1766,7 +1804,7 @@ describe('the 2026-10-03 receipt refresh (Admin 89d2cf1, #40/#39) — replayed a
     assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
     assert.equal(before.length, 7);
     assert.equal(after.length, 6);
-    assert.deepEqual(after, [...POLICY.publication.readiness.awaiting].sort(), 'what remains is exactly the recorded wait, nothing hidden');
+    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remains is exactly the recorded wait, nothing hidden');
     assert.equal(digestOfValue(refreshed), PILOT12_WAIT_DIGEST_CONSTRUCTED,
       'the six-reason decision names no Admin commit or set: pilot-13\'s wait is the decision run 36741006888 recorded under pilot-12');
   });
@@ -1776,7 +1814,7 @@ describe('the 2026-10-03 receipt refresh (Admin 89d2cf1, #40/#39) — replayed a
     const decision = decidePure({ policy, peers });
     assert.equal(decision.decision, 'REFUSE');
     assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...POLICY.publication.readiness.awaiting].sort());
+    assert.deepEqual(codesOf(decision), [...PRE_RETENTION_AWAITING].sort());
     for (const enablement of ['', 'false']) {
       const r = classifyWith({ policy, peers, decision, enablement });
       assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
@@ -1908,7 +1946,7 @@ describe('the 2026-10-13 receipt refresh (Admin 1fa89cb, #42/#43/#41) — replay
     assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
     assert.equal(before.length, 7);
     assert.equal(after.length, 6);
-    assert.deepEqual(after, [...POLICY.publication.readiness.awaiting].sort(), 'what remains is exactly the recorded wait, nothing hidden');
+    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remains is exactly the recorded wait, nothing hidden');
     assert.equal(digestOfValue(refreshed), PILOT12_WAIT_DIGEST_CONSTRUCTED,
       'the six-reason decision names no Admin commit or set: pilot-14\'s wait is the decision run 36741006888 recorded under pilot-12');
   });
@@ -1918,7 +1956,7 @@ describe('the 2026-10-13 receipt refresh (Admin 1fa89cb, #42/#43/#41) — replay
     const decision = decidePure({ policy, peers });
     assert.equal(decision.decision, 'REFUSE');
     assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...POLICY.publication.readiness.awaiting].sort());
+    assert.deepEqual(codesOf(decision), [...PRE_RETENTION_AWAITING].sort());
     for (const enablement of ['', 'false']) {
       const r = classifyWith({ policy, peers, decision, enablement });
       assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
@@ -2034,39 +2072,39 @@ describe('the 2026-10-15 receipt refresh (Admin 033c49a, the #44 Dependabot acti
 
   test('CONTRACT: with every other fact held fixed, the refresh removes peers.admin_serving_unapproved and nothing else — the six prerequisite reasons remain, allow:false, published:false', () => {
     const before = codesOf(decidePure(before15(DEPENDABOT44_ADMIN)));
-    const refreshed = decidePure({ peers: servingDependabot44() });
+    // pilot-15 as it was committed, before R-1 resolved retention under the same set id.
+    const refreshed = decidePure({ policy: preRetentionPolicy(), peers: servingDependabot44() });
     const after = codesOf(refreshed);
     assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
     assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
     assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
     assert.equal(before.length, 7);
     assert.equal(after.length, 6);
-    assert.deepEqual(after, [...POLICY.publication.readiness.awaiting].sort(), 'what remains is exactly the recorded wait, nothing hidden');
+    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remains is exactly the recorded wait, nothing hidden');
     assert.equal(refreshed.allow, false);
     assert.equal(digestOfValue(refreshed), PILOT12_WAIT_DIGEST_CONSTRUCTED,
       'the six-reason decision names no Admin commit or set: pilot-15\'s wait is the decision run 36741006888 recorded under pilot-12');
-    const r = classifyWith({ peers: servingDependabot44(), decision: refreshed });
+    const r = classifyWith({ policy: preRetentionPolicy(), peers: servingDependabot44(), decision: refreshed });
     assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
     assert.equal(r.published, false);
   });
 
-  test('CONTRACT: through the real decide command, as observed (Admin serving 033c49a), the six commissioning conditions are a completed, non-publishing wait — REFUSE, allow:false, published:false', async () => {
-    const { status, decision } = await decideCommitted({ peers: servingDependabot44() });
-    assert.equal(status, 1, 'the decision itself still refuses and exits non-zero');
+  test('CONTRACT: as observed (Admin serving 033c49a), pilot-15 before R-1 was the six-commissioning-condition, non-publishing wait — REFUSE, allow:false, published:false (replayed under the pre-R-1 snapshot; the committed CLI now gives the R-1 block\'s five)', () => {
+    const policy = preRetentionPolicy();
+    const decision = decidePure({ policy, peers: servingDependabot44() });
     assert.equal(decision.decision, 'REFUSE');
     assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...POLICY.publication.readiness.awaiting].sort());
+    assert.deepEqual(codesOf(decision), [...PRE_RETENTION_AWAITING].sort());
     assert.equal(decision.reasons.find((r) => r.code === 'peers.backend_serving_unverified').detail,
       POLICY.compatibleSet.peers.backend.serving.reason, 'the backend runtime identity is still unavailable');
-    assert.equal(digestOfValue(decision), digestOfValue(decidePure({ peers: servingDependabot44() })), 'the CLI and the pure decision agree byte for byte');
     for (const enablement of ['', 'false']) {
-      const r = classifyWith({ peers: servingDependabot44(), decision, enablement });
+      const r = classifyWith({ policy, peers: servingDependabot44(), decision, enablement });
       assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
       assert.equal(r.evaluationCompleted, true);
       assert.equal(r.published, false);
       assert.equal(r.decisionDigest, PILOT12_WAIT_DIGEST_CONSTRUCTED);
     }
-    assert.deepEqual(classifyWith({ peers: servingDependabot44(), decision, enablement: 'true' }).problems.map((p) => p.code),
+    assert.deepEqual(classifyWith({ policy, peers: servingDependabot44(), decision, enablement: 'true' }).problems.map((p) => p.code),
       ['readiness.publication_enabled'], 'enabling publication is not part of this wait');
   });
 
@@ -2160,29 +2198,28 @@ describe('the 2026-10-15 receipt refresh (Admin 033c49a, the #44 Dependabot acti
 
   test('CONTROL: the refresh moved no owner setting, no enablement, no backend, no Admin serving contract and no waiting entry — only the Admin approval and the set id', () => {
     const { policy: pilot14 } = withApproved({ admin: CLAUDE41_ADMIN, setId: SET_1013_ID });
+    // The refresh as committed: pilot-15 before R-1, which later moved retention under the same id.
+    const committed = preRetentionPolicy();
     assert.equal(BACKEND, HISTORICAL_SETS[SET_1013_ID], 'pilot-14 and pilot-15 approve the same backend');
-    assert.deepEqual(POLICY.compatibleSet.peers.backend, pilot14.compatibleSet.peers.backend,
+    assert.deepEqual(committed.compatibleSet.peers.backend, pilot14.compatibleSet.peers.backend,
       'the backend receipt, its digest and the serving-unavailable note are pilot-14\'s, unchanged');
-    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable', 'no backend runtime identity is established');
-    assert.deepEqual(POLICY.compatibleSet.peers.admin.serving, {
+    assert.equal(committed.compatibleSet.peers.backend.serving.observation, 'unavailable', 'no backend runtime identity is established');
+    assert.deepEqual(committed.compatibleSet.peers.admin.serving, {
       observation: 'public-identity', origin: 'https://admin.dinifyapp.com', path: '/release.txt',
     }, '#44 kept the identity this gate reads: the exact commit at /release.txt, no-store');
-    assert.deepEqual(POLICY.compatibleSet.peers.admin.assumptions, pilot14.compatibleSet.peers.admin.assumptions);
-    assert.equal(POLICY.compatibleSet.peers.admin.receiptVerification, 'public-repository');
-    assert.deepEqual(POLICY.compatibleSet.frontendRequires, pilot14.compatibleSet.frontendRequires);
-    assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [
-      'peers.backend_serving_unverified',
-      ...PREREQUISITES,
-      'served.bootstrap_unauthorized',
-    ].sort(), 'no peers.admin_* entry, no dependency.* entry, no wildcard, no new waiting reason');
-    assert.deepEqual(POLICY.publication, pilot14.publication, 'publication stays disabled behind the unset enablement variable');
-    assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
-    assert.deepEqual(POLICY.bootstrap, pilot14.bootstrap);
-    assert.equal(POLICY.bootstrap.authorized, false);
-    assert.equal(POLICY.bootstrap.servedBaseline, null);
-    assert.deepEqual(POLICY.prerequisites, pilot14.prerequisites);
+    assert.deepEqual(committed.compatibleSet.peers.admin.assumptions, pilot14.compatibleSet.peers.admin.assumptions);
+    assert.equal(committed.compatibleSet.peers.admin.receiptVerification, 'public-repository');
+    assert.deepEqual(committed.compatibleSet.frontendRequires, pilot14.compatibleSet.frontendRequires);
+    assert.deepEqual([...committed.publication.readiness.awaiting].sort(), [...PRE_RETENTION_AWAITING].sort(),
+      'no peers.admin_* entry, no dependency.* entry, no wildcard, no new waiting reason');
+    assert.deepEqual(committed.publication, pilot14.publication, 'publication stays disabled behind the unset enablement variable');
+    assert.equal(committed.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
+    assert.deepEqual(committed.bootstrap, pilot14.bootstrap);
+    assert.equal(committed.bootstrap.authorized, false);
+    assert.equal(committed.bootstrap.servedBaseline, null);
+    assert.deepEqual(committed.prerequisites, pilot14.prerequisites);
     assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
-    const { compatibleSet: now, ...restNow } = clone(POLICY);
+    const { compatibleSet: now, ...restNow } = clone(committed);
     const { compatibleSet: then, ...restThen } = clone(pilot14);
     assert.deepEqual(restNow, restThen, 'nothing outside the compatible set moved');
     assert.deepEqual(Object.keys(now).sort(), Object.keys(then).sort());
@@ -2216,7 +2253,7 @@ describe('the source-protection observation (SP-1) — recorded evidence that mo
       'peers.backend_serving_unverified',
       ...PREREQUISITES,
       'served.bootstrap_unauthorized',
-    ].sort(), 'the awaiting list is unchanged by SP-1');
+    ].sort(), 'SP-1 added no entry (R-1, separately, removed only the retention one)');
     const { decision } = await decideCommitted();
     assert.equal(decision.reasons.find((r) => r.code === 'prerequisite.source_protection_unrecorded')?.detail,
       'branch protection on the certified branch has not been recorded or disclosed as a limitation');
@@ -2235,8 +2272,10 @@ describe('the source-protection observation (SP-1) — recorded evidence that mo
       assert.equal(a.decisionDigest, b.decisionDigest);
       assert.deepEqual(a.problems, b.problems);
     }
-    assert.equal(digestOfValue(decidePure({ peers: servingApproved() })), PILOT12_WAIT_DIGEST_CONSTRUCTED,
-      'as observed, still the six-reason wait the earlier sets recorded');
+    assert.equal(digestOfValue(decidePure({ policy: preRetentionPolicy(), peers: servingApproved() })), PILOT12_WAIT_DIGEST_CONSTRUCTED,
+      'before R-1, still the six-reason wait the earlier sets recorded');
+    assert.equal(digestOfValue(decidePure({ peers: servingApproved() })), R1_WAIT_DIGEST_SYNTHETIC,
+      'since R-1, the five-reason wait (SYNTHETIC until a readiness run records it)');
   });
 
   test('CONTROL: only `status` moves the decision — the same observation beside `recorded` drops exactly the source-protection refusal', () => {
@@ -2256,5 +2295,138 @@ describe('the source-protection observation (SP-1) — recorded evidence that mo
     assert.deepEqual(codesOf(decision), ['policy.invalid']);
     assert.match(decision.reasons[0].detail, /policy\.bad_source_protection_observation/);
     assert.notEqual(classifyWith({ policy, peers: servingApproved(), decision }).kind, AWAITING);
+  });
+});
+
+describe('the R-1 retention observation (2026-10-15) — the Firebase-retention prerequisite, and nothing else, resolved', () => {
+  // WHAT THIS IS. The owner-reported, read-only observation of the `live` channel of site
+  // `dinify-prod` (project `dinify-dev`) was accepted as sufficient for the narrow R-1
+  // requirement, so prerequisites.retention.status moved to `verified` and
+  // prerequisite.retention_unverified left publication.readiness.awaiting in the same
+  // change. release/README.md -> "Firebase retention (R-1)" carries the sanitized evidence
+  // and its limits: the returned retainedReleaseCount 2147483647 is preserved as observed and
+  // NOT read as unlimited, and nothing here proves a recovery would succeed.
+  //
+  // WHAT THE DIGEST BELOW IS. R1_WAIT_DIGEST_SYNTHETIC is computed over the fixture candidate,
+  // the committed receipts and the recorded Admin observation. No readiness run had recorded
+  // a five-reason decision when this was written, so it is a SYNTHETIC replay until one does.
+  const preR1 = () => preRetentionPolicy();
+
+  test('CONTRACT: the committed policy records retention verified, lists exactly the five remaining waits, and validates — nothing else moved', () => {
+    assert.equal(POLICY.prerequisites.retention.status, 'verified');
+    assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [...R1_REMAINING_WAIT].sort());
+    assert.equal(POLICY.publication.readiness.awaiting.includes('prerequisite.retention_unverified'), false);
+    assert.equal(validatePolicy(POLICY).ok, true, JSON.stringify(validatePolicy(POLICY).problems));
+    // Everything the R-1 change was NOT allowed to touch.
+    assert.equal(POLICY.compatibleSet.id, SET_1015_ID, 'no compatibility selection changed');
+    assert.equal(ADMIN, DEPENDABOT44_ADMIN);
+    assert.equal(BACKEND, B2_BACKEND);
+    assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded');
+    assert.equal(POLICY.prerequisites.sourceProtection.observation.observedOn, '2026-10-15', 'the SP-1 observation is untouched');
+    assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
+    assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
+    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable');
+    assert.equal(POLICY.bootstrap.authorized, false);
+    assert.equal(POLICY.bootstrap.servedBaseline, null);
+    assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
+    assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is preserved');
+    // The pre-retention snapshot differs from today's policy in exactly those two places.
+    const pre = preR1();
+    const today = clone(POLICY);
+    today.prerequisites.retention = clone(pre.prerequisites.retention);
+    today.publication.readiness.awaiting = [...pre.publication.readiness.awaiting];
+    assert.deepEqual(today, pre, 'the snapshot restores retention and the list, and nothing else');
+  });
+
+  test('CONTRACT: with identical candidate, peer and fresh-assessment inputs, R-1 removes prerequisite.retention_unverified and nothing else', () => {
+    for (const peers of [servingApproved, () => recordedPeers({ adminServes: CLAUDE41_ADMIN })]) {
+      const before = decidePure({ policy: preR1(), peers: peers() });
+      const after = decidePure({ peers: peers() });
+      assert.deepEqual(codesOf(before).filter((c) => !codesOf(after).includes(c)), ['prerequisite.retention_unverified']);
+      assert.deepEqual(codesOf(after).filter((c) => !codesOf(before).includes(c)), [], 'R-1 introduced no new reason');
+      assert.deepEqual(after.reasons, before.reasons.filter((r) => r.code !== 'prerequisite.retention_unverified'),
+        'every other reason is byte-identical, detail included');
+      assert.equal(before.allow, false);
+      assert.equal(after.allow, false);
+    }
+    assert.equal(digestOfValue(decidePure({ policy: preR1(), peers: servingApproved() })), PILOT12_WAIT_DIGEST_CONSTRUCTED,
+      'before R-1, the replay is the six-reason wait readiness run 36741006888 recorded');
+    // pilot-15 keeps its id across R-1, so its pre-R-1 replay is asked for explicitly.
+    const pilot15Before = withApproved({ setId: SET_1015_ID, adminServes: DEPENDABOT44_ADMIN, preRetention: true });
+    assert.equal(pilot15Before.policy.compatibleSet.id, POLICY.compatibleSet.id);
+    assert.equal(digestOfValue(decidePure(pilot15Before)), PILOT12_WAIT_DIGEST_CONSTRUCTED);
+    const pilot15After = withApproved({ setId: SET_1015_ID, adminServes: DEPENDABOT44_ADMIN });
+    assert.equal(digestOfValue(decidePure(pilot15After)), R1_WAIT_DIGEST_SYNTHETIC, 'without the flag, the same id replays today\'s policy');
+  });
+
+  test('CONTRACT: through the real decide command the committed policy refuses exactly the five remaining reasons — REFUSE, allow:false — and the CLI and the pure decision agree byte for byte', async () => {
+    const { status, decision } = await decideCommitted();
+    assert.equal(status, 1, 'the decision still refuses and exits non-zero');
+    assert.equal(decision.decision, 'REFUSE');
+    assert.equal(decision.allow, false);
+    assert.deepEqual(codesOf(decision), [...R1_REMAINING_WAIT].sort());
+    assert.equal(codesOf(decision).length, 5);
+    assert.equal(digestOfValue(decision), digestOfValue(decidePure()));
+    assert.equal(digestOfValue(decision), R1_WAIT_DIGEST_SYNTHETIC, 'SYNTHETIC until a readiness run records it');
+    assert.notEqual(R1_WAIT_DIGEST_SYNTHETIC, PILOT12_WAIT_DIGEST_CONSTRUCTED);
+  });
+
+  test('CONTRACT: automatic, publication unset or `false`, that refusal is the recorded non-publishing wait — REFUSE, allow:false, published:false', async () => {
+    const { decision } = await decideCommitted();
+    for (const enablement of ['', 'false']) {
+      const r = classifyWith({ decision, enablement });
+      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
+      assert.equal(r.evaluationCompleted, true);
+      assert.equal(r.decision, 'REFUSE');
+      assert.equal(r.allow, false);
+      assert.equal(r.published, false);
+      assert.deepEqual(r.awaiting.map((a) => a.code).sort(), [...R1_REMAINING_WAIT].sort());
+      assert.equal(r.decisionDigest, R1_WAIT_DIGEST_SYNTHETIC);
+    }
+    assert.deepEqual(classifyWith({ decision, enablement: 'true' }).problems.map((p) => p.code), ['readiness.publication_enabled'],
+      'enabling publication is still a failed release, not a wait');
+  });
+
+  test('CONTROL: unverified retention is still refused by the generic rule — the decision rule did not change, only the committed status', () => {
+    const unverified = clone(POLICY);
+    unverified.prerequisites.retention.status = 'unverified';
+    const decision = decidePure({ policy: unverified, peers: servingApproved() });
+    assert.equal(decision.reasons.find((r) => r.code === 'prerequisite.retention_unverified')?.detail,
+      'what Firebase Hosting retains for this site has not been established');
+    assert.equal(decision.allow, false);
+  });
+
+  test('CONTROL: verified retention with its old awaiting entry reinserted is a STALE model — red, never a wait', () => {
+    const stale = clone(POLICY);
+    stale.publication.readiness.awaiting = [...stale.publication.readiness.awaiting, 'prerequisite.retention_unverified'];
+    assert.equal(validatePolicy(stale).ok, true, 'the vocabulary is valid; the classifier is what refuses it');
+    const decision = decidePure({ policy: stale, peers: servingApproved() });
+    assert.equal(codesOf(decision).includes('prerequisite.retention_unverified'), false);
+    const r = classifyWith({ policy: stale, decision });
+    assert.notEqual(r.kind, AWAITING);
+    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.expectation_stale']);
+    assert.match(r.problems[0].detail, /prerequisite\.retention_unverified/);
+  });
+
+  test('CONTROL: unresolved retention omitted from the awaiting list is not silently accepted — red, never a wait', () => {
+    const omitted = clone(POLICY);
+    omitted.prerequisites.retention.status = 'unverified';
+    const decision = decidePure({ policy: omitted, peers: servingApproved() });
+    assert.ok(codesOf(decision).includes('prerequisite.retention_unverified'));
+    const r = classifyWith({ policy: omitted, decision });
+    assert.notEqual(r.kind, AWAITING);
+    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
+    assert.match(r.problems[0].detail, /prerequisite\.retention_unverified/);
+  });
+
+  test('CONTROL: what R-1 does not resolve still refuses, and an unexpected reason beside the five is still red', () => {
+    const decision = decidePure({ peers: recordedPeers({ adminServes: CLAUDE41_ADMIN }) });
+    assert.ok(codesOf(decision).includes('peers.admin_serving_unapproved'));
+    assert.deepEqual(classifyWith({ peers: recordedPeers({ adminServes: CLAUDE41_ADMIN }), decision }).problems.map((p) => p.code),
+      ['readiness.unexpected_reason']);
+    for (const code of ['peers.backend_serving_unverified', 'prerequisite.source_protection_unrecorded',
+      'prerequisite.legacy_publisher_active', 'prerequisite.legacy_publisher_present', 'served.bootstrap_unauthorized']) {
+      assert.ok(codesOf(decidePure({ peers: servingApproved() })).includes(code), code);
+    }
   });
 });

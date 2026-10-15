@@ -34,9 +34,21 @@ import { cli, tempDir } from './harness.mjs';
 const TARGET = 'a'.repeat(40);
 const IDENTITY_URL = `${POLICY.hosting.identityOrigin}${POLICY.hosting.identityPath}`;
 
-// The committed policy's six, read FROM the committed policy — never retyped here, so
-// this suite cannot agree with a stale copy of itself.
+// The committed policy's list (five since R-1 verified retention), read FROM the committed
+// policy — never retyped here, so this suite cannot agree with a stale copy of itself.
 const COMMITTED_AWAITING = POLICY.publication.readiness.awaiting;
+
+// THE PRE-R-1 STATE, for tests that exercise the retention TRANSITION itself. R-1
+// (2026-10-15) moved prerequisites.retention.status to `verified` and removed
+// prerequisite.retention_unverified from the list; nothing else changed. Setting `verified`
+// on today's policy is therefore a no-op, so a transition test starts from here instead.
+const PRE_RETENTION_AWAITING = Object.freeze([...COMMITTED_AWAITING, 'prerequisite.retention_unverified'].sort());
+function preRetention() {
+  const policy = clone(POLICY);
+  policy.prerequisites.retention = { status: 'unverified' };
+  policy.publication.readiness.awaiting = [...PRE_RETENTION_AWAITING];
+  return policy;
+}
 
 const DETAILS = {
   'peers.backend_serving_unverified': 'no verified loaded-runtime identity of the backend is available (B3)',
@@ -76,15 +88,19 @@ function evidence(over = {}) {
 const problemCodes = (r) => r.problems.map((p) => p.code).sort();
 
 describe('readiness — the classifier over the committed policy', () => {
-  test('CONTRACT: the committed policy lists exactly the six still-pending conditions, and validates', () => {
+  test('CONTRACT: the committed policy lists exactly the five still-pending conditions, and validates', () => {
     assert.deepEqual([...COMMITTED_AWAITING].sort(), [
       'peers.backend_serving_unverified',
       'prerequisite.legacy_publisher_active',
       'prerequisite.legacy_publisher_present',
-      'prerequisite.retention_unverified',
       'prerequisite.source_protection_unrecorded',
       'served.bootstrap_unauthorized',
     ]);
+    // R-1 resolved retention: it is recorded verified and is NOT on the list, while the
+    // registry still knows the condition (a policy may still record it unresolved).
+    assert.equal(POLICY.prerequisites.retention.status, 'verified');
+    assert.equal(COMMITTED_AWAITING.includes('prerequisite.retention_unverified'), false);
+    assert.equal(WAITING_CONDITIONS['prerequisite.retention_unverified'].pending(POLICY), false);
     // peers.capabilities_unpublished was resolved by approving 366b7e4. It is NOT a
     // wait: not in the policy's list and not in the registry.
     assert.equal(COMMITTED_AWAITING.includes('peers.capabilities_unpublished'), false);
@@ -93,7 +109,7 @@ describe('readiness — the classifier over the committed policy', () => {
     for (const code of COMMITTED_AWAITING) assert.equal(WAITING_CONDITIONS[code].pending(POLICY), true, code);
   });
 
-  test('CONTRACT: exactly the six, automatic, publication unset → awaiting; the decision is untouched', () => {
+  test('CONTRACT: exactly the five, automatic, publication unset → awaiting; the decision is untouched', () => {
     const input = evidence();
     const before = JSON.stringify(input.decision);
     const r = classifyReadiness(input);
@@ -123,14 +139,14 @@ describe('readiness — the classifier over the committed policy', () => {
     assert.equal(r.kind, AWAITING);
   });
 
-  test('CONTROL: a served identity that is KNOWN legitimately drops the bootstrap reason — five, still a wait', () => {
+  test('CONTROL: a served identity that is KNOWN legitimately drops the bootstrap reason — four, still a wait', () => {
     const codes = COMMITTED_AWAITING.filter((c) => c !== 'served.bootstrap_unauthorized');
     const r = classifyReadiness(evidence({
       decision: refusal(codes),
       served: { state: 'known', url: IDENTITY_URL, status: 200, cacheControlNoStore: true },
     }));
     assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-    assert.equal(r.awaiting.length, 5);
+    assert.equal(r.awaiting.length, 4);
   });
 
   describe('publication enablement is read strictly', () => {
@@ -216,7 +232,7 @@ describe('readiness — the classifier over the committed policy', () => {
     }
   });
 
-  test('CONTROL: ANY reason outside the recorded wait — an integrity failure beside the six — stays red', () => {
+  test('CONTROL: ANY reason outside the recorded wait — an integrity failure beside the five — stays red', () => {
     for (const extra of ['artifact.digest_mismatch', 'certification.failed', 'served.unreadable', 'peers.capabilities_unpublished',
       'peers.receipt_mismatch', 'storage.incompatible', 'eligibility.revoked', 'hosting.identity_cacheable']) {
       const r = classifyReadiness(evidence({ decision: refusal([...COMMITTED_AWAITING, extra]) }));
@@ -227,7 +243,7 @@ describe('readiness — the classifier over the committed policy', () => {
     }
   });
 
-  test('CONTRACT (D08 B2.2): NO dependency reason is ever a wait — every code the dependency half can emit, beside the six, stays red', () => {
+  test('CONTRACT (D08 B2.2): NO dependency reason is ever a wait — every code the dependency half can emit, beside the five, stays red', () => {
     // Enumerated FROM THE SOURCE, so a code added later is covered without editing this
     // test: the certification evidence, the fresh assessment and the toolchain are
     // integrity facts about THIS candidate, never an owner prerequisite still pending.
@@ -326,23 +342,49 @@ describe('readiness — the classifier over the committed policy', () => {
   });
 
   test('CONTROL: a listed condition that stands but was NOT refused — a required check that disappeared — is a defect', () => {
-    const codes = COMMITTED_AWAITING.filter((c) => c !== 'prerequisite.retention_unverified');
+    // Under the committed policy (source protection still unrecorded)...
+    const codes = COMMITTED_AWAITING.filter((c) => c !== 'prerequisite.source_protection_unrecorded');
     const r = classifyReadiness(evidence({ decision: refusal(codes) }));
     assert.equal(r.kind, NOT_WAITING);
     assert.deepEqual(problemCodes(r), ['readiness.expected_reason_missing']);
-    assert.match(r.problems[0].detail, /prerequisite\.retention_unverified/);
+    assert.match(r.problems[0].detail, /prerequisite\.source_protection_unrecorded/);
+    // ...and, explicitly, under the pre-R-1 state, where retention still stood.
+    const pre = preRetention();
+    const missing = classifyReadiness(evidence({ policy: pre, decision: refusal(PRE_RETENTION_AWAITING.filter((c) => c !== 'prerequisite.retention_unverified')) }));
+    assert.deepEqual(problemCodes(missing), ['readiness.expected_reason_missing']);
+    assert.match(missing.problems[0].detail, /prerequisite\.retention_unverified/);
   });
 
   test('CONTRACT: a prerequisite resolved in the policy must leave the list in the same change — else it is stale', () => {
-    const policy = clone(POLICY);
+    // Explicitly from the PRE-R-1 state: on today's policy, `verified` is already set.
+    const policy = preRetention();
+    assert.equal(classifyReadiness(evidence({ policy, decision: refusal(PRE_RETENTION_AWAITING) })).kind, AWAITING,
+      'the pre-R-1 state was itself a wait');
     policy.prerequisites.retention.status = 'verified';
-    const codes = COMMITTED_AWAITING.filter((c) => c !== 'prerequisite.retention_unverified');
+    const codes = PRE_RETENTION_AWAITING.filter((c) => c !== 'prerequisite.retention_unverified');
     const stale = classifyReadiness(evidence({ policy, decision: refusal(codes) }));
     assert.deepEqual(problemCodes(stale), ['readiness.expectation_stale']);
-    // ...and the same change, having removed the entry, is a wait again.
+    // ...and the same change, having removed the entry, is a wait again — which is R-1.
     policy.publication.readiness.awaiting = codes;
     assert.equal(validatePolicy(policy).ok, true);
     assert.equal(classifyReadiness(evidence({ policy, decision: refusal(codes) })).kind, AWAITING);
+    assert.deepEqual([...codes].sort(), [...COMMITTED_AWAITING].sort(), 'and that is exactly the committed list');
+  });
+
+  test('CONTROL (R-1): the committed verified retention with its old entry reinserted is stale; retention unverified but omitted from the list is an unexpected reason — neither is a wait', () => {
+    const reinserted = clone(POLICY);
+    reinserted.publication.readiness.awaiting = [...COMMITTED_AWAITING, 'prerequisite.retention_unverified'];
+    assert.equal(validatePolicy(reinserted).ok, true);
+    const stale = classifyReadiness(evidence({ policy: reinserted }));
+    assert.equal(stale.kind, NOT_WAITING);
+    assert.deepEqual(problemCodes(stale), ['readiness.expectation_stale']);
+
+    const omitted = clone(POLICY);
+    omitted.prerequisites.retention.status = 'unverified';
+    const unexpected = classifyReadiness(evidence({ policy: omitted, decision: refusal([...COMMITTED_AWAITING, 'prerequisite.retention_unverified']) }));
+    assert.equal(unexpected.kind, NOT_WAITING);
+    assert.deepEqual(problemCodes(unexpected), ['readiness.unexpected_reason']);
+    assert.match(unexpected.problems[0].detail, /prerequisite\.retention_unverified/);
   });
 
   test('CONTRACT: when every prerequisite clears, the list is empty and nothing is a wait — a refusal is a failure again', () => {
@@ -357,7 +399,16 @@ describe('readiness — the classifier over the committed policy', () => {
   });
 
   test('CONTROL: the registry and the committed list are the same set — no listed code without a context', () => {
-    assert.deepEqual([...WAITING_CODES].sort(), [...COMMITTED_AWAITING].sort());
+    // The committed list is a subset of the registry; since R-1 the registry knows exactly
+    // ONE condition the list does not carry, retention, which the committed policy records
+    // resolved. The registry entry stays: a policy may still record retention unverified.
+    for (const code of COMMITTED_AWAITING) assert.ok(WAITING_CODES.includes(code), code);
+    assert.deepEqual(WAITING_CODES.filter((c) => !COMMITTED_AWAITING.includes(c)), ['prerequisite.retention_unverified']);
+    assert.equal(WAITING_CODES.length, 6);
+    assert.equal(COMMITTED_AWAITING.length, 5);
+    for (const code of WAITING_CODES.filter((c) => !COMMITTED_AWAITING.includes(c))) {
+      assert.equal(WAITING_CONDITIONS[code].pending(POLICY), false, `${code} is listed nowhere because it is resolved`);
+    }
   });
 });
 
@@ -444,7 +495,7 @@ describe('the readiness and outcome commands, through files', () => {
     assert.equal(o.word, 'PENDING_PREREQUISITES');
     assert.match(o.summary, /### Publication outcome: PENDING_PREREQUISITES/);
     assert.match(o.summary, /\| decision \| REFUSE \|/);
-    assert.match(o.summary, /awaiting 6 recorded prerequisite\(s\) — evaluation completed, nothing admitted/);
+    assert.match(o.summary, /awaiting 5 recorded prerequisite\(s\) — evaluation completed, nothing admitted/);
     assert.match(o.summary, /\| enabled \| not read by this step \|/, 'the gate report claims nothing about a variable it never read');
   });
 
@@ -487,12 +538,22 @@ describe('the readiness and outcome commands, through files', () => {
     }
   });
 
-  test('CONTROL: an integrity failure beside the six exits 1 and names itself', async () => {
+  test('CONTROL: an integrity failure beside the five exits 1 and names itself', async () => {
     const dir = tempDir('readiness-cli');
     writeEvidence(dir, { decision: refusal([...COMMITTED_AWAITING, 'artifact.digest_mismatch']) });
     const r = await readiness(dir);
     assert.equal(r.status, 1);
     assert.match(r.summary, /readiness\.unexpected_reason` \| artifact\.digest_mismatch/);
+    assert.equal((await outcome(dir)).word, 'REFUSED');
+  });
+
+  test('CONTROL (R-1): through the real command, a refusal still carrying prerequisite.retention_unverified exits 1 under the committed policy — it is not on the list', async () => {
+    const dir = tempDir('readiness-cli');
+    writeEvidence(dir, { decision: refusal(PRE_RETENTION_AWAITING) });
+    const r = await readiness(dir);
+    assert.equal(r.status, 1);
+    assert.deepEqual(r.record.problems.map((p) => p.code), ['readiness.unexpected_reason']);
+    assert.match(r.summary, /readiness\.unexpected_reason` \| prerequisite\.retention_unverified/);
     assert.equal((await outcome(dir)).word, 'REFUSED');
   });
 

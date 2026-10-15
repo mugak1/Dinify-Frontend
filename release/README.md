@@ -370,7 +370,7 @@ name, so a lapsed assessment is never reported as a stale certification.
 | `decide` (gate) | `dependency.*`: evidence missing, unsupported (pre-B2.2), invalid, unreproducible, wrong commit/tree/lock/manifest/environment/configuration/run/attempt/candidate, not passing; assessment missing, invalid, not this run's, wrong candidate/graph/scanner/tooling, policy mismatch, out of order, stale, blocking, incomplete, unretained; toolchain missing, invalid, unreviewed, mismatched, unretained |
 | `preflight` (publish) | `preflight.assessment_not_current`, `assessment_replaced`, `tooling_replaced`, `tooling_mismatch`, `runtime_mismatch`, `assessment_mismatch`, `assessment_stale`, `exception_expired` — from its OWN downloads and the run's listing now; a moved `release/` or `dependency-audit/` tree on main is `preflight.policy_advanced` |
 | `publish` (last boundary) | `publisher.tooling_mismatch`, `runtime_mismatch`, `assessment_mismatch`, `assessment_stale`, `exception_expired`, `certification_stale` — **before** the credential is read; the outcome is then `PREFLIGHT_REFUSED`, never `PUBLICATION_FAILED`, because no tool ran |
-| `readiness` | nothing here is ever a wait: every `dependency.*` code beside the recorded six stays red, and a policy listing one does not validate |
+| `readiness` | nothing here is ever a wait: every `dependency.*` code beside the recorded wait stays red, and a policy listing one does not validate |
 
 **A pass does not make an ineligible candidate promotable.** Every other rule — revocation,
 ancestry, peers, storage, the served state, the prerequisites — still applies, and the
@@ -857,8 +857,9 @@ older certified payload on the strength of a fresh rescan is now possible in pri
 and doing so is its own reviewed policy decision.
 
 Firebase Hosting's own release retention is the owner's **fallback** when this path
-cannot publish at all, and is a named prerequisite (below). This path does not depend
-on it.
+cannot publish at all. It was a named prerequisite until R-1 recorded it verified on
+2026-10-15 (below, "Firebase retention (R-1)"), which is a statement about one observed
+setting, not proof that a recovery would succeed. This path does not depend on it.
 
 ## Serving verification, and what it does not prove
 
@@ -903,7 +904,7 @@ by running the real `decide` against the committed file:
 | refusal | resolved by |
 |---|---|
 | `prerequisite.source_protection_unrecorded` | recording branch protection on `main` (required checks, no force-push), or disclosing its absence as a limitation, in `prerequisites.sourceProtection` |
-| `prerequisite.retention_unverified` | establishing what Firebase Hosting retains for this site — the owner's fallback — in `prerequisites.retention` |
+| ~~`prerequisite.retention_unverified`~~ | **resolved by R-1 (2026-10-15)**: `prerequisites.retention.status` is `verified` and the entry left `publication.readiness.awaiting` in the same change. The rule is unchanged, so an `unverified` status is still refused. See "Firebase retention (R-1)" below for what "verified" does and does not mean |
 | `prerequisite.legacy_publisher_active` | the cutover change setting `prerequisites.singlePublisher` |
 | `prerequisite.legacy_publisher_present` | the same change **deleting** `deploy-prod.yml` — this one is observed from the checkout, so the policy cannot claim it |
 | `peers.backend_serving_unverified` | B3: a verified loaded-runtime identity of the backend |
@@ -940,6 +941,93 @@ the reading identity. A re-read replaces the date and every digest together, or 
 the digests; the validator refuses a digest that is not in `sha256:` form and a date that
 is not a real calendar day (`2026-13-01`, `2026-00-01` and `2026-02-29` are each one
 named problem, `policy.bad_source_protection_observation`, never an exception).
+
+### Firebase retention (R-1)
+
+Since 2026-10-15 `prerequisites.retention.status` is `verified`, and
+`prerequisite.retention_unverified` left `publication.readiness.awaiting` in the same
+change. **"Verified" means one narrow thing here**: the owner-reported, read-only
+observation below was reviewed and accepted as sufficient for this prerequisite. It does
+not mean retention is unlimited, it is not a guarantee about future retention, and it does
+not prove that a rollback or recovery would succeed. A rollback on this path still does not
+depend on it, because it republishes the target's certified artifact.
+
+What was observed:
+
+- **Target.** Project `dinify-dev`, site `dinify-prod`, channel `live`, read with
+  `sites.channels.get` (`GET …/v1beta1/sites/dinify-prod/channels/live`). The returned
+  channel name was `sites/dinify-prod/channels/live`, matching the request.
+- **`retainedReleaseCount`** was present, a JSON integer, exactly **`2147483647`**. It is
+  preserved as returned, not clamped and not replaced by a documented default. Firebase's
+  published Channel schema gives this field a range of 1–100, and what a larger returned
+  value means is unresolved. **It is not read here as "unlimited"** or as any other
+  sentinel.
+- **Current release** `sites/dinify-prod/channels/live/releases/1792085434503000`,
+  released `2026-10-15T17:30:34.503Z`, serving version
+  `sites/dinify-prod/versions/08e3899b86390bea`.
+- **History.** A `sites.channels.releases.list` request with a page size of 5 returned five
+  releases: the current one and four previous ones, all dated 2026-10-15 (14:47Z to
+  17:30Z). Their versions were reported FINALIZED, with none reported DELETED or EXPIRED on
+  the inspected page. A further page existed and was not read, so nothing is said about
+  older releases.
+- **Corroboration.** A separate read-only lookup from the owner's own local Claude Code
+  session, through the Firebase plugin, was relayed as a summary: the same
+  `retainedReleaseCount` and the same current release. It corroborates the owner-relayed
+  evidence. Its raw execution was not independently reviewed.
+
+How it was obtained, and its limits:
+
+- **Owner-executed, not reviewer-executed.** The owner ran both reads in their own Google
+  Cloud Shell, with their own account, and pasted the output into the reviewing session,
+  which transcribed it and itself made no Firebase request. The plugin result arrived as a
+  summary. None of it is independent reviewer execution.
+- **No numeric HTTP status and no exact execution time were captured.** The requests used
+  `curl -s` without printing the status. The bodies were a channel resource and a release
+  list, not error objects. The owner ran the channel read between about 18:50Z and 19:00Z
+  on 2026-10-15. The reviewing session received the channel response at about 19:00:06Z,
+  the history list at about 19:03:40Z and the plugin summary at about 19:28:09Z.
+- **An earlier "still unknown" was superseded, not contradicted.** The reviewing session
+  first found no usable access route and sent no request, so the value was unknown at that
+  point. The owner's read then observed it. The owner's first attempt, made before they
+  signed in, was rejected 401 `CREDENTIALS_MISSING`. That is a missing-credential
+  rejection, not a permission finding.
+- **The quota header proves nothing about ownership.** The request carried
+  `x-goog-user-project: dinify-dev`, which selects the quota project.
+- **No payload was verified and no rollback was attempted.** A version reported FINALIZED
+  is not evidence that it is the right recovery target, or that restoring it would work.
+- **One dated observation.** The gate does not re-read it, and the setting can change
+  without this file changing.
+- **Not committed:** the raw report, account identities, authentication history and
+  credentials. The decision reads `status` alone; the `_note` beside it points here.
+
+What R-1 does not do: it does not close D08, authorize the bootstrap or the cutover, set
+`FRONTEND_PUBLISH_ENABLED`, activate the staged publisher or move any other prerequisite.
+The compatible set stays `2026-10-15-pilot-15`, and the receipts, source protection, backend
+serving, single-publisher, bootstrap, enablement, dependency and freshness settings are
+unchanged. With other facts unchanged, the committed decision is still `REFUSE`,
+`allow: false`, for exactly five reasons, and an automatic evaluation with publication
+disabled is still the recorded non-publishing wait (`published: false`):
+
+- `peers.backend_serving_unverified`
+- `prerequisite.source_protection_unrecorded`
+- `prerequisite.legacy_publisher_active`
+- `prerequisite.legacy_publisher_present`
+- `served.bootstrap_unauthorized`
+
+Its decision digest over the fixture inputs is `sha256:8ecab1b2…` (`R1_WAIT_DIGEST_SYNTHETIC`
+in `committed-policy.test.mjs`). That is **synthetic** until a readiness run records it, and
+a real run reaches it only if its fresh assessment and peer reads succeed and every other
+fact is unchanged. Every earlier set, pilot-15 before R-1 included, is replayed under a
+test-local pre-retention snapshot (`preRetentionPolicy()`: status `unverified`, the
+original six-entry list). So every decision digest CI recorded still reproduces byte for
+byte, the six-reason `sha256:79ff3fea…` among them.
+
+The committed-policy suite went from 87 to **95** tests, readiness from 56 to **58** and
+the workflow simulation from 66 to **67** (release suite 1388 → 1399). Against the
+unmodified policy, 6 of the 8 new committed-policy tests fail and its 2 controls pass.
+Two disposable policy mutations were each caught: putting the retention entry back while
+the status stays `verified` fails 53 tests across the three files, and restoring
+`unverified` while keeping the five-entry list fails 29.
 
 `peers.capabilities_unpublished` was the seventh until the 2026-09-23 follow-up approved
 the receipt for backend `366b7e4`; it reappears — and is not an expected wait — if an
