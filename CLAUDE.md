@@ -3185,7 +3185,8 @@ so keep it current when conventions change.
   **WHAT THE GATE CANNOT ESTABLISH IS REFUSED, NOT ASSUMED**: Firebase release
   retention (an owner prerequisite, `prerequisite.retention_unverified` — the owner's
   FALLBACK, since a rollback on this path republishes the target's certified artifact
-  rather than asking Firebase for an old release), and the served identity before
+  rather than asking Firebase for an old release; recorded `verified` by R-1 on
+  2026-10-15, see the R-1 bullet below), and the served identity before
   anything has published one (an EXPLICITLY AUTHORIZED bootstrap,
   `policy.bootstrap.authorized`, false today).
   `identityOrigin` is the canonical Firebase site origin for the deploy target and is
@@ -3271,7 +3272,7 @@ so keep it current when conventions change.
   where before it had no budget. This change builds the same digest. Publication stays
   disabled; every outstanding owner action is a NAMED REFUSAL
   (`committed-policy.test.mjs` pins the exact set — seven at #687's merge, six since
-  the backend receipt follow-up), and **setting
+  the backend receipt follow-up, five since R-1 verified retention), and **setting
   `FRONTEND_PUBLISH_ENABLED` while `deploy-prod.yml` exists is not a cutover** — two
   independent writers. The cutover is one reviewed change deleting it (README →
   "The cutover"). Until then every merge's gate REFUSES — and since the readiness
@@ -3731,6 +3732,26 @@ so keep it current when conventions change.
   throws rather than refusing. It also requires an exact calendar round trip, so
   `2026-02-29` is refused rather than rolled over to 1 March. `policy.test.mjs` went from
   53 to 63 tests.
+- **R-1: THE FIREBASE-RETENTION PREREQUISITE IS RECORDED VERIFIED, AND NOTHING ELSE MOVES
+  (2026-10-15).** `prerequisites.retention.status` is `verified` and
+  `prerequisite.retention_unverified` left `publication.readiness.awaiting` in the same
+  change. **"Verified" is narrow**: an owner-reported, read-only observation of the `live`
+  channel of site `dinify-prod` (project `dinify-dev`) was reviewed and accepted for this
+  prerequisite. Its `retainedReleaseCount` was the JSON integer `2147483647`, kept as
+  returned and **not** read as unlimited (the published schema says 1–100; the larger
+  value's meaning is unresolved). The history page showed four previous versions reported
+  FINALIZED, none reported DELETED or EXPIRED, with pagination not exhausted. The reads
+  were the owner's own, not the reviewer's, and no rollback or payload check was attempted,
+  so recovery success is NOT established. `release/README.md` → "Firebase retention (R-1)"
+  has the sanitized evidence and its limits; the raw report stays private. The compatible
+  set stays `2026-10-15-pilot-15`, and no other prerequisite, receipt, bootstrap or
+  enablement setting moved. The committed decision is still `REFUSE`, `allow: false`, now
+  for five reasons, and an automatic disabled evaluation is still the non-publishing wait.
+  The five-reason decision digest `sha256:8ecab1b2…` is SYNTHETIC until a readiness run
+  records it. `committed-policy.test.mjs` replays every earlier set (pilot-15 before R-1
+  included) under a test-local pre-retention snapshot, so every digest CI recorded,
+  `sha256:79ff3fea…` included, still reproduces. Release suite 1388 → **1399**. This is
+  not D08 closure, and it authorizes no bootstrap, cutover or publication.
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a

@@ -406,7 +406,9 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
   });
 
   test('CONTRACT: outstanding owner prerequisites refuse at the gate; the publish job never starts', async () => {
-    const world = await makeWorld({ prerequisites: 'committed', legacyWorkflow: true });
+    // Explicitly the PRE-R-1 retention state, so all four owner prerequisites are exercised:
+    // the committed policy has recorded retention verified since R-1 (2026-10-15).
+    const world = await makeWorld({ prerequisites: 'committed', legacyWorkflow: true, policyMutate: (p) => { p.prerequisites.retention = { status: 'unverified' }; } });
     const result = await simulate(world, automaticEvent(world, 5102));
     assert.equal(result.jobs.gate.result, 'failure', 'a refusal is red');
     // Red AT the decision, not only at the report after it. The job would still go red
@@ -813,7 +815,7 @@ function assertRecordedWait(world, result, event) {
   assert.equal(step(result, 'gate', 'Report the outcome').outcome, 'success');
   assert.equal(result.jobs.gate.result, 'success', result.jobs.gate.summary);
 
-  // 2. THE DECISION IS UNCHANGED — REFUSE, allow:false, exactly the recorded six, in
+  // 2. THE DECISION IS UNCHANGED — REFUSE, allow:false, exactly the recorded list, in
   // the step's stdout, the job's outputs and the retained evidence alike.
   const decision = decisionOf(result);
   assert.equal(decision.decision, 'REFUSE');
@@ -881,6 +883,15 @@ describe('publish.yml, a deliberately NON-PUBLISHING evaluation — reported as 
     const result = await simulate(world, event);
     assertRecordedWait(world, result, event);
     assert.equal(readinessOf(result).enablement, 'disabled-unset');
+    // Since R-1 (2026-10-15) the recorded list is five: retention is verified and absent.
+    assert.deepEqual(EXPECTED_WAIT, [
+      'peers.backend_serving_unverified',
+      'prerequisite.legacy_publisher_active',
+      'prerequisite.legacy_publisher_present',
+      'prerequisite.source_protection_unrecorded',
+      'served.bootstrap_unauthorized',
+    ]);
+    assert.equal(codesOf(decisionOf(result)).includes('prerequisite.retention_unverified'), false);
   });
 
   test('CONTROL: an explicit `false` is as disabled as unset — still the recorded wait', async () => {
@@ -986,13 +997,26 @@ describe('publish.yml, a deliberately NON-PUBLISHING evaluation — reported as 
   });
 
   test('CONTROL (§5.7): a prerequisite resolved in the policy but left on the list — a stale model, red', async () => {
-    const world = await committedWorld({ policyMutate: (p) => { p.prerequisites.retention.status = 'verified'; } });
+    // The committed policy already records retention verified (R-1), so the stale list is
+    // CONSTRUCTED: the resolved entry put back beside it.
+    const world = await committedWorld({ policyMutate: (p) => {
+      assert.equal(p.prerequisites.retention.status, 'verified');
+      assert.equal(p.publication.readiness.awaiting.includes('prerequisite.retention_unverified'), false);
+      p.publication.readiness.awaiting = [...p.publication.readiness.awaiting, 'prerequisite.retention_unverified'];
+    } });
     const result = await simulate(world, automaticEvent(world, 5102));
     assert.equal(codesOf(decisionOf(result)).includes('prerequisite.retention_unverified'), false);
     assertRedAndInert(world, result, { readinessProblem: 'readiness.expectation_stale' });
   });
 
-  test('CONTROL (§5.7): a refusal the list does not record — red, even when it is one of the six the policy dropped', async () => {
+  test('CONTROL (R-1): retention recorded unverified while the list omits it — an unexpected reason, red', async () => {
+    const world = await committedWorld({ policyMutate: (p) => { p.prerequisites.retention = { status: 'unverified' }; } });
+    const result = await simulate(world, automaticEvent(world, 5102));
+    assert.ok(codesOf(decisionOf(result)).includes('prerequisite.retention_unverified'));
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTROL (§5.7): a refusal the list does not record — red, even when it is one of the five the policy dropped', async () => {
     const world = await committedWorld({ policyMutate: (p) => {
       p.publication.readiness.awaiting = p.publication.readiness.awaiting.filter((c) => c !== 'served.bootstrap_unauthorized');
     } });
@@ -1000,7 +1024,7 @@ describe('publish.yml, a deliberately NON-PUBLISHING evaluation — reported as 
     assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
   });
 
-  test('CONTROL (§5.7): a NEW reason beside the six — a stale certification — red', async () => {
+  test('CONTROL (§5.7): a NEW reason beside the five — a stale certification — red', async () => {
     const world = await committedWorld({ certifyStartedAgo: 25 * 60 * MINUTE });
     const result = await simulate(world, automaticEvent(world, 5102));
     assert.ok(codesOf(decisionOf(result)).includes('certification.stale'));
@@ -1011,7 +1035,7 @@ describe('publish.yml, a deliberately NON-PUBLISHING evaluation — reported as 
     const world = await committedWorld();
     world.vars = { FRONTEND_PUBLISH_ENABLED: 'true' };
     const result = await simulate(world, automaticEvent(world, 5102));
-    assert.deepEqual(codesOf(decisionOf(result)).sort(), EXPECTED_WAIT, 'the same six — enablement is what differs');
+    assert.deepEqual(codesOf(decisionOf(result)).sort(), EXPECTED_WAIT, 'the same five — enablement is what differs');
     assertRedAndInert(world, result, { readinessProblem: 'readiness.publication_enabled' });
   });
 

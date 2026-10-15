@@ -329,7 +329,15 @@
       }
     },
     "retention": {
-      "status": "unverified"
+      "_note": [
+        "R-1, 2026-10-15: VERIFIED means the owner-reported, read-only observation of",
+        "the live channel of site dinify-prod (project dinify-dev) was reviewed and",
+        "accepted for this prerequisite. It does NOT mean retention is unlimited (the",
+        "returned retainedReleaseCount, 2147483647, is outside the documented 1-100",
+        "range and its meaning is unresolved), and it proves no rollback or recovery.",
+        "The sanitized evidence and its limits: release/README.md, \"Firebase retention (R-1)\"."
+      ],
+      "status": "verified"
     },
     "singlePublisher": {
       "status": "legacy-writer-active",
@@ -371,7 +379,6 @@
         "peers.backend_serving_unverified",
         "prerequisite.legacy_publisher_active",
         "prerequisite.legacy_publisher_present",
-        "prerequisite.retention_unverified",
         "prerequisite.source_protection_unrecorded",
         "served.bootstrap_unauthorized"
       ]
