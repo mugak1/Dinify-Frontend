@@ -7,11 +7,36 @@
  */
 
 /**
+ * Whether the value beside a marker can be read as what was captured when the
+ * line was ordered (D12 B3, Backend #367).
+ *
+ * `missing` means the server cannot establish that. It does NOT mean nothing
+ * was recorded, and `snapshot` beside an empty allergen list is not a claim
+ * that the dish is allergen-free. The server derives the list markers from a
+ * write convention, not from a stored certificate.
+ */
+export type KitchenLineProvenance = 'snapshot' | 'missing';
+
+/**
+ * The three markers the server publishes on every line and extra, each
+ * independent of the others. OPTIONAL, because an older server sends none —
+ * and an absent marker is no claim either way, so the board shows that line
+ * exactly as it always did. `readFeed` normalises a present value that is not
+ * exactly one of the two words to `missing`; nothing is ever inferred from the
+ * name or lists beside it.
+ */
+export interface KitchenLineEvidence {
+  item_name_provenance?: KitchenLineProvenance;
+  modifiers_provenance?: KitchenLineProvenance;
+  allergen_tags_provenance?: KitchenLineProvenance;
+}
+
+/**
  * An add-on attached to a ticket line (e.g. "Add bacon"). Mirrors the Phase 2
  * nested serializer shape — same self-contained allergen snapshot as the parent
  * line so the board needs no menu lookup.
  */
-export interface KitchenTicketExtra {
+export interface KitchenTicketExtra extends KitchenLineEvidence {
   item_name_snapshot: string;
   quantity: number;
   modifiers: string[];
@@ -19,8 +44,9 @@ export interface KitchenTicketExtra {
 }
 
 /** A single line on a kitchen ticket. */
-export interface KitchenTicketItem {
-  /** Name captured at order time (immune to later menu edits). */
+export interface KitchenTicketItem extends KitchenLineEvidence {
+  /** The name stored for the line (immune to later menu edits). Whether the
+   *  server can vouch that it is the order-time name is `item_name_provenance`. */
   item_name_snapshot: string;
   quantity: number;
   /** Human-readable modifiers, e.g. ["Size: Large", "No onions"]. */

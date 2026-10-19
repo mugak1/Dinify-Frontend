@@ -438,4 +438,184 @@ describe('TicketCardComponent', () => {
       expect(component.commandsEnabled).toBeTrue();
     });
   });
+
+  // ── D12 B3: each line says what the server can and cannot vouch for ──────
+  //
+  // `missing` means the server cannot establish that a stored value is what
+  // was captured when the line was ordered. It is not proof that nothing was
+  // recorded, and a captured EMPTY allergen list is not an allergen-free claim.
+  // The notices are the application's own words; whatever the merchant wrote
+  // is shown as it always was.
+  describe('historical line evidence (D12 B3)', () => {
+    const NAME_UNAVAILABLE = 'Item name unavailable';
+    const NAME_UNVERIFIED = 'Item name unverified';
+    const OPTIONS = 'Options unverified — check before preparing';
+    const ALLERGENS = 'Allergen information unverified — check before preparing';
+    const FORBIDDEN = /allergen[- ]?free|no allergens|none flagged|safe|not recorded/i;
+
+    const SNAP = {
+      item_name_provenance: 'snapshot', modifiers_provenance: 'snapshot',
+      allergen_tags_provenance: 'snapshot',
+    };
+    const MISS = {
+      item_name_provenance: 'missing', modifiers_provenance: 'missing',
+      allergen_tags_provenance: 'missing',
+    };
+
+    function line(over: any = {}): any {
+      return {
+        item_name_snapshot: 'Beef Burger', quantity: 2, modifiers: ['Size: Large'],
+        allergen_tags: [{ name: 'Peanuts', icon: 'nut', colour: 'red' }], extras: [],
+        ...over,
+      };
+    }
+    function extra(over: any = {}): any {
+      return {
+        item_name_snapshot: 'Cheese Slice', quantity: 2, modifiers: [],
+        allergen_tags: [{ name: 'Milk', icon: 'milk', colour: 'amber' }], ...over,
+      };
+    }
+
+    function render(items: any[], over: Partial<KitchenTicket> = {}): HTMLElement {
+      fixture.componentRef.setInput(
+        'ticket', makeTicket({ fulfilment_status: 'new', fulfilment_revision: 0, items, ...over }));
+      fixture.componentRef.setInput('now', Date.now());
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    function parentLine(el: HTMLElement, i = 0): HTMLElement {
+      return el.querySelectorAll<HTMLElement>('article > div.overflow-y-auto > div')[i];
+    }
+    function extraLine(el: HTMLElement, i = 0, parent = 0): HTMLElement {
+      return parentLine(el, parent)
+        .querySelectorAll<HTMLElement>(':scope > div.space-y-1 > div')[i];
+    }
+    function notices(el: HTMLElement, which: 'parent' | 'extra'): string[] {
+      return Array.from(el.querySelectorAll<HTMLElement>('[data-testid="line-evidence"]'))
+        .filter(n => n.getAttribute('data-line') === which)
+        .map(n => (n.textContent ?? '').trim());
+    }
+    function nameSlot(el: HTMLElement): string {
+      return (el.querySelector(':scope > div.flex > span:nth-of-type(2)')?.textContent ?? '')
+        .trim();
+    }
+
+    it('keeps the old display when the server sent no markers, blank name included', () => {
+      const el = render([line({ item_name_snapshot: '', modifiers: [], allergen_tags: [] })]);
+      expect(notices(el, 'parent')).toEqual([]);
+      expect(nameSlot(parentLine(el))).toBe('');
+    });
+
+    it('keeps the existing display for captured values', () => {
+      const el = render([line({ ...SNAP, extras: [extra({ ...SNAP })] })]);
+      expect(notices(el, 'parent')).toEqual([]);
+      expect(notices(el, 'extra')).toEqual([]);
+      const text = el.textContent ?? '';
+      for (const shown of ['Beef Burger', 'Size: Large', 'Peanuts', 'Cheese Slice', 'Milk']) {
+        expect(text).toContain(shown);
+      }
+    });
+
+    it('adds nothing to a captured-EMPTY line: no notice and no assurance', () => {
+      const el = render([line({ ...SNAP, item_name_snapshot: 'Pasta', modifiers: [],
+                                allergen_tags: [] })]);
+      expect(notices(el, 'parent')).toEqual([]);
+      expect(el.textContent ?? '').not.toMatch(/allergen/i);
+    });
+
+    it('calls an empty name it cannot vouch for unavailable rather than leaving it blank',
+       () => {
+      const el = render([line({ item_name_snapshot: '', item_name_provenance: 'missing' })]);
+      expect(nameSlot(parentLine(el))).toBe(NAME_UNAVAILABLE);
+      expect(notices(el, 'parent')).toEqual([NAME_UNAVAILABLE]);
+    });
+
+    it('keeps a stored name it cannot vouch for and says it is unverified', () => {
+      const el = render([line({ item_name_provenance: 'missing' })]);
+      expect(nameSlot(parentLine(el))).toBe('Beef Burger');
+      expect(notices(el, 'parent')).toEqual([NAME_UNVERIFIED]);
+    });
+
+    it('keeps stored options it cannot vouch for and cautions on them', () => {
+      const el = render([line({ modifiers_provenance: 'missing' })]);
+      expect(parentLine(el).textContent).toContain('Size: Large');
+      expect(notices(el, 'parent')).toEqual([OPTIONS]);
+    });
+
+    it('cautions on options even when none are stored', () => {
+      const el = render([line({ modifiers: [], modifiers_provenance: 'missing' })]);
+      expect(notices(el, 'parent')).toEqual([OPTIONS]);
+    });
+
+    it('keeps stored allergen chips it cannot vouch for and cautions on them', () => {
+      const el = render([line({ allergen_tags_provenance: 'missing' })]);
+      expect(parentLine(el).textContent).toContain('Peanuts');
+      expect(notices(el, 'parent')).toEqual([ALLERGENS]);
+    });
+
+    it('cautions on allergens even when none are stored, and promises nothing', () => {
+      const el = render([line({ allergen_tags: [], allergen_tags_provenance: 'missing' })]);
+      expect(notices(el, 'parent')).toEqual([ALLERGENS]);
+      for (const n of notices(el, 'parent')) expect(n).not.toMatch(FORBIDDEN);
+    });
+
+    it('orders a fully unverified line name, options, allergens', () => {
+      const el = render([line({ ...MISS })]);
+      expect(notices(el, 'parent')).toEqual([NAME_UNVERIFIED, OPTIONS, ALLERGENS]);
+    });
+
+    it('judges an extra on its own markers, and gives it no options notice', () => {
+      const el = render([line({ ...SNAP, extras: [
+        extra({ ...MISS, item_name_snapshot: '' }),
+        extra({ ...SNAP, item_name_snapshot: 'Bacon Strip', allergen_tags: [] }),
+      ] })]);
+      expect(notices(parentLine(el), 'parent')).toEqual([]);
+      expect(nameSlot(extraLine(el, 0))).toBe(NAME_UNAVAILABLE);
+      expect(notices(extraLine(el, 0), 'extra')).toEqual([NAME_UNAVAILABLE, ALLERGENS]);
+      expect(notices(extraLine(el, 1), 'extra')).toEqual([]);
+    });
+
+    it('does not let a parent caution reach its extras', () => {
+      const el = render([line({ ...MISS, extras: [extra({ ...SNAP })] })]);
+      expect(notices(parentLine(el), 'parent')).toEqual([NAME_UNVERIFIED, OPTIONS, ALLERGENS]);
+      expect(notices(extraLine(el, 0), 'extra')).toEqual([]);
+    });
+
+    it("still renders an extra's stored options, as it always did", () => {
+      const el = render([line({ ...SNAP, extras: [
+        extra({ ...MISS, modifiers: ['Extra crispy'] }),
+      ] })]);
+      expect(extraLine(el, 0).textContent).toContain('Extra crispy');
+      expect(notices(extraLine(el, 0), 'extra')).toEqual([NAME_UNVERIFIED, ALLERGENS]);
+    });
+
+    it('treats an un-normalised marker reaching the card as unverified, never as captured',
+       () => {
+      const el = render([line({ item_name_provenance: null as any,
+                                allergen_tags_provenance: 'garbage' as any })]);
+      expect(notices(el, 'parent')).toEqual([NAME_UNVERIFIED, ALLERGENS]);
+    });
+
+    it('shows merchant-authored words verbatim; only its own notices are policed', () => {
+      const el = render([line({ ...MISS, item_name_snapshot: 'Allergen-free salad',
+                                modifiers: ['No allergens'] })]);
+      const text = el.textContent ?? '';
+      expect(text).withContext('the stored name is the merchant\'s, not ours')
+        .toContain('Allergen-free salad');
+      expect(text).toContain('No allergens');
+      const ours = notices(el, 'parent');
+      expect(ours).toEqual([NAME_UNVERIFIED, OPTIONS, ALLERGENS]);
+      for (const n of ours) expect(n).not.toMatch(FORBIDDEN);
+    });
+
+    it('never withholds a command because of a notice', () => {
+      const el = render([line({ ...MISS, extras: [extra({ ...MISS })] })]);
+      expect(component.commandsEnabled).toBeTrue();
+      expect(component.canCancel).toBeTrue();
+      const advance = el.querySelector('footer button') as HTMLButtonElement;
+      expect(advance.disabled).toBeFalse();
+      expect(advance.textContent?.trim()).toBe('Start');
+    });
+  });
 });
