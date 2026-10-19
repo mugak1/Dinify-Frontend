@@ -32,7 +32,8 @@
             ],
             "scripts": [],
             "allowedCommonJsDependencies": [
-              "qrcode"
+              "qrcode",
+              "browser-image-compression/dist/browser-image-compression.js"
             ]
           },
           "configurations": {

@@ -11,6 +11,7 @@ import { of, switchMap } from 'rxjs';
 
 import { DinifyPhoneInputComponent } from 'src/app/shared/dinify-phone-input/dinify-phone-input.component';
 import imageCompression from 'browser-image-compression';
+import { imageCompressionLibUrl } from 'src/app/_shared/utils/image-compression-lib-url';
 
 import { environment } from 'src/environments/environment';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
@@ -308,6 +309,7 @@ export class IdentityComponent implements OnInit, OnDestroy, HasUnsavedChanges {
         maxSizeMB: 0.5,
         maxWidthOrHeight: 1280,
         useWebWorker: true,
+        libURL: imageCompressionLibUrl(),
         initialQuality: 0.85,
         fileType: 'image/jpeg',
       });

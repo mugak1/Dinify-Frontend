@@ -16,6 +16,7 @@ import { AuthenticationService } from 'src/app/_services/authentication.service'
 import { MenuItemTagSelectorComponent } from 'src/app/_shared/tags/menu-item-tag-selector.component';
 import { environment } from 'src/environments/environment';
 import imageCompression from 'browser-image-compression';
+import { imageCompressionLibUrl } from 'src/app/_shared/utils/image-compression-lib-url';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -46,6 +47,12 @@ export class ItemFormDialogComponent implements OnChanges {
   @Output() saved = new EventEmitter<any>();
 
   @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
+
+  /**
+   * The compressor, held as a field so a spec can substitute it without touching
+   * the module. Production always calls the library itself.
+   */
+  private readonly imageCompression = imageCompression;
 
   form!: FormGroup;
   sections$: Observable<MenuSectionListItem[]>;
@@ -211,10 +218,11 @@ export class ItemFormDialogComponent implements OnChanges {
     if (file.size > SKIP_THRESHOLD_BYTES) {
       this.isCompressing = true;
       try {
-        const compressed = await imageCompression(file, {
+        const compressed = await this.imageCompression(file, {
           maxSizeMB: 0.5,
           maxWidthOrHeight: 1280,
           useWebWorker: true,
+          libURL: imageCompressionLibUrl(),
           initialQuality: 0.85,
           fileType: 'image/jpeg',
         });

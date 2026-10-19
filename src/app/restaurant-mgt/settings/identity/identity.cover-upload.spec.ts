@@ -22,16 +22,21 @@ import { IdentityComponent } from './identity.component';
 import { AuthenticationService } from 'src/app/_services/authentication.service';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
 import { RestaurantDetail } from 'src/app/_models/app.models';
+import { imageCompressionLibUrl } from 'src/app/_shared/utils/image-compression-lib-url';
 
 type Compressor = (file: File, options: object) => Promise<Blob>;
 
 const KIB = 1024;
 
-/** The options the component passes today; this change must not move them. */
+/**
+ * The options the component passes. The five #721 pinned are unchanged; `libURL`
+ * points the library's worker at the copy this build serves instead of the CDN.
+ */
 const COMPRESSION_OPTIONS = {
   maxSizeMB: 0.5,
   maxWidthOrHeight: 1280,
   useWebWorker: true,
+  libURL: imageCompressionLibUrl(),
   initialQuality: 0.85,
   fileType: 'image/jpeg',
 };
@@ -179,13 +184,24 @@ describe('IdentityComponent — the cover photo on the wire', () => {
     }
   });
 
-  it('CONTRACT: compression is asked for with the options it had before this change', async () => {
+  it('CONTRACT: compression is asked for with the #721 options plus a same-origin library', async () => {
     const original = photo('cover.jpg', 'image/jpeg', 300 * KIB);
     compressor.and.callFake(async (file) => libraryOutput(bytes(40 * KIB, 1), file));
 
     await pick(original);
 
     expect(compressor).toHaveBeenCalledOnceWith(original, COMPRESSION_OPTIONS);
+    saveAndReadCover();
+  });
+
+  it('CONTRACT: the worker loads the library from this origin, never the CDN', async () => {
+    compressor.and.callFake(async (file) => libraryOutput(bytes(40 * KIB, 1), file));
+
+    await pick(photo('cover.jpg', 'image/jpeg', 300 * KIB));
+
+    const { libURL } = compressor.calls.mostRecent().args[1] as { libURL: string };
+    expect(new URL(libURL).origin).toBe(location.origin);
+    expect(libURL).not.toContain('jsdelivr');
     saveAndReadCover();
   });
 
