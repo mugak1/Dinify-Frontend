@@ -9,6 +9,7 @@ import {
 
 import {
   EscalationLevel,
+  KitchenLineProvenance,
   KitchenTicket,
   TicketOperation,
 } from '../../models/kitchen.models';
@@ -238,6 +239,17 @@ export class TicketCardComponent {
   /** Classify a freeform modifier for typed display (red / blue / chip / plain). */
   modType(m: string): ModifierKind {
     return classifyModifier(m);
+  }
+
+  /**
+   * D12 B3. Whether the server could NOT vouch for a stored value, so the card
+   * says so beside it. An absent marker (an older server) is no claim and
+   * changes nothing. `readFeed` already reduces every present value to
+   * `snapshot` or `missing`; anything else that reaches the card is read as
+   * unverified too, so this errs toward caution and never toward "captured".
+   */
+  unverified(marker: KitchenLineProvenance | undefined): boolean {
+    return marker !== undefined && marker !== 'snapshot';
   }
 
   onAdvance(): void {

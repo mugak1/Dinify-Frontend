@@ -31,6 +31,8 @@
 import {
   FulfilmentStatus,
   KitchenAction,
+  KitchenLineEvidence,
+  KitchenLineProvenance,
   KitchenOrderState,
   KitchenTicket,
   KitchenTicketExtra,
@@ -150,6 +152,48 @@ function isTicket(value: unknown, revisionRequired: boolean): value is KitchenTi
   return true;
 }
 
+/** The three D12 B3 line markers. Each is read on its own; none implies another. */
+const LINE_PROVENANCE_KEYS = [
+  'item_name_provenance', 'modifiers_provenance', 'allergen_tags_provenance',
+] as const;
+
+/**
+ * One PRESENT marker. Exactly `snapshot` or `missing` is kept; anything else —
+ * null, an unknown or differently cased word, a number, an object — is
+ * `missing`, because a marker the client cannot read vouches for nothing. A bad
+ * marker is a reason for caution, not for refusing the feed: unlike a name or an
+ * allergen list it is metadata about a value, and the board stays usable.
+ */
+export function readLineProvenance(value: unknown): KitchenLineProvenance {
+  return value === 'snapshot' ? 'snapshot' : 'missing';
+}
+
+/**
+ * A COPY of one line with its markers read. An ABSENT marker stays absent: an
+ * older server made no claim and none is invented. Nothing is inferred from the
+ * name or the lists beside a marker, and the line given is never written to.
+ */
+function withLineProvenance<T extends KitchenLineEvidence>(line: T): T {
+  const out: T = { ...line };
+  for (const key of LINE_PROVENANCE_KEYS) {
+    const value: unknown = line[key];
+    if (value !== undefined) (out as KitchenLineEvidence)[key] = readLineProvenance(value);
+  }
+  return out;
+}
+
+/** A copy of a validated ticket whose lines and extras carry read markers. */
+function withTicketProvenance(ticket: KitchenTicket): KitchenTicket {
+  return {
+    ...ticket,
+    items: ticket.items.map(item => {
+      const line = withLineProvenance(item);
+      if (item.extras !== undefined) line.extras = item.extras.map(withLineProvenance);
+      return line;
+    }),
+  };
+}
+
 /** A ticket may be commanded only when the server published a usable revision. */
 export function isCommandable(ticket: KitchenTicket | undefined): boolean {
   return !!ticket && isValidRevision(ticket.fulfilment_revision);
@@ -177,6 +221,10 @@ export type FeedVerdict =
  * it), so a feed naming one id twice is not a board this client can represent,
  * and silently keeping one of them would be choosing an answer the server did
  * not give.
+ *
+ * The tickets returned are COPIES whose line markers have been read (D12 B3).
+ * They are read only after every row has passed the checks above, which this
+ * leaves exactly as they were, and the response itself is never written to.
  */
 export function readFeed(res: unknown): FeedVerdict {
   const data: any = (res as any)?.data;
@@ -199,7 +247,7 @@ export function readFeed(res: unknown): FeedVerdict {
   const ids = new Set(tickets.map(t => t.id));
   if (ids.size !== tickets.length) return { kind: 'unreadable', why: 'duplicate' };
 
-  return { kind: 'ok', tickets, protocol };
+  return { kind: 'ok', tickets: tickets.map(withTicketProvenance), protocol };
 }
 
 function isState(value: unknown): value is KitchenOrderState {

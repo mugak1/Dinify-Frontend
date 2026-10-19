@@ -118,8 +118,30 @@ the red advance button — the red wash over the white card reads clearly.
         [ngClass]="item.quantity > 1
           ? 'inline-flex items-center justify-center min-w-[26px] h-[26px] bg-gray-900 text-white rounded-md font-bold text-base'
           : 'text-lg font-bold text-gray-500'">{{ item.quantity }}×</span>
-          <span class="text-lg font-bold leading-tight">{{ item.item_name_snapshot }}</span>
+          <!--
+          D12 B3. A marker the server sent that is not `snapshot` means it cannot
+          vouch for the value beside it: an empty stored name is called
+          unavailable, a stored one is kept and called unverified. No marker at
+          all (an older server) is no claim, so the line shows as it always did.
+          -->
+          @if (unverified(item.item_name_provenance) && !item.item_name_snapshot) {
+            <span
+              class="text-lg font-bold leading-tight italic text-amber-800"
+              data-testid="line-evidence" data-line="parent">Item name unavailable</span>
+          } @else {
+            <span class="text-lg font-bold leading-tight">{{ item.item_name_snapshot }}</span>
+          }
         </div>
+        @if (unverified(item.item_name_provenance) && item.item_name_snapshot) {
+          <div class="mt-0.5 ml-7">
+            <span
+              class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900"
+              data-testid="line-evidence" data-line="parent">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Item name unverified
+            </span>
+          </div>
+        }
         <!-- Modifiers: colour-coded by a frontend heuristic (classifyModifier). -->
         @if (item.modifiers.length) {
           <div class="mt-0.5 ml-7 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
@@ -147,6 +169,17 @@ the red advance button — the red wash over the white card reads clearly.
             }
           </div>
         }
+        <!-- D12 B3: the stored options above stay shown; this only says the server cannot vouch for them. -->
+        @if (unverified(item.modifiers_provenance)) {
+          <div class="mt-1 ml-7">
+            <span
+              class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900"
+              data-testid="line-evidence" data-line="parent">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Options unverified — check before preparing
+            </span>
+          </div>
+        }
         @if (item.allergen_tags.length) {
           <div class="mt-1 ml-7 flex flex-wrap gap-1">
             @for (tag of item.allergen_tags; track tag) {
@@ -157,6 +190,17 @@ the red advance button — the red wash over the white card reads clearly.
                 {{ tag.name }}
               </span>
             }
+          </div>
+        }
+        <!-- D12 B3: never an allergen-free claim. Stored chips stay shown; this says they are unverified. -->
+        @if (unverified(item.allergen_tags_provenance)) {
+          <div class="mt-1 ml-7">
+            <span
+              class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900"
+              data-testid="line-evidence" data-line="parent">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Allergen information unverified — check before preparing
+            </span>
           </div>
         }
         <!-- Extras (add-ons), indented under their parent line. -->
@@ -171,8 +215,25 @@ the red advance button — the red wash over the white card reads clearly.
               [ngClass]="extra.quantity > 1
                 ? 'inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 bg-blue-600 text-white rounded font-bold text-[12px]'
                 : ''">+ {{ extra.quantity }}×</span>
-                  <span class="font-medium leading-tight">{{ extra.item_name_snapshot }}</span>
+                  <!-- D12 B3: an extra is judged on its OWN markers, never its parent's. -->
+                  @if (unverified(extra.item_name_provenance) && !extra.item_name_snapshot) {
+                    <span
+                      class="font-medium leading-tight italic text-amber-800"
+                      data-testid="line-evidence" data-line="extra">Item name unavailable</span>
+                  } @else {
+                    <span class="font-medium leading-tight">{{ extra.item_name_snapshot }}</span>
+                  }
                 </div>
+                @if (unverified(extra.item_name_provenance) && extra.item_name_snapshot) {
+                  <div class="mt-0.5 ml-5">
+                    <span
+                      class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900"
+                      data-testid="line-evidence" data-line="extra">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                      Item name unverified
+                    </span>
+                  </div>
+                }
                 <!-- Same classification as the parent line, at the extra's smaller scale. -->
                 @if (extra.modifiers.length) {
                   <div class="mt-0.5 ml-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
@@ -210,6 +271,18 @@ the red advance button — the red wash over the white card reads clearly.
                         {{ tag.name }}
                       </span>
                     }
+                  </div>
+                }
+                <!-- No options notice on an extra, by design: the order writers store no
+                     options for extras, and any stored ones above are still shown. -->
+                @if (unverified(extra.allergen_tags_provenance)) {
+                  <div class="mt-0.5 ml-5">
+                    <span
+                      class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900"
+                      data-testid="line-evidence" data-line="extra">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                      Allergen information unverified — check before preparing
+                    </span>
                   </div>
                 }
               </div>
