@@ -4973,8 +4973,9 @@ inside `validate` and `certify`; this exists because advisories are published be
 merges. It is not a required check and nothing triggers on it. package.json keeps a
 small `overrides` block (`lodash-es`, gaxios's `uuid`, `@grpc/grpc-js`) to hold the
 high/critical-zero baseline — don't strip it wholesale. ("Audit-zero" was never true at
-full scope: lower-severity tooling findings exist and are reported as triage required.) Only gaxios's `uuid` raises a version BEYOND its dependent's declared
-range (gaxios asks for `^9.0.1`, the override forces `11.1.1`). **The reviewed
+full scope: lower-severity tooling findings exist and are reported as triage required.)
+Gaxios's `uuid` raises a version BEYOND its dependent's declared range
+(gaxios asks for `^9.0.1`, the override forces `11.1.1`). **The reviewed
 publisher lock carries the same `gaxios` → `uuid` override** in
 `release/publisher/package.json`, beside its one pinned dependency, because that graph
 is a separate lockfile and the root override never reached it; `lodash-es` and
@@ -4983,8 +4984,16 @@ is a separate lockfile and the root override never reached it; `lodash-es` and
 entry is GONE** — its documented exit condition was met, and the Angular 22
 upgrade turned it from a no-op into a hazard: `@angular/build` 22.1.6 pins
 `esbuild` 0.28.2, which the `0.28.1` override would have DOWNGRADED. That is the
-standing lesson — re-check this block whenever `@angular/build` moves. **The publisher
-lock also overrides `chokidar` → `4.0.3`** (2026-10-03), which is OUTSIDE
+standing lesson — re-check this block whenever `@angular/build` moves.
+**The application scopes a Vite 8.3.3 override to `@angular/build`** (2026-10-21).
+Angular build 22.2.0 through 22.2.3 pin Vite 8.3.0, which the required audit blocks
+for GHSA-587h-7wmj-h5pm. Vite 8.3.3 patches that advisory and the related
+GHSA-698v-4r3x-3vcv / GHSA-r825-w8mm-5pxw advisories. This is a patch-level
+replacement outside the builder's exact pin, so re-check it whenever the builder
+moves. Remove the override when the builder natively selects a fixed Vite and
+verify `ng serve`, both builds and the audit with that native graph; do not keep
+an override that downgrades a newer builder dependency. No audit rule or exception
+is relaxed by this change. **The publisher lock also overrides `chokidar` → `4.0.3`** (2026-10-03), which is OUTSIDE
 `firebase-tools`' declared `^3.6.0`.
 - **Why.** It removes `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm). No fixed `braces` exists, and
   a publisher-graph finding cannot be excepted.
@@ -5000,14 +5009,16 @@ lock also overrides `chokidar` → `4.0.3`** (2026-10-03), which is OUTSIDE
 - **Exit.** Remove the override only when the native graph without it is verified free
   of this blocker and compatible with that invocation.
 
-See `release/README.md` → "The publisher's `chokidar` override". **Both locks carry
-`@modelcontextprotocol/sdk` 1.31.0** (2026-10-08, GHSA-6qxp-vccf-f47h), a lock-only move
-inside `firebase-tools`' declared `^1.24.0`: one entry per lock, no manifest or override
-change. The advisory's consumer caveats concern the SDK's OAuth CLIENT, which
+See `release/README.md` → "The publisher's `chokidar` override". **The 2026-10-08
+update moved both locks to `@modelcontextprotocol/sdk` 1.31.0**
+(GHSA-6qxp-vccf-f47h), inside `firebase-tools`' declared `^1.24.0`: one entry
+per lock, no manifest or override change. The advisory's consumer caveats concern the SDK's OAuth CLIENT, which
 `firebase-tools` never imports (server modules only, and only for its `mcp` command), so
 no authentication change applies. See `release/README.md` →
-"`@modelcontextprotocol/sdk` 1.31.0 in both graphs". All three
-workflows install with a plain `npm ci` — **no `--legacy-peer-deps`** (DEPS-HYGIENE-01).
+"`@modelcontextprotocol/sdk` 1.31.0 in both graphs". The application lock now
+resolves 1.32.1 (2026-10-21), clearing its newly reported blocking SDK advisories.
+The separately assessed publisher lock remains at 1.31.0; this CI repair does not
+update or validate that graph. All three workflows install with a plain `npm ci` — **no `--legacy-peer-deps`** (DEPS-HYGIENE-01).
 The flag was needed while the Angular 21 tree had peer conflicts; the v22 tree
 resolves strictly, so it now only HIDES future ones. That matters concretely: a
 partial Dependabot major bump (exactly what #635 was) installs cleanly under the
