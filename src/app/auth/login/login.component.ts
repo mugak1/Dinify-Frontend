@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, ViewChild, OnInit, OnDestroy } from '@angular/core';
 import { FormGroup, FormBuilder, Validators, NgModel } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { first } from 'rxjs';
-import { AuthenticationService } from '../../_services/authentication.service';
+import { first, Subscription } from 'rxjs';
+import { AuthenticationService, LOGIN_RESEND_PROTOCOL, LoginOptions, splitLoginResendProof } from '../../_services/authentication.service';
 import { ApiResponse, LoginResponse, OTPResponse, RestaurantRole } from 'src/app/_models/app.models';
 import { firstAccessibleRoute } from 'src/app/_helpers/module-access';
 import { ToastService } from 'src/app/_shared/ui/toast/toast.service';
@@ -30,6 +30,21 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   log_in!: LoginResponse;
   fieldTextType: boolean=false;
+
+  /**
+   * D11 E-R4. The opaque login-resend proof from the CURRENT login attempt, held
+   * only here. It is taken out of the login response before `log_in` is set, so
+   * it is never part of `log_in`, never persisted, published, logged or put in
+   * router state, and it is cleared whenever the attempt it belongs to ends.
+   */
+  private loginResendProof: string | null = null;
+  /**
+   * The current login attempt's login, OTP and resend requests. Ending the
+   * attempt unsubscribes them together, so an answer to an earlier attempt never
+   * reaches its callback: it cannot restore a proof, clear a newer attempt's
+   * proof, adopt a stale code's tokens or navigate.
+   */
+  private attemptWork = new Subscription();
 
   isSubmittingOtp=false;
   attempt: number=0;
@@ -59,12 +74,26 @@ capsLockOn = false;
 
   ngOnDestroy(): void {
     if (this.timer) { clearInterval(this.timer); }
+    this.endLoginAttempt();
+  }
+
+  /**
+   * Ends the current login attempt: forgets its proof and unsubscribes its
+   * pending login, OTP and resend requests. Unsubscribing does not prove the
+   * server did not act on a request that was already sent; it only stops this
+   * screen acting on the answer.
+   */
+  private endLoginAttempt(): void {
+    this.loginResendProof = null;
+    this.attemptWork.unsubscribe();
+    this.attemptWork = new Subscription();
   }
 
   // convenience getter for easy access to form fields
   get f() { return this.loginForm.controls; }
 
   onSubmit() {
+    this.endLoginAttempt();
     this.attempt=0;
     this.rateLimited=false;
     this.authenticationService.resetStorage();
@@ -78,14 +107,19 @@ this.isSubmittingOtp=(this.data)?true:false;
       }
 
       this.loading = true;
-      this.authenticationService.login(this.f['username'].value, this.f['password'].value,this.as_diner?'diner':null)
+      // Only the restaurant login asks for a login-resend proof. The diner login
+      // sends the body it always sent.
+      const options: LoginOptions | undefined = this.as_diner ? undefined : { loginResendProtocol: LOGIN_RESEND_PROTOCOL };
+      this.attemptWork.add(this.authenticationService.login(this.f['username'].value, this.f['password'].value,this.as_diner?'diner':null, options)
           .pipe(first())
           .subscribe({
               next: (val:ApiResponse<LoginResponse>) => {
                 this.loading = false;
-                this.log_in= val.data as unknown as LoginResponse
+                const { session, proof } = splitLoginResendProof(val.data as unknown as LoginResponse);
+                this.log_in= session
                 if(!this.as_diner){
                if(this.log_in.prompt_password_change){
+                this.loginResendProof = null;
                 this.router.navigate(["lock-otp-exp"], {
                   state: {
                     username: this.f['username'].value,
@@ -94,6 +128,7 @@ this.isSubmittingOtp=(this.data)?true:false;
                   }
                 })
                }else  if (this.log_in.require_otp){
+this.loginResendProof = proof;
 this.require_otp=true;
 this.startCountdown();
 
@@ -127,7 +162,7 @@ this.startCountdown();
                     this.error = error;
                   }
               }
-          });
+          }));
   }
 get ProfileLetter() {
     return this.showRestaurantSelector?((this.log_in.profile.first_name+' '+this.log_in.profile.last_name).split(" ").map((n:any)=>n[0]).join(".")):'';
@@ -138,25 +173,30 @@ get user(){
   SubmitOTP(){
     this.isSubmittingOtp=(this.data)?true:false;
     // Use profile.id from the in-memory login response (not persisted userValue,
-    // since tokens are no longer stored until OTP is verified)
-    this.authenticationService.setOtp(this.log_in.profile.id,this.data).pipe(first()).subscribe({
+    // since tokens are no longer stored until OTP is verified). The login this
+    // code belongs to is captured now, so the answer is applied to that login
+    // and never to whatever `log_in` holds when it arrives.
+    const login = this.log_in;
+    this.attemptWork.add(this.authenticationService.setOtp(login.profile.id,this.data).pipe(first()).subscribe({
         next:(val:ApiResponse<OTPResponse>)=>{
 const log_otp=val.data as unknown as OTPResponse;
 if(log_otp.valid){
+// The attempt is complete, so its proof and any resend still in flight end here.
+this.endLoginAttempt();
 // Pass the original login response so UpdateUser can merge profile + real tokens
-this.authenticationService.UpdateUser(log_otp, this.log_in);
-                  if (this.log_in.profile.restaurant_roles.length === 1) {
+this.authenticationService.UpdateUser(log_otp, login);
+                  if (login.profile.restaurant_roles.length === 1) {
   // One restaurant → auto set and redirect
-  const membership = this.log_in.profile.restaurant_roles[0];
+  const membership = login.profile.restaurant_roles[0];
   this.authenticationService.setCurrentRestaurantRole(membership);
   this.router.navigateByUrl(this.landingPathForMembership(membership));
 
-} else if (this.log_in.profile.restaurant_roles.length > 1) {
+} else if (login.profile.restaurant_roles.length > 1) {
   // Multiple restaurants → switch popup
   this.require_otp = false; // hide OTP popup
   this.showLoginForm = false;            // 🔴 hide login
   this.showRestaurantSelector = true;    // ✅ only show selector
-  this.availableRestaurants = this.log_in.profile.restaurant_roles;
+  this.availableRestaurants = login.profile.restaurant_roles;
 } else {
   // Fallback: no roles assigned — send to welcome page
   this.router.navigateByUrl('/welcome');
@@ -173,6 +213,7 @@ this.authenticationService.UpdateUser(log_otp, this.log_in);
   }else{
     this.attempt=0;
     this.error='';
+    this.endLoginAttempt();
     this.toast.error('You have exceeded the maximum number of attempts. Please try again later.');
   this.isSubmittingOtp=false;
     //this.error='The OTP provided is invalid'
@@ -194,7 +235,7 @@ this.authenticationService.UpdateUser(log_otp, this.log_in);
               this.toast.error(error);
             }
         }
-    })
+    }))
   }
   onInputChange($event:any){
 
@@ -230,8 +271,10 @@ this.authenticationService.UpdateUser(log_otp, this.log_in);
     resendOTP(): void {
       this.countdown = 30; // Reset the countdown
       this.startCountdown();
-      // Use in-memory login response profile.id (not persisted userValue)
-      this.authenticationService.resendOtp('id',this.log_in.profile.id).subscribe({
+      // Use in-memory login response profile.id (not persisted userValue), and
+      // the proof from that same login when there is one. Without one this sends
+      // the body an older client sent.
+      this.attemptWork.add(this.authenticationService.resendOtp('id',this.log_in.profile.id,this.loginResendProof).subscribe({
         next: (x:any)=>{
           this.toast.success(x.message);
         },
@@ -240,11 +283,12 @@ this.authenticationService.UpdateUser(log_otp, this.log_in);
             this.rateLimited = true;
           }
         }
-      })
+      }))
       // You can add your OTP resend logic here (e.g., API call)
     }
     backToLogin(): void {
       if (this.timer) { clearInterval(this.timer); }
+      this.endLoginAttempt();
       this.countdown = 30;
       this.data = '';
       this.attempt = 0;
