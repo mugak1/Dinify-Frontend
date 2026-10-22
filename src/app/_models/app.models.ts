@@ -26,6 +26,15 @@ export interface LoginResponse {
   profile: Profile
   require_otp:boolean
   prompt_password_change:boolean
+  /**
+   * D11 E-R4. An opaque, server-signed value binding a later login resend to the
+   * login that issued the code. A server sends it only on the OTP branch, and only
+   * when the request opted in with `login_resend_protocol: 'v1'`; an older server
+   * never sends it. It is a credential for one purpose: kept in LoginComponent
+   * memory, echoed verbatim on that resend, and never persisted, published,
+   * logged or put in router state. See `splitLoginResendProof`.
+   */
+  login_resend_proof?: string
 }
 export interface OTPResponse {
   valid: boolean

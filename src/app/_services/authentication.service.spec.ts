@@ -1,7 +1,8 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import {
-  AuthenticationService, REFRESH_TRANSPORT_CAP_MS, REFRESH_WAIT_MS, RenewalOutcome,
+  AuthenticationService, LOGIN_RESEND_PROTOCOL, REFRESH_TRANSPORT_CAP_MS, REFRESH_WAIT_MS, RenewalOutcome,
+  splitLoginResendProof,
 } from './authentication.service';
 import { environment } from 'src/environments/environment';
 import { HttpBackend, HttpClient, HttpHeaders, HttpRequest, provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
@@ -878,6 +879,216 @@ describe('AuthenticationService', () => {
     it('should store current restaurant in localStorage', () => {
       service.setCurrentRestaurant({ id: 'r1', name: 'TestRest' });
       expect(JSON.parse(localStorage.getItem('current_resta')!).id).toBe('r1');
+    });
+  });
+  describe('D11 E-R4 login resend proof', () => {
+    // The proof is a credential for exactly one purpose: echoed on a login resend.
+    // These specs drive the real service methods through HttpTestingController and
+    // assert what reaches the wire, what is stored, what is published and what is
+    // returned. A proof value that never appears on a real server is used so a leak
+    // is unambiguous wherever it lands.
+    const LOGIN = `${base}/users/auth/login/`;
+    const RESEND = `${base}/users/auth/resend-otp/`;
+    const PROOF = 'v1.SPEC-PROOF-not-a-real-signature-AAAAAAAAAAAAAAAA';
+    const profile = () => ({
+      id: '1', first_name: 'A', last_name: 'B', email: '', roles: [], phone_number: '',
+      country: '', prompt_password_change: false, other_names: '', restaurant_roles: [],
+    });
+    const envelope = (data: any) => ({ status: 200, message: 'ok', data });
+
+    describe('the login body', () => {
+      it('DEFAULT: exactly {username, password}, with no protocol key', () => {
+        service.login('u', 'p').subscribe();
+        const req = httpMock.expectOne(LOGIN);
+        expect(req.request.body).toEqual({ username: 'u', password: 'p' });
+        expect('login_resend_protocol' in req.request.body).toBeFalse();
+        req.flush(envelope({ require_otp: true, prompt_password_change: false, profile: profile() }));
+      });
+
+      it('OPT-IN: adds login_resend_protocol "v1" and nothing else', () => {
+        service.login('u', 'p', null, { loginResendProtocol: LOGIN_RESEND_PROTOCOL }).subscribe();
+        const req = httpMock.expectOne(LOGIN);
+        expect(req.request.body).toEqual({ username: 'u', password: 'p', login_resend_protocol: 'v1' });
+        req.flush(envelope({ require_otp: true, prompt_password_change: false, profile: profile() }));
+      });
+
+      it('DINER: exactly {username, password, source}, unchanged', () => {
+        service.login('u', 'p', 'diner').subscribe();
+        const req = httpMock.expectOne(LOGIN);
+        expect(req.request.body).toEqual({ username: 'u', password: 'p', source: 'diner' });
+        req.flush(envelope({ token: 't', refresh: 'r', require_otp: false, prompt_password_change: false, profile: profile() }));
+      });
+
+      it('an empty options object, or an unrecognised protocol value, adds nothing', () => {
+        service.login('u', 'p', null, {}).subscribe();
+        let req = httpMock.expectOne(LOGIN);
+        expect(req.request.body).toEqual({ username: 'u', password: 'p' });
+        req.flush(envelope({ require_otp: true, prompt_password_change: false, profile: profile() }));
+
+        service.login('u', 'p', null, { loginResendProtocol: 'v2' as any }).subscribe();
+        req = httpMock.expectOne(LOGIN);
+        expect(req.request.body).toEqual({ username: 'u', password: 'p' });
+        req.flush(envelope({ require_otp: true, prompt_password_change: false, profile: profile() }));
+      });
+    });
+
+    describe('the login response', () => {
+      it('OTP branch: the proof reaches the caller, and NOTHING is stored or published', () => {
+        const emitted: any[] = [];
+        service.user.subscribe(u => emitted.push(u));
+        let res: any;
+        service.login('u', 'p', null, { loginResendProtocol: LOGIN_RESEND_PROTOCOL }).subscribe(r => res = r);
+        httpMock.expectOne(LOGIN).flush(envelope({
+          require_otp: true, prompt_password_change: false, profile: profile(), login_resend_proof: PROOF,
+        }));
+        expect(res.data.login_resend_proof).toBe(PROOF);
+        expect(localStorage.getItem('user')).toBeNull();
+        expect(service.userValue).toBeNull();
+        expect(emitted).toEqual([null]);
+      });
+
+      it('token branch with an UNEXPECTED proof: storage, userValue and the published user carry none', () => {
+        const emitted: any[] = [];
+        service.user.subscribe(u => emitted.push(u));
+        const adoptionBefore = (service as any).adoptionGeneration;
+        let res: any;
+        service.login('u', 'p').subscribe(r => res = r);
+        httpMock.expectOne(LOGIN).flush(envelope({
+          token: 'jwt', refresh: 'ref', require_otp: false, prompt_password_change: false,
+          profile: profile(), login_resend_proof: PROOF,
+        }));
+
+        const stored = localStorage.getItem('user')!;
+        expect(stored).not.toContain(PROOF);
+        expect(JSON.parse(stored).token).toBe('jwt');
+        expect('login_resend_proof' in (service.userValue as any)).toBeFalse();
+        expect(service.userValue!.token).toBe('jwt');
+        const last = emitted[emitted.length - 1];
+        expect('login_resend_proof' in last).toBeFalse();
+        expect(last.token).toBe('jwt');
+        // The adoption fence still moves exactly once (D09 unchanged).
+        expect((service as any).adoptionGeneration).toBe(adoptionBefore + 1);
+        // Stripped by COPY: the response handed back is the one received, unmodified.
+        expect(res.data.login_resend_proof).toBe(PROOF);
+      });
+
+      it('CONTROL: a token-branch login with no proof stores the session exactly as received', () => {
+        service.login('u', 'p').subscribe();
+        const data = { token: 'jwt', refresh: 'ref', require_otp: false, prompt_password_change: false, profile: profile() };
+        httpMock.expectOne(LOGIN).flush(envelope(data));
+        expect(JSON.parse(localStorage.getItem('user')!)).toEqual(data);
+      });
+
+      it('password-change branch: nothing stored, the response is returned as received', () => {
+        let res: any;
+        service.login('u', 'p', null, { loginResendProtocol: LOGIN_RESEND_PROTOCOL }).subscribe(r => res = r);
+        httpMock.expectOne(LOGIN).flush(envelope({
+          require_otp: false, prompt_password_change: true, profile: profile(),
+        }));
+        expect(localStorage.getItem('user')).toBeNull();
+        expect(service.userValue).toBeNull();
+        expect('login_resend_proof' in res.data).toBeFalse();
+      });
+    });
+
+    describe('UpdateUser strips by copy', () => {
+      it('the result, storage and the published user carry no proof; the caller\'s object keeps it', () => {
+        const emitted: any[] = [];
+        service.user.subscribe(u => emitted.push(u));
+        const login: any = { require_otp: true, prompt_password_change: false, profile: profile(), login_resend_proof: PROOF };
+        const result: any = service.UpdateUser({ valid: true, token: 'new', refresh: 'new-r' }, login);
+
+        expect('login_resend_proof' in result).toBeFalse();
+        expect(result.token).toBe('new');
+        expect(result.profile.id).toBe('1');
+        expect(localStorage.getItem('user')!).not.toContain(PROOF);
+        expect('login_resend_proof' in (service.userValue as any)).toBeFalse();
+        expect('login_resend_proof' in emitted[emitted.length - 1]).toBeFalse();
+        // Not hidden by mutating the input.
+        expect(login.login_resend_proof).toBe(PROOF);
+      });
+
+      it('the userValue fallback path strips a proof that somehow reached storage', () => {
+        localStorage.setItem('user', JSON.stringify({
+          token: 'old', refresh: 'old-r', profile: profile(), login_resend_proof: PROOF,
+        }));
+        const svc = new AuthenticationService(TestBed.inject(HttpClient), TestBed.inject(HttpBackend));
+        const result: any = svc.UpdateUser({ valid: true, token: 'new', refresh: 'new-r' });
+        expect('login_resend_proof' in result).toBeFalse();
+        expect(localStorage.getItem('user')!).not.toContain(PROOF);
+        expect('login_resend_proof' in (svc.userValue as any)).toBeFalse();
+      });
+    });
+
+    describe('the resend body', () => {
+      it('echoes a proof VERBATIM, whitespace and all', () => {
+        for (const proof of [PROOF, ' v1.x ']) {
+          service.resendOtp('id', 'user-1', proof).subscribe();
+          const req = httpMock.expectOne(RESEND);
+          expect(req.request.body).toEqual({
+            identification: 'id', identifier: 'user-1', purpose: 'login', login_resend_proof: proof,
+          });
+          req.flush({ status: 200, message: 'sent' });
+        }
+      });
+
+      it('without a usable proof the body is EXACTLY the one an older client sent', () => {
+        for (const proof of [undefined, null, '', 0, {}, ['x'], true] as any[]) {
+          service.resendOtp('id', 'user-1', proof).subscribe();
+          const req = httpMock.expectOne(RESEND);
+          expect(req.request.body).toEqual({ identification: 'id', identifier: 'user-1', purpose: 'login' });
+          req.flush({ status: 200, message: 'sent' });
+        }
+        // And the two-argument call every pre-E-R4 caller made.
+        service.resendOtp('id', 'user-1').subscribe();
+        const req = httpMock.expectOne(RESEND);
+        expect(req.request.body).toEqual({ identification: 'id', identifier: 'user-1', purpose: 'login' });
+        req.flush({ status: 200, message: 'sent' });
+      });
+
+      it('a resend stores and publishes nothing', () => {
+        service.resendOtp('id', 'user-1', PROOF).subscribe();
+        httpMock.expectOne(RESEND).flush({ status: 200, message: 'sent' });
+        expect(localStorage.getItem('user')).toBeNull();
+        expect(service.userValue).toBeNull();
+      });
+    });
+
+    describe('splitLoginResendProof', () => {
+      it('passes a non-object through with a null proof', () => {
+        for (const v of [null, undefined, 'x', 3, true] as any[]) {
+          expect(splitLoginResendProof(v)).toEqual({ session: v, proof: null });
+        }
+        const arr: any = ['a'];
+        expect(splitLoginResendProof(arr).session).toBe(arr);
+        expect(splitLoginResendProof(arr).proof).toBeNull();
+      });
+
+      it('removes the key WHATEVER its value, and returns only a non-empty string as the proof', () => {
+        for (const raw of ['', 0, null, {}, ['x'], false] as any[]) {
+          const input: any = { token: 't', login_resend_proof: raw };
+          const out: any = splitLoginResendProof(input);
+          expect(out.proof).toBeNull();
+          expect('login_resend_proof' in out.session).toBeFalse();
+          expect(out.session.token).toBe('t');
+        }
+        const out: any = splitLoginResendProof({ token: 't', login_resend_proof: PROOF });
+        expect(out.proof).toBe(PROOF);
+      });
+
+      it('never modifies its input', () => {
+        const input: any = { token: 't', login_resend_proof: PROOF };
+        const out: any = splitLoginResendProof(input);
+        expect(out.session).not.toBe(input);
+        expect(input).toEqual({ token: 't', login_resend_proof: PROOF });
+      });
+
+      it('an object with no proof key comes back equal, as a copy', () => {
+        const input: any = { token: 't' };
+        const out: any = splitLoginResendProof(input);
+        expect(out.session).toEqual(input);
+        expect(out.proof).toBeNull();
+      });
     });
   });
 });

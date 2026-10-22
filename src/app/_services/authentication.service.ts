@@ -154,6 +154,35 @@ function isTrustedApiUrl(url: string): boolean {
   return target.pathname.startsWith(`${basePath}/api/`);
 }
 
+/**
+ * D11 E-R4. The one capability value a login may send as `login_resend_protocol`.
+ * It asks the server for a `login_resend_proof` on the OTP branch. It is a
+ * compatibility signal, not authentication: it authorizes nothing, and a server
+ * that does not recognise it ignores it.
+ */
+export const LOGIN_RESEND_PROTOCOL = 'v1' as const;
+
+/** Optional per-call login options. Omitted, a login sends the body it always sent. */
+export interface LoginOptions {
+  loginResendProtocol?: typeof LOGIN_RESEND_PROTOCOL;
+}
+
+/**
+ * Separates the opaque `login_resend_proof` from a login response WITHOUT
+ * modifying it. `session` is a shallow copy with the key removed (whatever its
+ * value), so it is safe to store or publish; `proof` is the value only when it is
+ * a non-empty string, otherwise null. A non-object is passed through unchanged as
+ * `session`, with a null proof.
+ */
+export function splitLoginResendProof<T>(data: T): { session: T; proof: string | null } {
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+    return { session: data, proof: null };
+  }
+  const { login_resend_proof: raw, ...rest } = data as Record<string, unknown>;
+  const proof = typeof raw === 'string' && raw.length > 0 ? raw : null;
+  return { session: rest as T, proof };
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -218,15 +247,30 @@ export class AuthenticationService {
     return firstAccessibleModuleRoute(this.permissionsMap(), this.currentRestaurantRole?.roles);
   }
 
-  login(username: string, password: string,source?:any) {
-      return this.http.post<any>(`${this._base}/users/auth/login/`, source?{username,password,source}:{ username, password })
+  /**
+   * `options.loginResendProtocol` is OPTIONAL and omitted by default, so every
+   * existing caller sends the body it always sent. Only LoginComponent's non-diner
+   * path opts in. It asks a server that recognises it for a `login_resend_proof`
+   * on the OTP branch; it authenticates nothing, and an older server ignores it.
+   *
+   * The response goes back UNCHANGED, because on the OTP branch the proof has to
+   * reach the component. What this method persists and publishes is a copy
+   * without the proof.
+   */
+  login(username: string, password: string, source?: any, options?: LoginOptions) {
+      const body: Record<string, unknown> = source ? { username, password, source } : { username, password };
+      if (options?.loginResendProtocol === LOGIN_RESEND_PROTOCOL) {
+        body['login_resend_protocol'] = LOGIN_RESEND_PROTOCOL;
+      }
+      return this.http.post<any>(`${this._base}/users/auth/login/`, body)
           .pipe(map((response:ApiResponse<LoginResponse>) => {
               const data = response.data as unknown as LoginResponse;
               if (!data.require_otp && !data.prompt_password_change) {
                 // Only persist tokens when login is complete (no OTP/password-change pending)
+                const { session } = splitLoginResendProof(data);
                 this.markAdoption();
-                localStorage.setItem('user', JSON.stringify(data));
-                this.userSubject.next(data as any);
+                localStorage.setItem('user', JSON.stringify(session));
+                this.userSubject.next(session as any);
               }
               return response;
           }));
@@ -245,7 +289,10 @@ this.userSubject.next(u as any)
   UpdateUser(otpResponse:OTPResponse, loginResponse?: LoginResponse){
     const base: any = loginResponse || this.userValue;
     if (!base) return null;
-    const u = { ...base, token: otpResponse.token, refresh: otpResponse.refresh };
+    // A copy without the login-resend proof: it is never stored, published or
+    // returned, and the caller's object is not modified.
+    const { session } = splitLoginResendProof(base);
+    const u = { ...session, token: otpResponse.token, refresh: otpResponse.refresh };
     this.markAdoption();
     localStorage.setItem('user', JSON.stringify(u));
     this.userSubject.next(u as any);
@@ -261,8 +308,17 @@ this.userSubject.next(u as any)
     }));
   }
  
-  resendOtp(identification:any,identifier:any){
-    return this.http.post<any>(`${this._base}/users/auth/resend-otp/`,{"identification": identification, "identifier": identifier,"purpose": 'login'})
+  /**
+   * A login resend. The proof is echoed verbatim, and only when it is a non-empty
+   * string; otherwise the body is exactly the one an older client sent, which a
+   * server that does not require a proof still accepts.
+   */
+  resendOtp(identification:any,identifier:any,loginResendProof?:string|null){
+    const body: Record<string, unknown> = {"identification": identification, "identifier": identifier,"purpose": 'login'};
+    if (typeof loginResendProof === 'string' && loginResendProof.length > 0) {
+      body['login_resend_proof'] = loginResendProof;
+    }
+    return this.http.post<any>(`${this._base}/users/auth/resend-otp/`,body)
     .pipe(map((response:ApiResponse<OTPResponse>) => {
         // store user details and jwt token in local storage to keep user logged in between page refreshes
       //  localStorage.setItem('user', JSON.stringify((response.data)));
