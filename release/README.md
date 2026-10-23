@@ -841,7 +841,8 @@ whose only route out allowed `registry.npmjs.org`), through the unchanged `lib/a
   under the braces exception and 9 lower-severity tooling findings requiring triage (eight
   application, plus `ip-address` 10.7.2 GHSA-rxp7-6hxx-x8q5 in the scanner graph), and
   nothing blocking, refused or unresolved.
-- After it, on the merged head `2d6130c` with no records left: **within policy**, with the
+- After it, on `2d6130c`'s tree with the braces record removed (the tree later committed as
+  `08a0a7f`, the first commit whose policy has no records): **within policy**, with the
   same 9 tooling findings requiring triage and nothing blocking, excepted, refused or
   unresolved.
 
