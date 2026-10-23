@@ -61,7 +61,9 @@ failed", so the status is only accepted when the body agrees with it.
 
 **Every vulnerability the report declares is accounted for, or the audit is incomplete.**
 Being unable to interpret a reported vulnerability is not evidence that there is none.
-The contract is the pinned scanner's own (npm 11.19.1, Arborist 9.9.1): `vulnerabilities`
+The contract is the pinned scanner's own (npm 11.21.1, which bundles Arborist 9.9.3; the
+files that produce the report are byte-identical to npm 11.19.1's — see
+`release/README.md` → "The scanner moves to npm 11.21.1"): `vulnerabilities`
 is an object keyed by package name, and each entry's `via` holds either an advisory
 object (whose `name` and `dependency` are that package) or a STRING naming another entry
 the package is vulnerable through. Arborist links every such name before it writes the
@@ -99,31 +101,38 @@ outranks every npmrc, so the invocation and the check cannot disagree.
 
 ## Exceptions and triage records
 
-**Five records are approved, all exceptions and all TOOLING scope.** Three, approved
-2026-09-30, are on the SCANNER graph — the `undici` 6.28.0 (GHSA-rfgv-xxqx-mfg5) and
-`brace-expansion` 5.0.9 (GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) that npm 11.19.1
-BUNDLES. When they were approved, no npm release (11.19.1, 11.20.0, 12.1.0) bundled a fixed
-copy of either, and a bundled dependency cannot be replaced through the scanner lockfile or
-`overrides`, so without them every `validate` and `certify` run was blocked.
+**No records are approved today** (`policy.json` → `records` is empty since 2026-10-23),
+so nothing is excepted and nothing is triaged. Lower-severity tooling findings are still
+reported, and still require triage.
 
-Two more were approved on 2026-10-03, through the implementation pull request each names in
-`approval.reference`, for advisories where that day's dated package and version
-investigation found no supported, compatible fixed route: the scanner-bundled
-`http-cache-semantics` 4.2.0 (GHSA-ch52-4w7c-c8xp) and — the first APPLICATION-graph
-record — the development-tooling `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm). They are bounded
-acceptances of residual risk, not proofs of unreachability. The braces record accepts
-residual denial-of-service risk in development and CI tooling. The http-cache-semantics
-record covers the advisory's shared-cache disclosure mechanism and does not claim that every
-scanner invocation is credential-free or that every audit input is independent of the npm
-cache. Each record's `applicability` states what was inspected and what it does not
-establish.
+Five exception records, all TOOLING scope, existed before then. Three were approved
+2026-09-30 for the SCANNER graph's bundled `undici` and `brace-expansion`, and two on
+2026-10-03 for the scanner-bundled `http-cache-semantics` and the APPLICATION graph's
+development-tooling `braces` 3.0.3. All five were removed on 2026-10-23, and the removals
+are not all fixes:
 
-All five expire at 00:00 UTC on 2026-10-30, with no automatic extension. **Each comes out
-in the same change that fixes or removes its affected dependency** — from then on it
-matches nothing, and the audit refuses a stale record rather than ignoring it. **The same
-`braces` 3.0.3 in the publisher toolchain is NOT excepted and cannot be**: record paths
-admit only `application:` and `scanner:`, so the release gate's fresh assessment reports it
-as blocking until that lock changes. No runtime finding is excepted, and nothing is triaged.
+| record | removed | label |
+|---|---|---|
+| `undici` GHSA-rfgv-xxqx-mfg5 (scanner) | 2026-10-23, `ce024dd` | REMEDIATED: npm 11.21.1 bundles `undici` 6.29.0, above the fix boundary |
+| `brace-expansion` GHSA-qhr7-859c-m2p7 (scanner) | 2026-10-23, `ce024dd` | REMEDIATED: npm 11.21.1 bundles `brace-expansion` 5.0.12, above the fix boundary |
+| `brace-expansion` GHSA-6j4f-fj2g-mc7p (scanner) | 2026-10-23, `ce024dd` | REMEDIATED: as above |
+| `http-cache-semantics` GHSA-ch52-4w7c-c8xp (scanner) | 2026-10-23, `5404ec9` | STALE, NOT a remediation: the bundled copy is now 4.3.0, outside the advisory's recorded range, but the code behind the vulnerability is unchanged |
+| `braces` GHSA-vfj7-8cjw-p6xm (application) | 2026-10-23, `08a0a7f` | STALE, NOT a remediation: GitHub withdrew the advisory on 2026-10-23; `braces` 3.0.3 is unchanged |
+
+The two stale removals carry residual risk, not a fix: if either advisory is reinstated or
+its range widened, the audit blocks again with no record. `release/README.md` → "The
+scanner moves to npm 11.21.1" has the evidence for each.
+
+**`braces` is no longer reported in any graph**, because the advisory was withdrawn;
+`braces` 3.0.3 is still installed in the application graph. A publisher-graph finding
+still could not be excepted by a record (paths admit only `application:` and `scanner:`),
+so a finding there blocks until that lock changes. The publisher lock's `chokidar` override,
+added to remove `braces` from that graph, is a publisher decision and is unchanged. No
+runtime finding was ever excepted.
+
+**A record comes out in the same change that fixes or removes its affected dependency**, or
+once its advisory no longer reports it — from then on it matches nothing, and the audit
+refuses a stale record rather than ignoring it.
 
 A record
 is refused — and the audit is `blocking` — unless it names the advisory (and aliases),
