@@ -289,7 +289,7 @@ dependencies cannot substitute for any of those three.
 
 ```
 certify.yml                    (no secret; contents: read)
-  npm ci ─ snapshot ─ audit ────────────┐  the pinned scanner (npm 11.19.1, its own lock,
+  npm ci ─ snapshot ─ audit ────────────┐  the pinned scanner (npm 11.21.1, its own lock,
   ng build --configuration=uat          │  scripts disabled) — a REAL advisory query
   stamp ── re-evaluate after the build ─┘  refuses if any dependency input moved
      └─ artifact = dist/ + provenance.json (/2) + dependency-evidence/
@@ -776,6 +776,98 @@ restored byte for byte (digest checked). The count is failing tests.
 | a relative root accepted | 1 `retained` |
 | the one-line bulk request and `{}` report not recognised (the probe's defect) | 1 `retained` (the real line shapes) |
 | a logged bulk POST completion not clearing its marker | 1 `retained` |
+
+### The scanner moves to npm 11.21.1 (2026-10-23)
+
+`dependency-audit/scanner` now pins npm **11.21.1** (published 2026-10-15; a minor release
+in the 11 line with the same `engines`), and `policy.json → scanner.version` moves with it.
+Four of the five exception records, all due to lapse at 00:00 UTC on 2026-10-30, were on
+the SCANNER graph, and a bundled dependency cannot be replaced through the scanner lock or
+`overrides`. So the only route was an official npm release whose distributed tarball
+bundles fixed copies. 11.19.1, 11.20.0 and 11.21.0 do not; 11.21.1 is the first that does.
+12.x is a major and was not considered.
+
+**What was checked, against the tarball and not the registry's declarations.** The
+tarball's sha512 and sha1 match the packument, both registry signatures verify, and every
+`inBundle` entry in the new lock matches the version extracted from the tarball. The lock
+was produced by the pinned scanner with scripts disabled
+(`npm install npm@11.21.1 --save-exact --ignore-scripts`). Its diff is the `npm` entry and
+the twelve bundled versions that moved: `@npmcli/arborist` 9.9.1 → 9.9.3,
+`@npmcli/config` 10.12.0 → 10.14.0, five `libnpm*`, `ip-address` 10.5.0 → 10.7.2,
+`postcss-selector-parser` 7.1.4 → 7.1.6, and the three below. Arborist's
+`audit-report.js` and `vuln.js` and npm's `lib/commands/audit.js` are byte-identical between
+the two releases, so the report shape `npm.mjs` reads is unchanged.
+
+| record | bundled in 11.21.1 | disposition |
+|---|---|---|
+| `scanner-undici-GHSA-rfgv-xxqx-mfg5` | `undici` 6.29.0 (patched 6.28.1) | removed — fixed: the handshake now guards an absent requested-protocol list |
+| `scanner-brace-expansion-GHSA-qhr7-859c-m2p7` | `brace-expansion` 5.0.12 (patched 5.0.11) | removed — fixed: nesting depth is bounded (`EXPANSION_MAX_DEPTH`) |
+| `scanner-brace-expansion-GHSA-6j4f-fj2g-mc7p` | `brace-expansion` 5.0.12 (patched 5.0.10) | removed — fixed: `parseCommaParts` is iterative |
+| `scanner-http-cache-semantics-GHSA-ch52-4w7c-c8xp` | `http-cache-semantics` 4.3.0 | removed as STALE, **not remediated** (below) |
+| `application-braces-GHSA-vfj7-8cjw-p6xm` | n/a (application graph) | removed as STALE, **not remediated**: the advisory was WITHDRAWN on 2026-10-23 (below) |
+
+**`http-cache-semantics` 4.3.0 is outside the advisory's recorded range, and it is not a
+fix.** GHSA-ch52-4w7c-c8xp is recorded as `<=4.2.0` with no patched version. The max-stale
+handling it describes (`satisfiesWithoutRevalidation`, `maxAge`, `storable`, the
+constructor) is byte-identical between 4.2.0 and 4.3.0, which changes only Vary matching and
+exposes the response status. The upstream maintainer closed the report as not a
+vulnerability and the advisory is disputed. The scanner no longer reports the finding, so the
+record matches nothing and the evaluator would refuse it; it cannot stay. The applicability
+accepted on 2026-10-03 still holds, because npm builds its cache policies with
+`shared: false`. If the advisory range is later widened to cover 4.3.0, the scanner graph
+blocks again with no record.
+
+**`braces`: no compatible fix existed, and then the advisory was withdrawn.** The
+advisory listed no patched version and 3.0.3 is still the latest release. karma 6.4.4 (the
+latest, a direct dependency on braces), micromatch 4.0.8 (the latest) and chokidar 3.6.0
+(the latest 3.x, under tailwindcss 3.4.19 and firebase-tools) all still require braces 3.
+So the record was first kept, due to lapse at 00:00 UTC on 2026-10-30. **GitHub withdrew
+GHSA-vfj7-8cjw-p6xm the same day**, stating that it is "not a practically exploitable
+vulnerability", and npm's bulk advisory endpoint stopped returning it: it was still
+reported for `braces` 3.0.3 at about 13:00Z and was gone by 15:20Z. The only `braces`
+advisory npm now returns is GHSA-grv7-fg5c-xmjg (`<3.0.3`), which 3.0.3 is outside. The
+record then matched nothing, the evaluator refused it as stale, and the audit was
+**blocking**. So it is removed too, in its own commit. That is not a remediation:
+`braces` 3.0.3 is unchanged. If the advisory is reinstated, the audit blocks again with no
+record. The refusal is not confined to this change. `main` (`a40d169`, scanned at 15:23Z
+from its own locks) is blocking on the same stale record, while its four scanner records
+still apply under npm 11.19.1. The publisher lock's `chokidar` 4.0.3 override was
+introduced to remove this `braces` finding from the publisher graph. Whether it is still
+needed is a publisher decision, and nothing here changes it.
+
+**Measured locally on 2026-10-23** (Node 24.21.0, credential-free, a network namespace
+whose only route out allowed `registry.npmjs.org`), through the unchanged `lib/audit.mjs`:
+- Before the withdrawal, on `0a30d72`: **exceptions only**. There were 10 findings: 1
+  under the braces exception and 9 lower-severity tooling findings requiring triage (eight
+  application, plus `ip-address` 10.7.2 GHSA-rxp7-6hxx-x8q5 in the scanner graph), and
+  nothing blocking, refused or unresolved.
+- After it, on the merged head `2d6130c` with no records left: **within policy**, with the
+  same 9 tooling findings requiring triage and nothing blocking, excepted, refused or
+  unresolved.
+
+The scanner graph went from 13 findings (four high, all excepted) to that one moderate. The
+application graph is unchanged: its lock, manifest and installed-tree digests are those of
+the 738d04b certification snapshot.
+
+**Consequences.**
+- `dependency-audit/` is part of the trusted verifier, so a run admitted under the previous
+  scanner or policy is refused as `preflight.policy_advanced`.
+- `prepare-publisher` installs the publisher lock with the scanner's npm, so the prepared
+  publisher tree is now produced by npm 11.21.1. That tree has not been re-prepared or
+  re-assessed by this change.
+- Two test pins moved with it, in their own owner-approved commit (`87e4bf9`). The
+  release suite's fixture scanner (`release/tests/fake-npm.mjs`, `FIXTURE_SCANNER_VERSION`)
+  now reads 11.21.1; with the old value every fixture assessment was refused as
+  `scanner_pin`. The committed-policy CONTRACT in `dependency-audit/tests/audit.test.mjs`
+  now expects an empty record set, and pins the five former subjects as open and blocking
+  if any is reported again. The publisher toolchain's `braces` still blocks and still
+  cannot be given a record. Measured offline on `87e4bf9`, with the same Node and
+  containment: `test:audit` 194/194 and `test:release` 1399/1399. A fresh audit of that
+  commit was within policy, with the same 9 tooling findings requiring triage.
+
+No exception was added or extended, no record remains, no evaluator rule moved, and the
+application and publisher locks are untouched. A clean or exceptions-only audit is not
+readiness and authorizes no publication.
 
 ## Compatibility
 

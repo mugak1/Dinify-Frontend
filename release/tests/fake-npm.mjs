@@ -276,7 +276,7 @@ export function installFakeNpm({ store = {} } = {}) {
 
 // ── the fixture graphs ─────────────────────────────────────────────────────────
 
-export const FIXTURE_SCANNER_VERSION = '11.19.1';
+export const FIXTURE_SCANNER_VERSION = '11.21.1';
 
 const lockOf = (name, deps, packages) => ({
   name, version: '0.0.0', lockfileVersion: 3, requires: true,
