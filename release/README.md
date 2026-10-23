@@ -855,10 +855,15 @@ the 738d04b certification snapshot.
 - `prepare-publisher` installs the publisher lock with the scanner's npm, so the prepared
   publisher tree is now produced by npm 11.21.1. That tree has not been re-prepared or
   re-assessed by this change.
-- The release suite's fixture scanner (`release/tests/fake-npm.mjs`,
-  `FIXTURE_SCANNER_VERSION`) and the committed-policy CONTRACT in
-  `dependency-audit/tests/audit.test.mjs` both pin what this change moves. They need their
-  own reviewed update.
+- Two test pins moved with it, in their own owner-approved commit (`87e4bf9`). The
+  release suite's fixture scanner (`release/tests/fake-npm.mjs`, `FIXTURE_SCANNER_VERSION`)
+  now reads 11.21.1; with the old value every fixture assessment was refused as
+  `scanner_pin`. The committed-policy CONTRACT in `dependency-audit/tests/audit.test.mjs`
+  now expects an empty record set, and pins the five former subjects as open and blocking
+  if any is reported again. The publisher toolchain's `braces` still blocks and still
+  cannot be given a record. Measured offline on `87e4bf9`, with the same Node and
+  containment: `test:audit` 194/194 and `test:release` 1399/1399. A fresh audit of that
+  commit was within policy, with the same 9 tooling findings requiring triage.
 
 No exception was added or extended, no record remains, no evaluator rule moved, and the
 application and publisher locks are untouched. A clean or exceptions-only audit is not
