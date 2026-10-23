@@ -804,7 +804,7 @@ the two releases, so the report shape `npm.mjs` reads is unchanged.
 | `scanner-brace-expansion-GHSA-qhr7-859c-m2p7` | `brace-expansion` 5.0.12 (patched 5.0.11) | removed — fixed: nesting depth is bounded (`EXPANSION_MAX_DEPTH`) |
 | `scanner-brace-expansion-GHSA-6j4f-fj2g-mc7p` | `brace-expansion` 5.0.12 (patched 5.0.10) | removed — fixed: `parseCommaParts` is iterative |
 | `scanner-http-cache-semantics-GHSA-ch52-4w7c-c8xp` | `http-cache-semantics` 4.3.0 | removed as STALE, **not remediated** (below) |
-| `application-braces-GHSA-vfj7-8cjw-p6xm` | n/a (application graph) | unchanged; still lapses at 00:00 UTC on 2026-10-30 |
+| `application-braces-GHSA-vfj7-8cjw-p6xm` | n/a (application graph) | removed as STALE, **not remediated**: the advisory was WITHDRAWN on 2026-10-23 (below) |
 
 **`http-cache-semantics` 4.3.0 is outside the advisory's recorded range, and it is not a
 fix.** GHSA-ch52-4w7c-c8xp is recorded as `<=4.2.0` with no patched version. The max-stale
@@ -817,21 +817,37 @@ accepted on 2026-10-03 still holds, because npm builds its cache policies with
 `shared: false`. If the advisory range is later widened to cover 4.3.0, the scanner graph
 blocks again with no record.
 
-**`braces` has no compatible fix.** The advisory lists no patched version and 3.0.3 is the
-latest release. karma 6.4.4 (the latest, a direct dependency on braces), micromatch 4.0.8
-(the latest) and chokidar 3.6.0 (the latest 3.x, under tailwindcss 3.4.19 and
-firebase-tools) all still require braces 3. Removing it means replacing the test runner and
-a Tailwind major, which is a separate decision. From 00:00 UTC on 2026-10-30 the record has
-lapsed and every `validate` and `certify` run blocks on it.
+**`braces`: no compatible fix existed, and then the advisory was withdrawn.** The
+advisory listed no patched version and 3.0.3 is still the latest release. karma 6.4.4 (the
+latest, a direct dependency on braces), micromatch 4.0.8 (the latest) and chokidar 3.6.0
+(the latest 3.x, under tailwindcss 3.4.19 and firebase-tools) all still require braces 3.
+So the record was first kept, due to lapse at 00:00 UTC on 2026-10-30. **GitHub withdrew
+GHSA-vfj7-8cjw-p6xm the same day**, stating that it is "not a practically exploitable
+vulnerability", and npm's bulk advisory endpoint stopped returning it: it was still
+reported for `braces` 3.0.3 at about 13:00Z and was gone by 15:20Z. The only `braces`
+advisory npm now returns is GHSA-grv7-fg5c-xmjg (`<3.0.3`), which 3.0.3 is outside. The
+record then matched nothing, the evaluator refused it as stale, and the audit was
+**blocking**. So it is removed too, in its own commit. That is not a remediation:
+`braces` 3.0.3 is unchanged. If the advisory is reinstated, the audit blocks again with no
+record. The refusal is not confined to this change. `main` (`a40d169`, scanned at 15:23Z
+from its own locks) is blocking on the same stale record, while its four scanner records
+still apply under npm 11.19.1. The publisher lock's `chokidar` 4.0.3 override was
+introduced to remove this `braces` finding from the publisher graph. Whether it is still
+needed is a publisher decision, and nothing here changes it.
 
 **Measured locally on 2026-10-23** (Node 24.21.0, credential-free, a network namespace
-whose only route out allowed `registry.npmjs.org`): the bound audit of the application and
-scanner graphs, through the unchanged `lib/audit.mjs`, is **exceptions only** — 10 findings,
-1 under the braces exception, 9 lower-severity tooling findings requiring triage (eight
-application, plus `ip-address` 10.7.2 GHSA-rxp7-6hxx-x8q5 in the scanner graph), nothing
-blocking, refused or unresolved. The scanner graph went from 13 findings (four high, all
-excepted) to that one moderate. The application graph is unchanged: its lock, manifest and
-installed-tree digests are those of the 738d04b certification snapshot.
+whose only route out allowed `registry.npmjs.org`), through the unchanged `lib/audit.mjs`:
+- Before the withdrawal, on `0a30d72`: **exceptions only**. There were 10 findings: 1
+  under the braces exception and 9 lower-severity tooling findings requiring triage (eight
+  application, plus `ip-address` 10.7.2 GHSA-rxp7-6hxx-x8q5 in the scanner graph), and
+  nothing blocking, refused or unresolved.
+- After it, on the merged head `2d6130c` with no records left: **within policy**, with the
+  same 9 tooling findings requiring triage and nothing blocking, excepted, refused or
+  unresolved.
+
+The scanner graph went from 13 findings (four high, all excepted) to that one moderate. The
+application graph is unchanged: its lock, manifest and installed-tree digests are those of
+the 738d04b certification snapshot.
 
 **Consequences.**
 - `dependency-audit/` is part of the trusted verifier, so a run admitted under the previous
@@ -844,9 +860,9 @@ installed-tree digests are those of the 738d04b certification snapshot.
   `dependency-audit/tests/audit.test.mjs` both pin what this change moves. They need their
   own reviewed update.
 
-No exception was added or extended, no evaluator rule moved, and the application and
-publisher locks are untouched. A clean or exceptions-only audit is not readiness and
-authorizes no publication.
+No exception was added or extended, no record remains, no evaluator rule moved, and the
+application and publisher locks are untouched. A clean or exceptions-only audit is not
+readiness and authorizes no publication.
 
 ## Compatibility
 
