@@ -273,9 +273,22 @@ reviewed `release/publisher` lock (660 entries) audits **BLOCKING: 6 findings, 3
 Six entries change and none are added or removed. There is no `package.json` edit, no
 override and no `--force`, and `firebase-tools` stays at 15.31.0. **The head audits within
 policy with 1 finding requiring triage**, `@opentelemetry/core` 1.30.1, which still has no fix
-this graph can take (the table above). The same `body-parser` advisory also reaches the
-application graph (1.20.8 under `firebase-tools`, `exegesis` and `karma`, and 2.3.0), which
-this change does not touch.
+this graph can take (the table above).
+
+**2026-10-23, the application graph: `body-parser` blocks it, and a lock-only update clears
+it.** The same GHSA-27r3-jxmh-p828 reaches the application graph through four
+development-tooling copies: `body-parser` 1.20.8 under `exegesis`, `firebase-tools` and
+`karma`, and 2.3.0 at the top level. Measured on `main` (`cdb82b8`) at 22:31Z, `audit:deps`
+is **BLOCKING: 7 findings, 4 blocking** (the four copies), so `validate` fails on every pull
+request. One update, `npm update body-parser --package-lock-only --ignore-scripts
+--before=2026-10-23` with npm 11.21.1: the three nested copies 1.20.8 → 1.20.9, the top-level
+copy 2.3.0 → 2.4.0, `iconv-lite` 0.7.2 → 0.7.3, and a nested `qs` 6.16.1 under the top-level
+`body-parser`, which 2.4.0 requires (the top-level `qs` stays 6.16.0). The lock goes from 1268
+to 1269 packages: one entry is added and none removed, there is no `package.json` edit, and
+every changed entry is dev-only. **The head audits within policy with 3 findings requiring
+triage**: `@opentelemetry/core` 1.30.1, `postcss-selector-parser` 6.1.5 and the scanner's
+bundled `ip-address` 10.7.2, as before the advisory appeared. `test:ci` passes 3420/3420, and
+the `uat` and `production` builds are byte-identical to `main`'s, file by file.
 
 ## What consumes this evidence (D08 B2.2)
 
