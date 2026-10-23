@@ -5017,8 +5017,13 @@ per lock, no manifest or override change. The advisory's consumer caveats concer
 no authentication change applies. See `release/README.md` →
 "`@modelcontextprotocol/sdk` 1.31.0 in both graphs". The application lock now
 resolves 1.32.1 (2026-10-21), clearing its newly reported blocking SDK advisories.
-The separately assessed publisher lock remains at 1.31.0; this CI repair does not
-update or validate that graph. All three workflows install with a plain `npm ci` — **no `--legacy-peer-deps`** (DEPS-HYGIENE-01).
+**The separately assessed publisher lock moved to 1.32.1 on 2026-10-23** (#755).
+That cleared GHSA-22jm-h49p-29qw and GHSA-46jr-4wx8-v453, the two blockers readiness
+`39847908896` reported on that graph. It is a lock-only, one-entry change inside
+`firebase-tools` 15.31.0's `^1.24.0`, qualified locally against the prepared publisher
+tree. See `release/README.md` → "`@modelcontextprotocol/sdk` 1.32.1 in the publisher
+graph". PR `audit:deps` still covers only the application and scanner graphs, so the
+publisher graph's status is established only by a fresh assessment. All three workflows install with a plain `npm ci` — **no `--legacy-peer-deps`** (DEPS-HYGIENE-01).
 The flag was needed while the Angular 21 tree had peer conflicts; the v22 tree
 resolves strictly, so it now only HIDES future ones. That matters concretely: a
 partial Dependabot major bump (exactly what #635 was) installs cleanly under the
