@@ -362,14 +362,12 @@ describe('the committed policy of THIS repository', () => {
   // still covers exactly its paths is the audit's own decision on every run, and an expired or
   // stale record fails CI there. Every approved record is a TOOLING exception: excepting a
   // runtime finding is a different decision and has to change this test to be made.
-  const GRAPH = {
-    'scanner-undici-GHSA-rfgv-xxqx-mfg5': 'scanner',
-    'scanner-brace-expansion-GHSA-qhr7-859c-m2p7': 'scanner',
-    'scanner-brace-expansion-GHSA-6j4f-fj2g-mc7p': 'scanner',
-    'application-braces-GHSA-vfj7-8cjw-p6xm': 'application',
-    'scanner-http-cache-semantics-GHSA-ch52-4w7c-c8xp': 'scanner',
-  };
-  it('CONTRACT: the only approved records are the scanner-bundled undici, brace-expansion and http-cache-semantics exceptions and the application braces tooling exception, each well-formed as approved', () => {
+  //
+  // The set is EMPTY since 2026-10-23. The three scanner records were remediated when the
+  // scanner moved to npm 11.21.1, the http-cache-semantics record became stale under it, and
+  // GitHub withdrew GHSA-vfj7-8cjw-p6xm (braces) that day, so the braces record matched nothing.
+  const GRAPH = {};
+  it('CONTRACT: the committed policy approves no records; a future one must be added here, well-formed as approved', () => {
     assert.deepEqual(policy.records.map((r) => r.id), Object.keys(GRAPH));
     for (const record of policy.records) {
       assert.deepEqual(validateRecord(record, parseDate(record.approval.date)), [], record.id);
@@ -379,95 +377,62 @@ describe('the committed policy of THIS repository', () => {
     }
   });
 
-  // The 2026-10-03 records (R1, R2), driven through the real evaluator with findings shaped
-  // exactly as the pinned scanner reported them. These pin what the committed records DO
-  // cover and what they must keep refusing; the generic rules themselves are pinned by the
-  // conformance vectors and the core suite.
-  describe('the 2026-10-03 exceptions (R1 braces, R2 http-cache-semantics) against their exact subjects', () => {
-    const R1 = 'application-braces-GHSA-vfj7-8cjw-p6xm';
-    const R2 = 'scanner-http-cache-semantics-GHSA-ch52-4w7c-c8xp';
+  // The five subjects the committed records used to cover, driven through the real evaluator
+  // with findings shaped exactly as the pinned scanner reported them. If any of them is
+  // reported again (an advisory reinstated or widened, or a scanner rolled back), nothing in
+  // the committed policy may quietly cover it: it has to block. The generic record rules are
+  // pinned by the conformance vectors and the core suite.
+  describe('the five former subjects (records removed 2026-10-23) against the committed policy', () => {
     const IN_DATE = '2026-10-29T23:59:59Z';
     const finding = (advisory, alias, pkg, version, path, severity = 'high', scope = 'tooling') => ({ advisory, aliases: [alias], package: pkg, version, path, scope, severity });
-    const SUBJECTS = {
-      'scanner-undici-GHSA-rfgv-xxqx-mfg5': finding('GHSA-rfgv-xxqx-mfg5', 'npm:1240042', 'undici', '6.28.0', 'scanner:node_modules/npm/node_modules/undici'),
-      'scanner-brace-expansion-GHSA-qhr7-859c-m2p7': finding('GHSA-qhr7-859c-m2p7', 'npm:1240107', 'brace-expansion', '5.0.9', 'scanner:node_modules/npm/node_modules/brace-expansion'),
-      'scanner-brace-expansion-GHSA-6j4f-fj2g-mc7p': finding('GHSA-6j4f-fj2g-mc7p', 'npm:1240111', 'brace-expansion', '5.0.9', 'scanner:node_modules/npm/node_modules/brace-expansion'),
-      [R1]: finding('GHSA-vfj7-8cjw-p6xm', 'npm:1240992', 'braces', '3.0.3', 'application:node_modules/braces'),
-      [R2]: finding('GHSA-ch52-4w7c-c8xp', 'npm:1240991', 'http-cache-semantics', '4.2.0', 'scanner:node_modules/npm/node_modules/http-cache-semantics'),
-    };
-    const subjects = () => Object.values(SUBJECTS).map((f) => ({ ...f, aliases: [...f.aliases] }));
+    const FORMER = [
+      finding('GHSA-rfgv-xxqx-mfg5', 'npm:1240042', 'undici', '6.28.0', 'scanner:node_modules/npm/node_modules/undici'),
+      finding('GHSA-qhr7-859c-m2p7', 'npm:1240107', 'brace-expansion', '5.0.9', 'scanner:node_modules/npm/node_modules/brace-expansion'),
+      finding('GHSA-6j4f-fj2g-mc7p', 'npm:1240111', 'brace-expansion', '5.0.9', 'scanner:node_modules/npm/node_modules/brace-expansion'),
+      finding('GHSA-vfj7-8cjw-p6xm', 'npm:1240992', 'braces', '3.0.3', 'application:node_modules/braces'),
+      finding('GHSA-ch52-4w7c-c8xp', 'npm:1240991', 'http-cache-semantics', '4.2.0', 'scanner:node_modules/npm/node_modules/http-cache-semantics'),
+    ];
+    const former = () => FORMER.map((f) => ({ ...f, aliases: [...f.aliases] }));
     const decide = (findings, { now = IN_DATE, records = policy.records, incomplete = [] } = {}) => evaluate({ incomplete, findings, records, now });
-    const status = (result, id) => result.records.find((r) => r.id === id);
-    const replace = (id, change) => subjects().map((f) => (f.package === SUBJECTS[id].package && f.advisory === SUBJECTS[id].advisory ? { ...f, ...change } : f));
 
-    it('CONTROL: each record excepts exactly its own subject, and the result says it passes only with exceptions', () => {
-      const r = decide(subjects());
-      assert.equal(r.outcome, 'exceptions_only', JSON.stringify(r.reasons));
-      assert.equal(r.exitCode, 0);
-      assert.equal(r.counts.excepted, 5);
+    it('CONTROL: with nothing reported, the committed policy is within policy, and an incomplete scan still fails closed', () => {
+      const clean = decide([]);
+      assert.equal(clean.outcome, 'within_policy', JSON.stringify(clean.reasons));
+      assert.equal(clean.exitCode, 0);
+      assert.equal(clean.counts.refusedRecords, 0);
+      const r = decide([], { incomplete: [{ code: 'scanner_timeout', detail: 'the scanner did not finish' }] });
+      assert.equal(r.outcome, 'incomplete');
+      assert.equal(r.exitCode, 2);
+    });
+
+    it('CONTRACT: every former subject, if reported again, is open and blocking: nothing committed covers it', () => {
+      const r = decide(former());
+      assert.equal(r.outcome, 'blocking');
+      assert.equal(r.exitCode, 1);
+      assert.equal(r.counts.excepted, 0);
       assert.equal(r.counts.refusedRecords, 0);
-      for (const [id, f] of Object.entries(SUBJECTS)) {
-        assert.equal(r.findings.find((x) => x.advisory === f.advisory && x.path === f.path).coveredBy, id);
+      for (const f of FORMER) {
+        const open = r.findings.find((x) => x.advisory === f.advisory && x.path === f.path);
+        assert.equal(open.disposition, 'open', f.advisory);
+        assert.equal(open.coveredBy, null, f.advisory);
       }
     });
 
-    it('CONTRACT: the publisher toolchain\'s braces does not inherit R1 and stays blocking', () => {
+    it('CONTRACT: the publisher toolchain\'s braces stays blocking, and no record can be written for it', () => {
       const publisher = finding('GHSA-vfj7-8cjw-p6xm', 'npm:1240992', 'braces', '3.0.3', 'publisher:node_modules/braces');
-      const r = decide([...subjects(), publisher]);
+      const r = decide([publisher]);
       assert.equal(r.outcome, 'blocking');
       const open = r.findings.find((x) => x.path === publisher.path);
       assert.equal(open.disposition, 'open');
       assert.equal(open.coveredBy, null);
-      assert.equal(status(r, R1).status, 'applied', 'R1 still covers its own subject');
-      // And no record can be written for it: the record grammar admits application and scanner paths only.
-      const rewritten = { ...policy.records.find((x) => x.id === R1), paths: ['publisher:node_modules/braces'] };
-      assert.ok(validateRecord(rewritten, parseDate('2026-10-03')).some((p) => /exact graph paths/.test(p)));
-    });
-
-    it('CONTRACT: a RUNTIME finding on the same subject is not covered by a tooling record', () => {
-      for (const id of [R1, R2]) {
-        const r = decide(replace(id, { scope: 'runtime' }));
-        assert.equal(r.outcome, 'blocking', id);
-        assert.equal(status(r, id).status, 'refused', id);
-        assert.ok(status(r, id).problems.some((p) => /scope tooling does not match runtime/.test(p)), id);
-      }
-    });
-
-    it('CONTRACT: a changed version, a moved path, an uncorroborated alias or a vanished finding refuses the record', () => {
-      for (const id of [R1, R2]) {
-        const cases = {
-          version: replace(id, { version: '9.9.9' }),
-          path: replace(id, { path: `${SUBJECTS[id].path.split(':')[0]}:node_modules/elsewhere/node_modules/${SUBJECTS[id].package}` }),
-          alias: replace(id, { aliases: [] }),
-          stale: subjects().filter((f) => !(f.package === SUBJECTS[id].package && f.advisory === SUBJECTS[id].advisory)),
-        };
-        for (const [label, findings] of Object.entries(cases)) {
-          const r = decide(findings);
-          assert.equal(r.outcome, 'blocking', `${id} / ${label}`);
-          assert.equal(status(r, id).status, 'refused', `${id} / ${label}`);
-        }
-      }
-    });
-
-    it('CONTRACT: both expire at 00:00 UTC on 2026-10-30 — valid through the second before, refused from it', () => {
-      for (const id of [R1, R2]) assert.equal(policy.records.find((x) => x.id === id).expires, '2026-10-30');
-      const before = decide(subjects(), { now: '2026-10-29T23:59:59Z' });
-      assert.equal(before.outcome, 'exceptions_only');
-      const at = decide(subjects(), { now: '2026-10-30T00:00:00Z' });
-      assert.equal(at.outcome, 'blocking');
-      for (const id of [R1, R2]) assert.deepEqual(status(at, id).problems, ['expired on 2026-10-30'], id);
-    });
-
-    it('CONTRACT: malformed approval metadata refuses the record, and an incomplete scan fails closed whatever is excepted', () => {
-      for (const id of [R1, R2]) {
-        const records = policy.records.map((x) => (x.id === id ? { ...x, approval: { ...x.approval, reference: 'not-a-review-link' } } : x));
-        const r = decide(subjects(), { records });
-        assert.equal(r.outcome, 'blocking', id);
-        assert.equal(status(r, id).status, 'refused', id);
-      }
-      const r = decide(subjects(), { incomplete: [{ code: 'scanner_timeout', detail: 'the scanner did not finish' }] });
-      assert.equal(r.outcome, 'incomplete');
-      assert.equal(r.exitCode, 2);
+      // The record grammar admits application and scanner paths only.
+      const record = {
+        id: 'publisher-braces-GHSA-vfj7-8cjw-p6xm', kind: 'exception', advisory: 'GHSA-vfj7-8cjw-p6xm', aliases: ['npm:1240992'],
+        package: 'braces', version: '3.0.3', paths: ['publisher:node_modules/braces'], scope: 'tooling',
+        applicability: 'x'.repeat(40), reason: 'x'.repeat(40), owner: 'mugak1',
+        approval: { by: 'mugak1', reference: 'https://github.com/mugak1/Dinify-Frontend/pull/731', date: '2026-10-03' }, expires: '2026-10-30',
+      };
+      assert.ok(validateRecord(record, parseDate('2026-10-03')).some((p) => /exact graph paths/.test(p)));
     });
   });
 });
