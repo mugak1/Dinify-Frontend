@@ -125,8 +125,9 @@ scanner moves to npm 11.21.1" has the evidence for each.
 
 **`braces` is no longer reported in any graph**, because the advisory was withdrawn;
 `braces` 3.0.3 is still installed in the application graph. A publisher-graph finding
-still could not be excepted by a record (paths admit only `application:` and `scanner:`),
-so a finding there blocks until that lock changes. The publisher lock's `chokidar` override,
+still cannot be excepted by a record (paths admit only `application:` and `scanner:`), so
+a blocking-class finding there (high, critical or runtime) blocks until that lock changes,
+while a lower-severity one stays visible as requiring triage. The publisher lock's `chokidar` override,
 added to remove `braces` from that graph, is a publisher decision and is unchanged. No
 runtime finding was ever excepted.
 
@@ -250,8 +251,44 @@ added. There is no `package.json` edit, no override and no `--force`. **The head
 policy with 3 findings requiring triage**: `@opentelemetry/core` 1.30.1 (the table above),
 `postcss-selector-parser` 6.1.5, and the scanner's bundled `ip-address` 10.7.2, which no npm
 release yet bundles fixed. No triage or exception record was added. The `uat` and
-`production` builds are byte-identical to `main`'s, file by file. The publisher lock still
-carries `zod` 4.6.5 and is not changed here.
+`production` builds are byte-identical to `main`'s, file by file. That change left the
+publisher lock, and its `zod` 4.6.5, as it was; the next entry updates it.
+
+**2026-10-23, the publisher graph: `zod` and `body-parser` block it, and a lock-only update
+clears both.** Measured on `main` (`cdb82b8`) at 22:38Z with the pinned npm 11.21.1, the
+reviewed `release/publisher` lock (660 entries) audits **BLOCKING: 6 findings, 3 blocking,
+3 requiring triage**. The blocking ones are `zod` 4.6.5 (GHSA-mrhx-c7xc-m3w5, high, through
+`firebase-tools` 15.31.0 and `@modelcontextprotocol/sdk`) and `body-parser` 1.20.8 and 2.3.0
+(GHSA-27r3-jxmh-p828, high, through `firebase-tools`' `express` 4 and the SDK's `express`
+5). The triage ones are `hono` 4.13.9 (GHSA-5r4p-p66f-jhc7), `ip-address` 10.7.2
+(GHSA-rxp7-6hxx-x8q5) and `@opentelemetry/core` 1.30.1. Two updates, each `npm update
+<names> --package-lock-only --ignore-scripts` with npm 11.21.1, in this order:
+
+- `hono`, `ip-address` and `zod`, with `--before=2026-10-22`: `hono` 4.13.9 → 4.13.13,
+  `ip-address` 10.7.2 → 10.7.4 and `zod` 4.6.5 → 4.6.7.
+- `body-parser`, with `--before=2026-10-23`, because its fixes were published 2026-10-22
+  (1.20.9 at 11:38Z, 2.4.0 at 11:39Z): `body-parser` 1.20.8 → 1.20.9, the SDK's nested
+  `body-parser` 2.3.0 → 2.4.0, and `qs` 6.16.0 → 6.16.1, which 2.4.0 requires.
+
+Six entries change and none are added or removed. There is no `package.json` edit, no
+override and no `--force`, and `firebase-tools` stays at 15.31.0. **The head audits within
+policy with 1 finding requiring triage**, `@opentelemetry/core` 1.30.1, which still has no fix
+this graph can take (the table above).
+
+**2026-10-23, the application graph: `body-parser` blocks it, and a lock-only update clears
+it.** The same GHSA-27r3-jxmh-p828 reaches the application graph through four
+development-tooling copies: `body-parser` 1.20.8 under `exegesis`, `firebase-tools` and
+`karma`, and 2.3.0 at the top level. Measured on `main` (`cdb82b8`) at 22:31Z, `audit:deps`
+is **BLOCKING: 7 findings, 4 blocking** (the four copies), so `validate` fails on every pull
+request. One update, `npm update body-parser --package-lock-only --ignore-scripts
+--before=2026-10-23` with npm 11.21.1: the three nested copies 1.20.8 → 1.20.9, the top-level
+copy 2.3.0 → 2.4.0, `iconv-lite` 0.7.2 → 0.7.3, and a nested `qs` 6.16.1 under the top-level
+`body-parser`, which 2.4.0 requires (the top-level `qs` stays 6.16.0). The lock goes from 1268
+to 1269 packages: one entry is added and none removed, there is no `package.json` edit, and
+every changed entry is dev-only. **The head audits within policy with 3 findings requiring
+triage**: `@opentelemetry/core` 1.30.1, `postcss-selector-parser` 6.1.5 and the scanner's
+bundled `ip-address` 10.7.2, as before the advisory appeared. `test:ci` passes 3420/3420, and
+the `uat` and `production` builds are byte-identical to `main`'s, file by file.
 
 ## What consumes this evidence (D08 B2.2)
 
