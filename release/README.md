@@ -571,6 +571,69 @@ under `firebase-tools` 15.28.2. The publisher lock carried 1.30.1 under 15.31.0.
   was run.
 - **Changing the lock advances the verifier**, exactly as for the `chokidar` override.
 
+### `@modelcontextprotocol/sdk` 1.32.1 in the publisher graph (2026-10-23)
+
+Readiness run `39847908896` (on `738d04b`) refused with `dependency.assessment_blocking`.
+Its fresh assessment reported two HIGH advisories on
+`publisher:node_modules/@modelcontextprotocol/sdk` 1.31.0 that no record covers:
+GHSA-22jm-h49p-29qw (`>=1.24.0 <1.32.0`) and GHSA-46jr-4wx8-v453 (`>=1.3.0 <1.32.0`).
+The same node also carried two moderate ones that end below 1.32.0, GHSA-6prh-2h8m-c8cw
+and GHSA-rvq5-wwqv-78pq. The application lock had already moved to 1.32.1 on 2026-10-21,
+and that repair left the publisher lock alone. A publisher-graph finding cannot be
+covered by a record (Known limits), so the publisher lock itself has to move.
+
+- **What changed.** In `release/publisher/package-lock.json` exactly one entry moves:
+  the SDK goes to 1.32.1 (version, `resolved` and the registry's own `integrity`).
+  `firebase-tools` 15.31.0 declares `^1.24.0`, so this is lock-only. The change was
+  produced by the pinned scanner npm 11.19.1 under Node 24.21.0, with
+  `npm update @modelcontextprotocol/sdk --package-lock-only --ignore-scripts`.
+  - 1.32.1 declares the same dependency, peer and engine ranges as 1.31.0, so nothing
+    else in the closure moves.
+  - No manifest, override, `firebase-tools` version, root or scanner lock, or audit
+    record changed.
+  - 1.32.1 differs from 1.32.0 only in its `version` field and README, so the fixed code
+    is the same.
+- **Applicability.** `firebase-tools` 15.31.0 requires the SDK only from `lib/mcp/`,
+  which is reached only when `argv[2]` is `mcp` or `experimental:mcp`. It uses
+  `Server`, `StdioServerTransport`, `SSEServerTransport` and schema constants from
+  `types.js`.
+  - All of these are still exported by 1.32.1, and the exports map is unchanged.
+  - It configures no task store, so the advisories' task-handling paths are not reached.
+  - The supported invocation, `deploy --only hosting:<target>`, does not reach the SDK.
+  - This is a source trace, not an execution.
+- **What was verified locally.** Node 24.21.0, scanner npm 11.19.1, credential-free.
+  Every graph was freshly installed with lifecycle scripts disabled; tests ran with
+  outbound connections refused; registry access was limited to `registry.npmjs.org`.
+  - **The trusted `prepare-publisher`:** 660 locked, 660 installed, 0 absent optional.
+    The prepared tree differs from the previous lock's only in the SDK package and the
+    two lockfile copies (104 files, none added or removed).
+  - **Base-lock reproduction:** preparing the previous lock reproduced the publisher
+    tree digest that readiness run recorded.
+  - **`hosting-oracle.test.mjs` run against the PREPARED publisher tree:** 20/20, with
+    firebase-tools 15.31.0 and superstatic 10.0.0 resolved inside it.
+  - **A local three-graph assessment.** It composed the repository's `inventory`,
+    `collect` and `evaluate`; it is not a promotion `assess`. Result: `exceptions_only`,
+    25 findings, 0 blocking, 5 under the existing exceptions, and 20 requiring triage.
+    The publisher's three are `@opentelemetry/core`, `hono` and `ip-address`. The SDK
+    node has none.
+  - **The same assessment with the previous publisher lock** is `blocking` on the two
+    advisories above, reproducing the readiness refusal.
+- **The oracle's version line, fixed in the same change.** Since B2.2 moved the pin from
+  `hosting.firebaseToolsVersion` to `publisher.version`, the oracle's RECORD diagnostic
+  had printed `publisher pin undefined`. It now reads `publisher.version` and asserts
+  its shape, so a future move of the pin fails the test.
+  - Against the prepared publisher tree it prints `installed firebase-tools 15.31.0;
+    publisher pin 15.31.0`.
+  - Against the root devDependency, as CI runs it, it reports the 15.28.2 / 15.31.0
+    mismatch, which is real.
+- **Not verified.** Successful authenticated upload, as before. No deploy or `--dry-run`
+  was run.
+- **Changing the lock advances the verifier**, exactly as for the `chokidar` override. A
+  run admitted under the previous lock is refused as `preflight.policy_advanced`.
+  Readiness still has to complete a fresh assessment of its own. A dependency assessment
+  with no blocker does not clear the release prerequisites the policy still records as
+  pending.
+
 ### Scanner diagnostics: the last observed npm events
 
 Readiness run `36283185235` (job `108518857938`) went red because the fresh assessment's

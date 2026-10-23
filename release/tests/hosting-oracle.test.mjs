@@ -60,8 +60,10 @@ async function toolResolves({ config = FIREBASE_JSON, rc = FIREBASERC }) {
 
 describe('the installed tool agrees with the model', () => {
   test('RECORD: the installed and the pinned firebase-tools versions', (t) => {
+    const PINNED = POLICY.publisher.version;
     assert.match(INSTALLED, /^\d+\.\d+\.\d+$/);
-    t.diagnostic(`installed firebase-tools ${INSTALLED}; publisher pin ${POLICY.hosting.firebaseToolsVersion}${INSTALLED === POLICY.hosting.firebaseToolsVersion ? '' : ' — NOT the version exercised here'}`);
+    assert.match(PINNED, /^\d+\.\d+\.\d+$/);
+    t.diagnostic(`installed firebase-tools ${INSTALLED}; publisher pin ${PINNED}${INSTALLED === PINNED ? '' : ' — NOT the version exercised here'}`);
   });
 
   test('CONTROL: the committed pair resolves to the policy\'s project and site, and the model agrees', async () => {
