@@ -35,29 +35,6 @@
         "date": "2026-10-03"
       },
       "expires": "2026-10-30"
-    },
-    {
-      "id": "scanner-http-cache-semantics-GHSA-ch52-4w7c-c8xp",
-      "kind": "exception",
-      "advisory": "GHSA-ch52-4w7c-c8xp",
-      "aliases": [
-        "npm:1240991"
-      ],
-      "package": "http-cache-semantics",
-      "version": "4.2.0",
-      "paths": [
-        "scanner:node_modules/npm/node_modules/http-cache-semantics"
-      ],
-      "scope": "tooling",
-      "applicability": "The pinned scanner bundles http-cache-semantics 4.2.0 through make-fetch-happen. The inspected npm 11.19.1 implementation constructs cache policies with shared: false, stores GET responses, and excludes Set-Cookie from its normal stored-header allowlist. The bulk advisory request uses POST and is not cache-served. These observations support a bounded exception for the advisory's shared-cache disclosure mechanism. They do not prove every invocation is credential-free or every audit input is independent of cache: the scanner preserves HOME, npm can read user/global configuration, and derived audit calculations use packuments. The scanner is tooling and does not ship in the application.",
-      "reason": "As of 2026-10-03, the reviewed package and version investigation found no supported, compatible fixed route: http-cache-semantics 4.2.0 was the latest published release and inside the advisory's affected range, every make-fetch-happen release required ^4.1.1, and the distributed npm 11.19.1, 11.20.0, 11.21.0 and 12.2.0 tarballs each bundled the same 4.2.0, which the scanner lockfile and overrides cannot replace; npm's suggested fix was a downgrade to npm 6. Without this exception every validate and certify run is blocked. The accepted residual risk is disclosure or staleness confined to the scanner's own npm cache and configuration. Remove this record in the same change that fixes or removes the affected http-cache-semantics, such as a scanner pin to an npm release whose distributed tarball bundles a fixed copy; that change must also remove any other scanner exception that no longer matches. It expires at 00:00 UTC on 2026-10-30 and is not extended automatically.",
-      "owner": "mugak1",
-      "approval": {
-        "by": "mugak1",
-        "reference": "https://github.com/mugak1/Dinify-Frontend/pull/731",
-        "date": "2026-10-03"
-      },
-      "expires": "2026-10-30"
     }
   ]
 }
