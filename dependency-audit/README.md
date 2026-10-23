@@ -226,6 +226,33 @@ has no fix this graph can take (see the table above). `gaxios` uses `uuid` only 
 checked against a local server, and `prepare-publisher` still installs 672 locked packages
 with no problems.
 
+**2026-10-23: `zod` blocks, and three lock-only updates clear it.** GHSA-mrhx-c7xc-m3w5
+(`zod`, high, fixed in 4.6.6) reached the advisory feed this day. `main` (`cb6d8cb`) locks
+`zod` 4.6.5, and `@angular/forms` 22.2.1 depends on `zod` `^4.0.10` without being `dev`, so
+the finding is runtime. Measured at 21:56Z, `main` audits **BLOCKING: 10 findings, 1
+blocking, 9 requiring triage**. `@angular/cli` 22.2.2 pins `zod` to exactly 4.6.5, and 22.2.3
+pins 4.6.6, inside the declared `~22.2.0`. Three updates, each `npm update <names>
+--package-lock-only --ignore-scripts --before=2026-10-22` with npm 11.21.1, in this order:
+
+- `ip-address` 10.7.2 → 10.7.4, `fast-uri` 3.1.7 → 3.1.9 and `postcss-selector-parser`
+  6.1.4 → 6.1.5. 6.1.5 is the upstream 6.x backport of the GHSA-rj75-hqrm-r3gf fix, but the
+  advisory data still lists it as affected, so that finding stays.
+- `firebase-tools` 15.28.2 → 15.34.1, inside `^15.22.0`. This brings `csv-parse` 7.0.3 and
+  `stream-json` 3.7.0, clears their four advisories, and removes 21 lock entries. The root
+  `overrides.basic-ftp` now matches nothing.
+- `@angular/cli`, `@schematics/angular` and `@angular-devkit/schematics` 22.2.2 → 22.2.3, with
+  their nested `@angular-devkit/core` and `architect`. `zod` becomes 4.6.6. The root
+  `@angular/build`, `@angular-devkit/core` and `@angular-devkit/architect` stay at 22.2.0 /
+  0.2202.0.
+
+The lock goes from 1289 to 1268 packages: 15 versions change, 21 entries go and none are
+added. There is no `package.json` edit, no override and no `--force`. **The head audits within
+policy with 3 findings requiring triage**: `@opentelemetry/core` 1.30.1 (the table above),
+`postcss-selector-parser` 6.1.5, and the scanner's bundled `ip-address` 10.7.2, which no npm
+release yet bundles fixed. No triage or exception record was added. The `uat` and
+`production` builds are byte-identical to `main`'s, file by file. The publisher lock still
+carries `zod` 4.6.5 and is not changed here.
+
 ## What consumes this evidence (D08 B2.2)
 
 The release path uses this directory three ways, and changes none of its rules:
