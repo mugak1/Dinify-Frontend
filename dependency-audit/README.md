@@ -101,9 +101,10 @@ outranks every npmrc, so the invocation and the check cannot disagree.
 
 ## Exceptions and triage records
 
-**No records are approved today** (`policy.json` → `records` is empty since 2026-10-23),
-so nothing is excepted and nothing is triaged. Lower-severity tooling findings are still
-reported, and still require triage.
+**One record is approved today**: the 2026-10-24 TOOLING exception for the scanner's
+bundled `undici` 6.29.0 (GHSA-xjj6-f33q-929c), which expires on 2026-11-30 (see "2026-10-24,
+the scanner graph" below). `records` was empty from 2026-10-23 until then. Nothing is
+triaged, and lower-severity tooling findings are still reported and still require triage.
 
 Five exception records, all TOOLING scope, existed before then. Three were approved
 2026-09-30 for the SCANNER graph's bundled `undici` and `brace-expansion`, and two on
@@ -289,6 +290,44 @@ every changed entry is dev-only. **The head audits within policy with 3 findings
 triage**: `@opentelemetry/core` 1.30.1, `postcss-selector-parser` 6.1.5 and the scanner's
 bundled `ip-address` 10.7.2, as before the advisory appeared. `test:ci` passes 3420/3420, and
 the `uat` and `production` builds are byte-identical to `main`'s, file by file.
+
+**2026-10-24, the scanner graph: `undici` blocks it, no fix exists, and one exception
+record covers it until 2026-11-30.** GitHub published GHSA-xjj6-f33q-929c (`undici`, high;
+fixed in 6.29.1, 7.30.1 and 8.12.2) at 22:14Z on 2026-10-23. The pinned scanner, npm
+11.21.1, bundles `undici` 6.29.0 (`inBundle` in `scanner/package-lock.json`), and a bundled
+dependency cannot be replaced by a lockfile or an override. Measured on `main` (`5e83da1`)
+at 19:31Z on Node 24.22.1, `audit:deps` is **BLOCKING: 5 findings, 1 blocking, 4 requiring
+triage**, so `validate` fails on every pull request and `certify` builds no candidate. The
+application graph is not affected: #759 moved its copies to 8.12.3 and 6.29.1.
+
+No scanner change can clear it. Measured from the published tarballs, npm 11.21.1 (the
+latest 11.x) and npm 12.2.1 (the `latest` tag, which supports Node 24) both bundle `undici`
+6.29.0, and no later npm exists. The record `scanner-undici-GHSA-xjj6-f33q-929c` excepts
+exactly that advisory (alias `npm:1243114`, as this repository's scan reports it), that
+version and the path `scanner:node_modules/npm/node_modules/undici`, in TOOLING scope. Admin
+carries the same record (mugak1/Dinify-Admin#48) with the same expiry.
+
+Its applicability was measured here, on Node 24, not taken from Admin's Node 20 run. The
+only requirer of `undici` in the bundle is `node-gyp/lib/download.js` (node-gyp 12.4.0). A
+preload that records every module file resolved through `Module._resolveFilename` and
+`module.registerHooks` was run with the scanner's exact argv, cwd and scrubbed environment,
+against both graphs. Neither audit resolved any file under `node_modules/undici`, and both
+returned complete reports. Neither resolved `node-gyp/lib/download.js`; they resolved
+`node-gyp/bin/node-gyp.js` only through `require.resolve`, for npm's `node-gyp` config
+default, which runs none of its code. Positive controls under the same probe (requiring
+`download.js`, and requiring `undici` from the bundle) each recorded 95 `undici` files.
+The accepted residual risk is that the scanner loads `undici` on a path those runs did not
+take.
+
+**The head audits passing only with approved exceptions: 5 findings, 1 under approved
+exception, 4 requiring triage** (`@opentelemetry/core` 1.30.1, `postcss-selector-parser`
+6.1.5, and the scanner's `ip-address` 10.7.2 and `undici` GHSA-4qv8-2p9j-2685, which the
+record does not cover). No triage record was added.
+
+The record lapses at 00:00 UTC on 2026-11-30 and is not extended automatically; from then
+the scanner graph blocks again. Remove it in the same change that moves the scanner to an
+npm that bundles `undici` 6.29.1 or later. If none exists by then, renewing it is a separate
+reviewed change, together with Admin's.
 
 ## What consumes this evidence (D08 B2.2)
 

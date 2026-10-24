@@ -12,5 +12,29 @@
     "registry": "https://registry.npmjs.org/",
     "timeoutSeconds": 300
   },
-  "records": []
+  "records": [
+    {
+      "id": "scanner-undici-GHSA-xjj6-f33q-929c",
+      "kind": "exception",
+      "advisory": "GHSA-xjj6-f33q-929c",
+      "aliases": [
+        "npm:1243114"
+      ],
+      "package": "undici",
+      "version": "6.29.0",
+      "paths": [
+        "scanner:node_modules/npm/node_modules/undici"
+      ],
+      "scope": "tooling",
+      "applicability": "undici 6.29.0 is bundled inside the pinned scanner, npm 11.21.1, which is installed from dependency-audit/scanner with scripts disabled and run only as npm audit. Its only requirer in the bundle is node_modules/node-gyp/lib/download.js (node-gyp 12.4.0, header downloads for native builds); npm's registry requests go through npm-registry-fetch and make-fetch-happen. Measured 2026-10-24 on Node 24.22.1, the major CI uses, with a preload that records every module file resolved through Module._resolveFilename and module.registerHooks: the scanner's exact audit argv, cwd and scrubbed environment, against the application graph and against its own graph, resolved no file under node_modules/undici and returned complete reports. node-gyp's lib/download.js was not resolved; node-gyp/bin/node-gyp.js was, only through require.resolve for the node-gyp config default, which runs none of its code. Positive controls under the same probe (requiring node-gyp/lib/download.js, and requiring undici from the bundle) each recorded 95 undici files. A scanner that crashed would leave the audit incomplete, which fails closed.",
+      "reason": "As of 2026-10-24 no npm release bundles a fixed undici: 11.21.1 (the latest 11.x) and 12.2.1 (the latest release, which supports Node 24) both bundle 6.29.0, and the fix is 6.29.1. A bundled dependency cannot be replaced by the lockfile or an override, so without a disposition the scanner graph is blocking and no candidate is certified. The accepted residual risk is that the scanner loads undici on a path the measured runs did not take. Remove this record in the same change that moves the scanner to an npm that bundles undici 6.29.1 or later; it expires at 00:00 UTC on 2026-11-30, with Admin's matching record, and is not extended automatically.",
+      "owner": "mugak1",
+      "approval": {
+        "by": "mugak1",
+        "reference": "https://github.com/mugak1/Dinify-Frontend/pull/761",
+        "date": "2026-10-24"
+      },
+      "expires": "2026-11-30"
+    }
+  ]
 }
