@@ -888,7 +888,7 @@ where a peer publishes one, and refused by name where it does not.
 | peer | selection | serving |
 |---|---|---|
 | backend (`0513adb`) | **operator receipt**: the repository is private, so the receipt is produced by an operator from the backend's git and reviewed as a file. No backend credential is given to anything that runs repository code, and no public endpoint was added. | **unavailable** until a verified loaded-runtime identity of the backend is available (B3): its source now carries an identity endpoint and a staged installer, but neither serves yet. Refused as `peers.backend_serving_unverified`; an operator statement is not accepted as serving evidence. |
-| admin (`033c49a`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
+| admin (`a42a056`) | **public-repository receipt**, re-derived at decision time through the API (tree and `deploy.yml` blob). Identity only: this application holds no Admin protocol, and the receipt's `assumptions` say why. | `https://admin.dinifyapp.com/release.txt`, required `no-store` and in the approved set. Re-read inside the publisher's critical section. |
 
 **Cross-repository changes remain an ordered, manual sequence.** This gate is the only
 path that consults `compatibleSet`; the backend's own deploy and `deploy-prod.yml` make
@@ -927,15 +927,18 @@ that receipt here in a reviewed pull request. Two consequences of the committed 
   2026-10-09 readiness run `37864171285` (on `aa0b958`) refused the same way for
   `1fa89cb`, and on 2026-10-13 run `38386816091` (on `386c432`) did again. On
   2026-10-15 readiness run `38763144686` (on `5015b33`) refused the same way for
-  `033c49a`. The approved Admin revision is now `033c49a` (the #44 merge, 2026-10-15),
-  replacing `1fa89cb`, which had replaced `89d2cf1`, which had replaced `94001b7`, which had replaced `9cf8c83`, `9ec02fe`, `abdacda`, `a7ef20c`, `eb54c92`,
+  `033c49a`, and on 2026-10-24 run `40128009591` (on `a0786ca`) for `a42a056`. The
+  approved Admin revision is now `a42a056` (the #48 merge, approved 2026-10-25), replacing
+  `033c49a`, which had replaced `1fa89cb`, which had replaced `89d2cf1`, which had replaced `94001b7`, which had replaced `9cf8c83`, `9ec02fe`, `abdacda`, `a7ef20c`, `eb54c92`,
   `1993a08`, `3521ebd` and `38df037` in turn, rather than joining them. An Admin rollback
   to any of those, or to `ad4a7f8` (the #28 merge), `3170e8f` (the #35 merge), `8b7895b`
   (the #37 merge), `042e803` (the #40 merge), `15eac1b` (the #42 merge) or `85947ca`
   (the #43 merge), all deployed and never approved, is refused the same way until
   approved again (see the four 2026-09-26 sections and the 2026-09-27, 2026-09-28,
-  2026-10-03, 2026-10-13 and 2026-10-15 ones). The #44 PR head `9337f55` carries the
-  same tree as `033c49a` and is a different commit: it is not approved either.
+  2026-10-03, 2026-10-13, 2026-10-15 and 2026-10-25 ones). The #44 PR head `9337f55`
+  carries the same tree as `033c49a` and is a different commit, and the #48 PR head
+  `da64573` likewise carries `a42a056`'s tree: neither is approved, and nor are the
+  intermediate merges `e864c82` (#45), `ed6430d` (#46) and `c88a75b` (#47).
 
 ### The D01 ceiling contract
 
@@ -2099,6 +2102,9 @@ Admin approval and the set id move; backend `0513adb` and its serving note are
 
 ### The 2026-10-15 Admin refresh (compatible set `2026-10-15-pilot-15`)
 
+*History: its Admin approval, `033c49a`, stood until 2026-10-25 (`pilot-16`, next
+section). The bullets below describe the state when it was committed.*
+
 Admin #44 (Dependabot) merged as `033c49a` on 2026-10-15. Admin CI run `38641814562`
 (the PR head `9337f55`) and run `38751640463` (the push to `main`) succeeded, and Deploy
 Admin run `38752134201` promoted `033c49a` over `1fa89cb` as a certified forward move:
@@ -2161,6 +2167,90 @@ Admin approval and the set id move; backend `0513adb` and its serving note are
   `main`'s `pilot-14` policy put back. `journey-observation.test.mjs` names the approved
   set and Admin revision and was updated with it (three lines, under a bounded
   reservation; 2 of its tests fail with `main`'s policy put back).
+
+### The 2026-10-25 Admin refresh (compatible set `2026-10-25-pilot-16`)
+
+Admin merged #45 as `e864c82`, #46 as `ed6430d`, #47 as `c88a75b` and #48 as `a42a056`.
+Deploy Admin run `40123508062` promoted `a42a056` on 2026-10-24 (as reported by the
+reviewer; this change did not re-read that run). A public read of `/release.txt` returned
+`a42a056`, `no-store`, at 2026-10-25T12:17:50Z. Readiness run `40128009591` (on
+`a0786ca`, 2026-10-24) read `a42a056` serving and refused `peers.admin_serving_unapproved`
+under `pilot-15`. Its result was `not-a-waiting-state`, the publisher was skipped and the
+run bound decisionDigest `sha256:207e2c41…`. The same run also refused
+`dependency.assessment_blocking`. This refresh approves `a42a056`. Only the Admin approval
+and the set id move. Backend `0513adb` and its serving note are `pilot-12`'s, and nothing
+is added to `publication.readiness.awaiting`.
+
+| peer | commit | tree | source blob | receipt digest |
+|---|---|---|---|---|
+| admin | `a42a0564b7d3351ea907a31093f9be016c7ab03d` (#45/#46/#47/#48) | `7f7fb5fa…` | `deploy.yml` `94f7d41d…` (unchanged) | `sha256:6302bf9a88c74839a81d94cb3fd8d98b6f2b84cc5aacf49d18c9eeaea0c0e144` |
+
+- **Source verification.** The unchanged `peer-receipt --write` produced the receipt from
+  a clone of the public repository, at the exact merged commit. The same command
+  reproduced the committed `033c49a` receipt byte for byte from that clone. An independent
+  Python re-derivation used a separate bare clone. It recomputed each git object's hash,
+  then the commit's tree, the `deploy.yml` blob and the canonical digest, and it agrees.
+  `033c49a`'s `524ff827…` and `1fa89cb`'s `49bb690e…` reproduce as controls. GitHub's
+  contents API was **not** consulted: this environment cannot reach it for Admin.
+- **Admin `033c49a..a42a056` is #45, #46, #47 and #48.**
+  - **#45 (Dependabot)** moved the SHA-pinned `anthropics/claude-code-action` from
+    v1.0.248 (`1d6de8c`) to v1.0.253 (`5eb090f`), in `claude.yml` and
+    `claude-code-review.yml`. The v1.0.253 tag is annotated and dereferences to the pin.
+    Its second commit, `6e403c3`, made dev-tooling lock updates:
+    `@angular/build` and `@angular/cli` 21.2.28, `@modelcontextprotocol/sdk` 1.32.1,
+    `express` 5.3.0, `body-parser` 2.4.0, `hono` 4.13.13, `zod` 4.6.6 and `vite` 7.3.7,
+    among others.
+  - **#46** moved Admin's audit scanner from npm 11.19.1 to 11.21.1. It removed five
+    exception records and re-recorded the owner-approved application
+    `http-cache-semantics` exception, which now expires on 2026-12-31. It also documented
+    the change in `dependency-audit/README.md` and, as prose only, in `release/README.md`.
+  - **#47** made lock-only updates of `ip-address` and `postcss-selector-parser`.
+  - **#48** made lock-only updates of karma's `body-parser`, node-gyp's `undici` and
+    `fast-uri`. It also recorded two owner-approved `undici` GHSA-xjj6-f33q-929c tooling
+    exceptions (application and scanner graphs), which expire on 2026-11-30.
+
+  Every application lock move in the range is a dev entry. No `package.json`,
+  `angular.json` or `src/` file changed, and each merge's tree equals its PR head's tree.
+  The receipt-bearing `deploy.yml` is byte-identical (`94f7d41`), so the identity this gate
+  reads is unchanged: the exact commit at `/release.txt`, served `no-store`.
+  `claude.yml` and `claude-code-review.yml` still grant no `id-token`. Admin's
+  `dependency-audit/` tree is part of its trusted verifier and moved as described. This
+  review is about source, not a security certification of the bumped action or of the
+  approved exceptions.
+- **Replayed, not constructed.** Replaying the `pilot-15` set after R-1, with Admin serving
+  `a42a056` and a blocking fresh assessment whose headline is the CI log's, reproduces the
+  decision run `40128009591` bound (`sha256:207e2c41…`) byte for byte, all seven reasons.
+  With every other fact held fixed, the refresh removes `peers.admin_serving_unapproved`
+  and nothing else. Six reasons remain: the five standing ones and
+  `dependency.assessment_blocking`. That decision (`sha256:f1d14934…`) is **constructed**,
+  since no run has recorded it. It is still `allow: false` and still not a wait. With a
+  passing assessment instead, the same refresh leaves the five-reason wait
+  `sha256:8ecab1b2…`, which is still synthetic. Both are replays over fixture inputs.
+- **What it does not resolve.**
+  - **The blocking assessment.** Run `40128009591`'s fresh assessment reported 15
+    findings, 2 blocking, 1 excepted and 12 requiring triage. That is a fact about the
+    graphs it assessed and not about Admin, and this receipt does not touch it. It clears
+    only once a later run's fresh assessment stops blocking. Every `dependency.*` reason
+    stays a hard, non-waiting refusal.
+  - **The five standing reasons:** `peers.backend_serving_unverified`, the three
+    `prerequisite.*` reasons and `served.bootstrap_unauthorized`.
+  - **Everything else.** This approval activates no publisher, establishes no backend
+    runtime identity and enables no publication. A later Admin head is not implicitly
+    approved: the next Admin deployment turns the next readiness run red again until its
+    own receipt is reviewed.
+- **Lane H's Admin selection is superseded.** `033c49a` was the Admin consumer selected
+  for Lane H's `pilot-15` packet. Lane H stays parked, and its frozen build and artifacts
+  are not touched by this change. Its `pilot-15` Admin selection no longer matches the
+  approved set, so any resumption needs a new selection against `pilot-16`.
+  `journey-observe` refuses a selection that the committed set does not approve
+  (`journey.observe.selection_not_approved`).
+- **Replaced, not joined.** The `033c49a` receipt stays under `peers/` as history, and the
+  `pilot-15` block of `committed-policy.test.mjs` is now bound to its own snapshot, on
+  both sides of R-1. The committed-policy suite went from 95 to **101** tests, and 22 of
+  them fail with `main`'s `pilot-15` policy put back. `journey-observation.test.mjs` names
+  the approved set and Admin revision, so it was updated with it (three lines; 2 of its 78
+  tests fail with `main`'s policy put back). The release suite runs **1405** tests on Node
+  24.15.0, which is 1399 on `main` by subtraction.
 
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
