@@ -329,6 +329,32 @@ the scanner graph blocks again. Remove it in the same change that moves the scan
 npm that bundles `undici` 6.29.1 or later. If none exists by then, renewing it is a separate
 reviewed change, together with Admin's.
 
+**2026-10-25, the publisher graph: `undici` blocks it, and a lock-only update clears it.**
+The same GHSA-xjj6-f33q-929c reaches the reviewed `release/publisher` lock through two
+copies: `undici` 6.29.0, which `firebase-tools` 15.31.0 requires as `^6.19.0`, and
+`node-gyp`'s nested `undici` 8.11.2, required as `^8.4.1`. The previous publisher update
+(#760) merged before the advisory reached the npm feed. Readiness runs `40128009591` (on
+`a0786ca`) and `40194952415` (on `c673b83`) each refused with
+`dependency.assessment_blocking`. A record cannot cover a publisher finding. Measured on
+`main` (`c673b83`) at 12:58Z on Node 24.21.0 with the pinned npm 11.21.1, the lock (660
+entries) audits **BLOCKING: 10 findings, 2 blocking, 8 requiring triage**. The blocking
+findings are GHSA-xjj6-f33q-929c on both `undici` copies. The triage findings are `undici`
+GHSA-4qv8-2p9j-2685 (both copies) and GHSA-f72v-6w45-q472 (the nested copy), four `fast-uri`
+3.1.8 advisories (GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr, GHSA-xhq7-xmqj-769h,
+GHSA-333x-w4r6-6crp), and `@opentelemetry/core` 1.30.1. One update, `npm update undici
+fast-uri --package-lock-only --ignore-scripts --before=2026-10-22` with npm 11.21.1 on Node
+24.21.0, makes these changes:
+
+- `undici` 6.29.0 → 6.29.1, published 2026-10-15.
+- `node-gyp`'s `undici` 8.11.2 → 8.12.3, published 2026-10-19.
+- `fast-uri` 3.1.8 → 3.1.9, published 2026-10-19, the version the application lock already
+  uses.
+
+Three entries change and none are added or removed. There is no `package.json` edit, no
+override and no `--force`, and `firebase-tools` stays at 15.31.0. **The head audits within
+policy with 1 finding requiring triage**, `@opentelemetry/core` 1.30.1, which still has no
+fix this graph can take (the table above).
+
 ## What consumes this evidence (D08 B2.2)
 
 The release path uses this directory three ways, and changes none of its rules:
