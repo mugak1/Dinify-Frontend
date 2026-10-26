@@ -1999,6 +1999,16 @@ so keep it current when conventions change.
   **Kitchen** entry (route `/kitchen`, gated on the `kitchen` module —
   owner/manager/kitchen see it, `restaurant_staff` does not), so back-office
   staff reach the board from portal nav, not only via the login auto-redirect.
+  **THE BOARD SUSPENDS IDLE LOGOUT WHILE IT IS MOUNTED (KITCHEN-IDLE-00).** The
+  15-minute idle logout (`InactivityService`) counts only mouse, key, touch and
+  scroll input, so a board nobody touched during a quiet spell signed itself out
+  and stopped showing orders. `KitchenComponent` (the `/kitchen` shell) takes
+  `InactivityService.suspend()` for its lifetime and releases it on destroy;
+  leaving the board starts a fresh 15-minute window. It applies to whoever is
+  signed in on the board, owners and managers included, because the board is a
+  display. Do not "fix" this by treating the board's polling as activity, and
+  do not detect the board by reading `router.url`. Pinned by
+  `_services/inactivity.service.spec.ts`
   **THE COMMAND CONTRACT CHANGED WITH D05, AND THE CLIENT NO LONGER GUESSES AN
   OUTCOME.** Every kitchen mutation now names an explicit ACTION (`advance` /
   `serve` / `correct` / `recall`, or the priority/cancel route) and a REQUIRED
