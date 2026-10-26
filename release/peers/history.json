@@ -1085,6 +1085,72 @@
         "commit": "a42a0564b7d3351ea907a31093f9be016c7ab03d",
         "_note": "Frontend readiness run 40128009591 (on a0786ca) logged it serving, and a public read of /release.txt returned it, no-store, at 2026-10-25T12:17:50Z."
       }
+    },
+    {
+      "id": "2026-10-26-pilot-17",
+      "_note": "Admin 668b627 (the #49 merge): deploy.yml gains a first job, window (actions: write only), that defers an off-hours deploy; deploy is still the only id-token holder.",
+      "approved": {
+        "admin": "668b62788db5d0d45f81150dad69c2c1802485aa",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "668b62788db5d0d45f81150dad69c2c1802485aa",
+          "receiptDigest": "sha256:aadd295eaa7455f84cc8ce96104125af1fa520d63a238071018bf46ae1d37b49",
+          "tree": "8dfdc647c81f68d93e5544e860a158654384bbb6",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "a71f5d5fd213ca5f91efda761cfc5b535bbb1613"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "44108ada33e7c608d9da0c869442178680a996cd",
+          "tree": "8dfdc647c81f68d93e5544e860a158654384bbb6",
+          "_note": "The PR head: the same tree as the merge, a different commit."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "668b62788db5d0d45f81150dad69c2c1802485aa",
+          "ownerState": "R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:0836113988c6eedeb4b3155c55ee521bbbb4b075937ab2b61f25219e4cba8a41",
+          "evidence": "constructed",
+          "_note": "No readiness run observed 668b627 under pilot-16: the last, 40380608540 (on 8a9bf45), completed at 18:46Z while a42a056 served. Computed from the rule with a passing assessment."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "668b62788db5d0d45f81150dad69c2c1802485aa",
+          "ownerState": "R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:8ecab1b23fb982208d71918725f316ccd482ba241029a221d326ef38ed7e5677",
+          "evidence": "constructed",
+          "_note": "No run has recorded it under this set. Readiness run 40380608540 bound the same digest under pilot-16, with a42a056 serving."
+        }
+      ],
+      "adminServingObserved": {
+        "commit": "668b62788db5d0d45f81150dad69c2c1802485aa",
+        "_note": "A public read of /release.txt returned it, no-store, at 2026-10-26T22:16:11Z. Deploy Admin run 40383293859 promoted it (reported by the reviewer). No frontend readiness run has observed it yet."
+      }
     }
   ]
 }

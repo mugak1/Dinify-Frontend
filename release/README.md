@@ -2300,6 +2300,81 @@ is added to `publication.readiness.awaiting`.
   tests fail with `main`'s policy put back). The release suite runs **1405** tests on Node
   24.15.0, which is 1399 on `main` by subtraction.
 
+### The 2026-10-26 Admin refresh (compatible set `2026-10-26-pilot-17`)
+
+The first refresh under the data-driven procedure above: a receipt, `policy.json` and one
+history row, with no test edit. Admin merged #49 as `668b627`. Deploy Admin run
+`40383293859` promoted it (as reported by the reviewer; this change did not re-read that
+run). A public read of `/release.txt` returned `668b627`, `no-store`, at
+2026-10-26T22:16:11Z. This refresh approves `668b627`. Only the Admin approval and the set
+id move. Backend `0513adb` and its serving note are `pilot-12`'s, the owner state is R-1,
+and nothing is added to `publication.readiness.awaiting`.
+
+| peer | commit | tree | source blob | receipt digest |
+|---|---|---|---|---|
+| admin | `668b62788db5d0d45f81150dad69c2c1802485aa` (#49) | `8dfdc647…` | `deploy.yml` `a71f5d5f…` (was `94f7d41d…`) | `sha256:aadd295eaa7455f84cc8ce96104125af1fa520d63a238071018bf46ae1d37b49` |
+
+- **Source verification.** The unchanged `peer-receipt --write` produced the receipt from
+  a clone of the public repository, at the exact merged commit. The same command
+  reproduced the committed `a42a056` receipt byte for byte from that clone. An independent
+  Python re-derivation used a separate bare clone. It recomputed each git object's hash,
+  then the commit's tree, the `deploy.yml` blob and the canonical digest, and it agrees.
+  `a42a056`'s `6302bf9a…` and `033c49a`'s `524ff827…` reproduce as controls.
+- **Admin `a42a056..668b627` is #49 alone** (one first-parent merge). The merge's tree
+  equals the PR head `44108ad`'s (`8dfdc647…`), so the merged source is the reviewed
+  source. It changed two files: the receipt-bearing `.github/workflows/deploy.yml`
+  (+254/−1) and `release/tests/workflow.test.mjs` (+172). No other workflow and nothing in
+  Admin's `release/lib/`, `release/cli.mjs` or `dependency-audit/` changed.
+- **What `deploy.yml` gains: a first job, `window`** (l.178–417 at `668b627`). It probes
+  `https://admin.dinifyapp.com/release.txt` and decides PROCEED (the origin answered, at
+  any time), DEFER (silent outside 11:00–23:00 Europe/London, less a 20-minute end margin)
+  or FAIL (silent inside the window, or anything it cannot establish). A deferred run
+  cancels itself so that it concludes grey, and fails red if the cancellation does not
+  land. Its self-test covers both 2026 daylight-saving changes. What this gate relies on
+  was checked line by line:
+  - `window` holds exactly `permissions: actions: write` (l.189–190), the permission it
+    needs to cancel its own run. It has no `id-token`, no `secrets.` reference, no
+    checkout and no `uses:` step: only workflow shell with `curl`, `date` and the
+    preinstalled `gh`, authenticated by the job's `github.token`. Its `if:` is the same
+    event gate as `prepare`'s.
+  - `prepare` now `needs: window` (l.419) and still holds only `contents: read` and
+    `actions: read` (l.440).
+  - `deploy` now `needs: [window, prepare]` (l.818) and is still the only job in the
+    repository holding `id-token: write` (l.822–823). Every deploying job therefore waits
+    for `window`.
+  - Outside the `window` block and those two `needs:` lines, `deploy.yml` is byte-identical
+    to `a42a056`'s. The forward-only ordering guard (l.1124) still runs before OIDC
+    (l.1224), and the trusted-verifier checkout, digest-enforced downloads, the privileged
+    re-decision, the host verification and the exact-commit `no-store` `/release.txt`
+    assertion are unchanged. So is the identity this gate reads.
+  - `claude.yml` and `claude-code-review.yml` are unchanged and still grant no `id-token`.
+
+  Admin CI run `40382878784` and Deploy Admin run `40383293859` succeeded, the window job
+  deciding PROCEED in-window (as reported by the reviewer). **The DEFER path has not run
+  live.** This review is about source, not a security certification of the window job.
+- **Constructed, not recorded.** No Frontend readiness run observed `668b627` under
+  `pilot-16`. The last, `40380608540` (on `8a9bf45`), completed at 18:46Z, before the
+  Admin deployment, while `a42a056` served. It recorded the five-reason wait
+  `sha256:8ecab1b2…`, which the `pilot-16` row carries as `synthetic`: that digest has now
+  been bound by a real run, and the row is left as it is because a refresh edits no other
+  row. The `pilot-16` refusal of a served `668b627` is therefore computed from the rule,
+  with a passing assessment: `sha256:08361139…`, all six reasons. With every other fact
+  held fixed, the refresh removes `peers.admin_serving_unapproved` and nothing else, and
+  returns the five-reason wait `sha256:8ecab1b2…` (constructed under this set; no run has
+  recorded it under `pilot-17`).
+- **What it does not resolve.** The five standing reasons
+  (`peers.backend_serving_unverified`, the three `prerequisite.*` reasons and
+  `served.bootstrap_unauthorized`) stand. This approval activates no publisher,
+  establishes no backend runtime identity and enables no publication. A later Admin head
+  is not implicitly approved: the next Admin deployment turns the next readiness run red
+  again until its own receipt is reviewed. Readiness reads Admin's `/release.txt`, which
+  answers only inside the server's window, so a merge's readiness run needs that window
+  too.
+- **Replaced, not joined.** The `a42a056` receipt stays under `peers/` as history. The
+  committed-policy and journey-observation suites run **218** tests together (212 on
+  `main`): the six added are the ones the new row generates. The release suite runs
+  **1444** tests on Node 24.22.1, which is 1438 on `main` by subtraction.
+
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
 adapter and simulation suites then prove the CLI feeds them what the world says.
