@@ -44,3 +44,5 @@ jobs:
           channelId: live
           projectId: dinify-dev
           target: dinify-prod
+          # Pinned so a new firebase-tools release cannot change deploys; bumping it is a reviewed change.
+          firebaseToolsVersion: 15.34.1
