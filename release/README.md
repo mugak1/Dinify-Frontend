@@ -1253,7 +1253,7 @@ change introduces) or **CONTROL** (something that must not change).
 | `readiness.test.mjs` | 56 | the recorded wait against every way a refusal can differ from it, and the real `readiness` and `outcome` commands through files |
 | `workflow-simulation.test.mjs` | 66 | `publish.yml` EXECUTED: real scripts, real CLI, real git checkouts, local HTTPS origins and an observable stand-in publisher — including the non-publishing evaluation matrix, both outcome steps and the publisher/credential counts, an assessment with and without scanner diagnostics, and a real 30-second application hang |
 | `workflow-drift.test.mjs` | 27 | the three workflow files held to the policy, statically — the publish job keyed on the admitted decision, the readiness wrapper translating one status |
-| `committed-policy.test.mjs` | 30 | the committed policy's exact refusal set, through the real `decide`; the approved receipts; the readiness list equal to that set; the 2026-09-24 refresh replayed against what CI observed, with every other fact held fixed |
+| `committed-policy.test.mjs` | 134 | the committed policy's exact refusal set, through the real `decide`; the approved receipts; the readiness list equal to that set; every compatible set in `peers/history.json` replayed through the rule (each pinned decision digest, each refresh's before/after with every other fact held fixed, every unapproved Admin revision refused) and the last row equal to the committed policy |
 
 **The simulation is production-shaped, not GitHub.** It parses and runs `publish.yml`
 with GitHub's expression semantics; `actions/*` are stand-ins that behave as documented
@@ -1355,6 +1355,53 @@ node release/cli.mjs peer-receipt --peer admin --repository mugak1/Dinify-Admin 
      --commit <sha> --repo-dir <clone>           # prints the receipt and its digest
 node release/cli.mjs storage-reviewed            # checks the storage tripwire; --write re-affirms
 ```
+
+### Refreshing the compatible set: a receipt, the policy, one history row
+
+Since 2026-10-26 the compatible-set history is DATA. `peers/history.json` has one row per
+compatible set, from `pilot-2` (the first that approved a revision). Each row records what
+the set approved, the facts of each receipt it approved first, the backend serving note
+and owner-prerequisite state its decisions printed, what its refresh moved and removed, the
+revisions reviewed with it but never approved, and every decision pinned under it. Each
+decision carries its digest and its evidence: `recorded` (a readiness run bound it),
+`constructed` or `synthetic` (computed from the rule). `committed-policy.test.mjs`
+generates its tests from the rows: it replays every pinned decision, compares each refresh
+before and after with every other fact held fixed, refuses every Admin revision a set does
+not approve under that set's id, and requires the last row to equal the committed policy.
+The per-refresh sections below were written when each set was a hand-written block of that
+file; the blocks they mention are rows now.
+
+A refresh changes three files and needs no test edit:
+
+1. **The receipt.** `peer-receipt --write` at the exact merged commit (as above for the
+   backend; `--peer admin --repository mugak1/Dinify-Admin` for Admin), re-derived
+   independently before its digest is pinned.
+2. **`policy.json`.** The next `compatibleSet.id`, the approval REPLACED (commit, receipt
+   path, `receiptDigest`), never joined, and `_approvedHistory` extended.
+3. **One row in `peers/history.json`**, appended last:
+   - `approved` (both peers), and `receipts` with the new revision's digest, tree and
+     sources exactly as its file states them;
+   - `backendServingReason` and `ownerStates` (the previous row's, unless they moved);
+   - `moved` and `removes` (normally `["peers.admin_serving_unapproved"]`), and
+     `notApproved` (the PR head, with its tree, and any intermediate merges);
+   - `refused`: the decision the readiness run gave under the previous set. Record the
+     Admin revision it saw serving, the `unexpected` reasons, the run's `decisionDigest`
+     from its readiness record, `evidence: "recorded"` and the run id. If the run's fresh
+     assessment did not pass, record it under `assessments` and name it in the decision;
+   - `decisions`: this set's wait under each owner state, plus one decision for each
+     assessment named in `refused`. The wait names no Admin commit, so its digest is
+     normally the previous row's;
+   - `adminServingObserved`: the revision the next run is expected to meet, and how it was
+     observed.
+
+Then review the Admin interval: what moved, the receipt-bearing `deploy.yml` blob, whether
+the merge's tree equals the PR head's, and `id-token` in any new workflow. Record that
+review in its own section below and in `_approvedHistory`, and run `npm run test:release`.
+To pin a constructed digest, run the suite: the failing replay prints the digest the rule
+computes. **A recorded digest is never replaced by a computed one.** If a recorded digest
+does not reproduce, that is a finding to report, not a value to update.
+`journey-observation.test.mjs` still names the approved set and Admin revision in two
+assertions, and moves with them.
 
 ### Approving a backend receipt
 

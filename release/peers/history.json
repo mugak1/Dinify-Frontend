@@ -1,0 +1,1090 @@
+{
+  "_note": [
+    "THE COMPATIBLE-SET HISTORY, AS DATA. One row per compatible set this policy has",
+    "committed that approved any peer revision, oldest first (pilot-1 approved none); the",
+    "last row IS the set release/policy.json approves, and committed-policy.test.mjs holds",
+    "the two equal. Nothing here is read by the release gate: it is evidence for the",
+    "committed-policy tests, which replay every row through the real decision rule.",
+    "",
+    "A ROW records what the set approved (`approved`, one commit per peer); the facts of",
+    "each receipt it approved FIRST (`receipts`, checked against release/peers/ byte for",
+    "byte); the backend serving note its decisions printed (`backendServingReason`); the",
+    "owner-prerequisite states it was committed under (`ownerStates`); what its refresh",
+    "moved and removed; the revisions reviewed with it but never approved (`notApproved`);",
+    "`refused`, the decisions taken under the PREVIOUS set that prompted this refresh; and",
+    "`decisions`, those taken under this set. Each decision is the reasons it refused",
+    "beyond its owner state's awaiting list (`unexpected`) and its digest. `evidence` says",
+    "what it is: `recorded` (a readiness run bound it, or logged its reasons when the digest",
+    "is null), `constructed` or `synthetic` (computed from the rule; no run recorded it",
+    "under that set). A recorded digest is never replaced by a computed one.",
+    "",
+    "A REFRESH APPENDS ONE ROW and edits no other. Every receipt under release/peers/ is",
+    "declared here, and a retained receipt is never deleted. Receipts are produced by",
+    "`node release/cli.mjs peer-receipt` at the exact commit and re-derived independently",
+    "before they are approved; release/README.md (\"Refreshing the compatible set\") gives",
+    "the procedure and records each refresh's review."
+  ],
+  "schema": "dinify.release.compatible-set-history/1",
+  "backendServingReasons": {
+    "no-identity-published": "the backend publishes no served-revision identity (B3); which backend revision is live cannot be observed, and an operator statement is not accepted as serving evidence",
+    "no-loaded-runtime-identity": "no verified loaded-runtime identity of the backend is available (B3): its source carries a release-identity endpoint and a staged installer, but the installer is not active, the legacy deploy-uat.yml still serves, and by that source a process the legacy deploy starts answers the endpoint as unavailable; which backend revision is live therefore cannot be observed, and an operator statement is not accepted as serving evidence"
+  },
+  "ownerStates": {
+    "before-R-1": {
+      "_note": "Every set committed before R-1 (2026-10-15): Firebase retention unverified, and its wait listed.",
+      "overrides": {
+        "prerequisites.retention.status": "unverified",
+        "publication.readiness.awaiting": [
+          "peers.backend_serving_unverified",
+          "prerequisite.legacy_publisher_active",
+          "prerequisite.legacy_publisher_present",
+          "prerequisite.retention_unverified",
+          "prerequisite.source_protection_unrecorded",
+          "served.bootstrap_unauthorized"
+        ]
+      }
+    },
+    "R-1": {
+      "_note": "R-1 (2026-10-15) recorded retention verified and removed that one wait, under the unchanged pilot-15 id.",
+      "overrides": {
+        "prerequisites.retention.status": "verified",
+        "publication.readiness.awaiting": [
+          "peers.backend_serving_unverified",
+          "prerequisite.legacy_publisher_active",
+          "prerequisite.legacy_publisher_present",
+          "prerequisite.source_protection_unrecorded",
+          "served.bootstrap_unauthorized"
+        ]
+      }
+    }
+  },
+  "assessments": {
+    "run-40128009591": {
+      "_note": "The fresh assessment readiness run 40128009591 completed; its headline, which decide prints verbatim, is from the CI log. The rest of the assessment is the test fixture's.",
+      "outcome": "blocking",
+      "headline": "AUDIT COMPLETE — BLOCKING: 15 advisory finding(s); 2 BLOCKING; 1 under approved exception; 12 lower-severity tooling finding(s) REQUIRE TRIAGE (not zero findings)"
+    }
+  },
+  "sets": [
+    {
+      "id": "2026-09-22-pilot-2",
+      "_note": "The first set that approved any revision (pilot-1 approved none): Admin 38df037 (the #25 merge) beside backend 9448f55 (the #330 merge), which predates the capability export.",
+      "approved": {
+        "admin": "38df0373e235c3e2952ae1985333731327400b93",
+        "backend": "9448f55ed28c040b96bf747e27c9dd2c86884c5a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "38df0373e235c3e2952ae1985333731327400b93",
+          "receiptDigest": "sha256:d58c5647ff5f6764dda5396063852226b14d58b64d3aab99be51e42e0129f59b",
+          "tree": "b75c9519898a38c0c50d735c052e541dc5c8855f",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "c1a5e7c9080cd96eda820cd9dcdf6e31664417c4"
+            }
+          ]
+        },
+        {
+          "peer": "backend",
+          "commit": "9448f55ed28c040b96bf747e27c9dd2c86884c5a",
+          "receiptDigest": "sha256:28bc20c96db80f44a90b6a1134c81e352298886248d579a1e835b2f782dc5916",
+          "tree": "fcc7e7ff25b4a547f85edf6d700042da414db672",
+          "sources": [
+            {
+              "name": "d01CheckoutLimits",
+              "path": "orders_app/contracts/checkout_limits.contract.json",
+              "blob": "1cb6a6db203edb2615668683d6426e0b972cdc31"
+            },
+            {
+              "name": "publishedCapabilities",
+              "path": "orders_app/contracts/published_capabilities.contract.json",
+              "blob": null
+            }
+          ],
+          "publishes": null
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "notApproved": [],
+      "decisions": [
+        {
+          "adminServes": "38df0373e235c3e2952ae1985333731327400b93",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.capabilities_unpublished"
+          ],
+          "decisionDigest": "sha256:a34ef4985466ff01ce3c7ade58f8bc8cfe4530da5904540f43474ff69314ed1f",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-09-23-pilot-3",
+      "_note": "Backend 366b7e4 (the #331 merge), the first backend revision that publishes its capability export, replaced 9448f55.",
+      "approved": {
+        "admin": "38df0373e235c3e2952ae1985333731327400b93",
+        "backend": "366b7e457cfffa700663fc10983b0420e8882313"
+      },
+      "receipts": [
+        {
+          "peer": "backend",
+          "commit": "366b7e457cfffa700663fc10983b0420e8882313",
+          "receiptDigest": "sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63",
+          "tree": "f129fe74fa9dc023fc92f23196a6f888b753081f",
+          "sources": [
+            {
+              "name": "d01CheckoutLimits",
+              "path": "orders_app/contracts/checkout_limits.contract.json",
+              "blob": "1cb6a6db203edb2615668683d6426e0b972cdc31"
+            },
+            {
+              "name": "publishedCapabilities",
+              "path": "orders_app/contracts/published_capabilities.contract.json",
+              "blob": "cc9160508888e2daff083ef96348a501c37fe702"
+            }
+          ],
+          "publishes": {
+            "checkout_protocol": 3,
+            "quote_protocol": 2,
+            "kitchen_protocol": 1,
+            "quote_policy_version": 1
+          }
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "backend"
+      ],
+      "removes": [
+        "peers.capabilities_unpublished"
+      ],
+      "notApproved": [],
+      "decisions": [
+        {
+          "adminServes": "38df0373e235c3e2952ae1985333731327400b93",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-09-24-pilot-4",
+      "_note": "Admin 3521ebd (the #27 merge; #26 moved configure-aws-credentials in deploy.yml) and backend a6b25a6 (the #338 merge; #332-#338 moved neither export file).",
+      "approved": {
+        "admin": "3521ebd05e5623878d262152bde11734b9cbd4fc",
+        "backend": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "3521ebd05e5623878d262152bde11734b9cbd4fc",
+          "receiptDigest": "sha256:e58f7ff5fdd0deb0b21d3b78f8b7fd55f2b56781210f8027a2f640b343debfb1",
+          "tree": "8a84439cd87c36501881cce64b7f293a59695621",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "0e210bf938beb29d43115eb96ad2ebf11576bb90"
+            }
+          ]
+        },
+        {
+          "peer": "backend",
+          "commit": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b",
+          "receiptDigest": "sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920",
+          "tree": "d6d1f838e931f89d68e5bcafec43a84fd1b6f538",
+          "sources": [
+            {
+              "name": "d01CheckoutLimits",
+              "path": "orders_app/contracts/checkout_limits.contract.json",
+              "blob": "1cb6a6db203edb2615668683d6426e0b972cdc31"
+            },
+            {
+              "name": "publishedCapabilities",
+              "path": "orders_app/contracts/published_capabilities.contract.json",
+              "blob": "cc9160508888e2daff083ef96348a501c37fe702"
+            }
+          ],
+          "publishes": {
+            "checkout_protocol": 3,
+            "quote_protocol": 2,
+            "kitchen_protocol": 1,
+            "quote_policy_version": 1
+          }
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin",
+        "backend"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "attribution": {
+        "admin": [
+          "peers.admin_serving_unapproved"
+        ],
+        "backend": []
+      },
+      "notApproved": [],
+      "refused": [
+        {
+          "adminServes": "3521ebd05e5623878d262152bde11734b9cbd4fc",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": null,
+          "evidence": "recorded",
+          "runs": [
+            36018365996
+          ],
+          "_note": "Job 107696628651, on c32f383. Its reason codes and the Admin detail are replayed from the log; its decision digest is not pinned."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "3521ebd05e5623878d262152bde11734b9cbd4fc",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-09-25-pilot-5",
+      "_note": "Admin 1993a08 (the #29 merge, reviewed with #28). deploy.yml unchanged.",
+      "approved": {
+        "admin": "1993a087b2f2a37cbce8cf97c5c55c55b804e8ca",
+        "backend": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "1993a087b2f2a37cbce8cf97c5c55c55b804e8ca",
+          "receiptDigest": "sha256:96df2207aa3cf5fd94b3c10946a543d950f18dd1db9a844669ca97ebc81e5538",
+          "tree": "2efbbc92522deb1fcfa583d23ac6d6f79091ac21",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "0e210bf938beb29d43115eb96ad2ebf11576bb90"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "ad4a7f8f033076039c9c2712664105c78ce0baef",
+          "_note": "The #28 merge, deployed 11:40Z-14:15Z on 2026-09-25 and observed by no readiness run."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "1993a087b2f2a37cbce8cf97c5c55c55b804e8ca",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:03c510552f611b767c18fd509149ed2205ee910d576c7282ee79a275c284aca3",
+          "evidence": "recorded",
+          "runs": [
+            36146235129
+          ],
+          "_note": "Job 108107989904, on 3a16e84."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "1993a087b2f2a37cbce8cf97c5c55c55b804e8ca",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-09-26-pilot-6",
+      "_note": "Admin eb54c92 (the #30 merge, D08 B2.3). deploy.yml unchanged.",
+      "approved": {
+        "admin": "eb54c92c6706093f09847315d83b344e46180770",
+        "backend": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "eb54c92c6706093f09847315d83b344e46180770",
+          "receiptDigest": "sha256:ced2198497e23ac4aaa13d7947aae127973abfaded5b18a122ead014a5dc07f6",
+          "tree": "f0229090404d7857a73a272e70f4823d5796b77c",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "0e210bf938beb29d43115eb96ad2ebf11576bb90"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [],
+      "refused": [
+        {
+          "adminServes": "eb54c92c6706093f09847315d83b344e46180770",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:2e6acbcd79bca1d7b24be130303af6b8457d7f0556d076400bf9102803f5725e",
+          "evidence": "constructed",
+          "_note": "No readiness run read the Admin identity while eb54c92 served."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "eb54c92c6706093f09847315d83b344e46180770",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-09-26-pilot-7",
+      "_note": "Admin a7ef20c (the #31 merge, D08 B2.4), which rewrote deploy.yml for certified promotion.",
+      "approved": {
+        "admin": "a7ef20c452062e95f24ecec2a506d27882db587b",
+        "backend": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "a7ef20c452062e95f24ecec2a506d27882db587b",
+          "receiptDigest": "sha256:c21ad7c5142e05dcd7020545a3f71ee3e92e612f7a4499d7002c25abb16381e2",
+          "tree": "a9f98461bcf608305c9c93339f4e9d79dc4f9a2b",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "3644dcdb864d788997446946afc75d092dce3f33"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [],
+      "refused": [
+        {
+          "adminServes": "a7ef20c452062e95f24ecec2a506d27882db587b",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:6aecf7484c20255bf1ae6f16a6704f889d012334ec69e04e8d1fe8bf8cde6643",
+          "evidence": "recorded",
+          "runs": [
+            36247543634
+          ],
+          "_note": "Job 108419421080, on 485e9e9."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "a7ef20c452062e95f24ecec2a506d27882db587b",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "constructed",
+          "_note": "Run 36249940983 (on 9d30ccb) concluded green with the publisher skipped, which under this set is only possible with a7ef20c serving: an inference from its conclusion, not a replay of its log."
+        }
+      ]
+    },
+    {
+      "id": "2026-09-26-pilot-8",
+      "_note": "Admin abdacda (the #32 merge, CLAUDE.md and release/README.md only). deploy.yml unchanged.",
+      "approved": {
+        "admin": "abdacda44d8a8f4694880e1e3435743615a27a20",
+        "backend": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "abdacda44d8a8f4694880e1e3435743615a27a20",
+          "receiptDigest": "sha256:18b256ce34bf5adef1143fd84450221187920de682f1ba1a7cd1ed8a3fb1e142",
+          "tree": "f063b6da8c9c280187d99a750ac3d353ca854dc6",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "3644dcdb864d788997446946afc75d092dce3f33"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [],
+      "refused": [
+        {
+          "adminServes": "abdacda44d8a8f4694880e1e3435743615a27a20",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:2aad62ff808cc6e77e00a8d642e518b7f0f7504f002d0a41ca22421594f7c6f5",
+          "evidence": "constructed",
+          "_note": "No readiness run observed abdacda before its approval."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "abdacda44d8a8f4694880e1e3435743615a27a20",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "recorded",
+          "runs": [
+            36270515216,
+            36272139246
+          ],
+          "_note": "Jobs 108483450654 (on 9a11385) and 108487990269 (on 349e97b); each retained peers.json states Admin serving abdacda."
+        }
+      ]
+    },
+    {
+      "id": "2026-09-26-pilot-9",
+      "_note": "Admin 9ec02fe (the #34 merge, with #33): two Claude Code workflows; a header comment in deploy.yml moved its blob.",
+      "approved": {
+        "admin": "9ec02fed9b6ab061879d838511214e907b7269ed",
+        "backend": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "9ec02fed9b6ab061879d838511214e907b7269ed",
+          "receiptDigest": "sha256:f396dc77139cc1a6dc2247f8ed40c4ec07fd86532e881c50b0575c33bf37cce7",
+          "tree": "7f27fdd31dbcd2b57e1a370a6b7db2c87015393f",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "2618d1ee627008c2534f006d5528106f249a3243"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [],
+      "refused": [
+        {
+          "adminServes": "9ec02fed9b6ab061879d838511214e907b7269ed",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:f945b541562b9e652cd77f34edee1dfee54e076b0686a30eb4c54e3383436a51",
+          "evidence": "recorded",
+          "runs": [
+            36273728448
+          ],
+          "_note": "Job 108492367222, on 44c4fc3."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "9ec02fed9b6ab061879d838511214e907b7269ed",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-09-27-pilot-10",
+      "_note": "Admin 9cf8c83 (the #36 merge, with #35): the bounded npm diagnostics port. deploy.yml unchanged.",
+      "approved": {
+        "admin": "9cf8c83b99c8cc8d44649aad2a6e8d7ee92f6bd8",
+        "backend": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "9cf8c83b99c8cc8d44649aad2a6e8d7ee92f6bd8",
+          "receiptDigest": "sha256:05b8c83badc5ada15c5b5f4cfcc41b8bed6e7ff2c5834c3cd60fcd9bb7460ac8",
+          "tree": "85b0173bb13f6e329b66ecc12d6b8cd2ae67ea59",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "2618d1ee627008c2534f006d5528106f249a3243"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "3170e8f5373e478f5d76f2787de1d429cfeb9cc2",
+          "_note": "The #35 merge, deployed and replaced by #36 before any approval."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "3170e8f5373e478f5d76f2787de1d429cfeb9cc2",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:1ce0b730b8b701ab066d2247770c7f750a865d0267006dd2eba405980080d6a4",
+          "evidence": "recorded",
+          "runs": [
+            36337180856,
+            36338571396,
+            36339569844
+          ],
+          "_note": "Jobs 108670149634 (on e7a3473), 108674040280 (on bb50491) and 108676874582 (on 0c388a1)."
+        },
+        {
+          "adminServes": "9cf8c83b99c8cc8d44649aad2a6e8d7ee92f6bd8",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:3afaa2920a42a005d51f36e5ba5a4804f37fdfc84fd0669a7496dd8e0f397524",
+          "evidence": "recorded",
+          "runs": [
+            36342248520
+          ],
+          "_note": "Job 108684478594, on ba8e4eb."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "9cf8c83b99c8cc8d44649aad2a6e8d7ee92f6bd8",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "recorded",
+          "runs": [
+            36345382850
+          ],
+          "_note": "Job 108693388435, on e414547."
+        }
+      ]
+    },
+    {
+      "id": "2026-09-28-pilot-11",
+      "_note": "Admin 94001b7 (the #38 merge, D10 B2, reviewed with #37). deploy.yml unchanged.",
+      "approved": {
+        "admin": "94001b7dc1a64df5296b2502bcc26f4f2543d77d",
+        "backend": "a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "94001b7dc1a64df5296b2502bcc26f4f2543d77d",
+          "receiptDigest": "sha256:d499e466c92f0b80b822ad39d05870aacca139d5a1592d10390bbba3a545b5b5",
+          "tree": "dc905761f1964ad92a3f8b22a616d0e415af4488",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "2618d1ee627008c2534f006d5528106f249a3243"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-identity-published",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "8b7895b42ac7f61cf4b27d0c2c51b598f1e02c00",
+          "tree": "56d5d8336adc7ed5a4049e334ff5767997f8df78",
+          "_note": "The #37 merge, deployed by Deploy Admin run 36354242328."
+        },
+        {
+          "commit": "a2fa81ecf1d45044bb45fc07be1152f5035905e2",
+          "tree": "dc905761f1964ad92a3f8b22a616d0e415af4488",
+          "_note": "#38's implementation head: the same tree as the merge, a different commit."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "94001b7dc1a64df5296b2502bcc26f4f2543d77d",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:c76c905efa5251427093818f8b6d951300f031e7a923229d1978704f4b2aa449",
+          "evidence": "constructed",
+          "_note": "No readiness run observed 8b7895b or 94001b7 before their approval."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "94001b7dc1a64df5296b2502bcc26f4f2543d77d",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-09-28-pilot-12",
+      "_note": "Backend 0513adb (the #350 merge), a source selection after #339-#350 (both export files unchanged), and a corrected backend serving note.",
+      "approved": {
+        "admin": "94001b7dc1a64df5296b2502bcc26f4f2543d77d",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "backend",
+          "commit": "0513adb441828d62faadc1c67799c5432868c33a",
+          "receiptDigest": "sha256:78795d4ddc8f3b6351260a6cd4c00bc313998958ef4cec0a86b33522d1581558",
+          "tree": "d263ada82b4da55e18455525e9955c809d8b8f4f",
+          "sources": [
+            {
+              "name": "d01CheckoutLimits",
+              "path": "orders_app/contracts/checkout_limits.contract.json",
+              "blob": "1cb6a6db203edb2615668683d6426e0b972cdc31"
+            },
+            {
+              "name": "publishedCapabilities",
+              "path": "orders_app/contracts/published_capabilities.contract.json",
+              "blob": "cc9160508888e2daff083ef96348a501c37fe702"
+            }
+          ],
+          "publishes": {
+            "checkout_protocol": 3,
+            "quote_protocol": 2,
+            "kitchen_protocol": 1,
+            "quote_policy_version": 1
+          }
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "backend"
+      ],
+      "removes": [],
+      "notApproved": [],
+      "decisions": [
+        {
+          "adminServes": "94001b7dc1a64df5296b2502bcc26f4f2543d77d",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:79ff3fea82b3c6d32c0671521fd43fa5b81d92da4c1c236c675df3f7849e5c3d",
+          "evidence": "recorded",
+          "runs": [
+            36741006888
+          ],
+          "_note": "Job 109975088568, on 5bd99b3."
+        }
+      ]
+    },
+    {
+      "id": "2026-10-03-pilot-13",
+      "_note": "Admin 89d2cf1 (the #39 merge, reviewed with #40). deploy.yml unchanged.",
+      "approved": {
+        "admin": "89d2cf1a9ce8d44ec4d0fcad9865df96053b3bc6",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "89d2cf1a9ce8d44ec4d0fcad9865df96053b3bc6",
+          "receiptDigest": "sha256:0905b63556e9d4e487e8c4a2b0e79207c03ef6214ce1361bf31a5528f8e857d6",
+          "tree": "b85bbcc8da5693e79c02ebbeafc90f01316b5a22",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "2618d1ee627008c2534f006d5528106f249a3243"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "042e8033b3ff9984c564e908f9360485f617e373",
+          "_note": "The #40 merge, deployed by Deploy Admin run 36881603916."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "042e8033b3ff9984c564e908f9360485f617e373",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:bd8a5733bce1d27b1a7b6ee99abfcff047a71fab1af444f027ad9c346f0cd83b",
+          "evidence": "recorded",
+          "runs": [
+            36881809186
+          ],
+          "_note": "Job 110435177159, on 1527c6b."
+        },
+        {
+          "adminServes": "89d2cf1a9ce8d44ec4d0fcad9865df96053b3bc6",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:b1b570462577c4b73cc349ded541d762fc3a1fdd6e9f160eae10fc8bb6a51180",
+          "evidence": "recorded",
+          "runs": [
+            36919953847,
+            36936713667
+          ],
+          "_note": "Jobs 110563223110 (on 229c0b1) and 110618566491 (on 73ec2d8). Runs 37137245529 and 37205168076 also observed 89d2cf1, beside a blocking assessment; that decision is not replayed."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "89d2cf1a9ce8d44ec4d0fcad9865df96053b3bc6",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:79ff3fea82b3c6d32c0671521fd43fa5b81d92da4c1c236c675df3f7849e5c3d",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-10-13-pilot-14",
+      "_note": "Admin 1fa89cb (the #41 merge, reviewed with #42 and #43; #42 includes the runtime Angular 21.2.25 patch). deploy.yml unchanged.",
+      "approved": {
+        "admin": "1fa89cb3897ca0cb48c38ed7c36a11cd4283a899",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "1fa89cb3897ca0cb48c38ed7c36a11cd4283a899",
+          "receiptDigest": "sha256:49bb690ec565e869e8011178f17ec7c6244091733822c7a3144117f8e13fe6e1",
+          "tree": "dc9808918c38901f01788b33a5348a9417bd2d1c",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "2618d1ee627008c2534f006d5528106f249a3243"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "before-R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "15eac1b109c10c52c0cca6b9c17c3de74e0670ac",
+          "_note": "The #42 merge, deployed by Deploy Admin run 37657619805; observed by no readiness run."
+        },
+        {
+          "commit": "85947ca6845fc46cd54af985595047f52f3191fd",
+          "_note": "The #43 merge, deployed by Deploy Admin run 37660784886; observed by no readiness run."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "1fa89cb3897ca0cb48c38ed7c36a11cd4283a899",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:f957895ff568fea804a26632ba018ed1c838756f229b90f406d40d69cfc4a7d5",
+          "evidence": "recorded",
+          "runs": [
+            37864171285,
+            38386816091
+          ],
+          "_note": "Jobs 113606823752 (on aa0b958) and 115260531843 (on 386c432)."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "1fa89cb3897ca0cb48c38ed7c36a11cd4283a899",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:79ff3fea82b3c6d32c0671521fd43fa5b81d92da4c1c236c675df3f7849e5c3d",
+          "evidence": "constructed"
+        }
+      ]
+    },
+    {
+      "id": "2026-10-15-pilot-15",
+      "_note": "Admin 033c49a (the #44 merge, a Dependabot action bump that changed six uses: lines in deploy.yml). R-1 later moved retention to verified under the same set id.",
+      "approved": {
+        "admin": "033c49aed85d2c94ea97115237a4e4e6b5cf1cf4",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "033c49aed85d2c94ea97115237a4e4e6b5cf1cf4",
+          "receiptDigest": "sha256:524ff8271e52f860b72ca4863689d58d22496b5a560ced0939e3d33b5a72fc17",
+          "tree": "a15befd9d5f07c63bb857d234d7c33b50acf0021",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "94f7d41d229b476c68da8f8d382df973bf7b3af8"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "before-R-1",
+        "R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "9337f553019e1c1be3b24132759eca34d6e74212",
+          "tree": "a15befd9d5f07c63bb857d234d7c33b50acf0021",
+          "_note": "The PR head: the same tree as the merge, a different commit."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "033c49aed85d2c94ea97115237a4e4e6b5cf1cf4",
+          "ownerState": "before-R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:b100feda7663bf04341613fee8b98f5bdd73de373c75b8eb86fec013aa34f8ba",
+          "evidence": "recorded",
+          "runs": [
+            38763144686
+          ],
+          "_note": "Job 116519381831, on 5015b33."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "033c49aed85d2c94ea97115237a4e4e6b5cf1cf4",
+          "ownerState": "before-R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:79ff3fea82b3c6d32c0671521fd43fa5b81d92da4c1c236c675df3f7849e5c3d",
+          "evidence": "constructed"
+        },
+        {
+          "adminServes": "033c49aed85d2c94ea97115237a4e4e6b5cf1cf4",
+          "ownerState": "R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:8ecab1b23fb982208d71918725f316ccd482ba241029a221d326ef38ed7e5677",
+          "evidence": "synthetic",
+          "_note": "Computed from the rule over the fixture candidate when R-1 was written."
+        }
+      ]
+    },
+    {
+      "id": "2026-10-25-pilot-16",
+      "_note": "Admin a42a056 (the #48 merge, reviewed with #45, #46 and #47). deploy.yml unchanged.",
+      "approved": {
+        "admin": "a42a0564b7d3351ea907a31093f9be016c7ab03d",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "a42a0564b7d3351ea907a31093f9be016c7ab03d",
+          "receiptDigest": "sha256:6302bf9a88c74839a81d94cb3fd8d98b6f2b84cc5aacf49d18c9eeaea0c0e144",
+          "tree": "7f7fb5fa31eaca148cf72198772b2888a7d443af",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "94f7d41d229b476c68da8f8d382df973bf7b3af8"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "R-1"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "da64573eca271745642854a05f6061ceb7338289",
+          "tree": "7f7fb5fa31eaca148cf72198772b2888a7d443af",
+          "_note": "The PR head: the same tree as the merge, a different commit."
+        },
+        {
+          "commit": "e864c826dd91d7391fab16d4257f605545f371e7",
+          "_note": "The #45 merge."
+        },
+        {
+          "commit": "ed6430d5a8de597b5a19e6cfd6758b51aa02b34b",
+          "_note": "The #46 merge."
+        },
+        {
+          "commit": "c88a75bd248763256272883f774b1b4266113b6f",
+          "_note": "The #47 merge."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "a42a0564b7d3351ea907a31093f9be016c7ab03d",
+          "ownerState": "R-1",
+          "assessment": "run-40128009591",
+          "unexpected": [
+            "dependency.assessment_blocking",
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:207e2c41a7f041b59d4fb1779b02d8118d6fab7f4b51c9917afcdbafc63f67ee",
+          "evidence": "recorded",
+          "runs": [
+            40128009591
+          ],
+          "_note": "Job 120973480974, on a0786ca."
+        },
+        {
+          "adminServes": "a42a0564b7d3351ea907a31093f9be016c7ab03d",
+          "ownerState": "R-1",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:f195ddd924e9f788acf70c60efe3d84dafce4a98fd419147dfbf051fd85c5ec0",
+          "evidence": "constructed",
+          "_note": "The same observation with a passing assessment."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "a42a0564b7d3351ea907a31093f9be016c7ab03d",
+          "ownerState": "R-1",
+          "unexpected": [],
+          "decisionDigest": "sha256:8ecab1b23fb982208d71918725f316ccd482ba241029a221d326ef38ed7e5677",
+          "evidence": "synthetic"
+        },
+        {
+          "adminServes": "a42a0564b7d3351ea907a31093f9be016c7ab03d",
+          "ownerState": "R-1",
+          "assessment": "run-40128009591",
+          "unexpected": [
+            "dependency.assessment_blocking"
+          ],
+          "decisionDigest": "sha256:f1d14934711109d1d6166ccabab890e28df89a53c73fad14226f5165a0bdf193",
+          "evidence": "constructed"
+        }
+      ],
+      "adminServingObserved": {
+        "commit": "a42a0564b7d3351ea907a31093f9be016c7ab03d",
+        "_note": "Frontend readiness run 40128009591 (on a0786ca) logged it serving, and a public read of /release.txt returned it, no-store, at 2026-10-25T12:17:50Z."
+      }
+    }
+  ]
+}
