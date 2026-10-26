@@ -1400,8 +1400,9 @@ review in its own section below and in `_approvedHistory`, and run `npm run test
 To pin a constructed digest, run the suite: the failing replay prints the digest the rule
 computes. **A recorded digest is never replaced by a computed one.** If a recorded digest
 does not reproduce, that is a finding to report, not a value to update.
-`journey-observation.test.mjs` still names the approved set and Admin revision in two
-assertions, and moves with them.
+`journey-observation.test.mjs` reads the approved set, both approved revisions and the
+backend each one replaced from the history's last row, so it moves with a refresh and needs
+no edit either (since 2026-10-26).
 
 ### Approving a backend receipt
 
