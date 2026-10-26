@@ -3762,6 +3762,37 @@ so keep it current when conventions change.
   included) under a test-local pre-retention snapshot, so every digest CI recorded,
   `sha256:79ff3fea…` included, still reproduces. Release suite 1388 → **1399**. This is
   not D08 closure, and it authorizes no bootstrap, cutover or publication.
+- **THE COMPATIBLE-SET HISTORY IS DATA, SO A REFRESH IS ONE ROW (D08 B2a, 2026-10-26).** ✅
+  `release/peers/history.json` has one row per compatible set (`pilot-2` onward; `pilot-1`
+  approved nothing). Each row records the set's approvals, the facts of each receipt it
+  approved first, its backend serving note and owner state (`before-R-1` / `R-1`), what its
+  refresh moved and removed, the revisions reviewed with it but never approved, and every
+  pinned decision with its digest and evidence (`recorded` / `constructed` /
+  `synthetic`). A refusal taken under the previous set sits in the new row as `refused`.
+  `committed-policy.test.mjs` no longer has a block per set. It generates its tests from
+  the rows and asserts everything the thirteen per-set blocks did:
+  - every pinned decision digest, reason set, detail and readiness classification;
+  - each refresh's before/after with every other fact held fixed, the other reasons
+    byte-identical, and `pilot-12`'s note change as the one detail that moved;
+  - `pilot-4`'s peer-by-peer attribution;
+  - every known Admin revision refused under every set's id, under each owner state;
+  - every receipt under `release/peers/` declared by a row and matching its file;
+  - the last row equal to the committed policy, deep-equal.
+
+  A few checks are stronger than before: the non-approval sweep now covers every set, not
+  pilot-11 onward, and ten decisions that were never pinned are now pinned as
+  `constructed`. The general tests (the CLI refusal set, readiness, backend and Admin
+  evidence breakage, SP-1, R-1) are kept. They read the current and superseded revisions
+  from the history instead of from literals. **A refresh is now a receipt, about ten
+  policy lines, one history row and the review**; procedure in `release/README.md` →
+  "Refreshing the compatible set". **A recorded digest is never replaced by a computed
+  one.** One that does not reproduce is a finding. Equivalence was shown by running the
+  old and new files together on one tree (101 + 134 pass) before the old blocks were
+  deleted. Five mutation controls each fail the new tests: one digit of a historical
+  digest, one approved commit, one deleted row, a row that does not match the policy, and
+  a policy set id with no row. The bullets above that count committed-policy tests or say
+  a block "became history pinned to pilot-N" describe the structure before B2a.
+  `journey-observation.test.mjs` still names the approved set in two assertions.
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a

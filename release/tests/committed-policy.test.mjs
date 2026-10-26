@@ -1,5 +1,5 @@
 /**
- * THE COMMITTED POLICY, AS THE FIRST REAL RUN WILL MEET IT.
+ * THE COMMITTED POLICY, AS THE FIRST REAL RUN WILL MEET IT — AND EVERY COMPATIBLE SET BEFORE IT.
  *
  * Every other suite starts from `allowedPolicy()` — the committed file with three stated
  * differences — because a policy that refuses everything cannot demonstrate an allowed
@@ -9,57 +9,29 @@
  * is the list of what enabling this path still requires, and it must be the gate's own
  * output rather than a recollection.
  *
+ * THE HISTORY IS DATA. release/peers/history.json carries one row per compatible set: what
+ * it approved, the facts of each receipt it approved first, the backend serving note and
+ * owner-prerequisite state its decisions printed, what its refresh moved and removed, the
+ * revisions reviewed with it but never approved, and every decision pinned under it (or,
+ * as `refused`, under the set before it), each with its digest and what kind of evidence it
+ * is. The generic tests below replay every row through the pure decision rule; the last
+ * row must equal the committed policy. A refresh adds a receipt, edits the policy, adds ONE
+ * row, and leaves this file alone.
+ *
  * WHAT EACH INPUT IS, stated because they are not all the same kind of evidence:
  *
  *   policy        the committed file, read by the CLI itself                 REAL
  *   receipts      release/peers/*.json, read exactly as `peer-facts` reads   REAL
+ *   history       release/peers/history.json: which set approved what, and
+ *                 every decision digest a readiness run bound (`recorded`) or
+ *                 the rule computed (`constructed`, `synthetic`)            RECORDED
  *   hosting       the committed firebase.json + .firebaserc, resolved by
  *                 effectiveHosting() over the candidate's file list          REAL
  *   served        the committed firebase.json's `**` rewrite answering
  *                 /release.json for a build that carries none (deploy-prod.yml
  *                 does not stamp), read by the real `serve-state` adapter    DERIVED
- *   admin         receipt for a42a056 (the Admin #48 merge, reviewed together
- *                 with #45, #46 and #47: the pinned claude-code-action bump to
- *                 v1.0.253, the audit scanner's move to npm 11.21.1 with its
- *                 exception records replaced, and dev-only lock updates)
- *                 produced by peer-receipt on 2026-10-25 from a clone of the
- *                 public repository at the exact merged commit, and
- *                 re-derived by an independent Python implementation over a
- *                 separate bare clone (tree 7f7fb5f…, identical to the PR head
- *                 da64573's; deploy.yml blob 94f7d41…, unchanged since #44;
- *                 the 033c49a receipt reproduced byte for byte, and the
- *                 033c49a and 1fa89cb digests reproduced, as controls).
- *                 Superseded records: 033c49a (tree a15befd…, blob 94f7d41…,
- *                 approved in pilot-15; readiness run 40128009591 refused
- *                 a42a056 under it, binding sha256:207e2c41…), 1fa89cb (tree dc98089…, blob 2618d1e…, approved in
- *                 pilot-14; readiness run 38763144686 refused 033c49a under it,
- *                 binding sha256:b100feda…), 89d2cf1 (tree b85bbcc…, blob 2618d1e…, approved in
- *                 pilot-13; readiness runs 37864171285 and 38386816091 refused
- *                 1fa89cb under it, binding sha256:f957895f…), 94001b7 (tree dc90576…, blob 2618d1e…, approved in
- *                 pilot-11 and pilot-12; readiness run 36741006888 on 5bd99b3
- *                 observed it serving under pilot-12 and recorded the six-reason
- *                 wait sha256:79ff3fea…), and the
- *                 earlier records this list carried: 9cf8c83 (tree 85b0173…,
- *                 blob 2618d1e…), 9ec02fe (tree 7f27fdd…), abdacda (tree
- *                 f063b6d…, blob 3644dcd…), a7ef20c (tree a9f9846…), eb54c92
- *                 (tree f022909…, blob 0e210bf…; every serving input naming it
- *                 is CONSTRUCTED), 1993a08 (tree 2efbbc9…), 3521ebd (tree
- *                 8a84439…) and 38df037 (tree b75c951…, blob c1a5e7c…)  RECORDED
- *   admin serving the DEFAULT serving input is a42a056, the approved revision,
- *                 as frontend readiness run 40128009591 (on a0786ca) logged
- *                 it serving and a public read of /release.txt returned it,
- *                 no-store, at 2026-10-25T12:17:50Z           RECORDED (CI)
- *   backend       receipt for 0513adb (the Backend #350 merge), approved in
- *                 pilot-12 as a SOURCE selection following the accepted
- *                 #339-#350 merges, produced by peer-receipt on 2026-09-28
- *                 from a private clone pinned to the merge and re-derived by an
- *                 independent Python implementation over a bare clone (tree
- *                 d263ada…; both export blobs, 1cb6a6d… and cc91605…,
- *                 byte-identical to a6b25a6's). Superseded record: a6b25a6
- *                 (tree d6d1f83…), approved from pilot-4 through pilot-11. A
- *                 replay of any set before pilot-12 is bound to THAT set's
- *                 backend and to the serving reason its decisions printed
- *                 (HISTORICAL_SETS, below), never to today's      RECORDED
+ *   admin serving the DEFAULT serving input is the last history row's
+ *                 `adminServingObserved`, with how it was observed beside it  RECORDED (CI)
  *   backend serving  unavailable, as the policy declares it: no verified
  *                 loaded-runtime identity; nothing here observes which backend
  *                 revision is live                                  POLICY
@@ -68,7 +40,8 @@
  *   dependencies  the fixture baseline's certification evidence, a PASSING
  *                 fresh assessment of it and the prepared toolchain (D08
  *                 B2.2) — held passing so that the refusal set is the OWNER
- *                 and PEER facts alone; a failing assessment is never a wait
+ *                 and PEER facts alone, except where a history row names a
+ *                 recorded assessment; a failing assessment is never a wait
  *                 and is proved so in readiness.test.mjs and the simulation  FIXTURE
  *
  * The frontend's live /release.json was NOT observed from the environment this suite
@@ -78,458 +51,129 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
 import { decide } from '../lib/decide.mjs';
 import { effectiveHosting } from '../lib/hosting.mjs';
-import { receiptDigest } from '../lib/peers.mjs';
+import { RECEIPT_SCHEMA, receiptDigest } from '../lib/peers.mjs';
 import { contractDigest, digestOfValue } from '../lib/canonical.mjs';
 import { AWAITING, classifyReadiness } from '../lib/readiness.mjs';
 import { validatePolicy } from '../lib/policy.mjs';
 import { POLICY, assessmentFor, baseline, clone, dependenciesFor } from './fixtures.mjs';
 import { ROOT, cli, startOrigin, tempDir, writeDependencyInputs } from './harness.mjs';
 
+const HISTORY_PATH = 'release/peers/history.json';
+const HISTORY = JSON.parse(readFileSync(join(ROOT, HISTORY_PATH), 'utf8'));
+const SETS = HISTORY.sets;
+const CURRENT = SETS.at(-1);
+const PEERS = ['admin', 'backend'];
+const EVIDENCE = ['recorded', 'constructed', 'synthetic'];
+const PRODUCER = { tool: 'release/cli.mjs peer-receipt', revision: 1 };
+
 const ADMIN = POLICY.compatibleSet.peers.admin.approved[0].commit;
 const BACKEND = POLICY.compatibleSet.peers.backend.approved[0].commit;
+const short = (commit) => String(commit ?? 'none').slice(0, 7);
 
-// The backend revision this policy approved BEFORE the capability export existed
-// (the #330 merge). Its receipt is retained under release/peers/ as history and is
-// no longer approved; the negative controls below select it deliberately.
-const HISTORICAL_BACKEND = '9448f55ed28c040b96bf747e27c9dd2c86884c5a';
+const previousRow = (row) => SETS[SETS.indexOf(row) - 1];
+const awaitingOf = (state) => HISTORY.ownerStates[state].overrides['publication.readiness.awaiting'];
+const servingReasonOf = (row) => HISTORY.backendServingReasons[row.backendServingReason];
+const receiptFacts = (commit) => SETS.flatMap((r) => r.receipts).find((r) => r.commit === commit);
+/** The decision a row's approved Admin revision receives under one of its owner states, with
+ *  a passing assessment: that set's wait (or, for a set whose backend cannot be compatible,
+ *  its standing refusal). Every row records one per owner state. */
+const standing = (row, state) => row.decisions.find((d) => d.adminServes === row.approved.admin && d.ownerState === state && !d.assessment);
+/** The most recent revision a peer had approved before the current one — what a rollback
+ *  to the last-known-good revision would name, and what a half-applied edit leaves behind. */
+function previousApproval(peer) {
+  const current = CURRENT.approved[peer];
+  return [...SETS].reverse().map((r) => r.approved[peer]).find((c) => c !== current);
+}
+const SUPERSEDED_ADMIN = previousApproval('admin');
+const PREVIOUS_BACKEND = previousApproval('backend');
+
+// The first backend revision ever approved (the #330 merge, in the first history row). It
+// predates the capability export; its receipt is retained under release/peers/ as history and
+// is no longer approved, and the negative controls below select it deliberately.
+const HISTORICAL_BACKEND = SETS[0].approved.backend;
 const HISTORICAL_RECEIPT_PATH = `release/peers/backend-${HISTORICAL_BACKEND}.json`;
 
-// The pair the PREVIOUS compatible set (2026-09-23-pilot-3) approved. Both receipts
-// are retained under release/peers/ as history and are no longer approved; the
-// before/after comparisons below select them deliberately, with every other fact
-// held fixed, to show exactly what the 2026-09-24 refresh changes.
-const PREVIOUS_SET_ID = '2026-09-23-pilot-3';
-const PREVIOUS_BACKEND = '366b7e457cfffa700663fc10983b0420e8882313';
-const PREVIOUS_ADMIN = '38df0373e235c3e2952ae1985333731327400b93';
+// The default Admin serving input: what the last history row records as observed serving —
+// what the next real run is expected to meet.
+const LIVE_ADMIN_OBSERVED = CURRENT.adminServingObserved?.commit;
 
-// What the frontend readiness run 36018365996 (job 107696628651, on c32f383) logged
-// about Admin: it served 3521ebd, and the previous set did not approve it. A RECORDED
-// fact from that job's log, used as the serving input the replay below holds fixed.
-const CI_OBSERVED_ADMIN = '3521ebd05e5623878d262152bde11734b9cbd4fc';
-const CI_REFUSAL_36018365996 = [
-  'peers.admin_serving_unapproved',
-  'peers.backend_serving_unverified',
-  'prerequisite.legacy_publisher_active',
-  'prerequisite.legacy_publisher_present',
-  'prerequisite.retention_unverified',
-  'prerequisite.source_protection_unrecorded',
-  'served.bootstrap_unauthorized',
-];
+/** Every Admin revision the history names: each approval, each revision reviewed with a set
+ *  and never approved, and each one a recorded decision saw serving. */
+const KNOWN_ADMIN_REVISIONS = [...new Set(SETS.flatMap((r) => [
+  r.approved.admin,
+  ...r.notApproved.map((n) => n.commit),
+  ...[...(r.refused ?? []), ...r.decisions].map((d) => d.adminServes),
+]))];
 
-// The set the 2026-09-24 refresh committed (2026-09-24-pilot-4): Admin 3521ebd beside
-// backend a6b25a6. Its Admin approval was superseded on 2026-09-25; its backend is
-// still the approved one. The 3521ebd receipt is retained under release/peers/ as
-// history, and the replays below select it deliberately.
-const SET_0924_ID = '2026-09-24-pilot-4';
-
-// What the frontend readiness run 36146235129 (job 108107989904, on 3a16e84) logged:
-// Admin served 1993a08 (the #29 merge), and the 2026-09-24 set did not approve it. A
-// RECORDED fact from that job's log. The decision it printed digests to exactly the
-// `decisionDigest` its readiness record carries, so the whole decision is pinned below,
-// not only its reason codes.
-const CI_OBSERVED_ADMIN_0925 = '1993a087b2f2a37cbce8cf97c5c55c55b804e8ca';
-const CI_REFUSAL_36146235129 = [
-  'peers.admin_serving_unapproved',
-  'peers.backend_serving_unverified',
-  'prerequisite.legacy_publisher_active',
-  'prerequisite.legacy_publisher_present',
-  'prerequisite.retention_unverified',
-  'prerequisite.source_protection_unrecorded',
-  'served.bootstrap_unauthorized',
-];
-const CI_DECISION_DIGEST_36146235129 = 'sha256:03c510552f611b767c18fd509149ed2205ee910d576c7282ee79a275c284aca3';
-
-// The #28 merge. Admin deployed it at 11:40Z on 2026-09-25 and replaced it with 1993a08
-// at 14:15Z. No frontend readiness run read the identity in that window, and it was
-// never approved: an Admin rollback to it is refused like any other unapproved revision.
-const DEPLOYED_NEVER_APPROVED_ADMIN = 'ad4a7f8f033076039c9c2712664105c78ce0baef';
-
-// The set the 2026-09-25 refresh committed (2026-09-25-pilot-5): Admin 1993a08 beside
-// backend a6b25a6. Its Admin approval was superseded on 2026-09-26; its backend is
-// still the approved one. The 1993a08 receipt is retained under release/peers/ as
-// history, and the replays below select it deliberately.
-const SET_0925_ID = '2026-09-25-pilot-5';
-
-// The Admin #30 merge (D08 B2.3), approved on 2026-09-26 in 2026-09-26-pilot-6 and
-// superseded the same day by a7ef20c (below). Deploy Admin run 36196825836 finished
-// promoting it at 22:29:00Z on 2026-09-25, and NO frontend readiness run read the
-// identity while it served: every serving input naming it is CONSTRUCTED. Its receipt
-// is retained under release/peers/ as history, and the replays below select it.
-const B23_ADMIN = 'eb54c92c6706093f09847315d83b344e46180770';
-const SET_0926_ID = '2026-09-26-pilot-6';
-
-// The Admin #31 merge (D08 B2.4), approved on 2026-09-26 in 2026-09-26-pilot-7 after
-// review and superseded the same day by abdacda (below). Deploy Admin run 36245215836 finished promoting it at 13:28:29Z (a deployment
-// record, not an origin read). The frontend readiness run 36247543634 (job
-// 108419421080, on 485e9e9, the #703 merge) then read the identity and logged it
-// serving; pilot-6 did not approve it, so that run refused
-// peers.admin_serving_unapproved, was classified not-a-waiting-state, and the publisher
-// was skipped. The decision it printed digests to exactly the `decisionDigest` its
-// readiness record carries, so the whole decision is pinned below. Public reads of
-// https://admin.dinifyapp.com/release.txt from the environment that wrote this suite
-// returned it, no-store, at 14:13:12Z and 14:20:29Z.
-const B24_ADMIN = 'a7ef20c452062e95f24ecec2a506d27882db587b';
-const SET_0926B_ID = '2026-09-26-pilot-7';
-const CI_REFUSAL_36247543634 = [
-  'peers.admin_serving_unapproved',
-  'peers.backend_serving_unverified',
-  'prerequisite.legacy_publisher_active',
-  'prerequisite.legacy_publisher_present',
-  'prerequisite.retention_unverified',
-  'prerequisite.source_protection_unrecorded',
-  'served.bootstrap_unauthorized',
-];
-const CI_DECISION_DIGEST_36247543634 = 'sha256:6aecf7484c20255bf1ae6f16a6704f889d012334ec69e04e8d1fe8bf8cde6643';
-
-// The Admin #32 merge, approved on 2026-09-26 in 2026-09-26-pilot-8 after review and
-// superseded the same day by 9ec02fe (below). #32 changed CLAUDE.md and
-// release/README.md only (it records #31's first live certified forward promotion); the
-// receipt-bearing deploy.yml blob is unchanged (3644dcd). Deploy Admin run 36264601950
-// finished promoting it at 19:02:54Z. NO frontend readiness run read the identity
-// BEFORE that approval — the last, 36249940983, finished at 14:52:29Z, before #32
-// merged — so every pilot-7 refusal naming it below is CONSTRUCTED from the rule, not a
-// replay of a run. AFTER the approval, runs 36270515216 and 36272139246 did read it
-// under pilot-8 (CI_WAIT_DIGEST_PILOT8, below). A public read of
-// https://admin.dinifyapp.com/release.txt from the environment that wrote the pilot-8
-// revision returned it, no-store, at 20:20:27Z.
-const DOCS32_ADMIN = 'abdacda44d8a8f4694880e1e3435743615a27a20';
-const SET_0926C_ID = '2026-09-26-pilot-8';
-// What two frontend readiness runs recorded while pilot-8 was committed and Admin served
-// abdacda: run 36270515216 (job 108483450654, on 9a11385, the merge of the pilot-8
-// refresh) and run 36272139246 (job 108487990269, on 349e97b, the #706 merge). The
-// peers.json each retained (artifacts 10915326891 and 10916375815, whose downloaded
-// bytes hash to the listed digests) states Admin serving abdacda, verified and no-store;
-// each decided the six recorded conditions, classified awaiting-prerequisites,
-// published: false, and bound this decisionDigest. The six-reason decision names no
-// Admin commit, so the digest is identical for ANY approved serving revision — the
-// served commit is the retained peers.json's, not the digest's.
-const CI_WAIT_DIGEST_PILOT8 = 'sha256:604dcb5ec4304bdf522b2dfdec6b58d113e2bea50a9a4f672ed047a89b3eed15';
-
-// The Admin #34 merge, approved on 2026-09-26 in 2026-09-26-pilot-9 after review. #33
-// and #34 added two Claude Code workflows (claude.yml, claude-code-review.yml — neither
-// holds id-token), a vendored review plugin under .claude/, and narrowed a COMMENT in
-// deploy.yml's header, which is why the receipt-bearing blob moved 3644dcd -> 2618d1e.
-// Deploy Admin run 36273633936 finished promoting it at 21:40:17Z. The frontend
-// readiness run 36273728448 (job 108492367222, on 44c4fc3, the #707 merge) then read the
-// identity and logged it serving; pilot-8 did not approve it, so that run refused
-// peers.admin_serving_unapproved, was classified not-a-waiting-state, and the publisher
-// was skipped. The decision it printed digests to exactly the `decisionDigest` its
-// readiness record carries, so the whole decision is pinned below. Public reads of
-// https://admin.dinifyapp.com/release.txt from the environment that wrote this revision
-// returned it, no-store, at 23:58:21Z and 23:59:14Z.
-const CLAUDE34_ADMIN = '9ec02fed9b6ab061879d838511214e907b7269ed';
-const SET_0926D_ID = '2026-09-26-pilot-9';
-const CI_REFUSAL_36273728448 = [
-  'peers.admin_serving_unapproved',
-  'peers.backend_serving_unverified',
-  'prerequisite.legacy_publisher_active',
-  'prerequisite.legacy_publisher_present',
-  'prerequisite.retention_unverified',
-  'prerequisite.source_protection_unrecorded',
-  'served.bootstrap_unauthorized',
-];
-const CI_DECISION_DIGEST_36273728448 = 'sha256:f945b541562b9e652cd77f34edee1dfee54e076b0686a30eb4c54e3383436a51';
-
-// The Admin #35 merge (a docs correction). Deploy Admin promoted it on 2026-09-27, and
-// the frontend readiness runs 36337180856 (job 108670149634, on e7a3473), 36338571396
-// (job 108674040280, on bb50491) and 36339569844 (job 108676874582, on 0c388a1) each
-// read it serving and refused it as peers.admin_serving_unapproved under pilot-9. All
-// three bound the same decisionDigest. #36 replaced it before any approval, and it was
-// never approved: an Admin rollback to it is refused like any other unapproved revision.
-const DOCS35_ADMIN = '3170e8f5373e478f5d76f2787de1d429cfeb9cc2';
-const CI_DECISION_DIGEST_3170E8F = 'sha256:1ce0b730b8b701ab066d2247770c7f750a865d0267006dd2eba405980080d6a4';
-
-// The Admin #36 merge, approved on 2026-09-27 in 2026-09-27-pilot-10 after review of #35
-// and #36. #36 ported Frontend #709's bounded, sanitized npm diagnostics into Admin's
-// fresh dependency assessment; the receipt-bearing deploy.yml blob is unchanged
-// (2618d1e). The frontend readiness run 36342248520 (job 108684478594, on ba8e4eb, the
-// #713 merge) read the identity and logged it serving; pilot-9 did not approve it, so that
-// run refused peers.admin_serving_unapproved, was classified not-a-waiting-state, and the
-// publisher was skipped. The decision it printed digests to exactly the `decisionDigest`
-// its readiness record carries, so the whole decision is pinned below. Public reads of
-// https://admin.dinifyapp.com/release.txt from the environment that wrote this revision
-// returned it, no-store, at 2026-09-27T18:58Z.
-const DIAG36_ADMIN = '9cf8c83b99c8cc8d44649aad2a6e8d7ee92f6bd8';
-const SET_0927_ID = '2026-09-27-pilot-10';
-const CI_REFUSAL_36342248520 = [
-  'peers.admin_serving_unapproved',
-  'peers.backend_serving_unverified',
-  'prerequisite.legacy_publisher_active',
-  'prerequisite.legacy_publisher_present',
-  'prerequisite.retention_unverified',
-  'prerequisite.source_protection_unrecorded',
-  'served.bootstrap_unauthorized',
-];
-const CI_DECISION_DIGEST_36342248520 = 'sha256:3afaa2920a42a005d51f36e5ba5a4804f37fdfc84fd0669a7496dd8e0f397524';
-
-// The Admin #37 merge (D10 B2: bind each admin command to the session that issued it).
-// Deploy Admin run 36354242328 promoted it on 2026-09-27 (22:08-22:09Z), and it was the
-// served commit Deploy Admin run 36359914333 replaced. It was NEVER approved: #38
-// corrected it, and the two were reviewed together as delivered by #38, so an Admin
-// rollback to it is refused like any other unapproved revision. No frontend readiness
-// run observed it. Its tree (56d5d83…) differs from #38's.
-const D10_37_ADMIN = '8b7895b42ac7f61cf4b27d0c2c51b598f1e02c00';
-const D10_37_TREE = '56d5d8336adc7ed5a4049e334ff5767997f8df78';
-
-// The Admin #38 merge, approved on 2026-09-28 in 2026-09-28-pilot-11 after review of #37
-// and #38 together. #38's final implementation head a2fa81e carries the IDENTICAL tree
-// (dc90576…) but is a different commit, and the gate approves commits: a2fa81e is not
-// approved. Only src/app/ and CLAUDE.md changed since 9cf8c83; the receipt-bearing
-// deploy.yml blob is unchanged (2618d1e). Deploy Admin run 36359914333 promoted it and
-// verified the public identity and 16/16 admitted files at 2026-09-27T23:49:32Z. NO
-// frontend readiness run had observed it when this refresh was written, so every serving
-// input naming it in a comparison against pilot-10 is CONSTRUCTED and labelled so.
-const D10_38_ADMIN = '94001b7dc1a64df5296b2502bcc26f4f2543d77d';
-const D10_38_HEAD = 'a2fa81ecf1d45044bb45fc07be1152f5035905e2';
-const SET_0928_ID = '2026-09-28-pilot-11';
-
-// The backend revision approved from 2026-09-24-pilot-4 through 2026-09-28-pilot-11 (the
-// #338 merge). REPLACED on 2026-09-28 in 2026-09-28-pilot-12 by 0513adb (below), not kept
-// beside it; its receipt is retained under release/peers/ as history.
-const PILOT11_BACKEND = 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b';
-const PILOT11_BACKEND_RECEIPT_DIGEST = 'sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920';
-
-// The Backend #350 merge, approved on 2026-09-28 in 2026-09-28-pilot-12: a SOURCE
-// selection following the accepted #339-#350 merges (D08 B2.1-B3 release work, D10 B1,
-// D11 B1, D12 B-1, D15 R1, a dashboard EAT correction and the Claude Code workflows).
-// Both export files are byte-identical to a6b25a6's, so the D01 values and the four
-// capability levels are unchanged. It says nothing about which backend revision is live.
-const B2_BACKEND = '0513adb441828d62faadc1c67799c5432868c33a';
-const B2_BACKEND_TREE = 'd263ada82b4da55e18455525e9955c809d8b8f4f';
-const B2_BACKEND_RECEIPT_DIGEST = 'sha256:78795d4ddc8f3b6351260a6cd4c00bc313998958ef4cec0a86b33522d1581558';
-const SET_0928B_ID = '2026-09-28-pilot-12';
-// The six-reason decision under pilot-12. It was first CONSTRUCTED from the rule; it has
-// since been RECORDED: readiness run 36741006888 (job 109975088568, on 5bd99b3, the #726
-// merge, 2026-09-30) decided exactly these six reasons with Admin serving the then-approved
-// 94001b7, classified awaiting-prerequisites, published: false, and bound this
-// decisionDigest. It differs from CI_WAIT_DIGEST_PILOT8 only by the corrected serving note.
-// (The constant keeps its name so earlier blocks read unchanged.)
-const PILOT12_WAIT_DIGEST_CONSTRUCTED = 'sha256:79ff3fea82b3c6d32c0671521fd43fa5b81d92da4c1c236c675df3f7849e5c3d';
-
-// The Admin #40 merge (Angular 21.2.24 within the patch line, in-range dev-tooling lock
-// updates, and the three scanner-bundled exceptions Frontend already carries). Deploy
-// Admin run 36881603916 promoted it on 2026-10-01 (15:06-15:07Z). The frontend readiness
-// run 36881809186 (job 110435177159, on 1527c6b, the #727 merge) read it serving and
-// refused peers.admin_serving_unapproved under pilot-12 — its ONE unexpected reason; the
-// fresh dependency assessment passed then. #39 replaced it 7 minutes later. It was reviewed
-// together with #39, as delivered by #39, and is NOT approved itself.
-const AUDIT40_ADMIN = '042e8033b3ff9984c564e908f9360485f617e373';
-const CI_DECISION_DIGEST_36881809186 = 'sha256:bd8a5733bce1d27b1a7b6ee99abfcff047a71fab1af444f027ad9c346f0cd83b';
-
-// The Admin #39 merge, approved on 2026-10-03 in 2026-10-03-pilot-13 after review of #40
-// and #39 together. Between 94001b7 and 89d2cf1 only CLAUDE.md, dependency-audit/
-// (README, lib/npm.mjs, policy.json, two test files), package.json and package-lock.json
-// changed; the receipt-bearing deploy.yml blob is unchanged (2618d1e). Deploy Admin run
-// 36882599969 promoted it over 042e803 as a CERTIFIED forward promotion (CI run
-// 36882314358, artifact 11171758999) and verified the public identity and 16/16 admitted
-// files at 2026-10-01T15:14:58Z. The frontend readiness runs 36919953847 (job
-// 110563223110, on 229c0b1, the #729 merge) and 36936713667 (job 110618566491, on
-// 73ec2d8, the #728 merge) read it serving and refused peers.admin_serving_unapproved
-// under pilot-12 — not-a-waiting-state, publisher skipped, the fresh assessment passing
-// — and both bound the decisionDigest below. Runs 37137245529 (on e553faf, the #731 merge)
-// and 37205168076 (on 63d6166, the #732 merge) read it serving too, beside a completed
-// BLOCKING fresh dependency assessment (dependency.assessment_blocking). That decision is
-// not replayed here: this receipt change alone does not resolve the dependency refusal.
-const AUDIT39_ADMIN = '89d2cf1a9ce8d44ec4d0fcad9865df96053b3bc6';
-const AUDIT39_TREE = 'b85bbcc8da5693e79c02ebbeafc90f01316b5a22';
-const CI_DECISION_DIGEST_89D2CF1 = 'sha256:b1b570462577c4b73cc349ded541d762fc3a1fdd6e9f160eae10fc8bb6a51180';
-const SET_1003_ID = '2026-10-03-pilot-13';
-
-// The Admin #42 merge (cleared four Admin dependency advisories and recorded three
-// owner-approved tooling exceptions; its lock moves include the runtime Angular 21.2.25
-// patch) and the Admin #43 merge (the Lifecycle select reflects the URL on initial
-// render). Deploy Admin runs 37657619805 and 37660784886 promoted them on 2026-10-07. NO
-// frontend readiness run observed either: none ran between 2026-10-06T14:22Z and
-// 2026-10-09T00:19Z, by which time #41 had replaced them. They were reviewed together
-// with #41 as delivered by #41 and are NOT approved.
-const AUDIT42_ADMIN = '15eac1b109c10c52c0cca6b9c17c3de74e0670ac';
-const LIFECYCLE43_ADMIN = '85947ca6845fc46cd54af985595047f52f3191fd';
-
-// The Admin #41 merge (two SHA-pinned anthropics/claude-code-action updates), approved
-// on 2026-10-13 in 2026-10-13-pilot-14 after review of #42, #43 and #41 together. Between
-// 89d2cf1 and 1fa89cb: package.json, package-lock.json, dependency-audit/ and CLAUDE.md
-// (#42), src/app/features/restaurants.page.ts and its spec (#43), and claude.yml and
-// claude-code-review.yml (#41). Admin's release/ and src/app/core trees and angular.json
-// are unchanged, and the receipt-bearing deploy.yml blob is unchanged (2618d1e). Deploy
-// Admin run 37662260854 promoted it as a certified forward move and verified the public
-// identity no-store and 16/16 admitted files. The frontend readiness runs 37864171285 (job
-// 113606823752, on aa0b958, the #739 merge) and 38386816091 (job 115260531843, on 386c432,
-// the #738 merge) read it serving and refused peers.admin_serving_unapproved under
-// pilot-13 — not-a-waiting-state, publisher skipped, that their ONE unexpected reason, and
-// each fresh three-graph assessment passing with approved exceptions. Both bound the
-// decisionDigest below.
-const CLAUDE41_ADMIN = '1fa89cb3897ca0cb48c38ed7c36a11cd4283a899';
-const CLAUDE41_TREE = 'dc9808918c38901f01788b33a5348a9417bd2d1c';
-const CLAUDE41_RECEIPT_DIGEST = 'sha256:49bb690ec565e869e8011178f17ec7c6244091733822c7a3144117f8e13fe6e1';
-const AUDIT39_RECEIPT_DIGEST = 'sha256:0905b63556e9d4e487e8c4a2b0e79207c03ef6214ce1361bf31a5528f8e857d6';
-const CI_DECISION_DIGEST_1FA89CB = 'sha256:f957895ff568fea804a26632ba018ed1c838756f229b90f406d40d69cfc4a7d5';
-const SET_1013_ID = '2026-10-13-pilot-14';
-
-// The Admin #44 merge (Dependabot: actions/setup-node v7.0.0 -> v7.1.0,
-// actions/upload-artifact v7.0.1 -> v7.0.2, actions/download-artifact v8.0.1 -> v8.0.2 and
-// anthropics/claude-code-action v1.0.241 -> v1.0.248, in audit.yml, ci.yml, deploy.yml,
-// claude.yml and claude-code-review.yml), approved on 2026-10-15 in 2026-10-15-pilot-15
-// after review of #44 alone. Only `uses:` lines changed between 1fa89cb and 033c49a, and
-// the merge tree equals the PR head 9337f55's (a15befd). Unlike #41-#43, it CHANGES the
-// receipt-bearing deploy.yml (blob 2618d1e -> 94f7d41), in six `uses:` lines and nothing
-// else. Admin CI runs 38641814562 (PR head) and 38751640463 (push) succeeded; Deploy
-// Admin run 38752134201 promoted it as a certified forward move over 1fa89cb (candidate
-// artifact 11981447732), its fresh assessment passing with approved exceptions, and
-// verified the public identity no-store and 16/16 admitted files. The frontend readiness
-// run 38763144686 (job 116519381831, on 5015b33, the #744 merge) read it serving and
-// refused peers.admin_serving_unapproved under pilot-14 — not-a-waiting-state, publisher
-// skipped, that its ONE unexpected reason — binding the decisionDigest below. The PR
-// head 9337f55 carries the same tree but is a different commit and is NOT approved.
-const DEPENDABOT44_ADMIN = '033c49aed85d2c94ea97115237a4e4e6b5cf1cf4';
-const DEPENDABOT44_HEAD = '9337f553019e1c1be3b24132759eca34d6e74212';
-const DEPENDABOT44_TREE = 'a15befd9d5f07c63bb857d234d7c33b50acf0021';
-const DEPENDABOT44_DEPLOY_BLOB = '94f7d41d229b476c68da8f8d382df973bf7b3af8';
-const DEPENDABOT44_RECEIPT_DIGEST = 'sha256:524ff8271e52f860b72ca4863689d58d22496b5a560ced0939e3d33b5a72fc17';
-const CI_DECISION_DIGEST_033C49A = 'sha256:b100feda7663bf04341613fee8b98f5bdd73de373c75b8eb86fec013aa34f8ba';
-const PRE44_DEPLOY_BLOB = '2618d1ee627008c2534f006d5528106f249a3243';
-const SET_1015_ID = '2026-10-15-pilot-15';
-
-// The Admin #48 merge, approved on 2026-10-25 in 2026-10-25-pilot-16 after review of #45,
-// #46, #47 and #48 together. #45 (Dependabot) moved the SHA-pinned
-// anthropics/claude-code-action in claude.yml and claude-code-review.yml from v1.0.248
-// (1d6de8c) to v1.0.253 (5eb090f; the tag is annotated and dereferences to the pin) and, in
-// its second commit 6e403c3, made dev-tooling lock updates. #46 moved Admin's audit
-// scanner from npm 11.19.1 to 11.21.1, removed five exception records and re-recorded the
-// owner-approved application http-cache-semantics exception (expiring 2026-12-31). #47 and
-// #48 made lock-only updates (ip-address, postcss-selector-parser; karma's body-parser,
-// node-gyp's undici, fast-uri), and #48 recorded two owner-approved undici
-// GHSA-xjj6-f33q-929c tooling exceptions expiring 2026-11-30. Every application lock move
-// is a dev entry, and no package.json, angular.json or src/ file changed. Each merge's tree
-// equals its PR head's, and the receipt-bearing deploy.yml is byte-identical (94f7d41).
-// The frontend readiness run 40128009591 (job 120973480974, on a0786ca, the #761 merge)
-// read a42a056 serving and refused it under pilot-15 — not-a-waiting-state, publisher
-// skipped — beside a BLOCKING fresh dependency assessment, binding the decisionDigest
-// below. The PR head da64573 carries the same tree but is a different commit and is NOT
-// approved; nor are the intermediate merges e864c82 (#45), ed6430d (#46) and c88a75b (#47).
-const DEPS48_ADMIN = 'a42a0564b7d3351ea907a31093f9be016c7ab03d';
-const DEPS48_HEAD = 'da64573eca271745642854a05f6061ceb7338289';
-const DEPS48_TREE = '7f7fb5fa31eaca148cf72198772b2888a7d443af';
-const DEPS48_RECEIPT_DIGEST = 'sha256:6302bf9a88c74839a81d94cb3fd8d98b6f2b84cc5aacf49d18c9eeaea0c0e144';
-const ACTION45_ADMIN = 'e864c826dd91d7391fab16d4257f605545f371e7';
-const SCANNER46_ADMIN = 'ed6430d5a8de597b5a19e6cfd6758b51aa02b34b';
-const LOCK47_ADMIN = 'c88a75bd248763256272883f774b1b4266113b6f';
-const CI_DECISION_DIGEST_A42A056 = 'sha256:207e2c41a7f041b59d4fb1779b02d8118d6fab7f4b51c9917afcdbafc63f67ee';
-// The fresh assessment run 40128009591 completed (its headline is the reason's detail, verbatim).
-const CI_ASSESSMENT_HEADLINE_40128009591 = 'AUDIT COMPLETE — BLOCKING: 15 advisory finding(s); 2 BLOCKING; 1 under approved exception; 12 lower-severity tooling finding(s) REQUIRE TRIAGE (not zero findings)';
-const SET_1025_ID = '2026-10-25-pilot-16';
-// The decision the committed pilot-16 policy gives for run 40128009591's facts — Admin serving
-// the approved a42a056, the same blocking assessment. CONSTRUCTED: no readiness run has
-// recorded it.
-const PILOT16_BLOCKING_DIGEST_CONSTRUCTED = 'sha256:f1d14934711109d1d6166ccabab890e28df89a53c73fad14226f5165a0bdf193';
-const LIVE_ADMIN_OBSERVED = DEPS48_ADMIN;
-
-// The sets whose decisions printed the CORRECTED backend serving note (pilot-12 onward).
-// A replay of one of them keeps the committed note; every earlier set takes the
-// historical one its decisions printed.
-const CORRECTED_NOTE_SETS = new Set([SET_0928B_ID, SET_1003_ID, SET_1013_ID, SET_1015_ID]);
-
-// The backend serving reason every decision through pilot-11 printed, and therefore every
-// decisionDigest a readiness run recorded (it was the policy text from e73bd70 until
-// pilot-12). pilot-12 CORRECTED it: an identity endpoint and a staged installer now exist
-// in the backend's source, so "publishes no served-revision identity" was no longer
-// true of the source, while a verified loaded-runtime identity is still unavailable. The
-// correction changes the reason's DETAIL and therefore the six-reason wait's digest; it
-// changes no reason CODE.
-const HISTORICAL_BACKEND_SERVING_REASON = 'the backend publishes no served-revision identity (B3); which backend revision is live cannot be observed, and an operator statement is not accepted as serving evidence';
-
-// THE HISTORICAL POLICY SNAPSHOTS a replay is bound to: the backend each earlier set
-// approved. A replay of one of these sets takes ITS backend and the serving reason its
-// decisions printed, so it keeps proving what that change did and reproduces what CI
-// recorded byte for byte — rather than silently re-running under today's backend.
-const HISTORICAL_SETS = Object.freeze({
-  [PREVIOUS_SET_ID]: PREVIOUS_BACKEND,
-  [SET_0924_ID]: PILOT11_BACKEND,
-  [SET_0925_ID]: PILOT11_BACKEND,
-  [SET_0926_ID]: PILOT11_BACKEND,
-  [SET_0926B_ID]: PILOT11_BACKEND,
-  [SET_0926C_ID]: PILOT11_BACKEND,
-  [SET_0926D_ID]: PILOT11_BACKEND,
-  [SET_0927_ID]: PILOT11_BACKEND,
-  [SET_0928_ID]: PILOT11_BACKEND,
-  [SET_0928B_ID]: B2_BACKEND,
-  [SET_1003_ID]: B2_BACKEND,
-  [SET_1013_ID]: B2_BACKEND,
-  [SET_1015_ID]: B2_BACKEND,
-});
-
-// THE PRE-RETENTION STATE (R-1, 2026-10-15). Until R-1, every committed set refused
-// prerequisite.retention_unverified and listed it as a wait. R-1 moved the committed
-// retention status to `verified` and removed that one entry — and changed nothing else, the
-// compatible-set id included (pilot-15 is the set either side of it). A historical replay is
-// therefore bound to THIS snapshot, so the decisions CI recorded under the six-entry list
-// keep reproducing byte for byte instead of silently re-running under today's five.
-const PRE_RETENTION_AWAITING = Object.freeze([
-  'peers.backend_serving_unverified',
-  'prerequisite.legacy_publisher_active',
-  'prerequisite.legacy_publisher_present',
-  'prerequisite.retention_unverified',
-  'prerequisite.source_protection_unrecorded',
-  'served.bootstrap_unauthorized',
-]);
-// What R-1 leaves: the same list without the retention entry.
+const PRE_R1 = 'before-R-1';
+const R1 = 'R-1';
+// The pre-R-1 awaiting list, and what R-1 leaves: the same list without the retention entry.
+const PRE_RETENTION_AWAITING = Object.freeze([...awaitingOf(PRE_R1)]);
 const R1_REMAINING_WAIT = Object.freeze(PRE_RETENTION_AWAITING.filter((c) => c !== 'prerequisite.retention_unverified'));
-// The five-reason decision under the committed policy (Admin serving the approved 033c49a).
-// SYNTHETIC: computed from the rule over the fixture candidate; no readiness run had recorded
-// it when R-1 was written.
-const R1_WAIT_DIGEST_SYNTHETIC = 'sha256:8ecab1b23fb982208d71918725f316ccd482ba241029a221d326ef38ed7e5677';
+// The row whose id spans R-1: committed before it, and still the set when R-1 landed.
+const R1_ROW = SETS.find((r) => r.ownerStates.includes(PRE_R1) && r.ownerStates.includes(R1));
+/** The digest of the most recent wait recorded under an owner state (the decision names no
+ *  Admin commit or set, so it is the same for every approved serving revision). */
+const latestWaitDigest = (state) => [...SETS].reverse().map((r) => standing(r, state)).find(Boolean).decisionDigest;
 
-/** A copy of `policy` (default: the committed one) with the pre-R-1 retention state restored:
- *  status `unverified` and the original six-entry awaiting list. Nothing else is touched. */
-function preRetentionPolicy(policy = POLICY) {
-  const p = clone(policy);
-  p.prerequisites.retention = { status: 'unverified' };
-  p.publication.readiness.awaiting = [...PRE_RETENTION_AWAITING];
-  return p;
+function setPath(object, path, value) {
+  const keys = path.split('.');
+  let at = object;
+  for (const key of keys.slice(0, -1)) at = at[key];
+  at[keys.at(-1)] = clone(value);
 }
+function applyOwnerState(policy, state) {
+  for (const [path, value] of Object.entries(HISTORY.ownerStates[state].overrides)) setPath(policy, path, value);
+  return policy;
+}
+/** A copy of `policy` (default: the committed one) with the pre-R-1 retention state restored,
+ *  as history.json records it. Nothing else is touched. */
+const preRetentionPolicy = (policy = POLICY) => applyOwnerState(clone(policy), PRE_R1);
 
 const receiptPath = (peer, commit) => `release/peers/${peer}-${commit}.json`;
+const receiptFiles = new Map();
 function committedReceiptEntry(peer, commit) {
   const path = receiptPath(peer, commit);
-  const receipt = JSON.parse(readFileSync(join(ROOT, path), 'utf8'));
+  if (!receiptFiles.has(path)) receiptFiles.set(path, JSON.parse(readFileSync(join(ROOT, path), 'utf8')));
+  const receipt = clone(receiptFiles.get(path));
   return { commit, path, present: true, readable: true, receipt, digest: receiptDigest(receipt) };
 }
 
-/** The committed policy and peer facts with the approved revision of each named peer
- *  replaced by a committed historical receipt. Serving and verification are held to
- *  what `recordedPeers` states unless overridden.
- *
- *  Every historical set predates R-1, so a historical replay also takes the pre-retention
- *  state (preRetentionPolicy) by default. pilot-15 is the exception: it is the set on BOTH
- *  sides of R-1 — its id did not change — and it has been historical since pilot-16, so
- *  a pilot-15 replay of the state CI observed AFTER R-1 (readiness run 40128009591, for
- *  one) says so explicitly with `preRetention: false`. */
-function withApproved({ backend, admin, setId, adminServes, preRetention } = {}) {
-  const historical = Boolean(setId) && setId !== POLICY.compatibleSet.id;
-  const policy = (preRetention ?? historical) ? preRetentionPolicy() : clone(POLICY);
-  const peers = recordedPeers(adminServes ? { adminServes } : {});
-  if (setId) policy.compatibleSet.id = setId;
-  if (historical) {
-    // A historical set: its own backend (unless the caller names one to vary) and the
-    // serving reason its decisions printed. An unknown set id is a test error, never a
-    // silent replay under today's policy.
-    assert.ok(Object.hasOwn(HISTORICAL_SETS, setId), `no historical snapshot is recorded for ${setId}`);
-    backend ??= HISTORICAL_SETS[setId];
-    if (!CORRECTED_NOTE_SETS.has(setId)) policy.compatibleSet.peers.backend.serving.reason = HISTORICAL_BACKEND_SERVING_REASON;
+/**
+ * THE SET A HISTORY ROW DESCRIBES, as a policy: the committed policy with that row's set id,
+ * its approvals (pinned by the digests the row records), the backend serving note its
+ * decisions printed and the named owner-prerequisite state. `approved` and `servingReason`
+ * vary one fact while holding the rest; the last row, under its last state, is the committed
+ * policy itself.
+ */
+function snapshot(row, state, { approved = row.approved, servingReason = servingReasonOf(row) } = {}) {
+  const policy = applyOwnerState(clone(POLICY), state);
+  policy.compatibleSet.id = row.id;
+  policy.compatibleSet.peers.backend.serving.reason = servingReason;
+  for (const peer of PEERS) {
+    const commit = approved[peer];
+    policy.compatibleSet.peers[peer].approved = [{ commit, receipt: receiptPath(peer, commit), receiptDigest: receiptFacts(commit).receiptDigest }];
   }
-  for (const [name, commit] of Object.entries({ backend, admin })) {
-    if (!commit) continue;
-    const entry = committedReceiptEntry(name, commit);
-    policy.compatibleSet.peers[name].approved = [{ commit, receipt: entry.path, receiptDigest: entry.digest }];
-    peers.receipts[name] = [entry];
-    if (name === 'admin') peers.verification.admin = { [commit]: { state: 'verified', detail: '' } };
-  }
-  return { policy, peers };
+  return policy;
+}
+
+/** Peer facts for a policy's approved revisions, read from the committed receipt files, with
+ *  the approved Admin publicly re-derived and Admin serving `adminServes`, no-store. */
+function peersFor(policy, adminServes) {
+  const receipts = {};
+  for (const peer of PEERS) receipts[peer] = policy.compatibleSet.peers[peer].approved.map((a) => committedReceiptEntry(peer, a.commit));
+  const admin = policy.compatibleSet.peers.admin.approved[0].commit;
+  return {
+    receipts,
+    verification: { admin: { [admin]: { state: 'verified', detail: '' } } },
+    serving: { admin: { state: 'known', commit: adminServes, noStore: true, cacheControl: 'no-store' } },
+  };
 }
 
 /** Receipts exactly as `peer-facts` assembles them from the committed files. */
@@ -546,9 +190,8 @@ function committedReceipts() {
   return out;
 }
 
-/** Peer facts as the committed receipts state them. Serving defaults to the Admin
- *  revision readiness run 40128009591 observed serving (a42a056, approved in pilot-16)
- *  — what the next real run is expected to meet. */
+/** Peer facts as the committed receipts state them. Serving defaults to the Admin revision
+ *  the last history row records as observed serving. */
 function recordedPeers({ adminServes = LIVE_ADMIN_OBSERVED } = {}) {
   return {
     receipts: committedReceipts(),
@@ -557,10 +200,8 @@ function recordedPeers({ adminServes = LIVE_ADMIN_OBSERVED } = {}) {
   };
 }
 
-/** Admin serving whichever revision the policy approves. Since pilot-16 that is also the
- *  observed a42a056, so this equals the default today; tests that must stay independent
- *  of the observation use it, and tests that must discriminate against a different
- *  policy name the served revision literally instead (servingD10, below). */
+/** Admin serving whichever revision the policy approves. Tests that must stay independent
+ *  of the observation use it. */
 const servingApproved = () => recordedPeers({ adminServes: ADMIN });
 
 let origin;
@@ -622,7 +263,7 @@ async function decideCommitted({ served = derivedServed, peers = recordedPeers()
 const codesOf = (decision) => decision.reasons.map((r) => r.code).sort();
 
 // The owner prerequisites the COMMITTED policy still refuses. Since R-1 that is three:
-// retention is verified. A replay of an earlier set reads PRE_RETENTION_AWAITING instead.
+// retention is verified. A replay of an earlier set reads its owner state instead.
 const PREREQUISITES = [
   'prerequisite.legacy_publisher_active',
   'prerequisite.legacy_publisher_present',
@@ -631,11 +272,10 @@ const PREREQUISITES = [
 
 /**
  * The PURE decision over exactly the inputs `decideCommitted` hands the CLI, with the
- * policy as an argument — so a single fact (which backend receipt is approved) can be
- * varied while every other fact is held fixed. The CLI cannot do that by design: it
- * reads only the committed file. The first comparison test proves this function and
- * the CLI agree on the committed policy, so the comparison is not against a different
- * rule.
+ * policy as an argument — so a single fact (which receipt is approved) can be varied while
+ * every other fact is held fixed. The CLI cannot do that by design: it reads only the
+ * committed file. The first comparison test proves this function and the CLI agree on the
+ * committed policy, so the comparison is not against a different rule.
  */
 function decidePure({ policy = POLICY, peers = recordedPeers(), served = derivedServed, dependencies } = {}) {
   const input = baseline();
@@ -660,6 +300,28 @@ function classifyWith({ policy = POLICY, peers = recordedPeers(), decision, enab
   });
 }
 
+/** A fresh assessment a history row names (e.g. the BLOCKING one readiness run 40128009591
+ *  completed), with its headline — which `decide` prints verbatim as the reason's detail —
+ *  from the record. The rest of the assessment is the fixture's, as in every other replay. */
+function recordedDependencies(name) {
+  const { outcome, headline } = HISTORY.assessments[name];
+  const input = baseline();
+  const assessment = assessmentFor({
+    manifest: input.artifact.manifest, evidence: input.artifact.dependencyEvidence, tooling: input.dependencies.tooling, outcome,
+  });
+  assessment.doc.headline = headline;
+  assessment.digest = digestOfValue(assessment.doc);
+  return dependenciesFor({ manifest: input.artifact.manifest, evidence: input.artifact.dependencyEvidence, tooling: input.dependencies.tooling, assessment });
+}
+
+/** Replays one pinned decision under the set `row` describes. */
+function replay(row, d, options = {}) {
+  const policy = snapshot(row, d.ownerState, options);
+  const peers = peersFor(policy, d.adminServes);
+  const decision = decidePure({ policy, peers, dependencies: d.assessment ? recordedDependencies(d.assessment) : undefined });
+  return { policy, peers, decision };
+}
+
 /** The committed policy and peer facts with ONE change: the approved backend is the
  *  retained historical receipt, read from its committed file. */
 function withHistoricalBackend(base = POLICY) {
@@ -681,7 +343,7 @@ describe('the committed release/policy.json, run through the real decide command
     assert.equal(derivedServed.status, 200, 'the rewrite answers 200 with HTML, not 404');
   });
 
-  test('CONTRACT: as observed (Admin serving a42a056, approved in pilot-16), an otherwise perfect candidate is refused for the five outstanding facts alone — and that IS the recorded, non-publishing wait', async () => {
+  test(`CONTRACT: as observed (Admin serving ${short(LIVE_ADMIN_OBSERVED)}, approved in ${CURRENT.id}), an otherwise perfect candidate is refused for the five outstanding facts alone — and that IS the recorded, non-publishing wait`, async () => {
     const { status, decision } = await decideCommitted();
     assert.equal(status, 1);
     assert.equal(decision.decision, 'REFUSE');
@@ -704,10 +366,10 @@ describe('the committed release/policy.json, run through the real decide command
     assert.equal(decision.decision, 'REFUSE');
     assert.deepEqual(hostingProblems, [], 'the committed hosting pair raises nothing against a real file list');
     assert.deepEqual(codesOf(decision), [
-      // SELECTION IS NOT SERVING. The approved backend (0513adb, the #350 merge)
-      // publishes its capability export, so peers.capabilities_unpublished stays gone —
-      // but which backend revision is LIVE is still unobservable until B3, and a
-      // successful deployment log is not accepted in place of a serving identity.
+      // SELECTION IS NOT SERVING. The approved backend publishes its capability export,
+      // so peers.capabilities_unpublished stays gone — but which backend revision is LIVE
+      // is still unobservable until B3, and a successful deployment log is not accepted in
+      // place of a serving identity.
       'peers.backend_serving_unverified',
       ...PREREQUISITES,
       'served.bootstrap_unauthorized',
@@ -740,7 +402,7 @@ describe('the committed release/policy.json, run through the real decide command
     const reasons = decision.reasons.filter((r) => r.code.startsWith('peers.admin'));
     assert.deepEqual(reasons.map((r) => r.code), ['peers.admin_serving_unapproved']);
     assert.match(reasons[0].detail, new RegExp(`not in compatible set ${POLICY.compatibleSet.id}$`));
-    assert.equal(POLICY.compatibleSet.id, SET_1025_ID);
+    assert.equal(POLICY.compatibleSet.id, CURRENT.id);
   });
 
   test('CONTROL: the committed receipts are the approved ones, byte for byte', () => {
@@ -756,40 +418,307 @@ describe('the committed release/policy.json, run through the real decide command
   });
 });
 
-describe('the backend receipt approved from pilot-4 through pilot-11 (a6b25a6, the #338 merge) — what approving a backend receipt changes, and what it does not', () => {
-  // HISTORY for the a6b25a6 pin: it was REPLACED in pilot-12 by 0513adb (below). The first
-  // two tests read its RETAINED receipt; the rest read the committed policy and therefore
-  // now exercise its successor, which states the same contracts.
-  test('CONTRACT: the receipt approved through pilot-11 is the source-derived one — export present, D01 unchanged, levels as the backend publishes them — retained as history', () => {
-    assert.equal(HISTORICAL_SETS[SET_0928_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b');
-    assert.notEqual(BACKEND, PILOT11_BACKEND, 'superseded in pilot-12 — no longer the approved backend revision');
-    const receipt = committedReceiptEntry('backend', PILOT11_BACKEND).receipt;
-    assert.equal(receiptDigest(receipt), 'sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920');
-    assert.equal(receipt.tree, 'd6d1f838e931f89d68e5bcafec43a84fd1b6f538');
-    assert.deepEqual(receipt.unavailable, []);
-    assert.deepEqual(receipt.publishes, { checkout_protocol: 3, quote_protocol: 2, kitchen_protocol: 1, quote_policy_version: 1 });
-    const historical = JSON.parse(readFileSync(join(ROOT, HISTORICAL_RECEIPT_PATH), 'utf8'));
-    assert.deepEqual(receipt.contracts.d01CheckoutLimits, historical.contracts.d01CheckoutLimits, 'the D01 contract did not move since 9448f55');
-    assert.equal(receipt.sources[0].blob, historical.sources[0].blob, 'nor did the D01 export file');
+describe('the history file itself — one row per compatible set, the last row the committed set', () => {
+  test('CONTRACT: the committed policy IS the last history row, under its last owner state — set id, both approvals with their receipt paths and digests, the backend serving note and the owner state', () => {
+    assert.equal(CURRENT.id, POLICY.compatibleSet.id);
+    assert.deepEqual(snapshot(CURRENT, CURRENT.ownerStates.at(-1)), POLICY);
+    for (const peer of PEERS) {
+      assert.equal(POLICY.compatibleSet.peers[peer].approved.length, 1, `exactly one approved ${peer} revision: an approval is REPLACED, never joined`);
+      assert.equal(POLICY.compatibleSet.peers[peer].approved[0].commit, CURRENT.approved[peer]);
+    }
+    assert.equal(ADMIN, CURRENT.approved.admin);
+    assert.equal(BACKEND, CURRENT.approved.backend);
+    assert.ok(/^[0-9a-f]{40}$/.test(LIVE_ADMIN_OBSERVED ?? ''), 'the last row records which Admin revision was observed serving');
   });
 
-  test('CONTRACT: #332-#338 moved neither export — the refreshed receipt states exactly what 366b7e4 stated, read from its own files', () => {
-    const previous = committedReceiptEntry('backend', PREVIOUS_BACKEND).receipt;
-    const current = committedReceiptEntry('backend', PILOT11_BACKEND).receipt;
-    assert.equal(receiptDigest(previous), 'sha256:ee8d855f1e738ff00b99d2c9ea9b1120feb1d0faad70d3510bf89da95e9f7d63', 'the retained history is the receipt approved on 2026-09-23');
-    assert.deepEqual(current.sources, previous.sources, 'both export blobs are byte-identical between the two merges');
-    assert.deepEqual(current.contracts, previous.contracts);
-    assert.deepEqual(current.publishes, previous.publishes);
-    assert.notEqual(current.tree, previous.tree, 'the source did change elsewhere — this is a different revision, not a relabel');
-    assert.notEqual(receiptDigest(current), receiptDigest(previous));
+  test('STRUCTURE: the rows are every set from the first that approved a revision (pilot-2; pilot-1 approved none), consecutive and in date order, each well-formed', () => {
+    const ids = SETS.map((r) => /^(\d{4}-\d{2}-\d{2})-pilot-(\d+)$/.exec(r.id));
+    assert.ok(ids.every(Boolean), JSON.stringify(SETS.map((r) => r.id)));
+    assert.deepEqual(ids.map((m) => Number(m[2])), SETS.map((_, i) => i + 2), 'no set is missing and none is repeated');
+    assert.deepEqual(ids.map((m) => m[1]), ids.map((m) => m[1]).sort(), 'dates never go backwards');
+    assert.equal(HISTORY.schema, 'dinify.release.compatible-set-history/1');
+    for (const row of SETS) {
+      const at = row.id;
+      assert.deepEqual(Object.keys(row.approved).sort(), [...PEERS].sort(), at);
+      for (const peer of PEERS) assert.match(row.approved[peer], /^[0-9a-f]{40}$/, at);
+      assert.ok(Object.hasOwn(HISTORY.backendServingReasons, row.backendServingReason), at);
+      assert.ok(row.ownerStates.length > 0 && row.ownerStates.every((s) => Object.hasOwn(HISTORY.ownerStates, s)), at);
+      for (const state of row.ownerStates) assert.ok(standing(row, state), `${at}: no decision for its approved Admin under ${state}`);
+      const previous = previousRow(row);
+      for (const [list, states] of [[row.decisions, row.ownerStates], [row.refused ?? [], previous?.ownerStates ?? []]]) {
+        for (const d of list) {
+          assert.ok(states.includes(d.ownerState), `${at}: ${d.adminServes} under ${d.ownerState}`);
+          assert.ok(EVIDENCE.includes(d.evidence), `${at}: evidence ${d.evidence}`);
+          assert.equal(Boolean(d.runs?.length), d.evidence === 'recorded', `${at}: runs are named exactly for recorded decisions`);
+          if (d.decisionDigest === null) assert.equal(d.evidence, 'recorded', `${at}: only a recorded decision may leave its digest unpinned`);
+          else assert.match(d.decisionDigest, /^sha256:[0-9a-f]{64}$/, at);
+          assert.deepEqual(d.unexpected, [...new Set(d.unexpected)].sort(), `${at}: unexpected is sorted and unique`);
+          if (d.assessment) assert.ok(Object.hasOwn(HISTORY.assessments, d.assessment), at);
+        }
+      }
+      if (!previous) {
+        assert.ok(!row.refused && !row.moved && !row.removes, `${at}: the first set had no predecessor`);
+        continue;
+      }
+      const moved = PEERS.filter((p) => row.approved[p] !== previous.approved[p]);
+      assert.deepEqual(row.moved, moved, `${at}: moved is exactly the peers whose approval changed`);
+      assert.ok(Array.isArray(row.removes), at);
+      if (moved.length > 1) assert.deepEqual(Object.keys(row.attribution ?? {}).sort(), [...moved].sort(), `${at}: a refresh that moved several peers attributes its effect peer by peer`);
+      else assert.equal(row.attribution, undefined, at);
+      if (moved.includes('admin')) assert.ok((row.refused ?? []).some((d) => d.adminServes === row.approved.admin), `${at}: the refusal the new Admin revision met under ${previous.id} is recorded`);
+    }
   });
 
-  test('CONTROL: the pure decision and the real CLI agree on the committed policy, so the comparison below measures the same rule', async () => {
+  test('STRUCTURE: every receipt is declared once, in the row that first approved it, and never-approved revisions are approved nowhere', () => {
+    const declared = SETS.flatMap((r) => r.receipts.map((x) => ({ row: r, ...x })));
+    assert.equal(new Set(declared.map((x) => x.commit)).size, declared.length, 'no receipt is declared twice');
+    for (const row of SETS) {
+      for (const peer of PEERS) {
+        const facts = receiptFacts(row.approved[peer]);
+        assert.ok(facts, `${row.id}: ${peer} ${row.approved[peer]} has no receipt facts`);
+        assert.equal(facts.peer, peer);
+        const first = SETS.find((r) => r.approved[peer] === row.approved[peer]);
+        assert.ok(first.receipts.includes(facts), `${row.id}: ${short(row.approved[peer])} is declared where it was first approved (${first.id})`);
+      }
+      for (const x of row.receipts) assert.equal(row.approved[x.peer], x.commit, `${row.id} declares a receipt it does not approve`);
+      for (const n of row.notApproved) {
+        assert.ok(!SETS.some((r) => PEERS.some((p) => r.approved[p] === n.commit)), `${n.commit} is never approved`);
+        assert.notEqual(n.commit, row.approved.admin);
+        if (n.tree !== undefined) assert.match(n.tree, /^[0-9a-f]{40}$/);
+      }
+    }
+  });
+});
+
+describe('the receipts the history approves — release/peers/, byte for byte', () => {
+  test('CONTRACT: every receipt under release/peers/ is one the history declares, and the history file is the only other file there — a retained receipt is never deleted', () => {
+    const files = readdirSync(join(ROOT, 'release/peers')).sort();
+    const declared = SETS.flatMap((r) => r.receipts).map((x) => `${x.peer}-${x.commit}.json`);
+    assert.deepEqual(files.filter((f) => f !== 'history.json'), [...declared].sort());
+    assert.ok(files.includes('history.json'));
+  });
+
+  for (const row of SETS) {
+    for (const facts of row.receipts) {
+      test(`CONTRACT: ${facts.peer} ${short(facts.commit)} (approved first in ${row.id}) is the receipt peer-receipt produced — digest, revision, tree and source blobs as recorded`, () => {
+        const { receipt, digest } = committedReceiptEntry(facts.peer, facts.commit);
+        assert.equal(digest, facts.receiptDigest);
+        assert.equal(receipt.schema, RECEIPT_SCHEMA);
+        assert.equal(receipt.peer, facts.peer);
+        assert.equal(receipt.repository, POLICY.compatibleSet.peers[facts.peer].repository);
+        assert.equal(receipt.commit, facts.commit, 'the approval is the MERGE commit it names');
+        assert.equal(receipt.tree, facts.tree);
+        assert.deepEqual(receipt.sources, facts.sources);
+        assert.deepEqual(receipt.producer, PRODUCER, 'produced by the existing command, not hand-authored');
+        if (facts.peer === 'admin') {
+          assert.deepEqual(receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
+          assert.equal(receipt.publishes, null);
+          assert.deepEqual(receipt.unavailable, []);
+        } else {
+          assert.deepEqual(receipt.publishes, facts.publishes);
+          assert.deepEqual(receipt.unavailable, facts.publishes === null ? ['publishedCapabilities'] : []);
+          const d01 = receipt.contracts.d01CheckoutLimits;
+          assert.equal(d01.digest, contractDigest(d01.values), 'the D01 digest is the one its own values compose');
+        }
+        for (const n of row.notApproved) {
+          assert.notEqual(receipt.commit, n.commit, 'not a PR head or an intermediate merge it was reviewed with');
+          assert.ok(!existsSync(join(ROOT, receiptPath(facts.peer, n.commit))), `${n.commit} has no receipt: it was never approved`);
+          if (n.tree === facts.tree) assert.notEqual(n.commit, facts.commit, 'the same tree, a different commit');
+          else if (n.tree !== undefined) assert.notEqual(n.tree, facts.tree);
+        }
+      });
+    }
+  }
+
+  test('CONTRACT: each peer\'s successive approvals are different revisions, not relabels — and an unchanged export or deploy file states exactly what it stated before', () => {
+    for (const peer of PEERS) {
+      const approvals = SETS.map((r) => r.approved[peer]).filter((c, i, all) => i === 0 || c !== all[i - 1]);
+      for (let i = 1; i < approvals.length; i++) {
+        const [prev, next] = [committedReceiptEntry(peer, approvals[i - 1]), committedReceiptEntry(peer, approvals[i])];
+        const at = `${peer} ${short(prev.commit)} -> ${short(next.commit)}`;
+        assert.notEqual(next.receipt.tree, prev.receipt.tree, `${at}: the source changed — a different revision, not a relabel`);
+        assert.notEqual(next.digest, prev.digest, at);
+        assert.deepEqual(next.receipt.sources.map((s) => [s.name, s.path]), prev.receipt.sources.map((s) => [s.name, s.path]), `${at}: the same files are what the receipt binds`);
+        for (const [k, source] of next.receipt.sources.entries()) {
+          if (source.blob === null || source.blob !== prev.receipt.sources[k].blob) continue;
+          // An unchanged export file states the same contract (D01 since 9448f55; both
+          // exports through #332-#338 and #339-#350).
+          if (source.name === 'd01CheckoutLimits') assert.deepEqual(next.receipt.contracts.d01CheckoutLimits, prev.receipt.contracts.d01CheckoutLimits, at);
+          if (source.name === 'publishedCapabilities') assert.deepEqual(next.receipt.publishes, prev.receipt.publishes, at);
+        }
+      }
+    }
+  });
+});
+
+describe('the compatible-set history, replayed set by set', () => {
+  for (const row of SETS) {
+    const previous = previousRow(row);
+    describe(row.id, () => {
+      const pinned = [...(row.refused ?? []).map((d) => ({ under: previous, d })), ...row.decisions.map((d) => ({ under: row, d }))];
+      for (const { under, d } of pinned) {
+        const label = `${d.evidence.toUpperCase()}${d.runs ? ` (run ${d.runs.join(', ')})` : ''}`;
+        const facts = `Admin serving ${short(d.adminServes)}, ${d.ownerState}${d.assessment ? `, assessment ${d.assessment}` : ''}`;
+        const verdict = d.unexpected.length ? `refused for ${d.unexpected.join(' + ')}, not a wait` : 'the non-publishing wait';
+        test(`${label}: under ${under.id}, ${facts} — ${verdict}`, () => {
+          const { policy, peers, decision } = replay(under, d);
+          assert.equal(decision.decision, 'REFUSE');
+          assert.equal(decision.allow, false);
+          assert.deepEqual(codesOf(decision), [...new Set([...awaitingOf(d.ownerState), ...d.unexpected])].sort());
+          const detail = (code) => decision.reasons.find((r) => r.code === code)?.detail;
+          assert.equal(detail('peers.backend_serving_unverified'), servingReasonOf(under), 'a source receipt is not serving evidence — B3 still stands');
+          assert.equal(d.adminServes === under.approved.admin, !d.unexpected.includes('peers.admin_serving_unapproved'));
+          if (d.unexpected.includes('peers.admin_serving_unapproved')) {
+            assert.equal(detail('peers.admin_serving_unapproved'), `admin serves ${d.adminServes}, which is not in compatible set ${under.id}`, 'byte for byte the detail a CI log prints');
+          }
+          if (d.assessment) assert.equal(detail(`dependency.assessment_${HISTORY.assessments[d.assessment].outcome}`), HISTORY.assessments[d.assessment].headline);
+          if (d.unexpected.includes('peers.capabilities_unpublished')) assert.match(detail('peers.capabilities_unpublished'), new RegExp(under.approved.backend));
+          if (d.decisionDigest !== null) {
+            assert.equal(digestOfValue(decision), d.decisionDigest, 'the whole decision — reason order and every detail — is the one recorded');
+          }
+          const enablements = d.unexpected.length ? [''] : ['', 'false'];
+          for (const enablement of enablements) {
+            const r = classifyWith({ policy, peers, decision, enablement });
+            assert.equal(r.evaluationCompleted, true);
+            assert.equal(r.decision, 'REFUSE');
+            assert.equal(r.allow, false);
+            assert.equal(r.published, false);
+            assert.equal(r.decisionDigest, digestOfValue(decision));
+            if (d.unexpected.length === 0) {
+              assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
+              assert.deepEqual(r.problems, []);
+              assert.deepEqual(r.awaiting.map((a) => a.code).sort(), [...awaitingOf(d.ownerState)].sort());
+            } else {
+              assert.notEqual(r.kind, AWAITING);
+              assert.deepEqual(r.problems.map((p) => p.code), d.unexpected.map(() => 'readiness.unexpected_reason'), 'each unexpected reason, and nothing else, is the problem');
+              assert.deepEqual(r.problems.map((p) => p.detail).sort(), d.unexpected.map((c) => `${c}: ${detail(c)}`).sort());
+            }
+          }
+          if (d.unexpected.length === 0) {
+            assert.deepEqual(classifyWith({ policy, peers, decision, enablement: 'true' }).problems.map((p) => p.code),
+              ['readiness.publication_enabled'], 'enabling publication is not part of this wait');
+          }
+        });
+      }
+
+      if (previous) {
+        test(`CONTRACT: with every other fact held fixed, the refresh from ${previous.id} moved ${row.moved.join(' and ')} and removed ${row.removes.length ? row.removes.join(', ') : 'no reason'} — and nothing else`, () => {
+          // The refused decision the new Admin revision met under the previous set, or (when
+          // only the backend moved) the previous set's own decision for the unchanged Admin.
+          const befores = [
+            ...(row.refused ?? []).filter((d) => d.adminServes === row.approved.admin),
+            ...(row.moved.includes('admin') ? [] : previous.decisions.filter((d) => d.adminServes === row.approved.admin)),
+          ];
+          assert.ok(befores.length > 0);
+          for (const b of befores) {
+            const a = row.decisions.find((d) => d.adminServes === b.adminServes && d.ownerState === b.ownerState && d.assessment === b.assessment);
+            assert.ok(a, `${row.id} records no decision for Admin ${short(b.adminServes)} under ${b.ownerState} to compare against`);
+            const before = replay(previous, b).decision;
+            const after = replay(row, a).decision;
+            const [bc, ac] = [codesOf(before), codesOf(after)];
+            assert.deepEqual(bc.filter((c) => !ac.includes(c)), row.removes);
+            assert.deepEqual(ac.filter((c) => !bc.includes(c)), [], 'the refresh introduced no new compatibility problem');
+            // The approvals alone change no other byte: every remaining reason is identical,
+            // detail included.
+            const approvalsOnly = replay(row, a, { servingReason: servingReasonOf(previous) }).decision;
+            assert.deepEqual(approvalsOnly, { ...before, reasons: before.reasons.filter((r) => !row.removes.includes(r.code)) }, 'every other reason is byte-identical, detail included');
+            if (row.removes.length === 0) assert.equal(digestOfValue(approvalsOnly), digestOfValue(before), 'the approvals alone change no byte');
+            // A corrected serving note changes that one detail, and no code.
+            const changed = after.reasons
+              .map((r, i) => ({ code: r.code, was: approvalsOnly.reasons[i].detail, now: r.detail, sameCode: approvalsOnly.reasons[i].code === r.code }))
+              .filter((c) => !c.sameCode || c.was !== c.now);
+            const noteMoved = row.backendServingReason !== previous.backendServingReason;
+            assert.deepEqual(changed, noteMoved
+              ? [{ code: 'peers.backend_serving_unverified', was: servingReasonOf(previous), now: servingReasonOf(row), sameCode: true }]
+              : []);
+            if (!noteMoved) assert.deepEqual(after, approvalsOnly);
+            // Peer by peer, when a refresh moved more than one.
+            for (const [peer, adds] of Object.entries(row.attribution ?? {})) {
+              const reverted = replay(row, a, { approved: { ...row.approved, [peer]: previous.approved[peer] } }).decision;
+              assert.deepEqual(codesOf(reverted), [...new Set([...ac, ...adds])].sort(), `reverting only the ${peer} approval`);
+            }
+          }
+        });
+
+        test(`CONTROL: the refresh to ${row.id} moved nothing but the set id, ${row.moved.map((p) => `the ${p} approval`).join(', ')}${row.backendServingReason !== previous.backendServingReason ? ', the backend serving note' : ''}${row.ownerStates[0] !== previous.ownerStates.at(-1) ? ', the owner state' : ''}`, () => {
+          const was = snapshot(previous, previous.ownerStates.at(-1));
+          const now = snapshot(row, row.ownerStates[0]);
+          const expected = ['compatibleSet.id', ...row.moved.map((p) => `compatibleSet.peers.${p}.approved`)];
+          if (row.backendServingReason !== previous.backendServingReason) expected.push('compatibleSet.peers.backend.serving.reason');
+          if (row.ownerStates[0] !== previous.ownerStates.at(-1)) expected.push(...Object.keys(HISTORY.ownerStates[row.ownerStates[0]].overrides));
+          const diff = [];
+          const walk = (x, y, path) => {
+            if (x && y && typeof x === 'object' && typeof y === 'object' && !Array.isArray(x) && !Array.isArray(y)) {
+              for (const k of new Set([...Object.keys(x), ...Object.keys(y)])) walk(x[k], y[k], path ? `${path}.${k}` : k);
+            } else if (JSON.stringify(x) !== JSON.stringify(y)) diff.push(path);
+          };
+          walk(was, now, '');
+          assert.deepEqual(diff.sort(), [...new Set(expected)].sort());
+        });
+      }
+
+      test(`REGRESSION: an Admin revision ${row.id} does not approve is refused under its id and is NOT a wait — every other approval, every revision reviewed and never approved, every one seen serving, or any later one`, () => {
+        for (const state of row.ownerStates) {
+          const own = standing(row, state).unexpected;
+          for (const serves of [...KNOWN_ADMIN_REVISIONS.filter((c) => c !== row.approved.admin), 'a'.repeat(40)]) {
+            const { policy, peers, decision } = replay(row, { adminServes: serves, ownerState: state });
+            const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
+            assert.equal(reason?.detail, `admin serves ${serves}, which is not in compatible set ${row.id}`, `${state} ${serves}`);
+            assert.equal(decision.allow, false, serves);
+            const r = classifyWith({ policy, peers, decision });
+            assert.notEqual(r.kind, AWAITING, serves);
+            assert.deepEqual(r.problems.map((p) => p.code), [...own, 'peers.admin_serving_unapproved'].map(() => 'readiness.unexpected_reason'), serves);
+          }
+        }
+      });
+
+      if (row.ownerStates.length > 1) {
+        test(`CONTRACT: within ${row.id}, the owner-state change (${row.ownerStates.join(' -> ')}) removed exactly the waits it resolved and nothing else`, () => {
+          for (let i = 1; i < row.ownerStates.length; i++) {
+            const [s0, s1] = [row.ownerStates[i - 1], row.ownerStates[i]];
+            const before = replay(row, standing(row, s0)).decision;
+            const after = replay(row, standing(row, s1)).decision;
+            const resolved = awaitingOf(s0).filter((c) => !awaitingOf(s1).includes(c));
+            assert.deepEqual(codesOf(before).filter((c) => !codesOf(after).includes(c)), [...resolved].sort());
+            assert.deepEqual(after.reasons, before.reasons.filter((r) => !resolved.includes(r.code)), 'every other reason is byte-identical, detail included');
+          }
+        });
+      }
+    });
+  }
+
+  test(`REGRESSION: through the real decide command, every superseded Admin approval and every revision reviewed with ${CURRENT.id} but not approved is refused under ${CURRENT.id} and is NOT a wait`, async () => {
+    const serving = [
+      ...new Set(SETS.map((r) => r.approved.admin)),
+      ...CURRENT.notApproved.map((n) => n.commit),
+    ].filter((c) => c !== ADMIN);
+    const results = await Promise.all(serving.map(async (serves) => ({ serves, peers: recordedPeers({ adminServes: serves }), ...(await decideCommitted({ peers: recordedPeers({ adminServes: serves }) })) })));
+    for (const { serves, peers, decision } of results) {
+      assert.equal(decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved')?.detail,
+        `admin serves ${serves}, which is not in compatible set ${CURRENT.id}`, serves);
+      assert.equal(decision.allow, false, serves);
+      assert.deepEqual(classifyWith({ peers, decision }).problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
+    }
+  });
+
+  test(`CONTRACT: through the real decide command, ${CURRENT.id}'s own decisions under the committed owner state reproduce their pinned digests — the CLI and the history agree`, async () => {
+    const state = CURRENT.ownerStates.at(-1);
+    const own = CURRENT.decisions.filter((d) => d.ownerState === state && !d.assessment);
+    assert.ok(own.length > 0);
+    for (const d of own) {
+      const { decision } = await decideCommitted({ peers: recordedPeers({ adminServes: d.adminServes }) });
+      assert.equal(digestOfValue(decision), d.decisionDigest, d.adminServes);
+    }
+  });
+});
+
+describe('the backend receipts the history approved — what approving a backend receipt changes, and what it does not', () => {
+  test('CONTROL: the pure decision and the real CLI agree on the committed policy, so the comparisons here measure the same rule', async () => {
     const viaCli = await decideCommitted();
     assert.deepEqual(codesOf(decidePure()), codesOf(viaCli.decision));
   });
 
-  test('CONTRACT: with every other fact held fixed, the new receipt removes peers.capabilities_unpublished and nothing else', () => {
+  test('CONTRACT: with every other fact held fixed, the approved backend receipt (against the export-less first one) removes peers.capabilities_unpublished and nothing else', () => {
     // Bound to the pre-R-1 snapshot: the counts below are what that approval changed then.
     const before = codesOf(decidePure(withHistoricalBackend(preRetentionPolicy())));
     const after = codesOf(decidePure({ policy: preRetentionPolicy(), peers: servingApproved() }));
@@ -835,19 +764,193 @@ describe('the backend receipt approved from pilot-4 through pilot-11 (a6b25a6, t
     assert.ok(codesOf(decidePure({ peers })).includes('peers.receipt_inconsistent'));
   });
 
-  test('CONTROL: approving the receipt changed no owner setting — bootstrap, source protection, retention, legacy publisher, enablement, backend serving', () => {
-    // A statement about that approval, so it reads the policy as committed before R-1
-    // (which, later and separately, moved retention to verified).
-    const committed = preRetentionPolicy();
-    assert.deepEqual(committed.bootstrap.authorized, false);
-    assert.equal(committed.bootstrap.servedBaseline, null);
-    assert.equal(committed.prerequisites.sourceProtection.status, 'unrecorded');
-    assert.equal(committed.prerequisites.retention.status, 'unverified');
-    assert.equal(committed.prerequisites.singlePublisher.status, 'legacy-writer-active');
-    assert.equal(committed.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
-    assert.equal(committed.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
-    assert.equal(committed.compatibleSet.peers.backend.serving.observation, 'unavailable');
+  test(`CONTRACT: the approved backend ${short(BACKEND)} agrees with the frontend's compiled D01 copy, and is still an operator-reviewed receipt`, () => {
+    const d01 = committedReceiptEntry('backend', BACKEND).receipt.contracts.d01CheckoutLimits;
+    const frontendD01 = JSON.parse(readFileSync(join(ROOT, 'src/app/_shared/order/checkout-limits.contract.json'), 'utf8'));
+    assert.equal(contractDigest(frontendD01), d01.digest, 'the frontend\'s compiled D01 copy agrees with the selected backend\'s export');
+    assert.equal(POLICY.compatibleSet.peers.backend.receiptVerification, 'operator', 'still an operator-reviewed receipt: repository visibility metadata changes nothing here');
+  });
+
+  test('CONTRACT: the serving note says what is true now — an identity endpoint and a staged installer exist in the source, a verified loaded-runtime identity does not — and serving stays unavailable', () => {
+    const serving = POLICY.compatibleSet.peers.backend.serving;
+    assert.deepEqual(Object.keys(serving).sort(), ['observation', 'reason']);
+    assert.equal(serving.observation, 'unavailable');
+    assert.match(serving.reason, /^no verified loaded-runtime identity of the backend is available \(B3\)/);
+    assert.match(serving.reason, /release-identity endpoint and a staged installer/);
+    assert.match(serving.reason, /the installer is not active, the legacy deploy-uat\.yml still serves/);
+    assert.match(serving.reason, /an operator statement is not accepted as serving evidence$/);
+    assert.doesNotMatch(serving.reason, /publishes no served-revision identity/, 'the stale claim equated an absent endpoint with absent serving evidence');
+    const historical = HISTORY.backendServingReasons['no-identity-published'];
+    assert.match(historical, /publishes no served-revision identity/, 'the note every decision through pilot-11 printed');
+    assert.notEqual(serving.reason, historical);
+    const decision = decidePure({ peers: servingApproved() });
+    assert.equal(decision.reasons.find((r) => r.code === 'peers.backend_serving_unverified').detail, serving.reason, 'the corrected note is what an operator reads in the refusal');
+  });
+
+  test(`REGRESSION: the approved backend evidence, broken one fact at a time, is refused and is never a wait — a new reason still fails readiness`, () => {
+    const previous = committedReceiptEntry('backend', PREVIOUS_BACKEND);
+    const edit = (change) => (p) => { const r = clone(p.receipts.backend[0].receipt); change(r); p.receipts.backend[0] = { ...p.receipts.backend[0], receipt: r, digest: receiptDigest(r) }; };
+    const cases = {
+      [`receipt tree set to ${short(PREVIOUS_BACKEND)}'s`]: ['peers.receipt_mismatch', edit((r) => { r.tree = previous.receipt.tree; })],
+      'capability export blob edited': ['peers.receipt_mismatch', edit((r) => { r.sources[1].blob = 'f'.repeat(40); })],
+      'a capability level edited': ['peers.receipt_mismatch', edit((r) => { r.publishes.quote_protocol = 1; })],
+      'a D01 value edited, digest recomputed': ['peers.receipt_mismatch', edit((r) => {
+        r.contracts.d01CheckoutLimits.values.MAX_QUANTITY_PER_LINE = 100;
+        r.contracts.d01CheckoutLimits.digest = contractDigest(r.contracts.d01CheckoutLimits.values);
+      })],
+      'a D01 value edited, digest left': ['peers.receipt_inconsistent', edit((r) => { r.contracts.d01CheckoutLimits.values.MAX_QUANTITY_PER_LINE = 100; })],
+      [`receipt about the replaced ${short(PREVIOUS_BACKEND)}`]: ['peers.receipt_wrong_revision', edit((r) => { r.commit = PREVIOUS_BACKEND; })],
+      [`the retained ${short(PREVIOUS_BACKEND)} receipt relabelled as ${short(BACKEND)} (SAME export blobs)`]: ['peers.receipt_mismatch', (p) => {
+        const r = clone(previous.receipt);
+        r.commit = BACKEND;
+        p.receipts.backend[0] = { ...p.receipts.backend[0], receipt: r, digest: receiptDigest(r) };
+      }],
+      'receipt file missing': ['peers.receipt_missing', (p) => { p.receipts.backend[0] = { commit: BACKEND, path: receiptPath('backend', BACKEND), present: false }; }],
+      'receipt file unreadable': ['peers.receipt_unreadable', (p) => { p.receipts.backend[0] = { commit: BACKEND, path: receiptPath('backend', BACKEND), present: true, readable: false, detail: 'Unexpected token' }; }],
+    };
+    for (const [label, [code, breakIt]] of Object.entries(cases)) {
+      const peers = servingApproved();
+      breakIt(peers);
+      const decision = decidePure({ peers });
+      assert.ok(codesOf(decision).includes(code), `${label}: ${JSON.stringify(codesOf(decision))}`);
+      assert.ok(codesOf(decision).includes('peers.backend_serving_unverified'), `${label}: the missing serving identity still stands`);
+      assert.equal(decision.allow, false, label);
+      const r = classifyWith({ peers, decision });
+      assert.notEqual(r.kind, AWAITING, label);
+      assert.ok(r.problems.some((p) => p.code === 'readiness.unexpected_reason'), `${label}: ${JSON.stringify(r.problems)}`);
+    }
+    // An intact file whose digest the POLICY does not pin — including the replaced pin left
+    // behind by a half-applied edit.
+    for (const wrong of [`sha256:${'0'.repeat(64)}`, previous.digest]) {
+      const policy = clone(POLICY);
+      policy.compatibleSet.peers.backend.approved[0].receiptDigest = wrong;
+      const decision = decidePure({ policy, peers: servingApproved() });
+      assert.ok(codesOf(decision).includes('peers.receipt_mismatch'), `${wrong}: ${JSON.stringify(codesOf(decision))}`);
+      assert.notEqual(classifyWith({ policy, peers: servingApproved(), decision }).kind, AWAITING);
+    }
+  });
+
+  test('REGRESSION: an operator statement of which backend is serving is not accepted — the refusal stands and the evaluation is no longer a wait', () => {
+    const peers = servingApproved();
+    peers.serving.backend = { state: 'known', commit: BACKEND, noStore: true, cacheControl: 'no-store' };
+    const decision = decidePure({ peers });
+    assert.ok(codesOf(decision).includes('peers.backend_serving_unverified'));
+    assert.equal(decision.allow, false);
+    const r = classifyWith({ peers, decision });
+    assert.notEqual(r.kind, AWAITING);
+    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.context_mismatch']);
+  });
+});
+
+describe('the approved Admin evidence and the dependency assessment, against the committed policy', () => {
+  test('REGRESSION: the approved Admin evidence, broken one fact at a time, is refused and is never a wait', () => {
+    const previous = committedReceiptEntry('admin', SUPERSEDED_ADMIN);
+    const approved = committedReceiptEntry('admin', ADMIN);
+    // A deploy.yml blob the approved receipt does not carry: the latest earlier approval's
+    // that differs.
+    const otherBlob = [...SETS].reverse().map((r) => committedReceiptEntry('admin', r.approved.admin).receipt.sources[0].blob)
+      .find((b) => b !== approved.receipt.sources[0].blob);
+    // The PR head the current row records with the merge's tree, when there is one: the same
+    // tree under another commit must still be refused as a different revision.
+    const sameTreeHead = CURRENT.notApproved.find((n) => n.tree === approved.receipt.tree)?.commit;
+    const relabel = (commit) => (p) => {
+      const r = clone(committedReceiptEntry('admin', commit).receipt);
+      r.commit = ADMIN;
+      p.receipts.admin[0] = { ...p.receipts.admin[0], receipt: r, digest: receiptDigest(r) };
+    };
+    const edit = (change) => (p) => { const r = clone(p.receipts.admin[0].receipt); change(r); p.receipts.admin[0] = { ...p.receipts.admin[0], receipt: r, digest: receiptDigest(r) }; };
+    const cases = {
+      'receipt tree edited': ['peers.receipt_mismatch', edit((r) => { r.tree = 'f'.repeat(40); })],
+      [`receipt tree set to ${short(SUPERSEDED_ADMIN)}'s`]: ['peers.receipt_mismatch', edit((r) => { r.tree = previous.receipt.tree; })],
+      [`deploy.yml blob set to an earlier blob (${short(otherBlob)})`]: ['peers.receipt_mismatch', edit((r) => { r.sources[0].blob = otherBlob; })],
+      ...(sameTreeHead ? { [`receipt about another revision (the PR head ${short(sameTreeHead)}, same tree)`]: ['peers.receipt_wrong_revision', edit((r) => { r.commit = sameTreeHead; })] } : {}),
+      [`receipt about another revision (${short(SUPERSEDED_ADMIN)})`]: ['peers.receipt_wrong_revision', edit((r) => { r.commit = SUPERSEDED_ADMIN; })],
+      [`the just-superseded ${short(SUPERSEDED_ADMIN)} receipt, relabelled as the approved one`]: ['peers.receipt_mismatch', relabel(SUPERSEDED_ADMIN)],
+      'receipt file missing': ['peers.receipt_missing', (p) => { p.receipts.admin[0] = { commit: ADMIN, path: receiptPath('admin', ADMIN), present: false }; }],
+      'receipt file unreadable': ['peers.receipt_unreadable', (p) => { p.receipts.admin[0] = { commit: ADMIN, path: receiptPath('admin', ADMIN), present: true, readable: false, detail: 'Unexpected token' }; }],
+      'public re-derivation disagrees (tree)': ['peers.admin_receipt_unverified', (p) => { p.verification.admin[ADMIN] = { state: 'mismatch', detail: `tree ${previous.receipt.tree} != ${approved.receipt.tree}` }; }],
+      'public re-derivation unavailable': ['peers.admin_receipt_unverified', (p) => { p.verification.admin[ADMIN] = { state: 'unavailable', detail: 'HTTP 502' }; }],
+      'served identity unreadable': ['peers.admin_serving_unreadable', (p) => { p.serving.admin = { state: 'unreadable', detail: 'CONNECT refused' }; }],
+      'served identity cacheable (failed no-store verification)': ['peers.admin_serving_cacheable', (p) => { p.serving.admin = { ...p.serving.admin, noStore: false, cacheControl: 'public, max-age=300' }; }],
+      'served identity with no Cache-Control at all': ['peers.admin_serving_cacheable', (p) => { p.serving.admin = { ...p.serving.admin, noStore: false, cacheControl: null }; }],
+    };
+    for (const [label, [code, breakIt]] of Object.entries(cases)) {
+      const peers = servingApproved();
+      breakIt(peers);
+      const decision = decidePure({ peers });
+      assert.ok(codesOf(decision).includes(code), `${label}: ${JSON.stringify(codesOf(decision))}`);
+      assert.equal(decision.allow, false, label);
+      assert.notEqual(classifyWith({ peers, decision }).kind, AWAITING, label);
+    }
+    // An intact file whose digest the POLICY does not pin — including the previous pin left
+    // behind by a half-applied edit.
+    for (const wrong of [`sha256:${'0'.repeat(64)}`, previous.digest]) {
+      const policy = clone(POLICY);
+      policy.compatibleSet.peers.admin.approved[0].receiptDigest = wrong;
+      const decision = decidePure({ policy, peers: servingApproved() });
+      assert.ok(codesOf(decision).includes('peers.receipt_mismatch'), `${wrong}: ${JSON.stringify(codesOf(decision))}`);
+      assert.ok(!codesOf(decision).includes('peers.admin_serving_unapproved'), 'isolated: not refused for serving');
+      assert.equal(decision.allow, false);
+      assert.notEqual(classifyWith({ policy, peers: servingApproved(), decision }).kind, AWAITING);
+    }
+  });
+
+  test('CONTROL: a malformed approval in the policy is refused as an invalid policy, not as a wait', () => {
+    const policy = clone(POLICY);
+    policy.compatibleSet.peers.admin.approved[0].receiptDigest = 'sha256:not-a-digest';
+    const decision = decidePure({ policy });
+    assert.deepEqual(codesOf(decision), ['policy.invalid']);
+    assert.equal(decision.allow, false);
+  });
+
+  test('REGRESSION: a blocking or incomplete dependency assessment stays red beside the approved receipts — a source approval bypasses nothing, and an earlier passing assessment is not admission authority', () => {
+    for (const [outcome, code] of [['blocking', 'dependency.assessment_blocking'], ['incomplete', 'dependency.assessment_incomplete']]) {
+      const input = baseline();
+      const dependencies = dependenciesFor({
+        manifest: input.artifact.manifest,
+        evidence: input.artifact.dependencyEvidence,
+        assessment: assessmentFor({ manifest: input.artifact.manifest, evidence: input.artifact.dependencyEvidence, tooling: input.dependencies.tooling, outcome }),
+      });
+      const peers = servingApproved();
+      const decision = decidePure({ peers, dependencies });
+      const codes = codesOf(decision);
+      assert.ok(codes.includes(code), `${outcome}: ${JSON.stringify(codes)}`);
+      assert.ok(!codes.includes('peers.admin_serving_unapproved'), 'the Admin approval itself is not what refuses here');
+      assert.equal(decision.decision, 'REFUSE');
+      assert.equal(decision.allow, false);
+      const r = classifyWith({ peers, decision });
+      assert.notEqual(r.kind, AWAITING, outcome);
+      assert.equal(r.published, false);
+      assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason'], outcome);
+    }
+    assert.ok(!POLICY.publication.readiness.awaiting.some((c) => c.startsWith('dependency.')), 'no dependency.* reason is ever a wait');
+  });
+
+  test('CONTROL: the refreshes moved no owner setting, no enablement, no serving contract and no waiting entry — the committed values every compatible-set change leaves alone', () => {
+    // As committed before R-1 (which, later and separately, moved retention to verified).
+    const preR1 = preRetentionPolicy();
+    assert.equal(preR1.prerequisites.retention.status, 'unverified');
+    assert.deepEqual([...preR1.publication.readiness.awaiting].sort(), [...PRE_RETENTION_AWAITING].sort());
+    for (const listed of [POLICY.publication.readiness.awaiting, preR1.publication.readiness.awaiting]) {
+      assert.ok(!listed.some((c) => c.startsWith('peers.admin')), 'no peers.admin_* entry: a peer deployment is answered by a receipt, never by a wait');
+      assert.ok(!listed.some((c) => c.startsWith('dependency.')), 'no dependency.* entry');
+      assert.ok(!listed.some((c) => c.includes('*')), 'no wildcard');
+    }
+    assert.equal(POLICY.bootstrap.authorized, false);
+    assert.equal(POLICY.bootstrap.servedBaseline, null);
+    assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded');
+    assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
+    assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
     assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
+    assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
+    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable', 'no backend runtime identity is established');
+    assert.equal(POLICY.compatibleSet.peers.backend.receiptVerification, 'operator');
+    assert.deepEqual(POLICY.compatibleSet.peers.admin.serving, {
+      observation: 'public-identity', origin: 'https://admin.dinifyapp.com', path: '/release.txt',
+    }, 'the identity this gate reads: the exact commit at /release.txt, no-store');
+    assert.equal(POLICY.compatibleSet.peers.admin.receiptVerification, 'public-repository');
+    assert.equal(POLICY.compatibleSet.peers.admin.assumptions.length, 3);
+    assert.deepEqual(POLICY.compatibleSet.frontendRequires, { buildConfiguration: 'uat' });
   });
 });
 
@@ -864,12 +967,12 @@ describe('the committed readiness list, against what the committed policy actual
     });
   };
 
-  test('CONTRACT: the recorded wait is EXACTLY the committed refusal as observed (Admin serving the approved a42a056) — and an unapproved Admin revision, such as the just-superseded 033c49a, adds only an unapproved-peer reason, which is not a wait', async () => {
+  test(`CONTRACT: the recorded wait is EXACTLY the committed refusal as observed (Admin serving the approved ${short(ADMIN)}) — and an unapproved Admin revision, such as the just-superseded ${short(SUPERSEDED_ADMIN)}, adds only an unapproved-peer reason, which is not a wait`, async () => {
     const { decision } = await decideCommitted();
     assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), codesOf(decision));
-    const superseded = await decideCommitted({ peers: recordedPeers({ adminServes: DEPENDABOT44_ADMIN }) });
+    const superseded = await decideCommitted({ peers: recordedPeers({ adminServes: SUPERSEDED_ADMIN }) });
     assert.deepEqual(codesOf(superseded.decision), [...POLICY.publication.readiness.awaiting, 'peers.admin_serving_unapproved'].sort());
-    assert.notEqual(classify(superseded.decision, { peers: recordedPeers({ adminServes: DEPENDABOT44_ADMIN }) }).kind, AWAITING);
+    assert.notEqual(classify(superseded.decision, { peers: recordedPeers({ adminServes: SUPERSEDED_ADMIN }) }).kind, AWAITING);
   });
 
   test('CONTRACT: as observed, that refusal, automatic with publication unset or `false`, is the recorded wait — and still REFUSE', async () => {
@@ -894,7 +997,7 @@ describe('the committed readiness list, against what the committed policy actual
     assert.deepEqual(elsewhere.problems.map((p) => p.code), ['readiness.context_mismatch']);
   });
 
-  test('CONTRACT: the historical backend (9448f55) refuses capabilities_unpublished, and that is NOT a wait', () => {
+  test(`CONTRACT: the historical backend (${short(HISTORICAL_BACKEND)}) refuses capabilities_unpublished, and that is NOT a wait`, () => {
     const { policy, peers } = withHistoricalBackend();
     const decision = decidePure({ policy, peers });
     assert.ok(codesOf(decision).includes('peers.capabilities_unpublished'));
@@ -902,1553 +1005,6 @@ describe('the committed readiness list, against what the committed policy actual
     assert.notEqual(r.kind, AWAITING);
     assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
     assert.match(r.problems[0].detail, /peers\.capabilities_unpublished/);
-  });
-});
-
-describe('the 2026-09-24 receipt refresh (Admin 3521ebd, backend a6b25a6) — replayed against what CI observed', () => {
-  // HISTORY. The set this refresh committed is no longer the committed one: its Admin
-  // approval was superseded on 2026-09-25 (below). Every test here therefore selects
-  // that set explicitly from its retained receipts, rather than reading whatever the
-  // policy approves now, so it keeps proving what the 2026-09-24 change did.
-  const beforeRefresh = () => withApproved({
-    backend: PREVIOUS_BACKEND, admin: PREVIOUS_ADMIN, setId: PREVIOUS_SET_ID, adminServes: CI_OBSERVED_ADMIN,
-  });
-  const refreshed = () => withApproved({ admin: CI_OBSERVED_ADMIN, setId: SET_0924_ID, adminServes: CI_OBSERVED_ADMIN });
-
-  test('CONTRACT: the pins it approved are the receipts produced and independently re-derived on 2026-09-24, retained as history', () => {
-    const admin = committedReceiptEntry('admin', CI_OBSERVED_ADMIN);
-    assert.equal(admin.digest, 'sha256:e58f7ff5fdd0deb0b21d3b78f8b7fd55f2b56781210f8027a2f640b343debfb1');
-    assert.equal(admin.receipt.tree, '8a84439cd87c36501881cce64b7f293a59695621');
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: '0e210bf938beb29d43115eb96ad2ebf11576bb90' },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    const previous = committedReceiptEntry('admin', PREVIOUS_ADMIN);
-    assert.equal(previous.digest, 'sha256:d58c5647ff5f6764dda5396063852226b14d58b64d3aab99be51e42e0129f59b', 'the retained history is the receipt approved before');
-    assert.notEqual(admin.receipt.sources[0].blob, previous.receipt.sources[0].blob,
-      'the receipt-bearing deploy.yml blob DID change (#26, configure-aws-credentials v6.2.4 -> v6.3.0): the interval is not copy-only');
-    assert.notEqual(ADMIN, CI_OBSERVED_ADMIN, 'superseded on 2026-09-25 — no longer the approved Admin revision');
-  });
-
-  test('CONTRACT: the previous set, replayed with CI\'s observation, refuses EXACTLY what run 36018365996 logged — and it was not a wait', () => {
-    const { policy, peers } = beforeRefresh();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36018365996].sort());
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${CI_OBSERVED_ADMIN}, which is not in compatible set ${PREVIOUS_SET_ID}`, 'byte for byte the detail the CI log printed');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-    assert.equal(r.problems[0].detail, `peers.admin_serving_unapproved: ${admin.detail}`);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else', () => {
-    const before = codesOf(decidePure(beforeRefresh()));
-    const after = codesOf(decidePure(refreshed()));
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-  });
-
-  test('CONTRACT: attributed peer by peer — the Admin approval removed the refusal; the backend refresh changed no reason at all', () => {
-    const after = codesOf(decidePure(refreshed()));
-    const onlyBackendReverted = withApproved({
-      backend: PREVIOUS_BACKEND, admin: CI_OBSERVED_ADMIN, setId: SET_0924_ID, adminServes: CI_OBSERVED_ADMIN,
-    });
-    assert.deepEqual(codesOf(decidePure(onlyBackendReverted)), after, '366b7e4 and a6b25a6 are equally compatible with this candidate');
-    const onlyAdminReverted = withApproved({ admin: PREVIOUS_ADMIN, setId: SET_0924_ID, adminServes: CI_OBSERVED_ADMIN });
-    assert.deepEqual(codesOf(decidePure(onlyAdminReverted)), [...after, 'peers.admin_serving_unapproved'].sort());
-  });
-
-  test('CONTRACT: once it was committed, the six commissioning conditions were a completed, non-publishing wait — REFUSE, allow:false, published:false', () => {
-    const { policy, peers } = refreshed();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers, decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.published, false);
-    }
-  });
-});
-
-describe('the 2026-09-25 receipt refresh (Admin 1993a08) — replayed against what CI observed', () => {
-  // HISTORY. Admin #28 and #29 merged and were deployed; the 1993a08 deploy (Deploy
-  // Admin run 36146112119) completed at 14:15:22Z, and the frontend readiness run
-  // 36146235129 read the identity three seconds later. The 2026-09-24 set did not
-  // approve 1993a08, so that run refused peers.admin_serving_unapproved and was
-  // classified not-a-waiting-state, and the publisher was skipped. The set this refresh
-  // committed (2026-09-25-pilot-5) is no longer the committed one: its Admin approval
-  // was superseded on 2026-09-26 (below). Every test here therefore selects that set
-  // explicitly from its retained receipts, so it keeps proving what the 2026-09-25
-  // change did rather than claiming the past approved today's revision.
-  const before0925 = () => withApproved({ admin: CI_OBSERVED_ADMIN, setId: SET_0924_ID, adminServes: CI_OBSERVED_ADMIN_0925 });
-  const refreshed0925 = () => withApproved({ admin: CI_OBSERVED_ADMIN_0925, setId: SET_0925_ID, adminServes: CI_OBSERVED_ADMIN_0925 });
-
-  test('CONTRACT: the pin it approved is the receipt produced and independently re-derived on 2026-09-25, retained as history', () => {
-    const admin = committedReceiptEntry('admin', CI_OBSERVED_ADMIN_0925);
-    assert.equal(admin.digest, 'sha256:96df2207aa3cf5fd94b3c10946a543d950f18dd1db9a844669ca97ebc81e5538');
-    assert.equal(admin.receipt.tree, '2efbbc92522deb1fcfa583d23ac6d6f79091ac21');
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    const previous = committedReceiptEntry('admin', CI_OBSERVED_ADMIN);
-    assert.deepEqual(admin.receipt.sources, previous.receipt.sources,
-      '#28 and #29 did not touch deploy.yml: the receipt-bearing blob is byte-identical (0e210bf)');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere — this is a different revision, not a relabel');
-    assert.notEqual(admin.digest, previous.digest);
-    assert.notEqual(ADMIN, CI_OBSERVED_ADMIN_0925, 'superseded on 2026-09-26 — no longer the approved Admin revision');
-  });
-
-  test('CONTRACT: the 2026-09-24 set, replayed with CI\'s observation, reproduces run 36146235129\'s decision byte for byte — and it was not a wait', () => {
-    const { policy, peers } = before0925();
-    const decision = decidePure({ policy, peers });
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36146235129].sort());
-    assert.deepEqual([...CI_REFUSAL_36146235129].sort(), [...CI_REFUSAL_36018365996].sort(),
-      'the same seven reasons as the 2026-09-24 refusal: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${CI_OBSERVED_ADMIN_0925}, which is not in compatible set ${SET_0924_ID}`);
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_36146235129,
-      'the whole decision — reason order and every detail — is the one the CI readiness record bound');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.published, false);
-    assert.equal(r.decisionDigest, CI_DECISION_DIGEST_36146235129);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-    assert.equal(r.problems[0].detail, `peers.admin_serving_unapproved: ${admin.detail}`);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else', () => {
-    const before = codesOf(decidePure(before0925()));
-    const after = codesOf(decidePure(refreshed0925()));
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-  });
-
-  test('CONTRACT: once it was committed, the six commissioning conditions were a completed, non-publishing wait — REFUSE, allow:false, published:false', () => {
-    const { policy, peers } = refreshed0925();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers, decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.published, false);
-    }
-  });
-});
-
-describe('the 2026-09-26 receipt refresh (Admin eb54c92, D08 B2.3) — a reviewed source approval, not a serving observation', () => {
-  // HISTORY. Admin #30 (the B2.3 mock-isolation qualification) merged and was deployed
-  // at 22:29:00Z on 2026-09-25, and NO frontend readiness run read the Admin identity
-  // while it served: the replays below hold serving at eb54c92 as a CONSTRUCTED input,
-  // to measure exactly what approving its receipt changed with every other fact fixed.
-  // They are not a record of any run. The set this refresh committed
-  // (2026-09-26-pilot-6) is no longer the committed one: its Admin approval was
-  // superseded the same day by a7ef20c (below). Every test here therefore selects that
-  // set explicitly from its retained receipts, so it keeps proving what the pilot-6
-  // change did rather than claiming the past approved today's revision.
-  const beforeRefresh = () => withApproved({ admin: CI_OBSERVED_ADMIN_0925, setId: SET_0925_ID, adminServes: B23_ADMIN });
-  // CONSTRUCTED: Admin serving eb54c92 under the set that approved it.
-  const refreshed0926 = () => withApproved({ admin: B23_ADMIN, setId: SET_0926_ID, adminServes: B23_ADMIN });
-
-  test('CONTRACT: the pin it approved is the receipt produced by peer-receipt at eb54c92 and independently re-derived on 2026-09-26, retained as history', () => {
-    const admin = committedReceiptEntry('admin', B23_ADMIN);
-    assert.equal(admin.digest, 'sha256:ced2198497e23ac4aaa13d7947aae127973abfaded5b18a122ead014a5dc07f6');
-    assert.equal(admin.receipt.tree, 'f0229090404d7857a73a272e70f4823d5796b77c');
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    const previous = committedReceiptEntry('admin', CI_OBSERVED_ADMIN_0925);
-    assert.deepEqual(admin.receipt.sources, previous.receipt.sources,
-      '#30 did not touch deploy.yml: the receipt-bearing blob is byte-identical (0e210bf)');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere — this is a different revision, not a relabel');
-    assert.notEqual(admin.digest, previous.digest);
-    assert.notEqual(ADMIN, B23_ADMIN, 'superseded on 2026-09-26 by a7ef20c — no longer the approved Admin revision');
-    assert.equal(HISTORICAL_SETS[SET_0926_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
-  });
-
-  test('CONTRACT (constructed serving): under the 2026-09-25 set an observed eb54c92 was refused as unapproved — seven reasons, and not a wait', () => {
-    const { policy, peers } = beforeRefresh();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36146235129].sort(),
-      'the same seven reasons the last two Admin promotions produced: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${B23_ADMIN}, which is not in compatible set ${SET_0925_ID}`);
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.published, false);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else', () => {
-    const before = codesOf(decidePure(beforeRefresh()));
-    const after = codesOf(decidePure(refreshed0926()));
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remained was exactly the recorded wait, nothing hidden');
-  });
-
-  test('CONTRACT: once it was committed, the six commissioning conditions were a completed, non-publishing wait — REFUSE, allow:false, published:false', () => {
-    const { policy, peers } = refreshed0926();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers, decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.published, false);
-    }
-  });
-});
-
-describe('the 2026-09-26 receipt refresh (Admin a7ef20c, D08 B2.4) — replayed against what CI observed', () => {
-  // HISTORY. Admin #31 (D08 B2.4, certified promotion) merged and was deployed; Deploy
-  // Admin run 36245215836 finished at 13:28:29Z. The frontend readiness run 36247543634
-  // read the identity at 14:10:16Z and logged a7ef20c serving. pilot-6 did not approve
-  // it, so that run refused peers.admin_serving_unapproved, was classified
-  // not-a-waiting-state, and the publisher was skipped. The remedy was a reviewed
-  // receipt, never a new entry in publication.readiness.awaiting. The set that refresh
-  // committed (2026-09-26-pilot-7) is no longer the committed one: its Admin approval
-  // was superseded the same day by abdacda (below). Every test here therefore selects
-  // pilot-7 explicitly from its retained receipt, so it keeps proving what that change
-  // did rather than claiming the past approved today's revision.
-  const before0926b = () => withApproved({ admin: B23_ADMIN, setId: SET_0926_ID, adminServes: B24_ADMIN });
-  // Admin serving a7ef20c under the set that approved it. Run 36249940983 (on 9d30ccb,
-  // under pilot-7) concluded green with the publisher skipped, which under that set is
-  // only possible with the approved a7ef20c serving — an inference from its conclusion,
-  // not a replay of its log.
-  const refreshed0926b = () => withApproved({ admin: B24_ADMIN, setId: SET_0926B_ID, adminServes: B24_ADMIN });
-
-  test('CONTRACT: the pin it approved is the receipt produced by peer-receipt at a7ef20c and independently re-derived on 2026-09-26, retained as history', () => {
-    const admin = committedReceiptEntry('admin', B24_ADMIN);
-    assert.equal(admin.digest, 'sha256:c21ad7c5142e05dcd7020545a3f71ee3e92e612f7a4499d7002c25abb16381e2');
-    assert.equal(admin.receipt.tree, 'a9f98461bcf608305c9c93339f4e9d79dc4f9a2b');
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: '3644dcdb864d788997446946afc75d092dce3f33' },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    const previous = committedReceiptEntry('admin', B23_ADMIN);
-    assert.notEqual(admin.receipt.sources[0].blob, previous.receipt.sources[0].blob,
-      'the receipt-bearing deploy.yml blob DID change (#31 rewrote it for certified promotion, 0e210bf -> 3644dcd): the interval was not copy-only');
-    assert.equal(admin.receipt.sources[0].path, previous.receipt.sources[0].path, 'the same file is what the receipt binds');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree);
-    assert.notEqual(admin.digest, previous.digest);
-    assert.notEqual(ADMIN, B24_ADMIN, 'superseded on 2026-09-26 by abdacda — no longer the approved Admin revision');
-    assert.equal(HISTORICAL_SETS[SET_0926B_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
-  });
-
-  test('CONTRACT: the 2026-09-26 pilot-6 set, replayed with CI\'s observation, reproduces run 36247543634\'s decision byte for byte — and it was not a wait', () => {
-    const { policy, peers } = before0926b();
-    const decision = decidePure({ policy, peers });
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36247543634].sort());
-    assert.deepEqual([...CI_REFUSAL_36247543634].sort(), [...CI_REFUSAL_36146235129].sort(),
-      'the same seven reasons as the 2026-09-25 refusal: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${B24_ADMIN}, which is not in compatible set ${SET_0926_ID}`, 'byte for byte the detail the CI log printed');
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_36247543634,
-      'the whole decision — reason order and every detail — is the one the CI readiness record bound');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.published, false);
-    assert.equal(r.decisionDigest, CI_DECISION_DIGEST_36247543634);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-    assert.equal(r.problems[0].detail, `peers.admin_serving_unapproved: ${admin.detail}`);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else', () => {
-    const before = codesOf(decidePure(before0926b()));
-    const after = codesOf(decidePure(refreshed0926b()));
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remained was exactly the recorded wait, nothing hidden');
-  });
-
-  test('CONTRACT: once it was committed, the six commissioning conditions were a completed, non-publishing wait — REFUSE, allow:false, published:false', () => {
-    const { policy, peers } = refreshed0926b();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers, decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.decision, 'REFUSE');
-      assert.equal(r.allow, false);
-      assert.equal(r.published, false);
-    }
-  });
-});
-
-describe('the 2026-09-26 receipt refresh (Admin abdacda, the documentation-only #32) — approved before any readiness run observed it; two observed it approved afterwards', () => {
-  // HISTORY. Admin #32 changed CLAUDE.md and release/README.md only. It merged at
-  // 18:59:38Z and Deploy Admin run 36264601950 promoted it by 19:02:54Z. The last
-  // frontend readiness run before this approval (36249940983) finished at 14:52:29Z,
-  // BEFORE that, and was green under pilot-7 because it observed a7ef20c — it says
-  // nothing about abdacda. So the pilot-7 refusal below is CONSTRUCTED from the rule
-  // with every other fact held fixed, and is labelled so. AFTER the approval merged, two
-  // readiness runs (36270515216 and 36272139246, see CI_WAIT_DIGEST_PILOT8) did read
-  // abdacda serving under pilot-8 and recorded the six-reason wait: that half is
-  // OBSERVED, and the last test below replays it. The set this refresh committed
-  // (2026-09-26-pilot-8) is no longer the committed one: its Admin approval was
-  // superseded the same day by 9ec02fe (below). Every test here therefore selects
-  // pilot-8 explicitly from its retained receipt, as the older blocks do for theirs.
-  const beforeDocs32 = () => withApproved({ admin: B24_ADMIN, setId: SET_0926B_ID, adminServes: DOCS32_ADMIN });
-  // OBSERVED (runs 36270515216 and 36272139246): Admin serving abdacda under the set
-  // that approved it.
-  const refreshedDocs32 = () => withApproved({ admin: DOCS32_ADMIN, setId: SET_0926C_ID, adminServes: DOCS32_ADMIN });
-
-  test('CONTRACT: the pin it approved is the receipt produced by peer-receipt at abdacda and independently re-derived on 2026-09-26, retained as history', () => {
-    const admin = committedReceiptEntry('admin', DOCS32_ADMIN);
-    assert.equal(admin.digest, 'sha256:18b256ce34bf5adef1143fd84450221187920de682f1ba1a7cd1ed8a3fb1e142');
-    assert.equal(admin.receipt.tree, 'f063b6da8c9c280187d99a750ac3d353ca854dc6');
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    const previous = committedReceiptEntry('admin', B24_ADMIN);
-    assert.deepEqual(admin.receipt.sources, previous.receipt.sources,
-      '#32 did not touch deploy.yml: the receipt-bearing blob is byte-identical (3644dcd)');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere (two documentation files) — a different revision, not a relabel');
-    assert.notEqual(admin.digest, previous.digest);
-    assert.notEqual(ADMIN, DOCS32_ADMIN, 'superseded on 2026-09-26 by 9ec02fe — no longer the approved Admin revision');
-    assert.equal(HISTORICAL_SETS[SET_0926C_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh did not move the backend approval');
-  });
-
-  test('CONTRACT (constructed serving): under pilot-7 an observed abdacda was refused as unapproved — seven reasons, and not a wait', () => {
-    const { policy, peers } = beforeDocs32();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36247543634].sort(),
-      'the same seven reasons the previous Admin promotion produced: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${DOCS32_ADMIN}, which is not in compatible set ${SET_0926B_ID}`);
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.published, false);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else', () => {
-    const before = codesOf(decidePure(beforeDocs32()));
-    const after = codesOf(decidePure(refreshedDocs32()));
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remained was exactly the recorded wait, nothing hidden');
-  });
-
-  test('CONTRACT: once it was committed, the six commissioning conditions were a completed, non-publishing wait — REFUSE, allow:false, published:false — and runs 36270515216 and 36272139246 recorded exactly that decision', () => {
-    const { policy, peers } = refreshedDocs32();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.equal(digestOfValue(decision), CI_WAIT_DIGEST_PILOT8,
-      'the whole decision — reason order and every detail — is the one both CI readiness records bound');
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers, decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.decision, 'REFUSE');
-      assert.equal(r.allow, false);
-      assert.equal(r.published, false);
-      assert.equal(r.decisionDigest, CI_WAIT_DIGEST_PILOT8);
-    }
-  });
-});
-
-describe('the 2026-09-26 receipt refresh (Admin 9ec02fe, the #33/#34 Claude workflows) — replayed against what CI observed', () => {
-  // HISTORY. Admin #33 and #34 (the two Claude Code workflows, a vendored review plugin,
-  // and a narrowed COMMENT in deploy.yml's header) merged as 9ec02fe; Deploy Admin run
-  // 36273633936 finished promoting it at 21:40:17Z (a deployment record). The frontend
-  // readiness run 36273728448 (job 108492367222, on 44c4fc3) then read the identity,
-  // logged 9ec02fe serving, and refused peers.admin_serving_unapproved under pilot-8 —
-  // not-a-waiting-state, publisher skipped. The set this refresh committed
-  // (2026-09-26-pilot-9) is no longer the committed one: its Admin approval was
-  // superseded on 2026-09-27 by 9cf8c83 (below). Every test here therefore selects
-  // pilot-9 explicitly from its retained receipt, as the older blocks do for theirs.
-  const beforeClaude34 = () => withApproved({ admin: DOCS32_ADMIN, setId: SET_0926C_ID, adminServes: CLAUDE34_ADMIN });
-  const refreshedClaude34 = () => withApproved({ admin: CLAUDE34_ADMIN, setId: SET_0926D_ID, adminServes: CLAUDE34_ADMIN });
-
-  test('CONTRACT: the pin it approved is the receipt produced by peer-receipt at 9ec02fe and independently re-derived on 2026-09-26, retained as history', () => {
-    const admin = committedReceiptEntry('admin', CLAUDE34_ADMIN);
-    assert.equal(admin.digest, 'sha256:f396dc77139cc1a6dc2247f8ed40c4ec07fd86532e881c50b0575c33bf37cce7');
-    assert.equal(admin.receipt.tree, '7f27fdd31dbcd2b57e1a370a6b7db2c87015393f');
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: '2618d1ee627008c2534f006d5528106f249a3243' },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    const previous = committedReceiptEntry('admin', DOCS32_ADMIN);
-    assert.notEqual(admin.receipt.sources[0].blob, previous.receipt.sources[0].blob,
-      'the receipt-bearing deploy.yml blob DID change (#33 narrowed a header comment, 3644dcd -> 2618d1e): the receipt was re-derived, never copied from #32');
-    assert.notEqual(admin.digest, previous.digest);
-    assert.notEqual(ADMIN, CLAUDE34_ADMIN, 'superseded on 2026-09-27 by 9cf8c83 — no longer the approved Admin revision');
-  });
-
-  test('CONTRACT: the pilot-8 set, replayed with CI\'s observation, reproduces run 36273728448\'s decision byte for byte — and it was not a wait', () => {
-    const { policy, peers } = beforeClaude34();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36273728448].sort());
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${CLAUDE34_ADMIN}, which is not in compatible set ${SET_0926C_ID}`, 'byte for byte the detail the CI log printed');
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_36273728448,
-      'the whole decision — reason order and every detail — is the one the CI readiness record bound');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.published, false);
-    assert.equal(r.decisionDigest, CI_DECISION_DIGEST_36273728448);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason'], 'the unapproved Admin is its ONE unexpected reason');
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else, and restored the recorded wait', () => {
-    const before = codesOf(decidePure(beforeClaude34()));
-    const refreshed = decidePure(refreshedClaude34());
-    const after = codesOf(refreshed);
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.equal(digestOfValue(refreshed), CI_WAIT_DIGEST_PILOT8,
-      'the refresh returned the gate to the very decision CI had recorded as the wait (runs 36270515216 and 36272139246)');
-    const r = classifyWith({ ...refreshedClaude34(), decision: refreshed });
-    assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-    assert.equal(r.published, false);
-  });
-});
-
-describe('the 2026-09-27 receipt refresh (Admin 9cf8c83, the #35/#36 diagnostics port) — replayed against what CI observed', () => {
-  // HISTORY. Admin #35 (a docs correction) merged as 3170e8f and was promoted; readiness
-  // runs 36337180856, 36338571396 and 36339569844 read it serving and refused it under
-  // pilot-9. Admin #36 (Frontend #709's bounded npm diagnostics, ported into Admin's
-  // fresh assessment) then merged as 9cf8c83, and the frontend readiness run 36342248520
-  // (job 108684478594, on ba8e4eb) logged it serving and refused
-  // peers.admin_serving_unapproved under pilot-9 — not-a-waiting-state, publisher
-  // skipped. After the refresh, readiness run 36345382850 (job 108693388435, on e414547)
-  // completed as the six-reason wait and bound decisionDigest sha256:604dcb5e… under
-  // pilot-10. The set this refresh committed (2026-09-27-pilot-10) is no longer the
-  // committed one: its Admin approval was superseded on 2026-09-28 by 94001b7 (below).
-  // Every test here therefore selects pilot-10 explicitly from its retained receipt.
-  const beforeDiag36 = () => withApproved({ admin: CLAUDE34_ADMIN, setId: SET_0926D_ID, adminServes: DIAG36_ADMIN });
-  const beforeDocs35 = () => withApproved({ admin: CLAUDE34_ADMIN, setId: SET_0926D_ID, adminServes: DOCS35_ADMIN });
-  const refreshedDiag36 = () => withApproved({ admin: DIAG36_ADMIN, setId: SET_0927_ID, adminServes: DIAG36_ADMIN });
-
-  test('CONTRACT: the pin it approved is the receipt produced by peer-receipt at 9cf8c83 and independently re-derived on 2026-09-27, retained as history', () => {
-    const admin = committedReceiptEntry('admin', DIAG36_ADMIN);
-    assert.equal(admin.digest, 'sha256:05b8c83badc5ada15c5b5f4cfcc41b8bed6e7ff2c5834c3cd60fcd9bb7460ac8');
-    assert.equal(admin.receipt.tree, '85b0173bb13f6e329b66ecc12d6b8cd2ae67ea59');
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: '2618d1ee627008c2534f006d5528106f249a3243' },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    const previous = committedReceiptEntry('admin', CLAUDE34_ADMIN);
-    assert.deepEqual(admin.receipt.sources, previous.receipt.sources,
-      '#35 and #36 did not touch deploy.yml: the receipt-bearing blob is byte-identical (2618d1e)');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere (the diagnostics port) — a different revision, not a relabel');
-    assert.notEqual(admin.digest, previous.digest);
-    assert.notEqual(ADMIN, DIAG36_ADMIN, 'superseded on 2026-09-28 by 94001b7 — no longer the approved Admin revision');
-  });
-
-  test('CONTRACT: the pilot-9 set, replayed with CI\'s observation, reproduces run 36342248520\'s decision byte for byte — and it was not a wait', () => {
-    const { policy, peers } = beforeDiag36();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36342248520].sort());
-    assert.deepEqual([...CI_REFUSAL_36342248520].sort(), [...CI_REFUSAL_36273728448].sort(),
-      'the same seven reasons as the previous observed refusal: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${DIAG36_ADMIN}, which is not in compatible set ${SET_0926D_ID}`, 'byte for byte the detail the CI log printed');
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_36342248520,
-      'the whole decision — reason order and every detail — is the one the CI readiness record bound');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.published, false);
-    assert.equal(r.decisionDigest, CI_DECISION_DIGEST_36342248520);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason'], 'the unapproved Admin is its ONE unexpected reason');
-    assert.equal(r.problems[0].detail, `peers.admin_serving_unapproved: ${admin.detail}`);
-  });
-
-  test('CONTRACT: the pilot-9 set also reproduces the decision runs 36337180856, 36338571396 and 36339569844 recorded while the never-approved 3170e8f served', () => {
-    const { policy, peers } = beforeDocs35();
-    const decision = decidePure({ policy, peers });
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36342248520].sort());
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${DOCS35_ADMIN}, which is not in compatible set ${SET_0926D_ID}`);
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_3170E8F, 'the decisionDigest all three readiness records bound');
-    assert.notEqual(classifyWith({ policy, peers, decision }).kind, AWAITING);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else, and restored the wait run 36345382850 recorded', () => {
-    const before = codesOf(decidePure(beforeDiag36()));
-    const refreshed = decidePure(refreshedDiag36());
-    const after = codesOf(refreshed);
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.equal(digestOfValue(refreshed), CI_WAIT_DIGEST_PILOT8,
-      'the six-reason decision names no Admin commit or set, so pilot-10 returned the gate to the decision runs 36270515216, 36272139246 and 36345382850 bound');
-    const r = classifyWith({ ...refreshedDiag36(), decision: refreshed });
-    assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-    assert.equal(r.published, false);
-  });
-});
-
-describe('the 2026-09-28 receipt refresh (Admin 94001b7, D10 B2 #37/#38) — a reviewed source approval, compared on CONSTRUCTED serving evidence', () => {
-  // Admin #37 (bind each admin command to the session that issued it) merged as 8b7895b
-  // and was promoted by Deploy Admin run 36354242328; #38 (the correction: post-verify
-  // recovery, re-admission after capability withdrawal, typed not-run/outage/claim
-  // handling) merged as 94001b7 and Deploy Admin run 36359914333 promoted it over 8b7895b,
-  // verifying the public identity at 2026-09-27T23:49:29Z. The two were reviewed together
-  // as delivered by #38; #37 alone is NOT approved.
-  //
-  // CONSTRUCTED SERVING EVIDENCE. No frontend readiness run observed 8b7895b or 94001b7
-  // before this refresh (the last, 36345382850, ran at 19:43Z, before both deployments),
-  // so there is no red-before or green-after run to replay. The pilot-10 comparison below
-  // hands the decision a constructed observation of Admin serving 94001b7, every other
-  // fact held fixed — the same labelling the eb54c92 and abdacda blocks use.
-  const beforeD10 = () => withApproved({ admin: DIAG36_ADMIN, setId: SET_0927_ID, adminServes: D10_38_ADMIN });
-  // HISTORY since pilot-12: the set this refresh committed approved backend a6b25a6, which
-  // pilot-12 replaced. A comparison that pins what the refresh itself did therefore
-  // selects pilot-11 explicitly (its backend and the serving reason its decisions
-  // printed); tests that read the committed policy exercise pilot-12.
-  const refreshedD10 = () => withApproved({ admin: D10_38_ADMIN, setId: SET_0928_ID, adminServes: D10_38_ADMIN });
-  // Admin serving 94001b7 — the literal commit, NOT servingApproved(), so this block
-  // cannot pass by reading whatever a different policy approves.
-  const servingD10 = () => recordedPeers({ adminServes: D10_38_ADMIN });
-
-  test('CONTRACT: the pin it approved is the receipt produced by peer-receipt at 94001b7 and independently re-derived on 2026-09-28, retained as history', () => {
-    assert.notEqual(ADMIN, D10_38_ADMIN, 'superseded on 2026-10-03 by 89d2cf1 (pilot-13) — no longer the approved Admin revision');
-    const admin = committedReceiptEntry('admin', D10_38_ADMIN);
-    assert.equal(admin.digest, 'sha256:d499e466c92f0b80b822ad39d05870aacca139d5a1592d10390bbba3a545b5b5');
-    assert.equal(admin.receipt.commit, D10_38_ADMIN, 'the approval is the #38 MERGE, not its implementation head');
-    assert.notEqual(admin.receipt.commit, D10_38_HEAD);
-    assert.equal(admin.receipt.tree, 'dc905761f1964ad92a3f8b22a616d0e415af4488', 'the tree #38\'s head a2fa81e also carries');
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: '2618d1ee627008c2534f006d5528106f249a3243' },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    const previous = committedReceiptEntry('admin', DIAG36_ADMIN);
-    assert.deepEqual(admin.receipt.sources, previous.receipt.sources,
-      '#37 and #38 did not touch deploy.yml: the receipt-bearing blob is byte-identical (2618d1e)');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere (src/app/ and CLAUDE.md) — a different revision, not a relabel');
-    assert.notEqual(admin.receipt.tree, D10_37_TREE, 'nor is it the #37 merge\'s tree');
-    assert.notEqual(admin.digest, previous.digest);
-    assert.equal(HISTORICAL_SETS[SET_0928_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b', 'this refresh does not move the backend approval');
-  });
-
-  test('CONTRACT (constructed serving): under pilot-10 an observed 94001b7 is refused as unapproved — seven reasons, REFUSE, and not a wait', () => {
-    const { policy, peers } = beforeD10();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36342248520].sort(),
-      'the same seven reasons the last observed Admin promotion produced: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${D10_38_ADMIN}, which is not in compatible set ${SET_0927_ID}`);
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.published, false);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason'], 'the unapproved Admin is its ONE unexpected reason');
-    assert.equal(r.problems[0].detail, `peers.admin_serving_unapproved: ${admin.detail}`);
-  });
-
-  test('CONTRACT (constructed serving): with every other fact held fixed, the refresh removes peers.admin_serving_unapproved and nothing else', () => {
-    const before = codesOf(decidePure(beforeD10()));
-    const refreshed = decidePure(refreshedD10());
-    const after = codesOf(refreshed);
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remains is exactly the recorded wait, nothing hidden');
-    assert.equal(refreshed.decision, 'REFUSE');
-    assert.equal(refreshed.allow, false);
-    assert.equal(digestOfValue(refreshed), CI_WAIT_DIGEST_PILOT8,
-      'the six-reason decision names no Admin commit or set: the same decision CI recorded as the wait, and no wider one');
-  });
-
-  test('REGRESSION: an Admin revision the set does not approve is refused and is NOT a wait — the just-superseded 9cf8c83, the deployed-but-never-approved #37 merge 8b7895b, #38\'s same-tree head a2fa81e, every older approval, 3170e8f and ad4a7f8, or any later one', () => {
-    for (const serves of [DIAG36_ADMIN, D10_37_ADMIN, D10_38_HEAD, CLAUDE34_ADMIN, DOCS35_ADMIN, DOCS32_ADMIN, B24_ADMIN, B23_ADMIN, CI_OBSERVED_ADMIN_0925, CI_OBSERVED_ADMIN, PREVIOUS_ADMIN, DEPLOYED_NEVER_APPROVED_ADMIN, 'a'.repeat(40)]) {
-      // Bound to the pilot-11 snapshot, which this detail names; pilot-12 refuses the same
-      // revisions under its own id (the pilot-12 block, below).
-      const { policy, peers } = withApproved({ admin: D10_38_ADMIN, setId: SET_0928_ID, adminServes: serves });
-      const decision = decidePure({ policy, peers });
-      const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-      assert.ok(reason, `${serves}: ${JSON.stringify(codesOf(decision))}`);
-      assert.equal(reason.detail, `admin serves ${serves}, which is not in compatible set ${SET_0928_ID}`);
-      assert.equal(decision.allow, false, serves);
-      const r = classifyWith({ policy, peers, decision });
-      assert.notEqual(r.kind, AWAITING, serves);
-      assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
-    }
-  });
-
-  test('REGRESSION: the approved backend receipt, edited without re-approval, is refused — and the missing serving identity still stands', () => {
-    const peers = servingD10();
-    const receipt = clone(peers.receipts.backend[0].receipt);
-    receipt.publishes.quote_protocol = 1;
-    peers.receipts.backend[0] = { ...peers.receipts.backend[0], receipt, digest: receiptDigest(receipt) };
-    const codes = codesOf(decidePure({ peers }));
-    assert.ok(codes.includes('peers.receipt_mismatch'), JSON.stringify(codes));
-    assert.ok(codes.includes('peers.backend_serving_unverified'));
-  });
-
-  test('CONTROL: a malformed approval in the policy is refused as an invalid policy, not as a wait', () => {
-    const policy = clone(POLICY);
-    policy.compatibleSet.peers.admin.approved[0].receiptDigest = 'sha256:not-a-digest';
-    const decision = decidePure({ policy });
-    assert.deepEqual(codesOf(decision), ['policy.invalid']);
-    assert.equal(decision.allow, false);
-  });
-
-  test('CONTROL: the refresh moved no owner setting, no enablement, no backend, no Admin serving contract and no waiting entry — only the Admin approval and the set id', () => {
-    assert.equal(HISTORICAL_SETS[SET_0927_ID], HISTORICAL_SETS[SET_0928_ID], 'pilot-10 and pilot-11 approved the same backend');
-    // The list as this refresh committed it (before R-1 removed the retention entry).
-    const listed = preRetentionPolicy().publication.readiness.awaiting;
-    assert.deepEqual([...listed].sort(), [...PRE_RETENTION_AWAITING].sort(), 'no peers.admin_* entry, no wildcard, no new waiting reason');
-    assert.ok(!listed.some((c) => c.startsWith('peers.admin')));
-    assert.ok(!listed.some((c) => c.startsWith('dependency.')));
-    assert.equal(POLICY.bootstrap.authorized, false);
-    assert.equal(POLICY.bootstrap.servedBaseline, null);
-    assert.equal(HISTORICAL_SETS[SET_0928_ID], 'a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b');
-    assert.equal(committedReceiptEntry('backend', PILOT11_BACKEND).digest, PILOT11_BACKEND_RECEIPT_DIGEST, 'the backend pilot-11 kept is retained byte for byte');
-    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable');
-    assert.deepEqual(POLICY.compatibleSet.peers.admin.serving, {
-      observation: 'public-identity', origin: 'https://admin.dinifyapp.com', path: '/release.txt',
-    }, '#37/#38 kept the identity this gate reads: the exact commit at /release.txt, no-store');
-    assert.equal(POLICY.compatibleSet.peers.admin.receiptVerification, 'public-repository');
-    assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
-  });
-});
-
-describe('the 2026-09-28 backend receipt refresh (0513adb, the #350 merge, pilot-12) — a reviewed SOURCE selection, and a corrected serving note', () => {
-  // WHAT CHANGED. The backend approval moved from a6b25a6 (the #338 merge) to 0513adb
-  // (the #350 merge), a source selection following the accepted #339-#350 merges, and
-  // the backend's serving note was corrected. Nothing else moved: the Admin approval
-  // (94001b7), every owner setting, the enablement variable, the serving observation
-  // (still `unavailable`) and the six waiting entries are pilot-11's.
-  //
-  // WHAT IT DOES NOT SAY. A receipt proves what a revision's SOURCE exports. Matching
-  // exported contracts is not proof of every cross-application behaviour, and nothing here
-  // observes which backend revision is live. Its six-reason decision below was CONSTRUCTED
-  // from the rule when this refresh was written; readiness run 36741006888 later recorded
-  // it byte for byte (see PILOT12_WAIT_DIGEST_CONSTRUCTED).
-  const pilot11 = () => withApproved({ admin: D10_38_ADMIN, setId: SET_0928_ID, adminServes: D10_38_ADMIN });
-
-  test('CONTRACT: the committed backend pin is the receipt produced by peer-receipt at 0513adb and independently re-derived on 2026-09-28 — a6b25a6 replaced, not kept beside it', () => {
-    assert.equal(POLICY.compatibleSet.id, SET_1025_ID, 'pilot-13, pilot-14, pilot-15 and pilot-16 moved only the Admin approval: the backend pin is pilot-12\'s');
-    assert.equal(HISTORICAL_SETS[SET_0928B_ID], B2_BACKEND);
-    assert.equal(BACKEND, B2_BACKEND);
-    assert.deepEqual(POLICY.compatibleSet.peers.backend.approved, [
-      { commit: B2_BACKEND, receipt: receiptPath('backend', B2_BACKEND), receiptDigest: B2_BACKEND_RECEIPT_DIGEST },
-    ], 'exactly one approved backend: every approved backend is checked, so a6b25a6 is replaced rather than approved beside it');
-    const entry = committedReceiptEntry('backend', B2_BACKEND);
-    assert.equal(entry.digest, B2_BACKEND_RECEIPT_DIGEST);
-    assert.equal(entry.receipt.commit, B2_BACKEND);
-    assert.equal(entry.receipt.tree, B2_BACKEND_TREE);
-    assert.deepEqual(entry.receipt.sources, [
-      { name: 'd01CheckoutLimits', path: 'orders_app/contracts/checkout_limits.contract.json', blob: '1cb6a6db203edb2615668683d6426e0b972cdc31' },
-      { name: 'publishedCapabilities', path: 'orders_app/contracts/published_capabilities.contract.json', blob: 'cc9160508888e2daff083ef96348a501c37fe702' },
-    ]);
-    assert.deepEqual(entry.receipt.publishes, { checkout_protocol: 3, quote_protocol: 2, kitchen_protocol: 1, quote_policy_version: 1 });
-    assert.deepEqual(entry.receipt.unavailable, []);
-    assert.deepEqual(entry.receipt.producer, { tool: 'release/cli.mjs peer-receipt', revision: 1 }, 'produced by the existing command, not hand-authored');
-    const d01 = entry.receipt.contracts.d01CheckoutLimits;
-    assert.equal(d01.digest, contractDigest(d01.values), 'the D01 digest is the one its own values compose');
-    const frontendD01 = JSON.parse(readFileSync(join(ROOT, 'src/app/_shared/order/checkout-limits.contract.json'), 'utf8'));
-    assert.equal(contractDigest(frontendD01), d01.digest, 'the frontend\'s compiled D01 copy agrees with the selected backend\'s export');
-    const previous = committedReceiptEntry('backend', PILOT11_BACKEND);
-    assert.equal(previous.digest, PILOT11_BACKEND_RECEIPT_DIGEST, 'the replaced receipt is retained byte for byte, as history');
-    assert.deepEqual(entry.receipt.sources, previous.receipt.sources, '#339-#350 moved neither export file');
-    assert.deepEqual(entry.receipt.contracts, previous.receipt.contracts);
-    assert.deepEqual(entry.receipt.publishes, previous.receipt.publishes);
-    assert.notEqual(entry.receipt.tree, previous.receipt.tree, 'the source did change elsewhere — a different revision, not a relabel');
-    for (const commit of [PREVIOUS_BACKEND, HISTORICAL_BACKEND]) {
-      assert.ok(existsSync(join(ROOT, receiptPath('backend', commit))), `${commit} stays under release/peers/ as history`);
-    }
-    assert.equal(POLICY.compatibleSet.peers.backend.receiptVerification, 'operator', 'still an operator-reviewed receipt: repository visibility metadata changes nothing here');
-  });
-
-  test('CONTRACT: the Admin approval pilot-12 committed was pilot-11\'s, unchanged — since superseded by pilot-13, pilot-14, pilot-15 and pilot-16', () => {
-    assert.notEqual(ADMIN, D10_38_ADMIN, 'pilot-13 replaced it with 89d2cf1, pilot-14 with 1fa89cb, pilot-15 with 033c49a and pilot-16 with a42a056');
-    const { policy } = withApproved({ admin: D10_38_ADMIN, setId: SET_0928B_ID, adminServes: D10_38_ADMIN });
-    assert.deepEqual(policy.compatibleSet.peers.admin.approved, [{
-      commit: D10_38_ADMIN,
-      receipt: receiptPath('admin', D10_38_ADMIN),
-      receiptDigest: 'sha256:d499e466c92f0b80b822ad39d05870aacca139d5a1592d10390bbba3a545b5b5',
-    }]);
-  });
-
-  test('CONTRACT: the serving note says what is true now — an identity endpoint and a staged installer exist in the source, a verified loaded-runtime identity does not — and serving stays unavailable', () => {
-    const serving = POLICY.compatibleSet.peers.backend.serving;
-    assert.deepEqual(Object.keys(serving).sort(), ['observation', 'reason']);
-    assert.equal(serving.observation, 'unavailable');
-    assert.match(serving.reason, /^no verified loaded-runtime identity of the backend is available \(B3\)/);
-    assert.match(serving.reason, /release-identity endpoint and a staged installer/);
-    assert.match(serving.reason, /the installer is not active, the legacy deploy-uat\.yml still serves/);
-    assert.match(serving.reason, /an operator statement is not accepted as serving evidence$/);
-    assert.doesNotMatch(serving.reason, /publishes no served-revision identity/, 'the stale claim equated an absent endpoint with absent serving evidence');
-    assert.notEqual(serving.reason, HISTORICAL_BACKEND_SERVING_REASON);
-    const decision = decidePure({ peers: servingApproved() });
-    assert.equal(decision.reasons.find((r) => r.code === 'peers.backend_serving_unverified').detail, serving.reason, 'the corrected note is what an operator reads in the refusal');
-  });
-
-  test('CONTRACT (constructed): with every other fact held fixed, pilot-11 -> pilot-12 changes no reason CODE — the backend swap alone changes no byte, the note correction changes one detail', () => {
-    const before = decidePure(pilot11());
-    const after = decidePure({ policy: preRetentionPolicy(), peers: servingApproved() });
-    assert.equal(digestOfValue(before), CI_WAIT_DIGEST_PILOT8, 'pilot-11, replayed, is the wait CI recorded');
-    assert.deepEqual(codesOf(after), codesOf(before));
-    assert.deepEqual(codesOf(after), [...PRE_RETENTION_AWAITING].sort(), 'still exactly the six waiting entries, nothing hidden');
-    const changed = after.reasons
-      .map((r, i) => ({ code: r.code, was: before.reasons[i].detail, now: r.detail, sameCode: before.reasons[i].code === r.code }))
-      .filter((c) => !c.sameCode || c.was !== c.now);
-    assert.deepEqual(changed, [{ code: 'peers.backend_serving_unverified', was: HISTORICAL_BACKEND_SERVING_REASON, now: POLICY.compatibleSet.peers.backend.serving.reason, sameCode: true }]);
-    // The backend selection ALONE — 0513adb with the pilot-11 note — is byte-identical to
-    // the recorded wait: the decision names no backend commit, so only the note moved it.
-    const selectionOnly = preRetentionPolicy();
-    selectionOnly.compatibleSet.peers.backend.serving.reason = HISTORICAL_BACKEND_SERVING_REASON;
-    assert.equal(digestOfValue(decidePure({ policy: selectionOnly, peers: servingApproved() })), CI_WAIT_DIGEST_PILOT8);
-    assert.notEqual(digestOfValue(after), CI_WAIT_DIGEST_PILOT8, 'the next readiness run records a new decisionDigest for the same six codes');
-    assert.equal(digestOfValue(after), PILOT12_WAIT_DIGEST_CONSTRUCTED, 'constructed from the rule, and since recorded by readiness run 36741006888');
-  });
-
-  test('CONTRACT: pilot-12 was the same completed, non-publishing wait — REFUSE, allow:false, published:false — replayed under the pre-R-1 snapshot (the real CLI reads only the committed policy; the R-1 block pins that the CLI and the pure decision agree on it byte for byte)', () => {
-    const policy = preRetentionPolicy();
-    const decision = decidePure({ policy, peers: servingApproved() });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers: servingApproved(), decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.published, false);
-      assert.equal(r.decisionDigest, PILOT12_WAIT_DIGEST_CONSTRUCTED);
-    }
-  });
-
-  test('REGRESSION: the selected backend evidence, broken one fact at a time, is refused and is never a wait — a new reason still fails readiness', () => {
-    const edit = (change) => (p) => { const r = clone(p.receipts.backend[0].receipt); change(r); p.receipts.backend[0] = { ...p.receipts.backend[0], receipt: r, digest: receiptDigest(r) }; };
-    const cases = {
-      'receipt tree set to a6b25a6\'s': ['peers.receipt_mismatch', edit((r) => { r.tree = 'd6d1f838e931f89d68e5bcafec43a84fd1b6f538'; })],
-      'capability export blob edited': ['peers.receipt_mismatch', edit((r) => { r.sources[1].blob = 'f'.repeat(40); })],
-      'a capability level edited': ['peers.receipt_mismatch', edit((r) => { r.publishes.quote_protocol = 1; })],
-      'a D01 value edited, digest recomputed': ['peers.receipt_mismatch', edit((r) => {
-        r.contracts.d01CheckoutLimits.values.MAX_QUANTITY_PER_LINE = 100;
-        r.contracts.d01CheckoutLimits.digest = contractDigest(r.contracts.d01CheckoutLimits.values);
-      })],
-      'a D01 value edited, digest left': ['peers.receipt_inconsistent', edit((r) => { r.contracts.d01CheckoutLimits.values.MAX_QUANTITY_PER_LINE = 100; })],
-      'receipt about the replaced a6b25a6': ['peers.receipt_wrong_revision', edit((r) => { r.commit = PILOT11_BACKEND; })],
-      'the retained a6b25a6 receipt relabelled as 0513adb (SAME export blobs)': ['peers.receipt_mismatch', (p) => {
-        const r = clone(committedReceiptEntry('backend', PILOT11_BACKEND).receipt);
-        r.commit = B2_BACKEND;
-        p.receipts.backend[0] = { ...p.receipts.backend[0], receipt: r, digest: receiptDigest(r) };
-      }],
-      'receipt file missing': ['peers.receipt_missing', (p) => { p.receipts.backend[0] = { commit: B2_BACKEND, path: receiptPath('backend', B2_BACKEND), present: false }; }],
-      'receipt file unreadable': ['peers.receipt_unreadable', (p) => { p.receipts.backend[0] = { commit: B2_BACKEND, path: receiptPath('backend', B2_BACKEND), present: true, readable: false, detail: 'Unexpected token' }; }],
-    };
-    for (const [label, [code, breakIt]] of Object.entries(cases)) {
-      const peers = servingApproved();
-      breakIt(peers);
-      const decision = decidePure({ peers });
-      assert.ok(codesOf(decision).includes(code), `${label}: ${JSON.stringify(codesOf(decision))}`);
-      assert.ok(codesOf(decision).includes('peers.backend_serving_unverified'), `${label}: the missing serving identity still stands`);
-      assert.equal(decision.allow, false, label);
-      const r = classifyWith({ peers, decision });
-      assert.notEqual(r.kind, AWAITING, label);
-      assert.ok(r.problems.some((p) => p.code === 'readiness.unexpected_reason'), `${label}: ${JSON.stringify(r.problems)}`);
-    }
-    // An intact file whose digest the POLICY does not pin — including the replaced pin left
-    // behind by a half-applied edit.
-    for (const wrong of [`sha256:${'0'.repeat(64)}`, PILOT11_BACKEND_RECEIPT_DIGEST]) {
-      const policy = clone(POLICY);
-      policy.compatibleSet.peers.backend.approved[0].receiptDigest = wrong;
-      const decision = decidePure({ policy, peers: servingApproved() });
-      assert.ok(codesOf(decision).includes('peers.receipt_mismatch'), `${wrong}: ${JSON.stringify(codesOf(decision))}`);
-      assert.notEqual(classifyWith({ policy, peers: servingApproved(), decision }).kind, AWAITING);
-    }
-  });
-
-  test('REGRESSION: an operator statement of which backend is serving is not accepted — the refusal stands and the evaluation is no longer a wait', () => {
-    const peers = servingApproved();
-    peers.serving.backend = { state: 'known', commit: B2_BACKEND, noStore: true, cacheControl: 'no-store' };
-    const decision = decidePure({ peers });
-    assert.ok(codesOf(decision).includes('peers.backend_serving_unverified'));
-    assert.equal(decision.allow, false);
-    const r = classifyWith({ peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.context_mismatch']);
-  });
-
-  test('REGRESSION: an Admin revision pilot-12 does not approve is refused under pilot-12\'s id and is NOT a wait', () => {
-    for (const serves of [DIAG36_ADMIN, D10_37_ADMIN, D10_38_HEAD, 'a'.repeat(40)]) {
-      // Bound to the pilot-12 snapshot, which this detail names; pilot-13 refuses the same
-      // revisions under its own id (the pilot-13 block, below).
-      const { policy, peers } = withApproved({ admin: D10_38_ADMIN, setId: SET_0928B_ID, adminServes: serves });
-      const decision = decidePure({ policy, peers });
-      const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-      assert.equal(reason?.detail, `admin serves ${serves}, which is not in compatible set ${SET_0928B_ID}`, serves);
-      assert.deepEqual(classifyWith({ policy, peers, decision }).problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
-    }
-  });
-
-  test('CONTROL: the refresh moved no owner setting, no enablement, no Admin approval or serving contract and no waiting entry — only the backend approval, its serving note and the set id', () => {
-    assert.equal(BACKEND, HISTORICAL_SETS[SET_0928B_ID], 'the backend pilot-12 selected is still the approved one');
-    // The policy as pilot-12 committed it: before R-1, so retention unverified and six entries.
-    const committed = preRetentionPolicy();
-    assert.deepEqual([...committed.publication.readiness.awaiting].sort(), [...PRE_RETENTION_AWAITING].sort(),
-      'the six waiting entries, no peers.admin_* entry, no wildcard, no new waiting reason');
-    assert.equal(POLICY.bootstrap.authorized, false);
-    assert.equal(POLICY.bootstrap.servedBaseline, null);
-    assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded');
-    assert.equal(committed.prerequisites.retention.status, 'unverified');
-    assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
-    assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
-    assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
-    assert.equal(POLICY.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
-    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable');
-    assert.equal(POLICY.compatibleSet.peers.backend.receiptVerification, 'operator');
-    assert.deepEqual(POLICY.compatibleSet.peers.admin.serving, {
-      observation: 'public-identity', origin: 'https://admin.dinifyapp.com', path: '/release.txt',
-    });
-    assert.equal(POLICY.compatibleSet.peers.admin.receiptVerification, 'public-repository');
-  });
-});
-
-describe('the 2026-10-03 receipt refresh (Admin 89d2cf1, #40/#39) — replayed against what CI observed', () => {
-  // HISTORY. Admin #40 (Angular 21.2.24 within the patch line, in-range dev-tooling lock
-  // updates, three scanner-bundled audit exceptions) merged as 042e803 and was promoted by
-  // Deploy Admin run 36881603916; readiness run 36881809186 read it serving and refused it
-  // under pilot-12. Admin #39 (the audit inventory reads a string os/cpu/libc constraint the
-  // way npm does) merged as 89d2cf1 and Deploy Admin run 36882599969 promoted it as a
-  // certified forward move; readiness runs 36919953847 and 36936713667 read it serving and
-  // refused it under pilot-12 — not-a-waiting-state, publisher skipped, each with
-  // peers.admin_serving_unapproved as its ONE unexpected reason (their fresh dependency
-  // assessments passed). The two were reviewed together as delivered by #39; 042e803 is
-  // NOT approved.
-  //
-  // WHAT THIS REFRESH DOES NOT DO. Readiness runs 37137245529 (on e553faf) and 37205168076
-  // (on 63d6166) observed 89d2cf1 too, beside a completed blocking fresh dependency
-  // assessment (dependency.assessment_blocking). That refusal is not an Admin fact: this
-  // receipt change alone does not resolve the dependency refusal.
-  //
-  // SUPERSEDED on 2026-10-13 by 1fa89cb (pilot-14, below). Every pilot-13 result here is
-  // bound to the pilot-13 SNAPSHOT — its Admin approval, its set id, its backend and the
-  // serving note its decisions printed — never to the committed policy. The real decide
-  // command reads only the committed file, so a changed peer observation alone does not
-  // make a historical CLI replay: pilot-13's results go through the pure decision, which the
-  // first comparison block proves agrees with the CLI on whatever policy it is handed. The
-  // current-set regressions this block used to carry moved to the pilot-14 block.
-  const beforeAudit = (adminServes) => withApproved({ admin: D10_38_ADMIN, setId: SET_0928B_ID, adminServes });
-  const pilot13 = (adminServes = AUDIT39_ADMIN) => withApproved({ admin: AUDIT39_ADMIN, setId: SET_1003_ID, adminServes });
-  // Admin serving 89d2cf1 — the literal commit, NOT servingApproved().
-  const servingAudit39 = () => recordedPeers({ adminServes: AUDIT39_ADMIN });
-
-  test('CONTRACT: the pin pilot-13 committed is the receipt produced by peer-receipt at 89d2cf1 and independently re-derived on 2026-10-03 — retained as history since pilot-14', () => {
-    assert.notEqual(ADMIN, AUDIT39_ADMIN, 'superseded on 2026-10-13 by 1fa89cb');
-    assert.equal(HISTORICAL_SETS[SET_1003_ID], B2_BACKEND, 'pilot-13 approved the backend pilot-12 selected');
-    assert.ok(CORRECTED_NOTE_SETS.has(SET_1003_ID), 'pilot-13\'s decisions printed the corrected backend serving note');
-    const { policy } = pilot13();
-    assert.equal(policy.compatibleSet.id, SET_1003_ID);
-    assert.deepEqual(policy.compatibleSet.peers.admin.approved, [
-      { commit: AUDIT39_ADMIN, receipt: receiptPath('admin', AUDIT39_ADMIN), receiptDigest: AUDIT39_RECEIPT_DIGEST },
-    ], 'exactly one approved Admin revision in pilot-13');
-    assert.equal(policy.compatibleSet.peers.backend.serving.reason, POLICY.compatibleSet.peers.backend.serving.reason);
-    const admin = committedReceiptEntry('admin', AUDIT39_ADMIN);
-    assert.equal(admin.digest, AUDIT39_RECEIPT_DIGEST, 'the retained receipt is byte for byte the one pilot-13 pinned');
-    assert.equal(admin.receipt.commit, AUDIT39_ADMIN, 'the approval was the #39 MERGE');
-    assert.notEqual(admin.receipt.commit, AUDIT40_ADMIN, 'not the #40 merge it was reviewed with');
-    assert.equal(admin.receipt.tree, AUDIT39_TREE);
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: '2618d1ee627008c2534f006d5528106f249a3243' },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    assert.deepEqual(admin.receipt.producer, { tool: 'release/cli.mjs peer-receipt', revision: 1 });
-    const previous = committedReceiptEntry('admin', D10_38_ADMIN);
-    assert.deepEqual(admin.receipt.sources, previous.receipt.sources,
-      '#40 and #39 did not touch deploy.yml: the receipt-bearing blob is byte-identical (2618d1e)');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere (package files and dependency-audit/) — a different revision, not a relabel');
-    assert.notEqual(admin.digest, previous.digest);
-  });
-
-  test('CONTRACT: the pilot-12 set, replayed with CI\'s observation, reproduces the decision runs 36919953847 and 36936713667 recorded byte for byte — and it was not a wait', () => {
-    const { policy, peers } = beforeAudit(AUDIT39_ADMIN);
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36342248520].sort(),
-      'the same seven reasons as every earlier observed Admin promotion: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${AUDIT39_ADMIN}, which is not in compatible set ${SET_0928B_ID}`, 'byte for byte the detail the CI log printed');
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_89D2CF1, 'the whole decision is the one both readiness records bound');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.published, false);
-    assert.equal(r.decisionDigest, CI_DECISION_DIGEST_89D2CF1);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-  });
-
-  test('CONTRACT: the pilot-12 set also reproduces the decision run 36881809186 recorded while the never-approved 042e803 served', () => {
-    const { policy, peers } = beforeAudit(AUDIT40_ADMIN);
-    const decision = decidePure({ policy, peers });
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36342248520].sort());
-    assert.equal(decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved').detail,
-      `admin serves ${AUDIT40_ADMIN}, which is not in compatible set ${SET_0928B_ID}`);
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_36881809186);
-    assert.notEqual(classifyWith({ policy, peers, decision }).kind, AWAITING);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else, returning the pilot-12 six-reason wait', () => {
-    const before = codesOf(decidePure(beforeAudit(AUDIT39_ADMIN)));
-    const refreshed = decidePure(pilot13());
-    const after = codesOf(refreshed);
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remains is exactly the recorded wait, nothing hidden');
-    assert.equal(digestOfValue(refreshed), PILOT12_WAIT_DIGEST_CONSTRUCTED,
-      'the six-reason decision names no Admin commit or set: pilot-13\'s wait is the decision run 36741006888 recorded under pilot-12');
-  });
-
-  test('CONTRACT: replayed under the pilot-13 snapshot as observed then (Admin serving 89d2cf1), the six commissioning conditions were a completed, non-publishing wait — and the committed CLI, now on pilot-16, refuses that same observation', async () => {
-    const { policy, peers } = pilot13();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...PRE_RETENTION_AWAITING].sort());
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers, decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.published, false);
-      assert.equal(r.decisionDigest, PILOT12_WAIT_DIGEST_CONSTRUCTED);
-    }
-    // The CLI reads the committed policy (pilot-16 since 2026-10-25), so the same
-    // observation is no longer the wait: the replaced approval is refused under the
-    // current id.
-    const committed = await decideCommitted({ peers: servingAudit39() });
-    assert.equal(committed.decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved')?.detail,
-      `admin serves ${AUDIT39_ADMIN}, which is not in compatible set ${SET_1025_ID}`);
-    assert.notEqual(classifyWith({ peers: servingAudit39(), decision: committed.decision }).kind, AWAITING);
-  });
-
-  test('REGRESSION: an Admin revision pilot-13 did not approve is refused under pilot-13\'s id and is NOT a wait — the then-superseded 94001b7, the deployed-but-never-approved 042e803, every older approval, or any later one', () => {
-    for (const serves of [D10_38_ADMIN, AUDIT40_ADMIN, D10_37_ADMIN, D10_38_HEAD, DIAG36_ADMIN, DOCS35_ADMIN, CLAUDE34_ADMIN, DOCS32_ADMIN, B24_ADMIN, B23_ADMIN, CI_OBSERVED_ADMIN_0925, CI_OBSERVED_ADMIN, PREVIOUS_ADMIN, DEPLOYED_NEVER_APPROVED_ADMIN, 'a'.repeat(40)]) {
-      const { policy, peers } = pilot13(serves);
-      const decision = decidePure({ policy, peers });
-      const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-      assert.equal(reason?.detail, `admin serves ${serves}, which is not in compatible set ${SET_1003_ID}`, serves);
-      assert.equal(decision.allow, false, serves);
-      assert.deepEqual(classifyWith({ policy, peers, decision }).problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
-    }
-  });
-
-  test('CONTROL: the pilot-13 refresh moved no owner setting, no enablement, no backend, no Admin serving contract and no waiting entry — only the Admin approval and the set id', () => {
-    const { policy } = pilot13();
-    const pilot12 = withApproved({ admin: D10_38_ADMIN, setId: SET_0928B_ID }).policy;
-    assert.deepEqual(policy.compatibleSet.peers.backend, pilot12.compatibleSet.peers.backend, 'pilot-12 and pilot-13 approve the same backend with the same serving note');
-    assert.deepEqual(policy.compatibleSet.peers.admin.serving, pilot12.compatibleSet.peers.admin.serving);
-    assert.deepEqual(policy.publication, pilot12.publication, 'no waiting entry, no enablement change');
-    assert.deepEqual(policy.bootstrap, pilot12.bootstrap);
-    assert.deepEqual(policy.prerequisites, pilot12.prerequisites);
-    assert.ok(existsSync(join(ROOT, receiptPath('admin', D10_38_ADMIN))), '94001b7 stays under release/peers/ as history');
-  });
-});
-
-describe('the 2026-10-13 receipt refresh (Admin 1fa89cb, #42/#43/#41) — replayed against what CI observed', () => {
-  // HISTORY. Admin #42 (cleared four Admin dependency advisories and recorded three
-  // owner-approved tooling exceptions; its lock moves include the runtime @angular/*
-  // 21.2.24 -> 21.2.25 patch, the router among them, so the range is NOT tooling-only)
-  // merged as 15eac1b; #43 (the Lifecycle select reflects the URL's filter on initial
-  // render) as 85947ca; and #41 (anthropics/claude-code-action v1.0.235 -> v1.0.241, pinned
-  // by SHA in claude.yml and claude-code-review.yml) as 1fa89cb. Deploy Admin runs
-  // 37657619805, 37660784886 and 37662260854 promoted them in turn on 2026-10-07; the last
-  // verified the public identity no-store and 16/16 admitted files. No frontend readiness
-  // run observed 15eac1b or 85947ca. Runs 37864171285 (on aa0b958) and 38386816091 (on
-  // 386c432) read 1fa89cb serving and refused it under pilot-13 — not-a-waiting-state,
-  // publisher skipped, each with peers.admin_serving_unapproved as its ONE unexpected
-  // reason and a fresh three-graph assessment that passed with approved exceptions (run
-  // 38386816091: 21 findings, 5 excepted, 16 requiring triage, 0 blocking). The three were
-  // reviewed together as delivered by #41; 15eac1b and 85947ca are NOT approved.
-  //
-  // WHAT IT DOES NOT SAY. A receipt is a statement about SOURCE. Those assessments are
-  // dated observations, not admission authority; a later run assesses afresh, and a
-  // blocking or incomplete assessment stays red.
-  //
-  // SUPERSEDED on 2026-10-15 by 033c49a (pilot-15, below). Every pilot-14 result here is
-  // bound to the pilot-14 SNAPSHOT — its Admin approval, its set id, its backend and the
-  // serving note its decisions printed — never to the committed policy. The real decide
-  // command reads only the committed file, so pilot-14's results go through the pure
-  // decision, which the first comparison block proves agrees with the CLI on whatever
-  // policy it is handed. The current-set regressions this block used to carry moved to
-  // the pilot-15 block.
-  const before14 = (adminServes) => withApproved({ admin: AUDIT39_ADMIN, setId: SET_1003_ID, adminServes });
-  const pilot14 = (adminServes = CLAUDE41_ADMIN) => withApproved({ admin: CLAUDE41_ADMIN, setId: SET_1013_ID, adminServes });
-
-  test('CONTRACT: the pin pilot-14 committed is the receipt produced by peer-receipt at 1fa89cb and independently re-derived on 2026-10-13 — 89d2cf1 replaced then, and 1fa89cb retained as history since pilot-15', () => {
-    assert.notEqual(ADMIN, CLAUDE41_ADMIN, 'superseded on 2026-10-15 by 033c49a');
-    assert.equal(HISTORICAL_SETS[SET_1013_ID], B2_BACKEND, 'pilot-14 approved the backend pilot-12 selected');
-    assert.ok(CORRECTED_NOTE_SETS.has(SET_1013_ID), 'pilot-14\'s decisions printed the corrected backend serving note');
-    const { policy } = pilot14();
-    assert.equal(policy.compatibleSet.id, SET_1013_ID);
-    assert.deepEqual(policy.compatibleSet.peers.admin.approved, [
-      { commit: CLAUDE41_ADMIN, receipt: receiptPath('admin', CLAUDE41_ADMIN), receiptDigest: CLAUDE41_RECEIPT_DIGEST },
-    ], 'exactly one approved Admin revision in pilot-14: neither 89d2cf1 nor the intermediate #42/#43 merges');
-    assert.equal(policy.compatibleSet.peers.backend.serving.reason, POLICY.compatibleSet.peers.backend.serving.reason);
-    const admin = committedReceiptEntry('admin', CLAUDE41_ADMIN);
-    assert.equal(admin.digest, CLAUDE41_RECEIPT_DIGEST, 'the retained receipt is byte for byte the one pilot-14 pinned');
-    assert.equal(admin.receipt.commit, CLAUDE41_ADMIN, 'the approval was the #41 MERGE');
-    for (const other of [AUDIT42_ADMIN, LIFECYCLE43_ADMIN]) assert.notEqual(admin.receipt.commit, other, 'not an intermediate merge it was reviewed with');
-    assert.equal(admin.receipt.tree, CLAUDE41_TREE);
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: PRE44_DEPLOY_BLOB },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    assert.deepEqual(admin.receipt.producer, { tool: 'release/cli.mjs peer-receipt', revision: 1 }, 'produced by the existing command, not hand-authored');
-    const previous = committedReceiptEntry('admin', AUDIT39_ADMIN);
-    assert.equal(previous.digest, AUDIT39_RECEIPT_DIGEST, 'the receipt pilot-14 replaced is retained byte for byte, as history');
-    assert.deepEqual(admin.receipt.sources, previous.receipt.sources,
-      '#42, #43 and #41 did not touch deploy.yml: the receipt-bearing blob was byte-identical (2618d1e)');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere (dependencies, a feature page, two workflows) — a different revision, not a relabel');
-    for (const commit of [AUDIT39_ADMIN, D10_38_ADMIN]) {
-      assert.ok(existsSync(join(ROOT, receiptPath('admin', commit))), `${commit} stays under release/peers/ as history`);
-    }
-    for (const commit of [AUDIT42_ADMIN, LIFECYCLE43_ADMIN]) {
-      assert.ok(!existsSync(join(ROOT, receiptPath('admin', commit))), `${commit} has no receipt: it was never approved`);
-    }
-  });
-
-  test('CONTRACT: the pilot-13 set, replayed with CI\'s observation, reproduces the decision runs 37864171285 and 38386816091 recorded byte for byte — and it was not a wait', () => {
-    const { policy, peers } = before14(CLAUDE41_ADMIN);
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36342248520].sort(),
-      'the same seven reasons as every earlier observed Admin promotion: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${CLAUDE41_ADMIN}, which is not in compatible set ${SET_1003_ID}`, 'byte for byte the detail both CI logs printed');
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_1FA89CB, 'the whole decision is the one both readiness records bound');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.evaluationCompleted, true);
-    assert.equal(r.published, false);
-    assert.equal(r.decisionDigest, CI_DECISION_DIGEST_1FA89CB);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else, returning the six-reason wait', () => {
-    const before = codesOf(decidePure(before14(CLAUDE41_ADMIN)));
-    const refreshed = decidePure(pilot14());
-    const after = codesOf(refreshed);
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remains is exactly the recorded wait, nothing hidden');
-    assert.equal(digestOfValue(refreshed), PILOT12_WAIT_DIGEST_CONSTRUCTED,
-      'the six-reason decision names no Admin commit or set: pilot-14\'s wait is the decision run 36741006888 recorded under pilot-12');
-  });
-
-  test('CONTRACT: replayed under the pilot-14 snapshot as observed then (Admin serving 1fa89cb), the six commissioning conditions were a completed, non-publishing wait — and the committed CLI, now on pilot-16, refuses that same observation', async () => {
-    const { policy, peers } = pilot14();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...PRE_RETENTION_AWAITING].sort());
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers, decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.published, false);
-      assert.equal(r.decisionDigest, PILOT12_WAIT_DIGEST_CONSTRUCTED);
-    }
-    // The CLI reads the committed policy (pilot-16), so the same observation is no longer
-    // the wait: the replaced approval is refused under the current id.
-    const committed = await decideCommitted({ peers: recordedPeers({ adminServes: CLAUDE41_ADMIN }) });
-    assert.equal(committed.decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved')?.detail,
-      `admin serves ${CLAUDE41_ADMIN}, which is not in compatible set ${SET_1025_ID}`);
-    assert.notEqual(classifyWith({ peers: recordedPeers({ adminServes: CLAUDE41_ADMIN }), decision: committed.decision }).kind, AWAITING);
-  });
-
-  test('REGRESSION: an Admin revision pilot-14 did not approve is refused under pilot-14\'s id and is NOT a wait — the then-superseded 89d2cf1, the deployed-but-never-approved #42/#43 merges, every older approval, or any later one', () => {
-    for (const serves of [AUDIT39_ADMIN, AUDIT42_ADMIN, LIFECYCLE43_ADMIN, D10_38_ADMIN, AUDIT40_ADMIN, D10_37_ADMIN, D10_38_HEAD, DIAG36_ADMIN, DOCS35_ADMIN, CLAUDE34_ADMIN, DOCS32_ADMIN, B24_ADMIN, B23_ADMIN, CI_OBSERVED_ADMIN_0925, CI_OBSERVED_ADMIN, PREVIOUS_ADMIN, DEPLOYED_NEVER_APPROVED_ADMIN, 'a'.repeat(40)]) {
-      const { policy, peers } = pilot14(serves);
-      const decision = decidePure({ policy, peers });
-      const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-      assert.equal(reason?.detail, `admin serves ${serves}, which is not in compatible set ${SET_1013_ID}`, serves);
-      assert.equal(decision.allow, false, serves);
-      assert.deepEqual(classifyWith({ policy, peers, decision }).problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
-    }
-  });
-
-  test('CONTROL: the pilot-14 refresh moved no owner setting, no enablement, no backend, no Admin serving contract and no waiting entry — only the Admin approval and the set id', () => {
-    const { policy } = pilot14();
-    const { policy: pilot13 } = withApproved({ admin: AUDIT39_ADMIN, setId: SET_1003_ID });
-    assert.deepEqual(policy.compatibleSet.peers.backend, pilot13.compatibleSet.peers.backend, 'pilot-13 and pilot-14 approve the same backend with the same serving note');
-    assert.deepEqual(policy.compatibleSet.peers.admin.serving, pilot13.compatibleSet.peers.admin.serving);
-    assert.deepEqual(policy.publication, pilot13.publication, 'no waiting entry, no enablement change');
-    assert.deepEqual(policy.bootstrap, pilot13.bootstrap);
-    assert.deepEqual(policy.prerequisites, pilot13.prerequisites);
-    assert.ok(existsSync(join(ROOT, receiptPath('admin', AUDIT39_ADMIN))), '89d2cf1 stays under release/peers/ as history');
-  });
-});
-
-describe('the 2026-10-15 receipt refresh (Admin 033c49a, the #44 Dependabot action bump) — replayed against what CI observed', () => {
-  // HISTORY. Admin #44 (Dependabot) moved four GitHub Actions, each pinned by full commit
-  // SHA, in audit.yml, ci.yml, deploy.yml, claude.yml and claude-code-review.yml:
-  // actions/setup-node v7.0.0 -> v7.1.0, actions/upload-artifact v7.0.1 -> v7.0.2,
-  // actions/download-artifact v8.0.1 -> v8.0.2 and anthropics/claude-code-action v1.0.241 ->
-  // v1.0.248. Only `uses:` lines moved, and the merge 033c49a has the PR head 9337f55's tree.
-  // It is the first refresh since a7ef20c whose diff CHANGES the receipt-bearing deploy.yml
-  // in executable lines (blob 2618d1e -> 94f7d41: setup-node in both jobs, download-artifact
-  // three times, upload-artifact once); the job split, the prepare job's absent id-token,
-  // the trusted-verifier checkout, the digest-enforced downloads, the privileged
-  // re-decision, the host verification and the exact-commit /release.txt no-store
-  // assertion are unchanged. Deploy Admin run 38752134201 promoted 033c49a over 1fa89cb as
-  // a certified forward move and verified 16/16 admitted files. Readiness run 38763144686
-  // (on 5015b33) read it serving and refused it under pilot-14 — not-a-waiting-state,
-  // publisher skipped, peers.admin_serving_unapproved its ONE unexpected reason; its fresh
-  // assessment completed with 21 findings, 5 excepted and 16 requiring triage.
-  //
-  // WHAT IT DOES NOT SAY. A receipt is a statement about SOURCE, reviewed on existing
-  // evidence. It is not a security certification of the bumped actions, that assessment is
-  // a dated observation rather than admission authority, and a blocking or incomplete
-  // assessment stays red.
-  //
-  // SUPERSEDED on 2026-10-25 by a42a056 (pilot-16, below). Every pilot-15 result here is
-  // bound to the pilot-15 SNAPSHOT — its Admin approval, its set id, its backend and the
-  // serving note its decisions printed — never to the committed policy. pilot-15 is the set
-  // on BOTH sides of R-1, so `pilot15()` is the set as it was COMMITTED (before R-1) and
-  // `pilot15({ preRetention: false })` is the set as readiness run 40128009591 read it
-  // (after R-1). The current-set regressions this block used to carry moved to the pilot-16
-  // block.
-  const before15 = (adminServes) => withApproved({ admin: CLAUDE41_ADMIN, setId: SET_1013_ID, adminServes });
-  const pilot15 = ({ adminServes = DEPENDABOT44_ADMIN, preRetention = true } = {}) =>
-    withApproved({ admin: DEPENDABOT44_ADMIN, setId: SET_1015_ID, adminServes, preRetention });
-
-  test('CONTRACT: the pin pilot-15 committed is the receipt produced by peer-receipt at 033c49a and independently re-derived on 2026-10-15 — 1fa89cb replaced then, and 033c49a retained as history since pilot-16', () => {
-    assert.notEqual(ADMIN, DEPENDABOT44_ADMIN, 'superseded on 2026-10-25 by a42a056');
-    assert.equal(HISTORICAL_SETS[SET_1015_ID], B2_BACKEND, 'pilot-15 approved the backend pilot-12 selected');
-    assert.ok(CORRECTED_NOTE_SETS.has(SET_1015_ID), 'pilot-15\'s decisions printed the corrected backend serving note');
-    const { policy } = pilot15();
-    assert.equal(policy.compatibleSet.id, SET_1015_ID);
-    assert.deepEqual(policy.compatibleSet.peers.admin.approved, [
-      { commit: DEPENDABOT44_ADMIN, receipt: receiptPath('admin', DEPENDABOT44_ADMIN), receiptDigest: DEPENDABOT44_RECEIPT_DIGEST },
-    ], 'exactly one approved Admin revision in pilot-15: 1fa89cb did not stay approved beside it');
-    assert.equal(policy.compatibleSet.peers.backend.serving.reason, POLICY.compatibleSet.peers.backend.serving.reason);
-    const admin = committedReceiptEntry('admin', DEPENDABOT44_ADMIN);
-    assert.equal(admin.digest, DEPENDABOT44_RECEIPT_DIGEST, 'the retained receipt is byte for byte the one pilot-15 pinned');
-    assert.equal(admin.receipt.commit, DEPENDABOT44_ADMIN, 'the approval was the #44 MERGE');
-    assert.notEqual(admin.receipt.commit, DEPENDABOT44_HEAD, 'not the PR head, although the trees are identical');
-    assert.equal(admin.receipt.tree, DEPENDABOT44_TREE);
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: DEPENDABOT44_DEPLOY_BLOB },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    assert.deepEqual(admin.receipt.producer, { tool: 'release/cli.mjs peer-receipt', revision: 1 }, 'produced by the existing command, not hand-authored');
-    const previous = committedReceiptEntry('admin', CLAUDE41_ADMIN);
-    assert.equal(previous.digest, CLAUDE41_RECEIPT_DIGEST, 'the receipt pilot-15 replaced is retained byte for byte, as history');
-    assert.equal(previous.receipt.sources[0].blob, PRE44_DEPLOY_BLOB);
-    assert.notEqual(admin.receipt.sources[0].blob, previous.receipt.sources[0].blob,
-      '#44 changed deploy.yml: the receipt-bearing blob was re-derived at the commit, never copied');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree);
-    assert.notEqual(admin.digest, previous.digest);
-    for (const commit of [DEPENDABOT44_ADMIN, CLAUDE41_ADMIN, AUDIT39_ADMIN, D10_38_ADMIN]) {
-      assert.ok(existsSync(join(ROOT, receiptPath('admin', commit))), `${commit} stays under release/peers/ as history`);
-    }
-    assert.ok(!existsSync(join(ROOT, receiptPath('admin', DEPENDABOT44_HEAD))), 'the PR head has no receipt: it was never approved');
-  });
-
-  test('CONTRACT: the pilot-14 set, replayed with CI\'s observation, reproduces the decision run 38763144686 recorded byte for byte — and it was not a wait', () => {
-    const { policy, peers } = before15(DEPENDABOT44_ADMIN);
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...CI_REFUSAL_36342248520].sort(),
-      'the same seven reasons as every earlier observed Admin promotion: an Admin promotion, and nothing else, moved');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${DEPENDABOT44_ADMIN}, which is not in compatible set ${SET_1013_ID}`, 'byte for byte the detail the CI log printed');
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_033C49A, 'the whole decision is the one the readiness record bound');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.evaluationCompleted, true);
-    assert.equal(r.published, false);
-    assert.equal(r.decisionDigest, CI_DECISION_DIGEST_033C49A);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removed peers.admin_serving_unapproved and nothing else — the six prerequisite reasons remained, allow:false, published:false', () => {
-    const before = codesOf(decidePure(before15(DEPENDABOT44_ADMIN)));
-    // pilot-15 as it was committed, before R-1 resolved retention under the same set id.
-    const { policy, peers } = pilot15();
-    const refreshed = decidePure({ policy, peers });
-    const after = codesOf(refreshed);
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.ok(after.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(before.length, 7);
-    assert.equal(after.length, 6);
-    assert.deepEqual(after, [...PRE_RETENTION_AWAITING].sort(), 'what remained was exactly the recorded wait, nothing hidden');
-    assert.equal(refreshed.allow, false);
-    assert.equal(digestOfValue(refreshed), PILOT12_WAIT_DIGEST_CONSTRUCTED,
-      'the six-reason decision names no Admin commit or set: pilot-15\'s wait is the decision run 36741006888 recorded under pilot-12');
-    const r = classifyWith({ policy, peers, decision: refreshed });
-    assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-    assert.equal(r.published, false);
-  });
-
-  test('CONTRACT: as observed (Admin serving 033c49a), pilot-15 before R-1 was the six-commissioning-condition, non-publishing wait, and after R-1 the five-reason one — REFUSE, allow:false, published:false; the committed CLI, now on pilot-16, refuses that same observation', async () => {
-    const { policy, peers } = pilot15();
-    const decision = decidePure({ policy, peers });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...PRE_RETENTION_AWAITING].sort());
-    assert.equal(decision.reasons.find((r) => r.code === 'peers.backend_serving_unverified').detail,
-      POLICY.compatibleSet.peers.backend.serving.reason, 'the backend runtime identity is still unavailable');
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ policy, peers, decision, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.published, false);
-      assert.equal(r.decisionDigest, PILOT12_WAIT_DIGEST_CONSTRUCTED);
-    }
-    assert.deepEqual(classifyWith({ policy, peers, decision, enablement: 'true' }).problems.map((p) => p.code),
-      ['readiness.publication_enabled'], 'enabling publication is not part of this wait');
-    const afterR1 = pilot15({ preRetention: false });
-    const five = decidePure(afterR1);
-    assert.deepEqual(codesOf(five), [...R1_REMAINING_WAIT].sort());
-    assert.equal(digestOfValue(five), R1_WAIT_DIGEST_SYNTHETIC);
-    assert.equal(classifyWith({ ...afterR1, decision: five }).kind, AWAITING);
-    // The CLI reads the committed policy (pilot-16), so the same observation is no longer
-    // the wait: the replaced approval is refused under the current id.
-    const committed = await decideCommitted({ peers: recordedPeers({ adminServes: DEPENDABOT44_ADMIN }) });
-    assert.equal(committed.decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved')?.detail,
-      `admin serves ${DEPENDABOT44_ADMIN}, which is not in compatible set ${SET_1025_ID}`);
-    assert.notEqual(classifyWith({ peers: recordedPeers({ adminServes: DEPENDABOT44_ADMIN }), decision: committed.decision }).kind, AWAITING);
-  });
-
-  test('REGRESSION: an Admin revision pilot-15 did not approve is refused under pilot-15\'s id and is NOT a wait — the then-superseded 1fa89cb, the PR head 9337f55, every older approval, every deployed-but-never-approved merge, or any later one (a42a056 and its intermediate merges included)', () => {
-    for (const serves of [DEPS48_ADMIN, DEPS48_HEAD, ACTION45_ADMIN, SCANNER46_ADMIN, LOCK47_ADMIN, CLAUDE41_ADMIN, DEPENDABOT44_HEAD, AUDIT39_ADMIN, AUDIT42_ADMIN, LIFECYCLE43_ADMIN, D10_38_ADMIN, AUDIT40_ADMIN, D10_37_ADMIN, D10_38_HEAD, DIAG36_ADMIN, DOCS35_ADMIN, CLAUDE34_ADMIN, DOCS32_ADMIN, B24_ADMIN, B23_ADMIN, CI_OBSERVED_ADMIN_0925, CI_OBSERVED_ADMIN, PREVIOUS_ADMIN, DEPLOYED_NEVER_APPROVED_ADMIN, 'a'.repeat(40)]) {
-      for (const preRetention of [true, false]) {
-        const { policy, peers } = pilot15({ adminServes: serves, preRetention });
-        const decision = decidePure({ policy, peers });
-        const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-        assert.equal(reason?.detail, `admin serves ${serves}, which is not in compatible set ${SET_1015_ID}`, serves);
-        assert.equal(decision.allow, false, serves);
-        assert.deepEqual(classifyWith({ policy, peers, decision }).problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
-      }
-    }
-  });
-
-  test('CONTROL: the pilot-15 refresh moved no owner setting, no enablement, no backend, no Admin serving contract and no waiting entry — only the Admin approval and the set id', () => {
-    const { policy: pilot14 } = withApproved({ admin: CLAUDE41_ADMIN, setId: SET_1013_ID });
-    // The refresh as committed: pilot-15 before R-1, which later moved retention under the same id.
-    const { policy: committed } = pilot15();
-    assert.equal(HISTORICAL_SETS[SET_1015_ID], HISTORICAL_SETS[SET_1013_ID], 'pilot-14 and pilot-15 approve the same backend');
-    assert.deepEqual(committed.compatibleSet.peers.backend, pilot14.compatibleSet.peers.backend,
-      'the backend receipt, its digest and the serving-unavailable note are pilot-14\'s, unchanged');
-    assert.equal(committed.compatibleSet.peers.backend.serving.observation, 'unavailable', 'no backend runtime identity is established');
-    assert.deepEqual(committed.compatibleSet.peers.admin.serving, {
-      observation: 'public-identity', origin: 'https://admin.dinifyapp.com', path: '/release.txt',
-    }, '#44 kept the identity this gate reads: the exact commit at /release.txt, no-store');
-    assert.deepEqual(committed.compatibleSet.peers.admin.assumptions, pilot14.compatibleSet.peers.admin.assumptions);
-    assert.equal(committed.compatibleSet.peers.admin.receiptVerification, 'public-repository');
-    assert.deepEqual(committed.compatibleSet.frontendRequires, pilot14.compatibleSet.frontendRequires);
-    assert.deepEqual([...committed.publication.readiness.awaiting].sort(), [...PRE_RETENTION_AWAITING].sort(),
-      'no peers.admin_* entry, no dependency.* entry, no wildcard, no new waiting reason');
-    assert.deepEqual(committed.publication, pilot14.publication, 'publication stays disabled behind the unset enablement variable');
-    assert.equal(committed.publication.enablementVariable, 'FRONTEND_PUBLISH_ENABLED');
-    assert.deepEqual(committed.bootstrap, pilot14.bootstrap);
-    assert.equal(committed.bootstrap.authorized, false);
-    assert.equal(committed.bootstrap.servedBaseline, null);
-    assert.deepEqual(committed.prerequisites, pilot14.prerequisites);
-    assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
-    const { compatibleSet: now, ...restNow } = clone(committed);
-    const { compatibleSet: then, ...restThen } = clone(pilot14);
-    assert.deepEqual(restNow, restThen, 'nothing outside the compatible set moved');
-    assert.deepEqual(Object.keys(now).sort(), Object.keys(then).sort());
-  });
-});
-
-/** The fresh assessment readiness run 40128009591 completed: BLOCKING, with its headline —
- *  which `decide` prints verbatim as the reason's detail — taken from the CI log. The rest
- *  of the assessment is the fixture's, as in every other replay here. */
-function ciBlockingDependencies(headline = CI_ASSESSMENT_HEADLINE_40128009591) {
-  const input = baseline();
-  const assessment = assessmentFor({
-    manifest: input.artifact.manifest, evidence: input.artifact.dependencyEvidence, tooling: input.dependencies.tooling, outcome: 'blocking',
-  });
-  assessment.doc.headline = headline;
-  assessment.digest = digestOfValue(assessment.doc);
-  return dependenciesFor({ manifest: input.artifact.manifest, evidence: input.artifact.dependencyEvidence, tooling: input.dependencies.tooling, assessment });
-}
-
-describe('the 2026-10-25 receipt refresh (Admin a42a056, #45/#46/#47/#48) — replayed against what CI observed', () => {
-  // Admin #45 (Dependabot) moved the SHA-pinned anthropics/claude-code-action in claude.yml
-  // and claude-code-review.yml from v1.0.248 to v1.0.253, with dev-tooling lock updates in a
-  // second commit. #46 moved Admin's audit scanner to npm 11.21.1, removed five exception
-  // records and re-recorded the owner-approved application http-cache-semantics exception.
-  // #47 and #48 made dev-only lock updates, and #48 recorded two owner-approved undici
-  // GHSA-xjj6-f33q-929c tooling exceptions. Each merge's tree equals its PR head's, and the
-  // receipt-bearing deploy.yml is byte-identical (94f7d41). Readiness run 40128009591 (on
-  // a0786ca) read a42a056 serving and refused it under pilot-15 beside a BLOCKING fresh
-  // assessment — not-a-waiting-state, publisher skipped, with TWO unexpected reasons.
-  //
-  // WHAT IT DOES NOT SAY. A receipt is a statement about SOURCE. It does not resolve the
-  // blocking assessment, which is a fact about the frontend's publisher graph at that
-  // moment and not about Admin, and a blocking or incomplete assessment stays red.
-  const pilot15AfterR1 = (adminServes) => withApproved({ admin: DEPENDABOT44_ADMIN, setId: SET_1015_ID, adminServes, preRetention: false });
-  // Admin serving a42a056 — the literal commit, NOT servingApproved().
-  const servingDeps48 = () => recordedPeers({ adminServes: DEPS48_ADMIN });
-
-  test('CONTRACT: the committed pin is the receipt produced by peer-receipt at a42a056 and independently re-derived on 2026-10-25 — 033c49a replaced, not kept beside it', () => {
-    assert.equal(ADMIN, DEPS48_ADMIN);
-    assert.equal(POLICY.compatibleSet.id, SET_1025_ID);
-    assert.equal(BACKEND, B2_BACKEND, 'this refresh does not move the backend approval');
-    assert.deepEqual(POLICY.compatibleSet.peers.admin.approved, [
-      { commit: DEPS48_ADMIN, receipt: receiptPath('admin', DEPS48_ADMIN), receiptDigest: DEPS48_RECEIPT_DIGEST },
-    ], 'exactly one approved Admin revision: neither 033c49a nor the intermediate #45/#46/#47 merges stay approved beside it');
-    const admin = committedReceiptEntry('admin', ADMIN);
-    assert.equal(admin.digest, DEPS48_RECEIPT_DIGEST);
-    assert.equal(admin.receipt.commit, DEPS48_ADMIN, 'the approval is the #48 MERGE');
-    for (const other of [DEPS48_HEAD, ACTION45_ADMIN, SCANNER46_ADMIN, LOCK47_ADMIN]) {
-      assert.notEqual(admin.receipt.commit, other, 'not the PR head (same tree) nor an intermediate merge it was reviewed with');
-      assert.ok(!existsSync(join(ROOT, receiptPath('admin', other))), `${other} has no receipt: it was never approved`);
-    }
-    assert.equal(admin.receipt.tree, DEPS48_TREE);
-    assert.deepEqual(admin.receipt.sources, [
-      { name: 'deployWorkflow', path: '.github/workflows/deploy.yml', blob: DEPENDABOT44_DEPLOY_BLOB },
-    ]);
-    assert.deepEqual(admin.receipt.contracts, {}, 'Admin is identity-only: no protocol is assumed');
-    assert.equal(admin.receipt.publishes, null);
-    assert.deepEqual(admin.receipt.unavailable, []);
-    assert.deepEqual(admin.receipt.producer, { tool: 'release/cli.mjs peer-receipt', revision: 1 }, 'produced by the existing command, not hand-authored');
-    const previous = committedReceiptEntry('admin', DEPENDABOT44_ADMIN);
-    assert.equal(previous.digest, DEPENDABOT44_RECEIPT_DIGEST, 'the replaced receipt is retained byte for byte, as history');
-    assert.deepEqual(admin.receipt.sources, previous.receipt.sources,
-      '#45-#48 did not touch deploy.yml: the receipt-bearing blob is byte-identical (94f7d41)');
-    assert.notEqual(admin.receipt.tree, previous.receipt.tree, 'the source did change elsewhere (two workflows, locks, the audit scanner and records, docs) — a different revision, not a relabel');
-    assert.notEqual(admin.digest, previous.digest);
-    for (const commit of [DEPENDABOT44_ADMIN, CLAUDE41_ADMIN, AUDIT39_ADMIN, D10_38_ADMIN]) {
-      assert.ok(existsSync(join(ROOT, receiptPath('admin', commit))), `${commit} stays under release/peers/ as history`);
-    }
-  });
-
-  test('CONTRACT: the pilot-15 set after R-1, replayed with CI\'s observation (Admin serving a42a056, a blocking fresh assessment), reproduces the decision run 40128009591 recorded byte for byte — and it was not a wait', () => {
-    const { policy, peers } = pilot15AfterR1(DEPS48_ADMIN);
-    const decision = decidePure({ policy, peers, dependencies: ciBlockingDependencies() });
-    assert.equal(decision.decision, 'REFUSE');
-    assert.equal(decision.allow, false);
-    assert.deepEqual(codesOf(decision), [...R1_REMAINING_WAIT, 'peers.admin_serving_unapproved', 'dependency.assessment_blocking'].sort(),
-      'seven reasons: the five standing ones, the unapproved Admin revision and the blocking assessment');
-    const admin = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-    assert.equal(admin.detail, `admin serves ${DEPS48_ADMIN}, which is not in compatible set ${SET_1015_ID}`, 'byte for byte the detail the CI log printed');
-    assert.equal(decision.reasons.find((r) => r.code === 'dependency.assessment_blocking').detail, CI_ASSESSMENT_HEADLINE_40128009591);
-    assert.equal(digestOfValue(decision), CI_DECISION_DIGEST_A42A056, 'the whole decision is the one the readiness record bound');
-    const r = classifyWith({ policy, peers, decision });
-    assert.notEqual(r.kind, AWAITING);
-    assert.equal(r.evaluationCompleted, true);
-    assert.equal(r.published, false);
-    assert.equal(r.decisionDigest, CI_DECISION_DIGEST_A42A056);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason', 'readiness.unexpected_reason']);
-    assert.deepEqual(r.problems.map((p) => p.detail.split(':')[0]).sort(), ['dependency.assessment_blocking', 'peers.admin_serving_unapproved']);
-  });
-
-  test('CONTRACT: with every other fact held fixed, the refresh removes peers.admin_serving_unapproved and nothing else — the blocking assessment stays a non-waiting refusal beside the five standing reasons', () => {
-    const before = decidePure({ ...pilot15AfterR1(DEPS48_ADMIN), dependencies: ciBlockingDependencies() });
-    const refreshed = decidePure({ peers: servingDeps48(), dependencies: ciBlockingDependencies() });
-    const [b, a] = [codesOf(before), codesOf(refreshed)];
-    assert.deepEqual(b.filter((c) => !a.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(a.filter((c) => !b.includes(c)), [], 'the refresh introduced no new compatibility problem');
-    assert.deepEqual(refreshed.reasons, before.reasons.filter((r) => r.code !== 'peers.admin_serving_unapproved'),
-      'every other reason is byte-identical, detail included');
-    assert.equal(b.length, 7);
-    assert.equal(a.length, 6);
-    assert.deepEqual(a, [...R1_REMAINING_WAIT, 'dependency.assessment_blocking'].sort());
-    assert.ok(a.includes('peers.backend_serving_unverified'), 'a source receipt is not serving evidence — B3 still stands');
-    assert.equal(refreshed.allow, false);
-    assert.equal(digestOfValue(refreshed), PILOT16_BLOCKING_DIGEST_CONSTRUCTED, 'CONSTRUCTED: no run has recorded it');
-    const r = classifyWith({ peers: servingDeps48(), decision: refreshed });
-    assert.notEqual(r.kind, AWAITING, 'the blocking assessment is never a wait');
-    assert.equal(r.published, false);
-    assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason']);
-    assert.match(r.problems[0].detail, /^dependency\.assessment_blocking: /);
-  });
-
-  test('CONTRACT: with a passing assessment instead, the same refresh leaves exactly the five-reason, non-publishing wait — REFUSE, allow:false, published:false', () => {
-    const before = codesOf(decidePure(pilot15AfterR1(DEPS48_ADMIN)));
-    const refreshed = decidePure({ peers: servingDeps48() });
-    const after = codesOf(refreshed);
-    assert.deepEqual(before.filter((c) => !after.includes(c)), ['peers.admin_serving_unapproved']);
-    assert.deepEqual(after.filter((c) => !before.includes(c)), []);
-    assert.deepEqual(after, [...R1_REMAINING_WAIT].sort(), 'what remains is exactly the recorded wait, nothing hidden');
-    assert.equal(refreshed.allow, false);
-    assert.equal(digestOfValue(refreshed), R1_WAIT_DIGEST_SYNTHETIC,
-      'the five-reason decision names no Admin commit or set: pilot-16\'s wait is the one R-1 computed under pilot-15');
-    for (const enablement of ['', 'false']) {
-      const r = classifyWith({ peers: servingDeps48(), decision: refreshed, enablement });
-      assert.equal(r.kind, AWAITING, JSON.stringify(r.problems));
-      assert.equal(r.evaluationCompleted, true);
-      assert.equal(r.published, false);
-    }
-  });
-
-  test('REGRESSION: through the real decide command, the replaced 033c49a, the same-tree PR head da64573 and the intermediate #45/#46/#47 merges are refused under pilot-16\'s id and are NOT a wait', async () => {
-    for (const serves of [DEPENDABOT44_ADMIN, DEPS48_HEAD, ACTION45_ADMIN, SCANNER46_ADMIN, LOCK47_ADMIN]) {
-      const peers = recordedPeers({ adminServes: serves });
-      const { decision } = await decideCommitted({ peers });
-      assert.equal(decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved')?.detail,
-        `admin serves ${serves}, which is not in compatible set ${SET_1025_ID}`, serves);
-      assert.equal(decision.allow, false, serves);
-      assert.deepEqual(classifyWith({ peers, decision }).problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
-    }
-  });
-
-  test('REGRESSION: an Admin revision pilot-16 does not approve is refused under pilot-16\'s id and is NOT a wait — the just-superseded 033c49a, the PR head da64573, the intermediate merges, every older approval, every deployed-but-never-approved merge, or any later one', () => {
-    for (const serves of [DEPENDABOT44_ADMIN, DEPS48_HEAD, ACTION45_ADMIN, SCANNER46_ADMIN, LOCK47_ADMIN, CLAUDE41_ADMIN, DEPENDABOT44_HEAD, AUDIT39_ADMIN, AUDIT42_ADMIN, LIFECYCLE43_ADMIN, D10_38_ADMIN, AUDIT40_ADMIN, D10_37_ADMIN, D10_38_HEAD, DIAG36_ADMIN, DOCS35_ADMIN, CLAUDE34_ADMIN, DOCS32_ADMIN, B24_ADMIN, B23_ADMIN, CI_OBSERVED_ADMIN_0925, CI_OBSERVED_ADMIN, PREVIOUS_ADMIN, DEPLOYED_NEVER_APPROVED_ADMIN, 'a'.repeat(40)]) {
-      const peers = recordedPeers({ adminServes: serves });
-      const decision = decidePure({ peers });
-      const reason = decision.reasons.find((r) => r.code === 'peers.admin_serving_unapproved');
-      assert.equal(reason?.detail, `admin serves ${serves}, which is not in compatible set ${SET_1025_ID}`, serves);
-      assert.equal(decision.allow, false, serves);
-      assert.deepEqual(classifyWith({ peers, decision }).problems.map((p) => p.code), ['readiness.unexpected_reason'], serves);
-    }
-  });
-
-  test('REGRESSION: the approved Admin evidence, broken one fact at a time, is refused and is never a wait', () => {
-    const relabel = (commit) => (p) => {
-      const r = clone(committedReceiptEntry('admin', commit).receipt);
-      r.commit = ADMIN;
-      p.receipts.admin[0] = { ...p.receipts.admin[0], receipt: r, digest: receiptDigest(r) };
-    };
-    const edit = (change) => (p) => { const r = clone(p.receipts.admin[0].receipt); change(r); p.receipts.admin[0] = { ...p.receipts.admin[0], receipt: r, digest: receiptDigest(r) }; };
-    const cases = {
-      'receipt tree edited': ['peers.receipt_mismatch', edit((r) => { r.tree = 'f'.repeat(40); })],
-      'receipt tree set to 033c49a\'s (a15befd)': ['peers.receipt_mismatch', edit((r) => { r.tree = DEPENDABOT44_TREE; })],
-      'deploy.yml blob set to the pre-#44 blob (2618d1e)': ['peers.receipt_mismatch', edit((r) => { r.sources[0].blob = PRE44_DEPLOY_BLOB; })],
-      'receipt about another revision (the PR head da64573, same tree)': ['peers.receipt_wrong_revision', edit((r) => { r.commit = DEPS48_HEAD; })],
-      'receipt about another revision (033c49a)': ['peers.receipt_wrong_revision', edit((r) => { r.commit = DEPENDABOT44_ADMIN; })],
-      'the just-superseded 033c49a receipt, relabelled as the approved one': ['peers.receipt_mismatch', relabel(DEPENDABOT44_ADMIN)],
-      'receipt file missing': ['peers.receipt_missing', (p) => { p.receipts.admin[0] = { commit: ADMIN, path: receiptPath('admin', ADMIN), present: false }; }],
-      'receipt file unreadable': ['peers.receipt_unreadable', (p) => { p.receipts.admin[0] = { commit: ADMIN, path: receiptPath('admin', ADMIN), present: true, readable: false, detail: 'Unexpected token' }; }],
-      'public re-derivation disagrees (tree)': ['peers.admin_receipt_unverified', (p) => { p.verification.admin[ADMIN] = { state: 'mismatch', detail: `tree ${DEPENDABOT44_TREE} != ${DEPS48_TREE}` }; }],
-      'public re-derivation unavailable': ['peers.admin_receipt_unverified', (p) => { p.verification.admin[ADMIN] = { state: 'unavailable', detail: 'HTTP 502' }; }],
-      'served identity unreadable': ['peers.admin_serving_unreadable', (p) => { p.serving.admin = { state: 'unreadable', detail: 'CONNECT refused' }; }],
-      'served identity cacheable (failed no-store verification)': ['peers.admin_serving_cacheable', (p) => { p.serving.admin = { ...p.serving.admin, noStore: false, cacheControl: 'public, max-age=300' }; }],
-      'served identity with no Cache-Control at all': ['peers.admin_serving_cacheable', (p) => { p.serving.admin = { ...p.serving.admin, noStore: false, cacheControl: null }; }],
-    };
-    for (const [label, [code, breakIt]] of Object.entries(cases)) {
-      const peers = servingDeps48();
-      breakIt(peers);
-      const decision = decidePure({ peers });
-      assert.ok(codesOf(decision).includes(code), `${label}: ${JSON.stringify(codesOf(decision))}`);
-      assert.equal(decision.allow, false, label);
-      assert.notEqual(classifyWith({ peers, decision }).kind, AWAITING, label);
-    }
-    // An intact file whose digest the POLICY does not pin — including the previous pin left
-    // behind by a half-applied edit.
-    for (const wrong of [`sha256:${'0'.repeat(64)}`, DEPENDABOT44_RECEIPT_DIGEST]) {
-      const policy = clone(POLICY);
-      policy.compatibleSet.peers.admin.approved[0].receiptDigest = wrong;
-      const decision = decidePure({ policy, peers: servingDeps48() });
-      assert.ok(codesOf(decision).includes('peers.receipt_mismatch'), `${wrong}: ${JSON.stringify(codesOf(decision))}`);
-      assert.ok(!codesOf(decision).includes('peers.admin_serving_unapproved'), 'isolated: not refused for serving');
-      assert.equal(decision.allow, false);
-      assert.notEqual(classifyWith({ policy, peers: servingDeps48(), decision }).kind, AWAITING);
-    }
-  });
-
-  test('REGRESSION: a blocking or incomplete dependency assessment stays red beside the refreshed receipt — the source approval bypasses nothing, and an earlier passing assessment is not admission authority', () => {
-    for (const [outcome, code] of [['blocking', 'dependency.assessment_blocking'], ['incomplete', 'dependency.assessment_incomplete']]) {
-      const input = baseline();
-      const dependencies = dependenciesFor({
-        manifest: input.artifact.manifest,
-        evidence: input.artifact.dependencyEvidence,
-        assessment: assessmentFor({ manifest: input.artifact.manifest, evidence: input.artifact.dependencyEvidence, tooling: input.dependencies.tooling, outcome }),
-      });
-      const peers = servingDeps48();
-      const decision = decidePure({ peers, dependencies });
-      const codes = codesOf(decision);
-      assert.ok(codes.includes(code), `${outcome}: ${JSON.stringify(codes)}`);
-      assert.ok(!codes.includes('peers.admin_serving_unapproved'), 'the Admin approval itself is not what refuses here');
-      assert.equal(decision.decision, 'REFUSE');
-      assert.equal(decision.allow, false);
-      const r = classifyWith({ peers, decision });
-      assert.notEqual(r.kind, AWAITING, outcome);
-      assert.equal(r.published, false);
-      assert.deepEqual(r.problems.map((p) => p.code), ['readiness.unexpected_reason'], outcome);
-    }
-    assert.ok(!POLICY.publication.readiness.awaiting.some((c) => c.startsWith('dependency.')), 'no dependency.* reason is ever a wait');
-  });
-
-  test('CONTROL: the refresh moved no owner setting, no enablement, no backend, no Admin serving contract and no waiting entry — only the Admin approval and the set id', () => {
-    const { policy: pilot15 } = pilot15AfterR1(DEPENDABOT44_ADMIN);
-    assert.equal(BACKEND, HISTORICAL_SETS[SET_1015_ID], 'pilot-15 and pilot-16 approve the same backend');
-    assert.deepEqual(POLICY.compatibleSet.peers.backend, pilot15.compatibleSet.peers.backend,
-      'the backend receipt, its digest and the serving-unavailable note are pilot-15\'s, unchanged');
-    assert.equal(POLICY.compatibleSet.peers.backend.serving.observation, 'unavailable', 'no backend runtime identity is established');
-    assert.deepEqual(POLICY.compatibleSet.peers.admin.serving, {
-      observation: 'public-identity', origin: 'https://admin.dinifyapp.com', path: '/release.txt',
-    }, '#45-#48 kept the identity this gate reads: the exact commit at /release.txt, no-store');
-    assert.deepEqual(POLICY.compatibleSet.peers.admin.assumptions, pilot15.compatibleSet.peers.admin.assumptions);
-    assert.equal(POLICY.compatibleSet.peers.admin.receiptVerification, 'public-repository');
-    assert.deepEqual(POLICY.compatibleSet.frontendRequires, pilot15.compatibleSet.frontendRequires);
-    assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [...R1_REMAINING_WAIT].sort(),
-      'no peers.admin_* entry, no dependency.* entry, no wildcard, no new waiting reason');
-    assert.deepEqual(POLICY.publication, pilot15.publication, 'publication stays disabled behind the unset enablement variable');
-    assert.deepEqual(POLICY.bootstrap, pilot15.bootstrap);
-    assert.equal(POLICY.bootstrap.authorized, false);
-    assert.deepEqual(POLICY.prerequisites, pilot15.prerequisites);
-    assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
-    const { compatibleSet: now, ...restNow } = clone(POLICY);
-    const { compatibleSet: then, ...restThen } = clone(pilot15);
-    assert.deepEqual(restNow, restThen, 'nothing outside the compatible set moved');
-    assert.deepEqual(Object.keys(now).sort(), Object.keys(then).sort());
-    const { _approvedHistory: _h, approved: _a, ...adminNow } = now.peers.admin;
-    const { _approvedHistory: _t, approved: _b, ...adminThen } = then.peers.admin;
-    assert.deepEqual(adminNow, adminThen, 'inside the Admin peer, only the approval and its history note moved');
-    assert.notEqual(now.id, then.id);
   });
 });
 
@@ -2487,7 +1043,7 @@ describe('the source-protection observation (SP-1) — recorded evidence that mo
   });
 
   test('CONTRACT (SYNTHETIC): under identical peer facts the decision is byte-identical with and without the observation — and so is its readiness classification', () => {
-    for (const peers of [servingApproved, () => recordedPeers({ adminServes: CLAUDE41_ADMIN })]) {
+    for (const peers of [servingApproved, () => recordedPeers({ adminServes: SUPERSEDED_ADMIN })]) {
       const withIt = decidePure({ peers: peers() });
       const without = decidePure({ policy: withoutObservation(), peers: peers() });
       assert.equal(digestOfValue(withIt), digestOfValue(without));
@@ -2498,10 +1054,10 @@ describe('the source-protection observation (SP-1) — recorded evidence that mo
       assert.equal(a.decisionDigest, b.decisionDigest);
       assert.deepEqual(a.problems, b.problems);
     }
-    assert.equal(digestOfValue(decidePure({ policy: preRetentionPolicy(), peers: servingApproved() })), PILOT12_WAIT_DIGEST_CONSTRUCTED,
+    assert.equal(digestOfValue(decidePure({ policy: preRetentionPolicy(), peers: servingApproved() })), latestWaitDigest(PRE_R1),
       'before R-1, still the six-reason wait the earlier sets recorded');
-    assert.equal(digestOfValue(decidePure({ peers: servingApproved() })), R1_WAIT_DIGEST_SYNTHETIC,
-      'since R-1, the five-reason wait (SYNTHETIC until a readiness run records it)');
+    assert.equal(digestOfValue(decidePure({ peers: servingApproved() })), latestWaitDigest(R1),
+      'since R-1, the five-reason wait');
   });
 
   test('CONTROL: only `status` moves the decision — the same observation beside `recorded` drops exactly the source-protection refusal', () => {
@@ -2533,21 +1089,24 @@ describe('the R-1 retention observation (2026-10-15) — the Firebase-retention 
   // and its limits: the returned retainedReleaseCount 2147483647 is preserved as observed and
   // NOT read as unlimited, and nothing here proves a recovery would succeed.
   //
-  // WHAT THE DIGEST BELOW IS. R1_WAIT_DIGEST_SYNTHETIC is computed over the fixture candidate,
-  // the committed receipts and the recorded Admin observation. No readiness run had recorded
-  // a five-reason decision when this was written, so it is a SYNTHETIC replay until one does.
+  // WHAT THE DIGEST IS. The five-reason wait (history.json, `synthetic`) is computed over the
+  // fixture candidate, the committed receipts and the recorded Admin observation. No readiness
+  // run had recorded a five-reason decision when R-1 was written.
   const preR1 = () => preRetentionPolicy();
+  const R1_WAIT = standing(R1_ROW, R1).decisionDigest;
+  const PRE_R1_WAIT = standing(R1_ROW, PRE_R1).decisionDigest;
 
   test('CONTRACT: the committed policy records retention verified, lists exactly the five remaining waits, and validates — nothing else moved', () => {
     assert.equal(POLICY.prerequisites.retention.status, 'verified');
     assert.deepEqual([...POLICY.publication.readiness.awaiting].sort(), [...R1_REMAINING_WAIT].sort());
     assert.equal(POLICY.publication.readiness.awaiting.includes('prerequisite.retention_unverified'), false);
     assert.equal(validatePolicy(POLICY).ok, true, JSON.stringify(validatePolicy(POLICY).problems));
-    // Everything the R-1 change was NOT allowed to touch. R-1 left the compatible set at
-    // pilot-15; pilot-16 later, separately, moved only the Admin approval and the set id.
-    assert.equal(POLICY.compatibleSet.id, SET_1025_ID, 'no compatibility selection changed beyond pilot-16\'s Admin approval');
-    assert.equal(ADMIN, DEPS48_ADMIN);
-    assert.equal(BACKEND, B2_BACKEND);
+    // Everything the R-1 change was NOT allowed to touch. R-1 left the compatible set at the
+    // id it already had; later refreshes moved only what their history rows record.
+    assert.equal(R1_ROW.ownerStates.at(-1), R1, 'R-1 changed the owner state under an unchanged set id');
+    assert.equal(POLICY.compatibleSet.id, CURRENT.id);
+    assert.equal(ADMIN, CURRENT.approved.admin);
+    assert.equal(BACKEND, CURRENT.approved.backend);
     assert.equal(POLICY.prerequisites.sourceProtection.status, 'unrecorded');
     assert.equal(POLICY.prerequisites.sourceProtection.observation.observedOn, '2026-10-15', 'the SP-1 observation is untouched');
     assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
@@ -2566,7 +1125,7 @@ describe('the R-1 retention observation (2026-10-15) — the Firebase-retention 
   });
 
   test('CONTRACT: with identical candidate, peer and fresh-assessment inputs, R-1 removes prerequisite.retention_unverified and nothing else', () => {
-    for (const peers of [servingApproved, () => recordedPeers({ adminServes: CLAUDE41_ADMIN })]) {
+    for (const peers of [servingApproved, () => recordedPeers({ adminServes: SUPERSEDED_ADMIN })]) {
       const before = decidePure({ policy: preR1(), peers: peers() });
       const after = decidePure({ peers: peers() });
       assert.deepEqual(codesOf(before).filter((c) => !codesOf(after).includes(c)), ['prerequisite.retention_unverified']);
@@ -2576,16 +1135,15 @@ describe('the R-1 retention observation (2026-10-15) — the Firebase-retention 
       assert.equal(before.allow, false);
       assert.equal(after.allow, false);
     }
-    assert.equal(digestOfValue(decidePure({ policy: preR1(), peers: servingApproved() })), PILOT12_WAIT_DIGEST_CONSTRUCTED,
-      'before R-1, the replay is the six-reason wait readiness run 36741006888 recorded');
-    // pilot-15 keeps its id across R-1, so each side of R-1 is asked for explicitly (pilot-15
-    // has been a historical snapshot since pilot-16, so it no longer defaults to today's).
-    const pilot15Before = withApproved({ admin: DEPENDABOT44_ADMIN, setId: SET_1015_ID, adminServes: DEPENDABOT44_ADMIN, preRetention: true });
-    const pilot15After = withApproved({ admin: DEPENDABOT44_ADMIN, setId: SET_1015_ID, adminServes: DEPENDABOT44_ADMIN, preRetention: false });
-    assert.equal(pilot15Before.policy.compatibleSet.id, pilot15After.policy.compatibleSet.id);
-    assert.equal(pilot15Before.policy.compatibleSet.id, SET_1015_ID);
-    assert.equal(digestOfValue(decidePure(pilot15Before)), PILOT12_WAIT_DIGEST_CONSTRUCTED);
-    assert.equal(digestOfValue(decidePure(pilot15After)), R1_WAIT_DIGEST_SYNTHETIC, 'after R-1, the same id is the five-reason wait');
+    assert.equal(digestOfValue(decidePure({ policy: preR1(), peers: servingApproved() })), PRE_R1_WAIT,
+      'before R-1, the replay is the six-reason wait');
+    // The set R-1 landed under keeps its id across it, so each side of R-1 is asked for
+    // explicitly.
+    const before = snapshot(R1_ROW, PRE_R1);
+    const after = snapshot(R1_ROW, R1);
+    assert.equal(before.compatibleSet.id, after.compatibleSet.id);
+    assert.equal(digestOfValue(decidePure({ policy: before, peers: peersFor(before, R1_ROW.approved.admin) })), PRE_R1_WAIT);
+    assert.equal(digestOfValue(decidePure({ policy: after, peers: peersFor(after, R1_ROW.approved.admin) })), R1_WAIT, 'after R-1, the same id is the five-reason wait');
   });
 
   test('CONTRACT: through the real decide command the committed policy refuses exactly the five remaining reasons — REFUSE, allow:false — and the CLI and the pure decision agree byte for byte', async () => {
@@ -2596,8 +1154,8 @@ describe('the R-1 retention observation (2026-10-15) — the Firebase-retention 
     assert.deepEqual(codesOf(decision), [...R1_REMAINING_WAIT].sort());
     assert.equal(codesOf(decision).length, 5);
     assert.equal(digestOfValue(decision), digestOfValue(decidePure()));
-    assert.equal(digestOfValue(decision), R1_WAIT_DIGEST_SYNTHETIC, 'SYNTHETIC until a readiness run records it');
-    assert.notEqual(R1_WAIT_DIGEST_SYNTHETIC, PILOT12_WAIT_DIGEST_CONSTRUCTED);
+    assert.equal(digestOfValue(decision), R1_WAIT, 'SYNTHETIC until a readiness run records it');
+    assert.notEqual(R1_WAIT, PRE_R1_WAIT);
   });
 
   test('CONTRACT: automatic, publication unset or `false`, that refusal is the recorded non-publishing wait — REFUSE, allow:false, published:false', async () => {
@@ -2610,7 +1168,7 @@ describe('the R-1 retention observation (2026-10-15) — the Firebase-retention 
       assert.equal(r.allow, false);
       assert.equal(r.published, false);
       assert.deepEqual(r.awaiting.map((a) => a.code).sort(), [...R1_REMAINING_WAIT].sort());
-      assert.equal(r.decisionDigest, R1_WAIT_DIGEST_SYNTHETIC);
+      assert.equal(r.decisionDigest, R1_WAIT);
     }
     assert.deepEqual(classifyWith({ decision, enablement: 'true' }).problems.map((p) => p.code), ['readiness.publication_enabled'],
       'enabling publication is still a failed release, not a wait');
@@ -2649,9 +1207,9 @@ describe('the R-1 retention observation (2026-10-15) — the Firebase-retention 
   });
 
   test('CONTROL: what R-1 does not resolve still refuses, and an unexpected reason beside the five is still red', () => {
-    const decision = decidePure({ peers: recordedPeers({ adminServes: CLAUDE41_ADMIN }) });
+    const decision = decidePure({ peers: recordedPeers({ adminServes: SUPERSEDED_ADMIN }) });
     assert.ok(codesOf(decision).includes('peers.admin_serving_unapproved'));
-    assert.deepEqual(classifyWith({ peers: recordedPeers({ adminServes: CLAUDE41_ADMIN }), decision }).problems.map((p) => p.code),
+    assert.deepEqual(classifyWith({ peers: recordedPeers({ adminServes: SUPERSEDED_ADMIN }), decision }).problems.map((p) => p.code),
       ['readiness.unexpected_reason']);
     for (const code of ['peers.backend_serving_unverified', 'prerequisite.source_protection_unrecorded',
       'prerequisite.legacy_publisher_active', 'prerequisite.legacy_publisher_present', 'served.bootstrap_unauthorized']) {
