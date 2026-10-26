@@ -36,6 +36,21 @@ const codes = (r) => r.reasons.map((x) => x.code);
 
 // ── the approved selections, and a synthetic world for each ─────────────────────
 
+// The approved set and the revision each peer replaced come from the compatible-set
+// history (release/peers/history.json), whose last row committed-policy.test.mjs holds
+// equal to the committed policy. A refresh therefore moves these without editing this file.
+const HISTORY = JSON.parse(readFileSync(join(ROOT, 'release/peers/history.json'), 'utf8'));
+const CURRENT = HISTORY.sets.at(-1);
+const receiptFacts = (commit) => HISTORY.sets.flatMap((r) => r.receipts).find((r) => r.commit === commit);
+/** The most recent revision a peer had approved before the current one. */
+function previousApproval(peer) {
+  const current = CURRENT.approved[peer];
+  return [...HISTORY.sets].reverse().map((r) => r.approved[peer]).find((c) => c !== current);
+}
+const REPLACED_BACKEND = previousApproval('backend');
+const short = (commit) => commit.slice(0, 7);
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 function approved(peer) {
   const a = POLICY.compatibleSet.peers[peer].approved[0];
   const receipt = JSON.parse(readFileSync(join(ROOT, a.receipt), 'utf8'));
@@ -283,17 +298,17 @@ describe('planning the reads', () => {
     assert.deepEqual(result.deferred, [...PEER_FORMATS.backend.deferred]);
   });
 
-  test('REGRESSION: a selection the committed policy does not approve is refused before any request — the replaced a6b25a6, another receipt digest, a receipt file that is not the approved one', async () => {
-    const old = JSON.parse(readFileSync(join(ROOT, 'release/peers/backend-a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b.json'), 'utf8'));
+  test(`REGRESSION: a selection the committed policy does not approve is refused before any request — the replaced ${short(REPLACED_BACKEND)}, another receipt digest, a receipt file that is not the approved one`, async () => {
+    const old = JSON.parse(readFileSync(join(ROOT, `release/peers/backend-${REPLACED_BACKEND}.json`), 'utf8'));
     const oldSelection = selection('backend', {
       source: { commit: old.commit, tree: old.tree },
-      receipt: { commit: old.commit, digest: 'sha256:c1355f5059f24506e9637ad29c24e4782a71275bfa5a0b18a80ed07cc5d3b920' },
+      receipt: { commit: old.commit, digest: receiptFacts(REPLACED_BACKEND).receiptDigest },
     });
     const w = world('backend');
     let log = [];
     let r = await observeMetadata({ expected: oldSelection, receipt: old, policy: POLICY, fetchImpl: fakeFetch(w.routes, log), token: TOKEN, clock: () => NOW_MS });
     assert.deepEqual(codes(r.result), ['journey.observe.selection_not_approved']);
-    assert.match(r.result.reasons[0].detail, /a6b25a619d572c8de68964ab9ca4b4c2ae9ebe0b is not approved in compatible set 2026-10-25-pilot-16; the selection needs review/);
+    assert.match(r.result.reasons[0].detail, new RegExp(`${REPLACED_BACKEND} is not approved in compatible set ${escapeRegExp(CURRENT.id)}; the selection needs review`));
     assert.equal(log.length, 0);
 
     log = [];
@@ -310,10 +325,11 @@ describe('planning the reads', () => {
     assert.equal(log.length, 0);
   });
 
-  test('CONTROL: both approved selections — backend 0513adb and admin a42a056 — pass the approval check against the committed policy', () => {
+  test(`CONTROL: both approved selections — backend ${short(CURRENT.approved.backend)} and admin ${short(CURRENT.approved.admin)} — pass the approval check against the committed policy`, () => {
     for (const peer of ['backend', 'admin']) assert.equal(approvalProblem({ policy: POLICY, expected: selection(peer), receipt: approved(peer).receipt }), null, peer);
-    assert.equal(approved('backend').commit, '0513adb441828d62faadc1c67799c5432868c33a');
-    assert.equal(approved('admin').commit, 'a42a0564b7d3351ea907a31093f9be016c7ab03d');
+    assert.equal(POLICY.compatibleSet.id, CURRENT.id);
+    assert.equal(approved('backend').commit, CURRENT.approved.backend);
+    assert.equal(approved('admin').commit, CURRENT.approved.admin);
   });
 });
 

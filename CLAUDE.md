@@ -3792,7 +3792,9 @@ so keep it current when conventions change.
   digest, one approved commit, one deleted row, a row that does not match the policy, and
   a policy set id with no row. The bullets above that count committed-policy tests or say
   a block "became history pinned to pilot-N" describe the structure before B2a.
-  `journey-observation.test.mjs` still names the approved set in two assertions.
+  `journey-observation.test.mjs` named the approved set in two assertions until a
+  follow-up made it read the set id, both approved revisions and the replaced backend from
+  the history's last row; a refresh now edits no test file.
 - **THE CANDIDATE CARRIES ITS OWN DEPENDENCY EVIDENCE, AND A FRESH ASSESSMENT GATES THE
   CREDENTIAL (D08 B2.2).** ✅ The guarantee: the exact frontend bytes considered for
   promotion are associated with verifiable certification-time dependency evidence, and a
