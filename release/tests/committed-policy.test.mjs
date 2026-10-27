@@ -66,62 +66,17 @@ import { ROOT, cli, startOrigin, tempDir, writeDependencyInputs } from './harnes
 
 const HISTORY_PATH = 'release/peers/history.json';
 const HISTORY = JSON.parse(readFileSync(join(ROOT, HISTORY_PATH), 'utf8'));
-
-/**
- * THE 2026-10-27 SOURCE-PROTECTION RECORD, MODELLED HERE RATHER THAN IN history.json.
- *
- * The owner moved prerequisites.sourceProtection.status from `unrecorded` to `recorded`
- * under the unchanged set id, and prerequisite.source_protection_unrecorded left the
- * awaiting list in the same change. That change did not edit history.json (its scope kept
- * the file as it was), so it is applied here, the way R-1 was before the history became
- * data:
- *   - every owner state history.json records PREDATES the record, so replaying under one
- *     restores `unrecorded` (a state the file itself sets wins: none does today, and a
- *     test below pins that);
- *   - the last row gains a test-local owner state, SP, after its recorded R-1, with ONE
- *     SYNTHETIC decision: the four-reason wait, computed from the rule. No readiness run
- *     has recorded it.
- * Every decision history.json records therefore replays exactly as before. When
- * history.json next changes, the record belongs there as an owner state of its own, and
- * this overlay should go; until then a row appended under R-1 replays as before the record
- * and the contract that the last row IS the committed policy fails loudly.
- */
+const SETS = HISTORY.sets;
+// The 2026-10-27 source-protection record: the owner state history.json names after R-1, and
+// the one wait it resolved.
 const SP = 'source-protection-recorded';
 const SP_RESOLVES = 'prerequisite.source_protection_unrecorded';
-const SP_FROM = HISTORY.sets.at(-1).ownerStates.at(-1);
-const SP_WAIT_DIGEST_SYNTHETIC = 'sha256:01536d3a916fdbb6bdc3b7350301d6ee68709510b484dc2f80f883a10e675972';
 // The two response digests the SP-1 observation recorded on 2026-10-15. The 2026-10-27
 // re-read replaced the date and both digests together, and both came back byte-identical.
 const SP1_RESPONSE_DIGESTS_2026_10_15 = Object.freeze({
   'GET /repos/mugak1/Dinify-Frontend/rulesets/15107355': 'sha256:5c9fbd7188ecb0021ef94d7df69817f77b1f16894c377d909725e3286fb4d250',
   'GET /repos/mugak1/Dinify-Frontend/rules/branches/main': 'sha256:56cdcfdb7dead41b71bb442563ebbea41be6e0533d8832464dde3399eb566dff',
 });
-const OWNER_STATES = Object.freeze({
-  ...Object.fromEntries(Object.entries(HISTORY.ownerStates).map(([name, s]) => [name, {
-    ...s, overrides: { 'prerequisites.sourceProtection.status': 'unrecorded', ...s.overrides },
-  }])),
-  [SP]: {
-    _note: 'The 2026-10-27 source-protection record (test-local): R-1, with the status recorded and its wait removed.',
-    overrides: {
-      ...HISTORY.ownerStates[SP_FROM].overrides,
-      'prerequisites.sourceProtection.status': 'recorded',
-      'publication.readiness.awaiting': HISTORY.ownerStates[SP_FROM].overrides['publication.readiness.awaiting'].filter((c) => c !== SP_RESOLVES),
-    },
-  },
-});
-const RECORDED_LAST = HISTORY.sets.at(-1);
-const SETS = [...HISTORY.sets.slice(0, -1), {
-  ...RECORDED_LAST,
-  ownerStates: [...RECORDED_LAST.ownerStates, SP],
-  decisions: [...RECORDED_LAST.decisions, {
-    adminServes: RECORDED_LAST.approved.admin,
-    ownerState: SP,
-    unexpected: [],
-    decisionDigest: SP_WAIT_DIGEST_SYNTHETIC,
-    evidence: 'synthetic',
-    _note: 'Computed from the rule over the fixture candidate; no readiness run has recorded it.',
-  }],
-}];
 const CURRENT = SETS.at(-1);
 const PEERS = ['admin', 'backend'];
 const EVIDENCE = ['recorded', 'constructed', 'synthetic'];
@@ -132,7 +87,7 @@ const BACKEND = POLICY.compatibleSet.peers.backend.approved[0].commit;
 const short = (commit) => String(commit ?? 'none').slice(0, 7);
 
 const previousRow = (row) => SETS[SETS.indexOf(row) - 1];
-const awaitingOf = (state) => OWNER_STATES[state].overrides['publication.readiness.awaiting'];
+const awaitingOf = (state) => HISTORY.ownerStates[state].overrides['publication.readiness.awaiting'];
 const servingReasonOf = (row) => HISTORY.backendServingReasons[row.backendServingReason];
 const receiptFacts = (commit) => SETS.flatMap((r) => r.receipts).find((r) => r.commit === commit);
 /** The decision a row's approved Admin revision receives under one of its owner states, with
@@ -184,16 +139,16 @@ function setPath(object, path, value) {
   at[keys.at(-1)] = clone(value);
 }
 function applyOwnerState(policy, state) {
-  for (const [path, value] of Object.entries(OWNER_STATES[state].overrides)) setPath(policy, path, value);
+  for (const [path, value] of Object.entries(HISTORY.ownerStates[state].overrides)) setPath(policy, path, value);
   return policy;
 }
 /** A copy of `policy` (default: the committed one) with the pre-R-1 owner state restored,
  *  as history.json records it: retention unverified, and (being before the source-protection
  *  record too) source protection unrecorded. Nothing else is touched. */
 const preRetentionPolicy = (policy = POLICY) => applyOwnerState(clone(policy), PRE_R1);
-/** A copy of `policy` (default: the committed one) in the R-1 owner state, the one the last
- *  history row was committed under before the source-protection record: retention verified,
- *  source protection unrecorded, the five-entry list. Nothing else is touched. */
+/** A copy of `policy` (default: the committed one) in the R-1 owner state, the one the
+ *  source-protection record was made from: retention verified, source protection
+ *  unrecorded, the five-entry list. Nothing else is touched. */
 const r1Policy = (policy = POLICY) => applyOwnerState(clone(policy), R1);
 
 const receiptPath = (peer, commit) => `release/peers/${peer}-${commit}.json`;
@@ -503,7 +458,7 @@ describe('the history file itself — one row per compatible set, the last row t
       assert.deepEqual(Object.keys(row.approved).sort(), [...PEERS].sort(), at);
       for (const peer of PEERS) assert.match(row.approved[peer], /^[0-9a-f]{40}$/, at);
       assert.ok(Object.hasOwn(HISTORY.backendServingReasons, row.backendServingReason), at);
-      assert.ok(row.ownerStates.length > 0 && row.ownerStates.every((s) => Object.hasOwn(OWNER_STATES, s)), at);
+      assert.ok(row.ownerStates.length > 0 && row.ownerStates.every((s) => Object.hasOwn(HISTORY.ownerStates, s)), at);
       for (const state of row.ownerStates) assert.ok(standing(row, state), `${at}: no decision for its approved Admin under ${state}`);
       const previous = previousRow(row);
       for (const [list, states] of [[row.decisions, row.ownerStates], [row.refused ?? [], previous?.ownerStates ?? []]]) {
@@ -706,7 +661,7 @@ describe('the compatible-set history, replayed set by set', () => {
           const now = snapshot(row, row.ownerStates[0]);
           const expected = ['compatibleSet.id', ...row.moved.map((p) => `compatibleSet.peers.${p}.approved`)];
           if (row.backendServingReason !== previous.backendServingReason) expected.push('compatibleSet.peers.backend.serving.reason');
-          if (row.ownerStates[0] !== previous.ownerStates.at(-1)) expected.push(...Object.keys(OWNER_STATES[row.ownerStates[0]].overrides));
+          if (row.ownerStates[0] !== previous.ownerStates.at(-1)) expected.push(...Object.keys(HISTORY.ownerStates[row.ownerStates[0]].overrides));
           const diff = [];
           const walk = (x, y, path) => {
             if (x && y && typeof x === 'object' && typeof y === 'object' && !Array.isArray(x) && !Array.isArray(y)) {
@@ -1000,11 +955,13 @@ describe('the approved Admin evidence and the dependency assessment, against the
     assert.equal(POLICY.bootstrap.authorized, false);
     assert.equal(POLICY.bootstrap.servedBaseline, null);
     // Source protection moved later and separately (the 2026-10-27 record, under an unchanged
-    // set id), never by a refresh: every state a set was committed under replays it unrecorded.
+    // set id), never by a refresh: every state a set was committed under before the record
+    // replays it unrecorded, and the record's own state replays it recorded.
     assert.equal(POLICY.prerequisites.sourceProtection.status, 'recorded');
-    for (const state of Object.keys(HISTORY.ownerStates)) {
+    for (const state of Object.keys(HISTORY.ownerStates).filter((s) => s !== SP)) {
       assert.equal(applyOwnerState(clone(POLICY), state).prerequisites.sourceProtection.status, 'unrecorded', state);
     }
+    assert.equal(applyOwnerState(clone(POLICY), SP).prerequisites.sourceProtection.status, 'recorded');
     assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
     assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
     assert.ok(existsSync(join(ROOT, '.github/workflows/deploy-prod.yml')), 'the legacy writer is untouched');
@@ -1312,13 +1269,15 @@ describe('the 2026-10-27 source-protection record — prerequisite.source_protec
   // demonstrated; every limitation the observation states still applies, and the gate never
   // re-reads it. release/README.md -> "The 2026-10-27 source-protection record".
   //
-  // WHAT THE DIGEST IS. The four-reason wait is SYNTHETIC: computed from the rule over the
-  // fixture candidate, the committed receipts and the recorded Admin observation. No
-  // readiness run has recorded it. history.json is NOT part of this change (see the overlay at
-  // the top of this file), so the R-1 -> source-protection transition is pinned here and by
-  // the generic per-row tests over the overlaid last row.
-  const SP_WAIT = standing(CURRENT, SP).decisionDigest;
-  const R1_WAIT = standing(CURRENT, R1).decisionDigest;
+  // WHAT THE DIGEST IS. The four-reason wait is RECORDED: readiness run 40510386279 (on
+  // 532f68e, the record's own merge) bound it, and it is the digest the rule computes over
+  // the fixture candidate, the committed receipts and the recorded Admin observation.
+  // history.json carries the record as an owner state of its own, after R-1 in the row it
+  // landed in, so the R-1 -> source-protection transition is pinned here and by the generic
+  // per-row tests over that row.
+  const SP_ROW = SETS.find((r) => r.ownerStates.includes(SP));
+  const SP_WAIT = standing(SP_ROW, SP).decisionDigest;
+  const R1_WAIT = standing(SP_ROW, R1).decisionDigest;
   const FOUR = Object.freeze([
     'peers.backend_serving_unverified',
     'prerequisite.legacy_publisher_active',
@@ -1335,9 +1294,9 @@ describe('the 2026-10-27 source-protection record — prerequisite.source_protec
     // Everything this change was NOT allowed to touch: the set, its id and approvals,
     // retention, the single-publisher state, the bootstrap, enablement and backend serving.
     assert.equal(POLICY.compatibleSet.id, CURRENT.id);
-    assert.equal(POLICY.compatibleSet.id, RECORDED_LAST.id, 'the record landed under the unchanged set id');
-    assert.equal(ADMIN, RECORDED_LAST.approved.admin);
-    assert.equal(BACKEND, RECORDED_LAST.approved.backend);
+    assert.deepEqual(SP_ROW.ownerStates.slice(-2), [R1, SP], 'the record landed under the unchanged set id, straight after R-1');
+    assert.equal(ADMIN, CURRENT.approved.admin);
+    assert.equal(BACKEND, CURRENT.approved.backend);
     assert.equal(POLICY.prerequisites.retention.status, 'verified');
     assert.equal(POLICY.prerequisites.singlePublisher.status, 'legacy-writer-active');
     assert.equal(POLICY.prerequisites.singlePublisher.legacyWorkflow, '.github/workflows/deploy-prod.yml');
@@ -1355,17 +1314,29 @@ describe('the 2026-10-27 source-protection record — prerequisite.source_protec
     assert.deepEqual(today, r1, 'the R-1 snapshot restores the status and the list, and nothing else');
   });
 
-  test('CONTRACT: history.json does not carry the record — no owner state in it sets the status, and the last row was committed under R-1 alone', () => {
+  test('CONTRACT: history.json carries the record — an owner state of its own (R-1 with the status recorded and its one wait removed), after R-1 in the row it landed in, with both waits a readiness run recorded', () => {
+    const r1 = HISTORY.ownerStates[R1].overrides;
+    assert.deepEqual(HISTORY.ownerStates[SP].overrides, {
+      ...r1,
+      'prerequisites.sourceProtection.status': 'recorded',
+      'publication.readiness.awaiting': r1['publication.readiness.awaiting'].filter((c) => c !== SP_RESOLVES),
+    });
     for (const [name, state] of Object.entries(HISTORY.ownerStates)) {
-      assert.equal(Object.hasOwn(state.overrides, 'prerequisites.sourceProtection.status'), false,
-        `${name}: once history.json records source protection itself, delete the overlay at the top of this file`);
+      if (name === SP) continue;
+      assert.equal(state.overrides['prerequisites.sourceProtection.status'], 'unrecorded', `${name} predates the record, and history.json says so itself`);
       assert.ok(state.overrides['publication.readiness.awaiting'].includes(SP_RESOLVES), `${name} predates the record`);
     }
-    assert.deepEqual(RECORDED_LAST.ownerStates, [SP_FROM]);
-    assert.equal(SP_FROM, R1);
-    assert.equal(RECORDED_LAST.decisions.some((d) => d.ownerState === SP), false);
-    assert.deepEqual(CURRENT.ownerStates, [R1, SP], 'the overlay appends the record after R-1, and nowhere else');
-    assert.deepEqual(SETS.slice(0, -1), HISTORY.sets.slice(0, -1), 'every earlier row is replayed exactly as history.json records it');
+    // Overrides apply over the committed policy, so every state names the same prerequisite
+    // statuses: none can inherit a later owner decision by omission.
+    const keysOf = (name) => Object.keys(HISTORY.ownerStates[name].overrides).sort();
+    for (const name of Object.keys(HISTORY.ownerStates)) assert.deepEqual(keysOf(name), keysOf(SP), name);
+    assert.deepEqual(SP_ROW.ownerStates, [R1, SP], 'the record follows R-1 under the unchanged set id');
+    assert.deepEqual(SETS.filter((r) => r.ownerStates.includes(R1) && r.ownerStates.includes(SP)), [SP_ROW], 'and in that row alone');
+    for (const [state, run] of [[R1, 40497635180], [SP, 40510386279]]) {
+      const d = standing(SP_ROW, state);
+      assert.equal(d.evidence, 'recorded', state);
+      assert.deepEqual(d.runs, [run], state);
+    }
   });
 
   test('CONTRACT: with identical candidate, peer and fresh-assessment inputs, the record removes prerequisite.source_protection_unrecorded and nothing else', () => {
@@ -1391,8 +1362,7 @@ describe('the 2026-10-27 source-protection record — prerequisite.source_protec
     assert.deepEqual(codesOf(decision), [...FOUR]);
     assert.equal(codesOf(decision).length, 4);
     assert.equal(digestOfValue(decision), digestOfValue(decidePure()));
-    assert.equal(digestOfValue(decision), SP_WAIT, 'SYNTHETIC until a readiness run records it');
-    assert.equal(SP_WAIT, SP_WAIT_DIGEST_SYNTHETIC);
+    assert.equal(digestOfValue(decision), SP_WAIT, 'the wait readiness run 40510386279 recorded');
     assert.notEqual(SP_WAIT, R1_WAIT);
   });
 

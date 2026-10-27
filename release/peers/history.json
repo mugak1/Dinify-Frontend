@@ -22,7 +22,12 @@
     "declared here, and a retained receipt is never deleted. Receipts are produced by",
     "`node release/cli.mjs peer-receipt` at the exact commit and re-derived independently",
     "before they are approved; release/README.md (\"Refreshing the compatible set\") gives",
-    "the procedure and records each refresh's review."
+    "the procedure and records each refresh's review.",
+    "",
+    "AN OWNER-STATE CHANGE under an unchanged set id (R-1; the 2026-10-27 source-protection",
+    "record) adds one `ownerStates` entry and extends the last row's `ownerStates` and",
+    "`decisions`. A state's overrides are applied over the committed policy, so every state",
+    "names each prerequisite status an owner-state change has moved, earlier states included."
   ],
   "schema": "dinify.release.compatible-set-history/1",
   "backendServingReasons": {
@@ -31,9 +36,10 @@
   },
   "ownerStates": {
     "before-R-1": {
-      "_note": "Every set committed before R-1 (2026-10-15): Firebase retention unverified, and its wait listed.",
+      "_note": "Every set committed before R-1 (2026-10-15): Firebase retention unverified, and its wait listed. Source protection was unrecorded too.",
       "overrides": {
         "prerequisites.retention.status": "unverified",
+        "prerequisites.sourceProtection.status": "unrecorded",
         "publication.readiness.awaiting": [
           "peers.backend_serving_unverified",
           "prerequisite.legacy_publisher_active",
@@ -45,14 +51,28 @@
       }
     },
     "R-1": {
-      "_note": "R-1 (2026-10-15) recorded retention verified and removed that one wait, under the unchanged pilot-15 id.",
+      "_note": "R-1 (2026-10-15) recorded retention verified and removed that one wait, under the unchanged pilot-15 id. Source protection stayed unrecorded.",
       "overrides": {
         "prerequisites.retention.status": "verified",
+        "prerequisites.sourceProtection.status": "unrecorded",
         "publication.readiness.awaiting": [
           "peers.backend_serving_unverified",
           "prerequisite.legacy_publisher_active",
           "prerequisite.legacy_publisher_present",
           "prerequisite.source_protection_unrecorded",
+          "served.bootstrap_unauthorized"
+        ]
+      }
+    },
+    "source-protection-recorded": {
+      "_note": "The 2026-10-27 source-protection record moved source protection to recorded and removed that one wait, under the unchanged pilot-17 id. Retention stayed verified.",
+      "overrides": {
+        "prerequisites.retention.status": "verified",
+        "prerequisites.sourceProtection.status": "recorded",
+        "publication.readiness.awaiting": [
+          "peers.backend_serving_unverified",
+          "prerequisite.legacy_publisher_active",
+          "prerequisite.legacy_publisher_present",
           "served.bootstrap_unauthorized"
         ]
       }
@@ -1088,7 +1108,7 @@
     },
     {
       "id": "2026-10-26-pilot-17",
-      "_note": "Admin 668b627 (the #49 merge): deploy.yml gains a first job, window (actions: write only), that defers an off-hours deploy; deploy is still the only id-token holder.",
+      "_note": "Admin 668b627 (the #49 merge): deploy.yml gains a first job, window (actions: write only), that defers an off-hours deploy; deploy is still the only id-token holder. The 2026-10-27 source-protection record later moved source protection to recorded under the same set id.",
       "approved": {
         "admin": "668b62788db5d0d45f81150dad69c2c1802485aa",
         "backend": "0513adb441828d62faadc1c67799c5432868c33a"
@@ -1110,7 +1130,8 @@
       ],
       "backendServingReason": "no-loaded-runtime-identity",
       "ownerStates": [
-        "R-1"
+        "R-1",
+        "source-protection-recorded"
       ],
       "moved": [
         "admin"
@@ -1143,13 +1164,27 @@
           "ownerState": "R-1",
           "unexpected": [],
           "decisionDigest": "sha256:8ecab1b23fb982208d71918725f316ccd482ba241029a221d326ef38ed7e5677",
-          "evidence": "constructed",
-          "_note": "No run has recorded it under this set. Readiness run 40380608540 bound the same digest under pilot-16, with a42a056 serving."
+          "evidence": "recorded",
+          "runs": [
+            40497635180
+          ],
+          "_note": "Job 122167009579, on 7cf5b45."
+        },
+        {
+          "adminServes": "668b62788db5d0d45f81150dad69c2c1802485aa",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [],
+          "decisionDigest": "sha256:01536d3a916fdbb6bdc3b7350301d6ee68709510b484dc2f80f883a10e675972",
+          "evidence": "recorded",
+          "runs": [
+            40510386279
+          ],
+          "_note": "Job 122210427198, on 532f68e."
         }
       ],
       "adminServingObserved": {
         "commit": "668b62788db5d0d45f81150dad69c2c1802485aa",
-        "_note": "A public read of /release.txt returned it, no-store, at 2026-10-26T22:16:11Z. Deploy Admin run 40383293859 promoted it (reported by the reviewer). No frontend readiness run has observed it yet."
+        "_note": "A public read of /release.txt returned it, no-store, at 2026-10-26T22:16:11Z. Deploy Admin run 40383293859 promoted it (reported by the reviewer). Readiness runs 40497635180 (on 7cf5b45) and 40510386279 (on 532f68e) refused no peers.admin reason, so each read the one approved revision, 668b627, served no-store; their logs do not print the commit."
       }
     }
   ]
