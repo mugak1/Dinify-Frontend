@@ -131,9 +131,7 @@ async function signIn(page, phone) {
   // this only ever runs against a disposable local database.
   await page.waitForSelector('app-otp-input input, app-restaurant-mgt', { timeout: 30000 });
   if (await page.locator('app-otp-input input').count()) {
-    const boxes = page.locator('app-otp-input input');
-    const n = await boxes.count();
-    for (let i = 0; i < n; i += 1) await boxes.nth(i).fill('1234'[i] ?? '');
+    await page.fill('app-otp-input input', '1234');
     await page.locator('button:has-text("Verify")').first().click();
   }
   await page.waitForSelector('app-restaurant-mgt', { timeout: 30000 });
