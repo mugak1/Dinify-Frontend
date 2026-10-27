@@ -32,6 +32,7 @@ const dateOf = (ms) => new Date(ms).toISOString().slice(0, 10);
 const json = (text) => JSON.parse(text.slice(text.indexOf('{')));
 const G_HELPER = 'GHSA-hhhh-eeee-llll';
 const G_PUBLISHER = 'GHSA-pppp-uuuu-bbbb';
+const G_SCANNER = 'GHSA-ssss-cccc-nnnn';
 const HELPER_PATH = 'application:node_modules/tool/node_modules/helper';
 
 /** A fixture checkout with TWO commits (so a certification can name a base), a recorded npm, and a candidate. */
@@ -138,6 +139,20 @@ describe('the fresh assessment: provenance against the candidate\'s own retained
       const a = await assess(w, t);
       assert.equal(a.doc.outcome, 'blocking');
       assert.equal('reportableSince' in finding(a.doc, HELPER_PATH), false);
+    } finally { reset(w); }
+  });
+
+  test('CONTRACT (SYNTHETIC advisory): the SCANNER graph has provenance too — an unchanged bundled package\'s high inside its window → obligations_pending', async () => {
+    const since = advise(w, { name: 'bundled', version: '1.0.0', ghsa: G_SCANNER, daysAgo: 2 });
+    try {
+      const a = await assess(w, t);
+      assert.equal(a.r.status, 0, a.r.stderr);
+      assert.equal(a.doc.outcome, 'obligations_pending', JSON.stringify(a.doc.reasons));
+      const f = a.doc.findings.find((x) => x.path.startsWith('scanner:'));
+      assert.ok(f, JSON.stringify(a.doc.findings));
+      assert.equal(f.provenance, 'inherited', 'the trusted scanner lock still holds the candidate\'s retained entry');
+      assert.equal(f.reportableSince, since);
+      assert.deepEqual(inspectAssessment(readFilesUnder(a.out).files).problems, []);
     } finally { reset(w); }
   });
 
