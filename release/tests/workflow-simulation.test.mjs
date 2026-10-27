@@ -406,9 +406,13 @@ describe('publish.yml, executed against a production-shaped world', { concurrenc
   });
 
   test('CONTRACT: outstanding owner prerequisites refuse at the gate; the publish job never starts', async () => {
-    // Explicitly the PRE-R-1 retention state, so all four owner prerequisites are exercised:
-    // the committed policy has recorded retention verified since R-1 (2026-10-15).
-    const world = await makeWorld({ prerequisites: 'committed', legacyWorkflow: true, policyMutate: (p) => { p.prerequisites.retention = { status: 'unverified' }; } });
+    // Explicitly the PRE-R-1 owner state, so all four owner prerequisites are exercised: the
+    // committed policy has recorded retention verified since R-1 (2026-10-15) and source
+    // protection recorded since 2026-10-27.
+    const world = await makeWorld({ prerequisites: 'committed', legacyWorkflow: true, policyMutate: (p) => {
+      p.prerequisites.retention = { status: 'unverified' };
+      p.prerequisites.sourceProtection.status = 'unrecorded';
+    } });
     const result = await simulate(world, automaticEvent(world, 5102));
     assert.equal(result.jobs.gate.result, 'failure', 'a refusal is red');
     // Red AT the decision, not only at the report after it. The job would still go red
@@ -883,15 +887,16 @@ describe('publish.yml, a deliberately NON-PUBLISHING evaluation — reported as 
     const result = await simulate(world, event);
     assertRecordedWait(world, result, event);
     assert.equal(readinessOf(result).enablement, 'disabled-unset');
-    // Since R-1 (2026-10-15) the recorded list is five: retention is verified and absent.
+    // Since R-1 (2026-10-15) retention is verified and absent, and since the 2026-10-27
+    // source-protection record source protection is recorded and absent: the list is four.
     assert.deepEqual(EXPECTED_WAIT, [
       'peers.backend_serving_unverified',
       'prerequisite.legacy_publisher_active',
       'prerequisite.legacy_publisher_present',
-      'prerequisite.source_protection_unrecorded',
       'served.bootstrap_unauthorized',
     ]);
     assert.equal(codesOf(decisionOf(result)).includes('prerequisite.retention_unverified'), false);
+    assert.equal(codesOf(decisionOf(result)).includes('prerequisite.source_protection_unrecorded'), false);
   });
 
   test('CONTROL: an explicit `false` is as disabled as unset — still the recorded wait', async () => {
