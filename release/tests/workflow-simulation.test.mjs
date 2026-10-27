@@ -40,7 +40,8 @@ import { receiptDigest } from '../lib/peers.mjs';
 import { AWAITING } from '../lib/readiness.mjs';
 import {
   REPOSITORY, ROOT, artifactDigest, artifactStore, buildCandidate, certificationResponses, cli, commitAll,
-  commitPreB22Release, fixtureFrontend, git, initRepo, installFakeGh, runObject, startOrigin, tempDir, writeText,
+  commitPreB22Release, fixtureFrontend, git, initRepo, installFakeGh, removeOffHoursNote, runObject, startOrigin, tempDir,
+  writeText,
 } from './harness.mjs';
 import { POLICY, clone } from './fixtures.mjs';
 import { fixtureStore, installFakeNpm } from './fake-npm.mjs';
@@ -805,6 +806,30 @@ function retainedGate(world, event, file) {
   return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
 }
 
+/**
+ * FAULT INJECTION, labelled by the scenarios that use it: the clock of the Decide step
+ * ALONE, moved forward to the next London minute well inside `region` — `off` (23:30 to
+ * 10:30) or `on` (11:30 to 22:10), half an hour clear of every edge — so the decision
+ * time is chosen rather than whatever the suite's clock reads. At most 14 hours ahead,
+ * inside the 24-hour certification and assessment windows the world was built with.
+ */
+function decideAtLondon(region) {
+  const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const minuteAt = (ms) => { const [h, m] = clock.format(ms).split(':').map(Number); return h * 60 + m; };
+  const wanted = region === 'off' ? (m) => m >= 23 * 60 + 30 || m < 10 * 60 + 30 : (m) => m >= 11 * 60 + 30 && m < 22 * 60 + 10;
+  return ({ job, step: name }) => {
+    if (job !== 'gate' || name !== 'Decide') return {};
+    const base = Date.now();
+    for (let s = 0; s <= 14 * 3600; s += 300) if (wanted(minuteAt(base + s * 1000))) return { SIM_CLOCK_OFFSET_SECONDS: String(s) };
+    throw new Error(`no ${region} London minute within 14 hours`);
+  };
+}
+
+/** Admin's release.txt as the stopped development server leaves it: no usable answer. */
+const adminUnreachable = (world) => world.adminOrigin.route('/release.txt', { status: 503, headers: { 'content-type': 'text/plain' }, body: 'unavailable' });
+
+const OFF_HOURS_NOTE = /\*\*(Admin's release\.txt couldn't be read: the development server is scheduled off at \d{4}-\d{2}-\d{2} (\d{2}):(\d{2}) (?:GMT|BST) \(window 11:00–23:00 London\), so this is expected\.)\*\*/;
+
 const readinessOf = (result) => {
   const path = join(result.jobs.gate.workspace, 'readiness.json');
   return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
@@ -932,6 +957,67 @@ describe('publish.yml, a deliberately NON-PUBLISHING evaluation — reported as 
     const result = await simulate(world, automaticEvent(world, 5102));
     assert.ok(codesOf(decisionOf(result)).some((c) => c.startsWith('peers.admin')), codesOf(decisionOf(result)).join(','));
     assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+  });
+
+  test('CONTRACT (off-hours note; fault injection: the Decide step\'s clock moved off hours): Admin unreadable — the note and its ::warning::, and still red', async () => {
+    const world = await committedWorld();
+    adminUnreachable(world);
+    const result = await simulate(world, automaticEvent(world, 5102), { stepEnv: decideAtLondon('off') });
+    assert.ok(codesOf(decisionOf(result)).includes('peers.admin_serving_unreadable'), codesOf(decisionOf(result)).join(','));
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+    assert.equal(outcomeOf(result), 'REFUSED');
+    const summary = result.jobs.gate.summary;
+    const note = OFF_HOURS_NOTE.exec(summary);
+    assert.ok(note, summary);
+    // The time is the Decide step's own `--now`, which this scenario put off hours.
+    const minute = Number(note[2]) * 60 + Number(note[3]);
+    assert.ok(minute >= 23 * 60 + 30 || minute < 10 * 60 + 30, note[1]);
+    assert.match(summary, /> Re-run "Readiness evaluation" inside the window: "Re-run all jobs" on this run, or a `workflow_dispatch`\./);
+    // Read before the verdict that keeps the run red.
+    assert.ok(summary.indexOf(note[1]) < summary.indexOf('### Readiness evaluation: NOT the recorded waiting state'));
+    // The annotation carries the note's first line, from the Decide step.
+    const decide = step(result, 'gate', 'Decide');
+    assert.ok(decide.stderr.split('\n').includes(`::warning::${note[1]}`), decide.stderr);
+    const annotating = result.steps.filter((s) => `${s.stdout ?? ''}${s.stderr ?? ''}`.includes("::warning::Admin's release.txt"));
+    assert.deepEqual(annotating.map((s) => s.name), ['Decide'], 'the annotation is written once, by the Decide step');
+  });
+
+  test('CONTROL (off-hours note; fault injection: the Decide step\'s clock moved into the window): the same refusal — the short line, no annotation, still red', async () => {
+    const world = await committedWorld();
+    adminUnreachable(world);
+    const result = await simulate(world, automaticEvent(world, 5102), { stepEnv: decideAtLondon('on') });
+    assertRedAndInert(world, result, { readinessProblem: 'readiness.unexpected_reason' });
+    const summary = result.jobs.gate.summary;
+    assert.match(summary, /> Admin's release\.txt couldn't be read at \d{4}-\d{2}-\d{2} \d{2}:\d{2} (GMT|BST), inside the development server's window \(11:00–23:00 London\)\. The development server should be up now\. Treat this as an outage and check Admin\./);
+    assert.doesNotMatch(summary, /so this is expected/);
+    assert.doesNotMatch(step(result, 'gate', 'Decide').stderr, /::warning::/);
+  });
+
+  test('CONTRACT (off-hours note; fault injection: the note removed, the clock moved off hours): the retained decision and readiness record are byte-identical without it', async () => {
+    const world = await committedWorld();
+    adminUnreachable(world);
+    const withNote = automaticEvent(world, 5102);
+    const withoutNote = { ...automaticEvent(world, 5102), runId: withNote.runId + 1 };
+    const a = await simulate(world, withNote, { stepEnv: decideAtLondon('off') });
+    const b = await simulate(world, withoutNote, {
+      stepEnv: decideAtLondon('off'),
+      beforeStep: async ({ job, step: name, workspace }) => { if (job === 'gate' && name === 'Decide') removeOffHoursNote(workspace); },
+    });
+    const raw = (event, file) => readFileSync(join(world.evidence, `publish-gate-${event.runId}-1`, file), 'utf8');
+    for (const file of ['decision.json', 'readiness.json']) assert.equal(raw(withNote, file), raw(withoutNote, file), file);
+    for (const key of ['decision', 'allow']) assert.equal(a.jobs.gate.outputs[key], b.jobs.gate.outputs[key], key);
+    for (const name of ['Decide', 'Report the outcome']) {
+      assert.equal(step(a, 'gate', name).status, step(b, 'gate', name).status, name);
+      assert.equal(step(a, 'gate', name).outcome, step(b, 'gate', name).outcome, name);
+    }
+    assert.equal(a.jobs.gate.result, b.jobs.gate.result);
+    assert.equal(outcomeOf(a), outcomeOf(b));
+    assertRedAndInert(world, b, { readinessProblem: 'readiness.unexpected_reason' });
+    // ...and the two runs DID differ, in the note and the annotation alone.
+    assert.match(a.jobs.gate.summary, OFF_HOURS_NOTE);
+    assert.doesNotMatch(b.jobs.gate.summary, /release\.txt couldn't be read/);
+    assert.match(step(a, 'gate', 'Decide').stderr, /^::warning::Admin's release\.txt couldn't be read/m);
+    assert.doesNotMatch(step(b, 'gate', 'Decide').stderr, /::warning::/);
   });
 
   test('CONTROL (§5.4): a wrong, a missing or a changed backend receipt — red, each time', async () => {

@@ -21,7 +21,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync,
+  chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync,
   statSync, writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:https';
@@ -451,6 +451,18 @@ export function fixtureFrontend({ policy, receipts = {}, legacyWorkflow = false,
   if (legacyWorkflow) cpSync(join(ROOT, '.github/workflows/deploy-prod.yml'), join(dir, '.github/workflows/deploy-prod.yml'));
   for (const [rel, text] of Object.entries(files)) writeText(dir, rel, text);
   return { dir, commit: commitAll(dir, 'fixture: initial'), policy: written };
+}
+
+/**
+ * FAULT INJECTION, for the tests that compare a run WITH the off-hours note against one
+ * WITHOUT it: in the release code under `root` (a copy, or a gate workspace), the note
+ * module answers null, so `decide` renders no note and writes no annotation. Everything
+ * else in that code is real, so any byte the two runs disagree on is the note's doing.
+ */
+export function removeOffHoursNote(root) {
+  renameSync(join(root, 'release/lib/off-hours.mjs'), join(root, 'release/lib/off-hours-real.mjs'));
+  writeFileSync(join(root, 'release/lib/off-hours.mjs'),
+    "export * from './off-hours-real.mjs';\nexport function adminReadNote() { return null; }\n");
 }
 
 /**
