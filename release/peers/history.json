@@ -1186,6 +1186,72 @@
         "commit": "668b62788db5d0d45f81150dad69c2c1802485aa",
         "_note": "A public read of /release.txt returned it, no-store, at 2026-10-26T22:16:11Z. Deploy Admin run 40383293859 promoted it (reported by the reviewer). Readiness runs 40497635180 (on 7cf5b45) and 40510386279 (on 532f68e) refused no peers.admin reason, so each read the one approved revision, 668b627, served no-store; their logs do not print the commit."
       }
+    },
+    {
+      "id": "2026-10-27-pilot-18",
+      "_note": "Admin 13a0e54 (the #50 merge): CI-signal A-1, dated obligations in the shared dependency-audit evaluator, inert until A-2. Admin's trusted verifier (dependency-audit/, release/lib/certification.mjs) moved; .github/ and deploy.yml unchanged.",
+      "approved": {
+        "admin": "13a0e54ca4d8c0e1f66fcde7121a7ed2d7654816",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "13a0e54ca4d8c0e1f66fcde7121a7ed2d7654816",
+          "receiptDigest": "sha256:b5e1127b0ad7230c8c6e6966221886650d18e2b14c43d435a6a83ad3ab4ad8b1",
+          "tree": "f792ece42aeb78c54c441e811dd9b753eb0cdeac",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "a71f5d5fd213ca5f91efda761cfc5b535bbb1613"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "source-protection-recorded"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "d1443f72a185a7950fc986fa360107cfe05be27d",
+          "tree": "f792ece42aeb78c54c441e811dd9b753eb0cdeac",
+          "_note": "The PR head: the same tree as the merge, a different commit."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "13a0e54ca4d8c0e1f66fcde7121a7ed2d7654816",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:53979e76483bd98a3fd4e0894c2495194767250de947e656c286e6d0bdcd9e4f",
+          "evidence": "constructed",
+          "_note": "No readiness run observed 13a0e54 under pilot-17: the last, 40551933129 (on 8c07cde), read the peers at 17:35Z, before Deploy Admin run 40553113097 promoted 13a0e54, and completed as the four-reason wait. Computed from the rule with a passing assessment."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "13a0e54ca4d8c0e1f66fcde7121a7ed2d7654816",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [],
+          "decisionDigest": "sha256:01536d3a916fdbb6bdc3b7350301d6ee68709510b484dc2f80f883a10e675972",
+          "evidence": "constructed",
+          "_note": "The four-reason wait. It names no Admin commit, so its digest is pilot-17's, which runs 40510386279 and 40551933129 recorded under pilot-17; no run has recorded it under pilot-18."
+        }
+      ],
+      "adminServingObserved": {
+        "commit": "13a0e54ca4d8c0e1f66fcde7121a7ed2d7654816",
+        "_note": "A public read of /release.txt returned it, no-store, at 2026-10-27T17:52:00Z. Deploy Admin run 40553113097 promoted it, and its own public-origin assertion step succeeded (conclusions read through the API, logs not read)."
+      }
     }
   ]
 }

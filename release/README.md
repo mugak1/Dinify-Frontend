@@ -2607,6 +2607,72 @@ and nothing is added to `publication.readiness.awaiting`.
   `main`): the six added are the ones the new row generates. The release suite runs
   **1444** tests on Node 24.22.1, which is 1438 on `main` by subtraction.
 
+### The 2026-10-27 Admin refresh (compatible set `2026-10-27-pilot-18`)
+
+Admin merged #50 as `13a0e54`. Admin CI run `40552675432` succeeded on it, and Deploy
+Admin run `40553113097` promoted it: its `window`, `prepare` and `deploy` jobs all
+succeeded, including the step that asserts the public origin serves the admitted release.
+Those conclusions were read through the API; the logs were not read. A public read of
+`/release.txt` returned `13a0e54`, `no-store`, at 2026-10-27T17:52:00Z. This refresh
+approves `13a0e54`. Only the Admin approval and the set id move. Backend `0513adb` and its
+serving note are `pilot-12`'s, the owner state is `source-protection-recorded`, and nothing
+is added to `publication.readiness.awaiting`.
+
+| peer | commit | tree | source blob | receipt digest |
+|---|---|---|---|---|
+| admin | `13a0e54ca4d8c0e1f66fcde7121a7ed2d7654816` (#50) | `f792ece4…` | `deploy.yml` `a71f5d5f…` (unchanged) | `sha256:b5e1127b0ad7230c8c6e6966221886650d18e2b14c43d435a6a83ad3ab4ad8b1` |
+
+- **Source verification.** The unchanged `peer-receipt --write` produced the receipt from
+  a fresh clone of the public repository, at the exact merged commit. The same command
+  reproduced the committed `668b627` receipt byte for byte from that clone. An independent
+  Python re-derivation used a separate bare clone. It recomputed each git object's hash,
+  walked the commit's tree to the `deploy.yml` blob and computed the canonical digest, and
+  it agrees. `668b627`'s `aadd295e…` and `a42a056`'s `6302bf9a…` reproduce as controls.
+- **Admin `668b627..13a0e54` is #50 alone** (one first-parent merge). The merge's tree
+  equals the PR head `d1443f7`'s (`f792ece4…`), so the merged source is the reviewed
+  source. #50 is CI-signal A-1: the shared dependency-audit evaluator learns dated
+  obligations, inert until A-2. It changed seven files:
+  - `CLAUDE.md`;
+  - `dependency-audit/README.md`, `conformance.json`, `lib/core.mjs` and
+    `tests/core.test.mjs`. The evaluator gains a fifth outcome, `obligations_pending`
+    (exit 0). Only an unexcepted tooling-high finding carrying `provenance` and
+    `reportableSince` can reach it, and no Admin adapter supplies either yet;
+  - `release/lib/certification.mjs` and `release/tests/certification.test.mjs`. Its
+    `PASSING`, which `assessment.mjs` imports, accepts the new word.
+
+  Both trees are part of Admin's trusted verifier, so its `release/` and
+  `dependency-audit/` trees moved as described. **`.github/` is byte-identical.** The
+  receipt-bearing `deploy.yml` is unchanged (`a71f5d5`), so the executable deployment
+  procedure and the identity this gate reads (the exact commit at `/release.txt`, served
+  `no-store`) are unchanged. `deploy` is still the only job holding `id-token: write`, and
+  `claude.yml` and `claude-code-review.yml` are unchanged. No `package.json`, lock,
+  `angular.json` or `src/` file changed.
+- **Not an independent review.** #50 was written in the same session that prepared this
+  refresh, so this review is not independent of its authorship. Codex's review of #50
+  reported no findings, and the Claude Code review check succeeded without posting a
+  comment. This is a statement about source, not a security
+  certification of the evaluator change.
+- **Constructed, not recorded.** No Frontend readiness run observed `13a0e54` under
+  `pilot-17`. The last, `40551933129` (on `8c07cde`), read the peers at 17:35Z, before the
+  Admin deployment. It completed as the four-reason wait `sha256:01536d3a…`, which `pilot-17`'s
+  row already carries as recorded. The `pilot-17` refusal of a served `13a0e54` is
+  therefore computed from the rule, with a passing assessment: `sha256:53979e76…`, five
+  reasons. With every other fact held fixed, the refresh removes
+  `peers.admin_serving_unapproved` and nothing else, and returns the four-reason wait
+  `sha256:01536d3a…`. The wait names no Admin commit, so its digest is unchanged, and no
+  run has recorded it under `pilot-18`.
+- **What it does not resolve.** The four standing reasons
+  (`peers.backend_serving_unverified`, the two `prerequisite.legacy_publisher_*` reasons
+  and `served.bootstrap_unauthorized`) stand. This approval activates no publisher,
+  establishes no backend runtime identity and enables no publication. A later Admin head
+  is not implicitly approved: the next Admin deployment turns the next readiness run red
+  again until its own receipt is reviewed.
+- **Replaced, not joined.** The `668b627` receipt stays under `peers/` as history. The
+  committed-policy and journey-observation suites run **237** tests together (231 on
+  `main`): the six added are the ones the new row generates, and 20 of them fail with
+  `main`'s `pilot-17` policy put back. The release suite runs **1493** tests on Node
+  24.22.1, against 1487 on `main` (both measured).
+
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
 adapter and simulation suites then prove the CLI feeds them what the world says.
