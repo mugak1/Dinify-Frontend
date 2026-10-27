@@ -26,8 +26,9 @@ import { before, describe, test } from 'node:test';
 
 import { digestOf, digestOfValue, sha256Hex } from '../lib/canonical.mjs';
 import {
-  EVIDENCE_DIR, EVIDENCE_RECORD, RETAINED, assessmentTimeReasons, inspectAssessment,
+  EVIDENCE_DIR, EVIDENCE_RECORD, PASSING_OUTCOMES, RETAINED, assessmentTimeReasons, inspectAssessment,
 } from '../lib/dependency-evidence.mjs';
+import { OUTCOMES, exitCodeFor } from '../../dependency-audit/lib/core.mjs';
 import { readFilesUnder, walkTooling } from '../lib/io.mjs';
 import { dependencyBoundaryReasons } from '../lib/preflight.mjs';
 import { publishInvocation, readPublishResult } from '../lib/publisher.mjs';
@@ -836,6 +837,18 @@ describe('publish — the last boundary, before the credential is read', () => {
     for (const code of ['publisher.tooling_mismatch', 'publisher.assessment_mismatch', 'publisher.certification_stale']) assert.ok(codes.includes(code), codes.join(','));
     assert.equal(existsSync(marker), false, 'the entrypoint never ran');
     assert.deepEqual(readdirSync(dir).filter((n) => n.startsWith('dinify-publish-')), [], 'no credential directory was ever created');
+  });
+});
+
+describe('the passing outcomes — exactly the evaluator\'s exit-0 words (CI-signal A-1)', () => {
+  test('CONTRACT: obligations_pending is a passing outcome, beside the two that already were', () => {
+    assert.deepEqual([...PASSING_OUTCOMES], ['within_policy', 'exceptions_only', 'obligations_pending']);
+  });
+  test('CONTRACT: the passing set is the evaluator\'s exit-0 set, so the two cannot drift apart', () => {
+    assert.deepEqual([...PASSING_OUTCOMES], OUTCOMES.filter((o) => exitCodeFor(o) === 0));
+  });
+  test('CONTRACT: a word the evaluator does not emit is not passing', () => {
+    for (const word of ['obligations_overdue', 'clean', 'blocking', 'incomplete', '']) assert.equal(PASSING_OUTCOMES.includes(word), false, word);
   });
 });
 

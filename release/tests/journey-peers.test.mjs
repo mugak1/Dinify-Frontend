@@ -283,6 +283,22 @@ describe('SYNTHETIC: sufficient evidence yields a descriptor, never a verificati
       assert.deepEqual(codes(run(w)), [], libc);
     }
   });
+  test('CONTRACT (A-1): a record claiming an audit that passed with dated obligations outstanding is accepted, both peers', () => {
+    for (const peer of ['admin', 'backend']) {
+      const w = world(peer);
+      setRecord(w, peer, (r) => { r.audit.outcome = 'obligations_pending'; });
+      const r = run(w);
+      assert.deepEqual(codes(r), [], peer);
+      assert.equal(r.descriptor.claims.auditOutcome, 'obligations_pending', peer);
+    }
+  });
+  test('CONTRACT (A-1): an audit word no evaluator emits is still refused, both peers', () => {
+    for (const peer of ['admin', 'backend']) {
+      const w = world(peer);
+      setRecord(w, peer, (r) => { r.audit.outcome = 'obligations_overdue'; });
+      assert.deepEqual(codes(run(w)), ['journey.peers.record_audit_not_passing'], peer);
+    }
+  });
   test('CONTROL: an unrelated artifact and another attempt\'s candidate are not a second candidate', () => {
     const w = world('backend');
     const other = artifactEntry('backend', `backend-candidate-${WORLD.backend.runId}-2`, Buffer.from('SYNTHETIC later attempt'), 949999);

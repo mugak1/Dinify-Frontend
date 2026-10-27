@@ -257,7 +257,7 @@ export function evidenceFor(manifest = manifestFor(), { treeDigest = TREE_DIGEST
     scanner: { package: 'npm', pinned: '11.19.1' },
     graphs: { scanner: { digests: { lockfileSha256: SCANNER_LOCK_SHA, manifestSha256: SCANNER_MANIFEST_SHA, installedTreeSha256: HEX('5') } } },
   };
-  const result = { outcome, exitCode: outcome === 'within_policy' || outcome === 'exceptions_only' ? 0 : outcome === 'blocking' ? 1 : 2, counts: { ...COUNTS } };
+  const result = { outcome, exitCode: outcome === 'within_policy' || outcome === 'exceptions_only' || outcome === 'obligations_pending' ? 0 : outcome === 'blocking' ? 1 : 2, counts: { ...COUNTS } };
   const reevaluation = { decidedAt: manifest.certification.runStartedAt, outcome };
   const files = [
     { path: RETAINED.manifest, sha256: MANIFEST_SHA, bytes: 100 },
@@ -331,7 +331,7 @@ export function assessmentFor({ manifest = manifestFor(), evidence = evidenceFor
     },
     headline: 'WITHIN POLICY',
     outcome,
-    exitCode: outcome === 'within_policy' || outcome === 'exceptions_only' ? 0 : outcome === 'blocking' ? 1 : 2,
+    exitCode: outcome === 'within_policy' || outcome === 'exceptions_only' || outcome === 'obligations_pending' ? 0 : outcome === 'blocking' ? 1 : 2,
     counts: { ...COUNTS },
     reasons: [],
     findings: [],

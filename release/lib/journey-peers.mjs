@@ -101,8 +101,9 @@ const WHEEL_META_VERSION_RE = /^[A-Za-z0-9_.!+]{1,64}$/;
 export const WHEEL_ROLES = Object.freeze(['application', 'bootstrap']);
 // The audit outcomes both producers certify under (Dinify-Admin certification.mjs
 // PASSING; Dinify-Backend candidate.py ACCEPTED_AUDIT_OUTCOMES). A CLAIM, re-decided from
-// the raw output only by the peer's own consumer.
-const PASSING_AUDIT = Object.freeze(['within_policy', 'exceptions_only']);
+// the raw output only by the peer's own consumer. `obligations_pending` is the shared
+// evaluator's third exit-0 outcome (CI-signal A-1), carried by no record until A-2.
+const PASSING_AUDIT = Object.freeze(['within_policy', 'exceptions_only', 'obligations_pending']);
 
 /** Bounds on what is accepted at all. Anything larger is refused unread. */
 export const LIMITS = Object.freeze({
