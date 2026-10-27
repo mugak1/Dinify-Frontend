@@ -1196,6 +1196,149 @@ export-less backend is ever approved again.
 Until then this path cannot publish, and says so, rather than accepting an operator's
 word for which backend is live.
 
+### The 2026-10-27 source-protection record
+
+On 2026-10-27 the owner decided to record source protection. `prerequisites.sourceProtection.status`
+moved from `unrecorded` to `recorded`, and `prerequisite.source_protection_unrecorded` left
+`publication.readiness.awaiting` in the same change, as the procedure above requires. The
+observation was re-read first and refreshed, and its limitations were kept.
+
+**This section supersedes four statements elsewhere in this file, which this change leaves
+unedited:**
+
+- the table row above, which lists `prerequisite.source_protection_unrecorded` as outstanding;
+- "The status stays `unrecorded`" under SP-1;
+- the five-reason committed decision described under R-1;
+- "the repository is private" / "The backend is private" in the peer table and in "Approving a
+  backend receipt".
+
+**What was observed** (measured, 2026-10-27 between 12:28:40Z and 12:28:41Z):
+
+- **The reads.** Read-only REST GETs of `/repos/mugak1/Dinify-Frontend/rulesets`,
+  `/rulesets/15107355`, `/rules/branches/main`, `/branches/main` and
+  `/branches/main/protection`. No write, push, force-push, merge or enforcement probe was
+  attempted.
+- **The reading identity.** The reader sent no token of its own. The session's egress proxy
+  authenticated the requests with an integration credential: the responses reported
+  `X-RateLimit-Limit: 15000`, empty `X-OAuth-Scopes`, and `current_user_can_bypass: "never"`.
+  It was **not** an anonymous read.
+- **The same two bodies.** `GET …/rulesets/15107355` hashed to `sha256:5c9fbd71…d250` and
+  `GET …/rules/branches/main` to `sha256:56cdcfdb…6dff`. Both are **byte-identical** to the
+  2026-10-15 digests, so `observedOn` moved and the two digests were replaced with the same
+  values.
+- **The ruleset.** `main protection` (`15107355`), `active`, `refs/heads/main` only,
+  `updated_at` `2026-06-08T18:38:14.709+01:00` (unchanged). Its rules are unchanged:
+  - `non_fast_forward` and `deletion`;
+  - required check `validate` (integration 15368), strict;
+  - a pull request with 0 required approvals;
+  - Copilot review on push;
+  - bypass actors reported empty.
+- **Two parameters newly transcribed.** `required_reviewers: []` and
+  `require_extra_approval_for_unattributed_changes: true` are now in the record. The
+  2026-10-15 body carried both too, since its digest is identical; that record did not
+  transcribe them. So it is a transcription gap, not a field GitHub newly reports (that
+  inference, made before this re-read, is not supported). What the second parameter requires,
+  and its effect beside 0 required approvals, were not established; a limitation says so.
+- **Classic branch protection.** Not enabled. `/branches/main/protection` answered 404
+  "Branch not protected", where the 2026-10-15 identity got 403. `/rules/branches/main`
+  attributes every rule to `15107355`.
+
+**What "recorded" means, and does not mean.** It means the owner reviewed this observation and
+accepted it as the record of how `main` is protected: CONFIGURED AS GITHUB REPORTED IT. It does
+not mean enforcement was demonstrated: no push, force-push, deletion or failed merge was
+attempted. It is not re-read by the gate, and the owner can change the ruleset at any time
+without this file changing. All eight limitations in the observation still apply. Among them:
+
+- the empty bypass list is not established for an owner-visible identity;
+- no approving review is required, so an author can merge their own pull request once
+  `validate` passes;
+- `certify.yml` and readiness are not merge preconditions;
+- other branches are unprotected.
+
+**The other two repositories** (measured the same day; they are not part of this record, which
+is about the Frontend's certified branch, and the gate reads nothing about them):
+
+- Dinify-Backend has ruleset `15107238` `main protection`: active on `refs/heads/main`,
+  required check `test` (strict), a pull request with 0 approvals, `non_fast_forward`,
+  `deletion`. It was created 2026-04-15 and updated 2026-06-08.
+- Dinify-Admin has ruleset `21088287` `main protection`: active on the default branch,
+  required check `validate` (strict), a pull request with 0 approvals. It was created
+  2026-08-20.
+
+Neither was created after 2026-10-15, by their own timestamps.
+
+**Backend visibility.** Dinify-Backend is public (measured: `private: false`), and the owner
+confirmed on 2026-10-27 that this was deliberate. The backend peer's `_receiptVerification`
+note said the repository was private, and it is corrected. Its `receiptVerification` value stays
+`operator`: receipts are still produced by an operator from the backend's git and reviewed as a
+file. Re-deriving them from the public API at decision time is a possible later change; it is
+not made here, because it would change the gate's behaviour.
+
+**The decision.** With other facts unchanged, the committed decision is still `REFUSE`,
+`allow: false`, now for exactly four reasons, and an automatic evaluation with publication
+disabled is still the recorded non-publishing wait (`PENDING_PREREQUISITES`, `published: false`):
+
+- `peers.backend_serving_unverified`
+- `prerequisite.legacy_publisher_active`
+- `prerequisite.legacy_publisher_present`
+- `served.bootstrap_unauthorized`
+
+It was constructed with the real `decide`, `readiness` and `outcome` commands. The inputs were:
+
+- the committed policy;
+- REAL peer facts from `peer-facts`, run on 2026-10-27: Admin `668b627` verified by public
+  re-derivation and served `no-store`;
+- a served state DERIVED from the committed `firebase.json` rewrite, because this
+  environment's egress refuses `dinify-prod.web.app`;
+- the FIXTURE candidate and passing assessment the committed-policy suite uses.
+
+Its decision digest is `sha256:01536d3a…5972` (`SP_WAIT_DIGEST_SYNTHETIC` in
+`committed-policy.test.mjs`). It is **synthetic** until a readiness run records it, and a real
+run reaches it only if its fresh assessment and peer reads succeed and every other fact is
+unchanged. The same inputs under the previous policy give the five-reason
+`sha256:8ecab1b2…7677` that `history.json` already holds for R-1.
+
+**`history.json` is not part of this change.** The record moved the owner state under the
+unchanged set id `2026-10-26-pilot-17`. Its row in the history still lists only `R-1`.
+`committed-policy.test.mjs` therefore models the record test-locally, the way R-1 was modelled
+before the history became data:
+
+- every owner state the file records predates the record, so a replay restores `unrecorded`;
+- the last row gains a test-local state after R-1, carrying the synthetic four-reason
+  decision;
+- every decision digest the history records still reproduces byte for byte;
+- a test pins that the file does not yet carry the record.
+
+When `history.json` next changes, the record belongs there as an owner state of its own, and
+the overlay should go. Until then, a refresh row appended under `R-1` alone replays as before
+the record, and the contract that the last row IS the committed policy fails loudly instead of
+silently.
+
+**Tests.** The release suite went from 1444 to **1457**: eleven tests in a new committed-policy
+block, plus the generic replay and owner-state-transition tests the overlay adds for the last
+row. Tests that pinned the five-reason committed state now pin four, or ask about the R-1 state
+explicitly. Seven disposable mutations were each caught across the committed-policy, readiness
+and policy suites (274 tests):
+
+| mutation | failures |
+|---|---|
+| status back to `unrecorded` | 26 |
+| the entry reinserted | 45 |
+| the previous `policy.json` | 23 |
+| the old backend note | 1 |
+| the new limitation dropped | 1 |
+| `receiptVerification` set to `public-repository` | 83 |
+| the overlay removed | 61 |
+
+**What it does not do.** It does not close D08, authorize the bootstrap or the cutover, set
+`FRONTEND_PUBLISH_ENABLED`, or move any other prerequisite. The compatible set and its id, the
+receipts, `history.json`, retention, backend serving, single-publisher and bootstrap are
+unchanged. It changes no ruleset or repository setting.
+
+It does change `release/`, so like any policy change it **advances the verifier tree**: a run
+whose gate evaluated the previous policy is refused at the publisher as
+`preflight.policy_advanced`, and the merge's own readiness run evaluates the new one.
+
 ### The cutover
 
 **Setting `FRONTEND_PUBLISH_ENABLED` while `deploy-prod.yml` still exists is not a

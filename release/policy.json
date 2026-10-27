@@ -208,7 +208,7 @@
       "backend": {
         "repository": "mugak1/Dinify-Backend",
         "receiptVerification": "operator",
-        "_receiptVerification": "The backend repository is private, so its receipt cannot be re-derived from a public API at decision time. It is produced by an operator from the backend's git and reviewed as a file; its digest is what is approved.",
+        "_receiptVerification": "The backend repository is public (the owner confirmed on 2026-10-27 that this was deliberate). Its receipt is still verified by the operator procedure, as before: it is produced by an operator from the backend's git and reviewed as a file, and its digest is what is approved. Re-deriving it from the public API at decision time is a possible later change; it is not made here, and receiptVerification stays operator.",
         "_approvedHistory": "9448f55 (the #330 merge) was the first approved backend revision. It predates orders_app/contracts/published_capabilities.contract.json, so it was REPLACED by 366b7e4 (the #331 merge) rather than kept beside it: every approved backend is checked for compatibility, and an export-less revision left in this list would refuse peers.capabilities_unpublished for ever. 366b7e4 was in turn REPLACED on 2026-09-24 by a6b25a6 (the #338 merge) after review of #332-#338: both export files are byte-identical between the two (D01 blob 1cb6a6d, capability blob cc91605), so the D01 values and the four capability levels are unchanged. Both earlier receipts stay under release/peers/ as history; neither is approved. Approving a receipt is a statement about SOURCE and says nothing about which backend revision is live. a6b25a6 was in turn REPLACED on 2026-09-28 by 0513adb (the #350 merge), a source selection following the accepted #339-#350 merges: the D08 B2.1-B3 release work (the dependency audit in the required check, the qualified guards, the certified candidate, the non-deploying preflight, and an immutable installation with a process-bound release-identity endpoint, staged and not active), D10 B1 (the command-owner header), D11 B1, D12 B-1 (historical order-line names), D15 R1 (the readiness endpoint), a dashboard EAT correction and the Claude Code workflows. Both export files are byte-identical to a6b25a6's (D01 blob 1cb6a6d, capability blob cc91605), so the D01 values and the four capability levels are unchanged. The receipt was produced by peer-receipt from a private clone pinned to 0513adb (tree d263ada) and re-derived independently. Matching exported contracts is not proof of every cross-application behaviour, and this approval says nothing about which backend revision is live. The 9448f55, 366b7e4 and a6b25a6 receipts stay under release/peers/ as history; none is approved.",
         "approved": [
           {
@@ -265,13 +265,20 @@
       "in the same change that enables this path."
     ],
     "sourceProtection": {
-      "status": "unrecorded",
+      "_note": [
+        "2026-10-27: RECORDED means the owner reviewed the observation below and accepted",
+        "it as the record of how main is protected: one repository ruleset that forbids",
+        "force-push and deletion and requires a pull request and the strict `validate`",
+        "check. It means CONFIGURED AS GITHUB REPORTED IT, not demonstrated: no enforcement",
+        "probe was made, every limitation below still applies, and the gate does not re-read",
+        "it. release/README.md, \"The 2026-10-27 source-protection record\"."
+      ],
+      "status": "recorded",
       "observation": {
         "_note": [
-          "WHAT WAS OBSERVED, NOT WHAT IS DECIDED. decide reads `status` alone, so this",
-          "record neither resolves prerequisite.source_protection_unrecorded nor adds a",
-          "refusal. Moving `status` to `recorded` or `limitation-disclosed` is the owner's",
-          "reviewed decision; this is the evidence that decision would read.",
+          "WHAT WAS OBSERVED. decide reads `status` alone, so this record neither resolves",
+          "nor adds a refusal by itself; the owner's reviewed decision to move `status` to",
+          "`recorded` (2026-10-27) read it.",
           "",
           "responseSha256 digests the response BODIES the observer received, byte for",
           "byte. They are requester-dependent (the ruleset read carries",
@@ -279,9 +286,9 @@
           "identity may differ without the configuration having changed. A re-read",
           "replaces observedOn and every digest together, or drops the digests."
         ],
-        "observedOn": "2026-10-15",
+        "observedOn": "2026-10-27",
         "branch": "main",
-        "method": "Read-only GitHub REST GETs from an integration token: /repos/mugak1/Dinify-Frontend/rulesets, /rulesets/15107355, /rules/branches/main and /branches/main. No write, push, force-push, merge or enforcement probe was attempted.",
+        "method": "Read-only GitHub REST GETs on 2026-10-27 between 12:28:40Z and 12:28:41Z: /repos/mugak1/Dinify-Frontend/rulesets, /rulesets/15107355, /rules/branches/main, /branches/main and /branches/main/protection. The reader sent no token of its own; the session's egress proxy authenticated the requests with an integration credential (the responses reported X-RateLimit-Limit 15000 and empty X-OAuth-Scopes), so this was not an anonymous read. No write, push, force-push, merge or enforcement probe was attempted.",
         "mechanism": "repository ruleset",
         "ruleset": {
           "id": 15107355,
@@ -305,26 +312,29 @@
           "pullRequest": {
             "requiredApprovingReviewCount": 0,
             "dismissStaleReviewsOnPush": false,
+            "requiredReviewers": [],
             "requireCodeOwnerReview": false,
             "requireLastPushApproval": false,
             "requiredReviewThreadResolution": false,
+            "requireExtraApprovalForUnattributedChanges": true,
             "allowedMergeMethods": ["merge", "squash", "rebase"]
           },
           "copilotCodeReview": { "reviewOnPush": true, "reviewDraftPullRequests": false }
         },
-        "classicBranchProtection": "not enabled: /branches/main reports protection.enabled false; /branches/main/protection answered 403 to the reading token",
+        "classicBranchProtection": "not enabled: /branches/main reports protection.enabled false (and protected true, from the ruleset); /branches/main/protection answered 404 \"Branch not protected\" to the 2026-10-27 reading identity (it answered 403 to the 2026-10-15 one)",
         "responseSha256": {
           "GET /repos/mugak1/Dinify-Frontend/rulesets/15107355": "sha256:5c9fbd7188ecb0021ef94d7df69817f77b1f16894c377d909725e3286fb4d250",
           "GET /repos/mugak1/Dinify-Frontend/rules/branches/main": "sha256:56cdcfdb7dead41b71bb442563ebbea41be6e0533d8832464dde3399eb566dff"
         },
         "limitations": [
-          "A single read on 2026-10-15. The gate does not re-read the configuration, and the repository owner can edit, disable or delete the ruleset at any time without this file changing.",
+          "A single read on 2026-10-27, after one on 2026-10-15 whose two response digests it reproduced byte for byte. The gate does not re-read the configuration, and the repository owner can edit, disable or delete the ruleset at any time without this file changing.",
           "Configured, not demonstrated: no push, force-push, deletion or failed-merge probe was attempted, so enforcement is stated as GitHub reports it, not as observed under test.",
-          "bypass_actors was reported as an empty list to a non-admin integration token. That reading identity may not see the owner-visible bypass list, so the absence of bypass actors is not established.",
+          "bypass_actors was reported as an empty list to a non-admin integration identity (current_user_can_bypass \"never\"). That reading identity may not see the owner-visible bypass list, so the absence of bypass actors is not established.",
           "The one required status check is `validate` from GitHub Actions (integration 15368), strict (the branch must be up to date). certify.yml and the readiness evaluation run after a merge and are not merge preconditions.",
-          "A pull request is required but no approving review is (required_approving_review_count 0): an author with write access can merge their own pull request once `validate` passes. Copilot review is advisory.",
+          "A pull request is required but no approving review is (required_approving_review_count 0, required_reviewers empty): an author with write access can merge their own pull request once `validate` passes. Copilot review is advisory.",
+          "require_extra_approval_for_unattributed_changes is reported true and is newly recorded here (the 2026-10-15 response carried it too, by its identical digest, but that record did not transcribe it). What it requires, and its effect beside a required approval count of 0, were not established or demonstrated, and nothing here relies on it.",
           "The rules target refs/heads/main only. Other branches carry none of them; only main is certified.",
-          "Classic branch protection is not enabled, and its endpoint was not readable by the observing token; the ruleset is the only protection observed."
+          "Classic branch protection is not enabled: its endpoint answered 404 \"Branch not protected\" on 2026-10-27, where the 2026-10-15 reading identity got 403. /rules/branches/main attributes every rule to ruleset 15107355; the ruleset is the only protection observed."
         ]
       }
     },
@@ -379,7 +389,6 @@
         "peers.backend_serving_unverified",
         "prerequisite.legacy_publisher_active",
         "prerequisite.legacy_publisher_present",
-        "prerequisite.source_protection_unrecorded",
         "served.bootstrap_unauthorized"
       ]
     }

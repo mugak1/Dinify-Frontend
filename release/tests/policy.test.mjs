@@ -152,11 +152,12 @@ describe('the source-protection observation (SP-1) — evidence beside the statu
     return r;
   };
 
-  test('CONTROL: the committed observation validates, is about the certified branch, and leaves the status unrecorded', () => {
+  test('CONTROL: the committed observation validates, is about the certified branch, and sits beside the status the owner recorded on 2026-10-27', () => {
     const r = validatePolicy(POLICY);
     assert.equal(r.ok, true, JSON.stringify(r.problems));
     const sp = POLICY.prerequisites.sourceProtection;
-    assert.equal(sp.status, 'unrecorded', 'SP-1 records evidence; it does not move the status');
+    assert.equal(sp.status, 'recorded', 'the owner\'s 2026-10-27 decision moved the status; the observation is the evidence it read');
+    assert.equal(sp.observation.observedOn, '2026-10-27');
     assert.equal(sp.observation.branch, POLICY.certification.branch);
     assert.ok(sp.observation.limitations.length > 0);
   });
