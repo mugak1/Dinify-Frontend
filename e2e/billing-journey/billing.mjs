@@ -58,12 +58,25 @@
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
+import { SERVED_SKIPS, journeyTarget } from '../served/lib.mjs';
+
 const WEB = process.env.BILLING_WEB || 'http://127.0.0.1:4299';
 const API = process.env.BILLING_API || 'http://127.0.0.1:8099';
 const FIXTURE = process.env.BILLING_FIXTURE || '/tmp/billing-fixture.json';
 const CHROMIUM = process.env.CHROMIUM_PATH || undefined;
 
 const fx = JSON.parse(readFileSync(FIXTURE, 'utf8'));
+
+// THE TARGET. On a served run (a fixture written by e2e/served/run.mjs) there is
+// ONE restaurant — the configured test restaurant, which is the "unconfigured"
+// case — and an OPTIMIZED bundle with no `window.ng`. The steps that need a
+// second restaurant or the dev-mode handle are skipped BY NAME, each with its
+// reason (e2e/served/lib.mjs → SERVED_SKIPS); every other check runs unchanged.
+const T = journeyTarget(fx, { api: API, journey: 'billing', format: 'billing' });
+const skipGroup = (from, to) => {
+  const names = SERVED_SKIPS.billing.map((s) => s.name);
+  for (const name of names.slice(names.indexOf(from), names.indexOf(to) + 1)) T.skip(name);
+};
 
 /**
  * The server's refusal, verbatim from `finance_app/subscription_capability.py`.
@@ -120,6 +133,21 @@ const text = (s) => (s || '').replace(/\s+/g, ' ').trim();
 const brief = (value, n = 200) => String(JSON.stringify(value) ?? value).slice(0, n);
 
 async function signIn(page, phone) {
+  if (T.served) {
+    // THE SHARED SESSION, installed the way the app persists one, instead of a
+    // second password + OTP sign-in through the form (D11 OTP budget: one
+    // issuance per run, made by e2e/served/run.mjs). No check here is about the
+    // form; what follows still reaches Billing through the guarded portal.
+    await page.goto(`${WEB}/login`, { waitUntil: 'domcontentloaded' });
+    await page.evaluate(([s, restaurant]) => {
+      localStorage.setItem('user', JSON.stringify(s));
+      localStorage.setItem('rest_role', JSON.stringify(
+        s.profile.restaurant_roles.find((m) => m.restaurant_id === restaurant)));
+    }, [T.session, fx.restaurants.unconfigured.id]);
+    await page.goto(`${WEB}/dashboard`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('app-restaurant-mgt', { timeout: 30000 });
+    return;
+  }
   await page.goto(`${WEB}/login`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('app-dinify-phone-input input', { timeout: 30000 });
   // The phone control emits the canonical MSISDN; type the NATIONAL part.
@@ -145,12 +173,15 @@ async function openBilling(page) {
     () => !document.querySelector('app-billing .animate-pulse'),
     null, { timeout: 30000 },
   ).catch(() => {});
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(T.pace(400));
 }
 
 const seen = (page, id) => page.locator(`app-billing [data-testid="${id}"]`).count();
 
 async function run() {
+  // THE INTERLOCK, before anything acts. Billing writes nothing, and it still
+  // refuses a restaurant the server does not report as the configured test one.
+  await T.guard(T.token);
   const browser = await chromium.launch({
     executablePath: CHROMIUM,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -201,7 +232,7 @@ async function run() {
 
     await page.goto(`${WEB}/dashboard`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('app-revenue-card', { timeout: 30000 });
-    await page.waitForTimeout(1800);
+    await page.waitForTimeout(T.pace(1800));
 
     // PHASE A — the control. The mock declares a measuring server, so NO
     // withheld hook may be present yet. Any that appear in phase B can only
@@ -213,68 +244,73 @@ async function run() {
       await page.locator('[data-testid*="withheld"]').count() === 0,
       `observed ${await page.locator('[data-testid*="withheld"]').count()}`);
 
-    // PHASE B — the real branch.
-    const flipped = await page.evaluate(() => {
-      const host = document.querySelector('app-rest-dashboard');
-      const cmp = host && window.ng && window.ng.getComponent(host);
-      const svc = cmp && cmp.dashboardService;
-      if (!svc) return { ok: false, why: 'no DashboardService on the dashboard component' };
-      const cls = svc.constructor;
-      if (cls.USE_MOCK_DATA !== true) return { ok: false, why: `flag was already ${cls.USE_MOCK_DATA}` };
-      cls.USE_MOCK_DATA = false;
-      svc.refresh$.next();
-      return { ok: true };
-    });
-    check('the real-data branch was selected by a TEST-ONLY runtime flip',
-      flipped && flipped.ok === true, JSON.stringify(flipped));
+    if (T.served) {
+      skipGroup('the real-data branch was selected by a TEST-ONLY runtime flip',
+        'occupancy is NOT withheld — it is live floor state');
+    } else {
+      // PHASE B — the real branch.
+      const flipped = await page.evaluate(() => {
+        const host = document.querySelector('app-rest-dashboard');
+        const cmp = host && window.ng && window.ng.getComponent(host);
+        const svc = cmp && cmp.dashboardService;
+        if (!svc) return { ok: false, why: 'no DashboardService on the dashboard component' };
+        const cls = svc.constructor;
+        if (cls.USE_MOCK_DATA !== true) return { ok: false, why: `flag was already ${cls.USE_MOCK_DATA}` };
+        cls.USE_MOCK_DATA = false;
+        svc.refresh$.next();
+        return { ok: true };
+      });
+      check('the real-data branch was selected by a TEST-ONLY runtime flip',
+        flipped && flipped.ok === true, JSON.stringify(flipped));
 
-    await page.waitForFunction(
-      () => true, null, { timeout: 1000 },
-    ).catch(() => {});
-    await page.waitForTimeout(3000);
+      await page.waitForFunction(
+        () => true, null, { timeout: 1000 },
+      ).catch(() => {});
+      await page.waitForTimeout(T.pace(3000));
 
-    const calls = await Promise.all(dashboardCalls);
-    const primary = calls.find((c) => c.status === 200);
-    check('an AUTHORIZED dashboard-v2 request really reached the server',
-      calls.length > 0 && calls.every((c) => typeof c.auth === 'string' && c.auth.startsWith('Bearer ')),
-      brief(calls.map((c) => ({ status: c.status, authorized: !!c.auth })), 200));
-    check('the SERVER declares that settlement is not measured',
-      primary && primary.body && primary.body.data
-        && primary.body.data.payment_tracking_enabled === false,
-      brief(primary && primary.body && Object.keys(primary.body.data || {}), 200));
+      const calls = await Promise.all(dashboardCalls);
+      const primary = calls.find((c) => c.status === 200);
+      check('an AUTHORIZED dashboard-v2 request really reached the server',
+        calls.length > 0 && calls.every((c) => typeof c.auth === 'string' && c.auth.startsWith('Bearer ')),
+        brief(calls.map((c) => ({ status: c.status, authorized: !!c.auth })), 200));
+      check('the SERVER declares that settlement is not measured',
+        primary && primary.body && primary.body.data
+          && primary.body.data.payment_tracking_enabled === false,
+        brief(primary && primary.body && Object.keys(primary.body.data || {}), 200));
 
-    const dash = text(await page.locator('app-rest-dashboard, app-restaurant-mgt').first().innerText());
+      const dash = text(await page.locator('app-rest-dashboard, app-restaurant-mgt').first().innerText());
 
-    check('the revenue headline is WITHHELD, not rendered',
-      await page.locator('[data-testid="revenue-headline-withheld"]').count() === 1);
-    check('the revenue chart is not drawn',
-      await page.locator('[data-testid="revenue-chart-withheld"]').count() === 1);
-    check('no percentage is computed for the comparison window',
-      await page.locator('[data-testid="revenue-comparison-withheld"]').count() === 1);
-    check('the unmeasured pills are withheld and REFUNDS is not',
-      await page.locator('[data-testid="revenue-pill-withheld-Gross"]').count() === 1
-      && await page.locator('[data-testid="revenue-pill-withheld-Net"]').count() === 1
-      && await page.locator('[data-testid="revenue-pill-withheld-Refunds"]').count() === 0);
-    check('the paid/unpaid split is withheld on Total Orders',
-      await page.locator('[data-testid="orders-withheld-paid"]').count() === 1
-      && await page.locator('[data-testid="orders-withheld-open"]').count() === 1);
-    check('the Tables card is wired to the decision at last',
-      await page.locator('[data-testid="tables-tracking-note"]').count() === 1);
-    check('the tables history tiles are withheld',
-      await page.locator('[data-testid="tables-withheld-median"]').count() === 1
-      && await page.locator('[data-testid="tables-withheld-turns"]').count() === 1
-      && await page.locator('[data-testid="tables-withheld-avg-ticket"]').count() === 1);
-    check('the payment-methods card claims nothing about the period',
-      !dash.includes('No settled payments in this period'), dash.slice(0, 200));
-    check('occupancy is NOT withheld — it is live floor state',
-      /tables occupied/i.test(dash));
+      check('the revenue headline is WITHHELD, not rendered',
+        await page.locator('[data-testid="revenue-headline-withheld"]').count() === 1);
+      check('the revenue chart is not drawn',
+        await page.locator('[data-testid="revenue-chart-withheld"]').count() === 1);
+      check('no percentage is computed for the comparison window',
+        await page.locator('[data-testid="revenue-comparison-withheld"]').count() === 1);
+      check('the unmeasured pills are withheld and REFUNDS is not',
+        await page.locator('[data-testid="revenue-pill-withheld-Gross"]').count() === 1
+        && await page.locator('[data-testid="revenue-pill-withheld-Net"]').count() === 1
+        && await page.locator('[data-testid="revenue-pill-withheld-Refunds"]').count() === 0);
+      check('the paid/unpaid split is withheld on Total Orders',
+        await page.locator('[data-testid="orders-withheld-paid"]').count() === 1
+        && await page.locator('[data-testid="orders-withheld-open"]').count() === 1);
+      check('the Tables card is wired to the decision at last',
+        await page.locator('[data-testid="tables-tracking-note"]').count() === 1);
+      check('the tables history tiles are withheld',
+        await page.locator('[data-testid="tables-withheld-median"]').count() === 1
+        && await page.locator('[data-testid="tables-withheld-turns"]').count() === 1
+        && await page.locator('[data-testid="tables-withheld-avg-ticket"]').count() === 1);
+      check('the payment-methods card claims nothing about the period',
+        !dash.includes('No settled payments in this period'), dash.slice(0, 200));
+      check('occupancy is NOT withheld — it is live floor state',
+        /tables occupied/i.test(dash));
 
-    // Undo the test-only flip, so the rest of the run sees the shipped build.
-    await page.evaluate(() => {
-      const host = document.querySelector('app-rest-dashboard');
-      const cmp = host && window.ng && window.ng.getComponent(host);
-      if (cmp && cmp.dashboardService) cmp.dashboardService.constructor.USE_MOCK_DATA = true;
-    });
+      // Undo the test-only flip, so the rest of the run sees the shipped build.
+      await page.evaluate(() => {
+        const host = document.querySelector('app-rest-dashboard');
+        const cmp = host && window.ng && window.ng.getComponent(host);
+        if (cmp && cmp.dashboardService) cmp.dashboardService.constructor.USE_MOCK_DATA = true;
+      });
+    }
 
     await openBilling(page);
     const body = text(await page.locator('app-billing').innerText());
@@ -297,7 +333,9 @@ async function run() {
 
   // ── 2. A DELIBERATELY SEEDED LEGACY BILLABLE CONFIGURATION ──────────────
   console.log('\n2. legacy billable configuration, nothing canonical');
-  {
+  if (T.served) {
+    skipGroup('the fixture really is legacy-billable on the wire', 'the legacy flat_fee is not rendered as a price');
+  } else {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(`legacy: ${e.message}`));
@@ -336,7 +374,12 @@ async function run() {
   // ── 3. CANONICAL RECORDED TERMS AND HISTORY ─────────────────────────────
   console.log('\n3. canonical recorded terms and history');
   let collectorProbe = null;
-  {
+  if (T.served) {
+    // Sections 3 and 4 share one session and one restaurant; both are skipped.
+    skipGroup('the recorded terms are rendered', 'the refusal is surfaced to the operator rather than swallowed');
+    console.log('\n4. the retired pre-submit OTP ordering (no challenge dispatched)');
+    skipGroup('the retired sequence ran', 'NO REAL CHALLENGE WAS DISPATCHED — the harness answered it');
+  } else {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(`recorded: ${e.message}`));
@@ -511,7 +554,7 @@ async function run() {
       otpAttempts.length === outboundBefore, `intercepted ${otpAttempts.length}`);
 
     // The toast the real ErrorInterceptor raised, on the real screen.
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(T.pace(600));
     const toast = text(await page.locator('app-toast, [role="status"], [role="alert"]')
       .allInnerTexts().then((a) => a.join(' ')).catch(() => ''));
     check('the refusal is surfaced to the operator rather than swallowed',
@@ -593,7 +636,7 @@ async function run() {
       '/rest-app-ordering/payment-details',
     ]) {
       await page.goto(`${WEB}${path}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(700);
+      await page.waitForTimeout(T.pace(700));
       const body = text(await page.locator('body').innerText().catch(() => ''));
       probed.push({ path, url: page.url(), body: body.slice(0, 160) });
       check(`${path} renders no payment surface`,

@@ -44,10 +44,15 @@
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
+import { journeyTarget } from '../served/lib.mjs';
+
 const WEB = process.env.JOURNEY_WEB || 'http://127.0.0.1:4299';
 const API = process.env.JOURNEY_API || 'http://127.0.0.1:8099';
 const F = JSON.parse(readFileSync(
   process.env.JOURNEY_FIXTURE || '/tmp/journey-fixture.json', 'utf8'));
+// THE TARGET: unchanged locally; on a served run the session is shared, the
+// interlock runs first, and the one skip is declared.
+const T = journeyTarget(F, { api: API, journey: 'kitchen' });
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -203,6 +208,9 @@ const api = async (path, init = {}) => {
  * persists one combined principal, so this assembles the same shape.
  */
 const signIn = async () => {
+  // Served: the orchestrator signed in ONCE for the whole run (D11 OTP budget)
+  // and assembled the same combined principal.
+  if (T.served) return T.session;
   const { username, password } = F.operator;
   const login = await api('/api/v1/users/auth/login/', {
     method: 'POST', body: JSON.stringify({ username, password }),
@@ -234,6 +242,7 @@ const placeDinerOrder = async () => {
     { headers: { 'X-Diner-Credential': F.credential } });
   // The scan response names it `session_token`.
   const session = scan.body?.data?.session_token;
+  T.mask(session);
   const diner = (path, init = {}) => api(path, {
     ...init, headers: { 'X-Diner-Session': session, ...(init.headers || {}) },
   });
@@ -277,10 +286,14 @@ const openBoard = async (browser, session) => {
     }
   });
   await page.goto(WEB + '/login');
-  await page.evaluate((s) => {
+  // The membership of THE FIXTURE'S restaurant, not merely the first one: an
+  // operator may hold several, and the board is scoped to the one selected.
+  await page.evaluate(([s, restaurant]) => {
+    const roles = s.profile.restaurant_roles;
     localStorage.setItem('user', JSON.stringify(s));
-    localStorage.setItem('rest_role', JSON.stringify(s.profile.restaurant_roles[0]));
-  }, session);
+    localStorage.setItem('rest_role', JSON.stringify(
+      roles.find((m) => m.restaurant_id === restaurant) ?? roles[0]));
+  }, [session, F.restaurant]);
   const firstFeed = page.waitForResponse(
     (r) => r.url().includes('/kitchen/orders/active/'), { timeout: 20000 },
   ).catch(() => null);
@@ -289,12 +302,28 @@ const openBoard = async (browser, session) => {
   return { context, page, state };
 };
 
-const ticketCard = (page, orderNumber) =>
-  page.locator('app-kitchen-ticket-card', { hasText: `#${String(orderNumber).padStart(3, '0')}` });
+/**
+ * A ticket's card, by its daily number — and, on a served run, by its TABLE too.
+ *
+ * The Completed feed spans 24 hours while the daily counter restarts at
+ * midnight EAT, inside the UAT window, so a previous day's `#005` can be on the
+ * board beside today's. The card renders no order id, so a served run places
+ * every order at a pool table that had NO ticket on either board when the run
+ * started (e2e/served/provision.mjs), and narrows to that table's label here.
+ * Narrowing can only make a match MORE specific; every negative assertion below
+ * is preceded by a positive one through the same locator, so it cannot pass
+ * because the filter matches nothing.
+ */
+const ticketCard = (page, orderNumber) => {
+  const card = page.locator('app-kitchen-ticket-card', { hasText: `#${String(orderNumber).padStart(3, '0')}` });
+  return F.table_label ? card.filter({ hasText: F.table_label }) : card;
+};
 
 async function main() {
   const session = await signIn();
-  check('the fixture operator can sign in', !!session?.token);
+  await T.guard(session?.token);
+  if (T.served) T.skip('the fixture operator can sign in');
+  else check('the fixture operator can sign in', !!session?.token);
   const operator = asOperator(session.token);
 
   // Start from a clear table, using the real commands.

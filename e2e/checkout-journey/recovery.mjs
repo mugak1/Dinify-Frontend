@@ -36,10 +36,19 @@
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
+import { journeyTarget } from '../served/lib.mjs';
+
 const F = JSON.parse(readFileSync(
   process.env.JOURNEY_FIXTURE || '/tmp/journey-fixture.json', 'utf8'));
 const WEB = process.env.JOURNEY_WEB || 'http://127.0.0.1:4299';
 const API = process.env.JOURNEY_API || 'http://127.0.0.1:8099';
+// THE TARGET: unchanged locally; on a served run the session is shared, the
+// interlock runs first, and fixed pauses are paced. Nothing here is skipped.
+const T = journeyTarget(F, { api: API, journey: 'recovery' });
+// Set once the operator is known. Several scenarios PAUSE the restaurant or
+// take the burger off sale mid-run; on a served run whose interlock passed,
+// every exit path puts both back.
+let operatorToken = null;
 
 let passed = 0;
 let failed = 0;
@@ -61,6 +70,8 @@ const api = async (path, init = {}) => {
 };
 
 const signIn = async () => {
+  // Served: the orchestrator signed in ONCE for the whole run (D11 OTP budget).
+  if (T.served) return T.token;
   const { username, password } = F.operator;
   const login = await api('/api/v1/users/auth/login/', {
     method: 'POST', body: JSON.stringify({ username, password }),
@@ -77,6 +88,8 @@ const signIn = async () => {
 
 const main = async () => {
   const token = await signIn();
+  operatorToken = token;
+  await T.guard(token);
   const op = (path, init = {}) => api(path, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, ...(init.headers || {}) },
@@ -304,7 +317,7 @@ const main = async () => {
             // the plain prompt's Order button says nothing while placing; it is busy
             && !document.querySelector('[data-testid="checkout-confirm"] [aria-busy="true"]'),
       null, { timeout: 20000 }).catch(() => {});
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(T.pace(1000));
 
     check('the server really did accept it', realStatus === 200,
           `backend replied ${realStatus} to the intercepted PUT`);
@@ -321,7 +334,7 @@ const main = async () => {
       await retry.click();
       const again = await confirmation(page, '2 after Retry', { optional: true });
       await again.click({ timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(T.pace(2500));
     }
 
     const after = await activeTickets();
@@ -382,11 +395,12 @@ const main = async () => {
       const raw = sessionStorage.getItem('[dinify]diner.session');
       return raw ? JSON.parse(raw).value : null;
     });
+    T.mask(session);
 
     // The diner gives up on the spinner and reloads — the very action that
     // used to destroy the key.
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(T.pace(3000));
 
     const notice = await page.locator('[data-testid="checkout-recovery"]')
       .first().innerText().catch(() => '');
@@ -606,7 +620,7 @@ const main = async () => {
             // the plain prompt's Order button says nothing while placing; it is busy
             && !document.querySelector('[data-testid="checkout-confirm"] [aria-busy="true"]'),
       null, { timeout: 20000 }).catch(() => {});
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(T.pace(500));
 
     check('the paused restaurant refuses the acceptance',
           (await activeTickets()).length === 0,
@@ -663,7 +677,7 @@ const main = async () => {
             // the plain prompt's Order button says nothing while placing; it is busy
             && !document.querySelector('[data-testid="checkout-confirm"] [aria-busy="true"]'),
       null, { timeout: 20000 }).catch(() => {});
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(T.pace(500));
 
     check('the changed purchase refuses the acceptance',
           (await activeTickets()).length === 0,
@@ -675,7 +689,7 @@ const main = async () => {
     await op(`/api/v1/kitchen/menu-items/${F.burger}/stock/`, {
       method: 'PUT', body: JSON.stringify({ in_stock: true }),
     });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(T.pace(500));
     check('the retired quote is not resurrected by the dish coming back',
           (await activeTickets()).length === 0);
 
@@ -709,7 +723,7 @@ const main = async () => {
               .isVisible().catch(() => false)));
 
     await review.click();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
     check('and the deliberate tap re-prices under a NEW key',
           state.keys.length === 2
           && new Set(state.keys).size === state.keys.length,
@@ -750,6 +764,7 @@ const main = async () => {
       const raw = sessionStorage.getItem('[dinify]diner.session');
       try { return JSON.parse(raw || 'null')?.value ?? null; } catch { return null; }
     });
+    T.mask(dinerSession);
     const readOrder = (id) => api(
       `/api/v1/orders/journey/order-details/?order=${id}`,
       { headers: { 'X-Diner-Session': dinerSession } });
@@ -786,7 +801,7 @@ const main = async () => {
       await route.abort('connectionreset');   // …the browser never learns
     });
     await place.click();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
 
     check('the closure was really written and nothing reached the kitchen',
           swallowed && (await activeTickets()).length === 0);
@@ -800,7 +815,7 @@ const main = async () => {
     // THE RELOAD. Recovery reads the published closure off the authorized
     // order read — the level-2 projection that exists for exactly this client.
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
     const notice = await page.locator('[data-testid="checkout-recovery"]')
       .textContent().catch(() => '');
     check('the reloaded page states the quote could not be honoured',
@@ -872,9 +887,9 @@ const main = async () => {
       await route.abort('connectionreset');
     });
     await place2.click();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
 
     check('the lost successor resolves to the SAME attempt, not a third',
           new Set(state.keys).size === 2,
@@ -951,7 +966,7 @@ const main = async () => {
       await route.abort('connectionreset');   // NOTHING reaches the server
     });
     await place.click();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
 
     check('nothing was accepted, because nothing arrived',
           (await activeTickets()).length === 0);
@@ -1012,6 +1027,7 @@ const main = async () => {
       const raw = sessionStorage.getItem('[dinify]diner.session');
       try { return JSON.parse(raw || 'null')?.value ?? null; } catch { return null; }
     });
+    T.mask(session);
     const read = (id) => api(
       `/api/v1/orders/journey/order-details/?order=${id}`,
       { headers: { 'X-Diner-Session': session } });
@@ -1027,7 +1043,7 @@ const main = async () => {
     });
 
     await place.click();                                          // 3
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
     check('the refusal is SEEN here — this scenario is about the next step',
           state.submits.length === 1,
           `submits=${JSON.stringify(state.submits)}`);
@@ -1057,7 +1073,7 @@ const main = async () => {
       await route.abort('connectionreset');   // …the browser never learns
     });
     await review.click();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
 
     const secondKey = state.keys[state.keys.length - 1];
     check('the successor was minted under a NEW key before it was sent',
@@ -1068,7 +1084,7 @@ const main = async () => {
           `keys=${JSON.stringify(state.keys)}`);
 
     await page.reload({ waitUntil: 'domcontentloaded' });          // 6
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(T.pace(2000));
 
     check('the reload resolves the SAME attempt — no third key is minted',
           new Set(state.keys).size === 2,
@@ -1175,7 +1191,7 @@ const main = async () => {
     const checkout1 = page.getByRole('button', { name: /Checkout —/ }).first();
     await checkout1.waitFor({ state: 'visible', timeout: 20000 });
     await checkout1.click();                                       // 1
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(T.pace(1200));
     const firstKey = state.keys[0];
     check('the first initiation is in flight and its reply is held',
           holding && !!firstKey, `key=${firstKey}`);
@@ -1183,9 +1199,9 @@ const main = async () => {
     // 2. IN-APP navigation destroys the routed basket page. The flight is
     //    given back (`ngOnDestroy`); the request is not cancelled.
     await page.getByRole('button', { name: /^Edit / }).first().click();
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(T.pace(800));
     await page.goBack();
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(T.pace(800));
 
     // 3. A NEW routed instance prices under the SAME key. The server replays
     //    K1 and hands back the very order it created in step 1.
@@ -1206,7 +1222,7 @@ const main = async () => {
       await route.abort('connectionreset');   // …the browser never learns
     });
     await place.click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(T.pace(2000));
 
     // The record is stored INSIDE a `{value: ...}` envelope, exactly as every
     // other reader in this file unwraps it. Reading the raw object yields
@@ -1225,7 +1241,7 @@ const main = async () => {
 
     // 5. THE HELD REPLY FROM STEP 1 FINALLY LANDS.
     release();
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(T.pace(3000));
     // THE PREMISE, ASSERTED. Every check below is about what the browser does
     // with that reply, so a reply that never arrived would make all of them
     // pass vacuously — which is the one failure mode a regression scenario
@@ -1261,7 +1277,7 @@ const main = async () => {
     const bumped = await bump.isVisible().catch(() => false);
     if (bumped) {
       await bump.click();
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(T.pace(600));
     }
     // EXERCISED, NOT SKIPPED. A conditional click that never happened would
     // leave the key set trivially unchanged, so the fact that the cart really
@@ -1291,7 +1307,7 @@ const main = async () => {
     const pressed = await cta.isEnabled().catch(() => false);
     if (pressed) {
       await cta.click();
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(T.pace(2500));
     }
     check('THE CONSEQUENCE: no fresh key is minted for the changed basket',
           new Set(state.keys.filter(Boolean)).size === keysBefore,
@@ -1373,7 +1389,7 @@ const main = async () => {
       await route.fulfill({ response });      // …and only now does it land
     });
     await place.click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(T.pace(2000));
 
     check('the server really retired the quote and nothing reached the kitchen',
           armed && (await activeTickets()).length === 0);
@@ -1421,7 +1437,7 @@ const main = async () => {
     if (ctaVisible) {
       await sidebarCta.click({ force: true, timeout: 2000 }).catch(() => {});
     }
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(T.pace(1200));
     check('THE CONSEQUENCE: nothing was sent through the second mount',
           state.submits.length === submitsBefore + 1
             && new Set(state.keys.filter(Boolean)).size === 1,
@@ -1570,7 +1586,7 @@ const main = async () => {
 
     // The routed mount's own startup recovery is what reads it.
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(T.pace(3000));
     check('THE PREMISE: the contradictory answer really was delivered',
           contradicted);
 
@@ -1619,7 +1635,7 @@ const main = async () => {
       await sidebar.getByRole('button', { name: /^Retry$|^Checkout —/ })
         .first().click({ timeout: 2000 }).catch(() => {});
     }
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(T.pace(2500));
     check('THE CONSEQUENCE: nothing was re-priced through the second mount',
           state.keys.length === initiatesBefore
             && new Set(state.keys.filter(Boolean)).size === 1,
@@ -1675,7 +1691,7 @@ const main = async () => {
     // for. The resolution is therefore a REAL server fact, not a second
     // fabrication.
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(T.pace(3000));
 
     check('L2: the resolving answer clears the unresolved state on BOTH '
           + 'mounts', await disabled.count() === 0,
@@ -1717,7 +1733,7 @@ const main = async () => {
     });
 
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(T.pace(3000));
     check('L3: K2`s own unusable evidence really was delivered', unsupported);
 
     check('L3: and K2`s own hold reaches BOTH mounts',
@@ -1731,7 +1747,7 @@ const main = async () => {
           heldRecord?.key === k2, `held=${heldRecord?.key} k1=${key}`);
 
     const afterK2 = state.keys.length;
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(T.pace(1500));
     check('L3: K2 is not re-priced under a key a closure may be bound to',
           state.keys.length === afterK2, `initiates=${state.keys.length}`);
     check('the lifecycle sequence raised no uncaught errors',
@@ -1743,10 +1759,13 @@ const main = async () => {
   console.log(`\n${passed}/${passed + failed} induced-loss checks passed`);
   console.log('This is a MANUAL repeatable run against disposable fixtures '
               + '— not a CI gate.');
-  if (failed) process.exit(1);
+  return failed ? 1 : 0;
 };
 
-main().catch((error) => {
-  console.error('HARNESS ERROR', error);
-  process.exit(2);
-});
+(async () => {
+  let code = 2;
+  try { code = await main(); }
+  catch (error) { console.error('HARNESS ERROR', error); }
+  finally { await T.restore(operatorToken); }
+  process.exit(code);
+})();

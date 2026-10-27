@@ -27,10 +27,18 @@
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
+import { journeyTarget } from '../served/lib.mjs';
+
 const F = JSON.parse(readFileSync(
   process.env.JOURNEY_FIXTURE || '/tmp/journey-fixture.json', 'utf8'));
 const WEB = process.env.JOURNEY_WEB || 'http://127.0.0.1:4299';
 const API = process.env.JOURNEY_API || 'http://127.0.0.1:8099';
+// THE TARGET: unchanged locally; on a served run the session is shared, the
+// interlock runs first, fixed pauses are paced, and the one skip is declared.
+const T = journeyTarget(F, { api: API, journey: 'equivalence' });
+// Set once the operator is known: on a served run whose interlock passed, the
+// catalogue is put back on every exit path.
+let operatorToken = null;
 
 let passed = 0;
 let failed = 0;
@@ -50,6 +58,8 @@ const api = async (path, init = {}) => {
 };
 
 const signIn = async () => {
+  // Served: the orchestrator signed in ONCE for the whole run (D11 OTP budget).
+  if (T.served) return T.token;
   const { username, password } = F.operator;
   const login = await api('/api/v1/users/auth/login/', {
     method: 'POST', body: JSON.stringify({ username, password }),
@@ -80,7 +90,10 @@ const burgerOptions = (largeName) => ({
 
 const main = async () => {
   const token = await signIn();
-  check('the fixture operator can sign in', !!token);
+  operatorToken = token;
+  await T.guard(token);
+  if (T.served) T.skip('the fixture operator can sign in');
+  else check('the fixture operator can sign in', !!token);
   const op = (path, init = {}) => api(path, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, ...(init.headers || {}) },
@@ -126,7 +139,7 @@ const main = async () => {
     const button = page.getByRole('button', { name: /Add —/ }).first();
     await button.waitFor({ state: 'visible' });
     await button.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(T.pace(500));
   };
 
   /** Open the basket, read the total it SHOWS, press Checkout. */
@@ -167,7 +180,7 @@ const main = async () => {
     } else {
       await page.getByRole('button', { name: /Back to basket/ }).first().click();
     }
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(T.pace(500));
     check(`${label}: nothing was submitted`, state.submits === 0,
           `submits=${state.submits}`);
     check(`${label}: no uncaught errors`, state.errors.length === 0,
@@ -256,7 +269,13 @@ const main = async () => {
   await browser.close();
   console.log(`\n${passed}/${passed + failed} confirmation-choice checks passed`);
   console.log('This is a MANUAL repeatable run against disposable fixtures — not a CI gate.');
-  process.exit(failed === 0 ? 0 : 1);
+  return failed === 0 ? 0 : 1;
 };
 
-main().catch((e) => { console.error(e); process.exit(2); });
+(async () => {
+  let code = 2;
+  try { code = await main(); }
+  catch (e) { console.error(e); }
+  finally { await T.restore(operatorToken); }
+  process.exit(code);
+})();

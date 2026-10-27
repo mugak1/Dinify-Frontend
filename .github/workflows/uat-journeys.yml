@@ -1,0 +1,156 @@
+# UAT JOURNEYS — run the accepted browser journeys against the stack that SERVES.
+#
+# The journeys in e2e/ (checkout journey 43, recovery 154, equivalence 21,
+# kitchen 55, billing 56 checks) were accepted against a disposable local
+# stack. This runs the SAME scripts, with their oracles unchanged, against the
+# Firebase site dinify-prod and the UAT backend it calls, on ONE dedicated test
+# restaurant. e2e/served/README.md is the full account: the owner's one-time
+# setup, the interlock, teardown and bounded growth, and what the evidence file
+# contains. e2e/served/tests/workflow.test.mjs pins this file.
+#
+# WHAT IT IS NOT. It deploys nothing, gates nothing and nothing triggers on it.
+# Its evidence is LEGACY-GRADE serving evidence (deploy-run heads, release and
+# health answers, the bundle filename), not the D08 B3 process-bound identity.
+#
+# Dispatched by the owner, on main only. No pull_request and no schedule: a
+# schedule can follow once a first run has been reviewed.
+name: UAT journeys
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# ONE RUN AT A TIME. Every run acts on the same restaurant, closes out its board
+# and resets its catalogue; two interleaved runs would act on each other.
+concurrency:
+  group: uat-journeys
+  cancel-in-progress: false
+
+env:
+  JOURNEY_API: https://api-test.dinifyapp.com/uat
+
+jobs:
+  # The first job checks UAT health and holds no secret. Healthy -> the journeys
+  # run. Unreachable OUTSIDE 11:00-23:00 Europe/London -> the instance is stopped
+  # by design: this job succeeds with a NOT RUN summary and the journeys job is
+  # SKIPPED (Actions has no neutral conclusion; a skipped job is the nearest).
+  # Unreachable INSIDE the window -> this job fails red.
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      verdict: ${{ steps.health.outputs.verdict }}
+    steps:
+      # Actions are pinned to the commits already reviewed in certify.yml and
+      # publish.yml, with the version beside each SHA.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: UAT health and window
+        id: health
+        run: node e2e/served/run.mjs health-gate
+
+  journeys:
+    needs: health
+    if: needs.health.outputs.verdict == 'run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      JOURNEY_WEB: https://dinify-prod.web.app
+      JOURNEY_RESTAURANT_ID: ${{ vars.UAT_JOURNEY_RESTAURANT_ID }}
+      JOURNEY_RESTAURANT_NAME: ${{ vars.UAT_JOURNEY_RESTAURANT_NAME }}
+      # Fixed pauses are doubled against a remote stack. A longer pause makes a
+      # negative check stricter and a positive one more patient; no assertion moves.
+      JOURNEY_WAIT_SCALE: '2'
+
+    steps:
+      - name: Refuse any ref but main
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::UAT journeys are dispatched on main only (this run is on $REF)."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Self-test the harness (offline)
+        # Before anything touches the network: the redaction scan must find a
+        # planted token of every class, and the harness tests (this file's pins
+        # included) must pass.
+        run: |
+          set -euo pipefail
+          node e2e/served/redact.mjs --self-test
+          node --test "e2e/served/tests/*.test.mjs"
+
+      - name: Install Playwright 1.56.1 and its Chromium
+        # Kept OUT of package.json and the lockfiles, as e2e/*/README.md explain.
+        # Installed into e2e/ only, so this job never installs the application's
+        # dependency tree; the browser is the one this Playwright release pins.
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: |
+          set -euo pipefail
+          npm i --no-save --no-package-lock --ignore-scripts --prefix e2e playwright@1.56.1
+          unset PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+          node e2e/node_modules/playwright/cli.js install --with-deps chromium
+          git diff --exit-code -- package.json package-lock.json
+
+      - name: Run the journeys against the served stack
+        # The operator signs in ONCE. The username and password are masked by the
+        # runner as secrets and again with ::add-mask:: by run.mjs, which also
+        # masks every token, QR credential and table session the moment it
+        # exists, and redacts every journey line before echoing it.
+        env:
+          JOURNEY_OPERATOR_USERNAME: ${{ secrets.UAT_JOURNEY_OPERATOR_USERNAME }}
+          JOURNEY_OPERATOR_PASSWORD: ${{ secrets.UAT_JOURNEY_OPERATOR_PASSWORD }}
+          JOURNEY_EVIDENCE: ${{ runner.temp }}/uat-journeys-evidence.json
+        run: node e2e/served/run.mjs
+
+      - name: Redaction scan of the evidence file
+        # FAIL CLOSED: anything token-shaped, or the exact operator credentials,
+        # anywhere in the file means it is not uploaded.
+        id: scan
+        if: always()
+        env:
+          REDACT_EXTRA_VALUES: |
+            ${{ secrets.UAT_JOURNEY_OPERATOR_USERNAME }}
+            ${{ secrets.UAT_JOURNEY_OPERATOR_PASSWORD }}
+          JOURNEY_EVIDENCE: ${{ runner.temp }}/uat-journeys-evidence.json
+        run: node e2e/served/redact.mjs scan "$JOURNEY_EVIDENCE"
+
+      - name: Upload the redacted evidence
+        # ONE JSON file. No Playwright trace, HAR or video is recorded or uploaded:
+        # they carry diner URLs with ?c=<credential> and Authorization headers.
+        if: always() && steps.scan.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: uat-journeys-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/uat-journeys-evidence.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Delete the fixture and evidence files
+        if: always()
+        env:
+          WORK: ${{ runner.temp }}
+        run: rm -rf "$WORK"/served-journeys-* "$WORK/uat-journeys-evidence.json"
