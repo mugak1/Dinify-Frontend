@@ -1339,6 +1339,25 @@ It does change `release/`, so like any policy change it **advances the verifier 
 whose gate evaluated the previous policy is refused at the publisher as
 `preflight.policy_advanced`, and the merge's own readiness run evaluates the new one.
 
+**The record is now in `history.json`** (a follow-up the same day, which removes the overlay).
+`source-protection-recorded` is an owner state of its own: R-1's overrides, with the status
+`recorded` and the one wait removed. It follows R-1 in `2026-10-26-pilot-17`'s `ownerStates`.
+A state's overrides are applied over the committed policy, so `before-R-1` and `R-1` now state
+`unrecorded` themselves, which the overlay used to add for them; their replays are
+byte-identical. Two readiness runs recorded what were computed waits. Both digests were read
+from the runs' own readiness records (the Decide step's job log), and both equal the computed
+values, so each entry moved to `recorded` with its run:
+
+- run `40497635180` on `7cf5b45`, under R-1: `sha256:8ecab1b2…7677`, previously `constructed`;
+- run `40510386279` on `532f68e`, under the record: `sha256:01536d3a…5972`, previously
+  `synthetic`.
+
+The test that pinned the record's absence now pins its presence, and the record's block reads
+the row the record landed in rather than the last row. So **the next refresh is the three-file
+procedure again** ("Refreshing the compatible set", below). `policy.json` and `release/lib/`
+are unchanged, so no decision moves. The verifier tree advances, through `history.json`, the
+committed-policy test and this file.
+
 ### The cutover
 
 **Setting `FRONTEND_PUBLISH_ENABLED` while `deploy-prod.yml` still exists is not a
