@@ -100,8 +100,19 @@ jobs:
       # stamped or uploaded, so no certified artifact can claim a scan that did not pass.
       # Its evidence is then BOUND to the candidate by the stamp below (D08 B2.2), and a
       # fresh assessment of that same inventory is made again before any promotion.
+      #
+      # CI-signal A-2: BASE is the push's `before` — main as it was before this merge — so
+      # an advisory on a dependency main already had is INHERITED and, if it is a high on
+      # tooling, deferred under a dated obligation instead of blocking the certification of
+      # a commit that did not bring it in. All zeros (a push that created the branch) or a
+      # commit not in this clone is no base: the old rule. GH_TOKEN (this job's read-only
+      # token) is used only to ask GitHub when each advisory became reportable; the scanner
+      # never receives it. The stamp below retains the answer with the evidence.
       - name: Dependency audit — scan the validated inventory and enforce the policy
-        run: npm run audit:deps
+        env:
+          BASE: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
+        run: npm run audit:deps -- --base "$BASE"
 
       # ── The candidate ────────────────────────────────────────────────────────────
       - name: Resolve the shipping configuration from the committed policy

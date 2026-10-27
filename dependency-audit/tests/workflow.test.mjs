@@ -32,9 +32,17 @@ const LEGACY = loadWorkflow(WF('deploy-prod.yml'));
 const AUDIT = loadWorkflow(WF('audit.yml'));
 const PKG = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
 const SNAPSHOT = 'npm run audit:snapshot';
+/** The scan as the scheduled re-scan runs it: no base, so nothing can be deferred. */
 const SCAN = 'npm run audit:deps';
+/** The scan as `validate` and `certify` run it: against the commit the change was made on (CI-signal A-2). */
+const SCAN_BASED = 'npm run audit:deps -- --base "$BASE"';
 const JOBS = { validate: CI.jobs.validate.steps, certify: CERTIFY.jobs.certify.steps };
-const indexOfRun = (steps, run) => steps.findIndex((s) => commandOf(s) === run);
+const BASE_OF = {
+  validate: '${{ github.event.pull_request.base.sha || github.event.before }}',
+  certify: '${{ github.event.before }}',
+};
+const isScan = (step) => commandOf(step) === SCAN || commandOf(step) === SCAN_BASED;
+const indexOfRun = (steps, run) => steps.findIndex((s) => (run === SCAN ? isScan(s) : commandOf(s) === run));
 
 describe('the YAML subset reader agrees with the `yaml` library on every workflow here', () => {
   it('CONTRACT: identical parse of each workflow file (the oracle for the reader Dinify-Admin relies on)', () => {
@@ -73,11 +81,38 @@ describe('the audit is part of BOTH required validation paths', () => {
 
     it(`REGRESSION MATRIX (${job}): the audit fails while the suite passes → the job is red`, () => {
       assert.equal(simulateJob(steps, () => 'success').conclusion, 'success', 'CONTROL: all green is green');
-      assert.equal(simulateJob(steps, (s) => (commandOf(s) === SCAN ? 'failure' : 'success')).conclusion, 'failure');
-      assert.equal(simulateJob(steps, (s) => (commandOf(s) === SCAN ? 'cancelled' : 'success')).conclusion, 'cancelled');
+      assert.equal(simulateJob(steps, (s) => (isScan(s) ? 'failure' : 'success')).conclusion, 'failure');
+      assert.equal(simulateJob(steps, (s) => (isScan(s) ? 'cancelled' : 'success')).conclusion, 'cancelled');
       assert.equal(simulateJob(steps, (s) => (commandOf(s) === 'npm run test:ci' ? 'failure' : 'success')).conclusion, 'failure', 'an existing gate still fails the job');
     });
   }
+
+  for (const [job, steps] of Object.entries(JOBS)) {
+    it(`CONTRACT (${job}, CI-signal A-2): the scan names its base and the job token through \`env\` — never interpolated into the script`, () => {
+      const step = steps[indexOfRun(steps, SCAN)];
+      assert.equal(commandOf(step), SCAN_BASED);
+      assert.deepEqual(step.env, { BASE: BASE_OF[job], GH_TOKEN: '${{ github.token }}' });
+      assert.doesNotMatch(step.run, /\$\{\{/, 'no expression inside the script');
+    });
+  }
+
+  it('CONTRACT (CI-signal A-2): the token the clock uses grants nothing new — the permissions are unchanged', () => {
+    assert.equal(CI.permissions, undefined, 'ci.yml declares no permissions, so the job keeps the repository default');
+    assert.equal(CI.jobs.validate.permissions, undefined);
+    assert.deepEqual(CERTIFY.permissions, { contents: 'read' });
+    assert.equal(CERTIFY.jobs.certify.permissions, undefined);
+    // The scheduled re-scan has no base and therefore defers nothing: unchanged.
+    assert.equal(AUDIT.jobs.audit.steps.find((s) => commandOf(s) === SCAN).env, undefined);
+  });
+
+  it('REGRESSION MATRIX (CI-signal A-2): the base reaches the evaluator as written, and an empty one stays one argument', () => {
+    const step = JOBS.validate[indexOfRun(JOBS.validate, SCAN)];
+    for (const [base, args] of [['a'.repeat(40), `run audit:deps -- --base ${'a'.repeat(40)}`], ['', 'run audit:deps -- --base ']]) {
+      const r = runStep(`BASE='${base}'\n${step.run}\n`, { npmBody: 'printf "%s\\n" "$*"' });
+      assert.equal(r.status, 0, r.stderr);
+      assert.equal(r.stdout, `${args}\n`, 'an empty BASE is still passed — and the CLI reads it as no base');
+    }
+  });
 
   it('CONTRACT: in validate the scan is the last validation step, followed only by evidence retention', () => {
     const steps = JOBS.validate;
@@ -91,7 +126,7 @@ describe('the audit is part of BOTH required validation paths', () => {
     const scan = indexOfRun(steps, SCAN);
     const candidate = ['Build the shipping candidate', 'Stamp the release identity and provenance', 'Upload the candidate'];
     for (const name of candidate) assert.ok(steps.findIndex((s) => s.name === name) > scan, `${name} runs before the audit`);
-    const r = simulateJob(steps, (s) => (commandOf(s) === SCAN ? 'failure' : 'success'));
+    const r = simulateJob(steps, (s) => (isScan(s) ? 'failure' : 'success'));
     assert.equal(r.conclusion, 'failure');
     for (const name of candidate) assert.deepEqual(r.ran.find(([n]) => n === name), [name, 'skipped']);
     assert.deepEqual(r.ran.find(([n]) => n === 'Retain the dependency-audit evidence'), ['Retain the dependency-audit evidence', 'success']);
@@ -174,7 +209,7 @@ describe('an unaccounted vulnerability fails `validate` and leaves NO candidate 
       assert.deepEqual(job.ran.find(([n]) => n === RETAIN), [RETAIN, 'success'], `${name}: the evidence step ran after the failure`);
       assert.equal(job.conclusion, 'failure', `${name}: collecting the evidence did not turn the job green`);
       // A retention step that itself failed would not make a failed job pass either.
-      assert.equal(simulateJob(steps, (s) => (s === retain || commandOf(s) === SCAN ? 'failure' : 'success')).conclusion, 'failure', name);
+      assert.equal(simulateJob(steps, (s) => (s === retain || isScan(s) ? 'failure' : 'success')).conclusion, 'failure', name);
     }
     // What that step collects is on disk and says why: the raw answer, byte for byte, and
     // a result that names the unaccounted cause.
