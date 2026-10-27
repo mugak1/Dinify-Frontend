@@ -230,6 +230,76 @@ value other than `true` as "not enabled" and reports `WOULD_PUBLISH` for an admi
 candidate. That is fail-safe (nothing publishes), unreachable while every candidate is
 refused, and outside this change.
 
+### An off-hours Admin read says why it is red (2026-10-27)
+
+The development server that Admin and the Backend share runs 11:00–23:00 Europe/London, on
+the owner's AWS schedule. When readiness runs while it is off, Admin's `release.txt`
+cannot be read and the decision refuses `peers.admin_serving_unreadable`. That is not a
+waiting condition, so the run is red, correctly: nothing was observed. The red run did
+not say why, so it read like an outage. The owner's decision of 26 October (CI-signal
+design C, the variant that needs no new permission) is that readiness **stays red**, its
+summary says that the schedule is the likely cause and how to recover, and **AWS is not
+asked anything**.
+
+`lib/off-hours.mjs` writes that explanation. It applies only to a `REFUSE` whose reasons
+include `peers.admin_serving_unreadable`, and it reads the run's own decision time (the
+`--now` the Decide step gives `decide`) on the London wall clock:
+
+| decision time (London) | what is added |
+|---|---|
+| outside the window, or in its last 20 minutes | the note, first in the "Publication decision" section, and one `::warning::` annotation carrying the note's first line |
+| inside the window | one short line: "The development server should be up now. Treat this as an outage and check Admin." No annotation |
+| a time it cannot read | nothing |
+
+Any other refusal gets nothing new. The note says that Admin's `release.txt` couldn't be
+read, that the development server is *scheduled* off at that London time (window
+11:00–23:00 London), so this is expected, and to re-run "Readiness evaluation" inside the
+window ("Re-run all jobs" on this run, or a `workflow_dispatch`). It says "scheduled off",
+never "the server is off": nothing here knows whether the instance is running.
+
+**The window is written once**, as `DEV_SERVER_WINDOW` in `lib/off-hours.mjs`. It is a
+copy, not the authority. It moves with the owner's AWS schedule and with the
+`DEV_SERVER_WINDOW` and `DEV_SERVER_WINDOW_END_MARGIN_MINUTES` the two deploy workflows
+carry (the `window` jobs of Admin #49 and Backend #371), so the three change together.
+"Inside" is `[start, end − margin)` on the London minute: 11:00 is inside, 22:40 is the
+first minute of the margin, and 23:00 is outside. That is the rule Admin `668b627`'s
+`deploy.yml` states and applies (checked against its source). London time comes from the
+IANA tz database that Node carries in ICU, so it is BST in summer and GMT in winter, never
+a fixed offset. Both 2026 change days, 29 March and 25 October, are pinned with the start,
+the margin and the end, including the cases a fixed offset would get wrong.
+
+**Where it is rendered.** In `decide`'s summary, and the annotation on `decide`'s stderr,
+because its stdout is `decision.json`. The runner turns a workflow command into an
+annotation on either stream (actions/runner, `ScriptHandler.cs`, checked at `1ba885c`).
+`publish.yml` is unchanged. No permission, secret, action or network call was added.
+
+**What does not change: everything else.** The decision, its reasons, the readiness
+classification, both exit statuses, the `decisionDigest` and every retained document are
+byte-identical with the note removed. Two tests pin it, one at each level.
+`off-hours-note.test.mjs` runs the Decide step's two commands against a copy of the gate's
+code with the note removed, at three decision times. The workflow simulation runs
+`publish.yml` twice in one world, the second time with the note removed in the gate's
+workspace. Both also show that the runs differ in the note and the annotation and nowhere
+else. For this change the same comparison was also measured against `e43c832`'s
+unmodified CLI, and it matched byte for byte.
+
+**What it cannot say.**
+
+- Whether the server is running. The schedule is the likely cause, not an observation.
+- When the read happened. The time is the *decision* time, a few minutes after the peers
+  were read, because the toolchain is prepared and assessed in between. A read just before
+  11:00 can therefore get the in-window line. So can a server still starting just after
+  11:00, since the deploy jobs' window has no start margin either.
+- Anything about a dispatched run. A `workflow_dispatch` is a manual attempt, so it stays
+  red by design (`readiness.deliberate_attempt`); it still shows whether Admin can be read.
+- Anything after 24 hours. "Re-run all jobs" re-evaluates the automatic run, but only
+  within `certificationWindowHours` (24) of its Certify run. After that, the re-run is
+  refused as `certification.stale`.
+
+It changes `release/` (`cli.mjs`, the new `lib/off-hours.mjs`, tests and this file) and
+not `publish.yml`, so it advances the verifier tree through `release/`. `policy.json`, the
+awaiting list and every decision are unchanged.
+
 ## Trust boundaries
 
 - **The gate's code and policy are the default branch's, never the candidate's.** The
