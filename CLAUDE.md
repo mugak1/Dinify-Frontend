@@ -2999,6 +2999,16 @@ so keep it current when conventions change.
   and errors, the rate-limit notice, resend and the `lock-otp-exp` navigation are as
   before, pinned by `forgot-password.component.spec.ts`. This PR merges BEFORE the
   Backend one; the wording is true of both the old and the new server answers
+- The OTP code is entered in ONE field (OTP-SINGLE-FIELD-00): ✅ `app-otp-input`
+  (`_common/otp-input/`, used by login, sign-up, forgot-password and the profile screen)
+  is a single numeric field, not a box per digit. It keeps only digits and cuts them to
+  `size` (default 4), so a pasted or autofilled SMS ("Your code is 1234.") becomes the
+  code, and `autocomplete="one-time-code"` lets the phone fill it in one go. Its contract
+  did not change: same selector, a plain digit string through `ngModel`, invalid until
+  exactly `size` digits, and clearing the model clears the field. `!text-2xl` holds the
+  digit size against the global 16px mobile input rule in `styles.css`. Owner claim has
+  its own single field and does not use this component. Pinned by
+  `otp-input.component.spec.ts`; do not bring the per-digit boxes back
 - Owner claim (route `/owner-claim`): ✅ the restaurant-portal half of backend Phase-1
   Step 2F. A PUBLIC, standalone, lazy `OwnerClaimComponent` (`src/app/auth/owner-claim/`)
   that turns a raw claim code plus an OTP into a fully bootstrapped portal session:
