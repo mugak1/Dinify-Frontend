@@ -199,25 +199,20 @@ describe('Sign-up: the msisdn lookup through the real interceptor chain', () => 
     http.expectOne(RESEND_OTP).flush({ status: 200, message: 'OTP sent' });
     fixture.detectChanges();
     // Let ngModel's initial (empty) write land before typing, as it does for a
-    // person; typed earlier, it would clear the boxes.
+    // person; typed earlier, it would clear the field.
     await settle();
     fixture.detectChanges();
     expect(component.require_otp).withContext('OTP step open').toBeTrue();
   }
 
-  /**
-   * Type a code into the real OTP input. It publishes its value from a
-   * `setTimeout`, hence the `settle()` after typing.
-   */
+  /** Type a code into the real OTP input, which is one field for the whole code. */
   async function enterOtp(code: string): Promise<void> {
-    const boxes = Array.from(
+    const fields = Array.from(
       fixture.nativeElement.querySelectorAll('app-otp-input input'),
     ) as HTMLInputElement[];
-    expect(boxes.length).withContext('OTP boxes rendered').toBe(4);
-    code.split('').forEach((digit, i) => {
-      boxes[i].value = digit;
-      boxes[i].dispatchEvent(new Event('input'));
-    });
+    expect(fields.length).withContext('one OTP field rendered').toBe(1);
+    fields[0].value = code;
+    fields[0].dispatchEvent(new Event('input'));
     await settle();
     fixture.detectChanges();
     expect(component.data).withContext('OTP entered').toBe(code);

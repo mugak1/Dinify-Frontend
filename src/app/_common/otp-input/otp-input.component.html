@@ -1,19 +1,23 @@
-<div class="flex flex-row items-center justify-between mx-auto w-full max-w-xs space-x-1">
-  @for (input of inputs.controls; track input; let i = $index) {
-    <div  class="w-16 h-16 ">
-      <input class="shadow-xs flex w-[64px] items-center justify-center rounded-lg border border-stroke bg-white p-2 text-center text-2xl font-medium text-gray-5 outline-none sm:text-4xl dark:border-dark-3 dark:bg-white/5"
-        #inputEl
-        (focus)="handleFocus($event)"
-        (blur)="onTouched?.()"
-        (keypress)="handleKeyPress($event, i)"
-        (input)="handleInput()"
-        (keydown)="handleKeyDown($event, i)"
-        (paste)="handlePaste($event, i)"
-        [formControl]="$any(input)"
-        [attr.autocomplete]="i === 0 ? 'one-time-code' : null"
-        type="text"
-        inputmode="numeric"
-        />
-    </div>
-  }
-</div>
+<!-- Letter-spacing also trails the last digit, which would pull the centred code
+left; the matching indent puts it back. Both drop while the placeholder shows,
+so the placeholder stays centred too. `!text-2xl` holds the digit size on phones
+against the global 16px input rule in styles.css; 2xl is above 16px, so iOS
+still does not zoom on focus. -->
+<input
+  class="block w-full h-[52px] px-4 rounded-md border-[1.5px] border-gray-200 bg-white
+         text-center !text-2xl font-semibold tabular-nums text-gray-900 outline-none
+         tracking-[0.5em] indent-[0.5em] placeholder-shown:tracking-normal placeholder-shown:indent-0
+         placeholder:text-base placeholder:font-normal placeholder:text-[#B8AFA6]
+         transition duration-200 focus:border-d-red focus:ring-4 focus:ring-d-red/[0.13]
+         disabled:opacity-60"
+  type="text"
+  inputmode="numeric"
+  autocomplete="one-time-code"
+  spellcheck="false"
+  aria-label="One-time code"
+  [placeholder]="'Enter the ' + size + '-digit code'"
+  [value]="value"
+  [disabled]="disabled"
+  (input)="handleInput($event)"
+  (blur)="onTouched?.()"
+  />
