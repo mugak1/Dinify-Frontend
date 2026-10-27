@@ -18,8 +18,9 @@
  *                         measure it (the gate; no credential)
  *   assess                a FRESH advisory query over the candidate's retained graph, the
  *                         pinned scanner and the prepared toolchain (the gate)
- *   decide                the decision + the admitted record + a shadow-mode summary
- *   readiness             is a refusal EXACTLY the recorded waiting state of a
+ *   decide                the decision + the admitted record + a shadow-mode summary (and,
+ *                         for an unreadable Admin identity, the off-hours note)
+ *   readiness            is a refusal EXACTLY the recorded waiting state of a
  *                         non-publishing evaluation? (asked only of a refusal)
  *   preflight             the publisher's critical-section recheck, then staging
  *   publish               the last-boundary recheck, then the admitted toolchain — the
@@ -66,6 +67,7 @@ import { buildRecord, decodeRecord, encodeRecord, recordDigest, validateRecord }
 import { certificationWindowReasons, dependencyBoundaryReasons, preflightReasons } from './lib/preflight.mjs';
 import { FAILING_OUTCOMES, classifyVerification, summarizeOutcome } from './lib/outcome.mjs';
 import { AWAITING, classifyReadiness, readinessCovers, unclassifiable } from './lib/readiness.mjs';
+import { adminReadNote } from './lib/off-hours.mjs';
 import { partitionByIgnore, supportedIgnorePattern, globToRegExp } from './lib/glob.mjs';
 import {
   artifactFacts, fetchBackFiles, ghApi, git, gitShow, observeCandidate, readFilesUnder,
@@ -683,10 +685,13 @@ function dependencyRows(observation, dependencies) {
   ];
 }
 
-function shadowSummary({ decision, request, certification, observation, served, policyRevision, policy, dependencies }) {
+function shadowSummary({ decision, request, certification, observation, served, policyRevision, policy, dependencies, note }) {
   const lines = [];
   lines.push(`### Publication decision: ${decision.decision}`, '');
   lines.push(...(OPENING[decision.decision] ?? []), '');
+  // The off-hours Admin note (lib/off-hours.mjs), first, so the likely cause is read
+  // before the evidence. Presentation only: it was computed from this decision.
+  if (note) lines.push(note.markdown, '');
   // Read defensively: the summary is also written for a decision taken against an
   // INVALID policy (policy.invalid), and must not be the thing that crashes.
   const legacy = policy?.prerequisites?.singlePublisher?.legacyWorkflow ?? 'the legacy deploy workflow';
@@ -1091,11 +1096,17 @@ function cmdDecide(args) {
     tooling_artifact_id: record?.publisher?.artifact?.id ?? '',
     assessment_artifact_id: record?.dependencies?.assessment?.artifact?.id ?? '',
   });
+  // PRESENTATION ONLY, after every output above is written: the off-hours note reads
+  // the finished decision and `now`, and nothing reads the note back. Its annotation
+  // goes to STDERR because stdout is the decision document; the runner processes a
+  // workflow command on either stream.
+  const note = adminReadNote({ decision, now });
   if (f.summary) {
     appendFileSync(String(f.summary), shadowSummary({
-      decision, request, certification, observation, served, policyRevision: facts.policy?.revision, policy, dependencies,
+      decision, request, certification, observation, served, policyRevision: facts.policy?.revision, policy, dependencies, note,
     }));
   }
+  if (note?.annotation) stderr.write(`${note.annotation}\n`);
   print(decision);
   exit(decision.decision === 'REFUSE' ? 1 : 0);
 }
