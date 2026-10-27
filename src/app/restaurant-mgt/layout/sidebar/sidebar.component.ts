@@ -22,7 +22,9 @@ export class SidebarComponent implements OnChanges, OnDestroy {
   // `module` keys the item to an RBAC module; an undefined module (Support) is
   // always shown. Items the current membership can't access are filtered out by
   // visibleNavItems — UX hygiene mirroring the route guards.
-  navItems: { label: string; route: string; icon: string; module?: ModuleKey }[] = [
+  // `newTab` opens the item in a new browser tab instead of navigating the
+  // portal away.
+  navItems: { label: string; route: string; icon: string; module?: ModuleKey; newTab?: boolean }[] = [
     { label: 'Dashboard', route: '/dashboard',     icon: 'dashboard', module: 'dashboard' },
     { label: 'Menu',      route: '/menu',          icon: 'menu',      module: 'menu' },
     { label: 'Tables',    route: '/dining-tables', icon: 'tables',    module: 'tables' },
@@ -31,7 +33,9 @@ export class SidebarComponent implements OnChanges, OnDestroy {
     // siblings (owner/manager/kitchen see it; restaurant_staff has kitchen:false).
     // This is the sidebar entry the audit flagged as missing — /kitchen was
     // reachable only from a single dashboard anchor.
-    { label: 'Kitchen',   route: '/kitchen',       icon: 'kitchen',   module: 'kitchen' },
+    // It opens in a NEW TAB: the board is a standalone display (no portal
+    // shell) that a kitchen keeps open, so the portal tab stays where it was.
+    { label: 'Kitchen',   route: '/kitchen',       icon: 'kitchen',   module: 'kitchen', newTab: true },
     { label: 'Reviews',   route: '/reviews',       icon: 'reviews',   module: 'reviews' },
     { label: 'Reports',   route: '/reports',       icon: 'reports',   module: 'reports' },
     { label: 'Support',   route: '/support',       icon: 'support' },

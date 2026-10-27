@@ -1999,6 +1999,12 @@ so keep it current when conventions change.
   **Kitchen** entry (route `/kitchen`, gated on the `kitchen` module —
   owner/manager/kitchen see it, `restaurant_staff` does not), so back-office
   staff reach the board from portal nav, not only via the login auto-redirect.
+  **BOTH PORTAL ENTRY POINTS OPEN THE BOARD IN A NEW TAB** (the sidebar item, via
+  `newTab: true` on its nav entry, and the Dashboard KDS card's "Open Expo" link):
+  `target="_blank"` + `rel="noopener"`, so the portal tab stays where it was. Auth
+  lives in localStorage, so the new tab is already signed in. Every other sidebar
+  item still navigates in place. Pinned by `sidebar.component.spec.ts` and
+  `kds-attention-card.component.spec.ts`
   **THE BOARD SUSPENDS IDLE LOGOUT WHILE IT IS MOUNTED (KITCHEN-IDLE-00).** The
   15-minute idle logout (`InactivityService`) counts only mouse, key, touch and
   scroll input, so a board nobody touched during a quiet spell signed itself out

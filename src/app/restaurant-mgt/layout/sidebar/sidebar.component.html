@@ -31,6 +31,8 @@ absolute toggle button. -->
         <a
           [routerLink]="item.route" routerLinkActive="bg-sidebar-accent font-medium"
           #rla="routerLinkActive" ariaCurrentWhenActive="page"
+          [target]="item.newTab ? '_blank' : undefined"
+          [attr.rel]="item.newTab ? 'noopener' : null"
           class="relative flex items-center rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           [ngClass]="isOpen ? 'gap-3 px-3 py-2' : 'justify-center mx-auto h-[40px] w-[40px]'"
           [appTooltip]="!isOpen ? item.label : ''">
@@ -66,7 +68,12 @@ absolute toggle button. -->
               }
             }
           </svg>
-          <span class="text-sm truncate" [class.sr-only]="!isOpen" [class.text-white]="rla.isActive">{{ item.label }}</span>
+          <span class="text-sm truncate" [class.sr-only]="!isOpen" [class.text-white]="rla.isActive">{{ item.label }}@if (item.newTab) {<span class="sr-only"> (opens in a new tab)</span>}</span>
+          @if (item.newTab && isOpen) {
+            <svg aria-hidden="true" data-testid="nav-new-tab-icon" class="w-3.5 h-3.5 shrink-0 ml-auto opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            </svg>
+          }
         </a>
       }
 
