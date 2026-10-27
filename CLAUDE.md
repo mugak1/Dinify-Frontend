@@ -4990,21 +4990,41 @@ Admin and Backend — five outcomes, `within_policy` 0 / `exceptions_only` 0 /
 `obligations_pending` 0 / `blocking` 1 / `incomplete` 2; high/critical blocks in every
 scope, any runtime advisory blocks, lower-severity tooling is TRIAGE REQUIRED (visible,
 never "zero findings"), anything unevaluable is incomplete and FAILS. **The fifth outcome
-is the DATED OBLIGATION (CI-signal A-1), and it is INERT until A-2:** after the records, an
+is the DATED OBLIGATION (CI-signal A-1), switched on by A-2:** after the records, an
 unexcepted TOOLING HIGH finding whose optional `provenance` is exactly `"inherited"` and
 whose optional `reportableSince` is a calendar date no later than the decision day is
 deferred until 00:00 UTC on `reportableSince` + 7 days (`HIGH_DEFERRAL_DAYS`, a constant
 in `lib/core.mjs`, never a policy value); critical is never deferred, and anything not
 established blocks as before (a wrong JSON type is a malformed finding, `null` is absent).
-No adapter emits either field yet — A-2 does — and a result that deferred nothing is
+A-2 supplies both fields (below), and a result that deferred nothing is still
 byte-identical to before: `counts.deferred`, `deadline` and `deferred_finding` appear only
 when a deferral applied, because `dependency-evidence.mjs` re-decides retained results and
 compares `counts` exactly. `tests/core.test.mjs` pins the full result of the 41 earlier
 vectors by digest (61 vectors now, digest `6365e880…`); `PASSING_OUTCOMES` and
 `journey-peers.mjs`'s `PASSING_AUDIT` accept the new word and nothing else new.
-**Not done in A-1, and needed before A-2 lets the outcome occur:** the fresh assessment's
-promotion window is cut short by an applied record's expiry but not by a deferred finding's
-deadline, so a deferral that lapses inside the window would still be promoted. **Every vulnerability the report declares is
+**CI-signal A-2 supplies the two inputs, from evidence only — no flag can set either.**
+PROVENANCE is read from a base commit through git (`audit --base <sha>`): a finding is
+`inherited` only when the base's lock holds the SAME path with the same `version` and
+`integrity`, otherwise `introduced`; a base not in the clone or not an ancestor of HEAD is
+recorded `unavailable` and treated as none, and with no base (empty or all-zero `--base`, a
+new branch, a force push, the weekly `audit.yml`, which is unchanged) nothing can be
+deferred. `validate` passes `pull_request.base.sha || event.before` and `certify` passes
+`event.before`, each with `GH_TOKEN: github.token` (permissions unchanged). THE CLOCK is
+GitHub's: `lib/advisories.mjs` asks `GET api.github.com/advisories/{id}` once per distinct
+GHSA id on findings with provenance, from a child process (15 s each, no redirects, the
+token only when given and never to the scanner); `reportableSince` is the UTC date of
+`github_reviewed_at`, else `published_at`. Every answer is retained in `advisories.json`
+(each body digested, the file named by the collection); any answer that is not a record
+of that advisory gives NO date, so the finding blocks; a tampered or missing record is
+incomplete. Re-decisions (`evaluate`, `decide`, the preflight, the last boundary) re-read
+that file and never ask, and a re-decision at the same instant is byte-identical. At
+PROMOTION `assess` gives the application and scanner graphs provenance against the
+candidate's OWN retained locks (a trusted scanner that moved makes what changed
+introduced), asks WITHOUT a token, and **never gives the publisher graph provenance** — a
+high there blocks whatever GitHub says. `stamp` retains `advisories.json` in the evidence
+bundle. The gap A-1 named is CLOSED: a deferred finding's deadline is part of the
+assessment's `expiresAt`, refused from 00:00 UTC as `<boundary>.obligation_overdue`. See
+`dependency-audit/README.md` and `release/README.md` → "CI-signal A-2". **Every vulnerability the report declares is
 accounted for, or the audit is incomplete**: a STRING `via` (a package vulnerable through
 another) is ordinary npm output and is followed to the advisory it reaches, while a name
 the report does not list, a chain or cycle reaching no advisory, a severity no reachable

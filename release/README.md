@@ -427,9 +427,11 @@ lockfile graph, with nothing installed and no script run.
 | certification | `freshness.certificationWindowHours` (24) | the certifying run's start | gate, preflight, last boundary |
 | fresh assessment | `freshness.assessmentWindowHours` (24, the validator's maximum) | the collection's START | gate, preflight, last boundary |
 | applied exception | the record's `expires` (lapses 00:00 UTC that day) | — | gate, preflight, last boundary |
+| dated obligation (A-2) | the deferred finding's `deadline` (blocks from 00:00 UTC that day) | GitHub's date for the advisory, retained | gate, preflight, last boundary |
 
-The record's `expiresAt` is the earliest of the three; each is refused under its own
-name, so a lapsed assessment is never reported as a stale certification.
+The record's `expiresAt` is the earliest of the four; each is refused under its own
+name (an overdue obligation is `<boundary>.obligation_overdue`), so a lapsed assessment is
+never reported as a stale certification.
 
 ### Who enforces what
 
@@ -527,6 +529,59 @@ The `evidence run start` row is the defect this change almost shipped: the stamp
 clock reading is LATER than the API's run start, so comparing the two refuses every real
 candidate — the harness stamps five minutes after the run starts precisely so that
 mutation cannot pass.
+
+### CI-signal A-2: provenance and the clock at promotion
+
+A-1 taught the shared evaluator to defer an INHERITED high tooling finding for seven days
+from the day its advisory became reportable; A-2 supplies those two facts
+(`dependency-audit/README.md` → "Provenance and the clock"). Here is what changes on the
+release path, and what deliberately does not.
+
+**Certification (`certify.yml`).** The audit runs with `--base` set to
+`github.event.before`, the previous tip of main, and the job token as `GH_TOKEN`. The
+workflow's permissions are unchanged (`contents: read`), and the advisory endpoint is
+public. When the audit asked GitHub anything, `stamp` retains its `advisories.json` in the
+candidate's evidence bundle (`dependency-evidence/audit/advisories.json`), named by the
+retained collection's digest, and the gate re-derives the retained result with those
+dates (`evidence.advisories_invalid` if the record does not reproduce). The provenance a
+re-derivation can establish is against the candidate's OWN retained locks, and only for
+the graphs the collection gave a base: inside fixed bytes everything is inherited, so a
+re-derived certification reaches the same outcome and counts as the original.
+
+**The fresh assessment (`publish.yml`, gate).** `assess` gives the APPLICATION and SCANNER
+graphs provenance against the candidate's retained locks: the application lock is the
+candidate's own, and the scanner graph is compared with the candidate's retained scanner
+lock, so a trusted scanner that moved since certification makes what changed
+`introduced`, which blocks. **The publisher graph is never given provenance**: a high
+there blocks whatever GitHub says, it is never asked about, and an assessment that
+claims otherwise is refused (`assessment.publisher_provenance`). The assessment asks
+GitHub WITHOUT a token (the publish workflow gives this step none), so an unanswered or
+rate-limited request leaves no date and the inherited high blocks. The answers are
+retained beside the assessment as `advisories.json` and named by it.
+
+**The re-decisions never ask.** `decide`, the preflight and the last boundary read the
+assessment back through `inspectAssessment`, which re-reads the retained
+`advisories.json` and refuses a date the record does not support
+(`assessment.date_unsupported`), a deadline the rule does not grant or a deferral count
+that does not add up (`assessment.deferral_unsupported`), and a tampered or unnamed
+record (`assessment.advisories_invalid`, `assessment.unexpected_file`); any of those
+reaches the decision as `dependency.assessment_invalid`. **One clock**: a deferred
+finding's deadline is part of `expiresAt`, so it cuts the promotion window short exactly
+as an applied exception's expiry does, and from 00:00 UTC on it every boundary refuses
+`<boundary>.obligation_overdue`.
+
+**Unchanged.** Critical, any runtime finding, an introduced tooling high and an inherited
+high past its deadline all block, in CI and at promotion. Records apply first. A candidate
+certified before A-2 carries no `advisories.json` and re-derives exactly as before. The
+weekly `audit.yml` passes no base. `deploy-prod.yml`, still the live writer, consumes none
+of this.
+
+Pinned by `release/tests/obligations.test.mjs` (assessment inside the window, past the
+deadline, critical, a 403, the scanner graph inherited, the publisher graph never asked,
+the forged re-reads, `decide()` at each side of the deadline, a certification bundle
+carrying an obligation) and by two executed `publish.yml` scenarios in
+`workflow-simulation.test.mjs` (reviewed two days ago: published; eight days ago:
+`dependency.assessment_blocking`).
 
 ### Known limits
 
