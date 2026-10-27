@@ -35,8 +35,9 @@ import { canonicalJson, digestOf, digestOfValue, sha256Hex, treeDigest } from '.
 import {
   DIAGNOSTIC_MAX_BYTES, DIAGNOSTIC_REASONS, INSTALLED_OBSERVATION, RETAINED_OBSERVATION, checkDiagnosticProjection, diagnosticFileName, retainedInventory,
 } from '../../dependency-audit/lib/retained.mjs';
-import { readReport, toolingScope } from '../../dependency-audit/lib/npm.mjs';
-import { evaluate } from '../../dependency-audit/lib/core.mjs';
+import { lockEntries, readReport, toolingScope } from '../../dependency-audit/lib/npm.mjs';
+import { deferralDeadline, evaluate } from '../../dependency-audit/lib/core.mjs';
+import { ADVISORIES_FILE, applyDates, readAdvisoryEvidence } from '../../dependency-audit/lib/advisories.mjs';
 
 export const EVIDENCE_SCHEMA = 'dinify.release.dependency-evidence/1';
 export const ASSESSMENT_SCHEMA = 'dinify.release.assessment/1';
@@ -56,6 +57,16 @@ export const RETAINED = Object.freeze({
   collection: 'audit/collection.json',
   result: 'audit/result.json',
 });
+
+/**
+ * The certification's advisory record (CI-signal A-2), retained in the bundle ONLY when the
+ * collection names one — never required of a bundle whose audit had no base, so every
+ * bundle stamped before A-2 inspects exactly as it did.
+ */
+export const RETAINED_ADVISORIES = `audit/${ADVISORIES_FILE}`;
+
+/** The graphs a promotion gives provenance to. The publisher toolchain is not one of them. */
+export const PROVENANCE_GRAPHS = Object.freeze(['application', 'scanner']);
 
 /**
  * The two artifacts a gate uploads for its publisher, named by ITS run and attempt —
@@ -347,13 +358,26 @@ export function inspectEvidenceBundle(files, expected) {
   const appInv = retainedInventory({ graph: 'application', manifestBytes, lockBytes, snapshot });
   const scannerInv = lockOnlyInventory('scanner', files.get(RETAINED.scannerManifest), files.get(RETAINED.scannerLockfile));
   const incomplete = [...appInv.problems, ...scannerInv.problems];
+  // CI-signal A-2. Where the certification audit gave a graph provenance, the reproduction
+  // does too — against the candidate's OWN retained lock, the promotion rule: nothing can be
+  // introduced into fixed bytes. The base the certification compared against is not
+  // retained and is not needed: a finding it called introduced could only have blocked, so
+  // no passing certification depended on one. Dates come from the retained record alone.
+  const bases = retainedBases(collection, { application: lockBytes, scanner: files.get(RETAINED.scannerLockfile) });
   const findings = [];
   for (const [graph, inv] of [['application', appInv], ['scanner', scannerInv]]) {
-    const read = readReport({ graph, run: { ...raw[graph].run, stdout: raw[graph].stdout }, inv });
+    const read = readReport({ graph, run: { ...raw[graph].run, stdout: raw[graph].stdout }, inv, base: bases[graph] });
     incomplete.push(...read.problems);
     findings.push(...read.findings);
   }
-  const reproduced = evaluate({ incomplete, findings, records: Array.isArray(auditPolicy.records) ? auditPolicy.records : [], now: result.decidedAt });
+  let dated = findings;
+  if (collection.advisories !== undefined) {
+    const read = readAdvisoryEvidence(files.get(RETAINED_ADVISORIES), collection.advisories?.sha256);
+    for (const p of read.problems) problem('evidence.advisories_invalid', `${p.code}: ${p.detail}`);
+    if (out.problems.length) return out;
+    dated = applyDates(findings, read.dates);
+  }
+  const reproduced = evaluate({ incomplete, findings: dated, records: Array.isArray(auditPolicy.records) ? auditPolicy.records : [], now: result.decidedAt });
   out.audit = { outcome: reproduced.outcome, counts: reproduced.counts, findings: reproduced.findings.length };
   if (reproduced.outcome !== result.outcome || !same(reproduced.counts, result.counts)) {
     problem('evidence.unreproducible', `the raw output reads as ${reproduced.outcome} ${canonicalJson(reproduced.counts)}, the retained result says ${String(result.outcome)} ${canonicalJson(result.counts)}`);
@@ -362,9 +386,27 @@ export function inspectEvidenceBundle(files, expected) {
 }
 
 /**
+ * The provenance bases a reproduction of a RECORDED audit uses: for each graph the
+ * collection says was given one (a base `present` or `absent` at that commit), the
+ * candidate's own retained lock for that graph. None at all for an audit that had no base.
+ */
+export function retainedBases(collection, lockBytesByGraph) {
+  const b = collection?.base;
+  if (!isObject(b) || b.state !== 'applied' || !isObject(b.graphs)) return {};
+  const out = {};
+  for (const graph of PROVENANCE_GRAPHS) {
+    if (!['present', 'absent'].includes(b.graphs[graph]?.state)) continue;
+    const entries = lockBytesByGraph[graph] ? lockEntries(lockBytesByGraph[graph]) : null;
+    if (entries) out[graph] = entries;
+  }
+  return out;
+}
+
+/**
  * A lock-graph inventory with NO installed observation, for reading a TOOLING graph's
  * report (every package tooling scope). Used only to re-read a recorded answer; it is not
- * evidence about what was installed and is never presented as such.
+ * evidence about what was installed and is never presented as such. It carries each
+ * entry's integrity, as `inventory()` does, because provenance compares it.
  */
 export function lockOnlyInventory(graph, manifestBytes, lockBytes) {
   const problems = [];
@@ -374,7 +416,7 @@ export function lockOnlyInventory(graph, manifestBytes, lockBytes) {
   }
   if (!isObject(lock?.packages)) return { packages: [], problems: [{ code: 'lockfile_version', detail: `${graph}: no packages map` }], digests: {}, counts: {} };
   const packages = Object.entries(lock.packages).filter(([path]) => path !== '').map(([path, entry]) => ({
-    path: `${graph}:${path}`, version: entry?.version ?? null, scope: toolingScope(entry),
+    path: `${graph}:${path}`, version: entry?.version ?? null, integrity: entry?.integrity ?? null, scope: toolingScope(entry),
   }));
   return { packages, problems, digests: { lockfileSha256: sha256Hex(lockBytes), manifestSha256: sha256Hex(manifestBytes) }, counts: { locked: packages.length } };
 }
@@ -494,6 +536,12 @@ export function validateAssessment(doc) {
     }
   }
   if (typeof doc.outcome !== 'string' || !Number.isInteger(doc.exitCode) || !isObject(doc.counts)) p('assessment.bad_result', `${String(doc.outcome)} ${String(doc.exitCode)}`);
+  // CI-signal A-2: OPTIONAL, and exact when present. An assessment made before A-2 has none.
+  if (Object.hasOwn(doc, 'advisories') && (!isObject(doc.advisories) || doc.advisories.file !== ADVISORIES_FILE || !HEX_RE.test(String(doc.advisories.sha256)))) {
+    p('assessment.bad_advisories', JSON.stringify(doc.advisories));
+  }
+  if (!Array.isArray(doc.findings) || !doc.findings.every(isObject)) p('assessment.bad_result', 'findings is not a list of findings');
+  else if (doc.findings.some((f) => f.class === 'deferred' && !DATE_RE.test(String(f.deadline)))) p('assessment.bad_result', 'a deferred finding carries no deadline');
   if (!Array.isArray(doc.recordsApplied) || !doc.recordsApplied.every((r) => isObject(r) && typeof r.id === 'string' && DATE_RE.test(String(r.expires)))) {
     p('assessment.bad_records', JSON.stringify(doc.recordsApplied));
   }
@@ -572,9 +620,69 @@ export function inspectAssessment(files) {
       }
     }
   }
+  if (out.doc.advisories) expected.add(ADVISORIES_FILE);
   for (const path of files.keys()) if (!expected.has(path)) problem('assessment.unexpected_file', path);
+  if (out.problems.length) return out;
+  for (const p of obligationProblems(out.doc, files.get(ADVISORIES_FILE))) out.problems.push(p);
   return out;
 }
+
+/**
+ * THE PRIVILEGED RE-READ OF THE CLOCK (CI-signal A-2). Every date in the assessment must be
+ * the one its retained advisory record supports, every deferral must be one the evaluator's
+ * own rule grants at the moment the assessment was decided, and the publisher graph must
+ * carry no provenance or date at all — that toolchain runs with the publication credential,
+ * so a high there blocks exactly as it always has. Offline: the record is read, never
+ * fetched. An assessment that names no advisory record may date nothing.
+ */
+function obligationProblems(doc, advisoryBytes) {
+  const out = [];
+  const bad = (code, detail) => out.push({ code, detail: String(detail) });
+  let dates = new Map();
+  if (doc.advisories) {
+    const read = readAdvisoryEvidence(advisoryBytes, doc.advisories.sha256);
+    for (const p of read.problems) bad('assessment.advisories_invalid', `${p.code}: ${p.detail}`);
+    if (out.length) return out;
+    dates = read.dates;
+  }
+  const decidedMs = Date.parse(doc.decidedAt);
+  let deferred = 0;
+  for (const f of doc.findings) {
+    const graph = String(f.path ?? '').split(':')[0];
+    if (!PROVENANCE_GRAPHS.includes(graph)) {
+      if (Object.hasOwn(f, 'provenance') || Object.hasOwn(f, 'reportableSince')) bad('assessment.publisher_provenance', `${String(f.path)}: the ${graph} graph is never given provenance or a date`);
+      if (f.class === 'deferred') bad('assessment.deferral_unsupported', `${String(f.path)}: the ${graph} graph cannot defer`);
+      continue;
+    }
+    const supported = typeof f.provenance === 'string' ? (dates.get(f.advisory) ?? undefined) : undefined;
+    if ((f.reportableSince ?? undefined) !== supported) {
+      bad('assessment.date_unsupported', `${String(f.advisory)} on ${String(f.path)}: dated ${String(f.reportableSince)}, the retained record supports ${String(supported)}`);
+    }
+    if (f.class === 'deferred') {
+      deferred += 1;
+      const deadline = f.disposition === 'open' ? deferralDeadline(f, decidedMs) : null;
+      if (deadline === null || deadline !== f.deadline) bad('assessment.deferral_unsupported', `${String(f.advisory)} on ${String(f.path)}: deferred until ${String(f.deadline)}, the rule grants ${String(deadline)}`);
+    }
+  }
+  if ((doc.counts.deferred ?? 0) !== deferred || (deferred === 0 && Object.hasOwn(doc.counts, 'deferred'))) {
+    bad('assessment.deferral_unsupported', `counts.deferred is ${String(doc.counts.deferred)}, ${deferred} finding(s) are deferred`);
+  }
+  if ((doc.outcome === 'obligations_pending') !== (deferred > 0 && !['blocking', 'incomplete'].includes(doc.outcome))) {
+    bad('assessment.deferral_unsupported', `outcome ${String(doc.outcome)} with ${deferred} deferred finding(s)`);
+  }
+  return out;
+}
+
+/** The dated obligations an assessment carries: {advisory, path, deadline}, earliest first. */
+export function assessmentObligations(doc) {
+  return (Array.isArray(doc?.findings) ? doc.findings : [])
+    .filter((f) => isObject(f) && f.class === 'deferred' && DATE_RE.test(String(f.deadline)))
+    .map((f) => ({ advisory: f.advisory, path: f.path, deadline: f.deadline }))
+    .sort((a, b) => (a.deadline < b.deadline ? -1 : a.deadline > b.deadline ? 1 : 0));
+}
+
+/** 00:00 UTC on an obligation's deadline: from that instant the finding blocks (core.mjs). */
+export const obligationLapsesAt = (deadline) => `${deadline}T00:00:00Z`;
 
 const hoursBetween = (later, earlier) => (Date.parse(later) - Date.parse(earlier)) / 3_600_000;
 /** 00:00 UTC on a record's `expires` date: from that instant it has lapsed (core.mjs's rule). */
@@ -582,11 +690,16 @@ export const recordLapsesAt = (expires) => `${expires}T00:00:00Z`;
 
 /**
  * The instant the admitted unit stops being promotable on its dependency evidence: the
- * assessment window end, or the first applied record's lapse, whichever is earlier.
+ * assessment window end, the first applied record's lapse, or the first dated obligation's
+ * deadline, whichever is earliest — one clock, so an obligation that falls due inside the
+ * window cannot be published around.
  */
 export function assessmentExpiresAt({ assessment, policy }) {
   const windowEnd = Date.parse(assessment.startedAt) + policy.freshness.assessmentWindowHours * 3_600_000;
-  const lapses = assessment.recordsApplied.map((r) => Date.parse(recordLapsesAt(r.expires)));
+  const lapses = [
+    ...assessment.recordsApplied.map((r) => Date.parse(recordLapsesAt(r.expires))),
+    ...assessmentObligations(assessment).map((o) => Date.parse(obligationLapsesAt(o.deadline))),
+  ];
   const end = Math.min(windowEnd, ...lapses);
   return new Date(end).toISOString().replace(/\.000Z$/, 'Z');
 }
@@ -612,6 +725,11 @@ export function assessmentTimeReasons({ assessment, policy, now, prefix = 'depen
   }
   for (const r of a.recordsApplied) {
     if (ms(now) >= ms(recordLapsesAt(r.expires))) out.push(reason(`${prefix}.exception_expired`, `${r.id} lapsed on ${r.expires}`));
+  }
+  for (const o of assessmentObligations(a)) {
+    if (ms(now) >= ms(obligationLapsesAt(o.deadline))) {
+      out.push(reason(`${prefix}.obligation_overdue`, `${o.advisory} on ${o.path} was deferred until ${o.deadline}; from 00:00 UTC that day it blocks — a new evaluation decides it as blocking`));
+    }
   }
   return out;
 }

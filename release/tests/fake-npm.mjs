@@ -259,16 +259,26 @@ export function installFakeNpm({ store = {} } = {}) {
   const registry = join(dir, 'registry.json');
   const advisories = join(dir, 'advisories.json');
   const log = join(dir, 'calls.jsonl');
+  const github = join(dir, 'github-advisories.json');
+  const githubLog = join(dir, 'github-requests.jsonl');
   writeFileSync(join(bin, 'npm'), FAKE_NPM_SOURCE);
   chmodSync(join(bin, 'npm'), 0o755);
   writeFileSync(registry, JSON.stringify(store));
   writeFileSync(advisories, JSON.stringify({ advisories: [] }));
   writeFileSync(log, '');
+  writeFileSync(github, '{}');
+  writeFileSync(githubLog, '');
   return {
     bin,
-    env: () => ({ PATH: `${bin}:${process.env.PATH}`, FAKE_REGISTRY: registry, FAKE_ADVISORIES: advisories, FAKE_NPM_LOG: log }),
+    env: () => ({
+      PATH: `${bin}:${process.env.PATH}`, FAKE_REGISTRY: registry, FAKE_ADVISORIES: advisories, FAKE_NPM_LOG: log,
+      FAKE_GITHUB_ADVISORIES: github, FAKE_GITHUB_ADVISORIES_LOG: githubLog,
+    }),
     /** SYNTHETIC advisories (and failures), answered by the next `audit`. */
     setAdvisories(table) { writeFileSync(advisories, JSON.stringify({ advisories: [], ...table })); },
+    /** SYNTHETIC GitHub advisory records (fake-github-advisories.mjs), by GHSA id. */
+    setGitHubAdvisories(table) { writeFileSync(github, JSON.stringify(table)); },
+    githubRequests: () => readFileSync(githubLog, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)),
     calls: () => readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)),
     setStore(next) { writeFileSync(registry, JSON.stringify(next)); },
   };

@@ -46,15 +46,16 @@ import { argv, exit, stderr, stdout } from 'node:process';
 
 import { contractDigest, digestOf, digestOfValue, sha256Hex, treeDigest } from './lib/canonical.mjs';
 import {
-  ASSESSMENT_DOC, ASSESSMENT_SCHEMA, EVIDENCE_DIR, EVIDENCE_RECORD, EVIDENCE_SCHEMA, RETAINED, TOOLING_SCHEMA,
-  assessmentArtifactName, buildEvidenceRecord, inspectAssessment, inspectEvidenceBundle, toolingArtifactName, validateTooling,
+  ASSESSMENT_DOC, ASSESSMENT_SCHEMA, EVIDENCE_DIR, EVIDENCE_RECORD, EVIDENCE_SCHEMA, RETAINED, RETAINED_ADVISORIES, TOOLING_SCHEMA,
+  assessmentArtifactName, assessmentObligations, buildEvidenceRecord, inspectAssessment, inspectEvidenceBundle, toolingArtifactName, validateTooling,
 } from './lib/dependency-evidence.mjs';
 import { publishInvocation, readPublishResult } from './lib/publisher.mjs';
 import {
   defaultInstallScanner, loadPolicy as loadAuditPolicy, reevaluate, spawnRunner, verifyScannerPin,
 } from '../dependency-audit/lib/audit.mjs';
 import { DIAGNOSTIC_MAX_BYTES, collect, readDiagnosticEvents, retainedInventory, writeReplay } from '../dependency-audit/lib/retained.mjs';
-import { inventory, scannerEnvironment, toolingScope } from '../dependency-audit/lib/npm.mjs';
+import { annotateProvenance, inventory, lockEntries, scannerEnvironment, toolingScope } from '../dependency-audit/lib/npm.mjs';
+import { ADVISORIES_FILE, advisoryIds, applyDates, buildAdvisoryEvidence, fetchAdvisories, readAdvisoryEvidence } from '../dependency-audit/lib/advisories.mjs';
 import { evaluate, headline } from '../dependency-audit/lib/core.mjs';
 import { buildManifest, buildProvenance, validateManifest } from './lib/manifest.mjs';
 import { readEnvironmentLiteral, readIntArrayConstant, readIntConstant, hostingHooks } from './lib/source.mjs';
@@ -355,6 +356,12 @@ function stampDependencyEvidence({ policy, commit, sourceTree, manifest, certifi
     const run = collection.graphs?.[graph]?.run;
     if (!run) fail(`refusing to stamp: the audit collection recorded no ${graph} scan`);
     copies.push([join(auditDir, run.stdoutFile), `audit/${run.stdoutFile}`], [join(auditDir, run.stderrFile), `audit/${run.stderrFile}`]);
+  }
+  // CI-signal A-2: the advisory record the audit's dates came from travels with the raw
+  // output, so every later inspection re-reads the dates rather than asking again.
+  if (collection.advisories !== undefined) {
+    if (collection.advisories?.file !== ADVISORIES_FILE) fail(`refusing to stamp: the audit collection names an advisory record that is not ${ADVISORIES_FILE}`);
+    copies.push([join(auditDir, ADVISORIES_FILE), RETAINED_ADVISORIES]);
   }
   const files = [];
   for (const [from, to] of copies) {
@@ -668,6 +675,8 @@ function dependencyRows(observation, dependencies) {
   let assessment = 'NOT PERFORMED';
   if (a?.state === 'present' && a.doc && !(a.problems ?? []).length) {
     assessment = `${a.doc.outcome} — collected ${a.doc.startedAt} → ${a.doc.finishedAt}, decided ${a.doc.decidedAt}`;
+    const due = assessmentObligations(a.doc);
+    if (due.length) assessment += `; ${due.length} inherited high tooling finding(s) deferred, the first blocking from 00:00 UTC on ${due[0].deadline}`;
   } else if (a?.state === 'present') {
     assessment = `unreadable (${(a.problems ?? []).map((p) => p.code).join(', ')})`;
   }
@@ -961,10 +970,18 @@ function cmdAssess(args) {
     if (walkedTooling.treeDigest !== tooling.treeDigest || walkedTooling.unsafe.length > 0) {
       incomplete.push({ code: 'tooling_changed', detail: 'the toolchain is not the one prepared and measured' });
     }
+    // PROVENANCE AT PROMOTION (CI-signal A-2) is relative to the CANDIDATE'S OWN retained
+    // locks: nothing can be introduced into fixed bytes, so every finding on a path the
+    // candidate retained at that version and integrity is inherited. The scanner graph is
+    // compared with the candidate's retained SCANNER lock, so a trusted scanner that has
+    // moved since certification brings nothing in as inherited. The PUBLISHER graph has no
+    // base and so no provenance: it runs with the publication credential, and a high there
+    // blocks exactly as before (owner decision A-3).
+    const bases = { application: lockEntries(lockBytes), scanner: lockEntries(bundle.get(RETAINED.scannerLockfile)) };
     const plan = [
-      { graph: 'application', dir: replay, kind: 'retained', inv: retainedInventory({ graph: 'application', manifestBytes, lockBytes, snapshot }) },
-      { graph: 'scanner', dir: scannerRoot, kind: 'installed', scopeOf: toolingScope, inv: inventory(scannerRoot, { graph: 'scanner', scopeOf: toolingScope }) },
-      { graph: 'publisher', dir: toolingDir, kind: 'installed', scopeOf: toolingScope, inv: inventory(toolingDir, { graph: 'publisher', scopeOf: toolingScope }) },
+      { graph: 'application', dir: replay, kind: 'retained', base: bases.application, inv: retainedInventory({ graph: 'application', manifestBytes, lockBytes, snapshot }) },
+      { graph: 'scanner', dir: scannerRoot, kind: 'installed', scopeOf: toolingScope, base: bases.scanner, inv: inventory(scannerRoot, { graph: 'scanner', scopeOf: toolingScope }) },
+      { graph: 'publisher', dir: toolingDir, kind: 'installed', scopeOf: toolingScope, base: undefined, inv: inventory(toolingDir, { graph: 'publisher', scopeOf: toolingScope }) },
     ];
     // THE SCANNER'S OWN LOG, kept per graph (dependency-audit/lib/retained.mjs). Its root is
     // THIS invocation's own ABSOLUTE scratch directory — `--out` is commonly relative and npm
@@ -973,13 +990,13 @@ function cmdAssess(args) {
     let diagnosticsRoot = null;
     try { diagnosticsRoot = mkdtempSync(join(tmpdir(), 'dinify-assess-npm-logs-')); } catch { /* each graph records setup_failed */ }
     try {
-      for (const g of plan) {
+      for (const { base, ...g } of plan) {
         const c = collect({
           ...g, npmCli, policy: auditPolicy, runner: spawnRunner, clock, evidenceDir: outDir,
           diagnostics: { root: diagnosticsRoot, forbidden: [candidateRoot, replay, scannerRoot, toolingDir, outDir] },
         });
         incomplete.push(...c.problems);
-        findings.push(...c.findings);
+        findings.push(...annotateProvenance(c.findings, { graph: g.graph, inv: g.inv, base }));
         graphs[g.graph] = c.record;
         if (c.problems.length > 0) unfinishedGraphs.push(g.graph);
       }
@@ -987,10 +1004,26 @@ function cmdAssess(args) {
       if (diagnosticsRoot) rmSync(diagnosticsRoot, { recursive: true, force: true });
     }
   }
+  // THE CLOCK, after every scan, for the findings that carry provenance — the publisher's
+  // never do. The record is written into the assessment, and the dates are read back from
+  // those very bytes, as `decide` and the publisher will read them.
+  let advisoryRecord = null;
+  let dated = findings;
+  const ids = advisoryIds(findings);
+  if (ids.length > 0) {
+    let asked;
+    try { asked = fetchAdvisories(ids); } catch { asked = { answers: ids.map((id) => ({ id, status: 0, retrievedAt: null, error: 'fetch_failed', body: null })), authenticated: false }; }
+    const built = buildAdvisoryEvidence(asked);
+    writeFileSync(join(outDir, ADVISORIES_FILE), built.bytes);
+    advisoryRecord = { file: ADVISORIES_FILE, sha256: built.sha256, requested: ids.length, authenticated: built.doc.authenticated };
+    const read = readAdvisoryEvidence(built.bytes, built.sha256);
+    incomplete.push(...read.problems);
+    dated = applyDates(findings, read.dates);
+  }
   const finishedAt = clock();
   const records = auditPolicy?.records ?? [];
   const decidedAt = clock();
-  const result = evaluate({ incomplete, findings, records, now: decidedAt });
+  const result = evaluate({ incomplete, findings: dated, records, now: decidedAt });
   const applied = new Set(result.records.filter((r) => r.status === 'applied' && r.covers > 0).map((r) => r.id));
   const doc = {
     schema: ASSESSMENT_SCHEMA,
@@ -1017,13 +1050,14 @@ function cmdAssess(args) {
     headline: headline(result),
     ...result,
     recordsApplied: records.filter((r) => applied.has(r.id)).map((r) => ({ id: r.id, expires: r.expires })),
+    ...(advisoryRecord ? { advisories: advisoryRecord } : {}),
   };
   writeFileSync(join(outDir, ASSESSMENT_DOC), `${JSON.stringify(doc, null, 2)}\n`);
   stderr.write(`${doc.headline}\n`);
   const notes = diagnosticNotes({ outDir, graphs, unfinished: unfinishedGraphs });
   for (const line of notes.plain) stderr.write(`${line}\n`);
   if (f.summary) {
-    appendFileSync(String(f.summary), `### Fresh dependency assessment\n\n**${doc.headline}**\n\nCollected ${startedAt} → ${finishedAt}, decided ${decidedAt}, by run ${doc.assessor.runId}.${doc.assessor.runAttempt} under the trusted audit policy. Graphs: ${Object.entries(graphs).map(([g, r]) => `${g} (${r.counts?.locked ?? '?'} locked, ${r.observation})`).join(', ')}.\n\n${notes.markdown}`);
+    appendFileSync(String(f.summary), `### Fresh dependency assessment\n\n**${doc.headline}**\n\nCollected ${startedAt} → ${finishedAt}, decided ${decidedAt}, by run ${doc.assessor.runId}.${doc.assessor.runAttempt} under the trusted audit policy. Graphs: ${Object.entries(graphs).map(([g, r]) => `${g} (${r.counts?.locked ?? '?'} locked, ${r.observation})`).join(', ')}. Provenance: application and scanner against the candidate's own retained locks; the publisher graph has none. Clock: ${advisoryRecord ? `${advisoryRecord.requested} advisory record(s) asked of GitHub (${advisoryRecord.authenticated ? 'with a token' : 'unauthenticated'}), retained as ${ADVISORIES_FILE}` : 'no advisory needed a date'}.\n\n${notes.markdown}`);
   }
   print({ outcome: doc.outcome, exitCode: doc.exitCode, counts: doc.counts, startedAt, finishedAt, decidedAt });
   exit(doc.exitCode);
