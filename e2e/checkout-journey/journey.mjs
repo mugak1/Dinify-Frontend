@@ -38,9 +38,15 @@
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
+import { journeyTarget } from '../served/lib.mjs';
+
 const F = JSON.parse(readFileSync(process.env.JOURNEY_FIXTURE || '/tmp/journey-fixture.json', 'utf8'));
 const WEB = process.env.JOURNEY_WEB || 'http://127.0.0.1:4299';
 const API = process.env.JOURNEY_API || 'http://127.0.0.1:8099';
+// THE TARGET. On a seeded local run this changes nothing. On a served run
+// (a fixture from e2e/served/provision.mjs) the operator session is shared,
+// the interlock runs before anything else, and the one skip is DECLARED.
+const T = journeyTarget(F, { api: API, journey: 'journey' });
 
 // ── the fixture's arithmetic, stated once, AS CANONICAL DECIMAL STRINGS ─────
 //
@@ -132,6 +138,8 @@ const api = async (path, init = {}) => {
 };
 
 const signInAsOperator = async () => {
+  // Served: the orchestrator signed in ONCE for the whole run (D11 OTP budget).
+  if (T.served) return T.token;
   const { username, password } = F.operator;
   const login = await api('/api/v1/users/auth/login/', {
     method: 'POST', body: JSON.stringify({ username, password }),
@@ -185,6 +193,11 @@ const readBasketCount = (page) => page.evaluate(() => {
   } catch { return -2; }
 });
 
+// Set once the operator is known, so a served run's last act on EVERY exit path
+// is to put the catalogue back (the price this journey raises mid-run included)
+// — once its interlock has passed, and never on a seeded local run.
+let operatorToken = null;
+
 const main = async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium' });
   const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
@@ -207,9 +220,12 @@ const main = async () => {
     }
   });
 
-  const operatorToken = await signInAsOperator();
+  operatorToken = await signInAsOperator();
   const operator = asOperator(operatorToken);
-  check('the fixture operator can sign in', typeof operatorToken === 'string' && operatorToken.length > 0);
+  // THE INTERLOCK, before the first request that could act on a restaurant.
+  await T.guard(operatorToken);
+  if (T.served) T.skip('the fixture operator can sign in');
+  else check('the fixture operator can sign in', typeof operatorToken === 'string' && operatorToken.length > 0);
 
   // ── 1. QR scan → menu ────────────────────────────────────────────────────
   await page.goto(`${WEB}/diner/h/${F.table}?c=${encodeURIComponent(F.credential)}`,
@@ -573,7 +589,13 @@ const main = async () => {
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} browser checks passed`);
   console.log('This is a MANUAL repeatable run against disposable fixtures — not a CI gate.');
-  process.exit(failed.length ? 1 : 0);
+  return failed.length ? 1 : 0;
 };
 
-main().catch((e) => { console.error('JOURNEY ERROR', e); process.exit(2); });
+(async () => {
+  let code = 2;
+  try { code = await main(); }
+  catch (e) { console.error('JOURNEY ERROR', e); }
+  finally { await T.restore(operatorToken); }
+  process.exit(code);
+})();
