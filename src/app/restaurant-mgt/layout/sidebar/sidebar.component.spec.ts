@@ -1,3 +1,5 @@
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { SidebarComponent } from './sidebar.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { canAccess, firstAccessibleRoute, NO_MODULE_ROUTE } from '../../../_helpers/module-access';
@@ -53,5 +55,59 @@ describe('SidebarComponent', () => {
   it('derives noModuleUser from the SAME predicate as the landing (note ⇔ landing)', () => {
     const sidebar = makeSidebar(ALL_FALSE);
     expect(sidebar.noModuleUser).toBe(sidebar.auth.firstAccessibleRoute() === NO_MODULE_ROUTE);
+  });
+});
+
+describe('SidebarComponent (rendered) — Kitchen opens in a new tab', () => {
+  const render = async (isOpen: boolean) => {
+    const auth = {
+      canAccess: () => true,
+      firstAccessibleRoute: () => '/dashboard',
+      userValue: null,
+      currentRestaurantRole: null,
+    } as unknown as AuthenticationService;
+    await TestBed.configureTestingModule({
+      imports: [SidebarComponent],
+      providers: [provideRouter([]), { provide: AuthenticationService, useValue: auth }],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(SidebarComponent);
+    fixture.componentInstance.isOpen = isOpen;
+    fixture.detectChanges();
+    const links = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('nav a'),
+    );
+    return { fixture, links, byLabel: (l: string) => links.find(a => a.textContent!.includes(l))! };
+  };
+
+  afterEach(() => document.body.classList.remove('dn-drawer-open'));
+
+  it('gives the Kitchen link target="_blank" with rel="noopener", still pointing at /kitchen', async () => {
+    const { byLabel } = await render(true);
+    const kitchen = byLabel('Kitchen');
+    expect(kitchen.getAttribute('target')).toBe('_blank');
+    expect(kitchen.getAttribute('rel')).toBe('noopener');
+    expect(kitchen.getAttribute('href')).toBe('/kitchen');
+    expect(kitchen.textContent).toContain('(opens in a new tab)');
+  });
+
+  it('CONTROL: every other portal item still navigates in the same tab', async () => {
+    const { links } = await render(true);
+    const others = links.filter(a => !a.textContent!.includes('Kitchen'));
+    expect(others.length).toBe(7);
+    for (const a of others) {
+      expect(a.hasAttribute('target')).withContext(a.textContent!.trim()).toBeFalse();
+      expect(a.hasAttribute('rel')).withContext(a.textContent!.trim()).toBeFalse();
+    }
+  });
+
+  it('shows the new-tab glyph only on the expanded rail, and keeps target when collapsed', async () => {
+    const open = await render(true);
+    expect(open.byLabel('Kitchen').querySelector('[data-testid="nav-new-tab-icon"]')).not.toBeNull();
+    expect(open.fixture.nativeElement.querySelectorAll('[data-testid="nav-new-tab-icon"]').length).toBe(1);
+    TestBed.resetTestingModule();
+    const collapsed = await render(false);
+    const kitchen = collapsed.byLabel('Kitchen');
+    expect(kitchen.querySelector('[data-testid="nav-new-tab-icon"]')).toBeNull();
+    expect(kitchen.getAttribute('target')).toBe('_blank');
   });
 });
