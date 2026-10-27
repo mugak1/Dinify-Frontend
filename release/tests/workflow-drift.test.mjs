@@ -376,12 +376,15 @@ describe('certify.yml and ci.yml, against the policy and each other', () => {
 
   it('CONTROL: certification runs the same validation commands, in the same order, as the required `validate` check', () => {
     assert.ok(CI.jobs.validate, 'the required status check is the job named `validate`');
+    // The audit scan carries its base (CI-signal A-2) and is compared like every other
+    // command: the same text in both jobs. Only the base's VALUE differs, through `env`.
     const contract = (workflow, job) => workflow.jobs[job].steps
-      .filter((s) => typeof s.run === 'string' && /^npm (ci|run \S+)$/.test(s.run.trim()))
+      .filter((s) => typeof s.run === 'string' && /^npm (ci|run \S+)( -- --base "\$BASE")?$/.test(s.run.trim()))
       .map((s) => s.run.trim());
     const certified = contract(CERTIFY, 'certify');
     assert.deepEqual(certified, contract(CI, 'validate'));
     assert.ok(certified.includes('npm run test:release'), 'the release contract is part of both');
+    assert.ok(certified.includes('npm run audit:deps -- --base "$BASE"'), 'the audit, with its base, is part of both');
   });
 
   it('CONTRACT: both certify.yml and ci.yml build the shipping configuration by reading it from the policy', () => {

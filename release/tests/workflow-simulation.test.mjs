@@ -1246,6 +1246,43 @@ describe('publish.yml — the dependency half: certification evidence, a fresh a
     assertCredentialConfined(world, result);
   });
 
+  test('CONTRACT (SYNTHETIC advisory, CI-signal A-2): an INHERITED high tooling finding inside its window admits and publishes — the gate, the preflight and the last boundary each re-read advisories.json', async () => {
+    const world = await makeWorld();
+    const reviewed = new Date(Date.now() - 2 * 86_400_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    world.npm.setAdvisories({ advisories: [{ name: 'helper', versions: ['3.1.0'], severity: 'high', ghsa: 'GHSA-oooo-bbbb-llll' }] });
+    world.npm.setGitHubAdvisories({ 'GHSA-oooo-bbbb-llll': { reviewed, published: reviewed } });
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assert.equal(decisionOf(result).decision, 'PROCEED', JSON.stringify(codesOf(decisionOf(result))));
+    assert.equal(preflightOf(result).ok, true);
+    assert.equal(outcomeOf(result), 'PUBLISHED_VERIFIED');
+    const assessment = assessmentOf(world, event);
+    assert.equal(assessment.outcome, 'obligations_pending');
+    assert.equal(assessment.counts.deferred, 1);
+    const dir = join(world.evidence, `publish-assessment-${event.runId}-1`);
+    assert.ok(existsSync(join(dir, 'advisories.json')), 'the clock\'s record is retained with the assessment');
+    assert.deepEqual(inspectAssessment(readFilesUnder(dir).files).problems, []);
+    const record = retained(world, event, 'record.json');
+    assert.equal(record.dependencies.assessment.outcome, 'obligations_pending');
+    assert.match(result.jobs.gate.summary, /deferred, the first blocking from 00:00 UTC on \d{4}-\d{2}-\d{2}/);
+    // One request, made by the gate's assess step, without a token; nothing downstream asked.
+    assert.deepEqual(world.npm.githubRequests(), [{ id: 'GHSA-oooo-bbbb-llll', authorized: false }]);
+    assertCandidateUnchanged(world, world.ids.c2);
+    assertCredentialConfined(world, result);
+  });
+
+  test('REGRESSION (SYNTHETIC advisory, CI-signal A-2): the same high reviewed EIGHT days ago is past its deadline — the gate refuses', async () => {
+    const world = await makeWorld();
+    const reviewed = new Date(Date.now() - 8 * 86_400_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    world.npm.setAdvisories({ advisories: [{ name: 'helper', versions: ['3.1.0'], severity: 'high', ghsa: 'GHSA-oooo-bbbb-llll' }] });
+    world.npm.setGitHubAdvisories({ 'GHSA-oooo-bbbb-llll': { reviewed, published: reviewed } });
+    const event = automaticEvent(world, 5102);
+    const result = await simulate(world, event);
+    assert.deepEqual(codesOf(decisionOf(result)), ['dependency.assessment_blocking']);
+    assert.equal(result.jobs.publish.result, 'skipped');
+    assertNothingPublished(world, result);
+  });
+
   test('CONTROL: a complete assessment CARRYING scanner diagnostics passes the fixture-enabled gate, the publisher\'s preflight and its last boundary', async () => {
     const world = await makeWorld();
     const event = automaticEvent(world, 5102);

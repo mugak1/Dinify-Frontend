@@ -81,18 +81,23 @@ export function cli(args, { root = ROOT, env = {}, cwd } = {}) {
 
 /**
  * The environment a child gets: local origins trusted through NODE_EXTRA_CA_CERTS and
- * reached directly, never through a proxy.
+ * reached directly, never through a proxy — and GitHub's advisory endpoint answered by the
+ * recorded service (fake-github-advisories.mjs), so the clock never reaches the network.
  */
 export function childEnv(extra = {}) {
   const env = { ...process.env };
-  for (const key of ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy', 'NODE_USE_ENV_PROXY']) {
+  for (const key of ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy', 'NODE_USE_ENV_PROXY', 'GH_TOKEN', 'GITHUB_TOKEN']) {
     delete env[key];
   }
   env.NO_PROXY = '127.0.0.1,localhost';
   env.no_proxy = env.NO_PROXY;
   env.NODE_EXTRA_CA_CERTS = tlsMaterial().certPath;
+  env.NODE_OPTIONS = [env.NODE_OPTIONS, `--import=${FAKE_GITHUB_ADVISORIES_PRELOAD}`].filter(Boolean).join(' ');
   return { ...env, ...extra };
 }
+
+/** The recorded GitHub advisory service every child loads (see fake-github-advisories.mjs). */
+export const FAKE_GITHUB_ADVISORIES_PRELOAD = new URL('./fake-github-advisories.mjs', import.meta.url).href;
 
 // ── git ─────────────────────────────────────────────────────────────────────────
 
@@ -516,7 +521,7 @@ export function defaultNpm() {
  * `expectRefusal: true` returns it instead.
  */
 export async function buildCandidate({
-  repo, commit, runId, runAttempt = 1, startedAt, stampedAt, marker = '', mutate, npm, beforeStamp, expectRefusal = false,
+  repo, commit, runId, runAttempt = 1, startedAt, stampedAt, marker = '', mutate, npm, beforeStamp, expectRefusal = false, auditBase,
 }) {
   // THE STAMP IS LATER THAN THE RUN'S START, as in certify.yml: the run installs, tests
   // and builds first, and `--runStartedAt` is the stamp's own clock reading. A rule that
@@ -536,7 +541,8 @@ export async function buildCandidate({
     };
     await step('npm ci', 'npm', ['ci']);
     await step('audit snapshot', process.execPath, [join(work, 'dependency-audit/cli.mjs'), 'snapshot']);
-    await step('audit', process.execPath, [join(work, 'dependency-audit/cli.mjs'), 'audit']);
+    // `auditBase`: audit against a base commit, as certify.yml does with the push's `before`.
+    await step('audit', process.execPath, [join(work, 'dependency-audit/cli.mjs'), 'audit', ...(auditBase ? ['--base', auditBase] : [])]);
     const tag = `${commit.slice(0, 8)} run ${runId}.${runAttempt}${marker}`;
     writeText(work, 'dist/index.html', `<!doctype html><title>fixture ${tag}</title>\n`);
     writeText(work, `dist/main-${commit.slice(0, 8)}.js`, `const api=${JSON.stringify(policy.build.expectedApiUrl)};/* ${tag} */\n`);
