@@ -4986,10 +4986,25 @@ of BOTH `validate` and `certify`, not a separate check: `audit:snapshot` records
 graph right after `npm ci` and proves the installed tree IS that graph;
 `audit:deps` scans exactly that inventory plus the pinned scanner's own graph (npm
 11.21.1 since 2026-10-23, from its own lockfile, scripts disabled) and decides with the policy shared with
-Admin and Backend — four outcomes, `within_policy` 0 / `exceptions_only` 0 / `blocking`
-1 / `incomplete` 2; high/critical blocks in every scope, any runtime advisory blocks,
-lower-severity tooling is TRIAGE REQUIRED (visible, never "zero findings"), anything
-unevaluable is incomplete and FAILS. **Every vulnerability the report declares is
+Admin and Backend — five outcomes, `within_policy` 0 / `exceptions_only` 0 /
+`obligations_pending` 0 / `blocking` 1 / `incomplete` 2; high/critical blocks in every
+scope, any runtime advisory blocks, lower-severity tooling is TRIAGE REQUIRED (visible,
+never "zero findings"), anything unevaluable is incomplete and FAILS. **The fifth outcome
+is the DATED OBLIGATION (CI-signal A-1), and it is INERT until A-2:** after the records, an
+unexcepted TOOLING HIGH finding whose optional `provenance` is exactly `"inherited"` and
+whose optional `reportableSince` is a calendar date no later than the decision day is
+deferred until 00:00 UTC on `reportableSince` + 7 days (`HIGH_DEFERRAL_DAYS`, a constant
+in `lib/core.mjs`, never a policy value); critical is never deferred, and anything not
+established blocks as before (a wrong JSON type is a malformed finding, `null` is absent).
+No adapter emits either field yet — A-2 does — and a result that deferred nothing is
+byte-identical to before: `counts.deferred`, `deadline` and `deferred_finding` appear only
+when a deferral applied, because `dependency-evidence.mjs` re-decides retained results and
+compares `counts` exactly. `tests/core.test.mjs` pins the full result of the 41 earlier
+vectors by digest (61 vectors now, digest `6365e880…`); `PASSING_OUTCOMES` and
+`journey-peers.mjs`'s `PASSING_AUDIT` accept the new word and nothing else new.
+**Not done in A-1, and needed before A-2 lets the outcome occur:** the fresh assessment's
+promotion window is cut short by an applied record's expiry but not by a deferred finding's
+deadline, so a deferral that lapses inside the window would still be promoted. **Every vulnerability the report declares is
 accounted for, or the audit is incomplete**: a STRING `via` (a package vulnerable through
 another) is ordinary npm output and is followed to the advisory it reaches, while a name
 the report does not list, a chain or cycle reaching no advisory, a severity no reachable

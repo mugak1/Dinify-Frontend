@@ -65,8 +65,13 @@ export const RETAINED = Object.freeze({
 export const toolingArtifactName = (runId, runAttempt) => `publisher-tooling-${runId}-${runAttempt}`;
 export const assessmentArtifactName = (runId, runAttempt) => `publish-assessment-${runId}-${runAttempt}`;
 
-/** An audit that may carry a candidate forward. Anything else is not a pass. */
-export const PASSING_OUTCOMES = Object.freeze(['within_policy', 'exceptions_only']);
+/**
+ * An audit that may carry a candidate forward. Anything else is not a pass. These are
+ * exactly the evaluator's exit-0 outcomes (dependency-audit/lib/core.mjs); the third,
+ * `obligations_pending`, is reachable only once an adapter supplies a finding's provenance
+ * and reportable date (CI-signal A-2), so until then no result carries it.
+ */
+export const PASSING_OUTCOMES = Object.freeze(['within_policy', 'exceptions_only', 'obligations_pending']);
 export const ASSESSED_GRAPHS = Object.freeze(['application', 'scanner', 'publisher']);
 
 const SHA_RE = /^[0-9a-f]{40}$/;

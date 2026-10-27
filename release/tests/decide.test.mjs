@@ -697,6 +697,23 @@ describe('DEPENDENCIES (D08 B2.2) — certification evidence, the fresh assessme
     assertProceeds(broken((i) => { as(i).outcome = 'exceptions_only'; as(i).recordsApplied = [{ id: 'fixture-exception', expires: '2026-10-01' }]; }));
   });
 
+  // CI-signal A-1: the shared evaluator's third exit-0 outcome. No adapter supplies the
+  // provenance that produces it until A-2, so these pin the consumer, not a reachable path.
+  test('CONTRACT (A-1): an assessment that passes with dated obligations outstanding proceeds', () => {
+    assertProceeds(broken((i) => { as(i).outcome = 'obligations_pending'; }));
+  });
+  test('CONTRACT (A-1): certification evidence whose audit passed with dated obligations outstanding proceeds', () => {
+    assertProceeds(broken((i) => {
+      ev(i).record.audit.outcome = 'obligations_pending';
+      ev(i).record.audit.reevaluatedOutcome = 'obligations_pending';
+      ev(i).audit.outcome = 'obligations_pending';
+    }));
+  });
+  test('CONTRACT (A-1): an outcome word no evaluator emits is still refused, on both halves', () => {
+    assertRefused(broken((i) => { as(i).outcome = 'obligations_overdue'; }), 'dependency.assessment_invalid');
+    assertRefused(broken((i) => { ev(i).record.audit.outcome = 'obligations_overdue'; }), 'dependency.evidence_not_passing');
+  });
+
   test('CONTROL: lower-severity findings stay VISIBLE and do not block', () => {
     assertProceeds(broken((i) => { as(i).counts.findings = 2; as(i).counts.triageRequired = 2; }));
   });
