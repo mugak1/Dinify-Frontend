@@ -25,7 +25,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { mask, request } from './lib.mjs';
+import { InterlockError, assertTestRestaurant, mask, request } from './lib.mjs';
 
 const LIMITS = JSON.parse(readFileSync(fileURLToPath(
   new URL('../../src/app/_shared/order/checkout-limits.contract.json', import.meta.url)), 'utf8'));
@@ -44,8 +44,19 @@ export const D07_MESSAGE = 'In-app subscription payment collection is not availa
 const exactKeys = (o, keys) => o && typeof o === 'object' && !Array.isArray(o)
   && JSON.stringify(Object.keys(o).sort()) === JSON.stringify([...keys].sort());
 
-/** One run of both probes. `check(name, ok, detail)` is the orchestrator's recorder. */
-export async function runProbes({ api, token, fixture, check }) {
+/**
+ * One run of both probes. `check(name, ok, detail)` is the orchestrator's recorder.
+ *
+ * THE PROBES INTERLOCK THEMSELVES. Before their first request they require the
+ * fixture to name the configured restaurant and the server to report its id,
+ * name and `is_test` as configured, and they throw otherwise. Being called
+ * after provisioning is not relied on.
+ */
+export async function runProbes({ api, token, fixture, check, restaurantId, restaurantName }) {
+  if (fixture?.restaurant !== restaurantId) {
+    throw new InterlockError('the probe fixture names a different restaurant from JOURNEY_RESTAURANT_ID');
+  }
+  await assertTestRestaurant({ api, token, restaurantId, restaurantName });
   const table = fixture.tables[901];
 
   // ── D01 — customer-supplied order input ───────────────────────────────────

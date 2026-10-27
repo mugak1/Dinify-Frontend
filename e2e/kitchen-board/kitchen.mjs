@@ -285,15 +285,15 @@ const openBoard = async (browser, session) => {
       state.stateReads.push(r.url());
     }
   });
-  await page.goto(WEB + '/login');
   // The membership of THE FIXTURE'S restaurant, not merely the first one: an
-  // operator may hold several, and the board is scoped to the one selected.
-  await page.evaluate(([s, restaurant]) => {
-    const roles = s.profile.restaurant_roles;
+  // operator may hold several, and the board is scoped to the one selected. On
+  // a served run there is no fallback: no membership there is a refusal.
+  const membership = T.membership(session, F.restaurant);
+  await page.goto(WEB + '/login');
+  await page.evaluate(([s, m]) => {
     localStorage.setItem('user', JSON.stringify(s));
-    localStorage.setItem('rest_role', JSON.stringify(
-      roles.find((m) => m.restaurant_id === restaurant) ?? roles[0]));
-  }, [session, F.restaurant]);
+    localStorage.setItem('rest_role', JSON.stringify(m));
+  }, [session, membership]);
   const firstFeed = page.waitForResponse(
     (r) => r.url().includes('/kitchen/orders/active/'), { timeout: 20000 },
   ).catch(() => null);
@@ -322,6 +322,9 @@ const ticketCard = (page, orderNumber) => {
 async function main() {
   const session = await signIn();
   await T.guard(session?.token);
+  // Before any write: a served session with no membership of the fixture's
+  // restaurant is refused here, not after a diner order is already placed.
+  T.membership(session, F.restaurant);
   if (T.served) T.skip('the fixture operator can sign in');
   else check('the fixture operator can sign in', !!session?.token);
   const operator = asOperator(session.token);

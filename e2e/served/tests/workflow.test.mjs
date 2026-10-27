@@ -21,6 +21,9 @@ import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 
 import { parseYaml } from '../../../dependency-audit/tests/yaml-subset.mjs';
+// A namespace import, so a name this branch adds reads as undefined (a failing
+// assertion) rather than a link error that hides every other test in the file.
+import * as RUNMOD from '../run.mjs';
 
 const ROOT = resolve(new URL('../../..', import.meta.url).pathname);
 const DIR = join(ROOT, '.github/workflows');
@@ -35,10 +38,12 @@ const step = (job, name) => {
   return s;
 };
 const RUN = step(JOURNEYS, 'Run the journeys against the served stack');
+const DELETE = JOURNEYS.steps.at(-1);
 const SCAN = step(JOURNEYS, 'Redaction scan of the evidence file');
 const UPLOAD = step(JOURNEYS, 'Upload the redacted evidence');
 const INSTALL = step(JOURNEYS, 'Install Playwright 1.56.1 and its Chromium');
 const EVIDENCE = '${{ runner.temp }}/uat-journeys-evidence.json';
+const HASHES = '${{ runner.temp }}/uat-journeys-secret-hashes.json';
 
 /** Every step of every job, with its job name. */
 const ALL = Object.entries(WF.jobs).flatMap(([job, j]) => j.steps.map((s, index) => ({ job, index, step: s })));
@@ -49,11 +54,21 @@ describe('trigger and authority', () => {
     assert.equal(WF.on.workflow_dispatch, null);
   });
 
-  it('CONTRACT: top-level permissions are contents: read and nothing else; no job widens them; no id-token', () => {
+  it('CONTRACT: top-level permissions are contents: read; only the journeys job adds actions: read, and nothing else; no id-token', () => {
     assert.deepEqual(WF.permissions, { contents: 'read' });
-    for (const [name, job] of Object.entries(WF.jobs)) assert.equal(job.permissions, undefined, name);
+    assert.equal(HEALTH.permissions, undefined, 'the health job keeps contents: read');
+    assert.deepEqual(JOURNEYS.permissions, { contents: 'read', actions: 'read' });
+    assert.deepEqual(Object.keys(WF.jobs), ['health', 'journeys']);
     assert.doesNotMatch(TEXT, /id-token/);
     assert.doesNotMatch(TEXT, /:\s*write\b/);
+  });
+
+  it('REGRESSION: the serving identity is read with the job\'s token, in the run step only', () => {
+    assert.equal(RUN.env.JOURNEY_GITHUB_TOKEN, '${{ github.token }}');
+    const holders = ALL.filter(({ step: s }) => /github\.token|secrets\.GITHUB_TOKEN/.test(JSON.stringify(s)));
+    assert.deepEqual(holders.map(({ step: s }) => s.name), [RUN.name]);
+    assert.equal(JSON.stringify(WF.env).includes('github.token'), false);
+    assert.equal(JSON.stringify(JOURNEYS.env).includes('github.token'), false);
   });
 
   it('CONTRACT: one run at a time, never cancelling one that is acting on the restaurant', () => {
@@ -127,6 +142,59 @@ describe('the health gate comes first and decides', () => {
     assert.match(first.run, /"\$REF" != "refs\/heads\/main"/);
     assert.equal(first.env.REF, '${{ github.ref }}');
   });
+
+  it('REGRESSION: the secrets and variables are an ENVIRONMENT\'s, so a branch\'s copy of this file cannot reach them', () => {
+    // The in-file check above runs from the file that runs, so a dispatch on
+    // another branch runs that branch's copy, which can drop it. The deployment-
+    // branch rule of the environment is enforced by GitHub, outside the file.
+    assert.equal(JOURNEYS.environment, 'uat-journeys');
+    assert.equal(HEALTH.environment, undefined, 'the health job holds no secret and needs no environment');
+    for (const { job, step: s } of ALL) {
+      if (/secrets\.|vars\./.test(JSON.stringify(s))) assert.equal(job, 'journeys', s.name);
+    }
+    assert.ok(/vars\./.test(JSON.stringify(JOURNEYS.env)));
+    assert.equal(JSON.stringify(WF.env).match(/secrets\.|vars\./), null, 'nothing workflow-level reads a secret or variable');
+  });
+
+  it('CONTRACT: the README tells the owner to create the environment with a main-only branch rule and to keep the values out of the repository level', () => {
+    const readme = readFileSync(join(ROOT, 'e2e/served/README.md'), 'utf8');
+    assert.match(readme, /Settings → Environments → New environment/);
+    assert.match(readme, /`uat-journeys`/);
+    assert.match(readme, /Selected branches and tags/);
+    assert.match(readme, /Name pattern\*\* `main`/);
+    assert.match(readme, /not at repository level/);
+    for (const name of ['UAT_JOURNEY_OPERATOR_USERNAME', 'UAT_JOURNEY_OPERATOR_PASSWORD', 'UAT_JOURNEY_RESTAURANT_ID', 'UAT_JOURNEY_RESTAURANT_NAME']) {
+      assert.ok(readme.includes(`\`${name}\``), name);
+    }
+  });
+});
+
+describe('a run the gate starts can finish', () => {
+  const BUDGET = RUNMOD.BUDGET;
+  const WINDOW = RUNMOD.WINDOW;
+  const INSTALL_STEP = step(JOURNEYS, 'Install Playwright 1.56.1 and its Chromium');
+
+  it('REGRESSION: the job is given no more than the gate guarantees is left in the window', () => {
+    assert.equal(JOURNEYS['timeout-minutes'], 45);
+    assert.ok(JOURNEYS['timeout-minutes'] <= WINDOW.minRunMinutes, 'a run the gate started could outlive the window');
+    assert.equal(HEALTH['timeout-minutes'], 10);
+  });
+
+  it('REGRESSION: the run step outlasts the run\'s own budget, and install plus the run fit the job with room for the rest', () => {
+    assert.deepEqual({ ...BUDGET }, { runMinutes: 30, journeyMinutes: 15, minJourneyMinutes: 3, finalResetMinutes: 3 });
+    assert.equal(RUN['timeout-minutes'], 35);
+    assert.equal(INSTALL_STEP['timeout-minutes'], 5);
+    assert.ok(RUN['timeout-minutes'] >= BUDGET.runMinutes + 5, 'the step would kill the run before its final reset and evidence');
+    assert.ok(INSTALL_STEP['timeout-minutes'] + RUN['timeout-minutes'] + 5 <= JOURNEYS['timeout-minutes']);
+  });
+
+  it('REGRESSION: a journey\'s limit fits inside the run\'s budget with the final reset kept back', () => {
+    assert.ok(BUDGET.journeyMinutes <= BUDGET.runMinutes - BUDGET.finalResetMinutes);
+    assert.ok(BUDGET.minJourneyMinutes <= BUDGET.journeyMinutes);
+    const run = readFileSync(join(ROOT, 'e2e/served/run.mjs'), 'utf8');
+    assert.doesNotMatch(run, /40 \* 60 \* 1000/, 'the old 40-minute child limit (5 x 40 > the old 90-minute job)');
+    assert.match(run, /runChild\(join\(E2E, j\.script\), env, timeoutMs\)/);
+  });
 });
 
 describe('secrets and masking', () => {
@@ -136,7 +204,9 @@ describe('secrets and masking', () => {
     assert.deepEqual(RUN.env, {
       JOURNEY_OPERATOR_USERNAME: '${{ secrets.UAT_JOURNEY_OPERATOR_USERNAME }}',
       JOURNEY_OPERATOR_PASSWORD: '${{ secrets.UAT_JOURNEY_OPERATOR_PASSWORD }}',
+      JOURNEY_GITHUB_TOKEN: '${{ github.token }}',
       JOURNEY_EVIDENCE: EVIDENCE,
+      JOURNEY_SECRET_HASHES: HASHES,
     });
     for (const { step: s } of holders) {
       assert.doesNotMatch(s.run, /secrets\./, `${s.name} interpolates a secret into its script`);
@@ -148,7 +218,7 @@ describe('secrets and masking', () => {
     ]);
   });
 
-  it('CONTRACT: the restaurant interlock comes from repository variables, not from the run', () => {
+  it('CONTRACT: the restaurant interlock comes from the environment\'s variables, not from the run', () => {
     assert.equal(JOURNEYS.env.JOURNEY_RESTAURANT_ID, '${{ vars.UAT_JOURNEY_RESTAURANT_ID }}');
     assert.equal(JOURNEYS.env.JOURNEY_RESTAURANT_NAME, '${{ vars.UAT_JOURNEY_RESTAURANT_NAME }}');
   });
@@ -174,11 +244,13 @@ describe('what leaves the runner', () => {
     assert.doesNotMatch(JSON.stringify(WF), /trace|\.har\b|video|screenshot|test-results|playwright-report/i);
   });
 
-  it('CONTRACT: the scan reads the same file, runs even after a failed run, and cannot be softened', () => {
+  it('CONTRACT: the scan reads the same file and the run\'s hash file, runs even after a failed run, and cannot be softened', () => {
     assert.equal(SCAN.id, 'scan');
     assert.equal(SCAN.if, 'always()');
-    assert.equal(SCAN.run.trim(), 'node e2e/served/redact.mjs scan "$JOURNEY_EVIDENCE"');
+    assert.equal(SCAN.run.trim(), 'node e2e/served/redact.mjs scan "$JOURNEY_EVIDENCE" --hashes "$JOURNEY_SECRET_HASHES"');
     assert.equal(SCAN.env.JOURNEY_EVIDENCE, EVIDENCE);
+    assert.equal(SCAN.env.JOURNEY_SECRET_HASHES, HASHES);
+    assert.equal(RUN.env.JOURNEY_SECRET_HASHES, SCAN.env.JOURNEY_SECRET_HASHES, 'the scan reads the file the run wrote');
     assert.match(SCAN.env.REDACT_EXTRA_VALUES, /secrets\.UAT_JOURNEY_OPERATOR_USERNAME[\s\S]*secrets\.UAT_JOURNEY_OPERATOR_PASSWORD/);
     assert.doesNotMatch(TEXT, /continue-on-error|\|\| true/);
   });
@@ -225,7 +297,7 @@ describe('what leaves the runner', () => {
     const journeyFailed = simulate({ [RUN.name]: 'failure' });
     assert.equal(journeyFailed.ran[SCAN.name], 'success');
     assert.equal(journeyFailed.ran[UPLOAD.name], 'success');
-    assert.equal(journeyFailed.ran['Delete the fixture and evidence files'], 'success');
+    assert.equal(journeyFailed.ran[DELETE.name], 'success');
     assert.equal(journeyFailed.conclusion, 'failure');
 
     const selfTestFailed = simulate({ 'Self-test the harness (offline)': 'failure' });
@@ -233,11 +305,16 @@ describe('what leaves the runner', () => {
     assert.equal(selfTestFailed.ran[UPLOAD.name], 'skipped', 'the scan of a missing file is not clean');
   });
 
-  it('CONTRACT: the fixture and the evidence are deleted from the runner whatever happened', () => {
-    const del = JOURNEYS.steps.at(-1);
-    assert.equal(del.if, 'always()');
-    assert.match(del.run, /rm -rf "\$WORK"\/served-journeys-\* "\$WORK\/uat-journeys-evidence\.json"/);
-    assert.equal(del.env.WORK, '${{ runner.temp }}');
+  it('CONTRACT: the fixture, the hash file and the evidence are deleted from the runner whatever happened', () => {
+    assert.equal(DELETE.name, 'Delete the fixture, hash and evidence files');
+    assert.equal(DELETE.if, 'always()');
+    assert.match(DELETE.run, /rm -rf "\$WORK"\/served-journeys-\* "\$WORK\/uat-journeys-evidence\.json" "\$WORK\/uat-journeys-secret-hashes\.json"/);
+    assert.equal(DELETE.env.WORK, '${{ runner.temp }}');
+  });
+
+  it('CONTRACT: the hash file is never uploaded', () => {
+    assert.notEqual(UPLOAD.with.path, HASHES);
+    assert.doesNotMatch(JSON.stringify(UPLOAD), /secret-hashes/);
   });
 });
 

@@ -13,7 +13,11 @@
 # health answers, the bundle filename), not the D08 B3 process-bound identity.
 #
 # Dispatched by the owner, on main only. No pull_request and no schedule: a
-# schedule can follow once a first run has been reviewed.
+# schedule can follow once a first run has been reviewed. The secrets and
+# variables live ONLY in the GitHub Environment `uat-journeys`, whose
+# deployment-branch rule admits main only. A dispatch on any other branch runs
+# that branch's copy of this file: if it names the environment GitHub refuses
+# the job, and if it does not, the job gets no secret.
 name: UAT journeys
 
 on:
@@ -32,10 +36,12 @@ env:
   JOURNEY_API: https://api-test.dinifyapp.com/uat
 
 jobs:
-  # The first job checks UAT health and holds no secret. Healthy -> the journeys
-  # run. Unreachable OUTSIDE 11:00-23:00 Europe/London -> the instance is stopped
-  # by design: this job succeeds with a NOT RUN summary and the journeys job is
-  # SKIPPED (Actions has no neutral conclusion; a skipped job is the nearest).
+  # The first job checks UAT health and holds no secret. Healthy with at least
+  # 45 minutes left before 22:40 London (23:00 less a 20-minute end margin) ->
+  # the journeys run. Healthy but later than 21:55 -> NOT RUN. Unreachable
+  # OUTSIDE 11:00-23:00 Europe/London -> the instance is stopped by design, NOT
+  # RUN. A NOT RUN job succeeds with a summary and the journeys job is SKIPPED
+  # (Actions has no neutral conclusion; a skipped job is the nearest).
   # Unreachable INSIDE the window -> this job fails red.
   health:
     runs-on: ubuntu-latest
@@ -63,7 +69,15 @@ jobs:
     needs: health
     if: needs.health.outputs.verdict == 'run'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # The secrets and variables are the environment's, never the repository's.
+    environment: uat-journeys
+    # actions: read is for the Actions API reads that record what serves.
+    permissions:
+      contents: read
+      actions: read
+    # 45 = what the gate guarantees is left in the window. It covers install (5)
+    # + the run (35, which keeps its own 30-minute budget) + the rest (5).
+    timeout-minutes: 45
     env:
       JOURNEY_WEB: https://dinify-prod.web.app
       JOURNEY_RESTAURANT_ID: ${{ vars.UAT_JOURNEY_RESTAURANT_ID }}
@@ -106,6 +120,7 @@ jobs:
         # Kept OUT of package.json and the lockfiles, as e2e/*/README.md explain.
         # Installed into e2e/ only, so this job never installs the application's
         # dependency tree; the browser is the one this Playwright release pins.
+        timeout-minutes: 5
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: |
@@ -119,16 +134,23 @@ jobs:
         # The operator signs in ONCE. The username and password are masked by the
         # runner as secrets and again with ::add-mask:: by run.mjs, which also
         # masks every token, QR credential and table session the moment it
-        # exists, and redacts every journey line before echoing it.
+        # exists, and redacts every journey line before echoing it. The job's
+        # token reads the Actions API only, and no journey is given it.
+        # run.mjs keeps a 30-minute budget, final reset included; 35 is a backstop.
+        timeout-minutes: 35
         env:
           JOURNEY_OPERATOR_USERNAME: ${{ secrets.UAT_JOURNEY_OPERATOR_USERNAME }}
           JOURNEY_OPERATOR_PASSWORD: ${{ secrets.UAT_JOURNEY_OPERATOR_PASSWORD }}
+          JOURNEY_GITHUB_TOKEN: ${{ github.token }}
           JOURNEY_EVIDENCE: ${{ runner.temp }}/uat-journeys-evidence.json
+          JOURNEY_SECRET_HASHES: ${{ runner.temp }}/uat-journeys-secret-hashes.json
         run: node e2e/served/run.mjs
 
       - name: Redaction scan of the evidence file
-        # FAIL CLOSED: anything token-shaped, or the exact operator credentials,
-        # anywhere in the file means it is not uploaded.
+        # FAIL CLOSED, and independent of the redaction: the file must be JSON,
+        # and nothing in it may hash to a secret the run knew (the hash file run.mjs
+        # wrote holds SHA-256 hashes and lengths, never values), equal the exact
+        # operator credentials, or be token-shaped. Otherwise it is not uploaded.
         id: scan
         if: always()
         env:
@@ -136,7 +158,8 @@ jobs:
             ${{ secrets.UAT_JOURNEY_OPERATOR_USERNAME }}
             ${{ secrets.UAT_JOURNEY_OPERATOR_PASSWORD }}
           JOURNEY_EVIDENCE: ${{ runner.temp }}/uat-journeys-evidence.json
-        run: node e2e/served/redact.mjs scan "$JOURNEY_EVIDENCE"
+          JOURNEY_SECRET_HASHES: ${{ runner.temp }}/uat-journeys-secret-hashes.json
+        run: node e2e/served/redact.mjs scan "$JOURNEY_EVIDENCE" --hashes "$JOURNEY_SECRET_HASHES"
 
       - name: Upload the redacted evidence
         # ONE JSON file. No Playwright trace, HAR or video is recorded or uploaded:
@@ -149,8 +172,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Delete the fixture and evidence files
+      - name: Delete the fixture, hash and evidence files
         if: always()
         env:
           WORK: ${{ runner.temp }}
-        run: rm -rf "$WORK"/served-journeys-* "$WORK/uat-journeys-evidence.json"
+        run: rm -rf "$WORK"/served-journeys-* "$WORK/uat-journeys-evidence.json" "$WORK/uat-journeys-secret-hashes.json"
