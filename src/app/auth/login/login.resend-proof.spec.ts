@@ -13,7 +13,7 @@
  * `AuthenticationService`, `ApiService`-free `HttpClient` calls and the real
  * `ToastService`. The screen is driven through its rendered DOM where a person
  * can drive it: the password is typed, Sign in, Verify, Resend and Back are
- * clicked, and the code is typed into the four OTP boxes. Server answers are
+ * clicked, and the code is typed into the OTP field. Server answers are
  * SYNTHETIC; their bodies are the ones the Backend endpoints write.
  *
  * WHERE A STEP IS CALLED DIRECTLY it is because no person can reach it through
@@ -194,18 +194,16 @@ describe('LoginComponent: D11 E-R4 requester-bound login resend (real chain)', (
   }
 
   async function enterOtp(code: string): Promise<void> {
-    // NgModel writes the screen's current `data` into the boxes in a microtask
-    // after they render (and again after an invalid code clears it). Typing
+    // NgModel writes the screen's current `data` into the field in a microtask
+    // after it renders (and again after an invalid code clears it). Typing
     // before that write lands would be wiped by it, as it would for a person
     // who could type that fast.
     await settle();
     fixture.detectChanges();
-    const boxes = Array.from(fixture.nativeElement.querySelectorAll('app-otp-input input')) as HTMLInputElement[];
-    expect(boxes.length).withContext('premise: four OTP boxes').toBe(4);
-    code.split('').forEach((digit, i) => {
-      boxes[i].value = digit;
-      boxes[i].dispatchEvent(new Event('input'));
-    });
+    const fields = Array.from(fixture.nativeElement.querySelectorAll('app-otp-input input')) as HTMLInputElement[];
+    expect(fields.length).withContext('premise: one OTP field').toBe(1);
+    fields[0].value = code;
+    fields[0].dispatchEvent(new Event('input'));
     await settle();
     fixture.detectChanges();
   }
