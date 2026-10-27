@@ -221,13 +221,12 @@ const KNOWN = new Set();
  */
 export function mask(value) {
   if (typeof value !== 'string' || value.length < 4) return;
-  KNOWN.add(value);
-  // An encoded form can reach a URL, so it is masked too.
-  const encoded = encodeURIComponent(value);
-  if (encoded !== value) KNOWN.add(encoded);
+  // An encoded form can reach a URL, and a URL carried inside another one (a
+  // `returnUrl`) is encoded twice, so both forms are masked too.
+  const forms = [...new Set([value, encodeURIComponent(value), encodeURIComponent(encodeURIComponent(value))])];
+  for (const form of forms) KNOWN.add(form);
   if (process.env.GITHUB_ACTIONS === 'true') {
-    process.stdout.write(`::add-mask::${value}\n`);
-    if (encoded !== value) process.stdout.write(`::add-mask::${encoded}\n`);
+    for (const form of forms) process.stdout.write(`::add-mask::${form}\n`);
   }
 }
 export const knownSecrets = () => [...KNOWN];
@@ -300,6 +299,20 @@ export function journeyTarget(F, { api, journey, format = 'checkout' }) {
     /** The shared operator session, in served mode. */
     session: served ? F.operator?.session ?? F.session ?? null : null,
     token: served ? (F.operator?.session ?? F.session)?.token ?? null : null,
+    /** The session's membership of `restaurantId`. A served run FAILS CLOSED
+     *  when there is none: it never falls back to another membership, which
+     *  would scope the portal to a restaurant the interlock never cleared. A
+     *  seeded local run keeps its old fallback to the first membership. */
+    membership(session, restaurantId) {
+      const roles = session?.profile?.restaurant_roles ?? [];
+      const found = roles.find((m) => m.restaurant_id === restaurantId);
+      if (found) return found;
+      if (served) {
+        throw new InterlockError('the shared session holds no membership of the fixture restaurant; '
+          + 'a served run never falls back to another one');
+      }
+      return roles[0];
+    },
     /** A DECLARED, NAMED skip, printed in the journey's own format and counted
      *  by the orchestrator. Never a pass; an undeclared label is a programming
      *  error, not a quiet skip. */

@@ -108,15 +108,17 @@ describe('reading a journey\'s output', () => {
 });
 
 describe('the UAT window', () => {
-  it('CONTRACT: 11:00–23:00 Europe/London, across both offsets', () => {
-    assert.deepEqual({ ...WINDOW }, { zone: 'Europe/London', open: 11, close: 23 });
+  // London hour H on 1 December (GMT) is H:00Z.
+  const gmt = (hour, minute = 0) => new Date(Date.UTC(2026, 11, 1, hour, minute));
+  it('CONTRACT: 11:00–23:00 Europe/London, across both offsets, ending 20 minutes early and needing 45', () => {
+    assert.deepEqual({ ...WINDOW }, { zone: 'Europe/London', open: 11, close: 23, endMarginMinutes: 20, minRunMinutes: 45 });
     assert.equal(londonHour(new Date('2026-07-01T10:00:00Z')), 11, 'BST');
     assert.equal(londonHour(new Date('2026-12-01T10:59:00Z')), 10, 'GMT');
   });
   it('CONTRACT: healthy runs; unreachable is NOT RUN outside the window and a failure inside it', () => {
-    assert.equal(classifyHealth({ healthy: true, hour: 3 }), 'run');
-    for (const hour of [0, 10, 23]) assert.equal(classifyHealth({ healthy: false, hour }), 'outside-window', hour);
-    for (const hour of [11, 16, 22]) assert.equal(classifyHealth({ healthy: false, hour }), 'down-in-window', hour);
+    assert.equal(classifyHealth({ healthy: true, at: gmt(3) }), 'run');
+    for (const hour of [0, 10, 23]) assert.equal(classifyHealth({ healthy: false, at: gmt(hour) }), 'outside-window', hour);
+    for (const hour of [11, 16, 22]) assert.equal(classifyHealth({ healthy: false, at: gmt(hour) }), 'down-in-window', hour);
   });
 });
 
@@ -249,9 +251,9 @@ describe('masking', () => {
     cwd: SERVED, env: { PATH: process.env.PATH, ...env }, encoding: 'utf8',
   });
 
-  it('CONTRACT: under GitHub Actions, mask() announces the value and its URL-encoded form with ::add-mask::', () => {
+  it('CONTRACT: under GitHub Actions, mask() announces the value and its URL-encoded forms, once and twice, with ::add-mask::', () => {
     const r = runNode("import { mask } from './lib.mjs'; mask('abc:def/ghi');", { GITHUB_ACTIONS: 'true' });
-    assert.equal(r.stdout, '::add-mask::abc:def/ghi\n::add-mask::abc%3Adef%2Fghi\n');
+    assert.equal(r.stdout, '::add-mask::abc:def/ghi\n::add-mask::abc%3Adef%2Fghi\n::add-mask::abc%253Adef%252Fghi\n');
   });
   it('CONTROL: outside Actions it prints nothing, but still registers the value for redaction', () => {
     const r = runNode("import { mask, knownSecrets } from './lib.mjs'; mask('abcdefgh'); console.error(knownSecrets().join());", {});
@@ -282,17 +284,21 @@ describe('masking', () => {
 describe('the redaction scan', () => {
   const dir = mkdtempSync(join(tmpdir(), 'served-redact-test-'));
   after(() => rmSync(dir, { recursive: true, force: true }));
+  // The run's hash file, written here by hand: none of these cases plants a
+  // known secret, so the table is empty (hardening.test.mjs covers it).
+  const hashes = join(dir, 'hashes.json');
+  writeFileSync(hashes, JSON.stringify({ schema: 'dinify.frontend.served-journeys.secret-hashes/1', hashes: [] }));
   const scan = (text, env = {}) => {
     const file = join(dir, `e-${Math.random().toString(36).slice(2)}.json`);
     writeFileSync(file, text);
-    return spawnSync(process.execPath, [join(SERVED, 'redact.mjs'), 'scan', file], {
+    return spawnSync(process.execPath, [join(SERVED, 'redact.mjs'), 'scan', file, '--hashes', hashes], {
       env: { PATH: process.env.PATH, ...env }, encoding: 'utf8',
     });
   };
 
   it('CONTRACT: the self-test plants one value of each class and finds every one', () => {
     assert.deepEqual(selfTest(), []);
-    assert.deepEqual(PATTERNS.map(([n]) => n), ['jwt', 'django-signed', 'bearer', 'diner-header', 'credential-param', 'secret-field', 'msisdn']);
+    assert.deepEqual(PATTERNS.map(([n]) => n), ['jwt', 'django-signed', 'bearer', 'diner-header', 'credential-param', 'secret-field', 'msisdn', 'ug-phone']);
   });
   it('CONTROL: a clean evidence shape scans clean (exit 0)', () => {
     const r = scan(JSON.stringify({ restaurant: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f', main: 'main-OWTGDKLC.js', sha: 'a'.repeat(40) }));
@@ -311,7 +317,7 @@ describe('the redaction scan', () => {
     assert.match(r.stdout, /FOUND known-secret/);
   });
   it('REGRESSION: a missing file is not "clean" (exit 2), so no upload follows', () => {
-    const r = spawnSync(process.execPath, [join(SERVED, 'redact.mjs'), 'scan', join(dir, 'absent.json')], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [join(SERVED, 'redact.mjs'), 'scan', join(dir, 'absent.json'), '--hashes', hashes], { encoding: 'utf8' });
     assert.equal(r.status, 2);
   });
   it('CONTRACT: redaction leaves nothing findable', () => {
