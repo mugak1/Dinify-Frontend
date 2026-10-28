@@ -29,8 +29,19 @@
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 88%;
     --muted-foreground: 0 0% 38%;
-    --accent: 358 100% 59%;
-    --accent-foreground: 0 0% 100%;
+    /* COLOUR ROLES — each colour has ONE job (see CLAUDE.md → Styling Rules).
+       Brand red (--primary) = act: the one primary action per view, plus the 3px
+       "you are here" marker. --destructive = danger. --selected = the chosen value.
+       --accent = the neutral hover/pressed surface, NEVER red (it used to equal
+       --primary, so every ghost/outline button flooded red under the pointer).
+       --ring = ink, so a focused field never looks like a field in error. */
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    /* The chosen segment, chip, day, date, tag, "on" switch, ticked box and
+       selected card: ink with white text, so "chosen" never competes with the
+       red action beside it. */
+    --selected: 0 0% 9%;
+    --selected-foreground: 0 0% 100%;
     /* Destructive is a DISTINCT darker red — never the brand red — so delete/danger
        reads differently from a primary action. White text on it ≈ 6.5:1 (WCAG AA);
        white on brand red is only 3.7:1, so small white-on-red text must use this
@@ -43,7 +54,8 @@
     --warning-foreground: 0 0% 9%;
     --border: 0 0% 90%;
     --input: 0 0% 85%;
-    --ring: 358 100% 59%;
+    /* Ink focus ring — focus must never read as the error state. */
+    --ring: 0 0% 9%;
     /* Drives rounded-sm/md/lg (see tailwind.config.js). NOTE the 14px html root
        below: 0.875rem resolves to 12.25px, so rounded-md — the shared button AND
        input corner — lands on 10.25px. The old 0.5rem resolved to 7px, making
@@ -82,8 +94,10 @@
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 72%;
-    --accent: 358 100% 59%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 0 0% 18%;
+    --accent-foreground: 0 0% 98%;
+    --selected: 0 0% 98%;
+    --selected-foreground: 0 0% 9%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 71% 45%;
@@ -92,7 +106,7 @@
     --warning-foreground: 0 0% 9%;
     --border: 0 0% 18%;
     --input: 0 0% 18%;
-    --ring: 358 100% 59%;
+    --ring: 0 0% 83%;
     --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.4), 0 1px 2px -1px hsl(0 0% 0% / 0.3);
     --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.35), 0 2px 6px -2px hsl(0 0% 0% / 0.2);
     --shadow-lg: 0 12px 24px -4px hsl(0 0% 0% / 0.5), 0 6px 12px -4px hsl(0 0% 0% / 0.3);
@@ -138,6 +152,16 @@
   body {
     @apply no-scrollbar;
   }
+
+  /* A ticked box or chosen radio is a SELECTED value, so it is ink everywhere.
+     There is no @tailwindcss/forms plugin, so text-* utilities never coloured a
+     native control: without this rule some boxes rendered the browser's blue and
+     others brand red. Utilities still beat this base rule, so do not add a
+     per-input accent-* class. */
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: hsl(var(--selected));
+  }
 }
 
 /* Portal display tier — page titles, section/card headings, and dashboard metric
@@ -166,7 +190,7 @@ app-restaurant-mgt app-animated-number {
 .ng-submitted input.ng-invalid,.ng-submitted input.ng-invalid .error-msg,
 .ng-submitted textarea.ng-invalid,.ng-submitted textarea.ng-invalid .error-msg,
 .ng-submitted select.ng-invalid,.ng-submitted select.ng-invalid .error-msg{
-  border: 1px solid #FF2C32 !important;
+  border: 1px solid hsl(var(--destructive)) !important;
   display: block;
 }
 .error-msg{
