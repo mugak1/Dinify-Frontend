@@ -107,8 +107,8 @@ interface MonthView {
                 [attr.aria-label]="cell.ariaLabel"
                 [attr.aria-pressed]="cell.isStart || cell.isEnd"
                 [ngClass]="{
-                  'bg-primary text-primary-foreground': cell.isStart || cell.isEnd,
-                  'bg-primary/15': cell.inRange,
+                  'bg-selected text-selected-foreground': cell.isStart || cell.isEnd,
+                  'bg-muted/60': cell.inRange,
                   'hover:bg-accent hover:text-accent-foreground': !cell.disabled && !cell.isStart && !cell.isEnd && !cell.inRange,
                   'text-muted-foreground/40 cursor-not-allowed': cell.disabled,
                   'font-semibold': cell.isToday && !cell.isStart && !cell.isEnd

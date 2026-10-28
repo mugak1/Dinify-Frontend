@@ -1,16 +1,32 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { cn } from '../../utils/cn';
 
-export type ButtonVariant = 'default' | 'secondary' | 'ghost' | 'destructive' | 'outline' | 'link' | 'cta';
+export type ButtonVariant =
+  | 'default'
+  | 'secondary'
+  | 'ghost'
+  | 'ghost-destructive'
+  | 'destructive'
+  | 'outline'
+  | 'outline-destructive'
+  | 'link'
+  | 'cta';
 export type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
 
 const variantClasses: Record<ButtonVariant, string> = {
   default: 'bg-primary text-primary-foreground hover:bg-primary/90',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   ghost: 'hover:bg-accent hover:text-accent-foreground',
+  // A row-level delete/revoke: grey at rest, the danger tint only under the pointer,
+  // so a list of rows does not carry a red icon on every one.
+  'ghost-destructive': 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
   destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
   outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-  link: 'text-primary underline-offset-4 hover:underline',
+  // A danger action that is not the view's main job (e.g. the QR modal's danger zone):
+  // destructive ink on an outline, never a solid fill competing with the primary action.
+  'outline-destructive': 'border border-destructive/30 bg-background text-destructive hover:bg-destructive/10',
+  // Links are information, not actions: ink, never brand red.
+  link: 'text-foreground font-medium underline-offset-4 hover:underline',
   // The diner primary-CTA look. Brand red (= bg-primary = #FF2C32 post-PR1) with NO
   // colour-hover — the hover is the glow escalation carried in the cta shape below,
   // so this reproduces the hand-rolled bg-d-red CTAs exactly. Its size/shape are

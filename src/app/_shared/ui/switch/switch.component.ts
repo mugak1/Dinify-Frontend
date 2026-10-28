@@ -40,7 +40,7 @@ export class SwitchComponent {
     const base = 'inline-flex shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
     const sizeClass = this.size === 'sm' ? 'h-5 w-9' : 'h-6 w-11';
     const stateClass = this.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer';
-    return cn(base, sizeClass, stateClass, this.checked ? 'bg-primary' : 'bg-input');
+    return cn(base, sizeClass, stateClass, this.checked ? 'bg-selected' : 'bg-input');
   }
 
   get thumbClass(): string {

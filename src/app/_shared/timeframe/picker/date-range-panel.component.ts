@@ -30,7 +30,7 @@ import { PRESET_LABELS, formatRangeSummary } from './range-label';
     >
       <div [ngClass]="variant === 'popover' ? 'flex gap-4' : 'flex flex-col gap-3'">
         <!-- Presets: a left-aligned vertical list in the popover (plain buttons so
-             the active red treatment isn't fighting the shared button's host
+             the active ink treatment isn't fighting the shared button's host
              classes), a wrapping pill row in the sheet. -->
         @if (variant === 'popover') {
           <div class="flex flex-col gap-1 w-32 shrink-0">
@@ -38,7 +38,7 @@ import { PRESET_LABELS, formatRangeSummary } from './range-label';
               <button
                 type="button"
                 class="w-full rounded-md px-3 py-1.5 text-left text-sm font-medium transition-colors"
-                [ngClass]="isActive(p) ? 'bg-primary text-primary-foreground' : 'hover:bg-accent hover:text-accent-foreground'"
+                [ngClass]="isActive(p) ? 'bg-selected text-selected-foreground' : 'hover:bg-accent hover:text-accent-foreground'"
                 (click)="selectPreset(p)"
               >
                 {{ labels[p] }}
@@ -48,10 +48,12 @@ import { PRESET_LABELS, formatRangeSummary } from './range-label';
         } @else {
           <div class="flex flex-wrap gap-1.5">
             @for (p of presets; track p) {
+              <!-- Plain buttons, as in the popover: the active preset is a CHOSEN value
+                   (ink), and the shared button has no selected variant to give it. -->
               <button
-                app-dn-button
-                [variant]="isActive(p) ? 'default' : 'outline'"
-                size="sm"
+                type="button"
+                class="inline-flex items-center justify-center rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                [ngClass]="isActive(p) ? 'border-selected bg-selected text-selected-foreground' : 'border-input bg-background hover:bg-accent hover:text-accent-foreground'"
                 (click)="selectPreset(p)"
               >
                 {{ labels[p] }}

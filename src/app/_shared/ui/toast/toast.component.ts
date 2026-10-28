@@ -7,7 +7,8 @@ const borderColors: Record<Toast['type'], string> = {
   success: 'border-l-success',
   error: 'border-l-destructive',
   warning: 'border-l-warning',
-  info: 'border-l-primary',
+  // Info is information, so it is ink — a red edge read as an error at a glance.
+  info: 'border-l-foreground',
 };
 
 // Icon tint mirrors the left border so each type reads at a glance.
@@ -15,7 +16,7 @@ const iconColors: Record<Toast['type'], string> = {
   success: 'text-success',
   error: 'text-destructive',
   warning: 'text-warning',
-  info: 'text-primary',
+  info: 'text-foreground',
 };
 
 // Errors and warnings interrupt (assertive alert); success/info wait their turn
